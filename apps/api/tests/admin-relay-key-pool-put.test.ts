@@ -96,11 +96,11 @@ describe('号池 PUT 换 Key(handler 端到端)', () => {
 
     expect(h.writes).toHaveLength(1) // 分两次写 = 会出现"密文已换、读数还红"的窗口
     const w = h.writes[0]
-    expect(decryptJSON(JSON.parse(String(w.apiKeyEnc)) as EncryptedPayload)).toBe(NEW_KEY)
-    expect(w.healthStatus).toBe('unknown')
-    expect(w.healthCheckedAt).toBe(null)
-    expect(w.lastErrorMessage).toBe(null)
-    const meta = w.extraMetadata as Record<string, unknown>
+    expect(decryptJSON(JSON.parse(String(w!.apiKeyEnc)) as EncryptedPayload)).toBe(NEW_KEY)
+    expect(w!.healthStatus).toBe('unknown')
+    expect(w!.healthCheckedAt).toBe(null)
+    expect(w!.lastErrorMessage).toBe(null)
+    const meta = w!.extraMetadata as Record<string, unknown>
     expect(meta.consecutiveFailures).toBe(0)
     expect(meta.note).toBe('保留字段') // 复位计数不得顺手清掉别人的 metadata 字段
     expect(meta.latencyTrusted).toBe(true)
@@ -112,7 +112,7 @@ describe('号池 PUT 换 Key(handler 端到端)', () => {
     const res = await app.inject({ method: 'PUT', url: PUT_URL, payload: { name: '改名' } })
     expect(res.statusCode).toBe(200)
     const w = h.writes[0]
-    expect(w.name).toBe('改名')
+    expect(w!.name).toBe('改名')
     for (const untouched of [
       'apiKeyEnc',
       'keyPrefix',

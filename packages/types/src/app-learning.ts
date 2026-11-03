@@ -12,6 +12,7 @@
  */
 
 import type { AppIcon, TFunction } from './app-shared.js'
+import type { OnNavigate, OnToast } from './app-host-ports.js'
 
 /** 学习计划状态 */
 export type PlanStatus = 'active' | 'paused' | 'completed' | 'overdue' | string
@@ -45,6 +46,8 @@ export interface StudyPlanScreenProps {
   onBack: () => void
   /** 已解析配色方案,驱动 tokens 明暗;默认 'light' */
   colorScheme?: 'light' | 'dark'
+  /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
+  onToast: OnToast
 }
 
 /** 课程目录项(平台注入,字段对齐 mobile-rn CourseCatalogScreen CatalogItem) */
@@ -138,12 +141,15 @@ export interface StudyProgressCourse {
   progress: number
 }
 
-/** 学习进度数据(平台注入,字段对齐 mobile-rn StudyProgressScreen Progress) */
+/** 学习进度数据(平台注入,字段对齐 mobile-rn StudyProgressScreen Progress)
+ * weekMinutes 可选:/study/* 域无周学时来源(周时长只在 edu 域 lessonRecordLogs 聚合里),
+ * 渲染处给 ?? 0 兜底。
+ */
 export interface StudyProgressData {
   totalCourses: number
   completedCourses: number
   totalMinutes: number
-  weekMinutes: number
+  weekMinutes?: number
   streakDays: number
   courses: StudyProgressCourse[]
 }
@@ -222,6 +228,10 @@ export interface StudyRecordScreenProps {
   onRefresh: () => void
   onBack: () => void
   colorScheme?: 'light' | 'dark'
+  /** 宿主导航端口(逻辑 target 由宿主映射;屏内不得直接调用平台导航) */
+  onNavigate: OnNavigate
+  /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
+  onToast: OnToast
 }
 
 /** 批次 16(2026-07-29):考试历史/考试结果/模型收益/Token 价值 */
@@ -231,7 +241,8 @@ export interface ExamHistoryItem {
   id: string
   examTitle: string
   score: number
-  totalScore: number
+  /** exam_records 表无该列;仅当壳用 /exam/papers/by-ids 二次取到卷时才有 ⇒ 可选 */
+  totalScore?: number
   passed: boolean
   /** 提交时间(ISO 或格式化字符串) */
   submittedAt: string
@@ -283,6 +294,8 @@ export interface ExamResultScreenProps {
   error: string
   onBack: () => void
   colorScheme?: 'light' | 'dark'
+  /** 宿主导航端口(逻辑 target 由宿主映射;屏内不得直接调用平台导航) */
+  onNavigate: OnNavigate
 }
 
 /** 课程报名列表项 */
@@ -358,6 +371,8 @@ export interface CourseDetailItem {
   price: number
   isFree: boolean
   isEnrolled: boolean
+  /** 分享卡封面。RN 侧源字段是 `CourseDetail.cover`,端内叫 `coverUrl` —— 屏拿不到就没有封面图 */
+  coverUrl?: string
 }
 
 /** 课程章节 */
@@ -379,6 +394,10 @@ export interface CourseDetailScreenProps {
   onPlayLesson: (lessonId: string) => void
   onBack: () => void
   colorScheme?: 'light' | 'dark'
+  /** 宿主导航端口(逻辑 target 由宿主映射;屏内不得直接调用平台导航) */
+  onNavigate: OnNavigate
+  /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
+  onToast: OnToast
 }
 
 /**
@@ -482,6 +501,8 @@ export interface CourseAnnexScreenProps {
   error: string
   onRefresh: () => void
   onBack: () => void
+  /** 打开附件(下载外链)回调;不传或 item.url 为空 ⇒ 「下载」仍是纯展示文案,既有调用方零影响 */
+  onOpen?: (url: string) => void
   colorScheme?: 'light' | 'dark'
 }
 
@@ -591,6 +612,8 @@ export interface LecturerDetailScreenProps {
    * **可选且不默认渲染**:不传 ⇒ RN 现状零变化;文案走共享键 teacher.detail.viewCourses。
    */
   onViewCourses?: (lecturerName: string) => void
+  /** 宿主导航端口(逻辑 target 由宿主映射;屏内不得直接调用平台导航) */
+  onNavigate: OnNavigate
 }
 
 /** 任务中心任务项(TaskCenterScreen) */
@@ -675,6 +698,8 @@ export interface ExamQuestionScreenProps {
   onSubmit: () => void
   onBack: () => void
   colorScheme?: 'light' | 'dark'
+  /** 宿主导航端口(逻辑 target 由宿主映射;屏内不得直接调用平台导航) */
+  onNavigate: OnNavigate
 }
 
 /**
@@ -780,6 +805,8 @@ export interface LearnDevelopScreenProps {
   /** 学习功能导航卡片;由端侧 wrapper 注入真实跳转 */
   entries?: LearnDevelopEntry[]
   colorScheme?: 'light' | 'dark'
+  /** 宿主导航端口(逻辑 target 由宿主映射;屏内不得直接调用平台导航) */
+  onNavigate: OnNavigate
 }
 
 export interface SubPackageEntry {

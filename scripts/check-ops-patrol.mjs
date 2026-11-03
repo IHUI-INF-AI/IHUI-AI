@@ -78,9 +78,9 @@ import {
   createReadStream,
   utimesSync,
 } from 'node:fs'
-import { dirname, join, parse, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { devEnvRoot } from './seal-c-root-stray.mjs'
+import { devEnvArtifactRoot, devEnvRoot } from './seal-c-root-stray.mjs'
 import { scratchRoot } from './lib/scratch-dir.mjs'
 // 网盘根的唯一候选序出口(§5d:"调用方禁止再自己抄一份 F→D→E→G→C 候选表")。
 // P7 只借它推导 `<drive>/BaiduSyncdisk`,不复制第二份候选清单。
@@ -94,6 +94,7 @@ import { catBatch, gitRaw } from './lib/face-reader.mjs'
 // `ihui_dev_*.dump` 就是第二个真相 —— 两处必然随每一次命名演进漂开,而漂开的表现不是报错,
 // 是"最新文件"被读成"我们的链产出的"(2026-10-01 那次假绿正是这个形态)。
 import { classifyFileName, dumpNameReFor, EXEC_CANDIDATES, resolveDatabases } from './pg-backup-cadence-audit.mjs'
+import { cloudSyncHealthy } from './cloud-sync/rclone-baidu-sync.mjs'
 
 const SELF_DIR = dirname(fileURLToPath(import.meta.url))
 const REPO = resolve(SELF_DIR, '..')
@@ -1441,16 +1442,22 @@ export function growthRow(id, m, bytesLimit, entriesLimit, { now = Date.now() } 
   }
 }
 
-export function checkGrowth({ devEnv }) {
+export function checkGrowth({
+  devEnv,
+  logsDir = join(devEnv, 'logs'),
+  archivesDir = join(devEnv, 'backups/archives'),
+}) {
   const out = []
   const one = (id, path, bytesLimit, entriesLimit) => {
     const m = measureDir(path, { byTop: true }) // 同一次遍历顺带归集归属,不走第二遍树
     if (!m) return void out.push({ id, state: 'undetermined', detail: `量不到:${path}` })
     out.push(growthRow(id, m, bytesLimit, entriesLimit))
   }
+  // P4a 留在调用方传入的 scratch 根(仓内 .DevEnv):旧根那一份 5.87GB 是搬迁遗留,
+  // 不属于"本链 scratch"这一维;P4b/P4c 是被搬迁拆开的件,由装配段按件选根后传入。
   one('P4a', join(devEnv, 'Temp'), LIMITS.devenvTempBytes, LIMITS.devenvTempEntries)
-  one('P4b', join(devEnv, 'logs'), LIMITS.devenvLogsBytes)
-  one('P4c', join(devEnv, 'backups/archives'), LIMITS.devenvArchivesBytes)
+  one('P4b', logsDir, LIMITS.devenvLogsBytes)
+  one('P4c', archivesDir, LIMITS.devenvArchivesBytes)
   return out
 }
 
@@ -2263,11 +2270,11 @@ export async function patrol({ now = Date.now(), apply = false, strict = false, 
   add(rules)
   // P11:规则**语义**的机器自证(promtool 正反用例)。写在 P1/P2 之后是刻意的 ——
   // 前两条判"规则文件有没有上岗",这一条判"上岗的规则还对不对"(全过/点名失败/未判定三态)。
-  add(checkPromtoolRules({ devEnv }))
+  add(checkPromtoolRules({ devEnv: devEnvArtifactRoot('monitor/prometheus') }))
   // P6:规则引用的指标序列在不在。取不到一律未判定(机器态),不判红 —— 见该判据头注。
   const p6 = await checkInertAlertRules({ now })
   p6.rows.forEach(add)
-  const am = add(checkAlertmanagerLive({ now, apply, devEnv }))
+  const am = add(checkAlertmanagerLive({ now, apply, devEnv: devEnvArtifactRoot('monitor/alertmanager') }))
   if (am.state === 'needs-reload') {
     const code = await reloadEndpoint(amUrl)
     const hit = code === 200 || code === '200'
@@ -2279,23 +2286,38 @@ export async function patrol({ now = Date.now(), apply = false, strict = false, 
     // (同一条被计两遍会让"红/绿"计数同时虚高 —— 报数失真与判据失明同样贵)。
   }
   add(checkClock({ now }))
-  checkGrowth({ devEnv }).forEach(add)
-  heartbeatRows({ now, devEnv }).forEach((r) => add({ id: `P5·${r.label}`, state: r.state, detail: `${r.detail}${r.note ? ` | ${r.note}` : ''}` }))
+  checkGrowth({
+    devEnv,
+    logsDir: join(devEnvArtifactRoot('logs'), 'logs'),
+    archivesDir: join(devEnvArtifactRoot('backups/archives'), 'backups/archives'),
+  }).forEach(add)
+  heartbeatRows({ now, devEnv: devEnvArtifactRoot('backups/pg') }).forEach((r) => add({ id: `P5·${r.label}`, state: r.state, detail: `${r.detail}${r.note ? ` | ${r.note}` : ''}` }))
   add(checkDeployLoopOutcome(makeBuildAttributionDeps()))
-  const baidu = baiduSyncRunning()
+  const cs = await cloudSyncHealthy()
+  let p5
+  if (cs.mode === 'gui') {
+    const g = baiduSyncRunning()
+    p5 = { running: g.running, why: g.why, via: g.via }
+  } else {
+    p5 = cs
+  }
   add({
     id: 'P5·网盘同步客户端',
-    state: baidu.running === null ? 'undetermined' : baidu.running ? 'ok' : 'finding',
+    state: p5.running === null ? 'undetermined' : p5.running ? 'ok' : 'finding',
     detail:
-      baidu.running === false
-        ? '网盘同步客户端进程不在 ⇒ 云同步腿这一腿此刻不成立(备份复制到网盘目录,而同步没在跑),且全仓没有"同步是否完成"的判据'
-        : baidu.running === true
-          ? `进程在位(注:同步**完成与否**仍无判据,这里只判进程;取用=${baidu.via})`
-          : baidu.why,
+      cs.mode === 'headless'
+        ? (p5.running
+            ? `无头同步通道健康(最近成功 sync 于 ${p5.lastSuccessTs ? new Date(p5.lastSuccessTs).toISOString() : '未知'},取用=${p5.via})`
+            : `无头同步通道最近 ${p5.staleHours}h 无成功 sync ⇒ 云同步腿不成立(${p5.why})`)
+        : (p5.running === false
+            ? '网盘同步客户端进程不在 ⇒ 云同步腿这一腿此刻不成立(备份复制到网盘目录,而同步没在跑),且全仓没有"同步是否完成"的判据'
+            : p5.running === true
+              ? `进程在位(注:同步**完成与否**仍无判据,这里只判进程;取用=${p5.via})`
+              : p5.why),
   })
   // P7:副本在位/新鲜/同哈希三维。"网盘客户端在不在跑"这一维**留在上面 P5 那一行**,
   // 这里只量副本本身 —— 同一条债不在两个判据各计一次(机主明令)。
-  ;(await checkBackupReplicaPresence({ now, devEnv })).forEach(add)
+  ;(await checkBackupReplicaPresence({ now, devEnv: devEnvArtifactRoot('backups/pg') })).forEach(add)
   // P8:投递失败标记。放在 P7 之后是刻意的 —— P7 量"副本在不在",P8 量"上一轮故障有没有人知道",
   // 两问不同,不得合并成一条(合并后任一侧变绿都会替另一侧作证)。
   add(checkUndeliveredAlertMarkers())

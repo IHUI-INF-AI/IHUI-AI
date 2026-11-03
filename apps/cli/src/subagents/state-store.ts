@@ -54,6 +54,20 @@ export interface SubagentState {
 }
 
 const STATE_DIR_ENV = 'IHUI_SUBAGENT_STATE_DIR';
+/**
+ * S3 接线(2026-11-01):subagent 状态行的保留策略。此前 `pruneOldSubagentStates` 全仓
+ * 零生产调用方(守门 121 点名,门 121 头注 C5 的"已声明、从未执行"型)—— 挂点照
+ * `sessions/state-store.ts` 的 `pruneOnWrite` 样板:`saveSubagentState` 是本模块唯一写入口,
+ * 在其前触发一次按节流的裁剪 ⇒ 策略随每次落档被动执行,不新增常驻定时器。
+ * 保留窗口与主会话同档(7 天):父会话行 7 天即被裁,其下 subagent 行留着无人可达。
+ */
+const DEFAULT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+/** 写前裁剪的最小间隔:长会话高频落档不至于每写都全目录扫描删除 */
+const PRUNE_MIN_INTERVAL_MS = 60 * 1000;
+/** 显式关闭保留裁剪的环境开关(测试隔离/人工排障用;默认不禁用) */
+const PRUNE_DISABLED_ENV = 'IHUI_SUBAGENT_PRUNE_DISABLED';
+/** 下一次允许裁剪的时间点(模块级节流,同进程内生效) */
+let nextPruneAtMs = 0;
 
 export function getSubagentStateDir(): string {
   if (process.env[STATE_DIR_ENV]) return process.env[STATE_DIR_ENV]!;
@@ -72,7 +86,25 @@ export function newSubagentId(): string {
   return randomUUID();
 }
 
+/**
+ * 写前保留裁剪(S3 接线,2026-11-01;形态照 sessions/state-store.ts 的同名函数)。
+ * 清理失败不得把一次成功的保存变成失败:保留策略是尽力而为的后台动作,
+ * 方向恒为"宁可不删,绝不错删/绝不误伤存储"。
+ */
+function pruneOnWrite(): void {
+  if (process.env[PRUNE_DISABLED_ENV] === '1') return;
+  const now = Date.now();
+  if (now < nextPruneAtMs) return;
+  nextPruneAtMs = now + PRUNE_MIN_INTERVAL_MS;
+  try {
+    pruneOldSubagentStates(DEFAULT_MAX_AGE_MS);
+  } catch {
+    // 裁剪异常不冒泡进保存路径(只放弃本轮裁剪)
+  }
+}
+
 export function saveSubagentState(state: SubagentState): void {
+  pruneOnWrite();
   // 先登记"本进程名下在飞",再收敛孤儿:resumeFrom 复用同一 id 时,不得把自己正接着跑的行判成孤儿。
   if (isSubagentTerminalStatus(state.status)) inFlightRows.delete(state.id);
   else inFlightRows.add(state.id);
@@ -187,7 +219,16 @@ export function deleteSubagentState(id: string): boolean {
   return true;
 }
 
-export function pruneOldSubagentStates(maxAgeMs: number): number {
+/**
+ * 按保留窗口裁剪状态行(S3 接线后由 `pruneOnWrite` 在每次落档前节流调用)。
+ *
+ * 两条删除安全闸(本仓 §7 删除三问的"是否有人正在用"落在这里):
+ *  ① **只删终态行** —— 非终态可能是他席正在跑的 resumeFrom 目标(进程被杀遗留的
+ *     非终态行会先由 `reconcileOrphans` 收敛成终态,再进入本函数射程);
+ *  ② 只删 `startedAt` 可解析且超龄的行 —— 钟缺失/脏钟的行判不出 ⇒ 不动。
+ * 返回实际删除条数(有界可观察:上界 = 目录内超龄终态 json 行数)。
+ */
+export function pruneOldSubagentStates(maxAgeMs: number = DEFAULT_MAX_AGE_MS): number {
   const dir = getSubagentStateDir();
   if (!fs.existsSync(dir)) return 0;
   const now = Date.now();
@@ -197,6 +238,8 @@ export function pruneOldSubagentStates(maxAgeMs: number): number {
     const id = entry.slice(0, -'.json'.length);
     const s = loadSubagentState(id);
     if (!s) continue;
+    if (!isSubagentTerminalStatus(s.status)) continue;
+    if (inFlightRows.has(id)) continue;
     const startedAtMs = Date.parse(s.startedAt);
     if (Number.isNaN(startedAtMs)) continue;
     if (now - startedAtMs > maxAgeMs) {

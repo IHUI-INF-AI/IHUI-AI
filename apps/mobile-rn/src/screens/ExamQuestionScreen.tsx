@@ -16,6 +16,7 @@ import {
 } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { useHostPorts } from '../host/use-host-ports'
 
 type Route = RouteProp<RootStackParamList, 'ExamQuestion'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -95,6 +96,8 @@ export function ExamQuestionScreen() {
   const [exam, setExam] = useState<ExamQuestionPaper | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [reloadKey, setReloadKey] = useState(0)
+  const reload = () => setReloadKey((key) => key + 1)
   const [current, setCurrent] = useState(0)
   const [answers, setAnswers] = useState<AnswersMap>({})
   const [submitting, setSubmitting] = useState(false)
@@ -145,7 +148,7 @@ export function ExamQuestionScreen() {
     return () => {
       cancelled = true
     }
-  }, [examId, t])
+  }, [examId, t, reloadKey])
 
   const toggleOption = (qId: string, optIdx: number, multi: boolean) => {
     setAnswers((prev) => {
@@ -202,6 +205,8 @@ export function ExamQuestionScreen() {
     return () => clearTimeout(timer)
   }, [leftSec, onSubmit])
 
+  const { onNavigate } = useHostPorts()
+
   return (
     <SharedExamQuestionScreen
       t={t}
@@ -218,7 +223,9 @@ export function ExamQuestionScreen() {
       onNext={() => setCurrent((c) => c + 1)}
       onSubmit={() => void onSubmit()}
       onBack={() => navigation.goBack()}
+      onRetry={reload}
       colorScheme={resolvedTheme}
+      onNavigate={onNavigate}
     />
   )
 }

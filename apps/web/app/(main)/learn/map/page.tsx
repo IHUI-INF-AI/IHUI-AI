@@ -65,7 +65,7 @@ export default function LearnMapPage() {
           <MapIcon className="h-7 w-7 text-primary" />
           {data?.title ?? t('defaultTitle')}
         </h1>
-        <p className="text-xs text-muted-foreground">{data?.description ?? t('defaultDesc')}</p>
+        <p className="text-label text-muted-foreground">{data?.description ?? t('defaultDesc')}</p>
       </header>
 
       {!allow ? (
@@ -78,7 +78,7 @@ export default function LearnMapPage() {
                 <TrendingUp className="h-6 w-6 text-primary" />
               </div>
               <div className="flex-1">
-                <div className="text-sm text-muted-foreground">{t('totalProgress')}</div>
+                <div className="text-body text-muted-foreground">{t('totalProgress')}</div>
                 <div className="mt-1 flex items-center gap-3">
                   <div className="h-2 flex-1 overflow-hidden rounded-xs bg-muted">
                     <div
@@ -98,13 +98,13 @@ export default function LearnMapPage() {
               {t('loading')}
             </div>
           ) : error ? (
-            <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+            <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
               {(error as Error).message}
             </div>
           ) : nodes.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
               <MapIcon className="h-8 w-8 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">{t('empty')}</p>
+              <p className="text-body text-muted-foreground">{t('empty')}</p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -137,18 +137,18 @@ export default function LearnMapPage() {
                       </div>
                       <div className="flex-1 min-w-0 space-y-0.5">
                         <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground">
+                          <span className="text-label text-muted-foreground">
                             {t('stageN', { n: idx + 1 })}
                           </span>
                           {isCompleted && (
-                            <span className="rounded-md bg-emerald-500/10 px-2 py-0.5 text-xs text-emerald-600">
+                            <span className="rounded-md bg-emerald-500/10 px-2 py-0.5 text-label text-emerald-600">
                               {t('completed')}
                             </span>
                           )}
                         </div>
                         <CardTitle className="text-base">{node.title}</CardTitle>
                         {node.description && (
-                          <p className="text-sm text-muted-foreground">{node.description}</p>
+                          <p className="text-body text-muted-foreground">{node.description}</p>
                         )}
                       </div>
                     </CardHeader>
@@ -163,7 +163,7 @@ export default function LearnMapPage() {
                             style={{ width: `${clampPercent(node.progress)}%` }}
                           />
                         </div>
-                        <span className="text-xs text-muted-foreground">
+                        <span className="text-label text-muted-foreground">
                           {t('lessonsProgress', {
                             completed: node.completedLessons,
                             total: node.totalLessons,
@@ -173,7 +173,7 @@ export default function LearnMapPage() {
                       {!isLocked && (
                         <Link
                           href={`/learn/${node.id}`}
-                          className="inline-flex items-center gap-1 text-sm text-primary transition-colors hover:text-primary/80"
+                          className="inline-flex items-center gap-1 text-body text-primary transition-colors hover:text-primary/80"
                         >
                           {isCompleted ? t('review') : t('continueLearning')}
                           <ArrowRight className="h-3.5 w-3.5" />

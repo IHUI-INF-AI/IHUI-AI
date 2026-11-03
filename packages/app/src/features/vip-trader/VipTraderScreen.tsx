@@ -6,7 +6,7 @@ import { Fragment, useMemo } from 'react'
 import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
-import type { AppIcon } from '@ihui/types'
+import type { AppIcon, OnToast } from '@ihui/types'
 import {
   Award,
   BarChart3,
@@ -29,6 +29,7 @@ import {
 import { rnRadius, rnSpacing, rnType, rnCssLight } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
+import { assertRequiredPort } from '../../host/ports'
 
 /** VIP 操盘手统计项(由 wrapper 从 CommissionOverview 构建) */
 export interface VipTraderStat {
@@ -56,6 +57,8 @@ export interface VipTraderScreenProps {
   onOpen: () => void
   onBack: () => void
   colorScheme?: 'light' | 'dark'
+  /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
+  onToast: OnToast
 }
 
 const TRADER_PRICE = 9980
@@ -99,8 +102,12 @@ export function VipTraderScreen({
   onRefresh,
   onOpen,
   onBack,
-  colorScheme = 'light',
-}: VipTraderScreenProps) {
+  onRetry,
+  colorScheme = 'light',  
+  onToast,
+}: VipTraderScreenProps & { onRetry?: () => void }) {
+  assertRequiredPort('onToast', onToast)
+
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -145,7 +152,7 @@ export function VipTraderScreen({
       ) : error ? (
         <ErrorState
           message={error}
-          onRetry={onRefresh}
+          onRetry={onRetry}
           retryLabel={t('common.retry')}
           colorScheme={colorScheme}
         />
@@ -226,7 +233,7 @@ function createStyles(tk: AppThemeTokens) {
     heroCard: {
       marginHorizontal: rnSpacing.lg,
       marginTop: rnSpacing.sm,
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.dark,
     },
@@ -247,7 +254,7 @@ function createStyles(tk: AppThemeTokens) {
     statCard: {
       marginHorizontal: rnSpacing.lg,
       marginTop: rnSpacing.md,
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -267,7 +274,7 @@ function createStyles(tk: AppThemeTokens) {
     entryBtn: {
       flex: 1,
       marginHorizontal: rnSpacing.sm,
-      paddingVertical: 14,
+      paddingVertical: rnSpacing['md-loose'],
       borderRadius: rnRadius.sm,
       backgroundColor: tk.surface.muted,
       alignItems: 'center',
@@ -288,7 +295,7 @@ function createStyles(tk: AppThemeTokens) {
     featureItem: {
       flexDirection: 'row',
       alignItems: 'center',
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,

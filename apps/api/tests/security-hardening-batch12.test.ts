@@ -16,6 +16,7 @@
 
 import { describe, it, expect, vi } from 'vitest'
 import Fastify from 'fastify'
+import type { Redis } from 'ioredis'
 
 vi.hoisted(() => {
   process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:5432/test'
@@ -91,7 +92,7 @@ function fakeRedis() {
 describe('pair-exchange 失败计数闸(第 12 批 H-2)', () => {
   it('连续 5 次失败后第 6 次 → 429', async () => {
     const app = Fastify({ logger: false })
-    app.decorate('redis', fakeRedis())
+    app.decorate('redis', fakeRedis() as unknown as Redis)
     await app.register(devicesRoutes)
     await app.ready()
     for (let i = 0; i < 5; i++) {
@@ -115,7 +116,7 @@ describe('pair-exchange 失败计数闸(第 12 批 H-2)', () => {
   it('成功兑换清零计数,之后可再次失败', async () => {
     const app = Fastify({ logger: false })
     const redis = fakeRedis()
-    app.decorate('redis', redis)
+    app.decorate('redis', redis as unknown as Redis)
     await app.register(devicesRoutes)
     await app.ready()
     // 先失败 2 次

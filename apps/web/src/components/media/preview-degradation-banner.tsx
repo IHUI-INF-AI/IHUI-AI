@@ -74,7 +74,7 @@ export function PreviewSnapshotNotice({
         </Button>
       )}
       {noticeText && (
-        <p role="status" className="w-full text-xs leading-none text-muted-foreground">
+        <p role="status" className="w-full text-label leading-none text-muted-foreground">
           {noticeText}
         </p>
       )}
@@ -102,7 +102,7 @@ export function PreviewNoContentState({
       className={cn('flex flex-col items-center gap-2 p-3 text-muted-foreground', className)}
     >
       <FileQuestion className="h-8 w-8" />
-      <p role="status" className="text-sm">
+      <p role="status" className="text-body">
         {copy('previewNoContent')}
       </p>
       <Button size="xs" variant="outline" onClick={onRefresh}>
@@ -133,7 +133,7 @@ export function PreviewExpiredState({
       className={cn('flex flex-col items-center gap-2 p-3 text-muted-foreground', className)}
     >
       <Clock className="h-8 w-8" />
-      <p role="status" className="text-sm">
+      <p role="status" className="text-body">
         {copy('previewExpired')}
       </p>
       <span className="flex items-center gap-2">
@@ -170,7 +170,7 @@ export function PreviewTooLargeState({
       className={cn('flex flex-col items-center gap-2 p-3 text-muted-foreground', className)}
     >
       <FileWarning className="h-8 w-8" />
-      <p role="status" className="text-sm">
+      <p role="status" className="text-body">
         {copy('previewTooLarge')}
       </p>
       {onOpenSource && (

@@ -103,7 +103,7 @@ export default function TeamKnowledgePage() {
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 py-4">
       <div>
         <h1 className="text-lg font-semibold">{t('title')}</h1>
-        <p className="text-muted-foreground mt-0.5 text-sm">{t('description')}</p>
+        <p className="text-muted-foreground mt-0.5 text-body">{t('description')}</p>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -127,7 +127,7 @@ export default function TeamKnowledgePage() {
       {error && <Alert variant="danger" description={error} className="items-start" />}
 
       {!teamId.trim() && (
-        <div className="text-muted-foreground flex items-center gap-2 text-sm">
+        <div className="text-muted-foreground flex items-center gap-2 text-body">
           <Users className="size-4" />
           <span>{t('needTeam')}</span>
         </div>
@@ -136,7 +136,7 @@ export default function TeamKnowledgePage() {
       <div>
         <h2 className="text-body font-medium">{t('spaceListTitle')}</h2>
         {spaces.length === 0 && teamId.trim() && !loading ? (
-          <div className="text-muted-foreground mt-2 text-sm">{t('emptySpaces')}</div>
+          <div className="text-muted-foreground mt-2 text-body">{t('emptySpaces')}</div>
         ) : (
           <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
             {spaces.map((space) => (
@@ -150,11 +150,11 @@ export default function TeamKnowledgePage() {
                     <div className="flex items-center gap-2">
                       <Library className="text-muted-foreground size-4" />
                       <span className="flex-1 truncate text-body font-medium">{space.name}</span>
-                      <span className="bg-muted text-muted-foreground rounded px-1.5 py-0.5 text-xs">
+                      <span className="bg-muted text-muted-foreground rounded px-1.5 py-0.5 text-label">
                         {t(`role.${space.myRole}`)}
                       </span>
                     </div>
-                    <div className="text-muted-foreground flex items-center gap-2 text-xs">
+                    <div className="text-muted-foreground flex items-center gap-2 text-label">
                       <span>
                         {space.visibility === 'restricted' ? t('restricted') : t('teamVisible')}
                       </span>
@@ -173,7 +173,7 @@ export default function TeamKnowledgePage() {
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle className="text-sm">{t('newSpaceTitle')}</DialogTitle>
+            <DialogTitle className="text-body">{t('newSpaceTitle')}</DialogTitle>
           </DialogHeader>
           <div className="flex flex-col gap-3 p-3">
             <Input

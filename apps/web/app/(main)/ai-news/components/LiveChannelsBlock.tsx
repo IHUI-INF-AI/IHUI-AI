@@ -55,7 +55,7 @@ export function LiveChannelsBlock({ channels }: Props) {
         aria-label={t('live.label')}
         className="overflow-hidden rounded-lg border bg-card shadow-sm"
       >
-        <div className="p-3 text-center text-sm text-muted-foreground">{t('live.empty')}</div>
+        <div className="p-3 text-center text-body text-muted-foreground">{t('live.empty')}</div>
       </section>
     )
   }
@@ -71,7 +71,7 @@ export function LiveChannelsBlock({ channels }: Props) {
             <Radio className="h-5 w-5 text-red-500" />
             {t('live.title')}
           </h2>
-          <p className="text-xs text-muted-foreground">{t('live.subtitle')}</p>
+          <p className="text-label text-muted-foreground">{t('live.subtitle')}</p>
         </div>
         <ViewMoreLink label={tc('more')} href="/live" />
       </div>
@@ -101,18 +101,18 @@ export function LiveChannelsBlock({ channels }: Props) {
               </div>
               <CardContent className="min-[640px]:p-3 space-y-2 p-3">
                 <h3 className="line-clamp-2 text-body font-semibold leading-tight">{c.title}</h3>
-                <p className="line-clamp-2 text-xs text-muted-foreground">{c.intro}</p>
+                <p className="line-clamp-2 text-label text-muted-foreground">{c.intro}</p>
                 <div className="flex items-center justify-between gap-2 pt-1">
                   <div className="flex items-center gap-1.5">
                     <span className="flex h-5 w-5 items-center justify-center rounded-md bg-primary/10 text-[10px] font-medium text-primary">
                       {getInitials(c.lecturerName)}
                     </span>
-                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1 text-label text-muted-foreground">
                       <User className="h-3 w-3" />
                       {c.lecturerName}
                     </span>
                   </div>
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-1 text-label text-muted-foreground">
                     <Eye className="h-3 w-3" />
                     {fmt.numberFormatter.format(c.viewCount)}
                   </div>

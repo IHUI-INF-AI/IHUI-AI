@@ -62,7 +62,7 @@ export default function AdminMemberLogsPage() {
           <ScrollText className="h-6 w-6 text-primary" />
           会员操作日志
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">会员用户操作行为记录</p>
+        <p className="mt-1 text-body text-muted-foreground">会员用户操作行为记录</p>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -89,13 +89,13 @@ export default function AdminMemberLogsPage() {
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50">
-              <TableHead className="text-xs uppercase">用户</TableHead>
-              <TableHead className="text-xs uppercase">操作</TableHead>
-              <TableHead className="text-xs uppercase">资源</TableHead>
-              <TableHead className="text-xs uppercase">IP</TableHead>
-              <TableHead className="text-xs uppercase">状态</TableHead>
-              <TableHead className="text-xs uppercase">时间</TableHead>
-              <TableHead className="text-xs uppercase">详情</TableHead>
+              <TableHead className="text-label uppercase">用户</TableHead>
+              <TableHead className="text-label uppercase">操作</TableHead>
+              <TableHead className="text-label uppercase">资源</TableHead>
+              <TableHead className="text-label uppercase">IP</TableHead>
+              <TableHead className="text-label uppercase">状态</TableHead>
+              <TableHead className="text-label uppercase">时间</TableHead>
+              <TableHead className="text-label uppercase">详情</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -120,12 +120,14 @@ export default function AdminMemberLogsPage() {
                       {l.action}
                     </span>
                   </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">{l.resource}</TableCell>
-                  <TableCell className="font-mono text-xs text-muted-foreground">{l.ip}</TableCell>
+                  <TableCell className="text-label text-muted-foreground">{l.resource}</TableCell>
+                  <TableCell className="font-mono text-label text-muted-foreground">
+                    {l.ip}
+                  </TableCell>
                   <TableCell>
                     <span
                       className={cn(
-                        'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs',
+                        'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-label',
                         l.status === 'success'
                           ? 'bg-emerald-500/10 text-emerald-600'
                           : 'bg-red-500/10 text-red-600',
@@ -140,10 +142,10 @@ export default function AdminMemberLogsPage() {
                       {l.status === 'success' ? '成功' : '失败'}
                     </span>
                   </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
+                  <TableCell className="text-label text-muted-foreground">
                     {formatDate(l.createdAt)}
                   </TableCell>
-                  <TableCell className="max-w-[240px] break-words text-xs text-muted-foreground">
+                  <TableCell className="max-w-[240px] break-words text-label text-muted-foreground">
                     {l.detail || '-'}
                   </TableCell>
                 </TableRow>

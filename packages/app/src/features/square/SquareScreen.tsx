@@ -21,7 +21,7 @@ import { CategoryInlineBar } from '../../components/category/CategoryInlineBar'
 import type { TFunction } from '../../types'
 import type { ArticleItem, CategoryItem } from '@ihui/types'
 
-import { rnRadius, rnSpacing } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { scrollJumpInsetPx } from '@ihui/shared/ui/scroll-jump-spec'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
@@ -55,7 +55,8 @@ export interface SquareScreenProps {
 
 export function SquareScreen({
   t,
-  colorScheme = 'light',
+  onRetry,
+  colorScheme = 'light',  
   items,
   loading,
   refreshing,
@@ -72,7 +73,7 @@ export function SquareScreen({
   onBack,
   hideHeader = false,
   contentBottomPadding = 12,
-}: SquareScreenProps) {
+}: SquareScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
   /** 返回顶部按钮可见性:滚动超过阈值显示(对齐 Uniapp share/index.vue showToodown scrollTop>200) */
@@ -182,7 +183,7 @@ export function SquareScreen({
       ) : error && items.length === 0 ? (
         <ErrorState
           message={error}
-          onRetry={onRefresh}
+          onRetry={onRetry}
           retryLabel={t('common.retry')}
           colorScheme={colorScheme}
         />
@@ -240,7 +241,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.md,
     } as ViewStyle,
     navTitle: {
-      fontSize: 20,
+      fontSize: rnType.heading.size,
       fontWeight: '600',
       color: tk.text.primary,
     } as TextStyle,
@@ -288,8 +289,8 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
     } as TextStyle,
     summary: {
-      fontSize: 14,
-      lineHeight: 20,
+      fontSize: rnType.body.size,
+      lineHeight: rnType.body.lineHeight,
       color: tk.text.secondary,
     } as TextStyle,
     metaRow: {

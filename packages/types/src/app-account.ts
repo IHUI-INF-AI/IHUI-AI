@@ -13,6 +13,7 @@
 
 import type { ReactNode } from 'react'
 import type { TFunction } from './app-shared.js'
+import type { OnNavigate, OnToast } from './app-host-ports.js'
 
 /** 账号信息(平台注入,字段对齐 mobile-rn SettingsAccountScreen Account) */
 export interface SettingsAccountItem {
@@ -292,6 +293,8 @@ export interface RegisterScreenProps {
   onOpenTerms?: () => void
   /** 隐私政策点击回调 */
   onOpenPrivacy?: () => void
+  /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
+  onToast: OnToast
 }
 
 /** 性别(0=保密,1=男,2=女) */
@@ -388,7 +391,13 @@ export interface SecuritySettingsScreenProps {
   settings: SecuritySettingsItem | null
   loading: boolean
   error: string
-  onToggle: (key: keyof SecuritySettingsItem, value: boolean) => void
+  /**
+   * 切换回调。后端 /user/security 只有 GET 无写端点 ⇒ 只读形态(readOnly)下不会调用;
+   * 不传即等价只读。缺省 undefined,既有调用方零影响。
+   */
+  onToggle?: (key: keyof SecuritySettingsItem, value: boolean) => void
+  /** 只读展示:true 时四项渲染为状态文字而非 Switch(后端无写端点,不得留假开关) */
+  readOnly?: boolean
   onBack: () => void
   colorScheme?: 'light' | 'dark'
 }
@@ -449,6 +458,10 @@ export interface ChangePwdScreenProps {
   onToggleConfirm: () => void
   onSubmit: () => void
   colorScheme?: 'light' | 'dark'
+  /** 宿主导航端口(逻辑 target 由宿主映射;屏内不得直接调用平台导航) */
+  onNavigate: OnNavigate
+  /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
+  onToast: OnToast
 }
 
 /** 账号注销 Screen Props */

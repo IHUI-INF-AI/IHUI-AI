@@ -15,6 +15,7 @@ import { updateUserAvatar } from '@/api'
 import { uploadImage } from '@/utils/upload-image'
 import { logger } from '@/utils/logger'
 import LineIcon from '@/components/LineIcon'
+import { onToast } from '@/host/on-toast'
 
 interface ProfileAvatarProps {
   /** GET /user/profile 回的真值(users.avatar) */
@@ -47,12 +48,12 @@ export default function ProfileAvatar({ avatar, onAvatarSaved }: ProfileAvatarPr
           onAvatarSaved(uploaded.url)
           setPicked('')
           Taro.hideLoading()
-          Taro.showToast({ title: t('user.avatar.updateSuccess'), icon: 'success' })
+          onToast(t('user.avatar.updateSuccess'), { kind: 'success' })
         } catch (e) {
           logger.error('user/profile', '更新头像', e)
           setPicked('')
           Taro.hideLoading()
-          Taro.showToast({ title: t('user.profile.avatarUpdateFailed'), icon: 'none' })
+          onToast(t('user.profile.avatarUpdateFailed'), { kind: 'error' })
         } finally {
           setUploading(false)
         }

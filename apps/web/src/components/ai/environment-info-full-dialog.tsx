@@ -68,7 +68,7 @@ export function EnvironmentInfoFullDialog() {
         </button>
       }
     >
-      <div className="flex h-full flex-col gap-3 overflow-y-auto pr-1 text-xs">
+      <div className="flex h-full flex-col gap-3 overflow-y-auto pr-1 text-label">
         {/* 工具栏:刷新 + 状态 */}
         <div className="flex items-center gap-2">
           <button

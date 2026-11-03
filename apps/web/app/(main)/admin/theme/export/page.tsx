@@ -117,7 +117,7 @@ export default function ExportPage() {
       <BackButton />
       <div>
         <h1 className="text-display font-bold tracking-tight">导出 / 导入</h1>
-        <p className="mt-1 text-sm text-muted-foreground">主题配置的导出与导入</p>
+        <p className="mt-1 text-body text-muted-foreground">主题配置的导出与导入</p>
       </div>
 
       {error && <Alert variant="danger" description={error} />}
@@ -129,11 +129,11 @@ export default function ExportPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="space-y-1.5">
-              <Label className="text-xs">选择主题</Label>
+              <Label className="text-label">选择主题</Label>
               <select
                 value={themeId}
                 onChange={(e) => setThemeId(e.target.value)}
-                className="h-9 w-full rounded-sm border border-input bg-transparent px-3 text-sm"
+                className="h-9 w-full rounded-sm border border-input bg-transparent px-3 text-body"
               >
                 {themes.map((t) => (
                   <option key={t.id} value={t.id}>
@@ -143,7 +143,7 @@ export default function ExportPage() {
               </select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">格式</Label>
+              <Label className="text-label">格式</Label>
               <div className="flex gap-2">
                 {FORMAT_LABELS.map((f) => (
                   <Button
@@ -168,7 +168,7 @@ export default function ExportPage() {
               </Button>
             </div>
             {preview && (
-              <pre className="max-h-60 overflow-auto rounded-md bg-muted p-3 text-xs">
+              <pre className="max-h-60 overflow-auto rounded-md bg-muted p-3 text-label">
                 {preview}
               </pre>
             )}
@@ -181,7 +181,7 @@ export default function ExportPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             <div
-              className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed p-3 text-sm text-muted-foreground"
+              className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed p-3 text-body text-muted-foreground"
               role="button"
               tabIndex={0}
               onClick={() => fileRef.current?.click()}
@@ -208,7 +208,7 @@ export default function ExportPage() {
             </div>
             {importPreview && (
               <>
-                <pre className="max-h-48 overflow-auto rounded-md bg-muted p-3 text-xs">
+                <pre className="max-h-48 overflow-auto rounded-md bg-muted p-3 text-label">
                   {importPreview}
                 </pre>
                 <div className="flex justify-end gap-2">

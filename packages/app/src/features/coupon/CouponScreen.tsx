@@ -7,7 +7,7 @@ import { View, Text, TouchableOpacity, FlatList, RefreshControl, StyleSheet } fr
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CouponItem, CouponScreenProps, CouponStatus } from '../../types'
 
-import { rnRadius, rnSpacing } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -148,7 +148,7 @@ function createStyles(tk: AppThemeTokens) {
     header: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing.sm },
     backBtn: { marginBottom: rnSpacing.sm },
     title: { fontSize: 22, fontWeight: '600', color: tk.text.primary },
-    subtitle: { marginTop: rnSpacing.sm, fontSize: 14, color: tk.text.secondary },
+    subtitle: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
     tabs: {
       flexDirection: 'row',
       paddingHorizontal: rnSpacing['sm-loose'],
@@ -162,7 +162,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.card,
     },
     tabActive: { backgroundColor: tk.brand.cta },
-    tabText: { fontSize: 14, color: tk.text.secondary },
+    tabText: { fontSize: rnType.body.size, color: tk.text.secondary },
     tabTextActive: { color: tk.surface.light },
     errorBar: {
       paddingHorizontal: rnSpacing['sm-loose'],
@@ -171,8 +171,8 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'space-between',
       alignItems: 'center',
     },
-    errorText: { fontSize: 14, color: tk.danger.DEFAULT },
-    retryText: { fontSize: 14, color: tk.success.DEFAULT },
+    errorText: { fontSize: rnType.body.size, color: tk.danger.DEFAULT },
+    retryText: { fontSize: rnType.body.size, color: tk.success.DEFAULT },
     listBody: {
       gap: rnSpacing['sm-loose'],
       padding: rnSpacing['sm-loose'],
@@ -196,13 +196,13 @@ function createStyles(tk: AppThemeTokens) {
     amountText: { fontSize: 22, fontWeight: '700', color: tk.success.DEFAULT },
     minText: {
       marginTop: rnSpacing.sm,
-      fontSize: 11,
+      fontSize: rnType.caption.size,
       color: tk.text.secondary,
       textAlign: 'center',
     },
     cardRight: { flex: 1, padding: rnSpacing.md },
-    cardName: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
-    validText: { marginTop: rnSpacing.sm, fontSize: 11, color: tk.text.tertiary },
+    cardName: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
+    validText: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
     statusBadge: {
       alignSelf: 'flex-start',
       marginTop: rnSpacing.sm,
@@ -210,7 +210,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing['2xs'],
       borderRadius: rnRadius.md,
     },
-    statusText: { fontSize: 11, color: tk.surface.light },
+    statusText: { fontSize: rnType.caption.size, color: tk.surface.light },
     /* 可用券「立即使用」小按钮(对齐 miniapp member/coupon 端内形态;仅宿主传 onUseCoupon 时出现) */
     useBtn: {
       alignSelf: 'flex-start',
@@ -220,7 +220,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
-    useBtnText: { fontSize: 11, color: tk.brand.ctaForeground },
+    useBtnText: { fontSize: rnType.caption.size, color: tk.brand.ctaForeground },
     /* 底部「领券中心」通栏 CTA(仅宿主传 onOpenCouponCenter 时出现) */
     couponCenterBtn: {
       position: 'absolute',
@@ -234,7 +234,11 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
-    couponCenterText: { fontSize: 14, fontWeight: '600', color: tk.brand.ctaForeground },
+    couponCenterText: {
+      fontSize: rnType.body.size,
+      fontWeight: '600',
+      color: tk.brand.ctaForeground,
+    },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

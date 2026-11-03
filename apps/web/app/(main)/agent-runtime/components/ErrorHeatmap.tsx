@@ -84,7 +84,9 @@ export function ErrorHeatmap({ agentId, timeRange, refreshKey }: ErrorHeatmapPro
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
           错误热力图
-          <span className="text-label font-normal text-muted-foreground">共 {totalErrors} 次错误</span>
+          <span className="text-label font-normal text-muted-foreground">
+            共 {totalErrors} 次错误
+          </span>
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -94,7 +96,7 @@ export function ErrorHeatmap({ agentId, timeRange, refreshKey }: ErrorHeatmapPro
             加载中...
           </div>
         ) : cells.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">
+          <p className="py-8 text-center text-body text-muted-foreground">
             {error ? '接口暂不可用,暂无数据' : '暂无错误记录'}
           </p>
         ) : (
@@ -161,7 +163,7 @@ export function ErrorHeatmap({ agentId, timeRange, refreshKey }: ErrorHeatmapPro
             </div>
 
             {hoverCell && (
-              <div className="rounded-md border bg-muted/40 p-2 text-xs">
+              <div className="rounded-md border bg-muted/40 p-2 text-label">
                 <div className="font-medium">
                   {hoverCell.tool} @ {hoverCell.time}
                 </div>

@@ -66,7 +66,7 @@ export function WithdrawalFlowTable(props: Props) {
     <>
       <div className="flex flex-wrap items-end gap-2">
         <div className="space-y-1.5">
-          <Label className="text-xs">{t('withdrawals.flow.searchUserId')}</Label>
+          <Label className="text-label">{t('withdrawals.flow.searchUserId')}</Label>
           <SearchInput
             value={fSearch.userId}
             onChange={(e) => setFSearch({ ...fSearch, userId: e.target.value })}
@@ -76,7 +76,7 @@ export function WithdrawalFlowTable(props: Props) {
           />
         </div>
         <div className="space-y-1.5">
-          <Label className="text-xs">{t('withdrawals.flow.searchAmount')}</Label>
+          <Label className="text-label">{t('withdrawals.flow.searchAmount')}</Label>
           <Input
             className={inputSm}
             value={fSearch.amount}
@@ -85,7 +85,7 @@ export function WithdrawalFlowTable(props: Props) {
           />
         </div>
         <div className="space-y-1.5">
-          <Label className="text-xs">{t('withdrawals.flow.searchOutBillNo')}</Label>
+          <Label className="text-label">{t('withdrawals.flow.searchOutBillNo')}</Label>
           <SearchInput
             value={fSearch.outBillNo}
             onChange={(e) => setFSearch({ ...fSearch, outBillNo: e.target.value })}
@@ -95,7 +95,7 @@ export function WithdrawalFlowTable(props: Props) {
           />
         </div>
         <div className="space-y-1.5">
-          <Label className="text-xs">{t('withdrawals.flow.searchCreatedAt')}</Label>
+          <Label className="text-label">{t('withdrawals.flow.searchCreatedAt')}</Label>
           <Input
             type="date"
             className={inputSm}
@@ -104,7 +104,7 @@ export function WithdrawalFlowTable(props: Props) {
           />
         </div>
         <div className="space-y-1.5">
-          <Label className="text-xs">{t('withdrawals.flow.searchUpdatedAt')}</Label>
+          <Label className="text-label">{t('withdrawals.flow.searchUpdatedAt')}</Label>
           <Input
             type="date"
             className={inputSm}
@@ -113,7 +113,7 @@ export function WithdrawalFlowTable(props: Props) {
           />
         </div>
         <div className="space-y-1.5">
-          <Label className="text-xs">{t('withdrawals.flow.searchTransferDetail')}</Label>
+          <Label className="text-label">{t('withdrawals.flow.searchTransferDetail')}</Label>
           <SearchInput
             value={fSearch.transferDetail}
             onChange={(e) => setFSearch({ ...fSearch, transferDetail: e.target.value })}
@@ -123,7 +123,7 @@ export function WithdrawalFlowTable(props: Props) {
           />
         </div>
         <div className="space-y-1.5">
-          <Label className="text-xs">{t('withdrawals.flow.table.status')}</Label>
+          <Label className="text-label">{t('withdrawals.flow.table.status')}</Label>
           <Select value={fStatus} onValueChange={setFStatus}>
             <SelectTrigger className={selectClass}>
               <SelectValue />
@@ -158,8 +158,8 @@ export function WithdrawalFlowTable(props: Props) {
       </div>
 
       <div className="overflow-x-auto ui-card rounded-lg border">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+        <table className="w-full text-body">
+          <thead className="bg-muted/50 text-left text-label uppercase text-muted-foreground">
             <tr>
               <th className="px-4 py-2.5 font-medium">ID</th>
               <th className="px-4 py-2.5 font-medium">{t('withdrawals.flow.table.userId')}</th>
@@ -195,21 +195,21 @@ export function WithdrawalFlowTable(props: Props) {
                   <td className="px-4 py-2.5">{w.id}</td>
                   <td className="px-4 py-2.5">{w.userId}</td>
                   <td className="px-4 py-2.5 font-medium">{w.amount}</td>
-                  <td className="px-4 py-2.5 font-mono text-xs">{w.outBillNo}</td>
+                  <td className="px-4 py-2.5 font-mono text-label">{w.outBillNo}</td>
                   <td className="px-4 py-2.5">
                     <span
                       className={cn(
-                        'inline-flex items-center rounded-md px-2 py-0.5 text-xs',
+                        'inline-flex items-center rounded-md px-2 py-0.5 text-label',
                         FLOW_STATUS_STYLE[w.status] ?? 'bg-muted text-muted-foreground',
                       )}
                     >
                       {t(FLOW_STATUS[w.status] ?? '')}
                     </span>
                   </td>
-                  <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                  <td className="px-4 py-2.5 text-label text-muted-foreground">
                     {w.createdAt ? formatDate(w.createdAt) : '-'}
                   </td>
-                  <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                  <td className="px-4 py-2.5 text-label text-muted-foreground">
                     {w.updatedAt ? formatDate(w.updatedAt) : '-'}
                   </td>
                   <td className="max-w-xs break-words px-4 py-2.5">{w.transferDetail ?? '-'}</td>
@@ -241,7 +241,7 @@ export function WithdrawalFlowTable(props: Props) {
 
       {fTotalPages > 1 && (
         <div className="flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">
+          <span className="text-body text-muted-foreground">
             {t('withdrawals.total', { total: fTotal, page: fPage, totalPages: fTotalPages })}
           </span>
           <div className="flex gap-2">

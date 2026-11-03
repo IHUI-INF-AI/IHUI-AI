@@ -118,7 +118,7 @@ export default function WebhooksPage() {
             <Webhook className="h-5 w-5 text-primary" />
             Webhook 配置
           </h1>
-          <p className="mt-0.5 text-sm text-muted-foreground">接收平台事件回调通知</p>
+          <p className="mt-0.5 text-body text-muted-foreground">接收平台事件回调通知</p>
         </div>
         <Button
           size="sm"

@@ -5,17 +5,14 @@
 import { useMemo } from 'react'
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native'
 import { BookOpen, ChevronRight, Sparkles } from 'lucide-react-native'
-import {
-  ABOUT_PLATFORMS,
-  ABOUT_STATS,
-  ABOUT_VALUES,
-  type AboutFeatureEntry,
-} from '@ihui/shared/constants'
 import type { AboutScreenProps } from '../../types'
 import { getTokens } from '../../theme/tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { aboutIcon } from './about-icons'
 import { createAboutStyles } from './about-styles'
+import { loadAboutContent } from './about-content'
+import type { AboutFeatureEntry } from '@ihui/shared/constants'
+import { assertRequiredPort } from '../../host/ports'
 
 /**
  * 「关于我们」跨端共享屏 —— RN 端与小程序端的唯一渲染真相源。
@@ -97,9 +94,15 @@ export function AboutScreen({
   onRegister,
   onOpenPortal,
   entries = [],
+  onNavigate,
+  onToast,
 }: SharedAboutScreenProps) {
+  assertRequiredPort('onNavigate', onNavigate)
+  assertRequiredPort('onToast', onToast)
+
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createAboutStyles(tk), [tk])
+  const content = loadAboutContent()
   const accent = tk.brandAccent.deep
 
   return (
@@ -124,7 +127,7 @@ export function AboutScreen({
         </View>
 
         <View style={styles.grid}>
-          {ABOUT_VALUES.map((f) => (
+          {content.values.map((f) => (
             <View key={f.titleKey} style={styles.gridCell}>
               <FeatureCard
                 feature={f}
@@ -139,7 +142,7 @@ export function AboutScreen({
 
         <Text style={styles.sectionTitle}>{t('about.platformTitle')}</Text>
         <View style={styles.grid}>
-          {ABOUT_PLATFORMS.map((f) => (
+          {content.platforms.map((f) => (
             <View key={f.titleKey} style={styles.gridCell}>
               <FeatureCard
                 feature={f}
@@ -155,7 +158,7 @@ export function AboutScreen({
         <View style={[styles.card, styles.statsCard]}>
           <Text style={styles.sectionTitle}>{t('about.numbersTitle')}</Text>
           <View style={styles.statsGrid}>
-            {ABOUT_STATS.map((s) => (
+            {content.stats.map((s) => (
               <View key={s.valueKey} style={styles.statCell}>
                 <Text style={styles.statValue}>{t(s.valueKey)}</Text>
                 <Text style={styles.bodyText}>{t(s.descKey)}</Text>

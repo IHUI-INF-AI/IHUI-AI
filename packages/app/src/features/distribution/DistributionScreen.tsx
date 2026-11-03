@@ -32,8 +32,9 @@ export function DistributionScreen({
   onWithdraw,
   onBack,
   rates = [],
-  colorScheme = 'light',
-}: DistributionScreenProps) {
+  onRetry,
+  colorScheme = 'light'
+}: DistributionScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -45,7 +46,7 @@ export function DistributionScreen({
     return (
       <ErrorState
         message={error}
-        onRetry={onRefresh}
+        onRetry={onRetry}
         retryLabel={t('distribution.retry')}
         colorScheme={colorScheme}
       />
@@ -177,7 +178,7 @@ function createStyles(tk: AppThemeTokens) {
     subtitle: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
     levelCard: {
       marginHorizontal: rnSpacing['sm-loose'],
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       backgroundColor: tk.success.light,
     },
@@ -200,7 +201,7 @@ function createStyles(tk: AppThemeTokens) {
     earningsCard: {
       marginHorizontal: rnSpacing['sm-loose'],
       marginTop: rnSpacing.md,
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -215,7 +216,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.tertiary,
     },
     withdrawBtn: {
-      marginTop: 14,
+      marginTop: rnSpacing['md-loose'],
       height: 50,
       justifyContent: 'center',
       borderRadius: rnRadius.sm,
@@ -233,7 +234,7 @@ function createStyles(tk: AppThemeTokens) {
     ratesCard: {
       marginHorizontal: rnSpacing['sm-loose'],
       marginTop: rnSpacing.md,
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -263,7 +264,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     productsList: { marginHorizontal: rnSpacing['sm-loose'], marginBottom: rnSpacing['2xl'] },
     productCard: {
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,

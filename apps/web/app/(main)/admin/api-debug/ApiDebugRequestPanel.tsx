@@ -31,7 +31,7 @@ export function ApiDebugRequestPanel({ response, pending }: Props) {
         ) : !response ? (
           <div className="flex flex-col items-center justify-center gap-2 rounded-md border border-dashed py-8 text-muted-foreground">
             <Terminal className="h-8 w-8" />
-            <p className="text-sm">{t('apiDebug.noResponse')}</p>
+            <p className="text-body">{t('apiDebug.noResponse')}</p>
           </div>
         ) : (
           <>
@@ -48,13 +48,13 @@ export function ApiDebugRequestPanel({ response, pending }: Props) {
               >
                 {response.status} {response.statusText}
               </span>
-              <span className="text-xs text-muted-foreground">{response.latency}ms</span>
+              <span className="text-label text-muted-foreground">{response.latency}ms</span>
             </div>
             <div className="space-y-1">
               <div className="text-label font-medium text-muted-foreground">
                 {t('apiDebug.respHeaders')}
               </div>
-              <pre className="max-h-32 overflow-auto rounded-md bg-muted/50 p-2 text-xs">
+              <pre className="max-h-32 overflow-auto rounded-md bg-muted/50 p-2 text-label">
                 {JSON.stringify(response.headers, null, 2)}
               </pre>
             </div>
@@ -62,7 +62,7 @@ export function ApiDebugRequestPanel({ response, pending }: Props) {
               <div className="text-label font-medium text-muted-foreground">
                 {t('apiDebug.respBody')}
               </div>
-              <pre className="max-h-64 overflow-auto rounded-md bg-muted/50 p-2 text-xs">
+              <pre className="max-h-64 overflow-auto rounded-md bg-muted/50 p-2 text-label">
                 {response.body}
               </pre>
             </div>

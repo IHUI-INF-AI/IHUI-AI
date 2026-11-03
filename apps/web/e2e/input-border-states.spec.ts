@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { test, expect } from './fixtures'
+import type { Page } from '@playwright/test'
 
 /**
  * AI 输入卡描边四态到端守门(2026-09-30 立)
@@ -30,7 +31,7 @@ import { test, expect } from './fixtures'
 const SHELL = '.ai-input-shell'
 
 /** 在页面内解析一个 CSS 变量的计算值(经由 color 属性,返回 rgb()/rgba() 文本)。 */
-async function resolveVar(page: import('@playwright/test').Page, cssVar: string): Promise<string> {
+async function resolveVar(page: Page, cssVar: string): Promise<string> {
   return page.evaluate((v) => {
     const d = document.createElement('div')
     d.style.color = `var(${v})`
@@ -43,7 +44,7 @@ async function resolveVar(page: import('@playwright/test').Page, cssVar: string)
 }
 
 /** 读元素上边框的计算色(用 borderTopColor:四边各自独立,不受单边覆盖规则干扰)。 */
-function borderOf(page: import('@playwright/test').Page, selector: string) {
+function borderOf(page: Page, selector: string) {
   return page.evaluate((sel) => {
     const el = document.querySelector(sel)
     if (!el) throw new Error(`元素不存在: ${sel}`)
@@ -52,7 +53,7 @@ function borderOf(page: import('@playwright/test').Page, selector: string) {
 }
 
 /** 注入一个只带语义修饰类的探针,读它算出的边框色(证明 CSS 对该态给色,不依赖产品状态)。 */
-function probeClass(page: import('@playwright/test').Page, modifier: string) {
+function probeClass(page: Page, modifier: string) {
   return page.evaluate((m) => {
     const d = document.createElement('div')
     d.className = `ai-input-shell ${m} border`
@@ -65,7 +66,7 @@ function probeClass(page: import('@playwright/test').Page, modifier: string) {
   }, modifier)
 }
 
-async function focusShell(page: import('@playwright/test').Page) {
+async function focusShell(page: Page) {
   // 选择器必须在 Node 侧拼好再作为参数传入:写在 evaluate 体内会让浏览器去找 SHELL 这个
   // Node 端常量 ⇒ ReferenceError,而失败形状与"实现没生效"长得一样(本轮就是这么红过一次)
   await page.evaluate((sel) => {
@@ -81,7 +82,9 @@ test.describe('AI 输入卡描边四态(未分层 * 规则压制整族 border �
     await page.waitForSelector(SHELL, { timeout: 30000 })
   })
 
-  test('静止态描边取 --color-input,而不是被 * 压成的 --color-border', async ({ authenticatedPage: page }) => {
+  test('静止态描边取 --color-input,而不是被 * 压成的 --color-border', async ({
+    authenticatedPage: page,
+  }) => {
     const [expectedInput, suppressedBorder, actual] = await Promise.all([
       resolveVar(page, '--color-input'),
       resolveVar(page, '--color-border'),
@@ -90,15 +93,22 @@ test.describe('AI 输入卡描边四态(未分层 * 规则压制整族 border �
     // 前置:两档 token 本身必须可区分,否则下面"不等于 border"这条断言是空的(假绿)
     expect(expectedInput).not.toBe(suppressedBorder)
     expect(actual, '静止态描边没渲染出 --color-input(疑似被未分层 * 规则压制)').toBe(expectedInput)
-    expect(actual, '静止态描边落在 --color-border = 那条 * 规则赢了,四态全部失效').not.toBe(suppressedBorder)
+    expect(actual, '静止态描边落在 --color-border = 那条 * 规则赢了,四态全部失效').not.toBe(
+      suppressedBorder,
+    )
   })
 
-  test('聚焦态描边取墨档 --color-primary(AGENTS §4 唯一例外位)', async ({ authenticatedPage: page }) => {
+  test('聚焦态描边取墨档 --color-primary(AGENTS §4 唯一例外位)', async ({
+    authenticatedPage: page,
+  }) => {
     const ink = await resolveVar(page, '--color-primary')
     await focusShell(page)
     // transition-[border-color] 150ms:立刻读一次会拿到过渡起点,必须 poll
     await expect
-      .poll(() => borderOf(page, SHELL), { timeout: 3000, message: '聚焦态描边未到 --color-primary' })
+      .poll(() => borderOf(page, SHELL), {
+        timeout: 3000,
+        message: '聚焦态描边未到 --color-primary',
+      })
       .toBe(ink)
   })
 

@@ -118,7 +118,7 @@ export function createCardStyles(tk: AppThemeTokens) {
       gap: rnSpacing.sm,
     },
     type: {
-      fontSize: 10,
+      fontSize: rnType.badge.size,
       color: tk.text.secondary,
       backgroundColor: tk.surface.card,
       paddingHorizontal: rnSpacing['xs-loose'],

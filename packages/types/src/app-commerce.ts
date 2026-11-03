@@ -89,6 +89,34 @@ export interface WalletRecordItem {
   createdAt: string
 }
 
+/** 资金流水行(平台注入;金额单位分,时间为平台格式化好的文本) */
+export interface WalletFlowItem {
+  id: string
+  /** 1 充值 / 2 扣减 / 3 过期 / 4 退款 / 5 佣金;其余值原样展示数字 */
+  opType: number
+  /** 变动金额(分) */
+  quantity: number
+  /** 变动后余额(分) */
+  balanceAfter: number
+  remark: string | null
+  /** 平台格式化好的流水时间文本 */
+  createdAtText: string
+}
+
+/** 资金流水分区状态;undefined 整体不传 ⇒ 保持旧行为(不渲染该分区) */
+export interface WalletFlowsState {
+  items: WalletFlowItem[]
+  total: number
+  /** 首屏/重试加载中 */
+  loading?: boolean
+  /** 加载更多进行中(防重复请求) */
+  loadingMore?: boolean
+  /** 非空 ⇒ 仅该分区渲染错误 + 重试,不影响余额卡片 */
+  error?: string
+  /** true ⇒ 未登录:不渲染列表,显示占位文案 + 登录入口 */
+  loginRequired?: boolean
+}
+
 /** Wallet 屏 props */
 export interface WalletScreenProps {
   t: TFunction
@@ -101,6 +129,22 @@ export interface WalletScreenProps {
   onBack: () => void
   /** 已解析配色方案,驱动 tokens 明暗;默认 'light' */
   colorScheme?: 'light' | 'dark'
+  /** 资金流水分区;undefined ⇒ 不渲染(旧行为) */
+  flows?: WalletFlowsState
+  /** 流水首屏/重试失败后的重试回调;undefined ⇒ 分区只显示错误文本 */
+  onRetryFlows?: () => void
+  /** 加载更多回调;undefined ⇒ 隐藏加载更多按钮 */
+  onLoadMoreFlows?: () => void
+  /** 未登录流水分区内的登录入口回调;undefined ⇒ 只显示占位文案 */
+  onLogin?: () => void
+  /** 契约别名:登录门(等价 flows.loginRequired) */
+  loginRequired?: boolean
+  /** 契约别名:登录占位文案(默认 wallet.loginRequiredHint) */
+  loginRequiredText?: string
+  /** 契约别名:请求下一页(未传 onLoadMoreFlows 时生效,page 从 1 起) */
+  onFlowsPageChange?: (page: number) => void
+  /** 契约别名:流水重试(未传 onRetryFlows 时生效) */
+  onRetry?: () => void
 }
 
 /** 退款状态(用户端共享屏展示子集,与后端 /api/refund 契约对齐)。
@@ -349,6 +393,12 @@ export interface ModelIncomeScreenProps {
   onOpenWithdraw: () => void
   onCloseWithdraw: () => void
   onConfirmWithdraw: () => void
+  /** 触底续取下一页中(列表尾部显示"加载中…") */
+  loadingMore?: boolean
+  /** 是否还有下一页(壳按 total 算出;false 且已有数据时列表尾部显示"没有更多了") */
+  hasMore?: boolean
+  /** 触底回调:壳负责向后端取下一页并追加 */
+  onLoadMore?: () => void
   onBack: () => void
   colorScheme?: 'light' | 'dark'
 }
@@ -400,6 +450,12 @@ export interface TokenValueScreenProps {
   /** 点击充值套餐回调,平台注入支付确认(Alert/弹窗/导航) */
   onRecharge: (pkg: TokenValuePackage) => void
   onBack: () => void
+  /** 列表触底回调(平台请求下一页;不传则不分页) */
+  onLoadMore?: () => void
+  /** 正在加载下一页 */
+  loadingMore?: boolean
+  /** 是否还有下一页(undefined=未知,不渲染结束提示) */
+  hasMore?: boolean
   colorScheme?: 'light' | 'dark'
 }
 

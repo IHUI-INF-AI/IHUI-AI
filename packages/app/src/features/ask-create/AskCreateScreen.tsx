@@ -17,6 +17,7 @@ import type { AskCreateScreenProps } from '../../types'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { TextField } from '../../components/TextField'
+import { assertRequiredPort } from '../../host/ports'
 
 /** 问答创建共享屏 — props 注入式跨端组件(状态由 wrapper 管理) */
 export type { AskCreateScreenProps }
@@ -34,7 +35,10 @@ export function AskCreateScreen({
   onSubmit,
   onBack,
   colorScheme = 'light',
+  onToast,
 }: AskCreateScreenProps) {
+  assertRequiredPort('onToast', onToast)
+
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 

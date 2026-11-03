@@ -160,7 +160,7 @@ export default function ZhsAgentPage() {
       <ZhsAgentTable list={list} isLoading={isLoading} onEdit={openEdit} onDelete={handleDelete} />
 
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="shrink-0 whitespace-nowrap tabular-nums text-sm text-muted-foreground">
+        <span className="shrink-0 whitespace-nowrap tabular-nums text-body text-muted-foreground">
           共 {total} 条
         </span>
         <div className="flex shrink-0 flex-nowrap items-center gap-2">
@@ -173,7 +173,7 @@ export default function ZhsAgentPage() {
             <ChevronLeft className="h-4 w-4" />
             <span className="whitespace-nowrap">上一页</span>
           </Button>
-          <span className="shrink-0 whitespace-nowrap tabular-nums text-sm text-muted-foreground">
+          <span className="shrink-0 whitespace-nowrap tabular-nums text-body text-muted-foreground">
             {page} / {totalPages}
           </span>
           <Button

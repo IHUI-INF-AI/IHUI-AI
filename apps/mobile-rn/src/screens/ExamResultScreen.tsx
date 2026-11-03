@@ -11,6 +11,7 @@ import { apiFailureToText } from '@ihui/shared/utils'
 import { ExamResultScreen as SharedExamResultScreen, type ExamResultItem } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { useHostPorts } from '../host/use-host-ports'
 
 type Route = RouteProp<RootStackParamList, 'ExamResult'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -24,6 +25,8 @@ export function ExamResultScreen() {
   const [result, setResult] = useState<ExamResultItem | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [reloadKey, setReloadKey] = useState(0)
+  const reload = () => setReloadKey((key) => key + 1)
 
   useEffect(() => {
     let cancelled = false
@@ -39,7 +42,9 @@ export function ExamResultScreen() {
     return () => {
       cancelled = true
     }
-  }, [id, t])
+  }, [id, t, reloadKey])
+
+  const { onNavigate } = useHostPorts()
 
   return (
     <SharedExamResultScreen
@@ -48,7 +53,9 @@ export function ExamResultScreen() {
       loading={loading}
       error={error}
       onBack={() => navigation.goBack()}
+      onRetry={reload}
       colorScheme={resolvedTheme}
+      onNavigate={onNavigate}
     />
   )
 }

@@ -32,6 +32,7 @@ import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import Fastify, { type FastifyInstance } from 'fastify'
+import type * as undici from 'undici'
 import { startStopwatch, elapsedClockStats } from '../src/utils/elapsed-ms.js'
 import type {
   ElapsedClockStats,
@@ -151,7 +152,7 @@ const originalFetch = globalThis.fetch
  */
 const { undiciFetchStub } = vi.hoisted(() => ({ undiciFetchStub: vi.fn() }))
 vi.mock('undici', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('undici')>()
+  const actual = await importOriginal<typeof undici>()
   return { ...actual, fetch: undiciFetchStub }
 })
 

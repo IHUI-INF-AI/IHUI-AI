@@ -73,7 +73,7 @@ export function HomeBanner() {
             <h2 className="max-w-md text-display font-bold text-white drop-shadow min-[768px]:text-3xl">
               {t(slide.titleKey)}
             </h2>
-            <p className="mt-2 max-w-sm text-sm text-white/80 min-[768px]:text-base">
+            <p className="mt-2 max-w-sm text-body text-white/80 min-[768px]:text-base">
               {t(slide.subtitleKey)}
             </p>
             <Link href={slide.href} className="mt-4 inline-block w-fit">

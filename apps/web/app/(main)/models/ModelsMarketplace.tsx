@@ -324,18 +324,18 @@ export function ModelsMarketplace({ list, peakWindows = [] }: Props) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={t('market.searchPlaceholder')}
-            className="h-10 w-full rounded-sm border border-input bg-background pl-9 pr-3 text-sm text-foreground transition-colors placeholder:text-muted-foreground/70 focus:border-border focus:outline-none focus:ring-2 focus:ring-ring/20 dark:bg-input/30"
+            className="h-10 w-full rounded-sm border border-input bg-background pl-9 pr-3 text-body text-foreground transition-colors placeholder:text-muted-foreground/70 focus:border-border focus:outline-none focus:ring-2 focus:ring-ring/20 dark:bg-input/30"
           />
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
           <Select value={sortKey} onValueChange={(v) => setSortKey(v as SortKey)}>
-            <SelectTrigger className="h-9 w-[140px] gap-1.5 rounded-md text-xs">
+            <SelectTrigger className="h-9 w-[140px] gap-1.5 rounded-md text-label">
               <SelectValue placeholder={t('sort.recommended')} />
             </SelectTrigger>
             <SelectContent>
               {SORT_KEYS.map((k) => (
-                <SelectItem key={k} value={k} className="text-xs">
+                <SelectItem key={k} value={k} className="text-label">
                   {t(SORT_KEY[k] ?? 'sort.unknown')}
                 </SelectItem>
               ))}
@@ -414,7 +414,7 @@ export function ModelsMarketplace({ list, peakWindows = [] }: Props) {
       </div>
 
       {/* 结果统计 */}
-      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
+      <div className="flex flex-wrap items-center gap-2 text-label text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
         <span>{t('market.resultCount', { count: filtered.length, total: list.length })}</span>
         <span className="text-muted-foreground/60">·</span>
         <span className="inline-flex items-center gap-0.5">
@@ -646,7 +646,7 @@ function ModelCardGrid({
               />
             )}
           </h3>
-          <p className="mt-0.5 truncate text-xs text-muted-foreground">{vendorLabel}</p>
+          <p className="mt-0.5 truncate text-label text-muted-foreground">{vendorLabel}</p>
         </div>
       </div>
 
@@ -661,10 +661,10 @@ function ModelCardGrid({
         variant="absolute"
       />
 
-      <p className="line-clamp-2 min-h-[2.5rem] text-xs text-muted-foreground">{description}</p>
+      <p className="line-clamp-2 min-h-[2.5rem] text-label text-muted-foreground">{description}</p>
 
       {/* 上下文长度 — 单独一行,无容器包裹 */}
-      <div className="flex items-center gap-1 text-xs text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
+      <div className="flex items-center gap-1 text-label text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
         <Cpu className="h-3 w-3" />
         <span>{t('contextLength')}</span>
         <span className="ml-auto font-medium text-foreground">
@@ -673,7 +673,7 @@ function ModelCardGrid({
       </div>
 
       {/* 价格 — 横向一排,容器包裹(输入价 + 输出价) */}
-      <div className="rounded-md bg-muted/50 px-2 py-1.5 text-xs">
+      <div className="rounded-md bg-muted/50 px-2 py-1.5 text-label">
         <div className="flex items-center justify-between [&>span]:translate-y-[var(--text-vcenter-offset)]">
           <span className="inline-flex items-center gap-1 text-muted-foreground">
             <Zap className="h-3 w-3" />
@@ -707,7 +707,7 @@ function ModelCardGrid({
 
       {/* 上架时间 — 单独一行,无容器包裹(仅当存在 releasedAt) */}
       {model.releasedAt && (
-        <div className="flex items-center gap-1 text-xs text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
+        <div className="flex items-center gap-1 text-label text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
           <Calendar className="h-3 w-3" />
           <span>{t('market.releasedAt')}</span>
           <span className="ml-auto font-medium text-foreground">
@@ -745,7 +745,7 @@ function ModelCardGrid({
       <Button
         variant="outline"
         size="xs"
-        className="w-full gap-1.5 text-xs [&>span]:translate-y-[var(--text-vcenter-offset)]"
+        className="w-full gap-1.5 text-label [&>span]:translate-y-[var(--text-vcenter-offset)]"
         onClick={(e) => {
           e.stopPropagation()
           handleViewRanking()
@@ -761,7 +761,7 @@ function ModelCardGrid({
           <Button
             variant="outline"
             size="sm"
-            className="flex-1 gap-1.5 text-xs [&>span]:translate-y-[var(--text-vcenter-offset)]"
+            className="flex-1 gap-1.5 text-label [&>span]:translate-y-[var(--text-vcenter-offset)]"
             onClick={(e) => {
               e.stopPropagation()
               onConfigure(model)
@@ -772,7 +772,7 @@ function ModelCardGrid({
           </Button>
           <Button
             size="sm"
-            className="flex-1 gap-1.5 text-xs [&>span]:translate-y-[var(--text-vcenter-offset)]"
+            className="flex-1 gap-1.5 text-label [&>span]:translate-y-[var(--text-vcenter-offset)]"
             onClick={(e) => {
               e.stopPropagation()
               onTry(model)
@@ -788,7 +788,7 @@ function ModelCardGrid({
           <Button
             variant="outline"
             size="sm"
-            className="flex-1 gap-1.5 text-xs [&>span]:translate-y-[var(--text-vcenter-offset)]"
+            className="flex-1 gap-1.5 text-label [&>span]:translate-y-[var(--text-vcenter-offset)]"
             onClick={(e) => {
               e.stopPropagation()
               onRelayKeys()
@@ -799,7 +799,7 @@ function ModelCardGrid({
           </Button>
           <Button
             size="sm"
-            className="flex-1 gap-1.5 text-xs [&>span]:translate-y-[var(--text-vcenter-offset)]"
+            className="flex-1 gap-1.5 text-label [&>span]:translate-y-[var(--text-vcenter-offset)]"
             onClick={(e) => {
               e.stopPropagation()
               onTry(model)
@@ -814,7 +814,7 @@ function ModelCardGrid({
         <Button
           variant={isConfigured ? 'outline' : 'outline'}
           size="sm"
-          className="mt-auto w-full gap-1.5 text-xs"
+          className="mt-auto w-full gap-1.5 text-label"
           onClick={(e) => {
             e.stopPropagation()
             onTry(model)
@@ -887,7 +887,7 @@ function ModelCardList({
               aria-label={t('detail.highlight')}
             />
           )}
-          <span className="truncate text-xs text-muted-foreground">{vendorLabel}</span>
+          <span className="truncate text-label text-muted-foreground">{vendorLabel}</span>
           {/* 配置状态 inline 徽章 */}
           {isConfigured && (
             <Tooltip content={t('quickKey.configured')}>
@@ -949,7 +949,7 @@ function ModelCardList({
         <Button
           variant="outline"
           size="xs"
-          className="shrink-0 gap-1 px-2 text-xs [&>span]:translate-y-[var(--text-vcenter-offset)]"
+          className="shrink-0 gap-1 px-2 text-label [&>span]:translate-y-[var(--text-vcenter-offset)]"
           onClick={(e) => {
             e.stopPropagation()
             handleViewRanking()
@@ -966,7 +966,7 @@ function ModelCardList({
           <Button
             variant="outline"
             size="xs"
-            className="shrink-0 gap-1 px-2 text-xs [&>span]:translate-y-[var(--text-vcenter-offset)]"
+            className="shrink-0 gap-1 px-2 text-label [&>span]:translate-y-[var(--text-vcenter-offset)]"
             onClick={(e) => {
               e.stopPropagation()
               onConfigure(model)
@@ -982,7 +982,7 @@ function ModelCardList({
           <Button
             variant="outline"
             size="xs"
-            className="shrink-0 gap-1 px-2 text-xs [&>span]:translate-y-[var(--text-vcenter-offset)]"
+            className="shrink-0 gap-1 px-2 text-label [&>span]:translate-y-[var(--text-vcenter-offset)]"
             onClick={(e) => {
               e.stopPropagation()
               onRelayKeys()
@@ -997,7 +997,7 @@ function ModelCardList({
       <Button
         variant="outline"
         size="xs"
-        className="shrink-0 gap-1 px-2.5 text-xs [&>span]:translate-y-[var(--text-vcenter-offset)]"
+        className="shrink-0 gap-1 px-2.5 text-label [&>span]:translate-y-[var(--text-vcenter-offset)]"
         onClick={(e) => {
           e.stopPropagation()
           onTry(model)
@@ -1109,7 +1109,7 @@ function EmptyState({ onReset }: { onReset: () => void }) {
       <div className="flex h-12 w-12 items-center justify-center rounded-md bg-muted text-muted-foreground">
         <Search className="h-5 w-5" />
       </div>
-      <p className="text-sm text-muted-foreground">{t('market.empty')}</p>
+      <p className="text-body text-muted-foreground">{t('market.empty')}</p>
       <Button variant="outline" size="sm" className="gap-1.5" onClick={onReset}>
         <RotateCcw className="h-3.5 w-3.5" />
         {t('market.resetFilters')}
@@ -1192,7 +1192,7 @@ function RelayPriceCompare({ model }: { model: Model }) {
   const cheaper = officialIn > 0 && paidIn > 0 && paidIn < officialIn
 
   return (
-    <div className="space-y-1 rounded-md border border-sky-500/25 bg-sky-500/5 px-2 py-1.5 text-xs">
+    <div className="space-y-1 rounded-md border border-sky-500/25 bg-sky-500/5 px-2 py-1.5 text-label">
       {officialIn > 0 && (
         <div className="flex items-center justify-between">
           <span className="text-muted-foreground">{t('relay.officialPrice')}</span>

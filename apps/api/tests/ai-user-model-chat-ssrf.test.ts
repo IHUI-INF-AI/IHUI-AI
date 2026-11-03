@@ -16,6 +16,7 @@
  */
 import { readFileSync } from 'node:fs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type * as undici from 'undici'
 
 /**
  * 出站替身必须 mock 'undici'(2026-10-31 安全强化第 15 批 M3 起):
@@ -26,7 +27,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
  */
 const { outbound } = vi.hoisted(() => ({ outbound: vi.fn() }))
 vi.mock('undici', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('undici')>()
+  const actual = await importOriginal<typeof undici>()
   return { ...actual, fetch: outbound }
 })
 

@@ -3,6 +3,15 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import type { Metadata } from 'next'
+import {
+  ShoppingCart,
+  Code,
+  PenLine,
+  BarChart3,
+  GraduationCap,
+  Lightbulb,
+  Heart,
+} from 'lucide-react'
 import { ManualNav, chapters } from '../_manual-nav'
 
 const SITE_URL = 'https://aizhs.top'
@@ -14,11 +23,6 @@ export const metadata: Metadata = {
   alternates: {
     canonical: '/docs/manual/agent',
     languages: {
-      'zh-CN': '/zh-cn/docs/manual/agent',
-      'zh-TW': '/zh-tw/docs/manual/agent',
-      en: '/en/docs/manual/agent',
-      ko: '/ko/docs/manual/agent',
-      ja: '/ja/docs/manual/agent',
       'x-default': '/docs/manual/agent',
     },
   },
@@ -54,11 +58,26 @@ export default function ManualAgentPage() {
           <p>类比:Agent 是"AI 员工",提示词是"岗位说明书",模型是"大脑",工具是"手",知识库是"参考资料"。</p>
           <p>常见 Agent 示例:</p>
           <ul className="ml-4 list-disc space-y-1 text-xs">
-            <li>🛒 <strong>智能客服</strong>:7×24 答疑,挂载产品手册知识库</li>
-            <li>👨💻 <strong>代码审查</strong>:读 GitHub PR,自动找 bug + 给建议</li>
-            <li>✍️ <strong>内容创作</strong>:写文案 / 公众号 / 小红书,支持多模态配图</li>
-            <li>📊 <strong>数据分析</strong>:上传 Excel,自动出图 + 洞察</li>
-            <li>🎓 <strong>课程答疑</strong>:挂载课件知识库,7×24 答疑</li>
+            <li>
+              <ShoppingCart className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
+              <strong>智能客服</strong>:7×24 答疑,挂载产品手册知识库
+            </li>
+            <li>
+              <Code className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
+              <strong>代码审查</strong>:读 GitHub PR,自动找 bug + 给建议
+            </li>
+            <li>
+              <PenLine className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
+              <strong>内容创作</strong>:写文案 / 公众号 / 小红书,支持多模态配图
+            </li>
+            <li>
+              <BarChart3 className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
+              <strong>数据分析</strong>:上传 Excel,自动出图 + 洞察
+            </li>
+            <li>
+              <GraduationCap className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
+              <strong>课程答疑</strong>:挂载课件知识库,7×24 答疑
+            </li>
           </ul>
         </div>
       </section>
@@ -94,7 +113,8 @@ export default function ManualAgentPage() {
             <li>左侧栏"我的 Agent"可看到刚 fork 的 Agent</li>
           </ol>
           <p className="rounded bg-muted/60 p-3 text-xs">
-            💡 <strong>免费 Agent</strong>:直接使用,消耗你的积分。
+            <Lightbulb className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
+            <strong>免费 Agent</strong>:直接使用,消耗你的积分。
             <strong>付费 Agent</strong>:作者定价(如 ¥9.9/月),购买后无限次使用。
           </p>
         </div>
@@ -105,7 +125,9 @@ export default function ManualAgentPage() {
         <h2 className="text-heading font-bold">3.4 收藏 Agent</h2>
         <div className="rounded-lg border bg-card p-3 space-y-2 text-sm text-muted-foreground">
           <ul className="ml-4 list-disc space-y-1">
-            <li>Agent 卡片右上角点♡(心形)收藏</li>
+            <li>
+              Agent 卡片右上角点 <Heart className="inline h-3.5 w-3.5 align-text-bottom" aria-hidden /> 收藏
+            </li>
             <li>左侧栏"收藏夹"快速访问</li>
             <li>支持自定义分组(如"工作必备"、"学习用"、"备用")</li>
           </ul>
@@ -133,7 +155,8 @@ export default function ManualAgentPage() {
             <li>点击"保存",新版本生效</li>
           </ol>
           <p className="rounded bg-muted/60 p-3 text-xs">
-            💡 <strong>提示词技巧</strong>:用"你是 XXX,擅长 XXX,输出格式为 XXX"结构化描述,效果远好于"帮我写文案"这种模糊指令。
+            <Lightbulb className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
+            <strong>提示词技巧</strong>:用"你是 XXX,擅长 XXX,输出格式为 XXX"结构化描述,效果远好于"帮我写文案"这种模糊指令。
           </p>
         </div>
       </section>
@@ -157,7 +180,8 @@ export default function ManualAgentPage() {
             <li>收益:付费 Agent 80% 分成,月结到支付宝</li>
           </ol>
           <p className="rounded bg-muted/60 p-3 text-xs">
-            💡 <strong>爆款 Agent 技巧</strong>:解决具体痛点(如"小红书爆款文案"),提供示例对话,定期更新提示词。
+            <Lightbulb className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
+            <strong>爆款 Agent 技巧</strong>:解决具体痛点(如"小红书爆款文案"),提供示例对话,定期更新提示词。
           </p>
         </div>
       </section>

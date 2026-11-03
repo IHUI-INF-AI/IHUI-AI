@@ -142,7 +142,7 @@ function CronSection({ items }: { items: CronJobItem[] }) {
       </CardHeader>
       <CardContent>
         {items.length === 0 ? (
-          <p className="rounded-md bg-muted/40 px-3 py-6 text-center text-sm text-muted-foreground">
+          <p className="rounded-md bg-muted/40 px-3 py-6 text-center text-body text-muted-foreground">
             {t('noCronJobs')}
           </p>
         ) : (
@@ -155,12 +155,12 @@ function CronSection({ items }: { items: CronJobItem[] }) {
                 <Clock className="h-4 w-4 shrink-0 text-primary" />
                 <div className="min-w-0 flex-1">
                   <p className="break-words text-body font-medium">{c.name}</p>
-                  <p className="break-words text-xs text-muted-foreground">
+                  <p className="break-words text-label text-muted-foreground">
                     {c.schedule} · {c.task}
                   </p>
                 </div>
                 {c.enabled && (
-                  <span className="rounded-sm bg-primary/10 px-2 py-0.5 text-xs text-primary">
+                  <span className="rounded-sm bg-primary/10 px-2 py-0.5 text-label text-primary">
                     {t('enabled')}
                   </span>
                 )}
@@ -291,7 +291,7 @@ function WebhookSection({ items }: { items: WebhookItem[] }) {
       </CardHeader>
       <CardContent>
         {items.length === 0 ? (
-          <p className="rounded-md bg-muted/40 px-3 py-6 text-center text-sm text-muted-foreground">
+          <p className="rounded-md bg-muted/40 px-3 py-6 text-center text-body text-muted-foreground">
             {t('noWebhooks')}
           </p>
         ) : (
@@ -304,7 +304,7 @@ function WebhookSection({ items }: { items: WebhookItem[] }) {
                 <Webhook className="h-4 w-4 shrink-0 text-primary" />
                 <div className="min-w-0 flex-1">
                   <p className="break-words text-body font-medium">{w.name}</p>
-                  <p className="break-words text-xs text-muted-foreground">
+                  <p className="break-words text-label text-muted-foreground">
                     {w.endpoint}
                     {w.events ? ` · ${w.events}` : ''}
                   </p>
@@ -427,7 +427,7 @@ function HookSection({ items }: { items: HookItem[] }) {
       </CardHeader>
       <CardContent>
         {items.length === 0 ? (
-          <p className="rounded-md bg-muted/40 px-3 py-6 text-center text-sm text-muted-foreground">
+          <p className="rounded-md bg-muted/40 px-3 py-6 text-center text-body text-muted-foreground">
             {t('noHooks')}
           </p>
         ) : (
@@ -440,7 +440,7 @@ function HookSection({ items }: { items: HookItem[] }) {
                 <Plug className="h-4 w-4 shrink-0 text-primary" />
                 <div className="min-w-0 flex-1">
                   <p className="break-words text-body font-medium">{h.name}</p>
-                  <p className="break-words text-xs text-muted-foreground">
+                  <p className="break-words text-label text-muted-foreground">
                     {h.type} · {h.handler}
                   </p>
                 </div>

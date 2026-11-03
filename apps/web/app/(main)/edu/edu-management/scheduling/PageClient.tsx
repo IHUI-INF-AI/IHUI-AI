@@ -508,7 +508,7 @@ function TeacherScheduleDialog({
               />
             </div>
           </div>
-          <label className="flex items-center gap-2 text-sm">
+          <label className="flex items-center gap-2 text-body">
             <input
               type="checkbox"
               className="h-4 w-4 rounded-sm border-gray-300"
@@ -760,7 +760,7 @@ export default function SchedulingPage() {
 
       <header className="space-y-1">
         <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
-        <p className="text-xs text-muted-foreground">{t('description')}</p>
+        <p className="text-label text-muted-foreground">{t('description')}</p>
       </header>
 
       {/* Term Selector */}
@@ -843,7 +843,7 @@ export default function SchedulingPage() {
                 {t('actions.checkConflicts')}
               </Button>
               {rulesLoading && (
-                <div className="ml-auto flex items-center text-xs text-muted-foreground">
+                <div className="ml-auto flex items-center text-label text-muted-foreground">
                   <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
                   {t('loading.text')}
                 </div>
@@ -860,7 +860,7 @@ export default function SchedulingPage() {
             </Card>
           ) : rules.length === 0 ? (
             <Card>
-              <CardContent className="py-12 text-center text-sm text-muted-foreground">
+              <CardContent className="py-12 text-center text-body text-muted-foreground">
                 {t('empty.rules')}
               </CardContent>
             </Card>
@@ -868,7 +868,7 @@ export default function SchedulingPage() {
             <Card>
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="w-full text-body">
                     <thead>
                       <tr className="bg-muted/40">
                         <th className="px-4 py-3 text-left font-medium text-muted-foreground">
@@ -900,24 +900,24 @@ export default function SchedulingPage() {
                     <tbody>
                       {rules.map((r) => (
                         <tr key={r.id} className="hover:bg-muted/30">
-                          <td className="px-4 py-3 text-xs">
+                          <td className="px-4 py-3 text-label">
                             {classMap.get(r.classId) ?? r.classId}
                           </td>
                           <td className="px-4 py-3 text-label font-medium">{r.subject}</td>
-                          <td className="px-4 py-3 text-xs">
+                          <td className="px-4 py-3 text-label">
                             {teacherMap.get(r.teacherId) ?? r.teacherId}
                           </td>
-                          <td className="px-4 py-3 text-xs">{weekdayLabel(r.weekday)}</td>
-                          <td className="px-4 py-3 text-xs">
+                          <td className="px-4 py-3 text-label">{weekdayLabel(r.weekday)}</td>
+                          <td className="px-4 py-3 text-label">
                             {r.startTime} - {r.endTime}
                           </td>
-                          <td className="px-4 py-3 text-xs">{r.classroom ?? '—'}</td>
-                          <td className="px-4 py-3 text-xs">{r.priority ?? 0}</td>
+                          <td className="px-4 py-3 text-label">{r.classroom ?? '—'}</td>
+                          <td className="px-4 py-3 text-label">{r.priority ?? 0}</td>
                           <td className="px-4 py-3 text-right">
                             <Button
                               variant="ghost"
                               size="xs"
-                              className="text-xs"
+                              className="text-label"
                               onClick={() => {
                                 setEditingRule(r)
                                 setRuleOpen(true)
@@ -928,7 +928,7 @@ export default function SchedulingPage() {
                             <Button
                               variant="ghost"
                               size="xs"
-                              className="text-xs text-red-500"
+                              className="text-label text-red-500"
                               onClick={() => deleteRule.mutate(r.id)}
                             >
                               {t('actions.delete')}
@@ -960,7 +960,7 @@ export default function SchedulingPage() {
                 {t('actions.addTimeEntry')}
               </Button>
               {teacherSchedulesLoading && (
-                <div className="ml-auto flex items-center text-xs text-muted-foreground">
+                <div className="ml-auto flex items-center text-label text-muted-foreground">
                   <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
                   {t('loading.text')}
                 </div>
@@ -977,7 +977,7 @@ export default function SchedulingPage() {
             </Card>
           ) : teacherSchedules.length === 0 ? (
             <Card>
-              <CardContent className="py-12 text-center text-sm text-muted-foreground">
+              <CardContent className="py-12 text-center text-body text-muted-foreground">
                 {t('empty.teachers')}
               </CardContent>
             </Card>
@@ -985,7 +985,7 @@ export default function SchedulingPage() {
             <Card>
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="w-full text-body">
                     <thead>
                       <tr className="bg-muted/40">
                         <th className="px-4 py-3 text-left font-medium text-muted-foreground">
@@ -1011,8 +1011,8 @@ export default function SchedulingPage() {
                           <td className="px-4 py-3 text-label font-medium">
                             {teacherMap.get(s.teacherId) ?? s.teacherId}
                           </td>
-                          <td className="px-4 py-3 text-xs">{weekdayLabel(s.dayOfWeek)}</td>
-                          <td className="px-4 py-3 text-xs">
+                          <td className="px-4 py-3 text-label">{weekdayLabel(s.dayOfWeek)}</td>
+                          <td className="px-4 py-3 text-label">
                             {s.startTime} - {s.endTime}
                           </td>
                           <td className="px-4 py-3">
@@ -1032,7 +1032,7 @@ export default function SchedulingPage() {
                             <Button
                               variant="ghost"
                               size="xs"
-                              className="text-xs"
+                              className="text-label"
                               onClick={() => {
                                 setEditingTeacherSchedule(s)
                                 setTeacherScheduleOpen(true)
@@ -1043,7 +1043,7 @@ export default function SchedulingPage() {
                             <Button
                               variant="ghost"
                               size="xs"
-                              className="text-xs text-red-500"
+                              className="text-label text-red-500"
                               onClick={() => deleteTeacherSchedule.mutate(s.id)}
                             >
                               {t('actions.delete')}
@@ -1070,7 +1070,7 @@ export default function SchedulingPage() {
             </Card>
           ) : changes.length === 0 ? (
             <Card>
-              <CardContent className="py-12 text-center text-sm text-muted-foreground">
+              <CardContent className="py-12 text-center text-body text-muted-foreground">
                 {t('empty.changes')}
               </CardContent>
             </Card>
@@ -1078,7 +1078,7 @@ export default function SchedulingPage() {
             <Card>
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="w-full text-body">
                     <thead>
                       <tr className="bg-muted/40">
                         <th className="px-4 py-3 text-left font-medium text-muted-foreground">
@@ -1108,13 +1108,13 @@ export default function SchedulingPage() {
                       {changes.map((c) => (
                         <tr key={c.id} className="hover:bg-muted/30">
                           <td className="px-4 py-3 text-label font-medium">{c.subject}</td>
-                          <td className="px-4 py-3 text-xs">
+                          <td className="px-4 py-3 text-label">
                             {fmtTime(c.originalWeekday, c.originalStartTime, c.originalEndTime)}
                           </td>
-                          <td className="px-4 py-3 text-xs">
+                          <td className="px-4 py-3 text-label">
                             {fmtTime(c.newWeekday, c.newStartTime, c.newEndTime)}
                           </td>
-                          <td className="px-4 py-3 text-xs text-muted-foreground">
+                          <td className="px-4 py-3 text-label text-muted-foreground">
                             <TruncatedText value={c.reason} className="max-w-[150px]" />
                           </td>
                           <td className="px-4 py-3">
@@ -1128,7 +1128,7 @@ export default function SchedulingPage() {
                               {statusLabel(c.status)}
                             </Badge>
                           </td>
-                          <td className="px-4 py-3 text-xs">
+                          <td className="px-4 py-3 text-label">
                             {c.originalTeacher ?? c.newTeacher ?? '—'}
                           </td>
                           <td className="px-4 py-3 text-right">
@@ -1137,7 +1137,7 @@ export default function SchedulingPage() {
                                 <Button
                                   variant="outline"
                                   size="xs"
-                                  className="text-xs"
+                                  className="text-label"
                                   onClick={() =>
                                     approveChange.mutateAsync({ id: c.id, action: 'approve' })
                                   }
@@ -1148,7 +1148,7 @@ export default function SchedulingPage() {
                                 <Button
                                   variant="outline"
                                   size="xs"
-                                  className="text-xs"
+                                  className="text-label"
                                   onClick={() =>
                                     approveChange.mutateAsync({ id: c.id, action: 'reject' })
                                   }
@@ -1208,7 +1208,7 @@ export default function SchedulingPage() {
                 {conflicts.map((msg, i) => (
                   <div
                     key={i}
-                    className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 p-2 text-xs text-red-700"
+                    className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 p-2 text-label text-red-700"
                   >
                     <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                     <span>{msg}</span>

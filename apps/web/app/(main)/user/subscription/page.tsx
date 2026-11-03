@@ -139,7 +139,7 @@ export default function SubscriptionPage() {
           <Crown className="h-6 w-6 text-amber-500" />
           {t('subscription.title')}
         </h1>
-        <p className="mt-0.5 text-xs text-muted-foreground">{t('subscription.subtitle')}</p>
+        <p className="mt-0.5 text-label text-muted-foreground">{t('subscription.subtitle')}</p>
       </div>
 
       {!allow ? (
@@ -159,11 +159,11 @@ export default function SubscriptionPage() {
                   <Crown className="h-6 w-6 text-emerald-600 dark:text-emerald-500" />
                 </div>
                 <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground">{t('subscription.current')}</p>
+                  <p className="text-body text-muted-foreground">{t('subscription.current')}</p>
                   <p className="text-lg font-semibold">
                     {status?.vipLevel ?? 'VIP'} {t('subscription.activated')}
                   </p>
-                  <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+                  <div className="flex flex-wrap items-center gap-4 text-label text-muted-foreground">
                     <span>
                       {t('subscription.expireTime')}：
                       {status?.expireTime ? formatDate(status.expireTime) : '-'}
@@ -194,7 +194,7 @@ export default function SubscriptionPage() {
                 </div>
                 <div className="space-y-1">
                   <p className="text-lg font-semibold">{t('subscription.notSubscribed')}</p>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-body text-muted-foreground">
                     {t('subscription.notSubscribedHint')}
                   </p>
                 </div>
@@ -227,7 +227,7 @@ export default function SubscriptionPage() {
                     </SelectContent>
                   </Select>
                   {errors.planId && (
-                    <p className="text-xs text-destructive">{errors.planId.message}</p>
+                    <p className="text-label text-destructive">{errors.planId.message}</p>
                   )}
                 </div>
 
@@ -265,7 +265,7 @@ export default function SubscriptionPage() {
                 <div className="flex items-center justify-between gap-3">
                   <div className="space-y-1">
                     <p className="text-body font-medium">{t('subscription.autoRenewOpened')}</p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-label text-muted-foreground">
                       {t('subscription.nextCharge')}
                       {sub.data.contract?.nextChargeTime
                         ? formatDate(sub.data.contract.nextChargeTime)
@@ -278,7 +278,7 @@ export default function SubscriptionPage() {
                 </div>
               ) : (
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-body text-muted-foreground">
                     {t('subscription.autoRenewClosed')}
                   </p>
                   <Button

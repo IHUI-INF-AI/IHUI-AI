@@ -59,6 +59,7 @@ describe('statistics-queries — 真实 DB 集成测试', () => {
         .insert(lessons)
         .values({ title: 'L1', isPublished: true, status: 1, viewCount: 100 })
         .returning()
+      if (!l1) throw new Error('statistics-queries.real.test.ts: 插入未返回行(l1)')
       await db.insert(lessons).values([
         { title: 'L2', isPublished: true, status: 1, viewCount: 50 },
         { title: 'L3', isPublished: false, status: 1, viewCount: 10 },
@@ -68,10 +69,12 @@ describe('statistics-queries — 真实 DB 集成测试', () => {
         .insert(users)
         .values({ email: 'ls1@t.com', nickname: 'LS1' })
         .returning()
+      if (!u1) throw new Error('statistics-queries.real.test.ts: 插入未返回行(u1)')
       const [u2] = await db
         .insert(users)
         .values({ email: 'ls2@t.com', nickname: 'LS2' })
         .returning()
+      if (!u2) throw new Error('statistics-queries.real.test.ts: 插入未返回行(u2)')
       await db.insert(lessonSignUps).values([
         { lessonId: l1.id, userId: u1.id, status: 1 },
         { lessonId: l1.id, userId: u2.id, status: 2 },
@@ -100,10 +103,14 @@ describe('statistics-queries — 真实 DB 集成测试', () => {
         .insert(examPapers)
         .values({ title: 'P1', isPublished: true, status: 1 })
         .returning()
+      if (!p1) throw new Error('statistics-queries.real.test.ts: 插入未返回行(p1)')
       await db.insert(examPapers).values({ title: 'P2' }).returning()
       const [u1] = await db.insert(users).values({ email: 'e1@t.com', nickname: 'E1' }).returning()
+      if (!u1) throw new Error('statistics-queries.real.test.ts: 插入未返回行(u1)')
       const [u2] = await db.insert(users).values({ email: 'e2@t.com', nickname: 'E2' }).returning()
+      if (!u2) throw new Error('statistics-queries.real.test.ts: 插入未返回行(u2)')
       const [u3] = await db.insert(users).values({ email: 'e3@t.com', nickname: 'E3' }).returning()
+      if (!u3) throw new Error('statistics-queries.real.test.ts: 插入未返回行(u3)')
 
       await db.insert(examRecords).values([
         { paperId: p1.id, userId: u1.id, status: 'graded', isPassed: true, score: '80.00' },
@@ -173,7 +180,7 @@ describe('statistics-queries — 真实 DB 集成测试', () => {
 
       const dailyOnly = await findStatisticsSnapshots({ page: 1, pageSize: 10, type: 'daily' })
       expect(dailyOnly.total).toBe(1)
-      expect(dailyOnly.list[0].type).toBe('daily')
+      expect(dailyOnly.list[0]!.type).toBe('daily')
 
       const found = await findStatisticsSnapshotById(s1.id)
       expect(found?.data).toEqual({ users: 100, lessons: 50 })
@@ -249,10 +256,11 @@ describe('statistics-queries — 真实 DB 集成测试', () => {
     it('findVisitLogList 分页 + 时间筛选', async () => {
       const today = new Date().toISOString().slice(0, 10)
       const [u] = await db.insert(users).values({ email: 'v@t.com', nickname: 'V' }).returning()
+      if (!u) throw new Error('statistics-queries.real.test.ts: 插入未返回行(u)')
       await db.insert(visitLogs).values([
-        { visitDate: today, userId: u.id, path: '/' },
-        { visitDate: today, userId: u.id, path: '/about' },
-        { visitDate: '2020-01-01', userId: u.id, path: '/old' },
+        { visitDate: today, userId: u.id, url: '/' },
+        { visitDate: today, userId: u.id, url: '/about' },
+        { visitDate: '2020-01-01', userId: u.id, url: '/old' },
       ])
 
       const all = await findVisitLogList({ page: 1, pageSize: 10 })

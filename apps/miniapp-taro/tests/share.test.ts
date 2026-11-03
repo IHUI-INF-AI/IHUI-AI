@@ -10,6 +10,7 @@ const { taroStorage, fns } = vi.hoisted(() => ({
     showShareMenu: vi.fn(),
     hideShareMenu: vi.fn(),
     showToast: vi.fn(),
+    onToast: vi.fn(),
   },
 }))
 
@@ -22,6 +23,9 @@ vi.mock('@tarojs/taro', () => {
   }
   return { ...mock, default: mock }
 })
+
+// 分享成功提示已收口到宿主端口;断言打端口层信号。
+vi.mock('@/host/on-toast', () => ({ onToast: fns.onToast }))
 
 import {
   getInviteCode,
@@ -168,9 +172,8 @@ describe('miniapp-taro 分享功能', () => {
   describe('onShareSuccess', () => {
     it('显示分享成功 toast', () => {
       onShareSuccess()
-      expect(fns.showToast).toHaveBeenCalledWith({
-        title: '分享成功',
-        icon: 'success',
+      expect(fns.onToast).toHaveBeenCalledWith('分享成功', {
+        kind: 'success',
         duration: 2000,
       })
     })

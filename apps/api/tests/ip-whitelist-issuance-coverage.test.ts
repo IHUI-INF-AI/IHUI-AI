@@ -85,16 +85,16 @@ const FN_ANCHOR = /^\s*(?:export\s+)?(?:async\s+)?function\s+([A-Za-z0-9_$]+)/
 function findAnchor(lines: (string | null)[], from: number): { label: string; at: number } {
   for (let i = from; i >= 0; i--) {
     const line = lines[i]
-    if (line === null) continue
+    if (line === null || line === undefined) continue
     const route = ROUTE_ANCHOR.exec(line)
     if (route) {
       const method = route[1]!.toUpperCase()
-      const sameLine = /['"`](\/[^'"`]+)['"`]/.exec(line.slice(route.index))
+      const sameLine = /['"`](\/[^'"`]+)['"`]/.exec(line!.slice(route.index))
       let path = sameLine?.[1]
       if (!path) {
         for (let j = i + 1; j <= i + 4 && j < lines.length; j++) {
           const next = lines[j]
-          if (next === null) continue
+          if (next === null || next === undefined) continue
           const m = /^\s*['"`](\/[^'"`]+)['"`]/.exec(next)
           if (m) {
             path = m[1]
@@ -195,12 +195,6 @@ const EXEMPTIONS: { file: string; anchor: string; class: string; reason: string 
   },
   {
     file: 'src/routes/auth-extended.ts',
-    anchor: 'POST /oauth/jwt/token',
-    class: 'third-party',
-    reason: 'private_key_jwt 客户端断言腿，主体来自客户端自签 assertion，不经用户凭据校验',
-  },
-  {
-    file: 'src/routes/auth-extended.ts',
     anchor: 'POST /oauth/access_token',
     class: 'third-party',
     reason: '/auth/oauth/token 的多路径兼容别名，同一条授权码腿',
@@ -247,12 +241,10 @@ const EXEMPTIONS: { file: string; anchor: string; class: string; reason: string 
     class: 'refresh',
     reason: '恢复码腿在 checkAuth 之后：沿用当前 family 补发 access token，无 refresh、无 cookie',
   },
-  {
-    file: 'src/routes/v1-shared.ts',
-    anchor: 'fn:mintInternalJwt',
-    class: 'refresh',
-    reason: 'API Key → 内部 JWT 的服务内换算，调用方已持 API Key 通过鉴权，不建立新会话',
-  },
+  // 2026-11-02:原 `src/routes/v1-shared.ts :: fn:mintInternalJwt` 豁免条目随站点一并下线 ——
+  // `9103baba9b` 把 mintInternalJwt 的实现下沉到 `src/utils/internal-jwt.ts`,v1-shared.ts 只留
+  // `export { mintInternalJwt } from '../utils/internal-jwt.js'` 再导出,不再有函数体与签发调用;
+  // 本测试取材面只有 src/routes,utils 下的实现属"原语自身、守卫在调用方",不需要也够不到豁免。
   {
     file: 'src/routes/oauth-authorization-server.ts',
     anchor: 'fn:issueIdToken',

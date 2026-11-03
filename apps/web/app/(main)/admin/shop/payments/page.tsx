@@ -95,7 +95,7 @@ export default function AdminShopPaymentsPage() {
           <ShoppingCart className="h-6 w-6 text-primary" />
           {t('payments.title')}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('payments.subtitle')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('payments.subtitle')}</p>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -134,13 +134,13 @@ export default function AdminShopPaymentsPage() {
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50">
-              <TableHead className="text-xs uppercase">{t('payments.table.orderNo')}</TableHead>
-              <TableHead className="text-xs uppercase">{t('payments.table.user')}</TableHead>
-              <TableHead className="text-xs uppercase">{t('payments.table.product')}</TableHead>
-              <TableHead className="text-xs uppercase">{t('payments.table.amount')}</TableHead>
-              <TableHead className="text-xs uppercase">{t('payments.table.status')}</TableHead>
-              <TableHead className="text-xs uppercase">{t('payments.table.time')}</TableHead>
-              <TableHead className="text-right text-xs uppercase">
+              <TableHead className="text-label uppercase">{t('payments.table.orderNo')}</TableHead>
+              <TableHead className="text-label uppercase">{t('payments.table.user')}</TableHead>
+              <TableHead className="text-label uppercase">{t('payments.table.product')}</TableHead>
+              <TableHead className="text-label uppercase">{t('payments.table.amount')}</TableHead>
+              <TableHead className="text-label uppercase">{t('payments.table.status')}</TableHead>
+              <TableHead className="text-label uppercase">{t('payments.table.time')}</TableHead>
+              <TableHead className="text-right text-label uppercase">
                 {t('payments.table.action')}
               </TableHead>
             </TableRow>
@@ -161,14 +161,14 @@ export default function AdminShopPaymentsPage() {
             ) : (
               orders.map((o) => (
                 <TableRow key={o.id}>
-                  <TableCell className="font-mono text-xs">{o.orderNo}</TableCell>
+                  <TableCell className="font-mono text-label">{o.orderNo}</TableCell>
                   <TableCell>{o.user}</TableCell>
                   <TableCell>{o.product}</TableCell>
                   <TableCell className="font-medium">¥{(o.amount / 100).toFixed(2)}</TableCell>
                   <TableCell>
                     <span
                       className={cn(
-                        'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs',
+                        'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-label',
                         STATUS_STYLE[o.status],
                       )}
                     >
@@ -176,7 +176,7 @@ export default function AdminShopPaymentsPage() {
                       {t(STATUS_LABEL[o.status])}
                     </span>
                   </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
+                  <TableCell className="text-label text-muted-foreground">
                     {formatDate(o.createdAt)}
                   </TableCell>
                   <TableCell className="text-right">
@@ -199,7 +199,7 @@ export default function AdminShopPaymentsPage() {
       </div>
 
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">{t('payments.total', { total })}</span>
+        <span className="text-body text-muted-foreground">{t('payments.total', { total })}</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -209,7 +209,7 @@ export default function AdminShopPaymentsPage() {
           >
             {t('payments.prev')}
           </Button>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-body text-muted-foreground">
             {page} / {totalPages}
           </span>
           <Button

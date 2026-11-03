@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTheme } from '../context/ThemeContext'
 import {} from 'react-native'
 import { appAlert } from '../components/BottomPops'
+import Clipboard from '@react-native-clipboard/clipboard'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi, getResources, type Resource } from '@ihui/api-client'
@@ -18,6 +19,7 @@ import {
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { apiFailureToText, formatDuration, formatFileSize } from '@ihui/shared/utils'
 import { useI18n } from '../i18n'
+import { useHostPorts } from '../host/use-host-ports'
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
 
@@ -149,13 +151,19 @@ export function LiveHostScreen() {
     }
   }
 
-  const copyText = (text: string, label: string) =>
+  // 对齐端内 copyText:先把推流地址/流密钥写进剪贴板,再给用户回执
+  const copyText = (text: string, label: string) => {
+    if (!text) return
+    Clipboard.setString(text)
     appAlert(label, text, [{ text: t('common.close') }])
+  }
 
   const sharedStream = useMemo(() => (stream ? mapStream(stream) : null), [stream])
   const durationText = useMemo(() => formatDuration(duration), [duration])
   const recvBytesText = useMemo(() => formatFileSize(stream?.recvBytes ?? 0), [stream?.recvBytes])
   const sendBytesText = useMemo(() => formatFileSize(stream?.sendBytes ?? 0), [stream?.sendBytes])
+
+  const { onToast } = useHostPorts()
 
   return (
     <SharedLiveHostScreen
@@ -179,6 +187,7 @@ export function LiveHostScreen() {
       onCopyText={copyText}
       onBack={() => navigation.goBack()}
       colorScheme={resolvedTheme}
+      onToast={onToast}
     />
   )
 }

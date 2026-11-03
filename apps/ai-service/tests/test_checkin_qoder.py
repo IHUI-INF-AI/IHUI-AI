@@ -18,6 +18,7 @@ import time
 import httpx
 import pytest
 
+import app.services.checkin_qoder as qoder_mod
 from app.services.checkin_outbound import CHALLENGE_COOLDOWN_SECONDS, checkin_outbound_gate
 from app.services.checkin_qoder import (
     CLIENT_TYPE_DEFAULT,
@@ -33,6 +34,7 @@ from app.services.checkin_qoder import (
     qoder_device_map_uid,
     qoder_extract_uid,
     qoder_jwt_exp,
+    qoder_probe_status,
     qoder_query_credits,
     qoder_refresh_token,
     qoder_session_expiry,
@@ -75,6 +77,44 @@ def _campaign(cid: str, status: str, amount: int = 100, start=-3600, end=3600) -
         "endAt": time.time() + end,
         "benefit": {"kind": "CREDITS", "amount": amount},
     }
+
+
+# 以下三个 helper 只服务「已领判据按窗口起点所属自然日」的用例:全部用 +08 的
+# 固定钟点换算 epoch,不读当前时钟,跨时区/跨机器的测试机也跑出同一结论。
+_CN = datetime.timezone(datetime.timedelta(hours=8))
+
+
+def _cn_ts(day: str, hour: int, minute: int = 0) -> float:
+    """'+08 的某个钟点'("2026-11-01", 10, 0) → 固定 epoch 秒。"""
+    y, m, d = (int(x) for x in day.split("-"))
+    return datetime.datetime(y, m, d, hour, minute, tzinfo=_CN).timestamp()
+
+
+def _abs_campaign(
+    cid: str,
+    status: str,
+    start: float,
+    end: float,
+    action: str = "CLAIM_BENEFIT",
+    amount: int = 100,
+) -> dict:
+    """窗口用绝对 epoch 给的 campaign(对照 _campaign 的相对当前时刻版本)。"""
+    return {
+        "campaignId": cid,
+        "campaignKey": "daily-100",
+        "actionType": action,
+        "claimStatus": status,
+        "startAt": start,
+        "endAt": end,
+        "benefit": {"kind": "CREDITS", "amount": amount},
+    }
+
+
+def _today_window() -> tuple[float, float, float]:
+    """今天(Asia/Shanghai)10:00 → 次日 09:59 的固定窗口,及窗口内 2 小时后的 now。"""
+    now_dt = datetime.datetime.now(_CN)
+    start = _cn_ts(now_dt.strftime("%Y-%m-%d"), 10, 0)
+    return start, start + 86340.0, start + 7200.0
 
 
 # ---------------------------------------------------------------------------
@@ -283,14 +323,98 @@ class TestClaimable:
         assert already is False
 
     def test_already_claimed_in_window(self):
-        camps = [_campaign("c1", "CLAIMED", start=-60, end=60)]
-        claimable, already = _claimable_campaigns(camps, time.time())
+        # 窗口锚到今天 10:00(固定钟点)而非 time.time()-60:已领判据自 2026-11 起
+        # 还要求「窗口起点属今天」,相对当前时刻的 startAt 在 00:00 后 60 秒内会落到
+        # 昨天。断言本身没变(窗口内 CLAIMED ⇒ 已领),只是去掉了对时钟的依赖。
+        start, end, now = _today_window()
+        claimable, already = _claimable_campaigns([_abs_campaign("c1", "CLAIMED", start, end)], now)
         assert claimable == [] and already is True
 
     def test_claimed_outside_window_not_already(self):
         camps = [_campaign("c1", "CLAIMED", start=-7200, end=-3600)]
         claimable, already = _claimable_campaigns(camps, time.time())
         assert claimable == [] and already is False
+
+
+class TestClaimableWindowDay:
+    """已领判据必须「窗口起点所属 Asia/Shanghai 自然日 == now 所在自然日」。
+
+    Qoder 一个领取窗口是「当天 10:00 → 次日 09:59」,横跨两个自然日;只看
+    「CLAIMED 落在窗口内」会让每天 00:00–09:59 跑的检查把昨天那一轮当成今天已领
+    (实证:2026-10-31 06:03 账号 13 记 skip_already,同日 10:06 却 claim_ok +100)。
+    本类所有用例都用固定 epoch(见 _cn_ts),不依赖当前时钟。
+    """
+
+    # 实测窗口(2026-11-01 那一轮):startAt=1793498400(+08 10:00)、endAt=1793584740(+08 次日 09:59)
+    WIN_START = 1793498400.0
+    WIN_END = 1793584740.0
+
+    def test_0600_probe_yesterday_window_claimed_is_not_already(self):
+        """① 06:00 探针 + 只有昨天 10:00 开窗的 CLAIMED ⇒ 未领(复现原 bug)。"""
+        prev_start = _cn_ts("2026-10-31", 10, 0)  # 1793412000
+        prev_end = _cn_ts("2026-11-01", 9, 59)  # 1793498340
+        now = _cn_ts("2026-11-01", 6, 0)  # 1793484000,确实落在昨天窗口内
+        assert prev_start <= now < prev_end  # 前置:旧判据在这里必然误判
+        camp = _abs_campaign("prev", "CLAIMED", prev_start, prev_end)
+        claimable, already = _claimable_campaigns([camp], now)
+        assert claimable == [] and already is False
+
+    def test_1200_today_window_claimed_is_already(self):
+        """② 12:00 + 今天 10:00 开窗的 CLAIMED ⇒ 已领(主签到 10:05 路径不变)。"""
+        now = _cn_ts("2026-11-01", 12, 0)  # 1793505600
+        camp = _abs_campaign("today", "CLAIMED", self.WIN_START, self.WIN_END)
+        claimable, already = _claimable_campaigns([camp], now)
+        assert claimable == [] and already is True
+
+    def test_1200_today_window_claimable_hit(self):
+        """③ 12:00 + 今天 10:00 开窗的 CLAIMABLE ⇒ 可领命中,且不算已领。"""
+        now = _cn_ts("2026-11-01", 12, 0)
+        camp = _abs_campaign("today", "CLAIMABLE", self.WIN_START, self.WIN_END)
+        claimable, already = _claimable_campaigns([camp], now)
+        assert len(claimable) == 1 and claimable[0]["campaignId"] == "today"
+        assert already is False
+
+    def test_cross_year_window_claimed_is_not_already(self):
+        """④ 跨年边界:12-31 10:00 开窗、次年 01-01 06:00 检查 ⇒ 未领;同日 12:00 仍判已领。"""
+        start = _cn_ts("2026-12-31", 10, 0)  # 1798682400
+        end = _cn_ts("2027-01-01", 9, 59)  # 1798768740
+        camp = _abs_campaign("ny", "CLAIMED", start, end)
+        for now, expected in (
+            (_cn_ts("2027-01-01", 6, 0), False),  # 1798754400:窗口内但起点属去年
+            (_cn_ts("2026-12-31", 12, 0), True),  # 1798689600:同一天,正常判已领
+        ):
+            claimable, already = _claimable_campaigns([camp], now)
+            assert claimable == [] and already is expected
+
+    def test_non_claim_benefit_claimed_ignored(self):
+        """⑤ actionType != CLAIM_BENEFIT 的 CLAIMED 不参与已领(回归,原行为)。"""
+        now = _cn_ts("2026-11-01", 12, 0)
+        camp = _abs_campaign("other", "CLAIMED", self.WIN_START, self.WIN_END, action="OTHER")
+        claimable, already = _claimable_campaigns([camp], now)
+        assert claimable == [] and already is False
+
+    @pytest.mark.asyncio
+    async def test_probe_0600_not_report_today_claimed(self, monkeypatch):
+        """用户可见面:06:00 探针在只有昨天窗口 CLAIMED 时不得回「今日已领取」。"""
+        prev_start = _cn_ts("2026-10-31", 10, 0)
+        prev_end = _cn_ts("2026-11-01", 9, 59)
+        now = _cn_ts("2026-11-01", 6, 0)
+        payload = {"campaigns": [_abs_campaign("prev", "CLAIMED", prev_start, prev_end)]}
+
+        async def fake_api(
+            path, method="GET", token="", body=None, device_map=None, timeout=30.0, client=None
+        ):
+            return 200, payload
+
+        class _FrozenTime:
+            @staticmethod
+            def time() -> float:
+                return now
+
+        monkeypatch.setattr(qoder_mod, "_api_call", fake_api)
+        monkeypatch.setattr(qoder_mod, "time", _FrozenTime)
+        ok, checked_in, _credits, message = await qoder_probe_status("n", "tok", {})
+        assert ok is True and checked_in is False and message == ""
 
 
 class TestClassify:

@@ -87,7 +87,7 @@ export default function ChildAttendancePage() {
       <BackButton />
       <header className="space-y-1">
         <h1 className="text-display font-bold tracking-tight">{t('child.attendance')}</h1>
-        <p className="text-xs text-muted-foreground">{t('child.attendanceHint')}</p>
+        <p className="text-label text-muted-foreground">{t('child.attendanceHint')}</p>
       </header>
 
       {!allow ? (
@@ -102,7 +102,7 @@ export default function ChildAttendancePage() {
       ) : records.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
           <CalendarCheck className="h-8 w-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">{t('child.empty')}</p>
+          <p className="text-body text-muted-foreground">{t('child.empty')}</p>
         </div>
       ) : (
         <>
@@ -111,31 +111,31 @@ export default function ChildAttendancePage() {
             <Card>
               <CardContent className="min-[640px]:p-3 p-3 text-center">
                 <p className="text-display font-bold">{attendanceRate}%</p>
-                <p className="text-xs text-muted-foreground">{t('attendance.rate')}</p>
+                <p className="text-label text-muted-foreground">{t('attendance.rate')}</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="min-[640px]:p-3 p-3 text-center">
                 <p className="text-display font-bold text-emerald-600">{stats.present}</p>
-                <p className="text-xs text-muted-foreground">{tParent('attendancePresent')}</p>
+                <p className="text-label text-muted-foreground">{tParent('attendancePresent')}</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="min-[640px]:p-3 p-3 text-center">
                 <p className="text-display font-bold text-amber-600">{stats.late}</p>
-                <p className="text-xs text-muted-foreground">{tParent('attendanceLate')}</p>
+                <p className="text-label text-muted-foreground">{tParent('attendanceLate')}</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="min-[640px]:p-3 p-3 text-center">
                 <p className="text-display font-bold text-red-600">{stats.absent}</p>
-                <p className="text-xs text-muted-foreground">{tParent('attendanceAbsent')}</p>
+                <p className="text-label text-muted-foreground">{tParent('attendanceAbsent')}</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="min-[640px]:p-3 p-3 text-center">
                 <p className="text-display font-bold text-blue-600">{stats.leave}</p>
-                <p className="text-xs text-muted-foreground">{tParent('attendanceLeave')}</p>
+                <p className="text-label text-muted-foreground">{tParent('attendanceLeave')}</p>
               </CardContent>
             </Card>
           </div>
@@ -158,7 +158,7 @@ export default function ChildAttendancePage() {
                         {codeLabel(tParent, ATTENDANCE_STATUS_KEYS, r.status)}
                       </Badge>
                     </div>
-                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-3 text-label text-muted-foreground">
                       {r.checkInTime && (
                         <div className="flex items-center gap-1">
                           <Clock className="h-3 w-3" />

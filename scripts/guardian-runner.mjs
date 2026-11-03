@@ -1192,16 +1192,18 @@ const checks = [
   //   跳过: HUSKY_SKIP_WORKFLOW_ORDER=1 git commit ...
   {
     id: '48',
-    label: '🧩 GitHub Actions workflow 守门(步骤顺序 + 顶层 permissions 声明)',
+    label: '🧩 GitHub Actions workflow + deploy 构建文件守门(步骤顺序 + permissions + 安装逐字钉版 + 工具链版本对账)',
     script: 'check-workflow-step-order.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: [".github/workflows/"],
+    stagedTriggers: ['.github/workflows/', 'deploy/'],
     onFailHint: [
       '',
       '  💡 workflow 里 actions/setup-node 用了 cache: pnpm,但 pnpm/action-setup 排在它后面。',
       '     修复: 把 pnpm/action-setup 步骤移到 actions/setup-node 之前。',
       '  💡 [permissions] 缺顶层 permissions: 块或写了 write-all ⇒ GITHUB_TOKEN 正拿仓库/组织默认档位(可能含写权)。修复: 顶层(第 0 列)逐条点名 scope,禁 write-all。取证: node --test scripts/tests/workflow-permissions-declaration.test.mjs',
+      '  💡 [install-pin] 安装命令没逐字钉版(区间与裸包名都算)⇒ 同一枚提交在两个时间点能装出两个东西,而它常站在握凭据的那条链第一格。修复: ==x.y.z / @x.y.z,或现读值 @$VAR,或走锁文件。取证: node scripts/check-workflow-step-order.mjs --self-test',
+      '  💡 [build-pin] deploy/ 的构建文件里,装工具链那一行(corepack prepare / npm i -g / pnpm add -g / yarn global add)没逐字钉版,或钉成的版本 ≠ 根 package.json 的 packageManager ⇒ 镜像与 snap 产物用的包管理器由"当天 registry 最新"决定。修复: 钉到 packageManager 同值(pnpm 现读值见根 package.json)。取证: node scripts/check-workflow-step-order.mjs --self-test',
     ].join('\n'),
   },
 
@@ -6684,6 +6686,194 @@ const checks = [
       '     本门只读:绝不自愈、绝不重装、绝不写盘 —— 处置权在人,不在尺子(§5e-1)。',
     ],
   },
+  // 编号 278:注册前现读全仓同 id 出现 0 次(现读最大 277;判重以门 89 R5/R13 反查为准)。
+  // 立因(2026-11-01 安全强化):
+  // `isSafeNavigationTarget` 的 allowedOrigins 缺席即"只判协议",任意绝对外站一律通过。
+  // 同日实测四处真命中,两枚在授权码签发路径(sso/login:171、sso/register:164 —— target 既被
+  // POST 当 redirectUri 又拼上 sso_code 导航),两枚在自动回跳(sso/login:249、:268)。同页 :133 与
+  // /sso/redirect、LoginDialog 早显式传了白名单 ⇒ 证明"同一把尺子四个落点各写一遍必然漏",且漏的那侧是安静的。
+  // 存量(除具名台账那 1 枚 mobile-auth 设计意图外)= 0 ⇒ 按 §12e 可直接 blocking,非恒红门。
+  {
+    id: '278',
+    label:
+      '🔐 回跳落点必须钉 origin(调用点对账:blocking;resolveSafeRedirectTarget/isSafeNavigationTarget 的 options 须含 allowedOrigins 字面量,豁免=具名台账且带到期)',
+    script: 'check-redirect-target-origin-pinned.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: ['apps/web/'],
+    skipEnv: 'HUSKY_SKIP_REDIRECT_ORIGIN_PIN',
+    onFailHint: [
+      '  💡 红的意思是:某枚回跳调用点没交出一份第一方落点集 ⇒ 刚建好的会话/刚签发的 sso_code 可被送到任意外站。',
+      '     ① 修法:options 里补 `allowedOrigins: firstPartyAllowedOrigins()`(深链走协议族另一支,不受影响);',
+      '     ② 真需要外站回跳(如 App→Web 契约):往 scripts/data/redirect-origin-pinned-exemptions.json 登记',
+      '        file/bareCalls/reason(≥10字)/until(到期日),豁免不再命中即判清单腐烂红;',
+      '     ③ "options 是变量"落未判定(exit 2)不是红,但也绝不放行 —— 机器证不出已钉就是没钉。',
+      '     取证:node scripts/check-redirect-target-origin-pinned.mjs --self-test(16 例,含四档变异自证)',
+    ].join('\n'),
+  },
+  // 编号 279:注册前现读全仓同 id 出现 0 次(上一枚是 278)。立因(2026-11-01 安全强化):
+  // LIKE/ILIKE 的"通配符转义"在本仓有**六份**各自实现(voice-note / ai-world ×2 / order /
+  // tbox-points / algorithm-record),最后一份是"删掉 %_"而非转义,搜 "100%" 会被吃掉百分号。
+  // 六份已于同日全部改指 apps/api/src/utils/like-escape.ts,现读单源外实现 = 0 ⇒ D1 可绝对零容忍。
+  // D2(未转义 %${x}% 内插)存量现读 276 处 / 102+ 文件,不判红,只做该文件 HEAD 自身的差值棘轮
+  // (§12e:存量没归零前上 blocking = 恒红门,唯一结局是逼人跳门、连带全部守门作废)。
+  {
+    id: '279',
+    label:
+      '🧨 LIKE 通配符转义单源 + 未转义内插差值棘轮(blocking;D1 绝对零容忍·D2 只拦新增·D3 具名台账带到期)',
+    script: 'check-like-wildcard-escape.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: ['apps/api/src/', 'packages/'],
+    skipEnv: 'HUSKY_SKIP_LIKE_WILDCARD_ESCAPE',
+    onFailHint: [
+      '  💡 [D1 单源] 又长出一份本地 LIKE 转义实现。修复:改调 apps/api/src/utils/like-escape.ts 的',
+      '     escapeLikeChars(只转义,给前缀/后缀/JSON 片段)或 asContainsTerm / asPrefixTerm(转义+包裹)。',
+      '     需要第四种形态 = 先把它加进单源,不要在调用点抄。',
+      '  💡 [D2 新增] 本次把用户输入内插进了 `%${x}%` / \'%\' + x + \'%\'。修复:换成 asContainsTerm(x)。',
+      '     存量 276 处只报数不拦(分档清偿中);故意吃通配符的面不要转义 —— 去登记台账。',
+      '  💡 [D3 台账] 腐烂/到期的意思是:登记的"整值即模式"面已不再命中(要么被改了要么被删了),',
+      '     或豁免到期未销账。修法是就地复核并更新 scripts/data/like-wildcard-intentional.json,不是删判据。',
+      '     取证:node scripts/check-like-wildcard-escape.mjs --self-test(14 例,含变异自证)',
+    ].join('\n'),
+  },
+  // 编号 280:注册前现读全仓门号 280 出现 0 次(上一枚是 279;本仓无 plan-id-lease 之类的
+  // 门号租赁器物 —— `scripts/lib/plan-id-lease.mjs` 管的是 PROJECT_PLAN 的票号,不是门号 ⇒ 取号规则
+  // 就是"注册前现读最大 + 1",见上一行注释体例)。
+  // 立因(票 O69,2026-11-01):`scripts/rotate-local-dev-db-password.mjs` 已入库(自检 7/7、换前备份、
+  // 换后"旧口令被 PG 拒收 ∧ 新口令全消费面 PING_OK"、jsonl 留痕 90 天老化),但它的 `--apply` 要求
+  // 8801/8802/8803 全空才肯动 ⇒ 活服务在跑就永远轮不上,窗口只能靠人盯。本门把"窗口到没到"变成
+  // 巡检里的一行读数:超期(读器物留痕末条 ts,30 天)∧ 三口全空 ⇒ `due` 并打印
+  // `would run: node scripts/rotate-local-dev-db-password.mjs --apply`。
+  // 三档读数 skip / deferred / due / undetermined,**本门恒 exit 0**:
+  //   - 真派发不在提交链上(git-guardian 的 sweepLocalDevDbRotation 是唯一 spawner),本门默认**零 spawn**,
+  //     只在人给 `--trigger`/`IHUI_ROTATE_DEV_DB=1` 时才真跑 —— "巡检顺手换一次库口令"是比"没轮换"更坏的
+  //     失效方向;
+  //   - 端口探测走 node:net connect(300ms 上限,三口并行),不用 netstat 硬解析、不起 Windows 原生 exe;
+  //   - 取不到留痕/坏行/端口判不了 ⇒ undetermined 且仍 0:机器证不出窗口空就是没空,但不许因此把提交拖红
+  //     (§12e:机器状态判据不阻塞提交)。
+  {
+    id: '280',
+    label: '🔑 本机 dev 库口令轮换窗口(非阻塞读数;超期∧8801/8802/8803 全空 ⇒ would-run,默认不换)',
+    script: 'check-dev-db-rotation-window.mjs',
+    args: [],
+    mode: 'warn',
+    skipEnv: 'HUSKY_SKIP_DEV_DB_ROTATION_WINDOW',
+    onFailHint: [
+      '  💡 本门只读数、恒 exit 0;打印 state=due 不等于"该在这里换口令",而是提示"窗口刚空出来"。',
+      '     真跑(风险自担,会改本机 dev 库口令):node scripts/check-dev-db-rotation-window.mjs --trigger',
+      '     或 IHUI_ROTATE_DEV_DB=1 node scripts/check-dev-db-rotation-window.mjs。',
+      '  💡 state=undetermined = 取不到输入(留痕缺失/坏行、端口探测未判定)⇒ 未判定,不给绿灯也不拦提交;',
+      '     留痕缺失通常是"本机从未成功轮换过",先看 node scripts/rotate-local-dev-db-password.mjs --plan。',
+      '     取证:node --test scripts/tests/check-dev-db-rotation-window.test.mjs(9 例,含两条变异自证)',
+    ].join('\n'),
+  },
+  // 编号 281:注册前现读全仓门号 281 出现 0 次(上一枚 280;取号规则 = 注册前现读最大 + 1)。
+  // 立因(2026-11-02):多会话共享同一 gitdir 时,`git worktree add` 的附加工作树不出现在主树
+  // `git status` 里 —— 本会话多次把「未提交=0」建在主树单树上,漏掉 `.ihui-agent/tmp/wip-*`
+  // 里的 6 个待提交文件。本门是「是否还有未提交改动」的唯一口径(AGENTS §12 全工作树口径):
+  //   - 其他工作树脏 / 有 stash ⇒ 只告警不阻断(并行会话的在飞 WIP 不得让本树恒红);
+  //   - 主工作树**残量**(未暂存/未跟踪/冲突/stash)⇒ 阻断;主树 staged = 本次提交内容,不计脏。
+  // 收尾核验(要连 staged 一起判)走严格模式:node scripts/check-worktree-status.mjs。
+  // 编号 285(2026-11-03 让号):本条原登记为 282,与 43fe135510(11-03 01:37)先占的
+  // `check-web-rn-gap-ratchet.mjs` 撞号 ⇒ 门 89 R5 判红(同 id 两道门会串 skipEnv 与失败归属);
+  // 在册口径是「后来者必须改号」,后到的是本条(119c860fc8,11-03 08:32),故本条让号、那一支不动。
+  // 取号按「注册前现读」:数值 id 现读最大 284,285..300 全空 ⇒ 落 285。判据/档位/skipEnv 一字未动。
+  {
+    id: '285',
+    label: '📚 文档中心公开面健康对账(blocking;D1 hreflang 声明↔路由文件存在 / D2 sitemap 收录↔路由 / D3 docs 的 icon 字段禁 emoji)',
+    script: 'check-docs-public-health.mjs',
+    args: ['--staged'],
+    mode: 'blocking',
+    stagedTriggers: ['apps/web/app/'],
+    skipEnv: 'HUSKY_SKIP_DOCS_PUBLIC_HEALTH',
+    onFailHint: [
+      '  💡 [D1 hreflang 死链] 某 docs 页 metadata.alternates.languages 声明了不存在的路由(如 /zh-tw/docs)。',
+      '     ① 现读逐条点名:node scripts/check-docs-public-health.mjs --worktree',
+      '     ② 两条合法出路:把该语言页真建出来(路由文件须落在 apps/web/app/ 下),或删掉这条声明;',
+      '        只留 canonical + x-default + 真实存在的语言版。禁止用注释把声明藏起来(判据读源码结构)。',
+      '  💡 [D2 sitemap 死链] app/sitemap.ts 收录了没有路由文件的 /docs* 路径。收录死链比不收录更糟,',
+      '     正解 = 从 sitemap 摘掉该条,或补出页面。',
+      '  💡 [D3 emoji 图标] docs 页的 icon: 字段用了 emoji ⇒ 换 lucide-react 矢量组件(web 侧唯一图标源,AGENTS.md §4)。',
+      '     注意本判据不吃"正文装饰"豁免:emoji 门(108 族)对 docs 正文装饰放行,但 icon: 字段两档都判。',
+      '     文档正文里展示给读者看的示例代码(<pre><code>{`…`}</code></pre> 模板字符串内)不算配置,已按字面量跨度排除。',
+      '  💡 取证:node scripts/check-docs-public-health.mjs --self-test(10 例,含 D3 成对夹具与反向牙)',
+      '     镜像:node --test scripts/tests/check-docs-public-health.test.mjs',
+      '  💡 应急放行:HUSKY_SKIP_DOCS_PUBLIC_HEALTH=1 git commit ...(不推荐;跳过会留痕)',
+    ],
+  },
+  {
+    id: '281',
+    label: '🌳 全工作树未提交状态(blocking;主树残量阻断,其他工作树脏只告警)',
+    script: 'check-worktree-status.mjs',
+    args: ['--gate'],
+    mode: 'blocking',
+    stagedTriggers: ['**/*'],
+    skipEnv: 'HUSKY_SKIP_WORKTREE_STATUS',
+    onFailHint: [
+      '  💡 主工作树还有本次提交之外的未提交内容(未暂存/未跟踪/冲突/stash)。',
+      '     ① 逐条查看:node scripts/check-worktree-status.mjs(--json 供程序消费)',
+      '     ② 按 §12 全部提交(禁止 stash、禁止 checkout -- 丢弃);确实不能提交的,先停下说明。',
+      '     ③ 其他工作树脏只告警不阻断:请在该树内自行提交后 git worktree remove。',
+      '     自检:node --test scripts/tests/check-worktree-status.test.mjs(5 例)',
+    ].join('\n'),
+  },
+  {
+    id: '282',
+    label:
+      '📏 web↔RN 覆盖缺口棘轮(blocking;unmapped/judgedGap/prefixHits/prefixExpired/data.kind 任一退化拦提交)',
+    script: 'check-web-rn-gap-ratchet.mjs',
+    args: ['--gate'],
+    mode: 'blocking',
+    stagedTriggers: [
+      'scripts/check-web-rn-gap-ratchet.mjs',
+      'scripts/data/web-rn-gap-baseline.json',
+      'scripts/check-web-rn-screen-parity.mjs',
+      'scripts/data/web-rn-screen-map.jsonl',
+      'packages/shared/src/constants/web-portal.ts',
+      'packages/app/',
+      'apps/web/',
+      'apps/mobile-rn/',
+    ],
+    skipEnv: 'HUSKY_SKIP_WEB_RN_GAP_RATCHET',
+    onFailHint:
+      '  💡 单独复验:node scripts/check-web-rn-gap-ratchet.mjs [--json|--gate];基线只降不升:node scripts/check-web-rn-gap-ratchet.mjs --baseline',
+  },
+  // --- 共享屏「至少被一枚 RN 壳直接 import」覆盖判据(P0-1,守门 283)---
+  {
+    id: '283',
+    label:
+      '🧩 共享屏 RN 薄壳覆盖(blocking;新增共享屏既无 RN 壳直接 import 又未在册认领 ⇒ 拦提交)',
+    script: 'check-rn-host-shell-coverage.mjs',
+    args: ['--gate'],
+    mode: 'blocking',
+    stagedTriggers: [
+      'scripts/check-rn-host-shell-coverage.mjs',
+      'scripts/data/rn-host-shell-manual.json',
+      'packages/app/',
+      'apps/mobile-rn/',
+    ],
+    skipEnv: 'HUSKY_SKIP_RN_HOST_SHELL_COVERAGE',
+    onFailHint:
+      '  💡 单独复验:node scripts/check-rn-host-shell-coverage.mjs [--gate|--json]。缺口两条正路:① 补 RN 壳(node scripts/gen-rn-host-shell.mjs --all --write);② 在 scripts/data/rn-host-shell-manual.json 逐条认领(owner + expires + reason)。挂账到期即判红,禁止为消红批量伪造认领。',
+  },
+  // --- 跨端「声明承载 vs 真承载」差集棘轮(2026-11-03 立,守门 284)---
+  {
+    id: '284',
+    label:
+      '🪤 跨端声明承载 vs 真承载棘轮(blocking;差值只拦本次新增的假声明,存量逐条报数不拦)',
+    script: 'check-declared-carriage.mjs',
+    args: ['--gate'],
+    mode: 'blocking',
+    stagedTriggers: [
+      'scripts/check-declared-carriage.mjs',
+      'scripts/data/cross-end-screen-registry.json',
+      'apps/miniapp-taro/src/',
+    ],
+    skipEnv: 'HUSKY_SKIP_DECLARED_CARRIAGE',
+    onFailHint:
+      '  💡 registry 新增了一条「某小程序页承载某共享屏」的声明,而那一页的 blob 里**没有**该壳的值 import(注释与 import type 都不算)。单独复验:node scripts/check-declared-carriage.mjs [--gate|--json]。两条正路:① 把那一页改成真的承载壳(页与 import 同批落);② 该端结构上不能承载就摘掉这条 registry 行(连同 app.config 路由一起核)。禁止为消红补注释——本尺就判注释不算。',
+  },
 ]
 
 // === push 门检查集(2026-08-31 新增) ===
@@ -6728,6 +6918,30 @@ const pushGateChecks = [
       '     自检:node scripts/check-git-stdio-discipline.mjs --self-test(23 例,含折行不改判据命门例 + ES6 属性简写族)',
       '     镜像:node --test scripts/tests/check-git-stdio-discipline.test.mjs(16 例;T13 可能因 AD 态文件在环境性红)',
       '  紧急跳过(不推荐):HUSKY_SKIP_GIT_STDIO_DISCIPLINE=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+  // 47 溯源水印覆盖的 **push 收窄档**(2026-11-03 补):pre-commit 档能拦暂存面,但私有索引
+  // (read-tree/hash-object/write-tree/commit-tree)与任何绕过 pre-commit 的落地都不经过它。
+  // 事故:0335facba1 把 packages/api-client/src/endpoints/agent-chat-stream.ts 的载荷写坏
+  // (blob 461 码元 vs 规范 485,丢 24 个零宽码元),坏 blob 直入 HEAD,靠 dde93677f6 重注入才恢复。
+  // push 门是**远程前的最后一道结构闸**,必须独立跑一次;只判 PUSH_SCOPE_FILES(本次 push 变更文件)
+  // ∩ HEAD 树,不跑全量 1.6 万+(判据本体、第三方排除面、自愈策略与 pre-commit 档共用同一份实现)。
+  {
+    // 号位:pre-commit 已有门 47(自愈档),push 是同一判据的**收窄档**,不能复用 id
+    // (check-gate-wiring R5:同 id 多道门会串 skipEnv 与失败归属;后来者改号)。
+    id: '47p',
+    label: '💧 溯源水印覆盖守门(push scope:只判本次推送涉及文件的 HEAD blob)',
+    script: 'check-watermark-coverage.mjs',
+    args: ['--push-scope'],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 本次推送携带的某个文件在 HEAD blob 里水印缺失/损坏(常见于 commit-tree/私有索引落地绕过 pre-commit)。',
+      '     修复:node scripts/watermark.mjs inject <file> → 随一枚新提交带进 HEAD → 重新 push。',
+      '     push 档只写工作区、不碰索引:inject 完仍红属正常(HEAD 面欠账只能由真正的提交销账)。',
+      '     列出缺口:node scripts/watermark.mjs list-uncovered --files-from <清单>(清单即 PUSH_SCOPE_FILES)。',
+      '     退出码 2 = 取不到判定面或 push scope 不可得时退回全量面,不是"没水印"。',
       '',
     ].join('\n'),
   },

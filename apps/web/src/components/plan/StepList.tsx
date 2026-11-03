@@ -67,7 +67,7 @@ export function StepList({
 
   if (steps.length === 0) {
     return (
-      <div className="rounded-md border border-dashed py-8 text-center text-sm text-muted-foreground">
+      <div className="rounded-md border border-dashed py-8 text-center text-body text-muted-foreground">
         暂无步骤,点击下方"添加步骤"开始规划
       </div>
     )

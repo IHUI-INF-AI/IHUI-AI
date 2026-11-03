@@ -104,7 +104,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       gap: rnSpacing.md,
       minHeight: 56,
-      paddingHorizontal: 14,
+      paddingHorizontal: rnSpacing['md-loose'],
       paddingVertical: rnSpacing.md,
       borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.card,

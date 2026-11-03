@@ -69,7 +69,7 @@ export default function ChildCoursesPage() {
       <BackButton />
       <header className="space-y-1">
         <h1 className="text-display font-bold tracking-tight">{t('child.courses')}</h1>
-        <p className="text-xs text-muted-foreground">{t('child.coursesHint')}</p>
+        <p className="text-label text-muted-foreground">{t('child.coursesHint')}</p>
       </header>
 
       {!allow ? (
@@ -84,7 +84,7 @@ export default function ChildCoursesPage() {
       ) : courses.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
           <BookOpen className="h-8 w-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">{t('child.empty')}</p>
+          <p className="text-body text-muted-foreground">{t('child.empty')}</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
@@ -104,7 +104,7 @@ export default function ChildCoursesPage() {
                       style={{ borderLeftColor: c.color ?? CHART_BLUE }}
                     >
                       <p className="text-body font-medium">{c.courseName}</p>
-                      <div className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+                      <div className="mt-1 space-y-0.5 text-label text-muted-foreground">
                         <div className="flex items-center gap-1">
                           <Clock className="h-3 w-3" />
                           {c.startTime} - {c.endTime}

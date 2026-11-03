@@ -79,7 +79,7 @@ export default function SdksPage() {
               type="button"
               onClick={() => setLanguage(l)}
               className={
-                'rounded-sm border px-3 py-1 text-sm transition-colors ' +
+                'rounded-sm border px-3 py-1 text-body transition-colors ' +
                 (language === l
                   ? 'border-brand-accent-deep bg-cta text-cta-foreground'
                   : 'border-border hover:bg-muted')
@@ -98,7 +98,7 @@ export default function SdksPage() {
         </div>
       ) : list.length === 0 ? (
         <Card>
-          <CardContent className="py-8 text-center text-sm text-muted-foreground">
+          <CardContent className="py-8 text-center text-body text-muted-foreground">
             {t('noMatch')}
           </CardContent>
         </Card>
@@ -116,7 +116,7 @@ export default function SdksPage() {
                       href={item.docsUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-xs text-primary hover:underline"
+                      className="text-label text-primary hover:underline"
                     >
                       {t('viewDocs')}
                     </a>

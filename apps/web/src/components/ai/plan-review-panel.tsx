@@ -143,14 +143,14 @@ export function PlanReviewPanel({
     <div className="rounded-xl border bg-card" data-testid="plan-review-panel">
       <div className="flex items-center gap-2 px-4 py-2.5">
         <ClipboardList className="h-4 w-4 text-primary" />
-        <h3 className="text-sm font-semibold">{t('title')}</h3>
+        <h3 className="text-body font-semibold">{t('title')}</h3>
         {/* D98④:查看 PR(与 D15 同 URL 源,仅跳转) */}
         {pullRequestUrl && (
           <a
             href={pullRequestUrl}
             target="_blank"
             rel="noreferrer"
-            className="ml-auto inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground"
+            className="ml-auto inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-label text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground"
             data-testid="plan-review-pr-link"
           >
             <ExternalLink className="h-3.5 w-3.5" />
@@ -187,7 +187,7 @@ export function PlanReviewPanel({
       <div className="space-y-3 p-3">
         {plan.steps.length === 0 && !plan.summary ? (
           <p
-            className="py-6 text-center text-sm text-muted-foreground"
+            className="py-6 text-center text-body text-muted-foreground"
             data-testid="plan-review-empty"
           >
             {t('empty')}
@@ -195,7 +195,7 @@ export function PlanReviewPanel({
         ) : (
           <>
             {plan.summary && (
-              <p className="rounded-md bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+              <p className="rounded-md bg-muted/40 px-3 py-2 text-body text-muted-foreground">
                 {plan.summary}
               </p>
             )}
@@ -203,17 +203,17 @@ export function PlanReviewPanel({
               {plan.steps.map((step, idx) => (
                 <li key={step.id} className="rounded-lg border bg-background/50 p-3">
                   <div className="flex gap-2">
-                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-cta/10 text-xs font-medium text-primary">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-cta/10 text-label font-medium text-primary">
                       {idx + 1}
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm">{step.description}</p>
+                      <p className="text-body">{step.description}</p>
                       {step.tools && step.tools.length > 0 && (
                         <div className="mt-1.5 flex flex-wrap gap-1">
                           {step.tools.map((tool) => (
                             <span
                               key={tool}
-                              className="rounded bg-muted px-1.5 py-0.5 text-xs font-medium text-muted-foreground"
+                              className="rounded bg-muted px-1.5 py-0.5 text-label font-medium text-muted-foreground"
                             >
                               {tool}
                             </span>
@@ -252,5 +252,4 @@ export function PlanReviewPanel({
 }
 
 export default PlanReviewPanel
-//
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

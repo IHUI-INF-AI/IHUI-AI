@@ -316,7 +316,7 @@ function tcpOpen(port, timeout = 1200) {
 
 async function apiHealthy() {
   try {
-    const res = await fetch(API_HEALTH, { signal: AbortSignal.timeout(3000) })
+    const res = await fetch(API_HEALTH, { signal: AbortSignal.timeout(10000) })
     return res.status < 500
   } catch {
     return false

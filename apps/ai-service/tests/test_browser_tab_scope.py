@@ -49,6 +49,30 @@ ALICE = "u-alice"
 BOB = "u-bob"
 
 
+@pytest.fixture(autouse=True)
+def _resolve_fake_domains(monkeypatch: pytest.MonkeyPatch) -> None:
+    """假域名解析成公网 IP:作用域用例不该依赖真实 DNS。
+
+    2026-11-01 起 navigate 会过 SSRF 闸(判据在 screenshot_service._validate_url_ssrf)。
+    本文件用 evil.example 等保留域名,离线机器 DNS 必失败 ⇒ 闸会(正确地)拒,把
+    "跨属主 404" 的断言污染成 400。这里只钉 DNS 解析,闸的其余判据照旧执行;
+    闸本身的用例见 tests/test_browser_hub_navigate_ssrf.py。
+    """
+    import socket
+
+    from app.services import screenshot_service as _ss
+
+    real = socket.getaddrinfo
+
+    def _fake(host, *args, **kwargs):
+        try:
+            return real(host, *args, **kwargs)
+        except socket.gaierror:
+            return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 0))]
+
+    monkeypatch.setattr(_ss.socket, "getaddrinfo", _fake)
+
+
 # ---------------------------------------------------------------------------
 # 替身:CDP / Context / Page 与"就地执行"的 _run_sync
 # ---------------------------------------------------------------------------

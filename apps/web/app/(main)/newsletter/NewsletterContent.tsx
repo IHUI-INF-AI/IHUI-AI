@@ -78,10 +78,10 @@ export function NewsletterContent(): React.JSX.Element {
         <h1 className="mt-3 text-display min-[768px]:text-3xl min-[1024px]:text-4xl font-bold tracking-tight">
           {t('hero.title')}
         </h1>
-        <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground min-[768px]:text-base">
+        <p className="mx-auto mt-2 max-w-xl text-body text-muted-foreground min-[768px]:text-base">
           {t('hero.subtitle')}
         </p>
-        <p className="mt-3 text-sm text-muted-foreground">
+        <p className="mt-3 text-body text-muted-foreground">
           {t('hero.subscriberPrefix')}{' '}
           <span className="font-semibold text-primary">
             <AnimatedNumber value={8392} />
@@ -95,7 +95,7 @@ export function NewsletterContent(): React.JSX.Element {
           <CardContent className="min-[640px]:p-3 flex flex-col items-center gap-4 p-3 text-center">
             <CheckCircle2 className="h-10 w-10 text-emerald-500" />
             <h2 className="text-heading font-bold text-foreground">{t('success.title')}</h2>
-            <p className="text-sm text-muted-foreground">{t('success.desc')}</p>
+            <p className="text-body text-muted-foreground">{t('success.desc')}</p>
             <div className="mt-4 w-full text-left">
               <h3 className="mb-3 text-body font-semibold text-foreground">
                 {t('success.recommended')}
@@ -105,7 +105,7 @@ export function NewsletterContent(): React.JSX.Element {
                   <li key={a.slug}>
                     <Link
                       href={`/blog/${a.slug}`}
-                      className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm text-foreground transition-colors hover:bg-muted/50"
+                      className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-body text-foreground transition-colors hover:bg-muted/50"
                     >
                       <span>{t(`${a.key}.title`)}</span>
                       <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
@@ -121,10 +121,12 @@ export function NewsletterContent(): React.JSX.Element {
           {/* Benefits */}
           <Card className="border-border min-[768px]:col-span-2">
             <CardContent className="min-[640px]:p-3 p-3">
-              <h2 className="mb-3 text-body font-semibold text-foreground">{t('benefits.title')}</h2>
+              <h2 className="mb-3 text-body font-semibold text-foreground">
+                {t('benefits.title')}
+              </h2>
               <ul className="space-y-2.5">
                 {benefits.map((b, idx) => (
-                  <li key={idx} className="flex items-start gap-2 text-sm text-muted-foreground">
+                  <li key={idx} className="flex items-start gap-2 text-body text-muted-foreground">
                     <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" />
                     <span>{b}</span>
                   </li>
@@ -168,7 +170,7 @@ export function NewsletterContent(): React.JSX.Element {
                       <label
                         key={tag}
                         className={cn(
-                          'flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-xs transition-colors',
+                          'flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-label transition-colors',
                           interests.has(tag)
                             ? 'border-brand-accent-deep bg-primary/5 text-foreground'
                             : 'border-border text-muted-foreground hover:bg-muted/50',
@@ -184,7 +186,7 @@ export function NewsletterContent(): React.JSX.Element {
                   </div>
                 </div>
 
-                <label className="flex cursor-pointer items-start gap-2 text-xs text-muted-foreground">
+                <label className="flex cursor-pointer items-start gap-2 text-label text-muted-foreground">
                   <Checkbox checked={agreed} onCheckedChange={(v) => setAgreed(v === true)} />
                   <span>
                     {t('form.privacyPrefix')}{' '}
@@ -194,7 +196,7 @@ export function NewsletterContent(): React.JSX.Element {
                   </span>
                 </label>
 
-                {status === 'error' && <p className="text-xs text-destructive">{errorMsg}</p>}
+                {status === 'error' && <p className="text-label text-destructive">{errorMsg}</p>}
 
                 <Button
                   type="submit"

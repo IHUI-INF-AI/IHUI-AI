@@ -10,6 +10,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { VipBenefitItem, VipBenefitScreenProps } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
+import { TIERS } from './vip-benefit-tier-catalog'
 
 export type { VipBenefitItem, VipBenefitScreenProps }
 
@@ -25,8 +26,9 @@ export function VipBenefitScreen({
   loading,
   error,
   onBack,
-  colorScheme = 'light',
-}: VipBenefitScreenProps) {
+  onRetry,
+  colorScheme = 'light'
+}: VipBenefitScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -38,19 +40,8 @@ export function VipBenefitScreen({
     return (
       <ErrorState
         message={error}
-        onRetry={onBack}
+        onRetry={onRetry}
         retryLabel={t('common.back')}
-        colorScheme={colorScheme}
-      />
-    )
-  }
-
-  if (items.length === 0) {
-    return (
-      <EmptyState
-        title={t('common.empty')}
-        actionLabel={t('common.back')}
-        onAction={onBack}
         colorScheme={colorScheme}
       />
     )
@@ -63,15 +54,46 @@ export function VipBenefitScreen({
         <Text style={styles.title}>{t('vipBenefit.title')}</Text>
       </View>
       <View style={styles.body}>
-        {items.map((item) => (
-          <View key={item.id} style={styles.card}>
-            <View style={styles.titleRow}>
-              <Text style={styles.cardTitle}>{item.name}</Text>
-              <View style={styles.levelBadge}>
-                <Text style={styles.levelText}>{item.level}</Text>
+        <Text style={styles.sectionTitle}>{t('member.benefits.myBenefits')}</Text>
+        {items.length === 0 ? (
+          <EmptyState
+            title={t('member.benefits.empty')}
+            actionLabel={t('common.back')}
+            onAction={onBack}
+            colorScheme={colorScheme}
+          />
+        ) : (
+          items.map((item) => (
+            <View key={item.id} style={styles.card}>
+              <View style={styles.titleRow}>
+                <Text style={styles.cardTitle}>{item.name}</Text>
+                <View style={styles.levelBadge}>
+                  <Text style={styles.levelText}>{item.level}</Text>
+                </View>
               </View>
+              <Text style={styles.cardDesc}>{item.desc}</Text>
             </View>
-            <Text style={styles.cardDesc}>{item.desc}</Text>
+          ))
+        )}
+        {/* 等级权益目录:与端内 pages/member/benefits 同一面(列表空态时也渲染,对齐端内阶梯目录常在) */}
+        <Text style={[styles.sectionTitle, styles.sectionGap]}>
+          {t('member.benefits.tierCatalog')}
+        </Text>
+        {TIERS.map((tier) => (
+          <View key={tier.nameKey} style={styles.tierCard}>
+            <View style={styles.tierHead}>
+              <tier.icon size={20} color={tk.text.primary} />
+              <Text style={styles.tierName}>{t(tier.nameKey)}</Text>
+            </View>
+            {tier.benefits.map((benefit) => (
+              <View key={benefit.descKey} style={styles.benefitRow}>
+                <benefit.icon size={16} color={tk.text.secondary} />
+                <View style={styles.benefitText}>
+                  <Text style={styles.benefitTitle}>{t(benefit.titleKey)}</Text>
+                  <Text style={styles.benefitDesc}>{t(benefit.descKey)}</Text>
+                </View>
+              </View>
+            ))}
           </View>
         ))}
       </View>
@@ -109,6 +131,40 @@ function createStyles(tk: AppThemeTokens) {
     },
     levelText: { fontSize: rnType.label.size, color: tk.text.primary },
     cardDesc: { marginTop: rnSpacing.sm, ...rnType.body, color: tk.text.secondary },
+    sectionTitle: {
+      ...rnType.title,
+      fontWeight: '700',
+      color: tk.text.primary,
+      marginBottom: rnSpacing.md,
+    },
+    sectionGap: { marginTop: rnSpacing.lg },
+    tierCard: {
+      borderRadius: rnRadius.lg,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      backgroundColor: tk.surface.light,
+      marginBottom: rnSpacing.md,
+      overflow: 'hidden',
+    },
+    tierHead: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: rnSpacing.sm,
+      paddingHorizontal: rnSpacing.md,
+      paddingVertical: rnSpacing.sm,
+      backgroundColor: tk.surface.muted,
+    },
+    tierName: { ...rnType.title, fontWeight: '700', color: tk.text.primary },
+    benefitRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: rnSpacing.sm,
+      paddingHorizontal: rnSpacing.md,
+      paddingVertical: rnSpacing.sm,
+    },
+    benefitText: { flex: 1, gap: rnSpacing['2xs'] },
+    benefitTitle: { ...rnType.body, fontWeight: '500', color: tk.text.primary },
+    benefitDesc: { ...rnType.caption, color: tk.text.secondary },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

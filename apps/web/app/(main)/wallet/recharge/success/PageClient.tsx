@@ -84,14 +84,14 @@ function SuccessContent() {
             <CheckCircle2 className="h-16 w-16 text-emerald-500" />
             <div className="space-y-1">
               <h1 className="text-display font-bold tracking-tight">{t('rechargeSuccess')}</h1>
-              <p className="text-sm text-muted-foreground">{t('rechargeSuccessDesc')}</p>
+              <p className="text-body text-muted-foreground">{t('rechargeSuccessDesc')}</p>
             </div>
             {(orderNo || amount) && (
-              <div className="w-full space-y-1 rounded-md bg-muted/40 px-4 py-3 text-sm">
+              <div className="w-full space-y-1 rounded-md bg-muted/40 px-4 py-3 text-body">
                 {orderNo && (
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-muted-foreground">{t('rechargeOrderNo')}</span>
-                    <span className="font-mono text-xs">{orderNo}</span>
+                    <span className="font-mono text-label">{orderNo}</span>
                   </div>
                 )}
                 {amount && (
@@ -127,12 +127,12 @@ function SuccessContent() {
             <Loader2 className="h-12 w-12 animate-spin text-muted-foreground" />
             <div className="space-y-1">
               <h1 className="text-heading font-bold tracking-tight">等待支付确认</h1>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-body text-muted-foreground">
                 {status === 'timeout'
                   ? '长时间未检测到支付,如已完成支付请刷新本页或联系客服'
                   : '订单已创建,正在等待支付结果…'}
               </p>
-              {orderNo && <p className="font-mono text-xs text-muted-foreground">{orderNo}</p>}
+              {orderNo && <p className="font-mono text-label text-muted-foreground">{orderNo}</p>}
             </div>
             <Link href="/wallet" className="w-full">
               <Button variant="outline" className="w-full">
@@ -153,23 +153,25 @@ function SuccessContent() {
             {isAlipay ? '支付宝扫码支付' : '微信扫码支付'}
           </h1>
           {amount && (
-            <p className="text-sm text-muted-foreground">
+            <p className="text-body text-muted-foreground">
               金额：<span className="font-bold text-foreground">¥{amount}</span>
             </p>
           )}
           <div className="flex justify-center rounded-lg border border-border bg-white p-3">
             <QRCodeCanvas value={isAlipay ? payUrl : codeUrl} size={240} level="M" />
           </div>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-label text-muted-foreground">
             {isAlipay
               ? '请用支付宝扫描二维码完成支付'
               : '请用微信扫描二维码完成支付，支付完成后本页自动更新'}
           </p>
-          <p className="flex items-center gap-1 text-xs text-muted-foreground">
+          <p className="flex items-center gap-1 text-label text-muted-foreground">
             <Loader2 className="h-3 w-3 animate-spin" />
             {status === 'timeout' ? '长时间未检测到支付,如已完成支付请刷新本页' : '等待支付确认中…'}
           </p>
-          {orderNo && <p className="font-mono text-xs text-muted-foreground">订单号：{orderNo}</p>}
+          {orderNo && (
+            <p className="font-mono text-label text-muted-foreground">订单号：{orderNo}</p>
+          )}
           <Link href="/wallet" className="w-full">
             <Button variant="outline" className="w-full">
               {t('backToWallet')}

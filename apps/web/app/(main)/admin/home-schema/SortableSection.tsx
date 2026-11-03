@@ -63,7 +63,9 @@ export function SortableSection({ section, index, onToggle }: SortableSectionPro
       </button>
 
       {/* 序号 */}
-      <span className="w-6 text-center text-label font-medium text-muted-foreground">{index + 1}</span>
+      <span className="w-6 text-center text-label font-medium text-muted-foreground">
+        {index + 1}
+      </span>
 
       {/* section 名称 + 组件类型 */}
       <div className="flex flex-1 items-center gap-2">
@@ -75,7 +77,9 @@ export function SortableSection({ section, index, onToggle }: SortableSectionPro
 
       {/* 显隐开关 */}
       <div className="flex items-center gap-2">
-        <span className="text-xs text-muted-foreground">{section.enabled ? '显示' : '隐藏'}</span>
+        <span className="text-label text-muted-foreground">
+          {section.enabled ? '显示' : '隐藏'}
+        </span>
         <Switch checked={section.enabled} onCheckedChange={() => onToggle(section.id)} />
       </div>
     </div>

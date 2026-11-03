@@ -44,6 +44,7 @@ user_id 参数,句柄是 session_id,所以对齐点是**条目自身的属主**�
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -54,6 +55,7 @@ from ..services.dream_service import dream_service
 from ..services.memory_service import memory_service
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 def _resolve_owner(principal: str, user_id: str | None) -> str:
@@ -147,8 +149,17 @@ async def save_memory(
         return {"code": 0, "message": "ok", "data": result}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        return {"code": 500, "message": f"保存失败: {e}", "data": None}
+    except Exception:
+        # 2026-11-01:数据库异常原文(表名/列名/约束名/截断 SQL)不得出网关 ——
+        # response-sanitizer 只按字段名打码,`message` 不在名单里,原样透传即泄露。
+        # 对外只给固定文案 + 可枚举 errorCode;原文与堆栈只进日志。
+        logger.exception("保存记忆失败(user=%s)", owner)
+        return {
+            "code": 500,
+            "message": "保存失败",
+            "data": None,
+            "errorCode": "MEMORY_SAVE_FAILED",
+        }
 
 
 @router.get("/memory/recall")
@@ -163,8 +174,14 @@ async def recall_memory(
     try:
         results = await memory_service.recall(owner, query, top_k=top_k)
         return {"code": 0, "message": "ok", "data": results}
-    except Exception as e:
-        return {"code": 500, "message": f"检索失败: {e}", "data": None}
+    except Exception:
+        logger.exception("检索记忆失败(user=%s)", owner)
+        return {
+            "code": 500,
+            "message": "检索失败",
+            "data": None,
+            "errorCode": "MEMORY_RECALL_FAILED",
+        }
 
 
 @router.post("/memory/dream")
@@ -177,8 +194,14 @@ async def dream(
     try:
         result = await dream_service.consolidate(owner)
         return {"code": 0, "message": "ok", "data": result}
-    except Exception as e:
-        return {"code": 500, "message": f"梦境固化失败: {e}", "data": None}
+    except Exception:
+        logger.exception("梦境固化失败(user=%s)", owner)
+        return {
+            "code": 500,
+            "message": "梦境固化失败",
+            "data": None,
+            "errorCode": "MEMORY_DREAM_FAILED",
+        }
 
 
 @router.get("/memory/topics")
@@ -191,8 +214,14 @@ async def dream_topics(
     try:
         result = await dream_service.dream_topic(owner)
         return {"code": 0, "message": "ok", "data": result}
-    except Exception as e:
-        return {"code": 500, "message": f"主题生成失败: {e}", "data": None}
+    except Exception:
+        logger.exception("梦境主题生成失败(user=%s)", owner)
+        return {
+            "code": 500,
+            "message": "主题生成失败",
+            "data": None,
+            "errorCode": "MEMORY_TOPICS_FAILED",
+        }
 
 
 @router.delete("/memory/forget")
@@ -206,8 +235,14 @@ async def forget_memory(
     try:
         result = await dream_service.forget(owner, threshold=threshold)
         return {"code": 0, "message": "ok", "data": result}
-    except Exception as e:
-        return {"code": 500, "message": f"遗忘失败: {e}", "data": None}
+    except Exception:
+        logger.exception("遗忘失败(user=%s)", owner)
+        return {
+            "code": 500,
+            "message": "遗忘失败",
+            "data": None,
+            "errorCode": "MEMORY_FORGET_FAILED",
+        }
 
 
 # ---------------------------------------------------------------------------
@@ -295,6 +330,12 @@ async def save_procedural(
             metadata=req.metadata,
         )
         return {"code": 0, "message": "ok", "data": result}
-    except Exception as e:
-        return {"code": 500, "message": f"procedural 保存失败: {e}", "data": None}
+    except Exception:
+        logger.exception("procedural 保存失败(user=%s)", owner)
+        return {
+            "code": 500,
+            "message": "procedural 保存失败",
+            "data": None,
+            "errorCode": "MEMORY_PROCEDURAL_SAVE_FAILED",
+        }
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -58,7 +58,7 @@ export function StudyPlanStatsDialog({
                     <span className="text-display font-bold text-primary">
                       {query.data.overallRate}%
                     </span>
-                    <span className="text-xs text-muted-foreground">{t('overallRate')}</span>
+                    <span className="text-label text-muted-foreground">{t('overallRate')}</span>
                   </CardContent>
                 </Card>
                 <Card>
@@ -66,7 +66,7 @@ export function StudyPlanStatsDialog({
                     <span className="text-display font-bold text-green-600">
                       {query.data.totalCompleted}
                     </span>
-                    <span className="text-xs text-muted-foreground">{t('statusCompleted')}</span>
+                    <span className="text-label text-muted-foreground">{t('statusCompleted')}</span>
                   </CardContent>
                 </Card>
                 <Card>
@@ -74,7 +74,7 @@ export function StudyPlanStatsDialog({
                     <span className="text-display font-bold text-muted-foreground">
                       {query.data.totalItems}
                     </span>
-                    <span className="text-xs text-muted-foreground">{t('totalItems')}</span>
+                    <span className="text-label text-muted-foreground">{t('totalItems')}</span>
                   </CardContent>
                 </Card>
               </div>
@@ -83,7 +83,7 @@ export function StudyPlanStatsDialog({
               <div className="space-y-2">
                 <h4 className="text-body font-medium">{t('planDetails')}</h4>
                 {query.data.plans.length === 0 ? (
-                  <p className="py-2 text-center text-sm text-muted-foreground">
+                  <p className="py-2 text-center text-body text-muted-foreground">
                     {t('noPlanData')}
                   </p>
                 ) : (
@@ -91,11 +91,11 @@ export function StudyPlanStatsDialog({
                     {query.data.plans.map((plan) => (
                       <div
                         key={plan.planId}
-                        className="flex items-center justify-between px-3 py-2 text-sm"
+                        className="flex items-center justify-between px-3 py-2 text-body"
                       >
                         <div className="min-w-0 flex-1">
                           <p className="truncate font-medium">{plan.planTitle}</p>
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <div className="flex items-center gap-2 text-label text-muted-foreground">
                             <Badge variant="outline" className="text-[10px]">
                               {plan.planType === 'monthly'
                                 ? t('planTypeMonthly')
@@ -107,7 +107,7 @@ export function StudyPlanStatsDialog({
                           </div>
                         </div>
                         <div className="flex shrink-0 items-center gap-3">
-                          <span className="text-xs text-muted-foreground">
+                          <span className="text-label text-muted-foreground">
                             {plan.completedItems}/{plan.totalItems}
                           </span>
                           <span
@@ -130,7 +130,7 @@ export function StudyPlanStatsDialog({
               </div>
             </>
           ) : (
-            <p className="py-4 text-center text-sm text-muted-foreground">{t('noStatsData')}</p>
+            <p className="py-4 text-center text-body text-muted-foreground">{t('noStatsData')}</p>
           )}
         </div>
       </DialogContent>

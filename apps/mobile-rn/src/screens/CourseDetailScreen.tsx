@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 import { useEffect, useMemo, useState } from 'react'
@@ -26,6 +27,7 @@ import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { NavChrome } from '../components/NavChrome'
+import { useHostPorts } from '../host/use-host-ports'
 
 type Route = RouteProp<RootStackParamList, 'CourseDetail'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'CourseDetail'>
@@ -40,6 +42,8 @@ export function CourseDetailScreen() {
   const [progress, setProgress] = useState<LessonProgress | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [reloadKey, setReloadKey] = useState(0)
+  const reload = () => setReloadKey((key) => key + 1)
   const [enrolling, setEnrolling] = useState(false)
 
   useEffect(() => {
@@ -62,7 +66,7 @@ export function CourseDetailScreen() {
     return () => {
       cancelled = true
     }
-  }, [id, t])
+  }, [id, t, reloadKey])
 
   const onEnroll = async () => {
     if (!course) return
@@ -94,12 +98,14 @@ export function CourseDetailScreen() {
     return ids
   }, [progress])
 
+  const { onNavigate, onToast } = useHostPorts()
+
   // 播放器要拿**小节**的视频地址:章节行本身没有视频,课程行也没有。
   // 上一版只带 courseId/lessonId ⇒ 播放器拿不到地址,点开只有一片黑。
   const onPlay = (lessonId: string) => {
     if (!course) return
     const section = sections.find((s) => s.id === lessonId)
-    navigation.navigate('VideoPlayer', {
+    onNavigate('VideoPlayer', {
       courseId: course.id,
       lessonId,
       title: section?.title ?? course.title,
@@ -120,6 +126,7 @@ export function CourseDetailScreen() {
         price: course.price,
         isFree: course.isFree,
         isEnrolled: course.isEnrolled,
+        coverUrl: course.cover ?? undefined,
       }
     : null
 
@@ -138,6 +145,7 @@ export function CourseDetailScreen() {
       </NavChrome>
       <SharedCourseDetailScreen
         t={t}
+        onRetry={reload}
         colorScheme={resolvedTheme}
         item={detailItem}
         lessons={detailLessons}
@@ -147,6 +155,8 @@ export function CourseDetailScreen() {
         onEnroll={onEnroll}
         onPlayLesson={onPlay}
         onBack={() => navigation.goBack()}
+        onNavigate={onNavigate}
+        onToast={onToast}
       />
       {/* 目录/评论/讲师入口(孤儿路由修复:CourseCatalog/CourseComment 注册无入口,课程详情补挂;P0 讲师列表接线) */}
       <View style={styles.entryRow}>
@@ -155,7 +165,7 @@ export function CourseDetailScreen() {
             的等分宽度,盒子的底色/圆角/内距下移到子 View 的数组形态上 —— 可见位置与尺寸一字不变。 */}
         <Pressable
           style={styles.entryBtnHit}
-          onPress={() => navigation.navigate('CourseCatalog', { courseId: id })}
+          onPress={() => onNavigate('CourseCatalog', { courseId: id })}
           accessibilityRole="button"
           accessibilityLabel={t('courseDetail.lessons')}
         >
@@ -167,7 +177,7 @@ export function CourseDetailScreen() {
         </Pressable>
         <Pressable
           style={styles.entryBtnHit}
-          onPress={() => navigation.navigate('CourseComment', { courseId: id })}
+          onPress={() => onNavigate('CourseComment', { courseId: id })}
           accessibilityRole="button"
           accessibilityLabel={t('courseComment.title')}
         >
@@ -179,7 +189,7 @@ export function CourseDetailScreen() {
         </Pressable>
         <Pressable
           style={styles.entryBtnHit}
-          onPress={() => navigation.navigate('TeacherList')}
+          onPress={() => onNavigate('TeacherDetail', { id })}
           accessibilityRole="button"
           accessibilityLabel={t('teacher.list.title')}
         >
@@ -192,7 +202,7 @@ export function CourseDetailScreen() {
         {/* 课程作业入口(web /learn/[id]/homework;2026-10-28 起有原生屏,此前 RN 零承载) */}
         <Pressable
           style={styles.entryBtnHit}
-          onPress={() => navigation.navigate('CourseHomework', { id })}
+          onPress={() => onNavigate('CourseHomework', { id })}
           accessibilityRole="button"
           accessibilityLabel={t('learnHomework.title')}
         >
@@ -212,7 +222,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: rnSpacing.md,
     paddingHorizontal: rnSpacing.xl,
-    paddingBottom: 14,
+    paddingBottom: rnSpacing['md-loose'],
   },
   // 外层裸 Pressable 的命中层:只承接行内等分这一条纯布局档,不画任何底色/描边。
   entryBtnHit: {

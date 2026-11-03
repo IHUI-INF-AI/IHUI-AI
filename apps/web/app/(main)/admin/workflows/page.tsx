@@ -109,7 +109,7 @@ export default function AdminWorkflowsPage() {
             <Workflow className="h-6 w-6 text-primary" />
             {t('title')}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+          <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
         </div>
         <Button onClick={openCreate} size="sm">
           <Plus className="mr-1.5 h-4 w-4" />
@@ -126,7 +126,7 @@ export default function AdminWorkflowsPage() {
         onDelete={setDelId}
       />
 
-      <div className="text-sm text-muted-foreground">{t('total', { total })}</div>
+      <div className="text-body text-muted-foreground">{t('total', { total })}</div>
 
       <WorkflowDialog
         open={open}

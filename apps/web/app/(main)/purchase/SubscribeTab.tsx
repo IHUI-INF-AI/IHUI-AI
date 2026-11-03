@@ -57,7 +57,7 @@ function WindowRow({ w }: { w: SubscriptionWindowStatus }) {
   const percent = windowPercent(w.used, w.limit)
   return (
     <div className="space-y-1">
-      <div className="flex items-center justify-between text-xs">
+      <div className="flex items-center justify-between text-label">
         <span className="text-muted-foreground">{t(WINDOW_LABEL_KEY[w.windowType])}</span>
         <span className="tabular-nums">
           {unlimited ? t('unlimited') : `${formatTokens(w.used)} / ${formatTokens(w.limit)}`}
@@ -102,7 +102,7 @@ function PlanCard({
           <div className="rounded-md bg-muted p-1.5">{planIcon(plan.name)}</div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-body font-medium">{plan.name}</p>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-label text-muted-foreground">
               {t('validityDays', { days: plan.validityDays })}
             </p>
           </div>
@@ -111,15 +111,15 @@ function PlanCard({
         <div className="flex items-baseline gap-2">
           <span className="text-display font-medium tabular-nums">{formatCents(plan.price)}</span>
           {hasOriginal && (
-            <span className="text-xs text-muted-foreground line-through tabular-nums">
+            <span className="text-label text-muted-foreground line-through tabular-nums">
               {formatCents(plan.originalPrice)}
             </span>
           )}
-          <span className="text-xs text-muted-foreground">/{plan.billingPeriod}</span>
+          <span className="text-label text-muted-foreground">/{plan.billingPeriod}</span>
         </div>
 
         {limits.length > 0 && (
-          <ul className="space-y-1 text-xs">
+          <ul className="space-y-1 text-label">
             {limits.map((l) => (
               <li key={l.labelKey} className="flex items-center justify-between">
                 <span className="text-muted-foreground">{t(l.labelKey)}</span>
@@ -134,7 +134,7 @@ function PlanCard({
         {plan.features.length > 0 && (
           <ul className="flex-1 space-y-1.5">
             {plan.features.map((f, i) => (
-              <li key={i} className="flex items-start gap-1.5 text-xs">
+              <li key={i} className="flex items-start gap-1.5 text-label">
                 <Check className="mt-0.5 h-3 w-3 shrink-0 text-emerald-500" aria-hidden />
                 <span>{f}</span>
               </li>
@@ -142,7 +142,7 @@ function PlanCard({
           </ul>
         )}
 
-        <p className="text-xs text-muted-foreground">
+        <p className="text-label text-muted-foreground">
           {plan.modelWhitelist.length > 0
             ? t('modelWhitelist', { count: plan.modelWhitelist.length })
             : t('allModels')}
@@ -225,11 +225,11 @@ export function SubscribeTab() {
                 </span>
                 <span className="text-body font-medium">{subscription.planName}</span>
               </div>
-              <span className="text-xs text-muted-foreground">
+              <span className="text-label text-muted-foreground">
                 {t('expiresAt')} {formatDate(subscription.endAt)}
               </span>
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-label text-muted-foreground">
               {t('remaining')}{' '}
               <span className="font-medium tabular-nums">
                 {status?.remainingTokens === -1
@@ -247,11 +247,11 @@ export function SubscribeTab() {
           </CardContent>
         </Card>
       ) : (
-        <p className="text-sm text-muted-foreground">{t('noSubscription')}</p>
+        <p className="text-body text-muted-foreground">{t('noSubscription')}</p>
       )}
 
       {plans.length === 0 ? (
-        <p className="py-10 text-center text-sm text-muted-foreground">{t('noPlans')}</p>
+        <p className="py-10 text-center text-body text-muted-foreground">{t('noPlans')}</p>
       ) : (
         <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-3">
           {plans.map((plan) => (

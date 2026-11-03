@@ -179,6 +179,19 @@ Ghidra：函数 **1,759**、外部入口 2（`entry`、`tls_callback_0`）、导
 
 > 排序依据：1–4 直接影响"增量索引的正确性与成本"（改名/整枝/ignore 语义都是当前索引链会答错的格），5 影响上下文装配质量，6–8 属工程化与小缺口。表内每条"本仓现读"列的 file:line 与计数均为 2026-11-01 本席现读，非引用旧册。
 
+## 5b. 缺口落地状态补记（2026-11-01，落地席回填；只标"代码已进 HEAD 并推送 origin/main"的格）
+
+| # | 状态 | 证据（代码枚 + 测试） |
+| --- | --- | --- |
+| 1 | **已落地**（且有一处对补法建议的刻意修正） | `apps/ai-service/app/services/dir_rhash.py`（模块 + `tests/test_dir_rhash.py` 18 例）+ `codebase_indexer.py` 接线：快照新增 `dirRhashes` 附加表（缺席/在场/形态坏三态同 P85 口径）、增量轮做目录差分并在响应透出 `dir_rhash_note` / `dirs_moved`（整枝搬家只报最浅一枝、歧义族不报），接线钉 `tests/test_dir_rhash_wiring.py` 6 例。**修正**：建议中"rhash 相同的目录整枝跳过"这一档在本仓单趟扫描设计下省不出第二遍 IO（逐文件判据已以同等读盘成本做到未变文件零重嵌入），该维的真实增量价值在**整枝搬家识别**的读数回执，接线注释里如实写明、不冒充"还省了一轮扫描" |
+| 2 | **已落地** | `apps/ai-service/app/services/ignore_rules.py`（P84）：`.gitignore`/`.aiignore` 等逐级合成排除谓词；"跟踪但被 .gitignore 覆盖 ⇒ 保留并逐条点名"写进剪枝回执；测试 `test_codebase_indexer_ignore.py` + `test_codebase_indexer_ignore_channels.py` |
+| 4 | **已落地** | P85 改名判定：`compute_simhash` 进索引链（同 content-hash 直判精确改名 + 汉明距离近同候选），快照附加表 `simhashes`/`aliases`；测试 `test_codebase_indexer.py` 改名段 |
+| 7 | **已落地** | `apps/ai-service/app/services/tool_surface.py`：工具→能力键声明表 + 产品形态覆盖 + 列表面过滤 + 执行面具名拒绝（`CAPABILITY_DISABLED` 点名缺哪枚键），`mcp_server.py` 三面同尺接线（list_tools 过滤 / call_tool 具名拒绝 / get_tool_schema 反查），`capability_matrix.py` 登记键，测试 `test_tool_surface_gate.py` 24 例（含三条接线锁） |
+| 3 | **缓议(有因)** | 需要常驻 watcher 宿主承载(watchdog 不在依赖、仓内无 daemon 载体);按 §0.9「造好没装车=没有」,盲写未接线的抽象不落地。待"谁常驻跑 watcher"有承载决策再立票 |
+| 5 | **大半已落地**(另一席交付) | `render_repo_tree` 按 token 预算装箱仓库目录骨架(代码枚 `0de483bff6` + ignore 剪枝续 `978b6f7854`),mcp_server 已接线,渲染钉 12 例+接线钉 5 例;缺的只剩 10 维权重配置(dirNameWeights/fileTypeWeights/timeDecay 等),按需分批 |
+| 6 | **身份核验半格已落地**(代码枚 `713eaf1513`) | `dispatchHookEntry` 唯一收口加 deny-by-default 宿主身份门:登记口 `registerHookHostIdentity`(未显式登记按当前进程自登记)+ PID 三态探活 + 产品身份匹配,不过 ⇒ 具名 `HOST_IDENTITY_UNVERIFIED`(skipped 档不改写阻断语义);核验通过把 `IHUI_HOST_PID`/`IHUI_HOST_PRODUCT` stamp 进钩子子进程 env(对侧 QODER_PRODUCT_ID 的对应物);应急出口 `IHUI_HOOK_SKIP_HOST_IDENTITY=1`(warnOnce 审计)。9 例新测试 + 既有 hook 回归 295 例零放宽,tsc/eslint 零错。**如实交代**:显式登记的宿主入口接线(repl/agent 侧)归第二笔,生产路径当前恒走自登记 |
+| 8 | **已落地**(代码枚 `3b3e9542a4`) | 快照 gzip 落盘 + 读侧魔数自识别双形态:旧明文档零迁移;解压失败/截断 ⇒ CORRUPT 出原委(绝不静默当"无快照");应急出口 `IHUI_SNAPSHOT_COMPRESS`(只影响写侧,读侧只认魔数)。对齐对侧 encode/decode/is_compressed/read/write 五件套;8 例新测试,合跑 45 例绿,ruff/mypy 绿 |
+
 ---
 
 ## 6. 复验命令（本席实跑过；产物在 `D:/DevEnv/Temp/ihui-scratch/goal-b46-ghidra/`）

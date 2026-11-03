@@ -42,7 +42,7 @@ export default function OrdersPage() {
           <ShoppingCart className="h-7 w-7 shrink-0 text-primary" />
           <span className="truncate">{t('title')}</span>
         </h1>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       <OrdersFilter

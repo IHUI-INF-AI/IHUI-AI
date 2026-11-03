@@ -504,7 +504,7 @@ function makeStyles() {
     },
     badgeOn: { borderColor: tokens.success.DEFAULT },
     badgeOff: { borderColor: tokens.border.medium },
-    badgeText: { fontSize: 10, fontWeight: '600', color: tokens.text.secondary },
+    badgeText: { fontSize: rnType.badge.size, fontWeight: '600', color: tokens.text.secondary },
     meta: { fontSize: rnType.label.size, color: tokens.text.tertiary },
     actions: {
       flexDirection: 'row',

@@ -260,7 +260,7 @@ export default function PeakPricingPage() {
             <Clock className="h-5 w-5" aria-hidden />
             分时高峰倍率
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 text-body text-muted-foreground">
             按 UTC+8 时段对模型倍率上浮(高峰加价 /
             低谷折扣)。倍率链末环,命中即用不叠加;优先级高者先命中。
           </p>
@@ -272,7 +272,7 @@ export default function PeakPricingPage() {
       </div>
 
       <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full text-xs" style={{ tableLayout: 'fixed' }}>
+        <table className="w-full text-label" style={{ tableLayout: 'fixed' }}>
           <thead className="bg-muted/50 text-left text-muted-foreground">
             <tr>
               <th className="px-3 py-2 font-medium">规则名</th>
@@ -355,7 +355,7 @@ export default function PeakPricingPage() {
 
       <div className="rounded-lg border p-3">
         <h2 className="text-body font-medium">命中预览</h2>
-        <p className="mt-1 text-xs text-muted-foreground">
+        <p className="mt-1 text-label text-muted-foreground">
           排障用:确认某模型在指定时刻实际生效的倍率与命中规则(留空时间 = 当前时刻)。
         </p>
         <div className="mt-3 flex flex-wrap items-end gap-2">
@@ -392,7 +392,7 @@ export default function PeakPricingPage() {
           </Button>
         </div>
         {previewResult && (
-          <p className="mt-3 text-xs">
+          <p className="mt-3 text-label">
             模型 <span className="font-medium">{previewResult.modelId}</span> 在{' '}
             {new Date(previewResult.at).toLocaleString('zh-CN')} 生效倍率{' '}
             <span className="font-medium tabular-nums">×{previewResult.multiplier}</span>

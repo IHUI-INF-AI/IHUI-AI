@@ -118,7 +118,9 @@ function HistoryList({ entries, now }: HistoryListProps) {
   const t = useTranslations('chat.permission')
   const tTier = useTranslations()
   if (entries.length === 0) {
-    return <div className="py-6 text-center text-xs text-muted-foreground">{t('historyEmpty')}</div>
+    return (
+      <div className="py-6 text-center text-label text-muted-foreground">{t('historyEmpty')}</div>
+    )
   }
   return (
     <ul className="space-y-1.5">

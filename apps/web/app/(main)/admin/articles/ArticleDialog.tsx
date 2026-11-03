@@ -42,7 +42,7 @@ export function ArticleDialog(props: ArticleDialogProps) {
             <DialogTitle>{editing ? '编辑文章' : '新建文章'}</DialogTitle>
           </DialogHeader>
           {err && (
-            <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <div className="rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">
               {err}
             </div>
           )}
@@ -82,7 +82,7 @@ export function ArticleDialog(props: ArticleDialogProps) {
               value={form.content}
               onChange={(e) => setForm({ ...form, content: e.target.value })}
               placeholder="文章正文"
-              className="min-h-[120px] w-full rounded-sm border border-input bg-transparent px-3 py-2 text-sm"
+              className="min-h-[120px] w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body"
             />
           </div>
           <div className="flex items-center gap-2">
@@ -92,7 +92,7 @@ export function ArticleDialog(props: ArticleDialogProps) {
               onCheckedChange={(v) => setForm({ ...form, published: v })}
             />
             <Label htmlFor="art-published">发布</Label>
-            <span className="text-sm text-muted-foreground">
+            <span className="text-body text-muted-foreground">
               {form.published ? '已发布' : '草稿'}
             </span>
           </div>

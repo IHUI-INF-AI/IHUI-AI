@@ -221,7 +221,7 @@ async def test_input_scan_off_still_blocks_hard_kinds(
         assert calls == []
     # 同一档位下的启发式项不再拦(证明开关真的在生效,而不是判据恒红)
     tr_ok = await loop._execute_single(
-        ToolCall(id="c1", name="echo_tool", args={"url": "http://127.0.0.1:8810/health"})
+        ToolCall(id="c1", name="echo_tool", args={"url": "http://127.0.0.1:5399/health"})
     )
     assert tr_ok.error is None
     assert len(calls) == 1

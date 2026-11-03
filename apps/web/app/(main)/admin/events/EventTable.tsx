@@ -50,7 +50,7 @@ export function EventTable({ list, isLoading, onEdit, onDelete }: Props) {
               <span className={cn('mt-0.5 h-2 w-2 shrink-0 rounded-sm', TYPE_DOT[ev.type])} />
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-xs text-muted-foreground">
+                  <span className="text-label text-muted-foreground">
                     {dtFmt.format(new Date(ev.createdAt))}
                   </span>
                   <span
@@ -65,9 +65,9 @@ export function EventTable({ list, isLoading, onEdit, onDelete }: Props) {
                     {t(TYPE_KEY[ev.type] ?? 'types.unknown')}
                   </span>
                 </div>
-                <p className="mt-1 break-words text-sm">{ev.message}</p>
+                <p className="mt-1 break-words text-body">{ev.message}</p>
                 {ev.data && (
-                  <pre className="mt-1.5 max-h-40 overflow-auto rounded-md bg-muted/50 p-2 text-xs">
+                  <pre className="mt-1.5 max-h-40 overflow-auto rounded-md bg-muted/50 p-2 text-label">
                     {JSON.stringify(ev.data, null, 2)}
                   </pre>
                 )}

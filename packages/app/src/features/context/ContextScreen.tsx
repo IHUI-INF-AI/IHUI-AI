@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { rnRadius, rnSpacing } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
 import {
@@ -236,12 +236,12 @@ function createStyles(tk: AppThemeTokens) {
       paddingBottom: rnSpacing.sm,
     },
     titleText: {
-      fontSize: 16,
+      fontSize: rnType.title.size,
       fontWeight: '500',
       color: tk.text.primary,
     },
     retryText: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       fontWeight: '500',
       color: tk.brandAccent.deep,
     },
@@ -264,13 +264,13 @@ function createStyles(tk: AppThemeTokens) {
       padding: rnSpacing.md,
     },
     statValue: {
-      fontSize: 18,
+      fontSize: rnType.subtitle.size,
       fontWeight: '600',
       color: tk.text.primary,
     },
     statLabel: {
       marginTop: rnSpacing['2xs'],
-      fontSize: 10,
+      fontSize: rnType.badge.size,
       color: tk.text.secondary,
     },
     /* 区块通用 */
@@ -278,13 +278,13 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: rnSpacing.lg,
     },
     sectionLabel: {
-      fontSize: 12,
+      fontSize: rnType.label.size,
       fontWeight: '500',
       color: tk.text.secondary,
     },
     hintText: {
       marginTop: rnSpacing.md,
-      fontSize: 12,
+      fontSize: rnType.label.size,
       textAlign: 'center',
       color: tk.text.tertiary,
     },
@@ -307,17 +307,17 @@ function createStyles(tk: AppThemeTokens) {
     },
     eventId: {
       flex: 1,
-      fontSize: 12,
+      fontSize: rnType.label.size,
       color: tk.text.primary,
     },
     eventTime: {
       marginLeft: rnSpacing.sm,
-      fontSize: 10,
+      fontSize: rnType.badge.size,
       color: tk.text.tertiary,
     },
     eventMeta: {
       marginTop: rnSpacing.xs,
-      fontSize: 10,
+      fontSize: rnType.badge.size,
       color: tk.text.secondary,
     },
     /* 提及检索 */
@@ -328,7 +328,7 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing.sm,
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.text.primary,
     },
     mentionList: {
@@ -354,18 +354,18 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.warning.light,
     },
     typeBadgeText: {
-      fontSize: 10,
+      fontSize: rnType.badge.size,
       color: tk.warning.amberText,
     },
     mentionLabel: {
       flex: 1,
-      fontSize: 12,
+      fontSize: rnType.label.size,
       fontWeight: '500',
       color: tk.text.primary,
     },
     mentionDetail: {
       marginTop: rnSpacing.xs,
-      fontSize: 10,
+      fontSize: rnType.badge.size,
       color: tk.text.tertiary,
     },
   } satisfies Record<string, ViewStyle | TextStyle>)

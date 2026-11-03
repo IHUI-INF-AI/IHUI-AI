@@ -84,7 +84,7 @@ export function ChatSearchBar({
               onClick={() => onScrollToMessage(result.id)}
               className="flex w-full flex-col gap-0.5 px-3 py-2 text-left transition-colors hover:bg-muted/50"
             >
-              <span className="line-clamp-1 text-xs text-foreground">{result.preview}</span>
+              <span className="line-clamp-1 text-label text-foreground">{result.preview}</span>
               <span className="whitespace-nowrap tabular-nums text-[10px] text-muted-foreground">
                 {formatTime(result.createTime)}
               </span>

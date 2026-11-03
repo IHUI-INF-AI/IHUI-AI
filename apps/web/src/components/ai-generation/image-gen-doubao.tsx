@@ -107,7 +107,7 @@ export const ImageGenDoubao = React.memo(function ImageGenDoubao() {
     <Card>
       <CardHeader>
         <CardTitle>{t('doubaoImageTitle')}</CardTitle>
-        <p className="text-sm text-muted-foreground">{t('doubaoImageSubtitle')}</p>
+        <p className="text-body text-muted-foreground">{t('doubaoImageSubtitle')}</p>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
@@ -184,7 +184,7 @@ export const ImageGenDoubao = React.memo(function ImageGenDoubao() {
                   download
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                  className="inline-flex items-center gap-1 text-label text-primary hover:underline"
                 >
                   <Download className="h-3 w-3" />
                   {t('download')}

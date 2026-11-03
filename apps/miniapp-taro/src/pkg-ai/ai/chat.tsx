@@ -38,6 +38,10 @@ import {
   // 票64 格②(2026-10-19 落小程序腿):消息级钉选/收藏的写链同样只走 api-client ——
   // 端内不重写第二份 fetch,归属与错误码分流都在服务端那一条判据里。
   setMessageFlags,
+  // 票59 小程序腿(2026-11-01):regenerate 的 sibling 契约写链 —— 与 web
+  // use-chat/send-message.ts 的 regenerateMessage 同一端点同一载荷键(POST
+  // /api/chat/conversations/:id/regenerate,响应 rootId/nextSiblingIndex)。
+  regenerateConversation,
   // D77(2026-10-17):业务表单应答上行 —— 唯一装配/传输出口(buildFormResponseEvent +
   // postFormResponse 从 @ihui/api-client 导出,端内不另起传输层)。
   buildFormResponseEvent,
@@ -46,6 +50,11 @@ import {
 import { formatTokenCount } from '@ihui/shared/utils'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { applyStreamError, isErrorTurn, resendTargetText } from '@ihui/shared/chat'
+// 票59 小程序腿:判族/投影唯一源(共享层;web 侧 lib/message-version-family 已收口为同报 re-export)。
+// 本屏只做两件事 —— 用投影决定「这条族消息当前显示哪一版」、把版本菜单挂在该条之后;
+// 判族/位置读数一律不在此复算(§3 共享层优先 + §4 跨端禁两份对账)。
+import { projectActiveMessages } from '@ihui/shared/chat/message-version-family'
+import MessageVersionMenu from './message-version-menu'
 import { effectiveMode } from '@ihui/shared/chat/queue-interactions'
 import { useSideQueue } from './side-queue-host'
 import QueueInteractionBar from './queue-interaction-bar'
@@ -132,6 +141,7 @@ import './chat.css'
 import ThemeRoot from '@/components/ThemeRoot'
 
 import { AI_CHAT_HISTORY_KEY, AI_FAVORITE_MESSAGES_KEY } from '@/constants/storage'
+import { onToast } from '@/host/on-toast'
 
 const HISTORY_STORAGE_KEY = AI_CHAT_HISTORY_KEY
 const FAVORITE_STORAGE_KEY = AI_FAVORITE_MESSAGES_KEY
@@ -188,6 +198,10 @@ export default function ChatPage() {
   const progressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const [scrollTop, setScrollTop] = useState(0)
   const [sessionId, setSessionId] = useState('')
+  // 票59 小程序腿:版本切换态(rootId → 激活版本消息 id),与 web stores/chat.ts 的
+  // activeVersionByRoot 同语义;失效指针由投影层回落最新版本(判族唯一源在共享层)。
+  // 纯本地读投影态:切换不写库、不发请求(与 web 同一口径)。
+  const [activeVersionByRoot, setActiveVersionByRoot] = useState<Record<string, string>>({})
   // D20 留尾2:超长会话向前翻页。cursor 走 ref(不驱动渲染);hasMore/loading 走 state(驱动顶部入口)
   const [earlierHasMore, setEarlierHasMore] = useState(false)
   const [loadingEarlier, setLoadingEarlier] = useState(false)
@@ -496,7 +510,7 @@ export default function ChatPage() {
       const res = await fetchModels()
       setModels(res?.models || [])
     } catch {
-      Taro.showToast({ title: t('ai.modelLoadFailed'), icon: 'none' })
+      onToast(t('ai.modelLoadFailed'), { kind: 'error' })
     } finally {
       setModelsLoading(false)
     }
@@ -516,7 +530,7 @@ export default function ChatPage() {
         setMaterialPage(page)
         setMaterialHasMore(page * MATERIAL_PAGE_SIZE < total)
       } catch {
-        Taro.showToast({ title: t('ai.materialLoadFailed'), icon: 'none' })
+        onToast(t('ai.materialLoadFailed'), { kind: 'error' })
       } finally {
         setMaterialsLoading(false)
       }
@@ -543,7 +557,7 @@ export default function ChatPage() {
         })),
       )
     } catch {
-      Taro.showToast({ title: t('ai.agentLoadFailed'), icon: 'none' })
+      onToast(t('ai.agentLoadFailed'), { kind: 'error' })
     } finally {
       setAgentsLoading(false)
     }
@@ -562,7 +576,7 @@ export default function ChatPage() {
         prologue: a.prologue,
       })
     } catch {
-      Taro.showToast({ title: t('ai.agentLoadFailed'), icon: 'none' })
+      onToast(t('ai.agentLoadFailed'), { kind: 'error' })
     }
   }, [activeAgentId, t])
 
@@ -656,7 +670,7 @@ export default function ChatPage() {
     })
     setLoadingEarlier(false)
     if (!outcome.ok) {
-      Taro.showToast({ title: t('ai.chat.earlierLoadFailed'), icon: 'none' })
+      onToast(t('ai.chat.earlierLoadFailed'), { kind: 'error' })
       return
     }
     setMessages((prev) => prependEarlierMessages(prev, outcome.messages))
@@ -809,28 +823,62 @@ export default function ChatPage() {
   )
 
   const sendMessage = useCallback(
-    async (overrideText?: string, baseHistory?: readonly ChatMessage[]) => {
+    async (
+      overrideText?: string,
+      baseHistory?: readonly ChatMessage[],
+      /** 票59 小程序腿:sibling 入族坐标(由 handleRegenerate 从 /regenerate 响应取)。
+       *  存在时**不追加新用户消息、不截断旧回复** —— 旧回复留在列表被读投影压成
+       *  "上一版",新回复带坐标按族尾插入(与 web mergeVersionMessage 同形)。 */
+      siblingVersion?: { rootId: string; siblingIndex: number },
+    ) => {
       const text = (overrideText ?? '').trim()
-      if (!text) return
+      if (!text && !siblingVersion) return
       // W27:流式中发送 ⇒ 入队而不是丢弃(出队由下方流结束 effect 统一负责)
       if (thinking) {
-        sideQueueRef.current.enqueue(text)
-        setInputValue('')
+        if (!siblingVersion && text) {
+          sideQueueRef.current.enqueue(text)
+          setInputValue('')
+        }
         return
       }
       if (checkSpecialModel(text)) return
-      const userMsg: ChatMessage = { role: 'user', content: text, timestamp: Date.now() }
-      const assistantMsg: ChatMessage = { role: 'assistant', content: '', timestamp: Date.now() }
+      const userMsg: ChatMessage | null = siblingVersion
+        ? null
+        : { role: 'user', content: text, timestamp: Date.now() }
+      const assistantMsg: ChatMessage = {
+        role: 'assistant',
+        content: '',
+        timestamp: Date.now(),
+        ...(siblingVersion
+          ? {
+              // 本地占位 id:本轮结束后下一次历史水合会用服务端行(带真 id 同坐标)替换
+              id: `ver_${Date.now()}`,
+              parentMessageId: siblingVersion.rootId,
+              siblingIndex: siblingVersion.siblingIndex,
+            }
+          : {}),
+      }
       // 失败轮不进下一轮上下文(与 web send-message.ts 同规则):否则"请求出错"那句会被
       // 模型当成自己上一轮的回答读进去。baseHistory 供"重发"显式截到上一次提问之前 ——
       // 闭包里的 messages 是点击那一轮的旧值,不截断会把同一个问题带两遍。
       const history: ChatMessage[] = [
         ...(baseHistory ?? messages).filter((m) => !isErrorTurn(m)),
-        userMsg,
+        ...(userMsg ? [userMsg] : []),
       ]
-      setMessages(
-        baseHistory ? [...history, assistantMsg] : (prev) => [...prev, userMsg, assistantMsg],
-      )
+      if (siblingVersion) {
+        // 族根指针回落默认:重新生成后激活版本 = 新插入的这一条
+        setActiveVersionByRoot((prev) => {
+          if (!(siblingVersion.rootId in prev)) return prev
+          const next = { ...prev }
+          delete next[siblingVersion.rootId]
+          return next
+        })
+        setMessages((prev) => [...prev, assistantMsg])
+      } else {
+        setMessages(
+          baseHistory ? [...history, assistantMsg] : (prev) => [...prev, userMsg!, assistantMsg],
+        )
+      }
       setThinking(true)
       // W5:新一轮对话开始,清空上一轮的执行过程列表
       setStreamActivities([])
@@ -852,6 +900,9 @@ export default function ChatPage() {
             model: roundModel || undefined,
             agentId: activeAgentId || undefined,
             materialContent: selectedMaterial?.content || undefined,
+            // 票59 小程序腿:sibling 新回复的族坐标经请求体 metadata 透传(键与 web 同形)
+            parentMessageId: siblingVersion?.rootId,
+            siblingIndex: siblingVersion?.siblingIndex,
             // 跨端统一 88% 阈值自动压缩:从模型 ID 推断 contextLimit,后端压缩后通过 SSE 回调提示用户
             contextLimit: roundModel ? getModelContextCapacity(roundModel) : 0,
           },
@@ -884,14 +935,13 @@ export default function ChatPage() {
           (info) => {
             // 后端自动压缩完成,toast 提示用户(对标 CLI /compact 命令的可见性)
             // W5:i18n 化,文案与参数映射见 ai.stream.compact
-            Taro.showToast({
-              title: t('ai.stream.compact', {
+            onToast(
+              t('ai.stream.compact', {
                 before: formatTokenCount(info.tokensBefore),
                 after: formatTokenCount(info.tokensAfter),
               }),
-              icon: 'none',
-              duration: 2500,
-            })
+              { kind: 'info', duration: 2500 },
+            )
           },
           // done 回调:把 ai-service event:done 下发的 usage.total_tokens 写入最后一条 assistant 消息
           // 对标原 ai_assistant.vue obj.total_tokens → this.$set(agent_content_list[idx], 'total_tokens', obj.total_tokens)
@@ -1151,13 +1201,15 @@ export default function ChatPage() {
               // D-07(2026-10-26):失效留痕帧不弹审批卡 —— 该 approvalId 已无活等待者,
               // 只给用户一条可读提示(与 web/RN 同一条共享键)。
               if (evt.expired) {
-                Taro.showToast({
-                  title: tt(
+                Taro.showModal({
+                  title: t('common.hint'),
+                  content: tt(
                     'chat.approvalExpiredNotice',
                     '工具 {toolName} 的审批已因连接中断失效,该操作未执行;如需继续请重新发起',
                     { toolName: evt.toolName },
                   ),
-                  icon: 'none',
+                  showCancel: false,
+                  confirmText: t('common.confirm'),
                 })
                 return
               }
@@ -1229,10 +1281,11 @@ export default function ChatPage() {
             // 同款 Taro.showToast;其余 reason 不提示,不自动续写。
             onFinishReason: (evt) => {
               if (isMaxTokensTruncatedFinishReason(evt.finishReason)) {
-                Taro.showToast({
-                  title: t('chat.truncation.maxLengthNotice'),
-                  icon: 'none',
-                  duration: 2500,
+                Taro.showModal({
+                  title: t('common.hint'),
+                  content: t('chat.truncation.maxLengthNotice'),
+                  showCancel: false,
+                  confirmText: t('common.confirm'),
                 })
               }
             },
@@ -1240,7 +1293,7 @@ export default function ChatPage() {
           // G-815976:partial_done(流异常中断且已发过 chunk 的标记帧)→ 截断告知。
           // 半截回答与完整回答完全同形会让用户误以为回答完整,用与 onCompaction 同款 toast 提示。
           () => {
-            Taro.showToast({ title: t('chat.partialDoneTitle'), icon: 'none', duration: 2500 })
+            onToast(t('chat.partialDoneTitle'), { kind: 'info', duration: 2500 })
           },
         )
       } catch (e) {
@@ -1258,7 +1311,7 @@ export default function ChatPage() {
           )
           // 失败轮要"可辨认":标 error + 保留已产出的部分内容(共享层同一标记规则,与 web 端一致)
           setMessages((prev) => applyStreamError(prev, formatted.message))
-          Taro.showToast({ title: formatted.title, icon: 'none', duration: 2500 })
+          onToast(formatted.title, { kind: 'info', duration: 2500 })
         }
       } finally {
         abortRef.current = null
@@ -1320,8 +1373,7 @@ export default function ChatPage() {
         ...(notice
           ? {
               notice,
-              showNotice: (message: string) =>
-                Taro.showToast({ title: message, icon: 'none', duration: 2500 }),
+              showNotice: (message: string) => onToast(message, { kind: 'info', duration: 2500 }),
             }
           : {}),
       }),
@@ -1469,7 +1521,7 @@ export default function ChatPage() {
         return { imgUrl: filePath, fileType: 'image' }
       })
       setImgsList((prev) => [...prev, ...newItems])
-      Taro.showToast({ title: t('ai.fileSelected', { count: files.length }), icon: 'none' })
+      onToast(t('ai.fileSelected', { count: files.length }), { kind: 'info' })
     },
     [t],
   )
@@ -1494,7 +1546,7 @@ export default function ChatPage() {
 
   const handleMaterialUpload = useCallback(
     (tab: MaterialTab) => {
-      Taro.showToast({ title: t('ai.uploadMaterialTab', { tab }), icon: 'none' })
+      onToast(t('ai.uploadMaterialTab', { tab }), { kind: 'info' })
     },
     [t],
   )
@@ -1516,16 +1568,65 @@ export default function ChatPage() {
     Taro.navigateTo({ url: '/pkg-ai/ai/voice?text=' + encodeURIComponent(content) })
   }, [])
 
-  const handleRegenerate = useCallback(() => {
-    const lastUserIdx = messages.map((m) => m.role).lastIndexOf('user')
-    const text = resendTargetText(messages)
-    if (lastUserIdx < 0 || !text) return
-    // 把截断后的历史显式交给 sendMessage:它闭包里的 messages 是"点击那一轮"的旧值,
-    // 只 setMessages 截断再延时重发,旧值里那条 user 会和重发的 userMsg 一起带进上下文(问题发两遍)
-    const base = messages.slice(0, lastUserIdx)
-    setMessages(base)
-    void sendMessage(text, base)
-  }, [messages, sendMessage])
+  /** 票59 小程序腿(2026-11-01):regenerate 改接服务端 sibling 契约 ——
+   *  POST /api/chat/conversations/:id/regenerate(后端**不再物理删除**,旧回复保留为
+   *  版本族根)→ 拿 rootId/nextSiblingIndex → 新回复带坐标按族尾流式生成,旧回复被
+   *  读投影压成"上一版",切换器 ← n/N → 可回看。与 web regenerateMessage 同链同载荷键。
+   *  降级路径(如实标注,不是暗桩):会话主键或目标回复的服务端 id 尚未落地
+   *  (纯本地新聊、流式行未回写 id)⇒ 无从入族,回退旧的本地截断+普通重发。 */
+  const handleRegenerate = useCallback(
+    async (target?: ChatMessage) => {
+      if (thinking) return
+      const lastUserIdx = messages.map((m) => m.role).lastIndexOf('user')
+      const text = resendTargetText(messages)
+      if (lastUserIdx < 0 || !text) return
+      const root =
+        target && target.role === 'assistant' && target.id
+          ? target
+          : [...messages].reverse().find((m) => m.role === 'assistant' && m.id)
+      if (!sessionId || !root?.id) {
+        const base = messages.slice(0, lastUserIdx)
+        setMessages(base)
+        void sendMessage(text, base)
+        return
+      }
+      try {
+        const res = await regenerateConversation(sessionId, root.id)
+        if (!res.success || !res.data) throw new Error(res.error || 'regenerate rejected')
+        const { rootId, nextSiblingIndex } = res.data
+        // 族根本地补坐标 siblingIndex=0(服务端已同步行;投影/rootInSet 防御同 web
+        // mergeVersionMessage 口径 —— 不带坐标的族根会被当成非族行,切换器就配不齐)
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === rootId && m.siblingIndex === undefined
+              ? { ...m, siblingIndex: 0, parentMessageId: null }
+              : m,
+          ),
+        )
+        // 上行历史截到**族根之前**(与 web send-message.ts 的 historySource 同口径):
+        // 被重生成那一版的旧正文与其后的轮次都不得混进新回复的上下文。
+        // 族根不在本地列表(分页切割/局部回放)⇒ 回落截到最后一次用户提问(含) ——
+        // 宁可多带一轮上下文,不可无声丢半段历史(同读投影"族根缺席则整族保留"的失效方向)。
+        const rootCut = messages.findIndex((m) => m.id === rootId)
+        void sendMessage(
+          undefined,
+          rootCut === -1 ? messages.slice(0, lastUserIdx + 1) : messages.slice(0, rootCut),
+          {
+            rootId,
+            siblingIndex: nextSiblingIndex,
+          },
+        )
+      } catch (e) {
+        logger.warn(
+          'pkg-ai/ai/chat',
+          'regenerate.sibling-failed',
+          String((e as Error)?.message ?? e),
+        )
+        onToast(t('ai.messageVersion.regenerateFailed'), { kind: 'error' })
+      }
+    },
+    [messages, sendMessage, sessionId, thinking, t],
+  )
 
   /** 票64 格②(2026-10-19 落小程序腿):消息级钉选/收藏。形态以 RN 那份为准 ——
    *  一次点击只动它点的那一把(两个维度都给,等于顺手取消另一个没打算动的标记),
@@ -1539,7 +1640,7 @@ export default function ChatPage() {
         ...(kind === 'pinned' ? { pinned: !msg.pinnedAt } : { bookmarked: !msg.bookmarkedAt }),
       })
       if (!res.success) {
-        Taro.showToast({ title: t('ai.messageAction.flagFailed'), icon: 'none' })
+        onToast(t('ai.messageAction.flagFailed'), { kind: 'error' })
         return
       }
       const written = res.data?.message
@@ -1597,7 +1698,7 @@ export default function ChatPage() {
             // 分享对话(对标原 ai_assistant.vue 分享):存入待分享消息,显示分享菜单,用户点右上角···分享
             shareMsgRef.current = msg
             Taro.showShareMenu({ withShareTicket: true })
-            Taro.showToast({ title: t('ai.chatMessageItem.share'), icon: 'none' })
+            onToast(t('ai.chatMessageItem.share'), { kind: 'info' })
           },
         })
       }
@@ -1658,7 +1759,7 @@ export default function ChatPage() {
           next.delete(id)
         } else {
           next.add(id)
-          Taro.showToast({ title: t('ai.chatMessageItem.favorited'), icon: 'none' })
+          onToast(t('ai.chatMessageItem.favorited'), { kind: 'info' })
         }
         try {
           Taro.setStorageSync(FAVORITE_STORAGE_KEY, Array.from(next))
@@ -1693,6 +1794,33 @@ export default function ChatPage() {
 
   // D111:权限档行文案(档名 + 后果,缺键用端内中文兜底,不渲染 raw key)。
   const tierText = resolvePermissionTierText(workspaceTier, tt)
+
+  // 票59 小程序腿:切换激活版本 —— 只改读投影的指针,不写库、不发请求(与 web
+  // stores/chat.ts 的 setActiveMessageVersion 同语义);同值不回写(省一次整树重渲染)。
+  const handleSwitchMessageVersion = useCallback((rootId: string, messageId: string): void => {
+    setActiveVersionByRoot((prev) =>
+      prev[rootId] === messageId ? prev : { ...prev, [rootId]: messageId },
+    )
+  }, [])
+
+  // 票59 小程序腿:族内只渲染激活版本。回调仍按**原始下标**切片(handleEdit 截断、
+  // handleLongPress 分享定位都吃 messages 的下标),所以这里同时带出可见行和它的原始下标。
+  //
+  // 为什么族投影吃 `familyRows` 而不是 `messages`:端内 ChatMessage.id 可选(流式行拿到
+  // 落库 id 前为空),而共享判族基类要求 id 必填 —— 参与族判定的行必然来自服务端历史水合
+  // 或本屏 regenerate 占位(两条路都写了 id),按 id 收窄是**等价**的,无 id 的行一律原样保留。
+  const versionList = useMemo(() => {
+    const familyRows = messages.filter((m): m is ChatMessage & { id: string } => !!m.id)
+    const visibleIds = new Set(
+      projectActiveMessages(familyRows, activeVersionByRoot).map((m) => m.id),
+    )
+    return {
+      familyRows,
+      items: messages
+        .map((msg, idx) => ({ msg, idx }))
+        .filter(({ msg }) => !msg.id || visibleIds.has(msg.id)),
+    }
+  }, [messages, activeVersionByRoot])
 
   return (
     <ThemeRoot className="page">
@@ -1862,12 +1990,14 @@ export default function ChatPage() {
           </View>
         ) : null}
 
-        {messages.map((msg, idx) => (
+        {versionList.items.map(({ msg, idx }) => (
           <Fragment key={idx}>
             <ChatMessageItem
               msg={msg}
               onReuse={handleReuse}
-              onRegenerate={msg.role === 'assistant' ? handleRegenerate : undefined}
+              // 票59:把"点的是哪一条"传下去 —— 不给 target 时 handleRegenerate 只会
+              // 落到最后一条助手消息上,给旧回答重生成就会挂错版本族。
+              onRegenerate={msg.role === 'assistant' ? () => handleRegenerate(msg) : undefined}
               onLongPress={() => handleLongPress(msg, idx)}
               onEdit={msg.role === 'user' ? () => handleEdit(msg, idx) : undefined}
               isFavorited={
@@ -1890,6 +2020,17 @@ export default function ChatPage() {
                   : undefined
               }
             />
+            {/* 票59 小程序腿:版本切换器锚在当前激活的那一条 assistant 消息之后(与 web
+                MessageItem 把 MessageVersionMenu 挂在气泡尾部同一位置语义)。
+                判族/位置读数唯一源 = @ihui/shared/chat/message-version-family,
+                端内零第二份实现;族内只有一条时组件自身返回 null(不渲染 1/1 骗点击)。 */}
+            {msg.role === 'assistant' && msg.id ? (
+              <MessageVersionMenu
+                messages={versionList.familyRows}
+                messageId={msg.id}
+                onSwitch={handleSwitchMessageVersion}
+              />
+            ) : null}
             {/* D77:业务表单卡锚定在对应 assistant 消息之后(messageId =
                 msg.id ?? timestamp;仅 assistant 侧匹配,防同毫秒时间戳撞上 user 消息) */}
             {msg.role === 'assistant'

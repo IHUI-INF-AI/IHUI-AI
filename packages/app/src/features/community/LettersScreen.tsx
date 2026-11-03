@@ -194,7 +194,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.sm,
     },
     rowName: { flex: 1, fontSize: rnType.body.size, fontWeight: '500', color: tk.text.primary },
-    rowTime: { fontSize: 11, color: tk.text.tertiary, flexShrink: 0 },
+    rowTime: { fontSize: rnType.caption.size, color: tk.text.tertiary, flexShrink: 0 },
     rowPreview: { fontSize: rnType.label.size, color: tk.text.secondary },
   })
 }

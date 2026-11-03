@@ -88,7 +88,7 @@ function HeroSection({ pageIndex }: SectionProps) {
         <RevealOnView
           delay={0.4}
           as="div"
-          className="mx-auto flex w-full max-w-3xl flex-wrap items-center justify-center gap-x-5 gap-y-2 px-4 text-[11px] text-muted-foreground min-[768px]:text-xs"
+          className="mx-auto flex w-full max-w-3xl flex-wrap items-center justify-center gap-x-5 gap-y-2 px-4 text-[11px] text-muted-foreground min-[768px]:text-label"
         >
           <span className="group inline-flex items-center gap-1.5 rounded-md px-2 py-1 transition-all duration-200 hover:-translate-y-0.5 hover:bg-primary/5">
             <ShieldCheck className="h-3.5 w-3.5 text-primary transition-transform duration-200 group-hover:scale-110" />
@@ -113,7 +113,7 @@ function HeroSection({ pageIndex }: SectionProps) {
               key={i}
               as="li"
               delay={0.5 + i * 0.06}
-              className="group relative flex items-center gap-2 overflow-hidden rounded-lg border bg-card px-3 py-2 text-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:bg-primary/5 hover:shadow-md min-[768px]:text-sm"
+              className="group relative flex items-center gap-2 overflow-hidden rounded-lg border bg-card px-3 py-2 text-label transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:bg-primary/5 hover:shadow-md min-[768px]:text-body"
             >
               <Check
                 className="h-3.5 w-3.5 shrink-0 text-success-text transition-transform duration-200 group-hover:scale-110"
@@ -176,7 +176,7 @@ function PricingSection({ pageIndex }: SectionProps) {
                   <AnimatedNumber value={s.value} duration={1500} />
                   {s.suffix && <span>{s.suffix}</span>}
                 </span>
-                <span className="line-clamp-2 text-[10px] text-muted-foreground min-[768px]:text-xs">
+                <span className="line-clamp-2 text-[10px] text-muted-foreground min-[768px]:text-label">
                   {s.label}
                 </span>
               </RevealOnView>

@@ -28,6 +28,8 @@ export function CourseChapterScreen() {
   const [chapters, setChapters] = useState<CourseCatalogItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [reloadKey, setReloadKey] = useState(0)
+  const reload = () => setReloadKey((key) => key + 1)
 
   useEffect(() => {
     let cancelled = false
@@ -45,7 +47,7 @@ export function CourseChapterScreen() {
     return () => {
       cancelled = true
     }
-  }, [courseId, t])
+  }, [courseId, t, reloadKey])
 
   // 本页的唯一用途是进播放:把「章节 → 小节」拍平成可播放行(章节行本身没有视频地址)。
   // 旧实现拿章节 id 当课程 id 跳 CourseDetail ⇒ 必 404「找不到对应的资源」,且全仓没有任何
@@ -75,6 +77,7 @@ export function CourseChapterScreen() {
         })
       }
       onBack={() => navigation.goBack()}
+      onRetry={reload}
       colorScheme={resolvedTheme}
     />
   )

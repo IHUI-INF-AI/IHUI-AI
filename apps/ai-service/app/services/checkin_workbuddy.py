@@ -46,10 +46,13 @@ from typing import Any, Final
 import httpx
 
 from app.core.logging import get_logger
+
 # `DEFAULT_TIMEOUT as DEFAULT_TIMEOUT` 是**显式再导出**:checkin_scheduler 按
 # `checkin_workbuddy.DEFAULT_TIMEOUT` 取值,而 mypy --strict 的 no_implicit_reexport
 # 不把裸 import 当导出(HEAD 实测 1 error 挡住全队提交)。
-from app.services.checkin_engine import DEFAULT_TIMEOUT as DEFAULT_TIMEOUT, get_http_client
+from app.services.checkin_codes import PLATFORM_WORKBUDDY, is_already_checked_in
+from app.services.checkin_engine import DEFAULT_TIMEOUT as DEFAULT_TIMEOUT
+from app.services.checkin_engine import get_http_client
 from app.services.checkin_outbound import CHALLENGE_COOLDOWN_SECONDS, checkin_outbound_gate
 
 logger = get_logger(__name__)
@@ -81,9 +84,9 @@ WB_WEB_BASE: Final = "https://www.workbuddy.cn"
 PATH_WEB_CHECKIN_STATUS: Final = "/v2/billing/meter/checkin-status"
 PATH_WEB_DAILY_CHECKIN: Final = "/v2/billing/meter/daily-checkin"
 
-# 业务码:0=成功;10001=今日已签(幂等成功)。其余非零按失败分类。
+# 业务码:0=成功;「今日已签」码值(实测 10001)的判据单源在 checkin_codes,
+# 本文件不再直写。其余非零按失败处理。
 _CODE_OK: Final = 0
-_CODE_ALREADY: Final = 10001
 
 # 余额字段候选键(checkin-status 响应 data 内)。**顺序即优先级**。
 # 2026-10-17 生产实测:官方字段名是 `total_credits`(下划线+复数),
@@ -196,7 +199,7 @@ def _parse_expiry_value(raw: Any) -> datetime.datetime | None:
 
 
 def workbuddy_session_expiry(
-    device_map: dict[str, Any]
+    device_map: dict[str, Any],
 ) -> tuple[datetime.datetime | None, float | None]:
     """从 device_map 读会话过期时间,返回 (exp_datetime, remaining_hours) 或 (None, None)。
 
@@ -272,7 +275,9 @@ async def _wb_post(
     http = client if client is not None else get_http_client()
     await checkin_outbound_gate.before_request("workbuddy")
     try:
-        resp = await http.post(WB_BASE.rstrip("/") + path, json={}, headers=headers, timeout=timeout)
+        resp = await http.post(
+            WB_BASE.rstrip("/") + path, json={}, headers=headers, timeout=timeout
+        )
     except httpx.TimeoutException:
         return 0, None
     except Exception as e:
@@ -476,10 +481,14 @@ async def workbuddy_checkin_account(
     bearer = (jwt or "").strip()
 
     if not bearer and not web_cookie:
-        result["message"] = "未配置 token" if not web_mode else "未配置网页登录 Cookie,请重新网页登录"
+        result["message"] = (
+            "未配置 token" if not web_mode else "未配置网页登录 Cookie,请重新网页登录"
+        )
         return result
 
-    user_id = workbuddy_device_map_uid(device_map) or (None if web_mode else workbuddy_extract_uid(jwt))
+    user_id = workbuddy_device_map_uid(device_map) or (
+        None if web_mode else workbuddy_extract_uid(jwt)
+    )
     result["user_id"] = user_id
     if not user_id:
         if web_mode:
@@ -502,14 +511,14 @@ async def workbuddy_checkin_account(
     web_ctx = web_mode or used_mode == "web"
     result["http_status"] = status if status > 0 else None
     if status in (0, -1):
-        result["message"] = "网络异常" if status == 0 else (f"网络异常: {data}" if data else "网络异常")
+        result["message"] = (
+            "网络异常" if status == 0 else (f"网络异常: {data}" if data else "网络异常")
+        )
         return result
     if status in (401, 403):
         error_type, cooldown_secs = workbuddy_classify_error(status)
         if web_ctx:
-            result["message"] = (
-                f"网页登录已过期(HTTP {status}),请重新点「网页登录 WorkBuddy」获取"
-            )
+            result["message"] = f"网页登录已过期(HTTP {status}),请重新点「网页登录 WorkBuddy」获取"
         else:
             result["message"] = (
                 f"token 已过期或无权限(HTTP {status}),请打开 WorkBuddy 桌面端刷新登录态后重新抓取"
@@ -519,11 +528,14 @@ async def workbuddy_checkin_account(
     # 已签幂等:官方 daily-checkin 对「今天已签到」返回 **HTTP 400 + code 10001**
     # (2026-10-17 生产实测:400 响应体 {"code":10001,"msg":"今天已签到，请明天再来"})。
     # 必须在 status>=400 分支**之前**识别 —— 否则幂等成功被误报成「签到失败: HTTP 400」,
-    # 正是李总报的「一键签到失败」根因。此处先掏 code,命中 10001 即幂等成功。
-    if isinstance(data, dict) and data.get("code") == _CODE_ALREADY:
-        result["code"] = _CODE_ALREADY
-        result["http_status"] = status if status > 0 else None
-        result.update(ok=True, status="already", action="skip_already", message="今日已签到,无需重复领取")
+    # 正是李总报的「一键签到失败」根因。此处先掏 code,命中已签标志即幂等成功。
+    # 判据单源在 checkin_codes(本文件不直写码值)。
+    already_code = data.get("code") if isinstance(data, dict) else None
+    if is_already_checked_in(PLATFORM_WORKBUDDY, already_code):
+        result["code"] = already_code
+        result.update(
+            ok=True, status="already", action="skip_already", message="今日已签到,无需重复领取"
+        )
         return result
     if status >= 400:
         # 其余 4xx/5xx:HTTP 层即失败,不进业务码解析(响应体可能非我们的契约)
@@ -545,9 +557,6 @@ async def workbuddy_checkin_account(
 
     code = data.get("code")
     result["code"] = code if isinstance(code, int) else None
-    if code == _CODE_ALREADY:
-        result.update(ok=True, status="already", action="skip_already", message="今日已签到,无需重复领取")
-        return result
     if code != _CODE_OK:
         msg = data.get("msg") or data.get("message") or ""
         result["message"] = f"签到未成功: code={code}" + (f" {msg}" if msg else "")
@@ -616,7 +625,7 @@ async def workbuddy_probe_status(
             return False, None, None, "签到响应非 JSON(挑战页,已熔断)"
         return False, None, None, f"签到判定失败(HTTP {status})"
     code = data.get("code")
-    if code == _CODE_ALREADY:
+    if is_already_checked_in(PLATFORM_WORKBUDDY, code):
         # HTTP 400 + code 10001(实测):今天已签 —— 幂等成功,零副作用
         return True, True, None, "今日已签到,无需重复领取"
     if code == _CODE_OK:
@@ -689,7 +698,10 @@ async def workbuddy_query_credits(
         return {
             "remaining": None,
             "error": "状态查询返回非 JSON(挑战页,已熔断)",
-            "classified_error": {"type": "Challenge", "cooldown_seconds": CHALLENGE_COOLDOWN_SECONDS},
+            "classified_error": {
+                "type": "Challenge",
+                "cooldown_seconds": CHALLENGE_COOLDOWN_SECONDS,
+            },
         }
     if status != 200 or not isinstance(data, dict):
         return {"remaining": None, "error": f"状态查询失败(HTTP {status})"}
@@ -699,4 +711,6 @@ async def workbuddy_query_credits(
     if isinstance(val, int):
         return {"remaining": val, "error": None}
     return {"remaining": None, "error": "状态响应不含积分余额字段"}
+
+
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

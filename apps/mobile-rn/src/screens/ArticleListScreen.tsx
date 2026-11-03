@@ -11,6 +11,7 @@ import { usePaginatedList } from '../hooks'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { useHostPorts } from '../host/use-host-ports'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -36,6 +37,8 @@ export function ArticleListScreen() {
   const { items, loading, refreshing, loadingMore, error, refresh, loadMore } =
     usePaginatedList<ArticleListItem>(fetcher, PAGE_SIZE)
 
+  const { onToast } = useHostPorts()
+
   return (
     <SharedArticleListScreen
       t={t}
@@ -48,7 +51,9 @@ export function ArticleListScreen() {
       loadingMore={loadingMore}
       onPressItem={(item) => navigation.navigate('ArticleDetail', { id: item.id })}
       onBack={() => navigation.goBack()}
+      onRetry={() => { void refresh(); }}
       colorScheme={resolvedTheme}
+      onToast={onToast}
     />
   )
 }

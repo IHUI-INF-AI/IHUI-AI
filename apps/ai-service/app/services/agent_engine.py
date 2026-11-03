@@ -81,6 +81,10 @@ from pathlib import Path, PurePosixPath
 from typing import Any, cast
 
 from app.core.agents_md_state import AgentsMdState  # 批58:AGENTS.md 状态机(对标 codex agents_md.rs)
+
+# 守门 247(2026-11-01 收口):fire-and-forget 后台任务唯一出口 —— 事件循环只握弱引用,
+# 裸 create_task 的返回值一丢,任务可能被 GC 静默回收且零报错。
+from app.core.background_tasks import spawn
 from app.core.command_safety import dangerous_command_match as _dangerous_command_match
 from app.core.feature_flags import FeatureRegistry, FeatureSpec
 
@@ -329,16 +333,28 @@ def _shell_stream_codec() -> str:
 
     取不到控制台代码页时(无控制台的服务进程)退回 OEM 代码页;仍是 65001 或
     该代码页名不被 Python 认识时用 utf-8 —— 后者与 65001 语义一致。
-    """
-    if os.name != "nt":
-        return "utf-8"
-    cp = 0
-    try:
-        import ctypes
 
-        kernel32 = ctypes.windll.kernel32
-        cp = int(kernel32.GetConsoleCP() or 0) or int(kernel32.GetOEMCP() or 0)
-    except Exception:  # noqa: BLE001 - 探测失败不得拖垮会话创建
+    平台判据用 sys.platform 且把整个 Windows 实现包进该分支(2026-11-01 CI 修):
+    typeshed 只按 sys.platform 收窄模块属性可用性(`ctypes.windll` 是 win32-only),
+    写成「非 win32 就提前 return」不解决问题 —— mypy 消除的是被证伪的分支体,
+    提前 return 之后的代码在 Linux 面照样被分析 ⇒ Linux CI 报
+    `Module has no attribute "windll"`(实测 2026-11-01 Monorepo CI 的 Mypy job)。
+    同款处置见 app/core/proc_sandbox.py 与 app/core/installation_id.py 的同名头注。
+    """
+    if sys.platform == "win32":
+        cp = 0
+        try:
+            import ctypes
+
+            kernel32 = ctypes.windll.kernel32
+            cp = int(kernel32.GetConsoleCP() or 0) or int(kernel32.GetOEMCP() or 0)
+        except Exception:  # noqa: BLE001 - 探测失败不得拖垮会话创建
+            cp = 0
+    else:
+        # 非 Windows:没有控制台代码页这回事,cp 恒 0 ⇒ 下面的 cp<=0 分支直接落 utf-8。
+        # 这里必须给 cp 一个**无条件**的定义:在 Linux 面上 mypy 会把上面整个
+        # sys.platform 分支剪掉(不可达),若 cp 只在该分支里赋值,下面的读数就成了
+        # "Name 'cp' is not defined"(2026-11-01 本次改动第一版就踩了这个坑)。
         cp = 0
     if cp <= 0 or cp == 65001:
         return "utf-8"
@@ -3231,7 +3247,12 @@ class AgentEngine:
             # 在那之前把 cancel() 排进独立任务,子循环正在跑的工具才能看到取消标志。
             cancel_running = getattr(loop, "cancel", None)
             if cancel_running is not None and not getattr(loop, "_cancel_requested", False):
-                asyncio.get_running_loop().create_task(cancel_running())
+                # 守门 247:原为裸 `asyncio.get_running_loop().create_task(...)`,返回值即丢
+                # ⇒ 事件循环只握弱引用,这条 cancel 可能在子循环看到取消标志之前就被 GC 吞掉。
+                # 语义逐字不变:`spawn` 内部就是 asyncio.create_task(同一个 running loop),
+                # 只多了一层强引用登记;无 loop 时同样抛 RuntimeError,不新增异常路径。
+                # 此处不能 await:正在传播的 CancelledError 会立刻打断 await,取消反而不到位。
+                spawn(cancel_running(), name="agent-engine-loop-cancel")
             raise
         finally:
             elapsed_ms = round((time.perf_counter() - started) * 1000, 2)
@@ -4679,7 +4700,7 @@ class AgentEngine:
 
             try:
                 thread.additional_directories = set_session_extra_roots(
-                    thread.session_id, additional_dirs
+                    thread.session_id, additional_dirs, user_id=thread.user_id
                 )
             except ValueError as e:
                 raise JsonRpcError(INVALID_PARAMS, str(e))

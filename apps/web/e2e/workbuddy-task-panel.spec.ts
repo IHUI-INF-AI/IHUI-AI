@@ -40,14 +40,14 @@ import { expect, test as base } from './fixtures'
  * 浏览器现在是在真实 CSP 下执行页面,断言面一字未减。
  */
 const test = base.extend<{ panelPage: Page }>({
-  panelPage: async ({ browser }: { browser: Browser }, use: (p: Page) => Promise<void>) => {
+  panelPage: async ({ browser }: { browser: Browser }, providePage: (p: Page) => Promise<void>) => {
     const context = await browser.newContext({
       viewport: { width: 1280, height: 720 },
       locale: 'zh-CN',
       extraHTTPHeaders: { 'CF-IPCountry': 'US' },
     })
     const page = await context.newPage()
-    await use(page)
+    await providePage(page)
     await context.close()
   },
 })

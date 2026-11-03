@@ -36,6 +36,39 @@ import { __test__ as watermark } from './watermark.mjs'
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)))
 const R = (...p) => join(ROOT, ...p)
 const OUT_REL = 'apps/miniapp-taro/src/rn-compat/icons-generated.tsx'
+/**
+ * 归属闸 + 落点申报(2026-11-03 立,这是本器能挂守护自动档的**前置条件**)。
+ * 判据一律借单源,本文件不写第二份(§0.6 / 门 191):
+ *   · `ownershipGate`/`isCleanOwned` ← lib/git-paths.mjs(三枚 lander 与 fix-rn-color-literals 同尺);
+ *   · `worktreeBlobOid` 本文件自带局部包装,但**命令借单源** `lib/face-reader.mjs` 的 `gitRaw`
+ *     (与 gen-ui-mirror.mjs:99 同一形制:同一把 `hash-object -- <rel>`,自拼裸 git 或换参数
+ *      = 两侧算法不一致 ⇒ 收编侧永远 contested);
+ *     —— 原写法 import `auto-register-cross-end.mjs` 取同名 helper,实测**一 import 就跑批**
+ *     (它自己的 isDirectRun 守卫挡不住顶层副作用:未知旗那轮先打出了它的结论行),
+ *     被 import 的模块有写盘副作用 ⇒ 本器每次被调用(含守护腿、含门 251 的 --check 出口)都会
+ *     连带执行别人的主流程,这条依赖必须拆掉。
+ *   · `appendLanding` ← lib/cross-end-landing-ledger.mjs。
+ * 立因:本器写的是两份派生产物,而多会话共享工作区里这些产物常年被并发会话/守护轮持有现场;
+ * 没有归属闸就自动写档 = 覆盖别人的未提交工作(§12/§16 事故型),与本仓"提交链不代摘他人暂存"同条禁令。
+ */
+import { appendLanding } from './lib/cross-end-landing-ledger.mjs'
+import { isCleanOwned, ownershipGate } from './lib/git-paths.mjs'
+import { gitRaw } from './lib/face-reader.mjs'
+
+/** 实测工作树 blob 的 oid;取不到返回 null(调用方不得把 null 当"已核验")。 */
+export function worktreeBlobOid(rel, root = ROOT) {
+  try {
+    return String(gitRaw(['hash-object', '--', rel], root))
+      .trim()
+      .toLowerCase()
+  } catch {
+    return null
+  }
+}
+
+/** 在册短名:与 parity-auto 的 stage id / 守护腿标签同一族命名(逐字取既有自称,不自立新名)。 */
+export const CROSS_END_LEG = 'rn-compat'
+
 /** lucide PascalCase 名 → kebab-case 文件名(BarChart3 → bar-chart-3;数字前后都要断) */
 function kebab(name) {
   return name
@@ -163,10 +196,14 @@ function renderSource(names, rows) {
  * 与端内 LineIcon 同一手法,主题切换时随 token 换色(不会定死成黑色)。
  */
 import { makeIcon } from './icons-runtime'
-import type { CompatIconProps } from './icons-runtime'
 
-/** lucide-react-native 的组件类型名(消费面有写 import type { LucideIcon } 的)—— 别名指到本文件,这个类型位也必须在这里 */
-export type LucideIcon = (props: CompatIconProps) => ReturnType<typeof makeIcon>
+/**
+ * lucide-react-native 的组件类型名(消费面有写 import type { LucideIcon } 的)—— 别名指到本文件,
+ * 这个类型位也必须在这里。取 makeIcon 的返回值本身,不再外包一层函数壳:lucide 的类型是**组件**
+ * (可直接当 JSX 用),外包成"返回组件的函数"会让 <Icon /> 报 TS2786、
+ * 把生成出来的图标赋给 LucideIcon 报 TS2322。
+ */
+export type LucideIcon = ReturnType<typeof makeIcon>
 
 const S = {
 ${rows.join('\n')}
@@ -199,6 +236,18 @@ ${declared.join('\n')}
  */
 const RN_NAVIGATOR = 'apps/mobile-rn/src/navigation/RootNavigator.tsx'
 const REGISTRY = 'scripts/data/cross-end-screen-registry.json'
+/**
+ * 第三桶:RN 独有屏(共享层没有同物)的「路由名 → 小程序镜像页」补充声明。
+ *
+ * 为什么另一张表而不是往登记表塞:登记表按定义只收「shared 在
+ * packages/app/src/index.ts 有同名导出」的三元组(见其 comment 字段,R1 逐条核验),
+ * RN 独有屏永远进不去。而这类路由在小程序端确实有镜像页 —— 例如 DevEnterScreen ↔
+ * pkg-ai/developer/index(该页头注已写明"我的智能体列表,RN 同物是端内屏 DevEnterScreen,
+ * 共享层还没有这一族屏")。不补这一桶,那个入口在壳化后就是"点了不动":
+ * navigation 垫片拿不到路径只 console.warn。声明本身不构成证据 —— 导航器里该路由名
+ * 必须真的挂在声明的那个壳文件上、小程序页必须真的在盘上,对不上的逐条点名且不入表。
+ */
+const RN_ONLY_SUPPLEMENT = 'scripts/data/rn-route-supplement.json'
 const ROUTE_OUT_REL = 'apps/miniapp-taro/src/rn-compat/route-map.generated.ts'
 
 function headBlob(rel) {
@@ -212,13 +261,82 @@ function headBlob(rel) {
 }
 
 function buildRouteMap() {
-  return buildRouteMapFromText(headBlob(RN_NAVIGATOR), JSON.parse(headBlob(REGISTRY)).entries)
+  const accepted = []
+  const rejected = []
+  for (const item of readSupplementEntries()) {
+    const miniapp = String(item?.miniapp ?? '')
+    if (!miniapp || !existsSync(R(`apps/miniapp-taro/src/${miniapp}.tsx`))) {
+      rejected.push(`小程序页不在盘上:${miniapp || '(空)'}`)
+      continue
+    }
+    accepted.push(item)
+  }
+  const info = buildRouteMapFromText(
+    headBlob(RN_NAVIGATOR),
+    JSON.parse(headBlob(REGISTRY)).entries,
+    accepted,
+  )
+  return { ...info, supplementProblems: [...rejected, ...info.supplementProblems] }
+}
+
+/**
+ * 读补充声明。事实源恒为 HEAD(§0.4,与导航器/登记表同面);只有「该文件尚未进 HEAD」时
+ * 才回落到工作树 —— 否则首次引入它的那一轮 `--write` 永远看不见自己刚写的声明。
+ *
+ * 但 HEAD-only 对「已进 HEAD 的声明文件**追加/修改**条目」是同一把尺的盲区:未提交的
+ * 新条目被 HEAD 旧副本静默顶掉,`--write` 空转还报"路由映射无变化"(2026-11-01 实测:
+ * 补 WebView 条目后重跑,补充声明仍只入表 1 条 = 旧 DevEnter)。修法:工作树副本与
+ * HEAD 不同时**两份都读**,按 route 键合并(工作树胜出;HEAD 独有条目保留)。证据面
+ * 不放松:合并后的每一条仍过 buildRouteMapFromText 的三重核对(路由名在导航器 /
+ * 壳文件对得上 / 小程序页在盘上),对不上的照旧逐条点名且不入表。
+ */
+function parseSupplement(text) {
+  try {
+    const parsed = JSON.parse(text)
+    return Array.isArray(parsed?.entries) ? parsed.entries : []
+  } catch {
+    return []
+  }
+}
+
+function readSupplementEntries() {
+  let headText = null
+  try {
+    headText = headBlob(RN_ONLY_SUPPLEMENT)
+  } catch {
+    try {
+      headText = readFileSync(R(RN_ONLY_SUPPLEMENT), 'utf8')
+    } catch {
+      return []
+    }
+  }
+  const headEntries = parseSupplement(headText)
+  let workText = null
+  try {
+    workText = readFileSync(R(RN_ONLY_SUPPLEMENT), 'utf8')
+  } catch {
+    // 工作树读不到(被删) ⇒ 按 HEAD 面算,不冒充空表
+    return headEntries
+  }
+  if (workText === headText) return headEntries
+  // 工作树有未提交的声明改动:按 route 键合并,工作树条目胜出。
+  // (工作树**删除**条目不在此合并语义内 —— 撤声明请连提交一起落,别指望工作树半途生效。)
+  const merged = new Map()
+  for (const e of headEntries) {
+    const key = String(e?.route ?? '')
+    if (key) merged.set(key, e)
+  }
+  for (const e of parseSupplement(workText)) {
+    const key = String(e?.route ?? '')
+    if (key) merged.set(key, e)
+  }
+  return [...merged.values()]
 }
 
 /**
  * 纯函数版(镜像测试直接打,不碰 git 也不写盘):导航器正文 + 登记表 entries ⇒ 路由映射三桶。
  */
-export function buildRouteMapFromText(nav, registryEntries) {
+export function buildRouteMapFromText(nav, registryEntries, supplementEntries = []) {
   const regRows = (registryEntries || []).filter((e) => e.rn && e.miniapp)
   const byRn = new Map(regRows.map((e) => [e.rn, e.miniapp]))
   /**
@@ -273,6 +391,7 @@ export function buildRouteMapFromText(nav, registryEntries) {
   const map = new Map()
   const unmapped = []
   const unbound = []
+  const routeToFile = new Map()
   for (const m of nav.matchAll(/\.Screen\s*\n?\s*name=["']([\w-]+)["']\s+component=\{(\w+)\}/g)) {
     const [, routeName, comp] = [m[0], m[1], m[2]]
     const file = compToFile.get(comp)
@@ -282,6 +401,8 @@ export function buildRouteMapFromText(nav, registryEntries) {
       unbound.push(`${routeName}(component=${comp})`)
       continue
     }
+    // 路由名 ↔ 壳文件:供补充声明核对「声明的壳文件是否真是导航器挂的那个」
+    routeToFile.set(routeName, file)
     const miniapp = byRn.get(file)
     if (!miniapp) {
       unmapped.push(`${routeName}(${comp})`)
@@ -289,7 +410,40 @@ export function buildRouteMapFromText(nav, registryEntries) {
     }
     map.set(routeName, `/${miniapp}`)
   }
-  return { map, unmapped, unbound, rnCollisions, total: compToFile.size }
+  // RN 独有屏补充声明:登记表已覆盖的路由名一律以登记表为准(补充表不抢登记表),
+  // 导航器里查无此名、或声明挂的壳文件与导航器实际挂的不一致 ⇒ 逐条点名且不入表。
+  const supplementProblems = []
+  let supplementApplied = 0
+  for (const item of supplementEntries || []) {
+    const route = String(item?.route ?? '')
+    const rnFile = String(item?.rn ?? '')
+    const miniapp = String(item?.miniapp ?? '')
+    if (!route || !rnFile || !miniapp) {
+      supplementProblems.push(`字段不全:${JSON.stringify(item)}`)
+      continue
+    }
+    const actual = routeToFile.get(route)
+    if (!actual) {
+      supplementProblems.push(`${route}:导航器里没有这条路由名`)
+      continue
+    }
+    if (actual !== rnFile) {
+      supplementProblems.push(`${route}:声明挂在 ${rnFile},导航器实际挂 ${actual}`)
+      continue
+    }
+    if (map.has(route)) continue
+    map.set(route, `/${miniapp}`)
+    supplementApplied += 1
+  }
+  return {
+    map,
+    unmapped,
+    unbound,
+    rnCollisions,
+    supplementProblems,
+    supplementApplied,
+    total: compToFile.size,
+  }
 }
 
 /**
@@ -417,9 +571,11 @@ function renderRouteMap(map) {
 /**
  * ⚠️ 生成物,请勿手改 —— 重新生成:\`node scripts/gen-rn-compat.mjs --write\`
  *
- * RN 路由名 → 小程序页面路径。判据 = RN 导航器的 Screen 登记 ∪ 跨端登记表的 rn↔miniapp 对,
- * 两条现读事实 join(取名规则猜路径必然漂移)。不在表里的路由名 = 小程序端尚无对应页,
- * 由 rn-compat/navigation 运行时点名"这一跳未执行",绝不跳到一个像的名字上去。
+ * RN 路由名 → 小程序页面路径。判据 = RN 导航器的 Screen 登记 ∪ 跨端登记表的 rn↔miniapp 对
+ * ∪ RN 独有屏的补充声明(scripts/data/rn-route-supplement.json,逐条核「声明的壳文件是否真是
+ * 导航器挂的那个」与「小程序页是否真在盘上」),三处现读事实 join(取名规则猜路径必然漂移)。
+ * 不在表里的路由名 = 小程序端尚无对应页,由 rn-compat/navigation 运行时点名"这一跳未执行",
+ * 绝不跳到一个像的名字上去。
  */
 export const RN_ROUTE_MAP: Record<string, string> = {
 ${lines.join('\n')}
@@ -521,6 +677,21 @@ function injectWatermark(relPath, opts = {}) {
 
 async function main() {
   const argv = process.argv.slice(2)
+  /**
+   * 旗必须逐根认:原实现是 `argv.includes(...)`,未知旗被**静默忽略** —— 而守护派发体的取结论
+   * 正则是 `/^.*landing=\d+.*$/m`,一旦哪天有人按同族惯例传 `--apply`/`--head`,本器会照默认走
+   * "预演不写盘",于是那条自动腿每轮都判"无变化",成为§0.9 禁的"看着有守卫其实空转"。
+   * 失效方向固定为"多要一次定向说明"(§0.10),不是"多放一次"。
+   */
+  const KNOWN_FLAGS = new Set(['--write', '--check', '--self-test'])
+  const unknown = argv.filter((a) => !KNOWN_FLAGS.has(a))
+  if (unknown.length > 0) {
+    console.error(
+      `❌ 未判定:未知参数 ${unknown.join(' ')} —— 本器只认 ${[...KNOWN_FLAGS].join(' / ')};` +
+        '不接受把未知旗当默认档(那会让自动腿静默退化成"什么都不做还报绿")。',
+    )
+    process.exit(2)
+  }
   const write = argv.includes('--write')
   const check = argv.includes('--check')
   let face
@@ -593,6 +764,15 @@ async function main() {
       `⚠️ 登记表同 rn 撞键共 ${routeInfo.rnCollisions.length} 组(只报数不判红:存量未归零前升档即 §12e 恒红门;逐组核 shared↔rn 同名并真机走查后才谈收口)`,
     )
   }
+  // 补充声明单独出声:被拒的条目是"声明与现读事实不符",不能静默吞掉当没写过。
+  if (routeInfo.supplementApplied > 0 || routeInfo.supplementProblems.length > 0) {
+    console.log(
+      `RN 独有屏补充声明:${routeInfo.supplementApplied} 条入表` +
+        (routeInfo.supplementProblems.length
+          ? ` / ${routeInfo.supplementProblems.length} 条被拒(逐条:${routeInfo.supplementProblems.join('; ')})`
+          : ''),
+    )
+  }
   if (write) {
     /**
      * 落盘一律走 `lib/atomic-write.mjs`(工具层唯一出口),不再裸 `writeFileSync`:
@@ -602,23 +782,90 @@ async function main() {
      * `--write` 于是栽在"正文已换、水印未落"或"正文都没写进去"这两格并以 exit 2 收场 —— 即 §0.8 禁止的"文档写了跑不通的出路"(门 251 的修复出口
      * 就是这条命令)。原子替换开的是**同目录新临时名**(不碰被占的目标),失败不留半成品、
      * 也不截目标;退避用层里那一份,本文件不再写第二个重试器(§0.6)。
+     *
+     * 归属闸(挂自动档的前置条件,2026-11-03):脏集取不到 ⇒ **一份都不写**并按未判定收场(§0.3);
+     * 某份产物在脏集里 ⇒ 只跳过那一枚、其余照写(收窄口径,与护栏③ 同一条判序)。
      */
-    if (iconsAlreadyCovered)
+    const gate = ownershipGate({ root: ROOT })
+    const held = []
+    const written = []
+    let unchanged = 0
+    const ownedOrNull = (rel) => {
+      if (!gate.ok) return false
+      return isCleanOwned(rel, gate.paths)
+    }
+    if (!gate.ok) {
+      held.push(OUT_REL, ROUTE_OUT_REL)
+      console.error(
+        `❌ 未判定:归属闸读不到脏集(${String(gate.why ?? '').slice(0, 120)})⇒ 两份产物一律不写`,
+      )
+    }
+    if (gate.ok && iconsAlreadyCovered) {
+      unchanged += 1
       console.log(`✓ 图标无变化(盘上生成物已逐名覆盖现读全集 ${rows.length} 名,含 SVG 取值)`)
-    else {
+    } else if (gate.ok && !ownedOrNull(OUT_REL)) {
+      held.push(OUT_REL)
+      console.log(`🔒 held(工作树该路径归属未明 ⇒ 本轮不写):${OUT_REL}`)
+    } else if (gate.ok) {
       atomicWriteFileSync(outPath, next, { encoding: 'utf8' })
       await formatWithPrettier(OUT_REL)
       injectWatermark(OUT_REL)
+      written.push(OUT_REL)
       console.log(`✓ 已写 ${OUT_REL}(${rows.length} 个图标,已按仓库 prettier 配置归一并注入水印)`)
     }
-    if (routesAlreadyCovered)
+    if (gate.ok && routesAlreadyCovered) {
+      unchanged += 1
       console.log(`✓ 路由映射无变化(盘上已逐键覆盖现读 ${routeInfo.map.size} 条,含指向)`)
-    else {
+    } else if (gate.ok && !ownedOrNull(ROUTE_OUT_REL)) {
+      held.push(ROUTE_OUT_REL)
+      console.log(`🔒 held(工作树该路径归属未明 ⇒ 本轮不写):${ROUTE_OUT_REL}`)
+    } else if (gate.ok) {
       atomicWriteFileSync(routeOut, routeNext, { encoding: 'utf8' })
       await formatWithPrettier(ROUTE_OUT_REL)
       injectWatermark(ROUTE_OUT_REL)
+      written.push(ROUTE_OUT_REL)
       console.log(`✓ 已写 ${ROUTE_OUT_REL}(${routeInfo.map.size} 条路由,已归一 + 注水印)`)
     }
+    // 批末申报:写了盘的逐枚**实测 oid** 进落点账本 ⇒ 收编侧按 blob 核验才收(不凭"我写过")。
+    // 写了盘却没登记上 ⇒ 不得按成功交出去(与结论行同批点名)。
+    const entries = []
+    const unhashable = []
+    for (const rel of written) {
+      const oid = worktreeBlobOid(rel, ROOT)
+      if (oid)
+        entries.push({ at: new Date().toISOString(), leg: CROSS_END_LEG, path: rel, blobOid: oid })
+      else unhashable.push(rel)
+    }
+    let ap = { appended: 0, deduped: 0, rejected: [] }
+    try {
+      ap = appendLanding(entries, { root: ROOT })
+    } catch (e) {
+      ap = { appended: 0, deduped: 0, rejected: [], failed: String(e?.message ?? e).slice(0, 120) }
+    }
+    const landing = ap.appended + ap.deduped
+    const bad = []
+    if (ap.rejected?.length)
+      bad.push(`账本拒收:${ap.rejected.map((r) => `${r.path}(${r.reason})`).join(' ')}`)
+    if (ap.failed) bad.push(`账本写入异常:${ap.failed}`)
+    if (unhashable.length) bad.push(`落点 blob 取不到:${unhashable.join(' ')}`)
+    // `ledger=` 必须与事实同批出:派发体按这一维把整轮折成 unjudged-ledger(而不是"无漂移可落")。
+    const ledgerState = bad.length ? 'unjudged' : 'ok'
+    console.log('─'.repeat(64))
+    console.log(
+      `结论 landing=${landing}(新登记 ${ap.appended}/在册去重 ${ap.deduped})` +
+        ` 无变化=${unchanged}` +
+        ` held=${held.length}` +
+        (gate.ok ? '' : ' ownership=unjudged') +
+        ` 写出=${written.length}` +
+        ` leg=${CROSS_END_LEG}` +
+        ` ledger=${ledgerState}` +
+        ` landingPath=.ihui-agent/state/cross-end-landing.jsonl`,
+    )
+    if (bad.length) {
+      console.error(`❌ 写了盘但申报未竟全功 ⇒ 不按成功收场:${bad.join(' | ')}`)
+      process.exit(1)
+    }
+    if (!gate.ok) process.exit(2)
     return
   }
   console.log('(预演模式,未写盘;加 --write 落地)')

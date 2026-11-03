@@ -86,7 +86,7 @@ export function CertificateTable({
               return (
                 <TableRow key={c.id} className="hover:bg-muted/30">
                   <TableCell
-                    className="max-w-[200px] truncate px-4 py-2.5 font-mono text-xs"
+                    className="max-w-[200px] truncate px-4 py-2.5 font-mono text-label"
                     title={c.certificateNo}
                   >
                     {c.certificateNo}
@@ -94,18 +94,18 @@ export function CertificateTable({
                   <TableCell className="px-4 py-2.5">
                     <div className="font-medium">{c.title}</div>
                     {c.templateName && (
-                      <div className="text-xs text-muted-foreground">{c.templateName}</div>
+                      <div className="text-label text-muted-foreground">{c.templateName}</div>
                     )}
                   </TableCell>
                   <TableCell className="px-4 py-2.5">
                     {c.recipientName ?? c.nickname ?? '-'}
                   </TableCell>
-                  <TableCell className="px-4 py-2.5 text-xs">
+                  <TableCell className="px-4 py-2.5 text-label">
                     {SOURCE_LABEL_KEY[c.source ?? '']
                       ? t(SOURCE_LABEL_KEY[c.source ?? ''] ?? 'sourceLabel.unknown')
                       : (c.source ?? '-')}
                   </TableCell>
-                  <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">
+                  <TableCell className="px-4 py-2.5 text-label text-muted-foreground">
                     {c.issuedAt ? formatDateOnly(c.issuedAt) : '-'}
                   </TableCell>
                   <TableCell className="px-4 py-2.5">

@@ -18,47 +18,24 @@ name: i18n Dead Key Audit
 #   + main() 端到端入口,防止正则重构引入回归(如 commit 5ebb17915 漏识别 getTranslations)。
 # =============================================================================
 
+# 2026-11-03(排队治理):最近 12 次运行 = 8 failure + 3 cancelled、0 success;单次执行
+#   556s(2 个 job),而 push 触发面覆盖 apps/web/src/**、apps/mobile-rn/** 等几乎每次
+#   main 提交都会改到的目录 —— 即"每次都跑、大多数都红、无人看"的长杆。按本轮口径从
+#   push / pull_request 触发面撤下,改为**每日一次定时 + 手动触发**;job、判据、报告产物
+#   一行未删。
+# 恢复方式:把下面 `on:` 整块换回原触发面 —— push 与 pull_request 两侧相同:
+#   branches: [main, develop]
+#   paths: 'packages/i18n/messages/**', 'apps/web/src/**', 'apps/miniapp-taro/src/**',
+#          'apps/cli/src/**', 'apps/extension/**', 'apps/mobile-rn/**',
+#          'packages/shared/src/chat/**', 'scripts/scan-dead-i18n-keys.mjs',
+#          'scripts/_i18n-scan-helpers.mjs', 'scripts/i18n-contract-keys.json',
+#          'scripts/tests/**', '.github/workflows/i18n-dead-key-audit.yml'
+# 它不承载 required check(分支保护现读只有 `CI / lint-typecheck-test (push)`)。
 on:
-  push:
-    branches: [main, develop]
-    paths:
-      - 'packages/i18n/messages/**'
-      - 'apps/web/src/**'
-      - 'apps/miniapp-taro/src/**'
-      - 'apps/cli/src/**'
-      # 2026-09-24:本 job 改跑 --target all(五端全覆盖),触发路径必须覆盖被扫的目录,
-      # 否则改了 extension/mobile-rn/shared 消费方时这道门根本不跑。
-      - 'apps/extension/**'
-      - 'apps/mobile-rn/**'
-      - 'packages/shared/src/chat/**'
-      - 'scripts/scan-dead-i18n-keys.mjs'
-      - 'scripts/_i18n-scan-helpers.mjs'
-      # 2026-10-29:契约键台账是扫描器的判据输入面(scan-dead-i18n-keys.mjs:192 从判定面读
-      # CONTRACT_FILE_REL 并逐条核验 evidence),此前不在触发面 ⇒ 只改豁免台账时本腿根本不跑,
-      # 「豁免腐烂 / 撤免后死键重现」都无人判,属同一型 fail-open(参照 8end-consistency-cert 2026-10-04 同款修复)。
-      - 'scripts/i18n-contract-keys.json'
-      - 'scripts/tests/**'
-      - '.github/workflows/i18n-dead-key-audit.yml'
-  pull_request:
-    branches: [main, develop]
-    paths:
-      - 'packages/i18n/messages/**'
-      - 'apps/web/src/**'
-      - 'apps/miniapp-taro/src/**'
-      - 'apps/cli/src/**'
-      # 2026-09-24:本 job 改跑 --target all(五端全覆盖),触发路径必须覆盖被扫的目录,
-      # 否则改了 extension/mobile-rn/shared 消费方时这道门根本不跑。
-      - 'apps/extension/**'
-      - 'apps/mobile-rn/**'
-      - 'packages/shared/src/chat/**'
-      - 'scripts/scan-dead-i18n-keys.mjs'
-      - 'scripts/_i18n-scan-helpers.mjs'
-      # 2026-10-29:契约键台账是扫描器的判据输入面(scan-dead-i18n-keys.mjs:192 从判定面读
-      # CONTRACT_FILE_REL 并逐条核验 evidence),此前不在触发面 ⇒ 只改豁免台账时本腿根本不跑,
-      # 「豁免腐烂 / 撤免后死键重现」都无人判,属同一型 fail-open(参照 8end-consistency-cert 2026-10-04 同款修复)。
-      - 'scripts/i18n-contract-keys.json'
-      - 'scripts/tests/**'
-      - '.github/workflows/i18n-dead-key-audit.yml'
+  schedule:
+    # 每天 17:30 UTC = 北京时间次日 01:30(与 scripts-mirror 的 18:20 UTC 错开)
+    - cron: '30 17 * * *'
+  workflow_dispatch:
 
 concurrency:
   group: i18n-dead-key-audit-${{ github.ref }}

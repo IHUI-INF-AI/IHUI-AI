@@ -21,6 +21,13 @@ on:
       - '.github/workflows/style-spec.yml'
   workflow_dispatch:
 
+# 2026-11-03(排队治理):原无 concurrency。main 上 apps/web/** 的每次改动都会起一枚,
+#   实测单次执行 ~379s(2 个 job)。它不是 required check,按"同一 ref 只跑最新一次"收敛;
+#   被挤掉的旧运行只是过期结论,最新提交始终有结论。
+concurrency:
+  group: style-spec-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
   pull-requests: write

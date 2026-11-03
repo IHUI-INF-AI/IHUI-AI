@@ -85,12 +85,12 @@ export function RolePermissionDialog({ roleId, onClose }: Props) {
           <DialogDescription>勾选该角色持有的权限点（角色 ID：{roleId}）</DialogDescription>
         </DialogHeader>
         {loading ? (
-          <div className="px-1 py-10 text-center text-sm text-muted-foreground">
+          <div className="px-1 py-10 text-center text-body text-muted-foreground">
             <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
             加载中...
           </div>
         ) : list.length === 0 ? (
-          <div className="px-1 py-10 text-center text-sm text-muted-foreground">暂无权限点</div>
+          <div className="px-1 py-10 text-center text-body text-muted-foreground">暂无权限点</div>
         ) : (
           <div className="space-y-2">
             {list.map((p) => (
@@ -106,10 +106,12 @@ export function RolePermissionDialog({ roleId, onClose }: Props) {
                 <div className="min-w-0">
                   <div className="text-body font-medium">
                     {p.displayName}
-                    <span className="ml-2 font-mono text-xs text-muted-foreground">{p.name}</span>
+                    <span className="ml-2 font-mono text-label text-muted-foreground">
+                      {p.name}
+                    </span>
                   </div>
                   {p.description && (
-                    <div className="mt-0.5 text-xs text-muted-foreground">{p.description}</div>
+                    <div className="mt-0.5 text-label text-muted-foreground">{p.description}</div>
                   )}
                 </div>
               </label>

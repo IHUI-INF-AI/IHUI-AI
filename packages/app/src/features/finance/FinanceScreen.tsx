@@ -25,8 +25,9 @@ export function FinanceScreen({
   loading,
   error,
   onBack,
-  colorScheme = 'light',
-}: FinanceScreenProps) {
+  onRetry,
+  colorScheme = 'light'
+}: FinanceScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -42,7 +43,7 @@ export function FinanceScreen({
     return (
       <ErrorState
         message={error}
-        onRetry={onBack}
+        onRetry={onRetry}
         retryLabel={t('common.back')}
         colorScheme={colorScheme}
       />

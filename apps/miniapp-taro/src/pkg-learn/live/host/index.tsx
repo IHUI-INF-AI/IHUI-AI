@@ -12,6 +12,7 @@ import { createSrsStream, updateSrsStream, type SrsStream } from '@ihui/api-clie
 import { unwrapApi } from '@/utils/api-bridge'
 import { formatDuration } from '@ihui/shared/utils'
 import ThemeRoot from '@/components/ThemeRoot'
+import { onToast } from '@/host/on-toast'
 
 type StreamStatus = 'idle' | 'active' | 'inactive'
 
@@ -56,7 +57,7 @@ export default function LiveHost() {
     if (status !== 'idle' || loading) return
     const title = streamTitle.trim()
     if (!title) {
-      Taro.showToast({ title: tt('liveHost.titleRequired', '请输入直播标题'), icon: 'none' })
+      onToast(tt('liveHost.titleRequired', '请输入直播标题'), { kind: 'info' })
       return
     }
     setLoading(true)
@@ -70,7 +71,7 @@ export default function LiveHost() {
     } catch (e) {
       const msg = e instanceof Error ? e.message : tt('liveHost.startFailed', '开启直播失败')
       setError(msg)
-      Taro.showToast({ title: msg, icon: 'none' })
+      onToast(msg, { kind: 'info' })
     } finally {
       setLoading(false)
     }
@@ -91,7 +92,7 @@ export default function LiveHost() {
     } catch (e) {
       const msg = e instanceof Error ? e.message : tt('liveHost.endFailed', '结束直播失败')
       setError(msg)
-      Taro.showToast({ title: msg, icon: 'none' })
+      onToast(msg, { kind: 'info' })
     } finally {
       setLoading(false)
     }
@@ -101,7 +102,7 @@ export default function LiveHost() {
     (text: string) => {
       if (!text) return
       Taro.setClipboardData({ data: text })
-      Taro.showToast({ title: tt('liveHost.copySuccess', '已复制到剪贴板'), icon: 'success' })
+      onToast(tt('liveHost.copySuccess', '已复制到剪贴板'), { kind: 'success' })
     },
     [tt],
   )
@@ -151,9 +152,7 @@ export default function LiveHost() {
             {tt('liveHost.title', '主播中心')}
           </Text>
           <View className={`px-[16rpx] py-[4rpx] rounded-xl ${badgeCls}`}>
-            <Text className="text-caption text-[var(--color-primary-foreground)]">
-              {badgeText}
-            </Text>
+            <Text className="text-caption text-[var(--color-primary-foreground)]">{badgeText}</Text>
           </View>
         </View>
 
@@ -245,9 +244,7 @@ export default function LiveHost() {
           <View className="flex flex-wrap">
             {stats.map((s) => (
               <View key={s.label} className="w-1/2 mb-[16rpx]">
-                <Text className="text-body text-[var(--color-text-tertiary)]">
-                  {s.label}
-                </Text>
+                <Text className="text-body text-[var(--color-text-tertiary)]">{s.label}</Text>
                 <Text className="text-title font-semibold text-foreground">{s.value}</Text>
               </View>
             ))}
@@ -263,10 +260,7 @@ export default function LiveHost() {
             <View
               className="ui-control rounded-sm bg-[var(--color-card)] px-[16rpx] py-[8rpx]"
               onClick={() =>
-                Taro.showToast({
-                  title: tt('liveHost.addProductToast', '商品添加功能待接入'),
-                  icon: 'none',
-                })
+                onToast(tt('liveHost.addProductToast', '商品添加功能待接入'), { kind: 'info' })
               }
               hoverClass="opacity-60"
             >
@@ -282,9 +276,7 @@ export default function LiveHost() {
           ) : (
             HOST_PRODUCTS.map((item) => (
               <View key={item.id} className="flex items-center justify-between py-[16rpx]">
-                <Text className="flex-1 mr-[16rpx] text-title text-foreground">
-                  {item.name}
-                </Text>
+                <Text className="flex-1 mr-[16rpx] text-title text-foreground">{item.name}</Text>
                 <Text className="text-title font-semibold text-[var(--color-danger)]">
                   ¥{item.price}
                 </Text>

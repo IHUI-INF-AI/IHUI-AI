@@ -72,7 +72,7 @@ export function IntegrationDialog({
               <DialogDescription>{t('createDesc')}</DialogDescription>
             </DialogHeader>
             {err && (
-              <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              <div className="rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">
                 {err}
               </div>
             )}
@@ -114,7 +114,7 @@ export function IntegrationDialog({
                 className={textareaClass}
               />
             </div>
-            <label className="flex cursor-pointer items-center gap-2 text-sm">
+            <label className="flex cursor-pointer items-center gap-2 text-body">
               <input
                 type="checkbox"
                 checked={form.isEnabled}
@@ -148,15 +148,15 @@ export function IntegrationDialog({
             <DialogDescription>{t('deleteConfirm')}</DialogDescription>
           </DialogHeader>
           {delTarget && (
-            <div className="rounded-md bg-muted/40 px-3 py-2 text-sm">
+            <div className="rounded-md bg-muted/40 px-3 py-2 text-body">
               <div className="font-medium">{delTarget.name}</div>
-              <div className="mt-0.5 text-xs text-muted-foreground">
+              <div className="mt-0.5 text-label text-muted-foreground">
                 {t(PROVIDER_KEY[delTarget.provider] ?? 'providers.unknown')}
               </div>
             </div>
           )}
           {err && (
-            <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <div className="rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">
               {err}
             </div>
           )}

@@ -75,7 +75,7 @@ function TreeNode({
     <div>
       <div
         className={cn(
-          'flex h-8 items-center gap-1 rounded-sm pr-2 text-sm transition-colors hover:bg-accent',
+          'flex h-8 items-center gap-1 rounded-sm pr-2 text-body transition-colors hover:bg-accent',
           selected && 'bg-primary/10 font-medium',
         )}
         style={{ paddingLeft: `${depth * 12 + 4}px` }}
@@ -153,7 +153,7 @@ export function DeptTree({ selectedId, onSelect }: Props) {
           placeholder="搜索部门"
           aria-label="搜索部门"
           size="sm"
-          className="pl-7 text-xs"
+          className="pl-7 text-label"
         />
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto p-1">
@@ -161,7 +161,7 @@ export function DeptTree({ selectedId, onSelect }: Props) {
           type="button"
           onClick={() => onSelect(null)}
           className={cn(
-            'mb-1 flex h-8 w-full items-center gap-1.5 rounded-sm px-2 text-sm transition-colors hover:bg-accent',
+            'mb-1 flex h-8 w-full items-center gap-1.5 rounded-sm px-2 text-body transition-colors hover:bg-accent',
             selectedId === null && 'bg-primary/10 font-medium',
           )}
         >
@@ -173,9 +173,9 @@ export function DeptTree({ selectedId, onSelect }: Props) {
             <Loader2 className="h-4 w-4 animate-spin" />
           </div>
         ) : error ? (
-          <div className="px-2 py-6 text-center text-xs text-muted-foreground">部门加载失败</div>
+          <div className="px-2 py-6 text-center text-label text-muted-foreground">部门加载失败</div>
         ) : tree.length === 0 ? (
-          <div className="px-2 py-6 text-center text-xs text-muted-foreground">
+          <div className="px-2 py-6 text-center text-label text-muted-foreground">
             {keyword.trim() ? '无匹配部门' : '暂无部门'}
           </div>
         ) : (

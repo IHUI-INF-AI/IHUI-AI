@@ -160,7 +160,7 @@ export function NewsInfoTable(props: Props) {
                 browse: '',
               })
             }
-            className="text-xs"
+            className="text-label"
           >
             重置
           </Button>
@@ -171,15 +171,15 @@ export function NewsInfoTable(props: Props) {
         <Table>
           <TableHeader className="bg-muted/50">
             <TableRow>
-              <TableHead className="px-3 py-2 text-xs">ID</TableHead>
-              <TableHead className="px-3 py-2 text-xs">标题</TableHead>
-              <TableHead className="px-3 py-2 text-xs">类型</TableHead>
-              <TableHead className="px-3 py-2 text-xs">URL</TableHead>
-              <TableHead className="px-3 py-2 text-xs">来源名称</TableHead>
-              <TableHead className="px-3 py-2 text-xs">来源作者</TableHead>
-              <TableHead className="px-3 py-2 text-xs">来源时间</TableHead>
-              <TableHead className="px-3 py-2 text-xs">浏览量</TableHead>
-              <TableHead className="px-3 py-2 text-xs text-right">操作</TableHead>
+              <TableHead className="px-3 py-2 text-label">ID</TableHead>
+              <TableHead className="px-3 py-2 text-label">标题</TableHead>
+              <TableHead className="px-3 py-2 text-label">类型</TableHead>
+              <TableHead className="px-3 py-2 text-label">URL</TableHead>
+              <TableHead className="px-3 py-2 text-label">来源名称</TableHead>
+              <TableHead className="px-3 py-2 text-label">来源作者</TableHead>
+              <TableHead className="px-3 py-2 text-label">来源时间</TableHead>
+              <TableHead className="px-3 py-2 text-label">浏览量</TableHead>
+              <TableHead className="px-3 py-2 text-label text-right">操作</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -206,16 +206,16 @@ export function NewsInfoTable(props: Props) {
             ) : (
               infoList.map((info) => (
                 <TableRow key={info.id} className="hover:bg-muted/30">
-                  <TableCell className="px-3 py-2 text-xs text-muted-foreground">
+                  <TableCell className="px-3 py-2 text-label text-muted-foreground">
                     {info.id}
                   </TableCell>
                   <TableCell className="px-3 py-2">
                     <TruncatedText value={info.title} className="max-w-[200px] font-medium" />
                   </TableCell>
-                  <TableCell className="px-3 py-2 text-xs">
+                  <TableCell className="px-3 py-2 text-label">
                     {info.type ?? <span className="text-muted-foreground">—</span>}
                   </TableCell>
-                  <TableCell className="px-3 py-2 text-xs">
+                  <TableCell className="px-3 py-2 text-label">
                     {info.url ? (
                       <a
                         href={info.url}
@@ -229,16 +229,16 @@ export function NewsInfoTable(props: Props) {
                       <span className="text-muted-foreground">—</span>
                     )}
                   </TableCell>
-                  <TableCell className="px-3 py-2 text-xs">
+                  <TableCell className="px-3 py-2 text-label">
                     {info.sourceName ?? <span className="text-muted-foreground">—</span>}
                   </TableCell>
-                  <TableCell className="px-3 py-2 text-xs">
+                  <TableCell className="px-3 py-2 text-label">
                     {info.sourceCreator ?? <span className="text-muted-foreground">—</span>}
                   </TableCell>
-                  <TableCell className="px-3 py-2 text-xs text-muted-foreground">
+                  <TableCell className="px-3 py-2 text-label text-muted-foreground">
                     {info.sourceTime ?? '—'}
                   </TableCell>
-                  <TableCell className="px-3 py-2 text-xs">{info.browse ?? 0}</TableCell>
+                  <TableCell className="px-3 py-2 text-label">{info.browse ?? 0}</TableCell>
                   <TableCell className="px-3 py-2 text-right">
                     <div className="flex items-center justify-end gap-1">
                       <HasPermi code="ai:information:edit">
@@ -273,7 +273,7 @@ export function NewsInfoTable(props: Props) {
       </div>
 
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">共 {infoTotal} 条</span>
+        <span className="text-body text-muted-foreground">共 {infoTotal} 条</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -284,7 +284,7 @@ export function NewsInfoTable(props: Props) {
             <ChevronLeft className="h-4 w-4" />
             上一页
           </Button>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-body text-muted-foreground">
             第 {infoPage} / {infoTotalPages} 页
           </span>
           <Button

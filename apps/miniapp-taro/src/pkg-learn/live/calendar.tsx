@@ -11,6 +11,7 @@ import { getLiveCalendar, subscribeLive, type Live } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon from '@/components/LineIcon'
 import './calendar.css'
+import { onToast } from '@/host/on-toast'
 
 type LiveStatus = Live['status']
 
@@ -92,10 +93,7 @@ export default function LiveCalendar() {
         setGroups(res.list || [])
       } catch (e) {
         logger.error('live/calendar', '获取直播日历', e)
-        Taro.showToast({
-          title: tt('live.calendar.loadFailed', '日历加载失败'),
-          icon: 'none',
-        })
+        onToast(tt('live.calendar.loadFailed', '日历加载失败'), { kind: 'error' })
       }
     },
     [tt],
@@ -141,12 +139,7 @@ export default function LiveCalendar() {
   const onAction = (live: Live) => {
     if (live.status === 'upcoming') {
       subscribeLive(live.id)
-        .then(() =>
-          Taro.showToast({
-            title: tt('live.subscribe.subscribeSuccess', '订阅成功'),
-            icon: 'success',
-          }),
-        )
+        .then(() => onToast(tt('live.subscribe.subscribeSuccess', '订阅成功'), { kind: 'success' }))
         .catch((e) => logger.error('live/calendar', '订阅直播', e))
     } else {
       goDetail(live.id)

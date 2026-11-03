@@ -316,12 +316,20 @@ def principal_from_jwt(token: str) -> Principal | None:
 
 _dev_fallback_warned = False
 
+# 允许"无凭据按本地开发回退"的档位白名单(2026-11-01 安全强化)。
+#
+# 判定方向是**白名单开发**而不是黑名单生产,理由见 resolve_principal_from_headers 里
+# 那段注释:黑名单写法把"精确等于 production"当成"这是生产"的充分条件,于是任何写错
+# 的形态(漏配/`prod`/`Production`/带空格)都会掉进回退分支拿到 ALL_SCOPES 通配全权。
+# 这里只认明确列出的开发档位;没列进来的一律按生产处理。
+_DEV_FALLBACK_ENVS: frozenset[str] = frozenset({"development", "dev", "test", "local"})
+
 
 def _dev_fallback_principal() -> Principal:
-    """本地开发回退:未配置任何凭据且非生产环境 → role 0 匿名主体。
+    """本地开发回退:未配置任何凭据且档位在 _DEV_FALLBACK_ENVS 内 → role 0 匿名主体。
 
     与 JWTAuthMiddleware 的「开发环境 + jwt_secret 为空 → 跳过」同一信任模型;
-    生产环境(node_env=production)永不走此分支。
+    档位不在白名单内(含生产、含空值、含任何没见过的写法)永不走此分支。
     """
     global _dev_fallback_warned
     if not _dev_fallback_warned:
@@ -379,7 +387,17 @@ def resolve_principal_from_headers(headers: Mapping[str, str]) -> Principal:
         if jwt_principal is None:
             raise PrincipalAuthError("Invalid or expired token")
         return jwt_principal
-    if settings.node_env == "production":
+    # 2026-11-01 安全强化:档位判据由「黑名单生产」翻成「白名单开发」。
+    #
+    # 原写法是 `if settings.node_env == "production": 拒` —— 它把**精确字符串相等**
+    # 当成了"这是生产"的充分条件。于是任何一种"没写对"的形态(NODE_ENV 漏配、写成
+    # `prod`、写成 `Production`、带尾空格)都不等于 `production`,就掉进
+    # _dev_fallback_principal() 拿到 scopes={ALL_SCOPES} 的匿名主体 —— 那是通配全权。
+    # 同仓 api 侧的正确范本就在 config/index.ts(缺省按 production),此处对齐。
+    #
+    # 失效方向必须是"多要一次定向说明",绝不能是"多放一次跳门"(AGENTS 全局铁律 10):
+    # 新增一个没见过的档位名时,正确结果是"拒绝并显式报错",不是"静默全权放行"。
+    if (settings.node_env or "").strip().lower() not in _DEV_FALLBACK_ENVS:
         raise PrincipalAuthError("Authentication required")
     return _dev_fallback_principal()
 

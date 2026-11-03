@@ -79,7 +79,7 @@ export default function AsksPageClient() {
             <HelpCircle className="h-7 w-7 text-primary" />
             {t('title')}
           </h1>
-          <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
+          <p className="text-body text-muted-foreground">{t('subtitle')}</p>
         </div>
         <div className="flex items-center gap-2">
           <Link href="/asks/edit">

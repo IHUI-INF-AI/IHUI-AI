@@ -35,6 +35,14 @@ import {
   startRelayAlertEvaluationScheduler,
   stopRelayAlertEvaluationScheduler,
 } from './jobs/relay-alert-rules-evaluation.js'
+// 门 121 接线(2026-11-01):四族「写了保留策略却从未有人执行」的清理作业 ——
+// 过期验证码 / 到期·已撤销临时分享 / USAGE_RETENTION_DAYS 天前的渠道日用量 / 过期文件缓存。
+// 四族共用一枚日批 cron(每天 05:30,错开 03:30 PII 与 04:xx 那几档),outbox 那一族不在此面:
+// 它挂既有 outbox-drain-every-30s 轮询(见 plugins/scheduler.ts 的 pruneProcessedOutboxDue)。
+import {
+  startOpsRetentionScheduler,
+  stopOpsRetentionScheduler,
+} from './jobs/ops-retention-cleanup.js'
 import { startImageTaskWorker, stopImageTaskWorker } from './workers/image-task-worker.js'
 import { startBackupCronScheduler, stopBackupCronScheduler } from './jobs/backup-jobs-cron.js'
 // G-916430③(机主拍板 2026-10-07):mail 欠投递读方 + :80 CDN 视野并入 API 进程内定时读方,
@@ -255,6 +263,12 @@ function startBackgroundSchedulers(server: Awaited<ReturnType<typeof buildServer
     startAuditEvidenceRetentionScheduler()
   }
 
+  // 启动零星保留策略清理定时任务(每天 05:30:过期验证码 / 到期·已撤销临时分享 /
+  // 90 天前渠道日用量 / 过期文件缓存;默认开启,ENABLE_OPS_RETENTION=false 禁用)
+  if (process.env.ENABLE_OPS_RETENTION !== 'false') {
+    startOpsRetentionScheduler()
+  }
+
   // 启动中转站告警规则评估(每 5 分钟,2026-09-16 立;ENABLE_RELAY_ALERT_EVALUATION=false 禁用)
   if (process.env.ENABLE_RELAY_ALERT_EVALUATION !== 'false') {
     startRelayAlertEvaluationScheduler()
@@ -367,6 +381,7 @@ async function start() {
       syncStopPhase('stopHotWordsScheduler', stopHotWordsScheduler),
       syncStopPhase('stopPiiRetentionScheduler', stopPiiRetentionScheduler),
       syncStopPhase('stopAuditEvidenceRetentionScheduler', stopAuditEvidenceRetentionScheduler),
+      syncStopPhase('stopOpsRetentionScheduler', stopOpsRetentionScheduler),
       syncStopPhase('stopRelayAlertEvaluationScheduler', stopRelayAlertEvaluationScheduler),
       syncStopPhase('stopImageTaskWorker', stopImageTaskWorker),
       syncStopPhase('stopBackupCronScheduler', stopBackupCronScheduler),

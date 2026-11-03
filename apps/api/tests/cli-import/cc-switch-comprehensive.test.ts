@@ -805,10 +805,10 @@ describe('cc-switch-json parser — isCurrent + meta 验证', () => {
         }),
       ),
     )
-    expect(res.providers[0]!.meta.category).toBe('Official')
-    expect(res.providers[0]!.meta.websiteUrl).toBe('https://openai.com')
-    expect(res.providers[0]!.meta.icon).toBe('openai')
-    expect(res.providers[0]!.meta.iconColor).toBe('#10a37f')
+    expect(res.providers[0]!.meta!.category).toBe('Official')
+    expect(res.providers[0]!.meta!.websiteUrl).toBe('https://openai.com')
+    expect(res.providers[0]!.meta!.icon).toBe('openai')
+    expect(res.providers[0]!.meta!.iconColor).toBe('#10a37f')
   })
 
   it('meta 从 settingsConfig 兜底(provider 顶层缺失时)', () => {
@@ -830,8 +830,8 @@ describe('cc-switch-json parser — isCurrent + meta 验证', () => {
         }),
       ),
     )
-    expect(res.providers[0]!.meta.category).toBe('FromSettings')
-    expect(res.providers[0]!.meta.websiteUrl).toBe('https://from-settings.com')
+    expect(res.providers[0]!.meta!.category).toBe('FromSettings')
+    expect(res.providers[0]!.meta!.websiteUrl).toBe('https://from-settings.com')
   })
 
   it('provider 顶层优先于 settingsConfig', () => {
@@ -853,7 +853,7 @@ describe('cc-switch-json parser — isCurrent + meta 验证', () => {
         }),
       ),
     )
-    expect(res.providers[0]!.meta.category).toBe('FromProvider')
+    expect(res.providers[0]!.meta!.category).toBe('FromProvider')
   })
 
   it('有 model 时 meta.models=[model]', () => {
@@ -874,7 +874,7 @@ describe('cc-switch-json parser — isCurrent + meta 验证', () => {
         }),
       ),
     )
-    expect(res.providers[0]!.meta.models).toEqual(['gpt-4o'])
+    expect(res.providers[0]!.meta!.models).toEqual(['gpt-4o'])
   })
 
   it('无 model 时 meta.models=undefined', () => {
@@ -891,7 +891,7 @@ describe('cc-switch-json parser — isCurrent + meta 验证', () => {
         }),
       ),
     )
-    expect(res.providers[0]!.meta.models).toBeUndefined()
+    expect(res.providers[0]!.meta!.models).toBeUndefined()
   })
 })
 

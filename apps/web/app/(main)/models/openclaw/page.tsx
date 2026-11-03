@@ -32,7 +32,7 @@ export default async function OpenClawPage() {
       <BackButton />
       <header className="space-y-1">
         <h1 className="text-display font-bold tracking-tight">{t('openclaw.title')}</h1>
-        <p className="text-xs text-muted-foreground">{t('openclaw.subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('openclaw.subtitle')}</p>
       </header>
 
       {/* Hero */}
@@ -44,7 +44,7 @@ export default async function OpenClawPage() {
             </div>
             <div className="flex-1">
               <h2 className="text-lg font-semibold">{t('openclaw.hero.title')}</h2>
-              <p className="mt-1 text-sm text-muted-foreground">{t('openclaw.hero.desc')}</p>
+              <p className="mt-1 text-body text-muted-foreground">{t('openclaw.hero.desc')}</p>
               <div className="mt-4 flex flex-wrap gap-2">
                 <Button className="gap-1.5">
                   <Rocket className="h-4 w-4" />
@@ -68,7 +68,7 @@ export default async function OpenClawPage() {
             <Card key={f}>
               <CardContent className="min-[640px]:p-3 flex items-start gap-2.5 p-3">
                 <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                <span className="text-sm">{t(f)}</span>
+                <span className="text-body">{t(f)}</span>
               </CardContent>
             </Card>
           ))}
@@ -88,7 +88,7 @@ export default async function OpenClawPage() {
                   {s.num}
                 </div>
                 <h3 className="mt-1 text-body font-semibold">{s.title}</h3>
-                <p className="mt-1 text-xs text-muted-foreground">{s.desc}</p>
+                <p className="mt-1 text-label text-muted-foreground">{s.desc}</p>
               </div>
             ))}
           </div>
@@ -104,7 +104,7 @@ export default async function OpenClawPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <pre className="overflow-x-auto rounded-lg bg-muted/60 p-3 text-xs leading-relaxed">
+          <pre className="overflow-x-auto rounded-lg bg-muted/60 p-3 text-label leading-relaxed">
             <code className="font-mono text-foreground">
               <span className="text-muted-foreground"># 安装 OpenClaw CLI</span>
               {'\n'}

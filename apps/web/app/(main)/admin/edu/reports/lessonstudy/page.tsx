@@ -78,7 +78,7 @@ export default function EduReportsLessonStudyPage() {
       <BackButton />
       <div>
         <h1 className="text-display font-bold tracking-tight">课程学习报表</h1>
-        <p className="mt-1 text-sm text-muted-foreground">统计各课程的学习人数、进度与时长</p>
+        <p className="mt-1 text-body text-muted-foreground">统计各课程的学习人数、进度与时长</p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-3">
@@ -88,7 +88,7 @@ export default function EduReportsLessonStudyPage() {
               <Users className="h-5 w-5" />
             </div>
             <div>
-              <div className="text-sm text-muted-foreground">本页学习人数</div>
+              <div className="text-body text-muted-foreground">本页学习人数</div>
               <div className="mt-0.5 text-heading font-semibold">{totalLearners}</div>
             </div>
           </CardContent>
@@ -99,7 +99,7 @@ export default function EduReportsLessonStudyPage() {
               <CheckCircle className="h-5 w-5" />
             </div>
             <div>
-              <div className="text-sm text-muted-foreground">已完成人数</div>
+              <div className="text-body text-muted-foreground">已完成人数</div>
               <div className="mt-0.5 text-heading font-semibold">{totalCompleted}</div>
             </div>
           </CardContent>
@@ -110,7 +110,7 @@ export default function EduReportsLessonStudyPage() {
               <Clock className="h-5 w-5" />
             </div>
             <div>
-              <div className="text-sm text-muted-foreground">本页总时长</div>
+              <div className="text-body text-muted-foreground">本页总时长</div>
               <div className="mt-0.5 text-heading font-semibold">{totalHours.toFixed(1)}h</div>
             </div>
           </CardContent>
@@ -192,7 +192,7 @@ export default function EduReportsLessonStudyPage() {
                           style={{ width: `${Math.min(100, r.avgProgress)}%` }}
                         />
                       </div>
-                      <span className="text-xs text-muted-foreground">{r.avgProgress}%</span>
+                      <span className="text-label text-muted-foreground">{r.avgProgress}%</span>
                     </div>
                   </TableCell>
                   <TableCell className="px-4 py-2.5 text-emerald-600">{r.completedCount}</TableCell>
@@ -205,7 +205,7 @@ export default function EduReportsLessonStudyPage() {
       </div>
 
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">共 {total} 条</span>
+        <span className="text-body text-muted-foreground">共 {total} 条</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -215,7 +215,7 @@ export default function EduReportsLessonStudyPage() {
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-body text-muted-foreground">
             {page} / {totalPages}
           </span>
           <Button

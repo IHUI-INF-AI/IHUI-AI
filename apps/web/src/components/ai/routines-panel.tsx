@@ -30,13 +30,13 @@ export function RoutinesPanel({ routines, onToggle, onRun }: RoutinesPanelProps)
       </div>
       <ul className="space-y-1">
         {routines.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">暂无例行程序</p>
+          <p className="py-8 text-center text-body text-muted-foreground">暂无例行程序</p>
         ) : (
           routines.map((routine) => (
             <li key={routine.id} className="flex items-center gap-3 px-4 py-3">
               <div className="min-w-0 flex-1">
                 <p className="break-words text-body font-medium">{routine.name}</p>
-                <div className="mt-0.5 flex items-center gap-3 text-xs text-muted-foreground">
+                <div className="mt-0.5 flex items-center gap-3 text-label text-muted-foreground">
                   <span className="flex items-center gap-0.5">
                     <Calendar className="h-3 w-3" />
                     {routine.schedule}

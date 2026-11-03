@@ -107,9 +107,9 @@ function appendGateProgress(check, r, elapsedMs) {
 // === 执行 ===
 
 // ─── push-gate 结果缓存(2026-09-18 立;2026-10-16 外置到 lib/guardian-pushgate-cache.mjs) ───
-// 内容指纹为键(HEAD:apps/packages 树 hash + 脏文件内容 hash),只缓存全部通过结果;
+// 内容指纹为键(HEAD:apps/packages 树 hash + HEAD 全树 hash + 脏文件内容 hash + push 门集规格),只缓存全部通过结果;
 // 命中即在本函数内 process.exit(0),--no-cache / HUSKY_SKIP_PUSHGATE_CACHE=1 逃生舱保留。
-pushGateCacheEarlyExit({ pushGate, cliArgs, C })
+pushGateCacheEarlyExit({ pushGate, cliArgs, C, checks: effectiveChecks })
 
 let passed = 0
 let warned = 0
@@ -943,7 +943,7 @@ if (undeterminedGates.length > 0) {
 }
 
 // push-gate 全部通过 → 写缓存(2026-10-16 外置到 lib/guardian-pushgate-cache.mjs;failed===0 守卫与打印在 lib 内)
-writePushGateCache({ C, failed, pushGate })
+writePushGateCache({ C, failed, pushGate, checks: effectiveChecks })
 
 process.exit(0)
 }

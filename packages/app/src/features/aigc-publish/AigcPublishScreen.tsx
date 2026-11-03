@@ -18,6 +18,7 @@ import { BackChevron } from '../../components/BackChevron'
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { TextField } from '../../components/TextField'
+import { assertRequiredPort } from '../../host/ports'
 
 /** AIGC 发布作品共享屏 — 表单型 props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { AigcPublishFile, AigcPublishScreenProps, AigcPublishWorkType }
@@ -59,7 +60,10 @@ export function AigcPublishScreen({
   onSubmit,
   onBack,
   colorScheme = 'light',
+  onToast,
 }: AigcPublishScreenProps) {
+  assertRequiredPort('onToast', onToast)
+
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
   const showTextInput = workType === 'text'
@@ -237,7 +241,7 @@ function createStyles(tk: AppThemeTokens) {
       marginBottom: rnSpacing.md,
     },
     label: {
-      marginTop: 14,
+      marginTop: rnSpacing['md-loose'],
       fontSize: rnType.body.size,
       color: tk.text.secondary,
       marginBottom: rnSpacing['xs-loose'],
@@ -254,7 +258,7 @@ function createStyles(tk: AppThemeTokens) {
     typeChipActive: { backgroundColor: primary },
     typeChipText: { fontSize: rnType.body.size, color: tk.text.medium, fontWeight: '600' },
     typeChipTextActive: { color: tk.surface.light },
-    typeChipDesc: { marginTop: rnSpacing.sm, fontSize: 10, color: tk.text.tertiary },
+    typeChipDesc: { marginTop: rnSpacing.sm, fontSize: rnType.badge.size, color: tk.text.tertiary },
     typeChipDescActive: { color: tk.surface.light },
     input: {
       paddingHorizontal: rnSpacing.md,
@@ -285,7 +289,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
     },
     urlAddBtn: {
-      paddingHorizontal: 14,
+      paddingHorizontal: rnSpacing['md-loose'],
       paddingVertical: rnSpacing['sm-loose'],
       borderRadius: rnRadius.sm,
       backgroundColor: primary,
@@ -358,7 +362,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     submitBtn: {
       marginTop: rnSpacing['2xl'],
-      paddingVertical: 14,
+      paddingVertical: rnSpacing['md-loose'],
       borderRadius: rnRadius.sm,
       backgroundColor: primary,
       alignItems: 'center',

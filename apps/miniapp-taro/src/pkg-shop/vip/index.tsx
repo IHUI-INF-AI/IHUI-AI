@@ -33,6 +33,7 @@ import {
 import './index.css'
 import { aizhsUrl } from '@/constants/icon-urls'
 import LevelsSection from './levels-section'
+import { onToast } from '@/host/on-toast'
 
 // 4 项会员特权(对齐原项目 zhs_app-ZZ,垂直列表展示)
 interface VipFeature {
@@ -66,6 +67,28 @@ function daysUntil(expire: string): number | null {
   const at = Date.parse(expire)
   if (!Number.isFinite(at)) return null
   return Math.max(0, Math.ceil((at - Date.now()) / 86400000))
+}
+
+/**
+ * 等级权益归一 —— 与 RN 端 apps/mobile-rn/src/screens/VipScreen.tsx:57 normalizeBenefits 同口径:
+ * 接口 benefits 实返数组(字符串或 { name } 对象),api-client 声明成 Record 属历史漂移;
+ * 取不到 / 非数组一律空 ⇒ 按「该等级无权益数据」处理,不造词。
+ */
+function normalizeLevelBenefits(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return []
+  const out: string[] = []
+  for (const item of raw) {
+    if (typeof item === 'string') {
+      const text = item.trim()
+      if (text) out.push(text)
+      continue
+    }
+    if (item && typeof item === 'object') {
+      const name = (item as { name?: unknown }).name
+      if (typeof name === 'string' && name.trim()) out.push(name.trim())
+    }
+  }
+  return out
 }
 
 export default function VipIndexPage() {
@@ -180,7 +203,7 @@ export default function VipIndexPage() {
         return
       }
       if (payInfo.mock && payInfo.error) {
-        Taro.showToast({ title: t('vip.index.configNotReady'), icon: 'none' })
+        onToast(t('vip.index.configNotReady'), { kind: 'error' })
       }
       Taro.redirectTo({ url: successUrl })
     },
@@ -215,7 +238,7 @@ export default function VipIndexPage() {
       setPriceOptions(defaultPlans)
       setSelectedPlan((prev) => prev ?? defaultPlans[0] ?? null)
       setLoadFailed(true)
-      Taro.showToast({ title: t('common.failed'), icon: 'none' })
+      onToast(t('common.failed'), { kind: 'error' })
     } finally {
       Taro.hideLoading()
     }
@@ -230,7 +253,7 @@ export default function VipIndexPage() {
     (levelId: string) => {
       const plan = priceOptions.find((opt) => opt.id === levelId)
       if (!plan) {
-        Taro.showToast({ title: t('vip.selectPlanFirst'), icon: 'none' })
+        onToast(t('vip.selectPlanFirst'), { kind: 'info' })
         return
       }
       setSelectedPlan(plan)
@@ -241,7 +264,7 @@ export default function VipIndexPage() {
 
   const onUpgradeClick = useCallback(() => {
     if (!selectedPlan) {
-      Taro.showToast({ title: t('vip.selectPlanFirst'), icon: 'none' })
+      onToast(t('vip.selectPlanFirst'), { kind: 'info' })
       return
     }
     setShowPayConfirm(true)
@@ -262,7 +285,7 @@ export default function VipIndexPage() {
       dispatchVipPay(res.payInfo, res.orderNo, selectedPlan.price, selectedPlan.name)
     } catch (e) {
       logger.error('vip/index', '开通VIP', e)
-      Taro.showToast({ title: t('common.failed'), icon: 'none' })
+      onToast(t('common.failed'), { kind: 'error' })
     }
   }, [selectedPlan, autoRenew, t, dispatchVipPay])
 
@@ -274,7 +297,7 @@ export default function VipIndexPage() {
   const onIntroduceClick = useCallback(() => setShowIntroduce(true), [])
   const onIntroduceSubscribe = useCallback(() => {
     if (!selectedPlan) {
-      Taro.showToast({ title: t('vip.selectPlanFirst'), icon: 'none' })
+      onToast(t('vip.selectPlanFirst'), { kind: 'info' })
       return
     }
     setShowIntroduce(false)
@@ -287,7 +310,7 @@ export default function VipIndexPage() {
   }, [])
   const onNoticeAgree = useCallback(() => {
     if (!noticeAgreed) {
-      Taro.showToast({ title: t('vip.index.agreeFirst'), icon: 'none' })
+      onToast(t('vip.index.agreeFirst'), { kind: 'info' })
       return
     }
     setShowNotice(false)
@@ -315,6 +338,24 @@ export default function VipIndexPage() {
 
   const currentPrice = selectedPlan?.price ?? 0
   const daysLeft = info.expireTime ? daysUntil(info.expireTime) : null
+
+  /**
+   * 权益详情条目:各等级 benefits 的并集去重(与 RN 端 apps/mobile-rn/src/screens/VipScreen.tsx:464
+   * 同口径 —— Set<string> 按标题首见去重、顺序为 levels → benefits 遍历序);标题即接口文案本身,
+   * 不另造词,也不带副文案。全部等级都没有 benefits ⇒ 空数组 ⇒ 该区不渲染。
+   */
+  const benefitItems = useMemo(() => {
+    const seen = new Set<string>()
+    const items: { key: string; title: string }[] = []
+    for (const level of levels) {
+      for (const title of normalizeLevelBenefits(level.benefits)) {
+        if (seen.has(title)) continue
+        seen.add(title)
+        items.push({ key: title, title })
+      }
+    }
+    return items
+  }, [levels])
 
   return (
     <ThemeRoot>
@@ -408,6 +449,31 @@ export default function VipIndexPage() {
           loaded={levelsLoaded}
           onPurchase={onLevelPurchase}
         />
+
+        {/* 权益详情(对齐 RN benefitsSection:去重并集 + 标题 + ✓ 图标,无副文案;
+            空数组则不渲染,与 RN「无 benefitItems 则不出现」同向) */}
+        {benefitItems.length > 0 ? (
+          <View className="mt-[24rpx]">
+            <Text className="block px-[28rpx] text-title font-semibold text-foreground">
+              {t('vip.details.benefitsTitle')}
+            </Text>
+            <View className="px-[28rpx] mt-[16rpx]">
+              {benefitItems.map((item) => (
+                <View
+                  key={item.key}
+                  className="flex flex-row items-start gap-[16rpx] bg-card ui-card rounded-lg p-[24rpx] mb-[16rpx]"
+                >
+                  <LineIcon name="check" size={16} color="var(--color-success)" />
+                  <View className="flex-1">
+                    <Text className="block text-body font-medium text-foreground">
+                      {item.title}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          </View>
+        ) : null}
 
         {/* 套餐选择 + 自动续费 + 会员说明(深色卡片) */}
         <View className="plans-card">

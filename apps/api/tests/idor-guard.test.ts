@@ -3,6 +3,10 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import type { FastifyInstance } from 'fastify'
+
+/** preHandler 在 Fastify 链路里以实例为 this;idorGuard 不读 this,单测给空壳即可。 */
+const hookThis = {} as FastifyInstance
 
 vi.mock('../src/db/index.js', () => {
   const mockDbSelect = vi.fn()
@@ -120,7 +124,7 @@ describe('idor-guard — IDOR 防护', () => {
       const hook = idorGuard('order')
       const req = buildRequest({ params: {} })
       const reply = buildReply()
-      await hook(req, reply)
+      await hook.call(hookThis, req, reply, () => {})
       const sent = (reply as unknown as { _sent: Array<{ status: number }> })._sent
       expect(sent[0]!.status).toBe(400)
     })
@@ -129,7 +133,7 @@ describe('idor-guard — IDOR 防护', () => {
       const hook = idorGuard('order')
       const req = buildRequest({ params: { id: 'r1' } })
       const reply = buildReply()
-      await hook(req, reply)
+      await hook.call(hookThis, req, reply, () => {})
       const sent = (reply as unknown as { _sent: Array<{ status: number }> })._sent
       expect(sent[0]!.status).toBe(401)
     })
@@ -138,7 +142,7 @@ describe('idor-guard — IDOR 防护', () => {
       const hook = idorGuard('order')
       const req = buildRequest({ params: { id: 'r1' }, userId: 'u1', roleId: 1 })
       const reply = buildReply()
-      await hook(req, reply)
+      await hook.call(hookThis, req, reply, () => {})
       const sent = (reply as unknown as { _sent: Array<{ status: number }> })._sent
       expect(sent).toHaveLength(0)
       // 不应调用 db
@@ -150,7 +154,7 @@ describe('idor-guard — IDOR 防护', () => {
       const hook = idorGuard('order')
       const req = buildRequest({ params: { id: 'r1' }, userId: 'u1', roleId: 0 })
       const reply = buildReply()
-      await hook(req, reply)
+      await hook.call(hookThis, req, reply, () => {})
       const sent = (reply as unknown as { _sent: Array<{ status: number }> })._sent
       expect(sent).toHaveLength(0)
     })
@@ -160,7 +164,7 @@ describe('idor-guard — IDOR 防护', () => {
       const hook = idorGuard('order')
       const req = buildRequest({ params: { id: 'r1' }, userId: 'u1', roleId: 0 })
       const reply = buildReply()
-      await hook(req, reply)
+      await hook.call(hookThis, req, reply, () => {})
       const sent = (reply as unknown as { _sent: Array<{ status: number }> })._sent
       expect(sent[0]!.status).toBe(403)
     })
@@ -170,7 +174,7 @@ describe('idor-guard — IDOR 防护', () => {
       const hook = idorGuard('order', { allowAdmin: false })
       const req = buildRequest({ params: { id: 'r1' }, userId: 'u1', roleId: 1 })
       const reply = buildReply()
-      await hook(req, reply)
+      await hook.call(hookThis, req, reply, () => {})
       const sent = (reply as unknown as { _sent: Array<{ status: number }> })._sent
       expect(sent[0]!.status).toBe(403)
     })
@@ -180,7 +184,7 @@ describe('idor-guard — IDOR 防护', () => {
       const hook = idorGuard('order', { idParam: 'orderId' })
       const req = buildRequest({ params: { orderId: 'r1' }, userId: 'u1', roleId: 0 })
       const reply = buildReply()
-      await hook(req, reply)
+      await hook.call(hookThis, req, reply, () => {})
       const sent = (reply as unknown as { _sent: Array<{ status: number }> })._sent
       expect(sent).toHaveLength(0)
     })
@@ -189,7 +193,7 @@ describe('idor-guard — IDOR 防护', () => {
       const hook = idorGuard('order', { idParam: 'orderId' })
       const req = buildRequest({ params: { id: 'r1' }, userId: 'u1', roleId: 0 })
       const reply = buildReply()
-      await hook(req, reply)
+      await hook.call(hookThis, req, reply, () => {})
       const sent = (reply as unknown as { _sent: Array<{ status: number }> })._sent
       expect(sent[0]!.status).toBe(400)
     })

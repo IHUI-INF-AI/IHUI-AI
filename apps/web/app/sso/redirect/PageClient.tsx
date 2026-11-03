@@ -158,7 +158,7 @@ export default function SsoRedirectPageClient() {
       <div className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto">
         <div className="text-center space-y-2">
           <h1 className="text-heading font-semibold">{t('notAllowed')}</h1>
-          <p className="text-muted-foreground text-sm">{t('notAllowedDesc')}</p>
+          <p className="text-muted-foreground text-body">{t('notAllowedDesc')}</p>
         </div>
       </div>
     )
@@ -169,7 +169,7 @@ export default function SsoRedirectPageClient() {
       <div className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto">
         <div className="text-center space-y-2">
           <h1 className="text-heading font-semibold">{t('unavailable')}</h1>
-          <p className="text-muted-foreground text-sm">{t('unavailableDesc')}</p>
+          <p className="text-muted-foreground text-body">{t('unavailableDesc')}</p>
         </div>
       </div>
     )
@@ -179,7 +179,7 @@ export default function SsoRedirectPageClient() {
     <div className="px-4 py-4 flex min-h-0 flex-1 items-center justify-center overflow-y-auto">
       <div className="text-center space-y-2">
         <Loader2 className="inline-block h-6 w-6 animate-spin text-muted-foreground" />
-        <p className="text-muted-foreground text-sm">正在跳转...</p>
+        <p className="text-muted-foreground text-body">正在跳转...</p>
       </div>
     </div>
   )

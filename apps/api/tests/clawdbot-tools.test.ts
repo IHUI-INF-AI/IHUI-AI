@@ -20,7 +20,7 @@ const mockDef = (name: string, enabled = true, permissions?: string[]): ToolDefi
   enabled,
 })
 
-const successHandler: ToolHandler = async () => ({ success: true, output: 'ok' })
+const successHandler: ToolHandler = async () => ({ success: true, output: 'ok', duration: 0 })
 
 describe('clawdbot ToolExecutor 工具系统', () => {
   let exec: ToolExecutor

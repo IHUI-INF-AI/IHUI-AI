@@ -46,6 +46,7 @@ import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { useHostPorts } from '../host/use-host-ports'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -199,6 +200,7 @@ const TABS: readonly { key: PlanTab; labelKey: string }[] = [
 ]
 
 export function VipScreen() {
+  const { onNavigate, onToast } = useHostPorts()
   const { t } = useI18n()
   const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp>()
@@ -543,6 +545,7 @@ export function VipScreen() {
         >
           {filteredPlans.map((plan) => {
             const hasDiscount = plan.defAmount > plan.amount
+
             return (
               <View key={plan.id} style={styles.planItem}>
                 <View style={styles.planHeader}>
@@ -610,7 +613,7 @@ export function VipScreen() {
         onPress={() => {
           // 孤儿路由修复:VipLevel 注册无入口,点击等级横幅进入等级详情
           const firstLevel = levels[0]
-          if (firstLevel) navigation.navigate('VipLevel', { id: firstLevel.id })
+          if (firstLevel) onNavigate('VipLevel', { id: firstLevel.id })
         }}
         accessibilityRole="button"
         accessibilityLabel={t('vipScreen.banner.level')}
@@ -633,7 +636,7 @@ export function VipScreen() {
         style={styles.traderBanner}
         onPress={() => {
           // 孤儿路由修复:VipTrader 注册无入口,点击操盘手横幅进入开通页
-          navigation.navigate('VipTrader')
+          onNavigate('VipTrader')
         }}
         accessibilityRole="button"
         accessibilityLabel={t('vipScreen.banner.trader')}
@@ -659,7 +662,10 @@ export function VipScreen() {
         onRefresh={() => load(true)}
         onPurchase={onPurchase}
         onBack={() => navigation.goBack()}
+        onRetry={() => { void load(); }}
         colorScheme={resolvedTheme}
+        onNavigate={onNavigate}
+        onToast={onToast}
       />
       <PurchaseNoticePopUp
         visible={introVisible}

@@ -29,7 +29,7 @@ export default function OpenClawPage() {
       <BackButton />
       <div>
         <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">OpenClaw</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       <Tabs defaultValue="memory" className="space-y-4">

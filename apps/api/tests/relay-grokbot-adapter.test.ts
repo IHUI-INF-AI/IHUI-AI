@@ -127,12 +127,12 @@ describe('grokbot 提取器(两态)', () => {
         }>
       }
       const s = meta.sessions[0]
-      expect(s.credentialDataFingerprint).toMatch(/^[0-9a-f]{12}$/)
-      expect(s.credentialDataLength).toBe(SEALED_CRED.data.length)
-      expect(s.credentialSealedVersion).toBe(1)
-      expect(s.connectionDataFingerprint).toMatch(/^[0-9a-f]{12}$/)
-      expect(s.hasActiveAccountScope).toBe(true)
-      expect(s.settingsVersion).toBe(3)
+      expect(s!.credentialDataFingerprint).toMatch(/^[0-9a-f]{12}$/)
+      expect(s!.credentialDataLength).toBe(SEALED_CRED.data.length)
+      expect(s!.credentialSealedVersion).toBe(1)
+      expect(s!.connectionDataFingerprint).toMatch(/^[0-9a-f]{12}$/)
+      expect(s!.hasActiveAccountScope).toBe(true)
+      expect(s!.settingsVersion).toBe(3)
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }

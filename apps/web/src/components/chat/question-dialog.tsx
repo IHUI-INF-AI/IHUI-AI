@@ -100,14 +100,14 @@ export function QuestionDialog({ question, onSubmit, onSkip }: QuestionDialogPro
       <DialogContent className="max-w-md gap-3 p-3">
         <DialogHeader className="space-y-1">
           <DialogTitle className="text-base">{t('title')}</DialogTitle>
-          <DialogDescription className="text-xs">
+          <DialogDescription className="text-label">
             {allowMultiple ? t('multiSelectHint') : t('selectHint')}
           </DialogDescription>
         </DialogHeader>
 
         {/* AI 提问内容 */}
         <div className="rounded-md border border-border bg-muted/40 px-3 py-2.5">
-          <p className="text-sm leading-relaxed text-foreground whitespace-pre-wrap break-words">
+          <p className="text-body leading-relaxed text-foreground whitespace-pre-wrap break-words">
             {prompt}
           </p>
         </div>
@@ -123,7 +123,7 @@ export function QuestionDialog({ question, onSubmit, onSkip }: QuestionDialogPro
                   type="button"
                   onClick={() => toggleOption(opt.id)}
                   className={cn(
-                    'flex w-full items-center justify-between rounded-sm border px-3 py-2 text-left text-sm transition-colors',
+                    'flex w-full items-center justify-between rounded-sm border px-3 py-2 text-left text-body transition-colors',
                     selected
                       ? 'outline outline-1 outline-border bg-primary/5 text-foreground'
                       : 'border-border bg-background text-foreground hover:bg-accent hover:border-accent-foreground/20',
@@ -144,7 +144,7 @@ export function QuestionDialog({ question, onSubmit, onSkip }: QuestionDialogPro
             onChange={(e) => setCustomInput(e.target.value)}
             onKeyDown={handleSubmitCustom}
             placeholder={t('customPlaceholder')}
-            className="h-9 text-sm"
+            className="h-9 text-body"
             aria-label={t('customPlaceholder')}
           />
         )}
@@ -156,7 +156,7 @@ export function QuestionDialog({ question, onSubmit, onSkip }: QuestionDialogPro
             variant="ghost"
             size="sm"
             onClick={onSkip}
-            className="text-xs text-muted-foreground hover:text-foreground"
+            className="text-label text-muted-foreground hover:text-foreground"
           >
             {t('skip')}
           </Button>

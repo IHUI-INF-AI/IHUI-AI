@@ -28,9 +28,18 @@ if TYPE_CHECKING:
 class Settings(BaseSettings):
     """AI 服务配置,从环境变量加载。"""
 
-    # 运行环境
+    # 应用标识
     app_name: str = "IHUI AI Service"
-    node_env: str = "development"
+    # 运行环境。2026-11-01 安全强化(高危):默认值由 "development" 改为 "production" ——
+    # 缺省必须是最严的那一档。原先的 "development" 让**漏配 NODE_ENV** 的部署自动落进
+    # "开放 /docs、跳过鉴权"的分支(见 core/jwt_auth.py 与 main.py 的文档开关),
+    # 一次 .env 漏配就把归属隔离整条拿掉。
+    node_env: str = "production"
+    # 显式开发放行开关(2026-11-01):"不做鉴权"只能由这个开关**显式**打开,
+    # 不再由"jwt_secret 为空"推导。默认 False ⇒ 缺 secret 时 fail-closed(中间件回 500)。
+    # 语义:仅当 ``AI_DEV_NO_AUTH=1`` 且 ``JWT_SECRET`` 为空时才放行(见 jwt_auth.dev_auth_bypass_enabled);
+    # 配置了真实 secret 时照样验签 —— "开关开着"不等于"关掉验签"。
+    ai_dev_no_auth: bool = False
     debug: bool = False
     port: int = 8803
     host: str = "0.0.0.0"
@@ -373,6 +382,25 @@ class Settings(BaseSettings):
     # 单轮抽奖上限(实际次数 = min(chances, 此值);0 = 不抽;对齐竞品「有次数自动抽完」)
     workbuddy_tasks_lottery_draw_count: int = 5
     model_config = {"env_file": ".env", "extra": "ignore"}
+
+    def validate_secrets(self) -> None:
+        """启动时校验签名密钥(fail-fast,2026-11-01 安全强化)。
+
+        `JWT_SECRET` 是产物访问 token(`app/routers/artifacts.py` 的 HS256 签名)与内部票的
+        共同取密钥处。此前生产档没有任何启动校验器看它一眼 —— `validate_cors_origin` /
+        `validate_mtls_config` 都不管 —— 于是漏配时是**静默**落回代码里那个公开字面量
+        (`ihui-artifacts-dev-key`,在公开仓里可读),而不是报错。`/api/artifacts/f/` 又在
+        `JWT_PUBLIC_PATHS` 名单里(匿名可达,唯一门槛就是那枚签名 token),所以静默回落等于
+        "任何人可凭公开常量伪造 token 读取白名单目录内任意文件"。
+
+        非生产档允许空(本地开发),但取密钥那一侧会当场拒绝签/验(见 `_signing_key`),
+        不留"空值 + 公开常量"这条可走的路。
+        """
+        if self.node_env == "production" and not (self.jwt_secret or "").strip():
+            raise ValueError(
+                "生产环境 JWT_SECRET 必填且不得为空(产物签名 token 与内部票都取这一份;"
+                "空值会让签名密钥退化,而退化面是匿名可达的文件读端点)"
+            )
 
     def validate_cors_origin(self) -> None:
         """启动时校验 CORS_ORIGIN:任何环境禁止 "*" 通配符,生产环境禁止空值。"""

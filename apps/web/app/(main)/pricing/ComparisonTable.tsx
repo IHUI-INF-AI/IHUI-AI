@@ -50,12 +50,12 @@ export function ComparisonTable(): React.JSX.Element {
         <h2 className="text-heading font-bold tracking-tight min-[768px]:text-display">
           {t('comparison.title')}
         </h2>
-        <p className="mx-auto mt-2 max-w-2xl text-sm text-muted-foreground min-[768px]:text-base">
+        <p className="mx-auto mt-2 max-w-2xl text-body text-muted-foreground min-[768px]:text-base">
           {t('comparison.subtitle')}
         </p>
       </div>
       <div className="mt-8 overflow-x-auto">
-        <table className="w-full border-collapse text-sm">
+        <table className="w-full border-collapse text-body">
           <thead>
             <tr>
               <th className="border border-border bg-muted/40 p-3 text-left font-medium text-muted-foreground">

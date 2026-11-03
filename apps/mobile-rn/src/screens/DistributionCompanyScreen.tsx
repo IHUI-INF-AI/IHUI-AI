@@ -194,7 +194,7 @@ function makeStyles() {
     rowText: { flex: 1, fontSize: rnType.body.size, color: tokens.text.primary },
     rowCount: { fontSize: 13, color: tokens.text.secondary, fontWeight: '600' },
     linkRow: {
-      paddingVertical: 14,
+      paddingVertical: rnSpacing['md-loose'],
       paddingHorizontal: rnSpacing.lg,
       borderRadius: rnRadius.lg,
       borderWidth: 1,

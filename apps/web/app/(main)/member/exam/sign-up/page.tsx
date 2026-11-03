@@ -163,7 +163,7 @@ export default function MemberExamSignUpPage() {
           <ClipboardList className="h-5 w-5 text-primary" />
           {t('title')}
         </h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">{t('description')}</p>
+        <p className="mt-0.5 text-body text-muted-foreground">{t('description')}</p>
       </div>
 
       {queryError && !denied && <Alert variant="danger" description={queryError.message} />}
@@ -179,18 +179,18 @@ export default function MemberExamSignUpPage() {
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
           <Lock className="h-8 w-8 text-muted-foreground opacity-40" />
           <p className="text-body font-medium">{t('adminOnly.title')}</p>
-          <p className="text-sm text-muted-foreground">{t('adminOnly.description')}</p>
+          <p className="text-body text-muted-foreground">{t('adminOnly.description')}</p>
         </div>
       ) : rows.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
           <ClipboardList className="h-8 w-8 text-muted-foreground opacity-40" />
-          <p className="text-sm text-muted-foreground">{t('empty')}</p>
+          <p className="text-body text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
         <div className="overflow-hidden rounded-lg border">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
+            <table className="w-full text-body">
+              <thead className="bg-muted/50 text-left text-label text-muted-foreground">
                 <tr>
                   <th className="px-3 py-2 font-medium">{t('columns.examName')}</th>
                   <th className="px-3 py-2 font-medium">{t('columns.signedAt')}</th>
@@ -208,10 +208,10 @@ export default function MemberExamSignUpPage() {
                       <td className="px-3 py-2 font-medium">
                         {r.examTitle ?? r.examId.slice(0, 8)}
                       </td>
-                      <td className="px-3 py-2 text-xs text-muted-foreground">
+                      <td className="px-3 py-2 text-label text-muted-foreground">
                         {r.signedAt ? dateFmt.format(new Date(r.signedAt)) : '-'}
                       </td>
-                      <td className="px-3 py-2 text-xs text-muted-foreground">
+                      <td className="px-3 py-2 text-label text-muted-foreground">
                         {r.examStartTime ? (
                           <span className="inline-flex items-center gap-1">
                             <CalendarClock className="h-3 w-3" />
@@ -253,7 +253,7 @@ export default function MemberExamSignUpPage() {
                             </Button>
                           </span>
                         ) : (
-                          <span className="text-xs text-muted-foreground">—</span>
+                          <span className="text-label text-muted-foreground">—</span>
                         )}
                       </td>
                     </tr>
@@ -267,7 +267,7 @@ export default function MemberExamSignUpPage() {
 
       {total > PAGE_SIZE && (
         <div className="flex items-center justify-between">
-          <span className="text-xs text-muted-foreground">{t('total', { n: total })}</span>
+          <span className="text-label text-muted-foreground">{t('total', { n: total })}</span>
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
@@ -277,7 +277,7 @@ export default function MemberExamSignUpPage() {
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <span className="text-xs text-muted-foreground">
+            <span className="text-label text-muted-foreground">
               {page} / {totalPages}
             </span>
             <Button

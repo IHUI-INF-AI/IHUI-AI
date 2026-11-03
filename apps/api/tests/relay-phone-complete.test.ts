@@ -18,6 +18,16 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
+/** 签到推送结果:成功与失败共用同一形状,failed 分支带 error 文案。 */
+type PoolSyncResult = {
+  ok: boolean
+  pushed: number
+  skipped: number
+  failed: number
+  failedIds: string[]
+  error: string | null
+}
+
 const hoisted = vi.hoisted(() => ({
   /** dbRead.select().from().where()[.limit()] 的行源(complete 取单行,match 取掩码行集) */
   readRows: [] as unknown[],
@@ -25,14 +35,16 @@ const hoisted = vi.hoisted(() => ({
   updateSets: [] as Record<string, unknown>[],
   /** db.insert(...).values(row) 捕获(导入侧测试用) */
   insertValues: [] as Record<string, unknown>[],
-  pushPoolSync: vi.fn(async (_platform: string, accounts: unknown[]) => ({
-    ok: true,
-    pushed: accounts.length,
-    skipped: 0,
-    failed: 0,
-    failedIds: [] as string[],
-    error: null,
-  })),
+  pushPoolSync: vi.fn(
+    async (_platform: string, accounts: unknown[]): Promise<PoolSyncResult> => ({
+      ok: true,
+      pushed: accounts.length,
+      skipped: 0,
+      failed: 0,
+      failedIds: [] as string[],
+      error: null,
+    }),
+  ),
   markCheckinSyncPending: vi.fn(async () => {}),
   clearCheckinSyncPending: vi.fn(async () => {}),
 }))

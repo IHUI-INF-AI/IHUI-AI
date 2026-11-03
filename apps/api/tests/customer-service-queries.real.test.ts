@@ -44,6 +44,7 @@ async function seedUser() {
     .insert(users)
     .values({ email: `cs-${randomUUID().slice(0, 8)}@test.com`, nickname: 'CS-Tester' })
     .returning()
+  if (!u) throw new Error('customer-service-queries.real.test.ts: 插入未返回行(u)')
   return u
 }
 
@@ -77,7 +78,7 @@ describe('customer-service-queries — 真实 DB 集成测试', () => {
 
       const list = await findCategories()
       expect(list).toHaveLength(2)
-      expect(list[0].name).toBe('A') // sortOrder 升序
+      expect(list[0]!.name).toBe('A') // sortOrder 升序
 
       const found = await findCategoryBySlug('cat-a')
       expect(found?.name).toBe('A')
@@ -179,7 +180,7 @@ describe('customer-service-queries — 真实 DB 集成测试', () => {
 
       const list = await findCommentsByTicket(t.id)
       expect(list).toHaveLength(2)
-      expect(list[0].content).toBe('comment1') // createdAt 升序
+      expect(list[0]!.content).toBe('comment1') // createdAt 升序
 
       // 工单 updatedAt 被更新
       const ticket = await findTicketById(t.id)
@@ -259,7 +260,7 @@ describe('customer-service-queries — 真实 DB 集成测试', () => {
 
       const waiting = await findWaitingSessions()
       expect(waiting).toHaveLength(2)
-      expect(waiting[0].id).toBe(s.id) // queuePosition 升序
+      expect(waiting[0]!.id).toBe(s.id) // queuePosition 升序
 
       // 分配坐席
       const agent = await createAgent({ userId: (await seedUser()).id, nickname: 'Agent' })

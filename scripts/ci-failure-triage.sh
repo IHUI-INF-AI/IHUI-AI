@@ -16,11 +16,14 @@
 #   1. 按 TRIAGE_IDS 顺序点名第一个 outcome=failure 的步骤(只取第一个,后续失败不重复点名);
 #   2. 按 id 从 TRIAGE_WORKFLOW_FILE 自身提取该步骤的单行 run: 命令原样重跑 —— 重跑映射 =
 #      工作流文件本身,不手抄第二份命令清单(手抄必漂移);步骤显示名同样从文件内 name: 行提取;
-#   3. action 步骤(uses:)没有可重跑命令 ⇒ 打"无可重跑命令",只点名步骤;
-#   4. run: 是多行块标量(run: |)或提取不到 ⇒ 打"重跑映射缺失"并点名步骤名 —— 刻意不猜
+#   3. 重跑必须在步骤自己的 working-directory 内执行;该键存在但目录缺失或含 ${{ }} 表达式
+#      ⇒ 打"作用域无法解析"并放弃重跑,绝不退回仓库根 —— 退回根会让 ruff/工具用另一套配置
+#      扫全仓,把数百条无关告警当成本次失败(2026-11-03 的 464 条假红即此型);
+#   4. action 步骤(uses:)没有可重跑命令 ⇒ 打"无可重跑命令",只点名步骤;
+#   5. run: 是多行块标量(run: |)或提取不到 ⇒ 打"重跑映射缺失"并点名步骤名 —— 刻意不猜
 #      块标量内容(猜了就是第二份真相),该退化分支必须保留且绝不静默跳过;
-#   5. 没有任何已知 id 报 failure(job 被 cancel 等)⇒ dump 全部 outcome,同样不静默;
-#   6. 重跑输出取末 60 行,逐行 ::error::(剥 CR/LF、% 先转义、单行截 1000 字符)⇒ 变成
+#   6. 没有任何已知 id 报 failure(job 被 cancel 等)⇒ dump 全部 outcome,同样不静默;
+#   7. 重跑输出取末 60 行,逐行 ::error::(剥 CR/LF、% 先转义、单行截 1000 字符)⇒ 变成
 #      check-run annotations,公开 API(GET /repos/<owner>/<repo>/commits/<sha>/check-runs)
 #      零凭据可读。
 # 本脚本恒 exit 0:它是分诊,不改变作业成败;失败分支里自己再红一次只会把诊断吞掉。
@@ -81,12 +84,14 @@ annotate "triage: first failing step is [$FAILED_ID] ($FAILED_NAME)"
 
 # ── 3. 按 id 从工作流文件提取单行 run:(uses: 步骤与多行块标量都不猜)────────────────────
 RUN_CMD=""
+WORKDIR=""
 IS_ACTION=0
 if [ -n "$WF" ] && [ -f "$WF" ]; then
   while IFS= read -r line; do
     case "$line" in
       USES) IS_ACTION=1 ;;
       RUN:*) RUN_CMD="${line#RUN:}" ;;
+      WD:*) WORKDIR="${line#WD:}" ;;
     esac
   done <<EOF2
 $(awk -v want="$FAILED_ID" '
@@ -120,9 +125,13 @@ $(awk -v want="$FAILED_ID" '
       sub(/^[[:space:]]*/, "", body)
       sub(/^-[[:space:]]+/, "", body)
       if (body ~ /^uses:/) { print "USES" }
+      else if (body ~ /^working-directory:[[:space:]]*/) {
+        # 作用域键可能写在 run: 之前或之后,所以单行 run: 提取后不 break,继续扫到步骤块尾。
+        sub(/^working-directory:[[:space:]]*/, "", body); print "WD:" body
+      }
       else if (body ~ /^run:[[:space:]]*[|>]/) { break }   # 多行块标量:不提取,走映射缺失分支
       else if (body ~ /^run:[[:space:]]*$/) { break }
-      else if (body ~ /^run:/) { sub(/^run:[[:space:]]*/, "", body); print "RUN:" body; break }
+      else if (body ~ /^run:/) { sub(/^run:[[:space:]]*/, "", body); print "RUN:" body }
     }
   }
 ' "$WF" | tr -d '\r')
@@ -140,11 +149,33 @@ if [ -z "$RUN_CMD" ]; then
   exit 0
 fi
 
-# ── 4. 原样重跑该命令,取末 60 行进 annotations ────────────────────────────────────────
+# ── 4. 原样重跑该命令(作用域=步骤自己的 working-directory),取末 60 行进 annotations ──
+if [ -n "$WORKDIR" ]; then
+  # 表达式无法在分诊脚本里求值;目录缺失说明映射已腐烂。两种都拒绝猜,绝不退回仓库根。
+  case "$WORKDIR" in
+    *'${{'*)
+      annotate "triage: working-directory is a workflow expression ($WORKDIR) - cannot resolve it here; refusing to rerun in the wrong scope."
+      exit 0
+      ;;
+  esac
+  # 工作流允许 `working-directory: "apps/x"` 引号形态;剥掉成对引号后再判目录。
+  WORKDIR="${WORKDIR#\"}"; WORKDIR="${WORKDIR%\"}"
+  WORKDIR="${WORKDIR#\'}"; WORKDIR="${WORKDIR%\'}"
+  if [ ! -d "$WORKDIR" ]; then
+    annotate "triage: working-directory '$WORKDIR' does not exist in this checkout - refusing to rerun in the wrong scope."
+    exit 0
+  fi
+  annotate "triage: honoring the step's working-directory: $WORKDIR"
+fi
+
 annotate "triage: re-running ONLY this command: $RUN_CMD"
 LOG="${RUNNER_TEMP:-/tmp}/ci-triage-rerun.log"
 RC=0
-bash -c "$RUN_CMD" >"$LOG" 2>&1 || RC=$?
+if [ -n "$WORKDIR" ]; then
+  ( cd -- "$WORKDIR" && bash -c "$RUN_CMD" ) >"$LOG" 2>&1 || RC=$?
+else
+  bash -c "$RUN_CMD" >"$LOG" 2>&1 || RC=$?
+fi
 TOTAL=$(wc -l <"$LOG" | tr -d '[:space:]')
 if [ "$RC" -eq 0 ]; then
   annotate "triage: rerun exited 0 from the same checkout - failure not reproducible standalone (order/cache/env sensitive). Captured $TOTAL line(s); printing last 60 anyway."

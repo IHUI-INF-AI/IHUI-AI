@@ -326,7 +326,7 @@ export default function A2APage() {
           <Network className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       <div className="flex flex-wrap gap-2">
@@ -348,7 +348,7 @@ export default function A2APage() {
       {tab === 'agents' ? (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">
+            <p className="text-body text-muted-foreground">
               {t('tabAgents')} ({agents.length})
             </p>
             <Button
@@ -372,7 +372,7 @@ export default function A2APage() {
           ) : agents.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-10 text-center">
               <Bot className="h-8 w-8 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">{t('noAgents')}</p>
+              <p className="text-body text-muted-foreground">{t('noAgents')}</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
@@ -381,12 +381,12 @@ export default function A2APage() {
                   <CardContent className="space-y-2 p-4">
                     <div className="flex items-start justify-between gap-2">
                       <h3 className="text-body font-medium">{agent.name}</h3>
-                      <span className="rounded-md bg-primary/10 px-2 py-0.5 font-mono text-xs text-primary">
+                      <span className="rounded-md bg-primary/10 px-2 py-0.5 font-mono text-label text-primary">
                         {agent.agent_id}
                       </span>
                     </div>
                     {agent.description && (
-                      <p className="line-clamp-2 text-xs text-muted-foreground">
+                      <p className="line-clamp-2 text-label text-muted-foreground">
                         {agent.description}
                       </p>
                     )}
@@ -395,7 +395,7 @@ export default function A2APage() {
                         {agent.capabilities.map((cap, i) => (
                           <span
                             key={`${agent.agent_id}-${i}-${cap}`}
-                            className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground"
+                            className="rounded bg-muted px-1.5 py-0.5 text-label text-muted-foreground"
                           >
                             {cap}
                           </span>
@@ -403,7 +403,7 @@ export default function A2APage() {
                       </div>
                     )}
                     {agent.endpoint && (
-                      <p className="truncate font-mono text-xs text-muted-foreground">
+                      <p className="truncate font-mono text-label text-muted-foreground">
                         {agent.endpoint}
                       </p>
                     )}
@@ -533,7 +533,7 @@ export default function A2APage() {
                     ))}
                   </select>
                   {agents.length === 0 && (
-                    <p className="text-xs text-muted-foreground">{t('noAgents')}</p>
+                    <p className="text-label text-muted-foreground">{t('noAgents')}</p>
                   )}
                 </div>
               </div>
@@ -557,7 +557,7 @@ export default function A2APage() {
                   onChange={(e) => setTaskInput(e.target.value)}
                   rows={4}
                   placeholder='{"question": "..."}'
-                  className={cn(textareaClassName, 'font-mono text-xs')}
+                  className={cn(textareaClassName, 'font-mono text-label')}
                 />
               </div>
 
@@ -604,13 +604,13 @@ export default function A2APage() {
                 </div>
 
                 {currentTask.assigned_agent_id && (
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-label text-muted-foreground">
                     {t('assignAgent')}: {currentTask.assigned_agent_id}
                   </p>
                 )}
 
                 {(currentTask.status === 'pending' || currentTask.status === 'running') && (
-                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <p className="flex items-center gap-1.5 text-label text-muted-foreground">
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
                     {t('pollHint')}
                   </p>
@@ -625,7 +625,7 @@ export default function A2APage() {
                   currentTask.result !== null && (
                     <div className="space-y-1">
                       <p className="text-label font-medium text-muted-foreground">{t('result')}</p>
-                      <pre className="overflow-x-auto rounded-md bg-muted/40 p-3 text-xs whitespace-pre-wrap">
+                      <pre className="overflow-x-auto rounded-md bg-muted/40 p-3 text-label whitespace-pre-wrap">
                         {JSON.stringify(currentTask.result, null, 2)}
                       </pre>
                     </div>

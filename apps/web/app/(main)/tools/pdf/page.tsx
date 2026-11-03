@@ -46,7 +46,7 @@ const TOOLS: PdfTool[] = [
 export default function PdfToolsPage() {
   return (
     <div className="px-4 py-4 mx-auto w-full max-w-5xl space-y-4">
-      <nav className="flex items-center gap-1 text-sm text-muted-foreground">
+      <nav className="flex items-center gap-1 text-body text-muted-foreground">
         <Link href="/tools" className="transition-colors hover:text-foreground">
           工具
         </Link>
@@ -59,7 +59,9 @@ export default function PdfToolsPage() {
         </div>
         <div>
           <h1 className="text-display font-bold tracking-tight">PDF 工具</h1>
-          <p className="text-xs text-muted-foreground">在线处理 PDF：合并、拆分、水印与格式转换</p>
+          <p className="text-label text-muted-foreground">
+            在线处理 PDF：合并、拆分、水印与格式转换
+          </p>
         </div>
       </header>
       <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2">
@@ -71,10 +73,10 @@ export default function PdfToolsPage() {
                   <Icon className="h-5 w-5" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <CardTitle className="text-sm">{title}</CardTitle>
-                  <CardDescription className="text-xs">{description}</CardDescription>
+                  <CardTitle className="text-body">{title}</CardTitle>
+                  <CardDescription className="text-label">{description}</CardDescription>
                 </div>
-                <span className="inline-flex items-center gap-0.5 text-xs text-muted-foreground transition-colors group-hover:text-primary">
+                <span className="inline-flex items-center gap-0.5 text-label text-muted-foreground transition-colors group-hover:text-primary">
                   进入
                   <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
                 </span>

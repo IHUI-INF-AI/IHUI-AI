@@ -1096,6 +1096,7 @@ export async function signIdToken(
     ...(input.claims ?? {}),
   }
   if (input.nonce) payload.nonce = input.nonce
+  const expiresInSec = input.expiresInSec ?? ID_TOKEN_TTL_SECONDS
   return new SignJWT(payload)
     .setProtectedHeader({ alg: 'RS256', kid, typ: 'JWT' })
     .setSubject(input.subject)
@@ -1103,7 +1104,7 @@ export async function signIdToken(
     .setAudience(input.audience)
     .setIssuedAt(now)
     .setJti(randomUUID())
-    .setExpirationTime(`${input.expiresInSec ?? ID_TOKEN_TTL_SECONDS}s`)
+    .setExpirationTime(`${expiresInSec}s`)
     .sign(key)
 }
 

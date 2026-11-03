@@ -104,12 +104,12 @@ export default function ActivityDetailPage() {
         <button
           type="button"
           onClick={() => router.push('/activities')}
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
           {t('backToList')}
         </button>
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {(error as Error)?.message ?? t('notFound')}
         </div>
       </div>
@@ -125,7 +125,7 @@ export default function ActivityDetailPage() {
       <button
         type="button"
         onClick={() => router.push('/activities')}
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         {t('backToList')}
@@ -147,7 +147,7 @@ export default function ActivityDetailPage() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="text-display font-bold tracking-tight">{a.title}</h1>
-            <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+            <div className="mt-2 flex flex-wrap items-center gap-3 text-body text-muted-foreground">
               <span className="inline-flex items-center gap-1">
                 <Calendar className="h-4 w-4" />
                 {fmt(a.startAt)} - {fmt(a.endAt)}
@@ -175,7 +175,7 @@ export default function ActivityDetailPage() {
             <h2 className="mb-1.5 text-body font-semibold text-muted-foreground">
               {t('descriptionLabel')}
             </h2>
-            <p className="whitespace-pre-line text-sm leading-relaxed">{a.description}</p>
+            <p className="whitespace-pre-line text-body leading-relaxed">{a.description}</p>
           </div>
         )}
 
@@ -184,7 +184,7 @@ export default function ActivityDetailPage() {
             <h2 className="mb-1.5 text-body font-semibold text-muted-foreground">
               {t('rulesLabel')}
             </h2>
-            <pre className="overflow-x-auto rounded-md border bg-muted/30 p-3 text-xs leading-relaxed">
+            <pre className="overflow-x-auto rounded-md border bg-muted/30 p-3 text-label leading-relaxed">
               {JSON.stringify(a.rules, null, 2)}
             </pre>
           </div>
@@ -206,11 +206,11 @@ export default function ActivityDetailPage() {
           )}
           {a.joined ? t('leave') : t('join')}
         </Button>
-        {ended && <span className="text-xs text-muted-foreground">{t('endedHint')}</span>}
+        {ended && <span className="text-label text-muted-foreground">{t('endedHint')}</span>}
       </div>
 
       {(joinMut.isError || leaveMut.isError) && (
-        <div className="text-xs text-destructive">
+        <div className="text-label text-destructive">
           {((joinMut.error ?? leaveMut.error) as Error)?.message}
         </div>
       )}

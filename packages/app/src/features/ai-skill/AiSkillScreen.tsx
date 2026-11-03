@@ -7,6 +7,7 @@ import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { useMemo } from 'react'
 import {
   FlatList,
+  Pressable,
   RefreshControl,
   StyleSheet,
   Text,
@@ -46,6 +47,10 @@ export interface AiSkillScreenProps {
   /** 点击技能卡(查看详情确认弹窗/跳转由 wrapper 决定) */
   onOpenSkill: (skill: AiSkillListItem) => void
   onBack: () => void
+  /** 导入入口回调;不传则不渲染导入按钮(保持既有各端行为) */
+  onImport?: () => void
+  /** 导入请求进行中(按钮置灰并显示 importing 文案) */
+  importing?: boolean
   colorScheme?: 'light' | 'dark'
 }
 
@@ -69,6 +74,8 @@ export function AiSkillScreen({
   onRetry,
   onOpenSkill,
   onBack,
+  onImport,
+  importing = false,
   colorScheme = 'light',
 }: AiSkillScreenProps) {
   const tk = getTokens(colorScheme)
@@ -90,7 +97,22 @@ export function AiSkillScreen({
         <Text style={styles.headerTitle} numberOfLines={1}>
           {t('aiSkill.title')}
         </Text>
-        <View style={styles.headerSidePlaceholder} />
+        {onImport ? (
+          <Pressable
+            onPress={onImport}
+            disabled={importing}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={t('aiSkill.importButton')}
+            style={styles.headerAction}
+          >
+            <Text style={[styles.headerActionText, importing ? styles.headerActionDisabled : null]}>
+              {importing ? t('aiSkill.importing') : t('aiSkill.importButton')}
+            </Text>
+          </Pressable>
+        ) : (
+          <View style={styles.headerSidePlaceholder} />
+        )}
       </View>
 
       {error ? (
@@ -180,6 +202,19 @@ function createStyles(tk: AppThemeTokens) {
     },
     headerSidePlaceholder: {
       width: 40, // w-10
+    },
+    /* 导入入口(仅 wrapper 传 onImport 时渲染) */
+    headerAction: {
+      minWidth: 40, // 与占位同宽,保持标题位不跳
+      alignItems: 'flex-end',
+    },
+    headerActionText: {
+      fontSize: rnType.body.size, // text-sm
+      fontWeight: '500', // font-medium
+      color: tk.text.primary,
+    },
+    headerActionDisabled: {
+      opacity: 0.5,
     },
     /* 列表 */
     listContent: {

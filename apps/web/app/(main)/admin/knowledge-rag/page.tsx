@@ -164,7 +164,7 @@ export default function KnowledgeRagPage() {
           <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
             <BookOpen className="h-6 w-6 text-primary" /> RAG 知识库
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 text-body text-muted-foreground">
             DashScope Embedding + 文本切片 + 语义检索
           </p>
         </div>
@@ -194,14 +194,14 @@ export default function KnowledgeRagPage() {
           )}
           <div>
             <p className="text-body font-semibold">{healthOk ? '服务正常' : '检查中...'}</p>
-            <p className="text-xs text-muted-foreground">{health?.status ?? '?'}</p>
+            <p className="text-label text-muted-foreground">{health?.status ?? '?'}</p>
           </div>
         </div>
         <div className="flex items-center gap-3 rounded-lg border bg-card p-3">
           <Database className="h-5 w-5 text-primary" />
           <div>
             <p className="text-body font-semibold">{docs.length} 文档</p>
-            <p className="text-xs text-muted-foreground">我的知识库</p>
+            <p className="text-label text-muted-foreground">我的知识库</p>
           </div>
         </div>
         <div className="flex items-center gap-3 rounded-lg border bg-card p-3">
@@ -210,7 +210,7 @@ export default function KnowledgeRagPage() {
             <p className="text-body font-semibold">
               {docs.reduce((s, d) => s + d.chunkCount, 0)} 切片
             </p>
-            <p className="text-xs text-muted-foreground">总块数</p>
+            <p className="text-label text-muted-foreground">总块数</p>
           </div>
         </div>
       </div>
@@ -230,11 +230,11 @@ export default function KnowledgeRagPage() {
           )}
         </div>
         {docsQ.isLoading ? (
-          <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">
+          <div className="flex items-center justify-center py-10 text-body text-muted-foreground">
             <Loader2 className="mr-2 h-4 w-4 animate-spin" /> 加载中...
           </div>
         ) : docs.length === 0 ? (
-          <div className="py-10 text-center text-sm text-muted-foreground">
+          <div className="py-10 text-center text-body text-muted-foreground">
             暂无文档,点击「文本入库」开始
           </div>
         ) : (
@@ -250,14 +250,14 @@ export default function KnowledgeRagPage() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <p className="truncate text-body font-medium">{d.title}</p>
-                    <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                    <span className="rounded bg-muted px-1.5 py-0.5 text-label text-muted-foreground">
                       {d.sourceType}
                     </span>
-                    <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                    <span className="rounded bg-muted px-1.5 py-0.5 text-label text-muted-foreground">
                       {d.chunkCount} 块
                     </span>
                   </div>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
+                  <p className="mt-0.5 text-label text-muted-foreground">
                     #{d.id} · {fmtTime(d.createdAt)}
                   </p>
                 </div>
@@ -292,7 +292,7 @@ export default function KnowledgeRagPage() {
         <form onSubmit={submitSearch} className="space-y-3 p-3">
           <div className="grid grid-cols-1 gap-3 min-[768px]:grid-cols-4">
             <div className="min-[768px]:col-span-2">
-              <Label htmlFor="query" className="text-xs">
+              <Label htmlFor="query" className="text-label">
                 检索词 *
               </Label>
               <Input
@@ -304,7 +304,7 @@ export default function KnowledgeRagPage() {
               />
             </div>
             <div>
-              <Label htmlFor="collectionName" className="text-xs">
+              <Label htmlFor="collectionName" className="text-label">
                 集合
               </Label>
               <Input
@@ -314,7 +314,7 @@ export default function KnowledgeRagPage() {
               />
             </div>
             <div>
-              <Label htmlFor="topK" className="text-xs">
+              <Label htmlFor="topK" className="text-label">
                 Top K
               </Label>
               <Input
@@ -328,7 +328,7 @@ export default function KnowledgeRagPage() {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <Label htmlFor="scoreThreshold" className="text-xs">
+            <Label htmlFor="scoreThreshold" className="text-label">
               分数阈值
             </Label>
             <input
@@ -341,7 +341,7 @@ export default function KnowledgeRagPage() {
               onChange={(e) => setSearch({ ...search, scoreThreshold: Number(e.target.value) })}
               className="flex-1"
             />
-            <span className="w-12 text-right text-xs text-muted-foreground">
+            <span className="w-12 text-right text-label text-muted-foreground">
               {search.scoreThreshold.toFixed(2)}
             </span>
             <Button type="submit" size="sm" disabled={searchMut.isPending}>
@@ -360,14 +360,14 @@ export default function KnowledgeRagPage() {
             {hits.map((h) => (
               <div key={h.id} className="p-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">
+                  <span className="text-label text-muted-foreground">
                     doc #{h.docId} · chunk #{h.chunkIndex}
                   </span>
                   <span className="rounded bg-emerald-500/10 px-1.5 py-0.5 text-label font-medium text-emerald-600">
                     {fmtScore(h.score)}
                   </span>
                 </div>
-                <p className="mt-1 line-clamp-3 whitespace-pre-wrap text-sm">{h.content}</p>
+                <p className="mt-1 line-clamp-3 whitespace-pre-wrap text-body">{h.content}</p>
               </div>
             ))}
           </div>
@@ -419,7 +419,7 @@ export default function KnowledgeRagPage() {
                 value={ingest.text}
                 onChange={(e) => setIngest({ ...ingest, text: e.target.value })}
                 placeholder="粘贴需要入库的文本内容(500 字符一切片,50 字符重叠)"
-                className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               />
             </div>
             <DialogFooter>
@@ -446,17 +446,17 @@ export default function KnowledgeRagPage() {
           </DialogHeader>
           <div className="max-h-[60vh] overflow-auto">
             {chunksLoading ? (
-              <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
+              <div className="flex items-center justify-center py-8 text-body text-muted-foreground">
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" /> 加载中...
               </div>
             ) : chunks.length === 0 ? (
-              <p className="py-8 text-center text-sm text-muted-foreground">暂无切片</p>
+              <p className="py-8 text-center text-body text-muted-foreground">暂无切片</p>
             ) : (
               <div className="space-y-2">
                 {chunks.map((c) => (
                   <div key={c.id} className="rounded border p-2">
-                    <p className="text-xs text-muted-foreground">chunk #{c.chunkIndex}</p>
-                    <p className="mt-1 whitespace-pre-wrap text-sm">{c.content}</p>
+                    <p className="text-label text-muted-foreground">chunk #{c.chunkIndex}</p>
+                    <p className="mt-1 whitespace-pre-wrap text-body">{c.content}</p>
                   </div>
                 ))}
               </div>

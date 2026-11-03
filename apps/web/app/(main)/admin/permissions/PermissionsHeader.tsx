@@ -25,7 +25,7 @@ function StatCard({
 }) {
   return (
     <div className="rounded-lg border bg-muted/20 p-3">
-      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+      <div className="flex items-center gap-1.5 text-label text-muted-foreground">
         <Icon className="h-3.5 w-3.5" />
         {label}
       </div>
@@ -43,7 +43,7 @@ export function PermissionsHeader({ total, resourceCount, actionCount }: Props) 
           <Key className="h-6 w-6 text-primary" />
           {t('title')}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
       </div>
       <div className="grid grid-cols-2 min-[640px]:grid-cols-3 gap-3">
         <StatCard icon={Shield} label={t('statsTotal')} value={total} />

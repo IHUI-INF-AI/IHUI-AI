@@ -188,7 +188,7 @@ export function EduGradeTrendScreen({
             accessibilityRole="button"
             accessibilityState={{ selected: selectedSubject === '' }}
           >
-            <Text style={selectedSubject === '' ? styles.chipTextActive : styles.chipTextInactive}>
+            <Text style={selectedSubject === '' ? styles.chipActiveText : styles.chipTextInactive}>
               {t('eduGradeTrend.allSubjects')}
             </Text>
           </TouchableOpacity>
@@ -202,7 +202,7 @@ export function EduGradeTrendScreen({
             >
               <Text
                 style={
-                  subject === selectedSubject ? styles.chipTextActive : styles.chipTextInactive
+                  subject === selectedSubject ? styles.chipActiveText : styles.chipTextInactive
                 }
               >
                 {subject}
@@ -394,7 +394,7 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: rnType.label.size,
       color: tk.text.secondary,
     },
-    chipTextActive: {
+    chipActiveText: {
       fontSize: rnType.label.size,
       fontWeight: '600',
       color: tk.brand.ctaForeground,

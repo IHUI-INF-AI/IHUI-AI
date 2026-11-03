@@ -40,17 +40,10 @@ import type { RelayProviderCode } from '../relay-account-format.js'
 
 /** 实证:2026-10-27 本机 Loomy 数据目录唯一现身的业务域(上报域 idatalog.iflysec.com 不计) */
 const LOOMY_BASE = 'https://loomy.xunfei.cn'
-/** 海外预留:讯飞海外域名未实证,null 占位;拿到实证再换(常量字段留位要求,导出供管理面读取) */
-export const LOOMY_GLOBAL_BASE: string | null = null
 /** chat 端点(推断:OpenAI 同构惯例路径;未实证) */
 const LOOMY_CHAT_URL = `${LOOMY_BASE}/api/chat/completions`
 /** 积分/额度端点(推断:积分制用户额度惯例路径;未实证) */
 const LOOMY_QUOTA_URL = `${LOOMY_BASE}/api/user/points`
-
-/** chat 直连契约未实证的统一错误(转发层按普通上游错误处理,不刷新不重试) */
-export const LOOMY_CHAT_CONTRACT_UNVERIFIED =
-  'LOOMY_CHAT_CONTRACT_UNVERIFIED: Loomy 上游为讯飞私有端点,无公开文档;' +
-  'chat 请求构造为合理推断形状,响应形状未实证,直连结果只能如实未判定'
 
 /** 鉴权失效类响应文案标记(通用形态;无 Loomy 专有实证码) */
 const AUTH_BODY_MARKERS = [

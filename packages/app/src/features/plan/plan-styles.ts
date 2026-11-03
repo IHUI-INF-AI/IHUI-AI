@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { rnHue, rnRadius, rnTokens, rnSpacing } from '@ihui/design-tokens'
+import { rnHue, rnRadius, rnTokens, rnSpacing, rnType } from '@ihui/design-tokens'
 import { StyleSheet } from 'react-native'
 import type { AppThemeTokens } from '../../theme/tokens'
 
@@ -48,7 +48,12 @@ export function createPlanStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing.md,
       gap: rnSpacing.md,
     },
-    headerTitle: { fontSize: 18, fontWeight: '700', color: tk.text.primary, flexShrink: 1 },
+    headerTitle: {
+      fontSize: rnType.subtitle.size,
+      fontWeight: '700',
+      color: tk.text.primary,
+      flexShrink: 1,
+    },
     headerSpacer: { flex: 1 },
     headerBtn: {
       flexDirection: 'row',
@@ -92,14 +97,19 @@ export function createPlanStyles(tk: AppThemeTokens) {
       justifyContent: 'space-between',
       gap: rnSpacing.sm,
     },
-    cardTitle: { fontSize: 16, fontWeight: '700', color: tk.text.primary, flexShrink: 1 },
+    cardTitle: {
+      fontSize: rnType.title.size,
+      fontWeight: '700',
+      color: tk.text.primary,
+      flexShrink: 1,
+    },
     cardSub: { fontSize: 12, color: tk.text.secondary, lineHeight: 18 },
     badge: {
       paddingHorizontal: rnSpacing.sm,
       paddingVertical: 3,
       borderRadius: rnRadius.md,
     },
-    badgeText: { fontSize: 11, fontWeight: '600' },
+    badgeText: { fontSize: rnType.caption.size, fontWeight: '600' },
     goalText: { fontSize: 13, color: tk.text.secondary, lineHeight: 19 },
     progressRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
     progressTrack: {
@@ -110,7 +120,7 @@ export function createPlanStyles(tk: AppThemeTokens) {
       overflow: 'hidden',
     },
     progressFill: { height: '100%', borderRadius: rnRadius.sm, backgroundColor: EMERALD.dot },
-    progressPct: { fontSize: 11, fontWeight: '600', color: tk.text.secondary },
+    progressPct: { fontSize: rnType.caption.size, fontWeight: '600', color: tk.text.secondary },
     statRow: {
       flexDirection: 'row',
       flexWrap: 'wrap',
@@ -118,10 +128,10 @@ export function createPlanStyles(tk: AppThemeTokens) {
       gap: rnSpacing['sm-loose'],
     },
     statItem: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.xs },
-    statDot: { width: 8, height: 8, borderRadius: 4 },
-    statLabel: { fontSize: 11, color: tk.text.tertiary },
-    statValue: { fontSize: 11, fontWeight: '600', color: tk.text.primary },
-    statTotal: { fontSize: 11, color: tk.text.tertiary },
+    statDot: { width: 8, height: 8, borderRadius: rnRadius.sm },
+    statLabel: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    statValue: { fontSize: rnType.caption.size, fontWeight: '600', color: tk.text.primary },
+    statTotal: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     tagRow: {
       flexDirection: 'row',
       flexWrap: 'wrap',
@@ -134,7 +144,7 @@ export function createPlanStyles(tk: AppThemeTokens) {
       paddingHorizontal: rnSpacing['xs-loose'],
       paddingVertical: rnSpacing['2xs'],
     },
-    tagText: { fontSize: 11, color: tk.text.secondary },
+    tagText: { fontSize: rnType.caption.size, color: tk.text.secondary },
     cardFoot: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -144,11 +154,11 @@ export function createPlanStyles(tk: AppThemeTokens) {
       borderTopColor: tk.border.light,
       paddingTop: rnSpacing.sm,
     },
-    footDate: { fontSize: 11, color: tk.text.tertiary },
+    footDate: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     linkBtnText: { fontSize: 13, fontWeight: '600', color: tk.brandAccent.deep },
     metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing.md },
-    metaText: { fontSize: 11, color: tk.text.tertiary },
-    fieldLabel: { fontSize: 11, fontWeight: '600', color: tk.text.tertiary },
+    metaText: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    fieldLabel: { fontSize: rnType.caption.size, fontWeight: '600', color: tk.text.tertiary },
     fieldContent: { fontSize: 13, color: tk.text.primary, lineHeight: 19 },
     emptyBox: {
       alignItems: 'center',
@@ -156,8 +166,8 @@ export function createPlanStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing['3xl'],
       paddingHorizontal: rnSpacing.lg,
     },
-    emptyTitle: { fontSize: 15, fontWeight: '700', color: tk.text.primary },
-    emptyDesc: { fontSize: 12, color: tk.text.secondary, textAlign: 'center' },
+    emptyTitle: { fontSize: rnType.strong.size, fontWeight: '700', color: tk.text.primary },
+    emptyDesc: { fontSize: rnType.label.size, color: tk.text.secondary, textAlign: 'center' },
     primaryBtn: {
       alignSelf: 'center',
       flexDirection: 'row',
@@ -169,7 +179,11 @@ export function createPlanStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
-    primaryBtnText: { fontSize: 14, fontWeight: '600', color: tk.brand.ctaForeground },
+    primaryBtnText: {
+      fontSize: rnType.body.size,
+      fontWeight: '600',
+      color: tk.brand.ctaForeground,
+    },
     secondaryBtn: {
       alignItems: 'center',
       justifyContent: 'center',
@@ -180,7 +194,7 @@ export function createPlanStyles(tk: AppThemeTokens) {
       borderColor: tk.border.medium,
       backgroundColor: tk.surface.light,
     },
-    secondaryBtnText: { fontSize: 14, fontWeight: '600', color: tk.text.primary },
+    secondaryBtnText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.text.primary },
     btnDisabled: { opacity: 0.5 },
     formActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: rnSpacing.sm },
     input: {
@@ -190,12 +204,12 @@ export function createPlanStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.sm,
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing.sm,
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.text.primary,
     },
     inputMultiline: { minHeight: 64, textAlignVertical: 'top' },
     formErr: {
-      fontSize: 12,
+      fontSize: rnType.label.size,
       fontWeight: '600',
       color: tk.error.text,
       backgroundColor: tk.error.bg,
@@ -221,8 +235,8 @@ export function createPlanStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
       paddingHorizontal: rnSpacing.xs,
     },
-    stepIndexText: { fontSize: 11, fontWeight: '600', color: tk.text.secondary },
-    stepTitle: { flex: 1, fontSize: 14, fontWeight: '600', color: tk.text.primary },
+    stepIndexText: { fontSize: rnType.caption.size, fontWeight: '600', color: tk.text.secondary },
+    stepTitle: { flex: 1, fontSize: rnType.body.size, fontWeight: '600', color: tk.text.primary },
     stepDesc: { fontSize: 12, color: tk.text.secondary, lineHeight: 18 },
     stepBadges: {
       flexDirection: 'row',
@@ -249,8 +263,12 @@ export function createPlanStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.light,
     },
     chipActive: { backgroundColor: tk.selection.DEFAULT, borderColor: tk.selection.DEFAULT },
-    chipText: { fontSize: 12, color: tk.text.secondary },
-    chipTextActive: { fontSize: 12, fontWeight: '700', color: tk.selection.foreground },
+    chipText: { fontSize: rnType.label.size, color: tk.text.secondary },
+    chipTextActive: {
+      fontSize: rnType.label.size,
+      fontWeight: '700',
+      color: tk.selection.foreground,
+    },
     noticeBox: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -260,7 +278,7 @@ export function createPlanStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing['sm-loose'],
       borderRadius: rnRadius.md,
     },
-    noticeText: { flex: 1, fontSize: 12, color: AMBER.fg },
+    noticeText: { flex: 1, fontSize: rnType.label.size, color: AMBER.fg },
     diffSummaryRow: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing['xs-loose'] },
     diffChangeRow: {
       borderLeftWidth: 3,
@@ -269,8 +287,8 @@ export function createPlanStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing['xs-loose'],
     },
     diffChangeTitle: { fontSize: 13, fontWeight: '600', color: tk.text.primary },
-    diffChangeDetail: { fontSize: 11, color: tk.text.tertiary },
-    diffChangeKind: { fontSize: 11, fontWeight: '600' },
+    diffChangeDetail: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    diffChangeKind: { fontSize: rnType.caption.size, fontWeight: '600' },
     confirmBox: {
       flexDirection: 'row',
       alignItems: 'center',

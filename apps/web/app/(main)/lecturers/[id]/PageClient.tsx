@@ -75,10 +75,10 @@ export default function LecturerDetailPageClient() {
     return (
       <div className="mx-auto w-full max-w-6xl space-y-4 py-12 text-center">
         <PlayCircle className="mx-auto h-10 w-10 text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">{t('notFound')}</p>
+        <p className="text-body text-muted-foreground">{t('notFound')}</p>
         <Link
           href="/lecturers"
-          className="inline-flex items-center gap-1 text-sm text-primary transition-colors hover:underline"
+          className="inline-flex items-center gap-1 text-body text-primary transition-colors hover:underline"
         >
           <ArrowLeft className="h-4 w-4" />
           {t('backToList')}
@@ -91,7 +91,7 @@ export default function LecturerDetailPageClient() {
     <div className="px-4 py-4 mx-auto w-full max-w-6xl space-y-4">
       <Link
         href="/lecturers"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         {t('backToList')}
@@ -103,13 +103,13 @@ export default function LecturerDetailPageClient() {
             src={lecturer.avatar ?? undefined}
             name={lecturer.name}
             size="xl"
-            className="h-20 w-20 text-2xl"
+            className="h-20 w-20 text-display"
           />
           <div className="min-w-0 space-y-1">
             <h1 className="text-display font-bold tracking-tight">{lecturer.name}</h1>
-            {lecturer.title ? <p className="text-sm text-primary">{lecturer.title}</p> : null}
+            {lecturer.title ? <p className="text-body text-primary">{lecturer.title}</p> : null}
             {lecturer.intro ? (
-              <p className="whitespace-pre-line text-sm leading-6 text-muted-foreground">
+              <p className="whitespace-pre-line text-body leading-6 text-muted-foreground">
                 {lecturer.intro}
               </p>
             ) : null}
@@ -126,7 +126,7 @@ export default function LecturerDetailPageClient() {
         ) : channels.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
             <PlayCircle className="h-8 w-8 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">{t('noCourses')}</p>
+            <p className="text-body text-muted-foreground">{t('noCourses')}</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
@@ -145,11 +145,11 @@ export default function LecturerDetailPageClient() {
                   <CardHeader className="p-3 pb-2">
                     <CardTitle className="text-base">{channel.title}</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-1.5 p-3 pt-0 min-[640px]:pt-0 text-sm">
+                  <CardContent className="space-y-1.5 p-3 pt-0 min-[640px]:pt-0 text-body">
                     <p className="text-muted-foreground">
                       {channel.lecturerName ?? tl('unknownLecturer')}
                     </p>
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-1 text-label text-muted-foreground">
                       <Eye className="h-3.5 w-3.5" />
                       {tl('viewCount', { count: channel.viewCount })}
                     </div>

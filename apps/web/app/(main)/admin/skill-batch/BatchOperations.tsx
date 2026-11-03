@@ -307,7 +307,7 @@ export function BatchOperations() {
 
       {batchRunning && (
         <div className="space-y-2 rounded-md border bg-muted/30 px-3 py-2">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <div className="flex items-center gap-2 text-body text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
             {t('progress', { current: progress.current, total: progress.total })}
           </div>
@@ -329,7 +329,7 @@ export function BatchOperations() {
       )}
 
       {batchResult && !batchRunning && (
-        <div className="flex flex-wrap items-center gap-3 rounded-md border bg-muted/30 px-3 py-2 text-sm">
+        <div className="flex flex-wrap items-center gap-3 rounded-md border bg-muted/30 px-3 py-2 text-body">
           <span className="flex items-center gap-1 text-emerald-600">
             <CheckCircle className="h-4 w-4" />
             {t('batchSuccess', { count: batchResult.success })}
@@ -340,14 +340,14 @@ export function BatchOperations() {
               {t('batchFailed', { count: batchResult.failed })}
             </span>
           )}
-          <Button size="sm" variant="ghost" onClick={resetBatch} className="ml-auto text-xs">
+          <Button size="sm" variant="ghost" onClick={resetBatch} className="ml-auto text-label">
             {t('dismiss')}
           </Button>
         </div>
       )}
 
       {batchResult && !batchRunning && batchResult.errors.length > 0 && (
-        <div className="max-h-32 overflow-y-auto rounded-md border bg-destructive/5 p-2 text-xs text-destructive">
+        <div className="max-h-32 overflow-y-auto rounded-md border bg-destructive/5 p-2 text-label text-destructive">
           {batchResult.errors.map((err, i) => (
             <div key={i} className="py-0.5">
               {err}
@@ -365,12 +365,12 @@ export function BatchOperations() {
         </CardHeader>
         <CardContent className="p-0">
           {isLoading ? (
-            <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
+            <div className="flex items-center justify-center py-8 text-body text-muted-foreground">
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               {t('loading')}
             </div>
           ) : currentItems.length === 0 ? (
-            <div className="py-8 text-center text-sm text-muted-foreground">
+            <div className="py-8 text-center text-body text-muted-foreground">
               {tab === 'market' ? t('noMarketSkills') : t('noUserSkills')}
             </div>
           ) : (
@@ -424,21 +424,21 @@ export function BatchOperations() {
                           )}
                         </div>
                       </TableCell>
-                      <TableCell className="hidden sm:table-cell text-sm text-muted-foreground max-w-[240px] truncate">
+                      <TableCell className="hidden sm:table-cell text-body text-muted-foreground max-w-[240px] truncate">
                         {'description' in item
                           ? (item as SkillMarketEntry).description
                           : (item as UserSkill).description}
                       </TableCell>
-                      <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
+                      <TableCell className="hidden md:table-cell text-body text-muted-foreground">
                         {item.version}
                       </TableCell>
                       {tab === 'market' && (
-                        <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
+                        <TableCell className="hidden md:table-cell text-body text-muted-foreground">
                           {(item as SkillMarketEntry).installCount}
                         </TableCell>
                       )}
                       {tab === 'user' && (
-                        <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
+                        <TableCell className="hidden md:table-cell text-body text-muted-foreground">
                           {(item as UserSkill).source}
                         </TableCell>
                       )}

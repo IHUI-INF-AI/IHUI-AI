@@ -94,7 +94,13 @@ export default function FeedbackPage() {
     const jobId = `feedback-submit-${crypto.randomUUID()}`
     const job = registerSubmissionJob({
       jobId,
-      form: { type, title: trimmedTitle, content: trimmedContent, contact: trimmedContact, images: payloadImages },
+      form: {
+        type,
+        title: trimmedTitle,
+        content: trimmedContent,
+        contact: trimmedContact,
+        images: payloadImages,
+      },
     })
     createMut.mutate(
       {
@@ -123,8 +129,10 @@ export default function FeedbackPage() {
     <div className="px-4 py-4 mx-auto w-full max-w-4xl space-y-4">
       <BackButton />
       <div>
-        <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">{t('title')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+        <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">
+          {t('title')}
+        </h1>
+        <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       {/* D192:提交成功回执 —— 编号来自服务端 .returning() 的 feedbacks.id(uuid),可直接对账 */}
@@ -132,7 +140,7 @@ export default function FeedbackPage() {
         <div
           role="status"
           aria-live="polite"
-          className="flex items-center gap-2 rounded-lg bg-cta/10 px-3 py-2 text-sm min-w-0"
+          className="flex items-center gap-2 rounded-lg bg-cta/10 px-3 py-2 text-body min-w-0"
         >
           <Check className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
           <span className="shrink-0 font-medium text-foreground">{t('success')}</span>

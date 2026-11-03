@@ -90,7 +90,7 @@ export function FundingSection({ items }: Props) {
             <TrendingUp className="h-5 w-5 text-emerald-500" />
             {t('funding.title')}
           </h2>
-          <p className="text-xs text-muted-foreground">{t('funding.subtitle')}</p>
+          <p className="text-label text-muted-foreground">{t('funding.subtitle')}</p>
         </div>
       </div>
 
@@ -135,7 +135,7 @@ export function FundingSection({ items }: Props) {
 
       <div className="grid grid-cols-1 gap-4 p-3 pt-3 min-[768px]:grid-cols-3">
         {filtered.length === 0 ? (
-          <div className="col-span-full rounded-lg border border-dashed bg-muted/20 p-3 text-center text-xs text-muted-foreground">
+          <div className="col-span-full rounded-lg border border-dashed bg-muted/20 p-3 text-center text-label text-muted-foreground">
             {t('funding.empty')}
           </div>
         ) : null}
@@ -147,14 +147,14 @@ export function FundingSection({ items }: Props) {
             <CardContent className="min-[640px]:p-3 space-y-2 p-3">
               <div className="flex items-center justify-between gap-2">
                 <Badge variant="success">{item.amount}</Badge>
-                <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1 text-label text-muted-foreground">
                   <Calendar className="h-3 w-3" />
                   {fmt.dateOnlyFormatter.format(new Date(item.date))}
                 </span>
               </div>
               <h3 className="text-body font-semibold leading-tight">{item.title}</h3>
-              <p className="line-clamp-3 text-xs text-muted-foreground">{item.summary}</p>
-              <div className="flex items-center gap-1.5 pt-1 text-xs text-muted-foreground">
+              <p className="line-clamp-3 text-label text-muted-foreground">{item.summary}</p>
+              <div className="flex items-center gap-1.5 pt-1 text-label text-muted-foreground">
                 <Building2 className="h-3 w-3" />
                 {item.source}
               </div>

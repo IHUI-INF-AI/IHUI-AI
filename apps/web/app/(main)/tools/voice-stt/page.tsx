@@ -134,7 +134,7 @@ export default function VoiceSttPage() {
           <Mic className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       <Card>
@@ -156,7 +156,7 @@ export default function VoiceSttPage() {
                   <FileAudio className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
                   <div className="min-w-0">
                     <p className="truncate text-body font-medium">{file.name}</p>
-                    <p className="text-xs text-muted-foreground">{formatFileSize(file.size)}</p>
+                    <p className="text-label text-muted-foreground">{formatFileSize(file.size)}</p>
                   </div>
                 </div>
                 <Button
@@ -185,7 +185,7 @@ export default function VoiceSttPage() {
             >
               <Upload className="h-8 w-8 text-muted-foreground" />
               <span className="text-body font-medium">{t('selectFile')}</span>
-              <span className="text-xs text-muted-foreground">{t('supported')}</span>
+              <span className="text-label text-muted-foreground">{t('supported')}</span>
             </button>
           )}
 
@@ -197,7 +197,7 @@ export default function VoiceSttPage() {
               value={language}
               onChange={(e) => setLanguage(e.target.value)}
               disabled={loading}
-              className="flex h-9 w-full max-w-xs rounded-sm border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex h-9 w-full max-w-xs rounded-sm border border-input bg-transparent px-3 py-1 text-body shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
             >
               {LANGUAGE_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -241,11 +241,11 @@ export default function VoiceSttPage() {
                 readOnly
                 value={result.text}
                 rows={8}
-                className="flex w-full resize-y rounded-sm border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="flex w-full resize-y rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               />
             </div>
             {result.model && (
-              <p className="text-xs text-muted-foreground">
+              <p className="text-label text-muted-foreground">
                 {t('model')}: {result.model}
               </p>
             )}

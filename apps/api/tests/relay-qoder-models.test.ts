@@ -316,7 +316,7 @@ describe('qoderAdapter.listModelsDetailed', () => {
         source: 'cli --list-models',
       }),
     })
-    const r = await adapter.listModelsDetailed(ctx)
+    const r = await adapter.listModelsDetailed!(ctx)
     expect(r.ok).toBe(true)
     if (r.ok) {
       expect(r.scope).toBe('local-cli-login')
@@ -332,7 +332,7 @@ describe('qoderAdapter.listModelsDetailed', () => {
     const adapter = await loadAdapterWith({
       listQoderModels: () => ({ ok: false, error: 'Qoder CLI 缺失(未找到 qoderclicn.exe)' }),
     })
-    const r = await adapter.listModelsDetailed(ctx)
+    const r = await adapter.listModelsDetailed!(ctx)
     expect(r).toEqual({ ok: false, error: 'Qoder CLI 缺失(未找到 qoderclicn.exe)' })
   })
 
@@ -342,7 +342,7 @@ describe('qoderAdapter.listModelsDetailed', () => {
         throw new Error('boom')
       },
     })
-    const r = await adapter.listModelsDetailed(ctx)
+    const r = await adapter.listModelsDetailed!(ctx)
     expect(r).toEqual({ ok: false, error: 'boom' })
   })
 })

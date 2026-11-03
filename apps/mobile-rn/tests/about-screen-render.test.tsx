@@ -46,9 +46,28 @@ vi.mock('react-native', () => {
   }
 })
 
-vi.mock('@react-navigation/native', () => ({
-  useNavigation: () => ({ navigate: nav.navigate, goBack: nav.goBack }),
-}))
+/**
+ * 导航替身必须带 `getState()`:本屏经 `useHostPorts` 的 `performHostNavigate` 先查
+ * `getState().routeNames` 再决定跳不跳(未登记 target 要 dev 抛错,绝不静默 navigate)。
+ * `@react-navigation/native` 的真实 provider 恒有 `getState`,`LooseNavigation` 也把它声明为必需 ——
+ * 所以这里补的是 mock 的契约缺口,不是把产品代码放宽成"没 getState 就跳过校验"(那会让
+ * 未知 target 重新变成假绿)。
+ *
+ * `routeNames` 从生成白名单 `RN_UI_ROUTES` 派生(RootNavigator 已登录分支 + 5 个 tab),
+ * 再补未登录分支的 `Register`(AboutScreen 主 CTA 的落点;未登录分支屏按生成器口径不入白名单)。
+ * 返回形状与小程序 `CompatNavigation.getState` 同构:`{ routeNames, index, route, params }`。
+ */
+vi.mock('@react-navigation/native', async () => {
+  const { RN_UI_ROUTES } = await import('../src/constants/ui-routes.generated')
+  const routeNames = [...RN_UI_ROUTES.map((entry) => entry.name), 'Register']
+  return {
+    useNavigation: () => ({
+      navigate: nav.navigate,
+      goBack: nav.goBack,
+      getState: () => ({ routeNames, index: 0, route: 'About', params: {} }),
+    }),
+  }
+})
 
 // 图标素材不是本页的判据;替掉以免 lucide 的 RN 依赖把套件拖进收集期失败。
 // 名单必须覆盖 AboutScreen + aboutPageSections 两处 import —— 漏一个就是运行时 export 缺失。

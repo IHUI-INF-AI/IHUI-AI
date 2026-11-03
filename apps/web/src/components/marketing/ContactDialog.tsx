@@ -38,12 +38,12 @@ export function ContactDialog({
           <DialogDescription>{t('contactSubtitle')}</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-3 text-sm">
+        <div className="space-y-3 text-body">
           <div className="flex items-start gap-2">
             <MapPin className="mt-px h-4 w-4 shrink-0 text-primary" />
             <div>
               <div className="font-medium">{t('companyName')}</div>
-              <div className="text-xs text-muted-foreground">
+              <div className="text-label text-muted-foreground">
                 {t('addressLine1')}
                 <br />
                 {t('addressLine2')}
@@ -53,14 +53,14 @@ export function ContactDialog({
 
           <div className="flex items-start gap-2">
             <Phone className="mt-px h-4 w-4 shrink-0 text-primary" />
-            <div className="text-xs">
+            <div className="text-label">
               <div>{t('companyContact')}</div>
             </div>
           </div>
 
           <div className="flex items-start gap-2">
             <Mail className="mt-px h-4 w-4 shrink-0 text-primary" />
-            <div className="text-xs text-muted-foreground">{t('companyEmail')}</div>
+            <div className="text-label text-muted-foreground">{t('companyEmail')}</div>
           </div>
 
           <div className="flex items-center gap-3 rounded-md border bg-muted/30 p-3">
@@ -73,7 +73,7 @@ export function ContactDialog({
               loading="lazy"
               decoding="async"
             />
-            <div className="text-xs text-muted-foreground">{t('contactWechatHint')}</div>
+            <div className="text-label text-muted-foreground">{t('contactWechatHint')}</div>
           </div>
         </div>
       </DialogContent>

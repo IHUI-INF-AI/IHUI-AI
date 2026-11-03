@@ -81,7 +81,7 @@ export function WorldsCompare({ onAdopt, currentModel }: WorldsCompareProps) {
             rows={2}
             maxLength={2000}
             disabled={running}
-            className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
           />
         </div>
         <div className="space-y-1.5">
@@ -95,7 +95,7 @@ export function WorldsCompare({ onAdopt, currentModel }: WorldsCompareProps) {
             disabled={running}
           />
         </div>
-        {formErr && <p className="text-xs text-destructive">{formErr}</p>}
+        {formErr && <p className="text-label text-destructive">{formErr}</p>}
         <Button size="sm" onClick={handleFork} disabled={running}>
           {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <GitFork className="h-4 w-4" />}
           {t('fork')}
@@ -106,9 +106,12 @@ export function WorldsCompare({ onAdopt, currentModel }: WorldsCompareProps) {
         <>
           {/* 头部:任务 + 状态 + 重置 */}
           <div className="flex items-center gap-2">
-            <TruncatedText value={task} className="min-w-0 flex-1 text-xs text-muted-foreground" />
+            <TruncatedText
+              value={task}
+              className="min-w-0 flex-1 text-label text-muted-foreground"
+            />
             {running && (
-              <span className="inline-flex shrink-0 items-center gap-1 text-xs text-primary">
+              <span className="inline-flex shrink-0 items-center gap-1 text-label text-primary">
                 <Loader2 className="h-3 w-3 animate-spin" />
                 {t('running')}
               </span>
@@ -149,7 +152,7 @@ export function WorldsCompare({ onAdopt, currentModel }: WorldsCompareProps) {
       )}
 
       {!hasWorld && !running && (
-        <p className="py-2 text-center text-sm text-muted-foreground">{t('empty')}</p>
+        <p className="py-2 text-center text-body text-muted-foreground">{t('empty')}</p>
       )}
     </div>
   )
@@ -188,11 +191,11 @@ function WorldBranchCard({
       </div>
 
       {isError ? (
-        <p className="line-clamp-3 text-xs text-red-500/90">{branch.error}</p>
+        <p className="line-clamp-3 text-label text-red-500/90">{branch.error}</p>
       ) : branch.status === 'running' ? (
-        <p className="py-3 text-center text-xs text-muted-foreground">{t('branchRunning')}</p>
+        <p className="py-3 text-center text-label text-muted-foreground">{t('branchRunning')}</p>
       ) : (
-        <p className="line-clamp-6 min-h-[3rem] whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground">
+        <p className="line-clamp-6 min-h-[3rem] whitespace-pre-wrap text-label leading-relaxed text-muted-foreground">
           {branch.content || t('emptyReply')}
         </p>
       )}

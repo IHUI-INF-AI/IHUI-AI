@@ -22,7 +22,7 @@
  * 测试隔离铁律(AGENTS §5):全程不连真实 PostgreSQL —— db 层整体桩掉,不触库。
  */
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
-import Fastify from 'fastify'
+import Fastify, { type FastifyError } from 'fastify'
 
 const { mockAuthenticate, dbQueue, eqCalls, onConflictArgs, valuesArgs } = vi.hoisted(() => ({
   mockAuthenticate: vi.fn(),
@@ -171,7 +171,7 @@ describe('user_browse_history 三端点(此前 /api/browse-history 全不存在)
   const server = Fastify({ logger: false })
 
   beforeAll(async () => {
-    server.setErrorHandler((err, _request, reply) => {
+    server.setErrorHandler((err: FastifyError, _request, reply) => {
       const statusCode =
         err.statusCode && err.statusCode >= 400 && err.statusCode < 600 ? err.statusCode : 500
       reply.status(statusCode).send({

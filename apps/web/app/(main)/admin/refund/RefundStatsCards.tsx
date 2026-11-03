@@ -56,7 +56,7 @@ export function RefundStatsCards({ currencyFmt }: RefundStatsCardsProps) {
     <div className="grid grid-cols-2 gap-3 min-[768px]:grid-cols-3 min-[1024px]:grid-cols-6">
       {cards.map((c) => (
         <div key={c.label} className="rounded-lg border p-3">
-          <div className="text-xs text-muted-foreground">{c.label}</div>
+          <div className="text-label text-muted-foreground">{c.label}</div>
           <div className={cn('mt-1 text-heading font-bold tabular-nums', c.cls)}>
             {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : c.value}
           </div>

@@ -54,7 +54,7 @@ import {
 } from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL, fileURLToPath } from 'node:url'
-import { claimMarkOf } from './lib/plan-task-index.mjs'
+import { claimMarkOf, claimMarksOf } from './lib/plan-task-index.mjs'
 import { gitRaw } from './lib/face-reader.mjs'
 import { __test__ as claims } from './check-task-claims.mjs'
 
@@ -205,36 +205,50 @@ export function planSweep(
   const leases = []
   const held = []
   for (let i = 0; i < lines.length; i++) {
-    const m = claimMarkOf(lines[i])
-    if (!m) continue
+    // 2026-11-01 S-STRIP:一行**可以有多枚牌**(实测 L33553 = 结构位一枚 + 行尾一枚)。
+    // 只取首枚会让第二枚留在原地 ⇒ C3 恒 false ⇒ 整批不落(4 枚超龄 109–157h 的真活永久不可派)。
+    const marks = claimMarksOf(lines[i])
+    if (marks.length === 0) continue
     if (skip.has(i + 1)) {
       // 护栏③(2026-10-23 收窄后):这一行的旧形态已被别席就地改写 ⇒ 只让路它自己,
       // 不再拉整批陪绑。4 枚在飞、41 枚能摘 —— 少数在飞的必须只挡自己。
       held.push({ line: i + 1, raw: lines[i], why: '旧形态行被别席就地改写 ⇒ 本轮让路(交人工)' })
       continue
     }
-    if (m.form === 'legacy') {
-      if (legacyByOwnerRuling) {
-        leases.push({ line: i + 1, raw: lines[i], mark: m, ageH: null, ownerRuling: legacyByOwnerRuling })
-      } else {
-        held.push({ line: i + 1, raw: lines[i], why: '裸标记无日期,年龄不可判(需机主具名授权才代摘)' })
+    const keeps = []
+    for (const m of marks) {
+      if (m.form === 'legacy') {
+        if (legacyByOwnerRuling) {
+          leases.push({ line: i + 1, raw: lines[i], mark: m, ageH: null, ownerRuling: legacyByOwnerRuling })
+        } else {
+          keeps.push('裸标记无日期,年龄不可判(需机主具名授权才代摘)')
+        }
+        continue
       }
-      continue
+      if (!m.date) {
+        keeps.push('形态不可辨')
+        continue
+      }
+      const ageH = Math.round((nowMs - Date.parse(`${m.date}T00:00:00Z`)) / HOUR_MS)
+      if (!Number.isFinite(ageH)) {
+        keeps.push('日期取不到龄,不猜')
+        continue
+      }
+      if (ageH <= ttlHours) {
+        keeps.push(`未超龄(${ageH}h ≤ ${ttlHours}h)`)
+        continue
+      }
+      leases.push({ line: i + 1, raw: lines[i], mark: m, ageH })
     }
-    if (!m.date) {
-      held.push({ line: i + 1, raw: lines[i], why: '形态不可辨' })
-      continue
+    if (keeps.length > 0) {
+      // 该行摘掉一部分后**仍带牌** ⇒ 必须计入 held,否则 C3 会把它当"多摘"(判据不放宽:
+      // 摘后挂牌集仍须恰好等于跳过集,只是跳过集的键要用改写后的行文本)。
+      held.push({
+        line: i + 1,
+        raw: lines[i],
+        why: keeps.length === marks.length ? keeps[0] : `${keeps[0]};本行另摘 ${marks.length - keeps.length} 枚`,
+      })
     }
-    const ageH = Math.round((nowMs - Date.parse(`${m.date}T00:00:00Z`)) / HOUR_MS)
-    if (!Number.isFinite(ageH)) {
-      held.push({ line: i + 1, raw: lines[i], why: '日期取不到龄,不猜' })
-      continue
-    }
-    if (ageH <= ttlHours) {
-      held.push({ line: i + 1, raw: lines[i], why: `未超龄(${ageH}h ≤ ${ttlHours}h)` })
-      continue
-    }
-    leases.push({ line: i + 1, raw: lines[i], mark: m, ageH })
   }
 
   const stampUsed = stamp ?? nowMs.toString(36)
@@ -243,15 +257,27 @@ export function planSweep(
   const linesAfter = new Map()
   const out = [...lines]
   leases.forEach((r, i) => {
-    const idx = r.line - 1
     r.seq = `${stampUsed}-${i}`
-    const note = releaseNote({ seq: r.seq }, seat, asOf)
-    const after = out[idx].slice(0, r.mark.at) + note + out[idx].slice(r.mark.at + r.mark.mark.length)
-    removed.push(out[idx])
-    added.push(after)
-    linesAfter.set(r.line, after)
-    out[idx] = after
   })
+  // 同一行多枚牌:一律**从右往左**替换(offset 取自原行,倒序才不会被前一枚的改写挤偏)。
+  const byLine = new Map()
+  for (const r of leases) {
+    if (!byLine.has(r.line)) byLine.set(r.line, [])
+    byLine.get(r.line).push(r)
+  }
+  for (const [line, rs] of byLine) {
+    const idx = line - 1
+    const before = out[idx]
+    let after = before
+    for (const r of [...rs].sort((a, b) => b.mark.at - a.mark.at)) {
+      const note = releaseNote({ seq: r.seq }, seat, asOf)
+      after = after.slice(0, r.mark.at) + note + after.slice(r.mark.at + r.mark.mark.length)
+    }
+    removed.push(before)
+    added.push(after)
+    linesAfter.set(line, after)
+    out[idx] = after
+  }
   const strippedText = out.join('\n')
 
   // C1 行数守恒
@@ -260,11 +286,14 @@ export function planSweep(
   const touched = new Set(leases.map((r) => r.line - 1))
   let c2 = true
   for (let i = 0; i < lines.length; i++) if (!touched.has(i) && lines[i] !== out[i]) c2 = false
-  // C3 摘后挂牌集 == held 集(逐行文本比对),既不许多摘也不许多留
+  // C3 摘后挂牌集 == held 集(逐行文本比对),既不许多摘也不许多留。
+  // 部分摘除的行(一行多牌、只摘了超龄那几枚)在 held 里记的是**改写后**的文本 —— 判据强度不变,
+  // 只是比较键跟着"该行现在的样子"走(否则一行两牌的行会因文本必然变化被判成"多摘")。
   const afterClaims = out
     .map((l, i) => ({ line: i + 1, raw: l, mark: claimMarkOf(l) }))
     .filter((r) => r.mark !== null)
-  const heldKeys = new Set(held.map((h) => h.raw))
+  for (const h of held) h.after = out[h.line - 1]
+  const heldKeys = new Set(held.map((h) => h.after))
   const c3 = afterClaims.length === held.length && afterClaims.every((r) => heldKeys.has(r.raw))
 
   return {
@@ -498,6 +527,12 @@ export function run({
     console.log(`❌ 守恒不过:${plan.why} ⇒ 整批不落`)
     return 2
   }
+  // 守恒通过时必须**印出来**(2026-11-01 S-STRIP):此前成功路径只印"待摘 N 枚",
+  // 读日志的人看不出 C1/C2/C3 到底判过没有 —— 而"没判"与"判过"在输出上不可区分,正是本次
+  // 结构性卡点(一行两牌 ⇒ C3 恒 false)能静默连轮空转的原因。与 LAND_BLOB_PROOF 同一句口径。
+  console.log(
+    `✅ 守恒通过:C1 行数 ${n.lines} 不变 / C2 未摘行逐字节等值 / C3 摘后挂牌集 == 跳过集(${plan.held.length} 条)`,
+  )
   if (plan.leases.length === 0) return result('clean', n).state === 'clean' ? 0 : 0
 
   if (dryRun) {
@@ -788,6 +823,15 @@ function selfTest() {
       return v.ok === true && v.held === p.held.length
     })(),
   )
+  // 一行两牌(2026-11-01 S-STRIP):此型曾让 C3 恒 false ⇒ 整批不落、超龄真活永久不可派。
+  const TWO = '- [ ]（进行中@2026-01-01/甲）（进行中@2026-01-02/乙） G-7 双牌行'
+  const p4 = planSweep(TWO, { nowMs: now, ttlHours: 72, seat: 'x', asOf: '2026-10-22' })
+  t(
+    '一行两牌(两枚都超龄)⇒ 两枚都摘,摘后该行零带牌',
+    p4.leases.length === 2 && claimMarksOf(p4.text).length === 0,
+    `摘 ${p4.leases.length} 枚,残留 ${claimMarksOf(p4.text).length} 枚`,
+  )
+  t('一行两牌时 C3 仍成立(摘后挂牌集 == 跳过集)', p4.ok === true, p4.why)
   console.log(`--self-test: ${pass}/${pass + fail} 通过`)
   return fail
 }

@@ -4,6 +4,7 @@
 
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { CodeBlock } from '@/components/docs/code-block'
 
 const SITE_URL = 'https://aizhs.top'
 
@@ -39,12 +40,8 @@ export const metadata: Metadata = {
     'REST API + Webhook + OpenAPI 3.1 规范。含认证(JWT + API Key)、速率限制、错误码、分页、流式响应、SDK(JavaScript/Python/Go)。',
   alternates: {
     canonical: '/docs/api',
+    // hreflang 死链已删(2026-11-02 实测):/zh-cn /zh-tw /ko /ja 目录与 /en 子页均 404,只留 canonical + x-default
     languages: {
-      'zh-CN': '/zh-cn/docs/api',
-      'zh-TW': '/zh-tw/docs/api',
-      en: '/en/docs/api',
-      ko: '/ko/docs/api',
-      ja: '/ja/docs/api',
       'x-default': '/docs/api',
     },
   },
@@ -70,30 +67,43 @@ export default function ApiDocsPage() {
         <div className="rounded-lg border bg-card p-3 space-y-4">
           <div>
             <p className="text-body font-semibold">Base URL</p>
-            <pre className="mt-2 overflow-x-auto rounded-lg bg-muted p-3 text-xs">
-              <code>{`https://api.aizhs.top/v1          # 生产
+            <CodeBlock
+              language="text"
+              code={`https://api.aizhs.top/v1          # 生产
 https://api-staging.aizhs.top/v1  # 预发
-http://localhost:8802/v1          # 自托管`}</code>
-            </pre>
+http://localhost:8802/v1          # 自托管`}
+            />
           </div>
           <div>
             <p className="text-body font-semibold">认证方式</p>
             <ul className="ml-4 mt-2 list-disc space-y-1 text-sm text-muted-foreground">
-              <li><strong>JWT</strong>:用户登录态,<code className="rounded bg-muted px-1">Authorization: Bearer &lt;jwt&gt;</code></li>
-              <li><strong>API Key</strong>:服务端调用,<code className="rounded bg-muted px-1">X-API-Key: &lt;key&gt;</code>,在 /settings/api-keys 生成</li>
-              <li><strong>Webhook 签名</strong>:HMAC-SHA256,<code className="rounded bg-muted px-1">X-Webhook-Signature: &lt;hmac&gt;</code></li>
+              <li>
+                <strong>JWT</strong>:用户登录态,
+                <code className="rounded bg-muted px-1">Authorization: Bearer &lt;jwt&gt;</code>
+              </li>
+              <li>
+                <strong>API Key</strong>:服务端调用,
+                <code className="rounded bg-muted px-1">X-API-Key: &lt;key&gt;</code>,在
+                /settings/api-keys 生成
+              </li>
+              <li>
+                <strong>Webhook 签名</strong>:HMAC-SHA256,
+                <code className="rounded bg-muted px-1">X-Webhook-Signature: &lt;hmac&gt;</code>
+              </li>
             </ul>
           </div>
           <div>
             <p className="text-body font-semibold">速率限制</p>
             <p className="text-sm text-muted-foreground">
-              默认 60 req/min,Pro 200/min,Team 500/min。超限返回 <code className="rounded bg-muted px-1">429</code>,响应头含:
+              默认 60 req/min,Pro 200/min,Team 500/min。超限返回{' '}
+              <code className="rounded bg-muted px-1">429</code>,响应头含:
             </p>
-            <pre className="mt-2 overflow-x-auto rounded-lg bg-muted p-3 text-xs">
-              <code>{`X-RateLimit-Limit: 60
+            <CodeBlock
+              language="text"
+              code={`X-RateLimit-Limit: 60
 X-RateLimit-Remaining: 0
-X-RateLimit-Reset: 1699900000`}</code>
-            </pre>
+X-RateLimit-Reset: 1699900000`}
+            />
           </div>
         </div>
       </section>
@@ -103,11 +113,10 @@ X-RateLimit-Reset: 1699900000`}</code>
         <h2 className="text-display font-bold tracking-tight">AI 对话 API</h2>
         <div className="rounded-lg border bg-card p-3 space-y-4">
           <h3 className="text-lg font-semibold">POST /v1/chat/completions</h3>
-          <p className="text-sm text-muted-foreground">
-            OpenAI 兼容接口,支持流式(SSE)和非流式。
-          </p>
-          <pre className="overflow-x-auto rounded-lg bg-muted p-3 text-xs leading-relaxed">
-            <code>{`curl -X POST https://api.aizhs.top/v1/chat/completions \\
+          <p className="text-sm text-muted-foreground">OpenAI 兼容接口,支持流式(SSE)和非流式。</p>
+          <CodeBlock
+            language="bash"
+            code={`curl -X POST https://api.aizhs.top/v1/chat/completions \\
   -H "Authorization: Bearer <jwt>" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -122,52 +131,62 @@ X-RateLimit-Reset: 1699900000`}</code>
 # 流式响应(SSE)
 data: {"id":"...","choices":[{"delta":{"content":"你"},"index":0}]}
 data: {"id":"...","choices":[{"delta":{"content":"好"},"index":0}]}
-data: [DONE]`}</code>
-          </pre>
+data: [DONE]`}
+          />
 
           <h3 className="text-lg font-semibold pt-4">POST /v1/chat/agents/:agentId</h3>
           <p className="text-sm text-muted-foreground">
             调用指定 Agent(带知识库 + MCP 工具 + 工作流)。
           </p>
-          <pre className="overflow-x-auto rounded-lg bg-muted p-3 text-xs leading-relaxed">
-            <code>{`curl -X POST https://api.aizhs.top/v1/chat/agents/agent_abc123 \\
+          <CodeBlock
+            language="bash"
+            code={`curl -X POST https://api.aizhs.top/v1/chat/agents/agent_abc123 \\
   -H "X-API-Key: <key>" \\
   -H "Content-Type: application/json" \\
   -d '{
     "message": "帮我分析这份简历",
     "files": ["file_xyz"],
     "context": { "userId": "u_123" }
-  }'`}</code>
-          </pre>
+  }'`}
+          />
         </div>
       </section>
 
       {/* Agent API */}
       <section id="agent-api" className="mt-16 space-y-6">
         <h2 className="text-display font-bold tracking-tight">Agent 管理 API</h2>
-        <div className="space-y-2">
-          <div className="grid grid-cols-2 gap-2 rounded bg-muted/60 p-3 text-label font-semibold min-[768px]:grid-cols-3">
-            <div>方法</div>
-            <div>路径</div>
-            <div className="col-span-2 min-[768px]:col-span-1">说明</div>
-          </div>
-          {[
-            ['GET', '/v1/agents', '列表(分页 + 筛选)'],
-            ['POST', '/v1/agents', '创建 Agent'],
-            ['GET', '/v1/agents/:id', '详情'],
-            ['PATCH', '/v1/agents/:id', '更新'],
-            ['POST', '/v1/agents/:id/publish', '发布到市场'],
-            ['DELETE', '/v1/agents/:id', '删除'],
-          ].map(([method, path, desc], i) => (
-            <div
-              key={`${method}-${path}`}
-              className={`grid grid-cols-2 gap-2 rounded p-3 text-sm min-[768px]:grid-cols-3 ${i % 2 === 0 ? 'bg-card' : 'bg-muted/40'}`}
-            >
-              <div className="font-mono text-xs">{method}</div>
-              <div className="font-mono text-xs">{path}</div>
-              <div className="col-span-2 text-muted-foreground min-[768px]:col-span-1">{desc}</div>
-            </div>
-          ))}
+        <div className="overflow-x-auto rounded-lg border bg-card">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-muted/60 text-left text-label font-semibold">
+                <th scope="col" className="p-3">
+                  方法
+                </th>
+                <th scope="col" className="p-3">
+                  路径
+                </th>
+                <th scope="col" className="p-3">
+                  说明
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                ['GET', '/v1/agents', '列表(分页 + 筛选)'],
+                ['POST', '/v1/agents', '创建 Agent'],
+                ['GET', '/v1/agents/:id', '详情'],
+                ['PATCH', '/v1/agents/:id', '更新'],
+                ['POST', '/v1/agents/:id/publish', '发布到市场'],
+                ['DELETE', '/v1/agents/:id', '删除'],
+              ].map(([method, path, desc], i) => (
+                <tr key={`${method}-${path}`} className={i % 2 === 0 ? 'bg-card' : 'bg-muted/40'}>
+                  <td className="p-3 font-mono text-xs whitespace-nowrap">{method}</td>
+                  <td className="p-3 font-mono text-xs whitespace-nowrap">{path}</td>
+                  <td className="p-3 text-muted-foreground">{desc}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </section>
 
@@ -176,37 +195,47 @@ data: [DONE]`}</code>
         <h2 className="text-display font-bold tracking-tight">错误码</h2>
         <div className="rounded-lg border bg-card p-3">
           <p className="text-sm text-muted-foreground">统一响应格式:</p>
-          <pre className="mt-2 overflow-x-auto rounded-lg bg-muted p-3 text-xs">
-            <code>{`{
+          <CodeBlock
+            language="json"
+            code={`{
   "code": 0,          // 0=成功, 非 0=失败
   "message": "ok",
   "data": { ... }     // 成功时的数据
-}`}</code>
-          </pre>
-          <div className="mt-4 space-y-2">
-            <div className="grid grid-cols-2 gap-2 rounded bg-muted/60 p-3 text-label font-semibold min-[768px]:grid-cols-3">
-              <div>HTTP</div>
-              <div>code</div>
-              <div className="col-span-2 min-[768px]:col-span-1">说明</div>
-            </div>
-            {[
-              ['200', '0', '成功'],
-              ['400', '1001', '参数错误'],
-              ['401', '1002', '未认证'],
-              ['403', '1003', '无权限'],
-              ['404', '1004', '资源不存在'],
-              ['429', '1005', '速率超限'],
-              ['500', '5000', '服务器错误'],
-            ].map(([http, code, desc], i) => (
-              <div
-                key={`${http}-${code}`}
-                className={`grid grid-cols-2 gap-2 rounded p-3 text-sm min-[768px]:grid-cols-3 ${i % 2 === 0 ? 'bg-card' : 'bg-muted/40'}`}
-              >
-                <div>{http}</div>
-                <div className="text-muted-foreground">{code}</div>
-                <div className="col-span-2 text-muted-foreground min-[768px]:col-span-1">{desc}</div>
-              </div>
-            ))}
+}`}
+          />
+          <div className="mt-4 overflow-x-auto rounded-lg border">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-muted/60 text-left text-label font-semibold">
+                  <th scope="col" className="p-3">
+                    HTTP
+                  </th>
+                  <th scope="col" className="p-3">
+                    code
+                  </th>
+                  <th scope="col" className="p-3">
+                    说明
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  ['200', '0', '成功'],
+                  ['400', '1001', '参数错误'],
+                  ['401', '1002', '未认证'],
+                  ['403', '1003', '无权限'],
+                  ['404', '1004', '资源不存在'],
+                  ['429', '1005', '速率超限'],
+                  ['500', '5000', '服务器错误'],
+                ].map(([http, code, desc], i) => (
+                  <tr key={`${http}-${code}`} className={i % 2 === 0 ? 'bg-card' : 'bg-muted/40'}>
+                    <td className="p-3 font-mono text-xs whitespace-nowrap">{http}</td>
+                    <td className="p-3 font-mono text-xs text-muted-foreground">{code}</td>
+                    <td className="p-3 text-muted-foreground">{desc}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       </section>
@@ -217,44 +246,56 @@ data: [DONE]`}</code>
         <div className="grid gap-4 min-[768px]:grid-cols-3">
           <div className="rounded-lg border bg-card p-3">
             <h3 className="text-lg font-semibold">JavaScript</h3>
-            <pre className="mt-2 overflow-x-auto rounded-lg bg-muted p-3 text-xs">
-              <code>{`npm i @ihui/api-client`}</code>
-            </pre>
-            <pre className="mt-2 overflow-x-auto rounded-lg bg-muted p-3 text-xs">
-              <code>{`import { chat } from '@ihui/api-client'
-await chat({ message: '你好' })`}</code>
-            </pre>
+            <CodeBlock language="bash" code={`npm i @ihui/api-client`} />
+            <CodeBlock
+              language="ts"
+              code={`import { chat } from '@ihui/api-client'
+await chat({ message: '你好' })`}
+            />
           </div>
           <div className="rounded-lg border bg-card p-3">
             <h3 className="text-lg font-semibold">Python</h3>
-            <pre className="mt-2 overflow-x-auto rounded-lg bg-muted p-3 text-xs">
-              <code>{`pip install ihui-ai`}</code>
-            </pre>
-            <pre className="mt-2 overflow-x-auto rounded-lg bg-muted p-3 text-xs">
-              <code>{`from ihui import IHUI
+            <CodeBlock language="bash" code={`pip install ihui-ai`} />
+            <CodeBlock
+              language="python"
+              code={`from ihui import IHUI
 client = IHUI(api_key='...')
-client.chat(message='你好')`}</code>
-            </pre>
+client.chat(message='你好')`}
+            />
           </div>
           <div className="rounded-lg border bg-card p-3">
             <h3 className="text-lg font-semibold">Go</h3>
-            <pre className="mt-2 overflow-x-auto rounded-lg bg-muted p-3 text-xs">
-              <code>{`go get github.com/ihui/ihui-go`}</code>
-            </pre>
-            <pre className="mt-2 overflow-x-auto rounded-lg bg-muted p-3 text-xs">
-              <code>{`client := ihui.New("key")
-client.Chat(ctx, "你好")`}</code>
-            </pre>
+            <CodeBlock language="bash" code={`go get github.com/ihui/ihui-go`} />
+            <CodeBlock
+              language="go"
+              code={`client := ihui.New("key")
+client.Chat(ctx, "你好")`}
+            />
           </div>
         </div>
       </section>
 
-      <section className="mt-16 rounded-2xl border bg-gradient-to-br from-primary/5 to-primary/10 p-3 text-center">
+      <section className="mt-16 rounded-lg border bg-gradient-to-br from-primary/5 to-primary/10 p-3 text-center">
         <h2 className="text-display font-bold tracking-tight">下一步</h2>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-          <Link href="/docs/mcp" className="rounded-lg bg-cta px-4 py-2 text-body font-medium text-cta-foreground hover:bg-cta/90">MCP 工具集成</Link>
-          <Link href="/docs/agent" className="rounded-lg border bg-card px-4 py-2 text-body font-medium hover:bg-accent">Agent 开发</Link>
-          <Link href="/docs/quickstart" className="rounded-lg border bg-card px-4 py-2 text-body font-medium hover:bg-accent">返回快速开始</Link>
+          <Link
+            href="/docs/mcp"
+            className="rounded-lg bg-cta px-4 py-2 text-body font-medium text-cta-foreground hover:bg-cta/90"
+          >
+            MCP 工具集成
+          </Link>
+          <Link
+            href="/docs/agent"
+            className="rounded-lg border bg-card px-4 py-2 text-body font-medium hover:bg-accent"
+          >
+            Agent 开发
+          </Link>
+          <Link
+            href="/docs/quickstart"
+            className="rounded-lg border bg-card px-4 py-2 text-body font-medium hover:bg-accent"
+          >
+            返回快速开始
+          </Link>
         </div>
       </section>
     </div>

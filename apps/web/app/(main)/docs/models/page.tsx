@@ -4,9 +4,64 @@
 
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { Monitor, Coins } from 'lucide-react'
+import {
+  BookOpen,
+  Bot,
+  Brain,
+  Coins,
+  Flag,
+  Globe,
+  Lightbulb,
+  Monitor,
+  Pin,
+  Shuffle,
+  Wrench,
+} from 'lucide-react'
+import { CodeBlock } from '@/components/docs/code-block'
 
 const SITE_URL = 'https://aizhs.top'
+
+/**
+ * Provider 健康档位 → 徽章配色(文档页只读展示,取本仓既有状态色档:
+ * healthy 绿 / degraded 琥珀 / down 红 / 未配置 中性 / 本地·免费 信息蓝·正向绿)。
+ * 值档逐字沿用 `admin/monitor` 与 `settings/llm/ProviderCardV2` 已落地的 token 组合,
+ * 不自创新档、不写字面色值。
+ */
+const STATUS_TONE_CLASS = {
+  healthy: 'bg-success/10 text-success-deep-text',
+  degraded: 'bg-warning/10 text-warning-amber-text',
+  down: 'bg-danger/10 text-danger-text',
+  unconfigured: 'bg-muted text-muted-foreground',
+  local: 'bg-info/10 text-info-text',
+  free: 'bg-success/10 text-success-deep-text',
+} as const
+
+type ProviderStatusTone = keyof typeof STATUS_TONE_CLASS
+
+/** Provider 健康档位行:机器名 + 色档 + 中文标签 + 含义(色档键受封闭联合约束,漏档即 tsc 红) */
+const PROVIDER_HEALTH_ROWS: {
+  status: string
+  tone: ProviderStatusTone
+  label: string
+  desc: string
+}[] = [
+  { status: 'healthy', tone: 'healthy', label: '健康', desc: '正常服务,延迟 < 2s' },
+  {
+    status: 'degraded',
+    tone: 'degraded',
+    label: '降级',
+    desc: '可用但慢(延迟 > 5s)或部分模型异常',
+  },
+  {
+    status: 'down',
+    tone: 'down',
+    label: '不可用',
+    desc: '402 余额不足 / 403 无权限 / 超时 / 网络错误',
+  },
+  { status: 'not_configured', tone: 'unconfigured', label: '未配置', desc: 'Admin 未填 API Key' },
+  { status: 'local', tone: 'local', label: '本地', desc: 'Ollama / vLLM 等本地部署,不走云端' },
+  { status: 'zero_cost', tone: 'free', label: '免费额度', desc: '厂商提供免费 quota,不消耗积分' },
+]
 
 const modelsJsonLd = {
   '@context': 'https://schema.org',
@@ -29,7 +84,12 @@ const modelsJsonLd = {
       itemListElement: [
         { '@type': 'ListItem', position: 1, name: '首页', item: 'https://aizhs.top' },
         { '@type': 'ListItem', position: 2, name: '文档', item: 'https://aizhs.top/docs' },
-        { '@type': 'ListItem', position: 3, name: '多模型调度', item: 'https://aizhs.top/docs/models' },
+        {
+          '@type': 'ListItem',
+          position: 3,
+          name: '多模型调度',
+          item: 'https://aizhs.top/docs/models',
+        },
       ],
     },
   ],
@@ -41,12 +101,8 @@ export const metadata: Metadata = {
     '智汇 AI 多模型调度完整指南:100+ LLM 统一接入,Provider 健康检查,自动 fallback,Combo 链,Token 压缩,统一积分池。',
   alternates: {
     canonical: '/docs/models',
+    // hreflang 死链已删(2026-11-02 实测):/zh-cn /zh-tw /ko /ja 目录与 /en 子页均 404,只留 canonical + x-default
     languages: {
-      'zh-CN': '/zh-cn/docs/models',
-      'zh-TW': '/zh-tw/docs/models',
-      en: '/en/docs/models',
-      ko: '/ko/docs/models',
-      ja: '/ja/docs/models',
       'x-default': '/docs/models',
     },
   },
@@ -55,7 +111,9 @@ export const metadata: Metadata = {
     description: '100+ LLM 统一接入,自动 fallback,Combo 链组合调用。',
     url: `${SITE_URL}/docs/models`,
     type: 'article',
-    images: [{ url: '/images/logo.png?v=20261021', width: 1200, height: 630, alt: '智汇 AI 多模型调度' }],
+    images: [
+      { url: '/images/logo.png?v=20261021', width: 1200, height: 630, alt: '智汇 AI 多模型调度' },
+    ],
   },
 }
 
@@ -70,7 +128,7 @@ export default function ModelsDocsPage() {
       {/* Hero */}
       <header className="space-y-4 text-center">
         <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-label font-medium text-muted-foreground">
-          <span>🧠</span>
+          <Brain className="h-3.5 w-3.5" />
           多模型调度
         </div>
         <h1 className="text-display min-[768px]:text-4xl min-[1024px]:text-5xl font-bold tracking-tight">
@@ -87,73 +145,133 @@ export default function ModelsDocsPage() {
         <h2 className="text-display font-bold tracking-tight">支持的模型(100+)</h2>
         <div className="space-y-4">
           <div className="rounded-lg border bg-card p-3">
-            <p className="text-body font-semibold">🌍 国际厂商</p>
-            <div className="mt-3 space-y-2">
-              {[
-                ['OpenAI', 'GPT-5、GPT-4.1、GPT-4o、o3-mini、o1、GPT-4 Turbo', '通用 / 推理 / 视觉'],
-                ['Anthropic', 'Claude Opus 4.5、Sonnet 4.5、Haiku 3.5', '长上下文 / 代码 / 推理'],
-                ['Google', 'Gemini 2.5 Pro、Gemini 2.5 Flash', '多模态 / 长上下文'],
-                ['xAI', 'Grok 4、Grok 3、Grok Code Fast', '实时 / 代码'],
-                ['Mistral', 'Mistral Large 2、Codestral、Pixtral', '欧洲 / 开源'],
-              ].map(([vendor, models, scene], i) => (
-                <div
-                  key={vendor}
-                  className={`grid grid-cols-1 gap-2 rounded p-3 text-sm min-[768px]:grid-cols-3 ${i % 2 === 0 ? 'bg-background' : 'bg-muted/40'}`}
-                >
-                  <div className="font-medium">{vendor}</div>
-                  <div className="text-muted-foreground">{models}</div>
-                  <div className="text-xs text-muted-foreground">{scene}</div>
-                </div>
-              ))}
+            <p className="flex items-center text-body font-semibold">
+              <Globe className="mr-1.5 inline h-4 w-4" />
+              国际厂商
+            </p>
+            <div className="mt-3 overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-muted/60 text-left text-label font-semibold">
+                    <th scope="col" className="p-3">
+                      厂商
+                    </th>
+                    <th scope="col" className="p-3">
+                      模型
+                    </th>
+                    <th scope="col" className="p-3">
+                      适用场景
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    [
+                      'OpenAI',
+                      'GPT-5、GPT-4.1、GPT-4o、o3-mini、o1、GPT-4 Turbo',
+                      '通用 / 推理 / 视觉',
+                    ],
+                    [
+                      'Anthropic',
+                      'Claude Opus 4.5、Sonnet 4.5、Haiku 3.5',
+                      '长上下文 / 代码 / 推理',
+                    ],
+                    ['Google', 'Gemini 2.5 Pro、Gemini 2.5 Flash', '多模态 / 长上下文'],
+                    ['xAI', 'Grok 4、Grok 3、Grok Code Fast', '实时 / 代码'],
+                    ['Mistral', 'Mistral Large 2、Codestral、Pixtral', '欧洲 / 开源'],
+                  ].map(([vendor, models, scene], i) => (
+                    <tr key={vendor} className={i % 2 === 0 ? 'bg-background' : 'bg-muted/40'}>
+                      <td className="p-3 font-medium whitespace-nowrap">{vendor}</td>
+                      <td className="p-3 text-muted-foreground">{models}</td>
+                      <td className="p-3 text-xs text-muted-foreground">{scene}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
 
-          <div className="rounded-2xl border bg-card p-3">
-            <p className="text-body font-semibold">🇨🇳 国产模型</p>
-            <div className="mt-3 space-y-2">
-              {[
-                ['阿里通义千问', 'Qwen3-Max、Qwen3-235B、Qwen-Plus、Qwen-Turbo', '中文 / 代码 / 推理'],
-                ['DeepSeek', 'DeepSeek V3.2、R1、Coder', '推理 / 代码 / 低成本'],
-                ['智谱 AI', 'GLM-4.6、GLM-4-Plus、GLM-4-Flash、GLM-4V', '中文 / 多模态'],
-                ['百度文心', 'ERNIE 4.5、ERNIE Speed', '中文 / 企业'],
-                ['字节豆包', 'Doubao-Pro、Doubao-Lite、Doubao-Vision', '中文 / 多模态'],
-                ['月之暗面', 'Kimi K2、Kimi Thinking', '长上下文 / 推理'],
-                ['MiniMax', 'abab6.5、abab6.5s', '中文 / 语音'],
-                ['阶跃星辰', 'Step-2、Step-1V', '多模态'],
-              ].map(([vendor, models, scene], i) => (
-                <div
-                  key={vendor}
-                  className={`grid grid-cols-1 gap-2 rounded p-3 text-sm min-[768px]:grid-cols-3 ${i % 2 === 0 ? 'bg-background' : 'bg-muted/40'}`}
-                >
-                  <div className="font-medium">{vendor}</div>
-                  <div className="text-muted-foreground">{models}</div>
-                  <div className="text-xs text-muted-foreground">{scene}</div>
-                </div>
-              ))}
+          <div className="rounded-lg border bg-card p-3">
+            <p className="flex items-center text-body font-semibold">
+              <Flag className="mr-1.5 inline h-4 w-4" />
+              国产模型
+            </p>
+            <div className="mt-3 overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-muted/60 text-left text-label font-semibold">
+                    <th scope="col" className="p-3">
+                      厂商
+                    </th>
+                    <th scope="col" className="p-3">
+                      模型
+                    </th>
+                    <th scope="col" className="p-3">
+                      适用场景
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    [
+                      '阿里通义千问',
+                      'Qwen3-Max、Qwen3-235B、Qwen-Plus、Qwen-Turbo',
+                      '中文 / 代码 / 推理',
+                    ],
+                    ['DeepSeek', 'DeepSeek V3.2、R1、Coder', '推理 / 代码 / 低成本'],
+                    ['智谱 AI', 'GLM-4.6、GLM-4-Plus、GLM-4-Flash、GLM-4V', '中文 / 多模态'],
+                    ['百度文心', 'ERNIE 4.5、ERNIE Speed', '中文 / 企业'],
+                    ['字节豆包', 'Doubao-Pro、Doubao-Lite、Doubao-Vision', '中文 / 多模态'],
+                    ['月之暗面', 'Kimi K2、Kimi Thinking', '长上下文 / 推理'],
+                    ['MiniMax', 'abab6.5、abab6.5s', '中文 / 语音'],
+                    ['阶跃星辰', 'Step-2、Step-1V', '多模态'],
+                  ].map(([vendor, models, scene], i) => (
+                    <tr key={vendor} className={i % 2 === 0 ? 'bg-background' : 'bg-muted/40'}>
+                      <td className="p-3 font-medium whitespace-nowrap">{vendor}</td>
+                      <td className="p-3 text-muted-foreground">{models}</td>
+                      <td className="p-3 text-xs text-muted-foreground">{scene}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
 
-          <div className="rounded-2xl border bg-card p-3">
+          <div className="rounded-lg border bg-card p-3">
             <p className="flex items-center text-body font-semibold">
               <Monitor className="mr-1.5 inline h-4 w-4" />
               本地 / 开源
             </p>
-            <div className="mt-3 space-y-2">
-              {[
-                ['Ollama', 'llama3.3、qwen2.5、deepseek-r1、gemma2', '本地部署'],
-                ['vLLM', '任意 HuggingFace 模型', '高吞吐推理'],
-                ['LM Studio', 'GGUF 量化模型', '桌面应用'],
-                ['OpenAI 兼容', '任何 OpenAI API 兼容端点', '自定义接入'],
-              ].map(([vendor, models, scene], i) => (
-                <div
-                  key={vendor}
-                  className={`grid grid-cols-1 gap-2 rounded p-3 text-sm min-[768px]:grid-cols-3 ${i % 2 === 0 ? 'bg-background' : 'bg-muted/40'}`}
-                >
-                  <div className="font-medium">{vendor}</div>
-                  <div className="text-muted-foreground">{models}</div>
-                  <div className="text-xs text-muted-foreground">{scene}</div>
-                </div>
-              ))}
+            <div className="mt-3 overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-muted/60 text-left text-label font-semibold">
+                    <th scope="col" className="p-3">
+                      运行时
+                    </th>
+                    <th scope="col" className="p-3">
+                      模型
+                    </th>
+                    <th scope="col" className="p-3">
+                      适用场景
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    ['Ollama', 'llama3.3、qwen2.5、deepseek-r1、gemma2', '本地部署'],
+                    ['vLLM', '任意 HuggingFace 模型', '高吞吐推理'],
+                    ['LM Studio', 'GGUF 量化模型', '桌面应用'],
+                    ['OpenAI 兼容', '任何 OpenAI API 兼容端点', '自定义接入'],
+                  ].map(([vendor, models, scene], i) => (
+                    <tr key={vendor} className={i % 2 === 0 ? 'bg-background' : 'bg-muted/40'}>
+                      <td className="p-3 font-medium whitespace-nowrap">{vendor}</td>
+                      <td className="p-3 text-muted-foreground">{models}</td>
+                      <td className="p-3 text-xs text-muted-foreground">{scene}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
@@ -162,29 +280,42 @@ export default function ModelsDocsPage() {
       {/* Provider 健康检查 */}
       <section id="provider-health" className="mt-16 space-y-6">
         <h2 className="text-display font-bold tracking-tight">Provider 健康检查(独家)</h2>
-        <div className="rounded-2xl border bg-card p-3 space-y-3">
+        <div className="rounded-lg border bg-card p-3 space-y-3">
           <p className="text-sm text-muted-foreground">
             智汇 AI 每 5 分钟探测所有 Provider,自动剔除"账户没钱 / Key 失效 / 接不通"的 Provider,
             终端用户只会看到真正可用的模型。Admin 端可查看每个 Provider 的状态、余额、错误详情。
           </p>
-          <div className="space-y-2">
-            {[
-              ['healthy', '✅ 健康', '正常服务,延迟 < 2s'],
-              ['degraded', '🟡 降级', '可用但慢(延迟 > 5s)或部分模型异常'],
-              ['down', '🔴 不可用', '402 余额不足 / 403 无权限 / 超时 / 网络错误'],
-              ['not_configured', '⚪ 未配置', 'Admin 未填 API Key'],
-              ['local', '🖥️ 本地', 'Ollama / vLLM 等本地部署,不走云端'],
-              ['zero_cost', '🆓 免费额度', '厂商提供免费 quota,不消耗积分'],
-            ].map(([status, label, desc], i) => (
-              <div
-                key={status}
-                className={`grid grid-cols-1 gap-2 rounded p-3 text-sm min-[768px]:grid-cols-3 ${i % 2 === 0 ? 'bg-background' : 'bg-muted/40'}`}
-              >
-                <div className="font-mono text-xs">{status}</div>
-                <div className="font-medium">{label}</div>
-                <div className="text-xs text-muted-foreground">{desc}</div>
-              </div>
-            ))}
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-muted/60 text-left text-label font-semibold">
+                  <th scope="col" className="p-3">
+                    状态值
+                  </th>
+                  <th scope="col" className="p-3">
+                    显示
+                  </th>
+                  <th scope="col" className="p-3">
+                    含义
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {PROVIDER_HEALTH_ROWS.map(({ status, tone, label, desc }, i) => (
+                  <tr key={status} className={i % 2 === 0 ? 'bg-background' : 'bg-muted/40'}>
+                    <td className="p-3 font-mono text-xs whitespace-nowrap">{status}</td>
+                    <td className="p-3 whitespace-nowrap">
+                      <span
+                        className={`inline-flex h-4 items-center justify-center rounded-md px-1 text-[10px] font-semibold leading-none ${STATUS_TONE_CLASS[tone]}`}
+                      >
+                        {label}
+                      </span>
+                    </td>
+                    <td className="p-3 text-xs text-muted-foreground">{desc}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       </section>
@@ -192,12 +323,13 @@ export default function ModelsDocsPage() {
       {/* 自动 Fallback */}
       <section id="fallback" className="mt-16 space-y-6">
         <h2 className="text-display font-bold tracking-tight">自动 Fallback(高可用)</h2>
-        <div className="rounded-2xl border bg-card p-3 space-y-3">
+        <div className="rounded-lg border bg-card p-3 space-y-3">
           <p className="text-sm text-muted-foreground">
             配置 fallback 链,主模型失败时自动切换备用模型,用户无感知:
           </p>
-          <pre className="overflow-x-auto rounded-lg bg-muted p-3 text-xs">
-            <code>{`# Agent 配置示例
+          <CodeBlock
+            language="json"
+            code={`# Agent 配置示例
 {
   "model": "gpt-4o",                    // 主模型
   "fallback_models": [                  // 备用链(按优先级)
@@ -213,10 +345,11 @@ export default function ModelsDocsPage() {
 - 5xx Server Error → 切下一个
 - 超时(默认 30s)→ 切下一个
 - 402 Payment Required → 切下一个并通知 Admin
-- 200 成功 → 不切`}</code>
-          </pre>
+- 200 成功 → 不切`}
+          />
           <p className="text-xs text-muted-foreground">
-            💡 <strong>跨厂商 fallback</strong>:OpenAI 挂了切 Anthropic,Anthropic 挂了切通义,
+            <Lightbulb className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
+            <strong>跨厂商 fallback</strong>:OpenAI 挂了切 Anthropic,Anthropic 挂了切通义,
             三大厂商同时挂的概率几乎为 0,服务可用性达 99.95%。
           </p>
         </div>
@@ -225,19 +358,23 @@ export default function ModelsDocsPage() {
       {/* Combo 链 */}
       <section id="combo-chain" className="mt-16 space-y-6">
         <h2 className="text-display font-bold tracking-tight">Combo 链(组合调用)</h2>
-        <div className="rounded-2xl border bg-card p-3 space-y-3">
+        <div className="rounded-lg border bg-card p-3 space-y-3">
           <p className="text-sm text-muted-foreground">
             把多个模型串联 / 并联调用,实现单模型无法完成的能力:
           </p>
           <div className="space-y-3">
             <div className="rounded-lg border bg-background p-3">
-              <p className="text-body font-semibold">📌 串联(Priority 策略)</p>
+              <p className="flex items-center text-body font-semibold">
+                <Pin className="mr-1.5 inline h-4 w-4" />
+                串联(Priority 策略)
+              </p>
               <p className="mt-1 text-xs text-muted-foreground">
                 按顺序尝试,前一个失败才用下一个 — <strong>等价于 fallback</strong>
               </p>
-              <pre className="mt-2 overflow-x-auto rounded bg-muted p-2 text-xs">
-                <code>{`chain: ["gpt-4o", "claude-sonnet-4-5", "qwen3-max"]`}</code>
-              </pre>
+              <CodeBlock
+                language="yaml"
+                code={`chain: ["gpt-4o", "claude-sonnet-4-5", "qwen3-max"]`}
+              />
             </div>
             <div className="rounded-lg border bg-background p-3">
               <p className="flex items-center text-body font-semibold">
@@ -247,19 +384,24 @@ export default function ModelsDocsPage() {
               <p className="mt-1 text-xs text-muted-foreground">
                 按价格从低到高尝试,优先用便宜模型,质量不够才升级
               </p>
-              <pre className="mt-2 overflow-x-auto rounded bg-muted p-2 text-xs">
-                <code>{`chain: ["deepseek-v3.2", "qwen3-plus", "gpt-4o-mini", "gpt-4o"]`}</code>
-              </pre>
+              <CodeBlock
+                language="yaml"
+                code={`chain: ["deepseek-v3.2", "qwen3-plus", "gpt-4o-mini", "gpt-4o"]`}
+              />
             </div>
             <div className="rounded-lg border bg-background p-3">
-              <p className="text-body font-semibold">🔀 并联(Fusion 策略)</p>
+              <p className="flex items-center text-body font-semibold">
+                <Shuffle className="mr-1.5 inline h-4 w-4" />
+                并联(Fusion 策略)
+              </p>
               <p className="mt-1 text-xs text-muted-foreground">
                 多模型同时回答,Judge 模型打分选最佳 — <strong>质量最高但贵</strong>
               </p>
-              <pre className="mt-2 overflow-x-auto rounded bg-muted p-2 text-xs">
-                <code>{`chain: ["gpt-4o", "claude-sonnet-4-5", "qwen3-max"]
-judge: "gpt-4o"   # 用 GPT-4o 评分选最佳答案`}</code>
-              </pre>
+              <CodeBlock
+                language="yaml"
+                code={`chain: ["gpt-4o", "claude-sonnet-4-5", "qwen3-max"]
+judge: "gpt-4o"   # 用 GPT-4o 评分选最佳答案`}
+              />
             </div>
           </div>
         </div>
@@ -268,41 +410,56 @@ judge: "gpt-4o"   # 用 GPT-4o 评分选最佳答案`}</code>
       {/* Token 压缩 */}
       <section id="token-compaction" className="mt-16 space-y-6">
         <h2 className="text-display font-bold tracking-tight">Token 压缩(降本利器)</h2>
-        <div className="rounded-2xl border bg-card p-3 space-y-3">
+        <div className="rounded-lg border bg-card p-3 space-y-3">
           <p className="text-sm text-muted-foreground">
             长对话自动压缩历史消息,降低 Token 消耗 60%+,质量损失 &lt; 5%:
           </p>
-          <div className="space-y-2">
-            {[
-              ['RTK', 'Retrieval Token Keep', '保留关键 Token,删除冗余词(介词/语气词)'],
-              ['Caveman', '压缩成"穴居人语"', '去掉所有非关键词,仅保留主谓宾'],
-              ['RTK + Caveman', '混合策略', '先 RTK 再 Caveman,压缩率最高'],
-            ].map(([name, full, desc], i) => (
-              <div
-                key={name}
-                className={`grid grid-cols-1 gap-2 rounded p-3 text-sm min-[768px]:grid-cols-3 ${i % 2 === 0 ? 'bg-background' : 'bg-muted/40'}`}
-              >
-                <div className="font-mono text-xs">{name}</div>
-                <div className="font-medium">{full}</div>
-                <div className="text-xs text-muted-foreground">{desc}</div>
-              </div>
-            ))}
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-muted/60 text-left text-label font-semibold">
+                  <th scope="col" className="p-3">
+                    策略
+                  </th>
+                  <th scope="col" className="p-3">
+                    全称
+                  </th>
+                  <th scope="col" className="p-3">
+                    做法
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  ['RTK', 'Retrieval Token Keep', '保留关键 Token,删除冗余词(介词/语气词)'],
+                  ['Caveman', '压缩成"穴居人语"', '去掉所有非关键词,仅保留主谓宾'],
+                  ['RTK + Caveman', '混合策略', '先 RTK 再 Caveman,压缩率最高'],
+                ].map(([name, full, desc], i) => (
+                  <tr key={name} className={i % 2 === 0 ? 'bg-background' : 'bg-muted/40'}>
+                    <td className="p-3 font-mono text-xs whitespace-nowrap">{name}</td>
+                    <td className="p-3 font-medium">{full}</td>
+                    <td className="p-3 text-xs text-muted-foreground">{desc}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-          <pre className="overflow-x-auto rounded-lg bg-muted p-3 text-xs">
-            <code>{`# Admin 配置
+          <CodeBlock
+            language="json"
+            code={`# Admin 配置
 {
   "compaction_strategy": "rtk_caveman",
   "compaction_threshold": 8000,    // 上下文超过 8K Token 触发
   "keep_recent": 4                 // 保留最近 4 轮对话不压缩
-}`}</code>
-          </pre>
+}`}
+          />
         </div>
       </section>
 
       {/* 统一积分池 */}
       <section id="credits" className="mt-16 space-y-6">
         <h2 className="text-display font-bold tracking-tight">统一积分池</h2>
-        <div className="rounded-2xl border bg-card p-3 space-y-3">
+        <div className="rounded-lg border bg-card p-3 space-y-3">
           <p className="text-sm text-muted-foreground">
             不用每个厂商单独充值,智汇 AI 统一积分池,一套账单全模型通用:
           </p>
@@ -313,33 +470,43 @@ judge: "gpt-4o"   # 用 GPT-4o 评分选最佳答案`}</code>
             <li>本地模型(Ollama)消耗 0 积分</li>
             <li>Admin 可设"模型系数"精细控制成本</li>
           </ul>
-          <pre className="overflow-x-auto rounded-lg bg-muted p-3 text-xs">
-            <code>{`# 模型积分系数示例
+          <CodeBlock
+            language="json"
+            code={`# 模型积分系数示例
 {
   "gpt-4o": 3.0,           // 3x 积分
   "claude-opus-4": 5.0,    // 5x 积分
   "qwen3-plus": 1.0,       // 标准
   "deepseek-v3.2": 0.3,    // 0.3x 积分(便宜)
   "ollama:llama3.3": 0     // 免费(本地)
-}`}</code>
-          </pre>
+}`}
+          />
         </div>
       </section>
 
       {/* 下一步 */}
-      <section className="mt-16 rounded-2xl border bg-gradient-to-br from-primary/5 to-primary/10 p-3">
+      <section className="mt-16 rounded-lg border bg-gradient-to-br from-primary/5 to-primary/10 p-3">
         <h2 className="text-lg font-semibold">下一步</h2>
         <div className="mt-3 grid grid-cols-1 gap-3 min-[768px]:grid-cols-3">
-          <Link href="/docs/agent" className="rounded-lg border bg-card p-3 text-sm hover:bg-accent">
-            🤖 Agent 开发 →<br />
+          <Link
+            href="/docs/agent"
+            className="rounded-lg border bg-card p-3 text-sm hover:bg-accent"
+          >
+            <Bot className="mr-1 inline h-4 w-4" aria-hidden />
+            <span>Agent 开发 →</span>
+            <br />
             <span className="text-xs text-muted-foreground">为 Agent 选模型</span>
           </Link>
           <Link href="/docs/rag" className="rounded-lg border bg-card p-3 text-sm hover:bg-accent">
-            📚 知识库 RAG →<br />
+            <BookOpen className="mr-1 inline h-4 w-4" aria-hidden />
+            <span>知识库 RAG →</span>
+            <br />
             <span className="text-xs text-muted-foreground">Embedding 模型选择</span>
           </Link>
           <Link href="/docs/api" className="rounded-lg border bg-card p-3 text-sm hover:bg-accent">
-            🛠️ API 参考 →<br />
+            <Wrench className="mr-1 inline h-4 w-4" aria-hidden />
+            <span>API 参考 →</span>
+            <br />
             <span className="text-xs text-muted-foreground">通过 API 调用模型</span>
           </Link>
         </div>

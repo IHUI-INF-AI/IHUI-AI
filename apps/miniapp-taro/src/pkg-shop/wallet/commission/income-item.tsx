@@ -6,6 +6,7 @@ import { useI18n } from '@/i18n'
 import { View, Text } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { formatPrice } from '@/utils/time'
+import { onToast } from '@/host/on-toast'
 
 /**
  * 卡片状态序与共享屏 statusOf 一致。
@@ -45,7 +46,7 @@ export function IncomeItem({ row }: { row: IncomeRow }) {
 
   const copyOrder = () => {
     void Taro.setClipboardData({ data: row.orderId }).then(() => {
-      Taro.showToast({ title: t('income.copySuccess'), icon: 'none' })
+      onToast(t('income.copySuccess'), { kind: 'info' })
     })
   }
 

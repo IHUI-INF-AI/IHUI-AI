@@ -12,6 +12,7 @@
  */
 
 import type { ListPaginationProps, TFunction } from './app-shared.js'
+import type { OnNavigate, OnToast } from './app-host-ports.js'
 
 /** 直播回放列表项(平台注入,字段对齐 mobile-rn LivePlaybackListScreen Item) */
 export interface LivePlaybackItem {
@@ -70,6 +71,12 @@ export interface LiveListScreenProps {
   onPressItem: (item: LiveListItem) => void
   onBack: () => void
   colorScheme?: 'light' | 'dark'
+  /** 触底加载更多(可选;不传则无分页行为) */
+  onEndReached?: () => void
+  /** 加载更多进行中(列表底部展示进度) */
+  loadingMore?: boolean
+  /** 宿主导航端口(逻辑 target 由宿主映射;屏内不得直接调用平台导航) */
+  onNavigate: OnNavigate
 }
 
 /** 直播列表项(平台注入,字段对齐 mobile-rn LiveScreen Live) */
@@ -98,6 +105,12 @@ export interface LiveScreenProps {
    * (2026-10-16),由调用方传 tabBarScrollReserve(insets.bottom) 让内容可滚到胶囊底下。
    */
   contentBottomPadding?: number
+  /** 触底加载更多(可选;不传则无分页行为) */
+  onLoadMore?: () => void
+  /** 是否还有更多(配合 onLoadMore,默认 true) */
+  hasMore?: boolean
+  /** 加载更多进行中(列表底部展示细进度条) */
+  loadingMore?: boolean
 }
 
 /** 批次 17(2026-07-29):直播详情/主播端/预告/回放(单条直播深 4 屏) */
@@ -124,6 +137,10 @@ export interface LiveDetailItem {
   viewCount: number
   playUrl?: string | null
   intro?: string | null
+  /** 开播时间(原样传 ISO 串)。端内手写页在标题下渲染 formatDate(live.startTime),屏不渲染就是转壳丢信息 */
+  startTime?: string
+  /** 分享卡封面。RN 侧源字段是 `Live.coverImage`,端内叫 `coverUrl` —— 屏拿不到就没有封面图 */
+  coverUrl?: string
 }
 
 /** LiveDetailScreen props(注入式:wrapper 保留 WebSocket/API 调用) */
@@ -193,6 +210,8 @@ export interface LiveHostScreenProps {
   onCopyText: (text: string, label: string) => void
   onBack: () => void
   colorScheme?: 'light' | 'dark'
+  /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
+  onToast: OnToast
 }
 
 /** LivePreview 预告详情(平台注入,字段对齐 mobile-rn LivePreviewScreen Detail) */

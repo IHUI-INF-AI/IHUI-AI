@@ -11,7 +11,7 @@ import type { FastifyPluginAsync, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { success, error } from '../utils/response.js'
 import { checkAuth } from '../plugins/auth.js'
-import { requireAdmin } from '../plugins/require-permission.js'
+import { requireAdminRouteGuard } from '../plugins/require-permission.js'
 import {
   getClawdbotService,
   getToolExecutor,
@@ -43,7 +43,14 @@ const initializeSchema = z.looseObject({
 })
 
 const chatSchema = z.object({
-  userId: z.string().min(1, 'userId 不能为空'),
+  /**
+   * 2026-11-01 身份面公开化:客户端自报的 userId **不再参与主体选择**(身份唯一出口=令牌主体,
+   * AGENTS.md §5「认证不等于授权」)。此前这里是必填的 `z.string().min(1)`,而它一路进
+   * `clawdbot-service.chat(userId, …)` 当**对话历史桶键**(`conversations` 是
+   * `Map<userId, …>`)⇒ 自报他人 userId 就能读他人历史、并把回复写进他人的桶。
+   * 保留键位仅为兼容既有调用方(不改响应形态),值被忽略。
+   */
+  userId: z.string().optional(),
   content: z.string().min(1, 'content 不能为空'),
   context: z.record(z.string(), z.unknown()).optional(),
 })
@@ -86,6 +93,7 @@ const mcpCallSchema = z.looseObject({
 })
 
 const pairingRequestSchema = z.looseObject({
+  /** 同 chatSchema:自报 userId 不参与主体选择,由令牌主体覆盖(保留键位兼容既有调用方)。 */
   userId: z.string().optional(),
   deviceId: z.string().optional(),
   channelType: z.string().optional(),
@@ -93,7 +101,8 @@ const pairingRequestSchema = z.looseObject({
 
 const pairingConfirmSchema = z.object({
   code: z.string().min(1, 'code 不能为空'),
-  userId: z.string().min(1, 'userId 不能为空'),
+  /** 同上:配对会话属主由令牌主体决定,客户端自报值被丢弃。 */
+  userId: z.string().optional(),
   deviceId: z.string().min(1, 'deviceId 不能为空'),
   channelType: z.string().min(1, 'channelType 不能为空'),
 })
@@ -160,7 +169,13 @@ export const clawdbotRoutes: FastifyPluginAsync = async (server) => {
   // ===========================================================================
   // P2 安全修复(2026-09-09 第九轮):admin bot 管理端点此前仅 checkAuth(任意
   // 登录用户可触 initialize/shutdown 等),收权为 admin(与路由内 checkAuth 双保险)。
-  server.addHook('preHandler', requireAdmin)
+  // 2026-11-01 档位对齐:改用 `requireAdminRouteGuard` —— 与 `requireAdmin` 的唯一差别是多一道
+  // `requireActiveUser`(该函数自己的注释写明"此差别是安全语义":被注销/封禁的账号不得进 admin 面)。
+  // 同级的另两枚 /api/admin 插件面(`admin.ts`、`admin-support-tickets.ts`)早就用较强的一枚,本面是
+  // 三枚里最弱的那个;现读全仓**没有任何一门安全闸钉着这句 addHook**(删掉它 ⇒ 37 个端点退化成
+  // "任意登录用户可进",唯一会红的是 import 变孤儿的编译副产物),所以存续由
+  // `apps/api/tests/clawdbot-admin-gate-wiring.test.ts` 钉住。
+  server.addHook('preHandler', requireAdminRouteGuard)
 
   server.get('/clawdbot/status', async (_req, reply) => {
     if (!(await checkAuth(_req, reply))) return
@@ -185,8 +200,9 @@ export const clawdbotRoutes: FastifyPluginAsync = async (server) => {
     if (!(await checkAuth(req, reply))) return
     const parsed = validateBody(chatSchema, req.body, reply)
     if (!parsed.ok) return
-    const { userId, content } = parsed.data
-    const response = await getClawdbotService().chat(userId, content)
+    const { content } = parsed.data
+    // 主体只取令牌(见 chatSchema 上注);`parsed.data.userId` 已被判据丢弃,不参与桶选择。
+    const response = await getClawdbotService().chat(req.userId!, content)
     return success(response)
   })
 
@@ -391,15 +407,16 @@ export const clawdbotRoutes: FastifyPluginAsync = async (server) => {
     if (!(await checkAuth(req, reply))) return
     const parsed = validateBody(pairingRequestSchema, req.body, reply)
     if (!parsed.ok) return
-    return success(getPairingService().createRequest(parsed.data))
+    // 待确认请求登记的用户 = 令牌主体(自报值丢弃);confirm 时继承的就是这一份。
+    return success(getPairingService().createRequest({ ...parsed.data, userId: req.userId! }))
   })
 
   server.post('/clawdbot/pairing/confirm', async (req, reply) => {
     if (!(await checkAuth(req, reply))) return
     const parsed = validateBody(pairingConfirmSchema, req.body, reply)
     if (!parsed.ok) return
-    const { code, userId, deviceId, channelType } = parsed.data
-    const session = getPairingService().confirmPairing(code, userId, deviceId, channelType)
+    const { code, deviceId, channelType } = parsed.data
+    const session = getPairingService().confirmPairing(code, req.userId!, deviceId, channelType)
     if (!session) {
       reply.status(400).send(error(400, 'Invalid or expired pairing code'))
       return

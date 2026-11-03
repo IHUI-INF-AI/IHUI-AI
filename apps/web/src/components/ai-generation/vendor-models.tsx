@@ -115,7 +115,7 @@ export function ModelSelect({
         <Label>{t('model')}</Label>
         {isLoading ? <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" /> : null}
         {isDynamic ? (
-          <span className="text-xs text-muted-foreground">{t('officialModels')}</span>
+          <span className="text-label text-muted-foreground">{t('officialModels')}</span>
         ) : null}
       </div>
       <Select value={value} onValueChange={onChange}>
@@ -369,7 +369,7 @@ export function AdvancedParamsPanel({
   const [open, setOpen] = React.useState(false)
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
-      <CollapsibleTrigger className="justify-between rounded-md px-2 py-1 text-sm transition-colors hover:bg-accent/50">
+      <CollapsibleTrigger className="justify-between rounded-md px-2 py-1 text-body transition-colors hover:bg-accent/50">
         {t('advancedParams')}
         <ChevronDown className={`h-4 w-4 transition-transform ${open ? 'rotate-180' : ''}`} />
       </CollapsibleTrigger>

@@ -41,12 +41,12 @@ export default async function BlogIndexPage() {
           </h1>
         </div>
         <p className="text-base text-muted-foreground min-[768px]:text-lg">{t('subtitle')}</p>
-        <p className="text-xs text-muted-foreground">{t('stats', { count: posts.length })}</p>
+        <p className="text-label text-muted-foreground">{t('stats', { count: posts.length })}</p>
       </header>
 
       {categories.length > 0 && (
         <nav className="flex flex-wrap items-center gap-2">
-          <span className="inline-flex items-center gap-1 text-sm text-muted-foreground">
+          <span className="inline-flex items-center gap-1 text-body text-muted-foreground">
             <Tag className="h-4 w-4" />
             {t('categoryLabel')}:
           </span>
@@ -77,7 +77,7 @@ export default async function BlogIndexPage() {
                   )}
                 >
                   <CardContent className="min-[640px]:p-3 flex h-full flex-col gap-3 p-3">
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-2 text-label text-muted-foreground">
                       <Badge variant="outline" className="font-normal">
                         {post.category}
                       </Badge>
@@ -90,13 +90,13 @@ export default async function BlogIndexPage() {
                     </h2>
 
                     {post.description && (
-                      <p className="line-clamp-3 text-sm text-muted-foreground">
+                      <p className="line-clamp-3 text-body text-muted-foreground">
                         {post.description}
                       </p>
                     )}
 
                     <div className="mt-auto flex items-center justify-between pt-2">
-                      <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                      <span className="inline-flex items-center gap-1 text-label text-muted-foreground">
                         <Clock className="h-3.5 w-3.5" />
                         {t('readMinutes', { count: post.readMinutes })}
                       </span>

@@ -28,6 +28,7 @@ import type {
 import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 import { formatPrice } from '@ihui/shared/utils'
 import { Tappable } from '@ihui/ui-native'
+import { assertRequiredPort } from '../../host/ports'
 
 /** 讲师详情共享屏 — props 注入式跨端组件 */
 export type {
@@ -59,9 +60,13 @@ export function LecturerDetailScreen({
   onContact,
   onOpenCourse,
   onBack,
-  colorScheme = 'light',
+  onRetry,
+  colorScheme = 'light',  
   onViewCourses,
-}: LecturerDetailScreenProps) {
+  onNavigate,
+}: LecturerDetailScreenProps & { onRetry?: () => void }) {
+  assertRequiredPort('onNavigate', onNavigate)
+
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -108,7 +113,7 @@ export function LecturerDetailScreen({
           colorScheme={colorScheme}
           styles={styles}
         />
-        <ErrorState message={error} colorScheme={colorScheme} />
+        <ErrorState message={error} onRetry={onRetry} colorScheme={colorScheme} />
       </View>
     )
   }
@@ -461,7 +466,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.secondary,
     },
     followBtn: {
-      paddingHorizontal: 14, // rpx(28)
+      paddingHorizontal: rnSpacing['md-loose'], // rpx(28)
       paddingVertical: rnSpacing['xs-loose'], // rpx(12)
       borderRadius: rnRadiusFor.control,
       backgroundColor: tk.brand.cta,

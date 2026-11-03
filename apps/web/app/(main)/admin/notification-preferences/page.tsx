@@ -169,12 +169,12 @@ export default function NotificationPreferencesPage() {
           <Bell className="h-6 w-6 text-primary" />
           {t('title')}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('description')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('description')}</p>
       </div>
 
       {isLoading ? (
         <Card>
-          <CardContent className="py-10 text-center text-sm text-muted-foreground">
+          <CardContent className="py-10 text-center text-body text-muted-foreground">
             {t('loading')}
           </CardContent>
         </Card>
@@ -251,7 +251,7 @@ export default function NotificationPreferencesPage() {
               />
               <div className="grid grid-cols-1 gap-3 pt-1 min-[768px]:grid-cols-2">
                 <div className="space-y-1">
-                  <Label htmlFor="quietHoursStart" className="text-sm">
+                  <Label htmlFor="quietHoursStart" className="text-body">
                     {t('quietHoursStart')}
                   </Label>
                   <Input
@@ -263,7 +263,7 @@ export default function NotificationPreferencesPage() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label htmlFor="quietHoursEnd" className="text-sm">
+                  <Label htmlFor="quietHoursEnd" className="text-body">
                     {t('quietHoursEnd')}
                   </Label>
                   <Input
@@ -285,7 +285,7 @@ export default function NotificationPreferencesPage() {
             <CardContent>
               <div className="grid grid-cols-1 gap-3 min-[768px]:grid-cols-2">
                 <div className="space-y-1">
-                  <Label htmlFor="maxPerHour" className="text-sm">
+                  <Label htmlFor="maxPerHour" className="text-body">
                     {t('maxPerHour')}
                   </Label>
                   <Input
@@ -297,7 +297,7 @@ export default function NotificationPreferencesPage() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label htmlFor="maxPerDay" className="text-sm">
+                  <Label htmlFor="maxPerDay" className="text-body">
                     {t('maxPerDay')}
                   </Label>
                   <Input

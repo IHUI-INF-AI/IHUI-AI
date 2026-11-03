@@ -136,12 +136,12 @@ export default function AiWorldDetailPage() {
       <div className="mx-auto w-full max-w-3xl space-y-4 px-4 py-4">
         <Link
           href="/ai-world"
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
           返回
         </Link>
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {(error as Error)?.message ?? '条目不存在'}
         </div>
       </div>
@@ -152,7 +152,7 @@ export default function AiWorldDetailPage() {
     <div className="mx-auto w-full max-w-3xl space-y-4 px-4 py-4">
       <Link
         href="/ai-world"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         返回
@@ -194,7 +194,7 @@ export default function AiWorldDetailPage() {
                 </button>
               )}
             </div>
-            <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-3 text-label text-muted-foreground">
               {world.categoryId && (
                 <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5">
                   <Tag className="h-3 w-3" />
@@ -213,14 +213,14 @@ export default function AiWorldDetailPage() {
           </div>
 
           {world.content ? (
-            <article className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
+            <article className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap text-body leading-relaxed text-foreground/90">
               {world.content}
             </article>
           ) : (
-            <p className="text-sm text-muted-foreground">暂无内容</p>
+            <p className="text-body text-muted-foreground">暂无内容</p>
           )}
 
-          <div className="mt-3 pt-3 text-xs text-muted-foreground">
+          <div className="mt-3 pt-3 text-label text-muted-foreground">
             更新时间：{fmt(world.updatedAt)}
           </div>
         </CardContent>

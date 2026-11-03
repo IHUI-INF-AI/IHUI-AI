@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
 'use client'
 
 import * as React from 'react'
@@ -113,7 +114,7 @@ export function RepoWikiPanel() {
   }
 
   return (
-    <div data-testid="repo-wiki-panel" className="space-y-3 text-sm">
+    <div data-testid="repo-wiki-panel" className="space-y-3 text-body">
       {/* 类目 tab */}
       <div className="flex gap-1" role="tablist" aria-label={t('title')}>
         {WIKI_CATEGORIES.map((cat) => {
@@ -128,7 +129,7 @@ export function RepoWikiPanel() {
               data-testid={`wiki-tab-${cat}`}
               onClick={() => setActive(cat)}
               className={cn(
-                'flex items-center gap-1 rounded-sm px-2 py-1 text-xs transition-colors',
+                'flex items-center gap-1 rounded-sm px-2 py-1 text-label transition-colors',
                 active === cat
                   ? 'bg-accent font-medium text-accent-foreground'
                   : 'text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground',
@@ -161,7 +162,7 @@ export function RepoWikiPanel() {
         {items.length === 0 ? (
           <p
             data-testid="wiki-empty"
-            className="rounded-lg border border-dashed px-3 py-4 text-center text-xs text-muted-foreground"
+            className="rounded-lg border border-dashed px-3 py-4 text-center text-label text-muted-foreground"
           >
             {t('empty')}
           </p>
@@ -170,7 +171,7 @@ export function RepoWikiPanel() {
             <div
               key={c.id}
               data-testid={`wiki-card-${i}`}
-              className="rounded-md border px-2 py-1.5 text-xs"
+              className="rounded-md border px-2 py-1.5 text-label"
             >
               <div className="flex items-start gap-1.5">
                 <span className="min-w-0 flex-1 break-words font-medium">{c.title}</span>
@@ -199,7 +200,7 @@ export function RepoWikiPanel() {
           data-testid="wiki-generate"
           onClick={() => void handleGenerate()}
           disabled={generating}
-          className="flex items-center justify-center gap-1 rounded-sm border px-2 py-1.5 text-xs transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex items-center justify-center gap-1 rounded-sm border px-2 py-1.5 text-label transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Sparkles className="h-3 w-3" />
           {generating ? t('generating') : t('generate')}
@@ -210,7 +211,7 @@ export function RepoWikiPanel() {
           onClick={toggleAutoCapture}
           aria-pressed={autoCapture}
           className={cn(
-            'flex items-center justify-center gap-1 rounded-sm border px-2 py-1.5 text-xs transition-colors hover:bg-accent',
+            'flex items-center justify-center gap-1 rounded-sm border px-2 py-1.5 text-label transition-colors hover:bg-accent',
             autoCapture && 'bg-accent font-medium text-accent-foreground',
           )}
         >
@@ -222,7 +223,7 @@ export function RepoWikiPanel() {
           data-testid="wiki-export"
           onClick={() => void handleExport()}
           disabled={cards.length === 0}
-          className="flex items-center justify-center gap-1 rounded-sm border px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex items-center justify-center gap-1 rounded-sm border px-2 py-1.5 text-label text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Copy className="h-3 w-3" />
           {t('export')}
@@ -232,7 +233,7 @@ export function RepoWikiPanel() {
           data-testid="wiki-clear"
           onClick={() => useRepoWikiStore.getState().clear()}
           disabled={cards.length === 0}
-          className="flex items-center justify-center gap-1 rounded-sm border px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-destructive disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex items-center justify-center gap-1 rounded-sm border px-2 py-1.5 text-label text-muted-foreground transition-colors hover:bg-accent hover:text-destructive disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Trash2 className="h-3 w-3" />
           {t('clear')}

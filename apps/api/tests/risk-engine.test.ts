@@ -78,7 +78,7 @@ describe('RiskRuleEngine 默认规则', () => {
     const engine = new RiskRuleEngine()
     const rules = engine.listRules()
     for (let i = 1; i < rules.length; i++) {
-      expect(rules[i].priority).toBeGreaterThanOrEqual(rules[i - 1].priority)
+      expect(rules[i]!.priority).toBeGreaterThanOrEqual(rules[i - 1]!.priority)
     }
   })
 
@@ -105,7 +105,7 @@ describe('RiskRuleEngine evaluateRisk 规则匹配', () => {
     expect(result.action).toBe('CHALLENGE')
     expect(result.totalScore).toBe(30)
     expect(result.hits).toHaveLength(1)
-    expect(result.hits[0].ruleId).toBe('R001_REMOTE_LOGIN')
+    expect(result.hits[0]!.ruleId).toBe('R001_REMOTE_LOGIN')
   })
 
   it('高频退款 → REVIEW', () => {
@@ -117,7 +117,7 @@ describe('RiskRuleEngine evaluateRisk 规则匹配', () => {
     })
     expect(result.action).toBe('REVIEW')
     expect(result.totalScore).toBe(40)
-    expect(result.hits[0].ruleId).toBe('R002_HIGH_FREQ_REFUND')
+    expect(result.hits[0]!.ruleId).toBe('R002_HIGH_FREQ_REFUND')
   })
 
   it('高频退款窗口为 0 时不触发', () => {
@@ -137,7 +137,7 @@ describe('RiskRuleEngine evaluateRisk 规则匹配', () => {
     })
     expect(result.action).toBe('DENY')
     expect(result.totalScore).toBe(60)
-    expect(result.hits[0].ruleId).toBe('R003_ABNORMAL_IP')
+    expect(result.hits[0]!.ruleId).toBe('R003_ABNORMAL_IP')
   })
 
   it('异常 IP (高风险评分) → DENY', () => {
@@ -160,7 +160,7 @@ describe('RiskRuleEngine evaluateRisk 规则匹配', () => {
       sameIpRegisterCount: 10,
     })
     expect(result.action).toBe('REVIEW')
-    expect(result.hits[0].ruleId).toBe('R004_BATCH_REGISTER')
+    expect(result.hits[0]!.ruleId).toBe('R004_BATCH_REGISTER')
   })
 
   it('大额提现 (超 5 万元) → REVIEW', () => {
@@ -169,7 +169,7 @@ describe('RiskRuleEngine evaluateRisk 规则匹配', () => {
       withdrawalAmountFen: 5_000_000, // 5 万元
     })
     expect(result.action).toBe('REVIEW')
-    expect(result.hits[0].ruleId).toBe('R005_LARGE_WITHDRAWAL')
+    expect(result.hits[0]!.ruleId).toBe('R005_LARGE_WITHDRAWAL')
   })
 
   it('大额提现 (超历史均值 5 倍) → REVIEW', () => {
@@ -325,7 +325,7 @@ describe('RiskRuleEngine 异常处理', () => {
     const result = engine.evaluateRisk({})
     // 异常规则不命中，正常规则命中
     expect(result.hits).toHaveLength(1)
-    expect(result.hits[0].ruleId).toBe('OK_001')
+    expect(result.hits[0]!.ruleId).toBe('OK_001')
   })
 })
 
@@ -358,7 +358,7 @@ describe('RiskRuleEngine 短路模式', () => {
     })
     const result = engine.evaluateRisk({})
     expect(result.hits).toHaveLength(1)
-    expect(result.hits[0].ruleId).toBe('FIRST')
+    expect(result.hits[0]!.ruleId).toBe('FIRST')
     expect(result.action).toBe('REVIEW')
   })
 })

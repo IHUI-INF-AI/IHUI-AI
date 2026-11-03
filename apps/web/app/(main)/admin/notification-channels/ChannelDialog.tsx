@@ -94,7 +94,7 @@ export function ChannelDialog({
                 onChange={(e) => setForm({ ...form, configText: e.target.value })}
                 placeholder={t('configPlaceholder')}
               />
-              <p className="text-xs text-muted-foreground">{t('configHint')}</p>
+              <p className="text-label text-muted-foreground">{t('configHint')}</p>
             </div>
             <div className="space-y-1.5">
               <Label>{t('remark')}</Label>

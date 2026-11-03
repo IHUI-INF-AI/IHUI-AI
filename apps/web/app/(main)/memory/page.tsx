@@ -238,7 +238,7 @@ export default function MemoryListPage() {
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-between gap-3">
-            <span className="min-w-0 flex-1 text-sm text-muted-foreground">
+            <span className="min-w-0 flex-1 text-body text-muted-foreground">
               {t('autoMemoryDesc')}
             </span>
             <Switch
@@ -254,7 +254,7 @@ export default function MemoryListPage() {
       </Card>
       {autoMemoryToast && (
         <div
-          className={`fixed right-4 top-4 z-modal rounded-md px-4 py-2 text-sm text-white shadow-lg ${autoMemoryToast.type === 'success' ? 'bg-green-600' : 'bg-red-600'}`}
+          className={`fixed right-4 top-4 z-modal rounded-md px-4 py-2 text-body text-white shadow-lg ${autoMemoryToast.type === 'success' ? 'bg-green-600' : 'bg-red-600'}`}
         >
           {autoMemoryToast.msg}
         </div>
@@ -264,7 +264,7 @@ export default function MemoryListPage() {
         <div className="flex items-center gap-2">
           <Brain className="h-6 w-6 text-primary" />
           <h1 className="text-display font-bold tracking-tight">记忆系统</h1>
-          <span className="text-sm text-muted-foreground">({entries.length})</span>
+          <span className="text-body text-muted-foreground">({entries.length})</span>
         </div>
         <Button asChild>
           <Link href="/memory/new">
@@ -285,20 +285,20 @@ export default function MemoryListPage() {
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
             placeholder="搜索分类或内容..."
-            className="w-full rounded-sm border border-border bg-background py-1.5 pl-8 pr-3 text-sm outline-none placeholder:text-muted-foreground/60 focus:border-foreground/30"
+            className="w-full rounded-sm border border-border bg-background py-1.5 pl-8 pr-3 text-body outline-none placeholder:text-muted-foreground/60 focus:border-foreground/30"
           />
         </div>
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="flex items-center gap-2 rounded-md border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           <AlertCircle className="h-4 w-4 shrink-0" />
           {error}
         </div>
       )}
 
       {loading && (
-        <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+        <div className="flex items-center justify-center gap-2 py-8 text-body text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
           加载中...
         </div>
@@ -307,7 +307,7 @@ export default function MemoryListPage() {
       {!loading && !error && filtered.length === 0 && (
         <div className="flex flex-col items-center justify-center gap-3 rounded-lg border bg-card py-8 text-center">
           <Brain className="h-10 w-10 text-muted-foreground/50" />
-          <p className="text-xs text-muted-foreground">还没有记忆条目</p>
+          <p className="text-label text-muted-foreground">还没有记忆条目</p>
           <Button asChild variant="outline" size="sm">
             <Link href="/memory/new">
               <Plus className="h-4 w-4" />

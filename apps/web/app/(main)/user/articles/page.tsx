@@ -68,7 +68,7 @@ export default function MyArticlesPage() {
     <div className="px-4 space-y-4 py-4">
       <BackButton />
       <header className="flex items-center justify-between">
-        <p className="text-xs text-muted-foreground">
+        <p className="text-label text-muted-foreground">
           {t('total', { default: '共 {n} 篇', n: total })}
         </p>
         <Link href="/articles/edit">
@@ -87,7 +87,7 @@ export default function MyArticlesPage() {
         </div>
       ) : articles.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed py-8">
-          <p className="text-sm text-muted-foreground">{t('empty', { default: '还没有文章' })}</p>
+          <p className="text-body text-muted-foreground">{t('empty', { default: '还没有文章' })}</p>
           <Link href="/articles/edit">
             <Button size="sm" variant="outline">
               <Plus className="mr-1 h-4 w-4" />
@@ -111,7 +111,7 @@ export default function MyArticlesPage() {
                       <h3 className="truncate text-body font-semibold">{a.title}</h3>
                       {a.status && (
                         <span
-                          className={`shrink-0 rounded-md px-2 py-0.5 text-xs ${
+                          className={`shrink-0 rounded-md px-2 py-0.5 text-label ${
                             STATUS_STYLE[a.status] ?? STATUS_STYLE.draft
                           }`}
                         >
@@ -120,9 +120,9 @@ export default function MyArticlesPage() {
                       )}
                     </div>
                     {a.summary ? (
-                      <p className="line-clamp-2 text-xs text-muted-foreground">{a.summary}</p>
+                      <p className="line-clamp-2 text-label text-muted-foreground">{a.summary}</p>
                     ) : null}
-                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-3 text-label text-muted-foreground">
                       <span className="inline-flex items-center gap-1">
                         <Eye className="h-3 w-3" />
                         {a.viewCount}
@@ -172,7 +172,7 @@ export default function MyArticlesPage() {
               >
                 {t('prevPage')}
               </Button>
-              <span className="text-sm text-muted-foreground">
+              <span className="text-body text-muted-foreground">
                 {page} / {totalPages}
               </span>
               <Button

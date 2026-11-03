@@ -97,7 +97,7 @@ export default function SandboxPage() {
           <FlaskConical className="h-5 w-5 text-primary" />
           {t('title')}
         </h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="mt-0.5 text-body text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       <Card>
@@ -131,7 +131,7 @@ export default function SandboxPage() {
 
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <Label className="text-sm">{t('requestHeaders')}</Label>
+              <Label className="text-body">{t('requestHeaders')}</Label>
               <Button size="sm" variant="ghost" onClick={addHeader}>
                 <Plus className="h-3.5 w-3.5" />
                 {t('add')}
@@ -167,13 +167,13 @@ export default function SandboxPage() {
 
           {['POST', 'PUT', 'PATCH'].includes(method) && (
             <div className="space-y-1">
-              <Label className="text-sm">{t('requestBody')}</Label>
+              <Label className="text-body">{t('requestBody')}</Label>
               <textarea
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
                 placeholder='{"key": "value"}'
                 rows={5}
-                className="w-full resize-y rounded-sm border bg-background px-3 py-2 font-mono text-xs outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="w-full resize-y rounded-sm border bg-background px-3 py-2 font-mono text-label outline-none focus-visible:ring-1 focus-visible:ring-ring"
               />
             </div>
           )}
@@ -198,11 +198,11 @@ export default function SandboxPage() {
               >
                 {resp.status}
               </span>
-              <span className="text-xs text-muted-foreground">{resp.duration}ms</span>
+              <span className="text-label text-muted-foreground">{resp.duration}ms</span>
             </div>
             <div>
               <p className="mb-1.5 text-body font-semibold">{t('responseBody')}</p>
-              <pre className="max-h-80 overflow-auto rounded-md bg-muted/50 p-3 text-xs">
+              <pre className="max-h-80 overflow-auto rounded-md bg-muted/50 p-3 text-label">
                 <code>{JSON.stringify(resp.body, null, 2)}</code>
               </pre>
             </div>

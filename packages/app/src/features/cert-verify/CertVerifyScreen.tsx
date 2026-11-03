@@ -100,7 +100,7 @@ function createStyles(tk: AppThemeTokens) {
     input: {
       marginTop: rnSpacing.sm,
       paddingHorizontal: rnSpacing.md,
-      paddingVertical: 14,
+      paddingVertical: rnSpacing['md-loose'],
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,

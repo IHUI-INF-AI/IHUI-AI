@@ -30,10 +30,15 @@
  *   canary-rollback    金丝雀观察窗异常,自动回滚到上一可用包
  *   canary-unproven    金丝雀观察窗未判定(样本不足/未知占比过高),不回滚也不冒充通过
  *
+ * 演练绝缘(B69,2026-11-02):联测/演练构造的记录必须带 `--synthetic`。下游
+ * `deploy-outcome-intake.mjs` 见到 `synthetic:true` 一律不产事故信号 —— 演练不能变成
+ * 生产告警,否则同一枚构造记录会被反复登记成票(B53→B67→B69 实测三天三牌)。
+ *
  * 用法:
  *   node scripts/deploy-decision.mjs --action rollback --sha <sha> --verdict fail \
  *        --dims "web,llm" --prev-sha <sha> --rollback-id <id> --shadow-rc 0 \
  *        --reason "健康门禁未过" [--ledger <path>] [--dry-run]
+ *   node scripts/deploy-decision.mjs ... --synthetic   # 联测/演练专用:记录落盘但不产告警
  *   node scripts/deploy-decision.mjs --self-test
  */
 import { appendFileSync, mkdirSync, readFileSync } from 'node:fs'
@@ -116,6 +121,9 @@ export function buildDecision(input = {}, opt = {}) {
     shadowRc = Number(shadowRaw)
   }
   const now = opt.now instanceof Date ? opt.now : new Date()
+  // 演练标记只认显式布尔 true(CLI 的 `--synthetic` 无值形态);不把字符串/其他真值猜成演练,
+  // 免得真实回滚因一句 reason 被误判成演练而漏告警。
+  const synthetic = input.synthetic === true
   return {
     v: SCHEMA_VERSION,
     ts: now.toISOString(),
@@ -129,6 +137,8 @@ export function buildDecision(input = {}, opt = {}) {
     reason: normalizeReason(input.reason),
     host: opt.host || hostname(),
     pid: Number.isInteger(opt.pid) ? opt.pid : process.pid,
+    // 缺省不落键:既有记录形状逐字节不变,只有演练记录多这一格(消费方按 `=== true` 判)。
+    ...(synthetic ? { synthetic: true } : {}),
   }
 }
 
@@ -257,6 +267,15 @@ function selfTest() {
     }
     if (!hit) throw new Error('未拒绝非整数 shadow-rc')
   })
+  t('演练标记只随显式 true 落账,普通记录形状不增键', () => {
+    const drill = buildDecision({ action: 'rollback', synthetic: true }, { now, host: 'h', pid: 1 })
+    if (drill.synthetic !== true) throw new Error('显式 synthetic 未落账')
+    const real = buildDecision({ action: 'rollback' }, { now, host: 'h', pid: 1 })
+    if ('synthetic' in real) throw new Error('普通记录不得凭空带 synthetic 键')
+    if (buildDecision({ action: 'rollback', synthetic: 'true' }, { now }).synthetic === true) {
+      throw new Error('字符串 "true" 不得冒充演练标记')
+    }
+  })
 
   for (const c of checks) console.log(`${c.ok ? 'PASS' : 'FAIL'}  ${c.name}${c.ok ? '' : ` — ${c.why}`}`)
   const bad = checks.filter((c) => !c.ok)
@@ -279,6 +298,7 @@ function main(argv) {
       failDims: args.dims,
       shadowRc: args['shadow-rc'],
       reason: args.reason,
+      synthetic: args.synthetic,
     })
   } catch (e) {
     console.error(`DEPLOY-DECISION-ERROR ${e?.message ?? e}`)

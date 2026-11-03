@@ -71,7 +71,7 @@
 }
 
 .ihui-state-desc {
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-text-tertiary);
   text-align: center;
   line-height: 38rpx;
@@ -97,7 +97,7 @@
 /* 按压卡片 */
 .ihui-press-card {
   box-sizing: border-box;
-  padding: 28rpx;
+  padding: var(--spacing-md-loose);
   border-radius: var(--radius-lg);
   border: 1px solid var(--color-border);
   background-color: var(--color-card);

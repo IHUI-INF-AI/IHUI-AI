@@ -14,6 +14,7 @@ import { appAlert } from '../components/BottomPops'
 import { useTheme } from '../context/ThemeContext'
 import { useI18n } from '../i18n'
 import { useClipboard } from '../hooks/use-clipboard'
+import { WEB_BASE_URL } from '../lib/webview-portal-config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -139,7 +140,13 @@ export default function ImageGenTemplatesScreen() {
       return
     }
     setPreview(null)
-    navigation.navigate('ImageGenCreate')
+    // 端内(miniapp)没有生图创建页(app.config.ts 只有 gallery/history/templates),
+    // ImageGenCreate 在 route-map 无映射 ⇒ 静默不跳。统一改走 WebView 承载 web /image-gen
+    // 生成页(web 的 applyTemplate 同样跳 /image-gen,提示词经剪贴板带过去)。
+    navigation.navigate('WebView', {
+      url: `${WEB_BASE_URL}/image-gen`,
+      title: t('imageGen.title'),
+    })
     appAlert(t('common.ok'), t('imageGenTemplates.copied'))
   }
 

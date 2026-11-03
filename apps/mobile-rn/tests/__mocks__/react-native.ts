@@ -193,12 +193,24 @@ export function FlatList(props: {
   renderItem?: (info: { item: unknown; index: number }) => ReactNode
   keyExtractor?: (item: unknown, index: number) => string
   ListEmptyComponent?: unknown
+  ListHeaderComponent?: unknown
+  ListFooterComponent?: unknown
   style?: unknown
   onPress?: unknown
   [k: string]: unknown
 }) {
-  const { data, renderItem, keyExtractor, ListEmptyComponent, style, onPress, children, ...rest } =
-    props
+  const {
+    data,
+    renderItem,
+    keyExtractor,
+    ListEmptyComponent,
+    ListHeaderComponent,
+    ListFooterComponent,
+    style,
+    onPress,
+    children,
+    ...rest
+  } = props
   const rows = (data ?? []).map((item, index) =>
     createElement(
       'div',
@@ -210,10 +222,20 @@ export function FlatList(props: {
     typeof ListEmptyComponent === 'function'
       ? createElement(ListEmptyComponent as () => ReactNode)
       : (ListEmptyComponent as ReactNode | undefined)
+  const header =
+    typeof ListHeaderComponent === 'function'
+      ? createElement(ListHeaderComponent as () => ReactNode)
+      : (ListHeaderComponent as ReactNode | undefined)
+  const footer =
+    typeof ListFooterComponent === 'function'
+      ? createElement(ListFooterComponent as () => ReactNode)
+      : (ListFooterComponent as ReactNode | undefined)
   return createElement(
     'div',
     { ...rest, 'data-role': 'flatlist', onClick: onPress, style: flattenStyle(style) },
+    header,
     rows.length ? rows : (empty ?? (children as ReactNode | undefined) ?? null),
+    footer,
   )
 }
 export const TextInput = mk('input')

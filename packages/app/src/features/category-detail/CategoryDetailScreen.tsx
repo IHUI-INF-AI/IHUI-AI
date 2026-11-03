@@ -39,8 +39,9 @@ export function CategoryDetailScreen({
   onLoadMore,
   onAgentPress,
   onBack,
-  colorScheme = 'light',
-}: CategoryDetailScreenProps) {
+  onRetry,
+  colorScheme = 'light'
+}: CategoryDetailScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -86,7 +87,7 @@ export function CategoryDetailScreen({
       ) : error ? (
         <ErrorState
           message={error}
-          onRetry={onLoadMore}
+          onRetry={onRetry}
           retryLabel={t('common.retry')}
           colorScheme={colorScheme}
         />

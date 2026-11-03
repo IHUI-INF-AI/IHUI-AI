@@ -4,6 +4,7 @@
 
 import { eq, and, desc, asc, sql, inArray } from 'drizzle-orm'
 import { db } from './index.js'
+import { asContainsTerm } from '../utils/like-escape.js'
 import {
   examChapters,
   examChapterSections,
@@ -256,7 +257,7 @@ export async function findMarkRecordList(opts: {
   if (opts.paperId) conds.push(eq(examRecords.paperId, opts.paperId))
   let where = and(...conds)
   if (opts.search) {
-    const searchCond = sql`${examRecords.userId} IN (SELECT id FROM users WHERE nickname ILIKE ${`%${opts.search}%`} OR phone ILIKE ${`%${opts.search}%`})`
+    const searchCond = sql`${examRecords.userId} IN (SELECT id FROM users WHERE nickname ILIKE ${asContainsTerm(opts.search)} OR phone ILIKE ${asContainsTerm(opts.search)})`
     where = and(where, searchCond)
   }
   const [rows, totalRows] = await Promise.all([

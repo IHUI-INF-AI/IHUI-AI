@@ -55,8 +55,8 @@ describe('HotConfigCenter subscribe (按 key)', () => {
     c.subscribe('a', cb)
     c.set('a', 1)
     expect(cb).toHaveBeenCalledTimes(1)
-    expect(cb.mock.calls[0][0].key).toBe('a')
-    expect(cb.mock.calls[0][0].new).toBe(1)
+    expect(cb.mock.calls[0]![0].key).toBe('a')
+    expect(cb.mock.calls[0]![0].new).toBe(1)
   })
 
   it('多个订阅者按注册顺序触发', () => {

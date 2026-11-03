@@ -140,7 +140,7 @@ export default function WrongQuestionsPage() {
             <FileText className="h-7 w-7 text-primary" />
             {t('title')}
           </h1>
-          <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+          <p className="text-label text-muted-foreground">{t('subtitle')}</p>
         </header>
         <AuthGatePrompt message="请先登录后查看错题本" />
       </div>
@@ -185,7 +185,7 @@ export default function WrongQuestionsPage() {
           <FileText className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-3">
@@ -193,7 +193,7 @@ export default function WrongQuestionsPage() {
           <Card key={label} className="transition-colors hover:bg-accent">
             <CardContent className="min-[640px]:p-3 flex items-center justify-between p-3">
               <div>
-                <p className="text-xs text-muted-foreground">{label}</p>
+                <p className="text-label text-muted-foreground">{label}</p>
                 <p className="text-display font-bold">{value}</p>
               </div>
               <Icon className={`h-8 w-8 ${tone}`} />
@@ -327,7 +327,7 @@ export default function WrongQuestionsPage() {
                 <X className="h-4 w-4" />
               </Button>
             </div>
-            <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
+            <p className="whitespace-pre-wrap text-body leading-relaxed text-muted-foreground">
               {explanation.text}
             </p>
           </CardContent>
@@ -336,7 +336,7 @@ export default function WrongQuestionsPage() {
 
       {totalPages > 1 && (
         <div className="flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">
+          <span className="text-body text-muted-foreground">
             {t('total', { total })} · {t('pageInfo', { page, totalPages })}
           </span>
           <div className="flex gap-2">

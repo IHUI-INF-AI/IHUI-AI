@@ -49,7 +49,13 @@ const POLICY_PATH = join(ROOT, 'scripts', 'data', 'canary-policy.json')
 const REAL = loadTrafficPolicy(readFileSync(POLICY_PATH, 'utf8'))
 
 const run = (exe, args, opts = {}) => {
-  const r = spawnSync(exe, args, { encoding: 'utf8', cwd: ROOT, windowsHide: true, timeout: 180_000, ...opts })
+  const r = spawnSync(exe, args, {
+    encoding: 'utf8',
+    cwd: ROOT,
+    windowsHide: true,
+    timeout: 180_000,
+    ...opts,
+  })
   return { rc: r.status, out: String(r.stdout ?? ''), err: String(r.stderr ?? '') }
 }
 const runNode = (script, args, opts = {}) => run(process.execPath, [script, ...args], opts)
@@ -106,7 +112,8 @@ function samplesFor(dir, name, verdict) {
   assert.ok(ids.length > 0, '策略里一条 origin 腿都没有 ⇒ 造不出可判样本')
   const n = Math.max(REAL.thresholds.minSamples, 2)
   const lines = []
-  for (let i = 0; i < n; i += 1) for (const id of ids) lines.push(sampleLine(id, 'origin', verdict, 10))
+  for (let i = 0; i < n; i += 1)
+    for (const id of ids) lines.push(sampleLine(id, 'origin', verdict, 10))
   const p = join(dir, name)
   writeFileSync(p, `${lines.join('\n')}\n`, 'utf8')
   return p
@@ -117,11 +124,21 @@ test('T1 比例与灰度槽位端口只住 canary-policy.json:换策略文件 �
   const dir = mkScratch('canary-wiring-t1-')
   try {
     // 现策略:起始档比例 = 档位表第一档,槽位端口 = traffic.slots.canary.port
-    const realInit = runNode(STAGE_CLI, ['--init', '--sha', 'sha-real', '--contract', join(dir, 'ramp-real.json')])
+    const realInit = runNode(STAGE_CLI, [
+      '--init',
+      '--sha',
+      'sha-real',
+      '--contract',
+      join(dir, 'ramp-real.json'),
+    ])
     assert.equal(realInit.rc, 0, `${realInit.out}\n${realInit.err}`)
     const c0 = JSON.parse(realInit.out).contract
     assert.equal(c0.percent, REAL.stages[0].percent, '起始比例必须等于策略档位表第一档')
-    assert.equal(c0.slots.canary.port, REAL.slots.canary.port, '灰度槽位端口必须等于策略 slots.canary.port')
+    assert.equal(
+      c0.slots.canary.port,
+      REAL.slots.canary.port,
+      '灰度槽位端口必须等于策略 slots.canary.port',
+    )
 
     // 改策略(档位表 + 灰度槽位端口)⇒ 同一条命令行输出同步变
     const altCanary = await freePort()
@@ -133,7 +150,15 @@ test('T1 比例与灰度槽位端口只住 canary-policy.json:换策略文件 �
       ]
       doc.traffic.slots.canary.port = altCanary
     })
-    const altInit = runNode(STAGE_CLI, ['--init', '--sha', 'sha-alt', '--policy', p2, '--contract', join(dir, 'ramp-alt.json')])
+    const altInit = runNode(STAGE_CLI, [
+      '--init',
+      '--sha',
+      'sha-alt',
+      '--policy',
+      p2,
+      '--contract',
+      join(dir, 'ramp-alt.json'),
+    ])
     assert.equal(altInit.rc, 0, `${altInit.out}\n${altInit.err}`)
     const c1 = JSON.parse(altInit.out).contract
     assert.equal(c1.percent, 42, '改了策略的档位表却没改到分流比例 ⇒ 代码里藏着第二份数值')
@@ -141,26 +166,54 @@ test('T1 比例与灰度槽位端口只住 canary-policy.json:换策略文件 �
     assert.notEqual(c1.percent, c0.percent)
 
     // 推进档同样跟随
-    const adv = runNode(TRAFFIC_CLI, ['--advance', '--policy', p2, '--verdict', 'pass', '--current', 'off'])
+    const adv = runNode(TRAFFIC_CLI, [
+      '--advance',
+      '--policy',
+      p2,
+      '--verdict',
+      'pass',
+      '--current',
+      'off',
+    ])
     assert.equal(adv.rc, 0, adv.err)
     assert.equal(JSON.parse(adv.out).percent, 42)
 
     // 灰期采样策略:被列进 grayEndpoints 的源站端点改指**策略里那一份**端口
     const gp = join(dir, 'gray-policy.json')
-    const derived = runNode(TRAFFIC_CLI, ['--gray-policy', '--policy', p2, '--stage', 'ramp-a', '--out', gp])
+    const derived = runNode(TRAFFIC_CLI, [
+      '--gray-policy',
+      '--policy',
+      p2,
+      '--stage',
+      'ramp-a',
+      '--out',
+      gp,
+    ])
     assert.equal(derived.rc, 0, derived.err)
     const ddoc = JSON.parse(readFileSync(gp, 'utf8'))
     const web = ddoc.endpoints.find((e) => e.id === REAL.grayEndpoints[0])
     assert.equal(new URL(web.url).port, String(altCanary), '灰期采样目标没有跟着策略端口走')
     const api = ddoc.endpoints.find((e) => e.id === 'api-origin')
     const apiReal = REAL.endpoints.find((e) => e.id === 'api-origin')
-    assert.equal(new URL(api.url).port, new URL(apiReal.url).port, '不在 grayEndpoints 里的源站端点被误改')
+    assert.equal(
+      new URL(api.url).port,
+      new URL(apiReal.url).port,
+      '不在 grayEndpoints 里的源站端点被误改',
+    )
 
     // 反向对照:把 traffic 段整个摘掉 ⇒ 未判定(exit 2),而不是回落某个默认比例
     const p3 = policyCopy(dir, 'policy-notraffic.json', (doc) => {
       delete doc.traffic
     })
-    const noTraffic = runNode(STAGE_CLI, ['--init', '--sha', 'sha-x', '--policy', p3, '--contract', join(dir, 'none.json')])
+    const noTraffic = runNode(STAGE_CLI, [
+      '--init',
+      '--sha',
+      'sha-x',
+      '--policy',
+      p3,
+      '--contract',
+      join(dir, 'none.json'),
+    ])
     assert.equal(noTraffic.rc, 2, `策略缺 traffic 段必须未判定,实得 rc=${noTraffic.rc}`)
     assert.match(`${noTraffic.out}${noTraffic.err}`, /未判定/)
     assert.ok(!existsSync(join(dir, 'none.json')), '未判定不得留下半份契约')
@@ -199,7 +252,11 @@ test('T2 观察窗判死 ⇒ 契约比例归零(撤灰度),判通过 ⇒ 升到�
     assert.equal(act.action, 'rollback')
     assert.equal(act.stage, 'off')
     assert.equal(act.percent, 0)
-    assert.equal(JSON.parse(readFileSync(contract, 'utf8')).percent, 0, '契约没落盘 ⇒ 分流器下一次读到的还是老比例')
+    assert.equal(
+      JSON.parse(readFileSync(contract, 'utf8')).percent,
+      0,
+      '契约没落盘 ⇒ 分流器下一次读到的还是老比例',
+    )
 
     // 正向对照:同一批命令行喂"全通过"样本 ⇒ rc=0 ⇒ 升到策略里的下一档,不是归零
     const good = samplesFor(dir, 'candidate-pass.jsonl', 'pass')
@@ -223,7 +280,15 @@ test('T2 观察窗判死 ⇒ 契约比例归零(撤灰度),判通过 ⇒ 升到�
     assert.equal(JSON.parse(readFileSync(contract, 'utf8')).percent, REAL.stages[1].percent)
 
     // unknown ⇒ 原地不动:没有证据既不放量也不回滚(这一格坏掉就是"判不了就乱动")
-    const hold = runNode(STAGE_CLI, ['--decide', '--verdict', 'unknown', '--current', REAL.stages[1].id, '--contract', contract])
+    const hold = runNode(STAGE_CLI, [
+      '--decide',
+      '--verdict',
+      'unknown',
+      '--current',
+      REAL.stages[1].id,
+      '--contract',
+      contract,
+    ])
     assert.equal(hold.rc, 0, hold.err)
     assert.equal(JSON.parse(hold.out).action, 'hold')
     assert.equal(JSON.parse(readFileSync(contract, 'utf8')).percent, REAL.stages[1].percent)
@@ -237,7 +302,12 @@ test('T3 接线锁:真部署环零缺口,摘掉任一根线即翻红,取不到�
   const dir = mkScratch('canary-wiring-t3-')
   try {
     const text = readFileSync(LOOP_PS1, 'utf8')
-    assert.deepEqual(WIRING.wiringGaps(text), [], 'deploy-loop 的 canary 段应零缺口(接线在位)')
+    const splitText = readFileSync(WIRING.DEFAULT_SPLIT_MJS, 'utf8')
+    assert.deepEqual(
+      WIRING.wiringGaps(text, splitText),
+      [],
+      'deploy-loop 的 canary 段应零缺口(接线在位)',
+    )
 
     const ok = runNode(WIRING_CLI, ['--check'])
     assert.equal(ok.rc, 0, ok.out + ok.err)
@@ -251,6 +321,14 @@ test('T3 接线锁:真部署环零缺口,摘掉任一根线即翻红,取不到�
     const missing = runNode(WIRING_CLI, ['--check', '--file', join(dir, 'no-such-loop.ps1')])
     assert.equal(missing.rc, 2, `被审文件取不到必须未判定(rc=2),实得 rc=${missing.rc}`)
 
+    // W12 的判据面取不到 ⇒ 同样必须未判定(绝不"没输入就跳过这一格"记绿,§0.3)
+    const missingSplit = runNode(WIRING_CLI, [
+      '--check',
+      '--split',
+      join(dir, 'no-such-split.mjs'),
+    ])
+    assert.equal(missingSplit.rc, 2, `分流器面取不到必须未判定(rc=2),实得 rc=${missingSplit.rc}`)
+
     const MUTES = [
       { want: 'W1', re: /ihui-canary-stage\.mjs/g },
       { want: 'W2', re: /ihui-canary-gray\.ps1/g },
@@ -258,20 +336,36 @@ test('T3 接线锁:真部署环零缺口,摘掉任一根线即翻红,取不到�
       { want: 'W4', re: /--verdict/g },
       { want: 'W5', re: /-Action\s+stop/g },
       { want: 'W8', re: /-rollbackOnly/g },
+      { want: 'W10', re: /rampVerdict/g },
+      { want: 'W11', re: /GRAY 实切=/g },
+      { want: 'W11', re: /--reason-append/g },
     ]
     for (const m of MUTES) {
       const mutated = text.replace(m.re, '「已摘线」')
       assert.notEqual(mutated, text, `夹具前提:${m.want} 的原文根本不在被审面里`)
-      const gaps = WIRING.wiringGaps(mutated)
+      const gaps = WIRING.wiringGaps(mutated, splitText)
       assert.ok(
         gaps.some((g) => g.id === m.want),
         `摘掉 ${m.want} 仍然判绿 ⇒ 接线锁是摆设(实得 ${JSON.stringify(gaps)})`,
       )
-      const f = join(dir, `loop-${m.want}.ps1`)
+      const f = join(dir, `loop-${m.want}-${m.re.source.replace(/[^\w]/g, '')}.ps1`)
       writeFileSync(f, mutated, 'utf8')
       const r = runNode(WIRING_CLI, ['--check', '--file', f])
       assert.equal(r.rc, 1, `CLI 对摘线副本应翻红(rc=1),实得 rc=${r.rc}:${r.out}`)
     }
+
+    // W12 的正反成对夹具:摘掉分流器 CLI 的计数接线 ⇒ 判据面翻红(判的是另一枚文件,走 --split)
+    const unwired = splitText.replace(/onLane:\s*stats\.observe/g, '「计数出口已摘线」')
+    assert.notEqual(unwired, splitText, '夹具前提:分流器 CLI 根本没接计数出口 ⇒ 本对照假绿')
+    const gapsW12 = WIRING.wiringGaps(text, unwired)
+    assert.ok(
+      gapsW12.some((g) => g.id === 'W12'),
+      `摘掉计数出口仍判 W12 绿 ⇒ 判据是摆设(实得 ${JSON.stringify(gapsW12)})`,
+    )
+    const splitCopy = join(dir, 'split-unwired.mjs')
+    writeFileSync(splitCopy, unwired, 'utf8')
+    const rW12 = runNode(WIRING_CLI, ['--check', '--split', splitCopy])
+    assert.equal(rW12.rc, 1, `CLI 对摘线分流器应翻红(rc=1),实得 rc=${rW12.rc}:${rW12.out}`)
   } finally {
     rmScratch(dir)
   }
@@ -279,9 +373,11 @@ test('T3 接线锁:真部署环零缺口,摘掉任一根线即翻红,取不到�
 
 // ── ④ 进程编排:端口按契约现读 + 分流器真起真停(需 PowerShell 7)──────────────
 function findPwsh() {
-  const cands = [process.env.PWSH_PATH, 'C:/Program Files/PowerShell/7/pwsh.exe', 'C:/Program Files (x86)/PowerShell/7/pwsh.exe'].filter(
-    Boolean,
-  )
+  const cands = [
+    process.env.PWSH_PATH,
+    'C:/Program Files/PowerShell/7/pwsh.exe',
+    'C:/Program Files (x86)/PowerShell/7/pwsh.exe',
+  ].filter(Boolean)
   for (const p of cands) if (existsSync(p)) return p
   const w = spawnSync('where.exe', ['pwsh.exe'], { encoding: 'utf8', windowsHide: true })
   if (w.status === 0) {
@@ -302,7 +398,10 @@ test('T4 gray.ps1 的灰度槽位端口按契约现读(不是写死),-SplitOnly 
   }
   const dir = mkScratch('canary-wiring-t4-')
   const stateDir = join(dir, 'state')
-  const runPs = (args) => run(pwsh, ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', GRAY_PS1, ...args], { timeout: 120_000 })
+  const runPs = (args) =>
+    run(pwsh, ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', GRAY_PS1, ...args], {
+      timeout: 120_000,
+    })
   try {
     const altCanary = await freePort()
     const splitPort = await freePort()
@@ -310,7 +409,15 @@ test('T4 gray.ps1 的灰度槽位端口按契约现读(不是写死),-SplitOnly 
       doc.traffic.slots.canary.port = altCanary
     })
     const contract = join(stateDir, 'ramp.json')
-    const init = runNode(STAGE_CLI, ['--init', '--sha', 'sha-t4', '--policy', p2, '--contract', contract])
+    const init = runNode(STAGE_CLI, [
+      '--init',
+      '--sha',
+      'sha-t4',
+      '--policy',
+      p2,
+      '--contract',
+      contract,
+    ])
     assert.equal(init.rc, 0, `${init.out}\n${init.err}`)
     assert.notEqual(altCanary, REAL.slots.canary.port, '夹具前提:副本端口必须与策略默认值不同')
 
@@ -322,16 +429,31 @@ test('T4 gray.ps1 的灰度槽位端口按契约现读(不是写死),-SplitOnly 
     assert.equal(stDoc.canaryUp, false, '该端口无人监听却报 up ⇒ 探活判据坏了')
 
     // start -SplitOnly:分流器真起来(灰度实例无产物时也只起分流器,契约照样有进程消费)
-    const start = runPs(['-Action', 'start', '-SplitOnly', '-StateDir', stateDir, '-SplitPort', String(splitPort)])
+    const start = runPs([
+      '-Action',
+      'start',
+      '-SplitOnly',
+      '-StateDir',
+      stateDir,
+      '-SplitPort',
+      String(splitPort),
+    ])
     assert.equal(start.rc, 0, `${start.out}\n${start.err}`)
     assert.match(start.out, new RegExp(`GRAY-SPLIT up port=${splitPort}`), '分流器没真在位')
     assert.match(start.out, /GRAY-CANARY (up|not-up)/, '灰度实例的在位结论没有如实回吐')
-    assert.equal(await portAnswers(splitPort), true, 'GRAY-SPLIT 报 up 但端口不应答 ⇒ 编排层在自证假话')
+    assert.equal(
+      await portAnswers(splitPort),
+      true,
+      'GRAY-SPLIT 报 up 但端口不应答 ⇒ 编排层在自证假话',
+    )
 
     // 尝试计数有消费者:-Action start 必须把这一枚 sha 记进 attempts.json(防"判不了就无限重来")
     const attemptsPath = join(stateDir, 'attempts.json')
     assert.ok(existsSync(attemptsPath), 'attempts.json 没落盘 ⇒ 尝试计数是死代码')
-    assert.ok(Number(JSON.parse(readFileSync(attemptsPath, 'utf8'))['sha-t4']) >= 1, '同一枚 sha 的尝试没进账')
+    assert.ok(
+      Number(JSON.parse(readFileSync(attemptsPath, 'utf8'))['sha-t4']) >= 1,
+      '同一枚 sha 的尝试没进账',
+    )
 
     const stop = runPs(['-Action', 'stop', '-StateDir', stateDir])
     assert.equal(stop.rc, 0, stop.out + stop.err)

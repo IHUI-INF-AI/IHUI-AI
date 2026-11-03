@@ -4,7 +4,39 @@
 
 import type { Metadata } from 'next'
 import { ManualNav, chapters } from '../_manual-nav'
-import { Users, Building2 } from 'lucide-react'
+import {
+  Users,
+  Building2,
+  Gift,
+  Coins,
+  Star,
+  Gem,
+  Brain,
+  Lightbulb,
+  AlertTriangle,
+  type LucideIcon,
+} from 'lucide-react'
+
+interface CostRow {
+  model: string
+  mult: string
+  cost: string
+  tag: string
+  Icon: LucideIcon
+}
+
+const costRows: CostRow[] = [
+  { model: 'DeepSeek V3.2', mult: '0.3x', cost: '0.3 积分 / 1K Token', tag: '几乎免费', Icon: Gift },
+  { model: 'Qwen-Turbo', mult: '0.5x', cost: '0.5 积分 / 1K Token', tag: '便宜', Icon: Gift },
+  { model: 'GPT-4o-mini', mult: '0.5x', cost: '0.5 积分 / 1K Token', tag: '便宜', Icon: Coins },
+  { model: 'Claude Haiku 3.5', mult: '1x', cost: '1 积分 / 1K Token', tag: '标准', Icon: Coins },
+  { model: 'Qwen3-Max', mult: '1x', cost: '1 积分 / 1K Token', tag: '标准', Icon: Coins },
+  { model: 'GPT-4o', mult: '3x', cost: '3 积分 / 1K Token', tag: '旗舰', Icon: Star },
+  { model: 'Claude Sonnet 4.5', mult: '3x', cost: '3 积分 / 1K Token', tag: '旗舰', Icon: Star },
+  { model: 'Claude Opus 4.5', mult: '5x', cost: '5 积分 / 1K Token', tag: '顶级', Icon: Gem },
+  { model: 'o3-mini', mult: '5x', cost: '5 积分 / 1K Token', tag: '推理', Icon: Brain },
+  { model: 'Ollama(本地)', mult: '0x', cost: '0 积分', tag: '完全免费', Icon: Gift },
+]
 
 const SITE_URL = 'https://aizhs.top'
 
@@ -15,11 +47,6 @@ export const metadata: Metadata = {
   alternates: {
     canonical: '/docs/manual/billing',
     languages: {
-      'zh-CN': '/zh-cn/docs/manual/billing',
-      'zh-TW': '/zh-tw/docs/manual/billing',
-      en: '/en/docs/manual/billing',
-      ko: '/ko/docs/manual/billing',
-      ja: '/ja/docs/manual/billing',
       'x-default': '/docs/manual/billing',
     },
   },
@@ -51,18 +78,7 @@ export default function ManualBillingPage() {
         <div className="rounded-lg border bg-card p-3 space-y-3 text-sm text-muted-foreground">
           <p><strong>1 积分 ≈ 1000 Token</strong>(标准模型),贵模型消耗多,便宜模型消耗少:</p>
           <div className="space-y-2">
-            {[
-              ['DeepSeek V3.2', '0.3x', '0.3 积分 / 1K Token', '🆓 几乎免费'],
-              ['Qwen-Turbo', '0.5x', '0.5 积分 / 1K Token', '🆓 便宜'],
-              ['GPT-4o-mini', '0.5x', '0.5 积分 / 1K Token', '💰 便宜'],
-              ['Claude Haiku 3.5', '1x', '1 积分 / 1K Token', '💰 标准'],
-              ['Qwen3-Max', '1x', '1 积分 / 1K Token', '💰 标准'],
-              ['GPT-4o', '3x', '3 积分 / 1K Token', '⭐ 旗舰'],
-              ['Claude Sonnet 4.5', '3x', '3 积分 / 1K Token', '⭐ 旗舰'],
-              ['Claude Opus 4.5', '5x', '5 积分 / 1K Token', '💎 顶级'],
-              ['o3-mini', '5x', '5 积分 / 1K Token', '🧠 推理'],
-              ['Ollama(本地)', '0x', '0 积分', '🆓 完全免费'],
-            ].map(([model, mult, cost, tag], i) => (
+            {costRows.map(({ model, mult, cost, tag, Icon }, i) => (
               <div
                 key={model}
                 className={`grid grid-cols-2 gap-2 rounded p-3 text-xs min-[768px]:grid-cols-4 ${i % 2 === 0 ? 'bg-background' : 'bg-muted/40'}`}
@@ -70,12 +86,16 @@ export default function ManualBillingPage() {
                 <div className="font-medium">{model}</div>
                 <div className="font-mono">{mult}</div>
                 <div className="text-muted-foreground">{cost}</div>
-                <div className="text-muted-foreground">{tag}</div>
+                <div className="flex items-center gap-1 text-muted-foreground">
+                  <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                  {tag}
+                </div>
               </div>
             ))}
           </div>
           <p className="rounded bg-muted/60 p-3 text-xs">
-            💡 <strong>省积分技巧</strong>:日常对话用 DeepSeek(几乎免费),重要任务才用 GPT-4o / Claude。
+            <Lightbulb className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
+            <strong>省积分技巧</strong>:日常对话用 DeepSeek(几乎免费),重要任务才用 GPT-4o / Claude。
             1000 积分用 DeepSeek 可对话 5000+ 轮,用 GPT-4o 只能 50 轮。
           </p>
         </div>
@@ -105,7 +125,10 @@ export default function ManualBillingPage() {
         <h2 className="text-heading font-bold">5.3 套餐对比</h2>
         <div className="grid grid-cols-1 gap-4 min-[768px]:grid-cols-2">
           <div className="rounded-lg border bg-card p-3">
-            <p className="text-body font-semibold">🆓 Free</p>
+            <p className="flex items-center text-body font-semibold">
+              <Gift className="mr-1.5 inline h-4 w-4" />
+              Free
+            </p>
             <p className="mt-1 text-display font-bold">¥0</p>
             <p className="text-xs text-muted-foreground">永久免费</p>
             <ul className="mt-3 ml-4 list-disc space-y-1 text-xs text-muted-foreground">
@@ -116,8 +139,11 @@ export default function ManualBillingPage() {
               <li>社区支持</li>
             </ul>
           </div>
-          <div className="rounded-xl border bg-primary/5 p-3 ring-1 ring-primary/30">
-            <p className="text-body font-semibold">⭐ Pro</p>
+          <div className="rounded-lg border bg-primary/5 p-3 ring-1 ring-primary/30">
+            <p className="flex items-center text-body font-semibold">
+              <Star className="mr-1.5 inline h-4 w-4" />
+              Pro
+            </p>
             <p className="mt-1 text-display font-bold">¥49/月</p>
             <p className="text-xs text-muted-foreground">按月订阅,随时取消</p>
             <ul className="mt-3 ml-4 list-disc space-y-1 text-xs text-muted-foreground">
@@ -186,7 +212,8 @@ export default function ManualBillingPage() {
             <li>支付成功后积分实时到账</li>
           </ol>
           <p className="rounded bg-muted/60 p-3 text-xs">
-            ⚠️ <strong>积分有效期</strong>:充值积分永久有效;套餐赠送积分月底清零(Pro / Team)。
+            <AlertTriangle className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
+            <strong>积分有效期</strong>:充值积分永久有效;套餐赠送积分月底清零(Pro / Team)。
           </p>
         </div>
       </section>

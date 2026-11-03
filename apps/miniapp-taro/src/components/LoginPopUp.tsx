@@ -27,6 +27,7 @@ import {
   LOGIN_POPUP_DIALOG_PADDING_TOP_PX,
   LOGIN_POPUP_DIALOG_MAX_WIDTH_PX,
 } from '@ihui/shared/ui/login-popup-spec'
+import { onToast } from '@/host/on-toast'
 
 /**
  * LoginPopUp 登录弹窗 — 对齐原项目 loginPopUp/index.vue
@@ -283,12 +284,12 @@ export default function LoginPopUp({
             openType="getPhoneNumber"
             onGetPhoneNumber={async (e) => {
               if (e.detail.errMsg !== 'getPhoneNumber:ok') {
-                Taro.showToast({ title: tt('login.cancelAuth', '取消授权'), icon: 'none' })
+                onToast(tt('login.cancelAuth', '取消授权'), { kind: 'info' })
                 return
               }
               const phoneCode = e.detail.code
               if (!phoneCode) {
-                Taro.showToast({ title: tt('login.getPhoneFail', '获取手机号失败'), icon: 'none' })
+                onToast(tt('login.getPhoneFail', '获取手机号失败'), { kind: 'error' })
                 return
               }
               // 获取微信 login code(对齐原项目:Taro.login → api.openId → api.getPhoneNumber)
@@ -296,12 +297,12 @@ export default function LoginPopUp({
                 const loginRes = await Taro.login()
                 const loginCode = loginRes.code
                 if (!loginCode) {
-                  Taro.showToast({ title: tt('login.wechatFailed', '微信登录失败'), icon: 'none' })
+                  onToast(tt('login.wechatFailed', '微信登录失败'), { kind: 'error' })
                   return
                 }
                 await onOneClickLogin({ loginCode, phoneCode })
               } catch {
-                Taro.showToast({ title: tt('login.loginFailed', '登录失败,请重试'), icon: 'none' })
+                onToast(tt('login.loginFailed', '登录失败,请重试'), { kind: 'error' })
               }
             }}
             className="w-full px-4 rounded-sm !border-none text-center"
@@ -393,9 +394,8 @@ export default function LoginPopUp({
                     const account = pwdAccount.trim()
                     const password = pwdValue
                     if (!account || !password) {
-                      Taro.showToast({
-                        title: tt('login.accountPlaceholder', '手机号 / 邮箱 / 账号'),
-                        icon: 'none',
+                      onToast(tt('login.accountPlaceholder', '手机号 / 邮箱 / 账号'), {
+                        kind: 'info',
                       })
                       return
                     }
@@ -403,13 +403,12 @@ export default function LoginPopUp({
                     try {
                       await onPasswordLogin(account, password)
                     } catch (e) {
-                      Taro.showToast({
-                        title:
-                          e instanceof Error && e.message
-                            ? e.message
-                            : tt('login.loginFailed', '登录失败,请重试'),
-                        icon: 'none',
-                      })
+                      onToast(
+                        e instanceof Error && e.message
+                          ? e.message
+                          : tt('login.loginFailed', '登录失败,请重试'),
+                        { kind: 'error' },
+                      )
                     } finally {
                       setPwdSubmitting(false)
                     }

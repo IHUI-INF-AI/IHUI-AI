@@ -9,6 +9,7 @@ import type { AgentStatScreenProps } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
 import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
+import { rnSpacing, rnType } from '@ihui/design-tokens'
 /** Agent 统计共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { AgentStatScreenProps }
 
@@ -18,8 +19,9 @@ export function AgentStatScreen({
   loading,
   error,
   onBack,
-  colorScheme = 'light',
-}: AgentStatScreenProps) {
+  onRetry,
+  colorScheme = 'light'
+}: AgentStatScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -36,7 +38,7 @@ export function AgentStatScreen({
         {/* 原错误/空态只有「返回」一个动作,这里如实沿用该动作(不新增键) */}
         <ErrorState
           message={error || t('common.empty')}
-          onRetry={onBack}
+          onRetry={onRetry}
           retryLabel={t('common.back')}
           colorScheme={colorScheme}
         />
@@ -44,12 +46,23 @@ export function AgentStatScreen({
     )
   }
 
-  const metrics: Array<[string, string | number]> = [
-    [t('agentStat.conversations'), stat.conversations],
-    [t('agentStat.messages'), stat.messages],
-    [t('agentStat.tokens'), stat.tokens],
-    [t('agentStat.avgRating'), stat.avgRating.toFixed(2)],
-  ]
+  // 字段契约(2026-11-01):AgentStatData 全部可选 —— 后端 GET /agents/stats 只回
+  // totalAgents/totalUsers/totalCalls/publishedCount/pendingCount/avgRating,
+  // conversations/messages/tokens 当前无后端来源。只渲染有值的指标,避免空值卡。
+  const metrics: Array<[string, string | number]> = []
+  if (stat.totalAgents !== undefined) metrics.push([t('agentStat.totalAgents'), stat.totalAgents])
+  if (stat.totalUsers !== undefined) metrics.push([t('agentStat.totalUsers'), stat.totalUsers])
+  if (stat.totalCalls !== undefined) metrics.push([t('agentStat.totalCalls'), stat.totalCalls])
+  if (stat.publishedCount !== undefined)
+    metrics.push([t('agentStat.publishedCount'), stat.publishedCount])
+  if (stat.pendingCount !== undefined)
+    metrics.push([t('agentStat.pendingCount'), stat.pendingCount])
+  if (stat.conversations !== undefined)
+    metrics.push([t('agentStat.conversations'), stat.conversations])
+  if (stat.messages !== undefined) metrics.push([t('agentStat.messages'), stat.messages])
+  if (stat.tokens !== undefined) metrics.push([t('agentStat.tokens'), stat.tokens])
+  if (stat.avgRating !== undefined)
+    metrics.push([t('agentStat.avgRating'), stat.avgRating.toFixed(2)])
 
   return (
     <ScrollView style={styles.container}>
@@ -75,20 +88,25 @@ function createStyles(tk: AppThemeTokens) {
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 10,
-      paddingVertical: 12,
-      gap: 12,
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing.md,
+      gap: rnSpacing.md,
     },
-    body: { padding: 14 },
-    title: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
+    body: { padding: rnSpacing['md-loose'] },
+    title: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
     row: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      paddingVertical: 12,
+      paddingVertical: rnSpacing.md,
     },
-    label: { fontSize: 14, color: tk.text.secondary },
-    value: { fontSize: 16, fontWeight: '600', color: tk.brand.DEFAULT, flexShrink: 0 },
+    label: { fontSize: rnType.body.size, color: tk.text.secondary },
+    value: {
+      fontSize: rnType.title.size,
+      fontWeight: '600',
+      color: tk.brand.DEFAULT,
+      flexShrink: 0,
+    },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -205,7 +205,7 @@ export default function DictPage() {
             <BookMarked className="h-6 w-6 text-primary" />
             {t('dict.title')}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('dict.subtitle')}</p>
+          <p className="mt-1 text-body text-muted-foreground">{t('dict.subtitle')}</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={handleExport}>

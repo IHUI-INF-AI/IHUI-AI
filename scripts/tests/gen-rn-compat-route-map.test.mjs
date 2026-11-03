@@ -414,4 +414,50 @@ test('I6 形状锁:图标腿不得再退回"只比名 + 计数"的幂等判据(�
     'main() 必须走 iconTableCovers 这一个出口,与路由腿同尺',
   )
 })
+
+// ── RN 独有屏补充声明(scripts/data/rn-route-supplement.json)三臂 ──────────────
+// 为什么要这一族锁:登记表按定义只收「shared 在 packages/app/src/index.ts 有同名导出」的
+// 三元组,RN 独有屏永远进不去;而这类路由在小程序端确实有镜像页(DevEnterScreen ↔
+// pkg-ai/developer/index)。补了第三桶就必须同样"声明不构成证据":壳文件对不上要拒、要点名,
+// 登记表已覆盖的路由名不许被补充表静默抢键 —— 否则这个口子会变成"随手写一行就能造一条跳转"。
+
+test('S1 补充声明:路由名与壳文件都跟导航器现读事实对上 ⇒ 入表', () => {
+  const nav = navWith(`import DevEnterScreen from '../screens/DevEnterScreen'`, [
+    screen('DevEnter', 'DevEnterScreen'),
+  ])
+  const r = buildRouteMapFromText(
+    nav,
+    [],
+    [{ route: 'DevEnter', rn: RN('DevEnterScreen'), miniapp: 'pkg-ai/developer/index' }],
+  )
+  assert.equal(r.map.get('DevEnter'), '/pkg-ai/developer/index')
+  assert.equal(r.supplementApplied, 1)
+  assert.deepEqual(r.supplementProblems, [])
+})
+
+test('S2 声明不构成证据:壳文件与导航器实际挂的对不上 ⇒ 拒之且逐条点名', () => {
+  const nav = navWith(`import DevEnterScreen from '../screens/DevEnterScreen'`, [
+    screen('DevEnter', 'DevEnterScreen'),
+  ])
+  const r = buildRouteMapFromText(
+    nav,
+    [],
+    [{ route: 'DevEnter', rn: RN('SomeOtherScreen'), miniapp: 'pkg-ai/developer/index' }],
+  )
+  assert.equal(r.map.has('DevEnter'), false, '对不上还入表 = 跳到别的页,比不跳更难查')
+  assert.equal(r.supplementApplied, 0)
+  assert.equal(r.supplementProblems.length, 1)
+  assert.match(r.supplementProblems[0], /DevEnter/)
+})
+
+test('S3 登记表已覆盖的路由名一律以登记表为准(补充表不得静默抢键)', () => {
+  const nav = navWith(`import VipScreen from '../screens/VipScreen'`, [screen('Vip', 'VipScreen')])
+  const r = buildRouteMapFromText(
+    nav,
+    [reg(RN('VipScreen'), 'pkg-shop/vip/index')],
+    [{ route: 'Vip', rn: RN('VipScreen'), miniapp: 'pages/member/index' }],
+  )
+  assert.equal(r.map.get('Vip'), '/pkg-shop/vip/index')
+  assert.equal(r.supplementApplied, 0)
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

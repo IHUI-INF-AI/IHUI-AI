@@ -46,7 +46,7 @@ function MetadataTags({ metadata }: { metadata?: Record<string, unknown> }) {
       {entries.map(([key, val]) => (
         <span
           key={key}
-          className="inline-flex items-center gap-1 rounded-md bg-muted/50 px-2 py-0.5 text-xs text-muted-foreground"
+          className="inline-flex items-center gap-1 rounded-md bg-muted/50 px-2 py-0.5 text-label text-muted-foreground"
         >
           <Tag className="h-3 w-3" />
           {key}: {String(val).slice(0, 30)}
@@ -101,15 +101,15 @@ export function KnowledgeList({ items, onSearch, loading }: KnowledgeListProps) 
       {!loading && items.length === 0 && (
         <div className="flex flex-col items-center gap-2 py-12 text-center">
           <Hash className="h-8 w-8 text-muted-foreground/50" />
-          <p className="text-sm text-muted-foreground">{t('empty')}</p>
-          <p className="text-xs text-muted-foreground/60">{t('searchHint')}</p>
+          <p className="text-body text-muted-foreground">{t('empty')}</p>
+          <p className="text-label text-muted-foreground/60">{t('searchHint')}</p>
         </div>
       )}
 
       {/* 结果列表 */}
       {!loading && items.length > 0 && (
         <div className="space-y-2">
-          <p className="text-xs text-muted-foreground">
+          <p className="text-label text-muted-foreground">
             {t('resultCount', { count: items.length })}
           </p>
           {items.map((item) => (
@@ -118,7 +118,7 @@ export function KnowledgeList({ items, onSearch, loading }: KnowledgeListProps) 
               className="rounded-lg border bg-card p-3 transition-colors hover:bg-accent/30"
             >
               <div className="flex items-start justify-between gap-3">
-                <p className="text-sm leading-relaxed">{truncate(item.content, 200)}</p>
+                <p className="text-body leading-relaxed">{truncate(item.content, 200)}</p>
                 {item.score !== undefined && (
                   <span
                     className={cn(

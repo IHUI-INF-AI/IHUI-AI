@@ -1,5 +1,5 @@
 {
-  "setAt": "2026-10-31",
+  "setAt": "2026-11-03",
   "ticket": "RP-79 旁路器物「未知旗标⇒用法错 exit 2」的剩余面(union-converge 一枚)",
   "sourceOfTruth": "scripts/lib/union-converge-flags.mjs",
   "consumer": "scripts/union-converge.mjs",
@@ -32,6 +32,13 @@
       "where": ["scripts/union-converge.mjs main(): const apply = argv.includes('--apply')"],
       "forwardedBy": ["scripts/git-sync-converge.mjs"],
       "why": "落地档:临时索引 + commit-tree + CAS 推 HEAD,从不 checkout、不碰共享工作区;不带则只报告零副作用。"
+    },
+    {
+      "flag": "--legacy-lenient",
+      "kind": "boolean",
+      "where": ["scripts/union-converge.mjs main(): const legacyLenient = argv.includes('--legacy-lenient')"],
+      "forwardedBy": [],
+      "why": "逃生阀:显式退回旧口径,--take-theirs-doc 整份取对侧前不再量本侧带号键/空行/非空行三项差;stderr 必打醒目告警。"
     },
     {
       "flag": "--theirs",

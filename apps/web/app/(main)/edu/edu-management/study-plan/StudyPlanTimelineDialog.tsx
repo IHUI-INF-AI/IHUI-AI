@@ -41,13 +41,13 @@ export function StudyPlanTimelineDialog({
               <div className="flex items-center justify-between rounded-md border p-3">
                 <div>
                   <p className="text-body font-medium">{query.data.plan.title}</p>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-label text-muted-foreground">
                     {query.data.plan.startDate} ~ {query.data.plan.endDate}
                   </p>
                 </div>
                 <div className="text-right">
                   <p className="text-lg font-bold text-primary">{query.data.completionRate}%</p>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-label text-muted-foreground">
                     {query.data.completedItems}/{query.data.totalItems}
                   </p>
                 </div>
@@ -55,7 +55,7 @@ export function StudyPlanTimelineDialog({
 
               {/* Timeline */}
               {query.data.timeline.length === 0 ? (
-                <p className="py-4 text-center text-sm text-muted-foreground">
+                <p className="py-4 text-center text-body text-muted-foreground">
                   {t('noCompletionRecords')}
                 </p>
               ) : (
@@ -65,7 +65,7 @@ export function StudyPlanTimelineDialog({
                       <div className="mb-2 flex items-center gap-2 text-body font-medium">
                         <CheckCircle2 className="h-4 w-4 text-green-600" />
                         <span>{day.date}</span>
-                        <span className="text-xs text-muted-foreground">
+                        <span className="text-label text-muted-foreground">
                           {t('itemCount', { count: day.items.length })}
                         </span>
                       </div>
@@ -73,11 +73,11 @@ export function StudyPlanTimelineDialog({
                         {day.items.map((item) => (
                           <div
                             key={item.id}
-                            className="rounded-md border bg-muted/20 px-3 py-1.5 text-sm"
+                            className="rounded-md border bg-muted/20 px-3 py-1.5 text-body"
                           >
                             <p>{item.content}</p>
                             {item.completedAt && (
-                              <p className="mt-0.5 text-xs text-muted-foreground">
+                              <p className="mt-0.5 text-label text-muted-foreground">
                                 {t('completedAtPrefix', { value: item.completedAt })}
                               </p>
                             )}
@@ -90,7 +90,9 @@ export function StudyPlanTimelineDialog({
               )}
             </>
           ) : (
-            <p className="py-4 text-center text-sm text-muted-foreground">{t('noTimelineData')}</p>
+            <p className="py-4 text-center text-body text-muted-foreground">
+              {t('noTimelineData')}
+            </p>
           )}
         </div>
       </DialogContent>

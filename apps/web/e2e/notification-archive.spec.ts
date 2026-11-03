@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { test, expect } from './fixtures'
+import type { Page } from '@playwright/test'
 
 /**
  * D195 通知隐藏→归档→恢复流 真 e2e(有登录态、有种子数据,不再是"若可访问"的软跳过)。
@@ -25,7 +26,7 @@ const ACTIVE_SEED = 'E2E种子通知·未归档'
 const ARCHIVED_SEED = 'E2E种子通知·已归档'
 
 /** 已登录且页面真到了 /notifications ⇒ true;否则 graceful skip。 */
-async function onNotificationsPage(page: import('@playwright/test').Page): Promise<boolean> {
+async function onNotificationsPage(page: Page): Promise<boolean> {
   await page.goto('/notifications')
   await page.waitForLoadState('domcontentloaded')
   if (!page.url().includes('/notifications')) return false
@@ -34,7 +35,7 @@ async function onNotificationsPage(page: import('@playwright/test').Page): Promi
 }
 
 /** 行定位:NotificationItem 是 role=button 的整行,以种子标题区分。 */
-function seedRow(page: import('@playwright/test').Page, title: string) {
+function seedRow(page: Page, title: string) {
   return page.locator('[role="button"]', { hasText: title }).first()
 }
 
@@ -71,7 +72,10 @@ test.describe('D195 通知隐藏→归档→恢复流', () => {
     if (!(await onNotificationsPage(page))) test.skip(true, '未登录或页面不可达,graceful skip')
 
     // 切「已归档」分区(tab 文案来自 i18n:已归档/Archived)
-    await page.getByRole('button', { name: /已归档|Archived/ }).first().click()
+    await page
+      .getByRole('button', { name: /已归档|Archived/ })
+      .first()
+      .click()
     const row = seedRow(page, ARCHIVED_SEED)
     if (!(await row.isVisible({ timeout: 8000 }).catch(() => false))) {
       test.skip(true, '预置归档种子不在场(seed 未跑),graceful skip')
@@ -100,16 +104,18 @@ test.describe('D195 通知隐藏→归档→恢复流', () => {
     if (!(await onNotificationsPage(page))) test.skip(true, '未登录或页面不可达,graceful skip')
 
     // 分区判据在后端(archived_at 空与非空),API 面直接断言两份返回集不相交
-    const activeResp = await page.request.get('/api/notifications?partition=active&page=1&pageSize=100')
+    const activeResp = await page.request.get(
+      '/api/notifications?partition=active&page=1&pageSize=100',
+    )
     expect(activeResp.status()).toBe(200)
     const archivedResp = await page.request.get(
       '/api/notifications?partition=archived&page=1&pageSize=100',
     )
     expect(archivedResp.status()).toBe(200)
-    const active = ((await activeResp.json()) as { data?: { list?: Array<{ id: string }> } })
-      .data?.list ?? []
-    const archived = ((await archivedResp.json()) as { data?: { list?: Array<{ id: string }> } })
-      .data?.list ?? []
+    const active =
+      ((await activeResp.json()) as { data?: { list?: Array<{ id: string }> } }).data?.list ?? []
+    const archived =
+      ((await archivedResp.json()) as { data?: { list?: Array<{ id: string }> } }).data?.list ?? []
     const archivedIds = new Set(archived.map((n) => n.id))
     const overlap = active.filter((n) => archivedIds.has(n.id)).map((n) => n.id)
     expect(overlap, `两分区交集必须为空,实得 ${overlap.join(',')}`).toHaveLength(0)

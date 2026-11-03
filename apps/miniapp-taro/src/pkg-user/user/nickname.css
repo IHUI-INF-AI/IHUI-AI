@@ -13,7 +13,7 @@
 .nick-page {
   min-height: 100vh;
   background: var(--color-muted);
-  padding: 28rpx;
+  padding: var(--spacing-md-loose);
   box-sizing: border-box;
 }
 .nick-card {

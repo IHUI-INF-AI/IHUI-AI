@@ -58,7 +58,7 @@ const cache = new Map<string, CacheEntry>()
 
 /** 腾讯状态码 → 审核状态闭集:0 已通过生效、2 通过待生效、1 审核中、-1 未通过。
  *  其余值一律 unknown —— 新增状态码时宁可显示未知,也不能猜成已通过。 */
-export function reviewStatusFromCode(code: unknown): SmsReviewStatus {
+function reviewStatusFromCode(code: unknown): SmsReviewStatus {
   if (code === 0 || code === 2) return 'approved'
   if (code === 1) return 'pending'
   if (code === -1) return 'rejected'
@@ -111,16 +111,16 @@ function parseEntries(
 /** 模板列表响应 → { 模板ID: 审核信息 }。导出为纯函数,便于用固定响应钉住字段名。
  *  注意列表键是 `DescribeTemplateStatusSet`(不是 `DescribeTemplateListStatusSet`)——
  *  2026-10-26 对真 API 实测确认,签名侧才是 `DescribeSignListStatusSet`。 */
-export function parseTemplateReview(raw: unknown): Record<string, SmsReviewInfo> {
+function parseTemplateReview(raw: unknown): Record<string, SmsReviewInfo> {
   return parseEntries(raw, 'DescribeTemplateStatusSet', 'TemplateId')
 }
 
 /** 签名列表响应 → { 签名ID: 审核信息 }。 */
-export function parseSignReview(raw: unknown): Record<string, SmsReviewInfo> {
+function parseSignReview(raw: unknown): Record<string, SmsReviewInfo> {
   return parseEntries(raw, 'DescribeSignListStatusSet', 'SignId')
 }
 
-export function isTencentReviewQueryConfigured(): boolean {
+function isTencentReviewQueryConfigured(): boolean {
   return Boolean(env.TENCENT_SMS_SECRET_ID && env.TENCENT_SMS_SECRET_KEY)
 }
 

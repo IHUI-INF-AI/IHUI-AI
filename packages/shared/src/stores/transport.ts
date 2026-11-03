@@ -15,11 +15,13 @@
  * zustand persist 中间件的 storage 接口签名:
  *   { getItem, setItem, removeItem } — 全部可同步可异步
  *
- * 本模块提供 4 个工厂:
+ * 本模块提供 3 个工厂:
  * 1. createMemoryTransport:无持久化(SSR / 测试用)
  * 2. createSyncTransport:同步 storage 包装(localStorage / Taro.storage)
  * 3. createAsyncTransport:异步 storage 包装(AsyncStorage / chrome.storage / Tauri Store)
- * 4. createJsonTransport:在上述任一 transport 之上加 JSON 序列化(默认行为)
+ *
+ * JSON 段不在本层重复实现:zustand 侧由 createJSONStorage(下述各 store 工厂与端装配点)承担,
+ * 业务侧由 @ihui/shared/utils/storage 的 createJsonStorage / createHistoryStorage 承担。
  *
  * 设计原则:
  * - 零运行时开销:transport 实例化一次,后续 set/get 直接调用底层 API
@@ -96,41 +98,6 @@ export function createAsyncTransport(adapter: AsyncStorageAdapter): PersistTrans
     getItem: (key) => adapter.getItem(key),
     setItem: (key, value) => adapter.setItem(key, value),
     removeItem: (key) => adapter.removeItem(key),
-  }
-}
-
-/**
- * JSON 序列化 transport — 在已有 transport 之上加 JSON.stringify/parse
- *
- * 适用于 storage adapter 只接受 string(原生 localStorage)但需要存对象的场景。
- * 如果 storage adapter 已支持 JSON(如 AsyncStorage),无需本装饰。
- *
- * @example
- * ```ts
- * const transport = createJsonTransport(createSyncTransport({
- *   getItem: (k) => localStorage.getItem(k),
- *   setItem: (k, v) => localStorage.setItem(k, v),
- *   removeItem: (k) => localStorage.removeItem(k),
- * }))
- * ```
- */
-export function createJsonTransport(base: PersistTransport): PersistTransport {
-  return {
-    getItem: async (key) => {
-      const raw = await base.getItem(key)
-      if (raw === null || raw === '') return null
-      try {
-        return JSON.stringify(JSON.parse(raw))
-      } catch {
-        return null
-      }
-    },
-    setItem: async (key, value) => {
-      await base.setItem(key, value)
-    },
-    removeItem: async (key) => {
-      await base.removeItem(key)
-    },
   }
 }
 

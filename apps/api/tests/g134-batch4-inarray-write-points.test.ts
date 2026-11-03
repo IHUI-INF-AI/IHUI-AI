@@ -62,7 +62,7 @@ const stub = vi.hoisted(() => {
 vi.hoisted(() => {
   process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:5432/ihui_test_g134b4'
   process.env.JWT_SECRET ??= 'test-jwt-secret-for-vitest-at-least-32-chars'
-  process.env.REDIS_URL ??= 'redis://localhost:8811/0'
+  process.env.REDIS_URL ??= 'redis://127.0.0.1:6399/0'
 })
 
 vi.mock('../src/db/index.js', () => {

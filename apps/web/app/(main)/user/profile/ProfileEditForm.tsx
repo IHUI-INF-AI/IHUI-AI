@@ -55,7 +55,7 @@ export function ProfileEditForm({ form, onSubmit, isSubmitting, saved, errorMsg 
       <div className="space-y-1.5">
         <Label htmlFor="nickname">{t('nickname')}</Label>
         <Input id="nickname" {...register('nickname')} placeholder={t('nicknamePlaceholder')} />
-        {errors.nickname && <p className="text-xs text-destructive">{t('nicknameError')}</p>}
+        {errors.nickname && <p className="text-label text-destructive">{t('nicknameError')}</p>}
       </div>
 
       <div className="space-y-1.5">
@@ -78,13 +78,13 @@ export function ProfileEditForm({ form, onSubmit, isSubmitting, saved, errorMsg 
             {t('changePhone')}
           </Button>
         </div>
-        {errors.phone && <p className="text-xs text-destructive">{errors.phone.message}</p>}
+        {errors.phone && <p className="text-label text-destructive">{errors.phone.message}</p>}
       </div>
 
       <div className="space-y-1.5">
         <Label htmlFor="email">{t('email')}</Label>
         <Input id="email" type="email" {...register('email')} placeholder={t('emailPlaceholder')} />
-        {errors.email && <p className="text-xs text-destructive">{t('emailError')}</p>}
+        {errors.email && <p className="text-label text-destructive">{t('emailError')}</p>}
       </div>
 
       <div className="space-y-1.5">
@@ -95,12 +95,12 @@ export function ProfileEditForm({ form, onSubmit, isSubmitting, saved, errorMsg 
           rows={3}
           placeholder={t('bioPlaceholder')}
           className={cn(
-            'w-full rounded-sm border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors',
+            'w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-sm transition-colors',
             'placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
             'disabled:cursor-not-allowed disabled:opacity-50',
           )}
         />
-        {errors.bio && <p className="text-xs text-destructive">{t('bioError')}</p>}
+        {errors.bio && <p className="text-label text-destructive">{t('bioError')}</p>}
       </div>
 
       <div className="space-y-1.5">
@@ -109,7 +109,7 @@ export function ProfileEditForm({ form, onSubmit, isSubmitting, saved, errorMsg 
           id="gender"
           {...form.register('gender', { valueAsNumber: true })}
           className={cn(
-            'h-9 w-full rounded-sm border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors',
+            'h-9 w-full rounded-sm border border-input bg-transparent px-3 py-1 text-body shadow-sm transition-colors',
             'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
           )}
         >
@@ -133,13 +133,13 @@ export function ProfileEditForm({ form, onSubmit, isSubmitting, saved, errorMsg 
           )}
         </Button>
         {saved && (
-          <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-sm text-emerald-600 dark:text-emerald-500">
+          <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-body text-emerald-600 dark:text-emerald-500">
             <Check className="h-4 w-4 shrink-0" />
             {t('saved')}
           </span>
         )}
         {errorMsg && (
-          <p className="min-w-0 flex-1 break-words text-xs text-destructive">{errorMsg}</p>
+          <p className="min-w-0 flex-1 break-words text-label text-destructive">{errorMsg}</p>
         )}
       </div>
 

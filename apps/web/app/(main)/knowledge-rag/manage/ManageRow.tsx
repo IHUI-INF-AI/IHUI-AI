@@ -48,12 +48,12 @@ export function ManageRow({
         <Link href={`/knowledge-rag/${doc.id}`} className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <span className="line-clamp-1 text-body font-medium">{doc.title}</span>
-            <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+            <span className="rounded bg-muted px-1.5 py-0.5 text-label text-muted-foreground">
               {srcLabel}
             </span>
-            <span className="text-xs text-muted-foreground">{chunkLabel}</span>
+            <span className="text-label text-muted-foreground">{chunkLabel}</span>
           </div>
-          <div className="mt-0.5 text-xs text-muted-foreground">{fmtDate}</div>
+          <div className="mt-0.5 text-label text-muted-foreground">{fmtDate}</div>
         </Link>
         <Button
           variant="ghost"

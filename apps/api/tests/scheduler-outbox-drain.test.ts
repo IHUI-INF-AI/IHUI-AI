@@ -6,20 +6,23 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
-// mock 掉真实 drizzle 链路:本套件验证的是 scheduler 侧接线,不碰真库
-vi.mock('../src/utils/outbox.js', () => ({
-  processOutbox: vi.fn(),
+const { mockProcessOutbox, mockCleanup } = vi.hoisted(() => ({
+  mockProcessOutbox: vi.fn(),
+  mockCleanup: vi.fn(),
 }))
 
-import { processOutbox } from '../src/utils/outbox.js'
+// mock 掉真实 drizzle 链路:本套件验证的是 scheduler 侧接线,不碰真库
+vi.mock('../src/utils/outbox.js', () => ({
+  processOutbox: mockProcessOutbox,
+  cleanupProcessedOutbox: mockCleanup,
+}))
+
 import {
   SCHEDULED_JOBS,
   createOutboxLogDispatcher,
   runOutboxDrain,
   runOutboxStartupScan,
 } from '../src/plugins/scheduler.js'
-
-const mockProcessOutbox = vi.mocked(processOutbox)
 
 /** 构造最小 log 桩(与 pino 结构兼容)。 */
 function makeLog() {
@@ -29,6 +32,8 @@ function makeLog() {
 describe('outbox 排空接入既有轮询 + 启动扫描（b76-12e G-998160）', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    // 默认:本轮 prune 无行可删(节流行为本身在下方 describe 里单测)
+    mockCleanup.mockResolvedValue(0)
   })
 
   describe('任务表登记（验收①）', () => {
@@ -84,7 +89,7 @@ describe('outbox 排空接入既有轮询 + 启动扫描（b76-12e G-998160）',
 
       const result = await runOutboxDrain({ log })
 
-      expect(result).toEqual({ processed: 2, failed: 0 })
+      expect(result).toEqual({ processed: 2, failed: 0, pruned: 0 })
       expect(mockProcessOutbox).toHaveBeenCalledTimes(1)
       // 传入的是 createOutboxLogDispatcher 的产物:具备 dispatch 能力
       const arg = mockProcessOutbox.mock.calls[0]![0]
@@ -108,7 +113,7 @@ describe('outbox 排空接入既有轮询 + 启动扫描（b76-12e G-998160）',
 
       const result = await runOutboxStartupScan({ log })
 
-      expect(result).toEqual({ processed: 1, failed: 0 })
+      expect(result).toEqual({ processed: 1, failed: 0, pruned: 0 })
       expect(mockProcessOutbox).toHaveBeenCalledTimes(1)
     })
 
@@ -121,6 +126,62 @@ describe('outbox 排空接入既有轮询 + 启动扫描（b76-12e G-998160）',
       expect(result).toEqual({ processed: 0, failed: 0 })
       expect(log.error).toHaveBeenCalledTimes(1)
       expect(log.error.mock.calls[0]![1]).toContain('non-fatal')
+    })
+  })
+
+  // 门 121 接线(2026-11-01):cleanupProcessedOutbox 此前无人执行。挂同一枚 30s 排空轮,
+  // 但必须自带时间戳节流 —— 否则 30 秒轮会放大成每天 2880 次 DELETE。
+  describe('processed 行的保留 prune 挂同一轮 + 6 小时节流', () => {
+    /** 独立模块实例:节流时刻是模块作用域状态,须与其它用例隔离。 */
+    async function freshDrain() {
+      vi.resetModules()
+      const mod = await import('../src/plugins/scheduler.js')
+      return mod.runOutboxDrain
+    }
+
+    it('首轮排空即 prune(界点 = now − 7 天);6 小时内第二轮跳过;满 6 小时再 prune', async () => {
+      vi.useFakeTimers()
+      try {
+        vi.setSystemTime(new Date('2026-11-01T00:00:00.000Z'))
+        const drain = await freshDrain()
+        mockProcessOutbox.mockResolvedValue({ processed: 0, failed: 0 })
+        mockCleanup.mockResolvedValue(7)
+
+        const first = await drain({ log: makeLog() })
+        expect(first).toEqual({ processed: 0, failed: 0, pruned: 7 })
+        expect(mockCleanup).toHaveBeenCalledTimes(1)
+        expect(mockCleanup.mock.calls[0]![0]).toEqual(new Date('2026-10-25T00:00:00.000Z'))
+
+        vi.setSystemTime(new Date('2026-11-01T05:59:00.000Z'))
+        const second = await drain({ log: makeLog() })
+        expect(second).toEqual({ processed: 0, failed: 0, pruned: 0 })
+        expect(mockCleanup).toHaveBeenCalledTimes(1)
+
+        vi.setSystemTime(new Date('2026-11-01T06:00:01.000Z'))
+        const third = await drain({ log: makeLog() })
+        expect(third).toEqual({ processed: 0, failed: 0, pruned: 7 })
+        expect(mockCleanup).toHaveBeenCalledTimes(2)
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('prune 失败只记 error、不上抛:排空的 processed/failed 归因不被清理动作污染', async () => {
+      vi.useFakeTimers()
+      try {
+        vi.setSystemTime(new Date('2026-12-01T00:00:00.000Z'))
+        const drain = await freshDrain()
+        mockProcessOutbox.mockResolvedValue({ processed: 4, failed: 1 })
+        mockCleanup.mockRejectedValue(new Error('delete boom'))
+        const log = makeLog()
+
+        await expect(drain({ log })).resolves.toEqual({ processed: 4, failed: 1, pruned: 0 })
+
+        const errCall = log.error.mock.calls.find((c) => String(c[1]).includes('prune failed'))
+        expect(errCall?.[1]).toContain('non-fatal')
+      } finally {
+        vi.useRealTimers()
+      }
     })
   })
 })

@@ -23,12 +23,17 @@ import type {
   TFunction,
 } from './app-shared.js'
 import type { Gender } from './app-account.js'
+import type { OnNavigate, OnToast } from './app-host-ports.js'
 
 /** About 屏 props */
 export interface AboutScreenProps {
   t: TFunction
   appInfo?: SharedAppInfo
   onBack: () => void
+  /** 宿主导航端口(逻辑 target 由宿主映射;屏内不得直接调用平台导航) */
+  onNavigate: OnNavigate
+  /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
+  onToast: OnToast
 }
 
 /** Profile 屏 props */
@@ -43,6 +48,11 @@ export interface ProfileScreenProps {
   onNavigate?: (key: string) => void
   onLogout?: () => void
   onBack: () => void
+  /**
+   * 宿主轻提示端口(可选)。缺省按 `resolveOptionalPort` 落 capability-off,
+   * 屏内不得用空函数/`?.()` 冒充已接线 —— 菜单等失败路径要显式提示。
+   */
+  onToast?: OnToast
   /** 已解析配色方案,驱动 tokens 明暗;默认 'light'。web 端不传即保持浅色行为 */
   colorScheme?: 'light' | 'dark'
   /**
@@ -151,6 +161,18 @@ export interface HelpScreenProps {
   searchValue?: string
   onSearchChange?: (value: string) => void
   searchPlaceholder?: string
+  /** 意见反馈(端内帮助页同一枚表单):值与提交态由平台注入,给了 onSubmitFeedback 才渲染 */
+  feedbackName?: string
+  feedbackContact?: string
+  feedbackContent?: string
+  feedbackStatus?: 'idle' | 'submitting' | 'success' | 'failed'
+  feedbackError?: string
+  onFeedbackNameChange?: (value: string) => void
+  onFeedbackContactChange?: (value: string) => void
+  onFeedbackContentChange?: (value: string) => void
+  onSubmitFeedback?: () => void
+  /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
+  onToast: OnToast
 }
 
 /** ProfileEditScreen props(表单屏,状态由 wrapper 管理) */

@@ -44,7 +44,7 @@ export function AnswerArea({ answer }: { answer: ShareContent['answer'] }) {
 
       {/* 文本内容（支持 markdown 渲染） */}
       {answer.text && (
-        <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap break-words text-sm leading-7 text-foreground">
+        <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap break-words text-body leading-7 text-foreground">
           <ReactMarkdown remarkPlugins={[[remarkGfm, { singleTilde: false }]]}>
             {answer.text}
           </ReactMarkdown>
@@ -73,14 +73,14 @@ function ThinkingProcess({ text }: { text: string }) {
           expanded ? 'max-h-none' : 'max-h-[200px]'
         }`}
       >
-        <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-muted-foreground">
+        <p className="whitespace-pre-wrap break-words text-body leading-relaxed text-muted-foreground">
           {text}
         </p>
       </div>
       {needToggle && (
         <button
           onClick={() => setExpanded((v) => !v)}
-          className="mt-3 flex w-full items-center justify-center gap-2 py-2 text-sm text-primary"
+          className="mt-3 flex w-full items-center justify-center gap-2 py-2 text-body text-primary"
         >
           <span>{expanded ? t('collapse') : t('expand')}</span>
           <ChevronDown
@@ -274,7 +274,7 @@ function AudioPlayer({ audio }: { audio: NonNullable<ShareContent['answer']['aud
       </audio>
       <button
         onClick={toggle}
-        className="flex h-10 w-10 shrink-0 items-center justify-center text-xl text-primary"
+        className="flex h-10 w-10 shrink-0 items-center justify-center text-heading font-normal text-primary"
         aria-label={playing ? t('pause') : t('play')}
       >
         {playing ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
@@ -288,7 +288,9 @@ function AudioPlayer({ audio }: { audio: NonNullable<ShareContent['answer']['aud
         className="mx-5 h-1.5 flex-1 cursor-pointer accent-primary"
       />
       <Volume2 className="mr-1 h-4 w-4 shrink-0 text-muted-foreground/70" />
-      <span className="shrink-0 text-xs text-muted-foreground">{formatAudioTime(currentTime)}</span>
+      <span className="shrink-0 text-label text-muted-foreground">
+        {formatAudioTime(currentTime)}
+      </span>
     </div>
   )
 }
@@ -302,7 +304,7 @@ function ListsContent({ lists }: { lists: ShareListItem[] }) {
           return (
             <p
               key={`list-${idx}`}
-              className="whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground"
+              className="whitespace-pre-wrap break-words text-body leading-relaxed text-foreground"
             >
               {item.content}
             </p>

@@ -103,22 +103,24 @@ export function CourseTable({
                     onCheckedChange={() => onToggleOne(r.id)}
                   />
                 </TableCell>
-                <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">{r.id}</TableCell>
+                <TableCell className="px-4 py-2.5 text-label text-muted-foreground">
+                  {r.id}
+                </TableCell>
                 <TableCell className="px-4 py-2.5 font-medium">{r.title}</TableCell>
-                <TableCell className="px-4 py-2.5 text-xs">{r.subtitle ?? '-'}</TableCell>
+                <TableCell className="px-4 py-2.5 text-label">{r.subtitle ?? '-'}</TableCell>
                 <TableCell className="px-4 py-2.5">
                   <TruncatedText
                     value={r.content ?? '-'}
-                    className="max-w-[120px] text-xs text-muted-foreground"
+                    className="max-w-[120px] text-label text-muted-foreground"
                   />
                 </TableCell>
                 <TableCell className="px-4 py-2.5">
                   <TruncatedText
                     value={r.remark ?? '-'}
-                    className="max-w-[120px] text-xs text-muted-foreground"
+                    className="max-w-[120px] text-label text-muted-foreground"
                   />
                 </TableCell>
-                <TableCell className="px-4 py-2.5 text-xs">{r.remarkFile ?? '-'}</TableCell>
+                <TableCell className="px-4 py-2.5 text-label">{r.remarkFile ?? '-'}</TableCell>
                 <TableCell className="px-4 py-2.5">
                   {r.binding ? (
                     <Image
@@ -137,13 +139,13 @@ export function CourseTable({
                     {t(STAGE_KEY[r.stage ?? 0] ?? 'stage.unknown')}
                   </span>
                 </TableCell>
-                <TableCell className="px-4 py-2.5 text-xs">{r.label ?? '-'}</TableCell>
+                <TableCell className="px-4 py-2.5 text-label">{r.label ?? '-'}</TableCell>
                 <TableCell className="px-4 py-2.5">
                   <span className={badgeCls(r.auditStatus === 4)}>
                     {t(AUDIT_KEY[r.auditStatus ?? 0] ?? 'audit.unknown')}
                   </span>
                 </TableCell>
-                <TableCell className="px-4 py-2.5 text-xs">
+                <TableCell className="px-4 py-2.5 text-label">
                   {r.nickname ?? r.creator ?? '-'}
                 </TableCell>
                 <TableCell className="px-4 py-2.5 text-right">

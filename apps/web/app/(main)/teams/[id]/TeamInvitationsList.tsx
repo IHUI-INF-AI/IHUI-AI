@@ -36,7 +36,7 @@ export function TeamInvitationsList({ isLoading, invitations, onCancel, cancelPe
   }
   if (!invitations?.length) {
     return (
-      <div className="rounded-lg border border-dashed py-8 text-center text-sm text-muted-foreground">
+      <div className="rounded-lg border border-dashed py-8 text-center text-body text-muted-foreground">
         {t('noInvitations')}
       </div>
     )
@@ -50,13 +50,13 @@ export function TeamInvitationsList({ isLoading, invitations, onCancel, cancelPe
           </div>
           <div className="min-w-0 flex-1">
             <div className="break-words text-body font-medium">{inv.invitee}</div>
-            <div className="mt-0.5 text-xs text-muted-foreground">
+            <div className="mt-0.5 text-label text-muted-foreground">
               {t('expiresAt')}: {fmt(inv.expiresAt)}
             </div>
           </div>
           <span
             className={cn(
-              'rounded px-1.5 py-0.5 text-xs',
+              'rounded px-1.5 py-0.5 text-label',
               inv.status === 'pending'
                 ? 'bg-amber-500/10 text-amber-600'
                 : inv.status === 'accepted'

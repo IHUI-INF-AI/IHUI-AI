@@ -640,7 +640,7 @@ export function Leaderboard({ entries }: Props) {
 
       {/* 表格 — 竖向排列模型行,参数横向排列 */}
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[920px] border-collapse text-sm">
+        <table className="w-full min-w-[920px] border-collapse text-body">
           <thead>
             <tr className="bg-muted/30 text-[10px] uppercase tracking-wide text-muted-foreground">
               <th className="w-8 px-2 py-2 text-center">
@@ -667,7 +667,7 @@ export function Leaderboard({ entries }: Props) {
           <tbody>
             {sorted.length === 0 ? (
               <tr>
-                <td colSpan={15} className="px-3 py-8 text-center text-xs text-muted-foreground">
+                <td colSpan={15} className="px-3 py-8 text-center text-label text-muted-foreground">
                   {searchQuery || activeVendor ? (
                     <div className="space-y-2">
                       <p>{t('leaderboard.noMatch')}</p>
@@ -743,7 +743,7 @@ export function Leaderboard({ entries }: Props) {
                       </span>
                     </td>
                     {/* 厂商 */}
-                    <td className="px-3 py-2.5 text-xs text-muted-foreground">
+                    <td className="px-3 py-2.5 text-label text-muted-foreground">
                       {highlight(entry.vendor, searchQuery)}
                     </td>
                     {/* Arena 评分 */}
@@ -761,13 +761,13 @@ export function Leaderboard({ entries }: Props) {
                             ) : null}
                           </div>
                         ) : (
-                          <span className="text-xs text-muted-foreground">-</span>
+                          <span className="text-label text-muted-foreground">-</span>
                         )}
                       </td>
                     ) : null}
                     {/* 胜率 */}
                     {colVisible('winRate') ? (
-                      <td className="px-3 py-2.5 text-right text-xs tabular-nums">
+                      <td className="px-3 py-2.5 text-right text-label tabular-nums">
                         {entry.winRate !== null ? `${entry.winRate.toFixed(1)}%` : '-'}
                       </td>
                     ) : null}
@@ -779,25 +779,25 @@ export function Leaderboard({ entries }: Props) {
                     ) : null}
                     {/* 上下文窗口 */}
                     {colVisible('contextWindow') ? (
-                      <td className="px-3 py-2.5 text-right text-xs tabular-nums">
+                      <td className="px-3 py-2.5 text-right text-label tabular-nums">
                         {entry.contextWindow ?? '-'}
                       </td>
                     ) : null}
                     {/* 最大输出 */}
                     {colVisible('maxOutput') ? (
-                      <td className="px-3 py-2.5 text-right text-xs tabular-nums">
+                      <td className="px-3 py-2.5 text-right text-label tabular-nums">
                         {entry.maxOutput ?? '-'}
                       </td>
                     ) : null}
                     {/* 输入价 */}
                     {colVisible('inputPrice') ? (
-                      <td className="px-3 py-2.5 text-right text-xs tabular-nums">
+                      <td className="px-3 py-2.5 text-right text-label tabular-nums">
                         {entry.inputPrice ?? '-'}
                       </td>
                     ) : null}
                     {/* 输出价 */}
                     {colVisible('outputPrice') ? (
-                      <td className="px-3 py-2.5 text-right text-xs tabular-nums">
+                      <td className="px-3 py-2.5 text-right text-label tabular-nums">
                         {entry.outputPrice ?? '-'}
                       </td>
                     ) : null}

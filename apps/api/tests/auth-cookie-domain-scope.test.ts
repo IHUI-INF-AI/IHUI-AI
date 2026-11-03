@@ -47,11 +47,11 @@ const PAYLOAD = { accessToken: 'access.jwt.value', refreshToken: 'refresh.jwt.va
 async function buildApp(mod: AuthCookiesModule): Promise<FastifyInstance> {
   const app = Fastify({ trustProxy: '127.0.0.1,::1' })
   await app.register(cookie)
-  app.get('/set', (request, reply) => {
+  app.get('/set', (_request, reply) => {
     mod.setAuthCookies(reply, PAYLOAD)
     return { ok: true }
   })
-  app.get('/clear', (request, reply) => {
+  app.get('/clear', (_request, reply) => {
     mod.clearAuthCookies(reply)
     return { ok: true }
   })

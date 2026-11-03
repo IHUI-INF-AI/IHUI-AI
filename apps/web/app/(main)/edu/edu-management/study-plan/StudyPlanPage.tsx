@@ -558,7 +558,7 @@ export default function StudyPlanPage() {
       {/* Header */}
       <header className="space-y-1">
         <h1 className="text-display font-bold tracking-tight">{t('pageTitle')}</h1>
-        <p className="text-xs text-muted-foreground">{t('pageSubtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('pageSubtitle')}</p>
       </header>
 
       <StudyPlanToolbar

@@ -1321,6 +1321,112 @@ async function runCommandHookAsync(
   });
 }
 
+// ============================================================================
+// 宿主身份核验(T12 缺口对撞表 #6 未落地半格,2026-11-01 补)
+//
+// 对照件(qoder-context-hook.exe)开工前核验宿主身份:env QODER_SEARCH_HOST_PID /
+// QODER_PRODUCT_ID + run/hosts 宿主登记表,判不出即 INVALID_HOST_PID /
+// INVALID_PRODUCT_ID 拒绝干活。本仓对应格:dispatchHookEntry 是唯一派发收口,
+// 在此核验"发起派发的宿主进程"身份,**deny-by-default**:核验判不出 ⇒ 拒绝派发
+// 并给具名错误(HOST_IDENTITY_UNVERIFIED),绝不静默放行。
+//
+// 身份源全部真实可得,不虚构:
+//  - 宿主 PID:登记口 registerHookHostIdentity(形态对齐 setHookRewakeQueue 的宿主
+//    接线口);未显式登记时按"当前进程即宿主"自登记(process.pid 真实可得)。
+//    仓内既有同型先例:tools/mcp-oauth.ts:836(锁文件 pid 与 process.pid 比对)、
+//    plugins/cache.ts:602/:817(ownerPid 登记-比对)。
+//  - 进程存活:process.kill(pid, 0)(signal 0 只测存在性,不发信号)。
+//  - 产品身份:本 CLI 的包名 ihui-cli(apps/cli/package.json name)钉为本仓钩子宿主
+//    的唯一合法产品身份常量,登记值必须与之匹配。
+//
+// 与既有超时(linkAbortSignal + 主杀定时器)、崩溃隔离(killHookProcess)、事件层
+// 投影正交:只新增"派发前的一道门",不改它们的任何路径。核验通过后才把宿主身份
+// stamp 进钩子子进程 env(IHUI_HOST_PID / IHUI_HOST_PRODUCT,对照件
+// QODER_SEARCH_HOST_PID / QODER_PRODUCT_ID 的对应物),钩子脚本可据此核验自己的宿主。
+// ============================================================================
+
+/** 本仓钩子宿主的唯一合法产品身份(= apps/cli/package.json 的 name,现读钉死)。 */
+export const HOOK_HOST_PRODUCT_ID = 'ihui-cli';
+
+/** 宿主身份核验失败的具名错误码(stderr/feedback 面可机判,不依赖语言包)。 */
+export const HOOK_HOST_IDENTITY_ERROR = 'HOST_IDENTITY_UNVERIFIED';
+
+/** 应急出口 env(命名对齐 IHUI_TRUST_WORKSPACE=1 的显式开关风格)。设为 '1' 时跳过核验。 */
+export const HOOK_SKIP_HOST_IDENTITY_ENV = 'IHUI_HOOK_SKIP_HOST_IDENTITY';
+
+/** 宿主身份登记(唯一写点 = registerHookHostIdentity)。 */
+export interface HookHostIdentity {
+  /** 宿主进程 PID */
+  pid: number;
+  /** 产品身份(必须等于 HOOK_HOST_PRODUCT_ID) */
+  productId: string;
+}
+
+/** 当前登记(null = 未显式登记,核验时按"当前进程即宿主"取基线身份)。 */
+let registeredHookHostIdentity: HookHostIdentity | null = null;
+
+/**
+ * 宿主身份登记口:宿主入口(CLI 会话装配处,接线属第二笔,与 setHookRewakeQueue
+ * 同一形态)显式登记自己的身份;重复登记以最后一次为准。
+ * 未登记时本模块按"当前进程即宿主"自登记 —— 自登记只解决"身份从哪来",
+ * **不构成免检通道**:登记后的存活/匹配判据照跑(见 verifyHookHostIdentity)。
+ */
+export function registerHookHostIdentity(host: HookHostIdentity): void {
+  registeredHookHostIdentity = { ...host };
+}
+
+/** 自登记基线:派发进程自己就是宿主(pid 与产品身份都是真实可得的事实)。 */
+function selfRegisterHookHostIdentity(): HookHostIdentity {
+  return { pid: process.pid, productId: HOOK_HOST_PRODUCT_ID };
+}
+
+/**
+ * 进程存活探测(signal 0 只测存在性)。三态:true=存在(含无权限杀但存在的 EPERM);
+ * false=不存在(ESRCH);null=判不出(其他错误)—— deny-by-default 下"判不出"与
+ * "死"同归拒绝,但理由分列,不冒充。
+ */
+function isProcessAlive(pid: number): boolean | null {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException | undefined)?.code;
+    if (code === 'ESRCH') return false;
+    if (code === 'EPERM') return true;
+    return null;
+  }
+}
+
+/** 核验结论:ok=放行(附已核验身份);fail=拒绝(附机判理由)。 */
+type HostIdentityVerdict =
+  | { ok: true; identity: HookHostIdentity }
+  | { ok: false; reason: string };
+
+/**
+ * 宿主身份核验的**唯一**判据(dispatchHookEntry 单点调用)。判据三条,任一不过即拒:
+ *  1. PID 形状合法(正整数)—— 形状都判不出 ⇒ 拒;
+ *  2. 登记的宿主进程仍存活 —— 死 ⇒ 拒,判不出 ⇒ 拒;
+ *  3. 产品身份匹配(= HOOK_HOST_PRODUCT_ID)—— 不匹配 ⇒ 拒。
+ */
+function verifyHookHostIdentity(): HostIdentityVerdict {
+  const identity = registeredHookHostIdentity ?? selfRegisterHookHostIdentity();
+  if (!Number.isInteger(identity.pid) || identity.pid <= 0) {
+    return { ok: false, reason: 'host-pid-invalid' };
+  }
+  const alive = isProcessAlive(identity.pid);
+  if (alive === false) return { ok: false, reason: `host-process-dead (pid=${identity.pid})` };
+  if (alive === null) {
+    return { ok: false, reason: `host-process-unverifiable (pid=${identity.pid})` };
+  }
+  if (identity.productId !== HOOK_HOST_PRODUCT_ID) {
+    return { ok: false, reason: `host-product-mismatch (got ${identity.productId})` };
+  }
+  return { ok: true, identity };
+}
+
+/** escape 审计只落一次(与 workspaceTrustWarned 同纪律,不每条刷屏)。 */
+let skipHostIdentityWarned = false;
+
 /** dispatchHookEntry 的产出:执行观察 + 旧终态层投影 + 事件层精确档。 */
 interface DispatchedHook {
   result: HookExecResult;
@@ -1347,13 +1453,49 @@ async function dispatchHookEntry(
   parentSignal?: AbortSignal,
 ): Promise<DispatchedHook> {
   emitHookRunEvent({ type: 'started', hookEvent, hook: entry.name });
+  // 宿主身份核验(先于 link 与一切外部副作用:不探活、不 spawn、不 fetch)。
+  //  - 应急出口 IHUI_HOOK_SKIP_HOST_IDENTITY=1:显式跳过核验,落一次 stderr 审计,
+  //    不静默(与 IHUI_TRUST_WORKSPACE=1 的"只免一道门"纪律同格);
+  //  - 默认路径核验生效;拒绝 ⇒ 具名错误 + skipped 档。exitCode 恒 0 ⇒ 不改写既有
+  //    阻断语义(与信任门 skipped 同形:没执行 ≠ 阻断工具调用);stderr 具名
+  //    HOST_IDENTITY_UNVERIFIED,经调用方 feedbackForEntry 自动进 feedback,不静默。
+  let hostIdentity: HookHostIdentity;
+  if (process.env[HOOK_SKIP_HOST_IDENTITY_ENV] === '1') {
+    if (!skipHostIdentityWarned) {
+      skipHostIdentityWarned = true;
+      warnOnce('⚠ IHUI_HOOK_SKIP_HOST_IDENTITY=1 已生效:钩子派发的宿主身份核验已跳过(应急出口,不建议常开)');
+    }
+    hostIdentity = registeredHookHostIdentity ?? selfRegisterHookHostIdentity();
+  } else {
+    const verdict = verifyHookHostIdentity();
+    if (!verdict.ok) {
+      const stderr =
+        `${HOOK_HOST_IDENTITY_ERROR}: ${verdict.reason} — ` +
+        `hook "${entry.name}" not dispatched (host identity unverifiable, deny-by-default)`;
+      const result: HookExecResult = { exitCode: 0, stdout: '', stderr, outcome: 'skipped' };
+      // 终态与事件层照常走唯一分类出口(skipped / Skipped),started/terminal 成对
+      // 的派发不变式在此路径同样成立。
+      const state = classifyHookTerminal(result.outcome, result.exitCode, blockOnError);
+      const outcome = runOutcomeOfExec(result, blockOnError);
+      emitHookRunEvent({ type: 'terminal', hookEvent, hook: entry.name, outcome, exitCode: result.exitCode });
+      return { result, state, outcome };
+    }
+    hostIdentity = verdict.identity;
+  }
+  // 核验通过后才把宿主身份 stamp 进钩子子进程 env(钩子侧可据此核验自己的宿主)。
+  // 复制 env:调用方在循环间共享同一 env 对象,不得被派发侧污染。
+  const stampedEnv: Record<string, string> = {
+    ...env,
+    IHUI_HOST_PID: String(hostIdentity.pid),
+    IHUI_HOST_PRODUCT: hostIdentity.productId,
+  };
   const link =
     parentSignal === undefined
       ? undefined
       : linkAbortSignal(parentSignal, (entry.timeout ?? 10_000) + HOOK_ABORT_BACKSTOP_MS);
   let result: HookExecResult;
   try {
-    result = await runHookEntry(entry, env, link?.signal);
+    result = await runHookEntry(entry, stampedEnv, link?.signal);
   } finally {
     link?.dispose();
   }
@@ -1604,6 +1746,12 @@ function resetHookRewakeState(): void {
   announcedAsyncConflicts.clear();
 }
 
+/** 测试通道:撤宿主身份登记与 escape 审计标记(生产代码不调;与 resetHookRewakeState 同格)。 */
+function resetHookHostIdentity(): void {
+  registeredHookHostIdentity = null;
+  skipHostIdentityWarned = false;
+}
+
 export const __test__ = {
   /** 本轮 async 派发该留的 feedback 行(判据与循环内共用一份实现) */
   hookAsyncDeferralLine,
@@ -1612,6 +1760,7 @@ export const __test__ = {
   awaitPendingAsyncHooks,
   pendingAsyncHookCount,
   resetHookRewakeState,
+  resetHookHostIdentity,
   getHookRewakeStats,
   /** 事件载荷 → 环境变量的唯一映射(用例直接问它,不在测试里抄第二份判据,§22c) */
   buildHookEnv,

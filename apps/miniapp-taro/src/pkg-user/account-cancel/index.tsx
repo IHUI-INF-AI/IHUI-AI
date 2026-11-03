@@ -8,13 +8,14 @@ import { goToLogin } from '@/utils/auth'
 import { logger } from '@/utils/logger'
 import { View, Text } from '@tarojs/components'
 import { FocusInput } from '@/components/FocusField'
-import Taro, { useDidShow } from '@tarojs/taro'
+import { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useRef, useEffect, type CSSProperties } from 'react'
 import * as api from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import ThemeRoot from '@/components/ThemeRoot'
 import { EmptyState, ScreenSkeleton } from '@/components/ScreenStates.taro'
 import { rnRadius } from '@ihui/design-tokens'
+import { onToast } from '@/host/on-toast'
 
 const CONSEQUENCE_KEYS = [
   'accountCancel.consequence1',
@@ -194,11 +195,11 @@ export default function AccountCancel() {
     codeSendingRef.current = true
     try {
       if (!phone) {
-        Taro.showToast({ title: t('accountCancel.noPhone'), icon: 'none' })
+        onToast(t('accountCancel.noPhone'), { kind: 'error' })
         return
       }
       await api.sendSmsCode(phone)
-      Taro.showToast({ title: t('accountCancel.codeSent'), icon: 'success' })
+      onToast(t('accountCancel.codeSent'), { kind: 'success' })
       setCountdown(60)
       codeTimerRef.current = setInterval(() => {
         setCountdown((prev) => {
@@ -220,15 +221,15 @@ export default function AccountCancel() {
     if (submitting) return
     if (confirmCountdown > 0) return
     if (!phone) {
-      Taro.showToast({ title: t('accountCancel.noPhone'), icon: 'none' })
+      onToast(t('accountCancel.noPhone'), { kind: 'error' })
       return
     }
     if (!code.trim()) {
-      Taro.showToast({ title: t('accountCancel.codeInvalid'), icon: 'none' })
+      onToast(t('accountCancel.codeInvalid'), { kind: 'error' })
       return
     }
     if (confirmText !== requiredSentence) {
-      Taro.showToast({ title: t('accountCancel.confirmTextMismatch'), icon: 'none' })
+      onToast(t('accountCancel.confirmTextMismatch'), { kind: 'info' })
       return
     }
     setSubmitting(true)
@@ -242,12 +243,12 @@ export default function AccountCancel() {
       // user.phone 后 verifyCode(user.phone, code),不信客户端自报 phone(§5 认证不等于授权);
       // confirmText 后端 schema 不消费,继续留作端内二次确认闸门(上面的校验一条没减)。
       await api.post('/settings/delete-account', { code })
-      Taro.showToast({ title: t('accountCancel.cancelled'), icon: 'success' })
+      onToast(t('accountCancel.cancelled'), { kind: 'success' })
       setTimeout(goToLogin, 800)
     } catch (e) {
       // 真实失败:如实提示,不假装注销成功
       logger.error('unknown', '注销', e)
-      Taro.showToast({ title: t('accountCancel.failed') || '注销失败,请重试', icon: 'none' })
+      onToast(t('accountCancel.failed') || '注销失败,请重试', { kind: 'error' })
     } finally {
       setSubmitting(false)
     }
@@ -266,9 +267,7 @@ export default function AccountCancel() {
     <ThemeRoot>
       <View className="min-h-screen bg-background">
         <View className="px-[20rpx] pt-[24rpx] pb-[24rpx]">
-          <Text className="text-heading font-bold text-foreground">
-            {t('accountCancel.title')}
-          </Text>
+          <Text className="text-heading font-bold text-foreground">{t('accountCancel.title')}</Text>
         </View>
         <View className="p-[28rpx] pb-[64rpx]">
           {loading ? (

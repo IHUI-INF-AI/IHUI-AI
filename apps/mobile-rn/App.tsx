@@ -42,6 +42,7 @@ import type { RnThemeTokens } from '@ihui/design-tokens'
 import { isVideoImmersive, subscribeVideoImmersive } from './src/lib/video-immersive'
 import type { LoginResult } from '@ihui/api-client'
 import { GlobalFloatBox } from './src/components/GlobalFloatBox'
+import { HostToastLayer } from './src/host/HostToastLayer'
 import { PrivacyPolicyModal } from './src/components/PrivacyPolicyModal'
 import { AppConfirmHost } from './src/components/BottomPops'
 import { PRIVACY_POLICY_STORAGE_KEY } from './src/constants/privacyPolicy'
@@ -389,6 +390,7 @@ function AppContent() {
             onConsult={() => goFloat('CustomerService')}
             onFeedback={() => goFloat('Feedback')}
           />
+          <HostToastLayer />
           {/* 首启隐私政策弹窗(RN Modal 恒在最顶层):未同意不可继续使用(对齐历史 App.vue privacy-modal);
               同样吃 useI18n,必须留在 Provider 子树内(与 GlobalFloatBox 同批修)。 */}
           <PrivacyPolicyModal visible={privacyVisible} onAgree={handlePrivacyAgree} />

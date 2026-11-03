@@ -33,8 +33,8 @@ export function ApiLogTable({ paged, isLoading }: Props) {
         </div>
       ) : (
         <div className="overflow-x-auto rounded-lg border">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+          <table className="w-full text-body">
+            <thead className="bg-muted/50 text-left text-label uppercase text-muted-foreground">
               <tr>
                 <th className={th}>{t('apiLogs.colTime')}</th>
                 <th className={th}>{t('apiLogs.colEndpoint')}</th>
@@ -48,10 +48,10 @@ export function ApiLogTable({ paged, isLoading }: Props) {
             <tbody>
               {paged.map((l) => (
                 <tr key={l.id} className="transition-colors hover:bg-muted/30">
-                  <td className="whitespace-nowrap px-4 py-2.5 text-xs text-muted-foreground">
+                  <td className="whitespace-nowrap px-4 py-2.5 text-label text-muted-foreground">
                     {l.time}
                   </td>
-                  <td className="max-w-[220px] px-4 py-2.5 font-mono text-xs">
+                  <td className="max-w-[220px] px-4 py-2.5 font-mono text-label">
                     <TruncatedText value={l.endpoint} />
                   </td>
                   <td className="px-4 py-2.5">
@@ -81,7 +81,7 @@ export function ApiLogTable({ paged, isLoading }: Props) {
                   <td className="px-4 py-2.5">
                     <span
                       className={cn(
-                        'text-xs',
+                        'text-label',
                         l.latency > 500
                           ? 'text-red-600'
                           : l.latency > 200
@@ -92,7 +92,7 @@ export function ApiLogTable({ paged, isLoading }: Props) {
                       {l.latency}ms
                     </span>
                   </td>
-                  <td className="max-w-[220px] px-4 py-2.5 font-mono text-xs text-muted-foreground">
+                  <td className="max-w-[220px] px-4 py-2.5 font-mono text-label text-muted-foreground">
                     <TruncatedText value={l.ip} />
                   </td>
                   <td className="max-w-[160px] px-4 py-2.5 text-muted-foreground">

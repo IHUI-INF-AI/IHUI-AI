@@ -517,7 +517,7 @@ export function SidebarChatHistory({
         aria-label={t('title')}
         className="mb-1 w-full rounded-lg border border-border bg-card p-1.5"
       >
-        <div className="flex items-center justify-between px-1.5 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+        <div className="flex items-center justify-between px-1.5 pb-1 text-label font-semibold uppercase tracking-wider text-muted-foreground/70">
           <span>{tc('history')}</span>
         </div>
         <div className="flex items-center gap-1.5 px-2 py-3 text-xs text-muted-foreground">
@@ -535,7 +535,7 @@ export function SidebarChatHistory({
         aria-label={t('title')}
         className="mb-1 w-full rounded-lg border border-border bg-card p-1.5"
       >
-        <div className="flex items-center justify-between px-1.5 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+        <div className="flex items-center justify-between px-1.5 pb-1 text-label font-semibold uppercase tracking-wider text-muted-foreground/70">
           <span>{tc('history')}</span>
         </div>
         <div className="flex items-center gap-1.5 px-2 py-3 text-xs text-muted-foreground">
@@ -1221,7 +1221,7 @@ export function SidebarChatHistory({
         aria-label={t('title')}
         className="mb-1 w-full rounded-lg border border-border bg-card p-1.5"
       >
-        <div className="flex items-center justify-between px-1.5 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+        <div className="flex items-center justify-between px-1.5 pb-1 text-label font-semibold uppercase tracking-wider text-muted-foreground/70">
           <span className="min-w-0 truncate">{tc('history')}</span>
           <span className="ml-1 flex shrink-0 items-center gap-1">
             {total > 0 && (
@@ -1434,7 +1434,7 @@ export function SidebarChatHistory({
               ) : (
                 groupByDate(items).map((group) => (
                   <div key={group.key} className="mb-0.5 last:mb-0">
-                    <div className="px-2 py-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground/60">
+                    <div className="px-2 py-1 text-label font-medium uppercase tracking-wide text-muted-foreground/60">
                       {tc(group.key)}
                     </div>
                     <ul>{group.items.map(renderItem)}</ul>

@@ -461,8 +461,8 @@ export default function LoginSecurityPage() {
         <CardContent>
           <div className="flex items-start justify-between gap-4">
             <div className="space-y-1">
-              <p className="text-sm text-muted-foreground">{t('loginSecurity.autoLoginDesc')}</p>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-body text-muted-foreground">{t('loginSecurity.autoLoginDesc')}</p>
+              <p className="text-label text-muted-foreground">
                 {t('loginSecurity.rememberDays', { days: REMEMBER_DAYS })}
               </p>
             </div>
@@ -491,8 +491,8 @@ export default function LoginSecurityPage() {
         <CardContent>
           <div className="flex items-start justify-between gap-4">
             <div className="space-y-1">
-              <p className="text-sm text-muted-foreground">{t('loginSecurity.autoRenewDesc')}</p>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-body text-muted-foreground">{t('loginSecurity.autoRenewDesc')}</p>
+              <p className="text-label text-muted-foreground">
                 {prefs.autoRenew ? t('loginSecurity.autoRenewOn') : t('loginSecurity.autoRenewOff')}
               </p>
             </div>
@@ -519,7 +519,7 @@ export default function LoginSecurityPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">{s('mfaDesc')}</p>
+          <p className="text-body text-muted-foreground">{s('mfaDesc')}</p>
 
           {mfaLoading ? (
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -534,11 +534,11 @@ export default function LoginSecurityPage() {
                   {s('mfaEnabled')}
                 </Badge>
                 {mfaStatus.enabledAt && (
-                  <span className="text-xs text-muted-foreground">
+                  <span className="text-label text-muted-foreground">
                     {s('enabledAt')}: {formatDateTime(mfaStatus.enabledAt)}
                   </span>
                 )}
-                <span className="text-xs text-muted-foreground">
+                <span className="text-label text-muted-foreground">
                   {s('backupCodesRemaining')}: {mfaStatus.backupCodesRemaining}
                 </span>
               </div>
@@ -583,9 +583,9 @@ export default function LoginSecurityPage() {
                   />
                 )}
                 <div className="flex-1 space-y-2">
-                  <p className="text-xs text-muted-foreground">{s('scanQr')}</p>
+                  <p className="text-label text-muted-foreground">{s('scanQr')}</p>
                   <div className="flex items-center gap-2 rounded-md border bg-muted/30 p-2">
-                    <code className="flex-1 break-all font-mono text-xs">{mfaSetup.secret}</code>
+                    <code className="flex-1 break-all font-mono text-label">{mfaSetup.secret}</code>
                     <Button
                       size="sm"
                       variant="outline"
@@ -641,7 +641,7 @@ export default function LoginSecurityPage() {
           )}
 
           {mfaError && (
-            <p className="flex items-center gap-1.5 text-xs text-destructive">
+            <p className="flex items-center gap-1.5 text-label text-destructive">
               <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
               {mfaError}
             </p>
@@ -658,7 +658,7 @@ export default function LoginSecurityPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">{s('passkeyDesc')}</p>
+          <p className="text-body text-muted-foreground">{s('passkeyDesc')}</p>
           <Button onClick={addPasskey} disabled={passkeyBusy} size="sm">
             {passkeyBusy ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -668,7 +668,7 @@ export default function LoginSecurityPage() {
             {s('addPasskey')}
           </Button>
           {passkeyError && (
-            <p className="flex items-center gap-1.5 text-xs text-destructive">
+            <p className="flex items-center gap-1.5 text-label text-destructive">
               <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
               {passkeyError}
             </p>
@@ -679,7 +679,7 @@ export default function LoginSecurityPage() {
       {/* toast */}
       {toast && (
         <div
-          className={`fixed bottom-6 left-1/2 z-notification -translate-x-1/2 rounded-md px-4 py-2 text-sm shadow-md ${
+          className={`fixed bottom-6 left-1/2 z-notification -translate-x-1/2 rounded-md px-4 py-2 text-body shadow-md ${
             toast === 'ok'
               ? 'bg-foreground text-background'
               : 'bg-destructive text-destructive-foreground'
@@ -708,7 +708,7 @@ export default function LoginSecurityPage() {
             <DialogTitle>{s('backupCodes')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="flex items-start gap-2 rounded-md bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-400">
+            <div className="flex items-start gap-2 rounded-md bg-amber-500/10 p-3 text-label text-amber-700 dark:text-amber-400">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
               <p>{s('saveCodesWarning')}</p>
             </div>
@@ -719,7 +719,7 @@ export default function LoginSecurityPage() {
                     <button
                       type="button"
                       onClick={() => copyRecoveryCode(code)}
-                      className="cursor-pointer rounded-sm border bg-muted/30 px-3 py-1.5 text-left font-mono text-xs hover:bg-muted/60"
+                      className="cursor-pointer rounded-sm border bg-muted/30 px-3 py-1.5 text-left font-mono text-label hover:bg-muted/60"
                     >
                       {code}
                     </button>
@@ -764,7 +764,7 @@ export default function LoginSecurityPage() {
               />
             </div>
             {disableError && (
-              <p className="flex items-center gap-1.5 text-xs text-destructive">
+              <p className="flex items-center gap-1.5 text-label text-destructive">
                 <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
                 {disableError}
               </p>

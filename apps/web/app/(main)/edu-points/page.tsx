@@ -104,7 +104,7 @@ export default function EduPointsPage() {
           <Award className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       {/* 概览卡片 — /edu-points/channels 只返回启用渠道,「渠道总数」卡与启用数同值冒充
@@ -141,13 +141,13 @@ export default function EduPointsPage() {
             {t('loading')}
           </div>
         ) : error ? (
-          <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+          <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
             {(error as Error).message}
           </div>
         ) : list.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
             <Award className="h-8 w-8 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">{t('empty')}</p>
+            <p className="text-body text-muted-foreground">{t('empty')}</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
@@ -156,8 +156,10 @@ export default function EduPointsPage() {
                 <CardHeader className="p-3 pb-2">
                   <CardTitle className="text-base">{channel.name}</CardTitle>
                 </CardHeader>
-                <CardContent className="min-[640px]:p-3 space-y-1.5 p-3 pt-0 text-sm">
-                  {channel.code && <p className="text-xs text-muted-foreground">{channel.code}</p>}
+                <CardContent className="min-[640px]:p-3 space-y-1.5 p-3 pt-0 text-body">
+                  {channel.code && (
+                    <p className="text-label text-muted-foreground">{channel.code}</p>
+                  )}
                   {channel.description && (
                     <p className="text-muted-foreground">{channel.description}</p>
                   )}
@@ -175,12 +177,12 @@ export default function EduPointsPage() {
         {allow ? (
           <>
             {redeemMsg && (
-              <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-600">
+              <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-body text-emerald-600">
                 {redeemMsg}
               </div>
             )}
             {redeemErr && (
-              <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+              <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
                 {redeemErr}
               </div>
             )}
@@ -190,13 +192,13 @@ export default function EduPointsPage() {
                 {t('loading')}
               </div>
             ) : redeemListError ? (
-              <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+              <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
                 {(redeemListError as Error).message}
               </div>
             ) : goods.length === 0 ? (
               <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
                 <Gift className="h-8 w-8 text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">{t('empty')}</p>
+                <p className="text-body text-muted-foreground">{t('empty')}</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">

@@ -2,289 +2,41 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// 对齐目标(RN 共享屏): packages/app/src/features/topic-detail/TopicDetailScreen.tsx
-import { useI18n, useTt } from '@/i18n'
-import { formatDateByTemplate, formatRelativeTime } from '@ihui/shared/utils/date-utils'
-import { logger } from '@/utils/logger'
-import { View, Text, Image, Button, ScrollView } from '@tarojs/components'
-import Taro, {
-  useDidShow,
-  useShareAppMessage,
-  useShareTimeline,
-  usePullDownRefresh,
-  useReachBottom,
-} from '@tarojs/taro'
-import { useState, useCallback, useEffect, useRef } from 'react'
-import { getTopicDetail, post, type Circle } from '@/api'
-import { NavBar } from '@/components'
+// 镜像 packages/app/src/features/topic-detail/TopicDetailScreen.tsx
+
+/**
+ * 由 scripts/gen-miniapp-mirror.mjs 以「壳承载形制」生成:端内不写布局、不写数据。
+ *   渲染 = packages/app/src/features/topic-detail/TopicDetailScreen.tsx(经 apps/miniapp-taro/src/rn-compat 兼容层落地),
+ *   数据与交互 = RN 壳 apps/mobile-rn/src/screens/TopicDetailScreen.tsx 本体,
+ *   取词/主题 = config/rn-shell-replace-plugin.ts 按发起上下文换到端内真相源。
+ * ⇒ 源头(RN 屏或壳)改一笔,这一页自动跟随;要改这一页的行为,应去改源头。
+ */
 import ThemeRoot from '@/components/ThemeRoot'
-import LineIcon from '@/components/LineIcon'
-import './detail.css'
-
-interface TopicData {
-  id?: string
-  name?: string
-  description?: string
-  followerCount?: number
-  isFollowed?: boolean
-  posts?: Circle[]
-}
-
-const PAGE_SIZE = 10
+import { TopicDetailScreen as TopicDetailScreenShell } from '@rn-shells/TopicDetailScreen'
+import { useDidShow, useRouter, useShareAppMessage, useShareTimeline } from '@tarojs/taro'
+import { useShareIntentHost } from '@ihui/shared/share'
+import { currentPageSharePath, currentPageShareQuery, getShareInfo, getTimelineShareInfo, showShareMenu } from '@/utils/share'
 
 export default function TopicDetailPage() {
-  const tt = useTt()
-  const { locale } = useI18n()
-  const [topic, setTopic] = useState<TopicData>({})
-  const [displayPosts, setDisplayPosts] = useState<Circle[]>([])
-  const [loading, setLoading] = useState(true)
-  const [loadingMore, setLoadingMore] = useState(false)
-  const [hasMore, setHasMore] = useState(false)
-  const [id, setId] = useState('')
-  const [following, setFollowing] = useState(false)
-  const pageRef = useRef(1)
-
-  const load = useCallback(async () => {
-    if (!id) return
-    setLoading(true)
-    try {
-      const res = (await getTopicDetail(id)) as TopicData
-      setTopic(res)
-      const allPosts = res.posts || []
-      pageRef.current = 1
-      const firstPage = allPosts.slice(0, PAGE_SIZE)
-      setDisplayPosts(firstPage)
-      setHasMore(allPosts.length > PAGE_SIZE)
-    } catch (e) {
-      logger.error('topic/detail', '加载话题', e)
-      Taro.showToast({ title: tt('topic.detail.loadFailed', '加载失败'), icon: 'none' })
-    } finally {
-      setLoading(false)
-    }
-  }, [id, tt])
-
-  const loadMore = useCallback(() => {
-    if (loadingMore || !hasMore || !topic.posts) return
-    setLoadingMore(true)
-    const nextPage = pageRef.current + 1
-    const end = nextPage * PAGE_SIZE
-    const nextPosts = topic.posts.slice(0, end)
-    setDisplayPosts(nextPosts)
-    pageRef.current = nextPage
-    setHasMore(nextPosts.length < topic.posts.length)
-    setLoadingMore(false)
-  }, [loadingMore, hasMore, topic.posts])
-
-  useDidShow(() => {
-    const instance = Taro.getCurrentInstance()
-    const q = instance?.router?.params
-    if (q?.id) {
-      setId(q.id)
-    }
+  const shareHost = useShareIntentHost()
+  const ShareWrap = shareHost.Wrapper
+  const router = useRouter()
+  useShareAppMessage(() => {
+    const intent = shareHost.read()
+    return getShareInfo(intent?.path ?? currentPageSharePath(router), intent?.title, intent?.imageUrl)
   })
-
-  useEffect(() => {
-    if (id) load()
-  }, [id, load])
-
-  usePullDownRefresh(() => {
-    load().then(() => Taro.stopPullDownRefresh())
+  useShareTimeline(() => {
+    const intent = shareHost.read()
+    const info = getTimelineShareInfo(intent?.timelineTitle ?? intent?.title, intent?.imageUrl)
+    const own = intent?.query ?? currentPageShareQuery(router)
+    return { ...info, query: [own, info.query].filter(Boolean).join('&') }
   })
-
-  useReachBottom(() => {
-    loadMore()
-  })
-
-  useShareAppMessage(() => ({
-    title: topic.name ? `#${topic.name}` : tt('share.appTitle', '智汇 AI'),
-    path: `/pkg-content/topic/detail?id=${id}`,
-  }))
-  useShareTimeline(() => ({
-    title: topic.name ? `#${topic.name}` : tt('share.timelineTitle', '智汇 AI'),
-    query: `id=${id}`,
-  }))
-
-  const onFollow = useCallback(async () => {
-    if (!id || following) return
-    setFollowing(true)
-    try {
-      await post(`/circles/topic/${id}/follow`, {})
-      setTopic((prev) => ({
-        ...prev,
-        isFollowed: !prev.isFollowed,
-        followerCount: (prev.followerCount || 0) + (prev.isFollowed ? -1 : 1),
-      }))
-      Taro.showToast({
-        title: topic.isFollowed
-          ? tt('topic.detail.unfollowed', '已取消关注')
-          : tt('topic.detail.followSuccess', '关注成功'),
-        icon: 'none',
-      })
-    } catch (e) {
-      logger.error('topic/detail', '关注话题', e)
-      Taro.showToast({ title: tt('topic.detail.followFailed', '操作失败'), icon: 'none' })
-    } finally {
-      setFollowing(false)
-    }
-  }, [id, following, topic.isFollowed, tt])
-
-  const goCircle = useCallback((cid: string) => {
-    Taro.navigateTo({ url: `/pages/circle/detail?id=${cid}` })
-  }, [])
-
-  const goPublish = useCallback(() => {
-    Taro.navigateTo({
-      url: `/pages/circle/create?topicId=${id}&topicName=${encodeURIComponent(topic.name || '')}`,
-    })
-  }, [id, topic.name])
-
-  // 与共享屏 topicFeedTime 同规则(date-utils 单源):≤24h 相对化,>24h 落 YYYY-MM-DD
-  const formatTime = (v: string): string => {
-    if (!v) return ''
-    const then = new Date(v).getTime()
-    if (Number.isNaN(then)) return v
-    if (Date.now() - then < 86_400_000) return formatRelativeTime(v, locale)
-    return formatDateByTemplate(v, 'YYYY-MM-DD')
-  }
-
+  useDidShow(() => showShareMenu())
   return (
     <ThemeRoot>
-      <View className="topic-detail-page">
-        <NavBar title={tt('topic.detail.pageTitle', '话题详情')} showBack />
-        <ScrollView scrollY className="topic-detail-body">
-          {/* 话题头部 */}
-          {topic.name ? (
-            <View className="topic-detail-header">
-              <View className="topic-detail-info">
-                <Text className="topic-detail-name">#{topic.name}</Text>
-                {topic.description ? (
-                  <Text className="topic-detail-desc">{topic.description}</Text>
-                ) : null}
-                <Text className="topic-detail-followers">
-                  {tt('topic.detail.followers', '{n} 人关注', {
-                    n: topic.followerCount || 0,
-                  })}
-                </Text>
-              </View>
-              <Button
-                className={`topic-detail-follow-btn${topic.isFollowed ? ' followed' : ''}`}
-                disabled={following}
-                onClick={onFollow}
-              >
-                {topic.isFollowed
-                  ? tt('topic.detail.following', '已关注')
-                  : tt('topic.detail.follow', '关注')}
-              </Button>
-            </View>
-          ) : null}
-
-          {/* 发布入口 */}
-          {topic.name ? (
-            <View className="topic-detail-publish" onClick={goPublish} hoverClass="opacity-60">
-              <LineIcon
-                name="pencil"
-                size={30}
-                className="topic-detail-publish-icon"
-                color="var(--color-muted-foreground)"
-              />
-              <Text className="topic-detail-publish-text">
-                {tt('topic.detail.publishPlaceholder', '分享你对这个话题的看法…')}
-              </Text>
-              <Text className="topic-detail-publish-btn">{tt('topic.detail.publish', '发帖')}</Text>
-            </View>
-          ) : null}
-
-          {/* 帖子列表 */}
-          {loading ? (
-            <View className="topic-detail-state">
-              <Text>{tt('topic.detail.loading', '加载中…')}</Text>
-            </View>
-          ) : null}
-
-          {!loading && displayPosts.length > 0 ? (
-            <View className="topic-detail-list">
-              {displayPosts.map((p) => (
-                <View
-                  key={p.id}
-                  className="topic-detail-post"
-                  onClick={() => goCircle(String(p.id))}
-                  hoverClass="opacity-60"
-                >
-                  <View className="topic-detail-post-user">
-                    {p.avatar ? (
-                      <Image className="topic-detail-avatar" src={p.avatar} mode="aspectFill" />
-                    ) : (
-                      <View className="topic-detail-avatar" />
-                    )}
-                    <View className="topic-detail-user-info">
-                      <Text className="topic-detail-author">
-                        {p.author || tt('topic.detail.anonymous', '匿名用户')}
-                      </Text>
-                      <Text className="topic-detail-time">{formatTime(p.createTime)}</Text>
-                    </View>
-                  </View>
-                  {p.title ? <Text className="topic-detail-post-title">{p.title}</Text> : null}
-                  <Text className="topic-detail-post-content">{p.content}</Text>
-                  {p.images && p.images.length > 0 ? (
-                    <View className="topic-detail-post-images">
-                      {p.images.slice(0, 3).map((img, i) => (
-                        <Image
-                          key={i}
-                          className="topic-detail-post-img"
-                          src={img}
-                          mode="aspectFill"
-                        />
-                      ))}
-                      {p.images.length > 3 ? (
-                        <View className="topic-detail-post-img-more">
-                          <Text>+{p.images.length - 3}</Text>
-                        </View>
-                      ) : null}
-                    </View>
-                  ) : null}
-                  <View className="topic-detail-post-footer">
-                    <View className="topic-detail-post-stat">
-                      <LineIcon
-                        name="heart"
-                        size={28}
-                        className="topic-detail-post-stat-icon"
-                        color="var(--color-muted-foreground)"
-                      />
-                      <Text className="topic-detail-post-stat-num">{p.likes || 0}</Text>
-                    </View>
-                    <View className="topic-detail-post-stat">
-                      <LineIcon
-                        name="message-circle"
-                        size={28}
-                        className="topic-detail-post-stat-icon"
-                        color="var(--color-muted-foreground)"
-                      />
-                      <Text className="topic-detail-post-stat-num">{p.comments || 0}</Text>
-                    </View>
-                  </View>
-                </View>
-              ))}
-            </View>
-          ) : null}
-
-          {!loading && displayPosts.length === 0 ? (
-            <View className="topic-detail-state">
-              <Text>{tt('topic.detail.empty', '暂无帖子,快来发布第一条吧')}</Text>
-            </View>
-          ) : null}
-
-          {/* 流尾(与共享屏同语义:hasMore∨loadingMore 读「加载中」,否则「没有更多了」) */}
-          {!loading && displayPosts.length > 0 ? (
-            <View className="topic-detail-footer">
-              <Text>
-                {hasMore || loadingMore
-                  ? tt('topic.detail.loadingMore', '加载中…')
-                  : tt('topic.detail.noMore', '没有更多了')}
-              </Text>
-            </View>
-          ) : null}
-        </ScrollView>
-      </View>
+      <ShareWrap>
+        <TopicDetailScreenShell />
+      </ShareWrap>
     </ThemeRoot>
   )
 }

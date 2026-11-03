@@ -154,7 +154,7 @@ export function TaskCard({ task, expanded, onToggle, onChanged }: TaskCardProps)
                 {STATUS_LABEL[task.status] ?? task.status}
               </span>
             </div>
-            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-label text-muted-foreground">
               <span>
                 {t('history.time')}:{' '}
                 {task.createdAt ? TIME_FMT.format(new Date(task.createdAt)) : '-'}
@@ -171,7 +171,7 @@ export function TaskCard({ task, expanded, onToggle, onChanged }: TaskCardProps)
         </button>
 
         {expanded && (
-          <div className="mt-3 space-y-2 rounded-md bg-muted/40 p-3 text-xs">
+          <div className="mt-3 space-y-2 rounded-md bg-muted/40 p-3 text-label">
             {total > 0 && (
               <>
                 <TaskProgressBar

@@ -58,7 +58,7 @@ export function DeliveryFileChangeList({ files }: { files: DeliverableFileChange
       {files.map((f, i) => (
         <div
           key={`${f.kind}-${f.path}-${i}`}
-          className="flex items-center gap-1.5 rounded-sm px-1 py-0.5 text-xs transition-colors hover:bg-accent/40"
+          className="flex items-center gap-1.5 rounded-sm px-1 py-0.5 text-label transition-colors hover:bg-accent/40"
           data-testid={`delivery-review-file-${i}`}
         >
           <span
@@ -114,7 +114,7 @@ export function DeliveryReviewPanel({ deliverables, loading = false }: DeliveryR
     if (loading) {
       return (
         <div
-          className="flex items-center justify-center gap-1.5 py-6 text-xs text-muted-foreground"
+          className="flex items-center justify-center gap-1.5 py-6 text-label text-muted-foreground"
           data-testid="delivery-review-loading"
         >
           <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
@@ -124,7 +124,7 @@ export function DeliveryReviewPanel({ deliverables, loading = false }: DeliveryR
     }
     return (
       <div
-        className="flex items-center justify-center py-6 text-xs text-muted-foreground"
+        className="flex items-center justify-center py-6 text-label text-muted-foreground"
         data-testid="delivery-review-empty"
       >
         {t('empty')}
@@ -136,14 +136,14 @@ export function DeliveryReviewPanel({ deliverables, loading = false }: DeliveryR
   const generatedAtLabel = formatRelativeTime(deliverables.generatedAt, locale)
 
   return (
-    <div className="space-y-2.5 text-sm" data-testid="delivery-review-panel">
+    <div className="space-y-2.5 text-body" data-testid="delivery-review-panel">
       {/* 1. 总结区:输出摘要全文 + 工具调用量 top5 徽章 */}
       <div className="rounded-md bg-muted/50 p-2.5" data-testid="delivery-review-summary">
         <div className="mb-1 flex items-center gap-1 text-label font-medium text-muted-foreground/80">
           <Package className="h-3.5 w-3.5 shrink-0" aria-hidden />
           <span>{t('summary')}</span>
         </div>
-        <p className="whitespace-pre-wrap text-xs leading-relaxed text-foreground/90">
+        <p className="whitespace-pre-wrap text-label leading-relaxed text-foreground/90">
           {deliverables.outputSummary}
         </p>
         <div className="mt-1.5 flex flex-wrap items-center gap-1">
@@ -176,7 +176,7 @@ export function DeliveryReviewPanel({ deliverables, loading = false }: DeliveryR
           </span>
         </div>
         {deliverables.filesChanged.length === 0 ? (
-          <div className="rounded-md border border-dashed py-3 text-center text-xs text-muted-foreground">
+          <div className="rounded-md border border-dashed py-3 text-center text-label text-muted-foreground">
             {t('filesEmpty')}
           </div>
         ) : (

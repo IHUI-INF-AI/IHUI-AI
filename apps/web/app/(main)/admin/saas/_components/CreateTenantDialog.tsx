@@ -71,7 +71,7 @@ export function CreateTenantDialog({
               aria-invalid={showError}
               className={showError ? 'border-rose-500' : ''}
             />
-            <p className="text-xs text-muted-foreground">{t('form.slugHint')}</p>
+            <p className="text-label text-muted-foreground">{t('form.slugHint')}</p>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">

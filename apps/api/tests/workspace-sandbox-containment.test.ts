@@ -23,6 +23,19 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import { sandboxExecutor } from '../src/services/workspace-ai-service.js'
 
+/**
+ * 把一个真实绝对路径转成命令里的正斜杠形态。
+ *
+ * 2026-11-02 修(根因是夹具绑平台,不是闸):此前的"根外路径"写作 `C:/Windows/...`,
+ * 在 Windows 上是绝对路径、闸能判;在 CI 的 Linux 上它是**相对路径**(不以 `/` 开头),
+ * 于是 `cat/cp/tar` 根本没被路径闸拦到,直接执行后以 1/2 退出 —— 三条拒绝用例因此
+ * 在 Linux 上假红。这里统一用 `tmpdir()` 下的同级目录(与 scratchRoot 同父、必在根外),
+ * 两种平台都是绝对路径,断言意图(根外路径必须 126)一字不变。
+ */
+function outsideRootFwd(): string {
+  return join(tmpdir(), 'ihui-sbx-outside').split(String.fromCharCode(92)).join('/')
+}
+
 let scratchRoot: string
 let savedRootsEnv: string | undefined
 
@@ -87,7 +100,7 @@ describe('R8 复评 F1:解释器仅 admin + 路径参数闸 + 同根约束', () 
 
   it('文件操作类参数路径越出登记根 ⇒ 126 拒绝', async () => {
     const r = await sandboxExecutor.execute({
-      command: 'cat C:/Windows/win.ini',
+      command: `cat ${outsideRootFwd()}/win.ini`,
       workspacePath: scratchRoot,
     })
     expect(r.exitCode).toBe(126)
@@ -110,7 +123,7 @@ describe('R8 复评 F1:解释器仅 admin + 路径参数闸 + 同根约束', () 
 
   it('R9 N1:组合长选项路径 operands 越界 ⇒ 拒绝(--target-directory 形态)', async () => {
     const r = await sandboxExecutor.execute({
-      command: 'cp .env --target-directory=C:/Windows/Temp',
+      command: `cp .env --target-directory=${outsideRootFwd()}`,
       workspacePath: scratchRoot,
     })
     expect(r.exitCode).toBe(126)
@@ -119,7 +132,7 @@ describe('R8 复评 F1:解释器仅 admin + 路径参数闸 + 同根约束', () 
 
   it('R9 N1:短选项粘值路径越界 ⇒ 拒绝(-f/外 形态)', async () => {
     const r = await sandboxExecutor.execute({
-      command: 'tar -C C:/Windows -cf x.tar .',
+      command: `tar -C ${outsideRootFwd()} -cf x.tar .`,
       workspacePath: scratchRoot,
     })
     expect(r.exitCode).toBe(126)

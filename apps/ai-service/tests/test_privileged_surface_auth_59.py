@@ -268,8 +268,12 @@ async def test_refresh_type_cookie_is_rejected(enforce_jwt: None) -> None:
 
 
 def test_dev_fallback_only_when_auth_not_enforced(monkeypatch: pytest.MonkeyPatch) -> None:
-    """jwt_secret 为空 + development(中间件自身也 no-op)才可回落单一 dev 身份;
-    一旦启用鉴权,缺失身份必须 401 —— 白名单命中也不例外。"""
+    """只有**显式**打开 AI_DEV_NO_AUTH 且无 secret 时才回落单一 dev 身份;
+    一旦启用鉴权,缺失身份必须 401 —— 白名单命中也不例外。
+
+    2026-11-01 安全强化:旧的"缺 secret + development 即降级"已删除,
+    降级只能由显式开关触发(本用例原先只钉 node_env,现在钉开关)。
+    """
     from app.core.jwt_auth import (
         DEV_ANONYMOUS_PRINCIPAL,
         auth_globally_enforced,
@@ -277,7 +281,7 @@ def test_dev_fallback_only_when_auth_not_enforced(monkeypatch: pytest.MonkeyPatc
     )
 
     monkeypatch.setattr(settings, "jwt_secret", "")
-    monkeypatch.setattr(settings, "node_env", "development")
+    monkeypatch.setattr(settings, "ai_dev_no_auth", True)
     assert auth_globally_enforced() is False
 
     monkeypatch.setattr(settings, "jwt_secret", JWT_TEST_SECRET)

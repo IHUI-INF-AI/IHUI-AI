@@ -15,6 +15,7 @@ const wxIcon = aizhsUrl('remote-images/wx.svg')
 const gongsiIcon = aizhsUrl('remote-images/gongsi.png')
 const sandMsgIcon = aizhsUrl('remote-images/sand_msg.png')
 import ThemeRoot from '@/components/ThemeRoot'
+import { onToast } from '@/host/on-toast'
 
 function isImagePath(s: string): boolean {
   return /^(https?:)?\/\//.test(s) || s.startsWith('/') || s.startsWith('data:')
@@ -52,14 +53,14 @@ export default function ContactPage() {
       setInfo(await getContact())
     } catch (e) {
       logger.error('about/contact', '获取联系方式', e)
-      Taro.showToast({ title: tt('common.failed', '加载失败'), icon: 'none' })
+      onToast(tt('common.failed', '加载失败'), { kind: 'error' })
     }
   }, [tt])
 
   const call = useCallback(
     (phone: string) => {
       if (!phone) {
-        Taro.showToast({ title: tt('about.contact.noPhone', '暂无电话'), icon: 'none' })
+        onToast(tt('about.contact.noPhone', '暂无电话'), { kind: 'error' })
         return
       }
       Taro.makePhoneCall({ phoneNumber: phone })
@@ -70,13 +71,13 @@ export default function ContactPage() {
   const copy = useCallback(
     (text: string, label: string) => {
       if (!text) {
-        Taro.showToast({ title: tt('about.contact.empty', '内容为空'), icon: 'none' })
+        onToast(tt('about.contact.empty', '内容为空'), { kind: 'error' })
         return
       }
       Taro.setClipboardData({
         data: text,
         success: () => {
-          Taro.showToast({ title: `${label}${tt('about.contact.copied', '已复制')}`, icon: 'none' })
+          onToast(`${label}${tt('about.contact.copied', '已复制')}`, { kind: 'info' })
         },
       })
     },
@@ -89,7 +90,7 @@ export default function ContactPage() {
       Taro.setClipboardData({
         data: address,
         success: () => {
-          Taro.showToast({ title: tt('about.contact.addressCopied', '地址已复制'), icon: 'none' })
+          onToast(tt('about.contact.addressCopied', '地址已复制'), { kind: 'info' })
         },
       })
     },

@@ -39,7 +39,11 @@ import asyncpg
 
 from ..core.config import settings
 from ..core.db_pool import get_shared_pool
-from ..core.internal_ticket import internal_service_headers
+from ..core.internal_ticket import (
+    INTERNAL_TICKET_HEADER,
+    INTERNAL_TOKEN_HEADER,
+    internal_service_headers,
+)
 from ..core.llm_gateway import llm_gateway
 
 logger = logging.getLogger(__name__)
@@ -78,11 +82,33 @@ def _redact_legacy_pattern_tail(pattern: str) -> str:
 
 
 def _internal_service_token() -> str:
-    """读取内部服务 token(环境变量 INTERNAL_SERVICE_TOKEN,默认 dev-token)。
+    """读取内部服务 token(环境变量 INTERNAL_SERVICE_TOKEN,缺失时为空串)。
 
     与 API 端共享密钥约定,ai-service 调 /api/memory 时携带 X-Internal-Service-Token 头。
+
+    2026-11-01:去掉原来的 `"dev-token"` 兜底。那个默认值在仓库里人人可见,等于
+    "没配密钥时自动用一把公开弱口令出站";同文件的兄弟模块(api_tools_bridge.py /
+    workbook_agent.py)都写 `""`,这里对齐。空值的判定在 `_memory_outbound_headers`:
+    签不出内部票且常驻密钥为空 ⇒ 调用方**不发请求**,而不是带一枚零凭据的头去撞 401。
     """
-    return os.environ.get("INTERNAL_SERVICE_TOKEN", "dev-token")
+    return os.environ.get("INTERNAL_SERVICE_TOKEN", "").strip()
+
+
+def _memory_outbound_headers(
+    subject: str, *, extra: Mapping[str, str] | None = None
+) -> dict[str, str] | None:
+    """构造 /api/memory 的鉴权头;``None`` = 本进程无任何可用内部凭据,调用方不得出站。
+
+    判据与 workbook_agent.outbound_headers 同形:内部票与常驻密钥**两者都缺**才算
+    "无凭据"。只剩 `x-user-id` 的头看起来非空、实际零凭据,发出去只会换回 401,
+    并把"本机没配密钥"伪装成"这个人没权限"。
+    """
+    headers = internal_service_headers(
+        subject, "memory", legacy_token=_internal_service_token(), extra=extra
+    )
+    if INTERNAL_TICKET_HEADER not in headers and INTERNAL_TOKEN_HEADER not in headers:
+        return None
+    return headers
 
 
 def _memory_api_base() -> str:
@@ -983,10 +1009,17 @@ class MemoryService:
             params: dict[str, str] = {"scope": scope}
             if session_id and scope == "session":
                 params["sessionId"] = session_id
-            # 内部服务鉴权:走 internal_service_headers 唯一出口(默认 dual 档)
-            headers = internal_service_headers(
-                subject, "memory", legacy_token=_internal_service_token()
-            )
+            # 内部服务鉴权:走 internal_service_headers 唯一出口(默认 dual 档)。
+            # 零凭据 ⇒ 不发请求(2026-11-01):判据见 `_memory_outbound_headers`。
+            headers = _memory_outbound_headers(subject)
+            if headers is None:
+                logger.warning(
+                    "跳过拉取 memory entries(user=%s scope=%s):内部凭据不可用"
+                    "(未配置 INTERNAL_SERVICE_TOKEN 且签不出内部票)",
+                    user_id,
+                    scope,
+                )
+                return []
             async with httpx.AsyncClient(timeout=5.0) as client:
                 resp = await client.get(
                     f"{_memory_api_base()}/api/memory",
@@ -1169,13 +1202,18 @@ class MemoryService:
             # 4. 批量保存到 API
             import httpx
 
-            # 内部服务鉴权:走 internal_service_headers 唯一出口(默认 dual 档)
-            headers = internal_service_headers(
-                subject,
-                "memory",
-                legacy_token=_internal_service_token(),
-                extra={"Content-Type": "application/json"},
+            # 内部服务鉴权:走 internal_service_headers 唯一出口(默认 dual 档)。
+            # 零凭据 ⇒ 不发请求(2026-11-01):判据见 `_memory_outbound_headers`。
+            headers = _memory_outbound_headers(
+                subject, extra={"Content-Type": "application/json"}
             )
+            if headers is None:
+                logger.warning(
+                    "跳过保存 memory entries(user=%s):内部凭据不可用"
+                    "(未配置 INTERNAL_SERVICE_TOKEN 且签不出内部票)",
+                    user_id,
+                )
+                return
             saved = 0
             async with httpx.AsyncClient(timeout=5.0) as client:
                 for item in extracted:

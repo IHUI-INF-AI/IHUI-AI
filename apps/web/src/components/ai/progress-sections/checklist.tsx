@@ -72,7 +72,7 @@ export const Checklist = React.memo(function Checklist({
               testId={`${rootTestId}-row-${item.id}`}
             />
             {item.description && (
-              <div className="ml-5 break-words text-xs leading-relaxed text-muted-foreground/70">
+              <div className="ml-5 break-words text-label leading-relaxed text-muted-foreground/70">
                 {item.description}
               </div>
             )}

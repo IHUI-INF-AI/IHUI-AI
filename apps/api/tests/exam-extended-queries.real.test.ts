@@ -31,11 +31,13 @@ async function seedUser() {
     .insert(users)
     .values({ email: `t-${randomUUID().slice(0, 8)}@test.com`, nickname: 'Tester' })
     .returning()
+  if (!u) throw new Error('exam-extended-queries.real.test.ts: 插入未返回行(u)')
   return u
 }
 
 async function seedPaper(title = 'Paper') {
   const [p] = await db.insert(examPapers).values({ title }).returning()
+  if (!p) throw new Error('exam-extended-queries.real.test.ts: 插入未返回行(p)')
   return p
 }
 
@@ -57,7 +59,7 @@ describe('exam-extended-queries — 真实 DB 集成测试', () => {
 
       const list = await findChapterList(paper.id)
       expect(list).toHaveLength(2)
-      expect(list[0].title).toBe('Ch1') // sort 升序
+      expect(list[0]!.title).toBe('Ch1') // sort 升序
 
       const found = await findChapterById(c1.id)
       expect(found?.title).toBe('Ch2')
@@ -83,9 +85,9 @@ describe('exam-extended-queries — 真实 DB 集成测试', () => {
       ])
 
       const list = await findChapterList(paper.id)
-      expect(list[0].id).toBe(c2.id)
-      expect(list[1].id).toBe(c3.id)
-      expect(list[2].id).toBe(c1.id)
+      expect(list[0]!.id).toBe(c2.id)
+      expect(list[1]!.id).toBe(c3.id)
+      expect(list[2]!.id).toBe(c1.id)
     })
   })
 
@@ -103,7 +105,7 @@ describe('exam-extended-queries — 真实 DB 集成测试', () => {
 
       const list = await findSectionList(chapter.id)
       expect(list).toHaveLength(2)
-      expect(list[0].title).toBe('Sec1')
+      expect(list[0]!.title).toBe('Sec1')
 
       const found = await findSectionById(s1.id)
       expect(found?.title).toBe('Sec2')
@@ -129,8 +131,8 @@ describe('exam-extended-queries — 真实 DB 集成测试', () => {
       ])
 
       const list = await findSectionList(chapter.id)
-      expect(list[0].id).toBe(s2.id)
-      expect(list[1].id).toBe(s1.id)
+      expect(list[0]!.id).toBe(s2.id)
+      expect(list[1]!.id).toBe(s1.id)
     })
   })
 
@@ -184,11 +186,12 @@ describe('exam-extended-queries — 真实 DB 集成测试', () => {
           score: '0.00',
         })
         .returning()
+      if (!r) throw new Error('exam-extended-queries.real.test.ts: 插入未返回行(r)')
 
       const result = await findMarkRecordList({ page: 1, pageSize: 10 })
       expect(result.total).toBe(1)
-      expect(result.list[0].paperTitle).toBe('Math Exam')
-      expect(result.list[0].nickname).toBe('Tester')
+      expect(result.list[0]!.paperTitle).toBe('Math Exam')
+      expect(result.list[0]!.nickname).toBe('Tester')
 
       // 已评分的不返回
       await db.update(examRecords).set({ status: 'graded' }).where(eq(examRecords.id, r.id))

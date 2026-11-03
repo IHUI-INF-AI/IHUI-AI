@@ -55,9 +55,9 @@ describe('clawdbot SystemService 系统服务', () => {
       svc.log('info', 'test-source', 'test message')
       const logs = svc.getLogs()
       expect(logs.length).toBe(1)
-      expect(logs[0].level).toBe('info')
-      expect(logs[0].source).toBe('test-source')
-      expect(logs[0].message).toBe('test message')
+      expect(logs[0]!.level).toBe('info')
+      expect(logs[0]!.source).toBe('test-source')
+      expect(logs[0]!.message).toBe('test message')
     })
 
     it('log 触发 log 事件', () => {
@@ -65,14 +65,14 @@ describe('clawdbot SystemService 系统服务', () => {
       svc.on('log', handler)
       svc.log('warn', 'src', 'msg')
       expect(handler).toHaveBeenCalledTimes(1)
-      expect(handler.mock.calls[0][0].level).toBe('warn')
+      expect(handler.mock.calls[0]![0].level).toBe('warn')
     })
 
     it('log 包含 id 与 timestamp', () => {
       svc.log('info', 'src', 'msg')
       const logs = svc.getLogs()
-      expect(logs[0].id).toMatch(/^log_[a-z0-9]+$/)
-      expect(logs[0].timestamp).toBeGreaterThan(0)
+      expect(logs[0]!.id).toMatch(/^log_[a-z0-9]+$/)
+      expect(logs[0]!.timestamp).toBeGreaterThan(0)
     })
 
     it('getLogs 按 level 过滤', () => {
@@ -89,14 +89,14 @@ describe('clawdbot SystemService 系统服务', () => {
       svc.log('info', 'src-b', 'msg2')
       const filtered = svc.getLogs({ source: 'src-a' })
       expect(filtered.length).toBe(1)
-      expect(filtered[0].source).toBe('src-a')
+      expect(filtered[0]!.source).toBe('src-a')
     })
 
     it('getLogs limit 截断', () => {
       for (let i = 0; i < 10; i++) svc.log('info', 'src', `msg${i}`)
       const limited = svc.getLogs({ limit: 3 })
       expect(limited.length).toBe(3)
-      expect(limited[0].message).toBe('msg7')
+      expect(limited[0]!.message).toBe('msg7')
     })
 
     it('clearLogs 返回清除数量并清空', () => {

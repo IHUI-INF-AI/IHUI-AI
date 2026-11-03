@@ -24,13 +24,13 @@ function FailContent() {
           <XCircle className="h-16 w-16 text-red-500" />
           <div className="space-y-1">
             <h1 className="text-display font-bold tracking-tight">{t('rechargeFail')}</h1>
-            <p className="text-sm text-muted-foreground">{t('rechargeFailDesc')}</p>
+            <p className="text-body text-muted-foreground">{t('rechargeFailDesc')}</p>
           </div>
           {orderNo && (
-            <div className="w-full space-y-1 rounded-md bg-muted/40 px-4 py-3 text-sm">
+            <div className="w-full space-y-1 rounded-md bg-muted/40 px-4 py-3 text-body">
               <div className="flex items-center justify-between gap-3">
                 <span className="text-muted-foreground">{t('rechargeOrderNo')}</span>
-                <span className="font-mono text-xs">{orderNo}</span>
+                <span className="font-mono text-label">{orderNo}</span>
               </div>
             </div>
           )}

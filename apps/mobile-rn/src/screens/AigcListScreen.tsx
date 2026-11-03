@@ -7,6 +7,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { getAigcTasks, type AigcTask } from '@ihui/api-client'
 import { toUserFriendlyMessage } from '@ihui/shared/utils'
+import type { AudioPort } from '@ihui/types'
+import { useAudioPlayer } from 'expo-audio'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import {
@@ -29,6 +31,7 @@ import { rpx } from '../utils/rpx'
 import { type LucideIcon, FileText, Film, Image, Music, Sparkles } from 'lucide-react-native'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { useHostPorts } from '../host/use-host-ports'
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
 
@@ -129,6 +132,28 @@ function toCarouselItems(items: AigcListItem[]): CourseCarouselItem[] {
     isFree: true,
     icon: FILE_TYPE_ICON[it.fileType] ?? Sparkles,
   }))
+}
+
+/** 音频端口 — expo-audio 真注入(共享屏只认端口形状,不感知宿主 SDK) */
+function useAudioPort(): AudioPort {
+  const player = useAudioPlayer(null)
+  return useMemo<AudioPort>(
+    () => ({
+      play(url) {
+        player.replace(url)
+        player.play()
+      },
+      pause() {
+        player.pause()
+      },
+      stop() {
+        // expo-audio 没有 stop():暂停 + 归零头,行为等价
+        player.pause()
+        void player.seekTo(0)
+      },
+    }),
+    [player],
+  )
 }
 
 export default function AigcListScreen() {
@@ -261,6 +286,9 @@ export default function AigcListScreen() {
     [items],
   )
 
+  const { onToast } = useHostPorts()
+  const audio = useAudioPort()
+
   /** SharedAigcListScreen 注入 props;onLoadMore 已由共享屏 FlatList 的 onEndReached 消费触发上拉分页 */
   const sharedListProps: AigcListScreenProps = {
     t,
@@ -277,6 +305,8 @@ export default function AigcListScreen() {
     onBack: () => navigation.goBack(),
     onLoadMore: loadMore,
     colorScheme: resolvedTheme,
+    onToast,
+    audio,
   }
 
   return (

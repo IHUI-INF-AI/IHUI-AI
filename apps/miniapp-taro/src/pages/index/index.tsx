@@ -90,6 +90,7 @@ import ThemeRoot from '@/components/ThemeRoot'
 import { buildTaroWaitingText, deriveTaroWaitingTurn } from '@/pkg-ai/ai/waiting-text'
 
 import './index.css'
+import { onToast } from '@/host/on-toast'
 
 const DEFAULT_AVATAR = TABBAR_HOME_ICON_URL
 
@@ -261,11 +262,7 @@ function PushNotification() {
   useDidShow(() => {
     Taro.eventCenter.on('showPushNotification', (options: { title?: string; content?: string }) => {
       if (options?.title) {
-        Taro.showToast({
-          title: options.title,
-          icon: 'none',
-          duration: 3000,
-        })
+        onToast(options.title, { kind: 'info', duration: 3000 })
       }
     })
   })
@@ -986,7 +983,7 @@ export default function Index() {
 
   const handleSend = async (text: string) => {
     if (!state.isLogin) {
-      Taro.showToast({ title: tt('index.toast.loginRequired', '请先登录'), icon: 'none' })
+      onToast(tt('index.toast.loginRequired', '请先登录'), { kind: 'error' })
       return
     }
     if (!text.trim() || state.isStreaming) return
@@ -1063,7 +1060,7 @@ export default function Index() {
           streamingContent: '',
         }
       })
-      Taro.showToast({ title: tt('index.chatError', '发送失败,请重试'), icon: 'none' })
+      onToast(tt('index.chatError', '发送失败,请重试'), { kind: 'error' })
     }
   }
 
@@ -1163,7 +1160,7 @@ export default function Index() {
 
   const handleVoiceError = useCallback(
     (msg: string) => {
-      Taro.showToast({ title: msg || '录音失败', icon: 'none' })
+      onToast(msg || '录音失败', { kind: 'error' })
       exitVoiceMode()
     },
     [exitVoiceMode],
@@ -1535,9 +1532,8 @@ export default function Index() {
                         Taro.navigateTo({
                           url: `/pkg-ai/ai/agent?id=${agent.id}&name=${encodeURIComponent(agent.name)}`,
                           fail: () => {
-                            Taro.showToast({
-                              title: tt('pagesindexindex.text2', '智能体助手页未配置'),
-                              icon: 'none',
+                            onToast(tt('pagesindexindex.text2', '智能体助手页未配置'), {
+                              kind: 'error',
                             })
                           },
                         })
@@ -1802,10 +1798,7 @@ export default function Index() {
                   Taro.showActionSheet({
                     itemList: [tt('pagesindexindex.r1', '保存图片到相册')],
                     success: () => {
-                      Taro.showToast({
-                        title: tt('pagesindexindex.save3', '图片已保存'),
-                        icon: 'success',
-                      })
+                      onToast(tt('pagesindexindex.save3', '图片已保存'), { kind: 'success' })
                     },
                     fail: () => {
                       // 用户取消操作

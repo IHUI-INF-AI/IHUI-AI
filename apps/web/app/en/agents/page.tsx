@@ -148,7 +148,7 @@ export default function EnglishAgentsPage() {
               Marketplace
             </span>
           </h1>
-          <p className="mt-6 max-w-2xl text-lg text-muted-foreground md:text-xl">
+          <p className="mt-6 max-w-2xl text-lg text-muted-foreground md:text-heading md:font-normal">
             200+ pre-built agent templates. Visual orchestration. One-click deploy to 8 platforms.
           </p>
           <div className="mt-8">
@@ -236,12 +236,12 @@ export default function EnglishAgentsPage() {
                     </div>
                     <div>
                       <p className="text-body font-medium text-foreground">{tool.name}</p>
-                      <p className="text-xs text-muted-foreground">{tool.desc}</p>
+                      <p className="text-label text-muted-foreground">{tool.desc}</p>
                     </div>
                   </div>
                 ))}
               </div>
-              <div className="mt-8 flex flex-wrap items-center justify-center gap-4 text-sm text-muted-foreground">
+              <div className="mt-8 flex flex-wrap items-center justify-center gap-4 text-body text-muted-foreground">
                 <span className="inline-flex items-center gap-1.5">
                   <CheckCircle2 className="h-4 w-4 text-primary" />
                   Secure Sandboxing
@@ -276,7 +276,7 @@ export default function EnglishAgentsPage() {
               <Link href="/en/pricing">View Pricing</Link>
             </Button>
           </div>
-          <p className="mt-8 text-xs text-muted-foreground">
+          <p className="mt-8 text-label text-muted-foreground">
             <Link href="/agents" className="underline-offset-4 hover:underline">
               Chinese version: 智汇 AI
             </Link>

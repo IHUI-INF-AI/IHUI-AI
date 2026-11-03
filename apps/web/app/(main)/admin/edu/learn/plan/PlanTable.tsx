@@ -80,7 +80,7 @@ export function PlanTable({ rows, isLoading, noEndpoint, onEdit, onDelete, delet
                   <TableCell className="px-4 py-2.5">
                     {p.userName ?? p.userId.slice(0, 8)}
                   </TableCell>
-                  <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">
+                  <TableCell className="px-4 py-2.5 text-label text-muted-foreground">
                     {p.startDate} ~ {p.endDate}
                   </TableCell>
                   <TableCell className="px-4 py-2.5">

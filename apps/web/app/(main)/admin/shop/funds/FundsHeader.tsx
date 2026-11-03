@@ -42,7 +42,7 @@ export function FundsHeader({ accounts }: Props) {
           <Wallet className="h-6 w-6 text-primary" />
           {t('funds.title')}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('funds.subtitle')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('funds.subtitle')}</p>
       </div>
       <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-3">
         {cards.map((c) => {

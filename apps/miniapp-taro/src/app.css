@@ -116,19 +116,45 @@ progress {
    实测**仍**解析成 `var(--spacing-md)`(=12rpx,应 896rpx)⇒ 具名键 `md/xs/sm/lg` 在两个命名
    空间里撞车时 spacing 胜。改用未分层规则钉回 container 语义(与 .leading-none 同一条手法:
    实测 v4 的 utilities 输出不带 @layer 包裹,故生效机制是"同优先级、后写胜" —— 本块位于 utilities 之后;若将来被包进 layer,未分层同样胜(两种情况都不依赖合并顺序)。新增 max-w 档时同批补这里。 */
-.max-w-3xs { max-width: var(--container-3xs); }
-.max-w-2xs { max-width: var(--container-2xs); }
-.max-w-xs { max-width: var(--container-xs); }
-.max-w-sm { max-width: var(--container-sm); }
-.max-w-md { max-width: var(--container-md); }
-.max-w-lg { max-width: var(--container-lg); }
-.max-w-xl { max-width: var(--container-xl); }
-.max-w-2xl { max-width: var(--container-2xl); }
-.max-w-3xl { max-width: var(--container-3xl); }
-.max-w-4xl { max-width: var(--container-4xl); }
-.max-w-5xl { max-width: var(--container-5xl); }
-.max-w-6xl { max-width: var(--container-6xl); }
-.max-w-7xl { max-width: var(--container-7xl); }
+.max-w-3xs {
+  max-width: var(--container-3xs);
+}
+.max-w-2xs {
+  max-width: var(--container-2xs);
+}
+.max-w-xs {
+  max-width: var(--container-xs);
+}
+.max-w-sm {
+  max-width: var(--container-sm);
+}
+.max-w-md {
+  max-width: var(--container-md);
+}
+.max-w-lg {
+  max-width: var(--container-lg);
+}
+.max-w-xl {
+  max-width: var(--container-xl);
+}
+.max-w-2xl {
+  max-width: var(--container-2xl);
+}
+.max-w-3xl {
+  max-width: var(--container-3xl);
+}
+.max-w-4xl {
+  max-width: var(--container-4xl);
+}
+.max-w-5xl {
+  max-width: var(--container-5xl);
+}
+.max-w-6xl {
+  max-width: var(--container-6xl);
+}
+.max-w-7xl {
+  max-width: var(--container-7xl);
+}
 /* ===== v4 色档注册(自动同步自 tokens.css,勿手动编辑;变更后运行 sync-design-tokens.mjs)===== */
 @theme static {
   /* 只注册 v4 认得的**色档**:--color-*-rgb 那批三元组不得进来 —— v4 把任何 --color-*
@@ -401,6 +427,21 @@ progress {
   --container-5xl: 64rem;
   --container-6xl: 72rem;
   --container-7xl: 80rem;
+
+  /* 以下 4 档为 tokens.css 中存在而本区尚缺,由 sync-design-tokens.mjs 自动补入(勿手改) */
+  --spacing-md-loose: 28rpx;
+  --text-body-sm: 26rpx;
+  --text-body-sm--line-height: 36rpx;
+  --text-body-sm--font-weight: 400;
+
+  /* 以下 7 档为 tokens.css 中存在而本区尚缺,由 sync-design-tokens.mjs 自动补入(勿手改) */
+  --radius: 0.5rem;
+  --radius-xs: 0.125rem;
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+  --radius-2xl: 1rem;
 }
 
 /* ===== 阿里妈妈方圆体 VF — 统一项目字体 (对齐原项目) =====
@@ -563,13 +604,6 @@ iframe#webpack-dev-server-client-overlay {
   --color-brand-700: hsl(240 5% 21%);
   --color-brand-800: hsl(240 6% 16%);
   --color-brand-900: hsl(240 7% 11%);
-  --radius: 0.5rem;
-  --radius-xs: 0.125rem;
-  --radius-sm: 0.25rem;
-  --radius-md: 0.375rem;
-  --radius-lg: 0.5rem;
-  --radius-xl: 0.75rem;
-  --radius-2xl: 1rem;
   --color-tag-inactive-bg: hsl(0 0% 88%);
   --color-pinned-tag-bg: hsl(0 0% 88%);
   --color-streamed-container-bg: hsl(0 0% 92%);
@@ -670,6 +704,7 @@ iframe#webpack-dev-server-client-overlay {
   --color-success-text: hsl(142 71% 28%);
   --color-warning-text: hsl(38 92% 30%);
   --color-danger-text: #b91c1c;
+
   /* ===== Tailwind v3 alpha 通道三元组(自动同步自 tokens.css,勿手动编辑;
      给 bg/text/border-*-/<透明度> 用,见 packages/design-tokens/src/tailwind-alpha-plugin.js)===== */
   --color-foreground-rgb: 10, 10, 10;

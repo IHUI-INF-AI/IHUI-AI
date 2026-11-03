@@ -45,7 +45,7 @@ export function CoursesSection() {
       </div>
       <div className="space-y-2">
         <h2 className="text-heading font-bold tracking-tight">{t('courses.title')}</h2>
-        <p className="text-sm text-muted-foreground">{t('courses.subtitle')}</p>
+        <p className="text-body text-muted-foreground">{t('courses.subtitle')}</p>
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -56,7 +56,7 @@ export function CoursesSection() {
               key={id}
               onClick={() => setActivePhase(id)}
               className={cn(
-                'flex items-center gap-2 rounded-sm border px-3 py-2 text-sm transition-colors',
+                'flex items-center gap-2 rounded-sm border px-3 py-2 text-body transition-colors',
                 active
                   ? 'outline outline-1 outline-border bg-primary/5 text-primary'
                   : 'hover:bg-accent',
@@ -84,7 +84,7 @@ export function CoursesSection() {
                 <div>
                   <span className="text-label font-medium text-muted-foreground">{phase.tag}</span>
                   <h3 className="text-base font-semibold tracking-tight">{phase.title}</h3>
-                  <p className="text-sm text-muted-foreground">{phase.description}</p>
+                  <p className="text-body text-muted-foreground">{phase.description}</p>
                 </div>
               </div>
               <div className="grid grid-cols-1 gap-2 min-[640px]:grid-cols-2">
@@ -93,10 +93,10 @@ export function CoursesSection() {
                     key={course.name}
                     className="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2"
                   >
-                    <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                    <span className="rounded bg-muted px-1.5 py-0.5 text-label text-muted-foreground">
                       {course.duration}
                     </span>
-                    <span className="flex-1 text-sm">{course.name}</span>
+                    <span className="flex-1 text-body">{course.name}</span>
                     {course.isNew && (
                       <span className="rounded-md bg-destructive/10 px-1.5 py-0.5 text-label font-medium text-destructive">
                         NEW

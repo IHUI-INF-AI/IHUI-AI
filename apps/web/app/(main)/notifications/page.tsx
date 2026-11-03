@@ -86,11 +86,11 @@ export default function NotificationsPage() {
             <Bell className="h-6 w-6 shrink-0 text-primary" />
             <span className="truncate">{t('title')}</span>
           </h1>
-          <p className="mt-1 whitespace-nowrap text-sm tabular-nums text-muted-foreground">
+          <p className="mt-1 whitespace-nowrap text-body tabular-nums text-muted-foreground">
             {unread > 0 ? t('unreadCount', { count: unread }) : t('allRead')}
           </p>
           {readAllFailed && (
-            <p className="mt-1 text-xs text-destructive">{t('markAllReadFailed')}</p>
+            <p className="mt-1 text-label text-destructive">{t('markAllReadFailed')}</p>
           )}
         </div>
         <Button

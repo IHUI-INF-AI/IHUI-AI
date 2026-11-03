@@ -77,7 +77,7 @@ export default function EduNotesPage() {
           <NotebookPen className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       <SearchInput
@@ -100,7 +100,7 @@ export default function EduNotesPage() {
       ) : notes.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
           <NotebookPen className="h-8 w-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">{t('empty')}</p>
+          <p className="text-body text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
@@ -119,8 +119,8 @@ export default function EduNotesPage() {
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
                 </div>
-                <p className="line-clamp-3 text-sm text-muted-foreground">{note.content}</p>
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <p className="line-clamp-3 text-body text-muted-foreground">{note.content}</p>
+                <div className="flex items-center justify-between text-label text-muted-foreground">
                   <span>{note.courseName ?? t('generalNote')}</span>
                   <span>{fmt(note.createdAt)}</span>
                 </div>

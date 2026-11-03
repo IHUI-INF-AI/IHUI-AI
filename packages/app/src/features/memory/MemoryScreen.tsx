@@ -515,7 +515,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing['2xs'],
     },
     miniTagText: {
-      fontSize: 10,
+      fontSize: rnType.badge.size,
       color: tk.text.secondary,
     },
     entryText: {

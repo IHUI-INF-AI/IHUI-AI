@@ -22,6 +22,7 @@ import { requestWxPayment } from '@/utils/pay'
 import { requestPushSubscription } from '@/utils/push-init'
 import ThemeRoot from '@/components/ThemeRoot'
 import { useTt } from '@/i18n'
+import { onToast } from '@/host/on-toast'
 
 interface EnrollmentBill {
   id: string
@@ -167,12 +168,12 @@ export default function Bill() {
 
   const onSubscribe = async () => {
     const ok = await requestPushSubscription()
-    Taro.showToast({
-      title: ok
+    onToast(
+      ok
         ? tt('bill.subscribed', '已开启微信催费提醒')
         : tt('bill.subscribeFailed', '未完成订阅授权'),
-      icon: ok ? 'success' : 'none',
-    })
+      { kind: ok ? 'success' : 'error' },
+    )
   }
 
   const onPay = async (item: EnrollmentBill) => {
@@ -190,16 +191,15 @@ export default function Bill() {
       })) as WechatPayCreateResp
       // mock 模式(后端未配置微信支付凭证)
       if (res.mock) {
-        Taro.showToast({
-          title: tt('bill.payMockOk', '支付成功(mock,支付凭证未配置)'),
-          icon: 'none',
+        onToast(tt('bill.payMockOk', '支付成功(mock,支付凭证未配置)'), {
+          kind: 'error',
           duration: 2500,
         })
         await load()
         return
       }
       if (!res.paySign || !res.timestamp || !res.nonceStr || !res.package) {
-        Taro.showToast({ title: tt('bill.payParamsMissing', '支付参数缺失,请联系机构'), icon: 'none' })
+        onToast(tt('bill.payParamsMissing', '支付参数缺失,请联系机构'), { kind: 'error' })
         return
       }
       await requestWxPayment({
@@ -209,7 +209,7 @@ export default function Bill() {
         signType: res.signType ?? 'RSA',
         paySign: res.paySign,
       } as AnyPayParams)
-      Taro.showToast({ title: tt('bill.payOk', '缴费成功'), icon: 'success' })
+      onToast(tt('bill.payOk', '缴费成功'), { kind: 'success' })
       await load()
     } catch {
       // requestWxPayment 内部已提示(取消/失败),静默
@@ -332,7 +332,9 @@ export default function Bill() {
           </View>
         ) : (
           <View className="py-[48rpx] text-center text-[length:26rpx] text-muted-foreground">
-            <Text>{loading ? tt('bill.loading', '加载中…') : tt('bill.empty', '暂无报名账单')}</Text>
+            <Text>
+              {loading ? tt('bill.loading', '加载中…') : tt('bill.empty', '暂无报名账单')}
+            </Text>
           </View>
         )}
 
@@ -352,7 +354,9 @@ export default function Bill() {
                     </Text>
                     <Text className="mt-[4rpx] block text-caption text-[var(--color-text-tertiary)]">
                       {p.paymentDate}
-                      {p.receiptNo ? ` · ${tt('bill.receiptNo', '单号 {no}', { no: p.receiptNo })}` : ''}
+                      {p.receiptNo
+                        ? ` · ${tt('bill.receiptNo', '单号 {no}', { no: p.receiptNo })}`
+                        : ''}
                     </Text>
                   </View>
                   <Text className="text-strong font-bold text-foreground">
@@ -367,7 +371,7 @@ export default function Bill() {
         {/* 底部说明 */}
         <View className="mt-[32rpx] px-[40rpx] text-center">
           <Button
-            className="h-[72rpx] rounded-sm text-[length:26rpx] leading-[72rpx]" /* 控件档 sm:项目不允许胶囊 */
+            className="h-[72rpx] rounded-sm text-body-sm leading-[72rpx]" /* 控件档 sm:项目不允许胶囊 */
             plain
             onClick={() => void onSubscribe()}
           >

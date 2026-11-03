@@ -4,6 +4,7 @@
 
 import { describe, it, expect } from 'vitest'
 import {
+  type TimeInput,
   TZError,
   COMMON_ZONES,
   toAwareUtc,
@@ -33,8 +34,8 @@ describe('timezone-utils — toAwareUtc', () => {
   })
   it('null/undefined 返回当前时间', () => {
     const before = Date.now()
-    const out1 = toAwareUtc(null as unknown as undefined)
-    const out2 = toAwareUtc(undefined as unknown as undefined)
+    const out1 = toAwareUtc(null as unknown as TimeInput)
+    const out2 = toAwareUtc(undefined as unknown as TimeInput)
     const after = Date.now()
     expect(out1.getTime()).toBeGreaterThanOrEqual(before)
     expect(out1.getTime()).toBeLessThanOrEqual(after)

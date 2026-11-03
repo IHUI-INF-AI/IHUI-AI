@@ -22,8 +22,9 @@ export function VipLevelScreen({
   loading,
   error,
   onBack,
-  colorScheme = 'light',
-}: VipLevelScreenProps) {
+  onRetry,
+  colorScheme = 'light'
+}: VipLevelScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -39,7 +40,7 @@ export function VipLevelScreen({
     return (
       <ErrorState
         message={error || t('vipLevel.empty')}
-        onRetry={onBack}
+        onRetry={onRetry}
         retryLabel={t('common.back')}
         colorScheme={colorScheme}
       />
@@ -81,7 +82,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing.md,
       gap: rnSpacing.md,
     },
-    body: { padding: 14 },
+    body: { padding: rnSpacing['md-loose'] },
     title: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
     levelName: { fontSize: 22, fontWeight: '700', color: tk.success.DEFAULT },
     row: {

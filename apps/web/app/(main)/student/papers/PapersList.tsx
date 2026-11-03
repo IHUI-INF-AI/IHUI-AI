@@ -35,7 +35,7 @@ export function PapersList({ list, isLoading, error, delPending, onDelete }: Pro
   }
   if (error) {
     return (
-      <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+      <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
         {error.message}
       </div>
     )
@@ -44,7 +44,7 @@ export function PapersList({ list, isLoading, error, delPending, onDelete }: Pro
     return (
       <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
         <FileText className="h-8 w-8 text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">{t('empty')}</p>
+        <p className="text-body text-muted-foreground">{t('empty')}</p>
       </div>
     )
   }
@@ -67,7 +67,7 @@ export function PapersList({ list, isLoading, error, delPending, onDelete }: Pro
               </span>
             </div>
             <h3 className="font-medium">{paper.paperTitle}</h3>
-            <div className="space-y-1.5 text-xs text-muted-foreground">
+            <div className="space-y-1.5 text-label text-muted-foreground">
               {paper.paperUrl && (
                 <a
                   href={paper.paperUrl}

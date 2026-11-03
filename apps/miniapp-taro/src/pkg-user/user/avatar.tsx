@@ -13,6 +13,7 @@ import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { uploadImage } from '@/utils/upload-image'
 import ThemeRoot from '@/components/ThemeRoot'
 import './avatar.css'
+import { onToast } from '@/host/on-toast'
 
 const DEFAULT_AVATAR = '/static/default-avatar.png'
 
@@ -34,7 +35,7 @@ export default function Avatar() {
           setNickname(profile.nickname || '')
         } catch (e) {
           logger.error('user/avatar', '获取用户信息', e)
-          Taro.showToast({ title: tt('common.failed', '加载失败'), icon: 'none' })
+          onToast(tt('common.failed', '加载失败'), { kind: 'error' })
         }
       })()
     })
@@ -72,17 +73,11 @@ export default function Avatar() {
           // 2. 把 URL 写入用户资料
           await updateUserAvatar(uploaded.url)
           setAvatar(uploaded.url)
-          Taro.showToast({
-            title: tt('user.avatar.updateSuccess', '头像已更新'),
-            icon: 'success',
-          })
+          onToast(tt('user.avatar.updateSuccess', '头像已更新'), { kind: 'success' })
         } catch (e) {
           // 上传失败:回退到旧头像
           logger.error('user/avatar', '上传头像失败', e)
-          Taro.showToast({
-            title: tt('user.avatar.updateFailed', '更新头像失败'),
-            icon: 'none',
-          })
+          onToast(tt('user.avatar.updateFailed', '更新头像失败'), { kind: 'error' })
           // 重新拉取 profile 以恢复旧头像
           try {
             const profile = await getProfile()
@@ -99,10 +94,7 @@ export default function Avatar() {
         const msg = String(err?.errMsg || '').toLowerCase()
         if (msg.includes('cancel')) return // 用户取消,静默
         logger.error('user/avatar', '选图失败', err)
-        Taro.showToast({
-          title: tt('user.avatar.chooseFailed', '选图失败'),
-          icon: 'none',
-        })
+        onToast(tt('user.avatar.chooseFailed', '选图失败'), { kind: 'error' })
       },
     })
   }

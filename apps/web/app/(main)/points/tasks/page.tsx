@@ -62,7 +62,7 @@ export default function PointsTasksPage() {
         <h1 className="text-lg font-medium">{t('title')}</h1>
         <div className="w-10" />
       </div>
-      <p className="mb-4 text-sm text-muted-foreground">{t('subtitle')}</p>
+      <p className="mb-4 text-body text-muted-foreground">{t('subtitle')}</p>
 
       {/* 2026-09-30 登录态门 */}
       {allow ? (
@@ -74,7 +74,7 @@ export default function PointsTasksPage() {
                 type="button"
                 onClick={() => setTab(key)}
                 className={cn(
-                  'rounded-sm px-3 py-1.5 text-sm transition-colors',
+                  'rounded-sm px-3 py-1.5 text-body transition-colors',
                   tab === key
                     ? 'bg-cta text-cta-foreground'
                     : 'bg-secondary text-secondary-foreground hover:bg-secondary/70',
@@ -92,7 +92,7 @@ export default function PointsTasksPage() {
             </div>
           ) : tasksQ.isError ? (
             <div className="rounded-lg border border-border bg-card p-3 text-center">
-              <p className="mb-3 text-sm text-muted-foreground">{t('loadFailed')}</p>
+              <p className="mb-3 text-body text-muted-foreground">{t('loadFailed')}</p>
               <Button variant="outline" size="sm" onClick={() => void tasksQ.refetch()}>
                 <RotateCw className="mr-2 h-4 w-4" />
                 {t('retry')}
@@ -100,7 +100,7 @@ export default function PointsTasksPage() {
             </div>
           ) : (tasksQ.data ?? []).length === 0 ? (
             <Card>
-              <CardContent className="flex items-center justify-center py-12 text-sm text-muted-foreground">
+              <CardContent className="flex items-center justify-center py-12 text-body text-muted-foreground">
                 {t('empty')}
               </CardContent>
             </Card>
@@ -117,7 +117,9 @@ export default function PointsTasksPage() {
                       <div className="mb-1 flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <h3 className="truncate text-body font-medium">{task.title}</h3>
-                          <p className="mt-0.5 text-xs text-muted-foreground">{task.description}</p>
+                          <p className="mt-0.5 text-label text-muted-foreground">
+                            {task.description}
+                          </p>
                         </div>
                         <span className="shrink-0 rounded-md bg-secondary px-2 py-1 text-label font-medium text-secondary-foreground">
                           +{task.reward}
@@ -134,14 +136,14 @@ export default function PointsTasksPage() {
                             style={{ width: `${pct}%` }}
                           />
                         </div>
-                        <span className="shrink-0 text-xs text-muted-foreground">
+                        <span className="shrink-0 text-label text-muted-foreground">
                           {task.progress}/{task.target}
                         </span>
                       </div>
 
                       <div className="mt-3 flex justify-end">
                         {task.claimed ? (
-                          <span className="inline-flex items-center gap-1 text-sm text-muted-foreground">
+                          <span className="inline-flex items-center gap-1 text-body text-muted-foreground">
                             <Check className="h-4 w-4" />
                             {t('claimed')}
                           </span>
@@ -159,7 +161,9 @@ export default function PointsTasksPage() {
                             {t('claim')}
                           </Button>
                         ) : (
-                          <span className="text-sm text-muted-foreground">{t('notCompleted')}</span>
+                          <span className="text-body text-muted-foreground">
+                            {t('notCompleted')}
+                          </span>
                         )}
                       </div>
                     </CardContent>

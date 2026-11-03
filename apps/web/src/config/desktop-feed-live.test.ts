@@ -13,7 +13,7 @@
  *   3. 没有已发布 desktop release 时报 null,而不是退化 TieSilently 到快照;
  *   4. latest.json 里的 platforms 必须原样透出 —— 不许在本侧重算平台键和签名。
  */
-import { describe, it, expect } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   cmpVer,
   pickLatestDesktopRelease,
@@ -22,6 +22,8 @@ import {
   pickLatestApkRelease,
   extractSemver,
   preferGiteeWindows,
+  fetchReleasesPaged,
+  resolveLiveDesktopFeed,
   type UpstreamRelease,
 } from './desktop-feed-live'
 
@@ -173,7 +175,6 @@ describe('pickLatestApkRelease', () => {
     expect(pickLatestApkRelease([])).toBeNull()
   })
 })
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 describe('preferGiteeWindows —— 国内可达偏好,但只认字节对账(2026-10-18 由"看名字"改判)', () => {
   const payload = {
@@ -260,3 +261,107 @@ describe('preferGiteeWindows —— 国内可达偏好,但只认字节对账(202
     })
   })
 })
+
+/**
+ * 分页枚举(2026-11-02 复发事故)。GitHub `/releases` 按创建时间倒序,而 Android nightly
+ * 每跑一次 CI 就新增一枚 release —— 现读第一页 100 条里 `desktop-v*` **一个都没有**,
+ * 旧的单页写法因此挑不出候选,下载页与更新器一起退回 2026-10-18 那枚快照。
+ * CI 侧的 `scripts/resolve-desktop-download.mjs` 早在 2026-09 就为同一格写了翻页
+ * (注释原话:"仓库里的 release 只会越来越多,这一格是必然恶化的"),运行期这一份当时没同步。
+ */
+describe('fetchReleasesPaged —— 短页即停 / 首页失败判死 / 中途失败带部分继续', () => {
+  const RELEASES_URL = 'https://api.github.com/repos/IHUI-INF-AI/IHUI-AI/releases'
+  const nightly = (n: number, start = 0) =>
+    Array.from({ length: n }, (_, i) => ({ tag_name: `nightly-${start + i}`, assets: [] }))
+  const desktopRelease = {
+    tag_name: 'desktop-v0.1.80',
+    published_at: '2026-11-01T00:00:00Z',
+    draft: false,
+    prerelease: false,
+    assets: [
+      {
+        name: 'latest.json',
+        size: 100,
+        browser_download_url:
+          'https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-v0.1.80/latest.json',
+      },
+      {
+        name: 'AI_0.1.80_x64-setup.exe',
+        size: 10142082,
+        browser_download_url:
+          'https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-v0.1.80/AI_0.1.80_x64-setup.exe',
+      },
+    ],
+  }
+
+  afterEach(() => vi.unstubAllGlobals())
+
+  function mockByPage(resolvePage: (page: number) => { ok: boolean; batch?: unknown[] }) {
+    const urls: string[] = []
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        urls.push(String(url))
+        const page = Number(new URL(String(url)).searchParams.get('page') ?? '1')
+        const r = resolvePage(page)
+        return { ok: r.ok, status: r.ok ? 200 : 500, json: async () => r.batch ?? [] }
+      }),
+    )
+    return urls
+  }
+
+  it('首页满、第二页含 desktop ⇒ 翻到短页为止,并挑出 desktop', async () => {
+    mockByPage((page) =>
+      page === 1 ? { ok: true, batch: nightly(100) } : { ok: true, batch: [desktopRelease] },
+    )
+    const scan = await fetchReleasesPaged(RELEASES_URL, {})
+    expect(scan?.pages).toBe(2)
+    expect(scan?.releases.length).toBe(101)
+    expect(scan?.partial).toBe(false)
+    expect(pickLatestDesktopRelease(scan?.releases ?? [])?.version).toBe('0.1.80')
+  })
+
+  it('首页就失败 ⇒ null(空数组冒充"扫过且没有"就是把未判定说成判过)', async () => {
+    mockByPage(() => ({ ok: false }))
+    expect(await fetchReleasesPaged(RELEASES_URL, {})).toBeNull()
+  })
+
+  it('中途某页失败 ⇒ 带已拿到的部分继续并标 partial', async () => {
+    mockByPage((page) => (page === 1 ? { ok: true, batch: nightly(100) } : { ok: false }))
+    const scan = await fetchReleasesPaged(RELEASES_URL, {})
+    expect(scan?.pages).toBe(2)
+    expect(scan?.partial).toBe(true)
+    expect(scan?.releases.length).toBe(100)
+  })
+
+  it('maxPages 是硬上限,防被无限分页拖死', async () => {
+    const urls = mockByPage((page) => ({ ok: true, batch: nightly(100, page * 1000) }))
+    await fetchReleasesPaged(RELEASES_URL, {}, { maxPages: 3 })
+    expect(urls.length).toBe(3)
+  })
+
+  it('变异自证(端到端):desktop 落在第二页时解析器必须报 live,而不是退回 10-18 的快照', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        const u = String(url)
+        if (u.includes('/releases?')) {
+          const page = Number(new URL(u).searchParams.get('page') ?? '1')
+          return {
+            ok: true,
+            status: 200,
+            json: async () => (page === 1 ? nightly(100) : [desktopRelease]),
+          }
+        }
+        // latest.json 资产与 Gitee 对账一律取不到:版本号仍须答对(这两件严重度不同)
+        return { ok: false, status: 500, json: async () => ({}) }
+      }),
+    )
+    const resolved = await resolveLiveDesktopFeed()
+    expect(resolved.source).toBe('live')
+    if (resolved.source !== 'live') throw new Error('形态不该走到这里')
+    expect(resolved.data.version).toBe('0.1.80')
+    expect(resolved.data.assets.some((a) => a.href.includes('0.1.80'))).toBe(true)
+  })
+})
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -22,12 +22,12 @@ export function FundsAccountsTable({ accounts, isLoading }: Props) {
       <Table>
         <TableHeader>
           <TableRow className="bg-muted/50">
-            <TableHead className="text-xs uppercase">{t('funds.table.user')}</TableHead>
-            <TableHead className="text-xs uppercase">{t('funds.table.balance')}</TableHead>
-            <TableHead className="text-xs uppercase">{t('funds.table.frozen')}</TableHead>
-            <TableHead className="text-xs uppercase">{t('funds.table.totalRecharge')}</TableHead>
-            <TableHead className="text-xs uppercase">{t('funds.table.totalConsume')}</TableHead>
-            <TableHead className="text-xs uppercase">{t('funds.table.updatedAt')}</TableHead>
+            <TableHead className="text-label uppercase">{t('funds.table.user')}</TableHead>
+            <TableHead className="text-label uppercase">{t('funds.table.balance')}</TableHead>
+            <TableHead className="text-label uppercase">{t('funds.table.frozen')}</TableHead>
+            <TableHead className="text-label uppercase">{t('funds.table.totalRecharge')}</TableHead>
+            <TableHead className="text-label uppercase">{t('funds.table.totalConsume')}</TableHead>
+            <TableHead className="text-label uppercase">{t('funds.table.updatedAt')}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -55,7 +55,7 @@ export function FundsAccountsTable({ accounts, isLoading }: Props) {
                   ¥{(a.totalRecharge / 100).toFixed(2)}
                 </TableCell>
                 <TableCell className="text-red-600">¥{(a.totalConsume / 100).toFixed(2)}</TableCell>
-                <TableCell className="text-xs text-muted-foreground">
+                <TableCell className="text-label text-muted-foreground">
                   {formatDate(a.updatedAt)}
                 </TableCell>
               </TableRow>

@@ -56,7 +56,10 @@ beforeEach(() => {
   q.findUserPreferences.mockImplementation(async (userId: string, group?: string) => {
     const list: { id: string; key: string; value: string | null }[] = []
     for (const [k, v] of store) {
-      const [u, g, key] = k.split('|')
+      const parts = k.split('|')
+      const u = parts[0]!
+      const g = parts[1]!
+      const key = parts[2]!
       if (u === userId && (!group || g === group)) list.push({ id: k, key, value: v })
     }
     return { list, total: list.length }

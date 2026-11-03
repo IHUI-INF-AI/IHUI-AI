@@ -48,14 +48,14 @@ export function Model3DGenerator({ onGenerate }: Model3DGeneratorProps) {
       result={
         result.status === 'success' && result.data ? (
           <div className="space-y-2">
-            <div className="flex items-center gap-2 rounded-md bg-muted/30 p-2 text-xs">
+            <div className="flex items-center gap-2 rounded-md bg-muted/30 p-2 text-label">
               <Box className="h-4 w-4 text-orange-500" />
               <span className="font-mono">{result.data}</span>
             </div>
             <a
               href={result.data}
               download={`model.${format}`}
-              className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+              className="inline-flex items-center gap-1 text-label text-primary hover:underline"
             >
               <Download className="h-3 w-3" />
               {t('downloadModel')}

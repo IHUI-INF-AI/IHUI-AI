@@ -107,7 +107,7 @@ export default function AdminLearnSignupBatchPage() {
       <BackButton />
       <div>
         <h1 className="text-display font-bold tracking-tight">批量报名管理</h1>
-        <p className="mt-1 text-sm text-muted-foreground">管理批量报名记录,支持导入与导出</p>
+        <p className="mt-1 text-body text-muted-foreground">管理批量报名记录,支持导入与导出</p>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -174,7 +174,7 @@ export default function AdminLearnSignupBatchPage() {
                 const sc = statusOf(r.status)
                 return (
                   <TableRow key={r.id} className="hover:bg-muted/30">
-                    <TableCell className="px-4 py-2.5 font-mono text-xs">{r.batchNo}</TableCell>
+                    <TableCell className="px-4 py-2.5 font-mono text-label">{r.batchNo}</TableCell>
                     <TableCell className="px-4 py-2.5 font-medium">{r.targetTitle}</TableCell>
                     <TableCell className="px-4 py-2.5 text-muted-foreground">
                       {r.targetType}
@@ -190,7 +190,7 @@ export default function AdminLearnSignupBatchPage() {
                         {sc.label}
                       </span>
                     </TableCell>
-                    <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">
+                    <TableCell className="px-4 py-2.5 text-label text-muted-foreground">
                       {dateFmt.format(new Date(r.createdAt))}
                     </TableCell>
                   </TableRow>
@@ -202,7 +202,7 @@ export default function AdminLearnSignupBatchPage() {
       </div>
 
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">共 {total} 条</span>
+        <span className="text-body text-muted-foreground">共 {total} 条</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -212,7 +212,7 @@ export default function AdminLearnSignupBatchPage() {
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-body text-muted-foreground">
             {page} / {totalPages}
           </span>
           <Button

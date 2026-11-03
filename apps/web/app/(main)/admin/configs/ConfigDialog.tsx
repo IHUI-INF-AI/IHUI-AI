@@ -65,7 +65,7 @@ export function ConfigDialog({
             <DialogDescription>{t('createDesc')}</DialogDescription>
           </DialogHeader>
           {err && (
-            <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <div className="rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">
               {err}
             </div>
           )}
@@ -132,7 +132,7 @@ export function ConfigDialog({
               checked={form.isPublic}
               onCheckedChange={(v) => setForm({ ...form, isPublic: v })}
             />
-            <span className="text-sm">{t('fieldPublic')}</span>
+            <span className="text-body">{t('fieldPublic')}</span>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={savePending}>

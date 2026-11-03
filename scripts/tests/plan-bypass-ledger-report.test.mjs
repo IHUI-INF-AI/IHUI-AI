@@ -279,20 +279,37 @@ test('T5 同源 schema 锁:键名与 safe-commit 那本逐字同族,只多 gates
     '键集漂移(增删改名)即红:台账有两份形状 = 统计永远对不上',
   )
   assert.equal(LEDGER_REL, join('.ihui-agent', 'state', 'safe-commit-attestation.jsonl'), '必须是那一本,不得另立文件')
-  // 落地器不得自己再拼一次路径(第二份落点)
-  for (const f of ['object-space-land.mjs', 'live-doc-edit.mjs']) {
+  // 落地器不得自己再拼一次路径(第二份落点),且必须真的接上留痕出口。
+  // 两个落地器的接线形态**本来就不同**(2026-10-26 起 live-doc-edit 的 record 可注入,计划/落账
+  // 各由 `planBypassAttestations` / `recordBypassChain` 单点给出),所以按各自真实形态逐字钉,
+  // 不写成一条通配 —— 通配会同时容忍"只 import 不调用"这一型(那正是 T5b 要防的)。
+  const WIRING = {
+    'object-space-land.mjs': {
+      call: /const attest = recordBypassLanding\(\{/,
+      failBranch: /if \(!attest\.ok\)\s*\n?\s*console\.log\(/,
+    },
+    'live-doc-edit.mjs': {
+      // 默认参数绑定真出口(可注入 ≠ 可缺席:默认值必须是同一份实现),再由 record({...}) 真调用;
+      // 写失败由调用侧逐条 `⚠️ 跳门留痕未写入` 喊一行。
+      call: /record = recordBypassLanding,/,
+      callSite: /r = record\(\{/,
+      failBranch: /if \(!e\.result\?\.ok\)\s*\n?\s*console\.log\(/,
+    },
+  }
+  for (const [f, shape] of Object.entries(WIRING)) {
     const s = src(f)
     // 判"有没有第二份落点"是**判字面量**的门:按 AGENTS 横向口径,遮罩只遮注释、保留字符串 ——
-    // 注释里引用一次台账文件名(读给人看的量级注记)是叙述,不是落点;而把路径写进代码字符串
+    // 注释里引用一次台账文件名(读给人看的量级记)是叙述,不是落点;而把路径写进代码字符串
     // 仍然是分叉,照红。2026-10-19 实测踩的就是前者(误报)。
     assert.ok(
       !maskComments(s).includes('safe-commit-attestation.jsonl'),
       `${f} 里出现了台账路径字面量 ⇒ 落点分叉`,
     )
     assert.match(s, /from '\.\/lib\/commit-attestation\.mjs'/, `${f} 必须引唯一出口`)
-    assert.match(s, /recordBypassLanding\(\{/, `${f} 必须真的调用留痕出口(判据在而无人调 = 没有)`)
-    const j = s.indexOf('if (!attest.ok)')
-    assert.ok(j > 0, `${f} 的写失败分支不见了`)
+    assert.match(s, shape.call, `${f} 必须真的调用留痕出口(判据在而无人调 = 没有)`)
+    if (shape.callSite) assert.match(s, shape.callSite, `${f} 的注入形态必须真的调到 record({...})`)
+    assert.match(s, shape.failBranch, `${f} 的写失败分支不见了`)
+    const j = s.search(shape.failBranch)
     const warn = s.slice(j, j + 320)
     assert.match(warn, /console\.log\(/, '写失败必须喊一行')
     assert.ok(!warn.includes('process.exit'), '写失败不得改落地成败(硬要求②)')
@@ -309,7 +326,22 @@ test('T5 同源 schema 锁:键名与 safe-commit 那本逐字同族,只多 gates
  */
 test('T5b HEAD 面装车锁:两个落地器在**被审面**上都必须真的接了留痕出口', () => {
   const repo = resolve(SCRIPTS, '..')
-  for (const rel of ['object-space-land.mjs', 'live-doc-edit.mjs']) {
+  // 两个落地器在 HEAD 上的接线形态不同(见 T5):object-space-land 直调出口,
+  // live-doc-edit 是"默认参数绑定真出口 + record({...}) 真调用"。锁钉的是**接线在不在**,
+  // 不是"必须写成哪一种写法" —— 2026-10-26 改成注入式之后,旧的字面计数把活的接线判成 0,
+  // 正是这套锁自己要防的那型假红(与 2026-09-29 那次真抹除方向相反,但同为"拿旧写法当唯一形态")。
+  const HEAD_WIRING = {
+    'object-space-land.mjs': {
+      call: /const attest = recordBypassLanding\(\{/,
+      count: (h) => h.split('recordBypassLanding(').length - 1,
+    },
+    'live-doc-edit.mjs': {
+      call: /record = recordBypassLanding,/,
+      callSite: /r = record\(\{/,
+      count: (h) => h.split('record = recordBypassLanding,').length - 1,
+    },
+  }
+  for (const [rel, shape] of Object.entries(HEAD_WIRING)) {
     const head = execFileSync(
       GIT,
       ['-c', 'safe.directory=*', '-C', repo, 'show', `HEAD:scripts/${rel}`],
@@ -321,10 +353,12 @@ test('T5b HEAD 面装车锁:两个落地器在**被审面**上都必须真的接
       head.includes("from './lib/commit-attestation.mjs'"),
       `${rel} 的 HEAD 版本没有引唯一出口 ⇒ 接线已被回写掉(工作树副本仍算是"没入库",不能当已交付)`,
     )
+    assert.match(head, shape.call, `${rel} 的 HEAD 版本里留痕出口的接线不见了`)
+    if (shape.callSite) assert.match(head, shape.callSite, `${rel} 的 HEAD 版本里注入形态没有真的调到 record({...})`)
     assert.equal(
-      head.split('recordBypassLanding(').length - 1,
+      shape.count(head),
       1,
-      `${rel} 的 HEAD 版本里 recordBypassLanding( 的**调用**应恰好 1 处(import 那行不带左括号,由上面那条断言单独锁),实测 ${head.split('recordBypassLanding(').length - 1} 处`,
+      `${rel} 的 HEAD 版本里留痕出口的接线应恰好 1 处(import 那行不带调用形态,由上面那条断言单独锁),实测 ${shape.count(head)} 处`,
     )
     assert.ok(
       !maskComments(head).includes('safe-commit-attestation.jsonl'),

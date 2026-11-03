@@ -58,7 +58,7 @@ export function HomeFeatureGrid() {
           02
         </div>
         <h2 className="text-display font-bold tracking-tight min-[640px]:text-3xl">{t('title')}</h2>
-        <h3 className="font-edix text-xs uppercase tracking-[0.2em] text-muted-foreground">
+        <h3 className="font-edix text-label uppercase tracking-[0.2em] text-muted-foreground">
           {t('titleEn')}
         </h3>
       </RevealOnView>

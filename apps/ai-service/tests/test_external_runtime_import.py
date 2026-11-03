@@ -12,11 +12,9 @@
 from __future__ import annotations
 
 from typing import Any
-from unittest.mock import AsyncMock
 
 import pytest
 
-from app.services import external_runtime_import as eri
 from app.services.external_runtime_import import (
     apply_bundle,
     automation_task_id,

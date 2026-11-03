@@ -180,7 +180,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     list: { flex: 1, paddingHorizontal: rnSpacing['sm-loose'] },
     card: {
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,

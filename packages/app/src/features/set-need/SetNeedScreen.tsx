@@ -298,7 +298,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
       borderRadius: rnRadius.sm,
       paddingHorizontal: rnSpacing.md,
-      paddingVertical: 14,
+      paddingVertical: rnSpacing['md-loose'],
       fontSize: rnType.title.size,
       color: tk.text.primary,
     } as TextStyle,

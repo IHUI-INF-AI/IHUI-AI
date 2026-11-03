@@ -21,16 +21,16 @@ import { AppError } from '../errors/AppError.js'
  */
 
 /** 在线判定窗口:last_seen_at 距今 < 90s */
-export const DEVICE_ONLINE_WINDOW_MS = 90_000
+const DEVICE_ONLINE_WINDOW_MS = 90_000
 /** 配对码 TTL:5 分钟 */
-export const PAIR_CODE_TTL_MS = 5 * 60_000
+const PAIR_CODE_TTL_MS = 5 * 60_000
 /** 配对码签发速率限制:每用户 10 次/小时 */
-export const PAIR_CODE_RATE_LIMIT = 10
-export const PAIR_CODE_RATE_WINDOW_MS = 60 * 60_000
+const PAIR_CODE_RATE_LIMIT = 10
+const PAIR_CODE_RATE_WINDOW_MS = 60 * 60_000
 /** queued 任务未认领超时:24h(claim 与列表查询时惰性判定为 expired,不建周期任务) */
-export const TASK_QUEUE_TTL_MS = 24 * 60 * 60_000
+const TASK_QUEUE_TTL_MS = 24 * 60 * 60_000
 /** 设备 bearer token 有效期:7 天(heartbeat 续期) */
-export const DEVICE_TOKEN_TTL_MS = 7 * 24 * 60 * 60_000
+const DEVICE_TOKEN_TTL_MS = 7 * 24 * 60 * 60_000
 
 export type DeviceCapabilities = Record<string, unknown>
 
@@ -54,7 +54,7 @@ export function hashPairCode(code: string): string {
 }
 
 /** 铸设备 bearer token */
-export function signDeviceToken(deviceId: string, ttlMs: number = DEVICE_TOKEN_TTL_MS): string {
+function signDeviceToken(deviceId: string, ttlMs: number = DEVICE_TOKEN_TTL_MS): string {
   const exp = Math.floor((Date.now() + ttlMs) / 1000)
   const payload = `${deviceId}.${exp}`
   return `${payload}.${hmacHex(payload)}`
@@ -141,7 +141,7 @@ export async function revokeDevice(userId: string, deviceId: string): Promise<De
 /** 签发 8 位数字配对码(TTL 5 分钟、单次使用、每用户 10 次/小时)。
  *  2026-10-31 对齐 Qoder 0.5.1(peerDevicePairingCodePlaceholder:"8 位数字",E1 逐字):
  *  熵 10^6→10^8,TTL 内在线暴力枚举面收窄 100 倍。 */
-export const PAIR_CODE_DIGITS = 8
+const PAIR_CODE_DIGITS = 8
 export async function issuePairCode(userId: string): Promise<{ code: string; expiresAt: Date }> {
   const since = new Date(Date.now() - PAIR_CODE_RATE_WINDOW_MS)
   const recent = await db
@@ -212,7 +212,7 @@ export async function exchangePairCode(input: {
  * 必须不低于它;不兼容 409。env 缺省空 = 不启用(部署方逐级收紧,不改变默认行为)。
  * 轻量比较:按 `.` 分段数值比,缺段补 0,不引 semver 依赖( prerelelease 后缀截断取数值段)。
  */
-export function assertDeviceVersionCompatible(clientVersion: string | null | undefined): void {
+function assertDeviceVersionCompatible(clientVersion: string | null | undefined): void {
   const min = (config as { DEVICE_MIN_CLIENT_VERSION?: string }).DEVICE_MIN_CLIENT_VERSION?.trim()
   if (!min) return
   if (!clientVersion || !clientVersion.trim()) {

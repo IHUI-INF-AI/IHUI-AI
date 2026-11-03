@@ -26,7 +26,7 @@ function chain(limitReturn: unknown[]) {
 /** update 链式 mock:where() 返回既可 await(settle 路径)又带 .returning()(扣减路径)的 Promise */
 function flexibleUpdate(returningRows: unknown[] = []) {
   const whereFn = vi.fn().mockImplementation(() => {
-    const p = Promise.resolve([]) as Promise<unknown[]> & { returning: unknown }
+    const p = Promise.resolve([]) as unknown as Promise<unknown[]> & { returning: unknown }
     p.returning = vi.fn().mockResolvedValue(returningRows)
     return p
   })

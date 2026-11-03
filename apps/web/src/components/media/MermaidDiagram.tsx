@@ -300,7 +300,7 @@ function MermaidDiagramInner({ code, className }: MermaidDiagramProps) {
   // 预算判退:不进 render,回落成源码 + 一条明示原因的提示(不得静默变空白)
   if (skipNoticeKey !== null) {
     return (
-      <div className={cn('rounded-md border border-border bg-muted/50 p-3 text-xs', className)}>
+      <div className={cn('rounded-md border border-border bg-muted/50 p-3 text-label', className)}>
         <p className="text-muted-foreground">{t(skipNoticeKey)}</p>
         <pre className="mt-2 overflow-x-auto whitespace-pre text-muted-foreground">{code}</pre>
       </div>
@@ -310,9 +310,9 @@ function MermaidDiagramInner({ code, className }: MermaidDiagramProps) {
   // 渲染失败,显示错误降级块 + 源码
   if (error) {
     return (
-      <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-xs">
+      <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-label">
         <p className="text-destructive">{error.message}</p>
-        <pre className="mt-2 text-xs text-muted-foreground">{code}</pre>
+        <pre className="mt-2 text-label text-muted-foreground">{code}</pre>
       </div>
     )
   }
@@ -320,7 +320,7 @@ function MermaidDiagramInner({ code, className }: MermaidDiagramProps) {
   // 渲染中占位
   if (svg === null) {
     return (
-      <div className="animate-pulse text-xs text-muted-foreground">{t('diagramRendering')}</div>
+      <div className="animate-pulse text-label text-muted-foreground">{t('diagramRendering')}</div>
     )
   }
 
@@ -431,9 +431,9 @@ export function MermaidDiagram(props: MermaidDiagramProps): React.ReactElement {
   return (
     <MermaidErrorBoundary
       fallback={
-        <div className="ui-card rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-xs">
+        <div className="ui-card rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-label">
           <p className="text-destructive">{t('mermaidRenderFailed')}</p>
-          <pre className="mt-2 text-xs text-muted-foreground">{props.code}</pre>
+          <pre className="mt-2 text-label text-muted-foreground">{props.code}</pre>
         </div>
       }
     >

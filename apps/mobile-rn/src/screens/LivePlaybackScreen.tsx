@@ -104,6 +104,7 @@ export function LivePlaybackScreen() {
       }}
       onClosePlayer={() => setActive(null)}
       onBack={() => navigation.goBack()}
+      onRetry={() => { void load(); }}
       colorScheme={resolvedTheme}
     />
   )

@@ -238,16 +238,16 @@ export function DispatchSubagentDialog({
         </DialogHeader>
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="h-8 w-full">
-            <TabsTrigger value="dispatch" className="flex-1 text-xs">
+            <TabsTrigger value="dispatch" className="flex-1 text-label">
               {t('dispatchAction')}
             </TabsTrigger>
-            <TabsTrigger value="auto-plan" className="flex-1 text-xs">
+            <TabsTrigger value="auto-plan" className="flex-1 text-label">
               {t('autoPlan')}
             </TabsTrigger>
-            <TabsTrigger value="roles" className="flex-1 text-xs">
+            <TabsTrigger value="roles" className="flex-1 text-label">
               {t('customRolesTab')}
             </TabsTrigger>
-            <TabsTrigger value="evolution" className="flex-1 text-xs">
+            <TabsTrigger value="evolution" className="flex-1 text-label">
               {t('evolutionTab')}
             </TabsTrigger>
           </TabsList>
@@ -420,7 +420,7 @@ function DispatchForm({
 
   if (successDispatchId) {
     return (
-      <div className="space-y-3 py-4 text-xs">
+      <div className="space-y-3 py-4 text-label">
         <div className="rounded-md border border-emerald-500/30 bg-emerald-500/5 px-3 py-2.5">
           <div className="font-medium text-emerald-700 dark:text-emerald-400">
             {t('dispatchSuccess')}
@@ -449,25 +449,25 @@ function DispatchForm({
   }
 
   return (
-    <div className="max-h-[55vh] space-y-3 overflow-y-auto py-2 pr-1 text-xs">
+    <div className="max-h-[55vh] space-y-3 overflow-y-auto py-2 pr-1 text-label">
       <Field label={t('fields.goal')} required>
         <textarea
           value={goal}
           onChange={(e) => setGoal(e.target.value)}
           rows={2}
           placeholder={t('taskGoalPlaceholder')}
-          className="w-full resize-none rounded-sm border border-input bg-transparent px-2.5 py-1.5 text-xs shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          className="w-full resize-none rounded-sm border border-input bg-transparent px-2.5 py-1.5 text-label shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
         />
       </Field>
       <div className="grid grid-cols-2 gap-3">
         <Field label={t('fields.agentRole')}>
           <Select value={agentRole} onValueChange={(v) => setAgentRole(v as SubagentRole)}>
-            <SelectTrigger className="h-8 text-xs">
+            <SelectTrigger className="h-8 text-label">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {ROLE_OPTIONS.map((o) => (
-                <SelectItem key={o.value} value={o.value} className="text-xs">
+                <SelectItem key={o.value} value={o.value} className="text-label">
                   {t(o.labelKey)}({o.value})
                 </SelectItem>
               ))}
@@ -479,12 +479,12 @@ function DispatchForm({
             value={orchestration}
             onValueChange={(v) => setOrchestration(v as OrchestrationMode)}
           >
-            <SelectTrigger className="h-8 text-xs">
+            <SelectTrigger className="h-8 text-label">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {ORCHESTRATION_OPTIONS.map((o) => (
-                <SelectItem key={o.value} value={o.value} className="text-xs">
+                <SelectItem key={o.value} value={o.value} className="text-label">
                   {t(o.labelKey)}({o.value})
                 </SelectItem>
               ))}
@@ -522,7 +522,7 @@ function DispatchForm({
           onChange={(e) => setAffectedFilesText(e.target.value)}
           rows={3}
           placeholder={'d:\\path\\to\\file1\nd:\\path\\to\\file2'}
-          className="w-full resize-y rounded-sm border border-input bg-transparent px-2.5 py-1.5 font-mono text-xs shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          className="w-full resize-y rounded-sm border border-input bg-transparent px-2.5 py-1.5 font-mono text-label shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
         />
       </Field>
       <Field label={t('fields.forbidden')}>
@@ -530,7 +530,7 @@ function DispatchForm({
           value={forbiddenText}
           onChange={(e) => setForbiddenText(e.target.value)}
           rows={2}
-          className="w-full resize-none rounded-sm border border-input bg-transparent px-2.5 py-1.5 text-xs shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          className="w-full resize-none rounded-sm border border-input bg-transparent px-2.5 py-1.5 text-label shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
         />
       </Field>
       <Field label={t('fields.verifyCommands')}>
@@ -539,7 +539,7 @@ function DispatchForm({
           onChange={(e) => setVerifyCommandsText(e.target.value)}
           rows={2}
           placeholder={'pnpm --filter @ihui/api typecheck'}
-          className="w-full resize-y rounded-sm border border-input bg-transparent px-2.5 py-1.5 font-mono text-xs shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          className="w-full resize-y rounded-sm border border-input bg-transparent px-2.5 py-1.5 font-mono text-label shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
         />
       </Field>
       <Field label={t('fields.constraints')} required>
@@ -547,7 +547,7 @@ function DispatchForm({
           value={constraints}
           onChange={(e) => setConstraints(e.target.value)}
           rows={2}
-          className="w-full resize-none rounded-sm border border-input bg-transparent px-2.5 py-1.5 text-xs shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          className="w-full resize-none rounded-sm border border-input bg-transparent px-2.5 py-1.5 text-label shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
         />
       </Field>
       <Field label={t('fields.deliverables')} required>
@@ -555,7 +555,7 @@ function DispatchForm({
           value={deliverables}
           onChange={(e) => setDeliverables(e.target.value)}
           rows={2}
-          className="w-full resize-none rounded-sm border border-input bg-transparent px-2.5 py-1.5 text-xs shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          className="w-full resize-none rounded-sm border border-input bg-transparent px-2.5 py-1.5 text-label shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
         />
       </Field>
       {/* DAG 编辑器 */}
@@ -826,14 +826,14 @@ function AutoPlanPanel() {
   }
 
   return (
-    <div className="max-h-[55vh] space-y-3 overflow-y-auto py-2 pr-1 text-xs">
+    <div className="max-h-[55vh] space-y-3 overflow-y-auto py-2 pr-1 text-label">
       <Field label={t('fields.taskDesc')} required>
         <textarea
           value={task}
           onChange={(e) => setTask(e.target.value)}
           rows={3}
           placeholder={t('examplePlaceholder')}
-          className="w-full resize-none rounded-sm border border-input bg-transparent px-2.5 py-1.5 text-xs shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          className="w-full resize-none rounded-sm border border-input bg-transparent px-2.5 py-1.5 text-label shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
         />
       </Field>
       <Field label={t('fields.constraintsOptional')}>
@@ -1038,7 +1038,7 @@ function CustomRolesPanel() {
   }
 
   return (
-    <div className="max-h-[55vh] space-y-3 overflow-y-auto py-2 pr-1 text-xs">
+    <div className="max-h-[55vh] space-y-3 overflow-y-auto py-2 pr-1 text-label">
       {/* 自动生成 */}
       <div className="space-y-1.5 rounded-md border border-violet-500/30 bg-violet-500/5 px-2.5 py-2">
         <div className="text-[11px] font-medium text-violet-700 dark:text-violet-400">
@@ -1188,7 +1188,7 @@ function CustomRoleForm({
   }
 
   return (
-    <div className="max-h-[55vh] space-y-3 overflow-y-auto py-2 pr-1 text-xs">
+    <div className="max-h-[55vh] space-y-3 overflow-y-auto py-2 pr-1 text-label">
       <div className="text-[11px] font-medium text-foreground">
         {existing ? t('editRole') : t('createRole')}
       </div>
@@ -1197,7 +1197,7 @@ function CustomRoleForm({
           value={role}
           onChange={(e) => setRole(e.target.value)}
           placeholder="drizzle-migration-expert"
-          className="h-8 text-xs"
+          className="h-8 text-label"
           disabled={!!existing}
         />
       </Field>
@@ -1206,7 +1206,7 @@ function CustomRoleForm({
           value={displayName}
           onChange={(e) => setDisplayName(e.target.value)}
           placeholder={t('displayNameExample')}
-          className="h-8 text-xs"
+          className="h-8 text-label"
         />
       </Field>
       <Field label="System Prompt" required>
@@ -1214,7 +1214,7 @@ function CustomRoleForm({
           value={systemPrompt}
           onChange={(e) => setSystemPrompt(e.target.value)}
           rows={4}
-          className="w-full resize-none rounded-sm border border-input bg-transparent px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+          className="w-full resize-none rounded-sm border border-input bg-transparent px-2.5 py-1.5 text-label focus:outline-none focus:ring-1 focus:ring-ring"
         />
       </Field>
       <Field label={t('fields.skills')}>
@@ -1222,7 +1222,7 @@ function CustomRoleForm({
           value={skillsText}
           onChange={(e) => setSkillsText(e.target.value)}
           placeholder="drizzle, postgresql, migration"
-          className="h-8 text-xs"
+          className="h-8 text-label"
         />
       </Field>
       <Field label={t('fields.recommendedTasks')}>
@@ -1230,7 +1230,7 @@ function CustomRoleForm({
           value={tasksText}
           onChange={(e) => setTasksText(e.target.value)}
           placeholder={t('recommendedTasksExample')}
-          className="h-8 text-xs"
+          className="h-8 text-label"
         />
       </Field>
       <div className="flex justify-end gap-2">
@@ -1332,7 +1332,7 @@ function EvolutionPanel() {
   }
 
   return (
-    <div className="max-h-[55vh] space-y-3 overflow-y-auto py-2 pr-1 text-xs">
+    <div className="max-h-[55vh] space-y-3 overflow-y-auto py-2 pr-1 text-label">
       <Field label={t('evolutionSelectRole')}>
         <Select
           value={selectedRole}
@@ -1341,12 +1341,12 @@ function EvolutionPanel() {
             setAnalysis(null)
           }}
         >
-          <SelectTrigger className="h-8 text-xs">
+          <SelectTrigger className="h-8 text-label">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             {ROLE_OPTIONS.map((o) => (
-              <SelectItem key={o.value} value={o.value} className="text-xs">
+              <SelectItem key={o.value} value={o.value} className="text-label">
                 {t(o.labelKey)}({o.value})
               </SelectItem>
             ))}

@@ -526,6 +526,7 @@
     "cfgVoiceLongxiaochun": "龍小淳 · 女性 · 穏やか",
     "cfgVoiceLonghua": "龍華 · 男性 · 落ち着き",
     "cfgVoiceLongshuo": "龍朔 · 男性 · CLEARな声",
+    "cfgVoiceLongyue": "龍悦 · 女 · 活発",
     "cfgVoiceLongshu": "龍叔 · 男性 · 深み",
     "cfgVoiceLongmiao": "龍妙 · 女性 · 甘さ",
     "title": "マイページ",
@@ -548,7 +549,6 @@
     "myOrders": "マイ注文",
     "editProfile": "プロフィール編集",
     "notLoggedIn": "未ログアウト",
-    "cfgVoiceLongyue": "龍悦 · 女 · 活発",
     "clickRetry": "タップして再試行"
   },
   "payResult": {
@@ -636,6 +636,44 @@
     "runtimeSend": "送信"
   },
   "chat": {
+    "assetCatText": "文本",
+    "assetCatImage": "画像",
+    "assetCatVideo": "動画",
+    "assetCatAudio": "音声",
+    "loginToSend": "メッセージを送信するには先にログインしてください",
+    "vipOnlyModel": "このモデルはVIP限定です。登録してご利用いただけます",
+    "openVipBtn": "VIPに登録",
+    "reloginBtn": "再ログイン",
+    "connectFailRetry": "接続に失敗しました。再試行してください",
+    "noMsgToTts": "変換できるメッセージがありません",
+    "ttsFailRetry": "音声生成に失敗しました。再試行してください",
+    "noMsgToFav": "お気に入りできるメッセージがありません",
+    "favFailRetry": "お気に入り登録に失敗しました。しばらくしてから再試行してください",
+    "currentChatEmpty": "現在の会話は空です",
+    "clearChatBody": "現在の会話のすべてのメッセージを消去しますか?",
+    "clearGoBtn": "清空",
+    "exportMe": "我",
+    "qrNeedPerm": "QRコードを保存するにはアルバムの権限が必要です",
+    "qrNotRendered": "QRコードが未生成です。しばらくしてから再試行してください",
+    "qrSaved": "QRコードをアルバムに保存しました",
+    "qrSaveFail": "保存に失敗しました。再試行してください",
+    "favOn": "已收藏",
+    "favOff": "已取消收藏",
+    "annotHint": "注釈画像を入力欄に挿入しました",
+    "histLoadFailRetry": "履歴の読み込みに失敗しました。再試行してください",
+    "annotImgAdded": "注釈画像を入力欄に追加しました",
+    "annotAdded": "注釈を入力欄に追加しました",
+    "menuSwitchModel": "モデル切替",
+    "menuClear": "会話を消去",
+    "menuExport": "会話をエクスポート",
+    "menuShare": "会話を共有",
+    "menuToVoice": "音声に変換",
+    "menuFavorite": "收藏",
+    "menuMaterial": "素材ライブラリ",
+    "menuVoiceNote": "ボイスメモ",
+    "menuWebLink": "Webリンク",
+    "menuFileUpload": "ファイルアップロード",
+    "menuHistory": "会話履歴",
     "modelSwitchStopped": "{model} に切り替えたため、この回答を終了しました",
     "meta": {
       "pullOnly": "この会話は次回一覧を開いたときに同期されます"
@@ -832,44 +870,6 @@
     "imagePreviewA11y": "画像プレビュー",
     "menuAnnotateImage": "この画像に注釈",
     "chatDeleteFailed2": "削除失敗",
-    "assetCatText": "文本",
-    "assetCatImage": "画像",
-    "assetCatVideo": "動画",
-    "assetCatAudio": "音声",
-    "loginToSend": "メッセージを送信するには先にログインしてください",
-    "vipOnlyModel": "このモデルはVIP限定です。登録してご利用いただけます",
-    "openVipBtn": "VIPに登録",
-    "reloginBtn": "再ログイン",
-    "connectFailRetry": "接続に失敗しました。再試行してください",
-    "noMsgToTts": "変換できるメッセージがありません",
-    "ttsFailRetry": "音声生成に失敗しました。再試行してください",
-    "noMsgToFav": "お気に入りできるメッセージがありません",
-    "favFailRetry": "お気に入り登録に失敗しました。しばらくしてから再試行してください",
-    "currentChatEmpty": "現在の会話は空です",
-    "clearChatBody": "現在の会話のすべてのメッセージを消去しますか?",
-    "clearGoBtn": "清空",
-    "exportMe": "我",
-    "qrNeedPerm": "QRコードを保存するにはアルバムの権限が必要です",
-    "qrNotRendered": "QRコードが未生成です。しばらくしてから再試行してください",
-    "qrSaved": "QRコードをアルバムに保存しました",
-    "qrSaveFail": "保存に失敗しました。再試行してください",
-    "favOn": "已收藏",
-    "favOff": "已取消收藏",
-    "annotHint": "注釈画像を入力欄に挿入しました",
-    "histLoadFailRetry": "履歴の読み込みに失敗しました。再試行してください",
-    "annotImgAdded": "注釈画像を入力欄に追加しました",
-    "annotAdded": "注釈を入力欄に追加しました",
-    "menuSwitchModel": "モデル切替",
-    "menuClear": "会話を消去",
-    "menuExport": "会話をエクスポート",
-    "menuShare": "会話を共有",
-    "menuToVoice": "音声に変換",
-    "menuFavorite": "收藏",
-    "menuMaterial": "素材ライブラリ",
-    "menuVoiceNote": "ボイスメモ",
-    "menuWebLink": "Webリンク",
-    "menuFileUpload": "ファイルアップロード",
-    "menuHistory": "会話履歴",
     "terminal": {
       "waitingInput": "入力待ち",
       "mobileUnsupported": "端末ではターミナル未対応"
@@ -968,6 +968,10 @@
     "aiWorld": "AI ワールド",
     "imageGen": "画像生成",
     "publish": "コンテンツ公開",
+    "spec": "規範テンプレート",
+    "selfMedia": "セルフメディア",
+    "context": "コンテキストエンジン",
+    "pdfTools": "ドキュメント→Markdown",
     "webPortal": "ウェブ版",
     "webPortalCenter": "Web 機能ポータル",
     "knowledgeRag": "RAG 知識ベース",
@@ -976,10 +980,6 @@
     "cart": "カート",
     "circleIndex": "サークル広場",
     "topicList": "トピック",
-    "spec": "規範テンプレート",
-    "selfMedia": "セルフメディア",
-    "context": "コンテキストエンジン",
-    "pdfTools": "ドキュメント→Markdown",
     "conversationImport": "会話インポート",
     "sectionOrder": "注文",
     "order": "私の注文",
@@ -1180,9 +1180,9 @@
     "catWriting": "文章作成",
     "catCoding": "プログラミング",
     "catOffice": "オフィス",
-    "catStudy": "学習",
     "vendorOther": "その他",
     "copyOkToast": "リンクをクリップボードにコピーしました",
+    "catStudy": "学習",
     "loadFailed": "読み込み失敗",
     "chat": {
       "title": "チャットを開始",
@@ -1197,32 +1197,28 @@
     "send": "送信",
     "streaming": "生成中...",
     "callFailed": "呼び出しに失敗しました。再試行してください",
-    "compactionToast": "コンテキストを自動圧縮しました({before} → {after} tokens)",
-    "planStatusCompleted": "完了",
-    "planStatusInProgress": "進行中",
-    "planStatusPending": "待機中",
+    "toolCalls": "ツール呼び出し",
+    "toolStatusRunning": "実行中",
+    "toolStatusSuccess": "成功",
+    "toolStatusError": "失敗",
+    "toolArgs": "引数",
+    "toolResult": "出力",
     "planSteps": "実行計画",
-    "terminalExitCode": "終了コード",
-    "terminalOutput": "出力",
-    "terminalTruncated": "…(省略済み、全 {total} 文字)",
-    "terminalStatusCompleted": "完了",
-    "terminalStatusFailed": "失敗",
-    "terminalStatusRunning": "実行中",
+    "planStatusPending": "待機中",
+    "planStatusInProgress": "進行中",
+    "planStatusCompleted": "完了",
     "terminalTasks": "ターミナルタスク",
     "terminalIsolation": "コマンドは分離されたサンドボックス内で実行され、既定ではネットワークにアクセスしません",
     "gatewayRetry": "{attempt}/{max} 回目を再試行中、{seconds} 秒後に続けます",
-    "toolArgs": "引数",
-    "toolCalls": "ツール呼び出し",
-    "toolResult": "出力",
-    "toolStatusError": "失敗",
-    "toolStatusRunning": "実行中",
-    "toolStatusSuccess": "成功"
+    "terminalStatusRunning": "実行中",
+    "terminalStatusCompleted": "完了",
+    "terminalStatusFailed": "失敗",
+    "terminalExitCode": "終了コード",
+    "terminalOutput": "出力",
+    "terminalTruncated": "…(省略済み、全 {total} 文字)",
+    "compactionToast": "コンテキストを自動圧縮しました({before} → {after} tokens)"
   },
   "aigcCover": {
-    "applied": {
-      "title": "カバーを適用しました",
-      "message": "「{title}」にカバーを適用しました:{label}"
-    },
     "aiGen": {
       "title": "AI カバー生成",
       "message": "機能開発中"
@@ -1275,17 +1271,13 @@
   "aiGroup": {
     "join": {
       "title": "グループに参加",
-      "message": "「{name}」への参加を申請しました"
+      "message": "「{name}」に参加しました"
     },
     "cardMembers": "メンバー",
     "detailEnter": "チャットに入る",
     "detailMembers": "メンバー",
     "detailRecent": "最近",
     "empty": "グループがありません",
-    "enterChat": {
-      "message": "このグループに参加しますか?",
-      "title": "お知らせ"
-    },
     "enterDiscover": "発見",
     "enterMine": "マイ",
     "loadFailed": "グループの読み込みに失敗",
@@ -1397,6 +1389,7 @@
     "labelPrice": "価格",
     "labelSaleType": "販売タイプ",
     "pricePlaceholder": "価格を入力",
+    "readOnlyHint": "この項目はまだ変更できません",
     "submit": "保存",
     "submitting": "送信中..."
   },
@@ -1458,15 +1451,6 @@
     "workflowTab": "ワークフロー"
   },
   "tokenValue": {
-    "recharge": {
-      "title": "チャージ確認",
-      "message": "パッケージ:{tokens} Token · ¥{price}",
-      "payBtn": "今すぐ支払う",
-      "success": {
-        "title": "支払い成功",
-        "message": "{tokens} Token がチャージされました"
-      }
-    },
     "balanceLabel": "トークン残高",
     "bonus": "ボーナス",
     "empty": "データなし",
@@ -1486,9 +1470,7 @@
     "range7d": "7日間",
     "range1m": "1ヶ月",
     "range1y": "1年間",
-    "rangeAll": "すべて",
-    "unitYi": "{v}億",
-    "unitWan": "{v}万"
+    "rangeAll": "すべて"
   },
   "messageInput": {
     "document": "ドキュメント",
@@ -1619,6 +1601,7 @@
     "empty": "まだメッセージはありません。最初の投稿をしましょう",
     "placeholder": "メッセージを入力...",
     "send": "送信",
+    "stop": "停止",
     "loadFailed": "チャットの読み込みに失敗",
     "sendFailed": "送信に失敗しました"
   },
@@ -1656,6 +1639,11 @@
   },
   "agentStat": {
     "title": "エージェント統計",
+    "totalAgents": "エージェント総数",
+    "totalUsers": "作成者数",
+    "totalCalls": "呼び出し回数",
+    "publishedCount": "公開済み",
+    "pendingCount": "審査待ち",
     "conversations": "会話数",
     "messages": "メッセージ数",
     "tokens": "トークン消費",
@@ -1864,7 +1852,18 @@
     "email": "サポートメール",
     "loadFailed": "カスタマーサービスの読み込みに失敗"
   },
+  "artifacts": {
+    "previewFailed": "プレビューリンクの取得に失敗しました。後でもう一度お試しください",
+    "loading": "読み込み中…",
+    "loadFailed": "成果物一覧の読み込みに失敗しました"
+  },
   "distribution": {
+    "plan": {
+      "openVipTitle": "VIP会員を開通",
+      "openVipContent": "VIP会員を開通して分潤プランに参加しますか?",
+      "confirm": "確認",
+      "cancel": "キャンセル"
+    },
     "title": "販売センター",
     "subtitle": "商品を宣伝してコミッションを獲得",
     "retry": "再試行",
@@ -1885,7 +1884,13 @@
     "sales": "{count} 件販売",
     "loadFailed": "アフィリエイトの読み込みに失敗",
     "withdrawFailed": "出金に失敗",
-    "withdrawSuccess": "出金に成功"
+    "withdrawSuccess": "出金に成功",
+    "treeTitle": "紹介ツリー",
+    "treeEmpty": "下位メンバーがいません",
+    "treeLoadFailed": "ツリーの読み込みに失敗しました",
+    "treeRetry": "再試行",
+    "treeLevelLabel": "第 {level} 階層",
+    "treeCollapseHint": "ノードをタップして詳細を表示"
   },
   "earnCommission": {
     "title": "コミッションプラン",
@@ -2360,7 +2365,17 @@
     "deleteFailed": "削除に失敗しました",
     "secretTitle": "キーを作成しました",
     "secretHint": "このキーは一度しか表示されません。すぐにコピーして保存してください。",
-    "secretDone": "保存しました"
+    "secretDone": "保存しました",
+    "rotate": "ローテーション",
+    "rotating": "ローテーション中...",
+    "rotateTitle": "キーをローテーション",
+    "rotateConfirm": "「{name}」をローテーションしますか？旧キーは即座に失効します。",
+    "rotateFailed": "ローテーションに失敗しました",
+    "rotateSecretTitle": "キーをローテーションしました",
+    "copySecret": "コピー",
+    "secretCopied": "キーをクリップボードにコピーしました",
+    "rateLimit": "レート制限",
+    "rateLimitUnit": "回/分"
   },
   "devices": {
     "title": "デバイス管理",
@@ -2636,7 +2651,11 @@
       "signing": "チェックイン中...",
       "signInSuccess": "チェックインしました。{points} ポイント獲得",
       "signInFailed": "チェックインに失敗しました",
-      "alreadySigned": "本日はチェックイン済みです"
+      "alreadySigned": "本日はチェックイン済みです",
+      "historyTitle": "チェックイン履歴",
+      "historyEmpty": "チェックイン記録がありません",
+      "historyLoadFailed": "チェックイン履歴の読み込みに失敗しました",
+      "historyConsecutive": "{days} 日連続"
     },
     "mallLink": "ポイントモール",
     "taskCenterLink": "タスクセンター",
@@ -3282,7 +3301,10 @@
     "twoFactor": "二段階認証",
     "loginAlert": "ログイン通知",
     "desc": "アカウントログインに関するスイッチを管理",
-    "loadFailed": "セキュリティ設定の読み込みに失敗"
+    "loadFailed": "セキュリティ設定の読み込みに失敗",
+    "readOnlyHint": "以下は現在のサーバー側の状態です。変更にはまだ対応していません",
+    "stateOn": "オン",
+    "stateOff": "オフ"
   },
   "settingsAccount": {
     "title": "アカウント管理",
@@ -3471,11 +3493,12 @@
     "viewNow": "今すぐ見る"
   },
   "vipBenefit": {
-    "title": "会員権益",
-    "loadFailed": "会員特典の読み込みに失敗"
+    "title": "会員権益"
   },
   "vipTrader": {
     "title": "VIP トレーダー",
+    "openTitle": "会員を開通",
+    "confirmPay": "支払いを確認",
     "openTrader": "トレーダー会員を登録",
     "subtitle": "トレーダー専用権益をご利用いただけます",
     "badge": "トレーダー専用",
@@ -3499,7 +3522,22 @@
     "title": "マイウォレット",
     "totalRecharge": "累計チャージ",
     "totalWithdraw": "累計出金",
-    "withdraw": "出金"
+    "withdraw": "出金",
+    "flowsTitle": "資金履歴",
+    "flowsEmpty": "履歴がありません",
+    "flowsLoadFailed": "履歴の読み込みに失敗しました",
+    "flowsRetry": "再試行",
+    "flowsLoadMore": "さらに読み込む",
+    "flowsLoading": "読み込み中...",
+    "flowBalanceAfter": "残高",
+    "flowRemarkEmpty": "メモなし",
+    "opType1": "チャージ",
+    "opType2": "減算",
+    "opType3": "失効",
+    "opType4": "返金",
+    "opType5": "コミッション",
+    "loginRequiredHint": "ログインして資金履歴を表示",
+    "goLogin": "ログイン"
   },
   "activity": {
     "empty": "アクティビティがありません",
@@ -3928,7 +3966,6 @@
     "today": "本日",
     "withdrawBtn": "出金",
     "withdrawModal": {
-      "close": "キャンセル",
       "confirm": "確認",
       "moreMethods": "他の出金方法",
       "subtitle": "出金方法を選択",
@@ -4090,6 +4127,17 @@
     "deleteTitle": "文書を削除",
     "deleteConfirm": "この文書を削除しますか?",
     "deleteFailed": "削除に失敗",
+    "selectionStart": "選択",
+    "selectionDone": "完了",
+    "selectionAll": "すべて選択",
+    "selectionClearAll": "選択を解除",
+    "selectionCount": "{count} 件選択中",
+    "batchDelete": "一括削除",
+    "batchDeleting": "削除中...",
+    "batchDeleteTitle": "文書を一括削除",
+    "batchDeleteConfirm": "選択した {count} 件の文書を削除しますか?",
+    "batchDeletePartial": "{success} 件削除、{failed} 件失敗",
+    "batchDeleteFailed": "一括削除に失敗",
     "author": "作者",
     "category": "カテゴリ",
     "nextEntry": "次の記事",
@@ -4131,14 +4179,38 @@
     "loadFailed": "スキル一覧の読み込みに失敗",
     "retry": "再試行",
     "empty": "スキルがありません",
-    "detail": "詳細を見る"
+    "detail": "詳細を見る",
+    "importTitle": "スキルをインポート",
+    "importHint": "スキル JSON を貼り付けてインポートします。name 欠落や形式エラーは拒否されます。",
+    "importButton": "インポート",
+    "importing": "インポート中...",
+    "importInvalidJson": "JSON の形式が正しくありません",
+    "importMissingName": "スキルに name フィールドがありません",
+    "importFailed": "インポートに失敗しました",
+    "importSuccess": "インポートしました"
   },
   "aiSkillDetail": {
     "loadFailed": "スキル詳細の読み込みに失敗",
     "retry": "再試行",
     "prompt": "プロンプトテンプレート",
     "noPrompt": "テンプレートなし",
-    "source": "出典"
+    "source": "出典",
+    "invoke": "実行",
+    "invoking": "実行中...",
+    "invokeVariables": "変数",
+    "invokeRequired": "必須変数を入力してください",
+    "invokeFailed": "実行に失敗しました",
+    "invokeResult": "実行結果",
+    "export": "エクスポート",
+    "exporting": "エクスポート中...",
+    "exportFailed": "エクスポートに失敗しました",
+    "exportBlocked": "キャッシュに保存しました。Android では直接共有できません",
+    "rateTitle": "評価",
+    "rateSubmit": "評価を送信",
+    "ratingSubmitted": "評価を送信しました",
+    "ratingFailed": "評価の送信に失敗しました",
+    "commentPlaceholder": "コメントを入力（任意）",
+    "ratingLoginHint": "ログイン後に評価できます"
   },
   "memory": {
     "detail": "詳細",
@@ -4235,6 +4307,50 @@
     "platformZhihu": "知乎",
     "platformJuejin": "掘金（Juejin）",
     "platformShipinhao": "微信视频号"
+  },
+  "spec": {
+    "title": "規範テンプレート",
+    "loadFailed": "テンプレートの読み込みに失敗しました",
+    "empty": "テンプレートがありません",
+    "desktopHint": "テンプレートの閲覧は参考用です。Spec 生成にはサーバー側の workspace パスが必要なため、Web/デスクトップで完全なフローをご利用ください",
+    "generateEntry": "Webで生成"
+  },
+  "selfMedia": {
+    "title": "セルフメディアアシスタント",
+    "tabSkills": "スキル",
+    "tabRecords": "履歴",
+    "loadFailed": "読み込みに失敗しました",
+    "promptRequired": "生成内容を入力してください",
+    "promptPlaceholder": "作成したい内容を記述…",
+    "invoke": "スキルを呼び出して生成",
+    "invoking": "生成中…",
+    "invokeFailed": "スキルの呼び出しに失敗しました。再試行してください",
+    "duration": "所要 {{ms}} ms",
+    "share": "共有",
+    "empty": "生成/公開の記録がありません"
+  },
+  "context": {
+    "title": "コンテキストエンジン",
+    "loadFailed": "統計の読み込みに失敗しました",
+    "totalEvents": "圧縮回数",
+    "avgRatio": "平均圧縮率",
+    "avgQuality": "平均品質スコア",
+    "recentEvents": "最近の圧縮イベント",
+    "tokensRange": "{{before}} → {{after}} tokens · 圧縮 {{ratio}} · 品質 {{quality}}",
+    "mentionsSearch": "コンテキスト記述検索",
+    "mentionsPlaceholder": "ファイル/テーブル/シンボルを検索…",
+    "empty": "一致する結果がありません"
+  },
+  "pdfTools": {
+    "title": "ドキュメント→Markdown",
+    "hint": "PDF/Word/Excel/PPT/TXT/CSV 対応、1 ファイル 10MB まで。アップロード後サーバー側で Markdown に変換されます",
+    "pick": "ドキュメントを選択",
+    "converting": "変換中…",
+    "unsupportedType": "サポートされていないファイル形式です",
+    "tooLarge": "ファイルが 10MB の上限を超えています",
+    "uploadFailed": "アップロードに失敗しました。再試行してください",
+    "convertFailed": "変換に失敗しました。再試行してください",
+    "share": "共有"
   },
   "imageGen": {
     "title": "画像生成",
@@ -4664,50 +4780,6 @@
       "error": "読み込みに失敗しました"
     },
     "empty": "コンテンツはまだありません"
-  },
-  "spec": {
-    "title": "規範テンプレート",
-    "loadFailed": "テンプレートの読み込みに失敗しました",
-    "empty": "テンプレートがありません",
-    "desktopHint": "テンプレートの閲覧は参考用です。Spec 生成にはサーバー側の workspace パスが必要なため、Web/デスクトップで完全なフローをご利用ください",
-    "generateEntry": "Webで生成"
-  },
-  "selfMedia": {
-    "title": "セルフメディアアシスタント",
-    "tabSkills": "スキル",
-    "tabRecords": "履歴",
-    "loadFailed": "読み込みに失敗しました",
-    "promptRequired": "生成内容を入力してください",
-    "promptPlaceholder": "作成したい内容を記述…",
-    "invoke": "スキルを呼び出して生成",
-    "invoking": "生成中…",
-    "invokeFailed": "スキルの呼び出しに失敗しました。再試行してください",
-    "duration": "所要 {{ms}} ms",
-    "share": "共有",
-    "empty": "生成/公開の記録がありません"
-  },
-  "context": {
-    "title": "コンテキストエンジン",
-    "loadFailed": "統計の読み込みに失敗しました",
-    "totalEvents": "圧縮回数",
-    "avgRatio": "平均圧縮率",
-    "avgQuality": "平均品質スコア",
-    "recentEvents": "最近の圧縮イベント",
-    "tokensRange": "{{before}} → {{after}} tokens · 圧縮 {{ratio}} · 品質 {{quality}}",
-    "mentionsSearch": "コンテキスト記述検索",
-    "mentionsPlaceholder": "ファイル/テーブル/シンボルを検索…",
-    "empty": "一致する結果がありません"
-  },
-  "pdfTools": {
-    "title": "ドキュメント→Markdown",
-    "hint": "PDF/Word/Excel/PPT/TXT/CSV 対応、1 ファイル 10MB まで。アップロード後サーバー側で Markdown に変換されます",
-    "pick": "ドキュメントを選択",
-    "converting": "変換中…",
-    "unsupportedType": "サポートされていないファイル形式です",
-    "tooLarge": "ファイルが 10MB の上限を超えています",
-    "uploadFailed": "アップロードに失敗しました。再試行してください",
-    "convertFailed": "変換に失敗しました。再試行してください",
-    "share": "共有"
   },
   "conversationImport": {
     "pageTitle": "外部会話インポート",
@@ -5645,7 +5717,10 @@
     "fillField": "入力してください：{name}",
     "submitFail": "送信に失敗しました。後で再試行",
     "doneTitle": "送信完了",
-    "doneBody": "アンケート送信済み。AI 学習プランはこのページに表示されます."
+    "doneBody": "アンケート送信済み。AI 学習プランはこのページに表示されます.",
+    "exportingReport": "エクスポート中...",
+    "exportEmptyHint": "レポート生成後にエクスポートできます",
+    "exportLoginRequired": "エクスポートするにはログインしてください"
   },
   "pwd": {
     "oldRequired": "旧パスワードを入力",
@@ -5965,7 +6040,16 @@
       "late": "遅刻",
       "absent": "欠席",
       "leave": "休み"
-    }
+    },
+    "chooseAction": "操作を選択",
+    "actionDone": "操作に成功しました",
+    "actionFailed": "操作に失敗しました",
+    "needClassId": "クラス情報がないため代理の登校・下校ができません",
+    "batchTitle": "クラス一括点呼",
+    "chooseClass": "点呼するクラスを選択",
+    "noClass": "現在のリストに選択できるクラスがありません",
+    "batchResult": "点呼完了：新規 {created}、スキップ {skipped}、見落とし {missed}",
+    "qrEntry": "チェックインQRを表示"
   },
   "eduGrades": {
     "title": "成績管理",
@@ -7132,5 +7216,31 @@
     "empty": "コンテンツはまだありません。おしみに",
     "searchNoResult": "結果なし",
     "retry": "再試行"
+  },
+  "eduMyAttendance": {
+    "title": "自分の出席",
+    "selfCheckIn": "自分で登校登録",
+    "date": "日付",
+    "notLoggedIn": "ログインしていないため操作できません",
+    "classByBackendHint": "クラスは在籍情報に基づいて自動的に決定されます",
+    "scanCheckIn": "スキャンしてチェックイン"
+  },
+  "eduAttendanceQr": {
+    "title": "チェックインQRコード",
+    "chooseClass": "クラスを選択",
+    "noClass": "選択できるクラスがありません",
+    "classLoadFailed": "クラス一覧の読み込みに失敗しました",
+    "pickClassFirst": "最初にクラスを選択してください",
+    "qrTip": "生徒はこのコードをスキャンしてチェックインで読み取ります",
+    "expiresIn": "{s} 秒で有効期限切れ",
+    "refresh": "再発行",
+    "nextStepHint": "出欠ルールを有効化しスキャン鍵(qrSecret)を設定してから再発行してください",
+    "scanTitle": "スキャンしてチェックイン",
+    "scanHint": "先生のチェックインQRコードを枠内に合わせてください",
+    "scanSubmitting": "チェックイン中...",
+    "scanInvalidCode": "本システムのチェックインQRコードではありません",
+    "scanDone": "チェックインしました",
+    "scanFailed": "チェックインに失敗しました",
+    "needLogin": "ログインしてからスキャンしてください"
   }
 }

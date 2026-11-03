@@ -303,7 +303,7 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius.lg,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: tokens.border.light,
-    padding: 14,
+    padding: rnSpacing['md-loose'],
     gap: rnSpacing.sm,
   },
   rowHead: {

@@ -82,7 +82,7 @@ export const ImageEditQwen = React.memo(function ImageEditQwen() {
     <Card>
       <CardHeader>
         <CardTitle>{t('qwenImageEditTitle')}</CardTitle>
-        <p className="text-sm text-muted-foreground">{t('qwenImageEditSubtitle')}</p>
+        <p className="text-body text-muted-foreground">{t('qwenImageEditSubtitle')}</p>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
@@ -126,9 +126,9 @@ export const ImageEditQwen = React.memo(function ImageEditQwen() {
           <div className="space-y-2">
             {images.map((url) => (
               <div key={url} className="space-y-1">
-              <Image
-                src={toMediaImageUrl(url)}
-                alt={prompt}
+                <Image
+                  src={toMediaImageUrl(url)}
+                  alt={prompt}
                   width={800}
                   height={600}
                   unoptimized
@@ -139,7 +139,7 @@ export const ImageEditQwen = React.memo(function ImageEditQwen() {
                   download
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                  className="inline-flex items-center gap-1 text-label text-primary hover:underline"
                 >
                   <Download className="h-3 w-3" />
                   {t('download')}

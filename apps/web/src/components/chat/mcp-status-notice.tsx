@@ -54,7 +54,7 @@ export function McpStatusNotice(): React.JSX.Element | null {
       role="status"
       aria-live="polite"
       data-testid="mcp-status-notice"
-      className="mb-2 flex flex-col gap-1 rounded-md border border-border bg-card px-2.5 py-1.5"
+      className="mb-2 flex flex-col gap-1 rounded-lg border border-border bg-card px-2.5 py-1.5"
     >
       {visible.map((entry) => (
         <McpStatusRow key={entry.server} entry={entry} />

@@ -656,9 +656,14 @@
     "qrNeedPerm": "需要相簿權限才能儲存QR Code",
     "qrNotRendered": "QR Code 未渲染,請稍後重試",
     "qrSaved": "QR Code 已儲存到相簿",
+    "qrSaveFail": "保存失敗，請重試",
+    "favOn": "已收藏",
+    "favOff": "已取消收藏",
+    "annotHint": "標註圖已插入輸入框",
     "histLoadFailRetry": "載入歷史對話失敗,請重試",
     "annotImgAdded": "標註圖已加入輸入框",
     "annotAdded": "標註已加入輸入框",
+    "menuSwitchModel": "切換模型",
     "menuClear": "清空對話",
     "menuExport": "匯出對話",
     "menuShare": "分享對話",
@@ -669,7 +674,6 @@
     "menuWebLink": "網頁連結",
     "menuFileUpload": "檔案上傳",
     "menuHistory": "歷史對話",
-    "menuSwitchModel": "切換模型",
     "modelSwitchStopped": "已切換到 {model},本輪回答已終止",
     "meta": {
       "pullOnly": "該對話的改動將在下次開啟清單時同步"
@@ -866,10 +870,6 @@
     "imagePreviewA11y": "圖片預覽",
     "menuAnnotateImage": "標註此圖",
     "chatDeleteFailed2": "刪除失敗",
-    "qrSaveFail": "保存失敗，請重試",
-    "favOn": "已收藏",
-    "favOff": "已取消收藏",
-    "annotHint": "標註圖已插入輸入框",
     "terminal": {
       "waitingInput": "等待輸入",
       "mobileUnsupported": "終端功能暫不支持行動端"
@@ -968,6 +968,10 @@
     "aiWorld": "AI 世界",
     "imageGen": "圖像生成",
     "publish": "內容發布",
+    "spec": "規範模板庫",
+    "selfMedia": "自媒體助手",
+    "context": "上下文引擎",
+    "pdfTools": "文件轉 Markdown",
     "webPortal": "網頁版",
     "webPortalCenter": "Web 功能入口",
     "knowledgeRag": "RAG 知識庫",
@@ -976,10 +980,6 @@
     "cart": "購物車",
     "circleIndex": "圈子廣場",
     "topicList": "話題",
-    "spec": "規範模板庫",
-    "selfMedia": "自媒體助手",
-    "context": "上下文引擎",
-    "pdfTools": "文件轉 Markdown",
     "conversationImport": "會話導入",
     "sectionOrder": "訂單",
     "order": "我的訂單",
@@ -1197,32 +1197,28 @@
     "send": "發送",
     "streaming": "正在生成...",
     "callFailed": "呼叫失敗,請稍後重試",
-    "compactionToast": "上下文已自動壓縮({before} → {after} tokens)",
-    "planStatusCompleted": "已完成",
-    "planStatusInProgress": "進行中",
-    "planStatusPending": "待開始",
+    "toolCalls": "工具調用",
+    "toolStatusRunning": "執行中",
+    "toolStatusSuccess": "成功",
+    "toolStatusError": "失敗",
+    "toolArgs": "參數",
+    "toolResult": "輸出",
     "planSteps": "執行計劃",
-    "terminalExitCode": "結束代碼",
-    "terminalOutput": "輸出",
-    "terminalTruncated": "…(已截斷,共 {total} 字符)",
-    "terminalStatusCompleted": "已完成",
-    "terminalStatusFailed": "失敗",
-    "terminalStatusRunning": "執行中",
+    "planStatusPending": "待開始",
+    "planStatusInProgress": "進行中",
+    "planStatusCompleted": "已完成",
     "terminalTasks": "終端任務",
     "terminalIsolation": "命令在隔離沙箱中執行，預設不開放網路",
     "gatewayRetry": "第 {attempt}/{max} 次重試,{seconds} 秒後繼續",
-    "toolArgs": "參數",
-    "toolCalls": "工具調用",
-    "toolResult": "輸出",
-    "toolStatusError": "失敗",
-    "toolStatusRunning": "執行中",
-    "toolStatusSuccess": "成功"
+    "terminalStatusRunning": "執行中",
+    "terminalStatusCompleted": "已完成",
+    "terminalStatusFailed": "失敗",
+    "terminalExitCode": "結束代碼",
+    "terminalOutput": "輸出",
+    "terminalTruncated": "…(已截斷,共 {total} 字符)",
+    "compactionToast": "上下文已自動壓縮({before} → {after} tokens)"
   },
   "aigcCover": {
-    "applied": {
-      "title": "封面已套用",
-      "message": "已為「{title}」套用封面:{label}"
-    },
     "aiGen": {
       "title": "AI 生成封面",
       "message": "功能開發中"
@@ -1275,17 +1271,13 @@
   "aiGroup": {
     "join": {
       "title": "加入群組",
-      "message": "已申請加入「{name}」"
+      "message": "已加入「{name}」"
     },
     "cardMembers": "成員",
     "detailEnter": "進入群聊",
     "detailMembers": "群組成員",
     "detailRecent": "最近訊息",
     "empty": "暫無群聊",
-    "enterChat": {
-      "message": "確定要進入該群聊?",
-      "title": "提示"
-    },
     "enterDiscover": "發現",
     "enterMine": "我的",
     "loadFailed": "載入群聊失敗",
@@ -1397,6 +1389,7 @@
     "labelPrice": "價格",
     "labelSaleType": "販售類型",
     "pricePlaceholder": "請輸入價格",
+    "readOnlyHint": "此欄位暫不支援修改",
     "submit": "儲存",
     "submitting": "提交中..."
   },
@@ -1458,15 +1451,6 @@
     "workflowTab": "工作流"
   },
   "tokenValue": {
-    "recharge": {
-      "title": "確認充值",
-      "message": "套餐:{tokens} Token · ¥{price}",
-      "payBtn": "立即支付",
-      "success": {
-        "title": "支付成功",
-        "message": "已到賬 {tokens} Token"
-      }
-    },
     "balanceLabel": "智匯值餘額",
     "bonus": "獎勵",
     "empty": "暫無資料",
@@ -1486,9 +1470,7 @@
     "range7d": "7天",
     "range1m": "一個月",
     "range1y": "近一年",
-    "rangeAll": "全部",
-    "unitYi": "{v}億",
-    "unitWan": "{v}萬"
+    "rangeAll": "全部"
   },
   "messageInput": {
     "document": "文件",
@@ -1619,6 +1601,7 @@
     "empty": "暫無訊息,發送第一則訊息開始對話吧",
     "placeholder": "輸入訊息...",
     "send": "傳送",
+    "stop": "停止",
     "loadFailed": "載入聊天失敗",
     "sendFailed": "發送失敗"
   },
@@ -1656,6 +1639,11 @@
   },
   "agentStat": {
     "title": "智能體統計",
+    "totalAgents": "智能體總數",
+    "totalUsers": "創作者數",
+    "totalCalls": "呼叫次數",
+    "publishedCount": "已發布數",
+    "pendingCount": "待審核數",
     "conversations": "對話數",
     "messages": "訊息數",
     "tokens": "Token 消耗",
@@ -1864,7 +1852,18 @@
     "email": "客服信箱",
     "loadFailed": "載入客服失敗"
   },
+  "artifacts": {
+    "previewFailed": "預覽連結取得失敗,請稍後再試",
+    "loading": "載入中…",
+    "loadFailed": "產物清單載入失敗"
+  },
   "distribution": {
+    "plan": {
+      "openVipTitle": "開通VIP會員",
+      "openVipContent": "是否前往開通VIP會員,參與分傭計劃?",
+      "confirm": "確認",
+      "cancel": "取消"
+    },
     "title": "分銷中心",
     "subtitle": "推廣商品,賺取佣金",
     "retry": "重試",
@@ -1885,7 +1884,13 @@
     "sales": "已售 {count} 件",
     "loadFailed": "載入分銷失敗",
     "withdrawFailed": "提現失敗",
-    "withdrawSuccess": "提現成功"
+    "withdrawSuccess": "提現成功",
+    "treeTitle": "分銷層級樹",
+    "treeEmpty": "暫無下級成員",
+    "treeLoadFailed": "層級樹載入失敗",
+    "treeRetry": "重試",
+    "treeLevelLabel": "第 {level} 層",
+    "treeCollapseHint": "點擊節點查看詳情"
   },
   "earnCommission": {
     "title": "分傭計畫",
@@ -2360,7 +2365,17 @@
     "deleteFailed": "刪除失敗",
     "secretTitle": "金鑰已建立",
     "secretHint": "請立即複製並儲存，該金鑰只會顯示這一次。",
-    "secretDone": "我已儲存"
+    "secretDone": "我已儲存",
+    "rotate": "輪換",
+    "rotating": "輪換中...",
+    "rotateTitle": "輪換金鑰",
+    "rotateConfirm": "確定要輪換「{name}」嗎？舊金鑰將立即失效。",
+    "rotateFailed": "輪換失敗",
+    "rotateSecretTitle": "金鑰已輪換",
+    "copySecret": "複製",
+    "secretCopied": "金鑰已複製到剪貼簿",
+    "rateLimit": "速率限制",
+    "rateLimitUnit": "次/分鐘"
   },
   "devices": {
     "title": "裝置管理",
@@ -2636,7 +2651,11 @@
       "signing": "簽到中...",
       "signInSuccess": "簽到成功,獲得 {points} 積分",
       "signInFailed": "簽到失敗",
-      "alreadySigned": "今日已簽到"
+      "alreadySigned": "今日已簽到",
+      "historyTitle": "簽到歷史",
+      "historyEmpty": "尚無簽到紀錄",
+      "historyLoadFailed": "簽到歷史載入失敗",
+      "historyConsecutive": "連續 {days} 天"
     },
     "mallLink": "積分商城",
     "taskCenterLink": "任務中心",
@@ -3282,7 +3301,10 @@
     "twoFactor": "兩步驟驗證",
     "loginAlert": "登入提醒",
     "desc": "管理帳號安全相關的開關",
-    "loadFailed": "載入安全設定失敗"
+    "loadFailed": "載入安全設定失敗",
+    "readOnlyHint": "以下為目前真實狀態，後端暫不支援修改",
+    "stateOn": "已開啟",
+    "stateOff": "未開啟"
   },
   "settingsAccount": {
     "title": "帳號管理",
@@ -3471,11 +3493,12 @@
     "viewNow": "立即查看"
   },
   "vipBenefit": {
-    "title": "會員權益",
-    "loadFailed": "載入會員權益失敗"
+    "title": "會員權益"
   },
   "vipTrader": {
     "title": "VIP 操盤手",
+    "openTitle": "開通會員",
+    "confirmPay": "確認支付",
     "openTrader": "開通操盤手會員",
     "subtitle": "尊享操盤手專屬權益",
     "badge": "操盤手專屬",
@@ -3499,7 +3522,22 @@
     "title": "我的錢包",
     "totalRecharge": "累計儲值",
     "totalWithdraw": "累計提現",
-    "withdraw": "提現"
+    "withdraw": "提現",
+    "flowsTitle": "資金流水",
+    "flowsEmpty": "暫無流水紀錄",
+    "flowsLoadFailed": "流水載入失敗",
+    "flowsRetry": "重試",
+    "flowsLoadMore": "載入更多",
+    "flowsLoading": "載入中...",
+    "flowBalanceAfter": "餘額",
+    "flowRemarkEmpty": "無備註",
+    "opType1": "儲值",
+    "opType2": "扣減",
+    "opType3": "過期",
+    "opType4": "退款",
+    "opType5": "佣金",
+    "loginRequiredHint": "登入後查看資金流水",
+    "goLogin": "前往登入"
   },
   "activity": {
     "empty": "暫無活動",
@@ -3928,7 +3966,6 @@
     "today": "今日收入",
     "withdrawBtn": "提現",
     "withdrawModal": {
-      "close": "取消",
       "confirm": "確認提現",
       "moreMethods": "更多提現方式",
       "subtitle": "請選擇提現方式",
@@ -4090,6 +4127,17 @@
     "deleteTitle": "刪除文件",
     "deleteConfirm": "確定刪除該文件嗎?",
     "deleteFailed": "刪除失敗",
+    "selectionStart": "選擇",
+    "selectionDone": "完成",
+    "selectionAll": "全選",
+    "selectionClearAll": "取消全選",
+    "selectionCount": "已選 {count} 項",
+    "batchDelete": "批次刪除",
+    "batchDeleting": "刪除中...",
+    "batchDeleteTitle": "批次刪除文件",
+    "batchDeleteConfirm": "確定刪除選中的 {count} 份文件嗎?",
+    "batchDeletePartial": "已刪除 {success} 份,{failed} 份失敗",
+    "batchDeleteFailed": "批次刪除失敗",
     "author": "作者",
     "category": "分類",
     "nextEntry": "下一篇",
@@ -4131,14 +4179,38 @@
     "loadFailed": "技能清單載入失敗",
     "retry": "重試",
     "empty": "暫無技能",
-    "detail": "檢視詳情"
+    "detail": "檢視詳情",
+    "importTitle": "匯入技能",
+    "importHint": "貼上技能 JSON 後匯入；缺少 name 或格式錯誤會被拒絕。",
+    "importButton": "匯入",
+    "importing": "匯入中...",
+    "importInvalidJson": "JSON 格式不正確",
+    "importMissingName": "技能缺少 name 欄位",
+    "importFailed": "匯入失敗",
+    "importSuccess": "匯入成功"
   },
   "aiSkillDetail": {
     "loadFailed": "技能詳情載入失敗",
     "retry": "重試",
     "prompt": "Prompt 模板",
     "noPrompt": "無模板",
-    "source": "來源"
+    "source": "來源",
+    "invoke": "執行",
+    "invoking": "執行中...",
+    "invokeVariables": "變數",
+    "invokeRequired": "請填寫必填變數",
+    "invokeFailed": "執行失敗",
+    "invokeResult": "執行結果",
+    "export": "匯出",
+    "exporting": "匯出中...",
+    "exportFailed": "匯出失敗",
+    "exportBlocked": "檔案已儲存到快取，Android 暫不支援直接分享",
+    "rateTitle": "評分",
+    "rateSubmit": "提交評分",
+    "ratingSubmitted": "評分已提交",
+    "ratingFailed": "評分提交失敗",
+    "commentPlaceholder": "寫下你的評價（選填）",
+    "ratingLoginHint": "登入後可評分"
   },
   "memory": {
     "detail": "詳情",
@@ -4235,6 +4307,50 @@
     "platformZhihu": "知乎",
     "platformJuejin": "掘金",
     "platformShipinhao": "微信視頻號"
+  },
+  "spec": {
+    "title": "規範模板庫",
+    "loadFailed": "模板載入失敗",
+    "empty": "暫無模板",
+    "desktopHint": "模板瀏覽僅作參考;Spec 生成需服務端 workspace 路徑,請在 Web/桌面端使用完整生成流程",
+    "generateEntry": "去 Web 端生成"
+  },
+  "selfMedia": {
+    "title": "自媒體助手",
+    "tabSkills": "技能",
+    "tabRecords": "記錄",
+    "loadFailed": "載入失敗",
+    "promptRequired": "請輸入生成要求",
+    "promptPlaceholder": "描述你的創作需求…",
+    "invoke": "調用技能生成",
+    "invoking": "生成中…",
+    "invokeFailed": "技能調用失敗,請重試",
+    "duration": "耗時 {{ms}} ms",
+    "share": "分享",
+    "empty": "暫無生成/發布記錄"
+  },
+  "context": {
+    "title": "上下文引擎",
+    "loadFailed": "統計載入失敗",
+    "totalEvents": "壓縮次數",
+    "avgRatio": "平均壓縮率",
+    "avgQuality": "平均品質分",
+    "recentEvents": "最近壓縮事件",
+    "tokensRange": "{{before}} → {{after}} tokens · 壓縮 {{ratio}} · 品質 {{quality}}",
+    "mentionsSearch": "上下文提及檢索",
+    "mentionsPlaceholder": "搜尋檔案/表/符號…",
+    "empty": "暫無符合結果"
+  },
+  "pdfTools": {
+    "title": "文件轉 Markdown",
+    "hint": "支援 PDF/Word/Excel/PPT/TXT/CSV,單檔 ≤10MB;上傳後由服務端轉換為 Markdown",
+    "pick": "選擇文件",
+    "converting": "轉換中…",
+    "unsupportedType": "不支援的檔案類型",
+    "tooLarge": "檔案超過 10MB 上限",
+    "uploadFailed": "上傳失敗,請重試",
+    "convertFailed": "轉換失敗,請重試",
+    "share": "分享"
   },
   "imageGen": {
     "title": "圖像生成",
@@ -4664,50 +4780,6 @@
       "error": "載入失敗"
     },
     "empty": "暫無內容"
-  },
-  "spec": {
-    "title": "規範模板庫",
-    "loadFailed": "模板載入失敗",
-    "empty": "暫無模板",
-    "desktopHint": "模板瀏覽僅作參考;Spec 生成需服務端 workspace 路徑,請在 Web/桌面端使用完整生成流程",
-    "generateEntry": "去 Web 端生成"
-  },
-  "selfMedia": {
-    "title": "自媒體助手",
-    "tabSkills": "技能",
-    "tabRecords": "記錄",
-    "loadFailed": "載入失敗",
-    "promptRequired": "請輸入生成要求",
-    "promptPlaceholder": "描述你的創作需求…",
-    "invoke": "調用技能生成",
-    "invoking": "生成中…",
-    "invokeFailed": "技能調用失敗,請重試",
-    "duration": "耗時 {{ms}} ms",
-    "share": "分享",
-    "empty": "暫無生成/發布記錄"
-  },
-  "context": {
-    "title": "上下文引擎",
-    "loadFailed": "統計載入失敗",
-    "totalEvents": "壓縮次數",
-    "avgRatio": "平均壓縮率",
-    "avgQuality": "平均品質分",
-    "recentEvents": "最近壓縮事件",
-    "tokensRange": "{{before}} → {{after}} tokens · 壓縮 {{ratio}} · 品質 {{quality}}",
-    "mentionsSearch": "上下文提及檢索",
-    "mentionsPlaceholder": "搜尋檔案/表/符號…",
-    "empty": "暫無符合結果"
-  },
-  "pdfTools": {
-    "title": "文件轉 Markdown",
-    "hint": "支援 PDF/Word/Excel/PPT/TXT/CSV,單檔 ≤10MB;上傳後由服務端轉換為 Markdown",
-    "pick": "選擇文件",
-    "converting": "轉換中…",
-    "unsupportedType": "不支援的檔案類型",
-    "tooLarge": "檔案超過 10MB 上限",
-    "uploadFailed": "上傳失敗,請重試",
-    "convertFailed": "轉換失敗,請重試",
-    "share": "分享"
   },
   "conversationImport": {
     "pageTitle": "外部會話導入",
@@ -5645,7 +5717,10 @@
     "fillField": "請填寫：{name}",
     "submitFail": "提交失敗，請稍後重試",
     "doneTitle": "提交成功",
-    "doneBody": "問卷已提交，AI 學業建議生成後可在本頁查看。"
+    "doneBody": "問卷已提交，AI 學業建議生成後可在本頁查看。",
+    "exportingReport": "匯出中...",
+    "exportEmptyHint": "產生報告後可匯出",
+    "exportLoginRequired": "請先登入後再匯出"
   },
   "pwd": {
     "oldRequired": "請輸入舊密碼",
@@ -5965,7 +6040,16 @@
       "late": "遲到",
       "absent": "缺勤",
       "leave": "請假"
-    }
+    },
+    "chooseAction": "選擇操作",
+    "actionDone": "操作成功",
+    "actionFailed": "操作失敗",
+    "needClassId": "缺少班級資訊，無法代簽到／簽退",
+    "batchTitle": "整班點名",
+    "chooseClass": "選擇要點名的班級",
+    "noClass": "目前清單沒有可選班級",
+    "batchResult": "點名完成：新增 {created}、跳過 {skipped}、遺漏 {missed}",
+    "qrEntry": "出示簽到碼"
   },
   "eduGrades": {
     "title": "成績管理",
@@ -7132,5 +7216,31 @@
     "empty": "開始新的任務",
     "searchNoResult": "無匹配結果",
     "retry": "重試"
+  },
+  "eduMyAttendance": {
+    "title": "我的考勤",
+    "selfCheckIn": "我要簽到",
+    "date": "日期",
+    "notLoggedIn": "尚未登入，無法操作",
+    "classByBackendHint": "班級由後端按在冊學籍自動確定",
+    "scanCheckIn": "掃碼簽到"
+  },
+  "eduAttendanceQr": {
+    "title": "簽到二維碼",
+    "chooseClass": "選擇班級",
+    "noClass": "暫無可選班級",
+    "classLoadFailed": "班級清單載入失敗",
+    "pickClassFirst": "請先選擇班級",
+    "qrTip": "讓學生用「掃碼簽到」掃描此碼",
+    "expiresIn": "{s} 秒後過期",
+    "refresh": "重新出碼",
+    "nextStepHint": "請先到考勤規則為該班啟用規則並設定掃碼金鑰(qrSecret),再重新出碼",
+    "scanTitle": "掃碼簽到",
+    "scanHint": "將老師的簽到二維碼放入框內",
+    "scanSubmitting": "正在簽到…",
+    "scanInvalidCode": "這不是本系統的簽到二維碼",
+    "scanDone": "簽到成功",
+    "scanFailed": "簽到失敗",
+    "needLogin": "請先登入後再掃碼"
   }
 }

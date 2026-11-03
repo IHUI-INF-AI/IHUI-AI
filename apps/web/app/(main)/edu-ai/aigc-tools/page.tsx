@@ -202,7 +202,7 @@ export default function EduAiAigcToolsPage() {
           <Wrench className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       <div className="space-y-2">
@@ -217,7 +217,7 @@ export default function EduAiAigcToolsPage() {
           />
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs text-muted-foreground">{t('category')}</span>
+          <span className="text-label text-muted-foreground">{t('category')}</span>
           {CATEGORIES.map((cat) => (
             <Button
               key={cat.value}
@@ -244,7 +244,7 @@ export default function EduAiAigcToolsPage() {
       ) : tools.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
           <Sparkles className="h-8 w-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">{tc('empty')}</p>
+          <p className="text-body text-muted-foreground">{tc('empty')}</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
@@ -259,12 +259,12 @@ export default function EduAiAigcToolsPage() {
                   <div className="min-w-0">
                     <p className="line-clamp-1 font-medium">{tool.name}</p>
                     {tool.nameCn && (
-                      <p className="line-clamp-1 text-xs text-muted-foreground">{tool.nameCn}</p>
+                      <p className="line-clamp-1 text-label text-muted-foreground">{tool.nameCn}</p>
                     )}
                   </div>
                   <span
                     className={cn(
-                      'shrink-0 rounded-md px-2 py-0.5 text-xs',
+                      'shrink-0 rounded-md px-2 py-0.5 text-label',
                       CATEGORY_STYLE[tool.category] ?? 'bg-muted text-muted-foreground',
                     )}
                   >
@@ -273,7 +273,7 @@ export default function EduAiAigcToolsPage() {
                 </div>
 
                 <div className="flex items-center justify-between gap-2">
-                  <span className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+                  <span className="flex min-w-0 items-center gap-1.5 text-label text-muted-foreground">
                     <Sparkles className="h-3.5 w-3.5 shrink-0 text-primary/60" />
                     <span className="line-clamp-1">{tool.provider}</span>
                   </span>
@@ -281,7 +281,7 @@ export default function EduAiAigcToolsPage() {
                 </div>
 
                 {tool.description && (
-                  <p className="line-clamp-2 flex-1 text-sm text-muted-foreground">
+                  <p className="line-clamp-2 flex-1 text-body text-muted-foreground">
                     {tool.description}
                   </p>
                 )}
@@ -289,17 +289,17 @@ export default function EduAiAigcToolsPage() {
                 <div className="mt-auto flex items-center justify-between gap-2 pt-1">
                   <div className="flex flex-wrap items-center gap-1.5">
                     {isFreeTool(tool) && (
-                      <span className="rounded-md bg-emerald-500/10 px-2 py-0.5 text-xs text-emerald-600">
+                      <span className="rounded-md bg-emerald-500/10 px-2 py-0.5 text-label text-emerald-600">
                         {t('free')}
                       </span>
                     )}
                     {tool.apiAvailable && (
-                      <span className="rounded-md bg-sky-500/10 px-2 py-0.5 text-xs text-sky-600">
+                      <span className="rounded-md bg-sky-500/10 px-2 py-0.5 text-label text-sky-600">
                         {t('api')}
                       </span>
                     )}
                   </div>
-                  <span className="flex shrink-0 items-center gap-1 text-xs text-primary">
+                  <span className="flex shrink-0 items-center gap-1 text-label text-primary">
                     {t('viewDetail')}
                     <ChevronRight className="h-3.5 w-3.5" />
                   </span>
@@ -312,7 +312,7 @@ export default function EduAiAigcToolsPage() {
 
       {total > PAGE_SIZE && (
         <div className="flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">{t('total', { n: total })}</span>
+          <span className="text-body text-muted-foreground">{t('total', { n: total })}</span>
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
@@ -322,7 +322,7 @@ export default function EduAiAigcToolsPage() {
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <span className="text-sm text-muted-foreground">
+            <span className="text-body text-muted-foreground">
               {page} / {totalPages}
             </span>
             <Button
@@ -351,7 +351,7 @@ export default function EduAiAigcToolsPage() {
                 <>
                   <span
                     className={cn(
-                      'rounded-md px-2 py-0.5 text-xs',
+                      'rounded-md px-2 py-0.5 text-label',
                       CATEGORY_STYLE[detail.category] ?? 'bg-muted text-muted-foreground',
                     )}
                   >
@@ -377,16 +377,16 @@ export default function EduAiAigcToolsPage() {
           ) : detailQuery.isError ? (
             <Alert variant="danger" description={(detailQuery.error as Error).message} />
           ) : detail ? (
-            <div className="space-y-4 text-sm">
+            <div className="space-y-4 text-body">
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
                 <span className="flex items-center gap-1.5">
                   <RatingStars rating={detail.rating} />
-                  <span className="text-xs text-muted-foreground">
+                  <span className="text-label text-muted-foreground">
                     {t('rating')}: {detail.rating ?? '-'}
                   </span>
                 </span>
                 {typeof detail.userCount === 'number' && detail.userCount > 0 && (
-                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1 text-label text-muted-foreground">
                     <Users className="h-3.5 w-3.5" />
                     {detail.userCount}
                   </span>
@@ -396,7 +396,7 @@ export default function EduAiAigcToolsPage() {
                     href={detail.url}
                     target="_blank"
                     rel="noreferrer"
-                    className="flex min-w-0 items-center gap-1 text-xs text-primary hover:underline"
+                    className="flex min-w-0 items-center gap-1 text-label text-primary hover:underline"
                   >
                     <ExternalLink className="h-3.5 w-3.5 shrink-0" />
                     <span className="truncate">{detail.url}</span>

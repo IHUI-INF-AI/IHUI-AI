@@ -92,7 +92,7 @@ export default function MyAgentsPage() {
     <div className="mx-auto w-full max-w-4xl space-y-4 px-4 py-4">
       <Link
         href="/agents"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         {t('back')}
@@ -100,8 +100,10 @@ export default function MyAgentsPage() {
 
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">{t('title')}</h1>
-          <p className="mt-0.5 text-xs text-muted-foreground">{t('subtitle')}</p>
+          <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">
+            {t('title')}
+          </h1>
+          <p className="mt-0.5 text-label text-muted-foreground">{t('subtitle')}</p>
         </div>
         <Button size="sm" asChild>
           <Link href="/agents/create">
@@ -136,13 +138,13 @@ export default function MyAgentsPage() {
           {t('loading')}
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {(error as Error).message}
         </div>
       ) : agents.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center text-muted-foreground">
           <Sparkles className="h-8 w-8 opacity-40" />
-          <p className="text-sm">{t('empty')}</p>
+          <p className="text-body">{t('empty')}</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
@@ -178,10 +180,10 @@ export default function MyAgentsPage() {
                       </span>
                     </div>
                   </div>
-                  <p className="line-clamp-2 text-xs text-muted-foreground">
+                  <p className="line-clamp-2 text-label text-muted-foreground">
                     {agent.description ?? t('noDescription')}
                   </p>
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <div className="flex items-center justify-between text-label text-muted-foreground">
                     <span
                       className={cn(
                         'font-semibold',

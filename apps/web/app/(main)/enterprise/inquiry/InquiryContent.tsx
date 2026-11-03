@@ -21,10 +21,10 @@ export function InquiryContent(): React.JSX.Element {
         <h1 className="text-display min-[768px]:text-3xl min-[1024px]:text-4xl font-bold tracking-tight">
           {t('enterpriseInquiry.title')}
         </h1>
-        <p className="mx-auto max-w-2xl text-sm text-muted-foreground min-[768px]:text-base">
+        <p className="mx-auto max-w-2xl text-body text-muted-foreground min-[768px]:text-base">
           {t('enterpriseInquiry.subtitle')}
         </p>
-        <div className="flex flex-wrap items-center justify-center gap-6 pt-2 text-sm">
+        <div className="flex flex-wrap items-center justify-center gap-6 pt-2 text-body">
           <span className="inline-flex items-center gap-1.5">
             <Mail className="h-4 w-4 text-muted-foreground" />
             <span className="text-muted-foreground">{t('enterpriseInquiry.contactEmail')}:</span>
@@ -56,8 +56,10 @@ export function InquiryContent(): React.JSX.Element {
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <Headphones className="h-5 w-5" />
               </div>
-              <h3 className="text-body font-semibold">{t('enterpriseInquiry.sidebar.salesTitle')}</h3>
-              <p className="text-xs text-muted-foreground">
+              <h3 className="text-body font-semibold">
+                {t('enterpriseInquiry.sidebar.salesTitle')}
+              </h3>
+              <p className="text-label text-muted-foreground">
                 {t('enterpriseInquiry.sidebar.salesDesc')}
               </p>
             </CardContent>
@@ -70,7 +72,7 @@ export function InquiryContent(): React.JSX.Element {
               <h3 className="text-body font-semibold">
                 {t('enterpriseInquiry.sidebar.workHoursTitle')}
               </h3>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-label text-muted-foreground">
                 {t('enterpriseInquiry.sidebar.workHours')}
               </p>
             </CardContent>
@@ -81,7 +83,9 @@ export function InquiryContent(): React.JSX.Element {
                 <ShieldCheck className="h-5 w-5" />
               </div>
               <h3 className="text-body font-semibold">{t('enterpriseInquiry.sidebar.slaTitle')}</h3>
-              <p className="text-xs text-muted-foreground">{t('enterpriseInquiry.sidebar.sla')}</p>
+              <p className="text-label text-muted-foreground">
+                {t('enterpriseInquiry.sidebar.sla')}
+              </p>
             </CardContent>
           </Card>
         </aside>

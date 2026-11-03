@@ -168,7 +168,7 @@ export default function KnowledgeGraphPage() {
             <h1 className="text-heading font-semibold">{t('title')}</h1>
           </div>
         </div>
-        <div className="text-sm text-muted-foreground">
+        <div className="text-body text-muted-foreground">
           {t('stats', {
             entities: data?.stats.entity_count ?? 0,
             relations: data?.stats.relation_count ?? 0,
@@ -179,7 +179,7 @@ export default function KnowledgeGraphPage() {
       {feedback && (
         <div
           className={cn(
-            'flex items-center gap-2 rounded-md border px-3 py-2 text-sm',
+            'flex items-center gap-2 rounded-md border px-3 py-2 text-body',
             feedback.type === 'success'
               ? 'border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950 dark:text-green-200'
               : 'border-red-200 bg-red-50 text-red-800 dark:border-red-800 dark:bg-red-950 dark:text-red-200',
@@ -207,7 +207,7 @@ export default function KnowledgeGraphPage() {
             disabled={buildMutation.isPending}
           />
           <div className="flex items-center justify-between gap-2">
-            <span className="text-xs text-muted-foreground">
+            <span className="text-label text-muted-foreground">
               {t('charCount', { count: text.length })}
             </span>
             <div className="flex items-center gap-2">
@@ -251,14 +251,14 @@ export default function KnowledgeGraphPage() {
           </CardHeader>
           <CardContent>
             {graphQuery.isLoading ? (
-              <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
+              <div className="flex items-center justify-center py-8 text-body text-muted-foreground">
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 {tCommon('loading')}
               </div>
             ) : graphQuery.isError ? (
-              <div className="py-8 text-center text-sm text-destructive">{tCommon('error')}</div>
+              <div className="py-8 text-center text-body text-destructive">{tCommon('error')}</div>
             ) : entities.length === 0 ? (
-              <div className="py-8 text-center text-sm text-muted-foreground">
+              <div className="py-8 text-center text-body text-muted-foreground">
                 {t('emptyState')}
               </div>
             ) : (
@@ -342,7 +342,7 @@ export default function KnowledgeGraphPage() {
             )}
           </CardContent>
           {entities.length > 0 && (
-            <CardFooter className="text-xs text-muted-foreground">{t('legendHint')}</CardFooter>
+            <CardFooter className="text-label text-muted-foreground">{t('legendHint')}</CardFooter>
           )}
         </Card>
       )}

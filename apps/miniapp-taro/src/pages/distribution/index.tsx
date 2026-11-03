@@ -9,6 +9,7 @@ import { FocusInput } from '@/components/FocusField'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import * as api from '@/api'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { useUserStore } from '@/stores/user'
 import { aizhsUrl, bspappUrl } from '@/constants/icon-urls'
 import { saveImageToPhotosAlbum } from '@/utils/save-album'
@@ -18,6 +19,7 @@ import CustomerServiceFloat from '@/components/CustomerServiceFloat'
 import CommissionOverview from './commission-overview'
 import './index.css'
 import ThemeRoot from '@/components/ThemeRoot'
+import { onToast } from '@/host/on-toast'
 
 interface OperatorStats {
   dayEarnings?: number
@@ -42,8 +44,16 @@ interface OperatorData {
 
 type StatsTab = 'day' | 'month' | 'sum'
 
+/** 分佣比例行 —— 真值接 GET /distribution/commission-rates(与分佣计划页同一端点,
+ *  档位/比例全部取自后端在册配置;不做硬编兜底,未配置时如实渲染空态)。 */
+interface RateRow {
+  level: string
+  rate: string
+}
+
 export default function DistributionIndex() {
   const tt = useTt()
+  const gate = useAuthReadyGate()
   const user = useUserStore((s) => s.user)
   const [data, setData] = useState<OperatorData>({})
   const [statsTab, setStatsTab] = useState<StatsTab>('day')
@@ -55,6 +65,8 @@ export default function DistributionIndex() {
   const [submitting, setSubmitting] = useState(false)
   // 佣金概览块的重取令牌:每次页面显示(useDidShow)递增,块内同批拉 /distribution/overview
   const [overviewTick, setOverviewTick] = useState(0)
+  // 分佣比例档位(对齐 RN DistributionScreen 的 ratesCard;空数组 ⇒ 空态)
+  const [rateRows, setRateRows] = useState<RateRow[]>([])
 
   const load = useCallback(async () => {
     try {
@@ -64,11 +76,36 @@ export default function DistributionIndex() {
     } catch {
       // ignore
     }
+    // 分佣比例(对齐 RN ratesCard 的取数):失败按空态处理,不编造比例
+    try {
+      const res = await api.get<{ rates?: Record<string, string> }>(
+        '/distribution/commission-rates',
+      )
+      setRateRows(
+        Object.entries(res?.rates ?? {}).map(([level, rate]) => ({
+          level,
+          rate: String(rate ?? ''),
+        })),
+      )
+    } catch {
+      setRateRows([])
+    }
   }, [])
 
+  // G-933 冷启动抢跑门控(范式同 pages/distribution/plan/index.tsx:36-62):load() 里的两发请求
+  // 都挂在 distributionRoutes 的统一 preHandler 之下 ——
+  //   · getOperatorDataCardData → GET /operator/data-card(注册点 apps/api/src/routes/distribution.ts:104)
+  //   · GET /distribution/commission-rates(注册点 apps/api/src/routes/distribution.ts:315)
+  // 而该 preHandler(addHook('preHandler', authenticate),同文件 :32-39)对本插件全部路由生效,
+  // 无票即 authenticate 抛 401。冷启动未落定/未登录时照发,只会换来一次 401,并被下面两个 catch
+  // 吞成"暂无分佣比例"的假空态(比空态更糟:用户以为后端没配比例)。故父页这两发整块挡到门后。
+  // 子组件 CommissionOverview 的 GET /distribution/overview 同样需鉴权,但它自己的挂载 effect
+  // 在这一发之前就会跑,父页门控拦不住,只能在该组件内单独挂门。
   useDidShow(() => {
-    load()
-    setOverviewTick((n) => n + 1)
+    gate.waitUntilReady(() => {
+      load()
+      setOverviewTick((n) => n + 1)
+    })
   })
 
   const onGetQrCode = useCallback(async () => {
@@ -77,19 +114,13 @@ export default function DistributionIndex() {
       setQrCode(res?.url || res?.qrCode || '')
       setShowQrCode(true)
     } catch {
-      Taro.showToast({
-        title: tt('distribution.index.qrLoadFail', '二维码加载失败'),
-        icon: 'none',
-      })
+      onToast(tt('distribution.index.qrLoadFail', '二维码加载失败'), { kind: 'error' })
     }
   }, [tt])
 
   const onSaveQr = useCallback(async () => {
     if (!qrCode) {
-      Taro.showToast({
-        title: tt('distribution.index.qrLoading', '二维码生成中'),
-        icon: 'none',
-      })
+      onToast(tt('distribution.index.qrLoading', '二维码生成中'), { kind: 'info' })
       return
     }
     try {
@@ -101,10 +132,7 @@ export default function DistributionIndex() {
 
   const onSaveUserInfo = useCallback(async () => {
     if (!idNum.trim() || !idName.trim()) {
-      Taro.showToast({
-        title: tt('distribution.index.fillInfo', '请填写完整信息'),
-        icon: 'none',
-      })
+      onToast(tt('distribution.index.fillInfo', '请填写完整信息'), { kind: 'info' })
       return
     }
     if (submitting) return
@@ -113,18 +141,12 @@ export default function DistributionIndex() {
     try {
       await api.realNameAuth({ realName: idName.trim(), idCard: idNum.trim() })
       Taro.hideLoading()
-      Taro.showToast({
-        title: tt('distribution.index.verifyOk', '验证成功'),
-        icon: 'success',
-      })
+      onToast(tt('distribution.index.verifyOk', '验证成功'), { kind: 'success' })
       setShowVerify(false)
       setData((prev) => ({ ...prev, verified: true }))
     } catch {
       Taro.hideLoading()
-      Taro.showToast({
-        title: tt('distribution.index.verifyFail', '验证失败'),
-        icon: 'none',
-      })
+      onToast(tt('distribution.index.verifyFail', '验证失败'), { kind: 'error' })
     } finally {
       setSubmitting(false)
     }
@@ -323,6 +345,31 @@ export default function DistributionIndex() {
               <Text className="dist-menu-label">{item.label}</Text>
             </View>
           ))}
+        </View>
+
+        {/* 分佣比例 —— 对齐 RN DistributionScreen 的 ratesCard:标题 + 逐档 level/rate;
+            未配置时如实给空态,不拿硬编比例顶位 */}
+        <View className="mt-[24rpx] bg-card ui-card rounded-lg p-[28rpx]">
+          <Text className="block text-title font-semibold text-foreground mb-[16rpx]">
+            {tt('earnCommission.rateTitle', '分佣比例')}
+          </Text>
+          {rateRows.length === 0 ? (
+            <Text className="block text-body text-muted-foreground text-center py-[16rpx]">
+              {tt('earnCommission.rateEmpty', '暂无分佣比例')}
+            </Text>
+          ) : (
+            rateRows.map((row) => (
+              <View
+                key={row.level}
+                className="flex flex-row items-center gap-[24rpx] bg-[var(--color-muted)] rounded-sm px-[24rpx] py-[20rpx] mb-[16rpx]"
+              >
+                <Text className="flex-1 text-body font-medium text-foreground">{row.level}</Text>
+                <Text className="text-title font-bold text-[var(--color-primary)] min-w-[88rpx]">
+                  {row.rate}
+                </Text>
+              </View>
+            ))
+          )}
         </View>
 
         {/* 分销佣金概览(等级/佣金比例/收益卡/提现/分销商品)— 对齐 RN 容器底部渲染的共享屏 */}

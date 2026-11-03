@@ -89,7 +89,7 @@ export function AgentPicker() {
         <DropdownMenuItem
           onSelect={() => setSelectedAgentId(null)}
           data-testid="agent-picker-item-default"
-          className="flex cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-none focus:bg-accent focus:text-accent-foreground"
+          className="flex cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1.5 text-body outline-none focus:bg-accent focus:text-accent-foreground"
         >
           <Check
             className={cn(
@@ -116,7 +116,7 @@ export function AgentPicker() {
               onSelect={() => setSelectedAgentId(p.name)}
               data-testid={`agent-picker-item-${p.name}`}
               data-active={active ? 'true' : 'false'}
-              className="flex cursor-pointer select-none items-start gap-2 rounded-md px-2 py-1.5 text-sm outline-none focus:bg-accent focus:text-accent-foreground"
+              className="flex cursor-pointer select-none items-start gap-2 rounded-md px-2 py-1.5 text-body outline-none focus:bg-accent focus:text-accent-foreground"
             >
               <Check
                 className={cn('mt-0.5 h-4 w-4 shrink-0', active ? 'opacity-100' : 'opacity-0')}

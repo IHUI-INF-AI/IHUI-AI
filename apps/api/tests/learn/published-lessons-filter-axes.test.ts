@@ -68,10 +68,13 @@ function makeChain(record: CapturedCall): unknown {
     record.offset = n
     return chain
   }
-  chain.then = (
-    onFulfilled: ((value: unknown[]) => unknown) | undefined,
-    onRejected?: ((reason: unknown) => unknown) | undefined,
-  ) => Promise.resolve([]).then(onFulfilled, onRejected)
+  chain.then = (...args: unknown[]) => {
+    const [onFulfilled, onRejected] = args as [
+      ((value: unknown[]) => unknown) | undefined,
+      ((reason: unknown) => unknown) | undefined,
+    ]
+    return Promise.resolve([]).then(onFulfilled, onRejected)
+  }
   return chain
 }
 
@@ -112,7 +115,7 @@ function compileWhere(where: unknown): { sql: string; params: unknown[] } {
 /** 把捕获到的 select 形状交给 Drizzle 编译,证明投影里真的有哪一列 */
 function compileSelect(fields: unknown): { sql: string } {
   const built = new QueryBuilder()
-    .select(fields as Record<string, unknown>)
+    .select(fields as Parameters<QueryBuilder['select']>[0])
     .from(lessons)
     .leftJoin(learnCategories, eq(lessons.categoryId, learnCategories.id))
   return built.toSQL() as unknown as { sql: string }

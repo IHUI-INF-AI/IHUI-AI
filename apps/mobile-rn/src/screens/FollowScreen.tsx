@@ -14,6 +14,7 @@ import { usePaginatedList, useRefreshOnFocus } from '../hooks'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { useHostPorts } from '../host/use-host-ports'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -91,6 +92,8 @@ export function FollowScreen() {
     ])
   }
 
+  const { onNavigate, onToast } = useHostPorts()
+
   return (
     <SharedFollowScreen
       t={uniappT}
@@ -105,7 +108,10 @@ export function FollowScreen() {
       onLoadMore={loadMore}
       onUnfollow={onUnfollow}
       onBack={() => navigation.goBack()}
+      onRetry={() => { void refresh(); }}
       colorScheme={resolvedTheme}
+      onNavigate={onNavigate}
+      onToast={onToast}
     />
   )
 }

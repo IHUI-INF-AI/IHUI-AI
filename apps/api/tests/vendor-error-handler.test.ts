@@ -29,11 +29,16 @@ vi.mock('../src/config/index.js', () => ({
 
 const { VendorErrorHandler } = await import('../src/services/vendor-error-handler.js')
 
-function makeReply() {
+type ReplyMock = FastifyReply & {
+  status: ReturnType<typeof vi.fn>
+  send: ReturnType<typeof vi.fn>
+}
+
+function makeReply(): ReplyMock {
   return {
     status: vi.fn().mockReturnThis(),
     send: vi.fn().mockReturnThis(),
-  } as unknown as FastifyReply
+  } as unknown as ReplyMock
 }
 
 describe('VendorErrorHandler.handleConfigError', () => {
@@ -56,7 +61,7 @@ describe('VendorErrorHandler.handleApiError', () => {
     const longPayload = { error: 'x'.repeat(1000) }
     VendorErrorHandler.handleApiError(reply, 'Tencent(腾讯混元/ARC)', 401, longPayload)
     expect(reply.status).toHaveBeenCalledWith(502)
-    const sentMessage = reply.send.mock.calls[0][0].message
+    const sentMessage = reply.send.mock.calls[0]![0].message
     // 截断到 500 字符内
     expect(sentMessage.length).toBeLessThan(1000)
     expect(sentMessage).toContain('Tencent(腾讯混元/ARC)')
@@ -70,7 +75,7 @@ describe('VendorErrorHandler.handleNetworkError', () => {
     const err = new Error('aborted')
     err.name = 'AbortError'
     VendorErrorHandler.handleNetworkError(reply, 'Dashscope', err)
-    const sentMessage = reply.send.mock.calls[0][0].message
+    const sentMessage = reply.send.mock.calls[0]![0].message
     expect(reply.status).toHaveBeenCalledWith(502)
     expect(sentMessage).toContain('请求超时')
   })
@@ -78,7 +83,7 @@ describe('VendorErrorHandler.handleNetworkError', () => {
   it('其他错误使用 err.message', () => {
     const reply = makeReply()
     VendorErrorHandler.handleNetworkError(reply, 'Volcengine', new Error('ECONNREFUSED'))
-    const sentMessage = reply.send.mock.calls[0][0].message
+    const sentMessage = reply.send.mock.calls[0]![0].message
     expect(sentMessage).toContain('ECONNREFUSED')
     expect(sentMessage).not.toContain('请求超时')
   })
@@ -91,7 +96,7 @@ describe('VendorErrorHandler.validateCredentials', () => {
     const result = VendorErrorHandler.validateCredentials(reply, vendor, {})
     expect(result).toBe(false)
     expect(reply.status).toHaveBeenCalledWith(503)
-    expect(reply.send.mock.calls[0][0].message).toContain('DASHSCOPE_API_KEY')
+    expect(reply.send.mock.calls[0]![0].message).toContain('DASHSCOPE_API_KEY')
   })
 
   it('secret 缺失时返回 false 并 reply 503', () => {
@@ -103,7 +108,7 @@ describe('VendorErrorHandler.validateCredentials', () => {
     }
     const result = VendorErrorHandler.validateCredentials(reply, vendor, { key: 'sid' })
     expect(result).toBe(false)
-    expect(reply.send.mock.calls[0][0].message).toContain('TENCENT_SECRET_KEY')
+    expect(reply.send.mock.calls[0]![0].message).toContain('TENCENT_SECRET_KEY')
   })
 
   it('凭据完整时返回 true 不发响应', () => {

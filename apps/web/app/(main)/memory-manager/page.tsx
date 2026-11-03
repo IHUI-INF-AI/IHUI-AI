@@ -157,16 +157,16 @@ export default function MemoryManagerPage() {
           </button>
         </div>
       </div>
-      <p className="mb-4 text-sm text-muted-foreground">{t('subtitle')}</p>
+      <p className="mb-4 text-body text-muted-foreground">{t('subtitle')}</p>
 
       {/* 过滤条 */}
-      <div className="mb-4 flex flex-wrap items-center gap-3 text-sm">
+      <div className="mb-4 flex flex-wrap items-center gap-3 text-body">
         <label className="flex items-center gap-1.5 text-muted-foreground">
           {t('type')}
           <select
             value={type}
             onChange={(e) => setType(e.target.value)}
-            className="rounded-sm border bg-background px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring"
+            className="rounded-sm border bg-background px-2 py-1.5 text-body outline-none focus:ring-2 focus:ring-ring"
           >
             <option value="">{t('all')}</option>
             {MEMORY_TYPES.map((mt) => (
@@ -181,7 +181,7 @@ export default function MemoryManagerPage() {
           <select
             value={importanceMin}
             onChange={(e) => setImportanceMin(Number(e.target.value))}
-            className="rounded-sm border bg-background px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring"
+            className="rounded-sm border bg-background px-2 py-1.5 text-body outline-none focus:ring-2 focus:ring-ring"
           >
             <option value={0}>{t('all')}</option>
             <option value={3}>≥3</option>
@@ -189,7 +189,7 @@ export default function MemoryManagerPage() {
             <option value={5}>5</option>
           </select>
         </label>
-        <span className="ml-auto text-xs text-muted-foreground">
+        <span className="ml-auto text-label text-muted-foreground">
           {data ? t('totalCount', { count: data.total }) : ''}
         </span>
       </div>
@@ -202,7 +202,7 @@ export default function MemoryManagerPage() {
             <select
               value={newType}
               onChange={(e) => setNewType(e.target.value)}
-              className="rounded-sm border bg-background px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-ring"
+              className="rounded-sm border bg-background px-2 py-1 text-body outline-none focus:ring-2 focus:ring-ring"
             >
               {MEMORY_TYPES.map((mt) => (
                 <option key={mt} value={mt}>
@@ -216,12 +216,12 @@ export default function MemoryManagerPage() {
             onChange={(e) => setNewContent(e.target.value)}
             placeholder={t('contentPlaceholder')}
             rows={2}
-            className="w-full rounded-sm border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+            className="w-full rounded-sm border bg-background px-3 py-2 text-body outline-none focus:ring-2 focus:ring-ring"
           />
           <div className="mt-2 flex justify-end gap-2">
             <button
               onClick={() => setNewOpen(false)}
-              className="rounded-sm border px-3 py-1.5 text-sm transition hover:bg-muted"
+              className="rounded-sm border px-3 py-1.5 text-body transition hover:bg-muted"
             >
               {t('cancel')}
             </button>
@@ -237,28 +237,28 @@ export default function MemoryManagerPage() {
       )}
 
       {extractMsg && (
-        <p className="mb-4 flex items-center gap-1.5 rounded-lg bg-emerald-500/10 p-3 text-sm text-emerald-600">
+        <p className="mb-4 flex items-center gap-1.5 rounded-lg bg-emerald-500/10 p-3 text-body text-emerald-600">
           <Sparkles className="h-4 w-4" /> {extractMsg}
         </p>
       )}
       {needLogin && (
-        <p className="mb-4 flex items-center gap-1.5 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
+        <p className="mb-4 flex items-center gap-1.5 rounded-lg bg-destructive/10 p-3 text-body text-destructive">
           <CircleX className="h-4 w-4" /> {t('needLogin')}
         </p>
       )}
       {(error || actionError) && (
-        <p className="mb-4 flex items-center gap-1.5 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
+        <p className="mb-4 flex items-center gap-1.5 rounded-lg bg-destructive/10 p-3 text-body text-destructive">
           <XCircle className="h-4 w-4" /> {error || actionError}
         </p>
       )}
 
       {loading && (
-        <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
+        <div className="flex items-center justify-center gap-2 py-16 text-body text-muted-foreground">
           <Loader2 className="h-5 w-5 animate-spin" /> {t('loading')}
         </div>
       )}
       {empty && (
-        <div className="flex items-center justify-center gap-2 rounded-xl border py-16 text-sm text-muted-foreground">
+        <div className="flex items-center justify-center gap-2 rounded-xl border py-16 text-body text-muted-foreground">
           <Search className="h-5 w-5" /> {t('empty')}
         </div>
       )}
@@ -273,12 +273,12 @@ export default function MemoryManagerPage() {
                   <span className="rounded bg-cta/10 px-1.5 py-0.5 text-label font-medium text-primary">
                     {label}
                   </span>
-                  <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                  <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-label text-muted-foreground">
                     <Sparkles className="h-3 w-3" />{' '}
                     {t('importanceValue', { value: entry.importance })}
                   </span>
                   {entry.created_at && (
-                    <span className="text-xs text-muted-foreground/70">{entry.created_at}</span>
+                    <span className="text-label text-muted-foreground/70">{entry.created_at}</span>
                   )}
                   <span className="ml-auto flex items-center gap-2">
                     <button
@@ -286,7 +286,7 @@ export default function MemoryManagerPage() {
                         void runOp(() => markMemoryImportant(entry.memory_id), entry.memory_id)
                       }
                       disabled={busyId === entry.memory_id || entry.importance >= 5}
-                      className="inline-flex items-center gap-1 rounded-sm border px-2 py-1 text-xs transition hover:bg-muted disabled:opacity-40"
+                      className="inline-flex items-center gap-1 rounded-sm border px-2 py-1 text-label transition hover:bg-muted disabled:opacity-40"
                     >
                       {busyId === entry.memory_id ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -300,7 +300,7 @@ export default function MemoryManagerPage() {
                         void runOp(() => deleteMemoryEntry(entry.memory_id), entry.memory_id)
                       }
                       disabled={busyId === entry.memory_id}
-                      className="inline-flex items-center gap-1 rounded-sm border border-destructive/40 px-2 py-1 text-xs text-destructive transition hover:bg-destructive/10 disabled:opacity-40"
+                      className="inline-flex items-center gap-1 rounded-sm border border-destructive/40 px-2 py-1 text-label text-destructive transition hover:bg-destructive/10 disabled:opacity-40"
                     >
                       {busyId === entry.memory_id ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -311,13 +311,13 @@ export default function MemoryManagerPage() {
                     </button>
                   </span>
                 </div>
-                <p className="mt-2 whitespace-pre-wrap text-sm">{entry.content}</p>
+                <p className="mt-2 whitespace-pre-wrap text-body">{entry.content}</p>
                 {(entry.keywords?.length > 0 || entry.tags?.length > 0) && (
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {(entry.tags ?? []).map((tag) => (
                       <span
                         key={`t-${tag}`}
-                        className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground"
+                        className="rounded bg-muted px-1.5 py-0.5 text-label text-muted-foreground"
                       >
                         #{tag}
                       </span>
@@ -325,7 +325,7 @@ export default function MemoryManagerPage() {
                     {(entry.keywords ?? []).map((kw) => (
                       <span
                         key={`k-${kw}`}
-                        className="rounded bg-background px-1.5 py-0.5 text-xs text-muted-foreground/70 ring-1 ring-border"
+                        className="rounded bg-background px-1.5 py-0.5 text-label text-muted-foreground/70 ring-1 ring-border"
                       >
                         {kw}
                       </span>

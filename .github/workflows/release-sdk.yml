@@ -474,9 +474,13 @@ jobs:
           grep '^version' pyproject.toml
 
       - name: Install build tools
+        # 2026-11-01 供给链:这两行原本是 `pip install --upgrade pip` + `pip install build twine`
+        # —— 无版无摘要,而**同一枚作业握着 PyPI 凭据**:上游任意一包被投毒,下一次发布就把
+        # 脏包喂进上传路径。逐字钉版(现读 pip index versions:build 1.6.1 / twine 7.0.0)。
+        # pip 自身的 --upgrade 一并去掉:runner 自带档足够跑 build/twine,少一个不定版更新腿
+        # 就少一条"升级即换代码"的通道。
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install build twine
+          python -m pip install build==1.6.1 twine==7.0.0
 
       - name: Build wheel + sdist
         working-directory: packages/sdk/python

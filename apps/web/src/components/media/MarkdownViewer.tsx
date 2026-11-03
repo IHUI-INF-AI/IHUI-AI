@@ -15,13 +15,13 @@ import { rnRadius } from '@ihui/design-tokens'
 
 const ReactMarkdown = dynamic(() => import('react-markdown'), {
   ssr: false,
-  loading: () => <div className="animate-pulse text-sm text-muted-foreground">…</div>,
+  loading: () => <div className="animate-pulse text-body text-muted-foreground">…</div>,
 })
 
 // MermaidDiagram 仅在客户端加载,不影响首屏 bundle
 const MermaidDiagram = dynamic(() => import('@/components/media/MermaidDiagram'), {
   ssr: false,
-  loading: () => <div className="animate-pulse text-xs text-muted-foreground">…</div>,
+  loading: () => <div className="animate-pulse text-label text-muted-foreground">…</div>,
 })
 
 interface MarkdownViewerProps {
@@ -69,7 +69,7 @@ export function MarkdownViewer({ content, className }: MarkdownViewerProps) {
             const inline = !match && !String(children).includes('\n')
             if (inline) {
               return (
-                <code className="rounded bg-muted px-1.5 py-0.5 text-sm" {...props}>
+                <code className="rounded bg-muted px-1.5 py-0.5 text-body" {...props}>
                   {children}
                 </code>
               )

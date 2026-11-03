@@ -10,7 +10,7 @@ import {
   SubscriptionsScreen as SharedSubscriptionsScreen,
   type SubscriptionsItem,
 } from '@ihui/rn-app'
-import { cancelSubscription, getSubscriptions } from '../api/social'
+import { cancelSubscription, getSubscriptions } from '@ihui/api-client'
 import { usePaginatedList, useRefreshOnFocus } from '../hooks'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'

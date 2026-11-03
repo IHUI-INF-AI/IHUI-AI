@@ -228,7 +228,7 @@ export default function KouboPage() {
                 placeholder={t('filePathPlaceholder')}
               />
               {result?.outputPath && (
-                <p className="text-xs text-muted-foreground">
+                <p className="text-label text-muted-foreground">
                   {t('latestOutput')}{' '}
                   <code className="rounded bg-muted px-1">{result.outputPath}</code>
                 </p>
@@ -282,7 +282,7 @@ export default function KouboPage() {
               </Button>
             </div>
             {running === 'all' && (
-              <p className="text-xs text-muted-foreground">{t('pipelineRunning')}</p>
+              <p className="text-label text-muted-foreground">{t('pipelineRunning')}</p>
             )}
           </CardContent>
         </Card>
@@ -297,7 +297,7 @@ export default function KouboPage() {
                     variant="ghost"
                     size="xs"
                     onClick={downloadAllArticles}
-                    className="px-2 text-xs"
+                    className="px-2 text-label"
                   >
                     <Copy className="h-3 w-3" />
                     {t('downloadAll')}
@@ -331,12 +331,12 @@ export default function KouboPage() {
                   ` · ${result.articlesCount} ${t('articleUnit')}`}
               </div>
               {result.guide && (
-                <p className="rounded-md bg-muted px-2 py-1.5 text-xs text-muted-foreground">
+                <p className="rounded-md bg-muted px-2 py-1.5 text-label text-muted-foreground">
                   {result.guide}
                 </p>
               )}
               {result.error && (
-                <pre className="thin-scroll max-h-40 overflow-auto rounded-md bg-rose-50 p-2 text-xs text-rose-700 dark:bg-rose-950/40 dark:text-rose-300">
+                <pre className="thin-scroll max-h-40 overflow-auto rounded-md bg-rose-50 p-2 text-label text-rose-700 dark:bg-rose-950/40 dark:text-rose-300">
                   {result.error}
                 </pre>
               )}
@@ -355,7 +355,7 @@ export default function KouboPage() {
                           variant="ghost"
                           size="sm"
                           onClick={() => copyArticle(a.index, a.content)}
-                          className="h-6 px-2 text-xs"
+                          className="h-6 px-2 text-label"
                         >
                           {copiedIdx === a.index ? (
                             <>
@@ -370,7 +370,7 @@ export default function KouboPage() {
                           )}
                         </Button>
                       </div>
-                      <pre className="thin-scroll max-h-60 overflow-auto whitespace-pre-wrap text-xs leading-relaxed">
+                      <pre className="thin-scroll max-h-60 overflow-auto whitespace-pre-wrap text-label leading-relaxed">
                         {a.content}
                       </pre>
                     </div>
@@ -378,17 +378,17 @@ export default function KouboPage() {
                 </div>
               )}
               {result.displayOutput && (
-                <pre className="thin-scroll max-h-40 overflow-auto rounded-md bg-muted p-2 text-xs">
+                <pre className="thin-scroll max-h-40 overflow-auto rounded-md bg-muted p-2 text-label">
                   {result.displayOutput}
                 </pre>
               )}
               {result.stdout && (
-                <pre className="thin-scroll max-h-60 overflow-auto rounded-md bg-muted p-2 text-xs">
+                <pre className="thin-scroll max-h-60 overflow-auto rounded-md bg-muted p-2 text-label">
                   {result.stdout}
                 </pre>
               )}
               {result.stderr && (
-                <pre className="thin-scroll max-h-40 overflow-auto rounded-md bg-amber-50 p-2 text-xs text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+                <pre className="thin-scroll max-h-40 overflow-auto rounded-md bg-amber-50 p-2 text-label text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
                   {result.stderr}
                 </pre>
               )}
@@ -406,7 +406,7 @@ export default function KouboPage() {
         </CardHeader>
         <CardContent className="min-[640px]:p-2 p-2">
           {history.length === 0 ? (
-            <p className="px-2 py-4 text-xs text-muted-foreground">{t('historyEmpty')}</p>
+            <p className="px-2 py-4 text-label text-muted-foreground">{t('historyEmpty')}</p>
           ) : (
             <div role="list" className="space-y-1">
               {history.map((h) => (
@@ -414,7 +414,7 @@ export default function KouboPage() {
                   <button
                     type="button"
                     onClick={() => applyHistory(h)}
-                    className="block w-full cursor-pointer rounded-sm px-2 py-1.5 text-left text-xs transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="block w-full cursor-pointer rounded-sm px-2 py-1.5 text-left text-label transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     <div className="truncate font-medium">{h.title}</div>
                     <div className="mt-0.5 flex items-center gap-1.5 text-muted-foreground">

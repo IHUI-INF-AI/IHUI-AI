@@ -92,7 +92,7 @@ export default function SpecDetailPage() {
   if (error || !spec) {
     return (
       <div className="mx-auto max-w-2xl space-y-4 py-8">
-        <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+        <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-body text-destructive">
           <AlertCircle className="h-4 w-4" />
           {error ? '加载失败,请稍后重试' : '未找到该 Spec'}
         </div>
@@ -118,7 +118,7 @@ export default function SpecDetailPage() {
           </Link>
           <div>
             <h1 className="text-heading font-bold tracking-tight">Spec 详情</h1>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-label text-muted-foreground">
               {formatDate(spec.generatedAt)} · 分析 {spec.stats?.filesAnalyzed ?? 0} 个文件
             </p>
           </div>
@@ -134,7 +134,7 @@ export default function SpecDetailPage() {
       </div>
 
       {diffError && (
-        <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+        <div className="rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">
           {diffError}
         </div>
       )}
@@ -142,7 +142,7 @@ export default function SpecDetailPage() {
       <div className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-[200px_1fr_320px]">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-1.5 text-sm">
+            <CardTitle className="flex items-center gap-1.5 text-body">
               <Activity className="h-3.5 w-3.5" />
               生命周期
             </CardTitle>
@@ -154,7 +154,7 @@ export default function SpecDetailPage() {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-1.5 text-sm">
+            <CardTitle className="flex items-center gap-1.5 text-body">
               <FileText className="h-3.5 w-3.5" />
               Spec 文档
             </CardTitle>
@@ -166,7 +166,7 @@ export default function SpecDetailPage() {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-1.5 text-sm">
+            <CardTitle className="flex items-center gap-1.5 text-body">
               <GitCompare className="h-3.5 w-3.5" />
               变更对比
             </CardTitle>

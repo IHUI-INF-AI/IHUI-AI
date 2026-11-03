@@ -52,7 +52,7 @@ export function UserAgentContextDialog({
             <DialogTitle>{editing ? '编辑用户Agent上下文' : '新增用户Agent上下文'}</DialogTitle>
           </DialogHeader>
           {err && (
-            <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <div className="rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">
               {err}
             </div>
           )}

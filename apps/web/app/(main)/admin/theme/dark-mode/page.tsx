@@ -49,7 +49,7 @@ function ColorField({
   return (
     <div className="space-y-1.5">
       <BackButton />
-      <Label className="text-xs">{label}</Label>
+      <Label className="text-label">{label}</Label>
       <div className="flex items-center gap-2">
         <input
           type="color"
@@ -57,7 +57,11 @@ function ColorField({
           onChange={(e) => onChange(e.target.value)}
           className="h-8 w-10 cursor-pointer rounded-sm border border-input bg-transparent"
         />
-        <Input value={value} onChange={(e) => onChange(e.target.value)} className="h-8 text-xs" />
+        <Input
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="h-8 text-label"
+        />
       </div>
     </div>
   )
@@ -104,7 +108,7 @@ export default function DarkModePage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-display font-bold tracking-tight">暗色模式</h1>
-          <p className="mt-1 text-sm text-muted-foreground">配置站点暗色主题</p>
+          <p className="mt-1 text-body text-muted-foreground">配置站点暗色主题</p>
         </div>
         <Button type="submit" size="sm" disabled={saving}>
           <Save className="h-4 w-4" />
@@ -118,7 +122,7 @@ export default function DarkModePage() {
             <Moon className="h-4 w-4 text-primary" />
             <div>
               <p className="text-body font-medium">全局启用暗色模式</p>
-              <p className="text-xs text-muted-foreground">关闭后用户无法切换至暗色</p>
+              <p className="text-label text-muted-foreground">关闭后用户无法切换至暗色</p>
             </div>
           </div>
           <Switch checked={cfg.enabled} onCheckedChange={(v) => set('enabled', v)} />
@@ -152,8 +156,8 @@ export default function DarkModePage() {
         <CardContent className="grid grid-cols-2 gap-4">
           <div className="space-y-2 rounded-lg border border-slate-200 bg-white p-3 text-slate-900">
             <p className="text-body font-semibold">亮色模式</p>
-            <p className="text-xs opacity-80">示例正文内容</p>
-            <span className="inline-block rounded-md bg-cta px-2 py-1 text-xs text-cta-foreground">
+            <p className="text-label opacity-80">示例正文内容</p>
+            <span className="inline-block rounded-md bg-cta px-2 py-1 text-label text-cta-foreground">
               主按钮
             </span>
           </div>
@@ -167,9 +171,9 @@ export default function DarkModePage() {
             }}
           >
             <p className="text-body font-semibold">暗色模式</p>
-            <p className="text-xs opacity-80">示例正文内容</p>
+            <p className="text-label opacity-80">示例正文内容</p>
             <span
-              className="inline-block rounded-md px-2 py-1 text-xs text-white"
+              className="inline-block rounded-md px-2 py-1 text-label text-white"
               style={{ backgroundColor: cfg.accentColor }}
             >
               主按钮

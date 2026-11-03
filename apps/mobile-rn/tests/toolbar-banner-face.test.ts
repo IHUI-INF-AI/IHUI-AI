@@ -18,7 +18,25 @@ import { resolve } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
+import { rnSpacing } from '@ihui/design-tokens'
+
 const SRC = resolve(__dirname, '../src/components/Toolbar.tsx')
+
+/**
+ * paddingTop 的两种合法写法:字面数字,或设计令牌 `rnSpacing['<档位>']`。
+ * 2026-11-01:Toolbar 的 bannerWrap 改用令牌(单一真相源)后,原判据只认字面数字 ⇒
+ * 代码越按规范写、判据越"失明"。这里按令牌**表**解析(import 同一份源,不复制数值),
+ * 两种写法都认;两样都不是才算失明并当场红。
+ */
+function paddingTopOf(block: string): number {
+  const m = /paddingTop:\s*(?:(\d+(?:\.\d+)?)|rnSpacing\[['"]([^'"]+)['"]\])/.exec(block)
+  if (!m) return Number.NaN
+  if (m[1]) return Number(m[1])
+  const key = m[2]
+  if (!key) return Number.NaN
+  const v = (rnSpacing as Record<string, number>)[key]
+  return typeof v === 'number' ? v : Number.NaN
+}
 
 /** 取 StyleSheet 里某个键的对象体(括号配平,不靠缩进与 `as X` 后缀猜边界) */
 function styleBlockOf(source: string, key: string): string {
@@ -88,8 +106,11 @@ describe('营销 banner 面层几何回归锁(归并丢 flexDirection 的常驻�
   })
 
   it('③ 浮动余量:上浮幅度不得超过外框 paddingTop', () => {
-    const pad = Number(/paddingTop:\s*(\d+(?:\.\d+)?)/.exec(wrap)?.[1])
-    expect(Number.isFinite(pad)).toBe(true)
+    const pad = paddingTopOf(wrap)
+    expect(
+      Number.isFinite(pad),
+      '判据失明:paddingTop 既非字面数字、也非可解析的 rnSpacing 令牌',
+    ).toBe(true)
     const range = /outputRange:\s*\[\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\]/.exec(src)
     expect(range, '判据失明:找不到浮动动画的 outputRange').not.toBeNull()
     const extremes = [Number(range![1]), Number(range![2])]

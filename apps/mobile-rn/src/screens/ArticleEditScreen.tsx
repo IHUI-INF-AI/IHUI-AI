@@ -268,7 +268,7 @@ function makeStyles() {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginTop: 14,
+      marginTop: rnSpacing['md-loose'],
     },
     radio: {
       width: 20,

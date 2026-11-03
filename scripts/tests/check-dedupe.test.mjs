@@ -7,8 +7,10 @@ import assert from 'node:assert/strict'
 import { execSync, spawnSync } from 'node:child_process'
 import {
   writeFileSync,
+  readFileSync,
   rmSync,
   copyFileSync,
+  cpSync,
   mkdirSync,
 } from 'node:fs'
 import { join } from 'node:path'
@@ -18,13 +20,27 @@ import { fileURLToPath } from 'node:url'
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
 const SOURCE_SCRIPT = join(__dirname, '..', 'check-dedupe.mjs')
+const SCRIPTS_DIR = join(__dirname, '..')
 
 // ─── 辅助:创建临时项目(含脚本副本,使 __dirname 解析到 tempdir) ──
 // 说明:check-dedupe.mjs 用 __dirname 推导 ROOT(=__dirname/..),
 // 故将脚本复制到 tempdir/scripts/,ROOT 即为 tempdir,可完全控制环境。
+// ⚠️ 2026-11-01 修:门体自 G-54(2026-10-26)起 import './lib/face-reader.mjs',
+// 而本夹具过去**只复制门体一枚** ⇒ 副本一加载就 ERR_MODULE_NOT_FOUND、退出码 1,
+// 下面这 13 例从那天起全红(红在夹具不在判据;scripts/tests 不在提交链 ⇒ 长期没人看见)。
+// 逐文件猜闭包同样会腐烂(gitdir.mjs 还反向 import scripts/ 同级的 seal-c-root-stray.mjs),
+// 故整层拷 scripts/;拷完立刻删掉台账副本,让每个夹具自己决定"有没有存量台账"。
+function copyScriptsClosure(dir) {
+  const target = join(dir, 'scripts')
+  mkdirSync(target, { recursive: true })
+  cpSync(SCRIPTS_DIR, target, { recursive: true })
+  rmSync(join(target, 'data', 'dedupe-stock.json'), { force: true })
+  return target
+}
+
 function createTempProject() {
   const dir = mkScratch('ihui-dedupe-')
-  mkdirSync(join(dir, 'scripts'), { recursive: true })
+  copyScriptsClosure(dir)
   copyFileSync(SOURCE_SCRIPT, join(dir, 'scripts', 'check-dedupe.mjs'))
   return dir
 }
@@ -228,8 +244,12 @@ test('退出码: pnpm dedupe --check 失败 → exit 非零 + 输出"失败"', (
     // pnpm 对无效 lockfile 应失败(或 pnpm 未安装时 shell 返回非零)
     assert.notEqual(r.status, 0, `无效 lockfile 应 exit 非零,实际 ${r.status}`)
     assert.ok(r.status !== null, '进程不应超时')
+    // 2026-11-01 契约更正:门体现在区分两态 —— 解析出"新增碎片"= exit 1 报「失败」;
+    // pnpm 跑不出可解析结论(本例的无效 lockfile)= exit 2 报「未判定」(§0.3:
+    // 判不出既不记绿也不冒红)。两态都必须非零,且都必须把 pnpm 的原报告带出来。
+    assert.ok(r.status === 1 || r.status === 2, `退出码应为 1(判出红)或 2(未判定),实得 ${r.status}`)
     const combined = stripAnsi(r.stdout + r.stderr)
-    assert.match(combined, /失败/)
+    assert.match(combined, /失败|未判定/)
     assert.match(combined, /pnpm dedupe/)
   } finally {
     rmScratch(dir)
@@ -260,5 +280,119 @@ test('--staged: 多文件暂存含 pnpm-lock.yaml → 不跳过,进入 pnpm 检�
   } finally {
     rmScratch(dir)
   }
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §22c 纯判据对照(2026-11-01,门 7 改差值口径同批):直接 import 门体导出的生产判据,
+// 不在测试里复制第二份常量或第二把尺子。反向牙的作用:把"新增碎片 vs 存量点名"这一维
+// 摘掉,同一份夹具必须当场翻红(否则等于只锁了自检档)。
+// ─────────────────────────────────────────────────────────────────────────────
+const D = (await import('../check-dedupe.mjs')).__test__
+const TODAY = '2026-11-01'
+const frag = (pkg, version) => ({ pkg, version, raw: `- ${pkg}@${version}` })
+const stock = (over = {}) => ({
+  pkg: 'pbkdf2',
+  version: '3.1.6',
+  reason: '存量:pnpm dedupe rc=0 仍消不掉',
+  ticket: 'T-1',
+  reviewBy: '2099-01-01',
+  ...over,
+})
+
+test('D1 台账齐备且无新碎片 ⇒ 0(恒红门被打通的那一格)', () => {
+  const r = D.decide({ fragments: [frag('pbkdf2', '3.1.6')], entries: [stock()], today: TODAY, ranOk: true })
+  assert.equal(r.code, 0)
+  assert.ok(r.lines.some((l) => l.includes('存量点名放行')), '放行必须点名,不许静默')
+})
+
+test('D2 反向牙:同一份碎片但台账为空 ⇒ 1(摘掉差值/台账维必翻红)', () => {
+  const withLedger = D.decide({ fragments: [frag('pbkdf2', '3.1.6')], entries: [stock()], today: TODAY, ranOk: true })
+  const without = D.decide({ fragments: [frag('pbkdf2', '3.1.6')], entries: [], today: TODAY, ranOk: true })
+  assert.equal(withLedger.code, 0)
+  assert.equal(without.code, 1)
+})
+
+test('D3 台账外的新碎片 ⇒ 1(牙没被削掉)', () => {
+  const r = D.decide({
+    fragments: [frag('pbkdf2', '3.1.6'), frag('left-pad', '1.0.0')],
+    entries: [stock()],
+    today: TODAY,
+    ranOk: true,
+  })
+  assert.equal(r.code, 1)
+  assert.ok(r.lines.some((l) => l.includes('left-pad') && l.includes('新碎片')))
+})
+
+test('D4 台账条目到期 ⇒ 1(§0.7 豁免会到期,到期回队列重裁)', () => {
+  const r = D.decide({
+    fragments: [frag('pbkdf2', '3.1.6')],
+    entries: [stock({ reviewBy: '2026-01-01' })],
+    today: TODAY,
+    ranOk: true,
+  })
+  assert.equal(r.code, 1)
+  assert.ok(r.lines.some((l) => l.includes('已到期')))
+})
+
+test('D5 登记了而本次报告一条没命中 ⇒ 1(清单腐烂 = §0.7 验过才免的另一半)', () => {
+  const r = D.decide({ fragments: [], entries: [stock()], today: TODAY, ranOk: true })
+  assert.equal(r.code, 1)
+  assert.ok(r.lines.some((l) => l.includes('腐烂')))
+})
+
+test('D6 输出取不到 / pnpm 没跑成 ⇒ 2 未判定(既不记绿也不冒红)', () => {
+  assert.equal(D.decide({ fragments: null, entries: [stock()], today: TODAY, ranOk: true }).code, 2)
+  assert.equal(D.decide({ fragments: [], entries: [stock()], today: TODAY, ranOk: false }).code, 2)
+})
+
+test('D7 台账形态不齐 ⇒ validateLedger 逐条报名(缺字段/日期形错/理由过短)', () => {
+  assert.ok(D.validateLedger({ entries: [{ pkg: 'x' }] }).errors.length > 0)
+  assert.ok(D.validateLedger({ entries: [stock({ reviewBy: '2099/01/01' })] }).errors.length > 0)
+  assert.ok(D.validateLedger({ entries: [stock({ reason: '太短' })] }).errors.length > 0)
+  assert.equal(D.validateLedger({ entries: [stock()] }).errors.length, 0)
+})
+
+test('D8 解析 pnpm 真实报告形态(要摘掉的那几行 = 碎片身份)', () => {
+  const out = [
+    'is-typed-array@1.1.15',
+    '└── which-typed-array 1.1.22 → 1.1.24',
+    '',
+    '- pbkdf2@3.1.6',
+    '- which-typed-array@1.1.22',
+    '',
+    'Run pnpm dedupe to apply the changes above.',
+  ].join('\n')
+  const f = D.parseFragments(out)
+  assert.ok(Array.isArray(f) && f.length === 2)
+  assert.deepEqual(
+    f.map((x) => `${x.pkg}@${x.version}`),
+    ['pbkdf2@3.1.6', 'which-typed-array@1.1.22'],
+  )
+  // 说了"有变更要应用"却解析不到任何一条 ⇒ 必须未判定,不能折成"没有碎片"
+  assert.equal(D.parseFragments('dedupe\nRun pnpm dedupe to apply the changes above.'), null)
+  // 真的没碎片(报告里没有 apply 行)⇒ []
+  assert.deepEqual(D.parseFragments('dedupe --check\nnothing to dedupe'), [])
+})
+
+test('D10 pnpm 非零退出却解析不到碎片 ⇒ 未判定(绝不折成"通过")', () => {
+  // 真实反例来源:夹具里放一份无效 lockfile,pnpm 报错退出、输出没有碎片行。
+  const bad = D.classifyRun({ ranOk: true, status: 1, parsed: [] })
+  assert.equal(bad, null)
+  assert.equal(D.decide({ fragments: bad, entries: [stock()], today: TODAY, ranOk: true }).code, 2)
+  // 对照三格:pnpm 正常退出且无碎片 ⇒ 真通过;pnpm 没跑成 ⇒ 未判定
+  assert.deepEqual(D.classifyRun({ ranOk: true, status: 0, parsed: [] }), [])
+  assert.equal(D.classifyRun({ ranOk: false, status: null, parsed: [] }), null)
+})
+
+test('D9 形态锁:门体只有一把尺,台账落点不得搬进被 gitignore 的目录', () => {
+  const src = readFileSync(SOURCE_SCRIPT, 'utf8')
+  assert.match(src, /export const __test__ = \{[^}]*decide/)
+  // 判决出口唯一:定义一次 + 主路径调用一次(有人在 main 里再拼一份判据 ⇒ 调用数变多即红)
+  assert.equal((src.match(/export function decide\(\{/g) ?? []).length, 1)
+  assert.equal((src.match(/=\s*decide\(\{/g) ?? []).length, 1)
+  // 台账必须住 scripts/data/(.ihui-agent/* 被 gitignore ⇒ 换机失效,门 192 记过这型)
+  assert.match(src, /resolve\(HERE, 'data', 'dedupe-stock\.json'\)/)
+  // 派生 pnpm 必须显式接管 stdio 且读的就是它(丢 stdout 又去读 ⇒ 结论恒 null,门 199 同型)
+  assert.match(src, /stdio: \['ignore', 'pipe', 'pipe'\]/)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

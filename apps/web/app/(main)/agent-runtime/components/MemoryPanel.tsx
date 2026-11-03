@@ -68,16 +68,18 @@ function LayerCard({ data }: { data: LayerData }) {
   return (
     <Card>
       <CardHeader className="pb-2 pt-4">
-        <CardTitle className="flex items-center gap-1.5 text-sm">
+        <CardTitle className="flex items-center gap-1.5 text-body">
           <Icon className="h-4 w-4 text-primary" />
           {meta.label}
-          <span className="ml-auto text-label font-normal text-muted-foreground">{data.count} 条</span>
+          <span className="ml-auto text-label font-normal text-muted-foreground">
+            {data.count} 条
+          </span>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-2 pt-0">
         {data.entries.slice(0, 3).map((e) => (
           <div key={e.id} className="space-y-1">
-            <p className="text-xs leading-relaxed">{truncate(e.content)}</p>
+            <p className="text-label leading-relaxed">{truncate(e.content)}</p>
             <div className="flex items-center gap-2">
               <div className="h-1.5 flex-1 overflow-hidden rounded-xs bg-muted">
                 <div
@@ -92,7 +94,7 @@ function LayerCard({ data }: { data: LayerData }) {
           </div>
         ))}
         {data.entries.length === 0 && (
-          <p className="py-2 text-center text-xs text-muted-foreground">暂无条目</p>
+          <p className="py-2 text-center text-label text-muted-foreground">暂无条目</p>
         )}
       </CardContent>
     </Card>
@@ -160,7 +162,7 @@ export function MemoryPanel({ agentId, timeRange, refreshKey }: MemoryPanelProps
               ))}
             </div>
             {error && layers.length === 0 && (
-              <p className="mt-3 text-center text-xs text-muted-foreground">
+              <p className="mt-3 text-center text-label text-muted-foreground">
                 接口暂不可用,数据显示为 0
               </p>
             )}

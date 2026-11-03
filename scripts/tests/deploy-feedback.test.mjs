@@ -13,7 +13,8 @@
  *  ⑤ 每轮 --max-per-run 配额上限;
  *  ⑥ 输入缺失 / 契约坏 ⇒ exit 2;登记行短 sha 被清洗;--status 只读不写盘;
  *  ⑦ 取号族现读可行、绝不使用满员的 G 族;
- *  ⑨ 门槛只问契约(dispatch.minCountBySource.deploy_outcome 现读,缺门槛即未判定)。
+ *  ⑨ 门槛只问契约(dispatch.minCountBySource.deploy_outcome 现读,缺门槛即未判定);
+ *  ⑩ 窗口外旧证据(B69)不复活成新票;窗口内同形信号照常派单(反向例)。
  *
  * 全程只用 scripts/lib/scratch-dir.mjs 的夹具,并注入假 spawn:
  * 绝不碰真实 `.ihui-agent/state/deploy-feedback-ledger.jsonl`,也不真跑 live-doc-edit。
@@ -24,6 +25,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { __test__ as df } from '../deploy-feedback.mjs'
+import { TS_CODE_FAMILY, clusterSignals, identityOf, normalizeRoute, sameIncidentIdentity, tsCodesOf } from '../lib/incident-cluster.mjs'
 
 const SCRATCH = mkScratch('deploy-feedback-test-')
 after(() => {
@@ -171,7 +173,7 @@ test('③b 回读到已落行 ⇒ registered 条目带 ticketLine(O6x 号可被 
   const tmpDir = join(SCRATCH, 'landed-tmp')
   const fakeSpawn = () => ({ status: 0, stdout: '✅ 回读:本块每一条非空行都在 HEAD 里', stderr: '' })
   // 假 HEAD 面:与真实枚 a9cb59ed41e 的落地行同形(行首 `- [ ] O<号> [deploy-feedback] `,行体带 route=)
-  const landedLine = '- [ ] O69 [deploy-feedback] [deploy_outcome/alert_firing] rollback post /api/deploy/release 部署异常 ⇒ 排查链路并修复（登记@2026-10-28/deploy-feedback;来源:deploy_outcome;证据:route=post /api/deploy/release）'
+  const landedLine = '- [ ] O69 [deploy-feedback] [deploy_outcome/alert_firing] rollback POST /api/deploy/release 部署异常 ⇒ 排查链路并修复（登记@2026-10-28/deploy-feedback;来源:deploy_outcome;证据:route=POST /api/deploy/release）'
   const { res } = quietRound({
     inputPath,
     ledgerPath,
@@ -332,6 +334,35 @@ test('⑨ 门槛只问契约:minCountBySource.deploy_outcome 现读,契约收紧
   assert.ok(Number.isInteger(realGate) && realGate >= 1, `真契约缺 dispatch.minCountBySource.deploy_outcome(实得 ${JSON.stringify(realGate)})`)
 })
 
+test('⑩ 窗口外旧证据不复活成新票;窗口内同形信号照常派单(反向例)', () => {
+  // 旧证据(2000min 前,远超 1440min 窗口):判 judged、0 候选、0 结果,不写台账。
+  // 修复前 `clusterSignals` 以批次最新时刻自锚,单条旧信号每天都会重新登记(B53→B67→B69)。
+  const agedPath = signalFile('aged.jsonl', [signal({ at: at(2000) })])
+  const agedLedger = join(SCRATCH, 'aged-ledger.jsonl')
+  const aged = quietRound({ inputPath: agedPath, ledgerPath: agedLedger, tmpDir: join(SCRATCH, 'aged-tmp') })
+  assert.equal(aged.res.code, 0, aged.res.why ?? '')
+  assert.equal(aged.res.status, 'judged')
+  assert.equal(aged.res.input.agedRows, 1)
+  assert.equal(aged.res.candidates.length, 0)
+  assert.equal(aged.res.results.length, 0)
+  assert.ok(aged.logs.some((l) => l.includes('窗口外')), aged.logs.join('\n'))
+  assert.equal(existsSync(agedLedger), false, '窗口外旧证据不得触发台账写盘')
+
+  // 反向:窗口内同形信号必须照常派单(绝缘不得误伤新鲜事故)。
+  const freshPath = signalFile('aged-fresh.jsonl', [signal({ at: at(60) })])
+  const fresh = quietRound({ inputPath: freshPath, ledgerPath: join(SCRATCH, 'aged-fresh-ledger.jsonl'), tmpDir: join(SCRATCH, 'aged-fresh-tmp') })
+  assert.equal(fresh.res.code, 0, fresh.res.why ?? '')
+  assert.equal(fresh.res.input.agedRows, 0)
+  assert.equal(fresh.res.candidates.length, 1, '窗口内信号必须照常派单')
+  assert.equal(fresh.res.results[0].result, 'dry-run')
+
+  // 边界:恰在窗口起点(1440min)的算窗内(`>=`),不得因边界误判成旧证据。
+  const edgePath = signalFile('aged-edge.jsonl', [signal({ at: at(df.DEFAULT_MINUTES) })])
+  const edge = quietRound({ inputPath: edgePath, ledgerPath: join(SCRATCH, 'aged-edge-ledger.jsonl'), tmpDir: join(SCRATCH, 'aged-edge-tmp') })
+  assert.equal(edge.res.input.agedRows, 0)
+  assert.equal(edge.res.candidates.length, 1)
+})
+
 test('⑦ 取号族现读:O65 落成字母族 O、下一号现读;绝不选 G', () => {
   const fam = df.chooseIdFamily(PLAN_TEXT)
   assert.equal(fam.ok, true)
@@ -339,4 +370,104 @@ test('⑦ 取号族现读:O65 落成字母族 O、下一号现读;绝不选 G', 
   assert.equal(fam.nextLabel, 'O89')
   assert.notEqual(fam.family, 'G')
   assert.equal(df.chooseIdFamily('').ok, false, '读不到计划 ⇒ 取号不可行,不得给 1')
+})
+
+// B87/B88/B91 同题三登记:07:32 无码 / 07:58 TS2339 / 08:29 TS2554,旧身份
+// `deploy_outcome|alert_firing|route:/deploy/build-fail|code:<码>` 使同一条 route 裂成 3 键,
+// deploy-feedback 逐键登记 ⇒ 3 张票。本组钉「一份输入 → 一张票」,并保留反向例。
+const FULL_SHA = '0123456789abcdef0123456789abcdef01234567'
+const buildFailSignal = (code, minAgo, dims = 'web') => ({
+  at: at(minAgo),
+  source: 'deploy_outcome',
+  kind: 'alert_firing',
+  severity: 'error',
+  route: 'deploy/build-fail',
+  message:
+    `deploy_outcome action=build-fail sha=${FULL_SHA} dims=${dims} reason="构建失败,未切流,保持当前在线版本:` +
+    `next build 连续 1 次失败,保持当前在线版本(` +
+    (code
+      ? `末次报错: ./apps/web/src/app/page.tsx:12:34 - error ${code}: Property 'x' does not exist on type 'Y')"`
+      : `末轮报错行不可读,exit=1)"`),
+})
+
+test('⑩ 同 route 三轮 build-fail(无码/TS2339/TS2554)⇒ 1 个候选,evidence 带 codes 与 cause', () => {
+  const rows = [buildFailSignal('', 60, '(none)'), buildFailSignal('TS2339', 30), buildFailSignal('TS2554', 5)]
+  const inputPath = signalFile('build-fail-3.jsonl', rows)
+  const { res } = quietRound({ inputPath, ledgerPath: join(SCRATCH, 'build-fail-ledger.jsonl'), minutes: 1440 })
+  assert.equal(res.code, 0, res.why ?? '')
+  assert.equal(res.clusters.length, 1, '同一 route 必须只聚成一簇')
+  assert.equal(res.clusters[0].count, 3)
+  assert.deepEqual(res.clusters[0].codes, ['TS2339', 'TS2554'], '同族多码必须逐码保留(聚合≠丢证据)')
+  assert.equal(res.clusters[0].code, 'TS2339', 'code 取首个非空码(首条信号无码也不丢)')
+  assert.equal(res.candidates.length, 1, '三张票应收敛成一张')
+  const c = res.candidates[0]
+  assert.equal(c.identity, 'deploy_outcome|alert_firing|route:/deploy/build-fail', '身份不带 code')
+  assert.equal(c.codes.length, 2)
+  assert.match(c.evidence, /codes=TS2339\+TS2554/)
+  assert.match(c.evidence, /cause=/, '必须落可定位原因,而不是被 sha 前缀吃掉的 sample')
+  assert.match(c.evidence, /末次报错/)
+  assert.match(c.evidence, /TS2554/, 'cause 取最新一轮的末次报错(TS2554)')
+  assert.doesNotMatch(c.evidence, /sample=/)
+  assert.match(c.evidence, /dims=web/, 'build-fail 必须点名 web 维')
+  assert.match(c.evidence, /route=\/deploy\/build-fail/)
+  assert.ok(c.evidence.length <= df.EVIDENCE_MAX, `证据超长 ${c.evidence.length}`)
+  assert.ok(c.line.length <= df.LINE_MAX, `行宽 ${c.line.length}`)
+
+  // 反向例:旧身份公式(route 后挂具体 TS 号)在同一份输入上仍裂成 3 键 —— 症状可复现。
+  const legacyIdentity = (s) => {
+    const code = (s.message.match(/\bTS\d{4}\b/) ?? [''])[0]
+    const base = `${s.source}|${s.kind}|route:${normalizeRoute(s.route)}`
+    return code ? `${base}|code:${code}` : base
+  }
+  assert.equal(new Set(rows.map(legacyIdentity)).size, 3, '旧口径 = 3 个身份 = 3 张票(症状复现)')
+  assert.equal(new Set(rows.map(identityOf)).size, 1, '新口径 = 1 个身份')
+})
+
+test('⑪ 旧台账身份(带 |code:TS2339)仍拦住新键 ⇒ 修复当天不多登记第 4 张票', () => {
+  const rows = [buildFailSignal('TS2554', 5)]
+  const inputPath = signalFile('build-fail-compat.jsonl', rows)
+  const ledgerPath = join(SCRATCH, 'build-fail-compat-ledger.jsonl')
+  df.appendLedger(
+    { ts: at(60), action: 'build-fail', identity: 'deploy_outcome|alert_firing|route:/deploy/build-fail|code:TS2339', result: 'registered' },
+    ledgerPath,
+  )
+  let calls = 0
+  const { res } = quietRound({
+    inputPath,
+    ledgerPath,
+    tmpDir: join(SCRATCH, 'build-fail-compat-tmp'),
+    apply: true,
+    spawn: () => {
+      calls++
+      return { status: 0, stdout: '✅ 回读', stderr: '' }
+    },
+  })
+  assert.equal(res.code, 0, res.why ?? '')
+  assert.equal(res.results[0].result, 'skip', '旧键与新键必须互认')
+  assert.equal(calls, 0)
+  assert.equal(sameIncidentIdentity('deploy_outcome|alert_firing|route:/deploy/build-fail|code:TS2339', 'deploy_outcome|alert_firing|route:/deploy/build-fail'), true)
+  assert.equal(sameIncidentIdentity('deploy_outcome|alert_firing|route:/deploy/rollback|code:TS2339', 'deploy_outcome|alert_firing|route:/deploy/build-fail'), false)
+})
+
+test('⑫ 非部署来源的 TS 诊断码按族聚合(身份 TS-COMPILE,证据保留编号)', () => {
+  const api = (code, minAgo) => ({
+    at: at(minAgo),
+    source: 'api_logs',
+    kind: 'http_error',
+    severity: 'error',
+    route: 'get /api/agents',
+    message: `GET /api/agents failed with ${code}`,
+  })
+  const rows = [api('TS2339', 30), api('TS2554', 5)]
+  assert.equal(new Set(rows.map(identityOf)).size, 1, '同族不同编号必须落同一身份')
+  assert.equal(identityOf(rows[0]), `api_logs|http_error|route:GET /api/agents|code:${TS_CODE_FAMILY}`)
+  assert.deepEqual(tsCodesOf(rows[1].message), ['TS2554'])
+  const clusters = clusterSignals(rows, { minCount: 1, windowMinutes: 1440, contract: V2 })
+  assert.equal(clusters.length, 1)
+  assert.equal(clusters[0].count, 2)
+  assert.deepEqual(clusters[0].codes, ['TS2339', 'TS2554'])
+
+  // 反向例:旧口径按具体编号分身份 ⇒ 同族两条被拆成两簇,永远凑不够阈值。
+  const legacy = rows.map((s) => `${s.source}|${s.kind}|route:${normalizeRoute(s.route)}|code:${(s.message.match(/\bTS\d{4}\b/) ?? [''])[0]}`)
+  assert.equal(new Set(legacy).size, 2)
 })

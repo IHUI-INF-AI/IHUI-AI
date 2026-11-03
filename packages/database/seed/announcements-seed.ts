@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 import { createDb } from '../src/client.js'
-import { announcements, type AnnouncementPlatform } from '../src/schema/content.js'
+import { announcements } from '../src/schema/content.js'
 
 const db = createDb(process.env.DATABASE_URL ?? 'postgres://postgres:postgres@localhost:5432/ihui')
 
@@ -27,8 +27,6 @@ interface SeedAnnouncement {
   daysAgo?: number
   /** 过期天数(缺省 = 不过期) */
   expiresInDays?: number
-  /** 投放端(缺省/空数组 = 全端通用;见 ANNOUNCEMENT_PLATFORMS) */
-  platforms?: AnnouncementPlatform[]
 }
 
 const DAY = 24 * 60 * 60 * 1000
@@ -115,15 +113,15 @@ export async function seedAnnouncements() {
     isPublished: true,
     publishedAt: new Date(now - (a.daysAgo ?? 0) * DAY),
     expiresAt: a.expiresInDays !== undefined ? new Date(now + a.expiresInDays * DAY) : null,
-    // 空数组 = 全端通用(web/rn/miniapp/extension/cli 全部显示)
-    platforms: a.platforms ?? [],
   }))
   if (toInsert.length === 0) {
     console.info('[seed] announcements: 全部已存在,跳过(幂等)')
     return
   }
   await db.insert(announcements).values(toInsert)
-  console.info(`[seed] announcements: 新增 ${toInsert.length} 条,跳过 ${existingTitles.size} 条已存在`)
+  console.info(
+    `[seed] announcements: 新增 ${toInsert.length} 条,跳过 ${existingTitles.size} 条已存在`,
+  )
 }
 
 // 独立执行入口:tsx seed/announcements-seed.ts

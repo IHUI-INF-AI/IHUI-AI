@@ -2,8 +2,6 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE).
-
 'use client'
 
 import * as React from 'react'
@@ -118,10 +116,10 @@ export default function CapabilityMarketPageClient() {
       <header className="space-y-1">
         <div className="flex items-center gap-2">
           <Boxes className="h-6 w-6 text-primary" />
-          <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+          <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
           {!isLoading && !error && <Badge variant="primary">{t('count', { count: total })}</Badge>}
         </div>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       {/* 过滤栏:关键词搜索 + 分类下拉 */}
@@ -137,7 +135,7 @@ export default function CapabilityMarketPageClient() {
         <select
           value={category}
           onChange={(e) => setCategory(e.target.value)}
-          className="rounded-sm border bg-card px-3 py-2 text-sm text-foreground"
+          className="rounded-sm border bg-card px-3 py-2 text-body text-foreground"
           aria-label={t('category')}
         >
           <option value="">{t('allCategories')}</option>
@@ -150,13 +148,13 @@ export default function CapabilityMarketPageClient() {
       </div>
 
       {isLoading && (
-        <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+        <div className="flex items-center justify-center gap-2 py-8 text-body text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
           <span>{t('loading')}</span>
         </div>
       )}
       {error && (
-        <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {t('loadFailed')}
         </div>
       )}
@@ -198,7 +196,7 @@ function CapabilityCard({
         </div>
         <div className="min-w-0 flex-1 space-y-1">
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="truncate text-sm font-semibold leading-tight text-foreground">
+            <span className="truncate text-body font-semibold leading-tight text-foreground">
               {cap.name}
             </span>
             <Badge variant={cap.kind === 'tool' ? 'primary' : 'default'}>
@@ -238,7 +236,7 @@ function CapabilityCard({
           </div>
         </div>
       </div>
-      <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+      <p className="line-clamp-2 text-label leading-relaxed text-muted-foreground">
         {cap.description}
       </p>
       <div className="text-[11px] text-muted-foreground">

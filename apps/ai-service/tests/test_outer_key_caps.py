@@ -19,8 +19,8 @@ import time
 
 import pytest
 
-from app.services import mcp_server, repo_wiki_engine as wiki
-
+from app.services import mcp_server
+from app.services import repo_wiki_engine as wiki
 
 # ------------------------------------------------------------------ 项目百科缓存
 

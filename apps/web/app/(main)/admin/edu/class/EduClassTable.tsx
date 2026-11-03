@@ -91,7 +91,7 @@ export function EduClassTable({
                   <TableCell className="px-4 py-2.5">{c.courseName ?? '-'}</TableCell>
                   <TableCell className="px-4 py-2.5">{c.teacherName ?? '-'}</TableCell>
                   <TableCell className="px-4 py-2.5">{c.studentCount}</TableCell>
-                  <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">
+                  <TableCell className="px-4 py-2.5 text-label text-muted-foreground">
                     {c.startDate} ~ {c.endDate}
                   </TableCell>
                   <TableCell className="px-4 py-2.5">

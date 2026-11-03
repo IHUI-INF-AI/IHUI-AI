@@ -186,7 +186,7 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
           <span className="text-body font-semibold">{t('title')}</span>
           {sessionId && (
             <Tooltip content={sessionId}>
-              <span data-testid="session-id" className="truncate text-xs text-muted-foreground">
+              <span data-testid="session-id" className="truncate text-label text-muted-foreground">
                 #{sessionId.slice(0, 8)}
               </span>
             </Tooltip>
@@ -214,7 +214,7 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
             type="button"
             onClick={handleClear}
             disabled={status === 'running' || status === 'paused'}
-            className="rounded-sm px-2 py-1 text-xs transition-colors hover:bg-accent disabled:opacity-40"
+            className="rounded-sm px-2 py-1 text-label transition-colors hover:bg-accent disabled:opacity-40"
           >
             {t('clear')}
           </button>
@@ -227,7 +227,7 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
                 <FileText className="h-3 w-3" />
                 {t('plan')}
               </div>
-              <pre className="whitespace-pre-wrap text-xs leading-relaxed">{plan}</pre>
+              <pre className="whitespace-pre-wrap text-label leading-relaxed">{plan}</pre>
             </section>
           )}
 
@@ -240,7 +240,7 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
                   decision: permissionDecisionWord(permission.decision, tStep),
                 })}
               </div>
-              <div className="text-xs text-muted-foreground">
+              <div className="text-label text-muted-foreground">
                 {t('permissionMeta', {
                   tool: permission.toolName ?? t('unknownTool'),
                   level: permission.dangerLevel ?? t('defaultLevel'),
@@ -277,7 +277,7 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
                 <AlertCircle className="h-3 w-3" />
                 {t('error')}
               </div>
-              <div className="mt-1 text-xs">{error}</div>
+              <div className="mt-1 text-label">{error}</div>
             </section>
           )}
 
@@ -292,7 +292,7 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
                 <Ban className="h-3 w-3" />
                 {t('cancelledTitle')}
               </div>
-              <div className="mt-1 text-xs text-muted-foreground">{t('cancelledBody')}</div>
+              <div className="mt-1 text-label text-muted-foreground">{t('cancelledBody')}</div>
             </section>
           )}
 
@@ -307,7 +307,7 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
                 <Pause className="h-3 w-3" />
                 {t('pausedTitle')}
               </div>
-              <div className="mt-1 text-xs text-muted-foreground">
+              <div className="mt-1 text-label text-muted-foreground">
                 {pauseChanged ? t('pausedBody') : t('alreadyPausedBody')}
               </div>
             </section>
@@ -319,7 +319,7 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
             !permission &&
             status !== 'cancelled' &&
             status !== 'paused' && (
-              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+              <div className="flex h-full items-center justify-center text-body text-muted-foreground">
                 {t('emptyState')}
               </div>
             )}
@@ -339,7 +339,7 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
               placeholder={t('placeholder')}
               disabled={status === 'running' || status === 'paused'}
               rows={2}
-              className="min-w-0 flex-1 resize-none rounded-sm border border-border bg-background px-2.5 py-1.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
+              className="min-w-0 flex-1 resize-none rounded-sm border border-border bg-background px-2.5 py-1.5 text-body placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
             />
             {/* 硬停(掐断本地流)与暂停(服务端在安全点停住循环)是两件事,所以两个动作
                 各留各的入口:运行中额外给一枚紧凑停止钮,主钮则分岔成 暂停 / 继续 / 执行。 */}
@@ -398,5 +398,4 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
     </div>
   )
 }
-
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

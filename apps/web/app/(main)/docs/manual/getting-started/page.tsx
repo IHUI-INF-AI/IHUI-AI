@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import type { Metadata } from 'next'
+import { Lightbulb, MapPin } from 'lucide-react'
 import { ManualNav, chapters } from '../_manual-nav'
 
 const SITE_URL = 'https://aizhs.top'
@@ -14,11 +15,6 @@ export const metadata: Metadata = {
   alternates: {
     canonical: '/docs/manual/getting-started',
     languages: {
-      'zh-CN': '/zh-cn/docs/manual/getting-started',
-      'zh-TW': '/zh-tw/docs/manual/getting-started',
-      en: '/en/docs/manual/getting-started',
-      ko: '/ko/docs/manual/getting-started',
-      ja: '/ja/docs/manual/getting-started',
       'x-default': '/docs/manual/getting-started',
     },
   },
@@ -64,7 +60,8 @@ export default function ManualGettingStartedPage() {
             <li>注册成功后,系统自动赠送 <strong>1000 积分</strong>(可对话约 500 轮,够用 1-2 个月)</li>
           </ol>
           <p className="rounded bg-muted/60 p-3 text-xs">
-            💡 <strong>提示</strong>:无需信用卡,无隐藏消费,积分用完可继续用免费模型(如 DeepSeek)或充值。
+            <Lightbulb className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
+            <strong>提示</strong>:无需信用卡,无隐藏消费,积分用完可继续用免费模型(如 DeepSeek)或充值。
           </p>
         </div>
       </section>
@@ -80,7 +77,8 @@ export default function ManualGettingStartedPage() {
             <li>点击"登录"按钮,跳转到主页</li>
           </ol>
           <p className="rounded bg-muted/60 p-3 text-xs">
-            💡 <strong>忘记密码</strong>:登录页点"忘记密码" → 输入邮箱 → 收件箱点重置链接 → 设置新密码。
+            <Lightbulb className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
+            <strong>忘记密码</strong>:登录页点"忘记密码" → 输入邮箱 → 收件箱点重置链接 → 设置新密码。
           </p>
         </div>
       </section>
@@ -90,7 +88,9 @@ export default function ManualGettingStartedPage() {
         <h2 className="text-heading font-bold">1.3 界面导览</h2>
         <div className="rounded-lg border bg-card p-3 space-y-4 text-sm text-muted-foreground">
           <div>
-            <p className="font-medium text-foreground">📍 左侧栏(导航)</p>
+            <p className="font-medium text-foreground">
+              <MapPin className="mr-1 inline h-4 w-4 align-text-bottom" aria-hidden />左侧栏(导航)
+            </p>
             <ul className="ml-4 mt-1 list-disc space-y-1 text-xs">
               <li><strong>新建对话</strong>:开始新的 AI 对话</li>
               <li><strong>Agent 市场</strong>:浏览/选用现成 Agent 模板</li>
@@ -100,7 +100,9 @@ export default function ManualGettingStartedPage() {
             </ul>
           </div>
           <div>
-            <p className="font-medium text-foreground">📍 中间区(对话区)</p>
+            <p className="font-medium text-foreground">
+              <MapPin className="mr-1 inline h-4 w-4 align-text-bottom" aria-hidden />中间区(对话区)
+            </p>
             <ul className="ml-4 mt-1 list-disc space-y-1 text-xs">
               <li>顶部:当前 Agent 名称 + 模型选择器</li>
               <li>中部:对话气泡(你的消息在右,AI 回复在左)</li>
@@ -108,7 +110,9 @@ export default function ManualGettingStartedPage() {
             </ul>
           </div>
           <div>
-            <p className="font-medium text-foreground">📍 右上角(用户菜单)</p>
+            <p className="font-medium text-foreground">
+              <MapPin className="mr-1 inline h-4 w-4 align-text-bottom" aria-hidden />右上角(用户菜单)
+            </p>
             <ul className="ml-4 mt-1 list-disc space-y-1 text-xs">
               <li>头像点击 → 下拉菜单(个人资料/设置/退出)</li>
               <li>积分余额实时显示</li>
@@ -130,7 +134,8 @@ export default function ManualGettingStartedPage() {
             <li>对话自动保存到"历史对话",可随时查看</li>
           </ol>
           <p className="rounded bg-muted/60 p-3 text-xs">
-            💡 <strong>切换模型</strong>:顶部模型选择器,默认 GPT-4o,可切 Claude / 通义 / DeepSeek 等。
+            <Lightbulb className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
+            <strong>切换模型</strong>:顶部模型选择器,默认 GPT-4o,可切 Claude / 通义 / DeepSeek 等。
             贵模型消耗积分多,便宜模型(DeepSeek)几乎免费。
           </p>
         </div>

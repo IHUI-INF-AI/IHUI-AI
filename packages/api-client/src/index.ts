@@ -24,6 +24,7 @@ export {
   setDeviceFingerprintProvider,
   getDeviceFingerprintProvider,
   setBaseUrl,
+  getBaseUrl,
   // 2026-10-12:ai-service 专用基址注入(根治桌面端 dev 签到页 404,见 client.ts 注释)
   setAiServiceBase,
   setUserAgent,
@@ -286,6 +287,7 @@ export * from './endpoints/admin-system.js'
 export * from './endpoints/admin-tenants.js'
 export * from './endpoints/agent.js'
 export * from './endpoints/agent-runtime.js'
+export * from './endpoints/agent-chat-stream.js'
 // Agent 会话 Token 用量(2026-09-07 工作线 A)
 export * from './endpoints/agent-usage.js'
 // AI 模型定价查询(W4 成本真网计价,2026-09-12)
@@ -299,7 +301,6 @@ export * from './endpoints/ai-media.js'
 export * from './endpoints/auth.js'
 export * from './endpoints/banner.js'
 export * from './endpoints/business.js'
-export * from './endpoints/category.js'
 export * from './endpoints/chat.js'
 // D179:会话 Issue 绑定流出口(searchIssues / bindIssue / unbindIssue)
 export * from './endpoints/issue-binding.js'
@@ -339,6 +340,10 @@ export {
   getTeamStats,
   getTeamMembers,
   getTeamMemberDetail,
+  // 分销层级树(web distribution/team/[id] 对齐)
+  type DistributionTreeNode,
+  type DistributionTreeData,
+  getDistributionTree,
 } from './endpoints/distribution.js'
 // 下载量统计 API(2026-08-06 立,sidebar + 详情页下载按钮点击上报)
 export * from './endpoints/downloads.js'
@@ -394,6 +399,8 @@ export * from './endpoints/teacher.js'
 export * from './endpoints/token.js'
 export * from './endpoints/user.js'
 export * from './endpoints/vip.js'
+// 签到历史端点(2026-11-02 立,web /points/sign-in 历史表跨端共享)
+export * from './endpoints/sign-in.js'
 export * from './endpoints/wallet.js'
 export * from './endpoints/workspace.js'
 // 外部会话导入端点(2026-09-20 立,D28,web /settings/import 页跨端共享)

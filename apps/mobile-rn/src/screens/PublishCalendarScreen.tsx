@@ -412,7 +412,7 @@ function makeStyles() {
     },
     pillSuccess: { backgroundColor: tokens.success.light },
     pillFailed: { backgroundColor: tokens.danger.light },
-    pillText: { fontSize: 10, color: tokens.text.secondary },
+    pillText: { fontSize: rnType.badge.size, color: tokens.text.secondary },
     pillTextSuccess: { color: tokens.success.deepText, fontWeight: '600' },
     pillTextFailed: { color: tokens.danger.DEFAULT, fontWeight: '600' },
     stateBox: {

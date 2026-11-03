@@ -91,7 +91,7 @@ vi.mock('../src/db/index.js', () => {
       update: mockDbUpdate,
       // 事务:同步调用 cb(tx) 并返回其 Promise(模拟事务提交/回滚语义)
       // cb 内 throw → Promise reject → 外层 await 抛错 → catch 转换为 RedeemResult
-      transaction: <T>(cb: (tx: typeof tx) => Promise<T>) => cb(tx),
+      transaction: <T>(cb: (txArg: typeof tx) => Promise<T>) => cb(tx),
     },
     dbRead: {
       select: mockDbReadSelect,
@@ -219,7 +219,7 @@ describe('redemption-code-service — 兑换码核心 service', () => {
       })
 
       // 从 insertResult.values mock 中提取传入的 rows
-      const rowsArg = insertResult.values.mock.calls[0][0] as Array<{ code: string }>
+      const rowsArg = insertResult.values.mock.calls[0]![0] as Array<{ code: string }>
 
       // 码格式:IHUI-XXXX-XXXX-XXXX,X 不含 O/0/I/1/L
       const charsetRegex = /^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]+$/
@@ -245,7 +245,7 @@ describe('redemption-code-service — 兑换码核心 service', () => {
         createdBy: 'admin-1',
       })
 
-      const rowsArg = insertResult.values.mock.calls[0][0] as Array<{ code: string }>
+      const rowsArg = insertResult.values.mock.calls[0]![0] as Array<{ code: string }>
 
       const codes = rowsArg.map((r) => r.code)
       const uniqueCodes = new Set(codes)

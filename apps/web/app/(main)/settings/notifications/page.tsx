@@ -133,26 +133,26 @@ export default function NotificationsPage() {
       <BackButton />
       <div className="shrink-0">
         <h1 className="text-display font-bold tracking-tight">{t('notificationsTitle')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('notificationsDesc')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('notificationsDesc')}</p>
       </div>
 
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto">
         {!ready ? (
           // 登录态确认中 ≠ 未登录:bootstrap 静默刷新还没跑完时就显「请先登录」,
           // 已登录用户会误判被踢出(与签到助手 HEAD 三态同型,2026-10-15 改判)。
-          <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+          <div className="flex items-center justify-center gap-2 py-8 text-body text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
             {tc('loading')}
           </div>
         ) : !allow ? (
           <AuthGatePrompt message={tGate('loginRequired')} />
         ) : loading ? (
-          <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+          <div className="flex items-center justify-center gap-2 py-8 text-body text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
             {tc('loading')}
           </div>
         ) : error ? (
-          <p className="py-8 text-center text-sm text-destructive">{error}</p>
+          <p className="py-8 text-center text-body text-destructive">{error}</p>
         ) : (
           <>
             <Card>
@@ -164,7 +164,7 @@ export default function NotificationsPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center justify-between gap-3">
-                  <span className="min-w-0 flex-1 text-sm text-muted-foreground">
+                  <span className="min-w-0 flex-1 text-body text-muted-foreground">
                     {t('emailNotifDesc')}
                   </span>
                   <Switch
@@ -176,7 +176,7 @@ export default function NotificationsPage() {
                 {prefs.emailEnabled && (
                   <div className="space-y-3 rounded-md bg-muted/40 p-3">
                     <div className="flex items-center justify-between gap-3">
-                      <span className="min-w-0 flex-1 text-sm">{t('systemNotif')}</span>
+                      <span className="min-w-0 flex-1 text-body">{t('systemNotif')}</span>
                       <Switch
                         size="sm"
                         checked={prefs.systemNotif}
@@ -185,7 +185,7 @@ export default function NotificationsPage() {
                       />
                     </div>
                     <div className="flex items-center justify-between gap-3">
-                      <span className="min-w-0 flex-1 text-sm">{t('marketingEmail')}</span>
+                      <span className="min-w-0 flex-1 text-body">{t('marketingEmail')}</span>
                       <Switch
                         size="sm"
                         checked={prefs.marketingEmail}
@@ -208,8 +208,10 @@ export default function NotificationsPage() {
               <CardContent>
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0 flex-1 space-y-1">
-                    <span className="block text-sm text-muted-foreground">{t('smsNotifDesc')}</span>
-                    <p className="font-mono text-xs text-muted-foreground">+86 138****8888</p>
+                    <span className="block text-body text-muted-foreground">
+                      {t('smsNotifDesc')}
+                    </span>
+                    <p className="font-mono text-label text-muted-foreground">+86 138****8888</p>
                   </div>
                   <Switch
                     checked={prefs.smsEnabled}
@@ -229,7 +231,7 @@ export default function NotificationsPage() {
               </CardHeader>
               <CardContent>
                 <div className="flex items-center justify-between gap-3">
-                  <span className="min-w-0 flex-1 text-sm text-muted-foreground">
+                  <span className="min-w-0 flex-1 text-body text-muted-foreground">
                     {t('pushNotifDesc')}
                   </span>
                   <Switch
@@ -250,7 +252,7 @@ export default function NotificationsPage() {
               </CardHeader>
               <CardContent>
                 <div className="flex items-center justify-between gap-3">
-                  <span className="min-w-0 flex-1 text-sm text-muted-foreground">
+                  <span className="min-w-0 flex-1 text-body text-muted-foreground">
                     {t('desc.notificationSound')}
                   </span>
                   <Switch
@@ -266,7 +268,7 @@ export default function NotificationsPage() {
 
         {toast && (
           <div
-            className={`fixed right-4 top-4 z-modal rounded-md px-4 py-2 text-sm text-white shadow-lg ${toast.type === 'success' ? 'bg-green-600' : 'bg-red-600'}`}
+            className={`fixed right-4 top-4 z-modal rounded-md px-4 py-2 text-body text-white shadow-lg ${toast.type === 'success' ? 'bg-green-600' : 'bg-red-600'}`}
           >
             {toast.msg}
           </div>

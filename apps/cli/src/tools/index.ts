@@ -649,6 +649,21 @@ export interface ToolContext {
    * 工具依旧拒绝(fail-closed 不变)。未传(undefined)时行为与引入前逐字节等价。
    */
   allowDangerous?: boolean;
+  /**
+   * 本会话"有没有能被问到的审批人"这一**事实**(不是策略):false = 没人可问。
+   *
+   * 为什么需要它:确认回调在场并不等于有人能应答 —— 例如 `runAgent` 的危险闸门
+   * (`buildAgentDangerGate`)没有 prompt 通道,它的 `false` 是"结构上没人可问",不是
+   * "有人当场拒绝"。旧归因把这两件事都写成 `user-declined`,审计面因此落下一桩假事实
+   * (「The user actively declined …」),排障直接被带到"谁拒的"。
+   *
+   * 语义边界(刻意收窄):
+   *  - 缺席(undefined)⇒ 完全沿用旧归因,行为与引入前逐字节相同(REPL / ACP / 测试不受影响);
+   *  - false ⇒ 拒绝归因 `no-approver`(**不是** `user-declined`),文案里明写"本会话无审批人";
+   *  - true ⇒ 归因照旧(`user-declined` / `no-confirmation-channel`)。
+   * 本字段**不参与放行判定** —— 它只改"怎么说",不改"是否放"。
+   */
+  approverAvailable?: boolean;
   /** 沙盒配置(命令白名单 + env 过滤),由 setupAgentTools 从 settings.json 注入 */
   sandbox?: {
     /** 三态:null = 禁止一切命令,undefined / [] = 不检查(与 SandboxOptions 同口径) */
@@ -1379,7 +1394,19 @@ async function denyOrApproveDangerous(
 
   const denial = buildToolDenial({
     gate: opts.leaseContentDrifted ? 'lease-digest-drift' : 'dangerous-gate',
-    decider: outcome.kind === 'declined' ? 'user-declined' : 'no-confirmation-channel',
+    /**
+     * 归因三档,顺序即判据:
+     *  1. `ctx.approverAvailable === false` ⇒ `no-approver`(本会话没人可问,优先于下面两档:
+     *     无论回调在不在场、答的是不是 false,这里都不可能是"人拒的");
+     *  2. 回调答假 ⇒ `user-declined`(真有人在确认窗上说了不);
+     *  3. 回调缺席 ⇒ `no-confirmation-channel`(宿主没接确认渠道)。
+     */
+    decider:
+      ctx.approverAvailable === false
+        ? 'no-approver'
+        : outcome.kind === 'declined'
+          ? 'user-declined'
+          : 'no-confirmation-channel',
     tool: call.name,
     args: call.arguments,
   });
@@ -1390,7 +1417,10 @@ async function denyOrApproveDangerous(
     error:
       (opts.leaseContentDrifted
         ? `工具 ${call.name} 的本次参数与租约批准过的内容不符(摘要漂移)，旧批准失效，需重新确认`
-        : `危险操作被拒绝(需用户确认): ${call.name}`) + `\n${denialErrorSuffix(denial)}`,
+        : denial.decider === 'no-approver'
+          // 无审批人:文案必须点破"没人被问过",不得让读者以为有人拒绝了本次调用。
+          ? `本会话无审批人，需确认的调用一律不执行: ${call.name}`
+          : `危险操作被拒绝(需用户确认): ${call.name}`) + `\n${denialErrorSuffix(denial)}`,
     errorType: 'permission_denied',
     denial,
   };

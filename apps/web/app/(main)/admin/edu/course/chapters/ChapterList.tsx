@@ -79,7 +79,7 @@ export function ChapterList({
                 {isExp ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
               </Button>
               <span className="font-medium">{ch.title}</span>
-              <span className="text-xs text-muted-foreground">
+              <span className="text-label text-muted-foreground">
                 {t('sortOrder', { value: ch.sortOrder })}
               </span>
               <div className="ml-auto flex items-center gap-1">
@@ -107,21 +107,21 @@ export function ChapterList({
               <div className="bg-muted/20 px-4 py-2">
                 {ch.sections?.length ? (
                   ch.sections.map((s) => (
-                    <div key={s.id} className="flex items-center gap-2 py-1.5 text-sm">
+                    <div key={s.id} className="flex items-center gap-2 py-1.5 text-body">
                       <span className="text-muted-foreground">└</span>
                       <span>{s.title}</span>
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-label text-muted-foreground">
                         {t('minutes', { count: s.duration })}
                       </span>
                       {s.isFree && (
-                        <span className="rounded bg-sky-500/10 px-1.5 py-0.5 text-xs text-sky-600 dark:text-sky-400">
+                        <span className="rounded bg-sky-500/10 px-1.5 py-0.5 text-label text-sky-600 dark:text-sky-400">
                           {t('free')}
                         </span>
                       )}
                     </div>
                   ))
                 ) : (
-                  <p className="py-2 text-xs text-muted-foreground">{t('noSections')}</p>
+                  <p className="py-2 text-label text-muted-foreground">{t('noSections')}</p>
                 )}
               </div>
             )}

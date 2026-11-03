@@ -54,7 +54,10 @@ describe('require-permission — 权限中间件', () => {
 
   function setAdmin() {
     mockAuthenticate.mockImplementation(
-      async (request: { userId?: string; jwtPayload?: { roleId?: number } }) => {
+      async (request: {
+        userId?: string
+        jwtPayload?: { userId?: string; roleId?: number; phone?: string; familyId?: string }
+      }) => {
         request.userId = 'admin-001'
         request.jwtPayload = {
           userId: 'admin-001',
@@ -68,7 +71,10 @@ describe('require-permission — 权限中间件', () => {
 
   function setUser(userId = 'user-001') {
     mockAuthenticate.mockImplementation(
-      async (request: { userId?: string; jwtPayload?: { roleId?: number } }) => {
+      async (request: {
+        userId?: string
+        jwtPayload?: { userId?: string; roleId?: number; phone?: string; familyId?: string }
+      }) => {
         request.userId = userId
         request.jwtPayload = { userId, roleId: 0, phone: '13800000002', familyId: 'fam-002' }
       },

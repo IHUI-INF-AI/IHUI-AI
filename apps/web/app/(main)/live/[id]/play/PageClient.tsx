@@ -87,7 +87,7 @@ export default function LivePlayPage() {
   const backLink = (
     <Link
       href={`/live/${id}`}
-      className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+      className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
     >
       <ArrowLeft className="h-4 w-4" />
       {t('detailBack')}
@@ -111,7 +111,7 @@ export default function LivePlayPage() {
         {backLink}
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
           <Radio className="h-8 w-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">{t('notFound')}</p>
+          <p className="text-body text-muted-foreground">{t('notFound')}</p>
         </div>
       </div>
     )
@@ -135,7 +135,7 @@ export default function LivePlayPage() {
               ) : (
                 <div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">
                   <Radio className="h-10 w-10" />
-                  <p className="text-sm">{t('notLive')}</p>
+                  <p className="text-body">{t('notLive')}</p>
                 </div>
               )}
             </div>
@@ -143,7 +143,7 @@ export default function LivePlayPage() {
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <h1 className="text-lg font-semibold">{channel.title}</h1>
-                  <div className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
+                  <div className="mt-1 flex items-center gap-2 text-body text-muted-foreground">
                     <span>{channel.lecturerName || '—'}</span>
                     <span>·</span>
                     <span>{t('viewCount', { n: channel.viewCount })}</span>
@@ -188,7 +188,7 @@ export default function LivePlayPage() {
           </div>
           <div ref={danmuRef} className="flex-1 space-y-2 overflow-y-auto p-3">
             {danmuList.map((d) => (
-              <div key={d.id} className="text-sm">
+              <div key={d.id} className="text-body">
                 <span className="font-medium text-primary">{d.userName}:</span>{' '}
                 <span className="text-muted-foreground">{d.content}</span>
               </div>

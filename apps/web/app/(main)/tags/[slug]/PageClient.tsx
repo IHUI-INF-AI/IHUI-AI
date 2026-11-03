@@ -106,10 +106,10 @@ export default function TagDetailPageClient() {
     return (
       <div className="mx-auto max-w-3xl space-y-4 py-12 text-center">
         <Tag className="mx-auto h-10 w-10 text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">{t('notFound')}</p>
+        <p className="text-body text-muted-foreground">{t('notFound')}</p>
         <Link
           href="/tags"
-          className="inline-flex items-center gap-1 text-sm text-primary transition-colors hover:underline"
+          className="inline-flex items-center gap-1 text-body text-primary transition-colors hover:underline"
         >
           <ArrowLeft className="h-4 w-4" />
           {t('backToList')}
@@ -122,7 +122,7 @@ export default function TagDetailPageClient() {
     <div className="px-4 py-4 mx-auto max-w-3xl space-y-4">
       <Link
         href="/tags"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         {t('backToList')}
@@ -133,11 +133,11 @@ export default function TagDetailPageClient() {
           <Tag className="h-6 w-6 text-primary" />
           {tag.name}
         </h1>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-body text-muted-foreground">
           {t('resourceCount', { count: list.length })}
           <span className="ml-2">· {t('usageCount', { count: tag.usageCount })}</span>
         </p>
-        {tag.description && <p className="text-sm text-muted-foreground">{tag.description}</p>}
+        {tag.description && <p className="text-body text-muted-foreground">{tag.description}</p>}
       </div>
 
       <div className="space-y-4">
@@ -147,7 +147,7 @@ export default function TagDetailPageClient() {
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
         ) : list.length === 0 ? (
-          <div className="py-10 text-center text-sm text-muted-foreground">
+          <div className="py-10 text-center text-body text-muted-foreground">
             {t('emptyResources')}
           </div>
         ) : (
@@ -168,10 +168,10 @@ export default function TagDetailPageClient() {
                       const inner = (
                         <>
                           <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
-                          <span className="min-w-0 flex-1 break-words font-mono text-sm">
+                          <span className="min-w-0 flex-1 break-words font-mono text-body">
                             {label}
                           </span>
-                          <span className="shrink-0 text-xs text-muted-foreground">
+                          <span className="shrink-0 text-label text-muted-foreground">
                             {dateFmt.format(new Date(r.createdAt))}
                           </span>
                         </>

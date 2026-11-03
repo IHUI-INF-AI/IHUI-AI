@@ -700,7 +700,7 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
                 />
               </div>
               {flatItems.length === 0 ? (
-                <div className="px-3 py-4 text-center text-xs text-muted-foreground">
+                <div className="px-3 py-4 text-center text-label text-muted-foreground">
                   {t('viewSwitcher.noMatch')}
                 </div>
               ) : (

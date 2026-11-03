@@ -237,18 +237,18 @@ function journalProblems(entries: JournalEntry[], tag: string): string[] {
     problems.push(`tag ${tag} 在 journal 里出现 ${positions.length} 次,应为 1 次`)
     return problems
   }
-  const pos = positions[0]
-  const mine = entries[pos]
+  const pos = positions[0]!
+  const mine = entries[pos]!
   const beforeMax = entries.slice(0, pos).reduce((m, e) => Math.max(m, e.when), -Infinity)
-  if (pos > 0 && !(mine.when > beforeMax)) {
+  if (pos! > 0 && !(mine.when > beforeMax)) {
     problems.push(
       `本条 when=${mine.when} 未严格大于之前条目最大值 ${beforeMax}(插队会改变重放顺序)`,
     )
   }
-  for (let i = pos + 1; i < entries.length; i++) {
-    if (!(entries[i].when > entries[i - 1].when)) {
+  for (let i = pos! + 1; i < entries.length; i++) {
+    if (!(entries[i]!.when > entries[i - 1]!.when)) {
       problems.push(
-        `第 ${i} 条 when=${entries[i].when} 未严格大于前一条 ${entries[i - 1].when}(追加序被改写)`,
+        `第 ${i} 条 when=${entries[i]!.when} 未严格大于前一条 ${entries[i - 1]!.when}(追加序被改写)`,
       )
     }
   }
@@ -283,12 +283,12 @@ describe('lesson_sign_ups.study_plan_id 加列票', () => {
       const entries = journal.entries as JournalEntry[]
       const mine = entries.filter((e) => e.tag === MIG_TAG)
       expect(mine).toHaveLength(1)
-      expect(mine[0].idx).toBe(311)
+      expect(mine[0]!.idx).toBe(311)
       // 追加序与"恰好一条"走同一个判据出口(见 journalProblems 的注释):
       // 旧形态在这里还写着"本条必须等于 entries.length - 1",那是快照不是不变量。
       expect(journalProblems(entries, MIG_TAG)).toEqual([])
       // 本条 idx 与"它下面还有几条"解耦:下面这些是它之后追加的票,一条都不该打破上面的判据。
-      expect(entries.length).toBeGreaterThan(mine[0].idx)
+      expect(entries.length).toBeGreaterThan(mine[0]!.idx)
     })
 
     it('①b 防回潮:同一把 journal 判据对"正常追加"放过、对"插队/同号两份"必红(变异自证)', () => {
@@ -391,7 +391,7 @@ describe('lesson_sign_ups.study_plan_id 加列票', () => {
     it('外键指向 study_plans.id,动作是 set null(不是 cascade)', async () => {
       const { lessonSignUps, studyPlans } = await realSchema()
       const cfg = getTableConfig(lessonSignUps)
-      const fk = cfg.foreignKeys.find((f) => f.reference().columns[0].name === 'study_plan_id')
+      const fk = cfg.foreignKeys.find((f) => f.reference().columns[0]!.name === 'study_plan_id')
       expect(fk, 'study_plan_id 上没有外键').toBeDefined()
       const ref = fk!.reference()
       expect(ref.foreignColumns[0]).toBe(studyPlans.id)
@@ -405,7 +405,9 @@ describe('lesson_sign_ups.study_plan_id 加列票', () => {
       const idx = cfg.indexes.find((i) => i.config.name === 'lesson_sign_ups_study_plan_idx')
       expect(idx, 'schema 里没有 lesson_sign_ups_study_plan_idx').toBeDefined()
       expect(idx!.config.columns).toHaveLength(1)
-      expect(idx!.config.columns[0].name).toBe('study_plan_id')
+      const col = idx!.config.columns[0]!
+      if (!('name' in col)) throw new Error('lesson_sign_ups_study_plan_idx 的索引列拿不到列名')
+      expect(col.name).toBe('study_plan_id')
     })
 
     it('既有列与两个既有索引一个都没动(只增不改)', async () => {
@@ -421,11 +423,13 @@ describe('lesson_sign_ups.study_plan_id 加列票', () => {
         'created_at',
       ])
       // UNIQUE(lesson_id,user_id) 决定一对一候选 ⇒ 不该被顺手加新约束
-      const uniq = cfg.foreignKeys.filter((f) => f.reference().columns[0].name === 'study_plan_id')
+      const uniq = cfg.foreignKeys.filter((f) => f.reference().columns[0]!.name === 'study_plan_id')
       expect(uniq).toHaveLength(1)
       const userIdx = cfg.indexes.find((i) => i.config.name === 'lesson_sign_ups_user_idx')
       expect(userIdx).toBeDefined()
-      expect(userIdx!.config.columns[0].name).toBe('user_id')
+      const userIdxCol = userIdx!.config.columns[0]!
+      if (!('name' in userIdxCol)) throw new Error('lesson_sign_ups_user_idx 的索引列拿不到列名')
+      expect(userIdxCol.name).toBe('user_id')
     })
 
     it('双向 import 不成环:learn.ts 与 study.ts 互相引用但两方向都能解析 FK', async () => {
@@ -434,12 +438,12 @@ describe('lesson_sign_ups.study_plan_id 加列票', () => {
       const { lessonSignUps, studyPlans, studyPlans: sp2 } = await realSchema()
       void sp2
       const cfg = getTableConfig(lessonSignUps)
-      const fk = cfg.foreignKeys.find((f) => f.reference().columns[0].name === 'study_plan_id')
+      const fk = cfg.foreignKeys.find((f) => f.reference().columns[0]!.name === 'study_plan_id')
       expect(fk).toBeDefined()
       expect(fk!.reference().foreignColumns[0]).toBe(studyPlans.id)
       // 反向:study_plans.lesson_id 的 FK 也不能因为这次改动而失效
       const scfg = getTableConfig(studyPlans)
-      const sfk = scfg.foreignKeys.find((f) => f.reference().columns[0].name === 'lesson_id')
+      const sfk = scfg.foreignKeys.find((f) => f.reference().columns[0]!.name === 'lesson_id')
       expect(sfk).toBeDefined()
       expect(sfk!.onDelete).toBe('set null')
     })
@@ -457,9 +461,9 @@ describe('lesson_sign_ups.study_plan_id 加列票', () => {
         await server.inject({ method: 'GET', url: `${PREFIX}/study/plans` })
         const onPlans = joinCalls.filter((c) => c.table === studyPlansTable)
         expect(onPlans, '没有 join study_plans').toHaveLength(1)
-        expect(onPlans[0].method).toBe('leftJoin')
+        expect(onPlans[0]!.method).toBe('leftJoin')
         // 显式反证:改成 innerJoin 即翻红("只有报名、没有计划"的用户会被过滤掉)
-        expect(onPlans[0].method).not.toBe('innerJoin')
+        expect(onPlans[0]!.method).not.toBe('innerJoin')
       } finally {
         await server.close()
       }
@@ -472,7 +476,7 @@ describe('lesson_sign_ups.study_plan_id 加列票', () => {
         await server.inject({ method: 'GET', url: `${PREFIX}/study/plans` })
         const onLessons = joinCalls.filter((c) => c.table === lessonsTable)
         expect(onLessons).toHaveLength(1)
-        expect(onLessons[0].method).toBe('innerJoin')
+        expect(onLessons[0]!.method).toBe('innerJoin')
       } finally {
         await server.close()
       }

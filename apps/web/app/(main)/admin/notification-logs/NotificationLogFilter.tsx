@@ -31,7 +31,7 @@ export function NotificationLogFilter({ search, onSearchChange, onReset, onQuery
   return (
     <div className="flex flex-wrap items-end gap-3 rounded-lg border p-3">
       <div className="space-y-1">
-        <Label className="text-xs">{t('channel')}</Label>
+        <Label className="text-label">{t('channel')}</Label>
         <Select value={search.channel} onValueChange={(v) => onSearchChange({ channel: v })}>
           <SelectTrigger className="h-9 w-32">
             <SelectValue />
@@ -47,7 +47,7 @@ export function NotificationLogFilter({ search, onSearchChange, onReset, onQuery
         </Select>
       </div>
       <div className="space-y-1">
-        <Label className="text-xs">{t('status')}</Label>
+        <Label className="text-label">{t('status')}</Label>
         <Select value={search.status} onValueChange={(v) => onSearchChange({ status: v })}>
           <SelectTrigger className="h-9 w-32">
             <SelectValue />
@@ -61,7 +61,7 @@ export function NotificationLogFilter({ search, onSearchChange, onReset, onQuery
         </Select>
       </div>
       <div className="space-y-1">
-        <Label className="text-xs">{t('userId')}</Label>
+        <Label className="text-label">{t('userId')}</Label>
         <Input
           className="h-9 w-48"
           placeholder={t('userId')}

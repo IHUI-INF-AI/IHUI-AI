@@ -138,7 +138,7 @@ function evalTokens(tokens: FlatToken[], row: MockRow): boolean {
       continue
     }
     // op / paren
-    const text = t.kind === 'paren' ? t.text : t.text
+    const text = t.kind === 'paren' ? '' : t.text
     const trimmed = text.trim()
     if (trimmed === '(') {
       ops.push('(')
@@ -154,7 +154,7 @@ function evalTokens(tokens: FlatToken[], row: MockRow): boolean {
       while (
         ops.length > 0 &&
         ops[ops.length - 1] !== '(' &&
-        precedence(ops[ops.length - 1]) >= precedence(lower)
+        precedence(ops[ops.length - 1]!) >= precedence(lower)
       )
         applyTop()
       ops.push(lower)
@@ -360,8 +360,8 @@ describe('findMessagesCursor — keyset 复合游标分页', () => {
     expect(res.messages.map((m) => m.id)).toEqual(cursors.slice(15).map((c) => c.id))
     // 升序:后一条 createdAt 不早于前一条
     for (let i = 1; i < res.messages.length; i++) {
-      expect((res.messages[i].createdAt as Date).getTime()).toBeGreaterThanOrEqual(
-        (res.messages[i - 1].createdAt as Date).getTime(),
+      expect((res.messages[i]!.createdAt as Date).getTime()).toBeGreaterThanOrEqual(
+        (res.messages[i - 1]!.createdAt as Date).getTime(),
       )
     }
     // nextCursor = 本页最旧一条 m15

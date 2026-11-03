@@ -217,7 +217,7 @@ export default function PromptAuditPage() {
             <ScanSearch className="h-5 w-5" aria-hidden />
             提示词审计
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 text-body text-muted-foreground">
             对入站提示词做关键字风险检测(涉敏内容、注入特征),命中后按动作记录 / 告警 / 拦截。
           </p>
         </div>
@@ -227,7 +227,7 @@ export default function PromptAuditPage() {
         </Button>
       </div>
 
-      <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+      <div className="flex flex-wrap gap-3 text-label text-muted-foreground">
         <span>
           规则{' '}
           <span className="font-medium tabular-nums text-foreground">
@@ -242,7 +242,7 @@ export default function PromptAuditPage() {
 
       {groups.length > 0 && (
         <div className="flex flex-wrap items-center gap-2 rounded-lg border p-3">
-          <span className="text-xs text-muted-foreground">命中排行:</span>
+          <span className="text-label text-muted-foreground">命中排行:</span>
           {groups
             .slice()
             .sort((a, b) => b.count - a.count)
@@ -256,7 +256,7 @@ export default function PromptAuditPage() {
       )}
 
       <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full text-xs" style={{ tableLayout: 'fixed' }}>
+        <table className="w-full text-label" style={{ tableLayout: 'fixed' }}>
           <thead className="bg-muted/50 text-left text-muted-foreground">
             <tr>
               <th className="px-3 py-2 font-medium">规则名</th>
@@ -329,7 +329,7 @@ export default function PromptAuditPage() {
 
       <h2 className="pt-2 text-base font-medium">最近命中记录(最近 50 条)</h2>
       <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full text-xs" style={{ tableLayout: 'fixed' }}>
+        <table className="w-full text-label" style={{ tableLayout: 'fixed' }}>
           <thead className="bg-muted/50 text-left text-muted-foreground">
             <tr>
               <th className="px-3 py-2 font-medium">规则</th>

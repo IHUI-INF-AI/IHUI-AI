@@ -172,7 +172,7 @@ describe.skipIf(!existsSync(CERT_DIR))('wechat-pay cert fixtures — cert/ 目�
       const envContent = readFileSync(envPath, 'utf-8')
       const m = envContent.match(/^WX_SHOP_ID=(.+)$/m)
       if (!m) return
-      const envShopId = m[1].trim()
+      const envShopId = m[1]!.trim()
       const certObj = new X509Certificate(readFileSync(files.cert, 'utf-8'))
       const cnMatch = certObj.subject.match(/CN=(\d+)/)
       expect(cnMatch).not.toBeNull()
@@ -185,7 +185,7 @@ describe.skipIf(!existsSync(CERT_DIR))('wechat-pay cert fixtures — cert/ 目�
       const envContent = readFileSync(envPath, 'utf-8')
       const m = envContent.match(/^WX_PAY_CERT_SERIAL=(.+)$/m)
       if (!m) return
-      const envSerial = m[1].trim().toUpperCase()
+      const envSerial = m[1]!.trim().toUpperCase()
       const certObj = new X509Certificate(readFileSync(files.cert, 'utf-8'))
       // Node.js 返回的 serialNumber 可能是大写或小写,统一大写比较
       const certSerial = certObj.serialNumber.toUpperCase()

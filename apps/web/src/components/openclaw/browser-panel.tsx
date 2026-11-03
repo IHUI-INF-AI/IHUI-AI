@@ -157,13 +157,13 @@ export function BrowserPanel() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <p className="text-sm text-muted-foreground">{t('browserPanelIntro')}</p>
+          <p className="text-body text-muted-foreground">{t('browserPanelIntro')}</p>
           {toolsQuery.isLoading ? (
             <div className="flex items-center justify-center py-6 text-muted-foreground">
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             </div>
           ) : browserTools.length === 0 ? (
-            <p className="rounded-md bg-muted/40 px-3 py-6 text-center text-sm text-muted-foreground">
+            <p className="rounded-md bg-muted/40 px-3 py-6 text-center text-body text-muted-foreground">
               {t('noBrowserTools')}
             </p>
           ) : (
@@ -177,7 +177,7 @@ export function BrowserPanel() {
                   <div className="min-w-0 flex-1">
                     <p className="break-words text-body font-medium">{tool.name}</p>
                     {tool.description && (
-                      <p className="break-words text-xs text-muted-foreground">
+                      <p className="break-words text-label text-muted-foreground">
                         {tool.description}
                       </p>
                     )}
@@ -186,7 +186,7 @@ export function BrowserPanel() {
               ))}
             </ul>
           )}
-          <p className="flex items-center gap-2 rounded-md bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+          <p className="flex items-center gap-2 rounded-md bg-muted/30 px-3 py-2 text-label text-muted-foreground">
             <MessageSquare className="h-3.5 w-3.5 shrink-0" />
             <span>{t('browserPanelEmptyHint')}</span>
           </p>

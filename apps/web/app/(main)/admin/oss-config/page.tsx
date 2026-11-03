@@ -95,10 +95,10 @@ export default function AdminOssConfigPage() {
           新建配置
         </Button>
       </div>
-      <p className="text-sm text-muted-foreground">共 {total} 个配置</p>
+      <p className="text-body text-muted-foreground">共 {total} 个配置</p>
       <div className="overflow-x-auto rounded-lg border bg-card">
-        <table className="w-full text-sm">
-          <thead className="text-left text-xs uppercase text-muted-foreground">
+        <table className="w-full text-body">
+          <thead className="text-left text-label uppercase text-muted-foreground">
             <tr>
               <th className="px-4 py-2.5 font-medium">名称</th>
               <th className="px-4 py-2.5 font-medium">提供商</th>
@@ -127,12 +127,12 @@ export default function AdminOssConfigPage() {
                 <tr key={c.id} className="hover:bg-muted/30">
                   <td className="px-4 py-2.5 font-medium">{c.name}</td>
                   <td className="px-4 py-2.5 text-muted-foreground">{c.provider}</td>
-                  <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
+                  <td className="px-4 py-2.5 font-mono text-label text-muted-foreground">
                     {c.bucket || '—'}
                   </td>
                   <td className="px-4 py-2.5 text-muted-foreground">{c.region || '—'}</td>
                   <td className="px-4 py-2.5">
-                    <span className={`rounded px-2 py-0.5 text-xs ${BADGE[c.status]}`}>
+                    <span className={`rounded px-2 py-0.5 text-label ${BADGE[c.status]}`}>
                       {LABEL[c.status]}
                     </span>
                   </td>
@@ -196,7 +196,7 @@ export default function AdminOssConfigPage() {
             <h3 className="text-base font-semibold">{editing ? '编辑配置' : '新建配置'}</h3>
             <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
               <div className="space-y-1">
-                <label htmlFor="oss-config-name" className="text-xs text-muted-foreground">
+                <label htmlFor="oss-config-name" className="text-label text-muted-foreground">
                   名称
                 </label>
                 <Input
@@ -206,14 +206,14 @@ export default function AdminOssConfigPage() {
                 />
               </div>
               <div className="space-y-1">
-                <label htmlFor="oss-config-provider" className="text-xs text-muted-foreground">
+                <label htmlFor="oss-config-provider" className="text-label text-muted-foreground">
                   提供商
                 </label>
                 <select
                   id="oss-config-provider"
                   value={form.provider}
                   onChange={(e) => setForm({ ...form, provider: e.target.value })}
-                  className="h-9 w-full rounded-sm border border-input bg-transparent px-3 text-sm"
+                  className="h-9 w-full rounded-sm border border-input bg-transparent px-3 text-body"
                 >
                   <option value="aliyun">阿里云</option>
                   <option value="tencent">腾讯云</option>
@@ -224,7 +224,7 @@ export default function AdminOssConfigPage() {
                 </select>
               </div>
               <div className="space-y-1 min-[640px]:col-span-2">
-                <label htmlFor="oss-config-endpoint" className="text-xs text-muted-foreground">
+                <label htmlFor="oss-config-endpoint" className="text-label text-muted-foreground">
                   Endpoint
                 </label>
                 <Input
@@ -234,7 +234,7 @@ export default function AdminOssConfigPage() {
                 />
               </div>
               <div className="space-y-1">
-                <label htmlFor="oss-config-bucket" className="text-xs text-muted-foreground">
+                <label htmlFor="oss-config-bucket" className="text-label text-muted-foreground">
                   Bucket
                 </label>
                 <Input
@@ -244,7 +244,7 @@ export default function AdminOssConfigPage() {
                 />
               </div>
               <div className="space-y-1">
-                <label htmlFor="oss-config-region" className="text-xs text-muted-foreground">
+                <label htmlFor="oss-config-region" className="text-label text-muted-foreground">
                   Region
                 </label>
                 <Input
@@ -254,7 +254,7 @@ export default function AdminOssConfigPage() {
                 />
               </div>
               <div className="space-y-1">
-                <label htmlFor="oss-config-access-key" className="text-xs text-muted-foreground">
+                <label htmlFor="oss-config-access-key" className="text-label text-muted-foreground">
                   AccessKey
                 </label>
                 <Input
@@ -264,7 +264,7 @@ export default function AdminOssConfigPage() {
                 />
               </div>
               <div className="space-y-1">
-                <label htmlFor="oss-config-secret-key" className="text-xs text-muted-foreground">
+                <label htmlFor="oss-config-secret-key" className="text-label text-muted-foreground">
                   SecretKey{editing ? '(留空不修改)' : ''}
                 </label>
                 <Input
@@ -275,7 +275,10 @@ export default function AdminOssConfigPage() {
                 />
               </div>
               <div className="space-y-1 min-[640px]:col-span-2">
-                <label htmlFor="oss-config-description" className="text-xs text-muted-foreground">
+                <label
+                  htmlFor="oss-config-description"
+                  className="text-label text-muted-foreground"
+                >
                   描述
                 </label>
                 <Input
@@ -284,7 +287,7 @@ export default function AdminOssConfigPage() {
                   onChange={(e) => setForm({ ...form, description: e.target.value })}
                 />
               </div>
-              <label className="col-span-2 flex items-center gap-2 text-sm">
+              <label className="col-span-2 flex items-center gap-2 text-body">
                 <input
                   type="checkbox"
                   checked={form.isDefault}

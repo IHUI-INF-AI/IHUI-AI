@@ -63,6 +63,14 @@ import { parseEnvText } from './check-env-drift.mjs'
 // `credential-health-last.json` 是 git-guardian 的巡检心跳件,半截 = 把"巡检在跑"读成"没跑"。
 // ⚠️ 只换"怎么写":状态内容、去重窗口、UNDEL 标记的语义一字未动。
 import { atomicWriteFileSync } from './lib/atomic-write.mjs'
+// 族级窗口(2026-11-03 立):同一「凭据巡检:类别=…」24h 至多一封。
+// 判据住在 scripts/lib/alert-family-gate.mjs(与 IHUI-MONITOR / IHUI-DEPLOYLOOP 同一份实现),
+// 策略表仍是 scripts/data/alert-delivery-policy.json —— 本文件不自造窗口算法。
+import {
+  commitAlertFamilyDelivery,
+  credentialAlertFamily,
+  decideAlertFamilyWindow,
+} from './lib/alert-family-gate.mjs'
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const TASK_NAME = 'IHUI credential-health'
@@ -1703,6 +1711,29 @@ async function maybeAlert(results, dryRun) {
     appendLedger(title, desp, { sent: false, dryRun: true, via: null, attempts: ['alert-dry:只打印正文,未调用派发器'] })
     return { sent: false, why: 'dry-run 未发送' }
   }
+  // [2026-11-03 族窗口] 位置在 decideAlert 之后、deliver 之前,且**不推进** alert 状态:
+  // 族窗口压住期间若推进逐项状态,24h 届满那次会被自家窗口再压一轮(与监控/部署侧同一纪律)。
+  // 族 = 「凭据巡检:类别=credential-fail」/「…=recovered」:失效与恢复分族,恢复通知不得被压。
+  const family = credentialAlertFamily({ recovered })
+  const familyGate = decideAlertFamilyWindow({ family })
+  if (familyGate.action === 'suppress') {
+    const ageHours = (familyGate.ageMs / 3600000).toFixed(1)
+    const capHours = (familyGate.cooldownMs / 3600000).toFixed(0)
+    appendLedger(title, desp, {
+      sent: false,
+      dryRun: false,
+      via: null,
+      attempts: [
+        `族级窗口抑制: ${family} 首封距今 ${ageHours}h < 上限 ${capHours}h(${familyGate.entryId}),本轮未投递`,
+      ],
+    })
+    return { sent: false, why: `族级窗口抑制(族=${family},首封 ${ageHours}h 内不重寄)` }
+  }
+  if (!familyGate.entryId) {
+    console.log(`ℹ️ 族窗口无策略条目(族=${family}),按 fail-open 照发`)
+  } else if (familyGate.why === 'state-undetermined') {
+    console.log(`⚠️ 族窗口状态不可判定 ⇒ ${familyGate.stateError};本轮 fail-open 照发`)
+  }
   // 台账改到投递**之后**落盘,并带上真实结果:旧写法在寄出之前就用 null 落一条,于是
   // "(dry-run,未投递)"被恒写进每一行投递史(缺陷②)。deliver() 内部层层 catch 不会抛,
   // 这里再兜一层 try 是为"投递流程自己崩了也留痕",而不是为"先落一条再说"。
@@ -1725,6 +1756,9 @@ async function maybeAlert(results, dryRun) {
     // 原子替换(G-653):写出的字节与改动前逐字相同,只是下一轮再也读不到半截 JSON。
     atomicWriteFileSync(STATE, JSON.stringify(next))
     rmSync(UNDEL, { force: true })
+    // [2026-11-03 族窗口] 只在这封**确认真送达**后记族首封;失败不记 ⇒ 下一轮首封仍能重试。
+    const famCommit = commitAlertFamilyDelivery({ family })
+    if (!famCommit.ok) console.log(`⚠️ 族窗口首封未记账(族=${family}): ${famCommit.error}(下一轮同族仍会照发)`)
   } else {
     // 未送达标记同样必须完整:它是"这条告警从未寄出去"的唯一证据,半截 = 下轮读不出 ⇒ 判不出。
     atomicWriteFileSync(

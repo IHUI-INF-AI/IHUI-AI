@@ -51,7 +51,7 @@ function MainContent() {
       return <DiffViewerPane />
     case 'document':
       return (
-        <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
+        <div className="flex flex-1 items-center justify-center text-body text-muted-foreground">
           {t('layout.documentView')}
         </div>
       )
@@ -59,13 +59,13 @@ function MainContent() {
       return <TerminalPanel />
     case 'browser':
       return (
-        <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
+        <div className="flex flex-1 items-center justify-center text-body text-muted-foreground">
           {t('layout.browserView')}
         </div>
       )
     case 'figma':
       return (
-        <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
+        <div className="flex flex-1 items-center justify-center text-body text-muted-foreground">
           {t('layout.figmaView')}
         </div>
       )
@@ -75,7 +75,7 @@ function MainContent() {
       return <McpPane />
     case 'settings':
       return (
-        <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
+        <div className="flex flex-1 items-center justify-center text-body text-muted-foreground">
           {t('layout.settingsView')}
         </div>
       )

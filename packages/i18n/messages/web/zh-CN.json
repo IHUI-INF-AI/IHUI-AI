@@ -697,45 +697,45 @@
   },
   "admin": {
     "relayPoolPolicy": {
-        "title": "号池选号策略档(全局默认)",
-        "refresh": "刷新",
-        "loading": "读取策略档…",
-        "loadFailed": "读取失败",
-        "badgeAllDefault": "全部默认档",
-        "badgeDeviated": "偏离默认 {n} 枚",
-        "badgeInvalid": "脏值回落 {n} 枚",
-        "badgeRegistryBroken": "登记表不完整",
-        "readOnlyHint": "只读:改钮写 .env 后重启 apps/api 生效",
-        "defaultIs": "默认 {v}",
-        "invalidFellBack": "脏值已回落默认",
-        "registryDiff": "未登记钮:{missing};孤立登记:{orphan}"
+      "title": "号池选号策略档(全局默认)",
+      "refresh": "刷新",
+      "loading": "读取策略档…",
+      "loadFailed": "读取失败",
+      "badgeAllDefault": "全部默认档",
+      "badgeDeviated": "偏离默认 {n} 枚",
+      "badgeInvalid": "脏值回落 {n} 枚",
+      "badgeRegistryBroken": "登记表不完整",
+      "readOnlyHint": "只读:改钮写 .env 后重启 apps/api 生效",
+      "defaultIs": "默认 {v}",
+      "invalidFellBack": "脏值已回落默认",
+      "registryDiff": "未登记钮:{missing};孤立登记:{orphan}"
     },
     "relayTasks": {
-        "wbTitle": "WorkBuddy 任务自动化",
-        "wbAccount": "账号",
-        "wbAccountEmpty": "暂无 WorkBuddy 账号",
-        "wbDryRun": "预览(干跑)",
-        "wbRefresh": "刷新",
-        "wbNoAccount": "请先选择账号",
-        "wbLoading": "读取任务清单…",
-        "wbReadFailed": "读取失败",
-        "wbUnjudged": "未判定",
-        "wbNoTasks": "没有可执行任务",
-        "wbColTask": "任务",
-        "wbColProgress": "进度",
-        "wbColStatus": "状态",
-        "wbColReward": "奖励",
-        "wbKindGrowth": "成长",
-        "wbKindTravel": "旅行",
-        "wbKindActivity": "活跃",
-        "wbKindBlackcat": "黑猫(夜间)",
-        "wbRunOk": "任务已执行",
-        "wbRunFailed": "执行失败",
-        "wbAccepted": "已接取",
-        "wbClaimed": "已领取",
-        "wbCreditDelta": "积分变化",
-        "wbEnergyDelta": "体力变化",
-        "wbNeverRun": "尚未执行"
+      "wbTitle": "WorkBuddy 任务自动化",
+      "wbAccount": "账号",
+      "wbAccountEmpty": "暂无 WorkBuddy 账号",
+      "wbDryRun": "预览(干跑)",
+      "wbRefresh": "刷新",
+      "wbNoAccount": "请先选择账号",
+      "wbLoading": "读取任务清单…",
+      "wbReadFailed": "读取失败",
+      "wbUnjudged": "未判定",
+      "wbNoTasks": "没有可执行任务",
+      "wbColTask": "任务",
+      "wbColProgress": "进度",
+      "wbColStatus": "状态",
+      "wbColReward": "奖励",
+      "wbKindGrowth": "成长",
+      "wbKindTravel": "旅行",
+      "wbKindActivity": "活跃",
+      "wbKindBlackcat": "黑猫(夜间)",
+      "wbRunOk": "任务已执行",
+      "wbRunFailed": "执行失败",
+      "wbAccepted": "已接取",
+      "wbClaimed": "已领取",
+      "wbCreditDelta": "积分变化",
+      "wbEnergyDelta": "体力变化",
+      "wbNeverRun": "尚未执行"
     },
     "smsOperations": {
       "page": {
@@ -7949,7 +7949,7 @@
           "hookName": "Hook 名称",
           "event": "触发事件",
           "evidence": "证据明细",
-            "dismiss": "关闭此卡片"
+          "dismiss": "关闭此卡片"
         },
         "hint": {
           "retryScheduled": "系统会在稍后自动重试,无需操作。",
@@ -9114,6 +9114,30 @@
           "title": "媒体文件数量超出限制",
           "action": "精简附件后重试"
         },
+        "MEMORY_DREAM_FAILED": {
+          "title": "记忆梦境整理失败",
+          "action": "请稍后重试"
+        },
+        "MEMORY_FORGET_FAILED": {
+          "title": "记忆遗忘清理失败",
+          "action": "请稍后重试"
+        },
+        "MEMORY_PROCEDURAL_SAVE_FAILED": {
+          "title": "工具用法记忆保存失败",
+          "action": "请稍后重试"
+        },
+        "MEMORY_RECALL_FAILED": {
+          "title": "记忆检索失败",
+          "action": "请稍后重试"
+        },
+        "MEMORY_SAVE_FAILED": {
+          "title": "记忆保存失败",
+          "action": "请稍后重试"
+        },
+        "MEMORY_TOPICS_FAILED": {
+          "title": "记忆主题生成失败",
+          "action": "请稍后重试"
+        },
         "MISSING_DATA": {
           "title": "缺少必填参数",
           "action": "补充参数后重试"
@@ -9405,6 +9429,50 @@
         "invalid_arguments": {
           "title": "提交的信息有误",
           "action": "检查后重试"
+        },
+        "ADVISOR_BUDGET_EXHAUSTED": {
+          "title": "本次会话的顾问咨询次数已用尽",
+          "action": "在新会话里继续，或联系管理员提高咨询上限"
+        },
+        "ADVISOR_IDENTITY_REQUIRED": {
+          "title": "顾问咨询缺少属主与会话标识",
+          "action": "重新登录后再发起咨询"
+        },
+        "ADVISOR_MODEL_UNAVAILABLE": {
+          "title": "指定的顾问咨询模型调用失败",
+          "action": "改用其他模型，或稍后重试"
+        },
+        "ADVISOR_PROMPT_EMPTY": {
+          "title": "顾问咨询内容为空",
+          "action": "补上要咨询的问题后重试"
+        },
+        "ADVISOR_PROMPT_TOO_LONG": {
+          "title": "顾问咨询内容超出长度上限",
+          "action": "精简或拆分问题后重新咨询"
+        },
+        "BAD_MAX_TOKENS": {
+          "title": "maxTokens 参数不是整数",
+          "action": "填入一个正整数后重新渲染目录树"
+        },
+        "INSTANCE_NOT_VISIBLE": {
+          "title": "工作流实例不存在或对你不可见",
+          "action": "核对实例 ID，或改用该实例所属的账号"
+        },
+        "PRINCIPAL_REQUIRED": {
+          "title": "缺少调用者身份，已拒绝操作他人的设备",
+          "action": "重新登录后由本人重新发起该操作"
+        },
+        "RENDER_FAILED": {
+          "title": "目录树渲染失败",
+          "action": "缩小目录范围或调低 maxTokens 后重试"
+        },
+        "SCHEDULER_ERROR": {
+          "title": "定时任务列表读取失败",
+          "action": "稍后重试；持续失败请联系管理员检查调度服务"
+        },
+        "WORKFLOW_NOT_TRIGGERABLE": {
+          "title": "该工作流当前无法触发",
+          "action": "确认工作流存在、已启用且没有实例正在运行后重试"
         }
       },
       "worktree": {
@@ -11646,6 +11714,8 @@
     "predictiveEditDelete": "删除",
     "predictiveEditLine": "第 {line} 行",
     "predictiveEditPreview": "悬停预览此条改动的区域",
+    "predictiveEditSetting": "预测式编辑",
+    "predictiveEditSettingDesc": "停笔后自动预测下一处编辑意图，在聊天输入区与代码编辑器展示可勾选的编辑建议；关闭后不再发起预测请求。",
     "cmdCode": "请用代码实现以下功能，并添加注释：",
     "cmdExplain": "请详细解释以下概念：",
     "cmdKouboScript": "请帮我生成今日 8 篇抖音口播稿。要求:\n1. 日期:MMDD\n2. 选题方向:\n3. 双门禁验证(歧义压缩 / 跨稿词表 / 全量验证 / 语病 / 热点覆盖)\n请走 koubo-workflow 流水线(约束优先写作法)。",
@@ -11923,7 +11993,7 @@
       "readAloud": "朗读",
       "readAloudFailed": "朗读失败,请稍后重试",
       "readAloudTruncated": "内容过长,只朗读前 {max} 字",
-        "stopReadAloud": "停止朗读",
+      "stopReadAloud": "停止朗读",
       "regenerate": "重新生成",
       "reply": "回复",
       "saveAsNewVersion": "保存为新版本",
@@ -14778,6 +14848,86 @@
     "totalCount": "共 {count} 人"
   },
   "docs": {
+    "common": {
+      "backToDocs": "返回文档中心",
+      "startReading": "开始阅读",
+      "firstChapter": "已是第一章",
+      "lastChapter": "已是最后一章",
+      "chapterBadge": "第 {num} 章 · 使用说明手册"
+    },
+    "manual": {
+      "overview": {
+        "title": "使用说明手册",
+        "description": "无需技术背景,跟着步骤操作即可。"
+      },
+      "getting-started": {
+        "title": "开始使用"
+      },
+      "ai-chat": {
+        "title": "AI 对话"
+      },
+      "agent": {
+        "title": "使用 Agent"
+      },
+      "knowledge-base": {
+        "title": "知识库"
+      },
+      "billing": {
+        "title": "积分与订阅"
+      },
+      "account": {
+        "title": "账户设置"
+      },
+      "faq": {
+        "title": "常见问题"
+      }
+    },
+    "meta": {
+      "overview": {
+        "title": "智汇 AI 文档中心",
+        "description": "从快速开始到深度开发,完整覆盖智汇 AI 全部能力"
+      },
+      "quickstart": {
+        "title": "5 分钟快速开始 — 智汇 AI",
+        "description": "5 分钟从注册到发布第一个 AI Agent。Apache 2.0 开源,100+ 模型,六端同源。"
+      },
+      "api": {
+        "title": "API 参考 — 智汇 AI",
+        "description": "REST API + Webhook + OpenAPI 3.1,SDK 全语言覆盖。"
+      },
+      "rag": {
+        "title": "知识库 RAG — 智汇 AI",
+        "description": "文档解析、向量检索、BM25、知识图谱"
+      },
+      "mcp": {
+        "title": "MCP 工具集成 — 智汇 AI",
+        "description": "Anthropic MCP 协议原生支持,100+ 预置 Server + 自定义开发。"
+      },
+      "agent": {
+        "title": "Agent 开发 — 智汇 AI",
+        "description": "可视化编排 + 模板 + 最佳实践,六端发布。"
+      },
+      "self-host": {
+        "title": "自托管部署 — 智汇 AI",
+        "description": "Docker Compose / Kubernetes Helm Chart 部署指南"
+      },
+      "models": {
+        "title": "多模型调度 — 智汇 AI",
+        "description": "100+ LLM 统一接入,自动 fallback,Combo 链组合调用。"
+      },
+      "workflow": {
+        "title": "工作流编排 — 智汇 AI",
+        "description": "n8n 风格节点画布,可视化编排复杂 AI 流程。"
+      },
+      "team": {
+        "title": "团队协作 — 智汇 AI",
+        "description": "RBAC、SSO、审计、积分共享,企业级团队 AI 协作。"
+      },
+      "manual": {
+        "title": "使用说明手册 — 智汇 AI",
+        "description": "面向终端用户的图文教程,7 章覆盖全部常用功能。"
+      }
+    },
     "navAgent": "Agent 开发",
     "navApi": "API 文档",
     "navDevelopers": "开发者",
@@ -20736,6 +20886,7 @@
     "downloadAndroidSysReq": "Android 8.0 (API 26) 或更高版本",
     "downloadAssets": "下载资源",
     "downloadAvailable": "已发布",
+    "downloadAvailablePlatforms": "已上线平台",
     "downloadBack": "返回",
     "downloadCli": "命令行工具",
     "downloadCliDesc": "终端一键调用,脚本化集成",
@@ -20774,6 +20925,8 @@
     "downloadMobileDesc": "H5 移动端,扫码即用",
     "downloadMobileInstallGuide": "Mobile RN 客户端走源码构建,请参考 GitHub 仓库 apps/mobile-rn 目录的 README 自行编译。",
     "downloadMobileSysReq": "iOS 14+ / Android 8+,React Native 0.76+ 运行时",
+    "downloadNotLaunchedHint": "IHUI AI 暂未提供 {platform} 版本的下载。请选择下方已上线的平台,或直接使用 Web 版体验完整功能。",
+    "downloadNotLaunchedTitle": "{platform} 尚未上线",
     "downloadNow": "立即下载",
     "downloadSystemRequirements": "系统要求",
     "downloadTitle": "下载客户端",
@@ -20979,7 +21132,8 @@
     "customNoResults": "没有找到匹配的功能",
     "eduHubTitle": "教育",
     "contentHubTitle": "内容",
-    "tradeHubTitle": "交易"
+    "tradeHubTitle": "交易",
+    "eduMyAttendance": "我的考勤"
   },
   "news": {
     "allCategories": "全部分类",
@@ -25798,7 +25952,6 @@
     "actionReedit": "重新编辑",
     "title": "我的智能体",
     "searchPlaceholder": "搜索智能体",
-    "loading": "加载中…",
     "empty": "暂无智能体"
   },
   "certDetail": {
@@ -27110,7 +27263,6 @@
     "save": "保存"
   },
   "aigcCover": {
-    "loading": "加载中…",
     "title": "封面设置",
     "subtitle": "为「{title}」生成封面",
     "empty": "暂无封面",
@@ -27237,7 +27389,6 @@
     "rateLabel": "分成比例",
     "withdrawModal": {
       "title": "提现",
-      "close": "关闭",
       "subtitle": "可提现金额",
       "wechat": "微信",
       "moreMethods": "更多提现方式陆续开放",
@@ -29373,7 +29524,47 @@
     "days": "天数",
     "reason": "原因",
     "daysWithUnit": "{count}天",
-    "approveAction": "审批"
+    "approveAction": "审批",
+    "classLabel": "班级",
+    "selectClass": "选择班级",
+    "batchCheckIn": "批量点名",
+    "batchConfirm": "开始点名",
+    "batchResultCreated": "新签到",
+    "batchResultSkipped": "跳过",
+    "batchResultMissed": "未签到",
+    "batchFailed": "批量点名失败",
+    "exportCsv": "导出 CSV",
+    "exportFailed": "导出失败,请稍后重试",
+    "studentPageTitle": "我的考勤",
+    "studentPageSubtitle": "查看本人考勤记录并自助签到",
+    "selfCheckIn": "自助签到",
+    "selfCheckInSuccess": "签到成功",
+    "selfCheckInFailed": "签到失败,请稍后重试",
+    "notLoggedIn": "请先登录后查看本人考勤",
+    "rulePanelTitle": "考勤规则",
+    "ruleClassHint": "选择班级后加载该班规则",
+    "ruleNotConfigured": "未配置",
+    "ruleLateAfter": "迟到判定时刻",
+    "ruleEarlyBefore": "早退判定时刻",
+    "ruleAbsentAfter": "缺勤判定时刻",
+    "ruleEnabledLabel": "启用规则",
+    "ruleTimeHint": "格式 HH:MM，留空表示不修改",
+    "ruleSave": "保存规则",
+    "ruleSaved": "规则已保存",
+    "ruleQrSecretState": "扫码密钥：",
+    "ruleQrSecretOn": "已配置",
+    "ruleQrSecretOff": "未配置",
+    "ruleQrSecretGuide": "扫码签到前请先在下方轮换扫码密钥",
+    "qrPanelTitle": "扫码签到",
+    "qrLoading": "正在获取二维码",
+    "qrExpiresIn": "将在 {seconds}s 后过期",
+    "qrExpired": "二维码已过期，正在重新获取",
+    "qrRefresh": "重新获取",
+    "qrRotateSecret": "轮换密钥",
+    "qrRotated": "已轮换密钥（指纹 {fingerprint}）",
+    "qrSecretNote": "密钥原文不显示在界面，仅核对指纹",
+    "qrNeedSetup": "先在上方配置规则并轮换密钥",
+    "qrLoadFailed": "二维码获取失败"
   },
   "eduCertificates": {
     "certificateNo": "编号：{no}",

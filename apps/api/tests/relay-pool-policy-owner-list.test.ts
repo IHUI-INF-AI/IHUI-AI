@@ -23,7 +23,7 @@ const client = postgres('postgres://unit:test@127.0.0.1:1/none', {
 const db = drizzle(client)
 
 function whereOf(cond: SQL | null): { sql: string; params: unknown[] } {
-  const q = db.select().from(aiRelayAccountPool).where(and(cond) ?? undefined).toSQL()
+  const q = db.select().from(aiRelayAccountPool).where(and(cond ?? undefined)).toSQL()
   return { sql: q.sql.toLowerCase(), params: q.params }
 }
 

@@ -13,6 +13,9 @@ import { success, error } from '../utils/response.js'
 import { config } from '../config/index.js'
 import { getWsAutoRecoveryManager } from './ws-auto-recovery.js'
 import { generateCompactId } from '../utils/crypto-random.js'
+import { isDuplicate } from '../utils/ws-dedup.js'
+import { checkWsRateLimit } from '../utils/ws-rate-limit.js'
+import { bufferMessage, replayMessages } from '../utils/ws-replay-buffer.js'
 import {
   removeIfSame,
   removeIfDead,
@@ -50,6 +53,8 @@ const wsChatMessageSchema = z
     // 中途切换房间(room action)字段
     action: z.enum(['join', 'leave']).optional(),
     room: z.string().max(128).optional(),
+    // 客户端幂等键:重发同一条消息必须带同一个值,服务端据此去重(见入站处理的 isDuplicate 那一格)
+    clientMessageId: z.string().min(1).max(64).optional(),
     // 兼容 typing 等扩展字段(无强约束,但限制 key 数量防滥用)
   })
   .refine((v) => Object.keys(v).length <= 20, { message: '字段过多' })
@@ -77,10 +82,14 @@ const isSocketUnusable = (s: WebSocket): boolean =>
  *   u1 发消息 → 本机直推(排除 u1) + publish 到 Redis "chatroom:room1"
  *            → 实例B 订阅器收到 → 推给本机 u2
  *
- * 客户端连接: ws://host/ws/room/:roomId?token=<access_token>&nickname=<昵称>
+ * 客户端连接: ws://host/ws/room/:roomId?token=<access_token>&nickname=<昵称>[&since=<毫秒时间戳>]
+ *   `since` = 该客户端上次收到的消息时刻;断线重连时带上,服务端把回放缓冲里该时刻之后的
+ *   消息按序补发(缺省即不补发)。
+ * 入站消息: 可选 `clientMessageId`(幂等键)——同一连接/同一用户在去重窗口内重复投递的
+ *   同一 ID 只处理一次,重复帧直接丢弃。
  * 消息类型: text / image / file / system / typing
  *
- * 降级: Redis 不可用时仅本机广播(单实例部署).
+ * 降级: Redis 不可用时仅本机广播(单实例部署),去重/跨实例限流/回放补发同步降级为放行/跳过。
  */
 const wsChatPlugin: FastifyPluginAsync = async (server) => {
   // roomId -> 本机成员集合
@@ -511,7 +520,7 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
   })
 
   server.get('/ws/room/:roomId', { websocket: true }, (socket, request) => {
-    const query = request.query as { token?: string; nickname?: string }
+    const query = request.query as { token?: string; nickname?: string; since?: string }
     const roomId = (request.params as { roomId: string }).roomId
     // 2026-07-24 安全审计:roomId 格式校验(防 channel 注入 + 防 Redis key 注入)
     // 允许 UUID 或 字母数字_- 组合(最长 128 字符)
@@ -686,9 +695,34 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
         // 初始加入 URL 中的房间
         joinRoom(roomId)
 
+        // 2026-11-01 断线重连补发:客户端带 since(=上次收到的消息时刻)时,把回放缓冲里
+        // 该时刻之后的消息按序补发(缺省即不补发)。Redis 不可用时 replayMessages 降级
+        // 返回空数组 ⇒ 静默跳过,不影响正常连接(见本文件头注的降级约定)。
+        const joinedAt = Date.now()
+        if (query.since !== undefined) {
+          const since = Number(query.since)
+          if (Number.isFinite(since) && since > 0) {
+            try {
+              const missed = await replayMessages(roomId, since)
+              for (const m of missed) {
+                // 只补发加入时刻之前的:加入之后的消息会实时到达,再补一次就是重复帧
+                const ts = (m as { ts?: number }).ts
+                if (typeof ts === 'number' && ts > joinedAt) continue
+                send(socket, m)
+              }
+            } catch (err) {
+              server.log.warn({ err, roomId }, 'ws-chat 回放补发失败,降级跳过')
+            }
+          }
+        }
+
         // 2026-09-06 P0:服务端心跳注册——记录连接并监听 pong,空闲超时由 heartbeatTimer 兜底 close
         aliveSockets.set(socket, true)
         socket.on('pong', () => aliveSockets.set(socket, true))
+
+        // 同一连接的入站消息串行链:去重/跨实例限流/回放缓冲三项都要 await,
+        // 若各消息各自起飞会打乱到达顺序(且限流窗口会漏计)。链式串行保序。
+        let inboundChain: Promise<void> = Promise.resolve()
 
         socket.on('message', (data: Buffer) => {
           const raw = data.toString()
@@ -772,9 +806,37 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
             filename: msg.filename as string | undefined,
             ts: Date.now(),
           }
-          publish(roomId, messagePayload)
-          // 持久化到 Redis 供 HTTP 历史查询（system 类型不存）
-          if (mtype !== 'system') persistMessage(roomId, messagePayload)
+          // 2026-11-01 幂等去重 + 跨实例限流 + 回放缓冲接入(此前只有 import 未接线)。
+          // 三项都需 await ⇒ 整段业务处理挂到 inboundChain 上,按到达顺序串行执行。
+          inboundChain = inboundChain
+            .then(async () => {
+              // 幂等键:同一 clientMessageId 在去重窗口内只处理一次,重复帧直接丢弃。
+              // 键必须带发信人作用域——ws-dedup 的 Redis key 是全局长唯一,直接用裸 id
+              // 会让任意连接抢先占住他人刚要发的 id 从而静默吞掉那条消息。
+              const clientMessageId = msg.clientMessageId
+              if (typeof clientMessageId === 'string' && clientMessageId) {
+                if (await isDuplicate(`${userId}:${clientMessageId}`)) {
+                  server.log.debug({ userId, clientMessageId }, 'ws-chat 丢弃重复消息')
+                  return
+                }
+              }
+              // 跨实例限流:本机 messageRateLimiter 之外的共享窗口(多实例下总速率仍受限)
+              if (!(await checkWsRateLimit(userId, roomId))) {
+                server.log.warn({ userId, roomId }, 'ws-chat 拒绝消息:跨实例限流超限')
+                socket.close(WS_CLOSE.RATE_LIMITED, '消息发送过快')
+                return
+              }
+              publish(roomId, messagePayload)
+              // 持久化到 Redis 供 HTTP 历史查询（system 类型不存）
+              if (mtype !== 'system') persistMessage(roomId, messagePayload)
+              // 回放缓冲:断线重连带 since 时按序补发。只由入站这一侧写(跨实例 publish
+              // 的接收端不再写),否则同一条消息在缓冲里落两份 ⇒ 重连补发出重复气泡。
+              if (mtype !== 'system') void bufferMessage(roomId, messagePayload)
+            })
+            .catch((err) => {
+              // 单条消息处理失败不得打断后续入站链(链一断,整条连接的消息都不再处理)
+              server.log.error({ err, userId }, 'ws-chat 入站消息处理失败')
+            })
         })
 
         socket.on('close', () => teardownOnce())

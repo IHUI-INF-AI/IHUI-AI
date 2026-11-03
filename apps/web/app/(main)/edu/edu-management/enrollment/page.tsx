@@ -894,7 +894,7 @@ export default function EnrollmentPage() {
 
       <header className="space-y-1">
         <h1 className="text-display font-bold tracking-tight">招生管理</h1>
-        <p className="text-xs text-muted-foreground">管理线索、试听预约和报名记录</p>
+        <p className="text-label text-muted-foreground">管理线索、试听预约和报名记录</p>
       </header>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -958,7 +958,7 @@ export default function EnrollmentPage() {
                 添加线索
               </Button>
               {leadQuery.isLoading && (
-                <div className="ml-auto flex items-center text-xs text-muted-foreground">
+                <div className="ml-auto flex items-center text-label text-muted-foreground">
                   <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
                   加载中...
                 </div>
@@ -977,7 +977,7 @@ export default function EnrollmentPage() {
             </Card>
           ) : leads.length === 0 ? (
             <Card>
-              <CardContent className="py-12 text-center text-sm text-muted-foreground">
+              <CardContent className="py-12 text-center text-body text-muted-foreground">
                 暂无线索数据
               </CardContent>
             </Card>
@@ -985,7 +985,7 @@ export default function EnrollmentPage() {
             <Card>
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="w-full text-body">
                     <thead>
                       <tr className="bg-muted/40">
                         <th className="px-4 py-3 text-left font-medium text-muted-foreground">
@@ -1021,12 +1021,14 @@ export default function EnrollmentPage() {
                       {leads.map((lead) => (
                         <tr key={lead.id} className="hover:bg-muted/30">
                           <td className="px-4 py-3 text-label font-medium">{lead.name}</td>
-                          <td className="px-4 py-3 text-xs text-muted-foreground">{lead.phone}</td>
-                          <td className="px-4 py-3 text-xs">{lead.studentName}</td>
-                          <td className="px-4 py-3 text-xs text-muted-foreground">
+                          <td className="px-4 py-3 text-label text-muted-foreground">
+                            {lead.phone}
+                          </td>
+                          <td className="px-4 py-3 text-label">{lead.studentName}</td>
+                          <td className="px-4 py-3 text-label text-muted-foreground">
                             {lead.studentAge}
                           </td>
-                          <td className="px-4 py-3 text-xs text-muted-foreground">
+                          <td className="px-4 py-3 text-label text-muted-foreground">
                             {LEAD_SOURCE_MAP.get(lead.source) ?? lead.source}
                           </td>
                           <td className="px-4 py-3">
@@ -1040,10 +1042,10 @@ export default function EnrollmentPage() {
                               {LEAD_STATUS_MAP.get(lead.status) ?? lead.status}
                             </Badge>
                           </td>
-                          <td className="px-4 py-3 text-xs text-muted-foreground">
+                          <td className="px-4 py-3 text-label text-muted-foreground">
                             {lead.follower}
                           </td>
-                          <td className="px-4 py-3 text-xs text-muted-foreground">
+                          <td className="px-4 py-3 text-label text-muted-foreground">
                             {lead.nextFollowUp ?? '-'}
                           </td>
                           <td className="px-4 py-3 text-right">
@@ -1051,7 +1053,7 @@ export default function EnrollmentPage() {
                               <Button
                                 variant="outline"
                                 size="xs"
-                                className="text-xs"
+                                className="text-label"
                                 onClick={() => handleNextStatus(lead)}
                                 disabled={updateLeadStatus.isPending}
                               >
@@ -1080,7 +1082,7 @@ export default function EnrollmentPage() {
                 添加预约
               </Button>
               {trialQuery.isLoading && (
-                <div className="ml-auto flex items-center text-xs text-muted-foreground">
+                <div className="ml-auto flex items-center text-label text-muted-foreground">
                   <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
                   加载中...
                 </div>
@@ -1099,7 +1101,7 @@ export default function EnrollmentPage() {
             </Card>
           ) : trials.length === 0 ? (
             <Card>
-              <CardContent className="py-12 text-center text-sm text-muted-foreground">
+              <CardContent className="py-12 text-center text-body text-muted-foreground">
                 暂无试听预约
               </CardContent>
             </Card>
@@ -1107,7 +1109,7 @@ export default function EnrollmentPage() {
             <Card>
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="w-full text-body">
                     <thead>
                       <tr className="bg-muted/40">
                         <th className="px-4 py-3 text-left font-medium text-muted-foreground">
@@ -1143,14 +1145,18 @@ export default function EnrollmentPage() {
                       {trials.map((t) => (
                         <tr key={t.id} className="hover:bg-muted/30">
                           <td className="px-4 py-3 text-label font-medium">{t.studentName}</td>
-                          <td className="px-4 py-3 text-xs">{t.parentName}</td>
-                          <td className="px-4 py-3 text-xs text-muted-foreground">
+                          <td className="px-4 py-3 text-label">{t.parentName}</td>
+                          <td className="px-4 py-3 text-label text-muted-foreground">
                             {t.parentPhone}
                           </td>
-                          <td className="px-4 py-3 text-xs">{t.trialDate}</td>
-                          <td className="px-4 py-3 text-xs text-muted-foreground">{t.trialTime}</td>
-                          <td className="px-4 py-3 text-xs">{t.subject}</td>
-                          <td className="px-4 py-3 text-xs text-muted-foreground">{t.teacher}</td>
+                          <td className="px-4 py-3 text-label">{t.trialDate}</td>
+                          <td className="px-4 py-3 text-label text-muted-foreground">
+                            {t.trialTime}
+                          </td>
+                          <td className="px-4 py-3 text-label">{t.subject}</td>
+                          <td className="px-4 py-3 text-label text-muted-foreground">
+                            {t.teacher}
+                          </td>
                           <td className="px-4 py-3">
                             <Badge
                               variant="secondary"
@@ -1168,7 +1174,7 @@ export default function EnrollmentPage() {
                                 <Button
                                   variant="outline"
                                   size="xs"
-                                  className="text-xs text-green-600"
+                                  className="text-label text-green-600"
                                   onClick={() => handleUpdateTrialStatus(t.id, 'confirmed')}
                                   disabled={updateTrialStatus.isPending}
                                 >
@@ -1180,7 +1186,7 @@ export default function EnrollmentPage() {
                                 <Button
                                   variant="outline"
                                   size="xs"
-                                  className="text-xs text-blue-600"
+                                  className="text-label text-blue-600"
                                   onClick={() => handleUpdateTrialStatus(t.id, 'completed')}
                                   disabled={updateTrialStatus.isPending}
                                 >
@@ -1192,7 +1198,7 @@ export default function EnrollmentPage() {
                                 <Button
                                   variant="ghost"
                                   size="xs"
-                                  className="text-xs text-red-500"
+                                  className="text-label text-red-500"
                                   onClick={() => handleUpdateTrialStatus(t.id, 'cancelled')}
                                   disabled={updateTrialStatus.isPending}
                                 >
@@ -1269,7 +1275,7 @@ export default function EnrollmentPage() {
                 添加报名
               </Button>
               {enrollQuery.isLoading && (
-                <div className="ml-auto flex items-center text-xs text-muted-foreground">
+                <div className="ml-auto flex items-center text-label text-muted-foreground">
                   <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
                   加载中...
                 </div>
@@ -1288,7 +1294,7 @@ export default function EnrollmentPage() {
             </Card>
           ) : enrollments.length === 0 ? (
             <Card>
-              <CardContent className="py-12 text-center text-sm text-muted-foreground">
+              <CardContent className="py-12 text-center text-body text-muted-foreground">
                 暂无报名记录
               </CardContent>
             </Card>
@@ -1296,7 +1302,7 @@ export default function EnrollmentPage() {
             <Card>
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="w-full text-body">
                     <thead>
                       <tr className="bg-muted/40">
                         <th className="px-4 py-3 text-left font-medium text-muted-foreground">
@@ -1326,13 +1332,15 @@ export default function EnrollmentPage() {
                       {enrollments.map((e) => (
                         <tr key={e.id} className="hover:bg-muted/30">
                           <td className="px-4 py-3 text-label font-medium">{e.studentName}</td>
-                          <td className="px-4 py-3 text-xs">{e.className}</td>
-                          <td className="px-4 py-3 text-xs text-muted-foreground">{e.termName}</td>
-                          <td className="px-4 py-3 text-xs">{e.enrollDate}</td>
+                          <td className="px-4 py-3 text-label">{e.className}</td>
+                          <td className="px-4 py-3 text-label text-muted-foreground">
+                            {e.termName}
+                          </td>
+                          <td className="px-4 py-3 text-label">{e.enrollDate}</td>
                           <td className="px-4 py-3 text-label font-medium">
                             {e.totalFee.toLocaleString()}
                           </td>
-                          <td className="px-4 py-3 text-xs">{e.paidAmount.toLocaleString()}</td>
+                          <td className="px-4 py-3 text-label">{e.paidAmount.toLocaleString()}</td>
                           <td className="px-4 py-3">
                             <Badge
                               variant="secondary"
@@ -1435,7 +1443,7 @@ export default function EnrollmentPage() {
                 仅看欠费
               </Button>
               {rosterQuery.isLoading && (
-                <div className="ml-auto flex items-center text-xs text-muted-foreground">
+                <div className="ml-auto flex items-center text-label text-muted-foreground">
                   <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
                   加载中...
                 </div>
@@ -1454,7 +1462,7 @@ export default function EnrollmentPage() {
             </Card>
           ) : roster.length === 0 ? (
             <Card>
-              <CardContent className="py-12 text-center text-sm text-muted-foreground">
+              <CardContent className="py-12 text-center text-body text-muted-foreground">
                 暂无学生数据
               </CardContent>
             </Card>
@@ -1462,7 +1470,7 @@ export default function EnrollmentPage() {
             <Card>
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="w-full text-body">
                     <thead>
                       <tr className="bg-muted/40">
                         <th className="px-4 py-3 text-left font-medium text-muted-foreground">
@@ -1498,16 +1506,16 @@ export default function EnrollmentPage() {
                       {roster.map((r) => (
                         <tr key={r.enrollmentId} className="hover:bg-muted/30">
                           <td className="px-4 py-3 text-label font-medium">{r.studentName}</td>
-                          <td className="px-4 py-3 text-xs text-muted-foreground">
+                          <td className="px-4 py-3 text-label text-muted-foreground">
                             {r.studentPhone ?? '-'}
                           </td>
-                          <td className="px-4 py-3 text-xs">
+                          <td className="px-4 py-3 text-label">
                             {BUSINESS_LINE_MAP.get(r.businessLine) ?? r.businessLine}
                           </td>
-                          <td className="px-4 py-3 text-xs">{r.className}</td>
-                          <td className="px-4 py-3 text-xs">{r.enrollDate}</td>
-                          <td className="px-4 py-3 text-xs">{r.totalFee.toLocaleString()}</td>
-                          <td className="px-4 py-3 text-xs">{r.paidAmount.toLocaleString()}</td>
+                          <td className="px-4 py-3 text-label">{r.className}</td>
+                          <td className="px-4 py-3 text-label">{r.enrollDate}</td>
+                          <td className="px-4 py-3 text-label">{r.totalFee.toLocaleString()}</td>
+                          <td className="px-4 py-3 text-label">{r.paidAmount.toLocaleString()}</td>
                           <td
                             className={cn(
                               'px-4 py-3 text-label font-medium',
@@ -1532,7 +1540,7 @@ export default function EnrollmentPage() {
                     </tbody>
                   </table>
                 </div>
-                <div className="flex items-center justify-between px-4 py-3 text-xs text-muted-foreground">
+                <div className="flex items-center justify-between px-4 py-3 text-label text-muted-foreground">
                   <span>共 {rosterQuery.data?.total ?? 0} 条</span>
                   <div className="flex items-center gap-2">
                     <Button

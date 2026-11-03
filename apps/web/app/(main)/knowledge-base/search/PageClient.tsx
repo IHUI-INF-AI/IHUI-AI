@@ -92,7 +92,7 @@ function SearchContent() {
     <div className="py-4 mx-auto w-full max-w-5xl space-y-5 px-4">
       <Link
         href="/knowledge-base"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         <span>{t('backToKb')}</span>
@@ -104,7 +104,9 @@ function SearchContent() {
           {t('title')}
         </h1>
         {q && (
-          <p className="text-xs text-muted-foreground">{t('resultSummary', { q, count: total })}</p>
+          <p className="text-label text-muted-foreground">
+            {t('resultSummary', { q, count: total })}
+          </p>
         )}
       </header>
 
@@ -123,7 +125,7 @@ function SearchContent() {
       ) : !q ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
           <Search className="h-8 w-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">{t('inputKeyword')}</p>
+          <p className="text-body text-muted-foreground">{t('inputKeyword')}</p>
         </div>
       ) : isLoading ? (
         <div className="flex items-center justify-center py-8 text-muted-foreground">
@@ -131,13 +133,13 @@ function SearchContent() {
           {t('searching')}
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {(error as Error).message}
         </div>
       ) : items.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
           <FileText className="h-8 w-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">{t('noResult')}</p>
+          <p className="text-body text-muted-foreground">{t('noResult')}</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -154,7 +156,7 @@ function SearchContent() {
                     </CardDescription>
                   )}
                 </CardHeader>
-                <CardFooter className="justify-between text-xs text-muted-foreground">
+                <CardFooter className="justify-between text-label text-muted-foreground">
                   {item.categoryName && (
                     <span className="rounded bg-muted px-1.5 py-0.5">{item.categoryName}</span>
                   )}

@@ -42,10 +42,10 @@ export default function ApiGroupsPage() {
           <FolderTree className="h-6 w-6 text-primary" />
           {t('apiGroups.title')}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('apiGroups.subtitle')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('apiGroups.subtitle')}</p>
       </div>
 
-      <div className="rounded-lg border bg-muted/30 px-4 py-2.5 text-sm text-muted-foreground">
+      <div className="rounded-lg border bg-muted/30 px-4 py-2.5 text-body text-muted-foreground">
         API分组由API Key名称自动聚合生成,如需管理请前往API Key管理页面
       </div>
 
@@ -60,8 +60,8 @@ export default function ApiGroupsPage() {
         </div>
       ) : (
         <div className="overflow-x-auto rounded-lg border">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+          <table className="w-full text-body">
+            <thead className="bg-muted/50 text-left text-label uppercase text-muted-foreground">
               <tr>
                 <th className={th}>{t('apiGroups.colName')}</th>
                 <th className={th}>{t('apiGroups.colDescription')}</th>

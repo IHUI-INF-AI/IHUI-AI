@@ -86,7 +86,7 @@ export function AgentSwarmMonitor({
               aria-label={tAria('listViewAriaLabel')}
               aria-pressed={viewMode === 'list'}
               className={cn(
-                'flex h-7 items-center gap-1 px-2 text-xs transition-colors',
+                'flex h-7 items-center gap-1 px-2 text-label transition-colors',
                 viewMode === 'list'
                   ? 'bg-cta text-cta-foreground'
                   : 'bg-muted text-muted-foreground hover:bg-muted/80',
@@ -100,7 +100,7 @@ export function AgentSwarmMonitor({
               aria-label={tAria('topologyViewAriaLabel')}
               aria-pressed={viewMode === 'topology'}
               className={cn(
-                'flex h-7 items-center gap-1 px-2 text-xs transition-colors',
+                'flex h-7 items-center gap-1 px-2 text-label transition-colors',
                 viewMode === 'topology'
                   ? 'bg-cta text-cta-foreground'
                   : 'bg-muted text-muted-foreground hover:bg-muted/80',
@@ -119,7 +119,7 @@ export function AgentSwarmMonitor({
       </CardHeader>
       <CardContent className="space-y-4">
         {!swarmData ? (
-          <p className="py-6 text-center text-sm text-muted-foreground">
+          <p className="py-6 text-center text-body text-muted-foreground">
             {swarmId ? t('loading') : t('notStarted')}
           </p>
         ) : viewMode === 'topology' ? (
@@ -129,7 +129,7 @@ export function AgentSwarmMonitor({
           <>
             {/* Swarm 信息 */}
             {swarm && (
-              <div className="grid grid-cols-2 gap-2 text-sm">
+              <div className="grid grid-cols-2 gap-2 text-body">
                 <InfoItem label={t('swarmId')} value={swarm.swarmId} mono />
                 <InfoItem
                   label={t('status')}
@@ -158,7 +158,7 @@ export function AgentSwarmMonitor({
                 <h4 className="mb-2 text-body font-medium">{t('agentStatus')}</h4>
                 <div className="overflow-hidden rounded-lg border">
                   <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
+                    <table className="w-full text-body">
                       <thead className="bg-muted/30">
                         <tr>
                           <th className="px-3 py-2 text-left font-medium">{t('name')}</th>
@@ -217,7 +217,7 @@ export function AgentSwarmMonitor({
             {performanceMetrics && (
               <div>
                 <h4 className="mb-2 text-body font-medium">{t('performanceMetrics')}</h4>
-                <div className="grid grid-cols-2 gap-2 min-[640px]:grid-cols-3 text-sm">
+                <div className="grid grid-cols-2 gap-2 min-[640px]:grid-cols-3 text-body">
                   <Metric
                     label={t('successRate')}
                     value={`${(performanceMetrics.successRate * 100).toFixed(1)}%`}
@@ -243,7 +243,7 @@ export function AgentSwarmMonitor({
                     {optimizationSuggestions.map((s, i) => (
                       <div
                         key={`suggestion-${i}`}
-                        className="flex items-start gap-2 rounded-md bg-cta/5 p-2 text-xs"
+                        className="flex items-start gap-2 rounded-md bg-cta/5 p-2 text-label"
                       >
                         <AlertCircle className="mt-0.5 h-3 w-3 shrink-0 text-primary" />
                         <span>{s}</span>
@@ -260,25 +260,27 @@ export function AgentSwarmMonitor({
                 <h4 className="mb-2 text-body font-medium">{t('executionResults')}</h4>
                 <div className="space-y-2">
                   {results.map((r) => (
-                    <div key={r.step_id} className="rounded-lg border p-2.5 text-sm">
+                    <div key={r.step_id} className="rounded-lg border p-2.5 text-body">
                       <div className="flex items-center justify-between">
                         <span className="font-medium">{r.step_action}</span>
-                        <span className="text-xs text-muted-foreground">
+                        <span className="text-label text-muted-foreground">
                           {formatTimeOnly(r.created_at)}
                         </span>
                       </div>
-                      {r.result && <p className="mt-1 text-xs text-muted-foreground">{r.result}</p>}
+                      {r.result && (
+                        <p className="mt-1 text-label text-muted-foreground">{r.result}</p>
+                      )}
                       {r.error_message && (
-                        <p className="mt-1 text-xs text-red-600">{r.error_message}</p>
+                        <p className="mt-1 text-label text-red-600">{r.error_message}</p>
                       )}
                       {r.tool_results && r.tool_results.length > 0 && (
                         <details className="mt-1">
-                          <summary className="cursor-pointer text-xs text-muted-foreground">
+                          <summary className="cursor-pointer text-label text-muted-foreground">
                             {t('toolResults', { count: r.tool_results.length })}
                           </summary>
                           <div className="mt-1 space-y-1">
                             {r.tool_results.map((tr) => (
-                              <div key={tr.toolId} className="rounded bg-muted/30 p-1.5 text-xs">
+                              <div key={tr.toolId} className="rounded bg-muted/30 p-1.5 text-label">
                                 <span className="font-mono">{tr.toolId}</span>
                                 {tr.result !== null && tr.result !== undefined && (
                                   <pre className="mt-1 overflow-auto text-muted-foreground">
@@ -322,7 +324,7 @@ function InfoItem({
 }) {
   return (
     <div className={cn('rounded-md border bg-muted/20 px-2.5 py-1.5', fullWidth && 'col-span-2')}>
-      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className="text-label text-muted-foreground">{label}</div>
       <div className={cn('mt-0.5 break-words text-body font-medium', mono && 'font-mono')}>
         {value}
       </div>
@@ -333,7 +335,7 @@ function InfoItem({
 function Metric({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-md border bg-muted/20 px-2.5 py-1.5">
-      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className="text-label text-muted-foreground">{label}</div>
       <div className="mt-0.5 text-body font-semibold">{value}</div>
     </div>
   )

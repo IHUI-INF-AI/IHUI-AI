@@ -2,14 +2,18 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// 镜像 packages/app/src/features/course-screen/CourseScreen.tsx
+// 镜像 packages/app/src/features/course-tab/CourseTabScreen.tsx(经 RN 壳间接承载)
 
 /**
  * 由 scripts/gen-miniapp-mirror.mjs 以「壳承载形制」生成:端内不写布局、不写数据。
- *   渲染 = packages/app/src/features/course-screen/CourseScreen.tsx(经 apps/miniapp-taro/src/rn-compat 兼容层落地),
- *   数据与交互 = RN 壳 apps/mobile-rn/src/screens/CourseScreen.tsx 本体,
+ *   渲染 = packages/app/src/features/course-tab/CourseTabScreen.tsx —— 经 RN 壳
+ *   apps/mobile-rn/src/screens/CourseScreen.tsx 再落地(该壳渲染 @ihui/rn-app 的
+ *   CourseTabScreen 并注入 getCourses/getStudyStatistics/getHotLearnCourses 数据),
+ *   数据与交互 = RN 壳本体,
  *   取词/主题 = config/rn-shell-replace-plugin.ts 按发起上下文换到端内真相源。
  * ⇒ 源头(RN 屏或壳)改一笔,这一页自动跟随;要改这一页的行为,应去改源头。
+ *   订正(2026-11-01):原标记挂的旧课程列表屏(course-screen/)全仓无壳渲染 —— RN 壳实际
+ *   渲染的是 course-tab/CourseTabScreen;旧屏仅 barrel 导出、孤儿化,去留归人拍板。
  */
 import ThemeRoot from '@/components/ThemeRoot'
 import { CourseScreen as CourseScreenShell } from '@rn-shells/CourseScreen'

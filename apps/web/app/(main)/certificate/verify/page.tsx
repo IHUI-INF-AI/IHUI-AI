@@ -53,7 +53,7 @@ export default function CertVerifyPage() {
         <h1 className="text-lg font-medium">{t('title')}</h1>
         <div className="w-10" />
       </div>
-      <p className="mb-4 text-sm text-muted-foreground">{t('subtitle')}</p>
+      <p className="mb-4 text-body text-muted-foreground">{t('subtitle')}</p>
 
       <Card className="mb-4">
         <CardContent className="min-[640px]:p-3 space-y-3 p-3">
@@ -90,7 +90,7 @@ export default function CertVerifyPage() {
           <CardContent className="flex flex-col items-center py-8 text-center">
             <ShieldCheck className="mb-2 h-8 w-8 text-destructive" />
             <p className="text-body font-medium">{t('notFound')}</p>
-            <p className="mt-1 text-xs text-muted-foreground">{t('notFoundHint')}</p>
+            <p className="mt-1 text-label text-muted-foreground">{t('notFoundHint')}</p>
           </CardContent>
         </Card>
       ) : result ? (
@@ -98,7 +98,7 @@ export default function CertVerifyPage() {
           <CardContent className="flex flex-col items-center py-8 text-center">
             <BadgeCheck className="mb-2 h-8 w-8 text-green-600" />
             <p className="text-body font-medium">{t('verified')}</p>
-            <div className="mt-4 w-full space-y-2 text-left text-sm">
+            <div className="mt-4 w-full space-y-2 text-left text-body">
               <div className="flex justify-between gap-4">
                 <span className="text-muted-foreground">{t('certTitle')}</span>
                 <span className="text-right font-medium">{result.title}</span>

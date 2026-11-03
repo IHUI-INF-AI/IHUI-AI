@@ -45,7 +45,7 @@ export function ErrorFallback({ error, onReset }: { error?: Error; onReset: () =
     <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-center">
       <AlertCircle className="h-10 w-10 text-destructive" />
       <h3 className="text-base font-medium">{t('errorTitle')}</h3>
-      <p className="max-w-md text-sm text-muted-foreground">
+      <p className="max-w-md text-body text-muted-foreground">
         {error?.message ?? t('unknownError')}
       </p>
       <button

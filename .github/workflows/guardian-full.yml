@@ -95,7 +95,8 @@ jobs:
         # (setup-python 之后 pip install uv):不碰系统 python —— Ubuntu 24.04 是
         # externally-managed 环境,在那里 `pip install --user` 会当场报 externally-managed-environment。
         run: |
-          pip install uv
+          # uv 档钉死,完整理由见 .github/workflows/ci.yml 的 install-uv 那格
+          pip install uv==0.12.1
           uvx --version
 
       - name: 全量守门(271 道)

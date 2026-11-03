@@ -4,7 +4,7 @@
 
 import { useEffect, useState } from 'react'
 import { useTheme } from '../context/ThemeContext'
-import { useNavigation } from '@react-navigation/native'
+import { useNavigation, useRoute } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { getOrders, refundOrder, type Order } from '@ihui/api-client'
 import { apiFailureToText } from '@ihui/shared/utils'
@@ -12,6 +12,7 @@ import { OrderRefundScreen as SharedOrderRefundScreen, type OrderRefundItem } fr
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { formatDateByTemplate } from '../utils/date-utils'
+import { useHostPorts } from '../host/use-host-ports'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -29,6 +30,9 @@ export function OrderRefundScreen() {
   const { resolvedTheme } = useTheme()
   const { t } = useI18n()
   const navigation = useNavigation<NavigationProp>()
+  // 端内 refund 页从 router.params.orderNo 进来就只认那一单(仅为该单展开退款表单)
+  const route = useRoute()
+  const routeOrderNo = (route.params as { orderNo?: string } | undefined)?.orderNo
   const [orders, setOrders] = useState<OrderRefundItem[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -46,7 +50,10 @@ export function OrderRefundScreen() {
     // 仅拉取已支付订单(可退款)
     const res = await getOrders({ page: 1, pageSize: 20, status: 'paid' })
     if (res.success) {
-      setOrders(toRefundItem(res.data.list))
+      const list = toRefundItem(res.data.list)
+      setOrders(list)
+      const target = routeOrderNo ? list.find((o) => o.orderNo === routeOrderNo) : undefined
+      if (target) setSelectedId(target.id)
     } else {
       setError(apiFailureToText(res, t('orderRefund.loadFailed')))
     }
@@ -79,6 +86,8 @@ export function OrderRefundScreen() {
     }
   }
 
+  const { onToast } = useHostPorts()
+
   return (
     <SharedOrderRefundScreen
       t={t}
@@ -101,7 +110,9 @@ export function OrderRefundScreen() {
       }}
       onRefresh={() => load(true)}
       onBack={() => navigation.goBack()}
-     colorScheme={resolvedTheme}/>
+      colorScheme={resolvedTheme}
+      onToast={onToast}
+    />
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

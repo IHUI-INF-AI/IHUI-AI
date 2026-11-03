@@ -20,6 +20,7 @@ import { View, Text } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useTt } from '@/i18n'
 import { get } from '@/api'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { formatPrice } from '@ihui/shared/utils/format'
 import { EmptyState, ErrorState, ScreenSkeleton } from '@/components/ScreenStates.taro'
 
@@ -48,6 +49,9 @@ const WITHDRAW_MIN = 0
 
 export default function CommissionOverview({ reloadTick }: { reloadTick: number }) {
   const tt = useTt()
+  // 只取 waitUntilReady(useCallback 稳定引用);整个 gate 每次渲染都是新对象,进 deps 会让
+  // 下面两条 effect 每帧重跑 ⇒ 落定后立刻死循环发请求。
+  const { waitUntilReady } = useAuthReadyGate()
   const [info, setInfo] = useState<DistributionOverview | null>(null)
   const [loading, setLoading] = useState(true)
   const [failed, setFailed] = useState(false)
@@ -65,15 +69,24 @@ export default function CommissionOverview({ reloadTick }: { reloadTick: number 
     }
   }, [])
 
-  // 挂载即取一次
+  // 挂载即取一次。
+  // G-933 冷启动抢跑门控:GET /distribution/overview 注册在 apps/api/src/routes/distribution.ts:42,
+  // 与该插件 addHook('preHandler', authenticate)(同文件 :32-39)同处一片 —— 无票即 401,需鉴权。
+  // 母页(pages/distribution/index.tsx)的 useDidShow 门控只拦得住父页自己那两发;本块的挂载
+  // effect 跑在那一发之前,不自己挂门就仍会抢跑,把 401 吞成 ErrorState「加载失败」的假失败态。
   useEffect(() => {
-    void load()
-  }, [load])
+    return waitUntilReady(() => {
+      void load()
+    })
+  }, [load, waitUntilReady])
 
   // 母页每次显示(useDidShow)递增 reloadTick,本块同批重取(tick=0 是挂载首帧,已由上一条覆盖)
   useEffect(() => {
-    if (reloadTick > 0) void load()
-  }, [load, reloadTick])
+    if (reloadTick === 0) return
+    return waitUntilReady(() => {
+      void load()
+    })
+  }, [load, reloadTick, waitUntilReady])
 
   if (loading && !info) return <ScreenSkeleton variant="card" count={2} />
   if (failed && !info) {
@@ -185,9 +198,7 @@ export default function CommissionOverview({ reloadTick }: { reloadTick: number 
               key={item.id}
               className="p-[28rpx] rounded-xl border border-[var(--color-border)] bg-card"
             >
-              <Text className="block text-body font-semibold text-foreground">
-                {item.title}
-              </Text>
+              <Text className="block text-body font-semibold text-foreground">{item.title}</Text>
               <View className="mt-[12rpx] flex flex-row items-center justify-between">
                 <Text className="text-[length:26rpx] font-semibold text-[var(--color-success)]">
                   ¥{item.salePrice}

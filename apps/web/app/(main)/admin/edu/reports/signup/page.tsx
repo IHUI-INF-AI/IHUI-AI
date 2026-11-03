@@ -78,7 +78,7 @@ export default function EduReportsSignupPage() {
       <BackButton />
       <div>
         <h1 className="text-display font-bold tracking-tight">报名报表</h1>
-        <p className="mt-1 text-sm text-muted-foreground">统计各课程/考试的报名与收入情况</p>
+        <p className="mt-1 text-body text-muted-foreground">统计各课程/考试的报名与收入情况</p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-3">
@@ -88,7 +88,7 @@ export default function EduReportsSignupPage() {
               <Users className="h-5 w-5" />
             </div>
             <div>
-              <div className="text-sm text-muted-foreground">本页报名总数</div>
+              <div className="text-body text-muted-foreground">本页报名总数</div>
               <div className="mt-0.5 text-heading font-semibold">{totalSignups}</div>
             </div>
           </CardContent>
@@ -99,7 +99,7 @@ export default function EduReportsSignupPage() {
               <CheckCircle className="h-5 w-5" />
             </div>
             <div>
-              <div className="text-sm text-muted-foreground">已支付</div>
+              <div className="text-body text-muted-foreground">已支付</div>
               <div className="mt-0.5 text-heading font-semibold">{totalPaid}</div>
             </div>
           </CardContent>
@@ -110,7 +110,7 @@ export default function EduReportsSignupPage() {
               <DollarSign className="h-5 w-5" />
             </div>
             <div>
-              <div className="text-sm text-muted-foreground">本页收入</div>
+              <div className="text-body text-muted-foreground">本页收入</div>
               <div className="mt-0.5 text-heading font-semibold">¥{totalRevenue.toFixed(2)}</div>
             </div>
           </CardContent>
@@ -194,7 +194,7 @@ export default function EduReportsSignupPage() {
       </div>
 
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">共 {total} 条</span>
+        <span className="text-body text-muted-foreground">共 {total} 条</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -204,7 +204,7 @@ export default function EduReportsSignupPage() {
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-body text-muted-foreground">
             {page} / {totalPages}
           </span>
           <Button

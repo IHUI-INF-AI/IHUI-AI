@@ -29,11 +29,13 @@ AST 解析失败时降级为固定行数切片(100 行/片,50 行重叠)。
 
 import asyncio
 import copy
+import gzip
 import hashlib
 import json
 import logging
 import os
 import re
+import subprocess
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -42,6 +44,24 @@ from typing import Any, cast
 from ..core.internal_ticket import internal_service_headers
 from ..core.llm_gateway import llm_gateway
 from . import rg_fallback_parity as _rgp
+from .dir_rhash import diff_dir_rhash, dir_rhash_map
+from .ignore_rules import (
+    DEFAULT_IGNORE_FILENAMES,
+    filter_paths,
+    filter_paths_for_index,
+    load_ignore_set,
+    normalize_rel_path,
+)
+from .process_tree import CREATE_NO_WINDOW
+from .rename_detect import (
+    NEAR_STAGE_SKIPPED_NO_FINGERPRINTS,
+    NEAR_STAGE_SKIPPED_TOO_MANY,
+    RENAME_MAX_HAMMING,
+    RenameReport,
+    compute_simhash,
+    detect_renames,
+    fingerprint_hex,
+)
 from .rg_fallback_parity import EnumerationProvenance
 
 logger = logging.getLogger(__name__)
@@ -149,6 +169,135 @@ def _merkle_root(file_hashes: dict[str, str]) -> str:
     return hashlib.sha256(joined.encode("utf-8")).hexdigest()
 
 
+#: git 跟踪面探针的超时(秒)。派生调用必须有界,否则一次挂起会把整条索引链拖成无界等待。
+GIT_TRACKED_TIMEOUT_S = 60.0
+
+
+@dataclass
+class IgnorePruneReport:
+    """索引枚举过 ignore 规则之后的**回执**:剪了多少、谁判的、哪些"跟踪但被忽略"被保留。
+
+    没有这张回执,"被剪"与"本来就没有"在 `IndexResult` 上长得一模一样 ——
+    而这一格最容易静默的正是"我把你跟踪的文件吃了"。
+    """
+
+    files_ignored: int = 0
+    ignored_by: list[str] = field(default_factory=list)
+    tracked_kept: int = 0
+    tracked_kept_paths: list[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
+
+
+def list_tracked_paths(root: Path) -> tuple[set[str] | None, str | None]:
+    """git 跟踪面(相对 `root` 的 posix 路径)→ (集合, 未判定原委)。
+
+    三态分立,绝不并桶:
+    - **不是 git 工作树** ⇒ `(set(), None)`:这是**结论**("这棵树上没有已跟踪文件"),
+      不是失败 —— 临时目录、导出的源码包都走这一档;
+    - **git 不可用 / 超时 / ls-files 失败** ⇒ `(None, 原委)`:**未判定**。调用方据此
+      一条都不剪(§0.3 与"失效方向只能是多留一份",不拿"没有跟踪文件"冒充判过的结果);
+    - 正常 ⇒ (相对路径集合, None)。
+
+    路径按 `root` 相对输出(`git -C <root> ls-files` 以 cwd 为基准),与枚举出口同形态。
+    """
+    try:
+        probe = subprocess.run(  # noqa: S603 - argv 全为受控字面量
+            ["git", "-C", str(root), "rev-parse", "--is-inside-work-tree"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=GIT_TRACKED_TIMEOUT_S,
+            creationflags=CREATE_NO_WINDOW,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as e:
+        return None, f"git 探针跑不动:{type(e).__name__}"
+    if probe.returncode != 0:
+        return set(), None
+    try:
+        listing = subprocess.run(  # noqa: S603 - argv 全为受控字面量
+            ["git", "-C", str(root), "ls-files", "-z", "--cached"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=GIT_TRACKED_TIMEOUT_S,
+            creationflags=CREATE_NO_WINDOW,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as e:
+        return None, f"git ls-files 跑不动:{type(e).__name__}"
+    if listing.returncode != 0:
+        return None, f"git ls-files 退出码 {listing.returncode}"
+    return {normalize_rel_path(p) for p in (listing.stdout or "").split("\0") if p}, None
+
+
+def apply_index_ignore_rules(
+    rel_paths: list[str], root: Path
+) -> tuple[list[str], IgnorePruneReport]:
+    """索引枚举结果过一遍 ignore 规则 → (留下的相对路径, 剪枝回执)。
+
+    ## 取舍口径:跟踪但被 `.gitignore` 覆盖的路径(P84 的前置,2026-11-01 定)
+
+    **默认不剪,原样保留并逐条点名**(`IgnorePruneReport.tracked_kept*`)。理由三条:
+
+    1. **这是 git 自己的语义**,不是让步:`.gitignore` 对**已跟踪**文件根本不生效
+       (`git ls-files -i -c --exclude-standard` 正是用来找这种"跟踪却命中忽略"的别扭件,
+       守门 236 的射程)。索引面照抄 `.gitignore`,等于替仓库裁决"这枚文件该从检索面消失",
+       而它明明已被入库 —— 内容面丢失且**无痕迹**,正是本仓最恨的那一型失效。
+    2. **失效方向必须偏"多留一份"**:误留一枚构建产物的代价是索引里多几条切片;
+       误剪一枚已跟踪源码的代价是"搜不到、且没人知道它曾经在"。两者不可对称处理。
+    3. **想真的剔掉,有过得去的出口**:索引专属的 `.aiignore` 命中照剪(它不对应任何 git
+       语义,写它的人明确表达"这枚别进索引");这条留给了"我确实要它出索引"的正当诉求。
+
+    跟踪面取不到(未判定)⇒ **一条都不剪**并把原委写进回执,由 `IndexResult` 透出。
+
+    实现上是"先零 IO 探一次有没有得剪,剪到了才去问 git" —— 干净树上不会白跑一次
+    `git ls-files`(monorepo 上那是上万条的进程与解析成本)。
+    """
+    report = IgnorePruneReport()
+    ignore = load_ignore_set(root, filenames=DEFAULT_IGNORE_FILENAMES)
+    report.errors.extend(f"ignore 规则读不动:{e}" for e in ignore.errors)
+    if not ignore.rules:
+        if ignore.errors:
+            # 读不动 ≠ 没有规则。这里按「多留一份」一条都不剪,但**必须把这一轮
+            # 是未判定、文件面按全量处理**写出来(§0.3):只留一句"已跳过"会被读成
+            # "这棵树本来就没有 ignore 规则",于是剪枝回执与真·无规则长得一样。
+            report.errors.append(
+                f"规则面未判定({len(ignore.errors)} 处读不动)⇒ 本轮一条都不剪,"
+                f"{len(rel_paths)} 条全部按全量进入索引面"
+            )
+        return list(rel_paths), report
+    _probe_kept, probe_pruned = filter_paths(rel_paths, ignore)
+    if not probe_pruned:
+        return list(rel_paths), report
+    tracked, track_err = list_tracked_paths(root)
+    if track_err is not None:
+        report.errors.append(
+            f"跟踪面取不到({track_err})⇒ 本轮一条都不剪(未判定,按「多留一份」处理)"
+        )
+    kept, pruned, tracked_kept = filter_paths_for_index(rel_paths, ignore, tracked=tracked)
+    report.files_ignored = len(pruned)
+    # 点名清单是**样本**、计数才是真值:排序后截断(枚举序在两通道/两轮之间本就会抖,
+    # 不排序会让"谁被点名"随轮次变),超出 12 枚必须出声,否则读起来像"出处就这 12 枚"。
+    pruned_sources = sorted({where for _p, where in pruned})
+    report.ignored_by = pruned_sources[:12]
+    if len(pruned_sources) > len(report.ignored_by):
+        report.errors.append(
+            f"剪枝出处点名按 12 枚截断(命中出处共 {len(pruned_sources)} 枚、"
+            f"剪掉 {len(pruned)} 条)⇒ 总数只以 files_ignored 为准"
+        )
+    report.tracked_kept = len(tracked_kept)
+    report.tracked_kept_paths = sorted(p for p, _where in tracked_kept)[:12]
+    if len(tracked_kept) > len(report.tracked_kept_paths):
+        report.errors.append(
+            f"「跟踪但被忽略」点名按 12 枚截断(共 {len(tracked_kept)} 枚)"
+            "⇒ 总数只以 files_tracked_ignored_kept 为准"
+        )
+    return kept, report
+
+
 SNAPSHOT_SCHEMA_VERSION = 2
 SNAPSHOT_STATE_OK = "ok"
 SNAPSHOT_STATE_LEGACY = "legacy"
@@ -165,6 +314,46 @@ SNAPSHOT_STATES: tuple[str, ...] = (
     SNAPSHOT_STATE_TRUNCATED,
     SNAPSHOT_STATE_SKIPPED,
 )
+
+# ==========================================================================
+# 快照压缩落盘(T12 缺口表 #8,2026-11-01)
+# ==========================================================================
+
+#: 压缩开关 env:默认开(写 gzip);"0"/"false"/"off"(大小写不敏感)关闭 ⇒ 写明文。
+#: 只影响**写侧**;读侧不认这个开关 —— 读侧只看文件头魔数,双形态都认,
+#: 所以"关了重写明文"和"开着写压缩"对读侧是同一种东西,不存在迁移问题。
+SNAPSHOT_COMPRESS_ENV = "IHUI_SNAPSHOT_COMPRESS"
+_SNAPSHOT_COMPRESS_OFF_VALUES = frozenset({"0", "false", "off"})
+_SNAPSHOT_COMPRESS_ON_VALUES = frozenset({"1", "true", "on"})
+#: gzip 魔数:压缩档的文件头两字节。读侧靠它自识别形态(明文档头两字节不会撞上)。
+_GZIP_MAGIC = b"\x1f\x8b"
+
+
+def _snapshot_compress_enabled() -> bool:
+    """解析压缩开关 env:缺省/空 ⇒ 开;关词 ⇒ 关;开词 ⇒ 开;非法值 ⇒ **出声**回落默认(开)。
+
+    非法值不许安静吃掉:运维本想关压缩写错了值,安静回落开会让"明文应急"落空,
+    排查时在日志里能一眼看到取值没被认出来。
+    """
+    raw = os.environ.get(SNAPSHOT_COMPRESS_ENV)
+    if raw is None or not raw.strip():
+        return True
+    value = raw.strip().lower()
+    if value in _SNAPSHOT_COMPRESS_OFF_VALUES:
+        return False
+    if value in _SNAPSHOT_COMPRESS_ON_VALUES:
+        return True
+    logger.warning(
+        "%s=%r 不在认得的取值里(off 词:0/false/off;on 词:1/true/on),回落默认:压缩开启",
+        SNAPSHOT_COMPRESS_ENV,
+        raw,
+    )
+    return True
+
+
+def _is_gzip_compressed(data: bytes) -> bool:
+    """魔数自识别:文件头两字节是否 gzip 魔数 \\x1f\\x8b(空档/明文档都不命中)。"""
+    return data[:2] == _GZIP_MAGIC
 
 
 INDEX_LEASE_ACQUIRED = "acquired"
@@ -200,6 +389,17 @@ class SnapshotRead:
     files: dict[str, str]
     state: str
     detail: str | None = None
+    #: 改名判定用的两枚附加表(P85,2026-11-01):
+    #: `fingerprints` = 路径 → 64 bit simhash 的 hex;`aliases` = 新路径 → **仍在源路径下**
+    #: 的那批切片的源路径(精确改名命中后不重嵌入、不删行,行留在原地下)。
+    #: 两者都是**可缺省**的附加输入:缺了只降级为"本轮只判精确改名",不影响 `files`
+    #: 的自证(自证仍是 fileCount + 重算 merkleRoot 那两把尺);形态坏才判坏档(见 `_snapshot_extras`)。
+    fingerprints: dict[str, str] = field(default_factory=dict)
+    aliases: dict[str, str] = field(default_factory=dict)
+    #: 目录级递归前像(T12 缺口表 #1 后半程,2026-11-01):`dir -> rhash`。
+    #: `None` = 上一轮**没有这一维**(旧档/坏档)⇒ 本轮的「未变/搬家」两桶判不出,
+    #: 只能从下一轮起判 —— 这与"判过且干净"必须长得不一样,所以不用空 dict 冒充缺席。
+    dir_rhashes: dict[str, str] | None = None
 
     def __post_init__(self) -> None:
         if self.state not in SNAPSHOT_STATES:
@@ -250,6 +450,81 @@ class IndexResult:
     #: 租约档(acquired / coalesced-waited / over-window;"" = 没经过租约层)
     lock_state: str = ""
     lock_detail: str | None = None
+    # P84(2026-11-01):索引枚举的 ignore 剪枝回执。`files_ignored` 只数**真剪掉**的;
+    # "跟踪但被 .gitignore 覆盖 ⇒ 保留"单独计数并逐条点名,不许与"本来就没有"混在一起。
+    files_ignored: int = 0
+    ignored_by: list[str] = field(default_factory=list)
+    files_tracked_ignored_kept: int = 0
+    tracked_ignored_kept: list[str] = field(default_factory=list)
+    ignore_notes: list[str] = field(default_factory=list)
+    # P85(2026-11-01):改名判定。`files_renamed` = **精确改名**(同 content-hash,本轮
+    # 不重嵌入、不清旧切片);`rename_candidates` 含近同候选(内容变过,仍按变更处理)。
+    files_renamed: int = 0
+    rename_candidates: list[dict[str, Any]] = field(default_factory=list)
+    rename_note: str | None = None
+    # T12 缺口表 #1 后半程(2026-11-01):目录级递归前像差分回执。
+    # `dirs_moved` = 整枝搬家点名(只报最浅一枝,ancestor 已报的后代不重复;歧义族不报)。
+    # `dir_rhash_note` 为 None = 本轮没做这一维(非增量轮 / 上一轮档坏或缺这一维)。
+    dir_rhash_note: str | None = None
+    dirs_moved: list[dict[str, str]] = field(default_factory=list)
+
+
+def _snapshot_extras(
+    parsed: dict[str, Any],
+) -> tuple[dict[str, str], dict[str, str], dict[str, str] | None, str | None]:
+    """读快照里的三枚附加表(指纹 / 改名别名 / 目录前像)→ (指纹, 别名, 目录前像, 坏形态原委)。
+
+    - **缺席**(旧版档、或这一轮没算过指纹)⇒ 空表 / `None`,**不判坏档**:它们不参与
+      `fileCount` / 重算 `merkleRoot` 这条自证链,缺了只降级"本轮只判精确改名"
+      (目录前像缺席则降级为"本轮起才有这一维");
+    - **在场但形态坏** ⇒ 返回原委,由调用方判 `CORRUPT`(见 `_load_snapshot_read`
+      里"别名一丢就等于静默丢内容"那条)。
+    """
+    fingerprints: dict[str, str] = {}
+    aliases: dict[str, str] = {}
+    raw_fp = parsed.get("simhashes")
+    if raw_fp is not None:
+        if not isinstance(raw_fp, dict):
+            return {}, {}, None, "simhashes 字段形态不合"
+        for key, value in raw_fp.items():
+            if not isinstance(key, str) or not isinstance(value, str):
+                return {}, {}, None, "simhashes 条目形态不合"
+            fingerprints[key] = value
+    raw_alias = parsed.get("aliases")
+    if raw_alias is not None:
+        if not isinstance(raw_alias, dict):
+            return {}, {}, None, "aliases 字段形态不合"
+        for key, value in raw_alias.items():
+            if not isinstance(key, str) or not isinstance(value, str):
+                return {}, {}, None, "aliases 条目形态不合"
+            aliases[key] = value
+    raw_dirs = parsed.get("dirRhashes")
+    dir_rhashes: dict[str, str] | None = None
+    if raw_dirs is not None:
+        if not isinstance(raw_dirs, dict) or not raw_dirs:
+            return {}, {}, None, "dirRhashes 字段形态不合"
+        for key, value in raw_dirs.items():
+            if not isinstance(key, str) or not isinstance(value, str):
+                return {}, {}, None, "dirRhashes 条目形态不合"
+            if dir_rhashes is None:
+                dir_rhashes = {}
+            dir_rhashes[key] = value
+    return fingerprints, aliases, dir_rhashes, None
+
+
+def _resolve_alias_source(path: str, aliases: dict[str, str], *, limit: int = 16) -> str:
+    """别名链归位:一直找到**真正持有切片行**的那枚路径(A→B 之后 B→C 的那条链)。
+
+    链长有界且环路自停:坏档里出现 A→B→A 这种自指时,原样返回当前节点而不是死循环。
+    """
+    seen = {path}
+    current = path
+    while current in aliases and len(seen) <= limit:
+        current = aliases[current]
+        if current in seen:
+            break
+        seen.add(current)
+    return current
 
 
 class CodebaseIndexer:
@@ -527,17 +802,25 @@ class CodebaseIndexer:
 
     def collect_code_files_with_provenance(
         self, root: Path
-    ) -> tuple[list[tuple[Path, str]], EnumerationProvenance]:
+    ) -> tuple[list[tuple[Path, str]], EnumerationProvenance, IgnorePruneReport]:
         """扫描仓库收集代码文件,并**把这一趟用了哪条通道带回来**。
 
         V75 判据 4:本方法是懒索引护栏(`MAX_FILES_PER_INDEX`)唯一的分母来源,也是
         `index_repository` 唯一的枚举入口 —— 枚举语义只许住在
-        `rg_fallback_parity.enumerate_code_files` 一处,这里只做"相对 posix 路径 →
-        (绝对 Path, language)"的还原,不再第二遍 `os.walk`(两处算同一件事必漂移)。
+        `rg_fallback_parity.enumerate_code_files` 一处,这里只做两件事:
+        「相对 posix 路径 → (绝对 Path, language)」的还原,以及**枚举之后**过一遍
+        `ignore_rules`(P84,2026-11-01)。
+
+        为什么 ignore 剪枝必须挂在**枚举之后**而不是塞进 rg 参数:`ignore_rules` 是
+        单一判定层,骨架装配(`repo_tree_render`)与索引面共用它 ⇒ 两通道(ripgrep /
+        Python 遍历)对 ignore 的判断在结构上不可能不一致,不靠事后对账追。
+        "跟踪但被 `.gitignore` 覆盖"这一型的取舍口径写在 `apply_index_ignore_rules`
+        的 docstring 里(**默认保留并点名**,理由在那一处)。
 
         降级不静默:rg 通道跑了但坏了时,`provenance.degraded_reason` /
         `fallback_detail` 带原委,由 `index_repository` 透出到 `IndexResult` 上,
         所以"这次索引走的是 ripgrep 还是回退遍历"在响应里看得见,不必翻日志。
+        剪枝同样不静默:剪了多少、谁判的、哪些被保留,全部落在第三个返回值上。
         """
         rel_paths, prov = _rgp.enumerate_code_files(
             root,
@@ -545,8 +828,9 @@ class CodebaseIndexer:
             suffixes=tuple(_EXT_TO_LANG),
             max_files=MAX_FILES_PER_INDEX,
         )
+        kept_paths, ignore_report = apply_index_ignore_rules(rel_paths, root)
         collected: list[tuple[Path, str]] = []
-        for rel in rel_paths:
+        for rel in kept_paths:
             fname = rel.rsplit("/", 1)[-1]
             lang = _EXT_TO_LANG.get(os.path.splitext(fname)[1].lower())
             if not lang:
@@ -555,15 +839,26 @@ class CodebaseIndexer:
                 logger.warning("枚举出口返回了白名单外的扩展名,已跳过: %s", rel)
                 continue
             collected.append((root / Path(*rel.split("/")), lang))
-        return collected, prov
+        if prov.saturated:
+            # 护栏分母的诚实性:触顶判定与"索引到多少文件"必须是**同一条枚举**上的三个数,
+            # 而且要说清 N 是下界(被剪掉的不算进分母、也不从分母里抹掉)。不写这一句,
+            # "索引进 2000 条 < 上限 5000"会被读成"整仓索引好了"。
+            ignore_report.errors.append(
+                f"枚举触顶:本轮量到 {prov.counted} 条(= 上限 MAX_FILES_PER_INDEX="
+                f"{MAX_FILES_PER_INDEX},下界,真仓更大)、剪掉 {ignore_report.files_ignored} 条、"
+                f"索引进 {len(collected)} 条 ⇒ 本轮索引面是静默子集;"
+                "两通道触顶时各按自己的遍历序收手,换通道不保证同一个子集,"
+                "要全仓请对子目录显式调用 index_codebase"
+            )
+        return collected, prov, ignore_report
 
     def _collect_code_files(self, root: Path) -> list[tuple[Path, str]]:
         """扫描仓库,收集代码文件 → [(file_path, language), ...]。
 
         本体已收口到 `collect_code_files_with_provenance`(V75):护栏分母与索引分母
-        必须是同一个数,所以这里只剥掉 provenance,不保留第二份遍历实现。
+        必须是同一个数,所以这里只剥掉 provenance 与剪枝回执,不保留第二份遍历实现。
         """
-        collected, _prov = self.collect_code_files_with_provenance(root)
+        collected, _prov, _ignore = self.collect_code_files_with_provenance(root)
         return collected
 
     async def _generate_embeddings_batch(
@@ -705,13 +1000,37 @@ class CodebaseIndexer:
         """
         path = self._snapshot_path(repo_id, root)
         try:
-            raw = path.read_text(encoding="utf-8")
+            raw = path.read_bytes()
         except FileNotFoundError:
             return SnapshotRead({}, SNAPSHOT_STATE_ABSENT)
         except OSError as e:
             return SnapshotRead({}, SNAPSHOT_STATE_CORRUPT, f"快照读不动: {type(e).__name__}")
+        # 形态自识别(T12 缺口表 #8,2026-11-01):文件头是 gzip 魔数 ⇒ 解压;否则按明文走原路径。
+        # 旧明文档完全兼容:不迁移、不报错,读侧双形态都认,开关只影响写。
+        if _is_gzip_compressed(raw):
+            try:
+                text = gzip.decompress(raw).decode("utf-8")
+            except Exception as e:
+                # 解压失败/截断 ⇒ 判坏档并写明原委,**绝不 crash、也绝不静默当"无快照"**
+                #(§0.3:把"判过"写成"没判"与"没判"写成"判过"同样不可 —— 这里若当 ABSENT,
+                # 幽灵切片就永不清理)。魔数命中却解不开,几乎只有截断/损坏一种原委。
+                return SnapshotRead(
+                    {},
+                    SNAPSHOT_STATE_CORRUPT,
+                    f"gzip 解压失败(档被截断或损坏): {type(e).__name__}: {str(e)[:120]}",
+                )
+        else:
+            try:
+                text = raw.decode("utf-8")
+            except UnicodeDecodeError as e:
+                # 既非 gzip 也非合法 UTF-8 ⇒ 谁也不认,判坏档出原委(原先这一格会 crash 出去)。
+                return SnapshotRead(
+                    {},
+                    SNAPSHOT_STATE_CORRUPT,
+                    f"快照既非 gzip 也非合法 UTF-8 明文: {str(e)[:120]}",
+                )
         try:
-            parsed = json.loads(raw)
+            parsed = json.loads(text)
         except Exception as e:
             return SnapshotRead({}, SNAPSHOT_STATE_CORRUPT, f"JSON 解析失败: {str(e)[:120]}")
         if not isinstance(parsed, dict):
@@ -722,12 +1041,20 @@ class CodebaseIndexer:
         ):
             return SnapshotRead({}, SNAPSHOT_STATE_CORRUPT, "files 字段形态不合")
         version = parsed.get("schemaVersion")
+        fingerprints, aliases, prev_dirs, extras_err = _snapshot_extras(parsed)
+        if extras_err is not None:
+            # 附加表形态坏 ⇒ 判坏档而不是"当没有":别名一丢,那条"行仍在源路径下"的记录
+            # 就没了 ⇒ 下一轮会把源路径当"已删除"去清切片,改名后的文件从索引里静默消失。
+            return SnapshotRead({}, SNAPSHOT_STATE_CORRUPT, extras_err)
         if version is None:
             # v1 老档:内容可用,但**没有自证凭据**。判 legacy,不冒充 ok。
             return SnapshotRead(
                 cast(dict[str, str], files),
                 SNAPSHOT_STATE_LEGACY,
                 "旧版档无 schemaVersion/fileCount ⇒ 坏档无法自证,本轮起按 v2 重写",
+                fingerprints,
+                aliases,
+                prev_dirs,
             )
         if version != SNAPSHOT_SCHEMA_VERSION:
             return SnapshotRead({}, SNAPSHOT_STATE_CORRUPT, f"schemaVersion={version!r} 不在认得的档位里")
@@ -746,28 +1073,54 @@ class CodebaseIndexer:
                 SNAPSHOT_STATE_TRUNCATED,
                 "merkleRoot 与 files 重算值不符 ⇒ 档被改写过或尾部缺失",
             )
-        return SnapshotRead(cast(dict[str, str], files), SNAPSHOT_STATE_OK)
+        return SnapshotRead(
+            cast(dict[str, str], files),
+            SNAPSHOT_STATE_OK,
+            None,
+            fingerprints,
+            aliases,
+            prev_dirs,
+        )
 
-    def _save_snapshot(self, repo_id: str, root: Path, file_hashes: dict[str, str]) -> None:
-        """持久化本轮快照(原子写:先写逐轮唯一的临时件,再 replace 落位)。"""
+    def _save_snapshot(
+        self,
+        repo_id: str,
+        root: Path,
+        file_hashes: dict[str, str],
+        *,
+        fingerprints: dict[str, str] | None = None,
+        aliases: dict[str, str] | None = None,
+        dir_rhashes: dict[str, str] | None = None,
+    ) -> None:
+        """持久化本轮快照(原子写:先写逐轮唯一的临时件,再 replace 落位)。
+
+        `fingerprints` / `aliases` 是**附加输入**(P85):前者供下一轮判近同改名,
+        后者记录"精确改名后行仍留在源路径下"这件事。`dir_rhashes` 是目录级递归前像
+        (T12 缺口表 #1,2026-11-01),供下一轮做整枝比对与整枝搬家识别。
+        三者都不参与 `files` 的自证,所以旧版读侧只是不认这几枚键,不会把档判坏。
+        """
         tmp: Path | None = None
         try:
             _MERKLE_SNAPSHOT_DIR.mkdir(parents=True, exist_ok=True)
             path = self._snapshot_path(repo_id, root)
             tmp = path.with_name(f"{path.name}.{os.getpid()}-{uuid.uuid4().hex[:8]}.tmp")
-            tmp.write_text(
-                json.dumps(
-                    {
-                        "schemaVersion": SNAPSHOT_SCHEMA_VERSION,
-                        "merkleRoot": _merkle_root(file_hashes),
-                        "fileCount": len(file_hashes),
-                        "files": file_hashes,
-                    },
-                    ensure_ascii=False,
-                    indent=0,
-                ),
-                encoding="utf-8",
-            )
+            payload: dict[str, Any] = {
+                "schemaVersion": SNAPSHOT_SCHEMA_VERSION,
+                "merkleRoot": _merkle_root(file_hashes),
+                "fileCount": len(file_hashes),
+                "files": file_hashes,
+                "simhashes": dict(fingerprints or {}),
+                "aliases": dict(aliases or {}),
+            }
+            if dir_rhashes is not None:
+                payload["dirRhashes"] = dict(dir_rhashes)
+            # 压缩层只包 IO(T12 缺口表 #8,2026-11-01):payload 结构与自证判据一字不动,
+            # 只在落盘前把 JSON 字节 gzip 一道;关闭时逐字节保持明文现状。
+            text = json.dumps(payload, ensure_ascii=False, indent=0)
+            if _snapshot_compress_enabled():
+                tmp.write_bytes(gzip.compress(text.encode("utf-8")))
+            else:
+                tmp.write_text(text, encoding="utf-8")
             tmp.replace(path)
             tmp = None
         except Exception as e:
@@ -940,12 +1293,15 @@ class CodebaseIndexer:
         """索引整个仓库(Merkle 增量同步,2026-09-07 起)。
 
         流程:
-        1. 扫描仓库 → 计算每个代码文件的内容 sha256(Merkle 叶子)
+        1. 扫描仓库 → 计算每个代码文件的内容 sha256(Merkle 叶子);枚举后再过一遍 ignore 规则
+           (P84;"跟踪但被忽略"默认保留并点名,口径见 `apply_index_ignore_rules`)
         2. 与上轮快照对比:未变文件零成本跳过(不切片/embedding/写入)
-        3. 变更文件重新切片 + embedding + 写入(indexChunks 自带先删旧后插新)
-        4. 已删除文件 → DELETE /repo/:repoId/files 清除幽灵切片
-        5. 三层语义索引:函数层(符号切片)+ 模块层 + 架构层(合成摘要切片)
-        6. 持久化本轮快照(原子写)
+        3. 差集里先判改名(P85):同 content-hash ⇒ 不重嵌入、不清旧切片,行留在源路径下并
+           记入快照别名;近同(汉明距离 ≤ 阈值)只作为候选报数,内容变过仍按变更重嵌入
+        4. 其余变更文件重新切片 + embedding + 写入(indexChunks 自带先删旧后插新)
+        5. 其余已删除文件 → DELETE /repo/:repoId/files 清除幽灵切片
+        6. 三层语义索引:函数层(符号切片)+ 模块层 + 架构层(合成摘要切片)
+        7. 持久化本轮快照(原子写;附指纹与改名别名)
 
         Args:
             repo_path: 仓库根目录绝对路径。
@@ -968,8 +1324,14 @@ class CodebaseIndexer:
             repo_id = f"local-{path_hash}"
 
         result = IndexResult(repo_id=repo_id)
-        files, traversal_prov = self.collect_code_files_with_provenance(root)
+        files, traversal_prov, ignore_report = self.collect_code_files_with_provenance(root)
         result.files_scanned = len(files)
+        # P84:剪枝回执随响应透出 —— "被剪"与"本来就没有"不许长得一样。
+        result.files_ignored = ignore_report.files_ignored
+        result.ignored_by = ignore_report.ignored_by
+        result.files_tracked_ignored_kept = ignore_report.tracked_kept
+        result.tracked_ignored_kept = ignore_report.tracked_kept_paths
+        result.ignore_notes = ignore_report.errors
         # V75 判据 4:遍历出处与耗时随响应透出(降级不得只在日志里)。
         result.traversal_engine = traversal_prov.engine
         result.traversal_duration_s = traversal_prov.duration_s
@@ -983,32 +1345,99 @@ class CodebaseIndexer:
             else SnapshotRead({}, SNAPSHOT_STATE_SKIPPED)
         )
         prev_snapshot = snapshot.files
+        prev_fingerprints = snapshot.fingerprints
+        prev_aliases = snapshot.aliases if incremental else {}
         new_hashes: dict[str, str] = {}
+        new_fingerprints: dict[str, str] = {}
         changed: list[tuple[Path, str, str]] = []  # [(abs_path, rel_path, language)]
+        abs_by_rel: dict[str, Path] = {}
+        lang_by_rel_input: dict[str, str] = {}
         for file_path, language in files:
             rel_path = str(file_path.relative_to(root)).replace("\\", "/")
+            abs_by_rel[rel_path] = file_path
+            lang_by_rel_input[rel_path] = language
+            fingerprint: str | None = None
             try:
                 if file_path.suffix.lower() in _DOC_EXTS:
                     # 文档格式:扫描轮仅读原始字节算 hash,昂贵的 anydoc 抽取留给切片轮
+                    # (所以文档面这一轮不产指纹,近同改名对它们只走精确档)
                     content_hash = hashlib.sha256(file_path.read_bytes()).hexdigest()
                 else:
                     content = file_path.read_text(encoding="utf-8", errors="replace")
                     if not content.strip():
                         continue
                     content_hash = _file_content_hash(content)
+                    fingerprint = fingerprint_hex(compute_simhash(content))
             except Exception as e:
                 result.errors.append(f"{file_path}: {e}")
                 continue
             new_hashes[rel_path] = content_hash
             if incremental and prev_snapshot.get(rel_path) == content_hash:
                 result.files_unchanged += 1
+                # 内容没变 ⇒ 指纹必然同,沿用上一轮:指纹是 O(token×位宽) 的活,
+                # 每轮全仓重算会把"增量"变成分钟级(这条若被删,增量轮会先慢一个数量级)。
+                if prev_fingerprints.get(rel_path):
+                    new_fingerprints[rel_path] = prev_fingerprints[rel_path]
                 continue
+            if fingerprint is not None:
+                new_fingerprints[rel_path] = fingerprint
             changed.append((file_path, rel_path, language))
 
-        # 已删除文件:上轮快照有、本轮无 → 清除幽灵切片
-        deleted_paths = [p for p in prev_snapshot if p not in new_hashes] if incremental else []
+        # --- 目录级递归前像(T12 缺口表 #1 后半程):本轮算一次,差分与落盘共用 ---
+        # 缺口表 #1 的补法建议里有"rhash 相同的目录整枝跳过"这一档,但本仓的逐文件
+        # 判据(上行)已经以同样的读盘成本做到"未变文件零重嵌入",目录级前置剪在这里
+        # 省不出第二遍 IO —— 所以本维的真实增量价值在**整枝搬家识别**(读数回执),
+        # 不冒充"还省了一轮扫描"。差分只读不改:不参与上面任何"删/留/别名"决策,
+        # 与 P85 改名判定各说各的,两维不许互相冒充。
+        cur_dir_rhashes = dir_rhash_map(new_hashes)
+
+        # --- 改名别名:精确改名之后,那批切片**行仍留在源路径下**(P85) ---
+        # 只保留"新路径还在、源路径没复活"的别名。源路径复活 ⇒ 两枚文件会共用同一批行,
+        # 必须当场拆开:别名作废,新路径强制重新入索引(见下面 revived_targets)。
+        live_aliases: dict[str, str] = {}
+        revived_targets: list[str] = []
+        for new_path, source in prev_aliases.items():
+            if new_path not in new_hashes:
+                continue
+            if source in new_hashes:
+                revived_targets.append(new_path)
+                continue
+            live_aliases[new_path] = source
+
+        # 别名目标的内容变了 ⇒ 它得按**真实路径**重新入索引;留在源路径下的那批旧行
+        # 同时必须清掉,否则同一份内容会在索引里出现两次(新旧路径各一份)。
+        # 注意源路径**不在**上一轮快照里(改名那轮它就被换掉了),所以这里必须显式
+        # 点名清理,不能指望那份 `prev - new` 的差集把它带出来。
+        changed_rels_now = {rel for _p, rel, _l in changed}
+        dropped_alias_sources: set[str] = set()
+        for target, source in list(live_aliases.items()):
+            if target in changed_rels_now:
+                live_aliases.pop(target, None)
+                if source not in new_hashes:
+                    dropped_alias_sources.add(source)
+
+        # 已删除文件:上轮快照有、本轮无 → 清除幽灵切片(别名源路径除外:那些行还活着)
+        protected_sources: set[str] = set(live_aliases.values())
+        deleted_paths = (
+            [
+                p
+                for p in prev_snapshot
+                if p not in new_hashes and p not in protected_sources
+            ]
+            if incremental
+            else []
+        )
         result.snapshot_state = snapshot.state
         result.snapshot_detail = snapshot.detail
+        # 目录前像差分:只在上一轮档**自证通过**(ok)或可用(legacy)时做;坏/截断档的
+        # files 已被清空,拿它差分等于拿垃圾读数,这一轮宁可报"没做"。
+        if incremental and snapshot.state in (SNAPSHOT_STATE_OK, SNAPSHOT_STATE_LEGACY):
+            dir_diff = diff_dir_rhash(snapshot.dir_rhashes, cur_dir_rhashes)
+            result.dir_rhash_note = dir_diff.as_note()
+            result.dirs_moved = [
+                {"newPath": new_path, "oldPath": old_path}
+                for new_path, old_path in sorted(dir_diff.moved.items())
+            ]
         if incremental and snapshot.state in (SNAPSHOT_STATE_CORRUPT, SNAPSHOT_STATE_TRUNCATED):
             # 坏档派生的"已删除集"不可信:宁可这一轮不清幽灵切片,也不拿一份自证失败的档
             # 去删活文件的切片。上一轮这条是安静退化成 prev={} 的,于是"没清理"被读成"清理完了"。
@@ -1016,6 +1445,75 @@ class CodebaseIndexer:
             result.errors.append(
                 f"快照自证失败({snapshot.state}:{snapshot.detail})⇒ 本轮跳过增量复用与幽灵切片清理,"
                 "已按全量重索引,下轮好档自动恢复"
+            )
+        if dropped_alias_sources and incremental:
+            deleted_paths = [
+                *deleted_paths,
+                *(p for p in sorted(dropped_alias_sources) if p not in deleted_paths),
+            ]
+
+        # --- 改名候选:同 content-hash 直判 + simhash 汉明距离候选(P85) ---
+        rename_report = RenameReport()
+        if incremental and deleted_paths and changed:
+            removed_hashes = {p: prev_snapshot[p] for p in deleted_paths if p in prev_snapshot}
+            added_hashes = {p: h for p, h in new_hashes.items() if p not in prev_snapshot}
+            if removed_hashes and added_hashes:
+                removed_fp = {
+                    p: prev_fingerprints[p] for p in removed_hashes if p in prev_fingerprints
+                }
+                added_fp = {p: new_fingerprints[p] for p in added_hashes if p in new_fingerprints}
+                rename_report = detect_renames(
+                    removed_hashes,
+                    added_hashes,
+                    prev_fingerprints=removed_fp or None,
+                    cur_fingerprints=added_fp or None,
+                    max_hamming=RENAME_MAX_HAMMING,
+                )
+        alias_add: dict[str, str] = {}
+        for rename in rename_report.exact:
+            source = _resolve_alias_source(rename.old_path, prev_aliases)
+            if source in new_hashes:
+                # 行居所已被一枚真文件占住:这条不能靠"留行"复用,按变更处理(宁可多嵌入一次)
+                continue
+            alias_add[rename.new_path] = source
+        if alias_add:
+            changed = [c for c in changed if c[1] not in alias_add]
+            # 改名链里被"换掉"的那些路径都不该进删除集:链条中段从没持有过行,
+            # 真正持有行的那一枚由 `protected_sources` 保住(见下面)。
+            renamed_sources = {
+                *(r.old_path for r in rename_report.exact if r.new_path in alias_add),
+                *alias_add.values(),
+            }
+            deleted_paths = [p for p in deleted_paths if p not in renamed_sources]
+            live_aliases.update(alias_add)
+            protected_sources.update(alias_add.values())
+        if revived_targets:
+            changed_rels = {rel for _p, rel, _l in changed}
+            for rel in revived_targets:
+                if rel in changed_rels or rel not in abs_by_rel:
+                    continue
+                changed.append((abs_by_rel[rel], rel, lang_by_rel_input[rel]))
+                result.errors.append(
+                    f"改名别名失效:{rel} 的源路径重新出现 ⇒ 本轮重新索引该路径"
+                    "(两枚文件不得共用同一批切片)"
+                )
+        result.files_renamed = len(alias_add)
+        result.rename_candidates = [
+            {
+                "oldPath": r.old_path,
+                "newPath": r.new_path,
+                "basis": r.basis,
+                "hamming": r.hamming,
+            }
+            for r in rename_report.renames
+        ]
+        if rename_report.near_stage in (
+            NEAR_STAGE_SKIPPED_NO_FINGERPRINTS,
+            NEAR_STAGE_SKIPPED_TOO_MANY,
+        ):
+            result.rename_note = (
+                f"近同改名判定本轮未做({rename_report.near_stage})⇒ 只判了精确改名,"
+                "差集里剩下的仍按「删除 + 新增」处理"
             )
         if deleted_paths:
             result.files_deleted = await self._delete_files_from_api(
@@ -1064,7 +1562,14 @@ class CodebaseIndexer:
 
         result.chunks_created = len(all_chunks)
         if not all_chunks:
-            self._save_snapshot(repo_id, root, new_hashes)
+            self._save_snapshot(
+                repo_id,
+                root,
+                new_hashes,
+                fingerprints=new_fingerprints,
+                aliases=live_aliases,
+                dir_rhashes=cur_dir_rhashes,
+            )
             return result
 
         # 批量生成 embedding
@@ -1079,8 +1584,15 @@ class CodebaseIndexer:
             except Exception as e:
                 result.errors.append(f"写入批次 {i}-{i + len(batch)} 失败: {e}")
 
-        # 持久化快照(下轮增量对比基准)
-        self._save_snapshot(repo_id, root, new_hashes)
+        # 持久化快照(下轮增量对比基准;附指纹、改名别名与目录前像)
+        self._save_snapshot(
+            repo_id,
+            root,
+            new_hashes,
+            fingerprints=new_fingerprints,
+            aliases=live_aliases,
+            dir_rhashes=cur_dir_rhashes,
+        )
         return result
 
     async def index_file(

@@ -322,8 +322,8 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.secondary,
     },
     intro: {
-      fontSize: 13,
-      lineHeight: 18,
+      fontSize: rnType.bodySm.size,
+      lineHeight: rnType.bodySm.lineHeight,
       color: tk.text.secondary,
     },
     meta: {

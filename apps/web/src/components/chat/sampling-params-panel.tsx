@@ -139,7 +139,7 @@ function NumberField({
                 commit()
               }
             }}
-            className="h-8 w-28 text-xs"
+            className="h-8 w-28 text-label"
           />
         </div>
       </div>
@@ -295,7 +295,7 @@ export function SamplingParamsPanel({
               data-testid="sampling-personality-preset"
               value={activePreset ?? 'custom'}
               onChange={(e) => applyPreset(e.target.value as PersonalityPresetId)}
-              className="w-full rounded-sm border border-input bg-transparent px-2 py-1.5 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="w-full rounded-sm border border-input bg-transparent px-2 py-1.5 text-label focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
               <option value="custom">{t('personalityCustom')}</option>
               {PERSONALITY_PRESETS.map((p) => (
@@ -313,7 +313,7 @@ export function SamplingParamsPanel({
               onChange={(e) => set('systemPrompt')(e.target.value)}
               rows={4}
               className={cn(
-                'w-full resize-y rounded-sm border border-input bg-transparent px-2.5 py-2 text-xs leading-relaxed',
+                'w-full resize-y rounded-sm border border-input bg-transparent px-2.5 py-2 text-label leading-relaxed',
                 'placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
               )}
             />

@@ -42,7 +42,6 @@ def _args(**overrides):
 
 
 def _artifact_dir() -> Path:
-    import os
 
     return Path(os.environ["IHUI_ARTIFACTS_DIR"])
 

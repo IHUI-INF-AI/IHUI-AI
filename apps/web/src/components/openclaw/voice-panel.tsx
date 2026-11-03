@@ -28,7 +28,7 @@ export function VoicePanel() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <p className="text-sm text-muted-foreground">{t('voiceHint')}</p>
+          <p className="text-body text-muted-foreground">{t('voiceHint')}</p>
           <Button onClick={() => void handleStart()}>
             <Play className="h-4 w-4" />
             {t('startVoice')}

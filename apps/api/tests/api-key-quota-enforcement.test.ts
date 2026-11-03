@@ -18,8 +18,12 @@
  * 全部 mock DB / Redis / config,不连生产 PostgreSQL(8810)/ Redis(8811)。
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import type { FastifyReply, FastifyRequest } from 'fastify'
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import type { AuthenticatedApiKey, ApiKeyPermission } from '@ihui/types'
+import type { ShareWithSource } from '../src/services/api-key-share-service.js'
+
+/** preHandler 在 Fastify 链路里以实例为 this;这些 handler 不读 this,单测给空壳即可。 */
+const hookThis = {} as FastifyInstance
 
 /** developer_api_keys 行的测试替身(字段与 schema 对齐)。 */
 interface FakeKeyRow {
@@ -342,7 +346,9 @@ beforeEach(() => {
   fixture.state.config.API_KEY_RATE_LIMIT_FAIL_MODE = 'close'
   fixture.state.config.API_KEY_REQUIRE_SECRET = true
   vi.mocked(verifySecret).mockReset().mockReturnValue(true)
-  vi.mocked(getShareByToken).mockImplementation(async () => fixture.state.share)
+  vi.mocked(getShareByToken).mockImplementation(
+    async () => fixture.state.share as unknown as ShareWithSource | null,
+  )
 })
 
 // ============================================================================
@@ -358,7 +364,7 @@ describe('O2-1 Key 级 5h/1d/7d 窗口接入 requireApiKeyAuth 主链路', () =>
     ]
 
     const res = makeReply()
-    await requireApiKeyAuth(makeRequest(), res.reply, vi.fn())
+    await requireApiKeyAuth.call(hookThis, makeRequest(), res.reply)
 
     expect(res.status).toBe(429)
     expect(Number(res.headers['Retry-After'])).toBeGreaterThan(0)
@@ -377,7 +383,7 @@ describe('O2-1 Key 级 5h/1d/7d 窗口接入 requireApiKeyAuth 主链路', () =>
 
     const res = makeReply()
     const request = makeRequest()
-    await requireApiKeyAuth(request, res.reply, vi.fn())
+    await requireApiKeyAuth.call(hookThis, request, res.reply)
 
     expect(res.status).toBeUndefined()
     expect(request.apiKey?.id).toBe('key-1')
@@ -391,7 +397,7 @@ describe('O2-1 Key 级 5h/1d/7d 窗口接入 requireApiKeyAuth 主链路', () =>
       { windowType: '7d', windowStart: getKeyWindowStart('7d'), requestCount: 5 },
     ]
     const res = makeReply()
-    await requireApiKeyAuth(makeRequest(), res.reply, vi.fn())
+    await requireApiKeyAuth.call(hookThis, makeRequest(), res.reply)
     expect(res.status).toBe(429)
     expect(res.headers['X-RateLimit-Window']).toBe('7d')
     expect(res.headers['X-RateLimit-Limit']).toBe('5')
@@ -400,14 +406,14 @@ describe('O2-1 Key 级 5h/1d/7d 窗口接入 requireApiKeyAuth 主链路', () =>
   it('三列全 NULL 的存量 Key:零窗口查询,行为完全不变', async () => {
     fixture.state.windowReadThrows = true // 一旦被查询即抛 → 反证根本没发起查询
     const res = makeReply()
-    await requireApiKeyAuth(makeRequest(), res.reply, vi.fn())
+    await requireApiKeyAuth.call(hookThis, makeRequest(), res.reply)
     expect(res.status).toBeUndefined()
   })
 
   it('TPM 超限仍走 429(code 1008)', async () => {
     fixture.state.tpmAllowed = false
     const res = makeReply()
-    await requireApiKeyAuth(makeRequest(), res.reply, vi.fn())
+    await requireApiKeyAuth.call(hookThis, makeRequest(), res.reply)
     expect(res.status).toBe(429)
     expect(res.payload?.code).toBe(1008)
     expect(Number(res.headers['Retry-After'])).toBeGreaterThan(0)
@@ -470,7 +476,7 @@ describe('O2-3 X-Api-Secret 凭据形态收紧(API_KEY_REQUIRE_SECRET 默认 tru
 
   it('preHandler 渲染 401 + errorCode=SECRET_REQUIRED', async () => {
     const res = makeReply()
-    await requireApiKeyAuth(makeRequest({ secret: null }), res.reply, vi.fn())
+    await requireApiKeyAuth.call(hookThis, makeRequest({ secret: null }), res.reply)
     expect(res.status).toBe(401)
     expect(res.payload?.errorCode).toBe('SECRET_REQUIRED')
   })
@@ -552,7 +558,7 @@ describe('O2-4 限流后端不可用的降级形态(默认 close)', () => {
     fixture.state.keyRow = fakeKeyRow({ rateLimit1d: 100 })
     fixture.state.windowReadThrows = true
     const res = makeReply()
-    await requireApiKeyAuth(makeRequest(), res.reply, vi.fn())
+    await requireApiKeyAuth.call(hookThis, makeRequest(), res.reply)
     expect(res.status).toBe(503)
     expect(res.payload?.errorCode).toBe('RATE_BACKEND_UNAVAILABLE')
     expect(Number(res.headers['Retry-After'])).toBeGreaterThan(0)
@@ -562,14 +568,14 @@ describe('O2-4 限流后端不可用的降级形态(默认 close)', () => {
     fixture.state.keyRow = fakeKeyRow({ rateLimit1d: 100 })
     fixture.state.windowReadThrows = true
     const res = makeReply()
-    await requireApiKeyAuth(makeRequest({ method: 'GET', url: '/v1/models' }), res.reply, vi.fn())
+    await requireApiKeyAuth.call(hookThis, makeRequest({ method: 'GET', url: '/v1/models' }), res.reply)
     expect(res.status).toBeUndefined()
   })
 
   it('TPM 后端故障 + close + billable → 503', async () => {
     fixture.state.tpmThrows = true
     const res = makeReply()
-    await requireApiKeyAuth(makeRequest(), res.reply, vi.fn())
+    await requireApiKeyAuth.call(hookThis, makeRequest(), res.reply)
     expect(res.status).toBe(503)
     expect(res.payload?.errorCode).toBe('RATE_BACKEND_UNAVAILABLE')
   })
@@ -578,14 +584,14 @@ describe('O2-4 限流后端不可用的降级形态(默认 close)', () => {
     fixture.state.config.API_KEY_RATE_LIMIT_FAIL_MODE = 'open'
     fixture.state.tpmThrows = true
     const res = makeReply()
-    await requireApiKeyAuth(makeRequest(), res.reply, vi.fn())
+    await requireApiKeyAuth.call(hookThis, makeRequest(), res.reply)
     expect(res.status).toBeUndefined()
   })
 
   it('未配置任何限额的 Key:Redis 挂也无需探针 → 正常放行(close 不误伤)', async () => {
     fixture.state.redisThrows = true
     const res = makeReply()
-    await requireApiKeyAuth(makeRequest({ body: { model: 'gpt-4o' } }), res.reply, vi.fn())
+    await requireApiKeyAuth.call(hookThis, makeRequest({ body: { model: 'gpt-4o' } }), res.reply)
     expect(res.status).toBeUndefined()
   })
 })
@@ -653,22 +659,18 @@ describe('O2-5 `*` 通配只覆盖已登记且 thirdPartyEligible 的 scope', ()
 
   it("preHandler:key 持 '*' 请求 platform scope → 403", async () => {
     const request = makeRequest()
-    request.apiKey = apiKeyCtx(['*'] as ApiKeyPermission[])
+    request.apiKey = apiKeyCtx(['*'] as unknown as ApiKeyPermission[])
     const res = makeReply()
-    await requireApiKeyPermission('publish:operate' as ApiKeyPermission)(
-      request,
-      res.reply,
-      vi.fn(),
-    )
+    await requireApiKeyPermission('publish:operate' as ApiKeyPermission).call(hookThis, request, res.reply)
     expect(res.status).toBe(403)
     expect(String(res.payload?.message)).toContain('publish:operate')
   })
 
   it("preHandler:key 持 '*' 请求已登记可申请 scope → 放行", async () => {
     const request = makeRequest()
-    request.apiKey = apiKeyCtx(['*'] as ApiKeyPermission[])
+    request.apiKey = apiKeyCtx(['*'] as unknown as ApiKeyPermission[])
     const res = makeReply()
-    await requireApiKeyPermission('chat:write')(request, res.reply, vi.fn())
+    await requireApiKeyPermission('chat:write').call(hookThis, request, res.reply)
     expect(res.status).toBeUndefined()
   })
 
@@ -676,18 +678,18 @@ describe('O2-5 `*` 通配只覆盖已登记且 thirdPartyEligible 的 scope', ()
     const granted = makeRequest()
     granted.apiKey = apiKeyCtx(['chat:write'])
     const okRes = makeReply()
-    await requireApiKeyPermission('chat:write')(granted, okRes.reply, vi.fn())
+    await requireApiKeyPermission('chat:write').call(hookThis, granted, okRes.reply)
     expect(okRes.status).toBeUndefined()
 
     const denied = makeRequest()
     denied.apiKey = apiKeyCtx(['models:read'])
     const denyRes = makeReply()
-    await requireApiKeyPermission('chat:write')(denied, denyRes.reply, vi.fn())
+    await requireApiKeyPermission('chat:write').call(hookThis, denied, denyRes.reply)
     expect(denyRes.status).toBe(403)
 
     const anon = makeRequest()
     const anonRes = makeReply()
-    await requireApiKeyPermission('chat:write')(anon, anonRes.reply, vi.fn())
+    await requireApiKeyPermission('chat:write').call(hookThis, anon, anonRes.reply)
     expect(anonRes.status).toBe(401)
   })
 })
@@ -818,7 +820,7 @@ describe('O2-7 share token 不继承源 Key 的 * 与 platform scope', () => {
     expect(ctx.rateLimit7d).toBeNull()
   })
 
-  it('share 鉴权链路:源 Key ' * ' 展开后不含 platform scope', async () => {
+  it("share 鉴权链路:源 Key '*' 展开后不含 platform scope", async () => {
     fixture.state.share = fakeShareRow(fakeKeyRow({ permissions: ['*'] }))
     const ctx = await authenticateApiKey(makeRequest({ key: 'share_wild' }))
     expect(ctx.permissions).not.toContain('*')
@@ -892,7 +894,7 @@ describe('O2-8 rateLimit 已废弃(不参与判定);第 N+1 次 429 由窗口列
     for (let i = 1; i <= 3; i++) {
       const res = makeReply()
       const request = makeRequest({ method: 'GET', url: '/v1/models' })
-      await requireApiKeyAuth(request, res.reply, vi.fn())
+      await requireApiKeyAuth.call(hookThis, request, res.reply)
       expect(res.status, `第 ${i} 次请求不应被限流`).toBeUndefined()
       expect(request.apiKey?.rateLimit).toBe(1) // 仅注入,不判定
     }
@@ -905,7 +907,7 @@ describe('O2-8 rateLimit 已废弃(不参与判定);第 N+1 次 429 由窗口列
     fixture.state.windowRows = []
     const first = makeReply()
     const firstRequest = makeRequest({ method: 'GET', url: '/v1/models' })
-    await requireApiKeyAuth(firstRequest, first.reply, vi.fn())
+    await requireApiKeyAuth.call(hookThis, firstRequest, first.reply)
     expect(first.status).toBeUndefined()
     expect(firstRequest.apiKey?.id).toBe('key-1')
 
@@ -914,11 +916,7 @@ describe('O2-8 rateLimit 已废弃(不参与判定);第 N+1 次 429 由窗口列
 
     // 第 2 次:used(1) >= limit(1) → 429
     const second = makeReply()
-    await requireApiKeyAuth(
-      makeRequest({ method: 'GET', url: '/v1/models' }),
-      second.reply,
-      vi.fn(),
-    )
+    await requireApiKeyAuth.call(hookThis, makeRequest({ method: 'GET', url: '/v1/models' }), second.reply)
     expect(second.status).toBe(429)
     expect(second.payload?.code).toBe(1010)
     expect(Number(second.headers['Retry-After'])).toBeGreaterThan(0)
@@ -932,11 +930,7 @@ describe('O2-8 rateLimit 已废弃(不参与判定);第 N+1 次 429 由窗口列
     // Redis eval 返回 [allowed=0, retryAfter=7]
     fixture.state.redisEvalResult = [0, 7]
     const res = makeReply()
-    await requireApiKeyAuth(
-      makeRequest({ method: 'POST', body: { model: 'gpt-test' } }),
-      res.reply,
-      vi.fn(),
-    )
+    await requireApiKeyAuth.call(hookThis, makeRequest({ method: 'POST', body: { model: 'gpt-test' } }), res.reply)
     expect(res.status).toBe(429)
     expect(res.payload?.code).toBe(1007)
     expect(Number(res.headers['Retry-After'])).toBe(7)

@@ -511,6 +511,7 @@ export function PlazaScreen() {
           onPressItem={showDetail}
           onPublish={onPublish}
           contentBottomPadding={tabBarScrollReserve(insets.bottom)}
+          onRetry={() => { void load(); }}
           colorScheme={resolvedTheme}
         />
       </BlurTargetView>

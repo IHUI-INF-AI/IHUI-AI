@@ -39,10 +39,28 @@ export type DispatchPriority = 'low' | 'normal' | 'high' | 'urgent'
 export type DispatchStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled' | 'paused'
 
 /**
- * 派单扩展状态(对齐 apps/api/src/services/subagent-dispatch-service.ts 的 ExtendedDispatchStatus,
- * 在 DispatchStatus 基础上增加 preempted(被抢占)/ quota_exceeded(超限))。
+ * 人工注意力(F3 2026-11-02):派单在无人值守执行之外,需要一个人给出回答或复核。
+ * `awaiting_answer` = 等回答(缺信息,继续执行会瞎猜);`awaiting_review` = 等复核(结果需人工确认)。
+ * 它是**正交于 status 的标记**(不改变执行状态机):进入 = 记录上出现该字段,退出 = 字段删除。
+ * 缺省(无该字段)= 不需要人,不要用空字符串/常量冒充「已判过」。
  */
-export type ExtendedDispatchStatus = DispatchStatus | 'preempted' | 'quota_exceeded'
+export type DispatchAttention = 'awaiting_answer' | 'awaiting_review'
+
+/**
+ * 派单扩展状态(对齐 apps/api/src/services/subagent-dispatch-service.ts 的 ExtendedDispatchStatus,
+ * 在 DispatchStatus 基础上增加 preempted(被抢占)/ quota_exceeded(超限)/ interrupted(重启中断)/
+ * queued(排队等待槽位))。
+ * `interrupted` 是启动恢复的过渡态:进程重启后把 Redis 仍是 running 的记录标记为它,
+ * 随即自动转 pending 重新入队;若自动恢复失败,记录停在 interrupted 且可被 resume 接受。
+ * `queued` 是 F2(2026-11-02)的真排队态:并发配额满时不拒绝,记录落 queued 并进 Redis zset,
+ * 槽位释放后按「优先级 + 先来后到」出队执行。它不是活跃态(不占槽位),但仍是未终态。
+ */
+export type ExtendedDispatchStatus =
+  | DispatchStatus
+  | 'preempted'
+  | 'quota_exceeded'
+  | 'interrupted'
+  | 'queued'
 
 /** DAG 节点定义 */
 export interface DagNode {
@@ -157,6 +175,34 @@ export interface SubagentDispatch {
    * 不得用常量或从别处反推顶替(§0.3「没判」不能写成「判过」)。
    */
   conversationId?: string
+  /**
+   * 租户归属 = 发起派单的登录用户(request.userId)。
+   * **只由服务端从鉴权结果写入**,不进 DispatchInput/请求体(schema 里没有 ⇒ 客户端无法自报)。
+   * 记录缺失该字段 = 未归属:**不再公开**。启动装载时会先按
+   * conversation 属主 → agent_tasks.created_by → 同会话 thread 兄弟 三级回填(见
+   * services/subagent-dispatch-service.ts 的 `_loadActiveDispatches`);三源都推不出的才标
+   * `ownership='orphan'`,并与"未回填旧档"同档:仅系统管理员可见(判据唯一出口
+   * utils/dispatch-ownership.ts)。**先回填、后收紧**的顺序由装载入口保证 ——
+   * 回填发生在 runtimes.set 之前,路由读不到尚未推导归属的记录。
+   */
+  ownerUserId?: string
+  /**
+   * 归属回填结果标记(2026-11-02,归属回填与 fail-open 收敛)。
+   *  `undefined` = 正常(有 ownerUserId 或无需标记);
+   *  `'orphan'` = 三级推导(conversation / agentTask / thread 兄弟)全部失败,
+   *  记录仍可读但**只对系统管理员可见**(普通用户按不存在处理,路由仍回 404,防枚举)。
+   * 该字段只作数据标记与管理面展示,不参与可见性分支(无 ownerUserId 已 fail-closed)。
+   */
+  ownership?: 'orphan'
+  /**
+   * 所属 thread 的上一条派单 id(F3 2026-11-02)。
+   * 同一 conversationId 的后续派单默认挂到该会话最近一条派单上(会话连续的最小表达);
+   * 会话第一条派单**没有该字段**(它是 thread 的起点,不塞自身 id 冒充父节点)。
+   * 只由服务端在建单时解析并落库,请求体里没有该字段(客户端不能自报 lineage)。
+   */
+  parentDispatchId?: string
+  /** 人工注意力(F3 2026-11-02);缺省 = 不需要人(语义见 DispatchAttention) */
+  attention?: DispatchAttention
 }
 
 /** 派单结果 */

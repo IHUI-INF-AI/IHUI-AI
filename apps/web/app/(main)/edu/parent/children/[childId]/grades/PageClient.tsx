@@ -62,7 +62,7 @@ export default function ChildGradesPage() {
       <BackButton />
       <header className="space-y-1">
         <h1 className="text-display font-bold tracking-tight">{t('child.grades')}</h1>
-        <p className="text-xs text-muted-foreground">{t('child.gradesHint')}</p>
+        <p className="text-label text-muted-foreground">{t('child.gradesHint')}</p>
       </header>
 
       {!allow ? (
@@ -77,7 +77,7 @@ export default function ChildGradesPage() {
       ) : grades.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
           <Award className="h-8 w-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">{t('child.empty')}</p>
+          <p className="text-body text-muted-foreground">{t('child.empty')}</p>
         </div>
       ) : (
         <>
@@ -91,7 +91,7 @@ export default function ChildGradesPage() {
                 <CardContent className="space-y-2">
                   <div className="flex items-center gap-2">
                     <span className="text-display font-bold">{s.avg}</span>
-                    <span className="text-sm text-muted-foreground">/ {s.totalScore}</span>
+                    <span className="text-body text-muted-foreground">/ {s.totalScore}</span>
                     {s.percentage >= 80 ? (
                       <TrendingUp className="h-4 w-4 text-emerald-500" />
                     ) : (
@@ -110,7 +110,7 @@ export default function ChildGradesPage() {
                       style={{ width: `${s.percentage}%` }}
                     />
                   </div>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-label text-muted-foreground">
                     {t('grades.examCount', { count: s.count })}
                   </p>
                 </CardContent>
@@ -135,9 +135,9 @@ export default function ChildGradesPage() {
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
                           <span className="text-body font-medium">{g.subject}</span>
-                          <span className="text-xs text-muted-foreground">{g.examName}</span>
+                          <span className="text-label text-muted-foreground">{g.examName}</span>
                         </div>
-                        <p className="text-xs text-muted-foreground">{g.examDate}</p>
+                        <p className="text-label text-muted-foreground">{g.examDate}</p>
                       </div>
                       <div className="text-right">
                         <div className="flex items-center gap-2">
@@ -152,7 +152,7 @@ export default function ChildGradesPage() {
                           >
                             {g.score}
                           </span>
-                          <span className="text-xs text-muted-foreground">/ {g.totalScore}</span>
+                          <span className="text-label text-muted-foreground">/ {g.totalScore}</span>
                         </div>
                       </div>
                     </div>

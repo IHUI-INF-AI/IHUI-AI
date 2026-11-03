@@ -17,7 +17,7 @@
 import * as React from 'react'
 import { ActivityIndicator, AppState, StyleSheet, Text, View } from 'react-native'
 import { RefreshCw, X } from 'lucide-react-native'
-import { rnRadius, rnSpacing } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { tokens } from '../theme/active-tokens'
 import { useI18n } from '../i18n'
 import { appAlert } from './BottomPops'
@@ -195,7 +195,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.brandAccent.light,
   },
   titleWrap: { flex: 1, minWidth: 0, gap: rnSpacing['2xs'] },
-  title: { color: tokens.text.primary, fontSize: 15, fontWeight: '600' },
+  title: { color: tokens.text.primary, fontSize: rnType.strong.size, fontWeight: '600' },
   body: { color: tokens.text.secondary, fontSize: 12.5 },
   // 关闭钮:独立圆角块(原来只有一枚 18px 的 X,可点面太小也不成块)
   closeBtn: {
@@ -220,7 +220,7 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius.md,
     backgroundColor: tokens.surface.muted,
   },
-  bundleTag: { color: tokens.text.secondary, fontSize: 11 },
+  bundleTag: { color: tokens.text.secondary, fontSize: rnType.caption.size },
   // 下载读条:细轨道 + 强调档实底,宽度随 store.downloadProgress(0-100)走
   track: {
     height: 4,
@@ -282,6 +282,6 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 8,
   },
-  applyingText: { color: tokens.text.primary, fontSize: 14, fontWeight: '500' },
+  applyingText: { color: tokens.text.primary, fontSize: rnType.body.size, fontWeight: '500' },
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

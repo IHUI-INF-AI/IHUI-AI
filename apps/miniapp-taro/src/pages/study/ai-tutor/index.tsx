@@ -5,12 +5,13 @@
 // 平台特有:依赖 @tarojs/components 输入组件与 Taro 导航,不适合共享层。
 import { useI18n } from '@/i18n'
 import { View, Text, Input } from '@tarojs/components'
-import Taro, { useDidShow } from '@tarojs/taro'
+import { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { get, post } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
 // 描边画在外层容器上(hook 文档的 WRAP 形态②):handlers 留 Input,focusStyle 铺容器。
 import { useFieldFocus } from '@/hooks/use-field-focus'
+import { onToast } from '@/host/on-toast'
 
 /** 提问模式(对齐 apps/api 的 /api/ai-tutor 代理:explain 讲解 / hint 提示引导) */
 type TutorMode = 'explain' | 'hint'
@@ -85,7 +86,7 @@ export default function AiTutor() {
       setQuestion('')
       loadHistory()
     } catch {
-      Taro.showToast({ title: t('exam.detail.loadFailed'), icon: 'none' })
+      onToast(t('exam.detail.loadFailed'), { kind: 'error' })
     } finally {
       setSending(false)
     }

@@ -88,7 +88,7 @@ export default function OnboardingPage() {
         <BookOpen className="h-5 w-5 text-primary" />
         <h1 className="text-display font-bold">{t('title')}</h1>
       </div>
-      <p className="mb-6 text-sm text-muted-foreground">{t('subtitle')}</p>
+      <p className="mb-6 text-body text-muted-foreground">{t('subtitle')}</p>
 
       <ul className="space-y-3">
         {STEPS.map(({ key, href, icon: Icon }) => {
@@ -124,11 +124,11 @@ export default function OnboardingPage() {
                       {t(STEP_TITLE_KEY[key])}
                     </span>
                   </div>
-                  <p className="mt-1 text-sm text-muted-foreground">{t(STEP_DESC_KEY[key])}</p>
+                  <p className="mt-1 text-body text-muted-foreground">{t(STEP_DESC_KEY[key])}</p>
                 </div>
                 <Link
                   href={href}
-                  className="inline-flex shrink-0 items-center gap-1 rounded-lg border px-3 py-1.5 text-sm transition hover:bg-muted"
+                  className="inline-flex shrink-0 items-center gap-1 rounded-lg border px-3 py-1.5 text-body transition hover:bg-muted"
                 >
                   {t('go')} <ArrowRight className="h-3.5 w-3.5" />
                 </Link>
@@ -141,8 +141,8 @@ export default function OnboardingPage() {
       <div className="mt-6 flex flex-wrap items-center gap-3 rounded-xl border p-3">
         <Network className="h-4 w-4 text-primary" />
         <span className="text-body font-semibold">{t('mcpTitle')}</span>
-        <span className="text-sm text-muted-foreground">{t('mcpDesc')}</span>
-        <span className="ml-auto inline-flex items-center gap-2 text-sm">
+        <span className="text-body text-muted-foreground">{t('mcpDesc')}</span>
+        <span className="ml-auto inline-flex items-center gap-2 text-body">
           <Link
             href="/mcp-store"
             className="rounded-lg border px-3 py-1.5 transition hover:bg-muted"
@@ -158,7 +158,7 @@ export default function OnboardingPage() {
         </span>
       </div>
 
-      <p className="mt-6 text-xs text-muted-foreground">{t('deployNote')}</p>
+      <p className="mt-6 text-label text-muted-foreground">{t('deployNote')}</p>
     </div>
   )
 }

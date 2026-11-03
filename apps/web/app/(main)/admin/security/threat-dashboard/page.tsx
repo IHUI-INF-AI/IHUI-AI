@@ -87,7 +87,7 @@ export default function ThreatDashboardPage() {
         {stats.map((s) => (
           <Card key={s.key} className="p-3">
             <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">{t(s.key)}</span>
+              <span className="text-body text-muted-foreground">{t(s.key)}</span>
               <div className={cn('flex h-8 w-8 items-center justify-center rounded-lg', s.cls)}>
                 <s.icon className="h-4 w-4" />
               </div>
@@ -111,7 +111,7 @@ export default function ThreatDashboardPage() {
       ) : !hasData ? (
         <Card className="flex flex-col items-center justify-center py-8 text-muted-foreground">
           <ShieldCheck className="mb-3 h-10 w-10" />
-          <p className="text-sm">{t('empty')}</p>
+          <p className="text-body">{t('empty')}</p>
         </Card>
       ) : (
         <div className="space-y-4">
@@ -128,9 +128,9 @@ export default function ThreatDashboardPage() {
               </CardHeader>
               <CardContent className="min-[640px]:p-3 p-3 pt-0">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="w-full text-body">
                     <thead>
-                      <tr className="bg-muted/40 text-left text-xs text-muted-foreground">
+                      <tr className="bg-muted/40 text-left text-label text-muted-foreground">
                         <th className="px-3 py-2 font-medium">{t('colIp')}</th>
                         <th className="px-3 py-2 text-right font-medium">{t('colScore')}</th>
                         <th className="px-3 py-2 font-medium">{t('colReasons')}</th>
@@ -140,7 +140,7 @@ export default function ThreatDashboardPage() {
                     <tbody>
                       {d.watchedIps.map((it, i) => (
                         <tr key={it.ip} className={cn(i % 2 === 1 && 'bg-muted/20')}>
-                          <td className="px-3 py-2 font-mono text-xs">{it.ip}</td>
+                          <td className="px-3 py-2 font-mono text-label">{it.ip}</td>
                           <td className="px-3 py-2 text-right">
                             <div className="flex items-center justify-end gap-2">
                               <div className="h-1.5 w-12 overflow-hidden rounded-xs bg-muted/40">
@@ -159,13 +159,13 @@ export default function ThreatDashboardPage() {
                           <td className="px-3 py-2">
                             <div className="flex flex-wrap gap-1">
                               {it.reasons.map((r) => (
-                                <Badge key={r} variant="secondary" className="text-xs">
+                                <Badge key={r} variant="secondary" className="text-label">
                                   {r}
                                 </Badge>
                               ))}
                             </div>
                           </td>
-                          <td className="px-3 py-2 text-right text-xs text-muted-foreground tabular-nums">
+                          <td className="px-3 py-2 text-right text-label text-muted-foreground tabular-nums">
                             {formatTime(it.lastSeen)}
                           </td>
                         </tr>
@@ -190,9 +190,9 @@ export default function ThreatDashboardPage() {
               </CardHeader>
               <CardContent className="min-[640px]:p-3 p-3 pt-0">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="w-full text-body">
                     <thead>
-                      <tr className="bg-muted/40 text-left text-xs text-muted-foreground">
+                      <tr className="bg-muted/40 text-left text-label text-muted-foreground">
                         <th className="px-3 py-2 font-medium">{t('colIp')}</th>
                         <th className="px-3 py-2 text-right font-medium">{t('colScore')}</th>
                         <th className="px-3 py-2 font-medium">{t('colDuration')}</th>
@@ -205,7 +205,7 @@ export default function ThreatDashboardPage() {
                           key={`${it.ip}-${it.timestamp}`}
                           className={cn(i % 2 === 1 && 'bg-muted/20')}
                         >
-                          <td className="px-3 py-2 font-mono text-xs">{it.ip}</td>
+                          <td className="px-3 py-2 font-mono text-label">{it.ip}</td>
                           <td className="px-3 py-2 text-right">
                             <div className="flex items-center justify-end gap-2">
                               <div className="h-1.5 w-12 overflow-hidden rounded-xs bg-muted/40">
@@ -222,11 +222,11 @@ export default function ThreatDashboardPage() {
                             </div>
                           </td>
                           <td className="px-3 py-2">
-                            <Badge variant="outline" className="text-xs">
+                            <Badge variant="outline" className="text-label">
                               {it.duration}
                             </Badge>
                           </td>
-                          <td className="px-3 py-2 text-right text-xs text-muted-foreground tabular-nums">
+                          <td className="px-3 py-2 text-right text-label text-muted-foreground tabular-nums">
                             {formatTime(it.timestamp)}
                           </td>
                         </tr>

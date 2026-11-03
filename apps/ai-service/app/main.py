@@ -88,14 +88,14 @@ from app.routers import (
 # D193 任务决策收件箱(2026-09-30 用户拍板,小切口):「我的待决策」聚合查询
 from app.routers import decisions as decisions_router
 
-# G5 编译式知识引擎(2026-10-30 立项):知识卡片编译/查询端点
-from app.routers import knowledge as knowledge_router
-
 # Harness 能力补齐:评估/评测框架(2026-08-11 立)
 from app.routers import eval as eval_router
 
 # D179 会话/新对话 Issue 绑定流(2026-09-30 用户拍板立项):MCP Issue 搜索端点
 from app.routers import issue_search as issue_search_router
+
+# G5 编译式知识引擎(2026-10-30 立项):知识卡片编译/查询端点
+from app.routers import knowledge as knowledge_router
 
 # Harness 能力补齐:Prompt 版本管理(2026-08-11 立)
 from app.routers import prompts as prompts_router
@@ -1049,20 +1049,24 @@ def create_app() -> FastAPI:
     # 交互式文档与 OpenAPI 描述在**生产**关闭:它们不参与任何业务,却把全部路由形状、
     # 参数约束、错误码一次性摊给任何扫描器。本服务只监听 127.0.0.1 并经 web 反代,
     # 但仍属最小暴露面的一部分(与 /api/health 只报存活同理)。
-    # 开发/测试环境保留,排障仍然要用。
-    _is_prod = getattr(settings, "node_env", "") == "production"
+    # 2026-11-01 安全强化(高危):开关从"非 production 就开放"改成**显式开发档**才开放。
+    # 原先 node_env 缺省是 development ⇒ 漏配一次就把全部路由形状暴露出去;
+    # 现在只有 `AI_DEV_NO_AUTH=1`(本地开发开关)才挂文档,其余一律关闭。
+    _docs_enabled = bool(getattr(settings, "ai_dev_no_auth", False))
     app = FastAPI(
         title="IHUI AI Service",
         description="AI 服务 - LLM 网关 + MCP + LangGraph",
         version=__version__,
         lifespan=lifespan,
-        docs_url=None if _is_prod else "/docs",
-        redoc_url=None if _is_prod else "/redoc",
-        openapi_url=None if _is_prod else "/openapi.json",
+        docs_url="/docs" if _docs_enabled else None,
+        redoc_url="/redoc" if _docs_enabled else None,
+        openapi_url="/openapi.json" if _docs_enabled else None,
     )
 
     # CORS — 启动时校验(生产环境必填,任何环境禁止 "*" 通配符)
     settings.validate_cors_origin()
+    # 签名密钥 — 生产档 JWT_SECRET 必填(2026-11-01:此前无人校验,漏配会静默落回公开常量)
+    settings.validate_secrets()
     # mTLS — 启动时 fail-fast 校验(MTLS_ENABLED=true 但证书缺失/不存在 → 抛异常阻止启动)
     settings.validate_mtls_config()
     # CORS 的 add_middleware 调用已移到本函数末尾(见 setup_rate_limit_middleware 之后),

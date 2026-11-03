@@ -283,11 +283,11 @@ export default function BiDashboardPage() {
       <BackButton />
       <div>
         <h1 className="text-display font-bold">BI 仪表板</h1>
-        <p className="mt-1 text-sm text-muted-foreground">业务核心指标与趋势可视化</p>
+        <p className="mt-1 text-body text-muted-foreground">业务核心指标与趋势可视化</p>
       </div>
 
       {error && (
-        <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+        <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-body text-destructive">
           BI 数据加载失败:{(error as Error).message}
         </div>
       )}
@@ -328,7 +328,7 @@ export default function BiDashboardPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-display font-bold">{isLoading ? '—' : formatNumber(main)}</div>
-                <p className="mt-1 text-xs text-muted-foreground">
+                <p className="mt-1 text-label text-muted-foreground">
                   {c.sub} {isLoading ? '—' : formatNumber(sub)}
                 </p>
               </CardContent>
@@ -341,7 +341,7 @@ export default function BiDashboardPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base">7 天趋势</CardTitle>
-            <p className="text-xs text-muted-foreground">营收与订单变化</p>
+            <p className="text-label text-muted-foreground">营收与订单变化</p>
           </CardHeader>
           <CardContent>
             <EChart option={trendOption} loading={isLoading} height={280} />
@@ -351,7 +351,7 @@ export default function BiDashboardPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base">近 7 日访问趋势</CardTitle>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-label text-muted-foreground">
               每天被打开多少次（PV）与多少人到访（UV）
             </p>
           </CardHeader>
@@ -365,7 +365,7 @@ export default function BiDashboardPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base">分类对比</CardTitle>
-            <p className="text-xs text-muted-foreground">各业务模块营收</p>
+            <p className="text-label text-muted-foreground">各业务模块营收</p>
           </CardHeader>
           <CardContent>
             <EChart option={categoryOption} loading={isLoading} height={280} />
@@ -375,7 +375,9 @@ export default function BiDashboardPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base">访问来源</CardTitle>
-            <p className="text-xs text-muted-foreground">近 7 日 referer 主机（无来源记 direct）</p>
+            <p className="text-label text-muted-foreground">
+              近 7 日 referer 主机（无来源记 direct）
+            </p>
           </CardHeader>
           <CardContent>
             <EChart option={sourceOption} loading={isLoading} height={280} />
@@ -386,13 +388,13 @@ export default function BiDashboardPage() {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">页面访问排行</CardTitle>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-label text-muted-foreground">
             近 7 日 · 每个页面被打开了多少次、多少去重访客（后台/登录页另标，未标的即前台）
           </p>
         </CardHeader>
         <CardContent>
           {visitPages.length === 0 ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">
+            <p className="py-6 text-center text-body text-muted-foreground">
               {isLoading ? '加载中…' : '暂无访问数据'}
             </p>
           ) : (
@@ -408,15 +410,17 @@ export default function BiDashboardPage() {
                       {PLATFORM_LABEL[p.platform]}
                     </span>
                     <FaceBadge scope={p.scope} />
-                    <span className="w-[34%] truncate text-xs text-foreground">{p.url}</span>
+                    <span className="w-[34%] truncate text-label text-foreground">{p.url}</span>
                     <div className="h-1.5 flex-1 overflow-hidden rounded-sm bg-muted">
                       <div
                         className="h-full rounded-sm bg-primary/60"
                         style={{ width: `${pct}%` }}
                       />
                     </div>
-                    <span className="w-16 text-right font-mono text-xs tabular-nums">{p.pv}</span>
-                    <span className="w-16 text-right text-xs tabular-nums text-muted-foreground">
+                    <span className="w-16 text-right font-mono text-label tabular-nums">
+                      {p.pv}
+                    </span>
+                    <span className="w-16 text-right text-label tabular-nums text-muted-foreground">
                       UV {p.uv}
                     </span>
                   </div>
@@ -430,13 +434,13 @@ export default function BiDashboardPage() {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">页面停留时长 TOP</CardTitle>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-label text-muted-foreground">
             近 7 日 · 平均每次停留秒数（括号内为样本数；开着不动的后台页会顶高自己）
           </p>
         </CardHeader>
         <CardContent>
           {stays.length === 0 ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">
+            <p className="py-6 text-center text-body text-muted-foreground">
               {isLoading ? '加载中…' : '暂无停留数据'}
             </p>
           ) : (
@@ -452,17 +456,17 @@ export default function BiDashboardPage() {
                       {PLATFORM_LABEL[s.platform]}
                     </span>
                     <FaceBadge scope={s.scope} />
-                    <span className="w-[34%] truncate text-xs text-foreground">{s.page}</span>
+                    <span className="w-[34%] truncate text-label text-foreground">{s.page}</span>
                     <div className="h-1.5 flex-1 overflow-hidden rounded-sm bg-muted">
                       <div
                         className="h-full rounded-sm bg-primary/60"
                         style={{ width: `${pct}%` }}
                       />
                     </div>
-                    <span className="w-16 text-right font-mono text-xs tabular-nums">
+                    <span className="w-16 text-right font-mono text-label tabular-nums">
                       {s.avgSec.toFixed(1)}s
                     </span>
-                    <span className="w-16 text-right text-xs tabular-nums text-muted-foreground">
+                    <span className="w-16 text-right text-label tabular-nums text-muted-foreground">
                       n={s.samples}
                     </span>
                   </div>
@@ -476,24 +480,24 @@ export default function BiDashboardPage() {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">访客构成</CardTitle>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-label text-muted-foreground">
             近 7 日 · 新访客与回访（与访客数同一身份口径）
           </p>
         </CardHeader>
         <CardContent>
           {audience === null ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">
+            <p className="py-6 text-center text-body text-muted-foreground">
               {isLoading ? '加载中…' : '暂无法统计'}
             </p>
           ) : (
             <div className="space-y-2">
               <div className="flex items-baseline gap-2">
                 <span className="text-display font-semibold tabular-nums">{audience.newUv}</span>
-                <span className="text-xs text-muted-foreground">新访客</span>
+                <span className="text-label text-muted-foreground">新访客</span>
                 <span className="ml-auto text-display font-semibold tabular-nums">
                   {audience.returningUv}
                 </span>
-                <span className="text-xs text-muted-foreground">回访</span>
+                <span className="text-label text-muted-foreground">回访</span>
               </div>
               <div className="h-1.5 overflow-hidden rounded-sm bg-muted">
                 <div
@@ -505,7 +509,7 @@ export default function BiDashboardPage() {
                   }}
                 />
               </div>
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <div className="flex items-center justify-between text-label text-muted-foreground">
                 <span>
                   回访率{' '}
                   <span className="font-mono tabular-nums text-foreground">
@@ -529,17 +533,17 @@ export default function BiDashboardPage() {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">浏览器分布</CardTitle>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-label text-muted-foreground">
             近 7 日 · 仅网站裸路径（各端用量另见访问统计）
           </p>
         </CardHeader>
         <CardContent>
           {browsers === null ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">
+            <p className="py-6 text-center text-body text-muted-foreground">
               {isLoading ? '加载中…' : '暂无法统计'}
             </p>
           ) : browsers.length === 0 ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">暂无浏览器数据</p>
+            <p className="py-6 text-center text-body text-muted-foreground">暂无浏览器数据</p>
           ) : (
             <div className="space-y-1.5">
               {browsers.map((b) => {
@@ -547,7 +551,7 @@ export default function BiDashboardPage() {
                 const pct = Math.round((b.pv / max) * 100)
                 return (
                   <div key={b.family} className="flex items-center gap-2">
-                    <span className="w-[38%] truncate text-xs text-foreground">
+                    <span className="w-[38%] truncate text-label text-foreground">
                       {BROWSER_LABEL[b.family] ?? b.family}
                     </span>
                     <div className="h-1.5 flex-1 overflow-hidden rounded-sm bg-muted">
@@ -556,8 +560,10 @@ export default function BiDashboardPage() {
                         style={{ width: `${pct}%` }}
                       />
                     </div>
-                    <span className="w-10 text-right font-mono text-xs tabular-nums">{b.pv}</span>
-                    <span className="w-14 text-right text-xs tabular-nums text-muted-foreground">
+                    <span className="w-10 text-right font-mono text-label tabular-nums">
+                      {b.pv}
+                    </span>
+                    <span className="w-14 text-right text-label tabular-nums text-muted-foreground">
                       人 {b.uv}
                     </span>
                   </div>
@@ -571,13 +577,13 @@ export default function BiDashboardPage() {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">各端使用量</CardTitle>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-label text-muted-foreground">
             近 7 日 · 网站 / 移动端 / 小程序 / 浏览器插件（次数 与 人数）
           </p>
         </CardHeader>
         <CardContent>
           {platforms.length === 0 ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">
+            <p className="py-6 text-center text-body text-muted-foreground">
               {isLoading ? '加载中…' : '暂无分端数据'}
             </p>
           ) : (
@@ -599,7 +605,7 @@ export default function BiDashboardPage() {
                         style={{ width: `${Math.round((pv / max) * 100)}%` }}
                       />
                     </div>
-                    <span className="w-16 text-right font-mono text-xs tabular-nums">
+                    <span className="w-16 text-right font-mono text-label tabular-nums">
                       {pv}
                       <span className="text-muted-foreground"> / {row?.uv ?? 0}</span>
                     </span>
@@ -613,13 +619,13 @@ export default function BiDashboardPage() {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">访问面占比</CardTitle>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-label text-muted-foreground">
             近 7 日 · 前台 / 后台 / 登录页各被打开多少次
           </p>
         </CardHeader>
         <CardContent>
           {faces.length === 0 ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">
+            <p className="py-6 text-center text-body text-muted-foreground">
               {isLoading ? '加载中…' : '暂无访问面数据'}
             </p>
           ) : (
@@ -640,7 +646,7 @@ export default function BiDashboardPage() {
                         style={{ width: `${Math.round(((row?.pv ?? 0) / max) * 100)}%` }}
                       />
                     </div>
-                    <span className="w-16 shrink-0 text-right font-mono text-xs tabular-nums">
+                    <span className="w-16 shrink-0 text-right font-mono text-label tabular-nums">
                       {row?.pv ?? 0}
                       <span className="text-muted-foreground"> / {row?.uv ?? 0}</span>
                     </span>
@@ -655,13 +661,13 @@ export default function BiDashboardPage() {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">地域 TOP</CardTitle>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-label text-muted-foreground">
             近 7 日 · 服务端按 IP 反查（反查不到记为未知）
           </p>
         </CardHeader>
         <CardContent>
           {cities.length === 0 ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">
+            <p className="py-6 text-center text-body text-muted-foreground">
               {isLoading ? '加载中…' : '暂无地域数据'}
             </p>
           ) : (
@@ -670,14 +676,14 @@ export default function BiDashboardPage() {
                 const max = cities[0]?.pv || 1
                 return (
                   <div key={c.city} className="flex items-center gap-2">
-                    <span className="w-[26%] truncate text-xs text-foreground">{c.city}</span>
+                    <span className="w-[26%] truncate text-label text-foreground">{c.city}</span>
                     <div className="h-1.5 flex-1 overflow-hidden rounded-sm bg-muted">
                       <div
                         className="h-full rounded-sm bg-primary/60"
                         style={{ width: `${Math.round((c.pv / max) * 100)}%` }}
                       />
                     </div>
-                    <span className="w-16 shrink-0 text-right font-mono text-xs tabular-nums">
+                    <span className="w-16 shrink-0 text-right font-mono text-label tabular-nums">
                       {c.pv}
                       <span className="text-muted-foreground"> / {c.uv}</span>
                     </span>

@@ -30,7 +30,7 @@
   color: var(--color-foreground);
 }
 .nav-clear {
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-muted-foreground);
 }
 .msg-list {
@@ -60,7 +60,7 @@
 .welcome-desc {
   display: block;
   margin-top: var(--spacing-sm);
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-muted-foreground);
 }
 .welcome-tip {
@@ -79,7 +79,7 @@
   padding: var(--spacing-sm) 28rpx;
   background: var(--color-card);
   border-radius: var(--radius-2xl);
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-primary);
 }
 .msg-item {
@@ -189,7 +189,7 @@
   align-items: center;
 }
 .nav-agent {
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-primary);
   margin-right: var(--spacing-md);
 }
@@ -241,7 +241,7 @@
 .drawer-empty {
   padding: var(--spacing-4xl) 0;
   text-align: center;
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-muted-foreground);
 }
 
@@ -313,13 +313,13 @@
 }
 .agent-prompt-title {
   display: block;
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   font-weight: 600;
   color: var(--color-foreground);
   margin-bottom: var(--spacing-xs);
 }
 .agent-prompt {
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-muted-foreground);
   line-height: 1.6;
 }
@@ -357,7 +357,7 @@
   font-size: var(--text-body);
 }
 .tishi-block-text {
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-primary);
 }
 .tishi-box {
@@ -376,7 +376,7 @@
   font-size: var(--text-body);
 }
 .tishi-title-text {
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-foreground);
   font-weight: 500;
 }
@@ -387,7 +387,7 @@
 }
 .tishi-content-line {
   display: block;
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-muted-foreground);
   line-height: 1.6;
 }
@@ -957,7 +957,7 @@
   padding: var(--spacing-sm-loose);
   max-height: 40vh;
   overflow-y: auto;
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-foreground);
   line-height: 1.6;
 }
@@ -1008,7 +1008,7 @@
 .quick-action-btn {
   display: inline-block;
   padding: var(--spacing-xs) 16rpx;
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   font-weight: bold;
   color: var(--color-foreground);
   border-radius: var(--radius-sm);
@@ -1112,7 +1112,7 @@
   background: var(--color-brand);
   border-radius: var(--radius-2xl);
   float: right;
-  padding: 28rpx 20rpx;
+  padding: var(--spacing-md-loose) 20rpx;
   color: var(--color-primary-foreground);
   font-size: var(--text-strong);
   line-height: 40rpx;
@@ -1124,7 +1124,7 @@
 .agent-content-item {
   background: var(--color-card);
   border-radius: var(--radius-2xl);
-  padding: 28rpx 20rpx;
+  padding: var(--spacing-md-loose) 20rpx;
   float: left;
   max-width: 78%;
   margin-top: var(--spacing-sm-loose);
@@ -1353,11 +1353,11 @@
 .ctx-usage-note {
   font-size: var(--text-badge);
   color: var(--color-muted-foreground);
-  padding-left: 28rpx;
+  padding-left: var(--spacing-md-loose);
   padding-top: var(--spacing-2xs);
 }
 .ctx-usage-details {
-  margin-left: 28rpx;
+  margin-left: var(--spacing-md-loose);
   margin-bottom: var(--spacing-xs);
   padding: var(--spacing-xs-loose);
   border-radius: var(--radius-md);

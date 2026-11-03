@@ -297,7 +297,9 @@ export async function getCourseCatalog(id: string): Promise<ApiResult<CourseCata
     id: chapter.id,
     title: chapter.title,
     type: 'chapter',
-    duration: toMinutes(chapter.sections.reduce((sum, section) => sum + section.durationSeconds, 0)),
+    duration: toMinutes(
+      chapter.sections.reduce((sum, section) => sum + section.durationSeconds, 0),
+    ),
     children: chapter.sections.map((section) => ({
       id: section.id,
       title: section.title,
@@ -353,7 +355,8 @@ export async function getCourseComments(id: string): Promise<ApiResult<CourseCom
 /** 课程(学习)分类列表
  * 门 8 死调用清账(2026-09-28):上一版 GET /api/course/categories 从未注册;真路由 =
  * GET /learn/categories(learn.ts:555,公开,返回 { list })。O87b 实测过该端点回真实分类行。
- * 解包成数组是为守住本函数既有签名(消费方 category.ts getAllCategories 直接把 data 当 CategoryNode[] 用)。 */
+ * 解包成数组是为守住本函数既有签名(现消费方 apps/mobile-rn/src/screens/StudyPublishScreen.tsx
+ * 的 getCategories() 直接把 data 当 CourseCategory[] map 用)。 */
 export async function getCategories(): Promise<ApiResult<CourseCategory[]>> {
   const res = await fetchApi<{ list: CourseCategory[] }>('/api/learn/categories')
   return res.success ? { ...res, data: res.data.list } : res

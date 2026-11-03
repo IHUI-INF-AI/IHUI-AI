@@ -65,7 +65,7 @@ export default function WrongBookPage() {
           <XCircle className="h-7 w-7 text-primary" />
           {t('wrongBookTitle')}
         </h1>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       {!allow ? (
@@ -76,13 +76,13 @@ export default function WrongBookPage() {
           {t('loading')}
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {(error as Error).message}
         </div>
       ) : list.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
           <XCircle className="h-8 w-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">{t('empty')}</p>
+          <p className="text-body text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
         <>
@@ -103,7 +103,7 @@ export default function WrongBookPage() {
                       {t('incorrect')}
                     </span>
                   </div>
-                  <div className="space-y-1.5 text-sm">
+                  <div className="space-y-1.5 text-body">
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-muted-foreground">{t('questionId')}</span>
                       <span className="font-medium">{item.questionId}</span>
@@ -134,7 +134,7 @@ export default function WrongBookPage() {
                     {t('aiExplain')}
                   </Button>
                   {explain?.questionId === item.questionId && (
-                    <p className="whitespace-pre-wrap rounded-md bg-muted/50 px-2 py-1.5 text-xs leading-relaxed text-muted-foreground">
+                    <p className="whitespace-pre-wrap rounded-md bg-muted/50 px-2 py-1.5 text-label leading-relaxed text-muted-foreground">
                       {explain.text}
                     </p>
                   )}
@@ -154,7 +154,7 @@ export default function WrongBookPage() {
                 <ChevronLeft className="h-4 w-4" />
                 {t('prev')}
               </Button>
-              <span className="text-sm text-muted-foreground">
+              <span className="text-body text-muted-foreground">
                 {t('page', { page, total: totalPages })}
               </span>
               <Button

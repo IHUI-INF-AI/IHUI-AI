@@ -76,7 +76,7 @@
 }
 .rights {
   margin: 0 20rpx;
-  padding: 28rpx;
+  padding: var(--spacing-md-loose);
   background: var(--color-card);
   border: 1rpx solid var(--color-border);
   border-radius: var(--radius-xl);

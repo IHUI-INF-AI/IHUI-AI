@@ -170,7 +170,7 @@ export default function AdminSaasPage() {
               <Server className="h-6 w-6 text-primary" />
               <CenteredText>{t('title')}</CenteredText>
             </h1>
-            <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+            <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
           </div>
           <Button size="sm" onClick={() => setCreateOpen(true)}>
             <Plus className="h-4 w-4" />
@@ -188,7 +188,7 @@ export default function AdminSaasPage() {
         {isLoading ? (
           <Skeleton variant="list" count={5} />
         ) : error ? (
-          <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-600 dark:text-rose-500">
+          <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-body text-rose-600 dark:text-rose-500">
             {error.message}
           </div>
         ) : (
@@ -203,7 +203,7 @@ export default function AdminSaasPage() {
         )}
 
         <div className="flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">
+          <span className="text-body text-muted-foreground">
             {t('total', { total: filteredTenants.length })}
           </span>
         </div>

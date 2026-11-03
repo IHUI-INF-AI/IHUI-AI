@@ -184,14 +184,14 @@ export function BusinessFormSection({ messageId, className }: BusinessFormSectio
           {entry.status === 'pending' ? (
             <div className="flex flex-col gap-1" data-form-reject-reason-field={entry.requestId}>
               <Label
-                className="text-xs text-muted-foreground"
+                className="text-label text-muted-foreground"
                 htmlFor={`reject-reason-${entry.requestId}`}
               >
                 {t('inputNotices.queue.reasonTitle')}
               </Label>
               <Input
                 id={`reject-reason-${entry.requestId}`}
-                className="h-8 text-xs"
+                className="h-8 text-label"
                 maxLength={REJECT_REASON_MAX}
                 value={reason}
                 data-testid="business-form-reject-reason"

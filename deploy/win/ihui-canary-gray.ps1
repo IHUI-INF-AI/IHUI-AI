@@ -15,7 +15,7 @@
 #
 # 灰度期的槽位形态(两个槽位同时在位,这是"先小流量"能成立的前提):
 #   stable 槽位 = 8801  现网(灰度期**一直跑旧版本**)⇒ 灰度期内线上从没跑过新版本
-#   canary 槽位 = 8845  灰度候选(跑 .next-staging 那份新构建)
+#   canary 槽位 = 8845  灰度候选(产物来源:.next-canary —— 换流前由 ihui-deploy.ps1 镜像出来)
 #   分流器       = 8846  源站前置,按契约比例把请求切给上面两个槽位
 #
 # 判据一律不在本文件里重写(比例从哪来、怎么推进、异常怎么判都不归这里);
@@ -25,7 +25,9 @@
 # scripts/data/canary-policy.json 的 traffic.slots 派生)现读,取不到 ⇒ 报「未判定」,
 # 不猜、不退回字面量 —— 否则"改了策略、分流器与进程编排各指一处"就是下一次事故。
 # -SplitOnly 的用途:切流发生在观察窗**之前**(ihui-deploy.ps1 已把 .next-staging 搬成
-# .next 并重启 8801),所以观察窗这一格里灰度实例常常无产物可服务;分流器自带"灰度槽位
+# .next 并重启 8801),所以本文件自 2026-11-01(票 31460)起自带**产物快照兜底**:
+# 换流前 ihui-deploy.ps1 把 .next-staging 镜像进 .next-canary(robocopy /MIR),本层只认那一份来源;
+# 取不到 BUILD_ID ⇒ 如实报「未判定」,不起无产物的灰度实例。分流器自带"灰度槽位
 # 不在位 ⇒ 回落 stable"的判据(ihui-canary-split.mjs T6/T10),因此"只起分流器"永远
 # 不会把流量打到空端口,而契约从此至少有一个真进程在消费它。
 #
@@ -80,6 +82,13 @@ $CanaryPidFile = Join-Path $StateDir 'canary.pid'
 $SplitPidFile = Join-Path $StateDir 'split.pid'
 $AttemptsFile = Join-Path $StateDir 'attempts.json'
 $LogDir = Join-Path $Root '.ihui-agent\logs'
+# 灰度实例的产物槽位(2026-11-01 立)。此前这里读 .next-staging,而 ihui-deploy.ps1 在
+# 换流那一步是 `Move-Item .next-staging → .next-<色>`(搬走,不是复制),灰度又排在换流
+# **之后** ⇒ staging 永远不存在,实测近 20 轮 20/20 报「未判定:.next-staging 没有 BUILD_ID」。
+# 正解 = 换流前由 deploy 侧把 staging 镜像进 .next-canary,本层只认这一个来源。
+$GrayDist = '.next-canary'
+$GrayDistDir = Join-Path $WebDir $GrayDist
+$GrayBuildFile = Join-Path $StateDir 'gray-build-id'
 
 function Write-GrayLog {
     param([string]$m)
@@ -168,13 +177,13 @@ function Stop-GrayProcess {
     return $true
 }
 
-# ── 灰度实例的启动形态:next start 跑 .next-staging 那份新构建 ──────────────
+# ── 灰度实例的启动形态:next start 跑 .next-canary 那份新构建 ──────────────
 # IHUI_BUILD_DIST 决定 next.config.ts 的 distDir(next.config.ts: buildDistDir =
-# process.env.IHUI_BUILD_DIST || staticDistDir)⇒ 灰度实例服务 .next-staging,
+# process.env.IHUI_BUILD_DIST || staticDistDir)⇒ 灰度实例服务 .next-canary,
 # 现网 8801 那只没有这个环境变量,服务 .next ⇒ 两个槽位服务的是两份不同产物。
 function Get-GrayCanaryCommand {
     if ($CanaryExe) {
-        return [pscustomobject]@{ Exe = $CanaryExe; Args = $CanaryArgs; Cwd = $WebDir }
+        return [pscustomobject]@{ Exe = $CanaryExe; Args = $CanaryArgs; Cwd = $WebDir; Dist = '' }
     }
     $node = Resolve-GrayNode
     if (-not $node) {
@@ -186,8 +195,8 @@ function Get-GrayCanaryCommand {
         Write-GrayLog "未判定:next 二进制不在位($nextBin)⇒ 灰度实例起不来"
         return $null
     }
-    if (-not (Test-Path -LiteralPath (Join-Path $WebDir '.next-staging\BUILD_ID'))) {
-        Write-GrayLog "未判定:.next-staging 没有 BUILD_ID ⇒ 灰度实例无产物可服务(先构建到 staging)"
+    if (-not (Test-Path -LiteralPath (Join-Path $GrayDistDir 'BUILD_ID'))) {
+        Write-GrayLog "未判定:$GrayDist 没有 BUILD_ID ⇒ 灰度实例无产物可服务(deploy 侧须在换流前把 staging 镜像进 $GrayDist)"
         return $null
     }
     return [pscustomobject]@{
@@ -197,10 +206,33 @@ function Get-GrayCanaryCommand {
     }
 }
 
+function Get-GrayArtifactBuildId {
+    $p = Join-Path $GrayDistDir 'BUILD_ID'
+    if (-not (Test-Path -LiteralPath $p)) { return '' }
+    try { return (Get-Content -LiteralPath $p -Raw -ErrorAction Stop).Trim() } catch { return '' }
+}
+
 function Start-GrayCanary {
     if (Test-GrayPort -Port $CanaryPort) {
-        Write-GrayLog "灰度实例已在位(端口 $CanaryPort)⇒ 不重复起"
-        return $true
+        # 测试覆盖形态(-CanaryExe)没有"产物"概念,沿用旧的在位即不重复起。
+        if ($CanaryExe) {
+            Write-GrayLog "灰度实例已在位(端口 $CanaryPort,测试覆盖命令)⇒ 不重复起"
+            return $true
+        }
+        # 在位不等于在位对:灰度长驻进程会一直服务**上一轮**那份构建,而观察窗把它当本轮候选
+        # 采 ⇒ 量的是旧包,却记成候选通过(§0.3)。⇒ 比对 $GrayDist 的 BUILD_ID,不一致先停再起。
+        $artifact = Get-GrayArtifactBuildId
+        $served = ''
+        if (Test-Path -LiteralPath $GrayBuildFile) {
+            try { $served = (Get-Content -LiteralPath $GrayBuildFile -Raw -ErrorAction Stop).Trim() } catch { $served = '' }
+        }
+        if ($artifact -and $served -eq $artifact) {
+            Write-GrayLog "灰度实例已在位(端口 $CanaryPort)且服务产物 buildId=$served 与 $GrayDist 一致 ⇒ 不重复起"
+            return $true
+        }
+        Write-GrayLog "灰度实例在位但产物不对或在位记录缺失(记录='$served' 当前 $GrayDist='$artifact')⇒ 先停旧实例再起,绝不让上一轮的构建冒充本轮候选"
+        Stop-GrayProcess -PidFile $CanaryPidFile -What '灰度实例' | Out-Null
+        Start-Sleep -Milliseconds 800
     }
     $cmd = Get-GrayCanaryCommand
     if (-not $cmd) { return $false }
@@ -208,15 +240,17 @@ function Start-GrayCanary {
     $stamp = (Get-Date).ToString('yyyyMMdd-HHmmss')
     $outLog = Join-Path $LogDir "canary-web-$stamp.out.log"
     $errLog = Join-Path $LogDir "canary-web-$stamp.err.log"
-    # 灰度实例必须服务 .next-staging(新构建),不是 .next(现网那份)。
-    $env:IHUI_BUILD_DIST = '.next-staging'
+    # 灰度实例必须服务 $GrayDist(本轮新构建),不是 .next(现网那份)。
+    $env:IHUI_BUILD_DIST = $GrayDist
     $proc = Start-Process -FilePath $cmd.Exe -ArgumentList $cmd.Args -WorkingDirectory $cmd.Cwd `
         -WindowStyle Hidden -PassThru -RedirectStandardOutput $outLog -RedirectStandardError $errLog
     Set-Content -LiteralPath $CanaryPidFile -Value $proc.Id -NoNewline
     for ($i = 0; $i -lt 30; $i++) {
         Start-Sleep -Milliseconds 500
         if (Test-GrayPort -Port $CanaryPort) {
-            Write-GrayLog "灰度实例已在位(端口 $CanaryPort,pid=$($proc.Id),产物=.next-staging)"
+            $bId = Get-GrayArtifactBuildId
+            if ($bId) { Set-Content -LiteralPath $GrayBuildFile -Value $bId -NoNewline }
+            Write-GrayLog "灰度实例已在位(端口 $CanaryPort,pid=$($proc.Id),产物=$GrayDist buildId=$bId)"
             return $true
         }
         if ($proc.HasExited) { break }

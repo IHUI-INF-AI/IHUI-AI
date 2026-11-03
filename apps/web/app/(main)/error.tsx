@@ -37,7 +37,7 @@ export default function MainError({
       <div className="space-y-1">
         <h1 className="text-heading font-semibold">{t('errorTitle')}</h1>
         {/* 2026-08-01 错误中文化:不直接渲染 error.message(可能英文),始终显示中文兜底 */}
-        <p className="text-sm text-muted-foreground">{t('errorDescription')}</p>
+        <p className="text-body text-muted-foreground">{t('errorDescription')}</p>
       </div>
       <Button onClick={reset}>
         <RefreshCw className="h-4 w-4" />

@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { rnHue, rnRadius, rnTokens, rnSpacing } from '@ihui/design-tokens'
+import { rnHue, rnRadius, rnTokens, rnSpacing, rnType } from '@ihui/design-tokens'
 import { StyleSheet } from 'react-native'
 import type { AppThemeTokens } from '../../theme/tokens'
 
@@ -28,11 +28,11 @@ export function createStatusStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing.md,
       gap: rnSpacing.md,
     },
-    headerTitle: { fontSize: 18, fontWeight: '700', color: tk.text.primary },
+    headerTitle: { fontSize: rnType.subtitle.size, fontWeight: '700', color: tk.text.primary },
     scroll: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'], gap: rnSpacing.md },
     hero: { gap: rnSpacing.xs },
     heroTitle: { fontSize: 22, fontWeight: '700', color: tk.text.primary },
-    heroSubtitle: { fontSize: 12, color: tk.text.secondary },
+    heroSubtitle: { fontSize: rnType.label.size, color: tk.text.secondary },
     card: {
       backgroundColor: tk.surface.light,
       borderRadius: rnRadius.lg,
@@ -47,11 +47,11 @@ export function createStatusStyles(tk: AppThemeTokens) {
       justifyContent: 'space-between',
       gap: rnSpacing.sm,
     },
-    cardTitle: { fontSize: 16, fontWeight: '700', color: tk.text.primary },
-    metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 14 },
+    cardTitle: { fontSize: rnType.title.size, fontWeight: '700', color: tk.text.primary },
+    metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing['md-loose'] },
     metaItem: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.xs },
-    metaLabel: { fontSize: 11, color: tk.text.tertiary },
-    metaValue: { fontSize: 11, color: tk.text.secondary },
+    metaLabel: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    metaValue: { fontSize: rnType.caption.size, color: tk.text.secondary },
     badge: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -60,7 +60,7 @@ export function createStatusStyles(tk: AppThemeTokens) {
       paddingVertical: 3,
       borderRadius: rnRadius.md,
     },
-    badgeText: { fontSize: 11, fontWeight: '600' },
+    badgeText: { fontSize: rnType.caption.size, fontWeight: '600' },
     row: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -69,12 +69,12 @@ export function createStatusStyles(tk: AppThemeTokens) {
       gap: rnSpacing.sm,
     },
     rowMain: { flex: 1, gap: rnSpacing['2xs'] },
-    rowTitle: { fontSize: 14, color: tk.text.primary },
-    rowSub: { fontSize: 11, color: tk.text.tertiary },
+    rowTitle: { fontSize: rnType.body.size, color: tk.text.primary },
+    rowSub: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     rowMeta: { alignItems: 'flex-end', gap: rnSpacing['2xs'] },
     incidentRow: { gap: rnSpacing['xs-loose'], paddingVertical: rnSpacing.sm },
     incidentDesc: { fontSize: 13, color: tk.text.primary, lineHeight: 19 },
-    incidentTime: { fontSize: 11, color: tk.text.tertiary },
+    incidentTime: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     noticeBox: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -86,8 +86,8 @@ export function createStatusStyles(tk: AppThemeTokens) {
     },
     noticeText: { flex: 1, fontSize: 13, color: STATUS_PALETTE.degraded.fg },
     errorBox: { alignItems: 'center', gap: rnSpacing.sm, paddingVertical: rnSpacing['2xl'] },
-    errorText: { fontSize: 14, fontWeight: '600', color: tk.text.primary },
-    errorSub: { fontSize: 12, color: tk.text.secondary },
+    errorText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.text.primary },
+    errorSub: { fontSize: rnType.label.size, color: tk.text.secondary },
     refreshBtn: {
       alignSelf: 'center',
       alignItems: 'center',
@@ -97,7 +97,7 @@ export function createStatusStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
-    refreshText: { fontSize: 14, fontWeight: '600', color: tk.brand.ctaForeground },
+    refreshText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.brand.ctaForeground },
     skeletonTitle: {
       height: 20,
       width: 160,

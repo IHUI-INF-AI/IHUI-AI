@@ -660,7 +660,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: rnSpacing['xs-loose'],
       paddingVertical: rnSpacing['2xs'],
       borderRadius: rnRadius.md,
-      fontSize: 10,
+      fontSize: rnType.badge.size,
       fontWeight: '600',
       overflow: 'hidden',
     },

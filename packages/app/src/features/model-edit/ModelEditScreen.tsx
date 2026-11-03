@@ -17,6 +17,8 @@ import type {
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { TextField } from '../../components/TextField'
+import { assertRequiredPort } from '../../host/ports'
+import { MODEL_EDIT_READ_ONLY_FIELDS } from './model-edit-save'
 
 /** 模型编辑共享屏 — props 注入式表单型跨端组件 */
 export type {
@@ -63,9 +65,20 @@ export function ModelEditScreen({
   onSave,
   onCancel,
   colorScheme = 'light',
+  onToast,
 }: ModelEditScreenProps) {
+  assertRequiredPort('onToast', onToast)
+
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
+
+  // 置灰判定与数据层同一份清单:这些字段的改动不会进入 PUT /agents/:agentId 的 body。
+  const isCategoryReadOnly = MODEL_EDIT_READ_ONLY_FIELDS.includes('categories')
+  const isDeptReadOnly = MODEL_EDIT_READ_ONLY_FIELDS.includes('dept')
+  const isCycleReadOnly = MODEL_EDIT_READ_ONLY_FIELDS.includes('cycle')
+  const isFreeDurReadOnly = MODEL_EDIT_READ_ONLY_FIELDS.includes('freeDur')
+  const isAudienceReadOnly = MODEL_EDIT_READ_ONLY_FIELDS.includes('audience')
+  const isDiscountReadOnly = MODEL_EDIT_READ_ONLY_FIELDS.includes('discount')
 
   const cycleLabelKey =
     fields.cycle === 'month'
@@ -103,14 +116,19 @@ export function ModelEditScreen({
         </View>
 
         <Text style={styles.label}>{t('modelEdit.labelCategory')}</Text>
+        {isCategoryReadOnly ? (
+          <Text style={styles.readOnlyHint}>{t('modelEdit.readOnlyHint')}</Text>
+        ) : null}
         <View style={styles.chipRow}>
           {categoryOptions.map((c) => {
             const active = fields.categories.includes(c.id)
             return (
               <TouchableOpacity
                 key={c.id}
-                style={[styles.chip, active && styles.chipActive]}
-                onPress={() => onToggleCategory(c.id)}
+                style={[styles.chip, active && styles.chipActive, isCategoryReadOnly && styles.chipDisabled]}
+                onPress={isCategoryReadOnly ? undefined : () => onToggleCategory(c.id)}
+                disabled={isCategoryReadOnly}
+                accessibilityState={{ disabled: isCategoryReadOnly }}
                 activeOpacity={0.8}
               >
                 <Text style={[styles.chipText, active && styles.chipTextActive]}>{c.label}</Text>
@@ -120,14 +138,19 @@ export function ModelEditScreen({
         </View>
 
         <Text style={styles.label}>{t('modelEdit.labelDept')}</Text>
+        {isDeptReadOnly ? (
+          <Text style={styles.readOnlyHint}>{t('modelEdit.readOnlyHint')}</Text>
+        ) : null}
         <View style={styles.chipRow}>
           {deptOptions.map((d) => {
             const active = fields.dept === d.id
             return (
               <TouchableOpacity
                 key={d.id}
-                style={[styles.chip, active && styles.chipActive]}
-                onPress={() => onChange('dept', d.id)}
+                style={[styles.chip, active && styles.chipActive, isDeptReadOnly && styles.chipDisabled]}
+                onPress={isDeptReadOnly ? undefined : () => onChange('dept', d.id)}
+                disabled={isDeptReadOnly}
+                accessibilityState={{ disabled: isDeptReadOnly }}
                 activeOpacity={0.8}
               >
                 <Text style={[styles.chipText, active && styles.chipTextActive]}>{d.label}</Text>
@@ -158,14 +181,19 @@ export function ModelEditScreen({
         {fields.saleType !== 'free' ? (
           <View style={styles.paidCard}>
             <Text style={styles.label}>{t('modelEdit.labelCycle')}</Text>
+            {isCycleReadOnly ? (
+              <Text style={styles.readOnlyHint}>{t('modelEdit.readOnlyHint')}</Text>
+            ) : null}
             <View style={styles.chipRow}>
               {PAY_CYCLE_OPTIONS.map((c) => {
                 const active = fields.cycle === c.id
                 return (
                   <TouchableOpacity
                     key={c.id}
-                    style={[styles.chip, active && styles.chipActive]}
-                    onPress={() => onChange('cycle', c.id)}
+                    style={[styles.chip, active && styles.chipActive, isCycleReadOnly && styles.chipDisabled]}
+                    onPress={isCycleReadOnly ? undefined : () => onChange('cycle', c.id)}
+                    disabled={isCycleReadOnly}
+                    accessibilityState={{ disabled: isCycleReadOnly }}
                     activeOpacity={0.8}
                   >
                     <Text style={[styles.chipText, active && styles.chipTextActive]}>
@@ -193,14 +221,19 @@ export function ModelEditScreen({
             {fields.saleType === 'limited' ? (
               <>
                 <Text style={styles.label}>{t('modelEdit.labelFreeDur')}</Text>
+                {isFreeDurReadOnly ? (
+                  <Text style={styles.readOnlyHint}>{t('modelEdit.readOnlyHint')}</Text>
+                ) : null}
                 <View style={styles.chipRow}>
                   {freeDurations.map((d) => {
                     const active = fields.freeDur === d
                     return (
                       <TouchableOpacity
                         key={d}
-                        style={[styles.chip, active && styles.chipActive]}
-                        onPress={() => onChange('freeDur', d)}
+                        style={[styles.chip, active && styles.chipActive, isFreeDurReadOnly && styles.chipDisabled]}
+                        onPress={isFreeDurReadOnly ? undefined : () => onChange('freeDur', d)}
+                        disabled={isFreeDurReadOnly}
+                        accessibilityState={{ disabled: isFreeDurReadOnly }}
                         activeOpacity={0.8}
                       >
                         <Text style={[styles.chipText, active && styles.chipTextActive]}>{d}</Text>
@@ -211,14 +244,19 @@ export function ModelEditScreen({
               </>
             ) : null}
             <Text style={styles.label}>{t('modelEdit.labelDiscount')}</Text>
+            {isDiscountReadOnly ? (
+              <Text style={styles.readOnlyHint}>{t('modelEdit.readOnlyHint')}</Text>
+            ) : null}
             <View style={styles.chipRow}>
               {discountOptions.map((d) => {
                 const active = fields.discount === d.id
                 return (
                   <TouchableOpacity
                     key={d.id}
-                    style={[styles.chip, active && styles.chipActive]}
-                    onPress={() => onChange('discount', active ? '' : d.id)}
+                    style={[styles.chip, active && styles.chipActive, isDiscountReadOnly && styles.chipDisabled]}
+                    onPress={isDiscountReadOnly ? undefined : () => onChange('discount', active ? '' : d.id)}
+                    disabled={isDiscountReadOnly}
+                    accessibilityState={{ disabled: isDiscountReadOnly }}
                     activeOpacity={0.8}
                   >
                     <Text style={[styles.chipText, active && styles.chipTextActive]}>
@@ -232,14 +270,19 @@ export function ModelEditScreen({
         ) : null}
 
         <Text style={styles.label}>{t('modelEdit.labelAudience')}</Text>
+        {isAudienceReadOnly ? (
+          <Text style={styles.readOnlyHint}>{t('modelEdit.readOnlyHint')}</Text>
+        ) : null}
         <View style={styles.chipRow}>
           {AUDIENCE_OPTIONS.map((a) => {
             const active = fields.audience === a.id
             return (
               <TouchableOpacity
                 key={a.id}
-                style={[styles.chip, active && styles.chipActive]}
-                onPress={() => onChange('audience', a.id)}
+                style={[styles.chip, active && styles.chipActive, isAudienceReadOnly && styles.chipDisabled]}
+                onPress={isAudienceReadOnly ? undefined : () => onChange('audience', a.id)}
+                disabled={isAudienceReadOnly}
+                accessibilityState={{ disabled: isAudienceReadOnly }}
                 activeOpacity={0.8}
               >
                 <Text style={[styles.chipText, active && styles.chipTextActive]}>
@@ -300,9 +343,15 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: rnSpacing.lg,
       marginBottom: rnSpacing.sm,
     },
+    readOnlyHint: {
+      marginTop: -rnSpacing.xs,
+      marginBottom: rnSpacing.sm,
+      fontSize: rnType.caption.size,
+      color: tk.text.tertiary,
+    },
     chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing['sm-loose'] },
     chip: {
-      paddingHorizontal: 14,
+      paddingHorizontal: rnSpacing['md-loose'],
       height: 36,
       borderRadius: rnRadius.md,
       borderWidth: 1,
@@ -312,6 +361,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
     },
     chipActive: { borderColor: tk.brandAccent.deep, backgroundColor: tk.surface.muted },
+    chipDisabled: { opacity: 0.55 },
     chipText: { fontSize: rnType.body.size, color: tk.text.medium },
     chipTextActive: { color: tk.text.primary, fontWeight: '600' },
     paidCard: {
@@ -337,7 +387,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     priceInput: {
       flex: 1,
-      paddingVertical: 14,
+      paddingVertical: rnSpacing['md-loose'],
       fontSize: rnType.title.size,
       color: tk.text.primary,
     },

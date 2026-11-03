@@ -147,7 +147,7 @@ export function FullAccessConfirmDialog({
     >
       <div className="space-y-3">
         {/* 风险要点列表(2026-07-25 深化,Codex CLI 风格:逐条列出关键风险) */}
-        <ul className="space-y-1.5 text-sm text-foreground/90">
+        <ul className="space-y-1.5 text-body text-foreground/90">
           {bullets.map((line, idx) => (
             <li key={idx} className="flex items-start gap-2">
               <AlertTriangle
@@ -161,7 +161,7 @@ export function FullAccessConfirmDialog({
 
         {/* 复选框区:必须勾选"我了解"才能继续 */}
         <div className="space-y-1.5 rounded-md border border-amber-500/30 bg-amber-500/5 p-2.5">
-          <label className="flex cursor-pointer items-start gap-2 text-sm">
+          <label className="flex cursor-pointer items-start gap-2 text-body">
             <input
               type="checkbox"
               checked={acknowledged}
@@ -171,7 +171,7 @@ export function FullAccessConfirmDialog({
             />
             <span className="leading-snug">{t('firstTimeConfirmAcknowledge')}</span>
           </label>
-          <label className="flex cursor-pointer items-start gap-2 text-xs text-muted-foreground">
+          <label className="flex cursor-pointer items-start gap-2 text-label text-muted-foreground">
             <input
               type="checkbox"
               checked={neverShow}

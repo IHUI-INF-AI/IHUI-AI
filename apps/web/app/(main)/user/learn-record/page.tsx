@@ -78,13 +78,12 @@ export default function LearnRecordPage() {
       ) : items.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 py-8 text-center text-muted-foreground">
           <BookOpen className="h-8 w-8 opacity-40" />
-          <p className="text-sm">{t('empty', { default: '目前还没有数据' })}</p>
+          <p className="text-body">{t('empty', { default: '目前还没有数据' })}</p>
         </div>
       ) : (
         <ul className="space-y-2">
           {items.map((item) => {
-            const progress =
-              typeof item.progress === 'number' ? clampPercent(item.progress) : 0
+            const progress = typeof item.progress === 'number' ? clampPercent(item.progress) : 0
             return (
               <li
                 key={item.id}
@@ -94,16 +93,20 @@ export default function LearnRecordPage() {
                   <div className="min-w-0 flex-1 space-y-1">
                     <p className="truncate text-body font-semibold">{item.title}</p>
                     {item.courseTitle ? (
-                      <p className="truncate text-xs text-muted-foreground">{item.courseTitle}</p>
+                      <p className="truncate text-label text-muted-foreground">
+                        {item.courseTitle}
+                      </p>
                     ) : null}
                     {item.lastStudyAt ? (
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-label text-muted-foreground">
                         {dateFmt.format(new Date(item.lastStudyAt))}
                       </p>
                     ) : null}
                   </div>
                   <div className="flex w-28 shrink-0 flex-col items-end gap-1">
-                    <span className="text-label font-medium text-muted-foreground">{progress}%</span>
+                    <span className="text-label font-medium text-muted-foreground">
+                      {progress}%
+                    </span>
                     <div className="h-1.5 w-full overflow-hidden rounded-xs bg-muted">
                       <div
                         className="h-full rounded-md bg-primary transition-all"

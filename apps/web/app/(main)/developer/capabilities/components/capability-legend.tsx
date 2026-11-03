@@ -10,7 +10,12 @@ import { ShieldCheck } from 'lucide-react'
 import { CAPABILITY_DATA_CLASSES, type CapabilityDataClass } from '@ihui/types'
 import { Card, CardContent } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
-import { BADGE_BASE, DATA_CLASS_CLASS, DATA_CLASS_DESC_KEY, DATA_CLASS_LABEL_KEY } from './capability-badges'
+import {
+  BADGE_BASE,
+  DATA_CLASS_CLASS,
+  DATA_CLASS_DESC_KEY,
+  DATA_CLASS_LABEL_KEY,
+} from './capability-badges'
 
 /**
  * 「开放的是功能,不是数据」—— 把后端对 dataClass 的原始定义写进界面。
@@ -27,33 +32,24 @@ export function CapabilityLegend(): React.JSX.Element {
           <ShieldCheck className="h-4 w-4 shrink-0 text-primary" aria-hidden />
           <h2 className="text-body font-semibold">{t('principleTitle')}</h2>
         </div>
-        <p className="text-xs leading-relaxed text-muted-foreground">{t('principleBody')}</p>
+        <p className="text-label leading-relaxed text-muted-foreground">{t('principleBody')}</p>
         <ul className="grid gap-2 sm:grid-cols-2">
           {CAPABILITY_DATA_CLASSES.map((dataClass: CapabilityDataClass) => {
             const labelKey = DATA_CLASS_LABEL_KEY[dataClass]
             const descKey = DATA_CLASS_DESC_KEY[dataClass]
             return (
-              <li
-                key={dataClass}
-                className="flex flex-col gap-1 rounded-md bg-muted/60 p-2.5"
-              >
-                <span
-                  className={cn(
-                    BADGE_BASE,
-                    'self-start',
-                    DATA_CLASS_CLASS[dataClass],
-                  )}
-                >
+              <li key={dataClass} className="flex flex-col gap-1 rounded-md bg-muted/60 p-2.5">
+                <span className={cn(BADGE_BASE, 'self-start', DATA_CLASS_CLASS[dataClass])}>
                   {t(labelKey, { defaultValue: labelKey })}
                 </span>
-                <span className="text-xs leading-relaxed text-muted-foreground">
+                <span className="text-label leading-relaxed text-muted-foreground">
                   {t(descKey, { defaultValue: descKey })}
                 </span>
               </li>
             )
           })}
         </ul>
-        <p className="text-xs leading-relaxed text-muted-foreground">{t('defaultDeny')}</p>
+        <p className="text-label leading-relaxed text-muted-foreground">{t('defaultDeny')}</p>
       </CardContent>
     </Card>
   )

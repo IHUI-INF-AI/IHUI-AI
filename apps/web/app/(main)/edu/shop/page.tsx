@@ -172,7 +172,7 @@ export default function EduShopPage() {
           <ShoppingCart className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       <Tabs defaultValue="all">
@@ -193,7 +193,7 @@ export default function EduShopPage() {
           ) : (courses?.list ?? []).length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
               <Sparkles className="h-8 w-8 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">{t('empty')}</p>
+              <p className="text-body text-muted-foreground">{t('empty')}</p>
             </div>
           ) : (
             <>
@@ -213,7 +213,7 @@ export default function EduShopPage() {
                       )}
                       <p className="line-clamp-1 font-medium">{course.title}</p>
                       {course.intro && (
-                        <p className="line-clamp-2 flex-1 text-sm text-muted-foreground">
+                        <p className="line-clamp-2 flex-1 text-body text-muted-foreground">
                           {course.intro}
                         </p>
                       )}
@@ -236,7 +236,7 @@ export default function EduShopPage() {
 
               {(courses?.total ?? 0) > COURSES_PAGE_SIZE && (
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">
+                  <span className="text-body text-muted-foreground">
                     {t('page', { page: coursesPage, total: coursesTotalPages })}
                   </span>
                   <div className="flex items-center gap-2">
@@ -277,7 +277,7 @@ export default function EduShopPage() {
           ) : (orders?.list ?? []).length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
               <Sparkles className="h-8 w-8 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">{t('ordersEmpty')}</p>
+              <p className="text-body text-muted-foreground">{t('ordersEmpty')}</p>
             </div>
           ) : (
             <>
@@ -287,10 +287,10 @@ export default function EduShopPage() {
                     <CardContent className="min-[640px]:p-3 flex flex-wrap items-center justify-between gap-3 p-3">
                       <div className="min-w-0 space-y-1">
                         <p className="line-clamp-1 font-medium">{order.targetTitle ?? '-'}</p>
-                        <p className="truncate text-xs text-muted-foreground">
+                        <p className="truncate text-label text-muted-foreground">
                           {t('orderNo')}: {order.orderNo}
                         </p>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-label text-muted-foreground">
                           {t('createTime')}: {formatTime(order.createdAt)}
                         </p>
                       </div>
@@ -300,7 +300,7 @@ export default function EduShopPage() {
                         </span>
                         <span
                           className={cn(
-                            'rounded-md px-2 py-0.5 text-xs',
+                            'rounded-md px-2 py-0.5 text-label',
                             STATUS_STYLE[order.status] ?? 'bg-muted text-muted-foreground',
                           )}
                         >
@@ -335,7 +335,7 @@ export default function EduShopPage() {
 
               {(orders?.total ?? 0) > ORDERS_PAGE_SIZE && (
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">
+                  <span className="text-body text-muted-foreground">
                     {t('page', { page: ordersPage, total: ordersTotalPages })}
                   </span>
                   <div className="flex items-center gap-2">

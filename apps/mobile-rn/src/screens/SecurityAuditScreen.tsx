@@ -57,6 +57,7 @@ export function SecurityAuditScreen() {
         void load()
       }}
       onBack={() => navigation.goBack()}
+      onRetry={() => { void load(); }}
       colorScheme={resolvedTheme}
     />
   )

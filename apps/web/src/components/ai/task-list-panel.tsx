@@ -49,7 +49,7 @@ export function TaskListPanel({ tasks, onToggle }: TaskListPanelProps) {
       </div>
       <ul className="space-y-1">
         {tasks.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">暂无任务</p>
+          <p className="py-8 text-center text-body text-muted-foreground">暂无任务</p>
         ) : (
           tasks.map((task) => {
             const isDone = task.status === 'done'
@@ -63,13 +63,13 @@ export function TaskListPanel({ tasks, onToggle }: TaskListPanelProps) {
                 <div className="min-w-0 flex-1">
                   <p
                     className={cn(
-                      'break-words text-sm',
+                      'break-words text-body',
                       isDone && 'text-muted-foreground line-through',
                     )}
                   >
                     {task.title}
                   </p>
-                  <div className="mt-0.5 flex items-center gap-2 text-xs">
+                  <div className="mt-0.5 flex items-center gap-2 text-label">
                     <span className={cn('font-medium', STATUS_CLS[task.status])}>
                       {task.status}
                     </span>

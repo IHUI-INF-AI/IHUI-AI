@@ -20,6 +20,7 @@ import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 import { Tappable } from '@ihui/ui-native'
+import { assertRequiredPort } from '../../host/ports'
 /** 消息中心 Tab/Item/Props 类型 re-export(单一来源 @ihui/types) */
 export type { MessageCenterItem, MessageConversationItem, MessageCenterScreenProps, MessageTab }
 
@@ -60,7 +61,10 @@ export function MessageCenterScreen({
   loadingMore,
   onLoadMore,
   emptyText,
+  onToast,
 }: MessageCenterScreenProps) {
+  assertRequiredPort('onToast', onToast)
+
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
   const cardStyles = useMemo(() => createCardStyles(tk), [tk])
@@ -357,7 +361,7 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: rnSpacing['2xs'],
-      paddingHorizontal: 14,
+      paddingHorizontal: rnSpacing['md-loose'],
       paddingVertical: rnSpacing['xs-loose'],
       borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.card,
@@ -377,7 +381,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
       paddingHorizontal: 3,
     },
-    badgeText: { fontSize: 10, color: tk.surface.light, fontWeight: '700' },
+    badgeText: { fontSize: rnType.badge.size, color: tk.surface.light, fontWeight: '700' },
     errorText: {
       paddingHorizontal: rnSpacing['sm-loose'],
       fontSize: rnType.body.size,

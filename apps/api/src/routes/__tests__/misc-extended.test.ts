@@ -6,6 +6,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vites
 import Fastify, { type FastifyInstance } from 'fastify'
 import type * as dns from 'node:dns'
 import type * as dnsPromises from 'node:dns/promises'
+import type * as undici from 'undici'
 // 鉴权 mock 辅助(2026-09-09 第九轮安全修复后,/remote/proxy 等路由收权为 admin)。
 // 注意:必须内联,勿 import tests/helpers/mock-auth —— 该文件在 tsconfig rootDir(src)外,
 // tsc 顺藤摸瓜报 TS6059,级联 typecheck/build/Docker/e2e 全挂(2026-09-10 CI 实证)。
@@ -122,7 +123,7 @@ vi.mock('../../db/index.js', () => {
  */
 const { undiciFetchStub } = vi.hoisted(() => ({ undiciFetchStub: vi.fn() }))
 vi.mock('undici', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('undici')>()
+  const actual = await importOriginal<typeof undici>()
   return { ...actual, fetch: undiciFetchStub }
 })
 

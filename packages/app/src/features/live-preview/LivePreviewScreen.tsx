@@ -22,8 +22,9 @@ export function LivePreviewScreen({
   subscribing,
   onSubscribe,
   onBack,
-  colorScheme = 'light',
-}: LivePreviewScreenProps) {
+  onRetry,
+  colorScheme = 'light'
+}: LivePreviewScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -40,7 +41,7 @@ export function LivePreviewScreen({
         {error ? (
           <ErrorState
             message={error}
-            onRetry={onBack}
+            onRetry={onRetry}
             retryLabel={t('common.back')}
             colorScheme={colorScheme}
           />

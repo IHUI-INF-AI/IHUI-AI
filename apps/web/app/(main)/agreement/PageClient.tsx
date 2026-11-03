@@ -75,7 +75,7 @@ export default function AgreementPage() {
           <FileText className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       {/* 协议类型切换 */}
@@ -110,7 +110,7 @@ export default function AgreementPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pb-4 text-sm text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pb-4 text-body text-muted-foreground">
               <span className="inline-flex items-center gap-1">
                 <Tag className="h-4 w-4" />
                 {t('version')}: v1.0.0
@@ -120,7 +120,7 @@ export default function AgreementPage() {
                 {t('effectiveDate')}: {fmtDate(new Date().toISOString())}
               </span>
             </div>
-            <div className="space-y-3 text-sm leading-relaxed text-muted-foreground">
+            <div className="space-y-3 text-body leading-relaxed text-muted-foreground">
               <p>{t('staticContent1')}</p>
               <p>{t('staticContent2')}</p>
               <p>{t('staticContent3')}</p>
@@ -133,7 +133,7 @@ export default function AgreementPage() {
             <CardTitle className="text-lg">{agreement.title}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pb-4 text-sm text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pb-4 text-body text-muted-foreground">
               {agreement.version && (
                 <span className="inline-flex items-center gap-1">
                   <Tag className="h-4 w-4" />

@@ -20,7 +20,7 @@ export function PointsState({
 }) {
   if (kind === 'error')
     return (
-      <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+      <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
         {text}
       </div>
     )
@@ -36,7 +36,7 @@ export function PointsState({
   return (
     <div className="mx-auto flex max-w-sm flex-col items-center justify-center gap-2 ui-panel rounded-xl border border-dashed py-8 text-center">
       <I className="h-8 w-8 shrink-0 text-muted-foreground" />
-      <p className="text-sm text-muted-foreground">{text}</p>
+      <p className="text-body text-muted-foreground">{text}</p>
     </div>
   )
 }

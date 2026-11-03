@@ -99,7 +99,7 @@ export default function AgentStatsPage() {
     <div className="mx-auto w-full max-w-4xl space-y-4 px-4 py-4">
       <Link
         href="/agents"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         {t('back')}
@@ -110,7 +110,7 @@ export default function AgentStatsPage() {
           <BarChart3 className="h-6 w-6 text-primary" />
           {t('title')}
         </h1>
-        <p className="mt-0.5 text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="mt-0.5 text-label text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       {!allow ? (
@@ -121,7 +121,7 @@ export default function AgentStatsPage() {
           {t('loading')}
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {(error as Error).message}
         </div>
       ) : (
@@ -132,7 +132,9 @@ export default function AgentStatsPage() {
               <Card key={card.key}>
                 <CardContent className="min-[640px]:p-3 space-y-2 p-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">{t(STAT_KEY[card.key])}</span>
+                    <span className="text-label text-muted-foreground">
+                      {t(STAT_KEY[card.key])}
+                    </span>
                     <Icon className={`h-4 w-4 ${card.color}`} />
                   </div>
                   <p className={`text-display font-bold ${card.color}`}>

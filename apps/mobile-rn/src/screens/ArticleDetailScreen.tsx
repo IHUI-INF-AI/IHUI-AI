@@ -76,6 +76,7 @@ export function ArticleDetailScreen() {
   const [commentError, setCommentError] = useState('')
 
   const [reloadKey, setReloadKey] = useState(0)
+  const reload = () => setReloadKey((k) => k + 1)
 
   useEffect(() => {
     let cancelled = false
@@ -169,6 +170,7 @@ export function ArticleDetailScreen() {
           item={article}
           loading={loading}
           error={error}
+          onRetry={reload}
           onBack={() => navigation.goBack()}
           colorScheme={resolvedTheme}
         />
@@ -335,7 +337,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
     borderTopLeftRadius: rnRadius.xl,
     borderTopRightRadius: rnRadius.xl,
-    paddingTop: 14,
+    paddingTop: rnSpacing['md-loose'],
     minHeight: 360,
     maxHeight: '72%',
   } as ViewStyle,
@@ -430,7 +432,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.bg,
-    paddingHorizontal: 14,
+    paddingHorizontal: rnSpacing['md-loose'],
     paddingVertical: rnSpacing.sm,
     fontSize: rnType.body.size,
     color: tokens.text.primary,

@@ -61,8 +61,8 @@ export default function KnowledgePlanetPage() {
             </div>
             <div className="min-w-0">
               <h2 className="text-base font-medium">{info.name}</h2>
-              <p className="truncate text-sm text-muted-foreground">{info.description}</p>
-              <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+              <p className="truncate text-body text-muted-foreground">{info.description}</p>
+              <p className="mt-0.5 flex items-center gap-1 text-label text-muted-foreground">
                 <Users className="h-3.5 w-3.5" />
                 {t('memberCount', { count: info.memberCount })}
               </p>
@@ -80,7 +80,7 @@ export default function KnowledgePlanetPage() {
         </div>
       ) : newsQ.isError ? (
         <div className="rounded-lg border border-border bg-card p-3 text-center">
-          <p className="mb-3 text-sm text-muted-foreground">{t('loadFailed')}</p>
+          <p className="mb-3 text-body text-muted-foreground">{t('loadFailed')}</p>
           <Button variant="outline" size="sm" onClick={() => void newsQ.refetch()}>
             <RotateCw className="mr-2 h-4 w-4" />
             {t('retry')}
@@ -88,7 +88,7 @@ export default function KnowledgePlanetPage() {
         </div>
       ) : list.length === 0 ? (
         <Card>
-          <CardContent className="flex items-center justify-center py-12 text-sm text-muted-foreground">
+          <CardContent className="flex items-center justify-center py-12 text-body text-muted-foreground">
             {t('empty')}
           </CardContent>
         </Card>
@@ -109,7 +109,7 @@ export default function KnowledgePlanetPage() {
                   <div className="min-w-0">
                     <h4 className="line-clamp-2 text-body font-medium">{item.title}</h4>
                     {item.summary ? (
-                      <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                      <p className="mt-1 line-clamp-2 text-label text-muted-foreground">
                         {item.summary}
                       </p>
                     ) : null}

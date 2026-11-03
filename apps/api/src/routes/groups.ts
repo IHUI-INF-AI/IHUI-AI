@@ -6,7 +6,7 @@ import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { eq, and, desc, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
-import { userGroups, userGroupMembers } from '@ihui/database'
+import { userGroups, userGroupMembers, users } from '@ihui/database'
 import { requireAuth, isSystemAdmin } from '../plugins/require-permission.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 
@@ -154,9 +154,20 @@ const groupsRoutes: FastifyPluginAsync = async (server) => {
       .where(eq(userGroups.id, idParsed.data.id))
       .limit(1)
     if (!group) return reply.status(404).send(error(404, '用户组不存在'))
+    // 投影 join users:成员行本身无昵称/头像(2026-11-01 G-998102 AiGroup 票:共享屏成员卡
+    // 需要 name),只加字段不减字段,既有消费方(userId/role)不受影响
     const list = await db
-      .select()
+      .select({
+        id: userGroupMembers.id,
+        groupId: userGroupMembers.groupId,
+        userId: userGroupMembers.userId,
+        role: userGroupMembers.role,
+        createdAt: userGroupMembers.createdAt,
+        name: users.nickname,
+        avatar: users.avatar,
+      })
       .from(userGroupMembers)
+      .leftJoin(users, eq(users.id, userGroupMembers.userId))
       .where(eq(userGroupMembers.groupId, idParsed.data.id))
       .orderBy(desc(userGroupMembers.createdAt))
     return reply.send(success({ list }))

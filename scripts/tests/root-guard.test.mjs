@@ -153,3 +153,159 @@ test('⑤e 三面互不相同 ⇒ 交人工,不选边', () => {
   const s = rg.faceDiagnosis({ expected: H.exp, actual: H.act, head: H.other })
   assert.match(s, /三面互不相同/)
 })
+
+// ── ⑥ 候选面判定(2026-11-01 治部署环自锁那一格)────────────────────────
+// 纪律:判据只住源脚本一份,本文件 import __test__(§22c)。
+import { execFileSync, spawnSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
+import { dirname, resolve } from 'node:path'
+
+const RG_CLI = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'root-guard.mjs')
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
+const git = (...a) =>
+  execFileSync('git', a.flat(), {
+    cwd: ROOT,
+    encoding: 'utf8',
+    // §12g:本机派生 git 必须显式接管 stdio(不写稳定 EBUSY),绝对路径不是豁免。
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+  }).trim()
+
+test('⑥ 候选面取不到一律 unknown —— 没判成绝不读成放行', () => {
+  for (const rev of ['', 'abc123', '0'.repeat(40), git('rev-list', '--max-parents=0', 'HEAD')]) {
+    const r = rg.checkAgainstRev({ rev })
+    assert.equal(
+      r.verdict,
+      'unknown',
+      `rev=${String(rev).slice(0, 12)} 实得 ${r.verdict}(应为未判定)`,
+    )
+    assert.ok(r.why, `unknown 却没点名原因(rev=${String(rev).slice(0, 12)})`)
+    assert.equal(r.targets.length, 0, 'unknown 档不得带着目标清单出场')
+  }
+})
+
+test('⑥b 候选面清单形态坏(空 targets / 坏 JSON)⇒ unknown,不枚举 0 判绿', () => {
+  const a = rg.checkAgainstRev({
+    rev: '0'.repeat(40),
+    readText: () => '{"version":1,"targets":[]}',
+  })
+  assert.equal(a.verdict, 'unknown')
+  assert.match(a.why, /targets 必须是非空数组|形态坏/)
+  const b = rg.checkAgainstRev({ rev: '0'.repeat(40), readText: () => '{ 坏' })
+  assert.equal(b.verdict, 'unknown')
+  assert.match(b.why, /不是合法 JSON|形态坏/)
+})
+
+test('⑥c 真面判定与清单同轮同面:pass 的充要条件是每条 actual==expected', () => {
+  // 这一例刻意**不**断言某个具体 rev 一定绿 —— 那会让用例跟着他席改规则文件漂(§12e 同型)。
+  // 它锁的是判据本身:结论必须逐条来自那一面,且 pass 不许建立在"没读到"上。
+  const head = git('rev-parse', 'HEAD')
+  const r = rg.checkAgainstRev({ rev: head })
+  const manifest = rg.loadManifest(git('show', `${head}:scripts/data/root-guard-manifest.json`))
+  assert.equal(r.rev, head)
+  assert.equal(
+    r.targets.length,
+    manifest.targets.length,
+    `判的目标数(${r.targets.length})与那一面的清单条数(${manifest.targets.length})不同 ⇒ 不同轮不同面`,
+  )
+  if (r.verdict === 'pass') {
+    // advisory 目标(文档面)不一致只告警(warn)、不 fail-closed,故不得拉低 verdict;
+    // 只有非 warn 的目标才要求 actual==expected,否则把"文档面被改"误读成"判据漏判"。
+    for (const t of r.targets)
+      if (t.state !== 'warn')
+        assert.equal(t.actual, t.expected, `${t.id} 哈希不一致却报 pass`)
+  } else if (r.verdict === 'fail') {
+    const bad = r.targets.filter((t) => t.state === 'fail')
+    assert.ok(bad.length > 0, 'verdict=fail 却一条 fail 都点不出')
+    for (const t of bad)
+      assert.ok(t.actual && t.actual !== t.expected, `${t.id} 判 fail 却没给出该面的实际哈希`)
+  } else {
+    assert.ok(r.why || r.targets.some((t) => t.state === 'unknown'), 'unknown 档必须点名取不到什么')
+  }
+})
+
+test('⑥d §0.3 反向对照:显式 --against-rev 解不出真值 ⇒ 未判定(rc=2),绝不冒绿', () => {
+  const run = (args) =>
+    spawnSync(process.execPath, [RG_CLI, ...args], {
+      cwd: ROOT,
+      encoding: 'utf8',
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+  const plain = run(['--check'])
+  if (plain.status !== 0) {
+    // 被审面(默认 HEAD)取不到或自锁 ⇒ 这一例的前提不成立,如实报"本轮不适用",不冒充通过
+    assert.fail(
+      `--check 默认面未绿(rc=${plain.status})⇒ ⑥d 的前置无从验;先确 HEAD 面自洽再跑本例:${plain.stdout.split('\n')[1] ?? ''}`,
+    )
+  }
+  // 新语义:--against-rev 即"被审面"。给它一个解不出 40 位 sha 的劣质 rev ⇒ 取不到那一面
+  // ⇒ 未判定(rc=2),而不是因"主面绿"蒙成 0(§0.3:没判成绝不读成放行)。
+  const withBadFace = run(['--check', '--against-rev', 'deadbeef'])
+  assert.equal(
+    withBadFace.status,
+    2,
+    `显式劣质 rev 被当成被审面却没解成 40 位 sha ⇒ 必须 rc=2(未判定),实得 rc=${withBadFace.status}`,
+  )
+  assert.ok(/未判定/.test(withBadFace.stderr), '劣质 rev 应点名"未判定",不得静默')
+})
+
+test('⑥f 反向对照:候选面自己不自洽(改了规则文件却没重封清单)⇒ 绝不放行', () => {
+  const head = git('rev-parse', 'HEAD')
+  const good = rg.loadManifest(git('show', `${head}:scripts/data/root-guard-manifest.json`))
+  const tampered = {
+    ...good,
+    targets: good.targets.map((t, i) => (i === 0 ? { ...t, sha256: 'f'.repeat(64) } : t)),
+  }
+  const r = rg.checkAgainstRev({ rev: head, readText: () => JSON.stringify(tampered) })
+  assert.equal(
+    r.verdict,
+    'fail',
+    `候选面自己不一致却读出 ${r.verdict}(这一格被放出去就是"把没重封的规则文件部署上线")`,
+  )
+  assert.equal(rg.decideRelease({ currentVerdict: 'fail', candidate: r }).release, false)
+})
+
+test('⑥g 放行裁决的真值表(四档,缺一档就是判据没判完)', () => {
+  const passCand = { verdict: 'pass', rev: 'a'.repeat(40) }
+  const failCand = { verdict: 'fail', rev: 'a'.repeat(40) }
+  const unknownCand = { verdict: 'unknown', rev: '', why: '取不到' }
+  const d = rg.decideRelease
+  assert.equal(d({ currentVerdict: 'pass', candidate: null }).release, true, '当前面绿本就该照常放')
+  assert.equal(
+    d({ currentVerdict: 'pass', candidate: null }).loud,
+    false,
+    '绿轮不该出现跨面放行的噪声',
+  )
+  assert.equal(
+    d({ currentVerdict: 'fail', candidate: passCand }).release,
+    true,
+    '当前红+候选绿 ⇒ 必须放(否则就是 44 轮自锁)',
+  )
+  assert.equal(
+    d({ currentVerdict: 'fail', candidate: passCand }).loud,
+    true,
+    '放行必须大声,不能静默翻绿',
+  )
+  assert.equal(
+    d({ currentVerdict: 'fail', candidate: failCand }).release,
+    false,
+    '候选面自己红 ⇒ 维持 fail-closed',
+  )
+  assert.equal(
+    d({ currentVerdict: 'fail', candidate: unknownCand }).release,
+    false,
+    '候选面取不到 ⇒ 不猜(§0.3)',
+  )
+  assert.equal(
+    d({ currentVerdict: 'fail', candidate: null }).release,
+    false,
+    '未要求跨面复核时维持原判',
+  )
+  assert.equal(
+    d({ currentVerdict: 'unknown', candidate: passCand }).release,
+    false,
+    '当前面未判定绝不借他面翻绿',
+  )
+})
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

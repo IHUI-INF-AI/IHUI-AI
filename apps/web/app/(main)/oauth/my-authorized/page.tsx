@@ -76,11 +76,11 @@ export default function MyAuthorizedPage() {
           <KeyRound className="h-6 w-6 text-primary" />
           {t('myAuthorized')}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('myAuthorizedDesc')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('myAuthorizedDesc')}</p>
       </div>
 
       {error && (
-        <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+        <div className="rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">
           {error}
         </div>
       )}
@@ -94,7 +94,7 @@ export default function MyAuthorizedPage() {
         </div>
       ) : items.length === 0 ? (
         <Card>
-          <CardContent className="py-8 text-center text-sm text-muted-foreground">
+          <CardContent className="py-8 text-center text-body text-muted-foreground">
             {t('noAuthorizations')}
           </CardContent>
         </Card>
@@ -106,7 +106,7 @@ export default function MyAuthorizedPage() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <CardTitle className="break-words text-base">{it.appName}</CardTitle>
-                    <CardDescription className="text-xs">{it.clientId}</CardDescription>
+                    <CardDescription className="text-label">{it.clientId}</CardDescription>
                   </div>
                   <Button
                     size="sm"
@@ -123,7 +123,7 @@ export default function MyAuthorizedPage() {
                   </Button>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-1 text-xs text-muted-foreground">
+              <CardContent className="space-y-1 text-label text-muted-foreground">
                 {it.scope && (
                   <div>
                     <span className="font-medium text-foreground">{t('scopes')}:</span> {it.scope}

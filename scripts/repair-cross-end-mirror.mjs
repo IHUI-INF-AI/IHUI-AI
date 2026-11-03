@@ -33,6 +33,8 @@
 //   node scripts/repair-cross-end-mirror.mjs --apply         # 写盘(工作树,提交走仓规)
 //   node scripts/repair-cross-end-mirror.mjs --json          # 机器可读
 //   node scripts/repair-cross-end-mirror.mjs --self-test     # 判据自测
+//   node scripts/repair-cross-end-mirror.mjs --register-landing --root=<dir> --paths=a,b   # 账本申报(测试/应急,不跑主流程)
+//   node scripts/repair-cross-end-mirror.mjs --landing-skips  --root=<dir> --paths=a,b     # 已登记待收编查询(同上)
 
 import { readFileSync, writeFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
@@ -42,7 +44,12 @@ import { __test__ as cov } from './check-cross-end-screen-coverage.mjs'
 import { hasMirrorMarker, insertMirrorMarker } from './lib/cross-end-mirror-write.mjs'
 import { insertConfigPage, parseMiniappRoutes } from './gen-miniapp-mirror.mjs'
 // 判定台账(单源 lib):本器物顺带把「已造页但台账仍写缺页」这一族对平(§0.6 路径与口径单源)。
-import { readVerdicts, writeVerdictRows } from './lib/cross-end-verdicts.mjs'
+import { readVerdicts, writeVerdictRows, VERDICTS_PATH } from './lib/cross-end-verdicts.mjs'
+// 写盘申报账本(2026-11-03 立):落点判据/幂等/形状校验全在库内,本文件只调它(§0.6)。
+import { appendLanding, isRowComplete, readLanding } from './lib/cross-end-landing-ledger.mjs'
+// 取 oid 与 collectiblePaths 同尺:库内 worktree 面用 gitRaw(['hash-object','--',p], root),
+// 这里必须问同一把尺(自拼裸 git 或换 hash-object 参数 = 两侧算法不一致 ⇒ 永远 contested)。
+import { gitRaw } from './lib/face-reader.mjs'
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
 const R = (...p) => join(ROOT, ...p)
@@ -57,6 +64,91 @@ const selfTestMode = argv.includes('--self-test')
 const worktreeMode = argv.includes('--worktree')
 const FACE = worktreeMode ? 'worktree' : 'head'
 const TODAY = new Date().toISOString().slice(0, 10)
+
+/**
+ * 本腿在 git-guardian 的自称名,逐字取用,不自立新名:
+ * 守护 healCrossEndMirror 派发体以 crossEndUndetFile('mirror-heal') /
+ * settleCrossEndLeg('mirror-heal') 点名,且 'mirror-heal' 在册于 CROSS_END_LEGS。
+ * 对照证据由 scripts/tests/cross-end-landing-legs.test.mjs 钉(名字必须逐字出现在守护源里)。
+ */
+export const CROSS_END_LEG = 'mirror-heal'
+
+// ─── 写盘申报账本层(2026-11-03 立)─────────────────────────────────────────
+// 立因:本腿每 30 分钟真写工作树,注释承诺「落库交给 auto-commit-quiet」,但收编侧此前
+// 只认白名单不收业务件 ⇒ 写盘件永久悬挂。正解 = 写完盘自己往 cross-end-landing-ledger
+// 追写申报行;收编侧只认「账本在册 ∧ 工作树 blob 逐字节等于登记 oid ∧ 超静默期 ∧ 非 ignored」。
+// 失效方向:账本读不到 ⇒ 照旧全量尝试 + ledger=unjudged(多要一次,不少做一次,§0.3)。
+/** 与 collectiblePaths(worktree 面)同一把尺取当前 blob oid;取不到 ⇒ null(点名不猜)。 */
+export function worktreeBlobOid(rel, root = ROOT) {
+  try {
+    return String(gitRaw(['hash-object', '--', rel], root)).trim().toLowerCase()
+  } catch {
+    return null
+  }
+}
+
+/** 本 leg 在册且行完整的 path→oid 映射;账本取不到 ⇒ {ok:false, reason}(不冒充空集)。 */
+export function landedOidMap({ root = ROOT, leg = CROSS_END_LEG } = {}) {
+  const rd = readLanding({ root })
+  if (!rd.ok) return { ok: false, reason: rd.reason, map: new Map() }
+  const map = new Map()
+  for (const row of rd.lines) {
+    if (String(row?.leg ?? '') !== leg || !isRowComplete(row)) continue
+    map.set(String(row.path), String(row.blobOid).trim().toLowerCase())
+  }
+  return { ok: true, reason: null, map }
+}
+
+/** 「本 leg 已登记 ∧ 工作树 blob 仍等于登记 oid」的路径 ⇒ 本轮视为已完成。 */
+export function landedSkips(paths, { root = ROOT, leg = CROSS_END_LEG } = {}) {
+  const rd = landedOidMap({ root, leg })
+  if (!rd.ok) return { skip: [], ledger: 'unjudged', reason: rd.reason }
+  const skip = []
+  for (const p of paths || []) {
+    const oid = rd.map.get(p)
+    if (oid && worktreeBlobOid(p, root) === oid) skip.push(p)
+  }
+  return { skip, ledger: null, reason: null }
+}
+
+/** 批末申报:逐路径实测 oid → appendLanding。写了盘没登记上 ⇒ landingError 点名,不冒成功。 */
+export function registerLandings(paths, { root = ROOT, leg = CROSS_END_LEG, at = new Date().toISOString() } = {}) {
+  const list = [...new Set(paths || [])]
+  if (list.length === 0) return { landing: 0, appended: 0, deduped: 0, rejected: [] }
+  const entries = []
+  const unhashable = []
+  for (const p of list) {
+    const oid = worktreeBlobOid(p, root)
+    if (!oid) {
+      unhashable.push(p)
+      continue
+    }
+    entries.push({ at, leg, path: p, blobOid: oid })
+  }
+  try {
+    const ap = appendLanding(entries, { root })
+    const out = {
+      landing: ap.appended + ap.deduped,
+      appended: ap.appended,
+      deduped: ap.deduped,
+      rejected: ap.rejected,
+    }
+    const errs = []
+    if (ap.rejected.length)
+      errs.push(`账本拒收:${ap.rejected.map((r) => `${r.path}(${r.reason})`).join(' ')}`)
+    if (unhashable.length) errs.push(`落点 blob 取不到:${unhashable.join(' ')}`)
+    if (errs.length) out.landingError = errs.join(' | ')
+    return out
+  } catch (e) {
+    return {
+      landing: 0,
+      appended: 0,
+      deduped: 0,
+      rejected: [],
+      landingError: `账本写盘失败:${String(e?.message ?? e).split('\n')[0]}`,
+    }
+  }
+}
 
 /** 读工作树副本;取不到 = null(该面没有这份件)。 */
 function safeRead(rel) {
@@ -148,6 +240,23 @@ function selfTest() {
 }
 
 if (selfTestMode) process.exit(selfTest())
+
+// 账本层的机器读出口(2026-11-03 立,排在一切重活之前):本文件是顶层流程型 CLI,
+// import 它 = 跑整条对账链,所以镜像测试用这两个子进程档直调生产登记/跳过判据。
+// 不执行主流程、不改任何仓内文件;--root 仅为夹具(临时 git 仓)开放,生产调用不带它。
+if (argv.includes('--register-landing') || argv.includes('--landing-skips')) {
+  const rootArg = argv.find((a) => a.startsWith('--root='))
+  const root = rootArg ? rootArg.slice('--root='.length) : ROOT
+  const paths = (argv.find((a) => a.startsWith('--paths=')) ?? '')
+    .slice('--paths='.length)
+    .split(',')
+    .filter(Boolean)
+  const out = argv.includes('--register-landing')
+    ? registerLandings(paths, { root })
+    : landedSkips(paths, { root })
+  console.log(JSON.stringify(out))
+  process.exit(out.landingError ? 1 : 0)
+}
 
 // ---------- 读面 ----------
 const regText = cov.faceRead(FACE, REGISTRY_PATH)
@@ -280,17 +389,30 @@ for (const row of ledgerRows.rows) {
 // ---------- 落地 ----------
 const applied = []
 const refused = []
+// 本腿自己上一轮登记在账、工作树 blob 至今未动的路径 ⇒ 本轮视为已完成(既不重写,
+// 也不冒充「他席在飞」拒落 —— 那其实是本腿自己的产出在等收编)。
+const landedRead = landedOidMap()
+const stillLanded = (rel) => {
+  const oid = landedRead.map.get(rel)
+  return Boolean(oid) && worktreeBlobOid(rel) === oid
+}
+const writtenPaths = new Set()
+const skipLanded = []
+let landingInfo = { landing: 0 }
 if (applyMode) {
   // app.config 的修复先做(多条目可能共用同一个 app.config,只写一次)
   const routeFixes = findings.filter((f) => f.kind === 'route-missing')
   if (routeFixes.length > 0) {
     const cfgWork = safeRead(MP_CONFIG)
-    if (divergingLines(cfgText, cfgWork) > 0) {
+    const diverged = divergingLines(cfgText, cfgWork) > 0
+    const ownPending = diverged && stillLanded(MP_CONFIG)
+    if (diverged && !ownPending) {
       for (const f of routeFixes)
         refused.push({ ...f, why: `工作树 ${MP_CONFIG} 有行不在 HEAD(他席在飞),不替人提交` })
     } else {
       let cur = cfgText
       let ok = true
+      const fixed = []
       for (const f of routeFixes) {
         const isMain = f.root === 'pages' || !blocks.some((b) => b[1] === f.root)
         const r = isMain ? insertMainPackagePage(cur, f.page) : insertConfigPage(cur, f.root, f.page)
@@ -300,9 +422,19 @@ if (applyMode) {
           continue
         }
         cur = r.text
-        applied.push({ ...f, how: `app.config 插路由行 ${r.insertedLine}` })
+        fixed.push({ ...f, how: `app.config 插路由行 ${r.insertedLine}` })
       }
-      if (ok && cur !== cfgText) writeFileSync(R(MP_CONFIG), cur)
+      if (ownPending && ok && cur === cfgWork) {
+        // 待收编副本与本批判定的目标正文逐字节相同 ⇒ 本轮无需重写,报 skipLanded
+        for (const f of routeFixes)
+          skipLanded.push({ ...f, why: `${MP_CONFIG} 是本腿已登记待收编的产出(工作树 blob 未动)⇒ 本轮跳过` })
+      } else {
+        for (const a of fixed) applied.push(a)
+        if (ok && cur !== cfgText) {
+          writeFileSync(R(MP_CONFIG), cur)
+          writtenPaths.add(MP_CONFIG)
+        }
+      }
     }
   }
   for (const f of findings.filter((x) => x.kind === 'marker-missing')) {
@@ -312,7 +444,8 @@ if (applyMode) {
       continue
     }
     const work = safeRead(f.file)
-    if (divergingLines(pageHead, work) > 0) {
+    const ownPending = divergingLines(pageHead, work) > 0 && stillLanded(f.file)
+    if (divergingLines(pageHead, work) > 0 && !ownPending) {
       refused.push({ ...f, why: `工作树副本有行不在 HEAD(他席在飞),不替人提交` })
       continue
     }
@@ -321,7 +454,12 @@ if (applyMode) {
       refused.push({ ...f, why: r.why })
       continue
     }
+    if (ownPending && r.text === work) {
+      skipLanded.push({ ...f, why: `${f.file} 是本腿已登记待收编的产出(工作树 blob 未动)⇒ 本轮跳过` })
+      continue
+    }
     writeFileSync(R(f.file), r.text)
+    writtenPaths.add(f.file)
     applied.push({ ...f, how: `插入标记行 ${r.line}` })
   }
   // 台账改档(missing → generated):判据=该屏在当前面已被小程序页显式镜像。
@@ -329,11 +467,14 @@ if (applyMode) {
   if (verdictPatches.length > 0) {
     try {
       const wr = writeVerdictRows(ROOT, verdictPatches)
+      writtenPaths.add(VERDICTS_PATH)
       applied.push({ kind: 'verdict-patch', shared: `${verdictPatches.length} 条台账行`, how: `missing → generated(台账改档,total=${wr.total},added=${wr.added})` })
     } catch (e) {
       refused.push({ kind: 'verdict-patch', shared: `${verdictPatches.length} 条台账行`, why: `台账写盘失败:${e && e.message ? e.message : e}` })
     }
   }
+  // 批末申报:写了盘的文件逐枚实测 oid 进账本(落库交给「账本在册 ∧ blob 相符 ∧ 超静默期」的收编侧)。
+  if (writtenPaths.size > 0) landingInfo = registerLandings([...writtenPaths])
 }
 
 const summary = {
@@ -344,10 +485,14 @@ const summary = {
   applied: applied.length,
   refused: refused.length,
   verdictPatches: verdictPatches.length,
+  landing: landingInfo.landing,
+  skipLanded: skipLanded.length,
 }
+if (landingInfo.landingError) summary.landingError = landingInfo.landingError
+if (!landedRead.ok) summary.ledger = 'unjudged'
 if (jsonMode) {
-  console.log(JSON.stringify({ summary, findings, applied, refused }, null, 1))
-  process.exit(refused.length > 0 ? 1 : 0)
+  console.log(JSON.stringify({ summary, findings, applied, refused, skipLanded }, null, 1))
+  process.exit(refused.length > 0 || landingInfo.landingError ? 1 : 0)
 }
 
 console.log(`\n台账→代码 对账(判定面 ${FACE === 'head' ? 'HEAD blob' : '工作树(人工)'})`)
@@ -358,12 +503,13 @@ else {
   for (const f of findings) console.log(`  [${f.kind}] ${f.shared} → ${f.route}  ${f.why || ''}`)
 }
 if (applyMode) {
-  console.log(`\n✅ 已落地 ${applied.length} 条 / 拒落 ${refused.length} 条`)
+  console.log(`\n✅ 已落地 ${applied.length} 条 / 拒落 ${refused.length} 条 landing=${landingInfo.landing} skipLanded=${skipLanded.length}${landingInfo.landingError ? ` landingError=${landingInfo.landingError}` : ''}${landedRead.ok ? '' : ' ledger=unjudged'}`)
   for (const a of applied) console.log(`  [落] ${a.shared} → ${a.route}  ${a.how}`)
   for (const r of refused) console.log(`  [拒] ${r.shared} → ${r.route}  ${r.why}`)
-  console.log('\n(提交走仓规 scripts/safe-commit.mjs 五步法;本器物只写工作树)')
+  for (const s of skipLanded) console.log(`  [挂账] ${s.shared} → ${s.route}  ${s.why}`)
+  console.log('\n(写盘件落库 = 账本在册且 blob 相符后由收编侧处理;本器物只写工作树+申报)')
 } else {
-  console.log('\n(预演模式,未写盘;加 --apply 落地)')
+  console.log('\n(预演模式,未写盘,账本零登记;加 --apply 落地)')
 }
-process.exit(refused.length > 0 ? 1 : 0)
+process.exit(refused.length > 0 || landingInfo.landingError ? 1 : 0)
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -124,7 +124,14 @@ function msg(over: Partial<ConversationMessage> & { role: string; content: strin
 function okResult(messages: unknown): ApiResult<GetMessagesResult> {
   return {
     success: true,
-    data: { messages, page: 1, pageSize: 100, total: 0, hasMore: false, nextCursor: null },
+    data: {
+      messages,
+      page: 1,
+      pageSize: 100,
+      total: 0,
+      hasMore: false,
+      nextCursor: null,
+    },
   } as unknown as ApiResult<GetMessagesResult>
 }
 
@@ -189,7 +196,9 @@ describe('① replayServerConversation 判序必须 fail-closed', () => {
   })
 
   it('success:true 但 messages 不是数组 ⇒ bad-payload(不把半截数据当"会话没有消息")', async () => {
-    const out = await replayServerConversation({ fetchMessages: async () => okResult(null) })
+    const out = await replayServerConversation({
+      fetchMessages: async () => okResult(null),
+    })
     expect(out).toEqual({ ok: false, reason: 'bad-payload' })
   })
 
@@ -300,7 +309,11 @@ describe('①b 卡片族的逆向读数(回放不能只剩正文)', () => {
     const row = mapServerMessage(msg({ role: 'assistant', content: '只有正文' }))
     expect(row).not.toHaveProperty('aiCards')
     const emptyArrays = mapServerMessage(
-      msg({ role: 'assistant', content: 'a', metadata: { toolCalls: [] } } as never),
+      msg({
+        role: 'assistant',
+        content: 'a',
+        metadata: { toolCalls: [] },
+      } as never),
     )
     expect(emptyArrays).not.toHaveProperty('aiCards')
   })
@@ -350,7 +363,9 @@ describe('② deleteServerConversation 三条同时成立才算删掉', () => {
   it('不抛 ∧ success:true ∧ deleted:true ⇒ ok', async () => {
     const out = await deleteServerConversation({
       remove: async () =>
-        ({ success: true, data: { deleted: true } }) as ApiResult<{ deleted: boolean }>,
+        ({ success: true, data: { deleted: true } }) as ApiResult<{
+          deleted: boolean
+        }>,
     })
     expect(out.ok).toBe(true)
   })
@@ -358,7 +373,9 @@ describe('② deleteServerConversation 三条同时成立才算删掉', () => {
   it('success:false ⇒ 不算删掉(失败要能触发列表回滚)', async () => {
     const out = await deleteServerConversation({
       remove: async () =>
-        ({ success: false, error: 'forbidden', status: 403 }) as ApiResult<{ deleted: boolean }>,
+        ({ success: false, error: 'forbidden', status: 403 }) as ApiResult<{
+          deleted: boolean
+        }>,
     })
     expect(out.ok).toBe(false)
   })
@@ -366,7 +383,9 @@ describe('② deleteServerConversation 三条同时成立才算删掉', () => {
   it('success:true 但 deleted 不是 true ⇒ 不算删掉(后端回了别的载荷不能当成功)', async () => {
     const out = await deleteServerConversation({
       remove: async () =>
-        ({ success: true, data: { deleted: false } }) as ApiResult<{ deleted: boolean }>,
+        ({ success: true, data: { deleted: false } }) as ApiResult<{
+          deleted: boolean
+        }>,
     })
     expect(out.ok).toBe(false)
   })
@@ -476,7 +495,10 @@ describe('⑤ parseEarlierPage —— 与回放同一条 fail-closed 判序', ()
   })
 
   it('messages 不是数组 ⇒ bad-payload(半截载荷不能当空页)', () => {
-    expect(parseEarlierPage(okPage(null))).toEqual({ ok: false, reason: 'bad-payload' })
+    expect(parseEarlierPage(okPage(null))).toEqual({
+      ok: false,
+      reason: 'bad-payload',
+    })
   })
 
   it('system 行整条丢弃,脏行不连坐其余消息', () => {
@@ -606,7 +628,7 @@ describe('④ 源码级反向锁', () => {
   it('向前翻失败:必须 toast 且不得清空已回放内容(失败分支不得 setMessages([]))', () => {
     const fn = /const handleLoadEarlier = [\s\S]*?\n  \}, \[/.exec(chatSrc)?.[0] ?? ''
     expect(fn).not.toBe('')
-    expect(fn).toContain('Taro.showToast(')
+    expect(fn).toContain('onToast(')
     expect(fn).not.toMatch(/setMessages\(\[\]\)/)
   })
 
@@ -629,7 +651,9 @@ describe('④ 源码级反向锁', () => {
 
 describe('④ availableFilterTypes —— 芯片只随真实数据出现', () => {
   it('服务端行(无 type)⇒ 只有 all/chat 两枚,image/voice/agent 不得渲染', () => {
-    const rows = [{ id: 'a' }, { id: 'b' }] as unknown as Array<{ type?: HistoryItem['type'] }>
+    const rows = [{ id: 'a' }, { id: 'b' }] as unknown as Array<{
+      type?: HistoryItem['type']
+    }>
     const got = availableFilterTypes(rows)
     expect(got.has('all')).toBe(true)
     expect(got.has('chat')).toBe(true)
@@ -646,7 +670,9 @@ describe('④ availableFilterTypes —— 芯片只随真实数据出现', () =>
   })
 
   it('反向:没有任何行带 voice ⇒ voice 不在集内(不许凭空给芯片)', () => {
-    const rows = [{ id: 'a', type: 'image' }] as unknown as Array<{ type?: HistoryItem['type'] }>
+    const rows = [{ id: 'a', type: 'image' }] as unknown as Array<{
+      type?: HistoryItem['type']
+    }>
     expect(availableFilterTypes(rows).has('voice')).toBe(false)
   })
 
@@ -656,7 +682,9 @@ describe('④ availableFilterTypes —— 芯片只随真实数据出现', () =>
         'chat',
       ),
     ).toBe(true)
-    const src = [{ id: 'a', type: 'agent' }] as unknown as Array<{ type?: HistoryItem['type'] }>
+    const src = [{ id: 'a', type: 'agent' }] as unknown as Array<{
+      type?: HistoryItem['type']
+    }>
     availableFilterTypes(src)
     expect(src).toEqual([{ id: 'a', type: 'agent' }])
   })

@@ -46,7 +46,7 @@ function repo() {
       encoding: 'utf8',
       windowsHide: true,
       timeout: 300000,
-      stdio: ['ignore', 'pipe', 'pipe']
+      stdio: ['ignore', 'pipe', 'pipe'],
       // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
     }).trim()
   run('init', '-q', '-b', 'main')
@@ -268,10 +268,12 @@ test('W5 源码形状反向锁:窗口不得改小、探针哨兵不得拆、"未
     /analyzeMerge\(\s*repoRoot,\s*judged,\s*mergeHead,\s*\{\s*source:\s*src,\s*windowLoss,\s*watermarkPass,?\s*\}/,
     '合并分支同样要传(两父一致那一格也在射程)',
   )
+  // 2026-11-01(P86):verdictLine 又多了 R1s 的四桶一路(`ms`),形状锁仍按**现役调用形状**补上,
+  // 不放松:多出来的那一维正是"结论行必须带着未判定/存量尾注"的新落点,锁在它上面才有意义。
   assert.match(
     code,
-    /verdictLine\(\s*modified\.length,\s*rr,\s*windowLoss\.length,\s*watermarkPass\.length\s*\)/,
-    '尾注数字必须现算现传,不得写 0',
+    /verdictLine\(\s*modified\.length,\s*rr,\s*windowLoss\.length,\s*watermarkPass\.length,\s*staged \? 0 : violations\.length,\s*ms,?\s*\)/,
+    '尾注数字必须现算现传,不得写 0(且 R1s 的桶必须一并传入)',
   )
   assert.match(
     code,

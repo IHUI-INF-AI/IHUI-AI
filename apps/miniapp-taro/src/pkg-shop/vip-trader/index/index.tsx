@@ -13,6 +13,7 @@ import { logger } from '@/utils/logger'
 import ThemeRoot from '@/components/ThemeRoot'
 import { TraderHero, TraderEntries, BenefitsHead, isLifetimeDuration } from './trader-sections'
 import './index.css'
+import { onToast } from '@/host/on-toast'
 
 // (2026-10-26 守门 8 代裁)原 `interface VipPriceData { amount: number }` 随死调用一并摘除:
 // 它描述的是从未存在过的 GET /api/vip/price 响应形,真端点 GET /api/vip/levels 的返回形
@@ -208,14 +209,14 @@ export default function VipTraderIndexPage() {
       content: `${tt('vipTrader.confirmPay', '确认支付')} ¥${amount} ${tt('vipTrader.openTrader', '开通操盘手会员')}?`,
       success: (res) => {
         if (res.confirm) {
-          Taro.showToast({ title: tt('vipTrader.opened', '开通成功'), icon: 'success' })
+          onToast(tt('vipTrader.opened', '开通成功'), { kind: 'success' })
         }
       },
     })
   }, [amount, tt])
 
   const handleConsult = useCallback(() => {
-    Taro.showToast({ title: tt('vipTrader.consultHint', '已为您接通顾问'), icon: 'none' })
+    onToast(tt('vipTrader.consultHint', '已为您接通顾问'), { kind: 'info' })
   }, [tt])
 
   const handleSubscribe = useCallback(
@@ -225,7 +226,7 @@ export default function VipTraderIndexPage() {
         content: `${tt('vipTrader.subscribeConfirm', '确认订阅')} ${pkgName} ¥${pkgPrice}?`,
         success: (res) => {
           if (res.confirm) {
-            Taro.showToast({ title: tt('vipTrader.subscribed', '订阅成功'), icon: 'success' })
+            onToast(tt('vipTrader.subscribed', '订阅成功'), { kind: 'success' })
           }
         },
       })

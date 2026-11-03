@@ -116,7 +116,7 @@ export default function ContactPage() {
             <Phone className="h-6 w-6 text-primary" />
             {t('title')}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+          <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
         </div>
         <div className="flex gap-2">
           <HasPermi code={`${PERM}:export`}>
@@ -150,7 +150,7 @@ export default function ContactPage() {
       />
 
       {total > pageSize && (
-        <div className="flex items-center justify-between text-sm">
+        <div className="flex items-center justify-between text-body">
           <span className="text-muted-foreground">{t('total', { total })}</span>
           <div className="flex gap-1">
             <button

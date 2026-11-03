@@ -122,22 +122,22 @@ export default function LiveHostPage() {
           <CardContent className="min-[640px]:p-3 space-y-2 p-3">
             <h3 className="text-body font-medium">{t('streamInfo')}</h3>
             {created.pushUrl ? (
-              <div className="flex items-center justify-between gap-2 rounded-md bg-secondary/50 px-3 py-2 text-sm">
-                <span className="truncate font-mono text-xs">{created.pushUrl}</span>
+              <div className="flex items-center justify-between gap-2 rounded-md bg-secondary/50 px-3 py-2 text-body">
+                <span className="truncate font-mono text-label">{created.pushUrl}</span>
                 <Button variant="ghost" size="sm" onClick={() => void copyText(created.pushUrl!)}>
                   <Copy className="h-4 w-4" />
                 </Button>
               </div>
             ) : null}
-            <div className="flex items-center justify-between gap-2 rounded-md bg-secondary/50 px-3 py-2 text-sm">
-              <span className="truncate font-mono text-xs">
+            <div className="flex items-center justify-between gap-2 rounded-md bg-secondary/50 px-3 py-2 text-body">
+              <span className="truncate font-mono text-label">
                 {t('streamKey')}: {created.streamKey}
               </span>
               <Button variant="ghost" size="sm" onClick={() => void copyText(created.streamKey)}>
                 <Copy className="h-4 w-4" />
               </Button>
             </div>
-            <p className="text-xs text-muted-foreground">{t('obsHint')}</p>
+            <p className="text-label text-muted-foreground">{t('obsHint')}</p>
           </CardContent>
         </Card>
       ) : null}
@@ -156,7 +156,7 @@ export default function LiveHostPage() {
             </div>
           ) : (myStreamsQ.data ?? []).length === 0 ? (
             <Card>
-              <CardContent className="flex items-center justify-center py-8 text-sm text-muted-foreground">
+              <CardContent className="flex items-center justify-center py-8 text-body text-muted-foreground">
                 {t('empty')}
               </CardContent>
             </Card>
@@ -167,7 +167,7 @@ export default function LiveHostPage() {
                   <CardContent className="min-[640px]:p-3 flex items-center justify-between gap-3 p-3">
                     <div className="min-w-0">
                       <h4 className="truncate text-body font-medium">{stream.title}</h4>
-                      <p className="mt-0.5 text-xs text-muted-foreground">
+                      <p className="mt-0.5 text-label text-muted-foreground">
                         {stream.status === 'active' ? t('statusActive') : t('statusInactive')}
                       </p>
                     </div>
@@ -186,7 +186,7 @@ export default function LiveHostPage() {
                         {t('endBtn')}
                       </Button>
                     ) : (
-                      <span className="inline-flex items-center gap-1 text-sm text-muted-foreground">
+                      <span className="inline-flex items-center gap-1 text-body text-muted-foreground">
                         <Play className="h-4 w-4" />
                         {t('statusInactive')}
                       </span>

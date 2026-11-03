@@ -102,7 +102,7 @@ export default function ApiDebugPage() {
           <Terminal className="h-6 w-6 text-primary" />
           {t('apiDebug.title')}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('apiDebug.subtitle')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('apiDebug.subtitle')}</p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-2">

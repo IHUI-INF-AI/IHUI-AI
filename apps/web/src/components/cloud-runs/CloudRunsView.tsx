@@ -111,10 +111,10 @@ export function CloudRunsView() {
               {statusLabel(selected.status)}
             </span>
           </div>
-          <p className="mb-3 text-sm">
+          <p className="mb-3 text-body">
             <code className="rounded bg-muted px-1">{selected.run_id}</code>
           </p>
-          <dl className="space-y-3 text-sm">
+          <dl className="space-y-3 text-body">
             <div className="flex gap-3">
               <dt className="w-24 shrink-0 text-muted-foreground">{t('agentType')}</dt>
               <dd className="font-medium">{selected.agent_type || 'loop_v2'}</dd>
@@ -138,7 +138,7 @@ export function CloudRunsView() {
           <h2 className="mb-2 flex items-center gap-2 text-body font-semibold">
             <FileText className="h-4 w-4" /> {t('task')}
           </h2>
-          <p className="whitespace-pre-wrap rounded-lg bg-muted/40 p-3 text-sm">
+          <p className="whitespace-pre-wrap rounded-lg bg-muted/40 p-3 text-body">
             {selected.task || '-'}
           </p>
         </div>
@@ -148,16 +148,16 @@ export function CloudRunsView() {
             <FileText className="h-4 w-4" /> {t('output')}
           </h2>
           {selected.output ? (
-            <pre className="whitespace-pre-wrap rounded-lg bg-muted/40 p-3 text-sm">
+            <pre className="whitespace-pre-wrap rounded-lg bg-muted/40 p-3 text-body">
               {selected.output}
             </pre>
           ) : (
-            <p className="text-sm text-muted-foreground">
+            <p className="text-body text-muted-foreground">
               {selected.status === 'running' ? t('runningHint') : t('noOutput')}
             </p>
           )}
           {selected.error && (
-            <p className="mt-3 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
+            <p className="mt-3 rounded-lg bg-destructive/10 p-3 text-body text-destructive">
               {selected.error}
             </p>
           )}
@@ -179,7 +179,7 @@ export function CloudRunsView() {
         <button
           onClick={() => void loadList(data?.page ?? 1)}
           disabled={loading}
-          className="inline-flex items-center gap-2 rounded-sm border px-3 py-1.5 text-sm transition hover:bg-muted disabled:opacity-40"
+          className="inline-flex items-center gap-2 rounded-sm border px-3 py-1.5 text-body transition hover:bg-muted disabled:opacity-40"
         >
           {loading ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -190,18 +190,18 @@ export function CloudRunsView() {
         </button>
       </div>
 
-      <p className="mb-4 text-sm text-muted-foreground">{t('subtitle')}</p>
+      <p className="mb-4 text-body text-muted-foreground">{t('subtitle')}</p>
 
       {error && (
-        <p className="mb-4 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{error}</p>
+        <p className="mb-4 rounded-lg bg-destructive/10 p-3 text-body text-destructive">{error}</p>
       )}
 
       {loading && !data ? (
-        <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
+        <div className="flex items-center justify-center gap-2 py-16 text-body text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" /> {t('loading')}
         </div>
       ) : !data || data.list.length === 0 ? (
-        <div className="flex items-center justify-center gap-2 rounded-xl border py-16 text-sm text-muted-foreground">
+        <div className="flex items-center justify-center gap-2 rounded-xl border py-16 text-body text-muted-foreground">
           <Cloud className="h-5 w-5" /> {t('empty')}
         </div>
       ) : (
@@ -214,7 +214,7 @@ export function CloudRunsView() {
                   className="w-full rounded-sm border p-3 text-left transition hover:border-primary/50 hover:bg-muted/30"
                 >
                   <div className="mb-1 flex items-center justify-between gap-3">
-                    <code className="truncate rounded bg-muted px-1 text-xs text-muted-foreground">
+                    <code className="truncate rounded bg-muted px-1 text-label text-muted-foreground">
                       {run.run_id.slice(0, 18)}
                     </code>
                     <span className="inline-flex items-center gap-1.5 text-label font-medium">
@@ -225,7 +225,7 @@ export function CloudRunsView() {
                   <p className="mb-1 line-clamp-2 text-body font-medium">
                     {run.task ? run.task : t('noTask')}
                   </p>
-                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-3 text-label text-muted-foreground">
                     <span className="inline-flex items-center gap-1">
                       <Clock className="h-3 w-3" /> {run.started_at || '-'}
                     </span>
@@ -241,7 +241,7 @@ export function CloudRunsView() {
           </ul>
 
           {totalPages > 1 && (
-            <div className="mt-4 flex items-center justify-center gap-3 text-sm">
+            <div className="mt-4 flex items-center justify-center gap-3 text-body">
               <button
                 onClick={() => void loadList(Math.max(1, (data.page ?? 1) - 1))}
                 disabled={(data.page ?? 1) <= 1}

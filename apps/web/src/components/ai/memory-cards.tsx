@@ -58,7 +58,7 @@ export function MemoryCards() {
   }
 
   return (
-    <div data-testid="memory-cards" className="space-y-3 text-sm">
+    <div data-testid="memory-cards" className="space-y-3 text-body">
       {/* 类目 tab */}
       <div className="flex gap-1" role="tablist" aria-label={t('title')}>
         {(Object.keys(CATEGORY_ICON) as MemoryCategory[]).map((cat) => {
@@ -73,7 +73,7 @@ export function MemoryCards() {
               data-testid={`memory-tab-${cat}`}
               onClick={() => setActive(cat)}
               className={cn(
-                'flex items-center gap-1 rounded-sm px-2 py-1 text-xs transition-colors',
+                'flex items-center gap-1 rounded-sm px-2 py-1 text-label transition-colors',
                 active === cat
                   ? 'bg-accent font-medium text-accent-foreground'
                   : 'text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground',
@@ -96,7 +96,7 @@ export function MemoryCards() {
         {items.length === 0 ? (
           <p
             data-testid="memory-empty"
-            className="rounded-lg border border-dashed px-3 py-4 text-center text-xs text-muted-foreground"
+            className="rounded-lg border border-dashed px-3 py-4 text-center text-label text-muted-foreground"
           >
             {t('empty')}
           </p>
@@ -105,7 +105,7 @@ export function MemoryCards() {
             <div
               key={e.id}
               data-testid={`memory-item-${i}`}
-              className="flex items-start gap-1.5 rounded-md border px-2 py-1.5 text-xs"
+              className="flex items-start gap-1.5 rounded-md border px-2 py-1.5 text-label"
             >
               <span className="min-w-0 flex-1 break-words whitespace-pre-wrap">{e.content}</span>
               <button
@@ -135,13 +135,13 @@ export function MemoryCards() {
             }
           }}
           placeholder={t('placeholder')}
-          className="min-w-0 flex-1 rounded-sm border bg-transparent px-2 py-1 text-xs outline-none placeholder:text-muted-foreground focus:ring-1 focus:ring-ring"
+          className="min-w-0 flex-1 rounded-sm border bg-transparent px-2 py-1 text-label outline-none placeholder:text-muted-foreground focus:ring-1 focus:ring-ring"
         />
         <button
           type="button"
           data-testid="memory-add"
           onClick={handleAdd}
-          className="flex shrink-0 items-center gap-0.5 rounded-sm border px-2 py-1 text-xs transition-colors hover:bg-accent"
+          className="flex shrink-0 items-center gap-0.5 rounded-sm border px-2 py-1 text-label transition-colors hover:bg-accent"
         >
           <Plus className="h-3 w-3" />
           {t('add')}
@@ -154,7 +154,7 @@ export function MemoryCards() {
         data-testid="memory-copy-yaml"
         onClick={() => void handleCopyYaml()}
         disabled={items.length === 0}
-        className="flex w-full items-center justify-center gap-1 rounded-sm border px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+        className="flex w-full items-center justify-center gap-1 rounded-sm border px-2 py-1.5 text-label text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
       >
         <Copy className="h-3 w-3" />
         {t('copyYaml')}

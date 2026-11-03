@@ -19,8 +19,9 @@ export function AgentReviewDetailScreen({
   loading,
   error,
   onBack,
-  colorScheme = 'light',
-}: AgentReviewDetailScreenProps) {
+  onRetry,
+  colorScheme = 'light'
+}: AgentReviewDetailScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -45,7 +46,7 @@ export function AgentReviewDetailScreen({
         </View>
         <ErrorState
           message={error || t('agentReviewDetail.empty')}
-          onRetry={onBack}
+          onRetry={onRetry}
           retryLabel={t('common.back')}
           colorScheme={colorScheme}
         />
@@ -87,7 +88,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.md,
     },
     title: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
-    body: { padding: 14 },
+    body: { padding: rnSpacing['md-loose'] },
     agentName: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
     metaRow: {
       flexDirection: 'row',

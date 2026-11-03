@@ -34,7 +34,7 @@ export function DiffStatsBar({ filter = 'all', onFilterChange, onCommit }: DiffS
   const addPct = total > 0 ? (totalAdd / total) * 100 : 50
 
   return (
-    <div className="flex items-center gap-3 px-3 py-1.5 text-xs">
+    <div className="flex items-center gap-3 px-3 py-1.5 text-label">
       <div className="flex items-center gap-1">
         <button
           onClick={() => setDiffViewMode('split')}

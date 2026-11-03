@@ -111,10 +111,10 @@ describe('D172 ② 列 / 迁移 / journal 三件同形', () => {
     const i = journal.entries.findIndex((e) => e.tag === MIGRATION_TAG)
     expect(i, `journal 里没有 ${MIGRATION_TAG} 条目`).toBeGreaterThan(-1)
     if (i > 0) {
-      const prev = journal.entries[i - 1] as { when: number }
-      const cur = journal.entries[i] as { when: number; idx: number; tag: string }
+      const prev = journal.entries[i - 1]!
+      const cur = journal.entries[i]!
       expect(cur.when).toBeGreaterThan(prev.when)
-      expect(cur.idx).toBe((prev as { idx: number }).idx + 1)
+      expect(cur.idx).toBe(prev.idx + 1)
     }
   })
 

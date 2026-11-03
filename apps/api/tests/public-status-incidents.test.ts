@@ -21,8 +21,8 @@ vi.mock('../src/config/index.js', () => ({
     PORT: 8802,
     HOST: '0.0.0.0',
     LOG_LEVEL: 'silent',
-    DATABASE_URL: 'postgres://localhost:8810/ihui_test',
-    REDIS_URL: 'redis://localhost:8811',
+    DATABASE_URL: 'postgres://127.0.0.1:5399/ihui_test',
+    REDIS_URL: 'redis://127.0.0.1:6399',
   },
 }))
 

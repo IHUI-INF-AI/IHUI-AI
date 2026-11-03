@@ -26,6 +26,7 @@ import {
 
 async function createTestUser(phone: string) {
   const [row] = await db.insert(users).values({ phone }).returning()
+  if (!row) throw new Error('point-queries.real.test.ts: 插入未返回行(row)')
   return row
 }
 
@@ -59,7 +60,7 @@ describe('point-queries — 真实 DB 集成测试', () => {
 
       const active = await findAllActiveChannels()
       expect(active).toHaveLength(1)
-      expect(active[0].name).toBe('启用渠道')
+      expect(active[0]!.name).toBe('启用渠道')
     })
 
     it('findChannels — 按 name 模糊搜索 + status 过滤 + 分页', async () => {
@@ -69,11 +70,11 @@ describe('point-queries — 真实 DB 集成测试', () => {
 
       const byName = await findChannels({ page: 1, pageSize: 10, name: '签' })
       expect(byName.total).toBe(1)
-      expect(byName.list[0].name).toBe('签到渠道')
+      expect(byName.list[0]!.name).toBe('签到渠道')
 
       const byStatus = await findChannels({ page: 1, pageSize: 10, status: 0 })
       expect(byStatus.total).toBe(1)
-      expect(byStatus.list[0].name).toBe('禁用渠道')
+      expect(byStatus.list[0]!.name).toBe('禁用渠道')
 
       const page1 = await findChannels({ page: 1, pageSize: 2 })
       expect(page1.list).toHaveLength(2)
@@ -132,14 +133,14 @@ describe('point-queries — 真实 DB 集成测试', () => {
 
       const byName = await findPoints({ page: 1, pageSize: 10, name: '签' })
       expect(byName.total).toBe(1)
-      expect(byName.list[0].name).toBe('签到规则')
+      expect(byName.list[0]!.name).toBe('签到规则')
 
       const byChannel = await findPoints({ page: 1, pageSize: 10, channelId: channel.id })
       expect(byChannel.total).toBe(2)
 
       const byStatus = await findPoints({ page: 1, pageSize: 10, status: 0 })
       expect(byStatus.total).toBe(1)
-      expect(byStatus.list[0].name).toBe('禁用规则')
+      expect(byStatus.list[0]!.name).toBe('禁用规则')
     })
 
     it('updatePoint — 更新 point 值和 status', async () => {
@@ -224,7 +225,7 @@ describe('point-queries — 真实 DB 集成测试', () => {
 
       const earnOnly = await findRecords({ page: 1, pageSize: 10, memberId: user.id, type: 'earn' })
       expect(earnOnly.total).toBe(1)
-      expect(earnOnly.list[0].point).toBe(10)
+      expect(earnOnly.list[0]!.point).toBe(10)
     })
 
     it('findUserPointsBalance — 取最新一条记录的 balance', async () => {

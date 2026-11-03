@@ -77,7 +77,7 @@
   margin-bottom: var(--spacing-sm);
 }
 .scope-text {
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-muted-foreground);
   line-height: 1.8;
 }

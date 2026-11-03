@@ -78,7 +78,7 @@ export default function AskPage() {
       ) : items.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 py-8 text-center text-muted-foreground">
           <HelpCircle className="h-8 w-8 opacity-40" />
-          <p className="text-sm">{t('empty', { default: '目前还没有数据' })}</p>
+          <p className="text-body">{t('empty', { default: '目前还没有数据' })}</p>
         </div>
       ) : (
         <ul className="space-y-2">
@@ -101,11 +101,11 @@ export default function AskPage() {
                   ) : null}
                 </div>
                 {item.content ? (
-                  <p className="line-clamp-2 break-words text-xs text-muted-foreground">
+                  <p className="line-clamp-2 break-words text-label text-muted-foreground">
                     {item.content}
                   </p>
                 ) : null}
-                <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                <div className="flex items-center gap-3 text-label text-muted-foreground">
                   <span className="inline-flex items-center gap-1">
                     <MessageCircle className="h-3 w-3" />
                     {item.answersCount ?? 0}

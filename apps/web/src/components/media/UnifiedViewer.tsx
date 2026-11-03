@@ -10,10 +10,11 @@ import Image from 'next/image'
 import { useTranslations } from 'next-intl'
 import { Download, Maximize2, FileText } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { previewExtFromHref } from '@/lib/file-preview-attachment'
 // CSP img-src 收窄后,所有外部 http(s) 图片必须走同源代理 /api/media/image,否则被 CSP 拦
 import { toMediaImageUrl, toMediaStreamUrl } from '@/lib/media-proxy'
 import { Tooltip } from '@/components/feedback'
-import { OfficeViewer } from './OfficeViewer'
+import { OfficePreview } from './office-preview'
 import { PDFViewer } from './PDFViewer'
 import {
   PreviewFileUpdatedBar,
@@ -106,7 +107,11 @@ export function UnifiedViewer({ url, fileName, className }: UnifiedViewerProps) 
       </div>
       <div className="relative flex-1 overflow-hidden">
         {kind === 'pdf' && <PDFViewer url={url} className="h-full" />}
-        {kind === 'office' && <OfficeViewer url={url} fileName={fileName} className="h-full" />}
+        {kind === 'office' && (
+          /* 2026-11-01 隐私整改:office 族改走本地渲染器(判据同 FilePreview),
+             默认不再经 view.officeapps.live.com 把文件地址外发给第三方。 */
+          <OfficePreview src={url} ext={previewExtFromHref(fileName)} className="h-full" />
+        )}
         {kind === '3d' && <ThreeDViewer url={url} format={fmt ?? 'glb'} className="h-full" />}
         {kind === 'image' && (
           <Image
@@ -150,7 +155,7 @@ export function UnifiedViewer({ url, fileName, className }: UnifiedViewerProps) 
                 className="min-h-0 flex-1 justify-center"
               />
             ) : (
-              <pre className="min-h-0 flex-1 overflow-auto p-3 text-sm">
+              <pre className="min-h-0 flex-1 overflow-auto p-3 text-body">
                 <code>{feed.content}</code>
               </pre>
             )}
@@ -159,8 +164,8 @@ export function UnifiedViewer({ url, fileName, className }: UnifiedViewerProps) 
         {kind === 'other' && (
           <div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">
             <FileText className="h-8 w-8" />
-            <p className="text-sm">{t('unsupportedPreviewFormat')}</p>
-            <a href={url} download={fileName} className="text-sm text-primary hover:underline">
+            <p className="text-body">{t('unsupportedPreviewFormat')}</p>
+            <a href={url} download={fileName} className="text-body text-primary hover:underline">
               {t('downloadFile')}
             </a>
           </div>

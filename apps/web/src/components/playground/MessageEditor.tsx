@@ -84,7 +84,7 @@ export function MessageEditor({ messages, onChange, disabled }: MessageEditorPro
       <CardContent className="min-[640px]:p-3 space-y-3 p-3">
         <div className="flex items-center justify-between">
           <Label className="text-body font-medium">{t('messageList')}</Label>
-          <span className="text-xs text-muted-foreground">
+          <span className="text-label text-muted-foreground">
             {t('messageCount', { n: messages.length })}
           </span>
         </div>
@@ -97,12 +97,12 @@ export function MessageEditor({ messages, onChange, disabled }: MessageEditorPro
                 onValueChange={(v) => updateMessage(msg.id, { role: v as PlaygroundRole })}
                 disabled={disabled}
               >
-                <SelectTrigger className="h-8 w-28 text-xs">
+                <SelectTrigger className="h-8 w-28 text-label">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {ROLES.map((r) => (
-                    <SelectItem key={r} value={r} className="text-xs">
+                    <SelectItem key={r} value={r} className="text-label">
                       {r}
                     </SelectItem>
                   ))}
@@ -147,7 +147,7 @@ export function MessageEditor({ messages, onChange, disabled }: MessageEditorPro
               disabled={disabled}
               rows={msg.role === 'system' ? 2 : 3}
               placeholder={t('inputRoleContent', { role: msg.role })}
-              className="w-full resize-y rounded-sm border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+              className="w-full resize-y rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
             />
           </div>
         ))}

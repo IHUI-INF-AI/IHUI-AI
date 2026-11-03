@@ -123,13 +123,13 @@ export function CurlPlayground(): React.JSX.Element {
           <Wand2 className="h-4 w-4 text-primary" />
           <p className="text-body font-semibold">{t('curlLinkTitle')}</p>
         </div>
-        <p className="text-xs text-muted-foreground">{t('curlLinkDesc')}</p>
+        <p className="text-label text-muted-foreground">{t('curlLinkDesc')}</p>
 
         <textarea
           value={curl}
           onChange={(e) => setCurl(e.target.value)}
           spellCheck={false}
-          className="min-h-[140px] w-full resize-y rounded-sm border bg-background px-3 py-2 font-mono text-xs leading-relaxed outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring"
+          className="min-h-[140px] w-full resize-y rounded-sm border bg-background px-3 py-2 font-mono text-label leading-relaxed outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring"
           placeholder={t('curlPlaceholder')}
         />
 

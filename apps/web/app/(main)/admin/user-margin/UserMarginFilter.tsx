@@ -22,7 +22,7 @@ export function UserMarginFilter({ search, setSearch, onSearch, onReset }: Props
     <div className="flex flex-wrap items-end gap-3 rounded-lg border p-3">
       {SEARCH_FIELDS.map((f) => (
         <div key={f.key} className="space-y-1">
-          <Label className="text-xs">{f.label}</Label>
+          <Label className="text-label">{f.label}</Label>
           <SearchInput
             value={search[f.key] ?? ''}
             onChange={(e) => setSearch({ ...search, [f.key]: e.target.value })}
@@ -34,7 +34,7 @@ export function UserMarginFilter({ search, setSearch, onSearch, onReset }: Props
       ))}
       {SEARCH_DATE_FIELDS.map((f) => (
         <div key={f.key} className="space-y-1">
-          <Label className="text-xs">{f.label}</Label>
+          <Label className="text-label">{f.label}</Label>
           <Input
             type="date"
             className="h-9 w-48"

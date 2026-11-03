@@ -65,7 +65,7 @@ export function ConfirmActionDialog({
         </DialogHeader>
         {requireInput ? (
           <div className="space-y-1.5">
-            <p className="text-xs text-muted-foreground">{hintText}</p>
+            <p className="text-label text-muted-foreground">{hintText}</p>
             <Input
               value={input}
               onChange={(e) => setInput(e.target.value)}

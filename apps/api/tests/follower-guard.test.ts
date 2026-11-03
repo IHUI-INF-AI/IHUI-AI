@@ -28,8 +28,8 @@ describe('follower-guard — 从库过载保护', () => {
     it('lagSec 超阈值返回 false 并拉黑', () => {
       const g = new FollowerGuard()
       expect(g.reportLag('s1', 10)).toBe(false)
-      expect(g.status().s1.blocked).toBe(true)
-      expect(g.status().s1.blockReason).toBe('lag')
+      expect(g.status().s1!.blocked).toBe(true)
+      expect(g.status().s1!.blockReason).toBe('lag')
     })
   })
 
@@ -52,7 +52,7 @@ describe('follower-guard — 从库过载保护', () => {
       expect(g.acquire('s1')).toBe(true)
       expect(g.acquire('s1')).toBe(true)
       expect(g.acquire('s1')).toBe(false)
-      expect(g.status().s1.blockReason).toBe('inflight')
+      expect(g.status().s1!.blockReason).toBe('inflight')
     })
     it('被拉黑时 acquire 返回 false', () => {
       const g = new FollowerGuard()
@@ -75,7 +75,7 @@ describe('follower-guard — 从库过载保护', () => {
         recoverySec: 10,
       })
       g.reportLag('s1', 100)
-      expect(g.status().s1.blocked).toBe(true)
+      expect(g.status().s1!.blocked).toBe(true)
       // 推进 30 秒（cooldown 结束）+ 10 秒（recovery）
       vi.advanceTimersByTime(41 * 1000)
       g.tick()

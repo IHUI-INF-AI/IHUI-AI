@@ -11,7 +11,7 @@ import { Bot, Sparkles, Building2, Gift, Activity, RefreshCw, Loader2 } from 'lu
 import { Dialog, DialogContent, DialogHeader, DialogTitle, Button } from '@ihui/ui-react'
 
 import { cn } from '@/lib/utils'
-import { fetchProvidersHealthSummary } from '@/lib/models-api'
+import { fetchProvidersHealthSummary, PROVIDERS_HEALTH_SUMMARY_TTL } from '@/lib/models-api'
 import type { ProvidersHealthResponse } from '@/lib/models-api'
 import { Tooltip } from '@/components/feedback'
 import { ProviderStatusBadge } from './ProviderStatusBadge'
@@ -81,7 +81,7 @@ export function ModelsHeader({ total, freeCount, providerCount, highlightCount }
             <Bot className="h-7 w-7 text-primary" />
             <span>{t('title')}</span>
           </h1>
-          <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+          <p className="text-label text-muted-foreground">{t('subtitle')}</p>
         </div>
         {/* H4 Phase B:Provider 状态总览 */}
         <ProviderStatusSummary />
@@ -125,7 +125,7 @@ function ProviderStatusSummary() {
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: ['models-header-providers-health'],
     queryFn: () => fetchProvidersHealthSummary(true),
-    staleTime: 30_000,
+    staleTime: PROVIDERS_HEALTH_SUMMARY_TTL,
   })
   const [open, setOpen] = React.useState(false)
 
@@ -232,7 +232,7 @@ function ProviderStatusDialog({
         </DialogHeader>
         <div className="space-y-3">
           {/* 总览 + 最后检测时间 */}
-          <div className="flex items-center justify-between text-xs">
+          <div className="flex items-center justify-between text-label">
             <span className="text-muted-foreground">
               {data.healthy_count}/{data.total} 可用
             </span>
@@ -257,7 +257,7 @@ function ProviderStatusDialog({
               </div>
             ))}
             {data.providers.length === 0 && (
-              <p className="py-4 text-center text-xs text-muted-foreground">暂无 Provider</p>
+              <p className="py-4 text-center text-label text-muted-foreground">暂无 Provider</p>
             )}
           </div>
           {/* 重新检测按钮 */}
@@ -267,7 +267,7 @@ function ProviderStatusDialog({
               size="xs"
               onClick={onRefresh}
               disabled={isRefreshing}
-              className="px-2.5 text-xs"
+              className="px-2.5 text-label"
             >
               {isRefreshing ? (
                 <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />

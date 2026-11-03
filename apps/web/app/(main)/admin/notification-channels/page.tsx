@@ -128,7 +128,7 @@ export default function NotificationChannelsPage() {
             <Bell className="h-6 w-6 text-primary" />
             {t('title')}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('description')}</p>
+          <p className="mt-1 text-body text-muted-foreground">{t('description')}</p>
         </div>
         <Button size="sm" onClick={openCreate}>
           <Plus className="h-4 w-4" />
@@ -144,7 +144,7 @@ export default function NotificationChannelsPage() {
       />
 
       {total > 0 && (
-        <div className="flex items-center justify-between text-sm">
+        <div className="flex items-center justify-between text-body">
           <span className="text-muted-foreground">
             {t('totalInfo', { total, page, totalPages })}
           </span>

@@ -124,7 +124,7 @@ export default function ClawdbotDashboardPage() {
           <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
             <Bot className="h-6 w-6 text-primary" /> Clawdbot 控制台
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">Bot 管理、会话监控、工具与权限</p>
+          <p className="mt-1 text-body text-muted-foreground">Bot 管理、会话监控、工具与权限</p>
         </div>
         <Button
           size="sm"
@@ -142,7 +142,7 @@ export default function ClawdbotDashboardPage() {
             <c.icon className={cn('h-5 w-5', c.cls)} />
             <div>
               <p className="text-lg font-semibold">{c.value}</p>
-              <p className="text-xs text-muted-foreground">{c.label}</p>
+              <p className="text-label text-muted-foreground">{c.label}</p>
             </div>
           </div>
         ))}
@@ -154,7 +154,7 @@ export default function ClawdbotDashboardPage() {
         </div>
         <div className="space-y-2">
           {bots.length === 0 ? (
-            <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">
+            <div className="flex items-center justify-center py-10 text-body text-muted-foreground">
               暂无 Bot
             </div>
           ) : (
@@ -165,7 +165,7 @@ export default function ClawdbotDashboardPage() {
                     <p className="min-w-0 flex-1 truncate text-body font-medium">{b.name}</p>
                     <span
                       className={cn(
-                        'rounded px-1.5 py-0.5 text-xs',
+                        'rounded px-1.5 py-0.5 text-label',
                         b.enabled
                           ? 'bg-emerald-500/10 text-emerald-600'
                           : 'bg-muted text-muted-foreground',
@@ -174,7 +174,7 @@ export default function ClawdbotDashboardPage() {
                       {b.enabled ? '运行中' : '已停止'}
                     </span>
                   </div>
-                  <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                  <p className="mt-0.5 truncate text-label text-muted-foreground">
                     {b.model} · 创建于 {timeFmt.format(new Date(b.createdAt))}
                   </p>
                 </div>

@@ -42,7 +42,7 @@ export function AgentGrid({ agents, isLoading, error }: Props) {
       return (
         <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed py-12 text-center">
           <LogIn className="h-10 w-10 text-muted-foreground/40" />
-          <p className="text-sm text-muted-foreground">{t('loginRequired')}</p>
+          <p className="text-body text-muted-foreground">{t('loginRequired')}</p>
           <Button size="sm" onClick={() => openLoginDialogOnce('/agents')}>
             {t('loginNow')}
           </Button>
@@ -50,7 +50,7 @@ export function AgentGrid({ agents, isLoading, error }: Props) {
       )
     }
     return (
-      <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+      <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
         {(error as Error).message}
       </div>
     )
@@ -60,7 +60,7 @@ export function AgentGrid({ agents, isLoading, error }: Props) {
     return (
       <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-12 text-center">
         <Bot className="h-10 w-10 text-muted-foreground/40" />
-        <p className="text-sm text-muted-foreground">{t('empty')}</p>
+        <p className="text-body text-muted-foreground">{t('empty')}</p>
       </div>
     )
   }
@@ -94,7 +94,7 @@ export function AgentGrid({ agents, isLoading, error }: Props) {
                 <Avatar src={a.avatar ?? undefined} name={a.name ?? 'A'} size="sm" />
                 <span className="break-words font-medium">{a.name}</span>
               </div>
-              <p className="flex-1 text-sm text-muted-foreground">
+              <p className="flex-1 text-body text-muted-foreground">
                 {a.description || t('noDescription')}
               </p>
               <div className="flex items-center justify-between pt-1">
@@ -110,7 +110,7 @@ export function AgentGrid({ agents, isLoading, error }: Props) {
                     {a.isFree ? t('free') : priceFmt.format(a.price)}
                   </span>
                 </div>
-                <span className="text-xs text-primary opacity-0 transition-opacity group-hover:opacity-100">
+                <span className="text-label text-primary opacity-0 transition-opacity group-hover:opacity-100">
                   {t('viewDetail')}
                 </span>
               </div>

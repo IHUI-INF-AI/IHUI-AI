@@ -62,9 +62,9 @@ groups:
           summary: 'LLM 用户级失败率过高(≥20%)'
           # `{{ $value }}` 是 `A > 0.2 and on() B >= 5` 里**左侧 A 的值**,即失败率(0.2~1.0),
           # 不是请求数 —— 原文案写"尝试数 {{ $value }}"会让收信人把"1"读成"只试了 1 次",
-          # 实为 100% 失败(2026-10-18 改)。printf 成百分比,免得还要在脑子里乘 100。
+          # 实为 100% 失败(2026-10-18 改)。humanizePercentage 把 0–1 比率转成百分比,免得还要在脑子里乘 100。
           # 样本量门槛(B >= 5)不进 $value,需要时用 `sum(increase(ihui_llm_requests_total[30m]))` 另查。
-          description: '近 30 分钟 LLM **用户级**请求失败率 {{ $value | printf "%.0f%%" }} 超阈 20%(样本量门槛 ≥5 次已满足;判据 2026-10-19 由 attempt 级改为用户级,修 26 倍虚高误报)。下一步:先看 ai-service 日志里失败请求的真实报错分类——厂商账户侧错误(鉴权/额度)由机主自行处置、不在本告警整改面;平台侧故障(网络不通/5xx/端点 404)按 LlmProviderUnhealthy 那条查;别先改代码。'
+          description: '近 30 分钟 LLM **用户级**请求失败率 {{ $value | humanizePercentage }} 超阈 20%(样本量门槛 ≥5 次已满足;判据 2026-10-19 由 attempt 级改为用户级,修 26 倍虚高误报)。下一步:先看 ai-service 日志里失败请求的真实报错分类——厂商账户侧错误(鉴权/额度)由机主自行处置、不在本告警整改面;平台侧故障(网络不通/5xx/端点 404)按 LlmProviderUnhealthy 那条查;别先改代码。'
 
       - alert: AiLlmLatencyP95High
         expr: |
@@ -107,20 +107,53 @@ groups:
           description: '已发内容后流被截断的比例升高(前端 partial_done 同一判据)。下一步:按 reason 拆 upstream_error / timeout_guard,前者查上游断流,后者是厂商流式降级。'
 
       - alert: AiCostLedgerWriteFailures
-        expr: increase(business_ai_record_failures_total{job="business-metrics"}[15m]) > 0
-        for: 15m
+        # 事件型计数器没有 0 基线:首次失败时序列才以 1 出现,"首末样本都是 1" ⇒ 单靠 increase() 恒为 0,
+        # 首事件永远看不见。第二个子句用 unless offset 抓"15m 前还不存在的新序列"。
+        # for 必须小于窗口:for==range 时条件最多撑满一个窗口减一个 scrape,永远凑不满 for。
+        expr: |
+          (
+            increase(business_ai_record_failures_total{job="business-metrics"}[15m]) > 0
+            or
+            (
+              business_ai_record_failures_total{job="business-metrics"}
+              unless
+              business_ai_record_failures_total{job="business-metrics"} offset 15m
+            ) > 0
+          )
+        for: 5m
         labels:
           severity: warning
         annotations:
           summary: 'AI 成本落库失败'
-          description: 'ai_cost_records 写入在抛异常(业务侧完全看不见,只有这一条会响)。下一步:查 DB 连接/迁移落后/字段约束;这是计费数据,必须真修不能压掉。'
+          description: 'ai_cost_records 写入在抛异常(业务侧完全看不见,只有这一条会响)。下一步:查 DB 连接/迁移落后/字段约束;这是计费数据,必须真修不能压掉。首事件也会报:新出现的失败序列被 unless offset 15m 命中时,即使 increase 为 0 也会在 5m 内进入 firing(该子句自首个样本起约存活 15m,长于 for 的 5m);这条是唯一会响的判据,同样不能压。'
 
       - alert: AiMetricSeriesCapHit
+        # 同类 for==range 死条件:for 必须小于窗口(这里 30m 窗口给 15m for 留余量)。
         expr: increase(business_ai_series_dropped_total{job="business-metrics"}[30m]) > 0
-        for: 30m
+        for: 15m
         labels:
           severity: warning
         annotations:
           summary: 'AI 指标触到基数护栏(有序列被拒)'
           description: '标签组合超过 2048 上限后新序列不计数 ⇒ 大屏读数会偏小而非报错。下一步:看是不是 model 标签被上游自由文本灌爆(应回清洗/收口取值),而不是简单调大上限。'
+
+  - name: alert-delivery-alerts
+    rules:
+      # 告警桥 SMTP+Resend 双失败时仍向 AM 回 200(AM 把 2xx 当送达、不会重试),失败批次只能由桥自己
+      # 的计数器说话。alerts.yml 的 AlertBridgeMailUndelivered 管"UNDELIVERED 标记在盘上"的持久失败;
+      # 本条补它结构上碰不到的两面:(a) 失败后又被一次成功清掉标记 ⇒ 反复丢信;(b) 连标记都写不出去
+      # ⇒ 标记恒 0 的双盲。因此刻意加 `mail_undelivered == 0`,与标记规则互斥,同一故障不寄两封。
+      # 阈值 1h/≥2 批:30 天实测总量仅 47 批(投递 44 / 失败 3),单批失败属偶发;1 小时内两批双失败
+      # 已是通道级持续故障,配 for:15m 过滤单次抖动,又不会把超过 1h 的旧失败一直拖着。
+      - alert: AlertBridgeMailRepeatedFailure
+        expr: |
+          increase(ihui_alertbridge_mail_batches_failed_total[1h]) >= 2
+          and on()
+          ihui_alertbridge_mail_undelivered == 0
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: '告警邮件反复两腿失败,信没送到人'
+          description: '近 1 小时桥已有 {{ $value | humanize }} 个告警邮件批次在品牌+纯文本两条腿上都失败 ⇒ 这些批次的告警信没送到人(每批至少 1 条);且此刻盘上没有 UNDELIVERED 标记:失败曾被后续成功清掉,或连标记都写不出去(双盲)。AM 收到 2xx 不会重试,丢失批次不会补发——先查 SMTP/Resend 通道与账号(密钥/额度/网络/发信域),再对 bridge 日志 [mail][ERROR] 与未送达标记里的 alertname 逐条补看。该指标无 alertname label,受影响告警名只能从桥日志或 UNDELIVERED 文件读。'
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

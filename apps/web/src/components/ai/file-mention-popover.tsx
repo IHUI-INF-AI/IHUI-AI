@@ -351,7 +351,7 @@ export function FileMentionPopover({
               data-testid={'mention-dimension-tab-' + dim.labelNs + '.' + dim.labelKey}
               onClick={() => setActiveDimension(dim.id)}
               className={cn(
-                'inline-flex items-center gap-1 rounded-sm px-1.5 py-1 text-xs transition-colors',
+                'inline-flex items-center gap-1 rounded-sm px-1.5 py-1 text-label transition-colors',
                 active
                   ? 'bg-accent text-accent-foreground'
                   : 'text-muted-foreground hover:bg-accent/50',
@@ -376,13 +376,13 @@ export function FileMentionPopover({
       <ul ref={listRef} className="max-h-60 min-h-0 flex-1 overflow-y-auto p-1.5">
         {stateLine && allItems.length === 0 ? (
           <li
-            className="px-2.5 py-6 text-center text-sm text-muted-foreground"
+            className="px-2.5 py-6 text-center text-body text-muted-foreground"
             data-testid="mention-dimension-state"
           >
             {stateLine}
           </li>
         ) : allItems.length === 0 ? (
-          <li className="flex flex-col items-center gap-1 py-8 text-center text-sm text-muted-foreground">
+          <li className="flex flex-col items-center gap-1 py-8 text-center text-body text-muted-foreground">
             {t('noMatch')}
           </li>
         ) : (
@@ -472,5 +472,4 @@ export function FileMentionPopover({
     </PortalPanel>
   )
 }
-
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

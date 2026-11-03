@@ -106,7 +106,7 @@ export function EnvironmentInfoPopover() {
       aria-label={t('ariaLabel')}
     >
       <PopoverHeader onViewFull={openFullView} t={t} />
-      <div className="flex flex-col text-xs">
+      <div className="flex flex-col text-label">
         {!hasWorkspace && <NoWorkspaceHint t={t} />}
         {hasWorkspace && error && (
           <ErrorHint message={error} onRetry={() => fetchStatus(workspacePath)} t={t} />
@@ -479,9 +479,7 @@ function LocalServersSection({
           <span className="flex h-4 w-4 shrink-0 items-center text-muted-foreground">
             <Server className="h-4 w-4" aria-hidden />
           </span>
-          <span className="flex-1 truncate text-[13px] text-foreground">
-            {t('localServers')}
-          </span>
+          <span className="flex-1 truncate text-[13px] text-foreground">{t('localServers')}</span>
           {expanded ? (
             <ChevronUp className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
           ) : (

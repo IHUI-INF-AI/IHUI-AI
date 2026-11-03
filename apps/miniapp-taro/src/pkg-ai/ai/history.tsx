@@ -30,6 +30,7 @@ import ThemeRoot from '@/components/ThemeRoot'
 import SearchBar from '@/components/SearchBar'
 import ConversationHistoryItem from '@/components/ConversationHistoryItem'
 import LineIcon from '@/components/LineIcon'
+import { onToast } from '@/host/on-toast'
 
 /**
  * 远程图标静态注册表:noUncheckedIndexedAccess 下 Record 点号访问返回 string | undefined,
@@ -501,10 +502,7 @@ export default function HistoryPage() {
       // 兜底态不报「刷新成功」—— 那是对失败的假交代(§5e「失败必须响」同一条禁令),
       // 此时上方的兜底提示条就是可见反馈;服务端拿到才照 HEAD 的原有行为提示成功。
       if (result?.source === 'server') {
-        Taro.showToast({
-          title: tt('ai.historyPage.refreshSuccess', '刷新成功'),
-          icon: 'none',
-        })
+        onToast(tt('ai.historyPage.refreshSuccess', '刷新成功'), { kind: 'info' })
       }
     })
   }, [load, tt])
@@ -533,10 +531,7 @@ export default function HistoryPage() {
     if (!items) {
       setLoadingMore(false)
       setHasMore(false)
-      Taro.showToast({
-        title: tt('ai.historyPage.loadMoreFailed', '加载更多失败,请下拉刷新重试'),
-        icon: 'none',
-      })
+      onToast(tt('ai.historyPage.loadMoreFailed', '加载更多失败,请下拉刷新重试'), { kind: 'error' })
       return
     }
     const merged = mergeHistoryRows(list, items)
@@ -584,12 +579,12 @@ export default function HistoryPage() {
       if (outcome.ok) {
         setList(outcome.items)
       } else {
-        Taro.showToast({
-          title: next
+        onToast(
+          next
             ? tt('ai.historyPage.pinFailed', '置顶失败,请重试')
             : tt('ai.historyPage.unpinFailed', '取消置顶失败,请重试'),
-          icon: 'none',
-        })
+          { kind: 'error' },
+        )
       }
     },
     [list, source, tt],
@@ -612,7 +607,7 @@ export default function HistoryPage() {
             Taro.setStorageSync(HISTORY_KEY, next)
             return next
           })
-          Taro.showToast({ title: t('success.deleted'), icon: 'none' })
+          onToast(t('success.deleted'), { kind: 'info' })
         },
       })
     },
@@ -641,14 +636,11 @@ export default function HistoryPage() {
           void deleteServerConversation({ remove: () => deleteConversation(h.id) }).then(
             (outcome) => {
               if (outcome.ok) {
-                Taro.showToast({ title: t('success.deleted'), icon: 'none' })
+                onToast(t('success.deleted'), { kind: 'info' })
                 return
               }
               setList(snapshot)
-              Taro.showToast({
-                title: tt('ai.historyPage.deleteFailed', '删除失败,请重试'),
-                icon: 'none',
-              })
+              onToast(tt('ai.historyPage.deleteFailed', '删除失败,请重试'), { kind: 'error' })
             },
           )
         },
@@ -668,7 +660,7 @@ export default function HistoryPage() {
         if (!res.confirm) return
         Taro.setStorageSync(HISTORY_KEY, [])
         setList([])
-        Taro.showToast({ title: tt('ai.historyPage.cleared', '已清空'), icon: 'none' })
+        onToast(tt('ai.historyPage.cleared', '已清空'), { kind: 'info' })
       },
     })
   }, [list.length, t, tt])
@@ -718,18 +710,20 @@ export default function HistoryPage() {
       setPage(1)
       setServerPage(1)
       setServerHasMore(false)
-      Taro.showToast({ title: t('ai.historyPage.clearServerDone', { n: total }), icon: 'none' })
+      onToast(t('ai.historyPage.clearServerDone', { n: total }), { kind: 'info' })
       return
     }
     // 有失败:失败行原样保留(长按可单条重试),toast 点名 X/Y,不谎报清空。
     // 函数式更新基于当前列表摘掉成功行,中途被刷新改写过的列表也不会被旧快照整表盖回。
     setList((prev) => applyServerClearResult(prev, result).items)
-    Taro.showToast({
-      title: t('ai.historyPage.clearServerPartial', {
+    Taro.showModal({
+      title: t('common.hint'),
+      content: t('ai.historyPage.clearServerPartial', {
         ok: result.okIds.length,
         fail: result.failedIds.length,
       }),
-      icon: 'none',
+      showCancel: false,
+      confirmText: t('common.confirm'),
     })
   }, [source, clearingAll, list, t, tt])
 

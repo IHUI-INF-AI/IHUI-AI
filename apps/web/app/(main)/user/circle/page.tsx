@@ -64,7 +64,7 @@ export default function UserCirclePage() {
       ) : items.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 py-8 text-center text-muted-foreground">
           <Users className="h-8 w-8 opacity-40" />
-          <p className="text-sm">{t('empty')}</p>
+          <p className="text-body">{t('empty')}</p>
         </div>
       ) : (
         <ul className="space-y-3">
@@ -76,7 +76,7 @@ export default function UserCirclePage() {
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <h3 className="truncate text-body font-semibold">{c.name}</h3>
-                  <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
+                  <div className="mt-1 flex items-center gap-3 text-label text-muted-foreground">
                     <span className="inline-flex items-center gap-1">
                       <Users className="h-3 w-3" />
                       {c.membersCount ?? 0}

@@ -63,7 +63,7 @@ function formatTokens(n: number): string {
 function StatCard({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
     <div className="rounded-lg border bg-card p-4">
-      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="text-label text-muted-foreground">{label}</p>
       <p className="mt-1 text-display font-medium tabular-nums">{value}</p>
       {hint && <p className="mt-0.5 text-[11px] text-muted-foreground">{hint}</p>}
     </div>
@@ -76,7 +76,7 @@ function BarChart({ points, valueKey }: { points: TrendPoint[]; valueKey: 'calls
   return (
     <div className="flex h-28 items-end gap-1">
       {points.length === 0 ? (
-        <p className="w-full text-center text-xs text-muted-foreground">暂无数据</p>
+        <p className="w-full text-center text-label text-muted-foreground">暂无数据</p>
       ) : (
         points.map((p) => (
           <Tooltip key={p.date} content={`${p.date}: ${p[valueKey] ?? 0}`}>
@@ -133,7 +133,7 @@ export default function CapacityPage() {
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <h1 className="text-display font-bold tracking-tight">容量与趋势</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 text-body text-muted-foreground">
             Key 池容量汇总与增长/调用趋势,实测聚合,辅助容量规划。
           </p>
         </div>
@@ -165,7 +165,7 @@ export default function CapacityPage() {
       </div>
 
       {err && (
-        <p className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+        <p className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-body text-destructive">
           {(err as Error).message}
         </p>
       )}

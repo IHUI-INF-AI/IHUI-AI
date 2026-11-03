@@ -74,7 +74,7 @@ function TwoFactorPanel({
     <div className="space-y-3">
       <div>
         <p className="text-body font-medium text-foreground">{tAuth('twoFactorTitle')}</p>
-        <p className="mt-1 text-xs text-muted-foreground">{tAuth('twoFactorHint')}</p>
+        <p className="mt-1 text-label text-muted-foreground">{tAuth('twoFactorHint')}</p>
       </div>
       <input
         value={code}
@@ -85,10 +85,10 @@ function TwoFactorPanel({
         placeholder={tAuth('twoFactorPlaceholder')}
         // eslint-disable-next-line jsx-a11y/no-autofocus -- 两步验证码输入框需要自动聚焦，提升用户体验
         autoFocus
-        className="h-10 w-full rounded-sm border border-border bg-background px-3 text-sm outline-none focus:border-brand-accent-deep"
+        className="h-10 w-full rounded-sm border border-border bg-background px-3 text-body outline-none focus:border-brand-accent-deep"
         onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
       />
-      {err && <p className="text-xs text-destructive">{err}</p>}
+      {err && <p className="text-label text-destructive">{err}</p>}
       <div className="flex gap-2">
         <button
           type="button"
@@ -101,7 +101,7 @@ function TwoFactorPanel({
         <button
           type="button"
           onClick={onCancel}
-          className="h-9 rounded-sm border border-border px-4 text-sm text-muted-foreground hover:bg-muted/50"
+          className="h-9 rounded-sm border border-border px-4 text-body text-muted-foreground hover:bg-muted/50"
         >
           {tAuth('twoFactorCancel')}
         </button>

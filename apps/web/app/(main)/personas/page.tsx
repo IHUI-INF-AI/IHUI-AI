@@ -75,7 +75,7 @@ function SchemaView({ schema }: { schema: JsonSchema }) {
 
   if (!properties || Object.keys(properties).length === 0) {
     return (
-      <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-all rounded-md bg-muted/50 p-3 font-mono text-xs leading-relaxed text-muted-foreground">
+      <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-all rounded-md bg-muted/50 p-3 font-mono text-label leading-relaxed text-muted-foreground">
         {JSON.stringify(schema, null, 2)}
       </pre>
     )
@@ -86,7 +86,7 @@ function SchemaView({ schema }: { schema: JsonSchema }) {
   return (
     <div className="space-y-2">
       {schema.description && (
-        <p className="text-xs leading-relaxed text-muted-foreground">{schema.description}</p>
+        <p className="text-label leading-relaxed text-muted-foreground">{schema.description}</p>
       )}
       <ul className="space-y-1.5">
         {Object.entries(properties).map(([fieldName, prop]) => (
@@ -103,7 +103,7 @@ function SchemaView({ schema }: { schema: JsonSchema }) {
               )}
             </div>
             {prop.description && (
-              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+              <p className="mt-1 text-label leading-relaxed text-muted-foreground">
                 {prop.description}
               </p>
             )}
@@ -190,7 +190,7 @@ export default function PersonasPage() {
           <UserCircle className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       <div className="relative">
@@ -223,7 +223,7 @@ export default function PersonasPage() {
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-12 text-center text-muted-foreground">
           <UserCircle className="h-8 w-8" />
-          <p className="text-sm">{query ? t('empty') : t('noPersonas')}</p>
+          <p className="text-body">{query ? t('empty') : t('noPersonas')}</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
@@ -258,7 +258,7 @@ export default function PersonasPage() {
                         )}
                       />
                     </div>
-                    <p className="mt-1.5 line-clamp-2 break-words text-xs text-muted-foreground">
+                    <p className="mt-1.5 line-clamp-2 break-words text-label text-muted-foreground">
                       {p.description || '—'}
                     </p>
                   </CardContent>

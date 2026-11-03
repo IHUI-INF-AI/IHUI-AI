@@ -2393,13 +2393,13 @@ const bubbleStyles = StyleSheet.create({
     color: tokens.text.tertiary,
     fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }),
   },
-  cardMeta: { fontSize: 10, color: tokens.text.tertiary },
+  cardMeta: { fontSize: rnType.badge.size, color: tokens.text.tertiary },
   cardBody: {
     paddingHorizontal: rpx(12),
     paddingBottom: rpx(10),
     gap: rpx(6),
   },
-  sectionLabel: { fontSize: 10, fontWeight: '600', color: tokens.text.tertiary },
+  sectionLabel: { fontSize: rnType.badge.size, fontWeight: '600', color: tokens.text.tertiary },
   sectionGap: { marginTop: rpx(6) },
   // 等宽文本(工具参数/输出、终端命令与输出)
   monoText: {
@@ -2432,7 +2432,7 @@ const bubbleStyles = StyleSheet.create({
     paddingVertical: rpx(2),
     borderRadius: rnRadius.md,
   },
-  badgeText: { fontSize: 10, fontWeight: '600' },
+  badgeText: { fontSize: rnType.badge.size, fontWeight: '600' },
   badgePending: { backgroundColor: tokens.gray[200] },
   badgePendingText: { color: tokens.text.secondary },
   badgeActive: { backgroundColor: tokens.warning.amberLight },

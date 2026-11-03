@@ -322,7 +322,7 @@ export function SwarmTopologyView({
       )}
     >
       {isEmpty ? (
-        <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
+        <div className="flex h-full items-center justify-center text-label text-muted-foreground">
           {t('emptyState')}
         </div>
       ) : (
@@ -780,7 +780,7 @@ export function CollaborationStream({ dispatchId, className }: CollaborationStre
     return (
       <div
         className={cn(
-          'rounded-md border border-border bg-card p-3 text-xs text-muted-foreground',
+          'rounded-md border border-border bg-card p-3 text-label text-muted-foreground',
           className,
         )}
       >
@@ -793,7 +793,7 @@ export function CollaborationStream({ dispatchId, className }: CollaborationStre
     return (
       <div
         className={cn(
-          'rounded-md border border-border bg-card p-3 text-xs text-muted-foreground',
+          'rounded-md border border-border bg-card p-3 text-label text-muted-foreground',
           className,
         )}
       >
@@ -952,7 +952,10 @@ export function TopologyRecommendation({ plan, className }: TopologyRecommendati
 
   return (
     <div
-      className={cn('space-y-2 rounded-lg border border-border bg-card p-2.5 text-xs', className)}
+      className={cn(
+        'space-y-2 rounded-lg border border-border bg-card p-2.5 text-label',
+        className,
+      )}
     >
       {/* 头部:编排模式 + 预估 */}
       <div className="flex items-center gap-2">
@@ -1066,7 +1069,7 @@ export function EvolutionTimeline({ role, className }: EvolutionTimelineProps) {
     return (
       <div
         className={cn(
-          'rounded-md border border-border bg-card p-3 text-xs text-muted-foreground',
+          'rounded-md border border-border bg-card p-3 text-label text-muted-foreground',
           className,
         )}
       >
@@ -1079,7 +1082,7 @@ export function EvolutionTimeline({ role, className }: EvolutionTimelineProps) {
     return (
       <div
         className={cn(
-          'rounded-md border border-border bg-card p-3 text-xs text-muted-foreground',
+          'rounded-md border border-border bg-card p-3 text-label text-muted-foreground',
           className,
         )}
       >
@@ -1090,7 +1093,10 @@ export function EvolutionTimeline({ role, className }: EvolutionTimelineProps) {
 
   return (
     <div
-      className={cn('space-y-2 rounded-lg border border-border bg-card p-2.5 text-xs', className)}
+      className={cn(
+        'space-y-2 rounded-lg border border-border bg-card p-2.5 text-label',
+        className,
+      )}
     >
       <div className="flex items-center justify-between">
         <span className="text-[11px] font-medium text-foreground">

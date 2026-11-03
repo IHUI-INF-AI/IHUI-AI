@@ -92,7 +92,7 @@
 
 /* ===== 厂商头部(RN providerHeader:marginH 12 paddingH 12 paddingV 14 bg surface.bg radius 10 + shadowCard)===== */
 .provider-header {
-  padding: 28rpx 24rpx;
+  padding: var(--spacing-md-loose) 24rpx;
   background: var(--color-background);
   margin: 0 24rpx 24rpx;
   border-radius: var(--radius-lg);

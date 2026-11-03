@@ -12,6 +12,16 @@ on:
   workflow_dispatch:
 
 # Security: least-privilege GITHUB_TOKEN (CWE-250). Third-party actions use @v tags — pin to commit SHA for stricter supply-chain security.
+# 2026-11-03(排队治理):本工作流**没有 paths 过滤**,main/develop 的每次 push 与每个 PR
+#   都会起一枚;实测 3 小时内 6 枚(PR 侧 run 41576869123 排队 495s),单次执行 227~309s。
+# 它不是 required check(分支保护现读只有 `CI / lint-typecheck-test (push)`),故按
+#   "同一 ref 只跑最新一次"收敛:新提交挤掉同 ref 上尚未完成/正在跑的旧运行,只保留
+#   最新提交的结论。代价:旧提交的 real-db 结论不再保留(需要时对同一 SHA 手动
+#   workflow_dispatch 重跑,dispatch 与 push 同 ref 共组)。
+concurrency:
+  group: real-db-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 

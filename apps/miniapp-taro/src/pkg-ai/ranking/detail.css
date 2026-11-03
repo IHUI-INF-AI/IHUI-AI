@@ -58,7 +58,7 @@
 .detail-body {
   flex: 1;
   height: 0;
-  padding: 28rpx;
+  padding: var(--spacing-md-loose);
   box-sizing: border-box;
 }
 
@@ -77,7 +77,7 @@
   gap: var(--spacing-md);
   background: var(--color-card);
   border-radius: var(--radius-lg);
-  padding: 28rpx;
+  padding: var(--spacing-md-loose);
 }
 
 /* row-1:Logo + 标题简介 + 元信息(RN row1: row/center/gap12) */

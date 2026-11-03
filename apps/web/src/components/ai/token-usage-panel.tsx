@@ -21,7 +21,7 @@ function StatItem({ label, value }: { label: string; value: number }) {
   return (
     <div className="flex flex-col">
       <span className="text-lg font-semibold tabular-nums">{formatNumber(value)}</span>
-      <span className="text-xs text-muted-foreground">{label}</span>
+      <span className="text-label text-muted-foreground">{label}</span>
     </div>
   )
 }
@@ -44,7 +44,7 @@ export function TokenUsagePanel({
         <StatItem label={t('totalTokens')} value={totalTokens} />
       </div>
       {(cost !== undefined || model) && (
-        <div className="mt-2 flex items-center justify-between mt-2 pt-2 text-xs text-muted-foreground">
+        <div className="mt-2 flex items-center justify-between mt-2 pt-2 text-label text-muted-foreground">
           {model && <span className="break-words">{model}</span>}
           {cost !== undefined && (
             <span className={cn('tabular-nums', cost > 0 && 'text-foreground font-medium')}>

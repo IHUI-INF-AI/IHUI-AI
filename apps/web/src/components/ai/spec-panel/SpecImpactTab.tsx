@@ -36,12 +36,12 @@ export function SpecImpactTab({ p }: { p: SpecPanelApi }) {
         onChange={(e) => p.setImpactInput(e.target.value)}
         placeholder={t('proposedChangePlaceholder')}
         rows={5}
-        className="w-full rounded-sm border border-border bg-background p-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-foreground/20 focus:outline-none"
+        className="w-full rounded-sm border border-border bg-background p-2 text-label text-foreground placeholder:text-muted-foreground focus:border-foreground/20 focus:outline-none"
       />
       {p.impactResult && (
         <div className="max-h-[45vh] space-y-2 overflow-auto rounded-md border border-border bg-background p-2">
           <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">风险评分:</span>
+            <span className="text-label text-muted-foreground">风险评分:</span>
             <span
               className={cn(
                 'rounded px-2 py-0.5 text-label font-bold',
@@ -51,13 +51,15 @@ export function SpecImpactTab({ p }: { p: SpecPanelApi }) {
               {t(RISK_LABEL[p.impactResult.riskLevel] ?? p.impactResult.riskLevel)}
             </span>
             {p.impactResult.llmAnalysis?.summary && (
-              <span className="text-xs text-muted-foreground">
+              <span className="text-label text-muted-foreground">
                 {p.impactResult.llmAnalysis.summary}
               </span>
             )}
           </div>
           {p.impactResult.llmAnalysis?.riskReason && (
-            <p className="text-xs text-muted-foreground">{p.impactResult.llmAnalysis.riskReason}</p>
+            <p className="text-label text-muted-foreground">
+              {p.impactResult.llmAnalysis.riskReason}
+            </p>
           )}
           <div>
             <p className="text-label font-medium text-foreground">
@@ -119,7 +121,7 @@ export function SpecImpactTab({ p }: { p: SpecPanelApi }) {
               <p className="text-label font-medium text-foreground">建议措施</p>
               <ul className="mt-1 space-y-0.5">
                 {p.impactResult.recommendations.map((r, i) => (
-                  <li key={i} className="text-xs text-muted-foreground">
+                  <li key={i} className="text-label text-muted-foreground">
                     <span className="text-foreground">•</span> {r}
                   </li>
                 ))}
@@ -134,7 +136,7 @@ export function SpecImpactTab({ p }: { p: SpecPanelApi }) {
         </div>
       )}
       {!p.impactResult && !p.impactLoading && (
-        <p className="text-xs text-muted-foreground p-2">
+        <p className="text-label text-muted-foreground p-2">
           填写拟修改内容后点击「分析影响」,LLM + 静态扫描预测影响范围 + 风险评分
         </p>
       )}

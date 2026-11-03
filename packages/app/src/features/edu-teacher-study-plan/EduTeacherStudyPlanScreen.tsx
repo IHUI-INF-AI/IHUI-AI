@@ -500,7 +500,7 @@ export function EduTeacherStudyPlanScreen({
                     >
                       <View style={[styles.checkbox, item.completed ? styles.checkboxOn : null]}>
                         {item.completed ? (
-                          <Check size={11} color={tk.brand.foreground} strokeWidth={3} />
+                          <Check size={11} color={styles.checkboxOnText.color} strokeWidth={3} />
                         ) : null}
                       </View>
                       <View style={styles.itemMain}>
@@ -540,7 +540,7 @@ export function EduTeacherStudyPlanScreen({
                           ]}
                         >
                           {child.completed ? (
-                            <Check size={11} color={tk.brand.foreground} strokeWidth={3} />
+                            <Check size={11} color={styles.checkboxOnText.color} strokeWidth={3} />
                           ) : null}
                         </View>
                         <View style={styles.itemMain}>
@@ -958,7 +958,7 @@ function createStyles(tk: AppThemeTokens) {
     badge: {
       flexShrink: 0,
       paddingHorizontal: rnSpacing.sm,
-      paddingVertical: 2,
+      paddingVertical: rnSpacing['2xs'],
       borderRadius: rnRadiusFor.chip,
     },
     badgeText: { fontSize: rnType.caption.size, fontWeight: '600' },
@@ -1075,7 +1075,7 @@ function createStyles(tk: AppThemeTokens) {
     checkbox: {
       width: 18,
       height: 18,
-      marginTop: 2,
+      marginTop: rnSpacing['2xs'],
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.medium,
@@ -1083,12 +1083,14 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
     },
     checkboxSm: { width: 15, height: 15 },
-    checkboxOn: { backgroundColor: tk.brand.DEFAULT, borderColor: tk.brandAccent.deep },
+    // 选中态成对取档(AGENTS §4):实底 brand.cta + 其上字形 brand.ctaForeground,配对由 key 名成立
+    checkboxOn: { backgroundColor: tk.brand.cta, borderColor: tk.brandAccent.deep },
+    checkboxOnText: { color: tk.brand.ctaForeground },
     itemMain: { flex: 1 },
     itemText: { fontSize: rnType.body.size, color: tk.text.primary },
     itemTextSm: { fontSize: rnType.label.size, color: tk.text.primary },
     itemTextDone: { color: tk.text.tertiary, textDecorationLine: 'line-through' },
-    itemMeta: { marginTop: 2, fontSize: rnType.caption.size, color: tk.text.tertiary },
+    itemMeta: { marginTop: rnSpacing['2xs'], fontSize: rnType.caption.size, color: tk.text.tertiary },
     /* 弹层 */
     modalRoot: { flex: 1, justifyContent: 'flex-end' },
     modalScrim: {
@@ -1167,3 +1169,4 @@ function createStyles(tk: AppThemeTokens) {
     },
   } satisfies Record<string, ViewStyle | TextStyle>)
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

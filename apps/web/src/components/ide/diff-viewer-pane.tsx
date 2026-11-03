@@ -306,7 +306,12 @@ export function DiffViewerPane({ pullRequestUrl, pullRequestNumber }: DiffViewer
         setThreeWayContents(null)
       } else {
         setThreeWayLoadFailed(false)
-        setThreeWayContents({ base: base ?? '', ours: ours ?? '', theirs: theirs ?? '', conflicted })
+        setThreeWayContents({
+          base: base ?? '',
+          ours: ours ?? '',
+          theirs: theirs ?? '',
+          conflicted,
+        })
       }
       setThreeWayBusy(false)
     })()
@@ -466,7 +471,7 @@ export function DiffViewerPane({ pullRequestUrl, pullRequestNumber }: DiffViewer
         onCommit={() => setSelectedIds(new Set())}
       />
       {/* D98②④⑤:审阅工具条 —— 文件跳转 / 生成文件隐藏 / 已审计数 / PR 入口 / 导出迁移命令 */}
-      <div className="flex flex-wrap items-center gap-1.5 px-2 py-1 text-xs">
+      <div className="flex flex-wrap items-center gap-1.5 px-2 py-1 text-label">
         <div className="flex min-w-0 items-center gap-1 rounded-sm border border-border/60 bg-background px-1.5 py-0.5">
           <Search className="h-3 w-3 shrink-0 text-muted-foreground" aria-hidden />
           <input
@@ -579,7 +584,7 @@ export function DiffViewerPane({ pullRequestUrl, pullRequestNumber }: DiffViewer
           </div>
         )}
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-          <div className="flex items-center gap-1 px-2 py-1 text-xs">
+          <div className="flex items-center gap-1 px-2 py-1 text-label">
             <button
               onClick={() => setShowFileList(!showFileList)}
               className="flex items-center rounded-sm p-0.5 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
@@ -627,7 +632,7 @@ export function DiffViewerPane({ pullRequestUrl, pullRequestNumber }: DiffViewer
               切走再切回缺省态不丢;同屏**不得**再渲染伪 diff(见下方渲染守卫)。 */}
           {contentLoadFailed && (
             <div
-              className="flex items-center gap-1.5 bg-red-500/10 px-3 py-1.5 text-xs text-red-600 dark:text-red-400"
+              className="flex items-center gap-1.5 bg-red-500/10 px-3 py-1.5 text-label text-red-600 dark:text-red-400"
               data-testid="diff-content-error"
             >
               <TriangleAlert className="h-3.5 w-3.5 shrink-0" aria-hidden />
@@ -650,7 +655,7 @@ export function DiffViewerPane({ pullRequestUrl, pullRequestNumber }: DiffViewer
           <div className="flex-1 overflow-auto">
             {isLoading && (
               <div
-                className="flex h-full items-center justify-center text-xs text-muted-foreground"
+                className="flex h-full items-center justify-center text-label text-muted-foreground"
                 data-testid="diff-content-loading"
               >
                 <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
@@ -659,7 +664,7 @@ export function DiffViewerPane({ pullRequestUrl, pullRequestNumber }: DiffViewer
             )}
             {threeWayOpen && effectiveDiff && threeWayBusy && (
               <div
-                className="flex items-center gap-1.5 px-3 py-2 text-xs text-muted-foreground"
+                className="flex items-center gap-1.5 px-3 py-2 text-label text-muted-foreground"
                 data-testid="diff-3way-loading"
               >
                 <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
@@ -668,7 +673,7 @@ export function DiffViewerPane({ pullRequestUrl, pullRequestNumber }: DiffViewer
             )}
             {threeWayOpen && effectiveDiff && !threeWayBusy && threeWayLoadFailed && (
               <div
-                className="flex items-center gap-1.5 px-3 py-2 text-xs text-red-600 dark:text-red-400"
+                className="flex items-center gap-1.5 px-3 py-2 text-label text-red-600 dark:text-red-400"
                 data-testid="diff-3way-error"
               >
                 <TriangleAlert className="h-3.5 w-3.5 shrink-0" aria-hidden />
@@ -686,23 +691,31 @@ export function DiffViewerPane({ pullRequestUrl, pullRequestNumber }: DiffViewer
                   theirs={threeWayContents.theirs}
                 />
               )}
-            {!threeWayOpen && !isLoading && !contentLoadFailed && effectiveDiff && diffViewMode === 'split' && (
-              <DiffPreview
-                oldContent={effectiveOld}
-                newContent={effectiveNew}
-                language={effectiveDiff.language}
-                filename={effectiveDiff.filename}
-              />
-            )}
-            {!threeWayOpen && !isLoading && !contentLoadFailed && effectiveDiff && diffViewMode === 'unified' && (
-              <InlineDiffViewer
-                oldContent={effectiveOld}
-                newContent={effectiveNew}
-                filename={effectiveDiff.filename}
-              />
-            )}
+            {!threeWayOpen &&
+              !isLoading &&
+              !contentLoadFailed &&
+              effectiveDiff &&
+              diffViewMode === 'split' && (
+                <DiffPreview
+                  oldContent={effectiveOld}
+                  newContent={effectiveNew}
+                  language={effectiveDiff.language}
+                  filename={effectiveDiff.filename}
+                />
+              )}
+            {!threeWayOpen &&
+              !isLoading &&
+              !contentLoadFailed &&
+              effectiveDiff &&
+              diffViewMode === 'unified' && (
+                <InlineDiffViewer
+                  oldContent={effectiveOld}
+                  newContent={effectiveNew}
+                  filename={effectiveDiff.filename}
+                />
+              )}
             {!isLoading && !effectiveDiff && (
-              <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
+              <div className="flex h-full items-center justify-center text-label text-muted-foreground">
                 {t('diffViewer.selectToCompare')}
               </div>
             )}
@@ -729,7 +742,7 @@ function ChangeSummary({ file }: { file: DiffFile }) {
   )
 
   return (
-    <div className="flex flex-col gap-1 bg-muted/20 px-3 py-1.5 text-xs">
+    <div className="flex flex-col gap-1 bg-muted/20 px-3 py-1.5 text-label">
       <div className="flex items-center gap-3">
         <span className="flex items-center gap-0.5 text-green-600 dark:text-green-400">
           <Plus className="h-3 w-3" />

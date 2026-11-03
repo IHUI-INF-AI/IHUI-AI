@@ -67,6 +67,7 @@ async function seedUser() {
       nickname: 'Tester',
     })
     .returning()
+  if (!u) throw new Error('learn-extended-queries.real.test.ts: 插入未返回行(u)')
   return u
 }
 
@@ -75,6 +76,7 @@ async function seedLesson() {
     .insert(lessons)
     .values({ title: 'Lesson-' + randomUUID().slice(0, 8) })
     .returning()
+  if (!l) throw new Error('learn-extended-queries.real.test.ts: 插入未返回行(l)')
   return l
 }
 
@@ -105,7 +107,7 @@ describe('learn-extended-queries — 真实 DB 集成测试', () => {
 
       const list = await findHomeworkList(lessonId)
       expect(list).toHaveLength(2)
-      expect(list[0].title).toBe('HW2') // sort 升序
+      expect(list[0]!.title).toBe('HW2') // sort 升序
 
       const found = await findHomeworkById(h.id)
       expect(found?.title).toBe('HW1')
@@ -125,7 +127,7 @@ describe('learn-extended-queries — 真实 DB 集成测试', () => {
       const m2 = await createMap({ title: 'Map2', sort: 1, isPublished: false })
       const list = await findMapList()
       expect(list).toHaveLength(2)
-      expect(list[0].title).toBe('Map2') // sort 升序
+      expect(list[0]!.title).toBe('Map2') // sort 升序
 
       const found = await findMapById(m1.id)
       expect(found?.title).toBe('Map1')
@@ -154,7 +156,7 @@ describe('learn-extended-queries — 真实 DB 集成测试', () => {
 
       const searchPage = await findMapListPaged({ page: 1, pageSize: 10, search: 'A' })
       expect(searchPage.list).toHaveLength(1)
-      expect(searchPage.list[0].title).toBe('A')
+      expect(searchPage.list[0]!.title).toBe('A')
     })
 
     it('setMapTopics + findMapTopics', async () => {
@@ -193,10 +195,11 @@ describe('learn-extended-queries — 真实 DB 集成测试', () => {
           status: 'pending',
         })
         .returning()
+      if (!app) throw new Error('learn-extended-queries.real.test.ts: 插入未返回行(app)')
 
       const list = await findInvoiceApplicationList({ page: 1, pageSize: 10 })
       expect(list.total).toBe(1)
-      expect(list.list[0].userNickname).toBe('Tester')
+      expect(list.list[0]!.userNickname).toBe('Tester')
 
       const statusList = await findInvoiceApplicationList({
         page: 1,
@@ -236,8 +239,8 @@ describe('learn-extended-queries — 真实 DB 集成测试', () => {
       const list = await findInvoiceTitleList(u.id)
       expect(list).toHaveLength(2)
       // t2 是默认(createdAt 倒序,t2 在前)
-      expect(list[0].id).toBe(t2.id)
-      expect(list[0].isDefault).toBe(true)
+      expect(list[0]!.id).toBe(t2.id)
+      expect(list[0]!.isDefault).toBe(true)
       // t1 默认被清除
       const t1Refresh = await findInvoiceTitleById(t1.id)
       expect(t1Refresh?.isDefault).toBe(false)
@@ -263,7 +266,7 @@ describe('learn-extended-queries — 真实 DB 集成测试', () => {
 
       const pubOnly = await findAllTopics({ page: 1, pageSize: 10, status: 'published' })
       expect(pubOnly.total).toBe(1)
-      expect(pubOnly.list[0].title).toBe('T1')
+      expect(pubOnly.list[0]!.title).toBe('T1')
 
       const search = await findAllTopics({ page: 1, pageSize: 10, search: 'T2' })
       expect(search.total).toBe(1)
@@ -299,9 +302,9 @@ describe('learn-extended-queries — 真实 DB 集成测试', () => {
       const all = await findAllCommunityPosts({ page: 1, pageSize: 10 })
       expect(all.total).toBe(2)
       // isPinned 优先
-      expect(all.list[0].id).toBe(p1.id)
-      expect(all.list[0].userName).toBe('Tester')
-      expect(all.list[0].lessonTitle).toBe(lesson.title)
+      expect(all.list[0]!.id).toBe(p1.id)
+      expect(all.list[0]!.userName).toBe('Tester')
+      expect(all.list[0]!.lessonTitle).toBe(lesson.title)
 
       const found = await findCommunityPostById(p1.id)
       expect(found?.title).toBe('Post1')
@@ -321,7 +324,7 @@ describe('learn-extended-queries — 真实 DB 集成测试', () => {
       const t = await createTask({ lessonId, title: 'Task1', status: 'enable' })
       const list = await findTasksByLesson(lessonId)
       expect(list).toHaveLength(1)
-      expect(list[0].title).toBe('Task1')
+      expect(list[0]!.title).toBe('Task1')
 
       const updated = await updateTask(t.id, { title: 'Task-updated' })
       expect(updated?.title).toBe('Task-updated')
@@ -347,7 +350,7 @@ describe('learn-extended-queries — 真实 DB 集成测试', () => {
       // createRate 默认 status='published',findRateList 只查 published
       const list = await findRateList({ lessonId: lesson.id, page: 1, pageSize: 10 })
       expect(list.total).toBe(1)
-      expect(list.list[0].content).toBe('good')
+      expect(list.list[0]!.content).toBe('good')
 
       const byUser = await findRateByUserLesson(u.id, lesson.id)
       expect(byUser?.id).toBe(r.id)
@@ -368,13 +371,13 @@ describe('learn-extended-queries — 真实 DB 集成测试', () => {
       const count1 = await updateLessonAccess(lessonId, 'all', [])
       expect(count1).toBeGreaterThan(0)
       const access1 = await findAccessByLesson(lessonId)
-      expect(access1[0].accessType).toBe('all')
+      expect(access1[0]!.accessType).toBe('all')
 
       // 指定值
       const count2 = await updateLessonAccess(lessonId, 'members', ['u1', 'u2'])
       expect(count2).toBeGreaterThan(0)
       const access2 = await findAccessByLesson(lessonId)
-      expect(access2[0].accessType).toBe('members')
+      expect(access2[0]!.accessType).toBe('members')
       expect(access2).toHaveLength(1) // 先删后插
     })
   })

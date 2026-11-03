@@ -82,7 +82,7 @@ export default function RegistryPage() {
 
       {upgradableCount > 0 && (
         <div className="flex items-center justify-between gap-3 rounded-lg border bg-card px-4 py-3">
-          <p className="text-sm">
+          <p className="text-body">
             有 <span className="font-semibold text-primary">{upgradableCount}</span> 个新版本可用
           </p>
           <Button size="sm" disabled={upgradeAll.upgrading} onClick={handleUpgradeAll}>
@@ -112,11 +112,11 @@ export default function RegistryPage() {
       </div>
 
       {error ? (
-        <div className="rounded-lg border bg-card p-3 text-sm text-rose-600">{error}</div>
+        <div className="rounded-lg border bg-card p-3 text-body text-rose-600">{error}</div>
       ) : loading ? (
-        <div className="py-8 text-center text-sm text-muted-foreground">加载中…</div>
+        <div className="py-8 text-center text-body text-muted-foreground">加载中…</div>
       ) : items.length === 0 ? (
-        <div className="rounded-lg border bg-card p-3 text-center text-sm text-muted-foreground">
+        <div className="rounded-lg border bg-card p-3 text-center text-body text-muted-foreground">
           暂无资源
         </div>
       ) : (
@@ -159,20 +159,20 @@ export default function RegistryPage() {
               </Button>
             </div>
             {sync.result && (
-              <p className="text-xs text-muted-foreground">
+              <p className="text-label text-muted-foreground">
                 同步完成:新增 {sync.result.stats.synced} · 失败 {sync.result.stats.failed} · 跳过{' '}
                 {sync.result.stats.skipped}
               </p>
             )}
             {drift.report && (
-              <div className="rounded-md bg-muted p-3 text-xs">
+              <div className="rounded-md bg-muted p-3 text-label">
                 {drift.report.hasDrift
                   ? `检测到 ${drift.report.reports.filter((r) => r.drifted).length} 个文件存在配置漂移`
                   : '未检测到配置漂移'}
               </div>
             )}
             {workerStats.stats && (
-              <div className="rounded-md bg-muted p-3 text-xs space-y-1">
+              <div className="rounded-md bg-muted p-3 text-label space-y-1">
                 <p className="font-medium">Worker 运行状态</p>
                 <p>
                   已处理: {workerStats.stats.processed} 次 | 失败: {workerStats.stats.failed} 次

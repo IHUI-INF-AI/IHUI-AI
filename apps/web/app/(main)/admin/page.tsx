@@ -40,7 +40,7 @@ export default function AdminDashboardPage() {
         subtitle={t('subtitle')}
         actions={
           isError ? (
-            <span className="flex items-center gap-1 rounded-md bg-amber-500/10 px-2 py-1 text-xs text-amber-600 dark:text-amber-500">
+            <span className="flex items-center gap-1 rounded-md bg-amber-500/10 px-2 py-1 text-label text-amber-600 dark:text-amber-500">
               <AlertCircle className="h-3 w-3" />
               {t('loadFailed')}
             </span>

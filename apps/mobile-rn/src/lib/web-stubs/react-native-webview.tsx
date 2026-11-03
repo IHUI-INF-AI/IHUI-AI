@@ -11,7 +11,7 @@
  */
 
 import { View, Text, StyleSheet, type ViewStyle, type StyleProp } from 'react-native'
-import { rnTokens as tk, rnSpacing } from '@ihui/design-tokens'
+import { rnTokens as tk, rnSpacing, rnType } from '@ihui/design-tokens'
 
 export interface WebViewStubProps {
   source?: { uri?: string }
@@ -44,7 +44,7 @@ const styles = StyleSheet.create({
   },
   uri: {
     color: tk.gray[400],
-    fontSize: 10,
+    fontSize: rnType.badge.size,
     marginTop: rnSpacing.xs,
   },
 })

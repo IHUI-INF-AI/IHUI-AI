@@ -11,6 +11,7 @@ import type { AgentDetailScreenProps } from '../../types'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
+import { assertRequiredPort } from '../../host/ports'
 
 /** Agent 详情共享屏 — props 注入式跨端组件 */
 export type { AgentDetailScreenProps }
@@ -23,8 +24,14 @@ export function AgentDetailScreen({
   onBack,
   onStartChat,
   onEdit,
-  colorScheme = 'light',
-}: AgentDetailScreenProps) {
+  onRetry,
+  colorScheme = 'light',  
+  onNavigate,
+  onToast,
+}: AgentDetailScreenProps & { onRetry?: () => void }) {
+  assertRequiredPort('onNavigate', onNavigate)
+  assertRequiredPort('onToast', onToast)
+
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -35,7 +42,7 @@ export function AgentDetailScreen({
     return (
       <ErrorState
         message={error || t('agentDetail.loadFailed')}
-        onRetry={onBack}
+        onRetry={onRetry}
         retryLabel={t('common.back')}
         colorScheme={colorScheme}
       />
@@ -117,7 +124,7 @@ function createStyles(tk: AppThemeTokens) {
     name: { fontSize: rnType.display.size, fontWeight: '700', color: tk.text.primary },
     category: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.brand.DEFAULT },
     card: {
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,

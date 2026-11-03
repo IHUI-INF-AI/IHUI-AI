@@ -3,6 +3,19 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import type { Metadata } from 'next'
+import {
+  BookOpen,
+  FileText,
+  GraduationCap,
+  BookMarked,
+  Microscope,
+  Scissors,
+  Hash,
+  Save,
+  CheckCircle,
+  AlertTriangle,
+  Lightbulb,
+} from 'lucide-react'
 import { ManualNav, chapters } from '../_manual-nav'
 
 const SITE_URL = 'https://aizhs.top'
@@ -14,11 +27,6 @@ export const metadata: Metadata = {
   alternates: {
     canonical: '/docs/manual/knowledge-base',
     languages: {
-      'zh-CN': '/zh-cn/docs/manual/knowledge-base',
-      'zh-TW': '/zh-tw/docs/manual/knowledge-base',
-      en: '/en/docs/manual/knowledge-base',
-      ko: '/ko/docs/manual/knowledge-base',
-      ja: '/ja/docs/manual/knowledge-base',
       'x-default': '/docs/manual/knowledge-base',
     },
   },
@@ -54,11 +62,26 @@ export default function ManualKnowledgeBasePage() {
           </p>
           <p>适用场景:</p>
           <ul className="ml-4 list-disc space-y-1 text-xs">
-            <li>📚 产品手册 + FAQ → 智能客服 Agent</li>
-            <li>📄 公司制度 + 流程 → HR 助手 Agent</li>
-            <li>🎓 课件 + 教材 → 课程答疑 Agent</li>
-            <li>📑 合同模板 + 法规 → 法务 Agent</li>
-            <li>🔬 论文 + 实验数据 → 研究助手 Agent</li>
+            <li>
+              <BookOpen className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
+              产品手册 + FAQ → 智能客服 Agent
+            </li>
+            <li>
+              <FileText className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
+              公司制度 + 流程 → HR 助手 Agent
+            </li>
+            <li>
+              <GraduationCap className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
+              课件 + 教材 → 课程答疑 Agent
+            </li>
+            <li>
+              <BookMarked className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
+              合同模板 + 法规 → 法务 Agent
+            </li>
+            <li>
+              <Microscope className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
+              论文 + 实验数据 → 研究助手 Agent
+            </li>
           </ul>
         </div>
       </section>
@@ -91,17 +114,32 @@ export default function ManualKnowledgeBasePage() {
             <li>选择文件(可批量),支持:PDF / Word / Excel / PPT / TXT / Markdown / HTML / EPUB / 图片(OCR)</li>
             <li>点击"开始上传",系统自动:
               <ul className="ml-4 list-disc space-y-1 mt-1 text-xs">
-                <li>📄 <strong>解析</strong>:提取文字、表格、图片(扫描件自动 OCR)</li>
-                <li>✂️ <strong>切块</strong>:按段落切成 500 字左右的片段</li>
-                <li>🔢 <strong>向量化</strong>:把片段转成 1024 维向量</li>
-                <li>💾 <strong>入库</strong>:存到 PostgreSQL + pgvector</li>
+                <li>
+                  <FileText className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
+                  <strong>解析</strong>:提取文字、表格、图片(扫描件自动 OCR)
+                </li>
+                <li>
+                  <Scissors className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
+                  <strong>切块</strong>:按段落切成 500 字左右的片段
+                </li>
+                <li>
+                  <Hash className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
+                  <strong>向量化</strong>:把片段转成 1024 维向量
+                </li>
+                <li>
+                  <Save className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
+                  <strong>入库</strong>:存到 PostgreSQL + pgvector
+                </li>
               </ul>
             </li>
             <li>处理进度实时显示,1MB 文档约 10 秒</li>
-            <li>状态变为"✅ 已就绪"后即可使用</li>
+            <li>
+              状态变为"<CheckCircle className="mr-1 inline h-3.5 w-3.5 align-text-bottom text-green-600" aria-hidden />已就绪"后即可使用
+            </li>
           </ol>
           <p className="rounded bg-muted/60 p-3 text-xs">
-            ⚠️ <strong>大小限制</strong>:单文件 100MB,单个知识库总容量 1GB(免费)/ 10GB(Pro)/ 100GB(团队)。
+            <AlertTriangle className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
+            <strong>大小限制</strong>:单文件 100MB,单个知识库总容量 1GB(免费)/ 10GB(Pro)/ 100GB(团队)。
           </p>
         </div>
       </section>
@@ -123,7 +161,8 @@ export default function ManualKnowledgeBasePage() {
             </li>
           </ol>
           <p className="rounded bg-muted/60 p-3 text-xs">
-            💡 <strong>验证标准</strong>:Top-5 中包含正确答案片段 ≥ 90% 即可挂载到 Agent。
+            <Lightbulb className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
+            <strong>验证标准</strong>:Top-5 中包含正确答案片段 ≥ 90% 即可挂载到 Agent。
           </p>
         </div>
       </section>
@@ -146,7 +185,8 @@ export default function ManualKnowledgeBasePage() {
             <li>保存,Agent 对话时自动检索知识库</li>
           </ol>
           <p className="rounded bg-muted/60 p-3 text-xs">
-            💡 <strong>验证 Agent 已挂载</strong>:对话时提问知识库内容,回答应附引用 [1] [2],点击引用可跳转原文。
+            <Lightbulb className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
+            <strong>验证 Agent 已挂载</strong>:对话时提问知识库内容,回答应附引用 [1] [2],点击引用可跳转原文。
           </p>
         </div>
       </section>

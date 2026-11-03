@@ -166,12 +166,12 @@ export default function BusinessCardEditPage() {
             {editId ? t('editTitle') : t('createTitle')}
           </h1>
         </div>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       <Link
         href="/business-card"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         {t('back')}
@@ -190,7 +190,7 @@ export default function BusinessCardEditPage() {
           <CardContent>
             <form onSubmit={submit} className="space-y-4">
               {err && (
-                <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                <div className="rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">
                   {err}
                 </div>
               )}
@@ -217,7 +217,7 @@ export default function BusinessCardEditPage() {
                   value={form.bio}
                   onChange={(e) => setForm((p) => ({ ...p, bio: e.target.value }))}
                   rows={3}
-                  className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   placeholder={t('bioPlaceholder')}
                 />
               </div>
@@ -231,7 +231,7 @@ export default function BusinessCardEditPage() {
                       type="button"
                       onClick={() => setForm((p) => ({ ...p, template: tpl.value }))}
                       className={cn(
-                        'flex items-center gap-2 rounded-sm border px-3 py-2 text-sm transition-colors',
+                        'flex items-center gap-2 rounded-sm border px-3 py-2 text-body transition-colors',
                         form.template === tpl.value
                           ? 'border-brand-accent-deep bg-primary/10 text-primary'
                           : 'border-input text-muted-foreground hover:bg-accent',

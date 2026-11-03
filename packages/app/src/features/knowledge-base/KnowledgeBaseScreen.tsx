@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
@@ -14,6 +15,7 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native'
+import { Check } from 'lucide-react-native'
 import type { TFunction } from '@ihui/types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { BackChevron } from '../../components/BackChevron'
@@ -58,6 +60,15 @@ export interface KnowledgeBaseScreenProps {
   onCreate: () => void
   /** 顶部返回 */
   onBack: () => void
+  /** 批量删除:传 undefined ⇒ 不渲染"选择"入口,保持旧单删视图 */
+  onToggleSelectionMode?: () => void
+  selectionMode?: boolean
+  selectedIds?: number[]
+  onToggleSelect?: (id: number) => void
+  onToggleSelectAll?: () => void
+  /** 传 undefined ⇒ 不渲染批量删除按钮 */
+  onBatchDelete?: () => void
+  batchDeleting?: boolean
   colorScheme?: 'light' | 'dark'
 }
 
@@ -84,33 +95,64 @@ export function KnowledgeBaseScreen({
   onDeleteDoc,
   onCreate,
   onBack,
+  onToggleSelectionMode,
+  selectionMode = false,
+  selectedIds = [],
+  onToggleSelect,
+  onToggleSelectAll,
+  onBatchDelete,
+  batchDeleting = false,
   colorScheme = 'light',
 }: KnowledgeBaseScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
+  const allSelected = docs.length > 0 && selectedIds.length === docs.length
 
-  const renderItem = ({ item }: { item: KnowledgeDocListItem }) => (
-    <View style={styles.card}>
-      <TouchableOpacity onPress={() => onOpenDoc(item)}>
-        <Text style={styles.cardTitle} numberOfLines={1}>
-          {item.title}
-        </Text>
-        <Text style={styles.cardMeta}>
-          {item.chunkCount} {t('knowledgeBase.chunks')}
-          {item.createdAt ? ` · ${String(item.createdAt).slice(0, 10)}` : ''}
-        </Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        onPress={() => onDeleteDoc(item)}
-        disabled={deleting}
-        style={styles.deleteBtn}
-        accessibilityRole="button"
-        accessibilityLabel={t('knowledgeBase.delete')}
-      >
-        <Text style={styles.deleteText}>{t('knowledgeBase.delete')}</Text>
-      </TouchableOpacity>
-    </View>
-  )
+  const renderItem = ({ item }: { item: KnowledgeDocListItem }) => {
+    const selected = selectedIds.includes(item.id)
+    const onPress = () => {
+      if (selectionMode && onToggleSelect) onToggleSelect(item.id)
+      else onOpenDoc(item)
+    }
+    return (
+      <View style={styles.card}>
+        <View style={styles.cardRow}>
+          {selectionMode ? (
+            <TouchableOpacity
+              onPress={() => onToggleSelect?.(item.id)}
+              activeOpacity={0.7}
+              style={[styles.checkBox, selected && styles.checkBoxOn]}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: selected }}
+              accessibilityLabel={item.title}
+            >
+              {selected ? <Check size={14} color={tk.surface.light} strokeWidth={3} /> : null}
+            </TouchableOpacity>
+          ) : null}
+          <TouchableOpacity style={styles.cardBody} onPress={onPress}>
+            <Text style={styles.cardTitle} numberOfLines={1}>
+              {item.title}
+            </Text>
+            <Text style={styles.cardMeta}>
+              {item.chunkCount} {t('knowledgeBase.chunks')}
+              {item.createdAt ? ` · ${String(item.createdAt).slice(0, 10)}` : ''}
+            </Text>
+          </TouchableOpacity>
+        </View>
+        {!selectionMode ? (
+          <TouchableOpacity
+            onPress={() => onDeleteDoc(item)}
+            disabled={deleting}
+            style={styles.deleteBtn}
+            accessibilityRole="button"
+            accessibilityLabel={t('knowledgeBase.delete')}
+          >
+            <Text style={styles.deleteText}>{t('knowledgeBase.delete')}</Text>
+          </TouchableOpacity>
+        ) : null}
+      </View>
+    )
+  }
 
   if (loading) {
     return <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
@@ -126,6 +168,65 @@ export function KnowledgeBaseScreen({
           <Text style={styles.addText}>{t('knowledgeBase.add')}</Text>
         </TouchableOpacity>
       </View>
+
+      {onToggleSelectionMode ? (
+        <View style={styles.toolbar}>
+          <TouchableOpacity
+            onPress={onToggleSelectionMode}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityRole="button"
+            accessibilityLabel={
+              selectionMode ? t('knowledgeBase.selectionDone') : t('knowledgeBase.selectionStart')
+            }
+          >
+            <Text style={styles.toolbarLink}>
+              {selectionMode ? t('knowledgeBase.selectionDone') : t('knowledgeBase.selectionStart')}
+            </Text>
+          </TouchableOpacity>
+          {selectionMode ? (
+            <View style={styles.toolbarActions}>
+              <TouchableOpacity
+                onPress={onToggleSelectAll}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  allSelected
+                    ? t('knowledgeBase.selectionClearAll')
+                    : t('knowledgeBase.selectionAll')
+                }
+              >
+                <Text style={styles.toolbarLink}>
+                  {allSelected
+                    ? t('knowledgeBase.selectionClearAll')
+                    : t('knowledgeBase.selectionAll')}
+                </Text>
+              </TouchableOpacity>
+              <Text style={styles.toolbarCount}>
+                {t('knowledgeBase.selectionCount', { count: selectedIds.length })}
+              </Text>
+              {onBatchDelete ? (
+                <TouchableOpacity
+                  onPress={onBatchDelete}
+                  disabled={selectedIds.length === 0 || batchDeleting}
+                  activeOpacity={0.7}
+                  style={[
+                    styles.batchBtn,
+                    (selectedIds.length === 0 || batchDeleting) && styles.batchBtnDisabled,
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('knowledgeBase.batchDelete')}
+                >
+                  <Text style={styles.batchText}>
+                    {batchDeleting
+                      ? t('knowledgeBase.batchDeleting')
+                      : t('knowledgeBase.batchDelete')}
+                  </Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          ) : null}
+        </View>
+      ) : null}
 
       {error ? (
         <ErrorState
@@ -187,6 +288,39 @@ function createStyles(tk: AppThemeTokens) {
     listContent: {
       padding: rnSpacing.lg,
     },
+    toolbar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: rnSpacing.lg,
+      paddingBottom: rnSpacing.sm,
+    },
+    toolbarActions: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.md },
+    toolbarLink: { fontSize: rnType.body.size, fontWeight: '500', color: tk.brandAccent.deep },
+    toolbarCount: { fontSize: rnType.label.size, color: tk.text.secondary },
+    batchBtn: {
+      height: 32,
+      paddingHorizontal: rnSpacing.md,
+      borderRadius: rnRadius.sm,
+      backgroundColor: tk.danger.DEFAULT,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    batchBtnDisabled: { opacity: 0.4 },
+    batchText: { fontSize: rnType.label.size, fontWeight: '600', color: tk.surface.light },
+    cardRow: { flexDirection: 'row', alignItems: 'flex-start', gap: rnSpacing.sm },
+    cardBody: { flex: 1 },
+    checkBox: {
+      width: 22,
+      height: 22,
+      borderRadius: rnRadius.sm,
+      borderWidth: 1,
+      borderColor: tk.border.medium,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: rnSpacing['2xs'],
+    },
+    checkBoxOn: { borderColor: tk.brandAccent.deep, backgroundColor: tk.brand.cta },
     card: {
       marginBottom: rnSpacing.md,
       borderRadius: rnRadius.lg,

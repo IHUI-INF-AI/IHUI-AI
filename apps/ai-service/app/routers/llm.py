@@ -30,6 +30,27 @@ from fastapi import APIRouter, Body, HTTPException, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
+# 差距①留痕 + 断流续传(2026-10-31 接线):准入留痕账本、恢复窗口与水位状态机的三个出口
+# (mark_admission_acked / begin_recovery / end_recovery)**唯一住在 `core/sse_contract.py`**。
+# 接线前两件事各有两套真相:本路由自持一份 `_admission_seen` dict(账本+判据都在路由),
+# 而契约面那三个出口零生产调用方 ⇒ "恢复态"从未被进入,票面写的"断流续传走状态机"是空话。
+# 现在本路由只经这些出口读写,不再自建第二份(§0.6);水位状态本身仍只在 `sse_frames` 那一个
+# ContextVar 里(本路由经 `_current_stream_watermark()` 读它,不另立)。
+# 写成绝对形态与该模块头注 SSE-CONTRACT-IMPORT-SITES 的现读口径一致(只数这一种写法)。
+from app.core.sse_contract import (
+    ADMISSION_SEEN,
+    StreamWatermark,
+    begin_recovery,
+    close_recovery_window,
+    end_recovery,
+    mark_admission_acked,
+    open_recovery_window,
+    peek_recovery_window,
+    recovery_clock_ms,
+    release_admission,
+    take_admission,
+)
+
 from ..core.approval_replay import (
     EXPIRY_RETENTION_SECONDS,
     approval_expiry_notice,
@@ -38,9 +59,8 @@ from ..core.approval_replay import (
 )
 from ..core.background_tasks import spawn
 from ..core.config import settings
-from ..services.tool_context_boundary import scan_and_frame_tool_result
 from ..core.context_compaction import SUMMARY_MARKER, compress_messages_if_needed
-from ..core.jwt_auth import resolve_request_user_id
+from ..core.jwt_auth import require_request_user_id, resolve_request_user_id
 from ..core.llm_gateway import llm_gateway, moa_router
 from ..core.model_naming import to_official_model_name
 from ..core.permission_mode import (
@@ -85,27 +105,6 @@ from ..core.sse_frames import (
     end_stream_watermark,
     with_frame_trace_id,
     with_frame_watermark,
-)
-
-# 差距①留痕 + 断流续传(2026-10-31 接线):准入留痕账本、恢复窗口与水位状态机的三个出口
-# (mark_admission_acked / begin_recovery / end_recovery)**唯一住在 `core/sse_contract.py`**。
-# 接线前两件事各有两套真相:本路由自持一份 `_admission_seen` dict(账本+判据都在路由),
-# 而契约面那三个出口零生产调用方 ⇒ "恢复态"从未被进入,票面写的"断流续传走状态机"是空话。
-# 现在本路由只经这些出口读写,不再自建第二份(§0.6);水位状态本身仍只在 `sse_frames` 那一个
-# ContextVar 里(本路由经 `_current_stream_watermark()` 读它,不另立)。
-# 写成绝对形态与该模块头注 SSE-CONTRACT-IMPORT-SITES 的现读口径一致(只数这一种写法)。
-from app.core.sse_contract import (
-    ADMISSION_SEEN,
-    StreamWatermark,
-    begin_recovery,
-    close_recovery_window,
-    end_recovery,
-    mark_admission_acked,
-    open_recovery_window,
-    peek_recovery_window,
-    recovery_clock_ms,
-    release_admission,
-    take_admission,
 )
 
 # 工具名单的**唯一**来源:前端 TS 真相源 → scripts/gen-tool-name-sets.mjs →
@@ -187,6 +186,7 @@ from ..services.mcp_server import (
 from ..services.persona_registry import build_persona_chat_hint as _persona_chat_hint
 from ..services.persona_registry import merge_persona_tools as _merge_persona_tools
 from ..services.project_memory import build_system_prompt
+from ..services.tool_context_boundary import scan_and_frame_tool_result
 from ..services.user_quota import user_trial_quota
 
 router = APIRouter()
@@ -7786,11 +7786,21 @@ async def reorder_steer_queue(session_id: str, body: dict[str, Any] = Body(...))
 # **整表替换**语义:paths=[] 即清空(移除即失效,不留残根);任一目录准入失败
 # 整表拒绝(422,不做部分生效)。生命周期 = ai-service 进程内存态(与 thread.settings
 # 热更项一致,重启后须重新下发;持久化面由网关侧写会话 metadata)。
-# 准入校验(绝对路径/存在/是目录)在 set_session_extra_roots 内。
+# 准入校验(绝对路径/存在/是目录/**在允许根内**)在 set_session_extra_roots 内。
+#
+# 2026-11-01 安全强化(严重):本端点此前**完全无鉴权**,而 conversation_id 在对话链里
+# 就是客户端自报的 metadata 字段(llm.py:metadata.conversationId)⇒ 任意 role=0 用户
+# 传 `{"paths":["/"]}` 即可把任意会话的工具根变成整盘,随后 read_file 按
+# `relative_to(root)` 判定 ⇒ `/proc/self/environ`、其他租户目录全放行。
+# 现在:① 必须带已验证主体(与同文件其它端点同一依赖);② 登记键含主体,别人登记不到
+# 我的会话上;③ 目录本身必须落在服务端允许根内(见 mcp_server._validate_extra_directory)。
 @router.post("/llm/conversations/{conversation_id}/directories")
 async def post_conversation_directories(
-    conversation_id: str, body: dict[str, Any] = Body(...)
+    conversation_id: str,
+    request: Request,
+    body: dict[str, Any] = Body(...),
 ) -> Any:
+    user_id = await require_request_user_id(request)
     if not conversation_id.strip():
         return JSONResponse(
             status_code=422,
@@ -7808,7 +7818,7 @@ async def post_conversation_directories(
     from ..services.mcp_server import set_session_extra_roots
 
     try:
-        effective = set_session_extra_roots(conversation_id, paths)
+        effective = set_session_extra_roots(conversation_id, paths, user_id=user_id)
     except ValueError as e:
         return JSONResponse(status_code=422, content={"ok": False, "error": str(e)})
     return {"ok": True, "additionalDirectories": list(effective)}

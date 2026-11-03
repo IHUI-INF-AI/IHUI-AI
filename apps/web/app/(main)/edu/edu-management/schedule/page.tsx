@@ -372,14 +372,14 @@ function TermDialog({
 
         <div className="max-h-48 space-y-1 overflow-y-auto rounded-md border p-2">
           {terms.length === 0 ? (
-            <p className="py-4 text-center text-sm text-muted-foreground">{t('noTerms')}</p>
+            <p className="py-4 text-center text-body text-muted-foreground">{t('noTerms')}</p>
           ) : (
             terms.map((term) => (
               <div
                 key={term.id}
                 role="button"
                 tabIndex={0}
-                className="flex cursor-pointer items-center justify-between rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent"
+                className="flex cursor-pointer items-center justify-between rounded-md px-2 py-1.5 text-body transition-colors hover:bg-accent"
                 onClick={() => resetForm(term)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') resetForm(term)
@@ -393,7 +393,7 @@ function TermDialog({
                     </Badge>
                   )}
                 </span>
-                <span className="text-xs text-muted-foreground">
+                <span className="text-label text-muted-foreground">
                   {term.startDate} ~ {term.endDate}
                 </span>
               </div>
@@ -421,7 +421,7 @@ function TermDialog({
               <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
             </div>
           </div>
-          <label className="flex items-center gap-2 text-sm">
+          <label className="flex items-center gap-2 text-body">
             <input
               type="checkbox"
               className="h-4 w-4 rounded-sm border-gray-300"
@@ -488,17 +488,17 @@ function ClassDialog({
 
         <div className="max-h-48 space-y-1 overflow-y-auto rounded-md border p-2">
           {classes.length === 0 ? (
-            <p className="py-4 text-center text-sm text-muted-foreground">{t('noClasses')}</p>
+            <p className="py-4 text-center text-body text-muted-foreground">{t('noClasses')}</p>
           ) : (
             classes.map((c) => (
               <div
                 key={c.id}
-                className="flex items-center justify-between rounded-md px-2 py-1.5 text-sm"
+                className="flex items-center justify-between rounded-md px-2 py-1.5 text-body"
               >
                 <span>
                   {c.name}
                   {c.grade && (
-                    <span className="ml-2 text-xs text-muted-foreground">({c.grade})</span>
+                    <span className="ml-2 text-label text-muted-foreground">({c.grade})</span>
                   )}
                 </span>
               </div>
@@ -818,7 +818,7 @@ export default function SchedulePage() {
         key={entry.id}
         type="button"
         className={cn(
-          'w-full ui-control rounded-sm px-2 py-1 text-left text-xs text-white transition-opacity hover:opacity-90',
+          'w-full ui-control rounded-sm px-2 py-1 text-left text-label text-white transition-opacity hover:opacity-90',
           bgColor,
         )}
         onClick={() => handleEditSchedule(entry)}
@@ -893,7 +893,7 @@ export default function SchedulePage() {
       {/* Header */}
       <header className="space-y-1">
         <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
-        <p className="text-xs text-muted-foreground">{t('description')}</p>
+        <p className="text-label text-muted-foreground">{t('description')}</p>
       </header>
 
       {/* Toolbar */}
@@ -1021,7 +1021,7 @@ export default function SchedulePage() {
         ) : !selectedClassId ? (
           <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
             <AlertCircle className="mb-2 h-8 w-8" />
-            <p className="text-sm">{t('selectTermAndClass')}</p>
+            <p className="text-body">{t('selectTermAndClass')}</p>
           </div>
         ) : viewMode === 'week' ? (
           <>
@@ -1057,7 +1057,7 @@ export default function SchedulePage() {
                 style={{ gridTemplateColumns: '60px repeat(7, 1fr)' }}
               >
                 {/* Header row */}
-                <div className="sticky left-0 bg-background p-2 text-xs text-muted-foreground" />
+                <div className="sticky left-0 bg-background p-2 text-label text-muted-foreground" />
                 {WEEKDAY_KEYS.map((key, i) => {
                   const d = weekDays[i]
                   const isToday = d && formatDate(d) === formatDate(today)
@@ -1080,7 +1080,7 @@ export default function SchedulePage() {
                 {/* Time slots */}
                 {TIME_SLOTS.map((time) => (
                   <React.Fragment key={time}>
-                    <div className="sticky left-0 flex items-start justify-end bg-background pr-2 pt-2 text-xs text-muted-foreground">
+                    <div className="sticky left-0 flex items-start justify-end bg-background pr-2 pt-2 text-label text-muted-foreground">
                       {time}
                     </div>
                     {WEEKDAY_KEYS.map((_, wi) => {

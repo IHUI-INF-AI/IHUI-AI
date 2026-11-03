@@ -244,7 +244,7 @@ export default function ParentPortalPage() {
       <BackButton />
       <header className="space-y-1">
         <h1 className="text-display font-bold tracking-tight">{t('pageTitle')}</h1>
-        <p className="text-xs text-muted-foreground">{t('pageSubtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('pageSubtitle')}</p>
       </header>
 
       {!allow ? (
@@ -327,7 +327,7 @@ function ChildrenListView({
         <Users className="h-12 w-12 text-muted-foreground" />
         <div className="text-center">
           <p className="text-body font-medium">{t('emptyNoChildren')}</p>
-          <p className="text-xs text-muted-foreground">{t('emptyNoChildrenHint')}</p>
+          <p className="text-label text-muted-foreground">{t('emptyNoChildrenHint')}</p>
         </div>
       </div>
     )
@@ -347,7 +347,7 @@ function ChildrenListView({
             </div>
             <div className="flex-1">
               <p className="text-body font-medium">{child.studentId}</p>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-label text-muted-foreground">
                 {codeLabel(t, RELATIONSHIP_LABEL_KEYS, child.relationship)}
               </p>
             </div>
@@ -403,7 +403,7 @@ function ChildDetailView({
           </div>
           <div>
             <p className="text-body font-medium">{childId}</p>
-            <p className="text-xs text-muted-foreground">{relationship}</p>
+            <p className="text-label text-muted-foreground">{relationship}</p>
           </div>
         </div>
       </div>
@@ -484,7 +484,7 @@ function CoursesView({ childId }: { childId: string }) {
     return (
       <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
         <BookOpen className="h-8 w-8 text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">{t('emptyNoCourses')}</p>
+        <p className="text-body text-muted-foreground">{t('emptyNoCourses')}</p>
       </div>
     )
   }
@@ -507,7 +507,7 @@ function CoursesView({ childId }: { childId: string }) {
                   style={{ borderLeftColor: c.color ?? CHART_BLUE }}
                 >
                   <p className="text-body font-medium">{c.courseName}</p>
-                  <div className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+                  <div className="mt-1 space-y-0.5 text-label text-muted-foreground">
                     <div className="flex items-center gap-1">
                       <Clock className="h-3 w-3" />
                       {c.startTime} - {c.endTime}
@@ -571,7 +571,7 @@ function MealsView({ childId }: { childId: string }) {
     return (
       <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
         <UtensilsCrossed className="h-8 w-8 text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">{t('emptyNoMeals')}</p>
+        <p className="text-body text-muted-foreground">{t('emptyNoMeals')}</p>
       </div>
     )
   }
@@ -593,9 +593,11 @@ function MealsView({ childId }: { childId: string }) {
                 <div key={m.id} className="rounded-lg border bg-card px-3 py-2">
                   <p className="text-body font-medium">{m.dishName}</p>
                   {m.ingredients && (
-                    <p className="mt-1 text-xs text-muted-foreground">{m.ingredients}</p>
+                    <p className="mt-1 text-label text-muted-foreground">{m.ingredients}</p>
                   )}
-                  {m.nutrition && <p className="mt-0.5 text-xs text-emerald-600">{m.nutrition}</p>}
+                  {m.nutrition && (
+                    <p className="mt-0.5 text-label text-emerald-600">{m.nutrition}</p>
+                  )}
                 </div>
               ))}
             </CardContent>
@@ -681,13 +683,13 @@ function BillsView({ childId }: { childId: string }) {
         return (
           <Card key={b.enrollmentId}>
             <CardHeader>
-              <CardTitle className="flex items-center justify-between text-sm">
+              <CardTitle className="flex items-center justify-between text-body">
                 <span>{`${b.className} · ${b.termName}`}</span>
                 <span
                   className={
                     ledger && ledger.arrears > 0
                       ? 'rounded-sm bg-destructive/10 px-2 py-0.5 text-label font-medium text-destructive'
-                      : 'rounded-sm bg-muted px-2 py-0.5 text-xs text-muted-foreground'
+                      : 'rounded-sm bg-muted px-2 py-0.5 text-label text-muted-foreground'
                   }
                 >
                   {ledger
@@ -699,11 +701,11 @@ function BillsView({ childId }: { childId: string }) {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="flex items-center justify-between text-sm">
+              <div className="flex items-center justify-between text-body">
                 <span className="text-muted-foreground">{t('totalFeeLabel')}</span>
                 <span>¥{b.totalFee}</span>
               </div>
-              <div className="flex items-center justify-between text-sm">
+              <div className="flex items-center justify-between text-body">
                 <span className="text-muted-foreground">{t('paidLabel')}</span>
                 <span>¥{ledger?.paidAmount ?? 0}</span>
               </div>
@@ -712,7 +714,7 @@ function BillsView({ childId }: { childId: string }) {
                   {ledger.schedules.map((s, i) => (
                     <div
                       key={`${b.enrollmentId}-${s.dueDate}-${i}`}
-                      className="flex items-center justify-between text-xs"
+                      className="flex items-center justify-between text-label"
                     >
                       <span className="text-muted-foreground">
                         {`${s.dueDate} · ¥${s.amountDue}`}
@@ -771,7 +773,7 @@ function StudyPlansView({ childId }: { childId: string }) {
     return (
       <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
         <ClipboardList className="h-8 w-8 text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">{t('emptyNoStudyPlans')}</p>
+        <p className="text-body text-muted-foreground">{t('emptyNoStudyPlans')}</p>
       </div>
     )
   }
@@ -782,7 +784,7 @@ function StudyPlansView({ childId }: { childId: string }) {
         <Card key={p.id}>
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2 text-sm">
+              <CardTitle className="flex items-center gap-2 text-body">
                 {p.planType === 'monthly' ? (
                   <CalendarDays className="h-4 w-4 text-primary" />
                 ) : (
@@ -795,7 +797,7 @@ function StudyPlansView({ childId }: { childId: string }) {
               </Badge>
             </div>
           </CardHeader>
-          <CardContent className="space-y-2 text-sm">
+          <CardContent className="space-y-2 text-body">
             <div className="flex items-center gap-1 text-muted-foreground">
               <CalendarDays className="h-3.5 w-3.5" />
               <span>
@@ -857,7 +859,7 @@ function GradesView({ childId }: { childId: string }) {
     return (
       <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
         <Award className="h-8 w-8 text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">{t('emptyNoGrades')}</p>
+        <p className="text-body text-muted-foreground">{t('emptyNoGrades')}</p>
       </div>
     )
   }
@@ -873,7 +875,7 @@ function GradesView({ childId }: { childId: string }) {
             <CardContent className="space-y-2">
               <div className="flex items-center gap-2">
                 <span className="text-display font-bold">{s.avg}</span>
-                <span className="text-sm text-muted-foreground">/ {s.totalScore}</span>
+                <span className="text-body text-muted-foreground">/ {s.totalScore}</span>
                 {s.percentage >= 80 ? (
                   <TrendingUp className="h-4 w-4 text-emerald-500" />
                 ) : (
@@ -893,7 +895,9 @@ function GradesView({ childId }: { childId: string }) {
                   style={{ width: `${s.percentage}%` }}
                 />
               </div>
-              <p className="text-xs text-muted-foreground">{t('examCount', { count: s.count })}</p>
+              <p className="text-label text-muted-foreground">
+                {t('examCount', { count: s.count })}
+              </p>
             </CardContent>
           </Card>
         ))}
@@ -915,9 +919,9 @@ function GradesView({ childId }: { childId: string }) {
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
                       <span className="text-body font-medium">{g.subject}</span>
-                      <span className="text-xs text-muted-foreground">{g.examName}</span>
+                      <span className="text-label text-muted-foreground">{g.examName}</span>
                     </div>
-                    <p className="text-xs text-muted-foreground">{g.examDate}</p>
+                    <p className="text-label text-muted-foreground">{g.examDate}</p>
                   </div>
                   <div className="text-right">
                     <div className="flex items-center gap-2">
@@ -933,7 +937,7 @@ function GradesView({ childId }: { childId: string }) {
                       >
                         {g.score}
                       </span>
-                      <span className="text-xs text-muted-foreground">/ {g.totalScore}</span>
+                      <span className="text-label text-muted-foreground">/ {g.totalScore}</span>
                     </div>
                   </div>
                 </div>
@@ -990,7 +994,7 @@ function AttendanceView({ childId }: { childId: string }) {
     return (
       <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
         <CalendarCheck className="h-8 w-8 text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">{t('emptyNoAttendance')}</p>
+        <p className="text-body text-muted-foreground">{t('emptyNoAttendance')}</p>
       </div>
     )
   }
@@ -1001,31 +1005,31 @@ function AttendanceView({ childId }: { childId: string }) {
         <Card>
           <CardContent className="min-[640px]:p-3 p-3 text-center">
             <p className="text-display font-bold">{attendanceRate}%</p>
-            <p className="text-xs text-muted-foreground">{t('attendanceRate')}</p>
+            <p className="text-label text-muted-foreground">{t('attendanceRate')}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="min-[640px]:p-3 p-3 text-center">
             <p className="text-display font-bold text-emerald-600">{stats.present}</p>
-            <p className="text-xs text-muted-foreground">{t('attendancePresent')}</p>
+            <p className="text-label text-muted-foreground">{t('attendancePresent')}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="min-[640px]:p-3 p-3 text-center">
             <p className="text-display font-bold text-amber-600">{stats.late}</p>
-            <p className="text-xs text-muted-foreground">{t('attendanceLate')}</p>
+            <p className="text-label text-muted-foreground">{t('attendanceLate')}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="min-[640px]:p-3 p-3 text-center">
             <p className="text-display font-bold text-red-600">{stats.absent}</p>
-            <p className="text-xs text-muted-foreground">{t('attendanceAbsent')}</p>
+            <p className="text-label text-muted-foreground">{t('attendanceAbsent')}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="min-[640px]:p-3 p-3 text-center">
             <p className="text-display font-bold text-blue-600">{stats.leave}</p>
-            <p className="text-xs text-muted-foreground">{t('attendanceLeave')}</p>
+            <p className="text-label text-muted-foreground">{t('attendanceLeave')}</p>
           </CardContent>
         </Card>
       </div>
@@ -1047,7 +1051,7 @@ function AttendanceView({ childId }: { childId: string }) {
                     {codeLabel(t, ATTENDANCE_STATUS_KEYS, r.status)}
                   </Badge>
                 </div>
-                <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                <div className="flex items-center gap-3 text-label text-muted-foreground">
                   {r.checkInTime && (
                     <div className="flex items-center gap-1">
                       <Clock className="h-3 w-3" />
@@ -1154,7 +1158,7 @@ function BindingsManagement() {
       {/* 创建绑定 */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-sm">
+          <CardTitle className="flex items-center gap-2 text-body">
             <UserPlus className="h-4 w-4 text-primary" />
             {t('addBinding')}
           </CardTitle>
@@ -1176,7 +1180,7 @@ function BindingsManagement() {
                 onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
                   setRelationship(e.target.value)
                 }
-                className="flex h-10 w-full rounded-sm border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="flex h-10 w-full rounded-sm border border-input bg-background px-3 py-2 text-body ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 {RELATIONSHIP_OPTIONS.map((value) => (
                   <option key={value} value={value}>
@@ -1206,7 +1210,7 @@ function BindingsManagement() {
       {/* 绑定列表 */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-sm">
+          <CardTitle className="flex items-center gap-2 text-body">
             <Link2 className="h-4 w-4 text-primary" />
             {t('bindingRecords')}
           </CardTitle>
@@ -1217,7 +1221,9 @@ function BindingsManagement() {
               <Loader2 className="h-5 w-5 animate-spin" />
             </div>
           ) : bindings.length === 0 ? (
-            <p className="py-4 text-center text-sm text-muted-foreground">{t('emptyNoBindings')}</p>
+            <p className="py-4 text-center text-body text-muted-foreground">
+              {t('emptyNoBindings')}
+            </p>
           ) : (
             <div className="space-y-3">
               {bindings.map((b) => (
@@ -1232,7 +1238,7 @@ function BindingsManagement() {
                         {codeLabel(t, BINDING_STATUS_KEYS, b.status)}
                       </Badge>
                     </div>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-label text-muted-foreground">
                       {t('relationshipPrefix')}{' '}
                       {codeLabel(t, RELATIONSHIP_LABEL_KEYS, b.relationship)}
                     </p>

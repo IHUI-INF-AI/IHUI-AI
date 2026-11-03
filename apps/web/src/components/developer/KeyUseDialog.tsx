@@ -119,7 +119,7 @@ export function KeyUseDialog({ open, onOpenChange, keyId, keyName }: KeyUseDialo
                   {t('bootstrap.loading')}
                 </div>
               ) : loadFailed ? (
-                <p className="rounded-md bg-muted p-3 text-sm text-muted-foreground">
+                <p className="rounded-md bg-muted p-3 text-body text-muted-foreground">
                   {t('bootstrap.loadFailed')}
                 </p>
               ) : (
@@ -129,7 +129,7 @@ export function KeyUseDialog({ open, onOpenChange, keyId, keyName }: KeyUseDialo
                       <div className="flex items-center justify-between gap-2 px-3 py-2">
                         <div className="min-w-0">
                           <p className="truncate text-body font-medium">{block.title}</p>
-                          <p className="mt-0.5 text-xs text-muted-foreground">
+                          <p className="mt-0.5 text-label text-muted-foreground">
                             {t('bootstrap.configPath')}: <code>{block.filePath}</code>
                           </p>
                         </div>
@@ -142,7 +142,7 @@ export function KeyUseDialog({ open, onOpenChange, keyId, keyName }: KeyUseDialo
                           {t('bootstrap.copy')}
                         </Button>
                       </div>
-                      <pre className="rounded-md bg-muted p-3 font-mono text-xs overflow-x-auto whitespace-pre">
+                      <pre className="rounded-md bg-muted p-3 font-mono text-label overflow-x-auto whitespace-pre">
                         <code>{block.content}</code>
                       </pre>
                     </div>

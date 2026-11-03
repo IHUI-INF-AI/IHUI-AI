@@ -104,7 +104,7 @@ function Block({
         <Icon className="h-3.5 w-3.5" />
         <span style={{ transform: 'translateY(0.3px)' }}>{label}</span>
       </div>
-      <div className="space-y-1.5 text-sm">{children}</div>
+      <div className="space-y-1.5 text-body">{children}</div>
     </div>
   )
 }
@@ -112,7 +112,7 @@ function Block({
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex items-baseline justify-between gap-2">
-      <span className="shrink-0 text-xs text-muted-foreground">{label}</span>
+      <span className="shrink-0 text-label text-muted-foreground">{label}</span>
       <span className="text-right">{children}</span>
     </div>
   )
@@ -124,7 +124,7 @@ function Metric({ label, value }: { label: string; value: number }) {
       <span className="text-lg font-semibold tabular-nums leading-none">
         {value.toLocaleString()}
       </span>
-      <span className="mt-1 text-xs text-muted-foreground">{label}</span>
+      <span className="mt-1 text-label text-muted-foreground">{label}</span>
     </div>
   )
 }
@@ -194,7 +194,7 @@ export function MonitorCard({ item, onChanged }: { item: MonitorItem; onChanged:
       <CardContent className="min-[640px]:p-3 p-3">
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-center gap-2">
-            <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+            <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-label text-muted-foreground">
               {platformName}
             </span>
             <span className="truncate text-body font-medium">{item.title}</span>
@@ -220,7 +220,7 @@ export function MonitorCard({ item, onChanged }: { item: MonitorItem; onChanged:
             href={item.published_url}
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-2 inline-flex items-center gap-1 text-xs text-primary hover:underline"
+            className="mt-2 inline-flex items-center gap-1 text-label text-primary hover:underline"
           >
             <ExternalLink className="h-3 w-3" />
             {t('openUrl')}
@@ -268,8 +268,8 @@ export function MonitorCard({ item, onChanged }: { item: MonitorItem; onChanged:
             </Row>
             {style && style.issues.length > 0 && (
               <div className="space-y-0.5 pt-1">
-                <div className="text-xs text-muted-foreground">{t('issues')}</div>
-                <ul className="list-inside list-disc space-y-0.5 text-xs text-rose-600 dark:text-rose-400">
+                <div className="text-label text-muted-foreground">{t('issues')}</div>
+                <ul className="list-inside list-disc space-y-0.5 text-label text-rose-600 dark:text-rose-400">
                   {style.issues.map((iss, i) => (
                     <li key={i}>{iss}</li>
                   ))}
@@ -277,7 +277,7 @@ export function MonitorCard({ item, onChanged }: { item: MonitorItem; onChanged:
               </div>
             )}
             {style && style.issues.length === 0 && (
-              <div className="pt-1 text-xs text-muted-foreground">{t('noIssues')}</div>
+              <div className="pt-1 text-label text-muted-foreground">{t('noIssues')}</div>
             )}
             <Button
               size="sm"
@@ -300,7 +300,7 @@ export function MonitorCard({ item, onChanged }: { item: MonitorItem; onChanged:
               <span className="text-display font-semibold tabular-nums leading-none">
                 {item.resubmit_count}
               </span>
-              <span className="text-xs text-muted-foreground">{t('resubmitCount')}</span>
+              <span className="text-label text-muted-foreground">{t('resubmitCount')}</span>
             </div>
           </Block>
 
@@ -316,7 +316,7 @@ export function MonitorCard({ item, onChanged }: { item: MonitorItem; onChanged:
                 <Row label={t('metricsCollectedAt')}>{fmtTime(metrics.collected_at)}</Row>
               </>
             ) : (
-              <div className="text-xs text-muted-foreground">{t('verifyPending')}</div>
+              <div className="text-label text-muted-foreground">{t('verifyPending')}</div>
             )}
             <Button
               size="sm"

@@ -15,6 +15,7 @@ import {
   askComments,
 } from '@ihui/database'
 import { authenticate } from '../plugins/auth.js'
+import { requireAdminRouteGuard } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
 
 const uuidParamSchema = z.object({ id: z.uuid() })
@@ -317,8 +318,7 @@ export const askExtendedRoutes: FastifyPluginAsync = async (server) => {
   // -------------------------------------------------------------------------
   // POST /asks/categories - 创建分类
   // -------------------------------------------------------------------------
-  server.post('/asks/categories', async (request, reply) => {
-    await authenticate(request)
+  server.post('/asks/categories', { preHandler: requireAdminRouteGuard }, async (request, reply) => {
     const body = categoryCreateSchema.safeParse(request.body)
     if (!body.success) {
       return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
@@ -349,8 +349,7 @@ export const askExtendedRoutes: FastifyPluginAsync = async (server) => {
   // -------------------------------------------------------------------------
   // PUT /asks/categories/:id - 更新分类
   // -------------------------------------------------------------------------
-  server.put('/asks/categories/:id', async (request, reply) => {
-    await authenticate(request)
+  server.put('/asks/categories/:id', { preHandler: requireAdminRouteGuard }, async (request, reply) => {
     const parsed = uuidParamSchema.safeParse(request.params)
     if (!parsed.success) {
       return reply.status(400).send(error(400, '无效的分类 ID'))
@@ -386,8 +385,7 @@ export const askExtendedRoutes: FastifyPluginAsync = async (server) => {
   // -------------------------------------------------------------------------
   // DELETE /asks/categories/:id - 删除分类
   // -------------------------------------------------------------------------
-  server.delete('/asks/categories/:id', async (request, reply) => {
-    await authenticate(request)
+  server.delete('/asks/categories/:id', { preHandler: requireAdminRouteGuard }, async (request, reply) => {
     const parsed = uuidParamSchema.safeParse(request.params)
     if (!parsed.success) {
       return reply.status(400).send(error(400, '无效的分类 ID'))

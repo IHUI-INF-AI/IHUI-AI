@@ -231,6 +231,12 @@ test('M13 接线锁:守护必须真有派发点(造好没装车 = 没有,§0.9)'
   assert.match(guardian, /export function auditLandedReverts\(/, '巡检腿不存在')
   assert.match(guardian, /if \(!CHECK_ONLY\) auditLandedReverts\(\)/, '巡检腿定义了但没人派')
   assert.match(guardian, /check-landed-reverts\.mjs/, '派发腿叫的必须是本尺')
+  // 判语跟着臂次走:partial 型 via 恒空,若守护仍套"与祖先…逐字同形",人会去查不存在的等值关系
+  assert.match(
+    guardian,
+    /kind === 'partial'[\s\S]{0,160}部分回退嫌疑/,
+    '派发腿把 partial 念成"逐字同形" ⇒ 判语与臂次不符(2026-11-01 首轮生产日志就错在这一格)',
+  )
 })
 
 test('M9 派生纪律:生产文件不得自带 child_process(§12g / 门 193 的取材层棘轮)', () => {

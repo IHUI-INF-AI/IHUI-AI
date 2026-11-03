@@ -33,7 +33,7 @@ function makeFakeRedis(): FakeRedis {
       const v = store.get(key)
       return v === undefined ? null : v
     },
-    async set(key: string, value: string, mode?: string, ttlSec?: number) {
+    async set(key: string, value: string, _mode?: string, ttlSec?: number) {
       store.set(key, value)
       if (typeof ttlSec === 'number') setTtls.push({ key, ttlSec })
       return 'OK'

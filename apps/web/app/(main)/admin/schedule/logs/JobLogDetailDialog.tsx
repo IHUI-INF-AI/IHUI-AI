@@ -25,8 +25,8 @@ const BADGE: Record<string, string> = {
 function Field({ label, value }: { label: string; value?: React.ReactNode }) {
   return (
     <div className="space-y-1">
-      <label className="text-xs text-muted-foreground">{label}</label>
-      <div className="text-sm">{value ?? '-'}</div>
+      <label className="text-label text-muted-foreground">{label}</label>
+      <div className="text-body">{value ?? '-'}</div>
     </div>
   )
 }
@@ -75,9 +75,9 @@ export function JobLogDetailDialog({ open, log, onClose }: Props) {
           <Field label={t('fieldInvokeTarget')} value={log.invokeTarget} />
           <Field label={t('fieldJobMessage')} value={log.jobMessage} />
           <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">{t('fieldStatus')}</label>
+            <label className="text-label text-muted-foreground">{t('fieldStatus')}</label>
             <div>
-              <span className={`inline-flex rounded-md px-2 py-0.5 text-xs ${BADGE[s]}`}>
+              <span className={`inline-flex rounded-md px-2 py-0.5 text-label ${BADGE[s]}`}>
                 {s === 'success'
                   ? t('statusSuccess')
                   : s === 'fail'
@@ -95,12 +95,12 @@ export function JobLogDetailDialog({ open, log, onClose }: Props) {
           />
         </div>
         <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">{t('fieldExceptionInfo')}</label>
+          <label className="text-label text-muted-foreground">{t('fieldExceptionInfo')}</label>
           <textarea
             readOnly
             value={log.exceptionInfo ?? ''}
             placeholder={t('emptyException')}
-            className="h-32 w-full resize-none rounded-sm border bg-muted/30 p-3 font-mono text-xs"
+            className="h-32 w-full resize-none rounded-sm border bg-muted/30 p-3 font-mono text-label"
           />
         </div>
       </DialogContent>

@@ -50,7 +50,7 @@ export default function IcpRecordPage() {
                 key={item.labelKey}
                 className="flex items-start justify-between gap-4 py-3 first:pt-0 last:pb-0"
               >
-                <dt className="shrink-0 text-sm text-muted-foreground">{t(item.labelKey)}</dt>
+                <dt className="shrink-0 text-body text-muted-foreground">{t(item.labelKey)}</dt>
                 <dd className="text-right text-body font-medium">
                   {item.link ? (
                     <a
@@ -74,7 +74,7 @@ export default function IcpRecordPage() {
       <Card>
         <CardContent className="min-[640px]:p-3 flex items-start gap-3 p-3">
           <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-          <p className="text-xs leading-relaxed text-muted-foreground">{t('icpRecordNotice')}</p>
+          <p className="text-label leading-relaxed text-muted-foreground">{t('icpRecordNotice')}</p>
         </CardContent>
       </Card>
     </div>

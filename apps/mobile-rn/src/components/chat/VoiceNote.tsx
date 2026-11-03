@@ -65,7 +65,7 @@ import {
   setVoiceNoteArchived,
   updateVoiceNote,
 } from '@ihui/api-client'
-import { rnRadius, rnSpacing } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import type { VoiceNoteGroupFacet } from '@ihui/types'
 import {
   formatVoiceNoteDuration,
@@ -694,10 +694,22 @@ const styles = StyleSheet.create({
     paddingVertical: rnSpacing.xs,
     marginBottom: rnSpacing.sm,
   },
-  phaseText: { fontSize: 12, color: tokens.text.secondary },
-  phaseDuration: { marginLeft: rnSpacing.sm, fontSize: 12, color: tokens.text.secondary },
-  errorText: { fontSize: 12, color: tokens.danger.DEFAULT, marginBottom: rnSpacing.sm },
-  pendingText: { fontSize: 12, color: tokens.text.tertiary, marginBottom: rnSpacing.sm },
+  phaseText: { fontSize: rnType.label.size, color: tokens.text.secondary },
+  phaseDuration: {
+    marginLeft: rnSpacing.sm,
+    fontSize: rnType.label.size,
+    color: tokens.text.secondary,
+  },
+  errorText: {
+    fontSize: rnType.label.size,
+    color: tokens.danger.DEFAULT,
+    marginBottom: rnSpacing.sm,
+  },
+  pendingText: {
+    fontSize: rnType.label.size,
+    color: tokens.text.tertiary,
+    marginBottom: rnSpacing.sm,
+  },
   transcriptBox: {
     borderWidth: 1,
     borderColor: tokens.border.medium,
@@ -706,7 +718,7 @@ const styles = StyleSheet.create({
     marginBottom: rnSpacing.sm,
     maxHeight: 128,
   },
-  transcriptText: { fontSize: 12, color: tokens.text.primary },
+  transcriptText: { fontSize: rnType.label.size, color: tokens.text.primary },
   actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -731,7 +743,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: rnSpacing['sm-loose'],
     paddingVertical: rnSpacing['xs-loose'],
   },
-  primaryBtnText: { fontSize: 12, color: tokens.brand.ctaForeground },
+  primaryBtnText: { fontSize: rnType.label.size, color: tokens.brand.ctaForeground },
   outlineBtn: {
     borderWidth: 1,
     borderColor: tokens.border.medium,
@@ -739,14 +751,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: rnSpacing['sm-loose'],
     paddingVertical: rnSpacing['xs-loose'],
   },
-  outlineBtnText: { fontSize: 12, color: tokens.text.secondary },
+  outlineBtnText: { fontSize: rnType.label.size, color: tokens.text.secondary },
   searchInput: {
     borderWidth: 1,
     borderColor: tokens.border.medium,
     borderRadius: rnRadius.sm, // control 档 sm(4)
     paddingHorizontal: rnSpacing.sm,
     paddingVertical: rnSpacing['xs-loose'],
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.primary,
     marginBottom: rnSpacing.sm,
   },
@@ -767,7 +779,7 @@ const styles = StyleSheet.create({
   // ctaForeground 字,两态自适应;不得用 surface.light(两态恒白 ⇒ 白卡上选中态不可见)
   chipActive: { backgroundColor: tokens.brand.cta, borderColor: tokens.brand.cta },
   chipActiveText: { color: tokens.brand.ctaForeground },
-  chipText: { fontSize: 11, color: tokens.text.secondary },
+  chipText: { fontSize: rnType.caption.size, color: tokens.text.secondary },
   archiveList: { maxHeight: 220 },
   archiveItem: {
     flexDirection: 'row',
@@ -776,9 +788,9 @@ const styles = StyleSheet.create({
     paddingVertical: rnSpacing['xs-loose'],
     paddingHorizontal: rnSpacing['2xs'],
   },
-  archiveDuration: { fontSize: 11, color: tokens.text.tertiary },
-  archiveText: { flex: 1, fontSize: 12, color: tokens.text.primary },
-  archiveAction: { fontSize: 11, color: tokens.text.secondary },
+  archiveDuration: { fontSize: rnType.caption.size, color: tokens.text.tertiary },
+  archiveText: { flex: 1, fontSize: rnType.label.size, color: tokens.text.primary },
+  archiveAction: { fontSize: rnType.caption.size, color: tokens.text.secondary },
   groupEditor: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -792,7 +804,7 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius.sm, // control 档 sm(4)
     paddingHorizontal: rnSpacing['xs-loose'],
     paddingVertical: rnSpacing.xs,
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.text.primary,
   },
 })

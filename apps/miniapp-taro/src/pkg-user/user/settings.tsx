@@ -21,6 +21,7 @@ import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon from '@/components/LineIcon'
 import { getRnTokens } from '@ihui/design-tokens'
 import { useAppTheme } from '@/lib/theme'
+import { onToast } from '@/host/on-toast'
 
 const VERSION = '1.0.0'
 const NOTIFICATION_KEY = 'messageNotificationEnabled'
@@ -98,7 +99,7 @@ export default function Settings() {
       } catch {
         // 本地缓存写不进不影响真值
       }
-      Taro.showToast({ title: tt('common.failed', '保存失败,请重试'), icon: 'none' })
+      onToast(tt('common.failed', '保存失败,请重试'), { kind: 'error' })
       return
     }
     if (value) {
@@ -117,13 +118,13 @@ export default function Settings() {
             },
           })
         } else {
-          Taro.showToast({ title: tt('setting.notifOn', '已开启消息通知'), icon: 'none' })
+          onToast(tt('setting.notifOn', '已开启消息通知'), { kind: 'info' })
         }
       } catch {
-        Taro.showToast({ title: tt('setting.notifOn', '已开启消息通知'), icon: 'none' })
+        onToast(tt('setting.notifOn', '已开启消息通知'), { kind: 'info' })
       }
     } else {
-      Taro.showToast({ title: tt('setting.notifOff', '已关闭消息通知'), icon: 'none' })
+      onToast(tt('setting.notifOff', '已关闭消息通知'), { kind: 'info' })
     }
   }
 
@@ -142,7 +143,7 @@ export default function Settings() {
           // 原来那句"整片擦 storage"会连用户偏好一起抹掉,且内存里的 token 仍在
           // (下一页/下一个请求还带着它)—— 两处都不该由一次登出造成。
           clearAuth()
-          Taro.showToast({ title: tt('user.loggedOut', '已退出登录'), icon: 'success' })
+          onToast(tt('user.loggedOut', '已退出登录'), { kind: 'success' })
           setTimeout(goToLogin, 800)
         }
       },

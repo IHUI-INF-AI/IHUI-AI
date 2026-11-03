@@ -101,11 +101,12 @@ vi.mock('drizzle-orm', async (importOriginal) => {
   return {
     ...actual,
     eq: vi.fn(actual.eq),
+    inArray: vi.fn(actual.inArray),
     lt: vi.fn(actual.lt),
   }
 })
 
-import { eq, lt } from 'drizzle-orm'
+import { eq, inArray, lt } from 'drizzle-orm'
 import { captchas } from '@ihui/database'
 import {
   saveCaptcha,
@@ -115,11 +116,13 @@ import {
 } from '../captcha-queries.js'
 
 const eqMock = vi.mocked(eq)
+const inArrayMock = vi.mocked(inArray)
 const ltMock = vi.mocked(lt)
 
 beforeEach(() => {
   mocks.reset()
   eqMock.mockClear()
+  inArrayMock.mockClear()
   ltMock.mockClear()
 })
 
@@ -186,20 +189,40 @@ describe('deleteCaptcha', () => {
 })
 
 describe('cleanupExpiredCaptchas', () => {
-  it('对 captchas 按 expiresAt < 现在 删除（传入当前时刻）', async () => {
+  it('先按 expiresAt < 现在 取一批过期主键,再按这批主键删除(分批,不做无界 DELETE)', async () => {
     vi.useFakeTimers()
     try {
       vi.setSystemTime(new Date('2026-10-28T01:02:03.000Z'))
+      mocks.state.selectRows = [{ id: 'cap-1' }, { id: 'cap-2' }]
+
       await cleanupExpiredCaptchas()
 
-      expect(mocks.state.deleteTable).toBe(captchas)
+      // 取批:按 expiresAt < 当前时刻过滤,且限量
+      // (expires_at 无二级索引,一条无界 DELETE 会把 seq scan + 行锁一次性摊进事务)
+      expect(mocks.state.selectTable).toBe(captchas)
       expect(ltMock).toHaveBeenCalledTimes(1)
       expect(ltMock.mock.calls[0]?.[0]).toBe(captchas.expiresAt)
       expect(ltMock.mock.calls[0]?.[1]).toEqual(new Date('2026-10-28T01:02:03.000Z'))
-      expect(mocks.state.deleteWhere).toBe(ltMock.mock.results[0]?.value)
+      expect(mocks.state.selectLimit).toBe(1000)
+
+      // 删除:按主键集合删,不按范围删
+      expect(mocks.state.deleteTable).toBe(captchas)
+      expect(inArrayMock).toHaveBeenCalledTimes(1)
+      expect(inArrayMock.mock.calls[0]?.[0]).toBe(captchas.id)
+      expect(inArrayMock.mock.calls[0]?.[1]).toEqual(['cap-1', 'cap-2'])
+      expect(mocks.state.deleteWhere).toBe(inArrayMock.mock.results[0]?.value)
     } finally {
       vi.useRealTimers()
     }
+  })
+
+  it('没有过期行时早退:不发 DELETE(空批不该落一条无谓的删除语句)', async () => {
+    mocks.state.selectRows = []
+
+    await cleanupExpiredCaptchas()
+
+    expect(mocks.state.deleteTable).toBeUndefined()
+    expect(inArrayMock).not.toHaveBeenCalled()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -63,12 +63,19 @@ export const pushRoutes: FastifyPluginAsync = async (server) => {
     const { deviceToken } = z
       .object({ deviceToken: z.string().min(1).max(500) })
       .parse(request.body)
-    await db.execute(sql`
+    // 归属校验:WHERE 必须带 member_id,否则知道他人 device token 即可静默停掉对方推送
+    const rows = await db.execute(sql`
       UPDATE edu_notification_device
       SET is_active = false, updated_at = NOW()
       WHERE device_token = ${deviceToken}
+        AND member_id = ${request.userId!}
+      RETURNING id
     `)
-    return reply.send(success({ unregistered: true }))
+    const removed = (rows as Record<string, unknown>[]).length
+    if (removed === 0) {
+      return reply.status(404).send(error(404, '设备不存在或不属于当前用户'))
+    }
+    return reply.send(success({ unregistered: true, removed }))
   })
 
   // GET /push/provider - 查询当前推送 provider

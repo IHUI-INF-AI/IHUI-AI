@@ -284,7 +284,7 @@ export default function AdminUsersPage() {
                 <Users className="h-6 w-6 text-primary" />
                 <CenteredText>{t('title')}</CenteredText>
               </h1>
-              <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+              <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
             </div>
             <Button size="sm" onClick={() => setCreateOpen(true)}>
               <Plus className="h-4 w-4" />
@@ -307,7 +307,7 @@ export default function AdminUsersPage() {
             }}
           />
 
-          <div className="flex items-center gap-2 text-sm">
+          <div className="flex items-center gap-2 text-body">
             <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
             <span className="text-muted-foreground">默认排序</span>
             <select

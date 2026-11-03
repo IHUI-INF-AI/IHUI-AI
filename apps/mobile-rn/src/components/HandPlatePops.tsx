@@ -1,7 +1,8 @@
-import { useI18n } from '../i18n'
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { useI18n } from '../i18n'
 
 /**
  * HandPlatePops 手柄式底部弹出层 (mobile-rn 端)
@@ -518,8 +519,8 @@ const styles = StyleSheet.create({
     color: tokens.success.DEFAULT,
   } as TextStyle,
   purchaseOriginal: {
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: rnType.bodySm.size,
+    lineHeight: rnType.bodySm.lineHeight,
     color: tokens.text.tertiary,
     textDecorationLine: 'line-through',
   } as TextStyle,
@@ -538,7 +539,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   } as TextStyle,
   purchasePayment: {
-    gap: 6,
+    gap: rnSpacing['xs-loose'],
   } as ViewStyle,
   purchasePaymentTitle: {
     fontSize: rnType.label.size,
@@ -550,7 +551,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.muted,
     borderRadius: rnRadius.lg,
     paddingHorizontal: rnSpacing.md,
-    paddingVertical: 10,
+    paddingVertical: rnSpacing['sm-loose'],
     borderWidth: 1,
     borderColor: 'transparent',
   } as ViewStyle,
@@ -573,7 +574,7 @@ const styles = StyleSheet.create({
   } as TextStyle,
   purchasePaymentName: {
     flex: 1,
-    marginLeft: 10,
+    marginLeft: rnSpacing['sm-loose'],
     fontSize: rnType.body.size,
     color: tokens.text.primary,
   } as TextStyle,
@@ -599,7 +600,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: rnSpacing['xs-loose'],
   } as ViewStyle,
   checkbox: {
     width: CHECKBOX_SIZE,

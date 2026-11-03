@@ -54,18 +54,30 @@ export async function createWorkflow(data: CreateWorkflowInput): Promise<Workflo
   return row
 }
 
+/**
+ * 工作流列表。
+ *
+ * 归属(2026-11-01 IDOR 收口)：`userId` **必填**，默认即"只看本人"。
+ * 此前这里没有任何 where，任一登录用户翻页就能枚举全平台工作流(含 steps 里的提示词)。
+ * 刻意不把 `userId` 设成可选/带默认放行 —— 那等于把缺口改成"忘记传就全开"。
+ * `scope: 'system'` 仅给系统级清理(超时 sweep)用，它读的是实例而不是这份列表。
+ */
 export async function findWorkflows(opts: {
   page: number
   pageSize: number
+  userId: string
+  scope?: 'own' | 'system'
 }): Promise<{ list: Workflow[]; total: number }> {
+  const ownerCond = opts.scope === 'system' ? undefined : eq(workflows.createdBy, opts.userId)
   const [list, totalRows] = await Promise.all([
     db
       .select()
       .from(workflows)
+      .where(ownerCond)
       .orderBy(desc(workflows.updatedAt))
       .limit(opts.pageSize)
       .offset((opts.page - 1) * opts.pageSize),
-    db.select({ count: sql<number>`COUNT(*)` }).from(workflows),
+    db.select({ count: sql<number>`COUNT(*)` }).from(workflows).where(ownerCond),
   ])
   return { list, total: Number(totalRows[0]?.count ?? 0) }
 }
@@ -128,13 +140,34 @@ export async function createInstance(data: CreateInstanceInput): Promise<Workflo
   return row
 }
 
+/**
+ * 工作流实例列表。
+ *
+ * 归属(2026-11-01 IDOR 收口)：`workflow_instances` 表**没有** userId，只有 workflowId，
+ * 所以实例归属=所属 workflow 的 createdBy。这里用 `IN (子查询)` 把判据下推到 SQL，
+ * 不在内存里"先全查再按 userId 过滤" —— 那种写法一旦哪天忘了过滤就整份泄露。
+ * `userId` 必填，`scope` 缺省 `'own'`；`'system'` 只给超时 sweep 全量遍历用。
+ */
 export async function findInstances(opts: {
   page: number
   pageSize: number
+  userId: string
+  scope?: 'own' | 'system'
   workflowId?: string
   status?: string
 }): Promise<{ list: WorkflowInstance[]; total: number }> {
   const conds = []
+  if (opts.scope !== 'system') {
+    conds.push(
+      inArray(
+        workflowInstances.workflowId,
+        db
+          .select({ id: workflows.id })
+          .from(workflows)
+          .where(eq(workflows.createdBy, opts.userId)),
+      ),
+    )
+  }
   if (opts.workflowId) conds.push(eq(workflowInstances.workflowId, opts.workflowId))
   if (opts.status) conds.push(eq(workflowInstances.status, opts.status))
   const where = conds.length ? and(...conds) : undefined
@@ -155,6 +188,12 @@ export async function findInstances(opts: {
   return { list, total: Number(totalRows[0]?.count ?? 0) }
 }
 
+/**
+ * 按 id 取实例 —— **裸查询，不含归属**。
+ * 实例表没有 userId，归属只能经所属 workflow 的 createdBy 判定，故调用方必须在路由层
+ * 配一次 `findWorkflowById(instance.workflowId)` 比对(见 routes/workflows.ts 的 loadOwnedInstance)。
+ * 不要把它当"已经校验过"的入口用。
+ */
 export async function findInstanceById(id: string): Promise<WorkflowInstance | undefined> {
   const rows = await db
     .select()

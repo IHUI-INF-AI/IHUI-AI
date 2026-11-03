@@ -16,6 +16,9 @@
  * 判据本体从 routes/auth-extended.ts 的 __test__ 导出取用(§22c,不复制)。
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import type * as QueriesModule from '../src/db/queries.js'
+import type * as OAuthQueriesModule from '../src/db/oauth-queries.js'
+import type * as TotpServiceModule from '../src/services/totp-service.js'
 
 vi.hoisted(() => {
   process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:5432/test'
@@ -24,7 +27,7 @@ vi.hoisted(() => {
 })
 
 vi.mock('../src/db/queries.js', async (importOriginal) => {
-  const mod = await importOriginal()
+  const mod = await importOriginal<typeof QueriesModule>()
   return {
     ...mod,
     findThirdPartyAccount: vi.fn(),
@@ -36,7 +39,7 @@ vi.mock('../src/db/queries.js', async (importOriginal) => {
 })
 
 vi.mock('../src/db/oauth-queries.js', async (importOriginal) => {
-  const mod = await importOriginal()
+  const mod = await importOriginal<typeof OAuthQueriesModule>()
   return {
     ...mod,
     findThirdPartyAccount: vi.fn(),
@@ -49,7 +52,7 @@ vi.mock('../src/routes/user/ip-whitelist-guard.js', () => ({
 }))
 
 vi.mock('../src/services/totp-service.js', async (importOriginal) => {
-  const mod = await importOriginal()
+  const mod = await importOriginal<typeof TotpServiceModule>()
   return { ...mod, signChallengeToken: vi.fn().mockResolvedValue('challenge-token-test') }
 })
 

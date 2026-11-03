@@ -449,7 +449,7 @@ export function UnifiedTaskDashboard() {
           onChange={(e) => setSearch(e.target.value)}
           placeholder={t('searchPlaceholder')}
           maxLength={200}
-          className="h-8 pl-7 text-xs"
+          className="h-8 pl-7 text-label"
           data-testid="unified-task-search"
         />
       </div>
@@ -484,7 +484,7 @@ export function UnifiedTaskDashboard() {
       {/* kanban 主源错误(其余源静默降级) */}
       {kanban.isError && (
         <div
-          className="rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive"
+          className="rounded-md bg-destructive/10 px-3 py-2 text-label text-destructive"
           data-testid="unified-task-error"
         >
           {kanban.error.message}
@@ -497,7 +497,7 @@ export function UnifiedTaskDashboard() {
           <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
         </div>
       ) : filtered.length === 0 ? (
-        <div className="rounded-md bg-muted/40 px-3 py-6 text-center text-xs text-muted-foreground">
+        <div className="rounded-md bg-muted/40 px-3 py-6 text-center text-label text-muted-foreground">
           {t('empty')}
         </div>
       ) : (
@@ -523,7 +523,7 @@ export function UnifiedTaskDashboard() {
                       }
                     }}
                     maxLength={200}
-                    className="h-7 flex-1 text-xs"
+                    className="h-7 flex-1 text-label"
                     data-testid="unified-rename-input"
                   />
                   <Button
@@ -566,7 +566,7 @@ export function UnifiedTaskDashboard() {
                     </span>
                   </div>
 
-                  <p className="mt-1 line-clamp-2 break-words text-xs">{row.name}</p>
+                  <p className="mt-1 line-clamp-2 break-words text-label">{row.name}</p>
 
                   <div className="mt-1.5 flex flex-wrap items-center gap-1">
                     {/* 启动:kanban ready → in_progress */}
@@ -574,7 +574,7 @@ export function UnifiedTaskDashboard() {
                       <Button
                         variant="ghost"
                         size="xs"
-                        className="h-6 px-2 text-xs text-emerald-600 hover:text-emerald-600"
+                        className="h-6 px-2 text-label text-emerald-600 hover:text-emerald-600"
                         disabled={startTask.isPending}
                         onClick={() => startTask.mutate(row.id)}
                         data-testid="unified-start-btn"
@@ -588,7 +588,7 @@ export function UnifiedTaskDashboard() {
                       <Button
                         variant="ghost"
                         size="xs"
-                        className="h-6 px-2 text-xs text-red-600 hover:text-red-600"
+                        className="h-6 px-2 text-label text-red-600 hover:text-red-600"
                         disabled={stopKanban.isPending}
                         onClick={() => stopKanban.mutate(row.id)}
                         data-testid="unified-stop-btn"
@@ -602,7 +602,7 @@ export function UnifiedTaskDashboard() {
                       <Button
                         variant="ghost"
                         size="xs"
-                        className="h-6 px-2 text-xs text-red-600 hover:text-red-600"
+                        className="h-6 px-2 text-label text-red-600 hover:text-red-600"
                         onClick={() => cancelDispatch.mutate(row.id)}
                         data-testid="unified-stop-btn"
                       >
@@ -615,7 +615,7 @@ export function UnifiedTaskDashboard() {
                       <Button
                         variant="ghost"
                         size="xs"
-                        className="h-6 px-2 text-xs"
+                        className="h-6 px-2 text-label"
                         onClick={() => {
                           setEditingKey(row.key)
                           setEditDraft(row.name)
@@ -632,7 +632,7 @@ export function UnifiedTaskDashboard() {
                         variant="ghost"
                         size="xs"
                         className={cn(
-                          'h-6 px-2 text-xs',
+                          'h-6 px-2 text-label',
                           selected?.key === row.key && 'text-primary',
                         )}
                         onClick={() => setSelected((cur) => (cur?.key === row.key ? null : row))}
@@ -667,12 +667,14 @@ export function UnifiedTaskDashboard() {
                 <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
               </div>
             ) : (messages.data?.messages ?? []).length === 0 ? (
-              <p className="py-3 text-center text-xs text-muted-foreground">{t('messagesEmpty')}</p>
+              <p className="py-3 text-center text-label text-muted-foreground">
+                {t('messagesEmpty')}
+              </p>
             ) : (
               (messages.data?.messages ?? []).map((m: TaskMessageRow) => (
                 <div
                   key={m.id}
-                  className="rounded bg-card px-2 py-1.5 text-xs"
+                  className="rounded bg-card px-2 py-1.5 text-label"
                   data-testid="unified-task-message-item"
                 >
                   <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground">
@@ -721,7 +723,7 @@ export function UnifiedTaskDashboard() {
               }}
               placeholder={t('messagePlaceholder')}
               maxLength={8000}
-              className="h-7 flex-1 text-xs"
+              className="h-7 flex-1 text-label"
               data-testid="unified-message-input"
             />
             <Tooltip content={t('mention')} side="bottom">
@@ -755,7 +757,7 @@ export function UnifiedTaskDashboard() {
           {mentionPickerOpen && (
             <div className="mt-1.5 max-h-36 overflow-y-auto rounded border border-border bg-card p-1">
               {mentionCandidates.length === 0 ? (
-                <p className="px-2 py-1.5 text-xs text-muted-foreground">{t('mentionEmpty')}</p>
+                <p className="px-2 py-1.5 text-label text-muted-foreground">{t('mentionEmpty')}</p>
               ) : (
                 mentionCandidates.map((task) => {
                   const picked = mentions.some((m) => m.taskId === task.id)
@@ -764,7 +766,7 @@ export function UnifiedTaskDashboard() {
                       key={task.id}
                       type="button"
                       className={cn(
-                        'flex w-full items-center gap-1.5 rounded-sm px-2 py-1 text-left text-xs hover:bg-muted',
+                        'flex w-full items-center gap-1.5 rounded-sm px-2 py-1 text-left text-label hover:bg-muted',
                         picked && 'bg-sky-500/10',
                       )}
                       onClick={() => toggleMention(task)}

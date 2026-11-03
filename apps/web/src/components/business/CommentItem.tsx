@@ -67,11 +67,11 @@ function CommentItemImpl({
         <div className="rounded-lg bg-muted p-3">
           <div className="flex items-center gap-2">
             <span className="text-body font-medium">{name}</span>
-            <span className="text-xs text-muted-foreground">{time}</span>
+            <span className="text-label text-muted-foreground">{time}</span>
           </div>
-          <p className="mt-1 text-sm">{content}</p>
+          <p className="mt-1 text-body">{content}</p>
         </div>
-        <div className="mt-1.5 flex items-center gap-4 text-xs text-muted-foreground">
+        <div className="mt-1.5 flex items-center gap-4 text-label text-muted-foreground">
           <button
             onClick={handleLike}
             className={cn(
@@ -96,9 +96,9 @@ function CommentItemImpl({
                   <div className="rounded-lg bg-muted p-2">
                     <div className="flex items-center gap-2">
                       <span className="text-label font-medium">{reply.name}</span>
-                      <span className="text-xs text-muted-foreground">{reply.time}</span>
+                      <span className="text-label text-muted-foreground">{reply.time}</span>
                     </div>
-                    <p className="mt-0.5 text-sm">{reply.content}</p>
+                    <p className="mt-0.5 text-body">{reply.content}</p>
                   </div>
                 </div>
               </div>

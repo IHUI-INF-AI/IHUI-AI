@@ -32,13 +32,13 @@ export function OauthAppTable({ list, isLoading, togglePending, onToggle, onDele
       <Table>
         <TableHeader>
           <TableRow className="bg-muted/50">
-            <TableHead className="text-xs uppercase">应用名称</TableHead>
-            <TableHead className="text-xs uppercase">ClientID</TableHead>
-            <TableHead className="text-xs uppercase">所属用户</TableHead>
-            <TableHead className="text-xs uppercase">回调地址</TableHead>
-            <TableHead className="text-xs uppercase">权限</TableHead>
-            <TableHead className="text-xs uppercase">状态</TableHead>
-            <TableHead className="text-right text-xs uppercase">操作</TableHead>
+            <TableHead className="text-label uppercase">应用名称</TableHead>
+            <TableHead className="text-label uppercase">ClientID</TableHead>
+            <TableHead className="text-label uppercase">所属用户</TableHead>
+            <TableHead className="text-label uppercase">回调地址</TableHead>
+            <TableHead className="text-label uppercase">权限</TableHead>
+            <TableHead className="text-label uppercase">状态</TableHead>
+            <TableHead className="text-right text-label uppercase">操作</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -58,28 +58,31 @@ export function OauthAppTable({ list, isLoading, togglePending, onToggle, onDele
             list.map((a) => (
               <TableRow key={a.id}>
                 <TableCell className="font-medium">{a.name}</TableCell>
-                <TableCell className="max-w-[160px] truncate font-mono text-xs" title={a.clientId}>
+                <TableCell
+                  className="max-w-[160px] truncate font-mono text-label"
+                  title={a.clientId}
+                >
                   {a.clientId}
                 </TableCell>
-                <TableCell className="text-xs text-muted-foreground">
+                <TableCell className="text-label text-muted-foreground">
                   {a.ownerName || a.ownerId}
                 </TableCell>
                 <TableCell className="max-w-[200px]">
-                  <div className="space-y-0.5 text-xs text-muted-foreground">
+                  <div className="space-y-0.5 text-label text-muted-foreground">
                     {(a.redirectUris ?? []).slice(0, 2).map((u) => (
                       <div key={u} className="break-words">
                         {u}
                       </div>
                     ))}
                     {a.redirectUris.length > 2 && (
-                      <div className="text-xs">+{a.redirectUris.length - 2}</div>
+                      <div className="text-label">+{a.redirectUris.length - 2}</div>
                     )}
                   </div>
                 </TableCell>
                 <TableCell>
                   <div className="flex flex-wrap gap-1">
                     {(a.scopes ?? []).slice(0, 3).map((s) => (
-                      <span key={s} className="rounded bg-muted px-1.5 py-0.5 text-xs">
+                      <span key={s} className="rounded bg-muted px-1.5 py-0.5 text-label">
                         {s}
                       </span>
                     ))}
@@ -88,7 +91,7 @@ export function OauthAppTable({ list, isLoading, togglePending, onToggle, onDele
                 <TableCell>
                   <span
                     className={cn(
-                      'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs',
+                      'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-label',
                       STATUS_STYLE[a.status],
                     )}
                   >

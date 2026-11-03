@@ -124,7 +124,7 @@ export const ImageGenAgnes = React.memo(function ImageGenAgnes() {
     <Card>
       <CardHeader>
         <CardTitle>{t('agnesImageTitle')}</CardTitle>
-        <p className="text-sm text-muted-foreground">{t('agnesImageSubtitle')}</p>
+        <p className="text-body text-muted-foreground">{t('agnesImageSubtitle')}</p>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
@@ -185,20 +185,20 @@ export const ImageGenAgnes = React.memo(function ImageGenAgnes() {
 
         {taskId && (
           <div className="space-y-3">
-            <div className="text-sm text-muted-foreground">
+            <div className="text-body text-muted-foreground">
               {t('taskId')}: {taskId} · {t('status')}: {statusLabel(task?.status)}
             </div>
             {task?.status === 'pending' || task?.status === 'running' ? (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <div className="flex items-center gap-2 text-body text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
                 {t('polling')}
               </div>
             ) : null}
             {task?.status === 'failed' && task.error ? (
-              <p className="text-sm text-destructive">{task.error}</p>
+              <p className="text-body text-destructive">{task.error}</p>
             ) : null}
             {task?.status === 'succeeded' && images.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{t('noResult')}</p>
+              <p className="text-body text-muted-foreground">{t('noResult')}</p>
             ) : null}
             <div className="grid grid-cols-2 gap-3">
               {images.map((url) => (
@@ -216,7 +216,7 @@ export const ImageGenAgnes = React.memo(function ImageGenAgnes() {
                     download
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                    className="inline-flex items-center gap-1 text-label text-primary hover:underline"
                   >
                     <Download className="h-3 w-3" />
                     {t('download')}

@@ -29,6 +29,32 @@ export async function getBalance(): Promise<ApiResult<WalletBalance>> {
   return fetchApi<WalletBalance>('/api/wallet/balance')
 }
 
+/** 资金流水行(对齐 GET /api/finance/margin/flows;金额单位分) */
+export interface MarginFlowItem {
+  id: string
+  /** 1 充值 / 2 扣减 / 3 过期 / 4 退款 / 5 佣金 */
+  opType: number
+  /** 变动金额(分) */
+  quantity: number
+  /** 变动后余额(分) */
+  balanceAfter: number
+  remark: string | null
+  createdAt: string
+}
+
+export interface MarginFlowsData {
+  items: MarginFlowItem[]
+  total: number
+}
+
+/** 资金流水(分页;web /wallet 流水表同源端点) */
+export async function getMarginFlows(query: {
+  page: number
+  limit: number
+}): Promise<ApiResult<MarginFlowsData>> {
+  return fetchApi<MarginFlowsData>(`/api/finance/margin/flows${buildQs(query)}`)
+}
+
 export async function recharge(input: {
   amount: number
   payMethod: string

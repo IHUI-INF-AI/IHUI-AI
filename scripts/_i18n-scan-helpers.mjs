@@ -592,6 +592,32 @@ export function groupByNamespace(keys) {
 export const CONTRACT_FILE_REL = 'scripts/i18n-contract-keys.json'
 const CONTRACT_REASON_MIN_CHARS = 12
 
+/**
+ * 逐面板结论的**唯一**拼装实现(2026-11-01 立,根因见 scan-dead-i18n-keys.mjs 头注):
+ * 旧末行标签只映射退出码 —— 不并 `--exit 1` 时死键面板也印 `ok`,与 all 档(带旗)给出
+ * 相反结论;同旗时两面判定本就一致。本函数把**死键计数与旗态**编进结论本体,
+ * 使 `--target all` 的第 i 面板 token 与 `--target <端>` 单跑 token 在同码同面下逐字同值。
+ * @param {string} name 端名
+ * @param {number} code main() 的退出码
+ * @param {Object} [report] main(opts.report) 回填的判定凭据
+ * @returns {string} `<name>=<结论>` 形态的单面板 token
+ */
+export function panelVerdictOf(name, code, report = {}) {
+  if (code === 2) return `${name}=未判定(exit 2)`
+  if (code === 1) {
+    if (report.contractHardFail)
+      return `${name}=exit 1(契约声明失效${report.contractIssueCount ?? '?'}条)`
+    return `${name}=exit 1(死键${report.deadCount ?? '?'},基线${report.maxDead ?? 0})`
+  }
+  if (report.skipped) return `${name}=ok(跳过:${String(report.skipped).replaceAll(' ', '')})`
+  if (typeof report.deadCount === 'number') {
+    const over = report.deadCount > (report.maxDead ?? 0)
+    if (over && !report.exitOnDead) return `${name}=ok(死键${report.deadCount},带--exit1则红)`
+    return `${name}=ok(死键${report.deadCount})`
+  }
+  return `${name}=ok`
+}
+
 /** 读声明文件本身:不存在 = 没有任何声明(不是错误);内容损坏由 loadJson 抛。 */
 export function loadContractFile(root = ROOT) {
   const p = path.join(root, CONTRACT_FILE_REL)
@@ -797,6 +823,7 @@ export function makeHeadReader(root = ROOT) {
  * @param {string} [opts.root] - 仓库根(缺省 = 模块加载时的 process.cwd(),即既有 CLI 契约;
  *                               提交链与测试请显式传入)
  * @param {unknown} [opts.contractPreload] - 契约文件已解析内容(入口按同一面预读后传入,免二次取材)
+ * @param {Object|null} [opts.report] - 判定凭据回填对象(死键计数/旗态/跳过原因;统一入口逐面板结论的唯一数据源)
  * @returns {number} 0 成功;1 = --exit 1 模式发现死 key,或契约声明不成立(后者与 --exit 无关,必红);
  *                  2 = 判定面无法取材(未判定 —— 既不冒红也绝不记绿,不回退磁盘)
  */
@@ -817,6 +844,10 @@ export function main(opts) {
     face = 'head',
     root = ROOT,
     contractPreload,
+    // 判定凭据回填对象(2026-11-01 立,可选):main() 在每条返回路径前把 deadCount/maxDead/
+    // exitOnDead/contractHardFail/skipped 写进这里,供统一入口拼装逐面板结论(见 panelVerdictOf)。
+    // 不传则行为与旧版逐字一致(5 份 thin wrapper 与既有测试不受影响)。
+    report = null,
   } = opts
 
   const TAG = scriptName || `scan-${name}-dead-i18n-keys`
@@ -834,12 +865,14 @@ export function main(opts) {
   const SCAN_TARGETS = scanTargets.map((t) => path.join(root, t))
 
   const dieUndetermined = (msg) => {
+    if (report) report.undetermined = true
     console.error(`[${TAG}] 无法判定(exit 2,未判定 ≠ 通过 ≠ 失败): ${msg}`)
     return 2
   }
 
   // 0b. 跳过条件:无 JS 代码扫描目标(端是纯原生包装,如 desktop)—— 与取材面无关,先判
   if (SCAN_TARGETS.length === 0) {
+    if (report) report.skipped = 'scanTargets 为空(端无 JS 代码)'
     console.log(`[${TAG}] 跳过:scanTargets 为空(端无 JS 代码,无法静态扫描)`)
     return 0
   }
@@ -891,6 +924,7 @@ export function main(opts) {
     }
     // 基准语言文件不在该面 = 与磁盘档"messages 目录缺失(端无独立 i18n)"同一跳过语义
     if (typeof faceTexts.get(LOCALE_PATHS['zh-CN']) !== 'string') {
+      if (report) report.skipped = `基准语言文件不在${FACE_TXT}面(端无独立 i18n)`
       console.log(
         `[${TAG}] 跳过:基准语言文件不在${FACE_TXT}面 ${LOCALE_PATHS['zh-CN']}(端无独立 i18n)`,
       )
@@ -907,6 +941,7 @@ export function main(opts) {
     )
     // 0. 跳过条件:messages 不存在(端无独立 i18n,如 desktop)
     if (!fs.existsSync(ZH_CN_PATH)) {
+      if (report) report.skipped = '基准语言文件不存在(端无独立 i18n)'
       console.log(
         `[${TAG}] 跳过:基准语言文件不存在 ${path.relative(root, ZH_CN_PATH)}(端无独立 i18n)`,
       )
@@ -1083,6 +1118,17 @@ export function main(opts) {
     deadKeyRatio: deadRatio + '%',
     incompleteKeyCount: incompleteCount,
   }
+
+  // 判定凭据一次性回填(dryRun / --staged / 全量 三条返回路径共用同一份终值 ——
+  // deadCount、maxDead、contractHardFail 在此已全部落定,后面不会再变)。
+  if (report)
+    Object.assign(report, {
+      deadCount,
+      maxDead,
+      exitOnDead,
+      contractHardFail,
+      contractIssueCount: contractShapeIssues.length + contractViolations.length,
+    })
 
   console.log('\n=== 总览 ===')
   console.log(`  基准语言 leaf keys: ${totalLeaves}`)

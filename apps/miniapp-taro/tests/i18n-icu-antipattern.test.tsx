@@ -77,13 +77,18 @@ type IcuKey = {
 
 const ICU_KEYS: readonly IcuKey[] = [
   { key: 'streak.continuousDays', placeholder: 'n' },
-  { key: 'modelPlaza.modelCount', placeholder: 'n' },
-  { key: 'modelPlaza.synced', placeholder: 'n' },
+  // `modelPlaza.modelCount` / `modelPlaza.synced` 已于 2026-11-01 摘除(枚 ea9c9e6624「再摘 499+11 枚死键」):
+  // 消费方 pkg-ai/model-plaza/index.tsx 经枚 0fb91af8f8 整体升级为壳承载后不再直引 modelPlaza.*,
+  // 两键在五语言包里都已不存在。留在这里等于断言一个已删的键(结构上永远红),故按实收紧 ——
+  // 不是放宽判据:仍存的 8 个活键照旧全量判 ICU 占位符五语言 parity。
   { key: 'pay.countdownTip', placeholder: 'time' },
   { key: 'pay.couponSaved', placeholder: 'n' },
   { key: 'pay.balanceAmount', placeholder: 'n' },
   { key: 'pay.couponAvailable', placeholder: 'n' },
-  { key: 'news.readCount', placeholder: 'n' },
+  // `news.readCount` 已于 2026-11-02 摘除(本轮 miniapp 存量死键清理):
+  // pkg-content/news/detail.tsx 收为壳后由 packages/app 的 NewsArticleScreen 承载,端内零消费,
+  // 五语言同时删除。留在这里等于断言一个已删的键(结构上永远红),故按实收紧 ——
+  // 不是放宽判据:其余活键照旧全量判 ICU 占位符五语言 parity。
   { key: 'wallet.recharge.tokenRate', placeholder: 'n' },
   { key: 'ai.historyPage.msgCount', placeholder: 'n' },
 ] as const

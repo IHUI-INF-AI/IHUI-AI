@@ -34,6 +34,9 @@ import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 // 遮噪只引这一份实现(§22c / 守门 131·134·157 同一条理由:两处各写一遍必然漂开)。
 import { maskCommentsStringsAndRegex } from './lib/code-mask.mjs'
+// 进程级互斥只引一份(2026-11-02):`nssm restart` 是**不可撤销的外部动作**,
+// 两个 guardian 轮次同时判到同一台服务时应答失败时,必须有一方在动作前被挡下。
+import { acquireGuardianLock, releaseGuardianLock } from './lib/guardian-lock.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 export const CONFIG_REL = 'scripts/data/service-auto-restart.json'
@@ -42,7 +45,60 @@ export const GATE_REL = 'scripts/check-service-binary-paths.mjs'
 export const NSSM_CANDIDATES = ['C:\\Windows\\System32\\nssm.exe', 'C:/Windows/System32/nssm.exe']
 export const GATE_TIMEOUT_MS = Number(process.env.IHUI_SERVICE_HEAL_GATE_TIMEOUT_MS || 300_000)
 export const RESTART_TIMEOUT_MS = Number(process.env.IHUI_SERVICE_HEAL_RESTART_TIMEOUT_MS || 120_000)
+/** 每台服务一把「正在重启」锁;持锁时长上限 = nssm restart 的超时(120s),5 分钟足够兜底。 */
+export const SERVICE_RESTART_LOCK_DIR_REL = '.ihui-agent/state/service-restart-locks'
+export const SERVICE_RESTART_LOCK_STALE_MS = 5 * 60_000
 const DAY_MS = 86_400_000
+
+/** 服务名 → 锁文件名。只允许 [A-Za-z0-9._-];其余字符折成 `_`,并截断到 64。 */
+export function serviceRestartLockPath(name, { root = path.join(ROOT, SERVICE_RESTART_LOCK_DIR_REL) } = {}) {
+  const safe =
+    String(name ?? '')
+      .trim()
+      .replace(/[^A-Za-z0-9._-]+/g, '_')
+      .replace(/^\.+/, '_')
+      .slice(0, 64) || 'unnamed'
+  return path.join(root, `${safe}.lock`)
+}
+
+/**
+ * 带进程级互斥的重启执行体。调用方只给「真想重启时怎么做」,这里是唯一动作闸:
+ * 拿不到锁 ⇒ 返回 kind='lock-skip'(**不执行** restartFn),调用方据此把
+ * `decideRound` 预记的「已重启」从状态里撤回,避免这一台被误记成已冷却 60 分钟。
+ *
+ * 锁只覆盖 restartFn 本身(最长 RESTART_TIMEOUT_MS);20s 复验与门派生不在锁内 ——
+ * 那两段不改任何服务状态,占着锁只会把下一轮堵在门外。
+ */
+export function runGuardedRestart(name, restartFn, { lockRoot, staleMs = SERVICE_RESTART_LOCK_STALE_MS, now = Date.now } = {}) {
+  const lockPath = serviceRestartLockPath(name, lockRoot ? { root: lockRoot } : {})
+  const guard = acquireGuardianLock({ path: lockPath, role: `service-restart:${name}`, staleMs, now })
+  if (!guard.ok) {
+    return {
+      ok: false,
+      kind: 'lock-skip',
+      lockKind: guard.kind,
+      pid: guard.pid ?? 0,
+      why: `另一场重启持锁(${guard.kind}${guard.pid ? ` pid=${guard.pid}` : ''})⇒ 本轮不动 ${name}`,
+    }
+  }
+  try {
+    return restartFn()
+  } finally {
+    releaseGuardianLock(guard)
+  }
+}
+
+/**
+ * 撤回 `decideRound` 对「这一台」的预记。纯函数、原地改 next,供 main 与单测共用:
+ * 锁跳过 ≠ 已重启;状态里必须还是这一轮之前的 strikes/lastRestartMs。
+ */
+export function rollbackPreRecordedRestart({ next, prevState, name, nowMs }) {
+  const prev = prevState?.services?.[name] ?? { strikes: 0, lastRestartMs: null }
+  next.services[name] = prev
+  const at = Array.isArray(next.restarts) ? next.restarts.lastIndexOf(nowMs) : -1
+  if (at >= 0) next.restarts.splice(at, 1)
+  return next
+}
 
 /** 台账解析:字段不齐 / 形状漂了 ⇒ 抛错由调用方折叠成"整轮不行动"。 */
 export function parseConfig(text, nowMs = Date.now()) {
@@ -349,17 +405,21 @@ const defaultDeps = {
     const bin = resolveNssm()
     if (!bin) return { ok: false, why: 'nssm 不在位 ⇒ 无法动作(不是"已恢复")' }
     if (process.platform !== 'win32') return { ok: false, why: `非 win32(${process.platform})⇒ 不复验` }
-    try {
-      execFileSync(bin, ['restart', name], {
-        windowsHide: true,
-        timeout: RESTART_TIMEOUT_MS,
-        stdio: ['ignore', 'pipe', 'pipe'],
-        encoding: 'utf16le', // nssm 的输出面是 UTF-16LE(实测),按 UTF-8 解会得到乱码结论
-      })
-      return { ok: true }
-    } catch (e) {
-      return { ok: false, why: `nssm restart 失败:${String(e?.stderr || e?.message || '').slice(0, 160)}` }
-    }
+    // 2026-11-02:动作前先拿「这台服务」的进程级锁。双跑时只有一个执行体能进
+    // `nssm restart`;另一个返回 lock-skip,由 main() 撤回本轮预记的重启状态。
+    return runGuardedRestart(name, () => {
+      try {
+        execFileSync(bin, ['restart', name], {
+          windowsHide: true,
+          timeout: RESTART_TIMEOUT_MS,
+          stdio: ['ignore', 'pipe', 'pipe'],
+          encoding: 'utf16le', // nssm 的输出面是 UTF-16LE(实测),按 UTF-8 解会得到乱码结论
+        })
+        return { ok: true }
+      } catch (e) {
+        return { ok: false, why: `nssm restart 失败:${String(e?.stderr || e?.message || '').slice(0, 160)}` }
+      }
+    })
   },
   sleep(ms) {
     const until = Date.now() + ms
@@ -424,11 +484,20 @@ export async function main({ argv = process.argv.slice(2), deps = defaultDeps, n
     verdicts[name] = problems.length ? { ...v, problems } : v
   }
   const state = readState(statePath)
-  const { actions, next } = decideRound({ config, state, verdicts, nowMs: now(), apply: opts.apply })
+  const nowMs = now()
+  const { actions, next } = decideRound({ config, state, verdicts, nowMs, apply: opts.apply })
   const results = []
   for (const a of actions.filter((x) => x.kind === 'restart')) {
     const r = deps.restart(a.name)
     if (!r.ok) {
+      // 2026-11-02:另一场重启持锁 ⇒ 这一台**没动**。decideRound 已经在 next 里预记
+      // "已重启 + strikes 归零",必须原样撤回;否则这台会被误判进 60 分钟冷却,
+      // 真故障反而要等人 60 分钟后才再被看见(锁的副作用不得改写判定)。
+      if (r.kind === 'lock-skip') {
+        rollbackPreRecordedRestart({ next, prevState: state, name: a.name, nowMs })
+        results.push({ name: a.name, kind: 'restart-skipped', why: r.why })
+        continue
+      }
       results.push({ name: a.name, kind: 'restart-failed', why: r.why })
       continue
     }
@@ -460,6 +529,7 @@ export async function main({ argv = process.argv.slice(2), deps = defaultDeps, n
     planned: act('planned'),
     restarted: results.filter((r) => r.kind.startsWith('restarted')).length,
     failed: results.filter((r) => r.kind === 'restart-failed').length,
+    skipped: results.filter((r) => r.kind === 'restart-skipped').length,
     watch: act('watch'),
     cooldown: act('cooldown'),
     capped: act('window-capped'),
@@ -775,5 +845,26 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   )
 }
 
-export const __test__ = { parseConfig, verdictOf, decideRound, readState, writeState, resolveNssm, buildGateArgs, classifyGateSpawn, main, selfTest, renderExit, CONFIG_REL, STATE_REL, GATE_REL, DAY_MS }
+export const __test__ = {
+  parseConfig,
+  verdictOf,
+  decideRound,
+  readState,
+  writeState,
+  resolveNssm,
+  buildGateArgs,
+  classifyGateSpawn,
+  main,
+  selfTest,
+  renderExit,
+  serviceRestartLockPath,
+  runGuardedRestart,
+  rollbackPreRecordedRestart,
+  CONFIG_REL,
+  STATE_REL,
+  GATE_REL,
+  SERVICE_RESTART_LOCK_DIR_REL,
+  SERVICE_RESTART_LOCK_STALE_MS,
+  DAY_MS,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -104,7 +104,7 @@ export function InlineEditDialog() {
           onKeyDown={handleKeyDown}
           placeholder={turns.length > 0 ? t('followUpPlaceholder') : t('editDescPlaceholder')}
           disabled={isStreaming}
-          className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/60 disabled:opacity-60"
+          className="min-w-0 flex-1 bg-transparent text-body outline-none placeholder:text-muted-foreground/60 disabled:opacity-60"
         />
         {isStreaming ? (
           <button
@@ -127,7 +127,7 @@ export function InlineEditDialog() {
           <span className="shrink-0 text-[10px] uppercase tracking-wide text-muted-foreground/70">
             {selection.language}
           </span>
-          <code className="min-w-0 flex-1 truncate font-mono text-xs text-muted-foreground">
+          <code className="min-w-0 flex-1 truncate font-mono text-label text-muted-foreground">
             {preview || t('emptySelection')}
           </code>
         </div>
@@ -135,14 +135,14 @@ export function InlineEditDialog() {
 
       {/* 流式生成的 patch 预览(可滚动,最多 4 行高) */}
       {(isStreaming || isDone) && generatedPatch && (
-        <pre className="max-h-28 overflow-auto rounded-sm bg-muted/30 p-2 font-mono text-xs text-foreground">
+        <pre className="max-h-28 overflow-auto rounded-sm bg-muted/30 p-2 font-mono text-label text-foreground">
           {generatedPatch}
         </pre>
       )}
 
       {/* 错误态 */}
       {isError && (
-        <div className="flex items-center gap-1.5 rounded-sm bg-destructive/10 px-2 py-1 text-xs text-destructive">
+        <div className="flex items-center gap-1.5 rounded-sm bg-destructive/10 px-2 py-1 text-label text-destructive">
           <AlertCircle className="h-3.5 w-3.5 shrink-0" />
           <span className="min-w-0 flex-1 truncate">{error || t('errorFallback')}</span>
         </div>
@@ -155,14 +155,14 @@ export function InlineEditDialog() {
           <div className="flex items-center gap-1">
             <button
               onClick={rejectPatch}
-              className="flex items-center gap-1 rounded-sm border border-border bg-background px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+              className="flex items-center gap-1 rounded-sm border border-border bg-background px-2 py-1 text-label text-muted-foreground hover:bg-muted hover:text-foreground"
             >
               <X className="h-3 w-3" />
               <span>{t('reject')}</span>
             </button>
             <button
               onClick={acceptPatch}
-              className="flex items-center gap-1 rounded-sm bg-cta px-2 py-1 text-xs text-cta-foreground hover:bg-cta/90"
+              className="flex items-center gap-1 rounded-sm bg-cta px-2 py-1 text-label text-cta-foreground hover:bg-cta/90"
             >
               <Check className="h-3 w-3" />
               <span>{t('accept')}</span>

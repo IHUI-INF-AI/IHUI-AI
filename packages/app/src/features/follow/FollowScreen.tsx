@@ -18,6 +18,7 @@ import type { FollowScreenProps, FollowTab, FollowUserItem } from '@ihui/types'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
+import { assertRequiredPort } from '../../host/ports'
 
 /** 关注/粉丝列表/Props 类型 re-export(单一来源 @ihui/types) */
 export type { FollowScreenProps, FollowTab, FollowUserItem }
@@ -51,8 +52,14 @@ export function FollowScreen({
   onLoadMore,
   onUnfollow,
   onBack,
-  colorScheme = 'light',
-}: FollowScreenProps) {
+  onRetry,
+  colorScheme = 'light',  
+  onNavigate,
+  onToast,
+}: FollowScreenProps & { onRetry?: () => void }) {
+  assertRequiredPort('onNavigate', onNavigate)
+  assertRequiredPort('onToast', onToast)
+
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -86,7 +93,7 @@ export function FollowScreen({
       {error ? (
         <ErrorState
           message={error}
-          onRetry={onRefresh}
+          onRetry={onRetry}
           retryLabel={t('common.retry')}
           colorScheme={colorScheme}
         />

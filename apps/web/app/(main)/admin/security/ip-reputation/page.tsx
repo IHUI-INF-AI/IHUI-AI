@@ -119,7 +119,7 @@ export default function IpReputationPage() {
           <ShieldAlert className="h-6 w-6 text-primary" />
           {t('title')}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       <div className="flex items-center gap-2">
@@ -148,7 +148,7 @@ export default function IpReputationPage() {
 
       {queryIp && error && !data && (
         <Card>
-          <CardContent className="py-8 text-center text-sm text-destructive">
+          <CardContent className="py-8 text-center text-body text-destructive">
             {(error as Error).message}
           </CardContent>
         </Card>
@@ -185,9 +185,9 @@ export default function IpReputationPage() {
               </span>
             </div>
             <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">{t('reasons')}</p>
+              <p className="text-body text-muted-foreground">{t('reasons')}</p>
               {data.reasons.length === 0 ? (
-                <p className="text-sm text-muted-foreground">{t('noReasons')}</p>
+                <p className="text-body text-muted-foreground">{t('noReasons')}</p>
               ) : (
                 <div className="flex flex-wrap gap-1.5">
                   {data.reasons.map((r) => (

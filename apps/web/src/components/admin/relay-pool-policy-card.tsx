@@ -84,7 +84,7 @@ export function RelayPoolPolicyCard() {
       </CardHeader>
       <CardContent className="space-y-3">
         {!data ? (
-          <p className="text-muted-foreground text-sm">
+          <p className="text-muted-foreground text-body">
             {q.isError ? `${t('loadFailed')}: ${q.error.message}` : t('loading')}
           </p>
         ) : (
@@ -113,31 +113,31 @@ export function RelayPoolPolicyCard() {
                   {t('badgeRegistryBroken')}
                 </span>
               )}
-              <span className="text-muted-foreground text-xs">{t('readOnlyHint')}</span>
+              <span className="text-muted-foreground text-label">{t('readOnlyHint')}</span>
             </div>
 
             <div className="rounded-lg border">
               {data.knobs.map((k) => (
                 <div
                   key={k.name}
-                  className="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-3 py-2 text-sm"
+                  className="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-3 py-2 text-body"
                 >
-                  <code className="text-muted-foreground min-w-40 text-xs">{k.envKey}</code>
+                  <code className="text-muted-foreground min-w-40 text-label">{k.envKey}</code>
                   {/* 等分格里的读数必须单行:偏离/脏值标记不能把数值挤成折行 */}
                   <span className="font-medium tabular-nums" style={{ flexShrink: 0 }}>
                     {fmtValue(k.effective)}
                   </span>
                   {k.differsFromDefault && (
-                    <span className="text-muted-foreground text-xs tabular-nums">
+                    <span className="text-muted-foreground text-label tabular-nums">
                       {t('defaultIs', { v: fmtValue(k.defaultValue) })}
                     </span>
                   )}
                   {k.invalidEnv && (
-                    <span className="text-xs text-red-600 tabular-nums">
+                    <span className="text-label text-red-600 tabular-nums">
                       {t('invalidFellBack')}
                     </span>
                   )}
-                  <span className="text-muted-foreground min-w-40 flex-1 text-xs">
+                  <span className="text-muted-foreground min-w-40 flex-1 text-label">
                     {k.description}
                   </span>
                 </div>
@@ -145,7 +145,7 @@ export function RelayPoolPolicyCard() {
             </div>
 
             {(data.missingKnobs.length > 0 || data.orphanKnobs.length > 0) && (
-              <p className="text-sm text-red-600">
+              <p className="text-body text-red-600">
                 {t('registryDiff', {
                   missing: data.missingKnobs.join(', ') || '—',
                   orphan: data.orphanKnobs.join(', ') || '—',
@@ -154,7 +154,7 @@ export function RelayPoolPolicyCard() {
             )}
 
             {/* 生效方式说明由后端单源给出(env 名与重启要求不许在两端各写一份) */}
-            <p className="text-muted-foreground text-xs">{data.hint}</p>
+            <p className="text-muted-foreground text-label">{data.hint}</p>
           </>
         )}
       </CardContent>

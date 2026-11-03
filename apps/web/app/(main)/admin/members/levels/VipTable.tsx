@@ -77,7 +77,7 @@ export function VipTable({
       <div className="flex flex-wrap items-end gap-3 rounded-lg border p-3">
         {searchFields.map((f) => (
           <div key={f.key} className="space-y-1">
-            <Label className="text-xs">{f.label}</Label>
+            <Label className="text-label">{f.label}</Label>
             <SearchInput
               value={search[f.key] ?? ''}
               onChange={(e) => onSearchChange({ ...search, [f.key]: e.target.value })}
@@ -97,8 +97,8 @@ export function VipTable({
       </div>
 
       <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+        <table className="w-full text-body">
+          <thead className="bg-muted/50 text-left text-label uppercase text-muted-foreground">
             <tr>
               <th className={th}>ID</th>
               {allKeys.map((k) => (
@@ -162,7 +162,7 @@ export function VipTable({
       </div>
 
       {total > 0 && (
-        <div className="flex items-center justify-between text-sm">
+        <div className="flex items-center justify-between text-body">
           <span className="text-muted-foreground">{t('total', { total, page, totalPages })}</span>
           <div className="flex gap-1">
             <Button

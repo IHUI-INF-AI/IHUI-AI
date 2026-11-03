@@ -28,7 +28,7 @@ export function CanvasPanel() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <p className="text-sm text-muted-foreground">{t('canvasHint')}</p>
+          <p className="text-body text-muted-foreground">{t('canvasHint')}</p>
           <Button onClick={() => void handleOpen()}>
             <ExternalLink className="h-4 w-4" />
             {t('openCanvas')}

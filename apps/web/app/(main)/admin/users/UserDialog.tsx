@@ -94,8 +94,8 @@ export function UserDialog({
             />
             <div className="min-w-0">
               <p className="font-medium">{quickUser.nickname || '-'}</p>
-              <p className="text-sm text-muted-foreground">{quickUser.phone || '-'}</p>
-              <p className="text-xs text-muted-foreground/80">{quickUser.email || '-'}</p>
+              <p className="text-body text-muted-foreground">{quickUser.phone || '-'}</p>
+              <p className="text-label text-muted-foreground/80">{quickUser.email || '-'}</p>
             </div>
           </div>
         )}
@@ -140,13 +140,15 @@ export function UserDialog({
               </div>
               <div>
                 <p className="font-medium">{detailUser.nickname || '-'}</p>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-body text-muted-foreground">
                   {detailUser.phone || detailUser.email || '-'}
                 </p>
-                <p className="mt-0.5 text-xs text-muted-foreground/70">{t('uploadAvatarHint')}</p>
+                <p className="mt-0.5 text-label text-muted-foreground/70">
+                  {t('uploadAvatarHint')}
+                </p>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="grid grid-cols-2 gap-3 text-body">
               <div>
                 <span className="text-muted-foreground">{t('phone')}</span>
                 <p>{detailUser.phone || '-'}</p>
@@ -180,7 +182,7 @@ export function UserDialog({
                       }
                       disabled={patchPending}
                     >
-                      <SelectTrigger className="h-8 w-full text-sm" id="u-dept">
+                      <SelectTrigger className="h-8 w-full text-body" id="u-dept">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>

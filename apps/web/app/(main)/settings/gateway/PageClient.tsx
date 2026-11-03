@@ -47,7 +47,7 @@ export default function GatewayDashboardPage() {
           <Network className="h-5 w-5 text-primary" />
           {t('title')}
         </h1>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       <Tabs value={tab} onValueChange={onTabChange} className="w-full">

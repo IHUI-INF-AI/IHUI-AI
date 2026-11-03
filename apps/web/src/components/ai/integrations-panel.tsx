@@ -148,7 +148,7 @@ export function IntegrationsPanel() {
       <div
         key={ch}
         data-testid={`integrations-channel-${ch}`}
-        className="space-y-1.5 rounded-xl border px-2 py-2 text-xs"
+        className="space-y-1.5 rounded-xl border px-2 py-2 text-label"
       >
         <div className="flex items-center gap-1.5">
           <Icon className="h-3.5 w-3.5" />
@@ -276,7 +276,7 @@ export function IntegrationsPanel() {
   }
 
   return (
-    <div data-testid="integrations-panel" className="space-y-3 text-sm">
+    <div data-testid="integrations-panel" className="space-y-3 text-body">
       <p className="text-[10px] text-muted-foreground">{t('description')}</p>
 
       <div className="space-y-2">{INTEGRATION_CHANNELS.map(renderChannel)}</div>
@@ -306,7 +306,7 @@ export function IntegrationsPanel() {
           {log.length === 0 ? (
             <p
               data-testid="integrations-log-empty"
-              className="rounded-lg border border-dashed px-3 py-3 text-center text-xs text-muted-foreground"
+              className="rounded-lg border border-dashed px-3 py-3 text-center text-label text-muted-foreground"
             >
               {t('noLog')}
             </p>

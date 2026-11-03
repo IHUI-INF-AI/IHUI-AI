@@ -112,7 +112,7 @@ function AnswerOnlineContent() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+          <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
         </div>
         <Button asChild variant="ghost" size="sm">
           <Link href="/admin/edu">
@@ -135,7 +135,7 @@ function AnswerOnlineContent() {
       ) : (
         <>
           <div className="sticky top-2 z-20 flex items-center justify-between rounded-lg border bg-background/95 px-4 py-2 shadow-sm backdrop-blur">
-            <div className="flex items-center gap-2 text-sm">
+            <div className="flex items-center gap-2 text-body">
               <Clock className="h-4 w-4 text-muted-foreground" />
               <span
                 className={cn('font-mono font-semibold', remaining < 300 ? 'text-destructive' : '')}
@@ -176,7 +176,7 @@ function AnswerOnlineContent() {
                   <CardContent className="min-[640px]:p-3 p-3">
                     <div className="mb-2 flex items-start justify-between gap-2">
                       <div>
-                        <span className="mr-2 text-xs text-muted-foreground">
+                        <span className="mr-2 text-label text-muted-foreground">
                           {idx + 1}.{' '}
                           {TYPE_LABEL_KEY[q.type]
                             ? t(TYPE_LABEL_KEY[q.type] ?? 'typeLabel.unknown')
@@ -184,7 +184,7 @@ function AnswerOnlineContent() {
                         </span>
                         <span className="text-body font-medium">{q.title}</span>
                       </div>
-                      <span className="shrink-0 text-xs text-muted-foreground">
+                      <span className="shrink-0 text-label text-muted-foreground">
                         {t('scorePoints', { score: Number(q.score) })}
                       </span>
                     </div>

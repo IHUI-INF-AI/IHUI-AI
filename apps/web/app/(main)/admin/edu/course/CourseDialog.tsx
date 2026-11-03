@@ -61,7 +61,7 @@ export function CourseDialog({
             <DialogTitle>{editing ? t('dialogEditTitle') : t('dialogCreateTitle')}</DialogTitle>
           </DialogHeader>
           {err && (
-            <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <div className="rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">
               {err}
             </div>
           )}
@@ -126,7 +126,7 @@ export function CourseDialog({
               id="c-remark"
               value={form.remark}
               onChange={(e) => onFormChange({ remark: e.target.value })}
-              className="min-h-[80px] w-full rounded-sm border border-input bg-transparent px-3 py-2 text-sm"
+              className="min-h-[80px] w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body"
             />
           </div>
           <div className="space-y-2">

@@ -12,8 +12,8 @@ vi.mock('../src/config/index.js', () => ({
     HOST: '0.0.0.0',
     LOG_LEVEL: 'silent',
     CORS_ORIGIN: 'http://localhost:8801',
-    DATABASE_URL: 'postgres://localhost:8810/test',
-    REDIS_URL: 'redis://localhost:8811',
+    DATABASE_URL: 'postgres://127.0.0.1:5399/test',
+    REDIS_URL: 'redis://127.0.0.1:6399',
     JWT_SECRET: 'test-jwt-secret-at-least-32-characters-long!!!',
     JWT_EXPIRES_IN: '7d',
     AI_SERVICE_URL: 'http://localhost:8803',
@@ -358,9 +358,7 @@ describe('agents 市场公开化 — 游客视图', () => {
     const res = await server.inject({ method: 'GET', url: '/api/agents/list' })
     expect(res.statusCode).toBe(200)
     const body = JSON.parse(res.body) as { data: { list: Array<{ agentId?: string }> } }
-    expect(body.data.list.map((r) => r.agentId)).toEqual([
-      '11111111-1111-4111-8111-111111111111',
-    ])
+    expect(body.data.list.map((r) => r.agentId)).toEqual(['11111111-1111-4111-8111-111111111111'])
     expect(res.body).not.toContain('待审核智能体')
     expect(res.body).not.toContain('已下架智能体')
   })
@@ -374,9 +372,8 @@ describe('agents 市场公开化 — 游客视图', () => {
     })
     const res = await server.inject({ method: 'GET', url: '/api/agents/list' })
     expect(res.statusCode).toBe(200)
-    const row = (JSON.parse(res.body) as { data: { list: Record<string, unknown>[] } }).data.list[
-      0
-    ] as Record<string, unknown>
+    const row = (JSON.parse(res.body) as { data: { list: Record<string, unknown>[] } }).data
+      .list[0] as Record<string, unknown>
     expectFieldsAbsent(row, LOCAL_IDENTITY_FIELDS, res.body)
     expectFieldsAbsent(row, PRIVATE_CONTENT_FIELDS, res.body)
     for (const field of PUBLIC_CONTRACT_FIELDS) {

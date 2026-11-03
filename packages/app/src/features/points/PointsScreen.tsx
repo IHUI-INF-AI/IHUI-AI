@@ -68,6 +68,22 @@ export interface PointsSignInToday {
   todayReward: number
 }
 
+/** 签到历史行(平台注入;signInDate 为 YYYY-MM-DD,rewardPoints 是整数,不得除以 100) */
+export interface PointsSignInHistoryItem {
+  signInDate: string
+  rewardPoints: number
+  consecutiveDays: number
+}
+
+/** 签到历史分区状态(undefined 整体不传 ⇒ 不渲染该分区) */
+export interface PointsSignInHistoryState {
+  items: PointsSignInHistoryItem[]
+  total: number
+  loading: boolean
+  /** 首屏或重试失败(分区内错误 + 重试) */
+  failed: boolean
+}
+
 /** 流水行(平台注入;时间与收支方向已算好) */
 export interface PointsTransactionItem {
   id: string
@@ -99,6 +115,11 @@ export interface PointsScreenProps {
   onRetryTxs: () => void
   onLoadMoreTxs: () => void
   onSignIn: () => void
+  /** 签到历史分区;undefined ⇒ 保持旧行为(不渲染) */
+  history?: PointsSignInHistoryState
+  onRetryHistory?: () => void
+  /** 传 undefined ⇒ 隐藏"加载更多" */
+  onLoadMoreHistory?: () => void
   onOpenMall: () => void
   onOpenTasks: () => void
   onOpenRules: () => void
@@ -129,6 +150,9 @@ export function PointsScreen({
   onRetryTxs,
   onLoadMoreTxs,
   onSignIn,
+  history,
+  onRetryHistory,
+  onLoadMoreHistory,
   onOpenMall,
   onOpenTasks,
   onOpenRules,
@@ -220,6 +244,60 @@ export function PointsScreen({
                 </Text>
               </TouchableOpacity>
             </View>
+
+            {history ? (
+              <View style={styles.card}>
+                <Text style={styles.cardTitle}>{t('points.signIn.historyTitle')}</Text>
+                {history.loading ? (
+                  <ActivityIndicator style={styles.txState} color={tk.text.tertiary} />
+                ) : history.failed ? (
+                  <View style={styles.txState}>
+                    <Text style={styles.errorText}>{t('points.signIn.historyLoadFailed')}</Text>
+                    <TouchableOpacity
+                      style={styles.textButton}
+                      onPress={onRetryHistory}
+                      activeOpacity={0.7}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('common.retry')}
+                    >
+                      <Text style={styles.retry}>{t('common.retry')}</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : history.items.length === 0 ? (
+                  <Text style={styles.cardMuted}>{t('points.signIn.historyEmpty')}</Text>
+                ) : (
+                  history.items.map((row) => (
+                    <View key={row.signInDate} style={styles.txRow}>
+                      <View style={styles.txMain}>
+                        <Text style={styles.txSource}>{row.signInDate}</Text>
+                      </View>
+                      <View style={styles.txRight}>
+                        <Text style={[styles.txAmount, styles.txIn]}>+{row.rewardPoints}</Text>
+                        <Text style={styles.cardMuted}>
+                          {t('points.signIn.historyConsecutive', { days: row.consecutiveDays })}
+                        </Text>
+                      </View>
+                    </View>
+                  ))
+                )}
+                {!history.loading &&
+                !history.failed &&
+                history.items.length < history.total &&
+                onLoadMoreHistory ? (
+                  <TouchableOpacity
+                    style={styles.moreBtn}
+                    onPress={onLoadMoreHistory}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('points.loadMore')}
+                  >
+                    <Text style={styles.moreText}>
+                      {t('points.loadMore')} ({history.items.length}/{history.total})
+                    </Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+            ) : null}
 
             <View style={styles.entryRow}>
               <TouchableOpacity

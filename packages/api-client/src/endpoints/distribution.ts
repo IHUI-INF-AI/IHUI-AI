@@ -217,4 +217,26 @@ export interface CommissionRatesResult {
 export async function getCommissionRates(): Promise<ApiResult<CommissionRatesResult>> {
   return fetchApi<CommissionRatesResult>('/distribution/commission-rates')
 }
+
+/** 分销层级树节点(后端递归 3 层) */
+export interface DistributionTreeNode {
+  id: string
+  username: string
+  nickname: string | null
+  avatar: string | null
+  createdAt: string
+  /** 1/2/3,顶层为 1 */
+  level: number
+  children?: DistributionTreeNode[]
+}
+
+export interface DistributionTreeData {
+  tree: DistributionTreeNode[]
+  totalLevels: number
+}
+
+/** GET /api/distribution/tree —— 下级层级树(web distribution/team/[id] 同源) */
+export async function getDistributionTree(): Promise<ApiResult<DistributionTreeData>> {
+  return fetchApi<DistributionTreeData>('/api/distribution/tree')
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

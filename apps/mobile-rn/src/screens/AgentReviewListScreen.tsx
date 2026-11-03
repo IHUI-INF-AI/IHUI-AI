@@ -67,6 +67,7 @@ export function AgentReviewListScreen() {
         void load()
       }}
       onBack={() => navigation.goBack()}
+      onItemPress={(item) => navigation.navigate('AgentReviewDetail', { item })}
       colorScheme={resolvedTheme}
     />
   )

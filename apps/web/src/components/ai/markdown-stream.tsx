@@ -100,7 +100,7 @@ const ONE_LIGHT = stripBackground(oneLight)
 // MermaidDiagram 仅在客户端加载,不影响首屏 bundle
 const MermaidDiagram = dynamic(() => import('@/components/media/MermaidDiagram'), {
   ssr: false,
-  loading: () => <div className="animate-pulse text-xs text-muted-foreground">…</div>,
+  loading: () => <div className="animate-pulse text-label text-muted-foreground">…</div>,
 })
 
 // 语法高亮组件懒加载,避免首屏 bundle 过大
@@ -294,7 +294,7 @@ function CodeRunOutput({ result, onClose }: { result: RunResult; onClose: () => 
           className="inline-flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-label={t('codeRun.close')}
         >
-          <span className="text-xs leading-none">×</span>
+          <span className="text-label leading-none">×</span>
         </button>
       </div>
       <div className="max-h-[240px] overflow-auto p-2">
@@ -604,7 +604,7 @@ const CodeBlockImpl = function CodeBlock({
       className="flex items-center gap-1.5 bg-zinc-200/60 px-3 py-1.5 dark:bg-zinc-900"
     >
       <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
-      <span className="truncate font-mono text-xs text-muted-foreground">
+      <span className="truncate font-mono text-label text-muted-foreground">
         {resolveCodeFileName(language)}
       </span>
     </div>
@@ -619,7 +619,7 @@ const CodeBlockImpl = function CodeBlock({
         userToggledCollapseRef.current = true
         setCollapsed(!effectiveCollapsed)
       }}
-      className="absolute bottom-2 right-2 z-10 inline-flex items-center gap-1 rounded-sm border border-border/60 bg-float-indicator-bg px-2 py-1 text-xs text-foreground transition-colors hover:bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="absolute bottom-2 right-2 z-10 inline-flex items-center gap-1 rounded-sm border border-border/60 bg-float-indicator-bg px-2 py-1 text-label text-foreground transition-colors hover:bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       aria-label={effectiveCollapsed ? '展开代码' : '收起代码'}
     >
       {effectiveCollapsed ? `展开 (${codeLines.length} 行)` : '收起'}
@@ -809,7 +809,7 @@ function MarkdownImage({ src, alt }: { src?: string; alt?: string }) {
             <span
               role="status"
               data-markdown-image-state="loading"
-              className="flex min-h-24 w-full items-center justify-center gap-1.5 px-3 py-2 text-xs text-muted-foreground"
+              className="flex min-h-24 w-full items-center justify-center gap-1.5 px-3 py-2 text-label text-muted-foreground"
             >
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
               {tA11y('loading')}
@@ -907,7 +907,7 @@ function MarkdownLink({
         target="_blank"
         rel="noopener noreferrer"
         download={fileName}
-        className="my-0 flex items-center gap-2 rounded-md border border-border bg-streamed-container-bg px-3 py-2 text-sm transition-colors hover:bg-streamed-container-bg-hover"
+        className="my-0 flex items-center gap-2 rounded-md border border-border bg-streamed-container-bg px-3 py-2 text-body transition-colors hover:bg-streamed-container-bg-hover"
         onClick={(e) => {
           // D76 残余②:正文产物链接反向聚焦。仅当消息流里有同锚点产物卡时接管
           // (preventDefault + ihui:focus-artifact);无卡保持原下载行为不改语义。
@@ -933,7 +933,7 @@ function MarkdownLink({
         href={hrefStr}
         target="_blank"
         rel="noopener noreferrer"
-        className="my-0 inline-flex items-center gap-1.5 rounded-md border border-border bg-streamed-container-bg px-2.5 py-1 text-sm transition-colors hover:bg-streamed-container-bg-hover"
+        className="my-0 inline-flex items-center gap-1.5 rounded-md border border-border bg-streamed-container-bg px-2.5 py-1 text-body transition-colors hover:bg-streamed-container-bg-hover"
       >
         <Play className="h-3.5 w-3.5" aria-hidden />
         <span>{children}</span>

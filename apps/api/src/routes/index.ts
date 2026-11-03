@@ -114,6 +114,9 @@ import { aiAudioRoutes } from './ai-audio.js'
 import { customerServiceRoutes, adminCustomerServiceRoutes } from './customer-service.js'
 import { gdprRoutes } from './gdpr.js'
 import { clawdbotRoutes } from './clawdbot.js'
+// 工作簿 agent 命令面(goal-b45 F 席,2026-11-02 立):open/read/write/save/close 五命令,
+// 非破坏式保存 + 公式不回缓存值。注册面判据见 tests/workbook-routes-registered.test.ts。
+import { workbookRoutes } from './workbook.js'
 import { tenantRoutes } from './tenant.js'
 import canaryRoutes from './canary.js'
 import tboxRoutes from './tbox.js'
@@ -795,6 +798,18 @@ export function registerRoutes(server: FastifyInstance) {
 
   // Clawdbot AI Bot 服务：/api/admin/clawdbot/*
   server.register(clawdbotRoutes, { prefix: '/api/admin' })
+
+  // 工作簿读写服务面:/api/workbook/{open,read,write,save,close}
+  // 2026-11-01 补注册:路由与服务自 5dc42a3a28 就在库里,但**从未装车** ⇒ 线上这五条全 404,
+  // 而 ai-service 的 `workbook_open/read_range/write_cells/close` 四枚 MCP 工具一直在等这条腿
+  // (消费者在 apps/ai-service/app/services/workbook_agent.py,不在 web/CLI,所以泛用调用面尺
+  // 看不见它)。归属不是新发明的:整棵子树 `addHook('preHandler', checkAuthOrInternalService)`,
+  // 每条 handler 的主体取 `request.userId`,服务层 open 时比对文件属主
+  // (`workbook-service.ts` 的 `owner !== subjectId ⇒ 拒`),句柄再按会话属主比
+  // (`takeSession` 的 `s.subjectId !== subjectId ⇒ 拒`)⇒ 整棵子树零公开面。注册本身由
+  // apps/api/tests/workbook-routes-registered.test.ts 钉住(缺这一行 = 生产 404 而单测全绿;
+  // 这一行也不能有第二份:同 prefix 重复 register 会让 Fastify 起不来)。
+  server.register(workbookRoutes, { prefix: '/api/workbook' })
 
   // 多租户管理：/api/tenants CRUD + 成员管理 + 配额管理
   server.register(tenantRoutes, { prefix: '/api/tenants' })

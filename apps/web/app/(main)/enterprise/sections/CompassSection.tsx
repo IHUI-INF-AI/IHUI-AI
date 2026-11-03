@@ -31,7 +31,7 @@ export function CompassSection() {
           <Compass className="h-5 w-5 text-primary" />
           <h2 className="text-heading font-bold tracking-tight">{t('compass.title')}</h2>
         </div>
-        <p className="text-sm text-muted-foreground">{t('compass.subtitle')}</p>
+        <p className="text-body text-muted-foreground">{t('compass.subtitle')}</p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2">
@@ -53,11 +53,11 @@ export function CompassSection() {
                 </div>
                 <div>
                   <h3 className="text-base font-semibold tracking-tight">{q.title}</h3>
-                  <p className="mt-1 text-sm text-muted-foreground">{q.description}</p>
+                  <p className="mt-1 text-body text-muted-foreground">{q.description}</p>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {q.examples.map((ex) => (
-                    <span key={ex} className="rounded-md bg-muted px-2 py-0.5 text-xs">
+                    <span key={ex} className="rounded-md bg-muted px-2 py-0.5 text-label">
                       {ex}
                     </span>
                   ))}
@@ -69,7 +69,7 @@ export function CompassSection() {
                       style={{ width: `${adoption}%` }}
                     />
                   </div>
-                  <span className="text-xs text-muted-foreground">
+                  <span className="text-label text-muted-foreground">
                     {t('compass.adoptionLabel', { percent: adoption })}
                   </span>
                 </div>

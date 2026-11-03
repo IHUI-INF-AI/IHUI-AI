@@ -141,7 +141,7 @@ export default function ChannelFormDialog({
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="space-y-1.5">
-            <Label htmlFor="ch-provider" className="text-xs">
+            <Label htmlFor="ch-provider" className="text-label">
               供应商代码
             </Label>
             <Input
@@ -154,7 +154,7 @@ export default function ChannelFormDialog({
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="ch-name" className="text-xs">
+            <Label htmlFor="ch-name" className="text-label">
               渠道名称
             </Label>
             <Input
@@ -167,14 +167,14 @@ export default function ChannelFormDialog({
           </div>
           {isEdit ? (
             <div className="space-y-1.5">
-              <Label className="text-xs">API Key</Label>
-              <div className="rounded-sm border border-input bg-muted/40 px-3 py-2 font-mono text-xs text-muted-foreground">
+              <Label className="text-label">API Key</Label>
+              <div className="rounded-sm border border-input bg-muted/40 px-3 py-2 font-mono text-label text-muted-foreground">
                 {item?.keyPrefix ?? '***'}
               </div>
             </div>
           ) : (
             <div className="space-y-1.5">
-              <Label htmlFor="ch-key" className="text-xs">
+              <Label htmlFor="ch-key" className="text-label">
                 API Key
               </Label>
               <Input
@@ -190,7 +190,7 @@ export default function ChannelFormDialog({
           )}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="ch-priority" className="text-xs">
+              <Label htmlFor="ch-priority" className="text-label">
                 优先级
               </Label>
               <Input
@@ -203,7 +203,7 @@ export default function ChannelFormDialog({
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="ch-weight" className="text-xs">
+              <Label htmlFor="ch-weight" className="text-label">
                 权重
               </Label>
               <Input
@@ -217,7 +217,7 @@ export default function ChannelFormDialog({
             </div>
           </div>
           <div className="flex items-center justify-between rounded-md border border-border px-3 py-2">
-            <Label htmlFor="ch-enabled" className="text-xs">
+            <Label htmlFor="ch-enabled" className="text-label">
               启用此渠道
             </Label>
             <Switch
@@ -228,7 +228,7 @@ export default function ChannelFormDialog({
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="ch-remark" className="text-xs">
+            <Label htmlFor="ch-remark" className="text-label">
               备注(可选)
             </Label>
             <Input

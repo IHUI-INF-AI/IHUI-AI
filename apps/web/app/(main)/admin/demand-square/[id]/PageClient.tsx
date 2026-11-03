@@ -50,9 +50,13 @@ function DetailRow({
 }) {
   return (
     <div className="flex items-center justify-between gap-3">
-      <span className="text-xs text-muted-foreground">{label}</span>
+      <span className="text-label text-muted-foreground">{label}</span>
       <span
-        className={cn('text-sm', mono && 'font-mono text-xs', muted && 'text-muted-foreground')}
+        className={cn(
+          'text-body',
+          mono && 'font-mono text-label',
+          muted && 'text-muted-foreground',
+        )}
       >
         {value}
       </span>
@@ -138,7 +142,7 @@ export default function DemandSquareDetailPage() {
     <div className="space-y-4">
       <Link
         href="/admin/demand-square"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1.5 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         {tc('back')}
@@ -171,10 +175,10 @@ export default function DemandSquareDetailPage() {
                 {t(STATUS_KEY[rec.status] ?? 'statusUnknown')}
               </span>
             </CardTitle>
-            <CardDescription className="font-mono text-xs">#{rec.id}</CardDescription>
+            <CardDescription className="font-mono text-label">#{rec.id}</CardDescription>
           </CardHeader>
 
-          <CardContent className="space-y-3 text-sm">
+          <CardContent className="space-y-3 text-body">
             <DetailRow
               label={t('colAgent')}
               value={rec.agentId ? rec.agentId.slice(0, 8) : '-'}
@@ -197,8 +201,8 @@ export default function DemandSquareDetailPage() {
               <DetailRow label={tr('auditor')} value={rec.reviewerId.slice(0, 8)} mono muted />
             )}
             <div className="space-y-1">
-              <div className="text-xs text-muted-foreground">{t('colReason')}</div>
-              <div className="break-words rounded-md border bg-muted/30 px-3 py-2 text-sm">
+              <div className="text-label text-muted-foreground">{t('colReason')}</div>
+              <div className="break-words rounded-md border bg-muted/30 px-3 py-2 text-body">
                 {rec.reason || '-'}
               </div>
             </div>
@@ -243,11 +247,11 @@ export default function DemandSquareDetailPage() {
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 rows={4}
-                className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               />
             </div>
             {err && (
-              <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              <div className="rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">
                 {err}
               </div>
             )}

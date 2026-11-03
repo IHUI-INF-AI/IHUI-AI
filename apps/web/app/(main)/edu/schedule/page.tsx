@@ -64,7 +64,7 @@ export default function EduSchedulePage() {
           <CalendarDays className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       {!allow ? (
@@ -79,7 +79,7 @@ export default function EduSchedulePage() {
       ) : (data ?? []).length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
           <CalendarDays className="h-8 w-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">{t('empty')}</p>
+          <p className="text-body text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4 min-[1280px]:grid-cols-7">
@@ -89,10 +89,10 @@ export default function EduSchedulePage() {
               className={cn(idx === todayIdx && 'border-brand-accent-deep ring-1 ring-primary/20')}
             >
               <CardHeader className="p-3 pb-2">
-                <CardTitle className="flex items-center justify-between gap-2 text-sm">
+                <CardTitle className="flex items-center justify-between gap-2 text-body">
                   <span className="min-w-0 truncate">{day}</span>
                   {idx === todayIdx && (
-                    <span className="shrink-0 whitespace-nowrap rounded-md bg-primary/10 px-2 py-0.5 text-xs text-primary">
+                    <span className="shrink-0 whitespace-nowrap rounded-md bg-primary/10 px-2 py-0.5 text-label text-primary">
                       {t('today')}
                     </span>
                   )}
@@ -100,12 +100,14 @@ export default function EduSchedulePage() {
               </CardHeader>
               <CardContent className="min-[640px]:p-3 space-y-2 p-3 pt-0">
                 {(byDay[idx] ?? []).length === 0 ? (
-                  <p className="py-2 text-center text-xs text-muted-foreground">{t('noClass')}</p>
+                  <p className="py-2 text-center text-label text-muted-foreground">
+                    {t('noClass')}
+                  </p>
                 ) : (
                   (byDay[idx] ?? []).map((item) => (
                     <div
                       key={item.id}
-                      className="rounded-md border p-2 text-xs transition-colors hover:bg-accent"
+                      className="rounded-md border p-2 text-label transition-colors hover:bg-accent"
                     >
                       <p className="font-medium">{item.title}</p>
                       <p className="mt-0.5 flex items-center gap-1 text-muted-foreground">

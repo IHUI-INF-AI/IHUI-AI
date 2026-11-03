@@ -189,25 +189,48 @@ export function isValidIsoDate(iso) {
  *                   date:string|null, holder:string|null, undetermined:boolean}}
  */
 export function claimMarkOf(line) {
+  // 薄封装本体已上收到 `claimMarksOf`(2026-11-01 S-STRIP):本函数历史语义 = **首个**命中牌,
+  // 逐字保留 —— 守门 109 等下游只问"这行有没有牌/第一枚是什么",不看枚数。
+  return claimMarksOf(line)[0] ?? null
+}
+
+/**
+ * 这一行**全部** lease 形态牌(2026-11-01 立,S-STRIP)。
+ *
+ * 立因(实测,`strip-stale-claim-marks.mjs --dry-run` 连轮整批不落):
+ * 台账存在「一行两牌」行 —— `- [ ]（进行中@A/x）（认领已释放@…） （进行中@B/y）…`。
+ * `claimMarkOf` 只返回首个匹配(第 1 枚紧贴 `- [ ]` ⇒ structural),于是清扫器按
+ * `at + mark.length` 只替换那一枚,第 2 枚留在原地 ⇒ C3「摘后挂牌集 == 跳过集」恒 false
+ * ⇒ 4 枚超龄 109–157h 的真活永久不可派。**失效方向是安静的**:器物每轮都"成功"地什么都不做。
+ *
+ * 判据**零复制**:与 `claimMarkOf` 共用 `CLAIM_SOURCE` / `parseLeaseForm` /
+ * `codeSpanRangesOf` / `insideCodeSpan`(§22c 单一真相源),逐枚判定的谓词与旧循环逐字同形,
+ * 所以 `claimMarkOf(l)` ≡ `claimMarksOf(l)[0] ?? null` —— 既有调用方一行都不用改。
+ *
+ * @returns {Array<{mark:string, at:number, structural:boolean, form:'legacy'|'lease'|'unknown',
+ *                  date:string|null, holder:string|null, undetermined:boolean}>} 按出现位置升序
+ */
+export function claimMarksOf(line) {
   const text = String(line ?? '')
   // 条目行前置**住在判据本体里**,不由各调用方各记一遍(2026-10-22 实测:本席在门 109 装了这道
   // 护栏,转头在新器物里漏掉 ⇒ 同一 HEAD 面把 216 行叙述当成挂牌 —— 一份纪律散在多处必然漏)。
-  if (!/^\s*- \[ \]/.test(text)) return null
-  if (!/[（(]进行中/.test(text)) return null
+  if (!/^\s*- \[ \]/.test(text)) return []
+  if (!/[（(]进行中/.test(text)) return []
   const matches = [...text.matchAll(new RegExp(CLAIM_SOURCE, 'g'))]
-  if (matches.length === 0) return null
+  if (matches.length === 0) return []
   const { spans, undetermined } = codeSpanRangesOf(text)
   const headRe = /^\s*- \[ \]\s*/.exec(text)
+  const out = []
   for (const m of matches) {
     const inCode = !undetermined && insideCodeSpan(spans, m.index, m[0].length)
     const structural = headRe !== null && headRe[0].length === m.index
     const parsed = parseLeaseForm(m[0])
     if (structural && !inCode)
-      return { mark: m[0], at: m.index, structural, ...parsed, undetermined }
-    if (!structural && parsed.form === 'lease' && !inCode)
-      return { mark: m[0], at: m.index, structural, ...parsed, undetermined }
+      out.push({ mark: m[0], at: m.index, structural, ...parsed, undetermined })
+    else if (!structural && parsed.form === 'lease' && !inCode)
+      out.push({ mark: m[0], at: m.index, structural, ...parsed, undetermined })
   }
-  return null
+  return out
 }
 
 /** 主键位置窗口:条目正文开头多少个字符内出现的编号才算"这一行的主键"。
@@ -739,6 +762,12 @@ export function compositeKeyOf(line) {
  * 那就不是修 F1,是**悄悄把 F4 的报数档关了**(本仓踩过的坑:报数在、判据瞎)。
  * 故本判据**只在 `forks` 的派生处**做过滤,`groups`/`dupOpen`/`dupDone` 一律原样返回。
  *
+ * **2026-11-03 补注(组数口径的最小豁免,不改上面这条)**:`counts.dupOpenGroups` 改为经
+ * `countDupOpenGroups` 计算 —— 只把「组内存在至少一条非指针同主键登记」的 `DUP_POINTER_RE`
+ * 行从**组数分母**里剔除;分组产物 `dupOpen` 仍原样返回,归并器/清偿器等消费点逐字不动。
+ * 因此「分组阶段腰斩报数面」的风险不成立:真实重复组(无注记)与全指针组(注记孤立)照旧计组,
+ * 由镜像测试的反向例钉住。
+ *
  * 反向防线:某主键**唯一**的 open 行带注记时,该组剔完就没有 open 了⇒ 自然退出 F1,
  * 不会被"带注记"三个字静默放过(这与 `planPrefixNestedPointer` 的"holder 自身不带注记"
  * 口径一致,:670/:684/:686)。
@@ -1127,6 +1156,39 @@ export function isClaimExcludedPointer(raw) {
 export const SELF_DEDISPATCH_RE = /本行不再单独派单|派单一律走持有行/
 export function isSelfDeDisclaimed(raw) {
   return SELF_DEDISPATCH_RE.test(raw)
+}
+
+/**
+ * F4 **组数**口径(`counts.dupOpenGroups`)的唯一实现 —— 与 `findDupOpenCopies`(副本数)分列。
+ *
+ * ## 为什么需要最小豁免(2026-11-03)
+ * 归并器按官方模板给副本行落指针注记后,`findDupOpenCopies` 的第一道过滤就把该行剔掉,
+ * 于是「一组里 1 指针 + 1 活行」读数为 `dupOpenCopies = 0`;但 `dupOpen` 的分组阶段**刻意**
+ * 不过滤注记行(见 `findForks` 头注),同一组仍被 `dupOpenGroups` 计 1 组 —— 账面上留下
+ * 「副本已归零、组数仍非零」的结构性残差,而这一组里其实只剩一条可派单的活行。
+ *
+ * ## 判据(只收窄"组"这一维,且只收窄一处)
+ * 组内**存在至少一条非指针的同主键登记**时,带 `DUP_POINTER_RE` 的行从组数分母里剔除;
+ * 剔除后仍 >1 行才计组。其余两种情形**逐字沿用原判据**:
+ *   - 组内**没有**指针行(真实重复) ⇒ 分母 = `g.open` 全量,照旧计组;
+ *   - 组内**全是**指针行(注记孤立 / 注记行是组内唯一形态) ⇒ 没有"非指针同主键登记"可作
+ *     幸存者,豁免不成立,分母回落到 `g.open` 全量,照旧计组。
+ * 这两条是"报数档不得被关掉"的结构性防线,不是注释承诺(见镜像测试的反向例)。
+ *
+ * ## 刻意不做的事
+ * 不改 `findForks` 的分组产物 `dupOpen` 本身 —— 那个数组还有归并器/清偿器等多个消费点,
+ * 在分组阶段 `continue` 掉注记行会把报数面整体腰斩(`findForks` 头注实测 213→1)。
+ * 本函数只被 `auditPlan` 的 `counts.dupOpenGroups` 一处消费,派单口径与 `dupOpenCopies`
+ * 的判据一字未动。
+ */
+export function countDupOpenGroups(dupOpen) {
+  let groups = 0
+  for (const g of dupOpen) {
+    const live = g.open.filter((r) => !DUP_POINTER_RE.test(r.raw))
+    const denominator = live.length > 0 ? live : g.open
+    if (denominator.length > 1) groups++
+  }
+  return groups
 }
 
 export function findDupOpenCopies(dupOpen) {
@@ -3265,7 +3327,9 @@ export function auditPlan(content, { archivedKeys = null, fields = null } = {}) 
       rotatedArchived: rotated.filter((b) => b.exit === 'archived').length,
       rotatedNoExit: rotated.filter((b) => !b.exit).length,
       archivedIndexSupplied: archivedKeys !== null,
-      dupOpenGroups: dupOpen.length,
+      // 组数口径:只对「组内有非指针同主键登记」的指针行做最小豁免(判据本体与反向例见
+      // `countDupOpenGroups` 头注);`dupOpen` 分组面保持全量,归并器/清偿器读数不变。
+      dupOpenGroups: countDupOpenGroups(dupOpen),
       dupOpenCopies: dupCopies.length,
       // F4b:无主键的逐字孪生行 —— F4 按复合主键分组,而这一族永远没有编号,所以在 F4 里恒为 0、
       // 在账面上等于"不存在"。见 findVerbatimDupOpenRows 头注(2026-09-27 实测 4 对全部隐身)。

@@ -19,8 +19,8 @@
 
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 type StreamChatOpts = {
   model: string;
@@ -59,8 +59,11 @@ import { compressContextV2 } from '../src/compaction-v2.js';
 import { runToolLoop } from '../src/commands/agent.js';
 import { registerTools, clearTools, type Tool } from '../src/tools/index.js';
 
-const REPO_ROOT = path.resolve(fileURLToPath(new URL('.', import.meta.url)), '../../..');
-const FIXTURE_ROOT = path.join(REPO_ROOT, '.ihui-agent', 'tmp');
+// 夹具工作区必须落在 git 仓库之外:runToolLoop 收尾会触发内置 stop 安全扫描,工作区若在
+// 本仓(1.8 万文件)内,每次 runOnce 都真跑一遍 `git diff HEAD`(本机实测 0.6~1s,CI 约 5s),
+// 本用例连续 3 次 runOnce 就会顶到 vitest 15s 超时。落 os.tmpdir() 后 git 快速判"非仓库",
+// 把真实等待降到毫秒级,不再靠抬超时掩盖。
+const FIXTURE_ROOT = os.tmpdir();
 
 function filler(times: number): string {
   return 'The quick brown fox jumps over the lazy dog. '.repeat(times);
@@ -341,8 +344,7 @@ describe('runToolLoop 装车证明(守卫真的在主循环里跑)', () => {
   beforeEach(() => {
     clearTools();
     streamChatMock.mockReset();
-    fs.mkdirSync(FIXTURE_ROOT, { recursive: true });
-    workspace = fs.mkdtempSync(path.join(FIXTURE_ROOT, 'guards-loop-'));
+    workspace = fs.mkdtempSync(path.join(FIXTURE_ROOT, 'ihui-guards-loop-'));
   });
 
   afterEach(() => {

@@ -18,6 +18,7 @@ import { clearWebViewCache } from '@/lib/tauri-bridge'
 import { SamplingParamsCard } from '@/components/settings/sampling-params-card'
 import { FoldPolicyCard } from '@/components/settings/fold-policy-card'
 import { WebSearchCard } from '@/components/settings/web-search-card'
+import { PredictiveEditCard } from '@/components/settings/predictive-edit-card'
 import { NavTierCard } from '@/components/settings/nav-tier-card'
 import { cn } from '@/lib/utils'
 
@@ -80,7 +81,7 @@ export default function PreferencesPage() {
       <BackButton />
       <div className="shrink-0">
         <h1 className="text-display font-bold tracking-tight">{t('preferencesTitle')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('preferencesDesc')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('preferencesDesc')}</p>
       </div>
 
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto">
@@ -101,7 +102,7 @@ export default function PreferencesPage() {
                     key={item.key}
                     onClick={() => setTheme(item.key)}
                     className={cn(
-                      'flex flex-col items-center gap-2 rounded-sm border p-3 text-sm transition-colors',
+                      'flex flex-col items-center gap-2 rounded-sm border p-3 text-body transition-colors',
                       active
                         ? 'border-brand-accent-deep bg-primary/5 text-primary'
                         : 'hover:bg-accent hover:text-accent-foreground',
@@ -132,7 +133,7 @@ export default function PreferencesPage() {
                     key={item.key}
                     onClick={() => switchLocale(item.key)}
                     className={cn(
-                      'flex items-center justify-center gap-2 rounded-sm border p-3 text-sm transition-colors',
+                      'flex items-center justify-center gap-2 rounded-sm border p-3 text-body transition-colors',
                       active
                         ? 'border-brand-accent-deep bg-primary/5 text-primary'
                         : 'hover:bg-accent hover:text-accent-foreground',
@@ -157,7 +158,7 @@ export default function PreferencesPage() {
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between gap-3">
-              <span className="min-w-0 flex-1 text-sm text-muted-foreground">
+              <span className="min-w-0 flex-1 text-body text-muted-foreground">
                 {collapsed ? t('sidebarCollapsed') : t('sidebarExpanded')}
               </span>
               <Switch checked={collapsed} onCheckedChange={toggleCollapsed} className="shrink-0" />
@@ -177,6 +178,9 @@ export default function PreferencesPage() {
         {/* 网页搜索开关(2026-09-21 自聊天输入区工具栏迁入,D22 能力偏好归位设置页) */}
         <WebSearchCard />
 
+        {/* 预测式编辑开关(V3 #82 两把钥匙之"开关"位;2026-11-01 接线) */}
+        <PredictiveEditCard />
+
         {isDesktop && (
           <Card>
             <CardHeader>
@@ -187,7 +191,7 @@ export default function PreferencesPage() {
             </CardHeader>
             <CardContent>
               <div className="flex items-center justify-between gap-4">
-                <span className="min-w-0 flex-1 text-sm text-muted-foreground">
+                <span className="min-w-0 flex-1 text-body text-muted-foreground">
                   {t('cacheCleanDesc')}
                 </span>
                 <Button

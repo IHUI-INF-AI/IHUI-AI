@@ -79,7 +79,7 @@
   height: 60rpx;
   padding: 0 24rpx;
   margin-right: var(--spacing-xs-loose);
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-muted-foreground);
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
@@ -108,7 +108,7 @@
 }
 .favorites-batch-text {
   margin-left: var(--spacing-xs-loose);
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-foreground);
 }
 .favorites-check-box {
@@ -233,7 +233,7 @@
 }
 .favorites-empty-btn-text {
   color: var(--color-cta-foreground);
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
 }
 
 /* ===== 加载状态 ===== */

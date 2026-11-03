@@ -1768,7 +1768,7 @@ export default function CheckinPage() {
       aria-label={t('filterAll')}
       value={value ?? 'all'}
       onChange={(e) => onChange(e.target.value === 'all' ? null : Number(e.target.value))}
-      className="h-8 rounded-sm border bg-background px-2 text-xs"
+      className="h-8 rounded-sm border bg-background px-2 text-label"
     >
       <option value="all">{t('filterAll')}</option>
       {accounts.map((account) => (
@@ -2002,7 +2002,7 @@ export default function CheckinPage() {
                   {/* 平台名是品牌名,与平台徽章同规矩:不进 i18n(见 renderPlatformBadge) */}
                   <DropdownMenuItem onClick={openWbWebLoginEntry}>
                     <span>WorkBuddy</span>
-                    <span className="ml-auto pl-3 text-xs text-muted-foreground">
+                    <span className="ml-auto pl-3 text-label text-muted-foreground">
                       {t('captureMethodWeb')}
                     </span>
                   </DropdownMenuItem>
@@ -2011,13 +2011,13 @@ export default function CheckinPage() {
                       <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={() => void openCapture()}>
                         <span>TRAE</span>
-                        <span className="ml-auto pl-3 text-xs text-muted-foreground">
+                        <span className="ml-auto pl-3 text-label text-muted-foreground">
                           {t('captureMethodLocal')}
                         </span>
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={openQoderCapture}>
                         <span>Qoder</span>
-                        <span className="ml-auto pl-3 text-xs text-muted-foreground">
+                        <span className="ml-auto pl-3 text-label text-muted-foreground">
                           {t('captureMethodLocal')}
                         </span>
                       </DropdownMenuItem>
@@ -2026,7 +2026,7 @@ export default function CheckinPage() {
                         onClick={() => void runMinimaxCapture()}
                       >
                         <span>MiniMax Code</span>
-                        <span className="ml-auto pl-3 text-xs text-muted-foreground">
+                        <span className="ml-auto pl-3 text-label text-muted-foreground">
                           {t('captureMethodLocal')}
                         </span>
                       </DropdownMenuItem>
@@ -2047,7 +2047,7 @@ export default function CheckinPage() {
       {actionError && (
         <div
           role="alert"
-          className="mb-4 rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive"
+          className="mb-4 rounded-md border border-destructive bg-destructive/10 p-3 text-body text-destructive"
         >
           {actionError}
         </div>
@@ -2056,7 +2056,7 @@ export default function CheckinPage() {
       {jwtNotice && (
         <div
           role="status"
-          className="mb-4 rounded-md border border-green-600 bg-green-500/10 p-3 text-sm text-green-600"
+          className="mb-4 rounded-md border border-green-600 bg-green-500/10 p-3 text-body text-green-600"
         >
           {jwtNotice}
         </div>
@@ -2065,7 +2065,7 @@ export default function CheckinPage() {
       {batchNotice && (
         <div
           role="status"
-          className="mb-4 rounded-md border border-blue-500/40 bg-blue-500/10 p-3 text-sm text-blue-600"
+          className="mb-4 rounded-md border border-blue-500/40 bg-blue-500/10 p-3 text-body text-blue-600"
         >
           {batchNotice}
         </div>
@@ -2086,7 +2086,7 @@ export default function CheckinPage() {
         </div>
       ) : loadError ? (
         <div className="py-16 text-center">
-          <p className="mb-3 text-sm text-destructive">
+          <p className="mb-3 text-body text-destructive">
             {t('loadFailed')}
             {loadError ? `: ${loadError}` : ''}
           </p>
@@ -2103,7 +2103,7 @@ export default function CheckinPage() {
           </div>
           {/* 账号列表 */}
           {accounts.length === 0 ? (
-            <div className="rounded-xl border p-10 text-center text-sm text-muted-foreground">
+            <div className="rounded-xl border p-10 text-center text-body text-muted-foreground">
               {t('emptyAccounts')}
             </div>
           ) : (
@@ -2119,7 +2119,7 @@ export default function CheckinPage() {
                       e.target.value as 'all' | 'trae' | 'workbuddy' | 'qoder' | 'minimax',
                     )
                   }
-                  className="h-8 rounded-sm border bg-background px-2 text-xs"
+                  className="h-8 rounded-sm border bg-background px-2 text-label"
                 >
                   <option value="all">{t('platformAll')}</option>
                   <option value="trae">{t('platformTrae')}</option>
@@ -2133,7 +2133,7 @@ export default function CheckinPage() {
                     aria-label={t('filterGroupAll')}
                     value={groupFilter}
                     onChange={(e) => setGroupFilter(e.target.value)}
-                    className="h-8 rounded-sm border bg-background px-2 text-xs"
+                    className="h-8 rounded-sm border bg-background px-2 text-label"
                   >
                     <option value="all">{t('filterGroupAll')}</option>
                     {distinctGroups.map((g) => (
@@ -2198,7 +2198,7 @@ export default function CheckinPage() {
                               }}
                               onBlur={() => void commitRename(account)}
                               disabled={renaming}
-                              className="h-7 max-w-[420px] text-sm"
+                              className="h-7 max-w-[420px] text-body"
                             />
                           ) : (
                             <button
@@ -2241,7 +2241,7 @@ export default function CheckinPage() {
                         </TableCell>
                         <TableCell className="checkin-col-last-checkin">
                           {account.last_record ? (
-                            <div className="text-xs">
+                            <div className="text-label">
                               <div>{renderResult(account.last_record.ok)}</div>
                               <div className="text-muted-foreground">
                                 {formatTime(account.last_record.created_at)}
@@ -2254,7 +2254,7 @@ export default function CheckinPage() {
                               )}
                             </div>
                           ) : (
-                            <span className="text-xs text-muted-foreground">{t('none')}</span>
+                            <span className="text-label text-muted-foreground">{t('none')}</span>
                           )}
                         </TableCell>
                         <TableCell className="checkin-col-credits">
@@ -2262,7 +2262,7 @@ export default function CheckinPage() {
                             const info = creditsInfo[account.id]
                             if (creditsRefreshing.has(account.id)) {
                               return (
-                                <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <span className="flex items-center gap-1 text-label text-muted-foreground">
                                   <Loader2 className="h-3 w-3 animate-spin" />
                                   {t('creditRefreshing')}
                                 </span>
@@ -2270,7 +2270,7 @@ export default function CheckinPage() {
                             }
                             if (info) {
                               return (
-                                <div className="text-xs">
+                                <div className="text-label">
                                   {info.error ? (
                                     <span className="text-amber-600">{t('creditQueryFail')}</span>
                                   ) : (
@@ -2292,7 +2292,9 @@ export default function CheckinPage() {
                             }
                             return (
                               account.last_record?.credits ?? (
-                                <span className="text-xs text-muted-foreground">{t('none')}</span>
+                                <span className="text-label text-muted-foreground">
+                                  {t('none')}
+                                </span>
                               )
                             )
                           })()}
@@ -2381,7 +2383,7 @@ export default function CheckinPage() {
                 {renderAccountFilter('record-filter', recordFilter, setRecordFilter)}
               </div>
               {records.length === 0 ? (
-                <div className="rounded-xl border p-10 text-center text-sm text-muted-foreground">
+                <div className="rounded-xl border p-10 text-center text-body text-muted-foreground">
                   {t('emptyRecords')}
                 </div>
               ) : (
@@ -2404,7 +2406,9 @@ export default function CheckinPage() {
                     <TableBody>
                       {records.map((record) => (
                         <TableRow key={record.id}>
-                          <TableCell className="text-xs">{formatTime(record.created_at)}</TableCell>
+                          <TableCell className="text-label">
+                            {formatTime(record.created_at)}
+                          </TableCell>
                           <TableCell>
                             <span
                               className={
@@ -2418,10 +2422,10 @@ export default function CheckinPage() {
                               {renderResult(record.ok)}
                             </span>
                           </TableCell>
-                          <TableCell className="checkin-col-action text-xs">
+                          <TableCell className="checkin-col-action text-label">
                             {record.action ?? '-'}
                           </TableCell>
-                          <TableCell className="checkin-col-message text-xs">
+                          <TableCell className="checkin-col-message text-label">
                             {record.message ? (
                               <TruncatedText
                                 value={truncate(record.message, 60)}
@@ -2431,10 +2435,10 @@ export default function CheckinPage() {
                               '-'
                             )}
                           </TableCell>
-                          <TableCell className="text-xs">
+                          <TableCell className="text-label">
                             {record.credits_delta === null ? '-' : record.credits_delta}
                           </TableCell>
-                          <TableCell className="checkin-col-error-class text-xs">
+                          <TableCell className="checkin-col-error-class text-label">
                             {record.classified_error ?? '-'}
                           </TableCell>
                         </TableRow>
@@ -2462,11 +2466,11 @@ export default function CheckinPage() {
               <div className="mb-3">
                 {renderAccountFilter('credit-filter', creditFilter, setCreditFilter)}
               </div>
-              <p className="mb-3 text-sm text-muted-foreground">
+              <p className="mb-3 text-body text-muted-foreground">
                 {t('totalCreditsDelta', { delta: creditsTotal })}
               </p>
               {credits.length === 0 ? (
-                <div className="rounded-xl border p-10 text-center text-sm text-muted-foreground">
+                <div className="rounded-xl border p-10 text-center text-body text-muted-foreground">
                   {t('emptyCredits')}
                 </div>
               ) : (
@@ -2485,9 +2489,11 @@ export default function CheckinPage() {
                     <TableBody>
                       {credits.map((item) => (
                         <TableRow key={item.id}>
-                          <TableCell className="text-xs">{formatTime(item.created_at)}</TableCell>
-                          <TableCell className="text-xs">{item.action}</TableCell>
-                          <TableCell className="text-xs">
+                          <TableCell className="text-label">
+                            {formatTime(item.created_at)}
+                          </TableCell>
+                          <TableCell className="text-label">{item.action}</TableCell>
+                          <TableCell className="text-label">
                             <span
                               className={
                                 item.credits_delta >= 0 ? 'text-green-600' : 'text-destructive'
@@ -2498,7 +2504,7 @@ export default function CheckinPage() {
                                 : item.credits_delta}
                             </span>
                           </TableCell>
-                          <TableCell className="checkin-col-current-credits text-xs">
+                          <TableCell className="checkin-col-current-credits text-label">
                             {item.credits ?? '-'}
                           </TableCell>
                         </TableRow>
@@ -2525,7 +2531,7 @@ export default function CheckinPage() {
             {/* 积分看板(Phase1d,对标参考项目:排行 + 趋势 + 今日新增) */}
             <TabsContent value="board" className="mt-3">
               {!board.hasData ? (
-                <div className="rounded-xl border p-10 text-center text-sm text-muted-foreground">
+                <div className="rounded-xl border p-10 text-center text-body text-muted-foreground">
                   {t('boardEmpty')}
                 </div>
               ) : (
@@ -2669,17 +2675,17 @@ export default function CheckinPage() {
                   </Button>
                 </div>
                 {scanScanning ? (
-                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <p className="flex items-center gap-1.5 text-label text-muted-foreground">
                     <Loader2 className="h-3 w-3 animate-spin" />
                     {t('addSmartScanning')}
                   </p>
                 ) : scanTrae.length === 0 && scanQoder.length === 0 && scanMinimax.length === 0 ? (
-                  <p data-testid="smart-scan-none" className="text-xs text-amber-600">
+                  <p data-testid="smart-scan-none" className="text-label text-amber-600">
                     {t('addSmartNone')}
                   </p>
                 ) : (
                   <div className="space-y-2">
-                    <p className="text-xs text-muted-foreground">{t('deviceMapProxyHint')}</p>
+                    <p className="text-label text-muted-foreground">{t('deviceMapProxyHint')}</p>
 
                     {scanTrae.length > 0 && (
                       <div className="space-y-1">
@@ -2687,7 +2693,7 @@ export default function CheckinPage() {
                           {t('addSmartTraeFound', { count: scanTrae.length })}
                         </p>
                         {scanTrae.map((item) => (
-                          <label key={item.user_id} className="flex items-center gap-2 text-sm">
+                          <label key={item.user_id} className="flex items-center gap-2 text-body">
                             <input
                               type="checkbox"
                               aria-label={`smartScanTrae:${item.user_id}`}
@@ -2700,12 +2706,14 @@ export default function CheckinPage() {
                             {renderPlatformBadge('trae')}
                             <span className="font-mono">{item.nickname || item.user_id}</span>
                             {!item.jwt && (
-                              <span className="text-xs text-muted-foreground">{item.source}</span>
+                              <span className="text-label text-muted-foreground">
+                                {item.source}
+                              </span>
                             )}
                           </label>
                         ))}
                         {scanTrae.every((a) => !a.jwt) && (
-                          <p className="text-xs text-amber-600">{t('captureOpaqueOnly')}</p>
+                          <p className="text-label text-amber-600">{t('captureOpaqueOnly')}</p>
                         )}
                       </div>
                     )}
@@ -2717,7 +2725,7 @@ export default function CheckinPage() {
                         {scanQoder.map((item) => {
                           const key = item.uid || item.app_dir
                           return (
-                            <label key={key} className="flex items-center gap-2 text-sm">
+                            <label key={key} className="flex items-center gap-2 text-body">
                               <input
                                 type="checkbox"
                                 aria-label={`smartScanQoder:${key}`}
@@ -2743,7 +2751,7 @@ export default function CheckinPage() {
                         {scanMinimax.map((item) => {
                           const key = item.uid || item.auth_file
                           return (
-                            <label key={key} className="flex items-center gap-2 text-sm">
+                            <label key={key} className="flex items-center gap-2 text-body">
                               <input
                                 type="checkbox"
                                 aria-label={`smartScanMinimax:${key}`}
@@ -2758,7 +2766,7 @@ export default function CheckinPage() {
                                 {item.nickname || item.uid || '本机'}
                               </span>
                               {!item.access_token && (
-                                <span className="text-xs text-muted-foreground">
+                                <span className="text-label text-muted-foreground">
                                   {t('captureMinimaxNoToken')}
                                 </span>
                               )}
@@ -2774,17 +2782,17 @@ export default function CheckinPage() {
                   </div>
                 )}
                 {scanMsg && (
-                  <p data-testid="smart-scan-msg" className="text-xs text-amber-600">
+                  <p data-testid="smart-scan-msg" className="text-label text-amber-600">
                     {scanMsg}
                   </p>
                 )}
               </div>
             ) : (
-              <p className="text-xs text-muted-foreground">{t('addSmartDesktopOnly')}</p>
+              <p className="text-label text-muted-foreground">{t('addSmartDesktopOnly')}</p>
             )}
             {/* 手动填写(高级):平台/名称/JWT/设备头/分组全部收进折叠区,平时不占版面 */}
             <details className="group">
-              <summary className="cursor-pointer text-xs text-muted-foreground">
+              <summary className="cursor-pointer text-label text-muted-foreground">
                 {t('addManualAdvanced')}
               </summary>
               <div className="mt-3 space-y-3">
@@ -2797,7 +2805,7 @@ export default function CheckinPage() {
                     onChange={(e) =>
                       setAddPlatform(e.target.value as 'trae' | 'workbuddy' | 'qoder' | 'minimax')
                     }
-                    className="h-9 w-full rounded-sm border bg-background px-2 text-sm"
+                    className="h-9 w-full rounded-sm border bg-background px-2 text-body"
                   >
                     <option value="trae">{t('platformTrae')}</option>
                     <option value="workbuddy">{t('platformWorkbuddy')}</option>
@@ -2823,7 +2831,7 @@ export default function CheckinPage() {
                     onChange={(e) => setJwt(e.target.value)}
                     rows={4}
                     placeholder={t('jwtPlaceholder')}
-                    className="w-full resize-y rounded-sm border bg-background p-2 text-xs outline-none focus:ring-2 focus:ring-ring"
+                    className="w-full resize-y rounded-sm border bg-background p-2 text-label outline-none focus:ring-2 focus:ring-ring"
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -2834,7 +2842,7 @@ export default function CheckinPage() {
                     onChange={(e) => setDeviceMapText(e.target.value)}
                     rows={3}
                     placeholder={t('deviceMapPlaceholder')}
-                    className="w-full resize-y rounded-sm border bg-background p-2 text-xs outline-none focus:ring-2 focus:ring-ring"
+                    className="w-full resize-y rounded-sm border bg-background p-2 text-label outline-none focus:ring-2 focus:ring-ring"
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -2850,7 +2858,7 @@ export default function CheckinPage() {
               </div>
             </details>
             {formError && (
-              <p role="alert" className="text-sm text-destructive">
+              <p role="alert" className="text-body text-destructive">
                 {formError}
               </p>
             )}
@@ -2886,11 +2894,11 @@ export default function CheckinPage() {
                 onChange={(e) => setJwtText(e.target.value)}
                 rows={4}
                 placeholder={t('jwtPlaceholder')}
-                className="w-full resize-y rounded-sm border bg-background p-2 text-xs outline-none focus:ring-2 focus:ring-ring"
+                className="w-full resize-y rounded-sm border bg-background p-2 text-label outline-none focus:ring-2 focus:ring-ring"
               />
             </div>
             {jwtFormError && (
-              <p role="alert" className="text-sm text-destructive">
+              <p role="alert" className="text-body text-destructive">
                 {jwtFormError}
               </p>
             )}
@@ -2926,7 +2934,7 @@ export default function CheckinPage() {
               />
             </div>
             {groupFormError && (
-              <p role="alert" className="text-sm text-destructive">
+              <p role="alert" className="text-body text-destructive">
                 {groupFormError}
               </p>
             )}
@@ -2960,7 +2968,7 @@ export default function CheckinPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <p className="text-xs text-muted-foreground">{t('deviceMapProxyHint')}</p>
+            <p className="text-label text-muted-foreground">{t('deviceMapProxyHint')}</p>
             <div className="space-y-1.5">
               <Label htmlFor="checkin-device-map-update">{t('deviceMap')}</Label>
               <textarea
@@ -2968,11 +2976,11 @@ export default function CheckinPage() {
                 value={deviceMapEditText}
                 onChange={(e) => setDeviceMapEditText(e.target.value)}
                 rows={10}
-                className="w-full resize-y rounded-sm border bg-background p-2 font-mono text-xs outline-none focus:ring-2 focus:ring-ring"
+                className="w-full resize-y rounded-sm border bg-background p-2 font-mono text-label outline-none focus:ring-2 focus:ring-ring"
               />
             </div>
             {deviceMapFormError && (
-              <p role="alert" className="text-sm text-destructive">
+              <p role="alert" className="text-body text-destructive">
                 {deviceMapFormError}
               </p>
             )}
@@ -3025,14 +3033,14 @@ export default function CheckinPage() {
               </DialogDescription>
             </DialogHeader>
             {captureError && (
-              <p role="alert" className="text-sm text-destructive">
+              <p role="alert" className="text-body text-destructive">
                 {captureError}
               </p>
             )}
             {captured.length > 0 && (
               <div className="max-h-60 space-y-2 overflow-y-auto">
                 {captured.map((item) => (
-                  <label key={item.user_id} className="flex items-center gap-2 text-sm">
+                  <label key={item.user_id} className="flex items-center gap-2 text-body">
                     <input
                       type="checkbox"
                       aria-label={`captureAccount:${item.user_id}`}
@@ -3048,7 +3056,7 @@ export default function CheckinPage() {
                       }}
                     />
                     <span className="font-mono">{item.nickname || item.user_id}</span>
-                    <span className="truncate text-xs text-muted-foreground">{item.source}</span>
+                    <span className="truncate text-label text-muted-foreground">{item.source}</span>
                   </label>
                 ))}
               </div>
@@ -3089,7 +3097,7 @@ export default function CheckinPage() {
               <DialogDescription>{t('captureQoderDescription')}</DialogDescription>
             </DialogHeader>
             {captureError && (
-              <p role="alert" className="text-sm text-destructive">
+              <p role="alert" className="text-body text-destructive">
                 {captureError}
               </p>
             )}
@@ -3098,7 +3106,7 @@ export default function CheckinPage() {
                 {qoderCaptured.map((item) => {
                   const key = qoderKey(item)
                   return (
-                    <label key={key} className="flex items-center gap-2 text-sm">
+                    <label key={key} className="flex items-center gap-2 text-body">
                       <input
                         type="checkbox"
                         aria-label={`captureQoderAccount:${key}`}
@@ -3113,7 +3121,7 @@ export default function CheckinPage() {
                         }}
                       />
                       <span className="font-mono">{item.nickname || item.uid || '本机会话'}</span>
-                      <span className="truncate text-xs text-muted-foreground">
+                      <span className="truncate text-label text-muted-foreground">
                         {item.edition}
                         {item.version ? ` · v${item.version}` : ''}
                         {item.machine_id ? ` · ${item.machine_id}` : ''}
@@ -3160,7 +3168,7 @@ export default function CheckinPage() {
               <DialogDescription>{t('captureWbDescription')}</DialogDescription>
             </DialogHeader>
             {captureError && (
-              <p role="alert" className="text-sm text-destructive">
+              <p role="alert" className="text-body text-destructive">
                 {captureError}
               </p>
             )}
@@ -3173,7 +3181,7 @@ export default function CheckinPage() {
               <div className="flex items-center justify-between gap-2">
                 <div className="min-w-0">
                   <p className="text-body font-medium">{t('captureWbWebTitle')}</p>
-                  <p className="text-xs text-muted-foreground">{t('captureWbWebDescription')}</p>
+                  <p className="text-label text-muted-foreground">{t('captureWbWebDescription')}</p>
                 </div>
                 {wbWebLoginState === 'waiting' ? (
                   // 等待态仍保留「系统浏览器打开」:内嵌窗里登录嫌麻烦(扫码/风控)时
@@ -3222,7 +3230,7 @@ export default function CheckinPage() {
                     value={wbPasteDraft}
                     onChange={(e) => setWbPasteDraft(e.target.value)}
                     placeholder={t('captureWbWebPastePlaceholder')}
-                    className="h-8 min-w-0 flex-1 text-xs"
+                    className="h-8 min-w-0 flex-1 text-label"
                   />
                   <Button size="sm" onClick={() => void importWbPastedCookie()}>
                     {t('captureWbWebPasteImport')}
@@ -3232,7 +3240,7 @@ export default function CheckinPage() {
               {wbWebLoginMsg && (
                 <p
                   data-testid="wb-web-login-msg"
-                  className={`text-xs ${
+                  className={`text-label ${
                     wbWebLoginState === 'done' ? 'text-emerald-600' : 'text-amber-600'
                   }`}
                 >
@@ -3240,7 +3248,7 @@ export default function CheckinPage() {
                 </p>
               )}
             </div>
-            <div className="flex items-center justify-center gap-2 pt-1 text-xs text-muted-foreground">
+            <div className="flex items-center justify-center gap-2 pt-1 text-label text-muted-foreground">
               <span>{t('captureWbManualDivider')}</span>
             </div>
             {wbCaptured.length > 0 && (
@@ -3249,7 +3257,7 @@ export default function CheckinPage() {
                   const key = wbKey(item)
                   return (
                     <div key={key} className="space-y-1">
-                      <label className="flex items-center gap-2 text-sm">
+                      <label className="flex items-center gap-2 text-body">
                         <input
                           type="checkbox"
                           aria-label={`captureWbAccount:${key}`}
@@ -3264,7 +3272,7 @@ export default function CheckinPage() {
                           }}
                         />
                         <span className="font-mono">{item.nickname || item.uid || '本机会话'}</span>
-                        <span className="truncate text-xs text-muted-foreground">
+                        <span className="truncate text-label text-muted-foreground">
                           {item.domain}
                           {item.expires_at > 0
                             ? ` · ${new Date(item.expires_at * 1000).toLocaleString()}`
@@ -3286,7 +3294,7 @@ export default function CheckinPage() {
                             setWbTokenDrafts((prev) => ({ ...prev, [key]: e.target.value }))
                           }
                           placeholder={t('captureWbTokenPlaceholder')}
-                          className="ml-6 h-8 w-[calc(100%-1.5rem)] rounded-sm border bg-background px-2 font-mono text-xs"
+                          className="ml-6 h-8 w-[calc(100%-1.5rem)] rounded-sm border bg-background px-2 font-mono text-label"
                         />
                       )}
                     </div>
@@ -3336,7 +3344,7 @@ export default function CheckinPage() {
               <DialogDescription>{t('maintDescription')}</DialogDescription>
             </DialogHeader>
             {maintError && (
-              <p role="alert" className="text-sm text-destructive">
+              <p role="alert" className="text-body text-destructive">
                 {maintError}
               </p>
             )}
@@ -3346,7 +3354,7 @@ export default function CheckinPage() {
                 <p className="text-body font-medium">{t('wizardTitle')}</p>
                 {/* 24h 冷却常驻条:只要处于冷却期(无论哪个 Step)都显示,反复提醒"别登录" */}
                 {lastResetAt && Date.now() - lastResetAt < 24 * 3600_000 && (
-                  <p className="text-xs text-amber-700 dark:text-amber-400">
+                  <p className="text-label text-amber-700 dark:text-amber-400">
                     {t('wizardCooldownActive', {
                       hours: Math.max(
                         1,
@@ -3357,7 +3365,7 @@ export default function CheckinPage() {
                 )}
                 {wizardStep === 0 && (
                   <>
-                    <p className="text-xs text-muted-foreground">{t('wizardIntro')}</p>
+                    <p className="text-label text-muted-foreground">{t('wizardIntro')}</p>
                     <Button
                       variant="destructive"
                       size="sm"
@@ -3372,15 +3380,15 @@ export default function CheckinPage() {
                 {wizardStep === 2 && (
                   <>
                     {wizardIpBefore ? (
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-label text-muted-foreground">
                         {wizardIpLoc
                           ? t('wizardIpBefore', { ip: wizardIpBefore, location: wizardIpLoc })
                           : t('wizardIpBeforeNoLoc', { ip: wizardIpBefore })}
                       </p>
                     ) : (
-                      <p className="text-xs text-muted-foreground">{t('wizardRefetchHint')}</p>
+                      <p className="text-label text-muted-foreground">{t('wizardRefetchHint')}</p>
                     )}
-                    <p className="text-xs text-muted-foreground">{t('wizardGuide')}</p>
+                    <p className="text-label text-muted-foreground">{t('wizardGuide')}</p>
                     {wizardIpFailCount >= 3 && (
                       <p className="text-label font-medium text-amber-700 dark:text-amber-400">
                         {t('wizardIpFailMany')}
@@ -3415,10 +3423,10 @@ export default function CheckinPage() {
                 )}
                 {wizardStep === 3 && (
                   <>
-                    <p className="text-xs text-green-600 dark:text-green-400">
+                    <p className="text-label text-green-600 dark:text-green-400">
                       {t('wizardIpChanged', { ip: wizardIpNow })}
                     </p>
-                    <p className="text-xs text-muted-foreground">{t('wizardCooldown')}</p>
+                    <p className="text-label text-muted-foreground">{t('wizardCooldown')}</p>
                     <Button
                       variant="ghost"
                       size="sm"
@@ -3439,7 +3447,7 @@ export default function CheckinPage() {
                   </>
                 )}
                 {wizardMsg.length > 0 && (
-                  <pre className="max-h-24 overflow-y-auto rounded bg-muted p-2 text-xs">
+                  <pre className="max-h-24 overflow-y-auto rounded bg-muted p-2 text-label">
                     {wizardMsg.join('\n')}
                   </pre>
                 )}
@@ -3448,9 +3456,9 @@ export default function CheckinPage() {
                   <div className="space-y-1 rounded border border-border/60 bg-background/40 p-2">
                     <p className="text-label font-medium">{t('wizardAuditTitle')}</p>
                     {wizardAuditing && (
-                      <p className="text-xs text-muted-foreground">{t('wizardAuditScanning')}</p>
+                      <p className="text-label text-muted-foreground">{t('wizardAuditScanning')}</p>
                     )}
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-label text-muted-foreground">
                       {t('wizardAuditScope', {
                         files: wizardAudit.scanned_files,
                         mb: Math.round(wizardAudit.scanned_mb * 10) / 10,
@@ -3458,13 +3466,15 @@ export default function CheckinPage() {
                       })}
                     </p>
                     {wizardAudit.blacklist_size === 0 ? (
-                      <p className="text-xs text-muted-foreground">{t('wizardAuditNoHistory')}</p>
+                      <p className="text-label text-muted-foreground">
+                        {t('wizardAuditNoHistory')}
+                      </p>
                     ) : wizardAudit.ok ? (
-                      <p className="text-xs text-green-600 dark:text-green-400">
+                      <p className="text-label text-green-600 dark:text-green-400">
                         {t('wizardAuditClean')}
                       </p>
                     ) : (
-                      <p className="text-xs text-amber-600 dark:text-amber-400">
+                      <p className="text-label text-amber-600 dark:text-amber-400">
                         {t('wizardAuditResidual', { n: wizardAudit.hard_hits })}
                       </p>
                     )}
@@ -3480,7 +3490,7 @@ export default function CheckinPage() {
                       </Button>
                     )}
                     {wizardAudit.hard_hit_files.length > 0 && (
-                      <ul className="space-y-0.5 text-xs">
+                      <ul className="space-y-0.5 text-label">
                         {wizardAudit.hard_hit_files.slice(0, 8).map((hit) => (
                           <li key={hit.file} className="truncate font-mono">
                             {hit.file} ×{hit.count} {hit.sample}
@@ -3489,12 +3499,12 @@ export default function CheckinPage() {
                       </ul>
                     )}
                     {wizardAudit.suspect_hits > 0 && (
-                      <p className="text-xs text-amber-600 dark:text-amber-400">
+                      <p className="text-label text-amber-600 dark:text-amber-400">
                         {t('wizardAuditSuspect', { n: wizardAudit.suspect_hits })}
                       </p>
                     )}
                     {wizardAudit.registry.length > 0 && (
-                      <details className="text-xs">
+                      <details className="text-label">
                         <summary className="cursor-pointer text-muted-foreground">
                           {t('wizardAuditRegistry')}
                         </summary>
@@ -3504,7 +3514,7 @@ export default function CheckinPage() {
                       </details>
                     )}
                     {wizardAudit.hardware.length > 0 && (
-                      <details className="text-xs">
+                      <details className="text-label">
                         <summary className="cursor-pointer text-muted-foreground">
                           {t('wizardAuditHardware')}
                         </summary>
@@ -3521,7 +3531,7 @@ export default function CheckinPage() {
                       {t('wizardCriticalFailNote')}
                     </p>
                   ) : (
-                    <p className="text-xs text-muted-foreground">{t('wizardOptionalNote')}</p>
+                    <p className="text-label text-muted-foreground">{t('wizardOptionalNote')}</p>
                   ))}
               </div>
               <div>
@@ -3542,7 +3552,7 @@ export default function CheckinPage() {
                 >
                   {t('maintReset')}
                 </Button>
-                <label className="flex items-center gap-1 text-xs text-muted-foreground">
+                <label className="flex items-center gap-1 text-label text-muted-foreground">
                   <input
                     type="checkbox"
                     disabled={maintBusy || wizardBusy}
@@ -3551,7 +3561,7 @@ export default function CheckinPage() {
                   />
                   {t('maintIncludeGuid')}
                 </label>
-                <label className="flex items-center gap-1 text-xs text-muted-foreground">
+                <label className="flex items-center gap-1 text-label text-muted-foreground">
                   <input
                     type="checkbox"
                     disabled={maintBusy || wizardBusy}
@@ -3560,7 +3570,7 @@ export default function CheckinPage() {
                   />
                   {t('maintIncludeBrowser')}
                 </label>
-                <label className="flex items-center gap-1 text-xs text-muted-foreground">
+                <label className="flex items-center gap-1 text-label text-muted-foreground">
                   <input
                     type="checkbox"
                     disabled={maintBusy || wizardBusy}
@@ -3569,7 +3579,7 @@ export default function CheckinPage() {
                   />
                   {t('maintDeepReset')}
                 </label>
-                <label className="flex items-center gap-1 text-xs text-muted-foreground">
+                <label className="flex items-center gap-1 text-label text-muted-foreground">
                   <input
                     type="checkbox"
                     disabled={maintBusy || wizardBusy}
@@ -3588,23 +3598,23 @@ export default function CheckinPage() {
                 </Button>
               </div>
               {maintReport.length > 0 && (
-                <pre className="max-h-40 overflow-y-auto rounded bg-muted p-2 text-xs">
+                <pre className="max-h-40 overflow-y-auto rounded bg-muted p-2 text-label">
                   {maintReport.join('\n')}
                 </pre>
               )}
               <div>
                 <p className="mb-1 text-body font-medium">{t('snapshotsTitle')}</p>
                 {snapshots.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">{t('snapshotsEmpty')}</p>
+                  <p className="text-label text-muted-foreground">{t('snapshotsEmpty')}</p>
                 ) : (
                   <ul className="space-y-1">
                     {snapshots.map((s) => (
                       <li
                         key={s.user_id}
-                        className="flex items-center justify-between gap-2 text-sm"
+                        className="flex items-center justify-between gap-2 text-body"
                       >
-                        <span className="truncate font-mono text-xs">{s.user_id}</span>
-                        <span className="text-xs text-muted-foreground">{s.kinds.length}</span>
+                        <span className="truncate font-mono text-label">{s.user_id}</span>
+                        <span className="text-label text-muted-foreground">{s.kinds.length}</span>
                         <span className="flex shrink-0 gap-1">
                           <Button
                             variant="outline"

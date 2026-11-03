@@ -102,7 +102,7 @@ export function TokenValueTable({
 
       {total > pageSize && (
         <div className="flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">
+          <span className="text-body text-muted-foreground">
             {total} / {totalPages}
           </span>
           <div className="flex items-center gap-2">
@@ -114,7 +114,7 @@ export function TokenValueTable({
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <span className="text-sm text-muted-foreground">
+            <span className="text-body text-muted-foreground">
               {page} / {totalPages}
             </span>
             <Button

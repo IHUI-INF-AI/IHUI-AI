@@ -210,8 +210,8 @@ export default function AiSkillsPageClient() {
             {td('importBtn')}
           </button>
         </div>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
-        <div className="flex flex-wrap items-center gap-2 pt-1 text-xs text-muted-foreground">
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
+        <div className="flex flex-wrap items-center gap-2 pt-1 text-label text-muted-foreground">
           <span>{t('totalCount', { total: data?.length ?? 0, available: availableCount })}</span>
           <Badge variant="success">{t('availableCount', { count: availableCount })}</Badge>
           <Badge variant="default">{t('comingCount', { count: comingCount })}</Badge>
@@ -286,20 +286,20 @@ export default function AiSkillsPageClient() {
       ) : (
         <>
           {isLoading && (
-            <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+            <div className="flex items-center justify-center gap-2 py-8 text-body text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
               <span>{t('loading')}</span>
             </div>
           )}
 
           {error && (
-            <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+            <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
               {t('loadFailed')}
             </div>
           )}
 
           {!isLoading && !error && filtered.length === 0 && (
-            <div className="rounded-lg border bg-card py-8 text-center text-sm text-muted-foreground">
+            <div className="rounded-lg border bg-card py-8 text-center text-body text-muted-foreground">
               {t('empty')}
             </div>
           )}
@@ -332,7 +332,7 @@ export default function AiSkillsPageClient() {
               onChange={(e) => setImportJson(e.target.value)}
               placeholder={t('importPlaceholder')}
               rows={10}
-              className="thin-scroll w-full resize-none rounded-sm border border-border bg-background px-3 py-2 text-xs font-mono outline-none placeholder:text-muted-foreground/60 focus:border-foreground/30"
+              className="thin-scroll w-full resize-none rounded-sm border border-border bg-background px-3 py-2 text-label font-mono outline-none placeholder:text-muted-foreground/60 focus:border-foreground/30"
             />
           </div>
           <DialogFooter>
@@ -420,7 +420,7 @@ function SkillCard({ skill, stats }: SkillCardProps) {
         )}
       </div>
 
-      <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+      <p className="line-clamp-2 text-label leading-relaxed text-muted-foreground">
         {skill.description}
       </p>
 
@@ -493,7 +493,7 @@ function RecommendSection() {
             <ChevronRight className="h-3 w-3" />
           </Link>
         </div>
-        <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
+        <div className="flex items-center justify-center py-4 text-body text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
         </div>
       </section>
@@ -547,7 +547,7 @@ function RecommendSection() {
                   </div>
                 </div>
               </div>
-              <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+              <p className="line-clamp-2 text-label leading-relaxed text-muted-foreground">
                 {skill.description}
               </p>
               {skill.tags.length > 0 && (

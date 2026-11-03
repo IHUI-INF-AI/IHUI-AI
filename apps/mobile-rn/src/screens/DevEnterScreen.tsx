@@ -230,7 +230,7 @@ export default function DevEnterScreen() {
                   <>
                     {item.status === 'draft' ? (
                       <TouchableOpacity
-                        onPress={() => navigation.navigate('ModelEdit')}
+                        onPress={() => navigation.navigate('ModelEdit', { agentId: item.agentId })}
                         activeOpacity={0.7}
                         style={styles.setBtn}
                       >

@@ -292,7 +292,7 @@ const { db, getRows } = vi.hoisted(() => {
         return result
       },
     }),
-    transaction: async (cb: (tx: typeof db) => Promise<unknown>) => {
+    transaction: async (cb: (tx: unknown) => Promise<unknown>) => {
       const snap = snapshot()
       try {
         return await cb(db)

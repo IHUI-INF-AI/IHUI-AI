@@ -126,7 +126,7 @@ describe('①② 闸的并发语义:真并发驱动,峰值受控,超限排队不
     // 且这种形态必须一路喊话(warn 级 unlimited-mode 台账),不是静默放行:
     const un = notices.filter((n) => n.event === 'unlimited-mode')
     expect(un.length).toBeGreaterThanOrEqual(1)
-    expect(un[0].level).toBe('warn')
+    expect(un[0]!.level).toBe('warn')
     expect(gate.facts()).toMatchObject({ effectiveLimit: null, unlimited: true, limitSource: 'env-unlimited' })
   })
 
@@ -213,8 +213,8 @@ describe('④ env 出口语义:只调数值;0=不限但必须喊;非法值回落
     await gate.runExclusive('m', async () => 1)
     const bad = notices.find((n) => n.event === 'env-invalid-fallback')
     expect(bad).toBeDefined()
-    expect(bad.level).toBe('warn')
-    expect(bad.message).toContain('lots')
+    expect(bad!.level).toBe('warn')
+    expect(bad!.message).toContain('lots')
     expect(gate.facts().effectiveLimit).toBe(PROTOCOL_UPLOAD_LIMITS.maxConcurrentUploads)
   })
 
@@ -246,8 +246,8 @@ describe('喊话台账:首次立即,窗口内静默计数,窗口后带累计数�
     const p3 = gate.runExclusive('c', () => d3.p) // 入队 ⇒ 窗口内静默计数
     const q = () => notices.filter((n) => n.event === 'queue-admission')
     expect(q()).toHaveLength(1)
-    expect(q()[0].level).toBe('warn')
-    expect(q()[0].fields.cumulativeQueued).toBe(1)
+    expect(q()[0]!.level).toBe('warn')
+    expect(q()[0]!.fields.cumulativeQueued).toBe(1)
     expect(gate.facts().noticesThrottled).toBe(1)
 
     t += UPLOAD_MERGE_NOTICE_THROTTLE_MS + 1
@@ -256,7 +256,7 @@ describe('喊话台账:首次立即,窗口内静默计数,窗口后带累计数�
     const d4 = deferred()
     const p4 = gate.runExclusive('d', () => d4.p) // 再入队 ⇒ 窗口已过,复读带累计数
     expect(q()).toHaveLength(2)
-    expect(q()[1].fields.cumulativeQueued).toBe(3) // b、c、d 累计入队 3 次
+    expect(q()[1]!.fields.cumulativeQueued).toBe(3) // b、c、d 累计入队 3 次
 
     d2.resolve()
     d3.resolve()

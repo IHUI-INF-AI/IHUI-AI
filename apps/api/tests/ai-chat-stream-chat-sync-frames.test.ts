@@ -59,8 +59,8 @@ vi.mock('../src/config/index.js', () => ({
     HOST: '0.0.0.0',
     LOG_LEVEL: 'silent',
     CORS_ORIGIN: 'http://localhost:8801',
-    DATABASE_URL: 'postgres://localhost:8810/test',
-    REDIS_URL: 'redis://localhost:8811',
+    DATABASE_URL: 'postgres://127.0.0.1:5399/test',
+    REDIS_URL: 'redis://127.0.0.1:6399',
     JWT_SECRET: 'test-jwt-secret-at-least-32-characters-long!!!',
     JWT_EXPIRES_IN: '7d',
     AI_SERVICE_URL: 'http://mock-ai-service:8803',
@@ -148,6 +148,12 @@ import {
   CHAT_SYNC_STREAM_FRAME_MIN_CHARS,
 } from '../src/routes/ai-chat-stream.js'
 import { CHAT_SYNC_EVENT_NAMES } from '@ihui/types'
+import type {
+  ChatMessageCreatedBroadcastInput,
+  ChatMessagePatchedBroadcastInput,
+  ChatMessageTerminalBroadcastInput,
+  ChatSyncBroadcastResult,
+} from '../src/plugins/ws-broadcast.js'
 
 const USER_TOKEN = 'Bearer user-token'
 
@@ -232,22 +238,22 @@ describe('B02 缺口①:SSE 生成腿的 created / patched 帧', () => {
   beforeAll(async () => {
     server.decorate(
       'broadcastChatMessageCreated',
-      (input: Record<string, unknown>): Record<string, unknown> => {
-        timeline.push({ kind: 'created', input })
+      (input: ChatMessageCreatedBroadcastInput): ChatSyncBroadcastResult => {
+        timeline.push({ kind: 'created', input: { ...input } })
         return { room: 'conv:x', recipients: 1, matched: 0, delivered: 0, gated: 0 }
       },
     )
     server.decorate(
       'broadcastChatMessagePatched',
-      async (input: Record<string, unknown>): Promise<Record<string, unknown>> => {
-        timeline.push({ kind: 'patched', input })
+      async (input: ChatMessagePatchedBroadcastInput): Promise<ChatSyncBroadcastResult> => {
+        timeline.push({ kind: 'patched', input: { ...input } })
         return { room: 'conv:x', recipients: 1, matched: 0, delivered: 0, gated: 0 }
       },
     )
     server.decorate(
       'broadcastChatMessageTerminal',
-      async (input: Record<string, unknown>): Promise<Record<string, unknown>> => {
-        timeline.push({ kind: 'terminal', input })
+      async (input: ChatMessageTerminalBroadcastInput): Promise<ChatSyncBroadcastResult> => {
+        timeline.push({ kind: 'terminal', input: { ...input } })
         return { room: 'conv:x', recipients: 1, matched: 0, delivered: 0, gated: 0 }
       },
     )
@@ -363,6 +369,35 @@ describe('B02 缺口①:SSE 生成腿的 created / patched 帧', () => {
       await injectStream(server, coords)
       expect(timeline.map((f) => f.kind)).toEqual(['terminal'])
       expect(timeline[0]!.input).toMatchObject({ reason: 'error' })
+    } finally {
+      restore()
+    }
+  })
+
+  it('⑦ 越权负控:伪造 metadata.userId ⇒ 三帧投递对象仍是认证身份,伪造收件人零帧', async () => {
+    // 票71 越权纪律(2026-11-01):metadata.userId 是客户端可整写字段,曾经被
+    // `opts.metadata?.userId ?? request.userId` 优先采纳 ⇒ 任何人可把携带会话消息全文的
+    // 帧投递到任意在线用户连接。修复后投递对象只取承载层认证身份。
+    // 正向对照:用例①(自报值 == 认证值)路径不变。
+    const SPOOFED = '99999999-9999-4999-8999-999999999999'
+    mockUser()
+    const restore = mockAIServiceSSE([JSON.stringify({ type: 'chunk', content: '内容' })])
+    try {
+      await injectStream(server, {
+        conversationId: CONV_ID,
+        messageId: MESSAGE_ID,
+        userId: SPOOFED,
+      })
+      // 副作用没发生:没有任何一帧投递给被伪造的收件人
+      for (const frame of timeline) {
+        const members = frame.input.memberUserIds as readonly string[]
+        expect(members).not.toContain(SPOOFED)
+      }
+      // 三帧都到达且全部落在认证身份上
+      expect(timeline.map((f) => f.kind)).toEqual(['created', 'patched', 'terminal'])
+      for (const frame of timeline) {
+        expect(frame.input.memberUserIds).toEqual([USER_ID])
+      }
     } finally {
       restore()
     }

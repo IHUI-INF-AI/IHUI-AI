@@ -140,12 +140,12 @@ export default function RefundDetailPage() {
       <div className="mx-auto w-full max-w-3xl space-y-4">
         <Link
           href="/refund"
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
           {t('back')}
         </Link>
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {(error as Error)?.message ?? t('notFound')}
         </div>
       </div>
@@ -156,7 +156,7 @@ export default function RefundDetailPage() {
     <div className="px-4 py-4 mx-auto w-full max-w-3xl space-y-4">
       <Link
         href="/refund"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         {t('back')}
@@ -167,7 +167,7 @@ export default function RefundDetailPage() {
           <RotateCcw className="h-6 w-6 text-primary" />
           {t('title')}
         </h1>
-        <p className="font-mono text-sm text-muted-foreground">{refund.orderNo}</p>
+        <p className="font-mono text-body text-muted-foreground">{refund.orderNo}</p>
       </div>
 
       {statusKey && StatusIcon && (
@@ -247,10 +247,12 @@ export default function RefundDetailPage() {
                             ? t('auditAction.reject')
                             : record.action}
                       </span>
-                      <span className="text-xs text-muted-foreground">{fmt(record.createdAt)}</span>
+                      <span className="text-label text-muted-foreground">
+                        {fmt(record.createdAt)}
+                      </span>
                     </div>
                     {record.reason && (
-                      <p className="text-sm text-muted-foreground">{record.reason}</p>
+                      <p className="text-body text-muted-foreground">{record.reason}</p>
                     )}
                   </div>
                 </div>
@@ -265,9 +267,9 @@ export default function RefundDetailPage() {
 
 function Row({ label, value, mono }: { label: string; value: React.ReactNode; mono?: boolean }) {
   return (
-    <div className="flex justify-between px-4 py-3 text-sm">
+    <div className="flex justify-between px-4 py-3 text-body">
       <dt className="text-muted-foreground">{label}</dt>
-      <dd className={cn('text-right', mono && 'font-mono text-xs')}>{value}</dd>
+      <dd className={cn('text-right', mono && 'font-mono text-label')}>{value}</dd>
     </div>
   )
 }

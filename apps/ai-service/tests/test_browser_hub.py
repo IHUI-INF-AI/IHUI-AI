@@ -26,6 +26,31 @@ import pytest
 
 from app.services import browser_hub as bh
 
+
+@pytest.fixture(autouse=True)
+def _resolve_fake_domains(monkeypatch: pytest.MonkeyPatch) -> None:
+    """假域名解析成公网 IP:导航机制用例不该依赖真实 DNS。
+
+    2026-11-01 起 navigate/create_session 会过 SSRF 闸(判据在
+    screenshot_service._validate_url_ssrf)。本文件测的是导航/会话机制,用的
+    a.com/b.com 等假域名在离线机器上 DNS 必失败 ⇒ 闸会(正确地)拒。这里只把
+    **DNS 解析**钉成公网 IP,闸的协议/端口/内网判据照旧执行。
+    闸本身的逐条用例见 tests/test_browser_hub_navigate_ssrf.py。
+    """
+    import socket
+
+    from app.services import screenshot_service as _ss
+
+    real = socket.getaddrinfo
+
+    def _fake(host, *args, **kwargs):
+        try:
+            return real(host, *args, **kwargs)
+        except socket.gaierror:
+            return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 0))]
+
+    monkeypatch.setattr(_ss.socket, "getaddrinfo", _fake)
+
 # ---------------------------------------------------------------------------
 # Playwright 替身
 # ---------------------------------------------------------------------------
@@ -89,6 +114,12 @@ class FakePage:
         self.evaluate_calls: list[str] = []
         self.back_result: object | None = None
         self.forward_result: object | None = None
+        # 2026-11-01:会话建立时会在 page 上装 SSRF 的逐请求 route 处理器
+        # (真实 Playwright 的 page.route)。替身只记录安装动作,不拦截网络。
+        self.route_handlers: list[tuple[str, object]] = []
+
+    def route(self, pattern: str, handler: object) -> None:
+        self.route_handlers.append((pattern, handler))
 
     @property
     def main_frame(self) -> FakeFrame:

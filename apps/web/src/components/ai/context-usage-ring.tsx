@@ -342,7 +342,7 @@ function PanelRing({ ratio, usedTokens, maxTokens }: PanelRingProps) {
       <span className={cn('rounded-sm px-2 py-0.5 text-[10px] font-medium', style.bg, style.text)}>
         {t(style.label)}
       </span>
-      <div className="text-center text-xs text-muted-foreground">
+      <div className="text-center text-label text-muted-foreground">
         <span className="tabular-nums text-foreground">{formatTokenCount(usedTokens)}</span>
         <span className="mx-1">/</span>
         <span className="tabular-nums">{formatTokenCount(maxTokens)}</span>
@@ -640,7 +640,7 @@ export function ContextUsageRing({ model, isStreaming = false }: ContextUsageRin
             {/* 大圆环 + 模型信息 */}
             <div className="flex items-center gap-4">
               <PanelRing ratio={ratio} usedTokens={usedTokens} maxTokens={maxTokens} />
-              <div className="flex min-w-0 flex-1 flex-col gap-1.5 text-xs">
+              <div className="flex min-w-0 flex-1 flex-col gap-1.5 text-label">
                 <StatRow label={t('currentModel')} value={model} truncate />
                 <StatRow label={t('used')} value={formatTokenCount(usedTokens)} mono />
                 <StatRow label={t('max')} value={formatTokenCount(maxTokens)} mono />

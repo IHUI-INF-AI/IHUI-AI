@@ -72,20 +72,20 @@ export function ParamsTable({ rows, isLoading, error, onDelete, deletePending }:
               return (
                 <TableRow key={param.id} className="hover:bg-muted/30">
                   <TableCell
-                    className="max-w-[160px] truncate px-4 py-2.5 font-mono text-xs"
+                    className="max-w-[160px] truncate px-4 py-2.5 font-mono text-label"
                     title={param.id}
                   >
                     {param.id}
                   </TableCell>
                   <TableCell
-                    className="max-w-[160px] truncate px-4 py-2.5 font-mono text-xs"
+                    className="max-w-[160px] truncate px-4 py-2.5 font-mono text-label"
                     title={param.ruleId}
                   >
                     {param.ruleId}
                   </TableCell>
                   <TableCell className="px-4 py-2.5 font-medium">{param.name}</TableCell>
                   <TableCell
-                    className="max-w-[160px] truncate px-4 py-2.5 font-mono text-xs"
+                    className="max-w-[160px] truncate px-4 py-2.5 font-mono text-label"
                     title={param.code}
                   >
                     {param.code}

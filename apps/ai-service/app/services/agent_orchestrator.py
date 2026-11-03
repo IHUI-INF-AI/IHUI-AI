@@ -30,7 +30,6 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
-from .tool_context_boundary import scan_and_frame_tool_result
 from ..core.executor_switch import guard_loop_v2_pilot, take_loop_v2_handoff
 from ..core.llm_gateway import llm_gateway
 from ..core.permission_mode import (
@@ -51,6 +50,7 @@ from ..core.permission_mode import (
 from .mcp_server import mcp_server
 from .memory import memory_store
 from .prompt_registry import prompt_registry
+from .tool_context_boundary import scan_and_frame_tool_result
 
 logger = logging.getLogger(__name__)
 

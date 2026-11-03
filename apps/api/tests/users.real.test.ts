@@ -23,6 +23,7 @@ describe('users 表 — 真实 DB 集成测试', () => {
       .insert(users)
       .values({ phone: '13800000001', nickname: '测试用户', gender: 1 })
       .returning()
+    if (!inserted) throw new Error('users.real.test.ts: 插入未返回行(inserted)')
 
     expect(inserted).toBeDefined()
     expect(inserted.id).toBeDefined()
@@ -35,8 +36,8 @@ describe('users 表 — 真实 DB 集成测试', () => {
     expect(inserted.createdAt).toBeDefined()
 
     const [queried] = await testDb.select().from(users).where(eq(users.id, inserted.id))
-    expect(queried.phone).toBe('13800000001')
-    expect(queried.nickname).toBe('测试用户')
+    expect(queried!.phone).toBe('13800000001')
+    expect(queried!.nickname).toBe('测试用户')
   })
 
   it('phone 唯一约束 — 重复插入应报错', async () => {
@@ -52,10 +53,12 @@ describe('users 表 — 真实 DB 集成测试', () => {
       .insert(users)
       .values({ phone: '13800000003', nickname: '旧昵称' })
       .returning()
+    if (!inserted) throw new Error('users.real.test.ts: 插入未返回行(inserted)')
 
     await testDb.update(users).set({ nickname: '新昵称' }).where(eq(users.id, inserted.id))
 
     const [updated] = await testDb.select().from(users).where(eq(users.id, inserted.id))
+    if (!updated) throw new Error('users.real.test.ts: 插入未返回行(updated)')
     expect(updated.nickname).toBe('新昵称')
   })
 
@@ -64,6 +67,7 @@ describe('users 表 — 真实 DB 集成测试', () => {
       .insert(users)
       .values({ phone: '13800000004', nickname: '待删除' })
       .returning()
+    if (!inserted) throw new Error('users.real.test.ts: 插入未返回行(inserted)')
 
     await testDb.delete(users).where(eq(users.id, inserted.id))
 
@@ -73,6 +77,7 @@ describe('users 表 — 真实 DB 集成测试', () => {
 
   it('默认值 — 不指定 gender/status/isVip 时使用 schema 默认', async () => {
     const [inserted] = await testDb.insert(users).values({ phone: '13800000005' }).returning()
+    if (!inserted) throw new Error('users.real.test.ts: 插入未返回行(inserted)')
 
     expect(inserted.gender).toBe(0)
     expect(inserted.status).toBe(1)

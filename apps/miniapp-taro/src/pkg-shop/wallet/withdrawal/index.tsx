@@ -12,6 +12,7 @@ import { useState, useRef } from 'react'
 import { getDistributionInfo, withdraw } from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import ThemeRoot from '@/components/ThemeRoot'
+import { onToast } from '@/host/on-toast'
 
 const priceFmt = new Intl.NumberFormat('zh-CN', {
   minimumFractionDigits: 2,
@@ -51,26 +52,17 @@ export default function WithdrawalPage() {
   const onSubmit = async () => {
     const amt = Number(amount)
     if (!amt || amt <= 0) {
-      Taro.showToast({
-        title: tt('distribution.withdraw.invalidAmount', '请输入有效金额'),
-        icon: 'none',
-      })
+      onToast(tt('distribution.withdraw.invalidAmount', '请输入有效金额'), { kind: 'error' })
       return
     }
     if (amt > availableRef.current) {
-      Taro.showToast({
-        title: tt('distribution.withdraw.insufficient', '可提现余额不足'),
-        icon: 'none',
-      })
+      onToast(tt('distribution.withdraw.insufficient', '可提现余额不足'), { kind: 'info' })
       return
     }
     setSubmitting(true)
     try {
       await withdraw({ amount: amt, type: method })
-      Taro.showToast({
-        title: tt('distribution.withdraw.submitted', '提现申请已提交'),
-        icon: 'success',
-      })
+      onToast(tt('distribution.withdraw.submitted', '提现申请已提交'), { kind: 'success' })
       setTimeout(() => Taro.navigateBack(), 800)
     } catch {
       // ignore
@@ -121,10 +113,7 @@ export default function WithdrawalPage() {
               onInput={(e) => setAmount(e.detail.value)}
               placeholder={tt('distribution.withdraw.amountPlaceholder', '请输入提现金额')}
             />
-            <Text
-              className="text-caption text-[var(--color-text-tertiary)]"
-              onClick={fillAll}
-            >
+            <Text className="text-caption text-[var(--color-text-tertiary)]" onClick={fillAll}>
               {tt('distribution.withdraw.all', '全部提现')}
             </Text>
           </View>

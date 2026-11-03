@@ -16,6 +16,7 @@ import type { ChatMessage } from '@/api'
 import { rateChatMessage, sendToolApprovalResponse } from '@/api'
 import { APPROVAL_ACTIONS } from './permission-tier-text'
 import { rnRadius } from '@ihui/design-tokens'
+import { onToast } from '@/host/on-toast'
 const sikaoIcon = aizhsUrl('remote-images/sikao_icon.png')
 const downloadIcon = aizhsUrl('remote-images/download.png')
 const copyIcon = aizhsUrl('remote-images/copy.png')
@@ -25,7 +26,9 @@ const agentsharePng = aizhsUrl('remote-images/agentshare.png')
 export interface ChatMessageItemProps {
   msg: ChatMessage
   onReuse?: (question: string) => void
-  onRegenerate?: () => void
+  /** 票59:必须把"点的是哪一条"原样传下去 —— 只接 `() => void` 时宿主拿不到目标行,
+   *  重新生成只会落在最后一条助手消息上,给旧回答开的新版本就会挂错版本族。 */
+  onRegenerate?: (msg: ChatMessage) => void
   onLongPress?: () => void
   onEdit?: () => void
   /** 是否已收藏(仅 AI 消息,对标原 ai_assistant.vue 收藏状态) */
@@ -196,12 +199,12 @@ export default function ChatMessageItem({
   /** 复制内容到剪贴板(对标原 ai_assistant.vue copyHandle) */
   function copyContent(content: string) {
     if (!content || !content.trim()) {
-      Taro.showToast({ title: t('ai.chatMessageItem.noContent'), icon: 'none' })
+      onToast(t('ai.chatMessageItem.noContent'), { kind: 'info' })
       return
     }
     Taro.setClipboardData({
       data: content,
-      success: () => Taro.showToast({ title: t('success.copied'), icon: 'none' }),
+      success: () => onToast(t('success.copied'), { kind: 'info' }),
     })
   }
 
@@ -218,7 +221,7 @@ export default function ChatMessageItem({
       data: msg.codeContent,
       success: () => {
         setCodeCopied(true)
-        Taro.showToast({ title: t('success.copied'), icon: 'none' })
+        onToast(t('success.copied'), { kind: 'info' })
         setTimeout(() => setCodeCopied(false), 1500)
       },
     })
@@ -288,7 +291,7 @@ export default function ChatMessageItem({
     }
     Taro.hideLoading()
     if (!failed) {
-      Taro.showToast({ title: t(labelKey), icon: 'success' })
+      onToast(t(labelKey), { kind: 'success' })
       return
     }
     const setting = await Taro.getSetting().catch(() => null)
@@ -302,7 +305,7 @@ export default function ChatMessageItem({
         },
       })
     } else {
-      Taro.showToast({ title: t(labelKey), icon: 'none' })
+      onToast(t(labelKey), { kind: 'info' })
     }
   }
 
@@ -328,7 +331,11 @@ export default function ChatMessageItem({
                 onClick={handleReuse}
               />
               <Text
-                style={{ fontSize: '20rpx', color: 'var(--color-link)', marginTop: 'var(--spacing-2xs)' }}
+                style={{
+                  fontSize: '20rpx',
+                  color: 'var(--color-link)',
+                  marginTop: 'var(--spacing-2xs)',
+                }}
                 onClick={handleReuse}
               >
                 {t('ai.chatMessageItem.reuse')}
@@ -337,7 +344,10 @@ export default function ChatMessageItem({
           ) : null}
           {/* 用户消息图片列表(若有) */}
           {msg.images && msg.images.length > 0 ? (
-            <View className="agent-content-item-question" style={{ marginTop: 'var(--spacing-sm-loose)' }}>
+            <View
+              className="agent-content-item-question"
+              style={{ marginTop: 'var(--spacing-sm-loose)' }}
+            >
               {msg.images.map((imgUrl, i) => (
                 <Image
                   key={i}
@@ -406,7 +416,11 @@ export default function ChatMessageItem({
               </Text>
               {onRegenerate ? (
                 <View className="px-3 pb-2">
-                  <View className="inline-flex items-center" onClick={onRegenerate}>
+                  <View
+                    className="inline-flex items-center"
+                    onClick={() => onRegenerate(msg)}
+                    hoverClass="opacity-60"
+                  >
                     <LineIcon
                       name="refresh-cw"
                       size={24}
@@ -439,7 +453,11 @@ export default function ChatMessageItem({
                   return (
                     <Text
                       key={idx}
-                      style={{ fontWeight: 'bold', display: 'block', marginBottom: 'var(--spacing-sm-loose)' }}
+                      style={{
+                        fontWeight: 'bold',
+                        display: 'block',
+                        marginBottom: 'var(--spacing-sm-loose)',
+                      }}
                     >
                       {seg.value}
                     </Text>
@@ -749,7 +767,7 @@ export default function ChatMessageItem({
                     marginLeft: 'var(--spacing-sm-loose)',
                     lineHeight: '40rpx',
                   }}
-                  onClick={onRegenerate}
+                  onClick={() => onRegenerate(msg)}
                 >
                   ↻ {t('ai.chatMessageItem.regenerate')}
                 </Text>

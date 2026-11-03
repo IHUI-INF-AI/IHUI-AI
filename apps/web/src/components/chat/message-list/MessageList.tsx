@@ -691,7 +691,7 @@ export function MessageList({
         )}
         {/* #8 顶部加载更多历史指示器 */}
         {loadingMoreHistory && (
-          <div className="flex items-center justify-center gap-2 py-2 text-xs text-muted-foreground">
+          <div className="flex items-center justify-center gap-2 py-2 text-label text-muted-foreground">
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
             {t('loading')}
           </div>

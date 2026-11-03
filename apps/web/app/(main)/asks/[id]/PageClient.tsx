@@ -111,7 +111,7 @@ export default function AskDetailPage() {
           <ArrowLeft className="mr-1.5 h-4 w-4" />
           {tc('back')}
         </Button>
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {(error as Error)?.message ?? t('empty')}
         </div>
       </div>
@@ -161,7 +161,7 @@ export default function AskDetailPage() {
       <Card>
         <CardHeader className="p-3">
           <div className="flex items-start justify-between gap-3">
-            <CardTitle className="text-xl">{ask.title}</CardTitle>
+            <CardTitle className="text-heading">{ask.title}</CardTitle>
             <span
               className={cn(
                 'flex shrink-0 items-center gap-1 rounded-md px-2 py-0.5 text-label font-medium',
@@ -175,21 +175,23 @@ export default function AskDetailPage() {
             </span>
           </div>
           {ask.content && (
-            <p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">{ask.content}</p>
+            <p className="mt-2 whitespace-pre-wrap text-body text-muted-foreground">
+              {ask.content}
+            </p>
           )}
           {ask.tags && ask.tags.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1">
               {ask.tags.map((tag: string) => (
                 <span
                   key={tag}
-                  className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground"
+                  className="rounded bg-muted px-1.5 py-0.5 text-label text-muted-foreground"
                 >
                   {tag}
                 </span>
               ))}
             </div>
           )}
-          <div className="mt-3 flex items-center gap-4 text-xs text-muted-foreground">
+          <div className="mt-3 flex items-center gap-4 text-label text-muted-foreground">
             {ask.authorName && <span>{ask.authorName}</span>}
             <span>{dateFmt.format(new Date(ask.createdAt))}</span>
             <span className="flex items-center gap-1">
@@ -208,7 +210,9 @@ export default function AskDetailPage() {
       <div className="space-y-3">
         <h2 className="text-lg font-semibold">
           {tc('answers')}
-          <span className="ml-2 text-body font-normal text-muted-foreground">({answers.length})</span>
+          <span className="ml-2 text-body font-normal text-muted-foreground">
+            ({answers.length})
+          </span>
         </h2>
         {answersLoading ? (
           <div className="flex items-center justify-center py-8 text-muted-foreground">
@@ -216,7 +220,7 @@ export default function AskDetailPage() {
             {t('loading')}
           </div>
         ) : answers.length === 0 ? (
-          <div className="rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground">
+          <div className="rounded-lg border border-dashed py-10 text-center text-body text-muted-foreground">
             {tc('noAnswers')}
           </div>
         ) : (
@@ -230,8 +234,8 @@ export default function AskDetailPage() {
                       {tc('accepted')}
                     </span>
                   )}
-                  <p className="whitespace-pre-wrap text-sm">{a.content}</p>
-                  <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
+                  <p className="whitespace-pre-wrap text-body">{a.content}</p>
+                  <div className="mt-2 flex items-center gap-3 text-label text-muted-foreground">
                     {a.authorName && <span>{a.authorName}</span>}
                     <span>{dateFmt.format(new Date(a.createdAt))}</span>
                   </div>
@@ -246,7 +250,7 @@ export default function AskDetailPage() {
       <form onSubmit={handleSubmit} className="space-y-3">
         <h2 className="text-lg font-semibold">{t('answerQuestion')}</h2>
         {formError && (
-          <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <div className="rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">
             {formError}
           </div>
         )}
@@ -255,7 +259,7 @@ export default function AskDetailPage() {
           onChange={(e) => setContent(e.target.value)}
           rows={4}
           placeholder={t('contentPlaceholder')}
-          className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         />
         <Button type="submit" disabled={answerMut.isPending}>
           {answerMut.isPending ? (

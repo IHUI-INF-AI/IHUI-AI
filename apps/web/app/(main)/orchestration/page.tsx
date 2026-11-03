@@ -212,11 +212,11 @@ export default function OrchestrationPage() {
           <Network className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       <div className="flex items-center justify-between">
-        <p className="text-xs text-muted-foreground">
+        <p className="text-label text-muted-foreground">
           {t('lastHeartbeat')}: {dashboard ? formatTime(dashboard.timestamp) : '-'}
         </p>
         <Button
@@ -258,7 +258,7 @@ export default function OrchestrationPage() {
                     status.running ? 'text-emerald-600' : 'text-muted-foreground',
                   )}
                 />
-                <p className="text-xs text-muted-foreground">{t('status')}</p>
+                <p className="text-label text-muted-foreground">{t('status')}</p>
                 <span
                   className={cn(
                     'rounded-md px-2 py-0.5 text-label font-medium',
@@ -272,17 +272,17 @@ export default function OrchestrationPage() {
               </div>
               <div className={statItemClass}>
                 <Radio className="h-5 w-5 text-primary" />
-                <p className="text-xs text-muted-foreground">{t('total')}</p>
+                <p className="text-label text-muted-foreground">{t('total')}</p>
                 <span className="text-heading font-bold tabular-nums">{status.event_count}</span>
               </div>
               <div className={statItemClass}>
                 <Cpu className="h-5 w-5 text-primary" />
-                <p className="text-xs text-muted-foreground">{t('total')}</p>
+                <p className="text-label text-muted-foreground">{t('total')}</p>
                 <span className="text-heading font-bold tabular-nums">{status.decision_count}</span>
               </div>
               <div className={statItemClass}>
                 <Database className="h-5 w-5 text-primary" />
-                <p className="text-xs text-muted-foreground">{t('module')}</p>
+                <p className="text-label text-muted-foreground">{t('module')}</p>
                 <span
                   className={cn(
                     'rounded-md px-2 py-0.5 text-label font-medium',
@@ -326,13 +326,13 @@ export default function OrchestrationPage() {
                   </h3>
                   <div className="grid grid-cols-3 gap-2 text-center">
                     <div>
-                      <p className="text-xs text-muted-foreground">{t('total')}</p>
+                      <p className="text-label text-muted-foreground">{t('total')}</p>
                       <p className="text-heading font-bold tabular-nums">
                         {dashboard.event_stats.total_events}
                       </p>
                     </div>
                     <div>
-                      <p className="text-xs text-muted-foreground">{t('success')}</p>
+                      <p className="text-label text-muted-foreground">{t('success')}</p>
                       <p className="text-heading font-bold tabular-nums text-emerald-600">
                         {Object.values(dashboard.event_stats.by_type ?? {}).reduce(
                           (sum, s) => sum + s.success,
@@ -341,7 +341,7 @@ export default function OrchestrationPage() {
                       </p>
                     </div>
                     <div>
-                      <p className="text-xs text-muted-foreground">{t('failed')}</p>
+                      <p className="text-label text-muted-foreground">{t('failed')}</p>
                       <p className="text-heading font-bold tabular-nums text-rose-600">
                         {Object.values(dashboard.event_stats.by_type ?? {}).reduce(
                           (sum, s) => sum + s.failed,
@@ -360,25 +360,25 @@ export default function OrchestrationPage() {
                   </h3>
                   <div className="grid grid-cols-3 gap-2 text-center">
                     <div>
-                      <p className="text-xs text-muted-foreground">{t('total')}</p>
+                      <p className="text-label text-muted-foreground">{t('total')}</p>
                       <p className="text-heading font-bold tabular-nums">
                         {dashboard.decision_stats.total_decisions}
                       </p>
                     </div>
                     <div>
-                      <p className="text-xs text-muted-foreground">{t('success')}</p>
+                      <p className="text-label text-muted-foreground">{t('success')}</p>
                       <p className="text-heading font-bold tabular-nums text-emerald-600">
                         {dashboard.decision_stats.completed}
                       </p>
                     </div>
                     <div>
-                      <p className="text-xs text-muted-foreground">{t('failed')}</p>
+                      <p className="text-label text-muted-foreground">{t('failed')}</p>
                       <p className="text-heading font-bold tabular-nums text-rose-600">
                         {dashboard.decision_stats.failed}
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <div className="flex items-center justify-between text-label text-muted-foreground">
                     <span>成功率: {formatPercent(dashboard.decision_stats.success_rate)}</span>
                     <span>平均耗时: {Math.round(dashboard.decision_stats.avg_duration_ms)}ms</span>
                   </div>
@@ -420,7 +420,7 @@ export default function OrchestrationPage() {
                               : t('unknown')}
                         </span>
                       </div>
-                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                      <div className="flex items-center gap-3 text-label text-muted-foreground">
                         <span>
                           {t('total')}: {health.event_count}
                         </span>
@@ -459,14 +459,14 @@ export default function OrchestrationPage() {
           ) : events.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
               <Radio className="h-8 w-8 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">{t('noEvents')}</p>
+              <p className="text-body text-muted-foreground">{t('noEvents')}</p>
             </div>
           ) : (
             <ul className="max-h-[480px] space-y-1.5 overflow-y-auto pr-1">
               {events.map((event, i) => (
                 <li
                   key={event.id ?? `${event.event_type}-${i}`}
-                  className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border bg-muted/30 px-3 py-2 text-sm"
+                  className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border bg-muted/30 px-3 py-2 text-body"
                 >
                   <span
                     className={cn(
@@ -476,11 +476,11 @@ export default function OrchestrationPage() {
                   >
                     {event.event_type}
                   </span>
-                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1 text-label text-muted-foreground">
                     <Cpu className="h-3.5 w-3.5" />
                     {t('module')}: {PILLAR_LABELS[event.source_pillar] ?? event.source_pillar}
                   </span>
-                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1 text-label text-muted-foreground">
                     <Clock className="h-3.5 w-3.5" />
                     {formatTime(event.timestamp)}
                   </span>

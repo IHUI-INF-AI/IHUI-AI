@@ -349,7 +349,7 @@ export function SiteFooter({ className }: { className?: string }) {
               </p>
               <p className="text-[11px] leading-snug text-muted-foreground">{t('companyEmail')}</p>
             </div>
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-label text-muted-foreground">
               <Link
                 href="/about"
                 className={FOOTER_BTN}
@@ -482,7 +482,7 @@ export function SiteFooter({ className }: { className?: string }) {
             - 只保留 ICP 图标 + ICP 文字 + 版权
             2026-08-12 改:Row 2 mt-2 pt-2 → mt-0 pt-1.5(配合外层 gap-0),让 Row 1/Row 2 真正贴合
             (用户反馈"两 div 没挨上")。 */}
-        <div className="flex flex-wrap items-center justify-center gap-1.5 mt-0 pt-1.5 text-xs text-muted-foreground">
+        <div className="flex flex-wrap items-center justify-center gap-1.5 mt-0 pt-1.5 text-label text-muted-foreground">
           <Image
             src="/footer/erweima/footer-icon-1.png"
             alt={t('icp')}

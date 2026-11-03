@@ -40,7 +40,7 @@ export function FeedbackList({ list, isLoading, error }: Props) {
 
   if (error) {
     return (
-      <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+      <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
         {error.message}
       </div>
     )
@@ -50,7 +50,7 @@ export function FeedbackList({ list, isLoading, error }: Props) {
     return (
       <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
         <MessageSquare className="h-8 w-8 text-muted-foreground/40" />
-        <p className="text-sm text-muted-foreground">{t('empty')}</p>
+        <p className="text-body text-muted-foreground">{t('empty')}</p>
       </div>
     )
   }
@@ -70,7 +70,7 @@ export function FeedbackList({ list, isLoading, error }: Props) {
             </div>
             <div className="min-w-0 flex-1">
               <p className="break-words text-body font-medium">{fb.title}</p>
-              <p className="mt-0.5 text-xs text-muted-foreground">
+              <p className="mt-0.5 text-label text-muted-foreground">
                 {dateFmt.format(new Date(fb.createdAt))}
               </p>
             </div>

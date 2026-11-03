@@ -11,6 +11,7 @@ import { apiFailureToText } from '@ihui/shared/utils'
 import { AskCreateScreen as SharedAskCreateScreen } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { useHostPorts } from '../host/use-host-ports'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -47,6 +48,8 @@ export function AskCreateScreen() {
     else if (!res.success) setError(apiFailureToText(res, t('askCreate.saveFailed')))
   }
 
+  const { onToast } = useHostPorts()
+
   return (
     <SharedAskCreateScreen
       t={t}
@@ -61,6 +64,7 @@ export function AskCreateScreen() {
       onSubmit={onSubmit}
       onBack={() => navigation.goBack()}
       colorScheme={resolvedTheme}
+      onToast={onToast}
     />
   )
 }

@@ -20,7 +20,7 @@
 
 .exam-detail-body {
   flex: 1;
-  padding: 28rpx;
+  padding: var(--spacing-md-loose);
   padding-bottom: 180rpx;
   box-sizing: border-box;
 }
@@ -37,7 +37,7 @@
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
   border-radius: var(--radius-xl);
-  padding: 28rpx;
+  padding: var(--spacing-md-loose);
   margin-bottom: var(--spacing-sm-loose);
 }
 
@@ -64,7 +64,7 @@
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
   border-radius: var(--radius-xl);
-  padding: 28rpx 16rpx;
+  padding: var(--spacing-md-loose) 16rpx;
   margin-bottom: var(--spacing-sm-loose);
 }
 
@@ -93,7 +93,7 @@
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
   border-radius: var(--radius-lg);
-  padding: 28rpx;
+  padding: var(--spacing-md-loose);
   margin-bottom: var(--spacing-sm-loose);
 }
 

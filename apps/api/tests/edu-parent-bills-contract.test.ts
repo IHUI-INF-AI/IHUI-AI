@@ -39,7 +39,7 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import Fastify, { type FastifyInstance } from 'fastify'
+import Fastify, { type FastifyInstance, type FastifyError } from 'fastify'
 
 /**
  * 夹具账本(hoisted:vi.mock 工厂要在模块求值前拿到它)。
@@ -123,7 +123,7 @@ vi.mock('../src/config/index.js', () => ({
     HOST: '0.0.0.0',
     LOG_LEVEL: 'silent',
     CORS_ORIGIN: 'http://localhost:8801',
-    DATABASE_URL: 'postgres://localhost:8810/forbidden-in-mock-tests',
+    DATABASE_URL: 'postgres://127.0.0.1:5399/forbidden-in-mock-tests',
     // 必须带合法 db 段:带非数字段时 ioredis 会在连上后发 SELECT NaN,
     // 成为 unhandled rejection 把 vitest 退出码打成 1(21 个用例全过也判红);
     // 6379 本机无监听 ⇒ 只在 error 事件里失败,与同族测试同形,不碰生产 8811。
@@ -346,7 +346,7 @@ async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({ logger: false })
   // 承载层由端点自己经 checkAuthOrInternalService 调用(见 handler 首行),
   // 与生产 server.ts 的全局链路同源;测试只需装配路由与错误信封。
-  app.setErrorHandler((err, _request, reply) => {
+  app.setErrorHandler((err: FastifyError, _request, reply) => {
     const statusCode =
       typeof (err as { statusCode?: number }).statusCode === 'number'
         ? (err as { statusCode: number }).statusCode

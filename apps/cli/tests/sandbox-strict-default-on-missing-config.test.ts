@@ -37,8 +37,49 @@ const looserThanDefault = SANDBOX_PROFILE_IDS.slice(
 
 function readCode(rel: string): string {
   const src = readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8')
-  // 注释不参与:反向锁只判代码里的形态(与 sandbox-profile-single-source.test.ts 同一把尺)
-  return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '')
+  // 注释不参与:反向锁只判代码里的形态(与 sandbox-profile-single-source.test.ts 同一把尺)。
+  // 用最小状态机剥 // 与 /* */,并跳过字符串字面量(含模板串)——
+  // 否则 agent.ts 字符串里夹带的 `/*`(一段中文文案,第 418 行附近)会被正则误判为块注释起点,
+  // 一路吃到下一个 `*/`(第 600 行附近),把其间一大段真实代码(含 resolveSandboxOptions 调用)
+  // 整段吞掉,导致形状锁误报。这是测试辅助的 bug,非生产回归:production 仍经
+  // resolveSandboxOptions 结算、默认严档,安全策略完好。
+  let out = ''
+  const n = src.length
+  let i = 0
+  while (i < n) {
+    const c = src[i]!
+    const c2 = src[i + 1]
+    if (c === '/' && c2 === '/') {
+      while (i < n && src[i] !== '\n') i++
+      continue
+    }
+    if (c === '/' && c2 === '*') {
+      i += 2
+      while (i < n && !(src[i] === '*' && src[i + 1] === '/')) i++
+      i += 2
+      continue
+    }
+    if (c === "'" || c === '"' || c === '`') {
+      const q = c
+      out += c
+      i++
+      while (i < n) {
+        const ch = src[i]!
+        out += ch
+        i++
+        if (ch === '\\') {
+          out += src[i] ?? ''
+          i++
+          continue
+        }
+        if (ch === q) break
+      }
+      continue
+    }
+    out += c
+    i++
+  }
+  return out
 }
 
 describe('G-212 沙箱默认严档:缺配置/坏配置都不得落宽松档', () => {

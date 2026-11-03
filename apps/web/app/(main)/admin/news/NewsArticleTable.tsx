@@ -186,7 +186,7 @@ export function NewsArticleTable(props: Props) {
                         <TruncatedText value={article.title} className="block max-w-xs" />
                       </div>
                       {article.summary ? (
-                        <div className="line-clamp-2 max-w-xs break-words text-xs text-muted-foreground">
+                        <div className="line-clamp-2 max-w-xs break-words text-label text-muted-foreground">
                           {article.summary}
                         </div>
                       ) : null}
@@ -259,7 +259,7 @@ export function NewsArticleTable(props: Props) {
       </div>
 
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">{t('total', { total })}</span>
+        <span className="text-body text-muted-foreground">{t('total', { total })}</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -270,7 +270,7 @@ export function NewsArticleTable(props: Props) {
             <ChevronLeft className="h-4 w-4" />
             {t('prev')}
           </Button>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-body text-muted-foreground">
             {t('page', { page, total: totalPages })}
           </span>
           <Button

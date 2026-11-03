@@ -65,7 +65,7 @@ export default function ExamPage() {
           <FileCheck className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       {!allow ? (
@@ -76,13 +76,13 @@ export default function ExamPage() {
           {t('loading')}
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {(error as Error).message}
         </div>
       ) : papers.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
           <FileCheck className="h-8 w-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">{t('empty')}</p>
+          <p className="text-body text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
@@ -91,11 +91,11 @@ export default function ExamPage() {
               <CardHeader className="p-3 pb-2">
                 <CardTitle className="text-base">{paper.title}</CardTitle>
                 {paper.description && (
-                  <p className="text-xs text-muted-foreground">{paper.description}</p>
+                  <p className="text-label text-muted-foreground">{paper.description}</p>
                 )}
               </CardHeader>
               <CardContent className="min-[640px]:p-3 flex-1 min-w-0 space-y-3 p-3 pt-0">
-                <div className="grid grid-cols-1 gap-2 text-xs text-muted-foreground min-[768px]:grid-cols-2">
+                <div className="grid grid-cols-1 gap-2 text-label text-muted-foreground min-[768px]:grid-cols-2">
                   <span className="flex items-center gap-1">
                     <ListChecks className="h-3.5 w-3.5" />
                     {t('questionCount', { count: paper.questionCount })}
@@ -128,7 +128,7 @@ export default function ExamPage() {
       {/* 分页(page 此前写死 1,第 20 份以后的试卷不可见,G-978077) */}
       {data && data.total > PAGE_SIZE && (
         <div className="flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">
+          <span className="text-body text-muted-foreground">
             {t('pageInfo', { page, total: Math.ceil(data.total / PAGE_SIZE) })}
           </span>
           <div className="flex items-center gap-2">
