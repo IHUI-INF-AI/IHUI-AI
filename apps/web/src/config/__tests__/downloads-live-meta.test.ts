@@ -22,6 +22,7 @@ const {
   judgeNpmRegistryDoc,
   judgeIosReleaseDoc,
   judgeExtensionArtifact,
+  applyProbedAssetSize,
   pickNewestArtifact,
   parseVersionFromArtifactName,
   extensionAssetHref,
@@ -332,6 +333,87 @@ describe('toDesktopLiveInfo —— desktop 落形只搬展示三件,不把签名
   })
 })
 
+describe('judgeIpaPointerProbe —— iOS 以"服务自己怎么答"为真值', () => {
+  const good = {
+    status: 302,
+    location: 'https://www.aizhs.top/remote-images/download/ihui-ai-0.0.9-26110301.ipa',
+    version: '0.0.9',
+    sizeBytes: 42825211,
+    contentType: 'application/octet-stream',
+  }
+  it('302 + 版本头 + 版本副本字节可核 ⇒ live,落点是快腿上的版本名副本', () => {
+    expect(liveMeta.judgeIpaPointerProbe(good, NOW)).toEqual({
+      platform: 'ios',
+      source: 'live',
+      version: '0.0.9',
+      assets: [{ href: good.location, sizeBytes: 42825211, format: 'iOS IPA (TrollStore)' }],
+      resolvedAt: NOW,
+    })
+  })
+  it('不是 302 ⇒ snapshot(腿还没发布),不读成"该端没包"', () => {
+    expect(
+      liveMeta.judgeIpaPointerProbe({ ...good, status: 404, location: null }, NOW),
+    ).toMatchObject({ source: 'snapshot', reason: 'ipa-pointer-not-resolved:404' })
+  })
+  it('302 但没有 X-Release-Version ⇒ snapshot(账上没号就不写号)', () => {
+    expect(liveMeta.judgeIpaPointerProbe({ ...good, version: '' }, NOW)).toMatchObject({
+      source: 'snapshot',
+      reason: 'ipa-pointer-missing-version-header',
+    })
+  })
+  it('版本副本取不到字节或类型不对 ⇒ snapshot(多半落到占位图/缺文件)', () => {
+    expect(liveMeta.judgeIpaPointerProbe({ ...good, sizeBytes: 0 }, NOW)).toMatchObject({
+      source: 'snapshot',
+      reason: 'ipa-version-copy-unverified:no-size/application/octet-stream',
+    })
+    expect(liveMeta.judgeIpaPointerProbe({ ...good, contentType: 'image/png' }, NOW)).toMatchObject(
+      {
+        source: 'snapshot',
+        reason: 'ipa-version-copy-unverified:42825211/image/png',
+      },
+    )
+  })
+  it('探测成功后合并进底稿:版本号与安装包都换过来,慢腿直链不再出现', () => {
+    const merged = mergeLiveMeta(
+      {
+        platform: 'ios',
+        assets: [
+          {
+            href: 'https://github.com/x/releases/latest/download/ihui-ai-latest.ipa',
+            sizeBytes: 0,
+            format: 'App Store',
+          },
+        ],
+      } as never,
+      liveMeta.judgeIpaPointerProbe(good, NOW),
+    )
+    expect(merged.version).toBe('0.0.9')
+    expect(merged.assets[0]?.href).toContain('remote-images/download')
+    expect(merged.assets[0]?.href).not.toContain('github.com')
+  })
+})
+
+describe('judgeMiniappQr —— 小程序那一端由实物码说话,不写死"未接入"', () => {
+  it('真码(字节够)⇒ 接入,但版本号仍留空(不编)', () => {
+    const out = liveMeta.judgeMiniappQr({ exists: true, sizeBytes: 30117 }, NOW)
+    expect(out.source).toBe('live')
+    expect(out.version).toBeUndefined()
+    expect(out.assets?.[0]?.href).toBe('/images/common/miniapp-qr.png')
+    expect(out.assets?.[0]?.sizeBytes).toBe(30117)
+  })
+  it('11 字节占位图必须算未接入(按"文件存在"判会把坏图点亮)', () => {
+    expect(liveMeta.judgeMiniappQr({ exists: true, sizeBytes: 11 }, NOW)).toMatchObject({
+      source: 'unavailable',
+      reason: 'miniapp-qr-stub:11B(<2048B)',
+    })
+  })
+  it('文件不在 ⇒ 未接入并点名', () => {
+    expect(liveMeta.judgeMiniappQr({ exists: false, sizeBytes: 0 }, NOW).reason).toBe(
+      'miniapp-qr-file-missing',
+    )
+  })
+})
+
 describe('形状锁(两面各一条,缺一档即翻红)', () => {
   const read = (rel: string) => readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf-8')
   it('纯判据文件不得含 node:fs —— 侧栏是 client component,fs 进包即构建错误', () => {
@@ -362,6 +444,173 @@ describe('形状锁(两面各一条,缺一档即翻红)', () => {
     expect(isoDateOf('')).toBeUndefined()
     expect(isoDateOf(null)).toBeUndefined()
     expect(isoDateOf('unknown')).toBeUndefined()
+  })
+})
+
+/* -------------------------------------------------------------------------- */
+/* 站点腿两臂探测(2026-11-03 立):本机源站优先,公网只做兜底                    */
+/*                                                                            */
+/* 立因是量出来的,不是猜的:同一台机上 IHUI-IMAGE-CDN 就在 127.0.0.1:80,本机臂   */
+/* 实测 2–36ms;而运行期原先问的是公网域名 —— 出去绕一圈边缘回来,中位 1161ms、     */
+/* 最差 5466ms,还偶发十几秒的 ConnectTimeout。页面渲染嵌着这一腿,慢/挂的代价     */
+/* 就是下载栏整格退回入库快照(用户看到旧版本号),而账面一条 200 看不出异常。      */
+/* -------------------------------------------------------------------------- */
+
+function legRes(spec: { status: number; headers?: Record<string, string>; body?: unknown }) {
+  const h = new Map(Object.entries(spec.headers ?? {}).map(([k, v]) => [k.toLowerCase(), v]))
+  return {
+    ok: spec.status >= 200 && spec.status < 300,
+    status: spec.status,
+    headers: { get: (k: string) => h.get(String(k).toLowerCase()) ?? null },
+    json: async () => spec.body,
+    text: async () => JSON.stringify(spec.body ?? ''),
+    body: { cancel: async () => {} },
+  }
+}
+
+const APK_ROW_BODY = {
+  code: 0,
+  message: 'success',
+  data: {
+    latest: {
+      version: '0.0.9',
+      platform: 'android',
+      status: 'latest',
+      downloadUrl: 'https://www.aizhs.top/remote-images/download/ihui-ai-latest.apk',
+      updatedAt: '2026-10-31T07:00:00Z',
+    },
+  },
+}
+
+/** 站点腿三跳的标准答案:指针 302 → 版本副本 HEAD 给真实字节 */
+function legArmRes(url: string) {
+  if (url.endsWith('/ihui-ai-latest.apk') || url.endsWith('/ihui-ai-latest.ipa')) {
+    return legRes({
+      status: 302,
+      headers: {
+        location: url
+          .replace('latest.apk', '0.0.9-26102816.apk')
+          .replace('latest.ipa', '0.0.5-26110222.ipa'),
+        'x-release-version': url.endsWith('.ipa') ? '0.0.5' : '0.0.9',
+        'x-release-version-code': url.endsWith('.ipa') ? '26110222' : '26102816',
+      },
+    })
+  }
+  return legRes({
+    status: 200,
+    headers: {
+      'content-length': '84915649',
+      'content-type': 'application/vnd.android.package-archive',
+    },
+  })
+}
+
+describe('站点腿两臂 —— 本机源站优先,且公网那一跳不得被悄悄加回来', () => {
+  it('臂序固定为 local→public,本机臂带 Host 头走 127.0.0.1:80', () => {
+    const [local, publicArm] = liveIo.legArms()
+    expect(liveIo.legArms().map((a) => a.label)).toEqual(['local', 'public'])
+    expect(local?.base).toBe('http://127.0.0.1:80')
+    expect(local?.headers.host).toMatch(/aizhs\.top$/)
+    expect(publicArm?.base).toMatch(/^https:\/\//)
+  })
+
+  it('本机臂答得上 ⇒ 一次都不问公网(省掉的就是那一跳跨境)', async () => {
+    const asked: string[] = []
+    const fetchImpl = (async (url: string | URL) => {
+      asked.push(String(url))
+      return legArmRes(String(url))
+    }) as unknown as typeof fetch
+    const { reading, tried } = await liveIo.probeSiteLeg(
+      '/remote-images/download/ihui-ai-latest.apk',
+      fetchImpl,
+    )
+    expect(reading?.status).toBe(302)
+    expect(reading?.sizeBytes).toBe(84915649)
+    expect(tried).toEqual(['local:HTTP 302'])
+    expect(asked.some((u) => u.startsWith('https://'))).toBe(false)
+  })
+
+  it('HEAD 落在**同一臂**上:拿着公网 Location 去公网问 ⇒ 等于没省', async () => {
+    const asked: string[] = []
+    const fetchImpl = (async (url: string | URL) => {
+      asked.push(String(url))
+      return legArmRes(String(url))
+    }) as unknown as typeof fetch
+    await liveIo.probeSiteLeg('/remote-images/download/ihui-ai-latest.ipa', fetchImpl)
+    expect(asked.every((u) => u.startsWith('http://127.0.0.1:80'))).toBe(true)
+    expect(asked.length).toBe(2)
+  })
+
+  it('本机臂挂了 ⇒ 换公网臂,结论照出(兜底不是装饰)', async () => {
+    const fetchImpl = (async (url: string | URL) => {
+      const u = String(url)
+      if (u.startsWith('http://127.0.0.1:80')) throw new Error('ECONNREFUSED')
+      return legArmRes(u)
+    }) as unknown as typeof fetch
+    const { reading, tried } = await liveIo.probeSiteLeg(
+      '/remote-images/download/ihui-ai-latest.apk',
+      fetchImpl,
+    )
+    expect(reading?.status).toBe(302)
+    expect(tried).toEqual(['local:无响应', 'public:HTTP 302'])
+  })
+
+  it('两臂都没响应 ⇒ reading=null,并把两臂各自的情况点名(绝不读成"该端没包")', async () => {
+    const fetchImpl = (async () => {
+      throw new Error('ETIMEDOUT')
+    }) as unknown as typeof fetch
+    const { reading, tried } = await liveIo.probeSiteLeg(
+      '/remote-images/download/ihui-ai-latest.apk',
+      fetchImpl,
+    )
+    expect(reading).toBeNull()
+    expect(tried).toEqual(['local:无响应', 'public:无响应'])
+  })
+
+  it('安卓版:版本仍取注册表行,体积由腿补实数;问到 0 就照旧留 0', async () => {
+    const fetchImpl = (async (url: string | URL) => {
+      const u = String(url)
+      if (u.includes('/api/app-version/latest')) return legRes({ status: 200, body: APK_ROW_BODY })
+      return legArmRes(u)
+    }) as unknown as typeof fetch
+    const out = await liveIo.resolveAndroid(NOW, fetchImpl)
+    expect(out.source).toBe('live')
+    expect(out.version).toBe('0.0.9')
+    expect(out.assets?.[0]?.sizeBytes).toBe(84915649)
+    expect(out.assets?.[0]?.href).toContain('ihui-ai-latest.apk')
+
+    const dead = (async (url: string | URL) => {
+      const u = String(url)
+      if (u.includes('/api/app-version/latest')) return legRes({ status: 200, body: APK_ROW_BODY })
+      throw new Error('腿问不到')
+    }) as unknown as typeof fetch
+    const kept = await liveIo.resolveAndroid(NOW, dead)
+    // 问不到就留 0:页面上渲染成 `-`("未量"),绝不拿估算冒充真实体积
+    expect(kept.assets?.[0]?.sizeBytes).toBe(0)
+  })
+})
+
+describe('applyProbedAssetSize —— 只认正整数体积,其余原样返回', () => {
+  const live = {
+    platform: 'android-apk' as const,
+    source: 'live' as const,
+    resolvedAt: NOW,
+    assets: [{ href: 'https://x/latest.apk', sizeBytes: 0, format: 'Android APK' }],
+  }
+  it('正数 ⇒ 替换首格体积,其余字段一字不动', () => {
+    const out = applyProbedAssetSize(live, 84915649)
+    expect(out).toEqual({ ...live, assets: [{ ...live.assets[0], sizeBytes: 84915649 }] })
+  })
+  it('0 / 负数 / NaN ⇒ 原样返回(同引用都不换)', () => {
+    for (const bad of [0, -1, Number.NaN]) expect(applyProbedAssetSize(live, bad)).toBe(live)
+  })
+  it('非 live 的格子不吃体积', () => {
+    const snap = { ...live, source: 'snapshot' as const, reason: 'no-row' }
+    expect(applyProbedAssetSize(snap, 123)).toBe(snap)
+  })
+  it('没有资产行的格子也不吃(不得凭空造出一格)', () => {
+    const bare = { ...live, assets: [] }
+    expect(applyProbedAssetSize(bare, 123)).toBe(bare)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

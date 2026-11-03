@@ -13,6 +13,7 @@ import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon from '@/components/LineIcon'
 import { EmptyState, ScreenSkeleton } from '@/components/ScreenStates.taro'
 import './detail.css'
+import { onToast } from '@/host/on-toast'
 
 interface TeacherCourse {
   id: string | number
@@ -76,7 +77,7 @@ export default function TeacherDetail() {
       setFollowed(Boolean(extra.isFollowed))
     } catch (e) {
       logger.error('teacher/detail', t('teacherDetail.q1'), e)
-      Taro.showToast({ title: tt('common.failed', '加载失败'), icon: 'none' })
+      onToast(tt('common.failed', '加载失败'), { kind: 'error' })
     } finally {
       setLoading(false)
     }
@@ -106,12 +107,10 @@ export default function TeacherDetail() {
     setFollowed(next)
     try {
       await post(`/teacher/${teacher.id}/follow`, { follow: next })
-      Taro.showToast({
-        title: next
-          ? tt('teacher.detail.followed', '已关注')
-          : tt('teacher.detail.unfollowed', '已取消'),
-        icon: 'none',
-      })
+      onToast(
+        next ? tt('teacher.detail.followed', '已关注') : tt('teacher.detail.unfollowed', '已取消'),
+        { kind: 'info' },
+      )
     } catch (e) {
       setFollowed(!next)
       logger.error('teacher/detail', t('teacherDetail.q2'), e)
@@ -132,12 +131,9 @@ export default function TeacherDetail() {
       success: (res) => {
         if (res.tapIndex === 0) {
           // 项目无 /pages/im/* 私信页,优雅降级为提示
-          Taro.showToast({
-            title: tt('teacher.detail.imSoon', '私信功能即将开放'),
-            icon: 'none',
-          })
+          onToast(tt('teacher.detail.imSoon', '私信功能即将开放'), { kind: 'info' })
         } else if (res.tapIndex === 1) {
-          Taro.showToast({ title: tt('teacher.detail.phoneHint', '已复制联系方式'), icon: 'none' })
+          onToast(tt('teacher.detail.phoneHint', '已复制联系方式'), { kind: 'info' })
         }
       },
     })

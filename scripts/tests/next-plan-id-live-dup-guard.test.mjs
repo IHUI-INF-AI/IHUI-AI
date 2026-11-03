@@ -71,13 +71,20 @@ function skipIfCliCrashed(t, r, preHead) {
   assert.fail(`CLI 异常退出且依赖面干净 ⇒ 真回归:status=${r.status} signal=${r.signal}\nstderr=${r.stderr}`)
 }
 
+/** 本文件判的是**同题查重**(L2/L3)与"无重时照发"(L4),不是远端对齐门。
+ *  `node --test` 默认并行跑文件,多个测试同时让 CLI 去 `git fetch` 会撞
+ *  `cannot lock ref 'refs/remotes/origin/main'` ⇒ 远端基座门误判"远端在推进"并拒绝发号
+ *  (2026-11-03 全量跑实测红在 L2),红在并发 fetch 的环境,不在本票判据。
+ *  故统一带上工具自带的离线闸门旗标,把这条与之无关的门按"未与远端对齐"放行。 */
+const OFFLINE_ENV = { IHUI_PLAN_ID_ALLOW_UNALIGNED: '1' }
+
 function runCli(args, env = null) {
   return spawnSync(process.execPath, [CLI, ...args], {
     stdio: ['ignore', 'pipe', 'pipe'],
     cwd: ROOT,
     encoding: 'utf8',
     timeout: 300_000,
-    env: env ? { ...process.env, ...env } : process.env,
+    env: { ...process.env, ...OFFLINE_ENV, ...(env ?? {}) },
   })
 }
 

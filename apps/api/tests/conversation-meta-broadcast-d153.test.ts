@@ -32,20 +32,21 @@ vi.mock('../src/config/index.js', () => ({
     HOST: '0.0.0.0',
     LOG_LEVEL: 'silent',
     CORS_ORIGIN: 'http://localhost:8801',
-    DATABASE_URL: 'postgres://localhost:8810/test',
-    REDIS_URL: 'redis://localhost:8811',
+    DATABASE_URL: 'postgres://127.0.0.1:5399/test',
+    REDIS_URL: 'redis://127.0.0.1:6399',
     JWT_SECRET: 'test-jwt-secret-at-least-32-characters-long!!!',
     JWT_EXPIRES_IN: '7d',
     AI_SERVICE_URL: 'http://localhost:8803',
   },
 }))
 
-const { mockVerifyAccessToken, mockOwnedRows, mockFindConversationById, mockUpdateConversation } = vi.hoisted(() => ({
-  mockVerifyAccessToken: vi.fn(),
-  mockOwnedRows: vi.fn((): { id: string }[] => []),
-  mockFindConversationById: vi.fn(async (): unknown => null),
-  mockUpdateConversation: vi.fn(async (): unknown => null),
-}))
+const { mockVerifyAccessToken, mockOwnedRows, mockFindConversationById, mockUpdateConversation } =
+  vi.hoisted(() => ({
+    mockVerifyAccessToken: vi.fn(),
+    mockOwnedRows: vi.fn((): { id: string }[] => []),
+    mockFindConversationById: vi.fn(async (): Promise<unknown> => null),
+    mockUpdateConversation: vi.fn(async (): Promise<unknown> => null),
+  }))
 
 vi.mock('@ihui/auth', () => ({ verifyAccessToken: mockVerifyAccessToken }))
 vi.mock('jose', () => ({ decodeJwt: vi.fn(() => ({ type: 'access' })) }))
@@ -127,6 +128,7 @@ vi.mock('../src/db/chat-queries.js', () => ({
 }))
 
 import { chatRoutes } from '../src/routes/chat.js'
+import type { BroadcastResult } from '../src/plugins/ws-broadcast.js'
 
 const USER_A = 'aaaaaaaa-1111-4111-8111-111111111111'
 const CONV_ID = '11111111-1111-4111-8111-111111111111'
@@ -151,10 +153,14 @@ async function buildChatApp(): Promise<FastifyInstance> {
   emitted = []
   broadcastThrows = false
   const app = Fastify({ logger: false })
-  app.decorate('broadcastToUser', (userId: string, event: string, data: unknown) => {
-    if (broadcastThrows) throw new Error('socket is closed')
-    emitted.push({ userId, event, data })
-  })
+  app.decorate(
+    'broadcastToUser',
+    (userId: string, event: string, data: unknown): BroadcastResult => {
+      if (broadcastThrows) throw new Error('socket is closed')
+      emitted.push({ userId, event, data })
+      return { matched: 1, delivered: 1, gated: 0 }
+    },
+  )
   await app.register(chatRoutes, { prefix: '/api/chat' })
   await app.ready()
   return app
@@ -165,7 +171,7 @@ function parsedFrames(): ConversationUpdatedEvent[] {
   const out: ConversationUpdatedEvent[] = []
   for (const e of emitted) {
     const evt = parseUserBroadcastFrame({ event: e.event, data: e.data })
-    if (evt) out.push(evt)
+    if (evt && evt.event === 'conversation:updated') out.push(evt)
   }
   return out
 }

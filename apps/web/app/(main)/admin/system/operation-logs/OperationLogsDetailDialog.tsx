@@ -32,7 +32,7 @@ export function OperationLogsDetailDialog({ detail, onClose }: OperationLogsDeta
           <DialogTitle>{t('operationLogs.detail.title')}</DialogTitle>
         </DialogHeader>
         {detail && (
-          <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-body">
             <div>
               <span className="text-muted-foreground">{t('operationLogs.detail.module')}</span>
               {detail.title}
@@ -73,20 +73,20 @@ export function OperationLogsDetailDialog({ detail, onClose }: OperationLogsDeta
             </div>
             <div className="col-span-2">
               <span className="text-muted-foreground">{t('operationLogs.detail.operParam')}</span>
-              <pre className="mt-1 max-h-32 overflow-auto rounded bg-muted/50 p-2 text-xs">
+              <pre className="mt-1 max-h-32 overflow-auto rounded bg-muted/50 p-2 text-label">
                 {detail.operParam || '-'}
               </pre>
             </div>
             <div className="col-span-2">
               <span className="text-muted-foreground">{t('operationLogs.detail.jsonResult')}</span>
-              <pre className="mt-1 max-h-32 overflow-auto rounded bg-muted/50 p-2 text-xs">
+              <pre className="mt-1 max-h-32 overflow-auto rounded bg-muted/50 p-2 text-label">
                 {detail.jsonResult || '-'}
               </pre>
             </div>
             {detail.status === 1 && (
               <div className="col-span-2">
                 <span className="text-destructive">{t('operationLogs.detail.errorMsg')}</span>
-                <pre className="mt-1 max-h-32 overflow-auto rounded bg-red-500/5 p-2 text-xs text-destructive">
+                <pre className="mt-1 max-h-32 overflow-auto rounded bg-red-500/5 p-2 text-label text-destructive">
                   {detail.errorMsg || '-'}
                 </pre>
               </div>

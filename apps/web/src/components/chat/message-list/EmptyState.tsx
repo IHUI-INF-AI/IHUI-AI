@@ -51,11 +51,11 @@ export function EmptyState({
       />
       {isLoading && <Loader2 className="h-7 w-7 animate-spin" />}
       {isLoading ? (
-        <p className="text-sm text-muted-foreground">{loadingLabel}</p>
+        <p className="text-body text-muted-foreground">{loadingLabel}</p>
       ) : (
         <div className="space-y-1">
           <p className="text-base font-medium">{emptyTitle}</p>
-          <p className="max-w-xs text-sm text-muted-foreground">{emptyHint}</p>
+          <p className="max-w-xs text-body text-muted-foreground">{emptyHint}</p>
         </div>
       )}
       {!isLoading && templates.length > 0 && (

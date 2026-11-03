@@ -108,6 +108,48 @@ test('反向例:把白名单判定改成"全收编" ⇒ 上述断言必红', () 
   })
 })
 
+test('白名单:tokens.css 派生态放行,邻近形态一律不收编(2026-11-02 新增条目)', () => {
+  // 正例:非色档受管块源头落点(TS 档表 → tokens.css,由 sync-css-tokens.mjs --write 派生),
+  // 属于"派生态、门 93 R9/R10/R11 逐值兜底"一族,守护写了它必须能入库。
+  assert.equal(auto.isCollectible('packages/design-tokens/src/styles/tokens.css'), true)
+  // 阴性对照(阳性就在上一行):这条新增正则必须是精确文件匹配,不得宽匹配同族形态。
+  assert.equal(
+    auto.isCollectible('packages/design-tokens/src/styles/tokens.css.bak'),
+    false,
+    'tokens.css.bak 不应收编(条目带 $ 锚,后缀形态不得命中)',
+  )
+  assert.equal(
+    auto.isCollectible('packages/design-tokens/src/other.css'),
+    false,
+    '同包其他 .css 不应收编(条目不是 *.css 通配)',
+  )
+  assert.equal(
+    auto.isCollectible('apps/web/packages/design-tokens/src/styles/tokens.css'),
+    false,
+    '前缀多一段不应收编(条目带 ^ 锚,不是子串匹配)',
+  )
+  assert.equal(
+    auto.isCollectible('packages/design-tokens/src/styles/tokens.ts'),
+    false,
+    'tokens.ts 不应收编(.ts ≠ .css,判据是逐字文件名)',
+  )
+})
+
+test('白名单:tokens.css 条目只覆盖一枚确切文件,不是整目录(partitionCollectible 混批)', () => {
+  const batch = [
+    'packages/design-tokens/src/styles/tokens.css', // 唯一正例
+    'packages/design-tokens/src/styles/tokens.css.bak',
+    'packages/design-tokens/src/styles/other.css',
+    'packages/design-tokens/src/button-variants.ts',
+    'packages/design-tokens/src/index.js',
+    'apps/web/packages/design-tokens/src/styles/tokens.css',
+  ]
+  const { collected, held } = auto.partitionCollectible(batch)
+  assert.deepEqual(collected, ['packages/design-tokens/src/styles/tokens.css'])
+  assert.equal(collected.length, 1, 'collected 恰为 1 枚:条目覆盖面 = 单文件,不是 design-tokens 目录')
+  assert.deepEqual(held, batch.filter((p) => p !== 'packages/design-tokens/src/styles/tokens.css'))
+})
+
 test('装车锁:main() 真的用 isCollectible 过滤候选(造好没装车=没有)', () => {
   const src = readFileSync(join(ROOT, 'scripts', 'auto-commit-quiet.mjs'), 'utf8')
   assert.match(src, /rawChanges\.filter\(\(c\) => isCollectible\(c\.path\)\)/, '主流程必须按白名单过滤候选')

@@ -63,7 +63,7 @@ function StepRow({
       <Icon className={cn('mt-0.5 h-3.5 w-3.5 shrink-0', STEP_ICON_CLS[step.status])} aria-hidden />
       <span
         className={cn(
-          'min-w-0 flex-1 truncate text-xs',
+          'min-w-0 flex-1 truncate text-label',
           step.status === 'completed' && 'text-muted-foreground line-through',
           step.status === 'in_progress' && 'font-medium text-foreground',
           step.status === 'pending' && 'text-muted-foreground',
@@ -216,13 +216,17 @@ export function TaskStatusBar() {
             {headline}
           </span>
           {stepText ? (
-            <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{stepText}</span>
+            <span className="shrink-0 text-label tabular-nums text-muted-foreground">
+              {stepText}
+            </span>
           ) : null}
           {filesText ? (
-            <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{filesText}</span>
+            <span className="shrink-0 text-label tabular-nums text-muted-foreground">
+              {filesText}
+            </span>
           ) : null}
           {view.linesKnown && view.changedFiles > 0 ? (
-            <span className="shrink-0 text-xs tabular-nums">
+            <span className="shrink-0 text-label tabular-nums">
               <span className="text-emerald-600 dark:text-emerald-400">+{view.addedLines}</span>{' '}
               <span className="text-red-600 dark:text-red-400">-{view.removedLines}</span>
             </span>

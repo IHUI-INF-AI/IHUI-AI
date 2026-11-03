@@ -81,12 +81,12 @@ export default function AiWorldSharePage() {
       <div className="mx-auto w-full max-w-2xl space-y-4">
         <Link
           href="/ai-world"
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
           {t('back')}
         </Link>
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {(error as Error)?.message ?? t('notExists')}
         </div>
       </div>
@@ -97,7 +97,7 @@ export default function AiWorldSharePage() {
     <div className="px-4 py-4 mx-auto w-full max-w-2xl space-y-4">
       <Link
         href={`/ai-world/${params.id}`}
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         {t('back')}
@@ -108,7 +108,7 @@ export default function AiWorldSharePage() {
           <Share2 className="h-6 w-6 text-primary" />
           {t('title')}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       <Card className="overflow-hidden">
@@ -123,7 +123,7 @@ export default function AiWorldSharePage() {
         )}
         <CardContent className="min-[640px]:p-3 space-y-3 p-3">
           <h2 className="text-lg font-bold tracking-tight">{world.title}</h2>
-          <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-3 text-label text-muted-foreground">
             <span className="inline-flex items-center gap-1">
               <Eye className="h-3 w-3" />
               {t('viewCount', { count: world.viewCount })}
@@ -134,7 +134,7 @@ export default function AiWorldSharePage() {
             </span>
           </div>
           {world.content && (
-            <p className="line-clamp-3 whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
+            <p className="line-clamp-3 whitespace-pre-wrap text-body leading-relaxed text-muted-foreground">
               {world.content}
             </p>
           )}
@@ -149,7 +149,7 @@ export default function AiWorldSharePage() {
               <input
                 readOnly
                 value={shareUrl}
-                className="flex h-9 flex-1 rounded-sm border border-input bg-muted/50 px-3 py-1 text-sm text-muted-foreground"
+                className="flex h-9 flex-1 rounded-sm border border-input bg-muted/50 px-3 py-1 text-body text-muted-foreground"
               />
               <Button size="sm" onClick={copyLink}>
                 <Copy className="mr-1.5 h-4 w-4" />
@@ -162,7 +162,7 @@ export default function AiWorldSharePage() {
             <div className="flex h-32 w-32 items-center justify-center rounded-lg bg-muted">
               <Share2 className="h-12 w-12 text-muted-foreground/40" />
             </div>
-            <p className="text-xs text-muted-foreground">{t('scanShare')}</p>
+            <p className="text-label text-muted-foreground">{t('scanShare')}</p>
           </div>
         </CardContent>
       </Card>

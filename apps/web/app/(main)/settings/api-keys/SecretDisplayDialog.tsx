@@ -64,14 +64,14 @@ export function SecretDisplayDialog({ open, secret, title = '密钥已创建', o
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
-          <div className="flex items-start gap-2 rounded-md bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-400">
+          <div className="flex items-start gap-2 rounded-md bg-amber-500/10 p-3 text-label text-amber-700 dark:text-amber-400">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
             <p>此密钥仅显示一次,请立即复制保存,关闭后无法再次查看。妥善保管,切勿泄露给他人。</p>
           </div>
           <div className="space-y-1.5">
-            <p className="text-xs text-muted-foreground">Secret</p>
+            <p className="text-label text-muted-foreground">Secret</p>
             <div className="flex items-center gap-2 rounded-md border bg-muted/30 p-2">
-              <code className="flex-1 break-all font-mono text-xs">{secret}</code>
+              <code className="flex-1 break-all font-mono text-label">{secret}</code>
               <Button size="sm" variant="outline" onClick={copy} className="shrink-0">
                 {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                 <span>{copied ? '已复制' : '复制'}</span>

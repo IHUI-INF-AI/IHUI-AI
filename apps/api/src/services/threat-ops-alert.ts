@@ -68,7 +68,7 @@ const defaultMemory: ThrottleMemory = { gateUntil: new Map(), pending: new Map()
  * 抢占节流窗口。Redis 不可用 ⇒ 回落进程内(失效方向是"照发一封",不是静默;
  * 与 scheduler-worker 的 ai-feed 冷却同一条判序:判不出就照送,绝不冒充"已报过")。
  */
-export async function acquireThrottleWindow(
+async function acquireThrottleWindow(
   kind: ThreatAlertKind,
   redis: Redis | null,
   nowMs = Date.now(),
@@ -122,11 +122,7 @@ const timeFmt = new Intl.DateTimeFormat('zh-CN', {
 const fmtTime = (ms: number): string => timeFmt.format(new Date(ms))
 
 /** 封禁告警正文(纯函数,镜像测试直接钉) */
-export function buildBlockMessage(
-  input: BlockAlertInput,
-  suppressed: number,
-  atMs: number,
-): string {
+function buildBlockMessage(input: BlockAlertInput, suppressed: number, atMs: number): string {
   const lines = [
     `来源:运行时威胁检测(threat-detector)`,
     `时刻:${fmtTime(atMs)}`,
@@ -149,11 +145,7 @@ export function buildBlockMessage(
 }
 
 /** 高危监控告警正文 */
-export function buildWatchMessage(
-  input: WatchAlertInput,
-  suppressed: number,
-  atMs: number,
-): string {
+function buildWatchMessage(input: WatchAlertInput, suppressed: number, atMs: number): string {
   const lines = [
     `来源:运行时威胁检测(threat-detector)`,
     `时刻:${fmtTime(atMs)}`,

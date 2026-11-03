@@ -68,7 +68,7 @@ export function AgreementCheckbox({ checked, onChange, error }: AgreementCheckbo
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
       />
-      <span className="text-xs leading-5 text-muted-foreground">
+      <span className="text-label leading-5 text-muted-foreground">
         {t('agreePrefix')}
         <Link
           href="/agreement/user-agreement"

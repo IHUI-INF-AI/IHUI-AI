@@ -162,7 +162,7 @@ export default function PageClient() {
       <header className="flex items-center justify-between">
         <div className="space-y-1">
           <h1 className="text-display font-bold tracking-tight">{t('channels.title')}</h1>
-          <p className="text-xs text-muted-foreground">{t('channels.subtitle')}</p>
+          <p className="text-label text-muted-foreground">{t('channels.subtitle')}</p>
         </div>
         <Button size="sm" className="gap-1.5" onClick={openCreate}>
           <Plus className="h-3.5 w-3.5" />
@@ -187,7 +187,7 @@ export default function PageClient() {
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="搜索名称/供应商/Key 前缀..."
-                  className="h-8 w-60 pl-8 text-xs"
+                  className="h-8 w-60 pl-8 text-label"
                 />
               </div>
               <Button type="submit" variant="outline" size="sm">
@@ -201,7 +201,7 @@ export default function PageClient() {
                 setPage(1)
               }}
               placeholder="供应商代码"
-              className="h-8 w-32 text-xs"
+              className="h-8 w-32 text-label"
             />
             <Select
               value={enabled}
@@ -210,7 +210,7 @@ export default function PageClient() {
                 setPage(1)
               }}
             >
-              <SelectTrigger className="h-8 w-28 text-xs">
+              <SelectTrigger className="h-8 w-28 text-label">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -232,7 +232,7 @@ export default function PageClient() {
             </div>
           ) : isError ? (
             <div className="flex flex-col items-center gap-2 px-4 py-10 text-center">
-              <p className="text-sm text-destructive">
+              <p className="text-body text-destructive">
                 {error instanceof Error ? error.message : '加载失败'}
               </p>
               <Button variant="outline" size="sm" onClick={() => refetch()}>
@@ -242,7 +242,7 @@ export default function PageClient() {
           ) : list.length === 0 ? (
             <div className="flex flex-col items-center gap-2 px-4 py-10 text-center">
               <Cable className="h-8 w-8 text-muted-foreground/40" />
-              <p className="text-sm text-muted-foreground">暂无渠道,点击右上角新建</p>
+              <p className="text-body text-muted-foreground">暂无渠道,点击右上角新建</p>
               <Button variant="outline" size="sm" onClick={openCreate}>
                 <Plus className="mr-1 h-3.5 w-3.5" />
                 {t('channels.create')}
@@ -250,9 +250,9 @@ export default function PageClient() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-body">
                 <thead>
-                  <tr className="text-left text-xs text-muted-foreground">
+                  <tr className="text-left text-label text-muted-foreground">
                     <th className="px-4 py-2 font-medium">{t('channels.table.provider')}</th>
                     <th className="px-4 py-2 font-medium">{t('channels.table.name')}</th>
                     <th className="px-4 py-2 font-medium">Key 前缀</th>
@@ -267,7 +267,7 @@ export default function PageClient() {
                   {list.map((item) => {
                     const h = HEALTH_BADGE[item.healthStatus]
                     return (
-                      <tr key={item.id} className="text-xs hover:bg-muted/30">
+                      <tr key={item.id} className="text-label hover:bg-muted/30">
                         <td className="px-4 py-2.5 font-mono text-muted-foreground">
                           {item.providerCode}
                         </td>
@@ -338,7 +338,7 @@ export default function PageClient() {
 
           {/* 分页 */}
           {!isLoading && !isError && total > 0 && (
-            <div className="flex items-center justify-between px-4 pt-1 text-xs text-muted-foreground">
+            <div className="flex items-center justify-between px-4 pt-1 text-label text-muted-foreground">
               <span>共 {total} 条</span>
               <div className="flex items-center gap-2">
                 <Button

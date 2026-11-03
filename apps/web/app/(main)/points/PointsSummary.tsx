@@ -29,7 +29,7 @@ function StatCard({
   return (
     <Card className="transition-colors hover:bg-accent">
       <CardContent className="min-[640px]:p-3 space-y-1.5 p-3">
-        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <div className="flex items-center gap-1.5 text-label text-muted-foreground">
           <Icon className={cn('h-3.5 w-3.5 shrink-0', primary && 'text-primary')} />
           <span className="whitespace-nowrap">{label}</span>
         </div>
@@ -74,9 +74,11 @@ export function PointsSummary({ points, level, pointsLoading, levelLoading }: Pr
               className="h-6 w-6"
               unoptimized
             />
-            <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">{t('title')}</h1>
+            <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">
+              {t('title')}
+            </h1>
           </div>
-          <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+          <p className="text-label text-muted-foreground">{t('subtitle')}</p>
         </div>
         <Link href="/points/sign-in" className="shrink-0">
           <Button variant="outline" size="sm" className="whitespace-nowrap">
@@ -116,7 +118,7 @@ export function PointsSummary({ points, level, pointsLoading, levelLoading }: Pr
 
       <Card>
         <CardContent className="min-[640px]:p-3 space-y-2 p-3">
-          <div className="flex items-center justify-between gap-3 text-sm">
+          <div className="flex items-center justify-between gap-3 text-body">
             <span className="min-w-0 truncate font-medium">{level?.name ?? '-'}</span>
             <span className="shrink-0 whitespace-nowrap tabular-nums text-muted-foreground">
               {level?.nextLevelName

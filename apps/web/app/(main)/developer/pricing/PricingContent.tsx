@@ -115,9 +115,9 @@ export function PricingContent(): React.JSX.Element {
               <Coins className="h-5 w-5 text-primary" />
               {t('title')}
             </h1>
-            <p className="mt-0.5 text-sm text-muted-foreground">{t('subtitle')}</p>
+            <p className="mt-0.5 text-body text-muted-foreground">{t('subtitle')}</p>
           </div>
-          <div className="flex items-center gap-4 text-xs">
+          <div className="flex items-center gap-4 text-label">
             <div className="flex items-center gap-1.5 text-muted-foreground">
               <Database className="h-3.5 w-3.5" />
               <span>{t('modelCount', { count: numFmt.format(total) })}</span>
@@ -153,7 +153,7 @@ export function PricingContent(): React.JSX.Element {
             onClick={() => setActiveVendor('all')}
           >
             {t('vendorAll')}
-            <span className="ml-1.5 text-xs opacity-70">{numFmt.format(total)}</span>
+            <span className="ml-1.5 text-label opacity-70">{numFmt.format(total)}</span>
           </Button>
           {vendors.slice(0, 24).map((v) => (
             <Button
@@ -163,7 +163,7 @@ export function PricingContent(): React.JSX.Element {
               onClick={() => setActiveVendor(v.vendor)}
             >
               {v.label}
-              <span className="ml-1.5 text-xs opacity-70">{numFmt.format(v.count)}</span>
+              <span className="ml-1.5 text-label opacity-70">{numFmt.format(v.count)}</span>
             </Button>
           ))}
         </div>
@@ -176,13 +176,13 @@ export function PricingContent(): React.JSX.Element {
           {t('loading')}
         </div>
       ) : grouped.length === 0 ? (
-        <p className="py-8 text-center text-sm text-muted-foreground">{t('noResults')}</p>
+        <p className="py-8 text-center text-body text-muted-foreground">{t('noResults')}</p>
       ) : (
         <div className="space-y-3">
           {grouped.map(([vendor, items]) => (
             <Card key={vendor}>
               <CardHeader className="px-4 py-2.5 pb-2">
-                <CardTitle className="flex items-center justify-between gap-2 text-sm">
+                <CardTitle className="flex items-center justify-between gap-2 text-body">
                   <span className="min-w-0 truncate">{vendor}</span>
                   <span className="shrink-0 whitespace-nowrap text-label font-normal text-muted-foreground tabular-nums">
                     {t('itemsCount', { count: items.length })}
@@ -191,7 +191,7 @@ export function PricingContent(): React.JSX.Element {
               </CardHeader>
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-xs">
+                  <table className="w-full text-label">
                     <thead className="bg-muted/40">
                       <tr className="text-left">
                         <th className="px-3 py-1.5 font-medium">{t('colModel')}</th>
@@ -229,7 +229,7 @@ export function PricingContent(): React.JSX.Element {
                               {formatPrice(p.outputPrice)}
                             </td>
                             <td className="px-3 py-1.5 text-muted-foreground">{p.currency}</td>
-                            <td className="px-3 py-1.5 text-xs text-muted-foreground">
+                            <td className="px-3 py-1.5 text-label text-muted-foreground">
                               {regions || '—'}
                             </td>
                           </tr>

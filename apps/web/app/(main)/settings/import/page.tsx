@@ -73,7 +73,7 @@ export default function ImportPage() {
           <PackagePlus className="h-6 w-6 text-primary" />
           {convT('pageTitle')}
         </h1>
-        <p className="text-xs text-muted-foreground">{convT('pageDesc')}</p>
+        <p className="text-label text-muted-foreground">{convT('pageDesc')}</p>
       </header>
 
       <Tabs defaultValue="cli" className="flex min-h-0 flex-1 flex-col">
@@ -189,7 +189,7 @@ function CliImportSection() {
         <CardContent className="min-[640px]:p-3 space-y-3 p-3">
           <p className="text-body font-medium">{t('sources')}</p>
           {sourcesLoading ? (
-            <div className="flex items-center text-xs text-muted-foreground">
+            <div className="flex items-center text-label text-muted-foreground">
               <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
               {t('parsing')}
             </div>
@@ -202,7 +202,7 @@ function CliImportSection() {
                     key={s.source}
                     type="button"
                     onClick={() => setSource(s.source)}
-                    className={`flex items-center gap-2 rounded-sm border px-3 py-2 text-left text-xs transition-colors ${
+                    className={`flex items-center gap-2 rounded-sm border px-3 py-2 text-left text-label transition-colors ${
                       active
                         ? 'border-brand-accent-deep bg-primary/5 text-foreground'
                         : 'border-border text-muted-foreground hover:bg-accent'
@@ -223,10 +223,10 @@ function CliImportSection() {
         <Card>
           <CardContent className="min-[640px]:p-3 space-y-3 p-3">
             <p className="text-body font-medium">{t('upload')}</p>
-            <p className="text-xs text-muted-foreground">{t('uploadHint')}</p>
+            <p className="text-label text-muted-foreground">{t('uploadHint')}</p>
             <label className="flex cursor-pointer flex-col items-center gap-2 rounded-md border border-dashed border-border p-3 text-center transition-colors hover:bg-accent">
               <FileUp className="h-6 w-6 text-muted-foreground" />
-              <span className="text-xs text-muted-foreground">{t('dragDrop')}</span>
+              <span className="text-label text-muted-foreground">{t('dragDrop')}</span>
               <input
                 type="file"
                 className="hidden"
@@ -234,7 +234,7 @@ function CliImportSection() {
               />
             </label>
             {file && (
-              <p className="text-xs text-muted-foreground">
+              <p className="text-label text-muted-foreground">
                 {t('fileSelected', { name: file.name, size: formatSize(file.size) })}
               </p>
             )}
@@ -261,17 +261,17 @@ function CliImportSection() {
               <button
                 type="button"
                 onClick={toggleAll}
-                className="text-xs text-primary hover:underline"
+                className="text-label text-primary hover:underline"
               >
                 {selected.size === preview.providers.length ? t('deselectAll') : t('selectAll')}
               </button>
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-label text-muted-foreground">
               {t('selected', { count: selected.size, total: preview.providers.length })}
             </p>
 
             {preview.globalWarnings.length > 0 && (
-              <div className="space-y-1 rounded-md border border-amber-500/30 bg-amber-500/5 p-2 text-xs text-amber-700 dark:text-amber-400">
+              <div className="space-y-1 rounded-md border border-amber-500/30 bg-amber-500/5 p-2 text-label text-amber-700 dark:text-amber-400">
                 {preview.globalWarnings.map((w, i) => (
                   <p key={i} className="flex items-start gap-1">
                     <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
@@ -287,7 +287,7 @@ function CliImportSection() {
                 return (
                   <label
                     key={p.sourceId}
-                    className={`flex cursor-pointer items-start gap-2 rounded-md border p-2 text-xs transition-colors ${
+                    className={`flex cursor-pointer items-start gap-2 rounded-md border p-2 text-label transition-colors ${
                       checked ? 'border-primary/40 bg-primary/5' : 'border-border hover:bg-accent'
                     }`}
                   >
@@ -372,18 +372,18 @@ function CliImportSection() {
             {t('historyTitle')}
           </p>
           {historyLoading ? (
-            <div className="flex items-center text-xs text-muted-foreground">
+            <div className="flex items-center text-label text-muted-foreground">
               <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
               {t('parsing')}
             </div>
           ) : history.length === 0 ? (
-            <p className="text-xs text-muted-foreground">{t('historyEmpty')}</p>
+            <p className="text-label text-muted-foreground">{t('historyEmpty')}</p>
           ) : (
             <div className="space-y-2">
               {history.map((h) => (
                 <div
                   key={h.id}
-                  className="flex items-center justify-between gap-3 rounded-md border border-border p-3 text-xs"
+                  className="flex items-center justify-between gap-3 rounded-md border border-border p-3 text-label"
                 >
                   <div className="min-w-0 flex-1 space-y-0.5">
                     <div className="flex items-center gap-2">

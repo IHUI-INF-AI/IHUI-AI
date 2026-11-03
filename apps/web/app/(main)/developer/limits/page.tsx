@@ -65,7 +65,7 @@ export default function LimitsPage() {
             <Gauge className="h-5 w-5 text-primary" />
             限额管理
           </h1>
-          <p className="mt-0.5 text-sm text-muted-foreground">查看当前配额与用量</p>
+          <p className="mt-0.5 text-body text-muted-foreground">查看当前配额与用量</p>
         </div>
         <Button size="sm" asChild>
           <Link href="/developer/subscription">
@@ -84,12 +84,12 @@ export default function LimitsPage() {
             <Card>
               <CardContent className="min-[640px]:p-3 flex items-center justify-between p-3">
                 <div>
-                  <p className="text-xs text-muted-foreground">当前套餐</p>
+                  <p className="text-label text-muted-foreground">当前套餐</p>
                   <p className="mt-0.5 text-lg font-semibold">{data.planName}</p>
                 </div>
                 <Link
                   href="/developer/subscription"
-                  className="text-sm text-primary hover:underline"
+                  className="text-body text-primary hover:underline"
                 >
                   管理订阅
                 </Link>
@@ -103,7 +103,7 @@ export default function LimitsPage() {
               加载中...
             </div>
           ) : items.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">暂无限额数据</p>
+            <p className="py-8 text-center text-body text-muted-foreground">暂无限额数据</p>
           ) : (
             <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
               {items.map((item) => {
@@ -127,7 +127,7 @@ export default function LimitsPage() {
                         </span>
                       </div>
                       <UsageBar used={item.used} total={item.total} />
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-label text-muted-foreground">
                         {numFmt.format(item.used)} / {numFmt.format(item.total)}
                         {item.unit ? ` ${item.unit}` : ''}
                       </p>

@@ -4,6 +4,7 @@
 
 import type { Metadata } from 'next'
 import { Container, BarChart3, Save } from 'lucide-react'
+import { CodeBlock } from '@/components/docs/code-block'
 
 const SITE_URL = 'https://aizhs.top'
 
@@ -29,7 +30,12 @@ const selfHostJsonLd = {
       itemListElement: [
         { '@type': 'ListItem', position: 1, name: '首页', item: 'https://aizhs.top' },
         { '@type': 'ListItem', position: 2, name: '文档', item: 'https://aizhs.top/docs' },
-        { '@type': 'ListItem', position: 3, name: '自托管部署', item: 'https://aizhs.top/docs/self-host' },
+        {
+          '@type': 'ListItem',
+          position: 3,
+          name: '自托管部署',
+          item: 'https://aizhs.top/docs/self-host',
+        },
       ],
     },
   ],
@@ -41,12 +47,8 @@ export const metadata: Metadata = {
     'Docker Compose 单机版 5 分钟部署 + Kubernetes Helm Chart 多节点高可用部署。含环境要求、配置、监控、备份、升级、故障排查完整指南。Apache 2.0 开源,支持私有化。',
   alternates: {
     canonical: '/docs/self-host',
+    // hreflang 死链已删(2026-11-02 实测):/zh-cn /zh-tw /ko /ja 目录与 /en 子页均 404,只留 canonical + x-default
     languages: {
-      'zh-CN': '/zh-cn/docs/self-host',
-      'zh-TW': '/zh-tw/docs/self-host',
-      en: '/en/docs/self-host',
-      ko: '/ko/docs/self-host',
-      ja: '/ja/docs/self-host',
       'x-default': '/docs/self-host',
     },
   },
@@ -76,8 +78,8 @@ export default function SelfHostPage() {
           自托管部署智汇 AI
         </h1>
         <p className="mx-auto max-w-3xl text-base text-muted-foreground min-[768px]:text-lg">
-          从单机 Docker Compose 到 Kubernetes 多节点高可用,完整覆盖企业级私有化部署。
-          Apache 2.0 开源,数据 100% 在你的基础设施。
+          从单机 Docker Compose 到 Kubernetes 多节点高可用,完整覆盖企业级私有化部署。 Apache 2.0
+          开源,数据 100% 在你的基础设施。
         </p>
       </header>
 
@@ -93,17 +95,30 @@ export default function SelfHostPage() {
 
           <h3 className="text-lg font-semibold">环境要求</h3>
           <ul className="ml-4 list-disc space-y-1 text-sm text-muted-foreground">
-            <li><strong>CPU</strong>:2 核(推荐 4 核)</li>
-            <li><strong>内存</strong>:4 GB RAM(推荐 8 GB)</li>
-            <li><strong>磁盘</strong>:20 GB SSD(推荐 50 GB)</li>
-            <li><strong>系统</strong>:Linux / macOS / Windows WSL2</li>
-            <li><strong>软件</strong>:Docker 24+ / Docker Compose v2+</li>
-            <li><strong>GPU</strong>:不需要(默认走云端 API,本地模型可接 Ollama)</li>
+            <li>
+              <strong>CPU</strong>:2 核(推荐 4 核)
+            </li>
+            <li>
+              <strong>内存</strong>:4 GB RAM(推荐 8 GB)
+            </li>
+            <li>
+              <strong>磁盘</strong>:20 GB SSD(推荐 50 GB)
+            </li>
+            <li>
+              <strong>系统</strong>:Linux / macOS / Windows WSL2
+            </li>
+            <li>
+              <strong>软件</strong>:Docker 24+ / Docker Compose v2+
+            </li>
+            <li>
+              <strong>GPU</strong>:不需要(默认走云端 API,本地模型可接 Ollama)
+            </li>
           </ul>
 
           <h3 className="text-lg font-semibold">部署步骤</h3>
-          <pre className="overflow-x-auto rounded-lg bg-muted p-3 text-xs leading-relaxed">
-            <code>{`# 1. 克隆仓库
+          <CodeBlock
+            language="bash"
+            code={`# 1. 克隆仓库
 git clone https://github.com/ihui-ai/ihui-ai.git
 cd ihui-ai
 
@@ -123,17 +138,27 @@ docker compose logs -f web api ai-service
 
 # 5. 访问
 open http://localhost:8801
-# 管理员:admin(口令由部署环境注入,首次登录后立即改密)`}</code>
-          </pre>
+# 管理员:admin(口令由部署环境注入,首次登录后立即改密)`}
+          />
 
           <div className="rounded-lg border bg-background p-3 text-sm">
             <p className="font-semibold">服务端口</p>
             <ul className="ml-4 mt-2 list-disc space-y-1 text-muted-foreground">
-              <li><code className="rounded bg-muted px-1">8801</code> — Web 前端(Next.js 16)</li>
-              <li><code className="rounded bg-muted px-1">3001</code> — API 后端(Fastify 5)</li>
-              <li><code className="rounded bg-muted px-1">8000</code> — AI Service(FastAPI)</li>
-              <li><code className="rounded bg-muted px-1">5432</code> — PostgreSQL 18</li>
-              <li><code className="rounded bg-muted px-1">6379</code> — Redis 7</li>
+              <li>
+                <code className="rounded bg-muted px-1">8801</code> — Web 前端(Next.js 16)
+              </li>
+              <li>
+                <code className="rounded bg-muted px-1">3001</code> — API 后端(Fastify 5)
+              </li>
+              <li>
+                <code className="rounded bg-muted px-1">8000</code> — AI Service(FastAPI)
+              </li>
+              <li>
+                <code className="rounded bg-muted px-1">5432</code> — PostgreSQL 18
+              </li>
+              <li>
+                <code className="rounded bg-muted px-1">6379</code> — Redis 7
+              </li>
             </ul>
           </div>
         </div>
@@ -160,8 +185,9 @@ open http://localhost:8801
           </ul>
 
           <h3 className="text-lg font-semibold">Helm 部署</h3>
-          <pre className="overflow-x-auto rounded-lg bg-muted p-3 text-xs leading-relaxed">
-            <code>{`# 1. 添加 Helm 仓库
+          <CodeBlock
+            language="bash"
+            code={`# 1. 添加 Helm 仓库
 helm repo add ihui https://charts.ihui.ai
 helm repo update
 
@@ -211,8 +237,8 @@ helm install ihui ihui/ihui-ai \\
 
 # 5. 查看
 kubectl get pods -n ihui
-kubectl get ingress -n ihui`}</code>
-          </pre>
+kubectl get ingress -n ihui`}
+          />
         </div>
       </section>
 
@@ -255,9 +281,16 @@ kubectl get ingress -n ihui`}</code>
               监控
             </h3>
             <ul className="ml-4 mt-2 list-disc space-y-1 text-sm text-muted-foreground">
-              <li>内置 Prometheus metrics(<code className="rounded bg-muted px-1">/metrics</code>)</li>
-              <li>Grafana Dashboard 模板(<code className="rounded bg-muted px-1">/deploy/grafana</code>)</li>
-              <li>健康检查:<code className="rounded bg-muted px-1">/api/health</code></li>
+              <li>
+                内置 Prometheus metrics(<code className="rounded bg-muted px-1">/metrics</code>)
+              </li>
+              <li>
+                Grafana Dashboard 模板(
+                <code className="rounded bg-muted px-1">/deploy/grafana</code>)
+              </li>
+              <li>
+                健康检查:<code className="rounded bg-muted px-1">/api/health</code>
+              </li>
               <li>日志:JSON 格式,对接 ELK / Loki</li>
             </ul>
           </div>
@@ -267,7 +300,9 @@ kubectl get ingress -n ihui`}</code>
               备份
             </h3>
             <ul className="ml-4 mt-2 list-disc space-y-1 text-sm text-muted-foreground">
-              <li>PostgreSQL:<code className="rounded bg-muted px-1">pg_dump</code> 每日全量</li>
+              <li>
+                PostgreSQL:<code className="rounded bg-muted px-1">pg_dump</code> 每日全量
+              </li>
               <li>Redis:RDB 快照 + AOF</li>
               <li>对象存储:S3 跨区复制</li>
               <li>恢复演练:每月 1 次</li>
@@ -277,7 +312,7 @@ kubectl get ingress -n ihui`}</code>
       </section>
 
       {/* 下一步 */}
-      <section className="mt-16 rounded-2xl border bg-gradient-to-br from-primary/5 to-primary/10 p-3 text-center">
+      <section className="mt-16 rounded-lg border bg-gradient-to-br from-primary/5 to-primary/10 p-3 text-center">
         <h2 className="text-display font-bold tracking-tight">下一步</h2>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
           <a

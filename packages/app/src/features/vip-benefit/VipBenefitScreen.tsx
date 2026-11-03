@@ -26,8 +26,9 @@ export function VipBenefitScreen({
   loading,
   error,
   onBack,
-  colorScheme = 'light',
-}: VipBenefitScreenProps) {
+  onRetry,
+  colorScheme = 'light'
+}: VipBenefitScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -39,7 +40,7 @@ export function VipBenefitScreen({
     return (
       <ErrorState
         message={error}
-        onRetry={onBack}
+        onRetry={onRetry}
         retryLabel={t('common.back')}
         colorScheme={colorScheme}
       />

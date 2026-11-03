@@ -74,14 +74,14 @@ export default function PdfMergePage() {
               onDragStart={() => setDragIndex(index)}
               onDragOver={(e) => e.preventDefault()}
               onDrop={() => onDrop(index)}
-              className="flex items-center gap-3 rounded-lg border bg-card p-3 text-sm"
+              className="flex items-center gap-3 rounded-lg border bg-card p-3 text-body"
             >
               <GripVertical className="h-4 w-4 shrink-0 cursor-grab text-muted-foreground" />
               <span className="flex-1 truncate">{it.file.name}</span>
-              <span className="text-xs text-muted-foreground">
+              <span className="text-label text-muted-foreground">
                 {(it.file.size / 1024).toFixed(1)} KB
               </span>
-              <span className="text-xs text-muted-foreground">#{index + 1}</span>
+              <span className="text-label text-muted-foreground">#{index + 1}</span>
               <Button variant="ghost" size="icon" onClick={() => remove(it.id)} aria-label="删除">
                 <Trash2 className="h-4 w-4" />
               </Button>
@@ -95,7 +95,7 @@ export default function PdfMergePage() {
           {loading ? '合并中...' : '合并'}
         </Button>
         {items.length > 0 && items.length < 2 && (
-          <span className="text-xs text-muted-foreground">至少选择 2 个文件才能合并</span>
+          <span className="text-label text-muted-foreground">至少选择 2 个文件才能合并</span>
         )}
       </div>
       {(loading || progress > 0) && <ProgressBar value={progress} />}

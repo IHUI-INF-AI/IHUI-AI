@@ -1,0 +1,97 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+name: Release mobile-rn (EAS)
+
+# mobile-rn 发布链路的无人值守腿(2026-11-02 立)。
+# 只接 OTA 一条腿,并且只有 workflow_dispatch —— 不自动触发,所以不存在"与提交内容无关的恒红"(§12e)。
+#
+# 为什么 CI 上只有 OTA 能跑:
+#   · play-aab / site-apk 两条腿的签名件 `ihui-release.keystore` 住在仓库外(§5d 密钥不入仓),
+#     runner 上既没有 keystore 也没有网盘密钥根 ⇒ 这两腿在 CI 结构上做不到,不假装能做(§0.8)。
+#   · app-store 腿需要 Apple Developer 凭据,当前仓内与密钥目录都没有 ⇒ 同上。
+#   · 既有 `Build Android APK`(mobile-apk-build.yml)在 runner 上出的包落 **debug 签名**
+#     (它拿不到 IHUI_RELEASE_*),那枚包只够自装,不可上架,也覆盖不了官网正式签名包。
+#
+# 要加第二条腿(如 CI 出 Play 包)的前置:把签名件经 secrets 注入 runner,并让
+# scripts/lib/rn-release-credentials.mjs 的 androidSigning() 认得那份注入形态 —— 先改判据再开腿,
+# 不要在 workflow 里另起一套凭据判据(§0.6 单一真相源)。
+
+on:
+  workflow_dispatch:
+    inputs:
+      leg:
+        description: '发布腿'
+        required: true
+        default: 'preflight'
+        type: choice
+        options:
+          - preflight
+          - ota-preview
+          - ota-production
+      message:
+        description: '本次发布说明(OTA 的 update message)'
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-rn-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install workspace
+        run: pnpm install --frozen-lockfile --filter @ihui/mobile-rn... --filter .
+
+      - name: 身份前置(EXPO_TOKEN 必须已配,否则当场点名而不是跑到一半才失败)
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${EXPO_TOKEN:-}" ]; then
+            echo "::error::未配置 repository secret EXPO_TOKEN。"
+            echo "唯一出路:在仓库 Settings → Secrets and variables → Actions 添加 EXPO_TOKEN"
+            echo "(值 = Expo 账号 ${OWNER} 的 access token;本仓约定密钥不入仓,故 workflow 里只引用 secrets)。" >&2
+            exit 1
+          fi
+          echo "EXPO_TOKEN 已注入(len=${#EXPO_TOKEN},值不打印)"
+        env:
+          OWNER: ihui-ai
+
+      - name: 链路体检(现读每条腿的前置与卡点)
+        run: node scripts/release-mobile-rn.mjs
+        continue-on-error: true
+
+      - name: 执行所选发布腿
+        if: ${{ github.event.inputs.leg != 'preflight' }}
+        run: |
+          set -euo pipefail
+          MSG="${{ github.event.inputs.message }}"
+          if [ -z "$MSG" ]; then MSG="CI release ${{ github.event.inputs.leg }} @ ${{ github.sha }}"; fi
+          node scripts/release-mobile-rn.mjs --leg "${{ github.event.inputs.leg }}" --execute -m "$MSG"
+
+      - name: 收尾回读(体检再看一次,确认渠道里 update 计数前进)
+        if: ${{ github.event.inputs.leg != 'preflight' }}
+        run: node scripts/release-mobile-rn.mjs --json
+        continue-on-error: true
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

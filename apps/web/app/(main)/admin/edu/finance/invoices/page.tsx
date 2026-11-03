@@ -108,7 +108,7 @@ export default function EduFinanceInvoicesPage() {
       <BackButton />
       <div>
         <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <Button asChild variant="ghost" size="sm">
@@ -183,7 +183,7 @@ export default function EduFinanceInvoicesPage() {
                       {inv.userName ?? inv.userId.slice(0, 8)}
                     </TableCell>
                     <TableCell className="px-4 py-2.5">{inv.title}</TableCell>
-                    <TableCell className="px-4 py-2.5 font-mono text-xs">{inv.taxNo}</TableCell>
+                    <TableCell className="px-4 py-2.5 font-mono text-label">{inv.taxNo}</TableCell>
                     <TableCell className="px-4 py-2.5">
                       <span
                         className={cn(
@@ -204,7 +204,7 @@ export default function EduFinanceInvoicesPage() {
                         {t(STATUS_KEY[inv.status] ?? 'status.unknown')}
                       </span>
                     </TableCell>
-                    <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">
+                    <TableCell className="px-4 py-2.5 text-label text-muted-foreground">
                       {inv.appliedAt}
                     </TableCell>
                     <TableCell className="px-4 py-2.5 text-right">
@@ -228,7 +228,7 @@ export default function EduFinanceInvoicesPage() {
         </Table>
       </div>
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">{t('totalItems', { count: total })}</span>
+        <span className="text-body text-muted-foreground">{t('totalItems', { count: total })}</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -239,7 +239,7 @@ export default function EduFinanceInvoicesPage() {
             <ChevronLeft className="h-4 w-4" />
             {t('prevPage')}
           </Button>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-body text-muted-foreground">
             {t('pageInfo', { page, totalPages })}
           </span>
           <Button

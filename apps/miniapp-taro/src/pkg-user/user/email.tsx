@@ -14,6 +14,7 @@ import { getProfile, bindEmail, post } from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import ThemeRoot from '@/components/ThemeRoot'
 import './email.css'
+import { onToast } from '@/host/on-toast'
 
 export default function Email() {
   const { t } = useI18n()
@@ -67,7 +68,7 @@ export default function Email() {
           setEmail(e ? '' : e)
         } catch (e) {
           logger.error('user/email', '获取用户信息', e)
-          Taro.showToast({ title: tt('common.failed', '操作失败'), icon: 'none' })
+          onToast(tt('common.failed', '操作失败'), { kind: 'error' })
         }
       })()
     })
@@ -91,14 +92,11 @@ export default function Email() {
     if (counting) return
     const target = (email || '').trim()
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(target)) {
-      Taro.showToast({ title: tt('user.email.emailInvalid', '邮箱格式不正确'), icon: 'none' })
+      onToast(tt('user.email.emailInvalid', '邮箱格式不正确'), { kind: 'error' })
       return
     }
     if (target === currentEmail) {
-      Taro.showToast({
-        title: tt('user.email.sameAsCurrent', '新邮箱不能与当前邮箱相同'),
-        icon: 'none',
-      })
+      onToast(tt('user.email.sameAsCurrent', '新邮箱不能与当前邮箱相同'), { kind: 'error' })
       return
     }
     try {
@@ -106,11 +104,11 @@ export default function Email() {
       // (旧写法打 /auth/email/send —— 全仓零注册,再降级 /auth/sms/send 把邮箱当 phone 传,
       //  而 sms 的 scene 枚举里也没有 'email' ⇒ 两条腿必然都失败)
       await post<{ sent: boolean }>('/auth/email/code', { email: target, scene: 'bind' })
-      Taro.showToast({ title: tt('user.email.codeSent', '验证码已发送'), icon: 'success' })
+      onToast(tt('user.email.codeSent', '验证码已发送'), { kind: 'success' })
       startCountdown()
     } catch (e) {
       logger.error('user/email', '发送邮箱验证码', e)
-      Taro.showToast({ title: tt('user.email.codeSendFailed', '验证码发送失败'), icon: 'none' })
+      onToast(tt('user.email.codeSendFailed', '验证码发送失败'), { kind: 'error' })
     }
   }
 
@@ -118,21 +116,21 @@ export default function Email() {
     if (submitting) return
     const target = (email || '').trim()
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(target)) {
-      Taro.showToast({ title: tt('user.email.emailInvalid', '邮箱格式不正确'), icon: 'none' })
+      onToast(tt('user.email.emailInvalid', '邮箱格式不正确'), { kind: 'error' })
       return
     }
     if (code.trim().length !== 6) {
-      Taro.showToast({ title: tt('user.email.codeLength', '请输入 6 位验证码'), icon: 'none' })
+      onToast(tt('user.email.codeLength', '请输入 6 位验证码'), { kind: 'info' })
       return
     }
     setSubmitting(true)
     try {
       await bindEmail(target, code.trim())
-      Taro.showToast({ title: tt('user.email.bindSuccess', '邮箱绑定成功'), icon: 'success' })
+      onToast(tt('user.email.bindSuccess', '邮箱绑定成功'), { kind: 'success' })
       setTimeout(() => Taro.navigateBack(), 1000)
     } catch (e) {
       logger.error('user/email', '绑定邮箱', e)
-      Taro.showToast({ title: tt('common.failed', '操作失败'), icon: 'none' })
+      onToast(tt('common.failed', '操作失败'), { kind: 'error' })
     } finally {
       setSubmitting(false)
     }

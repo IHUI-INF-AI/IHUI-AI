@@ -43,13 +43,14 @@ export function AboutScreen() {
   const navigation = useNavigation<NavigationProp>()
   const { t } = useI18n()
   const { resolvedTheme } = useTheme()
+  const { onNavigate, onToast } = useHostPorts()
 
   const openPortal = useCallback(() => {
-    navigation.navigate('WebView', {
+    onNavigate('WebView', {
       url: `${WEB_BASE_URL}/developer`,
       title: t('about.ctaSecondary'),
     })
-  }, [navigation, t])
+  }, [onNavigate, t])
 
   /**
    * 入口 id → 本端跳转。逐条具名调用(而不是 `navigate(ROUTE[id])`):
@@ -57,16 +58,16 @@ export function AboutScreen() {
    * 会把「屏改名」从编译期错误降级成运行时白屏。
    */
   const goTo: Record<(typeof ABOUT_ENTRY_IDS)[number], () => void> = {
-    agreement: () => navigation.navigate('Agreement'),
-    privacy: () => navigation.navigate('Privacy'),
-    appPermission: () => navigation.navigate('AppPermission'),
-    usageRules: () => navigation.navigate('UsageRules'),
-    businessLicense: () => navigation.navigate('BusinessLicense'),
-    icpRecord: () => navigation.navigate('IcpRecord'),
-    modelRecord: () => navigation.navigate('ModelRecord'),
-    apiSettings: () => navigation.navigate('ApiSettings'),
-    help: () => navigation.navigate('Help'),
-    contact: () => navigation.navigate('CustomerService'),
+    agreement: () => onNavigate('Agreement'),
+    privacy: () => onNavigate('Privacy'),
+    appPermission: () => onNavigate('AppPermission'),
+    usageRules: () => onNavigate('UsageRules'),
+    businessLicense: () => onNavigate('BusinessLicense'),
+    icpRecord: () => onNavigate('IcpRecord'),
+    modelRecord: () => onNavigate('ModelRecord'),
+    apiSettings: () => onNavigate('ApiSettings'),
+    help: () => onNavigate('Help'),
+    contact: () => onNavigate('CustomerService'),
   }
 
   const entries = ABOUT_ENTRY_IDS.map((id) => ({
@@ -75,14 +76,12 @@ export function AboutScreen() {
     onPress: goTo[id],
   }))
 
-  const { onNavigate, onToast } = useHostPorts()
-
   return (
     <SharedAboutScreen
       t={t}
       colorScheme={resolvedTheme}
       onBack={() => navigation.goBack()}
-      onRegister={() => navigation.navigate('Register')}
+      onRegister={() => onNavigate('Register')}
       onOpenPortal={openPortal}
       entries={entries}
       onNavigate={onNavigate}

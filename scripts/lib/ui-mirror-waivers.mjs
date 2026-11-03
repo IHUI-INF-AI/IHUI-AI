@@ -99,5 +99,79 @@ export function waiverVerdict(pair, missingNames, waivers, today = todayIso()) {
   return { used, expired, rot }
 }
 
-export const __test__ = { parseWaivers, rowOk, todayIso, waiverVerdict }
+/**
+ * 间距族 fractional 档 → 等值裸 rpx 的**像素等值归一**(2026-11-03 立,判序仍在本单源)。
+ *
+ * 立因(不是猜测,是量出来的):`check-miniapp-css-landing` 的 C8 死规则族实测 `py-0.5` 在 weapp
+ * 产物里**挂不上**(CSS 里有规则、运行时 token 抽取与全文子串两侧都看不见),小程序壳因此必须写
+ * 等值的 rpx 任意值。而 `gen-ui-mirror` 按**逐字**比两端映射表,于是把这条平台约束读成「漂移」——
+ * 派生器一旦以写档被调,就把别席已入库的修复改回死规则并打红 C8(2026-11-02 实测:ui-mirror 腿
+ * 连续 12 轮报的正是这一格)。跨端交付标准是**像素同值**而非字面同值,所以等值必须判成一致。
+ *
+ * 算式与本仓既有定档同源:档值 v → v×4px,TARO_RPX_PER_PX=2 → v×8rpx(0.5 ⇒ 4rpx、1.5 ⇒ 12rpx、
+ * 2.5 ⇒ 20rpx、3.5 ⇒ 28rpx;(n+0.5)×8 恒为整数)。
+ *
+ * 射程刻意收窄:只认间距尺上的 `<prop>[-x|-y]-<整数>.5` 形,且**只往 rpx 方向**归一。
+ * 非 fractional、非间距尺(`rounded-*`/`text-*`/`border-*` 自有尺度)一律不碰 —— 这把尺的职责是
+ * 抹平"同一像素的两种写法",不是把真漂移(`p-3` 对 `p-4`)也抹平。
+ */
+export const SPACING_SCALE_PROPS = [
+  'p',
+  'px',
+  'py',
+  'pt',
+  'pb',
+  'pl',
+  'pr',
+  'm',
+  'mx',
+  'my',
+  'mt',
+  'mb',
+  'ml',
+  'mr',
+  'gap',
+  'gap-x',
+  'gap-y',
+  'space-x',
+  'space-y',
+  'inset-x',
+  'inset-y',
+  'inset',
+  'top',
+  'right',
+  'bottom',
+  'left',
+  'w',
+  'h',
+  'size',
+]
+
+/** 单个 fractional 类名 → 等值 rpx 任意值;不是该形则原样返回。 */
+export function fractionalToRpx(cls) {
+  // 必须用 new RegExp 构造:把 ${…} 写进正则字面量不插值,会得到一把永不匹配的尺(函数静默变 no-op)。
+  // 负号必须**单独成组**:整匹配自己就是 group 1,按位置取会把全串当成负号拼回去(实测产出 `p-1.5p-[12rpx]`)。
+  const re = new RegExp(`^(-?)((?:${SPACING_SCALE_PROPS.join('|')}))-(\\d+)\\.5$`)
+  const m = re.exec(String(cls ?? '').trim())
+  if (!m) return cls
+  const [, sign = '', prop, whole] = m
+  return `${sign}${prop}-[${Number(whole) * 8 + 4}rpx]`
+}
+
+/** 对一段声明文本做整段等值归一(两端同一把尺,故归一后逐字相等即像素相等)。 */
+export function normalizeFractionalSpacing(text) {
+  return String(text ?? '').replace(
+    /(-?(?:p|px|py|pt|pb|pl|pr|m|mx|my|mt|mb|ml|mr|gap-x|gap-y|gap|space-x|space-y|inset-x|inset-y|inset|top|right|bottom|left|w|h|size)-\d+\.5)/g,
+    (cls) => fractionalToRpx(cls),
+  )
+}
+
+export const __test__ = {
+  parseWaivers,
+  rowOk,
+  todayIso,
+  waiverVerdict,
+  fractionalToRpx,
+  normalizeFractionalSpacing,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -81,8 +81,10 @@ export default function TeamsPage() {
       <BackButton />
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">{t('title')}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+          <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">
+            {t('title')}
+          </h1>
+          <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
         </div>
         <TeamDialog
           open={dialogOpen}

@@ -76,7 +76,7 @@ let server: FastifyInstance
 async function lastInserted(): Promise<Record<string, unknown>> {
   const row = h.state.inserted[h.state.inserted.length - 1]
   expect(row, '没有任何一行进库').toBeTruthy()
-  return row
+  return row!
 }
 
 beforeAll(async () => {

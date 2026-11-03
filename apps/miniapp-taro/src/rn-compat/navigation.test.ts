@@ -2,6 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+import { readFileSync } from 'node:fs'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 const taro = vi.hoisted(() => ({
@@ -19,17 +20,22 @@ vi.mock('@tarojs/taro', () => ({
   default: taro,
   useDidShow: vi.fn(),
   useDidHide: vi.fn(),
+  useUnload: vi.fn(),
 }))
 
 import { RN_ROUTE_MAP } from './route-map.generated'
+import { MINI_TAB_PAGE_LIST } from '../constants/tab-bar-pages'
 import {
   buildRoutePath,
+  createCompatNavigation,
   createFocusEffectController,
   emitNavigationFailure,
+  getNavigationState,
   getPageParams,
   MINI_TAB_PATHS,
   onNavigationFailure,
   readCarrierParams,
+  releaseCarrierParams,
   resolveNavigationAction,
   setPageParams,
   subscribePageParams,
@@ -100,6 +106,25 @@ describe('buildRoutePath', () => {
     expect(readCarrierParams(token)).toEqual({ item: { a: 1 } })
     vi.setSystemTime(new Date(Date.now() + 6 * 60 * 1000))
     expect(readCarrierParams(token)).toBeNull()
+  })
+
+  it('releaseCarrierParams:页面 unload 后令牌立即失效,重复释放/非法令牌不抛', () => {
+    const url = buildRoutePath(ROUTE_NAME, { item: { a: 1 } })
+    const token = new URLSearchParams(url!.split('?')[1] ?? '').get('$rp')
+    expect(readCarrierParams(token)).toEqual({ item: { a: 1 } })
+    releaseCarrierParams(token)
+    expect(readCarrierParams(token)).toBeNull()
+    expect(() => releaseCarrierParams(token)).not.toThrow()
+    expect(() => releaseCarrierParams(undefined)).not.toThrow()
+  })
+
+  it('通道容量:连发 25 条只保留最新 20 条(不随页面数线性增长)', () => {
+    const tokens = Array.from({ length: 25 }, (_, i) => {
+      const url = buildRoutePath(ROUTE_NAME, { nested: { i } })
+      return new URLSearchParams(url!.split('?')[1] ?? '').get('$rp')
+    })
+    expect(tokens.slice(0, 5).every((token) => readCarrierParams(token) === null)).toBe(true)
+    expect(tokens.slice(5).every((token) => readCarrierParams(token) !== null)).toBe(true)
   })
 })
 
@@ -280,6 +305,84 @@ describe('createFocusEffectController(useFocusEffect 的纯内核)', () => {
     controller.setEffect(null)
     controller.run()
     expect(effect).not.toHaveBeenCalled()
+  })
+})
+
+describe('createCompatNavigation 端口等价面', () => {
+  function makeNav() {
+    const failures: NavigationFailure[] = []
+    const nav = createCompatNavigation({
+      fail: (name, reason, detail) => failures.push({ name, reason, detail }),
+      focusListeners: new Set(),
+      blurListeners: new Set(),
+    })
+    return { nav, failures }
+  }
+
+  it('getState() 不再 TypeError,形状为 { routeNames, index, route, params }', () => {
+    taro.getCurrentInstance.mockReturnValue({
+      page: null,
+      router: { path: '/pkg-about/about/index', params: { id: '7', gone: null } },
+    })
+    taro.getCurrentPages.mockReturnValue([{}, {}, {}])
+
+    const state = getNavigationState()
+    expect(Object.keys(state).sort()).toEqual(['index', 'params', 'route', 'routeNames'])
+    expect(state.routeNames).toEqual(Object.keys(RN_ROUTE_MAP))
+    expect(state.index).toBe(2)
+    expect(state.route).toBe('/pkg-about/about/index')
+    expect(state.params).toEqual({ id: '7' })
+  })
+
+  it('薄壳经 createCompatNavigation().getState() 读到同一份路由表(不抛 TypeError)', () => {
+    const { nav } = makeNav()
+    const state = nav.getState()
+    expect(state.routeNames).toContain(ROUTE_NAME)
+    expect(state.routeNames.length).toBe(Object.keys(RN_ROUTE_MAP).length)
+  })
+
+  it('replace 真走 redirectTo,不降级成 navigateTo', () => {
+    taro.navigateTo.mockClear()
+    taro.redirectTo.mockClear()
+    const { nav } = makeNav()
+    nav.replace(ROUTE_NAME, { id: 1 })
+
+    expect(taro.redirectTo).toHaveBeenCalledTimes(1)
+    expect(String(taro.redirectTo.mock.calls[0]?.[0]?.url)).toContain(ROUTE_PATH)
+    expect(taro.navigateTo).not.toHaveBeenCalled()
+  })
+
+  it('options.tab 经 switchTabIfNeeded 判定:命中走 switchTab,不命中显式失败', () => {
+    taro.switchTab.mockClear()
+    taro.navigateTo.mockClear()
+    const { nav, failures } = makeNav()
+    const tabRouteName = Object.entries(RN_ROUTE_MAP).find(([, path]) =>
+      MINI_TAB_PATHS.includes(path),
+    )?.[0]
+
+    if (tabRouteName) {
+      nav.navigate(tabRouteName, {}, { tab: true })
+      expect(taro.switchTab).toHaveBeenCalledTimes(1)
+      expect(taro.navigateTo).not.toHaveBeenCalled()
+    }
+
+    nav.navigate(ROUTE_NAME, {}, { tab: true })
+    expect(failures.at(-1)?.reason).toBe('tab-mismatch')
+    expect(taro.navigateTo).not.toHaveBeenCalled()
+  })
+
+  it('tab 名单与 app.config 同源:MINI_TAB_PATHS 由 MINI_TAB_PAGE_LIST 派生且仍是 5 页', () => {
+    expect(MINI_TAB_PATHS).toEqual(MINI_TAB_PAGE_LIST.map((path) => `/${path}`))
+    expect(MINI_TAB_PATHS).toHaveLength(5)
+    expect(MINI_TAB_PATHS).toContain('/pages/user/index')
+    expect(MINI_TAB_PATHS).toContain('/pages/share/index')
+  })
+
+  it('逐字比对 app.config.ts tabBar.list:配置与 MINI_TAB_PAGE_LIST 任一漂移即红', () => {
+    // app.config 不能 import TS 常量(Taro 配置加载器不支持),故用配置文本做契约钉死。
+    const source = readFileSync(new URL('../app.config.ts', import.meta.url), 'utf8')
+    const configured = [...source.matchAll(/pagePath:\s*'([^']+)'/g)].map((match) => match[1])
+    expect(configured).toEqual([...MINI_TAB_PAGE_LIST])
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

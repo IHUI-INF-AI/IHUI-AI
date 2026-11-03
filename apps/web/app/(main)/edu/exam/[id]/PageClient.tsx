@@ -71,7 +71,7 @@ export default function EduExamTakePage() {
       <div className="space-y-4">
         <Link
           href="/edu/exam"
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex items-center gap-1.5 text-body text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
           {t('backToList')}
@@ -94,7 +94,7 @@ export default function EduExamTakePage() {
         <button
           type="button"
           onClick={() => router.push('/edu/exam')}
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
           {t('backToList')}
@@ -125,7 +125,7 @@ export default function EduExamTakePage() {
       <div className="space-y-4">
         <Link
           href="/edu/exam"
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex items-center gap-1.5 text-body text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
           {t('backToList')}
@@ -140,18 +140,18 @@ export default function EduExamTakePage() {
       <div className="flex items-center justify-between">
         <Link
           href="/edu/exam"
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex items-center gap-1.5 text-body text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
           {t('backToList')}
         </Link>
-        <span className="flex items-center gap-1 text-sm text-muted-foreground">
+        <span className="flex items-center gap-1 text-body text-muted-foreground">
           <Clock className="h-4 w-4" />
           {t('duration', { n: exam.duration })}
         </span>
       </div>
 
-      <div className="flex items-center justify-between text-sm">
+      <div className="flex items-center justify-between text-body">
         <h1 className="text-lg font-semibold">{exam.title}</h1>
         <span className="text-muted-foreground">
           {t('answeredProgress', { answered: answeredCount, total: questions.length })}
@@ -162,7 +162,7 @@ export default function EduExamTakePage() {
         <CardContent className="min-[640px]:p-3 space-y-4 p-3">
           <p className="text-body font-medium">
             {t('questionProgress', { current: current + 1, total: questions.length })}
-            <span className="ml-2 text-xs text-muted-foreground">
+            <span className="ml-2 text-label text-muted-foreground">
               {q.type === 'single' ? t('single') : t('multiple')}
             </span>
           </p>
@@ -176,13 +176,13 @@ export default function EduExamTakePage() {
                   type="button"
                   onClick={() => toggle(q.id, opt.key, q.type === 'single')}
                   className={cn(
-                    'flex w-full items-center gap-3 rounded-sm border px-3 py-2.5 text-left text-sm transition-colors',
+                    'flex w-full items-center gap-3 rounded-sm border px-3 py-2.5 text-left text-body transition-colors',
                     selected ? 'border-brand-accent-deep bg-primary/5' : 'hover:bg-accent',
                   )}
                 >
                   <span
                     className={cn(
-                      'flex h-5 w-5 shrink-0 items-center justify-center rounded-md border text-xs',
+                      'flex h-5 w-5 shrink-0 items-center justify-center rounded-md border text-label',
                       selected
                         ? 'border-brand-accent-deep bg-cta text-cta-foreground'
                         : 'text-muted-foreground',

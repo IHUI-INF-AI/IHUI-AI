@@ -111,7 +111,7 @@ export default function AdminApiPlatformUsagePage() {
             <BarChart3 className="h-6 w-6 text-primary" />
             {t('title')}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+          <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
         </div>
         <Select value={range} onValueChange={setRange}>
           <SelectTrigger className={selectClass} aria-label={t('rangeAriaLabel')}>
@@ -141,7 +141,7 @@ export default function AdminApiPlatformUsagePage() {
                   {typeof c.value === 'number' ? formatNumber(c.value) : c.value}
                 </div>
                 {c.key === 'success' && (
-                  <div className="mt-1 text-xs text-muted-foreground">
+                  <div className="mt-1 text-label text-muted-foreground">
                     {t('successRate')} {successRate.toFixed(1)}%
                   </div>
                 )}
@@ -155,12 +155,12 @@ export default function AdminApiPlatformUsagePage() {
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50">
-              <TableHead className="text-xs uppercase">{t('colApp')}</TableHead>
-              <TableHead className="text-xs uppercase">{t('colCallCount')}</TableHead>
-              <TableHead className="text-xs uppercase">{t('colSuccess')}</TableHead>
-              <TableHead className="text-xs uppercase">{t('colFail')}</TableHead>
-              <TableHead className="text-xs uppercase">{t('colAvgLatency')}</TableHead>
-              <TableHead className="text-xs uppercase">{t('colQuotaUsage')}</TableHead>
+              <TableHead className="text-label uppercase">{t('colApp')}</TableHead>
+              <TableHead className="text-label uppercase">{t('colCallCount')}</TableHead>
+              <TableHead className="text-label uppercase">{t('colSuccess')}</TableHead>
+              <TableHead className="text-label uppercase">{t('colFail')}</TableHead>
+              <TableHead className="text-label uppercase">{t('colAvgLatency')}</TableHead>
+              <TableHead className="text-label uppercase">{t('colQuotaUsage')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -204,11 +204,11 @@ export default function AdminApiPlatformUsagePage() {
                             style={{ width: `${Math.min(rate, 100)}%` }}
                           />
                         </div>
-                        <span className="text-xs text-muted-foreground">
+                        <span className="text-label text-muted-foreground">
                           {r.quotaUsed}/{r.quotaTotal} ({rate.toFixed(0)}%)
                         </span>
                       </div>
-                      <div className="mt-0.5 text-xs text-muted-foreground">
+                      <div className="mt-0.5 text-label text-muted-foreground">
                         {t('successRate')} {rowSuccessRate.toFixed(1)}%
                       </div>
                     </TableCell>

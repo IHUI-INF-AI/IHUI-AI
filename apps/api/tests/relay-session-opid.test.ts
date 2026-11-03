@@ -73,7 +73,7 @@ function seedOps(
       conversationId: r.conv,
       accountId: 'acct-a',
       ...(r.opId === undefined ? {} : { opId: r.opId }),
-      entries: [entry(r.conv)],
+      entries: [entry(String(r.conv))],
     }),
   )
   writeFileSync(file, `${lines.join('\n')}\n`)

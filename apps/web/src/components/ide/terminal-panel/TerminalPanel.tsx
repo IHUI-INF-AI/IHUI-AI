@@ -146,7 +146,7 @@ export function TerminalPanel() {
 
   if (!hasToken) {
     return (
-      <div className="flex h-full w-full items-center justify-center text-sm text-muted-foreground">
+      <div className="flex h-full w-full items-center justify-center text-body text-muted-foreground">
         {t('terminalPanel.loginRequired')}
       </div>
     )
@@ -184,7 +184,7 @@ export function TerminalPanel() {
             onSetActivePane={setActivePane}
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-sm text-muted-foreground">
+          <div className="flex h-full w-full items-center justify-center text-body text-muted-foreground">
             {loading ? t('terminalPanel.creatingTerminal') : t('terminalPanel.createHint')}
           </div>
         )}

@@ -14,6 +14,7 @@ import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon from '@/components/LineIcon'
 import { EmptyState } from '@/components/ScreenStates.taro'
 import './detail.css'
+import { onToast } from '@/host/on-toast'
 
 interface Comment {
   id: string
@@ -84,7 +85,7 @@ export default function CircleDetailPage() {
         logger.error('circle/detail', '获取动态详情', e)
         // 即时提示(原有行为)+ 落在正文里的失败态(共享屏 ErrorState 的语义)两层都要:
         // toast 一闪而过,只留它等于"失败过一次就当加载完了"
-        Taro.showToast({ title: tt('common.failed', '加载失败'), icon: 'none' })
+        onToast(tt('common.failed', '加载失败'), { kind: 'error' })
         setError(tt('postDetail.loadFailed', '加载帖子失败'))
       }
       try {
@@ -121,19 +122,19 @@ export default function CircleDetailPage() {
 
   const onFollow = useCallback(async () => {
     if (!data.authorId) {
-      Taro.showToast({ title: tt('circle.detail.followed', '已关注'), icon: 'success' })
+      onToast(tt('circle.detail.followed', '已关注'), { kind: 'success' })
       return
     }
     const prev = following
     setFollowing(!prev)
     try {
       await post('/interactions/follow', { userId: data.authorId })
-      Taro.showToast({
-        title: prev
+      onToast(
+        prev
           ? tt('circle.detail.unfollowed', '已取消关注')
           : tt('circle.detail.followed', '已关注'),
-        icon: 'success',
-      })
+        { kind: 'success' },
+      )
     } catch (e) {
       logger.error('circle/detail', '关注用户', e)
       setFollowing(prev)
@@ -175,7 +176,7 @@ export default function CircleDetailPage() {
     Taro.setClipboardData({
       data: `${tt('circle.detail.shareHint', '看看这个动态')}: /pages/circle/detail?id=${id}`,
       success: () => {
-        Taro.showToast({ title: tt('circle.detail.copied', '链接已复制'), icon: 'success' })
+        onToast(tt('circle.detail.copied', '链接已复制'), { kind: 'success' })
       },
     })
   }, [id, tt])
@@ -187,7 +188,7 @@ export default function CircleDetailPage() {
     try {
       await post('/circles/dynamic/comment', { dynamicId: id, content: text })
       setCommentText('')
-      Taro.showToast({ title: tt('circle.detail.commentSent', '评论成功'), icon: 'success' })
+      onToast(tt('circle.detail.commentSent', '评论成功'), { kind: 'success' })
       const c = await get<CommentData>('/circles/dynamic/comments', {
         dynamicId: id,
         page: 1,
@@ -205,7 +206,7 @@ export default function CircleDetailPage() {
 
   const goCommentList = useCallback(() => {
     // 项目暂无独立评论列表页(/pages/comment/* 未注册),降级为提示引导在本页评论区浏览
-    Taro.showToast({ title: tt('circle.detail.commentListSoon', '评论列表即将开放'), icon: 'none' })
+    onToast(tt('circle.detail.commentListSoon', '评论列表即将开放'), { kind: 'info' })
   }, [tt])
 
   const goAigcDetail = useCallback(() => {

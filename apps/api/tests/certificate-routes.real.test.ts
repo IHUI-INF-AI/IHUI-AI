@@ -22,11 +22,12 @@ vi.mock('../src/plugins/auth.js', () => ({
   requireActiveUser: vi.fn(),
 }))
 
-const certificateRoutes = (await import('../src/routes/certificate.ts')).certificateRoutes
-const adminCertificateRoutes = (await import('../src/routes/certificate.ts')).adminCertificateRoutes
+const certificateRoutes = (await import('../src/routes/certificate.js')).certificateRoutes
+const adminCertificateRoutes = (await import('../src/routes/certificate.js')).adminCertificateRoutes
 
 async function createUser(phone: string, nickname?: string) {
   const [row] = await db.insert(users).values({ phone, nickname }).returning()
+  if (!row) throw new Error('certificate-routes.real.test.ts: 插入未返回行(row)')
   return row
 }
 
@@ -39,6 +40,7 @@ async function createTemplate(data: { name: string; description?: string; status
       status: data.status ?? 1,
     })
     .returning()
+  if (!row) throw new Error('certificate-routes.real.test.ts: 插入未返回行(row)')
   return row
 }
 
@@ -64,6 +66,7 @@ async function createCertificate(data: {
       source: data.source ?? 'manual',
     })
     .returning()
+  if (!row) throw new Error('certificate-routes.real.test.ts: 插入未返回行(row)')
   return row
 }
 

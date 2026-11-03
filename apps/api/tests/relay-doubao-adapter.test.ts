@@ -99,7 +99,7 @@ describe('doubao 提取器:目录缺失 ⇒ NO_SESSION(§0.3 未判定)', () => 
       .extractDoubaoAccounts({ userDataDir: 'Z:/no/such/ihui-doubao-e2e' })
       .catch((e: NodeJS.ErrnoException) => e)
     expect((err as { code?: string }).code).toBe('DOUBAO_NO_SESSION')
-    expect(String(err.message)).toMatch(/未找到豆包数据目录/)
+    expect(String(err instanceof Error ? err.message : '')).toMatch(/未找到豆包数据目录/)
   })
 })
 
@@ -168,7 +168,7 @@ describe('doubao 提取器:目录在盘 ⇒ 形状(临时 Cookies sqlite)', () =
       .extractDoubaoAccounts({ userDataDir: dir })
       .catch((e: NodeJS.ErrnoException) => e)
     expect((err as { code?: string }).code).toBe('DOUBAO_NO_SESSION')
-    expect(String(err.message)).toMatch(/0 条会话族命中/)
+    expect(String(err instanceof Error ? err.message : '')).toMatch(/0 条会话族命中/)
     fs.rmSync(dir, { recursive: true, force: true })
   })
 

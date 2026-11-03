@@ -45,7 +45,7 @@ import { verifyTurnstile } from '../services/turnstile-service.js'
 import { getCaptchaService } from '../services/captcha-service.js'
 
 /** 发码端点 URL 后缀集(与 routeOptions.url 做 endsWith 匹配,天然覆盖各注册前缀)。 */
-export const SMS_SEND_URL_SUFFIXES = [
+const SMS_SEND_URL_SUFFIXES = [
   '/send-code',
   '/sms/send',
   '/auth/sms/code',
@@ -73,7 +73,7 @@ function readThreshold(): number {
 }
 
 /** 是否发码端点(后缀匹配;'?' 已被 routeOptions.url 排除)。 */
-export function isSmsSendUrl(url: string | undefined): boolean {
+function isSmsSendUrl(url: string | undefined): boolean {
   if (!url) return false
   return SMS_SEND_URL_SUFFIXES.some((s) => url === s || url.endsWith(s))
 }

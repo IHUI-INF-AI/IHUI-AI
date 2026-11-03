@@ -53,6 +53,7 @@ vi.mock('../src/db/workspace-queries.js', async (importOriginal) => {
 
 import { workspaceRoutes } from '../src/routes/workspace.js'
 import { tasksRoutes } from '../src/routes/tasks.js'
+import type { Redis } from 'ioredis'
 
 /**
  * 与真 ioredis 同形的最小 fake:`hdel` 的回复就是"真正删掉的 field 数"。
@@ -163,7 +164,7 @@ describe('换键名的布尔写 ack:必须由存储侧答复派生', () => {
   describe('DELETE /api/tasks/devices/:deviceId → Redis HDEL 的删除计数', () => {
     it('HDEL 回复 1(真删掉一个)→ 200 + removed:true,键集逐字不变', async () => {
       const app = Fastify({ logger: false })
-      app.decorate('redis', makeRedis())
+      app.decorate('redis', makeRedis() as unknown as Redis)
       await app.register(tasksRoutes, { prefix: '/api' })
       await app.ready()
       try {
@@ -188,7 +189,7 @@ describe('换键名的布尔写 ack:必须由存储侧答复派生', () => {
 
     it('HDEL 回复 0(设备根本不在表里)→ 200 + removed:false —— 旧实现到这里仍回 true', async () => {
       const app = Fastify({ logger: false })
-      app.decorate('redis', makeRedis({ hdel: 0 }))
+      app.decorate('redis', makeRedis({ hdel: 0 }) as unknown as Redis)
       await app.register(tasksRoutes, { prefix: '/api' })
       await app.ready()
       try {
@@ -207,7 +208,7 @@ describe('换键名的布尔写 ack:必须由存储侧答复派生', () => {
     it('降级档:进程内 Map 的 delete() 答复同样被消费(命中→true,再删同一台→false)', async () => {
       const app = Fastify({ logger: false })
       // throws ⇒ 注册与删除都落进进程内 Map 降级存储(唯一状态源换人,答复仍是真布尔)
-      app.decorate('redis', makeRedis({ throws: true }))
+      app.decorate('redis', makeRedis({ throws: true }) as unknown as Redis)
       await app.register(tasksRoutes, { prefix: '/api' })
       await app.ready()
       try {

@@ -43,6 +43,7 @@ import {
 } from '@/components'
 // 同目录 ./ 子模块:共享屏 order/course 两类的站内消息卡片(还原度门并入本页载体面)
 import { InSiteMessagePane } from './in-site-messages'
+import { onToast } from '@/host/on-toast'
 
 interface Room {
   id?: string
@@ -285,7 +286,7 @@ export default function MessageIndex() {
         )
       })
       .catch(() => {
-        Taro.showToast({ title: t('common.failed'), icon: 'none' })
+        onToast(t('common.failed'), { kind: 'error' })
       })
   }
 
@@ -311,7 +312,7 @@ export default function MessageIndex() {
           setList((prev) => prev.filter((r) => r.id !== room.id))
         })
         .catch(() => {
-          Taro.showToast({ title: t('common.failed'), icon: 'none' })
+          onToast(t('common.failed'), { kind: 'error' })
         })
     })
   }
@@ -399,7 +400,7 @@ export default function MessageIndex() {
         <ThemeRoot>
           <SystemNotice
             list={systemList}
-            onClick={(item) => Taro.showToast({ title: item.title, icon: 'none' })}
+            onClick={(item) => onToast(item.title, { kind: 'info' })}
           />
         </ThemeRoot>
       )

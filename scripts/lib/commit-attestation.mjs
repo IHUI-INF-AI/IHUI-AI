@@ -100,6 +100,11 @@ export function buildBypassRecord({
     envStep: null,
     envFingerprint: null,
     downgradedFromMine: false,
+    // 2026-11-03:commit-msg 阶段复跑的两键(`commitMsgStage` / `commitMsgChecks`)进 safe-commit
+    // 那一本之后,这里同步补齐 —— 旁路不跑钩子 ⇒ 该阶段根本没执行,值取"无从有"
+    // (null / 空数组),而不是省键。理由同上:同一本台账只许一种形状。
+    commitMsgStage: null,
+    commitMsgChecks: [],
   }
 }
 

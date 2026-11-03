@@ -116,7 +116,7 @@ export default function WithdrawPage() {
     <div className="px-4 py-4 mx-auto w-full max-w-md space-y-4">
       <Link
         href="/wallet"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1.5 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         {t('backToWallet')}
@@ -134,11 +134,11 @@ export default function WithdrawPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="rounded-lg bg-muted/40 px-4 py-3">
-              <div className="text-xs text-muted-foreground">{t('availableAmount')}</div>
+              <div className="text-label text-muted-foreground">{t('availableAmount')}</div>
               {availableQ.isLoading ? (
                 <Loader2 className="mt-1 h-5 w-5 animate-spin text-muted-foreground" />
               ) : availableQ.error ? (
-                <div className="mt-1 text-sm text-destructive">
+                <div className="mt-1 text-body text-destructive">
                   {(availableQ.error as Error).message}
                 </div>
               ) : (
@@ -150,7 +150,7 @@ export default function WithdrawPage() {
 
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               {serverError && (
-                <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                <div className="rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">
                   {serverError}
                 </div>
               )}
@@ -166,7 +166,7 @@ export default function WithdrawPage() {
                   {...register('amount')}
                 />
                 {errors.amount && (
-                  <p className="text-xs text-destructive">
+                  <p className="text-label text-destructive">
                     {t((errors.amount.message ?? 'errAmountMin') as Parameters<typeof t>[0])}
                   </p>
                 )}
@@ -197,7 +197,7 @@ export default function WithdrawPage() {
                   {...register('accountInfo')}
                 />
                 {errors.accountInfo && (
-                  <p className="text-xs text-destructive">
+                  <p className="text-label text-destructive">
                     {t(
                       (errors.accountInfo.message ?? 'errAccountRequired') as Parameters<
                         typeof t

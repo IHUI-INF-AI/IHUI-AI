@@ -96,7 +96,7 @@ export default function SchedulePage() {
           <CalendarClock className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       <div className="flex items-center justify-between">
@@ -121,13 +121,13 @@ export default function SchedulePage() {
           {t('loading')}
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {(error as Error).message}
         </div>
       ) : tasks.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
           <CalendarClock className="h-8 w-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">{t('empty')}</p>
+          <p className="text-body text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
@@ -137,7 +137,7 @@ export default function SchedulePage() {
                 <div className="flex items-start justify-between gap-2">
                   <CardTitle className="text-base">{task.name}</CardTitle>
                   <span
-                    className={`inline-flex shrink-0 items-center rounded-md px-2 py-0.5 text-xs ${
+                    className={`inline-flex shrink-0 items-center rounded-md px-2 py-0.5 text-label ${
                       task.enabled
                         ? 'bg-emerald-100 text-emerald-700'
                         : 'bg-muted text-muted-foreground'
@@ -147,19 +147,19 @@ export default function SchedulePage() {
                   </span>
                 </div>
               </CardHeader>
-              <CardContent className="flex-1 min-w-0 space-y-2 text-sm">
+              <CardContent className="flex-1 min-w-0 space-y-2 text-body">
                 {task.description && <p className="text-muted-foreground">{task.description}</p>}
-                <div className="flex items-center gap-1.5 font-mono text-xs">
+                <div className="flex items-center gap-1.5 font-mono text-label">
                   <Clock className="h-3.5 w-3.5 text-muted-foreground" />
                   <span>{task.cronExpression}</span>
                 </div>
                 {task.targetService && (
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-label text-muted-foreground">
                     {task.targetService}
                     {task.targetMethod ? `.${task.targetMethod}` : ''}
                   </p>
                 )}
-                <div className="flex items-center justify-between mt-2 pt-2 text-xs text-muted-foreground">
+                <div className="flex items-center justify-between mt-2 pt-2 text-label text-muted-foreground">
                   <span className="flex items-center gap-1">
                     {statusIcon(task.lastRunStatus)}
                     {task.lastRunStatus ?? t('neverRun')}
@@ -167,7 +167,7 @@ export default function SchedulePage() {
                   <span>{t('priority', { priority: task.priority })}</span>
                 </div>
                 {task.lastRunTime && (
-                  <p className="text-xs text-muted-foreground">{formatDate(task.lastRunTime)}</p>
+                  <p className="text-label text-muted-foreground">{formatDate(task.lastRunTime)}</p>
                 )}
               </CardContent>
             </Card>
@@ -177,7 +177,7 @@ export default function SchedulePage() {
 
       {total > PAGE_SIZE && (
         <div className="flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">{t('total', { total })}</span>
+          <span className="text-body text-muted-foreground">{t('total', { total })}</span>
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
@@ -187,7 +187,7 @@ export default function SchedulePage() {
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <span className="text-sm text-muted-foreground">
+            <span className="text-body text-muted-foreground">
               {page} / {totalPages}
             </span>
             <Button

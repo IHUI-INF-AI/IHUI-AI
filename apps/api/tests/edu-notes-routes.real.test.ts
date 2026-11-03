@@ -25,6 +25,7 @@ const { eduPublicRoutes } = await import('../src/routes/edu-public.js')
 
 async function createUser(phone: string, nickname?: string) {
   const [row] = await db.insert(users).values({ phone, nickname }).returning()
+  if (!row) throw new Error('edu-notes-routes.real.test.ts: 插入未返回行(row)')
   return row
 }
 
@@ -45,6 +46,7 @@ async function createNote(data: {
       lessonId: data.lessonId,
     })
     .returning()
+  if (!row) throw new Error('edu-notes-routes.real.test.ts: 插入未返回行(row)')
   return row
 }
 

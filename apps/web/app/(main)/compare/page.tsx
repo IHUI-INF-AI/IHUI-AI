@@ -364,8 +364,8 @@ export default function CompareIndexPage() {
                 <h2 className="text-heading font-semibold">IHUI AI vs {competitor}</h2>
                 <ArrowRight className="h-5 w-5 text-muted-foreground transition-transform group-hover:translate-x-1" />
               </div>
-              <p className="mt-2 text-sm text-muted-foreground">{tagline}</p>
-              <ul className="mt-4 space-y-1.5 text-sm">
+              <p className="mt-2 text-body text-muted-foreground">{tagline}</p>
+              <ul className="mt-4 space-y-1.5 text-body">
                 {keyPoints.map((point) => (
                   <li key={point} className="flex items-center gap-2 text-muted-foreground">
                     <span className="h-1.5 w-1.5 rounded-full bg-primary" />
@@ -379,8 +379,10 @@ export default function CompareIndexPage() {
 
         {/* 综合对比表格 */}
         <section className="mt-12">
-          <h2 className="text-heading font-bold tracking-tight min-[768px]:text-display">综合对比表</h2>
-          <p className="mt-1 text-sm text-muted-foreground">7 大平台 12 项指标一目了然</p>
+          <h2 className="text-heading font-bold tracking-tight min-[768px]:text-display">
+            综合对比表
+          </h2>
+          <p className="mt-1 text-body text-muted-foreground">7 大平台 12 项指标一目了然</p>
           <div className="mt-6 overflow-x-auto rounded-lg border bg-card shadow-sm">
             <table className="w-full min-w-[760px]">
               <thead>
@@ -429,8 +431,10 @@ export default function CompareIndexPage() {
 
         {/* 全部 36 个深度对比 */}
         <section className="mt-12">
-          <h2 className="text-heading font-bold tracking-tight min-[768px]:text-display">全部深度对比</h2>
-          <p className="mt-1 text-sm text-muted-foreground">IHUI-AI 与 36 个竞品的逐一深度对比</p>
+          <h2 className="text-heading font-bold tracking-tight min-[768px]:text-display">
+            全部深度对比
+          </h2>
+          <p className="mt-1 text-body text-muted-foreground">IHUI-AI 与 36 个竞品的逐一深度对比</p>
           <div className="mt-6 space-y-4">
             {ALL_COMPARISONS.map(({ group, items }) => (
               <div key={group}>
@@ -440,7 +444,7 @@ export default function CompareIndexPage() {
                     <Link
                       key={slug}
                       href={`/compare/ihui-vs-${slug}`}
-                      className="inline-flex items-center ui-control rounded-sm border bg-card px-2.5 py-1 text-xs transition-colors hover:border-primary/40 hover:bg-primary/5"
+                      className="inline-flex items-center ui-control rounded-sm border bg-card px-2.5 py-1 text-label transition-colors hover:border-primary/40 hover:bg-primary/5"
                     >
                       {LABELS[slug] ?? slug}
                     </Link>
@@ -457,7 +461,7 @@ export default function CompareIndexPage() {
           <h2 className="mt-4 text-heading font-bold tracking-tight min-[768px]:text-display">
             立即开始使用 IHUI-AI
           </h2>
-          <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground min-[768px]:text-base">
+          <p className="mx-auto mt-2 max-w-xl text-body text-muted-foreground min-[768px]:text-base">
             开源、免费、8 端同源,176 模型 + LangGraph + MCP + A2A 三栈合一。
           </p>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">

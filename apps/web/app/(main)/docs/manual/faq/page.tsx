@@ -5,7 +5,20 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { ManualNav, chapters } from '../_manual-nav'
-import { Coins, MessageCircle, Lock, Wrench, Users, BarChart3, User, Bot, type LucideIcon } from 'lucide-react'
+import {
+  Coins,
+  MessageCircle,
+  Lock,
+  Wrench,
+  Users,
+  BarChart3,
+  User,
+  Bot,
+  Mail,
+  Lightbulb,
+  PartyPopper,
+  type LucideIcon,
+} from 'lucide-react'
 
 const SITE_URL = 'https://aizhs.top'
 
@@ -16,11 +29,6 @@ export const metadata: Metadata = {
   alternates: {
     canonical: '/docs/manual/faq',
     languages: {
-      'zh-CN': '/zh-cn/docs/manual/faq',
-      'zh-TW': '/zh-tw/docs/manual/faq',
-      en: '/en/docs/manual/faq',
-      ko: '/ko/docs/manual/faq',
-      ja: '/ja/docs/manual/faq',
       'x-default': '/docs/manual/faq',
     },
   },
@@ -228,7 +236,7 @@ export default function ManualFaqPage() {
                   {item.q}
                   <span className="float-right text-muted-foreground transition-transform group-open:rotate-45">+</span>
                 </summary>
-                <p className="mt-3 text-sm text-muted-foreground leading-relaxed">{item.a}</p>
+                <p className="mt-3 text-body text-muted-foreground leading-relaxed">{item.a}</p>
               </details>
             ))}
           </div>
@@ -243,7 +251,10 @@ export default function ManualFaqPage() {
             href="mailto:support@aizhs.top"
             className="rounded-lg border bg-card p-3 transition-colors hover:bg-accent"
           >
-            <p className="text-body font-semibold">📧 邮件支持</p>
+            <p className="flex items-center text-body font-semibold">
+              <Mail className="mr-1.5 inline h-4 w-4" />
+              邮件支持
+            </p>
             <p className="mt-1 text-xs text-muted-foreground">support@aizhs.top</p>
             <p className="mt-1 text-xs text-muted-foreground">工作时间:9:00-22:00,通常 2 小时内回复</p>
           </a>
@@ -281,15 +292,19 @@ export default function ManualFaqPage() {
             <p className="mt-1 text-xs text-muted-foreground">实时监控 + 故障公告 + 历史事件</p>
           </a>
         </div>
-        <div className="rounded-xl border bg-muted/30 p-3 text-xs text-muted-foreground">
-          💡 <strong>提效技巧</strong>:联系客服时附上 ① 账号邮箱 ② 问题截图 ③ 复现步骤 ④ 浏览器 / 系统,
+        <div className="rounded-lg border bg-muted/30 p-3 text-xs text-muted-foreground">
+          <Lightbulb className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
+          <strong>提效技巧</strong>:联系客服时附上 ① 账号邮箱 ② 问题截图 ③ 复现步骤 ④ 浏览器 / 系统,
           可大幅缩短解决时间。Pro / Team 用户有专属优先通道。
         </div>
       </section>
 
       {/* 完结 */}
-      <section className="mt-12 rounded-xl border bg-cta/5 p-3 text-center ring-1 ring-primary/20">
-        <p className="text-lg font-semibold">🎉 手册完结</p>
+      <section className="mt-12 rounded-lg border bg-cta/5 p-3 text-center ring-1 ring-primary/20">
+        <p className="text-lg font-semibold">
+          <PartyPopper className="mr-1.5 inline h-5 w-5 align-text-bottom" aria-hidden />
+          手册完结
+        </p>
         <p className="mt-2 text-sm text-muted-foreground">
           恭喜!你已读完智汇 AI 使用说明手册全部 7 章。
           现在你已掌握从注册到进阶的全部操作。

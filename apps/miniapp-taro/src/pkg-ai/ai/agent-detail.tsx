@@ -15,6 +15,7 @@ import { get, getAgentDetail, getAgentPermission, getAgentList, type AgentPermis
 import AgentRuntimePanel from '@/components/AgentRuntimePanel'
 import { ErrorState } from '@/components/ScreenStates.taro'
 import AgentDetailMeta from './agent-detail-meta'
+import { onToast } from '@/host/on-toast'
 
 /**
  * 本地视图模型(非 api-client Agent 直投):
@@ -291,7 +292,7 @@ export default function AgentDetailPage() {
   const onChat = useCallback(() => {
     if (!agent) return
     if (agent.isVipExclusive && permission && !permission.hasPermission) {
-      Taro.showToast({ title: t('ai.agentDetail.vipPermissionDenied'), icon: 'none' })
+      onToast(t('ai.agentDetail.vipPermissionDenied'), { kind: 'error' })
       return
     }
     // 记录最近使用
@@ -312,11 +313,11 @@ export default function AgentDetailPage() {
     if (favs.includes(id)) {
       favs = favs.filter((x) => x !== id)
       setFavorited(false)
-      Taro.showToast({ title: t('ai.agentDetail.unfavorite'), icon: 'none' })
+      onToast(t('ai.agentDetail.unfavorite'), { kind: 'info' })
     } else {
       favs.push(id)
       setFavorited(true)
-      Taro.showToast({ title: t('ai.agentDetail.favorited'), icon: 'none' })
+      onToast(t('ai.agentDetail.favorited'), { kind: 'info' })
     }
     Taro.setStorageSync(FAVORITE_KEY, favs)
   }, [agent, t])
@@ -421,9 +422,7 @@ export default function AgentDetailPage() {
                 <View className="ml-[24rpx] flex-1">
                   <View className="flex items-center justify-between">
                     <View className="flex items-center flex-1">
-                      <Text className="text-display text-foreground font-bold">
-                        {agent.name}
-                      </Text>
+                      <Text className="text-display text-foreground font-bold">{agent.name}</Text>
                       {agent.isVipExclusive && (
                         <Text className="ml-[16rpx] text-badge px-[12rpx] py-[8rpx] rounded-sm bg-[var(--color-warning-amber)] text-[var(--color-surface-light)] font-semibold">
                           {t('ai.agentDetail.vipExclusive')}
@@ -509,9 +508,7 @@ export default function AgentDetailPage() {
               <Text className="text-caption text-muted-foreground mb-[16rpx] block">
                 {t('ai.agentDetail.prologue')}
               </Text>
-              <Text className="text-title text-foreground leading-[44rpx]">
-                {agent.prologue}
-              </Text>
+              <Text className="text-title text-foreground leading-[44rpx]">{agent.prologue}</Text>
             </View>
           )}
           {/* 使用教程 / 示例对话(对标原项目 exampleDialog) */}

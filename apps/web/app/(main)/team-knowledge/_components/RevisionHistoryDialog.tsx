@@ -67,16 +67,16 @@ export function RevisionHistoryDialog({
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle className="text-sm">{t('historyTitle')}</DialogTitle>
+          <DialogTitle className="text-body">{t('historyTitle')}</DialogTitle>
         </DialogHeader>
         <div className="flex flex-col gap-2 p-3">
           {loading && <Loader2 className="size-4 animate-spin" />}
-          {error && <span className="text-sm text-red-600 dark:text-red-400">{error}</span>}
+          {error && <span className="text-body text-red-600 dark:text-red-400">{error}</span>}
           {!loading && rows.length === 0 && (
-            <div className="text-muted-foreground text-sm">{t('emptyHistory')}</div>
+            <div className="text-muted-foreground text-body">{t('emptyHistory')}</div>
           )}
           {rows.map((r) => (
-            <div key={r.id} className="bg-muted/40 rounded px-3 py-2 text-xs">
+            <div key={r.id} className="bg-muted/40 rounded px-3 py-2 text-label">
               <div className="flex items-center gap-2">
                 <span className="bg-background rounded px-1.5 py-0.5 font-mono">
                   r{r.revisionNo}

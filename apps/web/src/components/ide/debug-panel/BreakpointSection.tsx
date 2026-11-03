@@ -29,7 +29,7 @@ export function BreakpointSection() {
       {breakpoints.map((b) => (
         <div
           key={b.id}
-          className="group flex items-center gap-1.5 px-2 py-0.5 text-xs hover:bg-muted/30"
+          className="group flex items-center gap-1.5 px-2 py-0.5 text-label hover:bg-muted/30"
         >
           <button
             onClick={() => toggleBreakpoint(b.id)}

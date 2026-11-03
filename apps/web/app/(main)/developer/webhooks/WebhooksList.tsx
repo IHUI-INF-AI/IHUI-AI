@@ -41,7 +41,7 @@ export function WebhooksList({
             加载中...
           </div>
         ) : list.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">暂无 Webhook 配置</p>
+          <p className="py-8 text-center text-body text-muted-foreground">暂无 Webhook 配置</p>
         ) : (
           <div className="space-y-2">
             {list.map((wh) => (
@@ -65,13 +65,13 @@ export function WebhooksList({
                       {wh.events.map((ev) => (
                         <span
                           key={ev}
-                          className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground"
+                          className="rounded bg-muted px-1.5 py-0.5 text-label text-muted-foreground"
                         >
                           {ev}
                         </span>
                       ))}
                     </div>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
+                    <p className="mt-0.5 text-label text-muted-foreground">
                       创建于 {dateFmt.format(new Date(wh.createdAt))}
                       {wh.lastTriggeredAt &&
                         ` · 最近触发 ${dateFmt.format(new Date(wh.lastTriggeredAt))}`}

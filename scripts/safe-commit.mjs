@@ -28,6 +28,9 @@
  *
  * 用法:
  *   node scripts/safe-commit.mjs -m "feat: ..." -- apps/web/foo.tsx apps/api/bar.ts
+ *   node scripts/safe-commit.mjs -m "..." --files-from .ihui-agent/tmp/paths.txt
+ *     (清单为 UTF-8、一行一个路径;`-` 表示从 stdin 读。超过 Windows argv 上限的大批量
+ *      路径必须走它 —— 清单内路径逐条校验后仍进同一条五步法,没有任何旁路。)
  *   AGENT_SCOPE="apps/web/" node scripts/safe-commit.mjs -m "..." -- apps/web/foo.tsx
  *
  * 退出码:
@@ -50,7 +53,7 @@ import {
   statSync,
   writeFileSync,
 } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
   classifyHookFailure,
@@ -127,6 +130,12 @@ import { gitRaw } from './lib/face-reader.mjs'
 
 // 本脚本所在仓的根(AGENTS §15:由自身位置推导,不得写死盘符)
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+// 用户调用时的 cwd —— 必须在任何 process.chdir(repoRoot) **之前**取样:
+// `--files-from <相对路径>` 的解析基准是用户站的位置,不是仓根。
+const INVOCATION_CWD = process.cwd()
+
+/** 路径归一化:统一正斜杠(Windows 路径兼容)+ 去掉 `./` 前缀。声明侧与 git 侧共用这一份。 */
+const normalize = (f) => f.replace(/\\/g, '/').replace(/^\.\//, '')
 
 const C = {
   red: '\x1b[31m',
@@ -170,6 +179,9 @@ const args = process.argv.slice(2)
 const messageParts = []
 const expectedFiles = []
 let dryRun = false
+// --files-from 清单入口(2026-11-02 立):argv 上限下 1747 条路径装不进命令行,
+// 这里只换**入口的运输方式**,不换五步法。`-` = stdin。
+let filesFrom = null
 
 for (let i = 0; i < args.length; i++) {
   const a = args[i]
@@ -177,12 +189,36 @@ for (let i = 0; i < args.length; i++) {
     messageParts.push(args[++i])
   } else if (a.startsWith('--message=')) {
     messageParts.push(a.split('=').slice(1).join('='))
+  } else if (a === '--files-from') {
+    const v = args[++i]
+    if (typeof v !== 'string' || v.length === 0) {
+      console.error(`${C.red}❌ --files-from 后必须跟清单文件路径(或 - 表示 stdin)${C.reset}`)
+      process.exit(2)
+    }
+    if (filesFrom !== null) {
+      console.error(`${C.red}❌ --files-from 只能给一次(清单不拼接,避免"以为读了 A 实际读了 B")${C.reset}`)
+      process.exit(2)
+    }
+    filesFrom = v
+  } else if (a.startsWith('--files-from=')) {
+    const v = a.slice('--files-from='.length)
+    if (v.length === 0) {
+      console.error(`${C.red}❌ --files-from= 后必须跟清单文件路径(或 - 表示 stdin)${C.reset}`)
+      process.exit(2)
+    }
+    if (filesFrom !== null) {
+      console.error(`${C.red}❌ --files-from 只能给一次(清单不拼接,避免"以为读了 A 实际读了 B")${C.reset}`)
+      process.exit(2)
+    }
+    filesFrom = v
   } else if (a === '--dry-run' || a === '-n') {
     dryRun = true
   } else if (a === '--' || a === '--help' || a === '-h') {
     if (a === '--help' || a === '-h') {
       console.log('用法: node scripts/safe-commit.mjs -m "<msg>" -- <file1> [file2 ...]')
+      console.log('      node scripts/safe-commit.mjs -m "<msg>" --files-from <path|->')
       console.log('  --dry-run       只校验不 commit')
+      console.log('  --files-from    从 UTF-8 清单读路径(一行一个;`-` = stdin);与 `--` 后路径取并集')
       console.log('  --scope <dir>   限定本 agent 范围(可用环境变量 AGENT_SCOPE)')
       console.log('  环境变量: AGENT_SCOPE="apps/web/ apps/api/" 限定范围')
       process.exit(0)
@@ -205,8 +241,12 @@ if (!message) {
   process.exit(2)
 }
 if (expectedFiles.length === 0) {
-  console.error(`${C.red}❌ 必须提供至少一个文件路径(-- file1 file2 ...)${C.reset}`)
-  process.exit(2)
+  // --files-from 时清单还没读(要到仓根解析之后才能逐条校验存在/忽略态);
+  // 空清单在 0.2 段按"清单为空"报,不在这里误报成"没给文件路径"。
+  if (filesFrom === null) {
+    console.error(`${C.red}❌ 必须提供至少一个文件路径(-- file1 file2 ...)${C.reset}`)
+    process.exit(2)
+  }
 }
 
 // ─── 0. 环境检查 ────────────────────────────────────────────
@@ -221,6 +261,180 @@ const currentBranch = run('git symbolic-ref --short HEAD', { allowFail: true })
 if (!currentBranch) {
   log('err', '处于 detached HEAD,无法安全 commit')
   process.exit(2)
+}
+
+// ─── 0.2 --files-from 清单入口(2026-11-02 立)───────────────────────────────
+// 立因:1747 条路径的合规提交在 Windows 上装不进 CreateProcess 的 32,767 字符命令行,
+// **入口本身先死**,五步法再严也轮不到跑。这里只换入口的运输方式(清单文件→内存),
+// 读出的路径经逐条校验后仍进 expectedFiles,Step 1-5、声明精确校验、门禁与归因一字不动。
+//
+// 校验口径(全部显式报错并列出,不静默跳过):
+//   · UTF-8 严格解码(非法字节/乱码直接拒,不把坏编码当路径);
+//   · 一行一个路径:拒绝空行、绝对路径、任何 `..` 段、`.git` 内部路径、NUL;
+//   · 必须存在于工作树且是普通文件(不存在/目录/特殊文件一律拒);
+//   · 解析后必须仍在仓库根之内;
+//   · 不得被 .gitignore 忽略(git 默认口径下"已跟踪项"不算忽略,与 Step 2 既有的
+//     已跟踪 -f 分支同义);
+//   · 清单内重复、以及与 `--` 参数重复,一律拒。
+// 如实登记的局限:清单模式只收**存在于工作树**的路径,所以删除态提交仍走 `--` 参数
+// (删除态没有"存在的文件"可校验,放进来就得为它单开一条绕过校验的通道)。
+function decodeManifest(source, cwd) {
+  let buf
+  if (source === '-') {
+    try {
+      buf = readFileSync(0)
+    } catch (e) {
+      throw new Error(`从 stdin 读清单失败:${e?.code || e?.message || e}`)
+    }
+  } else {
+    const p = isAbsolute(source) ? source : resolve(cwd, source)
+    let st
+    try {
+      st = statSync(p)
+    } catch (e) {
+      throw new Error(`清单文件不存在或不可读:${p}(${e?.code || e?.message || e})`)
+    }
+    if (st.isDirectory()) throw new Error(`--files-from 指向的是目录,不是清单文件:${p}`)
+    try {
+      buf = readFileSync(p)
+    } catch (e) {
+      throw new Error(`清单文件读取失败:${p}(${e?.code || e?.message || e})`)
+    }
+  }
+  let text
+  try {
+    text = new TextDecoder('utf-8', { fatal: true }).decode(buf)
+  } catch {
+    throw new Error('清单不是合法 UTF-8 文本(拒绝把乱码当路径)')
+  }
+  return text.replace(/^\uFEFF/, '')
+}
+
+function validateManifest({ source, root, cwd, cliFiles = [] }) {
+  const text = decodeManifest(source, cwd)
+  const lines = text.split('\n')
+  // 只吃掉**文件末尾换行**产生的那一个空串;其余空串都是真空行(按票面拒)。
+  if (lines.length > 0 && lines[lines.length - 1] === '') lines.pop()
+  const problems = []
+  const firstSeen = new Map()
+  const acceptable = []
+  const cliNorm = new Set(cliFiles.map(normalize))
+  for (let i = 0; i < lines.length; i++) {
+    const lineNo = i + 1
+    const raw = lines[i].replace(/\r$/, '')
+    if (raw.trim() === '') {
+      problems.push(`第 ${lineNo} 行:空行(清单必须一行一个路径)`)
+      continue
+    }
+    if (raw.includes('\0')) {
+      problems.push(`第 ${lineNo} 行:含 NUL 字节`)
+      continue
+    }
+    if (isAbsolute(raw)) {
+      problems.push(`第 ${lineNo} 行:绝对路径 ${raw}`)
+      continue
+    }
+    const rel = normalize(raw)
+    const segments = rel.split('/')
+    if (segments.includes('..')) {
+      problems.push(`第 ${lineNo} 行:含 ".." 路径段 ${raw}`)
+      continue
+    }
+    if (segments[0].toLowerCase() === '.git') {
+      problems.push(`第 ${lineNo} 行:属于 .git 内部路径 ${raw}`)
+      continue
+    }
+    const abs = resolve(root, rel)
+    const back = relative(root, abs)
+    // 用 `..${sep}` 而不是裸 `..` 前缀:仓根下名为 `..foo` 的普通文件不能被误判成逃逸。
+    if (back === '..' || back.startsWith(`..${sep}`) || isAbsolute(back)) {
+      problems.push(`第 ${lineNo} 行:解析到仓库根之外 ${raw}`)
+      continue
+    }
+    if (firstSeen.has(rel)) {
+      problems.push(`第 ${lineNo} 行:重复项 ${rel}(首次出现在第 ${firstSeen.get(rel)} 行)`)
+      continue
+    }
+    firstSeen.set(rel, lineNo)
+    if (cliNorm.has(rel)) {
+      problems.push(`第 ${lineNo} 行:与 -- 参数重复 ${rel}`)
+      continue
+    }
+    let st
+    try {
+      st = statSync(abs)
+    } catch {
+      problems.push(`第 ${lineNo} 行:不存在 ${rel}`)
+      continue
+    }
+    if (st.isDirectory()) {
+      problems.push(`第 ${lineNo} 行:是目录 ${rel}`)
+      continue
+    }
+    if (!st.isFile()) {
+      problems.push(`第 ${lineNo} 行:不是普通文件 ${rel}`)
+      continue
+    }
+    acceptable.push({ path: rel, lineNo })
+  }
+  // .gitignore 判定走 git 自己的口径;一次 stdin 批量问完 —— 逐条派生会把 10,000 条
+  // 变成 10,000 次进程启动,而"这道校验"本身应随清单规模线性、不是平方级。
+  if (acceptable.length > 0) {
+    let ignoredOut = ''
+    try {
+      const r = spawnSync(
+        'git',
+        ['-c', 'safe.directory=*', '-C', root, 'check-ignore', '--stdin', '-z'],
+        {
+          input: `${acceptable.map((e) => e.path).join('\0')}\0`,
+          encoding: 'utf8',
+          windowsHide: true,
+          timeout: 60_000,
+          maxBuffer: 64 * 1024 * 1024,
+          // §12g / 守门 193:派生 git 必须显式接管三个通道
+          stdio: ['pipe', 'pipe', 'pipe'],
+        },
+      )
+      if (r.error) throw r.error
+      // 0 = 有条目被忽略;1 = 一条都没被忽略;其余 = git 自己报错(照实列成问题)
+      if (r.status !== 0 && r.status !== 1)
+        throw new Error(String(r.stderr || '').trim().slice(0, 200) || `exit ${r.status}`)
+      ignoredOut = String(r.stdout || '')
+    } catch (e) {
+      problems.push(`无法判定 .gitignore(git check-ignore 失败):${e?.message || e}`)
+    }
+    const ignored = new Set(ignoredOut.split('\0').filter(Boolean).map(normalize))
+    if (ignored.size > 0)
+      for (const e of acceptable)
+        if (ignored.has(e.path)) problems.push(`第 ${e.lineNo} 行:被 .gitignore 忽略 ${e.path}`)
+  }
+  return { paths: acceptable.map((e) => e.path), problems }
+}
+
+if (filesFrom !== null) {
+  let manifest
+  try {
+    manifest = validateManifest({ source: filesFrom, root: repoRoot, cwd: INVOCATION_CWD, cliFiles: expectedFiles })
+  } catch (e) {
+    console.error(`${C.red}❌ --files-from 清单不可用:${e?.message || e}${C.reset}`)
+    process.exit(2)
+  }
+  if (manifest.problems.length > 0) {
+    console.error(
+      `${C.red}❌ --files-from 清单校验失败:${manifest.problems.length} 条问题(拒绝提交,不静默跳过)${C.reset}`,
+    )
+    for (const p of manifest.problems) console.error(`     ${C.red}✗ ${p}${C.reset}`)
+    process.exit(2)
+  }
+  if (manifest.paths.length === 0) {
+    console.error(`${C.red}❌ --files-from 清单为空:至少需要一个路径(空清单不等于"没有可提交内容")${C.reset}`)
+    process.exit(2)
+  }
+  expectedFiles.push(...manifest.paths)
+  log(
+    'info',
+    `--files-from 清单读入 ${C.cyan}${manifest.paths.length}${C.reset} 条路径(已逐条校验:存在/仓库内/非目录/未忽略/无重复)`,
+  )
 }
 
 // ─── 0.5 git 写操作全局锁(2026-08-06 立,根治多 agent 并发写损坏) ──
@@ -413,6 +627,38 @@ function isTrackedInIndex(p) {
   )
 }
 
+// ─── 大批量路径的 argv 运输(2026-11-02 立)────────────────────────────────
+// `--files-from` 只把入口从 argv 挪到文件;若内部又把 10,000 条路径拼回 argv,
+// Step 2 的 `git add` 仍会撞 Windows CreateProcess 的 32,767 字符上限 —— 入口就白加了。
+// 出口是 git 原生的 `--pathspec-from-file` + NUL 分帧:与 `--` 后逐条路径**同一语义**
+// (不是旁路),一次调用、Step 3 的精确校验照旧。阈值以下保持原有 argv 形态不变。
+const PATHSPEC_ARGV_BUDGET = 20000 // 字节;命令行上限 32,767,给引号/转义留余量
+let pathspecScratch = null
+let pathspecSeq = 0
+/** @returns {string[]} 可直接展开进 git 参数表的 pathspec 段。 */
+function pathspecArgs(files) {
+  const payload = `${files.map(normalize).join('\0')}\0`
+  if (Buffer.byteLength(payload, 'utf8') <= PATHSPEC_ARGV_BUDGET) return ['--', ...files]
+  try {
+    if (!pathspecScratch) {
+      pathspecScratch = mkScratch('safe-commit-pathspec-')
+      process.on('exit', () => {
+        try {
+          rmScratch(pathspecScratch)
+        } catch {
+          /* 临时件清理失败不该改写提交结论 */
+        }
+      })
+    }
+    const file = join(pathspecScratch, `paths-${++pathspecSeq}.nul`)
+    writeFileSync(file, payload, 'utf8')
+    return [`--pathspec-from-file=${file}`, '--pathspec-file-nul']
+  } catch (e) {
+    log('err', `大批量路径清单落盘失败(argv 上限绕不过去):${String(e?.message ?? e).slice(0, 200)}`)
+    process.exit(2)
+  }
+}
+
 /**
  * 暂存声明清单,带一条窄兜底(2026-10-12 立)。
  * `git add -A -- <p>` 遇到**已跟踪却被 .gitignore 覆盖**的路径(实测:outputs/ 下那份
@@ -424,14 +670,14 @@ function isTrackedInIndex(p) {
  * @returns {{status:number, stderr:string, forceCount:number}}
  */
 function stageDeclared(files, label) {
-  const first = gitStep(['add', '-A', '--', ...files], label)
+  const first = gitStep(['add', '-A', ...pathspecArgs(files)], label)
   if (first.status === 0) return { ...first, forceCount: 0 }
   const tracked = files.filter(isTrackedInIndex)
   const rest = files.filter((f) => !tracked.includes(f))
   if (!tracked.length) return { ...first, forceCount: 0 }
   const parts = []
-  if (tracked.length) parts.push(['add', '-A', '-f', '--', ...tracked])
-  if (rest.length) parts.push(['add', '-A', '--', ...rest])
+  if (tracked.length) parts.push(['add', '-A', '-f', ...pathspecArgs(tracked)])
+  if (rest.length) parts.push(['add', '-A', ...pathspecArgs(rest)])
   for (const args of parts) {
     const r = gitStep(args, `${label}(-f 仅已跟踪被忽略项)`)
     if (r.status !== 0)
@@ -451,6 +697,13 @@ function gitStep(args, label) {
       encoding: 'utf8',
       cwd: repoRoot,
       windowsHide: true,
+      // 2026-11-02:大批量路径时 git 会**逐文件**告警(典型:core.autocrlf 下的
+      // "LF will be replaced by CRLF")。10,000 条 ≈ 1.05MB,超过 spawnSync 默认 1MB
+      // 缓冲 ⇒ ENOBUFS + status=null,一次成功的 git add 被读成失败,还会把
+      // stageDeclared 拖进逐条 ls-files 的兜底(10,000 次进程 = 数分钟挂死)。
+      // 这里只放大缓冲与超时上限,不改任何判据。
+      maxBuffer: 64 << 20,
+      timeout: 600_000,
       // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
       stdio: ['ignore', 'pipe', 'pipe'],
     })
@@ -602,8 +855,7 @@ log('info', 'Step 3/5: 校验 staged 内容与预期一致')
 // 比的都是真路径;比对严格度不变 —— 意外文件照旧中止,缺失文件照旧中止。
 const stagedFiles = gitStagedPaths({ root: repoRoot })
 
-// 规范化:统一正斜杠(Windows 路径兼容)
-const normalize = (f) => f.replace(/\\/g, '/').replace(/^\.\//, '')
+// 规范化函数在文件头只定义一份(normalize),声明侧/清单侧/校验侧共用。
 const stagedNorm = new Set(stagedFiles.map(normalize))
 const expectedNorm = new Set(expectedFiles.map(normalize))
 
@@ -1559,7 +1811,7 @@ if (hookFailed && commitResult.status !== 0) {
     // 声明集为空 ⇒ 不做整索引 reset(那会把**全部**条目折回 HEAD,面就不是"减去声明"了)
     const reduce =
       expectedFiles.length > 0
-        ? gitFace(['reset', '-q', '--', ...expectedFiles], '他人面索引摘除声明集')
+        ? gitFace(['reset', '-q', ...pathspecArgs(expectedFiles)], '他人面索引摘除声明集')
         : null
     if (reduce) return fail(reduce)
     const lay = gitFace(['checkout-index', '-a', '-f'], '他人面落盘')

@@ -197,7 +197,7 @@ export function ApiRelaysSection() {
     <section className="ui-card rounded-lg border bg-card">
       <header className="px-5 py-4">
         <h2 className="text-base font-semibold">{t('title')}</h2>
-        <p className="mt-0.5 text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="mt-0.5 text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       <div className="space-y-4 px-5 pb-5">
@@ -345,7 +345,7 @@ export function ApiRelaysSection() {
 
           <div className="grid grid-cols-1 gap-2 min-[640px]:grid-cols-2">
             {filtered.length === 0 ? (
-              <div className="col-span-full rounded-lg border border-dashed bg-muted/20 p-3 text-center text-xs text-muted-foreground">
+              <div className="col-span-full rounded-lg border border-dashed bg-muted/20 p-3 text-center text-label text-muted-foreground">
                 {t('emptyResult')}
               </div>
             ) : null}

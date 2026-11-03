@@ -240,9 +240,9 @@ export function AiFeedTimeline({ items, sources, total }: Props) {
               <Rss className="h-4 w-4 text-primary" />
               {t('feed.title')}
             </h2>
-            <p className="text-xs text-muted-foreground">{t('feed.subtitle')}</p>
+            <p className="text-label text-muted-foreground">{t('feed.subtitle')}</p>
           </div>
-          <span className="inline-flex items-center gap-1.5 rounded-md border bg-background/50 px-2 py-1 text-xs text-muted-foreground">
+          <span className="inline-flex items-center gap-1.5 rounded-md border bg-background/50 px-2 py-1 text-label text-muted-foreground">
             {t('feed.totalPrefix')}
             <span className="font-medium text-foreground">{total}</span>
             {t('feed.totalSuffix')}
@@ -350,7 +350,7 @@ export function AiFeedTimeline({ items, sources, total }: Props) {
 
       {/* 时间线列表 */}
       {dayGroups.length === 0 ? (
-        <div className="p-3 text-center text-sm text-muted-foreground">
+        <div className="p-3 text-center text-body text-muted-foreground">
           {keyword ? t('feed.searchEmpty') : t('feed.empty')}
         </div>
       ) : (
@@ -382,7 +382,7 @@ export function AiFeedTimeline({ items, sources, total }: Props) {
                       className="group flex flex-row items-start gap-3 rounded-lg border bg-background/40 p-3 transition-all hover:border-primary/40 hover:bg-accent/40 hover:shadow-sm"
                     >
                       <div className="w-10 shrink-0 pt-0.5 text-right">
-                        <span className="text-xs font-mono text-muted-foreground">{time}</span>
+                        <span className="text-label font-mono text-muted-foreground">{time}</span>
                       </div>
 
                       <div className="min-w-0 flex-1 space-y-1.5">
@@ -441,7 +441,9 @@ export function AiFeedTimeline({ items, sources, total }: Props) {
                         </h3>
 
                         {it.summary ? (
-                          <p className="line-clamp-2 text-xs text-muted-foreground">{it.summary}</p>
+                          <p className="line-clamp-2 text-label text-muted-foreground">
+                            {it.summary}
+                          </p>
                         ) : null}
 
                         <div className="flex items-center gap-2 text-[10px] text-muted-foreground/70">
@@ -480,7 +482,7 @@ export function AiFeedTimeline({ items, sources, total }: Props) {
 
           {/* 加载更多提示(静态,无永转 spinner) */}
           {filteredItems.length < total && !keyword ? (
-            <div className="flex items-center justify-center gap-2 pt-2 text-xs text-muted-foreground">
+            <div className="flex items-center justify-center gap-2 pt-2 text-label text-muted-foreground">
               {t('feed.moreHint', { shown: filteredItems.length, total })}
             </div>
           ) : null}

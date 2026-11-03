@@ -30,6 +30,7 @@ async function createLevel(data: {
       sortOrder: data.sortOrder ?? 0,
     })
     .returning()
+  if (!row) throw new Error('vip-routes.real.test.ts: 插入未返回行(row)')
   return row
 }
 

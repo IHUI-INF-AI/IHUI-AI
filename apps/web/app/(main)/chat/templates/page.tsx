@@ -74,7 +74,7 @@ export default function ChatTemplatesPage() {
     <div className="mx-auto w-full max-w-4xl space-y-4 px-4 py-4">
       <Link
         href="/chat"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         返回
@@ -85,7 +85,7 @@ export default function ChatTemplatesPage() {
           <LayoutTemplate className="h-6 w-6 text-primary" />
           对话模板
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">选择模板快速开始对话</p>
+        <p className="mt-1 text-body text-muted-foreground">选择模板快速开始对话</p>
       </div>
 
       {categories.length > 0 && (
@@ -126,13 +126,13 @@ export default function ChatTemplatesPage() {
           加载中...
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {(error as Error).message}
         </div>
       ) : templates.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center text-muted-foreground">
           <LayoutTemplate className="h-8 w-8 opacity-40" />
-          <p className="text-sm">暂无模板</p>
+          <p className="text-body">暂无模板</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
@@ -148,12 +148,12 @@ export default function ChatTemplatesPage() {
                   <h3 className="flex-1 truncate text-body font-medium">{tpl.title}</h3>
                 </div>
                 {tpl.description && (
-                  <p className="line-clamp-2 text-xs text-muted-foreground">{tpl.description}</p>
+                  <p className="line-clamp-2 text-label text-muted-foreground">{tpl.description}</p>
                 )}
-                <p className="line-clamp-2 rounded bg-muted/50 px-2 py-1 font-mono text-xs text-muted-foreground">
+                <p className="line-clamp-2 rounded bg-muted/50 px-2 py-1 font-mono text-label text-muted-foreground">
                   {tpl.content}
                 </p>
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <div className="flex items-center justify-between text-label text-muted-foreground">
                   <span>点击使用</span>
                   <span>{fmt(tpl.createdAt)}</span>
                 </div>

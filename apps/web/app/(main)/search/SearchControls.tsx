@@ -44,10 +44,10 @@ export function SearchControls({ tab, setTab, sort, setSort }: Props) {
           </button>
         ))}
       </div>
-      <label className="flex shrink-0 items-center gap-1.5 whitespace-nowrap text-xs text-muted-foreground">
+      <label className="flex shrink-0 items-center gap-1.5 whitespace-nowrap text-label text-muted-foreground">
         {t('sort')}
         <Select value={sort} onValueChange={(v) => setSort(v as SortKey)}>
-          <SelectTrigger className="rounded-md border bg-background px-2 py-1 text-xs">
+          <SelectTrigger className="rounded-md border bg-background px-2 py-1 text-label">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

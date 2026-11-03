@@ -241,7 +241,7 @@ describe('applyLedger / main:写盘纪律', () => {
 
 /** 造一份"账号已登记、会话全部显式未归属(auto-since)"的台账底稿,供批量人工照标 */
 function seedAssignedLedger(
-  paths: SessionLinksPaths,
+  _paths: SessionLinksPaths,
   accounts: { accountId: string; label: string }[],
   convs: string[],
 ): SessionLinksLedger {

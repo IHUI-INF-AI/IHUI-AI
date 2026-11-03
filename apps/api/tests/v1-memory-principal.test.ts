@@ -32,7 +32,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { jwtVerify } from 'jose'
-import Fastify from 'fastify'
+import Fastify, { type FastifyError } from 'fastify'
 
 vi.hoisted(() => {
   process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:5432/test'
@@ -119,7 +119,7 @@ function mockFetchOnce(): void {
  */
 async function decodeOutboundSubject(): Promise<string> {
   expect(outbound.length).toBe(1)
-  const headers = new Headers(outbound[0].init.headers)
+  const headers = new Headers(outbound[0]!.init.headers)
   const auth = headers.get('Authorization') ?? ''
   expect(auth.startsWith('Bearer ')).toBe(true)
   const { payload } = await jwtVerify(auth.slice(7), JWT_SECRET, {
@@ -130,12 +130,12 @@ async function decodeOutboundSubject(): Promise<string> {
 }
 
 function expectOutboundPath(path: string): void {
-  expect(outbound[0].url).toBe(`${process.env.AI_SERVICE_URL}${path}`)
+  expect(outbound[0]!.url).toBe(`${process.env.AI_SERVICE_URL}${path}`)
 }
 
 async function buildServer(): Promise<ReturnType<typeof Fastify>> {
   const server = Fastify({ logger: false })
-  server.setErrorHandler((err, _req, reply) => {
+  server.setErrorHandler((err: FastifyError, _req, reply) => {
     const statusCode = (err as Error & { statusCode?: number }).statusCode ?? 500
     reply.status(statusCode).send({ code: statusCode, message: err.message })
   })

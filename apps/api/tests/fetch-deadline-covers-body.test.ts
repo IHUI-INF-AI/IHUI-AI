@@ -18,7 +18,7 @@
 // 纯单元,不发网络请求、不连库(§5 测试隔离铁律)。
 import { describe, it, expect, vi, beforeEach, afterEach, beforeAll, afterAll } from 'vitest'
 import Fastify from 'fastify'
-import type { FastifyInstance } from 'fastify'
+import type { FastifyBaseLogger, FastifyInstance } from 'fastify'
 import { fetchWithinDeadline, withBody } from '../src/utils/fetch-deadline.js'
 
 /** fake body 停滞的响应:json()/text() 返回「只在 abort 时拒绝、否则永不 resolve」的 Promise(逐字模拟 undici)。 */
@@ -217,10 +217,13 @@ describe('G-815411:路由层把 deadline abort 与「空响应」分流(ai-audio
   }
 
   function installStallingFetch(): void {
-    ;(globalThis as { fetch: unknown }).fetch = (async (_input, init) =>
+    ;(globalThis as { fetch: unknown }).fetch = (async (
+      _input: string | URL | Request,
+      init?: RequestInit,
+    ) =>
       makeRouteResponse({
         headers: { 'content-type': 'application/json' },
-        stallSignal: init?.signal,
+        stallSignal: init?.signal ?? undefined,
       })) as unknown as typeof fetch
   }
 
@@ -240,7 +243,7 @@ describe('G-815411:路由层把 deadline abort 与「空响应」分流(ai-audio
       trace: () => {},
       child: () => logger,
     }
-    app = Fastify({ loggerInstance: logger as never })
+    app = Fastify({ loggerInstance: logger as unknown as FastifyBaseLogger })
     await app.register(aiAudioRoutes, { prefix: '/api/ai' })
     await app.ready()
   })

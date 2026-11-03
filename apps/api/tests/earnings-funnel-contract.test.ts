@@ -117,7 +117,7 @@ interface FunnelPayload {
 /** 驱动真 handler,取出响应体里的 stage 序列。 */
 async function driveFunnel(sqlRow: Record<string, string | number | null>): Promise<FunnelPayload> {
   const { server, handlers } = buildMockServer()
-  await earningsRoutes(server)
+  await earningsRoutes(server, {})
   const handler = handlers.get('GET /funnel')
   if (!handler) throw new Error('GET /funnel 未注册')
   mockDbReadExecute.mockResolvedValueOnce([sqlRow])
@@ -128,7 +128,7 @@ async function driveFunnel(sqlRow: Record<string, string | number | null>): Prom
 
 /** 漏斗的定义性性质:count 单调不增。 */
 function isNonIncreasing(counts: number[]): boolean {
-  return counts.every((c, i) => i === 0 || counts[i - 1] === undefined || counts[i - 1] >= c)
+  return counts.every((c, i) => i === 0 || counts[i - 1] === undefined || counts[i - 1]! >= c)
 }
 
 describe('GET /api/earnings/funnel 契约', () => {
@@ -152,7 +152,7 @@ describe('GET /api/earnings/funnel 契约', () => {
 
   it('①b 端点前缀:注册在 /api/earnings 下 ⇒ 对外全名 GET /api/earnings/funnel', async () => {
     const { server } = buildMockServer()
-    await earningsRoutes(server)
+    await earningsRoutes(server, {})
     // 插件内相对路径必须是 '/funnel'(不带前缀),全名由承载层拼出
     expect(server.get).toHaveBeenCalledWith('/funnel', expect.any(Function))
 
@@ -255,7 +255,7 @@ describe('GET /api/earnings/funnel 契约', () => {
 
   it('④ 回归锁:monitorRoutes 不再注册任何 funnel 路由(占位假路由不得复活)', async () => {
     const { server, handlers } = buildMockServer()
-    await monitorRoutes(server)
+    await monitorRoutes(server, {})
 
     const funnelPaths = [...handlers.keys()].filter((k) => /funnel/i.test(k))
     expect(funnelPaths).toEqual([])
@@ -269,7 +269,7 @@ describe('GET /api/earnings/funnel 契约', () => {
 
   it('④b 同批:monitorRoutes 其余三条路由存续(摘一条不得顺手带走别个)', async () => {
     const { server, handlers } = buildMockServer()
-    await monitorRoutes(server)
+    await monitorRoutes(server, {})
     expect([...handlers.keys()].sort()).toEqual([
       'GET /admin/monitor/redis',
       'GET /admin/monitoring/alerts',

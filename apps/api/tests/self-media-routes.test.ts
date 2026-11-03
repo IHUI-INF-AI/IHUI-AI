@@ -208,7 +208,7 @@ describe('self-media routes — POST /api/self-media/koubo/generate', () => {
 
       // 验证代理调用参数
       expect(fetchMock).toHaveBeenCalledOnce()
-      const [url, opts] = fetchMock.mock.calls[0]
+      const [url, opts] = fetchMock.mock.calls[0]!
       expect(url).toBe(`${AI_SERVICE_URL}/api/self-media/koubo/generate`)
       expect(opts?.method).toBe('POST')
       const headers = opts?.headers as Record<string, string>
@@ -234,7 +234,7 @@ describe('self-media routes — POST /api/self-media/koubo/generate', () => {
       })
 
       expect(fetchMock).toHaveBeenCalledOnce()
-      const opts = fetchMock.mock.calls[0][1]
+      const opts = fetchMock.mock.calls[0]![1]
       expect(opts?.body).toBe('{}')
     })
 
@@ -248,7 +248,7 @@ describe('self-media routes — POST /api/self-media/koubo/generate', () => {
         headers: { authorization: 'Bearer my-jwt-token' },
       })
 
-      const opts = fetchMock.mock.calls[0][1]
+      const opts = fetchMock.mock.calls[0]![1]
       expect((opts?.headers as Record<string, string>).authorization).toBe('Bearer my-jwt-token')
     })
 
@@ -313,7 +313,7 @@ describe('self-media routes — POST /api/self-media/koubo/generate', () => {
       const body = res.json()
       expect(body.code).toBe(400)
       // 验证空对象也被透传
-      expect(fetchMock.mock.calls[0][1]?.body).toBe('{}')
+      expect(fetchMock.mock.calls[0]![1]?.body).toBe('{}')
     })
   })
 

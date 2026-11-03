@@ -32,8 +32,20 @@ vi.mock('@ihui/api-client', () => ({
   fetchApi: apiMocks.fetchApi,
 }))
 
+/**
+ * t 必须是**稳定引用**:真实 `useI18n` 里 t 走 `useCallback`、value 走 `useMemo`
+ * (src/i18n/index.tsx:115/131)。此前替身写成 `useI18n: () => ({ t: (key) => key })`,
+ * 每次 render 都新建一个 t ⇒ WalletScreen 的 `uniappT`(deps [t]) → `load`(deps [uniappT])
+ * → `useEffect(() => void load(), [load])` 每轮都变 ⇒ render→effect→setState→render 死循环,
+ * 堆每轮增长直到 4GB `Ineffective mark-compacts near heap limit`(worker 被 OOM 杀掉,
+ * 本套件 12 条一条都没跑)。用 vi.hoisted 提前建一个稳定函数,与真实实现同形。
+ */
+const { stableT } = vi.hoisted(() => ({
+  stableT: (key: string) => key,
+}))
+
 vi.mock('../src/i18n', () => ({
-  useI18n: () => ({ t: (key: string) => key }),
+  useI18n: () => ({ t: stableT }),
 }))
 
 vi.mock('@react-navigation/native', () => ({

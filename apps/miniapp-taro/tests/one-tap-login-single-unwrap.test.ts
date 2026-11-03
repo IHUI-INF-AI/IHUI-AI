@@ -27,7 +27,6 @@ vi.mock('@tarojs/taro', () => {
     getStorageSync: () => '',
     setStorageSync: () => {},
     removeStorageSync: () => {},
-    showToast: (opts: unknown) => toast(opts),
     getEnv: () => 'weapp',
     request: (opts: {
       url: string
@@ -46,6 +45,9 @@ vi.mock('@tarojs/taro', () => {
   }
   return { ...taro, default: taro }
 })
+
+// 失败提示已收口到宿主端口;断言打端口层信号。
+vi.mock('@/host/on-toast', () => ({ onToast: toast }))
 
 import { setBaseUrl, setTransport } from '@ihui/api-client'
 import { createTaroTransport } from '../src/utils/api-client-transport'
@@ -67,27 +69,37 @@ describe('oneTapLogin 只解一次包', () => {
         user: { id: 'u-1', userName: '系统管理员', phone: '186****9808' },
       },
     }
-    const res = await oneTapLogin({ loginCode: 'login-code-1', phoneCode: 'phone-code-1' })
+    const res = await oneTapLogin({
+      loginCode: 'login-code-1',
+      phoneCode: 'phone-code-1',
+    })
     expect(res.accessToken).toBe('AT-from-wechat-devtools')
     // 二次解包的特征就是"把已经解开的 data 再当 ApiResult 读":它身上不该出现 success 键
     expect(res as { success?: unknown }).not.toHaveProperty('success')
     expect(calls).toHaveLength(1)
     expect(calls[0]?.url).toContain('/auth/wechat/mini/one-tap-login')
-    expect(calls[0]?.data).toEqual({ loginCode: 'login-code-1', phoneCode: 'phone-code-1' })
+    expect(calls[0]?.data).toEqual({
+      loginCode: 'login-code-1',
+      phoneCode: 'phone-code-1',
+    })
   })
 
   it('R2 失败信封 ⇒ 抛错,且 toast 的 title 必须是字符串(微信对 undefined 直接抛 errno 1001)', async () => {
     sent.envelope = { code: 40100, message: '验证码错误' }
     await expect(oneTapLogin({ loginCode: 'a', phoneCode: 'b' })).rejects.toThrow()
     expect(toast).toHaveBeenCalled()
-    const arg = toast.mock.calls.at(-1)?.[0] as { title?: unknown }
-    expect(typeof arg?.title).toBe('string')
-    expect(arg?.title).not.toBe('')
+    const arg = toast.mock.calls.at(-1)?.[0] as unknown
+    expect(typeof arg).toBe('string')
+    expect(arg).not.toBe('')
   })
 
   it('R3 两个 code 都得发出去(手机号必须由微信侧换,不得客户端自报)', async () => {
     calls.length = 0
-    sent.envelope = { code: 0, message: 'success', data: { accessToken: 'AT' } }
+    sent.envelope = {
+      code: 0,
+      message: 'success',
+      data: { accessToken: 'AT' },
+    }
     await oneTapLogin({ loginCode: 'L-9', phoneCode: 'P-9' })
     const body = calls.at(-1)?.data as Record<string, unknown>
     expect(Object.keys(body).sort()).toEqual(['loginCode', 'phoneCode'])

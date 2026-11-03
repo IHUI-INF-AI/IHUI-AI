@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import type { Metadata } from 'next'
+import { AlertTriangle, Lock, Lightbulb } from 'lucide-react'
 import { ManualNav, chapters } from '../_manual-nav'
 
 const SITE_URL = 'https://aizhs.top'
@@ -14,11 +15,6 @@ export const metadata: Metadata = {
   alternates: {
     canonical: '/docs/manual/account',
     languages: {
-      'zh-CN': '/zh-cn/docs/manual/account',
-      'zh-TW': '/zh-tw/docs/manual/account',
-      en: '/en/docs/manual/account',
-      ko: '/ko/docs/manual/account',
-      ja: '/ja/docs/manual/account',
       'x-default': '/docs/manual/account',
     },
   },
@@ -105,7 +101,8 @@ export default function ManualAccountPage() {
             <li>开启后登录需输入验证码</li>
           </ol>
           <p className="rounded bg-muted/60 p-3 text-xs">
-            ⚠️ <strong>重要</strong>:恢复码务必保存到密码管理器或离线文档。手机丢失 + 恢复码丢失 = 账号无法找回。
+            <AlertTriangle className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
+            <strong>重要</strong>:恢复码务必保存到密码管理器或离线文档。手机丢失 + 恢复码丢失 = 账号无法找回。
           </p>
         </div>
       </section>
@@ -130,7 +127,8 @@ curl -X POST https://api.aizhs.top/v1/chat/completions \\
   -d '{"message":"你好"}'`}</code>
           </pre>
           <p className="rounded bg-muted/60 p-3 text-xs">
-            🔒 <strong>安全提示</strong>:不要把 Key 提交到 GitHub / GitLab,建议用 <code className="rounded bg-muted px-1">.env</code> 文件管理。
+            <Lock className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
+            <strong>安全提示</strong>:不要把 Key 提交到 GitHub / GitLab,建议用 <code className="rounded bg-muted px-1">.env</code> 文件管理。
             泄露后立即在设置中禁用并重新生成。
           </p>
         </div>
@@ -192,8 +190,11 @@ curl -X POST https://api.aizhs.top/v1/chat/completions \\
       {/* 注销账号 */}
       <section id="delete-account" className="mt-10 space-y-3">
         <h2 className="text-heading font-bold">6.7 注销账号</h2>
-        <div className="rounded-xl border bg-destructive/5 p-3 space-y-2 text-sm text-muted-foreground ring-1 ring-destructive/20">
-          <p className="font-semibold text-destructive">⚠️ 注销后不可恢复,请谨慎操作</p>
+        <div className="rounded-lg border bg-destructive/5 p-3 space-y-2 text-sm text-muted-foreground ring-1 ring-destructive/20">
+          <p className="flex items-center font-semibold text-destructive">
+            <AlertTriangle className="mr-1.5 inline h-4 w-4" aria-hidden />
+            注销后不可恢复,请谨慎操作
+          </p>
           <p>注销账号会删除以下数据:</p>
           <ul className="ml-4 list-disc space-y-1">
             <li>所有对话历史(无法找回)</li>
@@ -210,7 +211,8 @@ curl -X POST https://api.aizhs.top/v1/chat/completions \\
             <li>账号立即登出,数据 30 天内可联系客服恢复(30 天后彻底删除)</li>
           </ol>
           <p className="rounded bg-muted/60 p-3 text-xs">
-            💡 <strong>建议</strong>:注销前先用"导出数据"功能备份对话和 Agent(JSON 格式)。
+            <Lightbulb className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
+            <strong>建议</strong>:注销前先用"导出数据"功能备份对话和 Agent(JSON 格式)。
           </p>
         </div>
       </section>

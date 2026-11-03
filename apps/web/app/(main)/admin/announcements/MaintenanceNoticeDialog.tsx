@@ -108,12 +108,12 @@ export function MaintenanceNoticeDialog({ open, onClose }: Props) {
             <DialogDescription>{t('desc')}</DialogDescription>
           </DialogHeader>
           {err && (
-            <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <div className="rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">
               {err}
             </div>
           )}
           {result && (
-            <div className="rounded-md bg-muted px-3 py-2 text-sm text-foreground">
+            <div className="rounded-md bg-muted px-3 py-2 text-body text-foreground">
               {result.dryRun
                 ? t('resultDryRun', { total: result.total, subject: result.subject })
                 : t('resultSent', {
@@ -164,7 +164,7 @@ export function MaintenanceNoticeDialog({ open, onClose }: Props) {
               />
             </div>
           </div>
-          <label className="flex cursor-pointer items-center gap-2 text-sm">
+          <label className="flex cursor-pointer items-center gap-2 text-body">
             <input
               type="checkbox"
               checked={form.dryRun}

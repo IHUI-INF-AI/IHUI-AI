@@ -92,7 +92,7 @@ export const PieChart = React.memo(function PieChart({
       </svg>
       <div className="space-y-1">
         {slices.map((s) => (
-          <div key={s.label} className="flex items-center gap-2 text-xs">
+          <div key={s.label} className="flex items-center gap-2 text-label">
             <span className="h-3 w-3 rounded-sm" style={{ backgroundColor: s.color }} />
             <span className="text-muted-foreground">{s.label}</span>
             <span className="font-medium">{s.percentage.toFixed(1)}%</span>

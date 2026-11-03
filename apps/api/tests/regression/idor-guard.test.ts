@@ -37,7 +37,7 @@ interface AccessResult {
  */
 function checkResourceOwner(
   userId: string,
-  resourceId: string,
+  _resourceId: string,
   ownerId: string | null,
   role: Role = 'user',
 ): AccessResult {

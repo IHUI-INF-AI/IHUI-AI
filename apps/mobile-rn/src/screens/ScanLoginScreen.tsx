@@ -11,7 +11,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { parseQrLoginTicket } from '@ihui/shared'
 import { confirmQrLogin } from '@ihui/api-client'
-import { rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnRadiusFor, rnSpacing, rnType, rnCssLight } from '@ihui/design-tokens'
 import { appAlert } from '../components/BottomPops'
 import { selectIsAuthenticated, useAuthStore } from '../stores/auth-store'
 import { useI18n } from '../i18n'
@@ -254,7 +254,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: rnSpacing.xl,
     paddingTop: rnSpacing.lg,
     paddingBottom: rnSpacing['2xl'],
-    backgroundColor: 'rgba(0,0,0,0.35)',
+    backgroundColor: rnCssLight.black35,
   },
   topBar: {
     width: '100%',
@@ -264,7 +264,7 @@ const styles = StyleSheet.create({
     color: CAMERA_TEXT,
     fontSize: rnType.title.size,
     fontWeight: '600',
-    textShadowColor: 'rgba(0,0,0,0.75)',
+    textShadowColor: rnCssLight.black75,
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
   },
@@ -294,7 +294,7 @@ const styles = StyleSheet.create({
     fontSize: rnType.body.size,
     textAlign: 'center',
     opacity: 0.92,
-    textShadowColor: 'rgba(0,0,0,0.75)',
+    textShadowColor: rnCssLight.black75,
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
   },
@@ -303,8 +303,8 @@ const styles = StyleSheet.create({
     paddingVertical: rnSpacing.sm,
     borderRadius: rnRadiusFor.control,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.7)',
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    borderColor: rnCssLight.white70,
+    backgroundColor: rnCssLight.black40,
   },
   cancelButtonText: {
     color: CAMERA_TEXT,

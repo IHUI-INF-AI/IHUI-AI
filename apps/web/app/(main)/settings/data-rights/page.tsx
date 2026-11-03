@@ -182,7 +182,7 @@ function UserInfoList({ user, t }: { user: ExportUser; t: ReturnType<typeof useT
   return (
     <dl className="grid grid-cols-1 gap-x-4 gap-y-1.5 min-[480px]:grid-cols-2">
       {rows.map((row) => (
-        <div key={row.label} className="flex min-w-0 gap-2 text-sm">
+        <div key={row.label} className="flex min-w-0 gap-2 text-body">
           <dt className="w-20 shrink-0 truncate text-muted-foreground">{row.label}</dt>
           <dd className="min-w-0 break-all">{row.value}</dd>
         </div>
@@ -271,12 +271,12 @@ export default function DataRightsPage() {
       {/* 标题 */}
       <div>
         <h1 className="text-heading font-semibold">{t('title')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       {!ready ? (
         /* ============ 登录态确认中(冷启动 bootstrap 未收束,不得当游客踢回登录页) ============ */
-        <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+        <div className="flex items-center justify-center gap-2 py-8 text-body text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
           {ct('loading')}
         </div>
@@ -290,7 +290,7 @@ export default function DataRightsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <p className="text-sm text-muted-foreground">{t('eraseDone')}</p>
+            <p className="text-body text-muted-foreground">{t('eraseDone')}</p>
             <Button onClick={() => router.push('/login')}>
               <LogIn className="h-4 w-4" />
               {authT('backToLogin')}
@@ -311,7 +311,7 @@ export default function DataRightsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <p className="text-sm text-muted-foreground">{t('exportDesc')}</p>
+              <p className="text-body text-muted-foreground">{t('exportDesc')}</p>
 
               <Button onClick={handleExport} disabled={exporting}>
                 {exporting ? (
@@ -346,7 +346,7 @@ export default function DataRightsPage() {
                     <UserInfoList user={exportData.user} t={t} />
                   </div>
 
-                  <div className="flex flex-wrap gap-x-6 gap-y-1.5 text-sm">
+                  <div className="flex flex-wrap gap-x-6 gap-y-1.5 text-body">
                     <span className="flex items-center gap-1.5 text-muted-foreground">
                       <History className="h-4 w-4 shrink-0" />
                       {t('searchHistory')}:
@@ -374,7 +374,7 @@ export default function DataRightsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <p className="text-sm text-muted-foreground">{t('portabilityDesc')}</p>
+              <p className="text-body text-muted-foreground">{t('portabilityDesc')}</p>
 
               <Button
                 onClick={handlePortability}
@@ -407,7 +407,7 @@ export default function DataRightsPage() {
                       {t('downloadJson')}
                     </Button>
                   </div>
-                  <pre className="max-h-80 overflow-auto rounded-md bg-background/60 p-3 text-xs leading-relaxed">
+                  <pre className="max-h-80 overflow-auto rounded-md bg-background/60 p-3 text-label leading-relaxed">
                     {JSON.stringify(portabilityData, null, 2)}
                   </pre>
                 </div>
@@ -471,7 +471,7 @@ export default function DataRightsPage() {
               />
             </div>
             {eraseError && (
-              <p className="flex items-center gap-1.5 text-xs text-destructive">
+              <p className="flex items-center gap-1.5 text-label text-destructive">
                 <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
                 {eraseError}
               </p>

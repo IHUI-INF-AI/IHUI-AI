@@ -15,6 +15,9 @@ type HostToastListener = (message: string, kind: ToastKind, duration?: number) =
 
 let listener: HostToastListener | null = null
 
+/** `__DEV__` 是 RN 全局;小程序/Node 用例环境没有该标识,必须先探测再读取。 */
+const isDev = typeof __DEV__ !== 'undefined' && __DEV__
+
 /** 渲染层未挂载时的落点:dev 明确记录,prod 静默丢弃(轻提示不是关键路径)。 */
 export function showHostToast(
   message: string,
@@ -22,14 +25,14 @@ export function showHostToast(
 ): void {
   const text = typeof message === 'string' ? message.trim() : ''
   if (!text) {
-    if (__DEV__) console.warn('[host-toast] 收到空白文案,已丢弃')
+    if (isDev) console.warn('[host-toast] 收到空白文案,已丢弃')
     return
   }
   if (listener) {
     listener(text, options?.kind ?? 'info', options?.duration)
     return
   }
-  if (__DEV__) console.warn('[host-toast] 渲染层未挂载,轻提示被丢弃:', text)
+  if (isDev) console.warn('[host-toast] 渲染层未挂载,轻提示被丢弃:', text)
 }
 
 export function subscribeHostToast(fn: HostToastListener): () => void {

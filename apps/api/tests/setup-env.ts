@@ -35,26 +35,109 @@ if ((dotenvResult.error || !dotenvResult.parsed) && !process.env.IHUI_SETUP_ENV_
   )
 }
 
-// 测试专用 DB URL 兜底:防止 .env.test 加载失败时连接到开发库
-process.env.DATABASE_URL ??= 'postgresql://postgres:postgres@localhost:8810/ihui_test'
+// 测试专用 DB 兜底(2026-11-03 安全修复,与 Redis 同一条纪律):兜底必须是**确认无人监听**的哨兵。
+// 旧值 postgresql://postgres:postgres@localhost:8810/ihui_test 里的 8810 是生产 PostgreSQL 的
+// 宿主映射端口(docker-compose.yml:301 `127.0.0.1:${DB_PORT:-8810}:5432`;
+// docs/PRODUCTION_INFRASTRUCTURE.md:154),而 AGENTS.md §5 明令「测试一律禁止连生产库
+// (PG 8810/Redis 8811)」。.env.test 受 .gitignore 不入库(本机与 CI 都没有)⇒ 旧兜底会让
+// 默认面测试在产线机/带 8810 隧道的开发机上对生产库真建池;*.real.test.ts 更会直接
+// SELECT 1 + TRUNCATE。db mock 只挡得住"用例自己查库",挡不住 import 期建池。
+// 为什么不像 Redis 那样"缺失即抛错":本文件是默认测试面唯一的 DATABASE_URL 来源,
+// CI 只注入 5432 的 DATABASE_URL;抛错会让所有 import src/config 的用例在收集期整体
+// exit —— 那是让测试面不可用,不是安全。哨兵保证 config 解析得过,但真连接立即
+// ECONNREFUSED。5399:紧邻默认 5432、本机(Get-NetTCPConnection)与 CI service 均无监听,
+// 且不在 scripts/dev-port-registry.json 的认领段内。需要真库的用例必须显式给测试实例
+// (CI 走 5432 的 ihui_test,本地走 .env.test)。
+const TEST_DATABASE_FALLBACK_URL = 'postgresql://postgres:postgres@127.0.0.1:5399/ihui_test'
+process.env.DATABASE_URL ??= TEST_DATABASE_FALLBACK_URL
 // 密钥兜底必须是强随机值:config 的弱密钥加固(2026-07-21)拒绝 'test-' 前缀/全同字符/已知占位符,
 // 弱兜底会让导入真 config 的零连接测试在干净检出上 import 即崩(config 进程 exit(1))。
 // 每次进程内随机生成,不落盘 —— 零连接测试不依赖具体值。
 process.env.JWT_SECRET ??= randomBytes(32).toString('hex')
 process.env.CREDENTIALS_ENCRYPTION_KEY ??= randomBytes(32).toString('hex')
-process.env.REDIS_URL ??= 'redis://localhost:8811/1'
-// §5 测试隔离铁律:AGENTS 明令"测试一律禁止连生产库(PG 8810 / Redis 8811)",
-// 而上面两行兜底里 DATABASE_URL 特意挑了 ihui_test 库,**REDIS_URL 却直接钉在生产 8811**。
-// 2026-10-30 auth 链路起真 IORedis 客户端之后,没 mock ioredis 的用例就在往生产 db1
-// 真写 INCR/EXISTS —— 测试流量吃的是真用户的按用户限流额度(现读由并行取证席量到)。
-// 本行不擅自改端口:换到没人监听的端口会把"瞬间连上"变成每次 ~10s 重连退避,
-// 影响面是整个套件(含 CI),那一步得配一个专用测试 Redis 一起做。
-// 这里先把静默变成点名 —— 谁再往这条兜底上加不 mock 的用例,当场能看见自己在写生产。
-if (process.env.REDIS_URL.includes(':8811')) {
+// 测试专用 Redis 兜底(2026-11-03 安全修复):兜底必须是**确认无人监听**的哨兵地址。
+// 旧值 redis://localhost:8811/1 是生产 Redis 的宿主映射端口(docker-compose.yml:339
+// `127.0.0.1:${REDIS_PORT:-8811}:6379`;docs/PRODUCTION_INFRASTRUCTURE.md:155),
+// 测试若跑在产线机或带 8811 隧道的开发机上,auth 吊销名单/按用户限流就会对生产 db1
+// 真写 EXISTS/INCR。
+// 为什么选"不可用哨兵"而不是"缺失即抛错":本文件是默认测试面唯一的 REDIS_URL 来源,
+// 仓库内 .env.test 受 .gitignore 不入库、CI 也不注入 REDIS_URL;直接抛错会让默认面
+// 1123 个用例中所有 import src/config 的文件在收集期整体 exit —— 那是让测试面不可用,
+// 不是安全。为什么不自建测试实例:仓库既无 TEST_REDIS_URL 也无 docker-compose.test.yml
+// 约定,唯一 Redis 服务就是生产 compose 的 ihui-redis,自造实例会给 CI 添新依赖。
+// 6399:紧邻 6379 但本机与 CI 均无监听,任何真实连接立即 ECONNREFUSED,静默写生产
+// 的路径被结构性切断。需要真实 Redis 行为的用例必须显式配置专用测试实例的 REDIS_URL,
+// 或照 tests/helpers/fake-redis.ts vi.mock('ioredis')。
+const TEST_REDIS_FALLBACK_URL = 'redis://127.0.0.1:6399/1'
+process.env.REDIS_URL ??= TEST_REDIS_FALLBACK_URL
+
+// 生产落点硬闸(不区分 CI/本地):即使 REDIS_URL 由 shell 或 .env.test 显式给出,
+// 测试档也拒绝 8811。8811 是生产 Redis 的宿主映射端口(同上证据行),按端口而非主机判定,
+// 是为了把 127.0.0.1 / localhost / SSH 隧道域名等所有等价入口一起拦住。
+// 抛错发生在本文件 ⇒ vitest 会如实打成 `tests/setup-env.ts:<行>`,不会被各业务的
+// Redis fail-open 逻辑吞成"测试静默通过"。不使用 if (CI) 之类的条件,本地与 CI 同一条闸。
+const redisUrlRaw = process.env.REDIS_URL ?? ''
+const parsedRedisUrl = (() => {
+  try {
+    return new URL(redisUrlRaw)
+  } catch {
+    // 空串/非法 URL 不允许静默落到任何默认值:直接点名停手。
+    throw new Error(
+      `[setup-env] REDIS_URL 不是合法 URL(${JSON.stringify(redisUrlRaw)});测试档拒绝继续。` +
+        '请 unset REDIS_URL(默认走不可用哨兵 127.0.0.1:6399),或显式指向专用测试实例。',
+    )
+  }
+})()
+if (Number(parsedRedisUrl.port || 6379) === 8811) {
+  throw new Error(
+    `[setup-env] 拒绝在测试中连接生产 Redis(${redisUrlRaw})。` +
+      '8811 是生产 Redis 的宿主映射端口(docker-compose.yml:339 / docs/PRODUCTION_INFRASTRUCTURE.md:155),' +
+      'AGENTS.md §5 明令测试禁止连生产库。请 unset REDIS_URL(默认走不可用哨兵 127.0.0.1:6399),' +
+      '或显式指向专用测试实例;需要 Redis 行为的用例请照 tests/helpers/fake-redis.ts mock ioredis。',
+  )
+}
+if (
+  process.env.REDIS_URL === TEST_REDIS_FALLBACK_URL &&
+  !process.env.IHUI_TEST_REDIS_FALLBACK_WARNED
+) {
+  process.env.IHUI_TEST_REDIS_FALLBACK_WARNED = '1'
   console.warn(
-    '[setup-env] ⚠ REDIS_URL 兜底指向**生产 Redis 8811**(§5 明令禁止的落点)。' +
-      '任何会 await redis 的测试必须 vi.mock("ioredis")(先例 tests/helpers/fake-redis.ts),' +
-      '否则本用例正在对生产实例写命令。',
+    '[setup-env] REDIS_URL 未配置,已使用不可用哨兵 127.0.0.1:6399(生产 8811 不再作为兜底)。' +
+      '任何真实 Redis 连接都会 ECONNREFUSED;需要 Redis 行为的用例请显式配置测试实例或 vi.mock("ioredis")。',
+  )
+}
+// 生产 DB 落点硬闸(不区分 CI/本地,与 Redis 同一条纪律):即使 DATABASE_URL 由 shell 或
+// .env.test 显式给出,测试档也拒绝 8810。按端口判定(缺省按 PostgreSQL 默认 5432 补位),
+// 127.0.0.1 / localhost / SSH 隧道域名等所有等价入口一网打尽。抛错发生在本文件 ⇒ vitest
+// 会如实打成 `tests/setup-env.ts:<行>`,不会被 db 层的连接重试吞成"测试静默通过"。
+const databaseUrlRaw = process.env.DATABASE_URL ?? ''
+const parsedDatabaseUrl = (() => {
+  try {
+    return new URL(databaseUrlRaw)
+  } catch {
+    // 空串/非法 URL 不允许静默落到任何默认值:直接点名停手。
+    throw new Error(
+      `[setup-env] DATABASE_URL 不是合法 URL(${JSON.stringify(databaseUrlRaw)});测试档拒绝继续。` +
+        '请 unset DATABASE_URL(默认走不可用哨兵 127.0.0.1:5399),或显式指向专用测试实例。',
+    )
+  }
+})()
+if (Number(parsedDatabaseUrl.port || 5432) === 8810) {
+  throw new Error(
+    `[setup-env] 拒绝在测试中连接生产 PostgreSQL(${databaseUrlRaw})。` +
+      '8810 是生产 PostgreSQL 的宿主映射端口(docker-compose.yml:301 / docs/PRODUCTION_INFRASTRUCTURE.md:154),' +
+      'AGENTS.md §5 明令测试禁止连生产库。请 unset DATABASE_URL(默认走不可用哨兵 127.0.0.1:5399),' +
+      '或显式指向专用测试实例;默认面用例请 mock src/db,真实库用例走 test:real + .env.test。',
+  )
+}
+if (
+  process.env.DATABASE_URL === TEST_DATABASE_FALLBACK_URL &&
+  !process.env.IHUI_TEST_DATABASE_FALLBACK_WARNED
+) {
+  process.env.IHUI_TEST_DATABASE_FALLBACK_WARNED = '1'
+  console.warn(
+    '[setup-env] DATABASE_URL 未配置,已使用不可用哨兵 127.0.0.1:5399(生产 8810 不再作为兜底)。' +
+      '任何真实 DB 连接都会 ECONNREFUSED;需要真库的用例请显式配置测试实例(test:real + .env.test)。',
   )
 }
 // 测试档必须显式钉死:ZCODE_RUNTIME_ENV 优先级高于 NODE_ENV(config 唯一出口的解析顺序),

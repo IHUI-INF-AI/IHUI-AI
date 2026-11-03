@@ -118,6 +118,16 @@ export interface UiPort {
   haptic?(kind: 'light' | 'medium' | 'heavy'): void
 }
 
+/**
+ * 音频播放端口。可选能力;缺省 = `capability-off`(共享屏必须显式分支,
+ * 不得用 noop 冒充"播放成功")。命令式、不抛错:错误由宿主自行收口。
+ */
+export interface AudioPort {
+  play(url: string): void
+  pause(): void
+  stop(): void
+}
+
 /** 列表分页端口。可选能力;缺省即"无下拉/无触底",由宿主按本端能力决定。 */
 export interface ListPort {
   onLoadMore?: () => void

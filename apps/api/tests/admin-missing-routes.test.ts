@@ -487,7 +487,7 @@ describe('admin-missing-routes', () => {
   // 6. 覆盖度：抽样验证各模块路由存在性
   // ===========================================================================
   describe('模块覆盖度抽样', () => {
-    const moduleSamples = [
+    const moduleSamples: Array<{ method: 'GET'; url: string }> = [
       // 内容运营
       { method: 'GET', url: '/api/admin/about-us' },
       { method: 'GET', url: '/api/admin/advertise' },
@@ -1099,8 +1099,8 @@ describe('admin-missing-routes', () => {
       expect(body.message).not.toBe('id 格式不正确')
       const issues = JSON.parse(body.message) as Array<{ code: string; path: string[] }>
       expect(issues).toHaveLength(1)
-      expect(issues[0].code).toBe('invalid_type')
-      expect(issues[0].path).toEqual(['phone'])
+      expect(issues[0]!.code).toBe('invalid_type')
+      expect(issues[0]!.path).toEqual(['phone'])
     })
 
     it('POST /auth-vip-level 缺少 levelName 返回 400', async () => {
@@ -1129,8 +1129,8 @@ describe('admin-missing-routes', () => {
       expect(body.message).not.toBe('id 格式不正确')
       const issues = JSON.parse(body.message) as Array<{ code: string; path: string[] }>
       expect(issues).toHaveLength(1)
-      expect(issues[0].code).toBe('too_small')
-      expect(issues[0].path).toEqual(['levelName'])
+      expect(issues[0]!.code).toBe('too_small')
+      expect(issues[0]!.path).toEqual(['levelName'])
     })
 
     it('POST /auth-sms-temp 缺少 code 返回 400', async () => {
@@ -1218,8 +1218,8 @@ describe('admin-missing-routes', () => {
       expect(body.message).not.toBe('参数错误')
       const issues = JSON.parse(body.message) as Array<{ code: string; path: string[] }>
       expect(issues).toHaveLength(1)
-      expect(issues[0].code).toBe('too_small')
-      expect(issues[0].path).toEqual(['name'])
+      expect(issues[0]!.code).toBe('too_small')
+      expect(issues[0]!.path).toEqual(['name'])
     })
 
     it('PUT /auth-role name 类型错误返回 400(invalid_type/name,body 校验产出)', async () => {
@@ -1238,8 +1238,8 @@ describe('admin-missing-routes', () => {
       expect(body.message).not.toBe('参数错误')
       const issues = JSON.parse(body.message) as Array<{ code: string; path: string[] }>
       expect(issues).toHaveLength(1)
-      expect(issues[0].code).toBe('invalid_type')
-      expect(issues[0].path).toEqual(['name'])
+      expect(issues[0]!.code).toBe('invalid_type')
+      expect(issues[0]!.path).toEqual(['name'])
     })
   })
 

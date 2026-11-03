@@ -122,18 +122,18 @@ export default function EduClassPage() {
       <BackButton />
       <div>
         <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
       </div>
       <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-3">
         <Card>
           <CardContent className="min-[640px]:p-3 p-3">
-            <div className="text-sm text-muted-foreground">{t('total')}</div>
+            <div className="text-body text-muted-foreground">{t('total')}</div>
             <div className="mt-1 text-display font-semibold">{total}</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="min-[640px]:p-3 p-3">
-            <div className="text-sm text-muted-foreground">{t('active')}</div>
+            <div className="text-body text-muted-foreground">{t('active')}</div>
             <div className="mt-1 text-display font-semibold">
               {rows.filter((c) => c.status === 'active').length}
             </div>
@@ -141,7 +141,7 @@ export default function EduClassPage() {
         </Card>
         <Card>
           <CardContent className="min-[640px]:p-3 p-3">
-            <div className="text-sm text-muted-foreground">{t('currentPageStudents')}</div>
+            <div className="text-body text-muted-foreground">{t('currentPageStudents')}</div>
             <div className="mt-1 text-display font-semibold">
               {rows.reduce((a, c) => a + c.studentCount, 0)}
             </div>
@@ -158,7 +158,7 @@ export default function EduClassPage() {
         onDelete={handleDelete}
       />
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">{t('totalItems', { total })}</span>
+        <span className="text-body text-muted-foreground">{t('totalItems', { total })}</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -169,7 +169,9 @@ export default function EduClassPage() {
             <ChevronLeft className="h-4 w-4" />
             {t('prev')}
           </Button>
-          <span className="text-sm text-muted-foreground">{t('pageOf', { page, totalPages })}</span>
+          <span className="text-body text-muted-foreground">
+            {t('pageOf', { page, totalPages })}
+          </span>
           <Button
             variant="outline"
             size="sm"

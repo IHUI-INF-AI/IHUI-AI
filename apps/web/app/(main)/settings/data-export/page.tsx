@@ -137,7 +137,7 @@ export default function DataExportPage() {
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">{t('exportJsonDesc')}</span>
+            <span className="text-body text-muted-foreground">{t('exportJsonDesc')}</span>
             <Button size="sm" onClick={handleExport} disabled={creating}>
               {creating ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -162,7 +162,7 @@ export default function DataExportPage() {
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">{t('exportCsvDesc')}</span>
+            <span className="text-body text-muted-foreground">{t('exportCsvDesc')}</span>
             <Button size="sm" disabled>
               <Download className="h-4 w-4" />
               {t('download')}
@@ -174,9 +174,9 @@ export default function DataExportPage() {
       {!allow ? (
         <AuthGatePrompt message={tGate('loginRequired')} />
       ) : loading ? (
-        <p className="py-4 text-center text-sm text-muted-foreground">{t('activityLoading')}</p>
+        <p className="py-4 text-center text-body text-muted-foreground">{t('activityLoading')}</p>
       ) : error ? (
-        <p className="py-4 text-center text-sm text-destructive">{error}</p>
+        <p className="py-4 text-center text-body text-destructive">{error}</p>
       ) : hasExport ? (
         <Card>
           <CardHeader>
@@ -186,7 +186,7 @@ export default function DataExportPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="flex flex-col gap-2 text-sm">
+            <div className="flex flex-col gap-2 text-body">
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">{t('exportLastExport')}</span>
                 <span>{formatTime(lastExport.exportedAt)}</span>
@@ -211,15 +211,15 @@ export default function DataExportPage() {
           </CardContent>
         </Card>
       ) : (
-        <p className="py-4 text-center text-sm text-muted-foreground">{t('exportNoHistory')}</p>
+        <p className="py-4 text-center text-body text-muted-foreground">{t('exportNoHistory')}</p>
       )}
 
       {toast && (
         <div
           className={
             toast.type === 'success'
-              ? 'fixed bottom-4 right-4 z-notification rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-700 shadow-md dark:text-emerald-400'
-              : 'fixed bottom-4 right-4 z-notification rounded-md border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-700 shadow-md dark:text-red-400'
+              ? 'fixed bottom-4 right-4 z-notification rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3 text-body text-emerald-700 shadow-md dark:text-emerald-400'
+              : 'fixed bottom-4 right-4 z-notification rounded-md border border-red-500/30 bg-red-500/10 p-3 text-body text-red-700 shadow-md dark:text-red-400'
           }
         >
           {toast.msg}

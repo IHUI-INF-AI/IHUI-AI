@@ -25,8 +25,8 @@ export function ApiDebugTable({ list }: Props) {
   }
   return (
     <div className="overflow-x-auto rounded-lg border">
-      <table className="w-full text-sm">
-        <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+      <table className="w-full text-body">
+        <thead className="bg-muted/50 text-left text-label uppercase text-muted-foreground">
           <tr>
             <th className="px-4 py-2 font-medium">{t('apiDebug.colMethod')}</th>
             <th className="px-4 py-2 font-medium">URL</th>
@@ -47,7 +47,7 @@ export function ApiDebugTable({ list }: Props) {
                   {h.method}
                 </span>
               </td>
-              <td className="px-4 py-2 text-xs">
+              <td className="px-4 py-2 text-label">
                 <TruncatedText value={h.url} className="max-w-[320px]" mono />
               </td>
               <td className="px-4 py-2">

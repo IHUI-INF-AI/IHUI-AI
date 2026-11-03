@@ -103,6 +103,7 @@ export function CircleDetailScreen() {
         onPressPost={() => navigation.navigate('PostCreate', { circleId: circle?.id ?? id })}
         onPressMembers={() => navigation.navigate('CircleMember', { circleId: circle?.id ?? id })}
         onBack={() => navigation.goBack()}
+        onRetry={() => { void load(); }}
         colorScheme={resolvedTheme}
       />
       {/* 群聊入口(孤儿路由修复:CircleChat 注册无入口,圈子详情补挂)

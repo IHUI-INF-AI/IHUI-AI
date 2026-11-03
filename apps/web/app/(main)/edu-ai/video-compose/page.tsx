@@ -169,7 +169,7 @@ function StepResultView({ step }: { step: ComposeStep }) {
                   href={url}
                   target="_blank"
                   rel="noreferrer"
-                  className="break-all text-xs text-primary hover:underline"
+                  className="break-all text-label text-primary hover:underline"
                 >
                   {url}
                 </a>
@@ -186,13 +186,13 @@ function StepResultView({ step }: { step: ComposeStep }) {
     return (
       <div className="space-y-1.5">
         <p className="text-label font-medium text-muted-foreground">{t(titleKey)}</p>
-        <pre className="whitespace-pre-wrap break-words text-xs leading-relaxed">{text}</pre>
+        <pre className="whitespace-pre-wrap break-words text-label leading-relaxed">{text}</pre>
       </div>
     )
   }
 
   return (
-    <pre className="whitespace-pre-wrap break-words text-xs text-muted-foreground">
+    <pre className="whitespace-pre-wrap break-words text-label text-muted-foreground">
       {typeof step.result === 'string' ? step.result : JSON.stringify(step.result, null, 2)}
     </pre>
   )
@@ -303,7 +303,7 @@ export default function EduAiVideoComposePage() {
           <Clapperboard className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       {/* 创建区 */}
@@ -318,9 +318,9 @@ export default function EduAiVideoComposePage() {
               placeholder={t('promptPlaceholder')}
               maxLength={300}
               rows={4}
-              className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
             />
-            <p className="text-right text-xs text-muted-foreground">{prompt.length}/300</p>
+            <p className="text-right text-label text-muted-foreground">{prompt.length}/300</p>
           </div>
 
           <div className="flex flex-col gap-3 min-[480px]:flex-row">
@@ -369,14 +369,14 @@ export default function EduAiVideoComposePage() {
               <p className="min-w-0 flex-1 truncate text-body font-medium">{viewTask.prompt}</p>
               <span
                 className={cn(
-                  'inline-flex items-center rounded-md px-2 py-0.5 text-xs',
+                  'inline-flex items-center rounded-md px-2 py-0.5 text-label',
                   STATUS_BADGE[viewTask.status],
                 )}
               >
                 {t(STATUS_LABEL_KEY[viewTask.status])}
               </span>
             </div>
-            <p className="mb-3 break-all text-xs text-muted-foreground">
+            <p className="mb-3 break-all text-label text-muted-foreground">
               {t('taskId')}: {viewTask.id}
             </p>
 
@@ -417,14 +417,14 @@ export default function EduAiVideoComposePage() {
                         </span>
                         <span
                           className={cn(
-                            'inline-flex items-center rounded-md px-2 py-0.5 text-xs',
+                            'inline-flex items-center rounded-md px-2 py-0.5 text-label',
                             STATUS_BADGE[step.status],
                           )}
                         >
                           {t(STATUS_LABEL_KEY[step.status])}
                         </span>
                         {elapsed !== null && (
-                          <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1 text-label text-muted-foreground">
                             <Clock className="h-3 w-3" />
                             {t('elapsed')}: {elapsed}s
                           </span>
@@ -435,7 +435,7 @@ export default function EduAiVideoComposePage() {
                         <button
                           type="button"
                           onClick={() => toggleExpand(viewTask.id, stepKey)}
-                          className="mt-1 flex items-center gap-0.5 text-xs text-primary hover:underline"
+                          className="mt-1 flex items-center gap-0.5 text-label text-primary hover:underline"
                         >
                           {isExpanded ? (
                             <ChevronDown className="h-3.5 w-3.5" />
@@ -447,13 +447,13 @@ export default function EduAiVideoComposePage() {
                       )}
 
                       {step.status === 'failed' && step.error && (
-                        <p className="mt-1 break-words text-xs text-rose-600">{step.error}</p>
+                        <p className="mt-1 break-words text-label text-rose-600">{step.error}</p>
                       )}
                       {step.status === 'failed' && (
                         <Button
                           size="xs"
                           variant="outline"
-                          className="mt-2 gap-1.5 px-2 text-xs"
+                          className="mt-2 gap-1.5 px-2 text-label"
                           disabled={Boolean(regenerating)}
                           onClick={() => {
                             void handleRegenerate(viewTask.id, stepKey)
@@ -532,14 +532,14 @@ export default function EduAiVideoComposePage() {
                         />
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="line-clamp-1 block text-sm">{task.prompt}</span>
-                        <span className="block text-xs text-muted-foreground">
+                        <span className="line-clamp-1 block text-body">{task.prompt}</span>
+                        <span className="block text-label text-muted-foreground">
                           {t('taskId')}: {task.id}
                         </span>
                       </span>
                       <span
                         className={cn(
-                          'shrink-0 rounded-md px-2 py-0.5 text-xs',
+                          'shrink-0 rounded-md px-2 py-0.5 text-label',
                           STATUS_BADGE[task.status],
                         )}
                       >

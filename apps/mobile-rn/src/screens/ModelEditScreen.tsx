@@ -6,19 +6,24 @@ import { useState } from 'react'
 import { useTheme } from '../context/ThemeContext'
 import {} from 'react-native'
 import { appAlert } from '../components/BottomPops'
-import { useNavigation } from '@react-navigation/native'
+import { useNavigation, useRoute } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import type { RouteProp } from '@react-navigation/native'
 import {
   ModelEditScreen as SharedModelEditScreen,
+  submitModelEdit,
   type ModelEditBaseInfo,
   type ModelEditFieldValues,
   type ModelEditOption,
 } from '@ihui/rn-app'
+import { updateAgentBilling } from '@ihui/api-client'
+import { toUserFriendlyMessage } from '@ihui/shared/utils'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { useHostPorts } from '../host/use-host-ports'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
+type ModelEditRoute = RouteProp<RootStackParamList, 'ModelEdit'>
 
 const MODEL_INFO: ModelEditBaseInfo = {
   name: '文案写作助手',
@@ -50,6 +55,9 @@ export default function ModelEditScreen() {
   const { resolvedTheme } = useTheme()
   const { t } = useI18n()
   const navigation = useNavigation<NavigationProp>()
+  const route = useRoute<ModelEditRoute>()
+  const { onToast } = useHostPorts()
+  const agentId = route.params?.agentId
   const [fields, setFields] = useState<ModelEditFieldValues>({
     categories: ['1'],
     dept: 'd1',
@@ -78,23 +86,29 @@ export default function ModelEditScreen() {
     }))
   }
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    if (submitting) return
     if (fields.categories.length === 0) {
       return appAlert(t('common.hint'), t('modelEdit.error.categoryRequired'))
     }
     if (fields.saleType !== 'free' && !fields.price) {
       return appAlert(t('common.hint'), t('modelEdit.error.priceRequired'))
     }
+    // 没有真实模型 ID 时不发假请求、不弹假成功(数据源为 DevEnter「待发布」项的 agentId)。
+    if (!agentId) {
+      return onToast(t('common.failed'), { kind: 'error' })
+    }
     setSubmitting(true)
-    setTimeout(() => {
-      setSubmitting(false)
-      appAlert(t('modelEdit.success.title'), t('modelEdit.success.message'), [
-        { text: t('common.gotIt') },
-      ])
-    }, 800)
+    const outcome = await submitModelEdit(updateAgentBilling, agentId, fields)
+    setSubmitting(false)
+    if (!outcome.ok) {
+      // 失败走宿主 onToast 真实上屏:网络异常/服务端 success:false 都原样带出,不吞错。
+      return onToast(toUserFriendlyMessage(outcome.error), { kind: 'error' })
+    }
+    appAlert(t('modelEdit.success.title'), t('modelEdit.success.message'), [
+      { text: t('common.gotIt') },
+    ])
   }
-
-  const { onToast } = useHostPorts()
 
   return (
     <SharedModelEditScreen

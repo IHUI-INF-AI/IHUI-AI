@@ -157,13 +157,13 @@ describe('cognitive-intelligence 服务', () => {
     it('正面反馈增加权重', async () => {
       learnPreference(SID, 'dark-mode', true)
       const prefs = getPreferences(SID)
-      expect(prefs[0].weight).toBe(0.1)
+      expect(prefs[0]!.weight).toBe(0.1)
     })
 
     it('负面反馈减少权重', async () => {
       learnPreference(SID, 'light-mode', false)
       const prefs = getPreferences(SID)
-      expect(prefs[0].weight).toBe(-0.1)
+      expect(prefs[0]!.weight).toBe(-0.1)
     })
 
     it('多次反馈累积', async () => {
@@ -171,13 +171,13 @@ describe('cognitive-intelligence 服务', () => {
       learnPreference(SID, 'lang', true)
       learnPreference(SID, 'lang', true)
       const prefs = getPreferences(SID)
-      expect(prefs[0].weight).toBeCloseTo(0.3, 5)
+      expect(prefs[0]!.weight).toBeCloseTo(0.3, 5)
     })
 
     it('权重限制在 [-1, 1]', async () => {
       for (let i = 0; i < 20; i++) learnPreference(SID, 'limit', true)
       const prefs = getPreferences(SID)
-      expect(prefs[0].weight).toBe(1)
+      expect(prefs[0]!.weight).toBe(1)
     })
 
     it('getPreferences topK 截断', async () => {
@@ -194,7 +194,7 @@ describe('cognitive-intelligence 服务', () => {
       learnPreference(SID, 'big', true)
       learnPreference(SID, 'big', true) // 0.3
       const prefs = getPreferences(SID)
-      expect(prefs[0].key).toBe('big')
+      expect(prefs[0]!.key).toBe('big')
     })
   })
 

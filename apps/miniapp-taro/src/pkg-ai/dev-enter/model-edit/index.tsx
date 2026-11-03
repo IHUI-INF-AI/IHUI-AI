@@ -8,10 +8,11 @@ import { View, Text, Picker, ScrollView, Image, Input } from '@tarojs/components
 // 描边画在外层价格输入盒上 ⇒ 走 hook 文档的 WRAP 形态②:handlers 留 Input、focusStyle 铺容器。
 import { useFieldFocus } from '@/hooks/use-field-focus'
 import LineIcon from '@/components/LineIcon'
-import Taro, { useDidShow, useRouter } from '@tarojs/taro'
+import { useDidShow, useRouter } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { get } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
+import { onToast } from '@/host/on-toast'
 
 const CATEGORIES = [
   t('deventerModeledit.r1'),
@@ -193,10 +194,7 @@ export default function ModelEdit() {
     // 只有 PUT /agents/:id 的 price/isFree 两列,本表单其余 7 项(分类/部门/收费周期/限时/
     // 目标群体/折扣)在库里没有归宿 ⇒ 既不打必然 404 的路径,也不再把失败念成"已模拟提交"。
     logger.warn('model-edit', '收费配置提交', '接口未开放,本次未提交')
-    Taro.showToast({
-      title: tt('devEnter.modelEdit.mockSuccess', '接口暂未开放,未提交'),
-      icon: 'none',
-    })
+    onToast(tt('devEnter.modelEdit.mockSuccess', '接口暂未开放,未提交'), { kind: 'error' })
     setSubmitting(false)
   }
 

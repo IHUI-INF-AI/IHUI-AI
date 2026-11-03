@@ -354,6 +354,24 @@ describe('取值与派生节点', () => {
 })
 
 describe('Animated.View 渲染面', () => {
+  it('静态 style 与动画值合并:静态键一个不丢,动画键取当前帧值', () => {
+    const opacity = new Animated.Value(0.5)
+    const style = () => [
+      { width: 120, backgroundColor: '#ff0000', paddingTop: 8 },
+      { opacity: opacity as unknown as number },
+    ]
+    const first = renderToStaticMarkup(createElement(Animated.View, { style: style() }, 'probe'))
+    expect(first).toContain('width:120px')
+    expect(first).toContain('background-color:#ff0000')
+    expect(first).toContain('padding-top:8px')
+    expect(first).toContain('opacity:0.5')
+    // 同一条 style 里动画节点必须现算:改值后新渲染不能停在创建时快照
+    opacity.setValue(0)
+    const second = renderToStaticMarkup(createElement(Animated.View, { style: style() }, 'probe'))
+    expect(second).toContain('width:120px')
+    expect(second).toContain('opacity:0')
+  })
+
   it('把 transform 里的插值节点解成数值后交给底层组件(renderToStaticMarkup 取证)', () => {
     const value = new Animated.Value(0)
     const translateX = value.interpolate({ inputRange: [0, 1], outputRange: [0, 100] })

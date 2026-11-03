@@ -76,7 +76,7 @@ describe('clawdbot ChannelManager 渠道管理', () => {
       mgr.register(mockChannel('ch2', false))
       const enabled = mgr.listEnabled()
       expect(enabled.length).toBe(1)
-      expect(enabled[0].id).toBe('ch1')
+      expect(enabled[0]!.id).toBe('ch1')
     })
   })
 
@@ -103,7 +103,7 @@ describe('clawdbot ChannelManager 渠道管理', () => {
         content: 'hello',
       })
       expect(handler).toHaveBeenCalledTimes(1)
-      expect(handler.mock.calls[0][0].content).toBe('hello')
+      expect(handler.mock.calls[0]![0].content).toBe('hello')
     })
 
     it('receiveMessage 保留 attachments 与 replyTo', () => {

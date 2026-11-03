@@ -15,8 +15,11 @@
  *  - `snapshot`     拿不到输入(超时/非 200/形状不对)⇒ 不覆盖、也不说"该端没货"
  *  - `unavailable`  拿到了输入且判据不命中(该端确实没登记 / 无机器可读发布源)⇒ 不覆盖
  */
-import type { LiveDesktopSource } from './desktop-feed-live'
+import type { LiveDesktopSource, ReleaseScanSummary } from './desktop-feed-live'
 import type { DownloadAsset, DownloadPlatform, PlatformMeta } from './downloads.config'
+
+/** 小于这个字节数的"码"一律当占位图,不点亮入口(实测坏图 = 11 B) */
+export const MINIAPP_QR_MIN_BYTES = 2048
 
 export type LiveSourceKind = 'live' | 'snapshot' | 'unavailable'
 
@@ -31,6 +34,8 @@ export interface LivePlatformInfo {
   assets?: DownloadAsset[]
   /** 本次解析时刻 ISO:端上可自证"这行是活的还是陈的" */
   resolvedAt: string
+  /** 枚举预算自证(只有需要翻页枚举的端才有):pages 顶到 maxPages ⇒ 下一枚 release 会被挤出射程 */
+  scan?: ReleaseScanSummary
 }
 
 export type LiveDownloads = Partial<Record<DownloadPlatform, LivePlatformInfo>>
@@ -225,12 +230,12 @@ export interface ExtensionManifestEntry {
 }
 
 /** 扩展包站内可点地址(单一落形处,防第二处手拼漂移) */
-export function extensionAssetHref(fileName: string): string {
+function extensionAssetHref(fileName: string): string {
   return `/downloads/extension/${encodeURIComponent(fileName)}`
 }
 
 /** 从扩展包文件名里取版本号;取不到返回 null(不编) */
-export function parseVersionFromArtifactName(name: string): string | null {
+function parseVersionFromArtifactName(name: string): string | null {
   const matched = /-v(\d+\.\d+\.\d+)\.zip$/i.exec(name)
   return matched?.[1] ?? null
 }
@@ -291,7 +296,7 @@ export function judgeExtensionArtifact(
 /* -------------------------------------------------------------------------- */
 
 /** ISO 时刻 → YYYY-MM-DD;取不到返回 undefined(不写假日期) */
-export function isoDateOf(value: string | null | undefined): string | undefined {
+function isoDateOf(value: string | null | undefined): string | undefined {
   if (typeof value !== 'string') return undefined
   const trimmed = value.trim()
   return /^\d{4}-\d{2}-\d{2}/.test(trimmed) ? trimmed.slice(0, 10) : undefined
@@ -355,6 +360,7 @@ export function liveEntryView(
 export function toDesktopLiveInfo(
   source: Pick<LiveDesktopSource, 'version' | 'releaseDate' | 'assets'>,
   nowIso: string,
+  scan?: ReleaseScanSummary,
 ): LivePlatformInfo {
   return {
     platform: 'desktop',
@@ -367,8 +373,102 @@ export function toDesktopLiveInfo(
       format: a.format,
       arch: a.arch,
     })),
+    ...(scan === undefined ? {} : { scan }),
     resolvedAt: nowIso,
   }
+}
+
+/**
+ * iOS 站点腿指针探测的落形判据。
+ * 读的是**线上 cdn-server 自己怎么答**(302 + `X-Release-Version*` 头 + 版本副本的
+ * Content-Length/Type),而不是让站点再抄一份落点路径 —— 那会造出第二个"腿在哪"的真相源。
+ * 三态:302 且头齐且能取到字节 ⇒ live;不是 302 / 缺头 / 类型不对 ⇒ 未判定(交调用方回落);
+ * 探测本身失败(超时/断网)⇒ 也是未判定,绝不读成"该端没包"。
+ */
+export function judgeIpaPointerProbe(
+  input: {
+    status?: number
+    location?: string | null
+    version?: string | null
+    sizeBytes?: number | null
+    contentType?: string | null
+  },
+  nowIso: string,
+): LivePlatformInfo {
+  const base: Omit<LivePlatformInfo, 'source'> = { platform: 'ios', resolvedAt: nowIso }
+  const status = Number(input.status ?? 0)
+  const loc = typeof input.location === 'string' ? input.location.trim() : ''
+  if (status !== 302 || loc === '' || !/^https?:/i.test(loc)) {
+    return {
+      ...base,
+      source: 'snapshot',
+      reason: `ipa-pointer-not-resolved:${status || 'no-location'}`,
+    }
+  }
+  const version = typeof input.version === 'string' ? input.version.trim() : ''
+  if (version === '') {
+    return { ...base, source: 'snapshot', reason: 'ipa-pointer-missing-version-header' }
+  }
+  const size = Number(input.sizeBytes ?? 0)
+  const ct = String(input.contentType ?? '')
+  if (!Number.isFinite(size) || size <= 0 || !ct.includes('octet-stream')) {
+    return {
+      ...base,
+      source: 'snapshot',
+      reason: `ipa-version-copy-unverified:${size || 'no-size'}/${ct || 'no-type'}`,
+    }
+  }
+  return {
+    ...base,
+    source: 'live',
+    version,
+    assets: [{ href: loc, sizeBytes: size, format: 'iOS IPA (TrollStore)' }],
+  }
+}
+
+/**
+ * 微信小程序那一端的判据:它没有"版本号可枚举"的发布源,但**码本身**是实物 ——
+ * 有真图(字节够大)就算这一端已接入,拿不到就照实未接入。
+ * 字节下限是必须的:仓里那个占位文件曾经就是 11 字节的空 png(2026-11-03 实测),
+ * 按"文件存在"判会把坏图点亮成"可扫码"。
+ */
+export function judgeMiniappQr(
+  input: { exists: boolean; sizeBytes: number },
+  nowIso: string,
+  assetHref = '/images/common/miniapp-qr.png',
+): LivePlatformInfo {
+  const base: Omit<LivePlatformInfo, 'source'> = { platform: 'wechat-miniapp', resolvedAt: nowIso }
+  if (!input.exists) return { ...base, source: 'unavailable', reason: 'miniapp-qr-file-missing' }
+  if (!Number.isFinite(input.sizeBytes) || input.sizeBytes < MINIAPP_QR_MIN_BYTES) {
+    return {
+      ...base,
+      source: 'unavailable',
+      reason: `miniapp-qr-stub:${input.sizeBytes}B(<${MINIAPP_QR_MIN_BYTES}B)`,
+    }
+  }
+  // 版本号仍留空:小程序的"已发布版本"只有公众平台后台知道,这里不编 —— 接入与否由实物图说话
+  return {
+    ...base,
+    source: 'live',
+    assets: [{ href: assetHref, sizeBytes: input.sizeBytes, format: '微信小程序' }],
+  }
+}
+
+/**
+ * 把"腿自己报的字节数"并进已有的一格里(注册表那一行仍是版本与日期的权威)。
+ * 只认正整数体积:非 live 的格子、拿不到长度、这一格本来没有资产,一律**原样返回**——
+ * 留 0(页面上是 `-`,"未量")远好于拿估算冒充真实体积。
+ */
+export function applyProbedAssetSize(info: LivePlatformInfo, sizeBytes: number): LivePlatformInfo {
+  if (info.source !== 'live') return info
+  const assets = info.assets ?? []
+  const head = assets[0]
+  // 没有首格就原样返回:这一档不凭空造一行资产(noUncheckedIndexedAccess 也逼着先把这层判掉)
+  if (head === undefined) return info
+  const n = Number(sizeBytes)
+  if (!Number.isFinite(n) || n <= 0) return info
+  if (head.sizeBytes === n) return info
+  return { ...info, assets: [{ ...head, sizeBytes: n }, ...assets.slice(1)] }
 }
 
 /** 镜像测试入口(AGENTS §22c:测试 import 这份判据,不得复制一份) */
@@ -377,6 +477,7 @@ export const __test__ = {
   judgeNpmRegistryDoc,
   judgeIosReleaseDoc,
   judgeExtensionArtifact,
+  applyProbedAssetSize,
   pickNewestArtifact,
   parseVersionFromArtifactName,
   extensionAssetHref,
@@ -384,5 +485,7 @@ export const __test__ = {
   mergeLiveMeta,
   liveEntryView,
   toDesktopLiveInfo,
+  judgeIpaPointerProbe,
+  judgeMiniappQr,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

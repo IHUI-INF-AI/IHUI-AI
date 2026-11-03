@@ -237,12 +237,12 @@ export function AttachmentsUpload({
         {uploading ? (
           <>
             <Loader2 className="mb-2 h-6 w-6 animate-spin text-muted-foreground" />
-            <span className="text-xs text-muted-foreground">{t('uploading')}</span>
+            <span className="text-label text-muted-foreground">{t('uploading')}</span>
           </>
         ) : (
           <>
             <UploadCloud className="mb-2 h-6 w-6 text-muted-foreground" />
-            <span className="text-xs text-muted-foreground">{placeholderText}</span>
+            <span className="text-label text-muted-foreground">{placeholderText}</span>
           </>
         )}
       </div>
@@ -252,7 +252,7 @@ export function AttachmentsUpload({
           {value.map((item, idx) => (
             <li
               key={`${item.url}-${idx}`}
-              className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm"
+              className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-body"
             >
               <FileIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
               <Tooltip content={item.name}>
@@ -265,7 +265,7 @@ export function AttachmentsUpload({
                   {item.name}
                 </a>
               </Tooltip>
-              <span className="shrink-0 text-xs text-muted-foreground">
+              <span className="shrink-0 text-label text-muted-foreground">
                 {(item.size / 1024).toFixed(1)} KB
               </span>
               <button

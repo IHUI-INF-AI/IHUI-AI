@@ -88,10 +88,10 @@ export function MapsTable({ rows, isLoading, noEndpoint, onEdit, onDelete, delet
                         className="h-10 w-10 rounded object-cover"
                       />
                     ) : (
-                      <span className="text-xs text-muted-foreground">—</span>
+                      <span className="text-label text-muted-foreground">—</span>
                     )}
                   </TableCell>
-                  <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">
+                  <TableCell className="px-4 py-2.5 text-label text-muted-foreground">
                     {m.sort}
                   </TableCell>
                   <TableCell className="px-4 py-2.5">

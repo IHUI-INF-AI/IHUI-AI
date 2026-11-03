@@ -20,7 +20,7 @@ import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import Fastify, { type FastifyInstance } from 'fastify'
+import Fastify, { type FastifyInstance, type FastifyError } from 'fastify'
 
 // ---------------------------------------------------------------- mock 面
 
@@ -153,7 +153,7 @@ let server: FastifyInstance
 
 beforeAll(async () => {
   server = Fastify({ logger: false })
-  server.setErrorHandler((err, _request, reply) => {
+  server.setErrorHandler((err: FastifyError, _request, reply) => {
     const statusCode =
       typeof err.statusCode === 'number' && err.statusCode >= 400 && err.statusCode < 600
         ? err.statusCode
@@ -381,14 +381,14 @@ describe('过程审计:每一次写都留下一条 actor + before/after 摘要',
 
     expect(insertCalls).toHaveLength(2)
     const [itemInsert, revisionInsert] = insertCalls as Array<Record<string, unknown>>
-    expect(itemInsert['kind']).toBe('card')
-    expect(itemInsert['createdBy']).toBe(USER_ALICE)
-    expect(revisionInsert['action']).toBe('create')
-    expect(revisionInsert['revisionNo']).toBe(1)
-    expect(revisionInsert['actorUserId']).toBe(USER_ALICE)
-    expect(revisionInsert['actorRole']).toBe('owner')
-    expect(revisionInsert['beforeSummary']).toBeNull()
-    const after = revisionInsert['afterSummary'] as { digest: string; length: number; title: string }
+    expect(itemInsert!['kind']).toBe('card')
+    expect(itemInsert!['createdBy']).toBe(USER_ALICE)
+    expect(revisionInsert!['action']).toBe('create')
+    expect(revisionInsert!['revisionNo']).toBe(1)
+    expect(revisionInsert!['actorUserId']).toBe(USER_ALICE)
+    expect(revisionInsert!['actorRole']).toBe('owner')
+    expect(revisionInsert!['beforeSummary']).toBeNull()
+    const after = revisionInsert!['afterSummary'] as { digest: string; length: number; title: string }
     expect(after.title).toBe('重试策略')
     expect(after.length).toBeGreaterThan(0)
     expect(after.digest).toMatch(/^[0-9a-f]{16}$/)
@@ -412,12 +412,12 @@ describe('过程审计:每一次写都留下一条 actor + before/after 摘要',
     expect(res.statusCode).toBe(200)
 
     expect(updateSets).toHaveLength(1)
-    expect(updateSets[0]['revision']).toBe(2)
+    expect(updateSets[0]!['revision']).toBe(2)
     const [revisionInsert] = insertCalls as Array<Record<string, unknown>>
-    expect(revisionInsert['action']).toBe('revise')
-    expect(revisionInsert['revisionNo']).toBe(2)
-    const before = revisionInsert['beforeSummary'] as { digest: string }
-    const after = revisionInsert['afterSummary'] as { digest: string }
+    expect(revisionInsert!['action']).toBe('revise')
+    expect(revisionInsert!['revisionNo']).toBe(2)
+    const before = revisionInsert!['beforeSummary'] as { digest: string }
+    const after = revisionInsert!['afterSummary'] as { digest: string }
     expect(before.digest).not.toBe(after.digest)
   })
 
@@ -438,8 +438,8 @@ describe('过程审计:每一次写都留下一条 actor + before/after 摘要',
     })
     expect(res.statusCode).toBe(200)
     const [revisionInsert] = insertCalls as Array<Record<string, unknown>>
-    const before = revisionInsert['beforeSummary'] as { title: string }
-    const after = revisionInsert['afterSummary'] as { title: string }
+    const before = revisionInsert!['beforeSummary'] as { title: string }
+    const after = revisionInsert!['afterSummary'] as { title: string }
     expect(before.title).toBe('分页约定')
     expect(after.title).toBe('改名了')
   })
@@ -461,7 +461,7 @@ describe('过程审计:每一次写都留下一条 actor + before/after 摘要',
     })
     expect(res.statusCode).toBe(200)
     const [revisionInsert] = insertCalls as Array<Record<string, unknown>>
-    expect(revisionInsert['action']).toBe('publish')
+    expect(revisionInsert!['action']).toBe('publish')
   })
 
   it('审计面回读:条目流按 revisionNo 升序,空间流按时间倒序,两者都要过权限', async () => {

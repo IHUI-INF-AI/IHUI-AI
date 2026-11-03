@@ -12,6 +12,7 @@ import * as api from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import ThemeRoot from '@/components/ThemeRoot'
 import { EmptyState, ErrorState, ScreenSkeleton } from '@/components/ScreenStates.taro'
+import { onToast } from '@/host/on-toast'
 
 /** n8n 工作流状态映射(对齐 RN N8nModelScreen badgeRun/badgeStop + dotRun/dotStop) */
 function getStatusInfo(
@@ -82,7 +83,7 @@ export default function AiAssistantN8n() {
     (item: Record<string, unknown>) => {
       const url = String(item.url || item.webhookUrl || item.n8nUrl || '')
       if (!url) {
-        Taro.showToast({ title: tt('aiAssistantN8n.noUrl', '暂无访问地址'), icon: 'none' })
+        onToast(tt('aiAssistantN8n.noUrl', '暂无访问地址'), { kind: 'error' })
         return
       }
       Taro.navigateTo({ url: `/pages/webview/index?url=${encodeURIComponent(url)}` })

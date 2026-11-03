@@ -313,20 +313,20 @@ export function SdkExamples(): React.JSX.Element {
           </div>
           <button
             onClick={() => setReveal((v) => !v)}
-            className="flex items-center gap-1 rounded-sm px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            className="flex items-center gap-1 rounded-sm px-2 py-1 text-label text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           >
             {reveal ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
             {reveal ? t('hideKey') : t('showKey')}
           </button>
         </div>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-label text-muted-foreground">
           {t('keyFilledHint', { state: reveal ? t('keyStatePlain') : t('keyStateMasked') })}
         </p>
 
         <Tabs defaultValue="curl">
           <TabsList className="h-8">
             {TEMPLATES.map((g) => (
-              <TabsTrigger key={g.lang} value={g.lang} className="text-xs">
+              <TabsTrigger key={g.lang} value={g.lang} className="text-label">
                 {g.label}
               </TabsTrigger>
             ))}
@@ -352,7 +352,7 @@ export function SdkExamples(): React.JSX.Element {
                         className={cn(
                           // 2026-08-17 P3:dark 模式代码块用更深 zinc-950(与 markdown-stream 对齐),
                           // 原 bg-zinc-950 light + dark:bg-zinc-900 反向(light 比 dark 更深),已修正
-                          'overflow-x-auto rounded-md bg-zinc-100 p-3 text-xs leading-relaxed text-zinc-800',
+                          'overflow-x-auto rounded-md bg-zinc-100 p-3 text-label leading-relaxed text-zinc-800',
                           'dark:bg-zinc-950 dark:text-zinc-100',
                         )}
                       >

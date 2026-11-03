@@ -108,7 +108,7 @@ export default function AdminPromotionRulePage() {
       </div>
       <div className="rounded-lg border border-border bg-card">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-body">
             <thead>
               <tr className="text-left text-muted-foreground">
                 {head.map((h) => (
@@ -138,11 +138,11 @@ export default function AdminPromotionRulePage() {
                       {row.discountType === 'percent' ? '%' : ' 元'}
                     </td>
                     <td className={c}>
-                      <span className={`rounded px-2 py-0.5 text-xs ${BADGE[row.status]}`}>
+                      <span className={`rounded px-2 py-0.5 text-label ${BADGE[row.status]}`}>
                         {STATUS_LABEL[row.status]}
                       </span>
                     </td>
-                    <td className={`${c} text-xs text-muted-foreground`}>
+                    <td className={`${c} text-label text-muted-foreground`}>
                       {fmt(row.startTime)} ~ {fmt(row.endTime)}
                     </td>
                     <td className={c}>
@@ -167,7 +167,7 @@ export default function AdminPromotionRulePage() {
         </div>
       </div>
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">共 {total} 条</span>
+        <span className="text-body text-muted-foreground">共 {total} 条</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -178,7 +178,7 @@ export default function AdminPromotionRulePage() {
             <ChevronLeft className="h-4 w-4" />
             上一页
           </Button>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-body text-muted-foreground">
             {crud.page} / {totalPages}
           </span>
           <Button

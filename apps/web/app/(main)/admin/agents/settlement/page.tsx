@@ -92,7 +92,7 @@ export default function AdminSettlementPage() {
           <Wallet className="h-6 w-6 text-primary" />
           {t('title')}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-3">
@@ -101,7 +101,7 @@ export default function AdminSettlementPage() {
           return (
             <div key={s.key} className="rounded-lg border bg-card p-3">
               <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">
+                <span className="text-label text-muted-foreground">
                   {t(SUMMARY_KEY[s.key] ?? 'summary_unknown')}
                 </span>
                 <Icon className={cn('h-4 w-4', s.cls)} />
@@ -139,7 +139,7 @@ export default function AdminSettlementPage() {
       />
 
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">{t('total', { total })}</span>
+        <span className="text-body text-muted-foreground">{t('total', { total })}</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -149,7 +149,7 @@ export default function AdminSettlementPage() {
           >
             {t('prev')}
           </Button>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-body text-muted-foreground">
             {t('page', { page, total: totalPages })}
           </span>
           <Button

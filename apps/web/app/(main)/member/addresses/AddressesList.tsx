@@ -29,7 +29,7 @@ export function AddressesList({
     return (
       <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
         <MapPin className="h-8 w-8 text-muted-foreground opacity-40" />
-        <p className="text-sm text-muted-foreground">还没有添加收货地址</p>
+        <p className="text-body text-muted-foreground">还没有添加收货地址</p>
       </div>
     )
   }
@@ -42,7 +42,7 @@ export function AddressesList({
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="text-body font-medium">{a.name}</span>
-                <span className="text-xs text-muted-foreground">{a.phone}</span>
+                <span className="text-label text-muted-foreground">{a.phone}</span>
                 {a.isDefault && (
                   <span className="rounded bg-primary/10 px-1.5 py-0.5 text-label font-medium text-primary">
                     默认
@@ -64,7 +64,7 @@ export function AddressesList({
                 </Button>
               </div>
             </div>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-body text-muted-foreground">
               {a.province}
               {a.city}
               {a.district}
@@ -74,7 +74,7 @@ export function AddressesList({
               <Button
                 variant="ghost"
                 size="xs"
-                className="px-2 text-xs"
+                className="px-2 text-label"
                 onClick={() => onSetDefault(a.id)}
                 disabled={defaultPending}
               >

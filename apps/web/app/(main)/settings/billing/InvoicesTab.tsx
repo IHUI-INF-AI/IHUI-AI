@@ -52,8 +52,8 @@ export function InvoicesTab({
 
   return (
     <div className="overflow-x-auto rounded-lg border">
-      <table className="w-full text-sm">
-        <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+      <table className="w-full text-body">
+        <thead className="bg-muted/50 text-left text-label uppercase text-muted-foreground">
           <tr>
             <th className={thCls}>{t('billingInvoiceNo')}</th>
             <th className={thCls}>{t('billingInvoiceType')}</th>
@@ -85,7 +85,7 @@ export function InvoicesTab({
           ) : (
             list.map((inv) => (
               <tr key={inv.id} className="transition-colors hover:bg-muted/30">
-                <td className={cn(tdCls, 'font-mono text-xs')}>{inv.invoiceNo}</td>
+                <td className={cn(tdCls, 'font-mono text-label')}>{inv.invoiceNo}</td>
                 <td className={tdCls}>
                   {t(INVOICE_TYPE_KEY[inv.type] ?? 'billingInvoiceTypeValue.unknown')}
                 </td>
@@ -104,7 +104,9 @@ export function InvoicesTab({
         </tbody>
       </table>
       <div className="flex items-center justify-between px-1 pt-3">
-        <span className="text-sm text-muted-foreground">{t('billingTotal', { count: total })}</span>
+        <span className="text-body text-muted-foreground">
+          {t('billingTotal', { count: total })}
+        </span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -115,7 +117,7 @@ export function InvoicesTab({
             <ChevronLeft className="h-4 w-4" />
             {t('billingPrev')}
           </Button>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-body text-muted-foreground">
             {t('billingPageInfo', { page, totalPages })}
           </span>
           <Button

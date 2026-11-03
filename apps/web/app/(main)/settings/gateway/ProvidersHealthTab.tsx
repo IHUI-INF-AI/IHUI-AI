@@ -220,7 +220,7 @@ export function ProvidersHealthTab() {
               size="xs"
               variant={filter === opt.value ? 'default' : 'outline'}
               onClick={() => setFilter(opt.value)}
-              className="px-2.5 text-xs"
+              className="px-2.5 text-label"
             >
               {opt.label}
             </Button>
@@ -230,7 +230,7 @@ export function ProvidersHealthTab() {
           size="xs"
           variant="ghost"
           onClick={() => refetch()}
-          className="shrink-0 px-2.5 text-xs"
+          className="shrink-0 px-2.5 text-label"
           disabled={isFetching}
         >
           <RefreshCw className={`mr-1 h-3.5 w-3.5 ${isFetching ? 'animate-spin' : ''}`} />
@@ -269,7 +269,7 @@ export function ProvidersHealthTab() {
                       syncMutation.isPending ||
                       syncStatus?.is_syncing === true
                     }
-                    className="px-2.5 text-xs"
+                    className="px-2.5 text-label"
                   >
                     {dryRunMutation.isPending ? (
                       <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
@@ -285,7 +285,7 @@ export function ProvidersHealthTab() {
                 variant="outline"
                 onClick={() => syncMutation.mutate()}
                 disabled={syncMutation.isPending || syncStatus?.is_syncing === true}
-                className="px-2.5 text-xs"
+                className="px-2.5 text-label"
               >
                 {syncMutation.isPending || syncStatus?.is_syncing ? (
                   <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
@@ -376,7 +376,7 @@ export function ProvidersHealthTab() {
             />
           ))}
           {providers.length === 0 && (
-            <p className="py-6 text-center text-xs text-muted-foreground">—</p>
+            <p className="py-6 text-center text-label text-muted-foreground">—</p>
           )}
         </div>
       )}
@@ -540,7 +540,7 @@ function ProviderRow({
               variant="ghost"
               onClick={onSync}
               disabled={isSyncing}
-              className="px-2.5 text-xs"
+              className="px-2.5 text-label"
             >
               {isSyncing ? (
                 <Loader2 className="h-3.5 w-3.5" />
@@ -599,7 +599,7 @@ function SyncDiffCard({ preview }: { preview: DryRunPreview }) {
             size="xs"
             variant={tab === tb.value ? 'default' : 'outline'}
             onClick={() => setTab(tb.value)}
-            className="px-2.5 text-xs"
+            className="px-2.5 text-label"
           >
             {tb.label} ({tb.count})
           </Button>
@@ -610,13 +610,13 @@ function SyncDiffCard({ preview }: { preview: DryRunPreview }) {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={tm('search')}
-            className="h-7 pl-7 text-xs"
+            className="h-7 pl-7 text-label"
           />
         </div>
       </div>
       <div className="max-h-64 space-y-1 overflow-y-auto rounded bg-muted/40 p-2">
         {items.length === 0 ? (
-          <p className="py-4 text-center text-xs text-muted-foreground">{tm('noChanges')}</p>
+          <p className="py-4 text-center text-label text-muted-foreground">{tm('noChanges')}</p>
         ) : (
           items.map((it) => (
             <div
@@ -666,7 +666,7 @@ function DryRunDialog({
           <DialogTitle>{tm('dryRunTitle')}</DialogTitle>
         </DialogHeader>
         {preview ? (
-          <div className="space-y-3 text-sm">
+          <div className="space-y-3 text-body">
             <div className="flex flex-wrap items-center gap-2">
               <Badge className="border-transparent bg-emerald-500/15 text-emerald-600 dark:text-emerald-500">
                 {tm('willAddModels', { count: preview.totalNew })}
@@ -678,7 +678,7 @@ function DryRunDialog({
             <SyncDiffCard preview={preview} />
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground">{tm('noData')}</p>
+          <p className="text-body text-muted-foreground">{tm('noData')}</p>
         )}
         <DialogFooter>
           <Button
@@ -808,7 +808,7 @@ function SyncHistoryTimeline() {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-1.5 rounded-sm px-1 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+        className="flex items-center gap-1.5 rounded-sm px-1 py-1 text-label text-muted-foreground transition-colors hover:text-foreground"
         aria-expanded={open}
       >
         <History className="h-3.5 w-3.5" />
@@ -820,18 +820,18 @@ function SyncHistoryTimeline() {
           {/* 时间轴线(absolute span,非单边 border) */}
           <span aria-hidden className="absolute bottom-0 left-0 top-0 w-px bg-border/60" />
           {isLoading ? (
-            <div className="flex items-center gap-2 py-2 text-xs text-muted-foreground">
+            <div className="flex items-center gap-2 py-2 text-label text-muted-foreground">
               <Loader2 className="h-3 w-3 animate-spin" />
               {tm('loading')}
             </div>
           ) : error ? (
-            <p className="py-2 text-xs text-red-600 dark:text-red-500">
+            <p className="py-2 text-label text-red-600 dark:text-red-500">
               {error instanceof Error ? error.message : tm('loadFailed')}
             </p>
           ) : data && data.length > 0 ? (
             data.map((rec) => <SyncHistoryItem key={rec.id} rec={rec} timeFmt={timeFmt} />)
           ) : (
-            <p className="py-2 text-xs text-muted-foreground">{tm('noHistory')}</p>
+            <p className="py-2 text-label text-muted-foreground">{tm('noHistory')}</p>
           )}
           {/* v4:清理旧日志按钮(展开时显示在底部) */}
           <CleanupHistoryButton />
@@ -956,7 +956,7 @@ function ResetProviderButton({ provider, disabled }: { provider: string; disable
           <DialogHeader>
             <DialogTitle>{tm('resetProvider')}</DialogTitle>
           </DialogHeader>
-          <p className="text-sm">{tm('resetConfirm', { provider })}</p>
+          <p className="text-body">{tm('resetConfirm', { provider })}</p>
           <DialogFooter>
             <Button
               variant="ghost"
@@ -1028,7 +1028,7 @@ function SyncConfigPanel() {
               onChange={(e) => setIntervalInput(e.target.value)}
               min={60}
               max={86400}
-              className="h-7 text-xs"
+              className="h-7 text-label"
               disabled={configMutation.isPending}
             />
             <p className="text-[10px] text-muted-foreground">{tm('intervalHint')}</p>
@@ -1041,7 +1041,7 @@ function SyncConfigPanel() {
               onChange={(e) => setConcurrencyInput(e.target.value)}
               min={1}
               max={20}
-              className="h-7 text-xs"
+              className="h-7 text-label"
               disabled={configMutation.isPending}
             />
             <p className="text-[10px] text-muted-foreground">{tm('concurrencyHint')}</p>
@@ -1055,7 +1055,7 @@ function SyncConfigPanel() {
             size="xs"
             onClick={() => configMutation.mutate()}
             disabled={configMutation.isPending}
-            className="px-2.5 text-xs"
+            className="px-2.5 text-label"
           >
             {configMutation.isPending ? (
               <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
@@ -1120,12 +1120,12 @@ function SyncStatsCard() {
           </div>
         </div>
         {isLoading ? (
-          <div className="flex items-center gap-2 py-4 text-xs text-muted-foreground">
+          <div className="flex items-center gap-2 py-4 text-label text-muted-foreground">
             <Loader2 className="h-3 w-3 animate-spin" />
             {tm('loading')}
           </div>
         ) : error ? (
-          <p className="py-2 text-xs text-red-600 dark:text-red-500">
+          <p className="py-2 text-label text-red-600 dark:text-red-500">
             {error instanceof Error ? error.message : tm('loadFailed')}
           </p>
         ) : data ? (
@@ -1274,11 +1274,11 @@ function CleanupHistoryButton() {
                 value={days}
                 onChange={(e) => setDays(e.target.value)}
                 min={1}
-                className="h-7 text-xs"
+                className="h-7 text-label"
                 disabled={cleanupMutation.isPending}
               />
             </div>
-            <p className="text-sm text-red-600 dark:text-red-500">
+            <p className="text-body text-red-600 dark:text-red-500">
               {tm('cleanupConfirm', { days })}
             </p>
           </div>

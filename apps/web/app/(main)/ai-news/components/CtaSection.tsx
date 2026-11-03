@@ -23,7 +23,9 @@ export function CtaSection() {
           <h2 className="text-display font-bold leading-tight tracking-tight min-[768px]:text-3xl">
             {t('cta.title')}
           </h2>
-          <p className="text-sm text-muted-foreground min-[768px]:text-base">{t('cta.subtitle')}</p>
+          <p className="text-body text-muted-foreground min-[768px]:text-base">
+            {t('cta.subtitle')}
+          </p>
         </div>
         <div className="flex flex-col justify-center gap-3">
           <Button size="lg" asChild className="w-full px-4">

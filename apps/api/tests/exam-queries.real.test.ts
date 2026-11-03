@@ -32,6 +32,7 @@ import {
 
 async function createTestUser(phone: string) {
   const [row] = await db.insert(users).values({ phone }).returning()
+  if (!row) throw new Error('exam-queries.real.test.ts: 插入未返回行(row)')
   return row
 }
 
@@ -47,13 +48,13 @@ describe('exam-queries — 真实 DB 集成测试', () => {
   describe('分类 CRUD', () => {
     it('createExamCategory + findExamCategoryById + findAllExamCategories(按 sort 升序)', async () => {
       const c1 = await createExamCategory({ name: 'Cat1', sort: 2 })
-      const _c2 = await createExamCategory({ name: 'Cat2', sort: 1 })
+      await createExamCategory({ name: 'Cat2', sort: 1 })
       expect(c1.name).toBe('Cat1')
       expect(c1.status).toBe(1) // 默认
       expect((await findExamCategoryById(c1.id))?.name).toBe('Cat1')
       const all = await findAllExamCategories()
       expect(all).toHaveLength(2)
-      expect(all[0].name).toBe('Cat2') // sort=1 在前
+      expect(all[0]!.name).toBe('Cat2') // sort=1 在前
     })
 
     it('findPublishedExamCategories — 仅 status=1', async () => {
@@ -61,7 +62,7 @@ describe('exam-queries — 真实 DB 集成测试', () => {
       await createExamCategory({ name: 'Disabled', status: 0 })
       const list = await findPublishedExamCategories()
       expect(list).toHaveLength(1)
-      expect(list[0].name).toBe('Active')
+      expect(list[0]!.name).toBe('Active')
     })
 
     it('updateExamCategory + deleteExamCategory', async () => {
@@ -87,7 +88,7 @@ describe('exam-queries — 真实 DB 集成测试', () => {
 
     it('findPaperById + findAllPapers(含未发布)', async () => {
       const p1 = await createPaper({ title: 'Published', isPublished: true })
-      const _p2 = await createPaper({ title: 'Draft', isPublished: false })
+      await createPaper({ title: 'Draft', isPublished: false })
       expect((await findPaperById(p1.id))?.title).toBe('Published')
       const all = await findAllPapers({ page: 1, pageSize: 10 })
       expect(all.total).toBe(2)
@@ -102,11 +103,11 @@ describe('exam-queries — 真实 DB 集成测试', () => {
       expect(r1.total).toBe(2)
       const r2 = await findPublishedPapers({ page: 1, pageSize: 10, search: 'Java' })
       expect(r2.total).toBe(1)
-      expect(r2.list[0].title).toBe('Java 基础')
+      expect(r2.list[0]!.title).toBe('Java 基础')
       const r3 = await findPublishedPapers({ page: 1, pageSize: 10, categoryId: c.id })
       expect(r3.total).toBe(1)
       // PaperWithCategory 附带 categoryName
-      expect(r3.list[0].categoryName).toBe('Cat')
+      expect(r3.list[0]!.categoryName).toBe('Cat')
     })
 
     it('updatePaper + deletePaper(级联删除题目)', async () => {
@@ -131,13 +132,13 @@ describe('exam-queries — 真实 DB 集成测试', () => {
         sortOrder: 2,
         options: [{ key: 'A', text: 'optA' }],
       })
-      const _q2 = await createQuestion(p.id, { type: 'multi_choice', title: 'Q2', sortOrder: 1 })
+      await createQuestion(p.id, { type: 'multi_choice', title: 'Q2', sortOrder: 1 })
       expect(q1.type).toBe('single_choice')
       expect(q1.options).toEqual([{ key: 'A', text: 'optA' }])
       expect((await findQuestionById(q1.id))?.title).toBe('Q1')
       const list = await findQuestionsByPaperId(p.id)
       expect(list).toHaveLength(2)
-      expect(list[0].title).toBe('Q2') // sortOrder=1 在前
+      expect(list[0]!.title).toBe('Q2') // sortOrder=1 在前
     })
 
     it('createQuestion — 自动同步 questionCount 到试卷', async () => {
@@ -177,7 +178,7 @@ describe('exam-queries — 真实 DB 集成测试', () => {
       const u = await createTestUser('13800000002')
       const p = await createPaper({ title: 'P' })
       const r1 = await createExamRecord(p.id, u.id)
-      const _r2 = await createExamRecord(p.id, u.id)
+      await createExamRecord(p.id, u.id)
       expect((await findExamRecordById(r1.id))?.id).toBe(r1.id)
       const result = await findMyExamRecords(u.id, { page: 1, pageSize: 10 })
       expect(result.total).toBe(2)

@@ -90,7 +90,7 @@ describe('automations 调度 carrier 互斥(b76-12e G-998161)', () => {
   })
 
   beforeEach(async () => {
-    const mod = (await import('../src/db/index.js')) as {
+    const mod = (await import('../src/db/index.js')) as unknown as {
       __setState: (rows: unknown[]) => void
       __getLastInsertValues: () => Record<string, unknown> | undefined
     }

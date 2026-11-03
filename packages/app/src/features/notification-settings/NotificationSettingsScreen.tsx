@@ -24,8 +24,9 @@ export function NotificationSettingsScreen({
   onToggle,
   onSave,
   onBack,
-  colorScheme = 'light',
-}: NotificationSettingsScreenProps) {
+  onRetry,
+  colorScheme = 'light'
+}: NotificationSettingsScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -50,7 +51,7 @@ export function NotificationSettingsScreen({
         </View>
         <ErrorState
           message={error || t('common.empty')}
-          onRetry={onBack}
+          onRetry={onRetry}
           retryLabel={t('common.back')}
           colorScheme={colorScheme}
         />

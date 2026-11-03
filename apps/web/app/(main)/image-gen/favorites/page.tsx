@@ -54,7 +54,7 @@ export default function ImageGenFavoritesPage() {
     <div className="px-4 py-4 mx-auto w-full max-w-4xl space-y-4">
       <Link
         href="/image-gen"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         返回
@@ -65,7 +65,7 @@ export default function ImageGenFavoritesPage() {
           <Heart className="h-6 w-6 text-primary" />
           收藏的图片
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">你收藏的生成图片</p>
+        <p className="mt-1 text-body text-muted-foreground">你收藏的生成图片</p>
       </div>
 
       {!allow ? (
@@ -76,13 +76,13 @@ export default function ImageGenFavoritesPage() {
           加载中...
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {(error as Error).message}
         </div>
       ) : items.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center text-muted-foreground">
           <Heart className="h-8 w-8 opacity-40" />
-          <p className="text-sm">暂无收藏</p>
+          <p className="text-body">暂无收藏</p>
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-3 min-[640px]:grid-cols-3 min-[1024px]:grid-cols-4">
@@ -93,7 +93,7 @@ export default function ImageGenFavoritesPage() {
               </div>
               <CardContent className="min-[640px]:p-3 space-y-1 p-3">
                 <p className="line-clamp-2 text-label font-medium">{item.prompt}</p>
-                <p className="text-xs text-muted-foreground">{fmt(item.createdAt)}</p>
+                <p className="text-label text-muted-foreground">{fmt(item.createdAt)}</p>
               </CardContent>
             </Card>
           ))}

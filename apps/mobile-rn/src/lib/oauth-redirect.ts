@@ -69,8 +69,8 @@ function generateState(): string {
 }
 
 /** deep-link 旁路用的 pending state 存储键与拒绝哨兵(导出给 oauth-deeplink 消费) */
-export const OAUTH_PENDING_STATE_KEY = 'oauth_pending_state'
-export const OAUTH_STATE_DENIED_SENTINEL = '__oauth_state_binding_unavailable__'
+const OAUTH_PENDING_STATE_KEY = 'oauth_pending_state'
+const OAUTH_STATE_DENIED_SENTINEL = '__oauth_state_binding_unavailable__'
 
 /** 读取并清除 pending state(deep-link 旁路专用:一次性消费) */
 export async function consumePendingOAuthState(): Promise<string | null> {

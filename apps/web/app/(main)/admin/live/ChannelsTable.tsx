@@ -95,7 +95,7 @@ export function ChannelsTable({
                   <TableCell className="px-4 py-2.5">
                     <div className="font-medium">{ch.title}</div>
                     {ch.intro ? (
-                      <div className="max-w-xs break-words text-xs text-muted-foreground">
+                      <div className="max-w-xs break-words text-label text-muted-foreground">
                         {ch.intro}
                       </div>
                     ) : null}

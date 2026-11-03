@@ -48,8 +48,10 @@ export default function PaymentPage() {
     <div className="px-4 py-4 mx-auto w-full max-w-6xl space-y-4">
       <BackButton />
       <header className="space-y-1 text-center">
-        <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">{t('title')}</h1>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">
+          {t('title')}
+        </h1>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       <div className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-3 min-[1024px]:items-start">
@@ -86,14 +88,14 @@ export default function PaymentPage() {
                     {priceLabel}
                   </span>
                   {!isEnterprise && (
-                    <span className="text-sm text-muted-foreground">{t('perMonth')}</span>
+                    <span className="text-body text-muted-foreground">{t('perMonth')}</span>
                   )}
                 </div>
               </CardHeader>
               <CardContent className="flex flex-1 flex-col gap-4">
                 <ul className="flex-1 min-w-0 space-y-2">
                   {features.map((feature, i) => (
-                    <li key={`feature-${i}`} className="flex items-start gap-2 text-sm">
+                    <li key={`feature-${i}`} className="flex items-start gap-2 text-body">
                       <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                       <span>{feature}</span>
                     </li>

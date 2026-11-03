@@ -143,7 +143,7 @@ function CheckoutContent() {
     <div className="px-4 py-4 mx-auto w-full max-w-4xl space-y-4">
       <Link
         href="/payment"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1.5 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         {t('checkout.back')}
@@ -159,7 +159,7 @@ function CheckoutContent() {
             <CardHeader>
               <CardTitle className="text-base">{t('checkout.orderSummary')}</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3 text-sm">
+            <CardContent className="space-y-3 text-body">
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">{t('checkout.plan')}</span>
                 <span className="font-medium">
@@ -188,7 +188,7 @@ function CheckoutContent() {
                 <label
                   key={m.id}
                   className={cn(
-                    'flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2.5 text-sm transition-colors',
+                    'flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2.5 text-body transition-colors',
                     payMethod === m.id
                       ? 'border-brand-accent-deep bg-primary/5'
                       : 'hover:bg-accent',
@@ -362,7 +362,7 @@ function ExistingOrderCheckout({ orderNo }: { orderNo: string }) {
     <div className="px-4 py-4 mx-auto w-full max-w-4xl space-y-4">
       <Link
         href="/payment"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1.5 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         {t('checkout.back')}
@@ -376,12 +376,12 @@ function ExistingOrderCheckout({ orderNo }: { orderNo: string }) {
             <AuthGatePrompt message={tGate('loginRequired')} />
           ) : mockError ? (
             <>
-              <p className="text-sm text-destructive">{t('checkout.payConfigNotReady')}</p>
-              <p className="text-xs text-muted-foreground">{t('checkout.contactAdmin')}</p>
+              <p className="text-body text-destructive">{t('checkout.payConfigNotReady')}</p>
+              <p className="text-label text-muted-foreground">{t('checkout.contactAdmin')}</p>
             </>
           ) : qrCodeUrl ? (
             <>
-              <p className="text-sm text-muted-foreground">{t('checkout.wechatScanDesc')}</p>
+              <p className="text-body text-muted-foreground">{t('checkout.wechatScanDesc')}</p>
               {amount !== null && (
                 <p className="text-lg font-semibold tabular-nums">{formatCNY(amount / 100)}</p>
               )}
@@ -389,14 +389,14 @@ function ExistingOrderCheckout({ orderNo }: { orderNo: string }) {
                 <QRCodeCanvas value={qrCodeUrl} size={240} level="M" />
               </div>
               {polling && (
-                <p className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                <p className="flex items-center justify-center gap-2 text-label text-muted-foreground">
                   <Loader2 className="h-3 w-3 animate-spin" />
                   {t('checkout.processing')}
                 </p>
               )}
             </>
           ) : loaded ? (
-            <p className="text-sm text-muted-foreground">{t('checkout.payIncomplete')}</p>
+            <p className="text-body text-muted-foreground">{t('checkout.payIncomplete')}</p>
           ) : (
             <Loader2 className="mx-auto h-5 w-5 animate-spin text-muted-foreground" />
           )}

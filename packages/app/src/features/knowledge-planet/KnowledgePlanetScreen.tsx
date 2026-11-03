@@ -25,11 +25,11 @@ export function KnowledgePlanetScreen({
   items,
   loading,
   error,
-  onRefresh,
   onItemClick,
   onBack,
-  colorScheme = 'light',
-}: KnowledgePlanetScreenProps) {
+  onRetry,
+  colorScheme = 'light'
+}: KnowledgePlanetScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -47,7 +47,7 @@ export function KnowledgePlanetScreen({
       {loading ? (
         <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
       ) : error ? (
-        <ErrorState message={error} onRetry={onRefresh} colorScheme={colorScheme} />
+        <ErrorState message={error} onRetry={onRetry} colorScheme={colorScheme} />
       ) : (
         <View style={styles.flex}>
           {items.length === 0 ? (

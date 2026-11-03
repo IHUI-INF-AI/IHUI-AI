@@ -98,7 +98,7 @@ export default function ChatSharePage() {
     <div className="mx-auto w-full max-w-3xl space-y-4 px-4 py-4">
       <Link
         href="/chat"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         {t('back')}
@@ -111,7 +111,7 @@ export default function ChatSharePage() {
             {conversation?.title ?? t('shareConversation')}
           </h1>
           {conversation && (
-            <p className="mt-1 text-sm text-muted-foreground">{fmt(conversation.createdAt)}</p>
+            <p className="mt-1 text-body text-muted-foreground">{fmt(conversation.createdAt)}</p>
           )}
         </div>
         <Button size="sm" onClick={copyLink}>
@@ -126,13 +126,13 @@ export default function ChatSharePage() {
           {t('loading')}
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {(error as Error).message}
         </div>
       ) : messages.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center text-muted-foreground">
           <Share2 className="h-8 w-8 opacity-40" />
-          <p className="text-sm">{t('noContent')}</p>
+          <p className="text-body">{t('noContent')}</p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -151,7 +151,7 @@ export default function ChatSharePage() {
                     <Icon className="h-4 w-4" />
                   </div>
                   <div className="min-w-0 flex-1 space-y-1">
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-2 text-label text-muted-foreground">
                       <span className="font-medium">{isUser ? t('user') : t('assistant')}</span>
                       <span>{fmt(msg.createdAt)}</span>
                     </div>

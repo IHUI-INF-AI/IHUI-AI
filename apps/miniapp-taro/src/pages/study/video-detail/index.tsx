@@ -27,6 +27,7 @@ import {
   type CommentItem,
   type PayInfo,
 } from '@/components'
+import { onToast } from '@/host/on-toast'
 
 interface VideoData {
   id: string
@@ -192,7 +193,7 @@ export default function VideoDetailPage() {
       .catch(() => {
         setComments((prev) => prev.filter((c) => c.id !== optimistic.id))
         setCommentInput(content)
-        Taro.showToast({ title: t('common.failed'), icon: 'none' })
+        onToast(t('common.failed'), { kind: 'error' })
       })
   }
 
@@ -253,7 +254,7 @@ export default function VideoDetailPage() {
         setDoneSections((prev) => (info.id && !prev.includes(info.id) ? [...prev, info.id] : prev))
       }
     } catch {
-      Taro.showToast({ title: t('common.failed'), icon: 'none' })
+      onToast(t('common.failed'), { kind: 'error' })
     } finally {
       setCompleting(false)
     }

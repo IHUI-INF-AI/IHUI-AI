@@ -13,6 +13,7 @@ import { post } from '@/api'
 import { isLoggedIn } from '@/utils/auth'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { useFieldFocus } from '@/hooks/use-field-focus'
+import { onToast } from '@/host/on-toast'
 
 interface ShareLinkResult {
   shareUrl: string
@@ -41,7 +42,7 @@ export default function ShareCard() {
       })
       setResult(res)
     } catch {
-      Taro.showToast({ title: t('common.failed'), icon: 'none' })
+      onToast(t('common.failed'), { kind: 'error' })
     } finally {
       setLoading(false)
     }
@@ -52,7 +53,7 @@ export default function ShareCard() {
     if (loading) return
     gate.waitUntilReady(() => {
       if (!isLoggedIn()) {
-        Taro.showToast({ title: t('common.failed'), icon: 'none' })
+        onToast(t('common.failed'), { kind: 'error' })
         return
       }
       void create()
@@ -63,16 +64,14 @@ export default function ShareCard() {
     if (!result) return
     Taro.setClipboardData({
       data: result.shareUrl,
-      success: () => Taro.showToast({ title: t('share.success'), icon: 'success' }),
-      fail: () => Taro.showToast({ title: t('common.failed'), icon: 'none' }),
+      success: () => onToast(t('share.success'), { kind: 'success' }),
+      fail: () => onToast(t('common.failed'), { kind: 'error' }),
     })
   }, [result, t])
 
   return (
     <View className="mx-[20rpx] mt-[20rpx] bg-card border border-border rounded-lg p-[24rpx]">
-      <Text className="block text-title font-semibold text-foreground">
-        {t('share.title')}
-      </Text>
+      <Text className="block text-title font-semibold text-foreground">{t('share.title')}</Text>
       <Text className="block mt-[16rpx] text-[length:26rpx] text-muted-foreground">
         {t('share.remark')}
       </Text>
@@ -112,9 +111,7 @@ export default function ShareCard() {
           <Text className="block mt-[16rpx] text-label text-[var(--color-text-tertiary)]">
             {t('share.code')}
           </Text>
-          <Text className="block mt-[8rpx] text-body text-foreground">
-            {result.shareCode}
-          </Text>
+          <Text className="block mt-[8rpx] text-body text-foreground">{result.shareCode}</Text>
           <Text className="block mt-[16rpx] text-label text-[var(--color-text-tertiary)]">
             {t('share.expireAt')}
           </Text>

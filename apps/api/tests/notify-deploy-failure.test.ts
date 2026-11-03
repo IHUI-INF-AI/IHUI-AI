@@ -719,8 +719,8 @@ describe('告警标识去重端到端(零网络,状态注入)', () => {
     expect(a.smtpCalls).toHaveLength(1)
     expect(o.suppressed).toBe(false)
     const written = JSON.parse(must(a.writes[0], 'w').text) as Record<string, { ts: number }>
-    expect(written['deploy-stalled'].ts).toBe(NOW + 60_000)
-    expect(written['db-backup-missing'].ts).toBe(NOW)
+    expect(written['deploy-stalled']!.ts).toBe(NOW + 60_000)
+    expect(written['db-backup-missing']!.ts).toBe(NOW)
   })
 
   it('记账写盘失败 ⇒ 不影响本次发送,但要 warning 说明下一轮可能重寄', async () => {

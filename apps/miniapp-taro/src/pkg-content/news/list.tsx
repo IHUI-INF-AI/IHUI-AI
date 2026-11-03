@@ -13,6 +13,7 @@ import ThemeRoot from '@/components/ThemeRoot'
 import SearchBar from '@/components/SearchBar'
 import { EmptyState, PressableCard, ScreenSkeleton } from '@/components/ScreenStates.taro'
 import './list.css'
+import { onToast } from '@/host/on-toast'
 
 /** 防御式扩展:后端如返回 category/source/isTop 字段则使用,否则降级 */
 type NewsExt = News & {
@@ -133,7 +134,7 @@ export default function NewsListPage() {
         pageRef.current = curPage + 1
       } catch (e) {
         logger.error('news/list', t('newsList.q4'), e)
-        Taro.showToast({ title: tt('common.failed', '操作失败'), icon: 'none' })
+        onToast(tt('common.failed', '操作失败'), { kind: 'error' })
       } finally {
         loadingRef.current = false
         setLoading(false)

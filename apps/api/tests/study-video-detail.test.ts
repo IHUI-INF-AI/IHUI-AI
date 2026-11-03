@@ -27,8 +27,8 @@ vi.mock('../src/config/index.js', () => ({
     HOST: '0.0.0.0',
     LOG_LEVEL: 'silent',
     CORS_ORIGIN: 'http://localhost:8801',
-    DATABASE_URL: 'postgres://localhost:8810/test',
-    REDIS_URL: 'redis://localhost:8811',
+    DATABASE_URL: 'postgres://127.0.0.1:5399/test',
+    REDIS_URL: 'redis://127.0.0.1:6399',
     JWT_SECRET: 'test-jwt-secret-at-least-32-characters-long!!!',
     JWT_EXPIRES_IN: '7d',
     AI_SERVICE_URL: 'http://localhost:8803',
@@ -71,7 +71,11 @@ const catalogRows = [
 
 // 链式桩:select().from().innerJoin()*.leftJoin()*.where().(limit|orderBy)()
 // 本路由只有两次终结调用:第 1 次 = 详情行,第 2 次 = 同课目录行
-const mockState = vi.hoisted(() => ({ detail: [] as unknown[], catalog: [] as unknown[], calls: 0 }))
+const mockState = vi.hoisted(() => ({
+  detail: [] as unknown[],
+  catalog: [] as unknown[],
+  calls: 0,
+}))
 
 function makeChain(): Record<string, unknown> {
   const chain: Record<string, unknown> = {}
@@ -144,10 +148,12 @@ describe('GET /api/study/videos/:id — 视频小节详情出网契约', () => {
     mockState.detail = [detailRow()]
     mockState.catalog = catalogRows
     const res = await server.inject({ method: 'GET', url: `/api/study/videos/${SECTION_ID}` })
-    const d = res.json().data as { chapters: Array<{ id: string; title: string; duration: string }> }
+    const d = res.json().data as {
+      chapters: Array<{ id: string; title: string; duration: string }>
+    }
     expect(d.chapters.map((c) => c.id)).toEqual([SECTION_ID, OTHER_SECTION_ID])
-    expect(d.chapters[0].duration).toBe('1:02:10')
-    expect(d.chapters[1].duration).toBe('1:35')
+    expect(d.chapters[0]!.duration).toBe('1:02:10')
+    expect(d.chapters[1]!.duration).toBe('1:35')
   })
 
   it('付费小节(小节与整课都不免费)⇒ 播址两个名字都不给,但元信息与目录照给', async () => {

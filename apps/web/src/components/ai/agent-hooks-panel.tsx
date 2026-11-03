@@ -56,8 +56,8 @@ export function AgentHooksPanel() {
     'h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring'
 
   return (
-    <div data-testid="agent-hooks-panel" className="space-y-3 text-sm">
-      <p className="text-xs leading-relaxed text-muted-foreground">{t('description')}</p>
+    <div data-testid="agent-hooks-panel" className="space-y-3 text-body">
+      <p className="text-label leading-relaxed text-muted-foreground">{t('description')}</p>
 
       {/* 新增 hook 表单 */}
       <div data-testid="agent-hooks-form" className="space-y-2 rounded-md border border-border p-2">
@@ -97,7 +97,7 @@ export function AgentHooksPanel() {
             onChange={(e) => setMatchTool(e.target.value)}
             placeholder={t('matchToolPlaceholder')}
             data-testid="agent-hooks-match-tool-input"
-            className="h-8 min-w-0 flex-1 rounded-sm border border-input bg-background px-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            className="h-8 min-w-0 flex-1 rounded-sm border border-input bg-background px-2 text-label text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
           />
         </div>
         <div className="flex gap-1.5">
@@ -114,7 +114,7 @@ export function AgentHooksPanel() {
             type="button"
             data-testid="agent-hooks-test"
             onClick={handleTest}
-            className="rounded-sm border border-border px-2 py-1.5 text-xs text-foreground transition-colors hover:bg-accent/50"
+            className="rounded-sm border border-border px-2 py-1.5 text-label text-foreground transition-colors hover:bg-accent/50"
           >
             {t('test')}
           </button>
@@ -124,7 +124,7 @@ export function AgentHooksPanel() {
       {/* 已配置 hook 列表 */}
       <div data-testid="agent-hooks-list" className="space-y-1.5">
         {hooks.length === 0 ? (
-          <p className="py-3 text-center text-xs text-muted-foreground">{t('empty')}</p>
+          <p className="py-3 text-center text-label text-muted-foreground">{t('empty')}</p>
         ) : (
           hooks.map((h) => (
             <div
@@ -150,7 +150,7 @@ export function AgentHooksPanel() {
                   )}
                 />
               </button>
-              <span className="min-w-0 flex-1 truncate text-xs">
+              <span className="min-w-0 flex-1 truncate text-label">
                 <span className="font-medium">{t(`event.${h.event}`)}</span>
                 <span className="text-muted-foreground">
                   {' '}
@@ -181,7 +181,7 @@ export function AgentHooksPanel() {
               type="button"
               data-testid="agent-hooks-clear-events"
               onClick={clearEvents}
-              className="text-xs text-muted-foreground transition-colors hover:text-foreground"
+              className="text-label text-muted-foreground transition-colors hover:text-foreground"
             >
               {t('clearLog')}
             </button>
@@ -195,7 +195,7 @@ export function AgentHooksPanel() {
         ) : null}
         <div data-testid="agent-hooks-events" className="max-h-40 space-y-1 overflow-y-auto">
           {events.length === 0 ? (
-            <p className="py-2 text-center text-xs text-muted-foreground">{t('noEvents')}</p>
+            <p className="py-2 text-center text-label text-muted-foreground">{t('noEvents')}</p>
           ) : (
             [...events].reverse().map((e) => (
               <div

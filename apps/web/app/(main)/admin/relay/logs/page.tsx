@@ -135,7 +135,7 @@ export default function AdminRelayLogsPage() {
           <FileText className="h-6 w-6 text-primary" />
           调用日志
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">中转站请求日志与按维度聚合统计</p>
+        <p className="mt-1 text-body text-muted-foreground">中转站请求日志与按维度聚合统计</p>
       </div>
 
       <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-3">
@@ -165,7 +165,9 @@ export default function AdminRelayLogsPage() {
             {statsLoading ? (
               <Skeleton className="h-7 w-24" />
             ) : (
-              <div className="text-display font-bold tabular-nums">{numFmt.format(totalTokens)}</div>
+              <div className="text-display font-bold tabular-nums">
+                {numFmt.format(totalTokens)}
+              </div>
             )}
           </CardContent>
         </Card>
@@ -205,7 +207,7 @@ export default function AdminRelayLogsPage() {
             setModel(e.target.value)
           }}
           placeholder="model 精确匹配"
-          className="h-8 w-40 text-xs"
+          className="h-8 w-40 text-label"
         />
         <Select
           value={status}
@@ -227,14 +229,14 @@ export default function AdminRelayLogsPage() {
           type="date"
           value={startDate}
           onChange={(e) => setStartDate(e.target.value)}
-          className="h-8 w-36 text-xs"
+          className="h-8 w-36 text-label"
           aria-label="开始日期"
         />
         <Input
           type="date"
           value={endDate}
           onChange={(e) => setEndDate(e.target.value)}
-          className="h-8 w-36 text-xs"
+          className="h-8 w-36 text-label"
           aria-label="结束日期"
         />
       </div>
@@ -254,8 +256,8 @@ export default function AdminRelayLogsPage() {
           </Select>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="text-xs uppercase text-muted-foreground [&>tr>th]:whitespace-nowrap">
+          <table className="w-full text-body">
+            <thead className="text-label uppercase text-muted-foreground [&>tr>th]:whitespace-nowrap">
               <tr>
                 <th className="px-3 py-2 text-left">分组</th>
                 <th className="px-3 py-2 text-right">调用</th>
@@ -316,8 +318,8 @@ export default function AdminRelayLogsPage() {
           调用明细
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="text-xs uppercase text-muted-foreground">
+          <table className="w-full text-body">
+            <thead className="text-label uppercase text-muted-foreground">
               <tr>
                 <th className="px-3 py-2 text-left">时间</th>
                 <th className="px-3 py-2 text-left">用户</th>
@@ -347,26 +349,26 @@ export default function AdminRelayLogsPage() {
               ) : (
                 list.map((l) => (
                   <tr key={l.id}>
-                    <td className="px-3 py-2 text-xs text-muted-foreground">
+                    <td className="px-3 py-2 text-label text-muted-foreground">
                       {fmt.format(new Date(l.createdAt))}
                     </td>
                     <td className="px-3 py-2">
-                      <div className="text-xs">{l.username ?? l.userId.slice(0, 8)}</div>
+                      <div className="text-label">{l.username ?? l.userId.slice(0, 8)}</div>
                       {l.email && (
                         <div className="text-[10px] text-muted-foreground">{l.email}</div>
                       )}
                     </td>
-                    <td className="px-3 py-2 text-xs">{l.model}</td>
-                    <td className="px-3 py-2 text-right text-xs tabular-nums">
+                    <td className="px-3 py-2 text-label">{l.model}</td>
+                    <td className="px-3 py-2 text-right text-label tabular-nums">
                       {numFmt.format(l.totalTokens)}
                       <div className="text-[10px] text-muted-foreground">
                         {l.promptTokens}/{l.completionTokens}
                       </div>
                     </td>
-                    <td className="px-3 py-2 text-right text-xs tabular-nums">{l.latencyMs}</td>
+                    <td className="px-3 py-2 text-right text-label tabular-nums">{l.latencyMs}</td>
                     <td className="px-3 py-2">
                       <span
-                        className={`rounded-md px-2 py-0.5 text-xs ${
+                        className={`rounded-md px-2 py-0.5 text-label ${
                           l.status === 'success'
                             ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
                             : 'bg-red-500/10 text-red-600 dark:text-red-400'
@@ -375,7 +377,7 @@ export default function AdminRelayLogsPage() {
                         {l.status === 'success' ? '成功' : '错误'}
                       </span>
                     </td>
-                    <td className="px-3 py-2 text-xs text-red-600 dark:text-red-400">
+                    <td className="px-3 py-2 text-label text-red-600 dark:text-red-400">
                       {l.errorMessage ?? '-'}
                     </td>
                     <td className="px-3 py-2">
@@ -403,7 +405,7 @@ export default function AdminRelayLogsPage() {
       </div>
 
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">共 {total} 条</span>
+        <span className="text-body text-muted-foreground">共 {total} 条</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -414,7 +416,7 @@ export default function AdminRelayLogsPage() {
             <ChevronLeft className="h-4 w-4" />
             上一页
           </Button>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-body text-muted-foreground">
             {page} / {totalPages}
           </span>
           <Button

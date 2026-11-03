@@ -94,7 +94,7 @@ export function PricingContent(): React.JSX.Element {
         <h1 className="text-display min-[768px]:text-3xl min-[1024px]:text-4xl font-bold tracking-tight">
           选择适合你的方案
         </h1>
-        <p className="mx-auto max-w-2xl text-sm text-muted-foreground min-[768px]:text-base">
+        <p className="mx-auto max-w-2xl text-body text-muted-foreground min-[768px]:text-base">
           4 档 VIP 会员,从免费到企业级,满足不同使用场景。
         </p>
       </section>
@@ -111,11 +111,11 @@ export function PricingContent(): React.JSX.Element {
             加载中...
           </div>
         ) : error ? (
-          <div className="col-span-full rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+          <div className="col-span-full rounded-md border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
             {(error as Error).message}
           </div>
         ) : levels.length === 0 ? (
-          <div className="col-span-full rounded-md border border-dashed py-8 text-center text-sm text-muted-foreground">
+          <div className="col-span-full rounded-md border border-dashed py-8 text-center text-body text-muted-foreground">
             暂无定价方案
           </div>
         ) : (
@@ -144,7 +144,7 @@ export function PricingContent(): React.JSX.Element {
                 <CardContent className="min-[640px]:p-3 flex flex-1 flex-col p-3">
                   <div className="flex items-center justify-between">
                     <h2 className="text-lg font-semibold">{level.levelName}</h2>
-                    <span className="rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                    <span className="rounded-md bg-muted px-2 py-0.5 text-label text-muted-foreground">
                       {TIER_BADGE[level.levelValue] ?? ''}
                     </span>
                   </div>
@@ -153,10 +153,10 @@ export function PricingContent(): React.JSX.Element {
                     <span className="text-heading font-bold tracking-tight min-[768px]:text-display text-primary">
                       {isFree ? '免费' : formatCNY(displayPrice)}
                     </span>
-                    {!isFree && <span className="text-sm text-muted-foreground">/ 月</span>}
+                    {!isFree && <span className="text-body text-muted-foreground">/ 月</span>}
                   </div>
 
-                  <ul className="mt-5 flex-1 min-w-0 space-y-2 text-sm">
+                  <ul className="mt-5 flex-1 min-w-0 space-y-2 text-body">
                     {BENEFIT_ROWS.map(({ key, label, suffix }) => {
                       const val = benefits[key]
                       if (val === null || val === undefined) return null
@@ -203,7 +203,7 @@ export function PricingContent(): React.JSX.Element {
         )}
       </section>
 
-      <section className="mt-10 rounded-md border bg-muted/30 p-3 text-center text-sm text-muted-foreground">
+      <section className="mt-10 rounded-md border bg-muted/30 p-3 text-center text-body text-muted-foreground">
         所有方案均含完整 API 接入权限,企业版支持定制 SLA 与私有部署。
       </section>
 
@@ -217,7 +217,7 @@ export function PricingContent(): React.JSX.Element {
         <h2 className="text-heading font-bold tracking-tight text-foreground min-[768px]:text-display">
           还不确定?免费试用 30 天
         </h2>
-        <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground">
+        <p className="mx-auto mt-2 max-w-xl text-body text-muted-foreground">
           无需信用卡,全功能体验。30 天内不满意可申请全额退款。
         </p>
         <Button asChild className="mt-5">

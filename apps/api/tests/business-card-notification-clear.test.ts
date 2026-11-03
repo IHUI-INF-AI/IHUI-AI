@@ -21,7 +21,7 @@
  * 测试隔离铁律(AGENTS §5):全程不连真实 PostgreSQL —— db 层整体桩掉,不触库。
  */
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
-import Fastify from 'fastify'
+import Fastify, { type FastifyError } from 'fastify'
 // 2026-10-14:import() 类型注解被 consistent-type-imports 禁(CI lint 红),改顶层 type 命名空间导入
 import type * as NotificationQueriesModule from '../src/db/notification-queries.js'
 
@@ -268,7 +268,7 @@ describe('补缺口 ① GET /api/business-card/mine —「我的名片」按 use
   const server = Fastify({ logger: false })
 
   beforeAll(async () => {
-    server.setErrorHandler((err, _request, reply) => {
+    server.setErrorHandler((err: FastifyError, _request, reply) => {
       const statusCode =
         err.statusCode && err.statusCode >= 400 && err.statusCode < 600 ? err.statusCode : 500
       reply.status(statusCode).send({
@@ -415,7 +415,7 @@ describe('补缺口 ② DELETE /api/notifications — 按 userId 清空全部通
   const server = Fastify({ logger: false })
 
   beforeAll(async () => {
-    server.setErrorHandler((err, _request, reply) => {
+    server.setErrorHandler((err: FastifyError, _request, reply) => {
       const statusCode =
         err.statusCode && err.statusCode >= 400 && err.statusCode < 600 ? err.statusCode : 500
       reply.status(statusCode).send({

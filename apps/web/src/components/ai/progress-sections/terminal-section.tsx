@@ -99,7 +99,7 @@ function AnsiCodeBlock({
   return (
     <pre
       ref={ref}
-      className="max-h-[200px] overflow-auto whitespace-pre-wrap break-all rounded-sm bg-background/60 p-1.5 font-mono text-xs leading-relaxed text-foreground/75"
+      className="max-h-[200px] overflow-auto whitespace-pre-wrap break-all rounded-sm bg-background/60 p-1.5 font-mono text-label leading-relaxed text-foreground/75"
       data-testid={testId}
     >
       {spans.map(renderSpan)}
@@ -170,13 +170,13 @@ const TerminalInputRow = React.memo(function TerminalInputRow({
       data-testid={`terminal-interaction-${termId}`}
     >
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="flex items-center gap-1 text-xs leading-none text-muted-foreground">
+        <span className="flex items-center gap-1 text-label leading-none text-muted-foreground">
           <Keyboard className="h-3.5 w-3.5 shrink-0" aria-hidden />
           {tTerminal('waitingInput')}
         </span>
         {promptTail ? (
           <span
-            className="truncate font-mono text-xs leading-none text-muted-foreground/80"
+            className="truncate font-mono text-label leading-none text-muted-foreground/80"
             data-testid={`terminal-interaction-prompt-${termId}`}
           >
             {tTerminal('promptLabel', { prompt: promptTail })}
@@ -200,7 +200,7 @@ const TerminalInputRow = React.memo(function TerminalInputRow({
         maxLength={maxInputChars > 0 ? maxInputChars : undefined}
         disabled={submitting}
         aria-label={tTerminal('waitingInput')}
-        className="h-7 min-w-0 flex-1 text-xs"
+        className="h-7 min-w-0 flex-1 text-label"
         data-testid={`terminal-interaction-input-${termId}`}
       />
       <Button
@@ -314,7 +314,7 @@ const TerminalItem = React.memo(function TerminalItem({ term }: { term: Terminal
               <button
                 type="button"
                 onClick={() => clearTerminalOutput(term.id)}
-                className="rounded-sm px-1 text-xs text-muted-foreground/70 transition-colors hover:bg-accent/60 hover:text-foreground"
+                className="rounded-sm px-1 text-label text-muted-foreground/70 transition-colors hover:bg-accent/60 hover:text-foreground"
                 aria-label={t('terminal.clearLive')}
                 data-testid={`terminal-clear-live-${term.id}`}
               >
@@ -341,7 +341,7 @@ const TerminalItem = React.memo(function TerminalItem({ term }: { term: Terminal
                 <button
                   type="button"
                   onClick={() => setShowAllOutput(true)}
-                  className="rounded-sm px-1 py-px text-xs text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
+                  className="rounded-sm px-1 py-px text-label text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
                   data-testid={`terminal-show-more-${term.id}`}
                 >
                   {tStatus('showMore')}
@@ -412,5 +412,4 @@ export const TerminalSection = React.memo(function TerminalSection({
     </FoldableSection>
   )
 })
-
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

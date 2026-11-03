@@ -60,12 +60,12 @@ export function NotificationItem({
           <span className={cn('text-body font-medium', !read && 'text-primary')}>{title}</span>
           {!read && <span className="h-2 w-2 shrink-0 rounded-full bg-primary" />}
         </div>
-        {content && <p className="mt-0.5 text-sm text-muted-foreground">{content}</p>}
-        <span className="mt-0.5 text-xs text-muted-foreground">{time}</span>
+        {content && <p className="mt-0.5 text-body text-muted-foreground">{content}</p>}
+        <span className="mt-0.5 text-label text-muted-foreground">{time}</span>
         {status && (
           <p
             className={cn(
-              'mt-0.5 text-xs',
+              'mt-0.5 text-label',
               status.tone === 'destructive' ? 'text-destructive' : 'text-muted-foreground',
             )}
           >

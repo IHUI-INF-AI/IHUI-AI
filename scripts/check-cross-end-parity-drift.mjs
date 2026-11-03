@@ -108,6 +108,9 @@ function docNumbers(md) {
  *   mirror-chain-broken / mirror-declaration-mismatch —— 引壳而链断 / 声明与承载不是同一屏(绝对值出声:
  *       这两维现读存量都是 0,出现即"新增的产物级缺陷",不是把存量判成人人红(§12e))
  *   conversion-available —— 落地器预演读到手写页可转壳承载(机会窗,不是倒退;带齐两步命令)
+ *   style-tier-tierRnMissingN/tierRnForkN/tierWebOffN/tierPending/mpTierDefaulted/mpTierLiteral-increase
+ *       —— 三端"同源档位"用量净增(2026-11-03 接;兑现 check-web-rn-style-tiers 头注那句
+ *       "净增经 §5e 到人",并补上小程序档位尺此前只有驾驶舱只读档、无人轮间比较那一格)
  * 涨跌只比"本轮有没有变坏",不比绝对值大小,免得把正常增长判成异常。
  */
 /**
@@ -150,7 +153,17 @@ function countOrNull(items, undetermined) {
   return items.length
 }
 
-function judge({ coverage, webParity, fidelity, conversion, doc, prev, verdictRows = null }) {
+function judge({
+  coverage,
+  webParity,
+  fidelity,
+  conversion,
+  doc,
+  prev,
+  verdictRows = null,
+  styleTiers,
+  miniappTiers,
+}) {
   const cur = {
     mirrored: coverage?.json?.stats?.mirroredShared ?? null,
     registryEntries: coverage?.json?.stats?.registryEntries ?? null,
@@ -171,6 +184,39 @@ function judge({ coverage, webParity, fidelity, conversion, doc, prev, verdictRo
     // 绝不把"词包没读到"折成"零缺口"。
     fidelityPackAbsent:
       fidelity?.json?.packUndetermined === true ? null : (fidelity?.json?.packAbsentRows ?? null),
+    /**
+     * 样式档位四维(2026-11-03 接)。**只在调用方把该器交进来时建这几键**:
+     * `cur` 上面有一段"任何 null 键 ⇒ 记进 missing ⇒ 整轮未判定"的通用扫描,
+     * 若把这几键无条件塞进去,所有不传 styleTiers 的夹具(以及旧形态调用方)都会当场翻成
+     * 未判定 —— 实测自检从 24/24 掉到 19/24,坏的正是 web/conversion 那几例(与本维无关)。
+     * 传了而读不到 ⇒ 记 null(该维本轮没判,不冒红也不记 0,§0.3)。
+     */
+    ...(styleTiers === undefined
+      ? {}
+      : {
+          tierRnMissingN: finiteOrNull(styleTiers?.json?.rn?.missingN),
+          tierRnForkN: finiteOrNull(styleTiers?.json?.rn?.forkN),
+          tierWebOffN: (() => {
+            const w = styleTiers?.json?.web
+            if (!w) return null
+            const a = finiteOrNull(w.missingN)
+            const b = finiteOrNull(w.forkN)
+            if (a === null && b === null) return null
+            return (a ?? 0) + (b ?? 0)
+          })(),
+          tierPending: finiteOrNull(styleTiers?.json?.forkAllowance?.pending),
+        }),
+    /**
+     * 小程序档位两维(同一条纪律:未交该器就不建键,建了读不到才记 null)。
+     * defaulted = 用 Tailwind 默认档而非项目档表的位置数;literal = 裸字面量(含 rpx/任意值)位置数。
+     * 这两桶每加一枚,小程序与 RN/web 的同源关系就多一处"改源头不跟随",所以只比轮间变坏。
+     */
+    ...(miniappTiers === undefined
+      ? {}
+      : {
+          mpTierDefaulted: finiteOrNull(miniappTiers?.json?.defaulted),
+          mpTierLiteral: finiteOrNull(miniappTiers?.json?.literal),
+        }),
     // 键级撤除台账三维(2026-10-30 立):免掉多少 / 台账里有多少行不成立 / 有多少行已不免除任何东西。
     // 立因:还原度尺判"键在不在页面正文里",判不出可达性 ⇒ 「按后端出处撤掉死分支假绿键」这个正确
     // 动作会把 missing 从 0 顶成 N,而本尺的 mirror-missing-increase 维只会喊"补回文案"——
@@ -202,12 +248,12 @@ function judge({ coverage, webParity, fidelity, conversion, doc, prev, verdictRo
     alignedUnique: finiteOrNull(webParity?.json?.alignedUnique),
     prefixContradicted: countOrNull(
       webParity?.json?.prefixContradicted,
-      webParity?.json?.prefixContradictedUndetermined
+      webParity?.json?.prefixContradictedUndetermined,
     ),
     staleCountAssertions: countOrNull(webParity?.json?.staleCountAssertions),
     missingExpiry: countOrNull(
       webParity?.json?.missingExpiry,
-      webParity?.json?.missingExpiryUndetermined
+      webParity?.json?.missingExpiryUndetermined,
     ),
     duplicateWebKeys: finiteOrNull(webParity?.json?.duplicateWebKeys),
   }
@@ -424,6 +470,43 @@ function judge({ coverage, webParity, fidelity, conversion, doc, prev, verdictRo
       dim: 'mirror-missing-increase',
       detail: `镜像页未还原的业务文案键 ${prev.fidelityMissing} → ${cur.fidelityMissing}(净增 ${cur.fidelityMissing - prev.fidelityMissing})⇒ 用户在小程序端看不到的条目变多 ⇒ 出路:node scripts/check-miniapp-mirror-fidelity.mjs --top=20 按页点名,补回文案或改回壳承载`,
     })
+
+  /**
+   * 样式档位净增三维(2026-11-03 接,补的正是"档位尺说了'净增经到人'而无人接"那一格)。
+   * 判序与既有各维同形:两侧都必须 finite 才比(旧快照没有这一维时不得把 undefined 折成 0
+   * 再喊"净增 N"—— 那条坑本文件头注已记过一次:0 → 28 假净增)。
+   * 存量 445 处不作绝对判:升 blocking 的前置是存量归零(§12e),这里只出声"本轮比上轮坏了"。
+   */
+  const tierWorse = (key, label, exit) => {
+    if (!(prev && Number.isFinite(prev[key]) && Number.isFinite(cur[key]))) return
+    if (cur[key] <= prev[key]) return
+    reasons.push({
+      dim: `style-tier-${key}-increase`,
+      detail:
+        `${label} ${prev[key]} → ${cur[key]}(净增 ${cur[key] - prev[key]} 处)⇒ 同源档位表又多了一批"值在档表里却写成裸数字/异档"的用法,` +
+        `落档腿只改等值位置、不会主动动这些,所以它们不会自己消失 ⇒ 出路:${exit}`,
+    })
+  }
+  const webRnExit =
+    'node scripts/check-web-rn-style-tiers.mjs --json 看 rnMissingValues / rnForkValues / forkAllowance.pendingTop,再按维度跑 node scripts/land-web-style-tiers.mjs 与 node scripts/land-rn-style-tiers.mjs 预演'
+  tierWorse('tierRnMissingN', 'RN 端非档值用量', webRnExit)
+  tierWorse('tierRnForkN', 'RN↔web 同元素取异档的用量', webRnExit)
+  tierWorse('tierWebOffN', 'web 端自身非档/异档用量', webRnExit)
+  tierWorse(
+    'tierPending',
+    '待裁分叉允许差异行数',
+    'node scripts/check-web-rn-style-tiers.mjs --json 的 forkAllowance.pendingTop(逐族给 n/allowed),裁决出口 node scripts/apply-cross-end-verdicts.mjs --proposals=<裁决件>(该器当前零调度,需按 §11 派单产裁决)',
+  )
+  tierWorse(
+    'mpTierDefaulted',
+    '小程序端用 Tailwind 默认档而非项目档表的位置数',
+    'node scripts/check-miniapp-style-tiers.mjs --json(defaulted/literal/projectPct)+ node scripts/land-miniapp-style-tiers.mjs 预演',
+  )
+  tierWorse(
+    'mpTierLiteral',
+    '小程序端裸字面量(含 rpx/任意值)位置数',
+    'node scripts/check-miniapp-style-tiers.mjs --json 的 samples + node scripts/land-miniapp-style-tiers.mjs 预演(hittable 是其中可自动改的子集)',
+  )
 
   const docCur = docNumbers(doc)
   const docMismatch =
@@ -956,6 +1039,22 @@ function main() {
   // 转换机会只跑**预演**(不带 --apply):器物自己说"落地还要同批改声明件",那一形态未装车,
   // 所以这里只把机会喊出来并给全两条命令,不自作主张改端内源文件。
   const conversion = runRuler('upgrade-miniapp-shell-pages.mjs')
+  /**
+   * 样式档位维(2026-11-03 接):`check-web-rn-style-tiers.mjs` 自己的头注写着
+   * 「本尺只读,不进提交链;净增经 §5e 到人」—— 而这句话在本轮之前**没有兑现方**:
+   * 本哨兵只跑 coverage / screen-parity / fidelity 三把尺,没有一把认识 rn_missing / rn_fork /
+   * web_off / pending 这四个读数。后果是"新增 100 处非档字面量"在提交链、驾驶舱、告警三处
+   * 全都不出声(§0.9「造好没装车 = 没有」的同一条,§12f「判据失效的表现永远是安静」)。
+   * 档位差是**存量 445 处**的现实:绝对值一进来就恒红(§12e),所以这里只比"本轮有没有变坏"。
+   */
+  const styleTiers = runRuler('check-web-rn-style-tiers.mjs')
+  /**
+   * 小程序档位维(同日接):`check-miniapp-style-tiers.mjs` 此前**只出现在驾驶舱的只读档**
+   * (parity-auto:258),既不在 runner 也无任何轮间比较 ⇒ 小程序偏离共享档位源
+   * (defaulted / literal 两桶)同样静默增长。它自己已经把可比读数交出来
+   * (defaulted / literal / projectPct / spaceLiteralHittable),这里只包成涨跌维(§0.6 零复算)。
+   */
+  const miniappTiers = runRuler('check-miniapp-style-tiers.mjs')
   const doc = (() => {
     try {
       return execFileSync('git', ['show', `HEAD:${DOC_PATH}`], {
@@ -979,7 +1078,17 @@ function main() {
   } catch {
     verdictRows = null
   }
-  const result = judge({ coverage, webParity, fidelity, conversion, doc, prev, verdictRows })
+  const result = judge({
+    coverage,
+    webParity,
+    fidelity,
+    conversion,
+    doc,
+    prev,
+    verdictRows,
+    styleTiers,
+    miniappTiers,
+  })
   result.at = new Date().toISOString()
   if (recordMode) {
     mkdirSync(dirname(STATE_FILE), { recursive: true })

@@ -21,6 +21,8 @@ export function QrCodeScreen() {
   const [info, setInfo] = useState<QrCodeItem | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [reloadKey, setReloadKey] = useState(0)
+  const reload = () => setReloadKey((key) => key + 1)
 
   useEffect(() => {
     let cancelled = false
@@ -43,7 +45,7 @@ export function QrCodeScreen() {
     return () => {
       cancelled = true
     }
-  }, [t])
+  }, [t, reloadKey])
 
   const onShare = async () => {
     if (!info) return
@@ -62,6 +64,7 @@ export function QrCodeScreen() {
       error={error}
       onShare={onShare}
       onBack={() => navigation.goBack()}
+      onRetry={reload}
       colorScheme={resolvedTheme}
     />
   )

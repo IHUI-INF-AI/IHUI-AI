@@ -419,7 +419,8 @@ export interface DescribeToolCallInput {
  */
 export function describeToolCall(input: DescribeToolCallInput): ToolCallView {
   const { toolName, args, result, status } = input
-  const kind = TOOL_SUBJECT_KINDS[toolName] ?? 'none'
+  const kind =
+    (TOOL_SUBJECT_KINDS[toolName] as ToolSubjectKind | undefined) ?? 'none'
   let subject = kind === 'none' ? '' : normalizeSubject(readArg(args, SUBJECT_KEYS[kind]))
   if (kind === 'none') {
     // 未登记的工具(插件 / MCP 动态名):按 path → url → query → command → name 试探

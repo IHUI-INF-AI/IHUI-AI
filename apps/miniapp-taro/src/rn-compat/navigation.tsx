@@ -12,11 +12,13 @@
  * 两条现读事实 join 出来,产出 route-map.generated.ts。
  * 映射不到时**显式点名并停在原地**,绝不静默跳到别的页(错跳比不跳更难查)。
  */
-import Taro, { useDidHide, useDidShow } from '@tarojs/taro'
+import Taro, { useDidHide, useDidShow, useUnload } from '@tarojs/taro'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 
+import { MINI_TAB_PAGE_LIST } from '../constants/tab-bar-pages'
 import { RN_ROUTE_MAP } from './route-map.generated'
+import { onToast } from '@/host/on-toast'
 
 export type RouteParams = Record<string, unknown>
 
@@ -69,6 +71,12 @@ export function readCarrierParams(token: unknown): RouteParams | null {
   return entry.params
 }
 
+/** 页面 unload 时释放令牌(幂等):不再等 TTL,避免页面栈反复进出把通道占满 */
+export function releaseCarrierParams(token: unknown): void {
+  if (typeof token !== 'string' || token === '') return
+  carriers.delete(token)
+}
+
 function isScalar(v: unknown): boolean {
   return (
     typeof v === 'string' ||
@@ -101,16 +109,11 @@ export function buildRoutePath(name: string, params: RouteParams = {}): string |
 }
 
 /**
- * tabBar 名单是现读事实(app.config.ts 的 tabBar.list)。旧正则把 message/mine 当代号、
- * 漏了 user/share ⇒ 去「我的」会误走 navigateTo 而失败。改显式集合,单测钉住名单。
+ * tabBar 名单与真实配置同源:`app.config.ts` / `custom-tab-bar` / 本文件三处都从
+ * `constants/tab-bar-pages.ts` 派生。旧正则把 message/mine 当代号、漏了 user/share
+ * ⇒ 去「我的」会误走 navigateTo 而失败。单测钉住名单。
  */
-export const MINI_TAB_PATHS = [
-  '/pages/index/index',
-  '/pages/community/index',
-  '/pages/plaza/index/index',
-  '/pages/user/index',
-  '/pages/share/index',
-] as const
+export const MINI_TAB_PATHS: readonly string[] = MINI_TAB_PAGE_LIST.map((path) => `/${path}`)
 
 export function switchTabIfNeeded(path: string): boolean {
   const bare = path.split('?')[0] ?? path
@@ -189,7 +192,7 @@ export function subscribePageParams(
 
 /** 未知路由/非法 action 的可观测出口:页面或自检工具可订阅,不再只有 console.warn */
 export type NavigationFailureReason =
-  'unmapped' | 'tab-params-dropped' | 'unknown-action' | 'carrier-miss'
+  'unmapped' | 'tab-params-dropped' | 'tab-mismatch' | 'unknown-action' | 'carrier-miss'
 export interface NavigationFailure {
   name?: string
   reason: NavigationFailureReason
@@ -279,6 +282,44 @@ function currentScope(): { page: object | null; path: string } {
 }
 
 /**
+ * `useNavigation().getState()` 的形状:React Navigation 的 state 字段
+ * (`routeNames` / `index`) + 小程序当前页的 `route` / `params`。
+ *
+ * 宿主端口 `useHostPorts` 会读 `getState()?.routeNames` 做 target 白名单校验;
+ * 缺这个方法会让任何薄壳调用 onNavigate 直接 TypeError,故它是端口等价层的必需面。
+ * `index` 取页面栈深度(小程序没有 RN 的 navigator state,栈深是等价语义);
+ * `route` 是当前页路径,`params` 与 useRoute 同口径(内存通道 ⊕ URL 标量 ⊕ setParams 覆盖)。
+ */
+export interface CompatNavigationState {
+  routeNames: string[]
+  index: number
+  route: string
+  params: RouteParams
+}
+
+export function getNavigationState(): CompatNavigationState {
+  const instance = Taro.getCurrentInstance()
+  const rawParams = (instance.router?.params ?? {}) as RouteParams
+  const { page, path } = currentScope()
+  const carried = readCarrierParams(rawParams[CARRIER_QUERY_KEY])
+  const scalars: RouteParams = {}
+  for (const [key, value] of Object.entries(rawParams)) {
+    if (key === CARRIER_QUERY_KEY) continue
+    if (value === undefined || value === null) continue
+    scalars[key] = value
+  }
+  const params = { ...(carried ?? {}), ...scalars, ...getPageParams(page, path) }
+  const pages =
+    typeof Taro.getCurrentPages === 'function' ? Taro.getCurrentPages() : ([] as unknown[])
+  return {
+    routeNames: Object.keys(RN_ROUTE_MAP),
+    index: Math.max(0, pages.length - 1),
+    route: path,
+    params,
+  }
+}
+
+/**
  * 焦点 effect 的纯控制器(可脱离 React 单测):
  * run 幂等(同一可见周期只执行一次)、stop 幂等、卸载/异常/重入都有确定终态。
  */
@@ -322,7 +363,7 @@ export function createFocusEffectController(): FocusEffectController {
 }
 
 export interface CompatNavigation {
-  navigate: (name: string, params?: RouteParams) => void
+  navigate: (name: string, params?: RouteParams, options?: { tab?: boolean }) => void
   push: (name: string, params?: RouteParams) => void
   replace: (name: string, params?: RouteParams) => void
   goBack: () => void
@@ -333,6 +374,8 @@ export interface CompatNavigation {
   addListener: (event?: string, cb?: () => void) => { remove: () => void }
   isFocused: () => boolean
   dispatch: (action: unknown) => void
+  /** 与 React Navigation 同名的 state 读取口(宿主端口白名单校验依赖它) */
+  getState: () => CompatNavigationState
 }
 
 let lastParams: RouteParams = {}
@@ -346,6 +389,9 @@ export function useRoute() {
   const [, setVersion] = useState(0)
 
   useEffect(() => subscribePageParams(page, path, () => setVersion((v) => v + 1)), [page, path])
+
+  // 页面 unload 释放 $rp 令牌:参数随页面生命周期走,不再驻留到 TTL 上限
+  useUnload(() => releaseCarrierParams(rawParams[CARRIER_QUERY_KEY]))
 
   const carried = readCarrierParams(rawParams[CARRIER_QUERY_KEY])
   const overrides = getPageParams(page, path)
@@ -380,6 +426,107 @@ export function useRoute() {
   return route
 }
 
+export interface CompatNavigationDeps {
+  fail: (name: string, reason: NavigationFailureReason, detail?: string) => void
+  focusListeners: Set<() => void>
+  blurListeners: Set<() => void>
+}
+
+/**
+ * 纯函数版导航器(不依赖 React):薄壳与单测可直接构造,用来验证 getState / replace 真跳。
+ * `useNavigation` 只是把页面级焦点集合与失败出口注入进来。
+ */
+export function createCompatNavigation(deps: CompatNavigationDeps): CompatNavigation {
+  const { fail, focusListeners, blurListeners } = deps
+  const navigate = (name: string, params?: RouteParams, options?: { tab?: boolean }) => {
+    const path = buildRoutePath(name, params)
+    if (!path) return fail(name, 'unmapped')
+    const isTab = switchTabIfNeeded(path)
+    if (options?.tab && !isTab) {
+      return fail(
+        name,
+        'tab-mismatch',
+        `「${name}」声明为 tab 跳转,但不在 tabBar 名单内 ⇒ 本次未执行。`,
+      )
+    }
+    if (isTab) {
+      if (path.includes('?')) emitNavigationFailure({ name, reason: 'tab-params-dropped' })
+      void Taro.switchTab({ url: barePath(path) })
+    } else {
+      void Taro.navigateTo({ url: path })
+    }
+  }
+
+  const push = (name: string, params?: RouteParams) => {
+    const path = buildRoutePath(name, params)
+    if (!path) return fail(name, 'unmapped')
+    if (switchTabIfNeeded(path)) {
+      return fail(name, 'tab-params-dropped', `tab 页「${name}」只能 switchTab,本次 push 未执行。`)
+    }
+    void Taro.navigateTo({ url: path })
+  }
+
+  // replace 必须真走 redirectTo:不静默降级成 navigateTo(那会把返回栈保留下来)。
+  const replace = (name: string, params?: RouteParams) => {
+    const path = buildRoutePath(name, params)
+    if (!path) return fail(name, 'unmapped')
+    if (switchTabIfNeeded(path)) {
+      void Taro.switchTab({ url: barePath(path) })
+      return
+    }
+    void Taro.redirectTo({ url: path })
+  }
+
+  const setParams = (params: RouteParams) => {
+    const scope = currentScope()
+    setPageParams(scope.page, scope.path, params)
+  }
+
+  const addListener = (event?: string, cb?: () => void) => {
+    if (!cb || (event !== 'focus' && event !== 'blur')) return { remove() {} }
+    const set = event === 'focus' ? focusListeners : blurListeners
+    set.add(cb)
+    return {
+      remove: () => {
+        set.delete(cb)
+      },
+    }
+  }
+
+  const dispatch = (action: unknown) => {
+    const op = resolveNavigationAction(action)
+    switch (op.kind) {
+      case 'navigate':
+        return navigate(op.name, op.params)
+      case 'push':
+        return push(op.name, op.params)
+      case 'replace':
+        return replace(op.name, op.params)
+      case 'back':
+        return void Taro.navigateBack(op.delta ? { delta: op.delta } : undefined)
+      case 'set-params':
+        return setParams(op.params)
+      case 'invalid':
+        return fail(op.name || 'dispatch', 'unknown-action', op.detail)
+    }
+  }
+
+  return {
+    navigate,
+    push,
+    replace,
+    goBack: () => void Taro.navigateBack(),
+    pop: () => void Taro.navigateBack(),
+    popToTop: () => void Taro.navigateBack({ delta: 10 }),
+    setParams,
+    canGoBack: () => Taro.getCurrentPages().length > 1,
+    addListener,
+    isFocused: () => true,
+    dispatch,
+    getState: getNavigationState,
+  }
+}
+
 export function useNavigation(): CompatNavigation {
   const warnedRef = useRef<Set<string>>(new Set())
   const focusRef = useRef<Set<() => void>>(new Set())
@@ -403,93 +550,19 @@ export function useNavigation(): CompatNavigation {
     emitNavigationFailure({ name, reason, detail })
     if (!warnedRef.current.has(name)) {
       warnedRef.current.add(name)
-      void Taro.showToast({ title: '该页面暂未支持', icon: 'none' })
+      void onToast('该页面暂未支持', { kind: 'error' })
     }
   }, [])
 
-  return useMemo<CompatNavigation>(() => {
-    const navigate = (name: string, params?: RouteParams) => {
-      const path = buildRoutePath(name, params)
-      if (!path) return fail(name, 'unmapped')
-      if (switchTabIfNeeded(path)) {
-        if (path.includes('?')) emitNavigationFailure({ name, reason: 'tab-params-dropped' })
-        void Taro.switchTab({ url: barePath(path) })
-      } else {
-        void Taro.navigateTo({ url: path })
-      }
-    }
-
-    const push = (name: string, params?: RouteParams) => {
-      const path = buildRoutePath(name, params)
-      if (!path) return fail(name, 'unmapped')
-      if (switchTabIfNeeded(path)) {
-        return fail(
-          name,
-          'tab-params-dropped',
-          `tab 页「${name}」只能 switchTab,本次 push 未执行。`,
-        )
-      }
-      void Taro.navigateTo({ url: path })
-    }
-
-    const replace = (name: string, params?: RouteParams) => {
-      const path = buildRoutePath(name, params)
-      if (!path) return fail(name, 'unmapped')
-      if (switchTabIfNeeded(path)) {
-        void Taro.switchTab({ url: barePath(path) })
-        return
-      }
-      void Taro.redirectTo({ url: path })
-    }
-
-    const setParams = (params: RouteParams) => {
-      const scope = currentScope()
-      setPageParams(scope.page, scope.path, params)
-    }
-
-    const addListener = (event?: string, cb?: () => void) => {
-      if (!cb || (event !== 'focus' && event !== 'blur')) return { remove() {} }
-      const set = event === 'focus' ? focusRef.current : blurRef.current
-      set.add(cb)
-      return {
-        remove: () => {
-          set.delete(cb)
-        },
-      }
-    }
-
-    const dispatch = (action: unknown) => {
-      const op = resolveNavigationAction(action)
-      switch (op.kind) {
-        case 'navigate':
-          return navigate(op.name, op.params)
-        case 'push':
-          return push(op.name, op.params)
-        case 'replace':
-          return replace(op.name, op.params)
-        case 'back':
-          return void Taro.navigateBack(op.delta ? { delta: op.delta } : undefined)
-        case 'set-params':
-          return setParams(op.params)
-        case 'invalid':
-          return fail(op.name || 'dispatch', 'unknown-action', op.detail)
-      }
-    }
-
-    return {
-      navigate,
-      push,
-      replace,
-      goBack: () => void Taro.navigateBack(),
-      pop: () => void Taro.navigateBack(),
-      popToTop: () => void Taro.navigateBack({ delta: 10 }),
-      setParams,
-      canGoBack: () => Taro.getCurrentPages().length > 1,
-      addListener,
-      isFocused: () => true,
-      dispatch,
-    }
-  }, [fail])
+  return useMemo(
+    () =>
+      createCompatNavigation({
+        fail,
+        focusListeners: focusRef.current,
+        blurListeners: blurRef.current,
+      }),
+    [fail],
+  )
 }
 
 export function useIsFocused() {

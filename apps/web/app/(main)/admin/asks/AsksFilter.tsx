@@ -24,7 +24,7 @@ export function AsksFilter({ search, setSearch, onCreate, mockMode }: Props) {
           <HelpCircle className="h-6 w-6 text-primary" />
           {t('title')}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
       </div>
       <div className="flex items-center gap-2">
         <SearchInput
@@ -41,7 +41,7 @@ export function AsksFilter({ search, setSearch, onCreate, mockMode }: Props) {
         </Button>
       </div>
       {mockMode && (
-        <div className="w-full rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+        <div className="w-full rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-label text-amber-700 dark:text-amber-400">
           [!] {t('mockMode')}
         </div>
       )}

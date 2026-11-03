@@ -10,6 +10,7 @@ import { useState, useCallback } from 'react'
 import { clearCache } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon from '@/components/LineIcon'
+import { onToast } from '@/host/on-toast'
 
 const KEEP_KEYS = ['ihui_token', 'ihui_refresh_token', 'ihui_user_info', 'lang', 'theme']
 const IMAGE_KEYS = ['ihui_image_history', 'ihui_image_favorites']
@@ -83,10 +84,7 @@ export default function CachePage() {
 
         if (keys.length === 0) {
           setProgress(100)
-          Taro.showToast({
-            title: tt('setting.cache.alreadyClean', '已是最新状态'),
-            icon: 'none',
-          })
+          onToast(tt('setting.cache.alreadyClean', '已是最新状态'), { kind: 'info' })
         } else {
           for (let i = 0; i < keys.length; i++) {
             const key = keys[i]
@@ -107,15 +105,12 @@ export default function CachePage() {
               // 后端清理失败不阻塞本地结果
             }
           }
-          Taro.showToast({
-            title: tt('setting.cache.cleared', '缓存已清除'),
-            icon: 'success',
-          })
+          onToast(tt('setting.cache.cleared', '缓存已清除'), { kind: 'success' })
         }
         loadSize()
       } catch (e) {
         logger.error('setting/cache', '清理缓存', e)
-        Taro.showToast({ title: tt('setting.cache.failed', '清除失败'), icon: 'none' })
+        onToast(tt('setting.cache.failed', '清除失败'), { kind: 'error' })
       } finally {
         setClearing(false)
         setProgress(0)
@@ -140,9 +135,7 @@ export default function CachePage() {
         <View className="mx-[20rpx] flex flex-col gap-[2rpx] overflow-hidden rounded-lg bg-[color:var(--color-border)]">
           <View className="flex min-h-[120rpx] items-center justify-between bg-card px-[24rpx] py-[28rpx] dark:bg-muted">
             {/* rowLabel 对齐 RN: 16dp→32rpx + text.medium 语义映射 muted-foreground */}
-            <Text className="text-title text-muted-foreground">
-              {t('setting.cache.current')}
-            </Text>
+            <Text className="text-title text-muted-foreground">{t('setting.cache.current')}</Text>
             <Text className="text-title text-foreground">{size}</Text>
           </View>
         </View>
@@ -178,9 +171,7 @@ export default function CachePage() {
             onClick={onClearFile}
             hoverClass="opacity-60"
           >
-            <Text className="text-title text-muted-foreground">
-              {t('setting.cache.clearFile')}
-            </Text>
+            <Text className="text-title text-muted-foreground">{t('setting.cache.clearFile')}</Text>
             <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
           </View>
         </View>

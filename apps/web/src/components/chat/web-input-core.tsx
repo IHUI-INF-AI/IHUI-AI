@@ -276,7 +276,7 @@ export const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCorePro
           aria-label={placeholder}
           style={{ maxHeight: MAX_HEIGHT_PX, minHeight: MIN_HEIGHT_PX }}
           className={cn(
-            'thin-scroll block w-full resize-none bg-transparent text-sm leading-snug outline-none',
+            'thin-scroll block w-full resize-none bg-transparent text-body leading-snug outline-none',
             'placeholder:text-muted-foreground/70',
             'pb-6',
           )}
@@ -324,7 +324,7 @@ export const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCorePro
             </span>
           </div>
         )}
-        {error ? <p className="mt-1 text-xs text-destructive">{error}</p> : null}
+        {error ? <p className="mt-1 text-label text-destructive">{error}</p> : null}
       </div>
     )
   },

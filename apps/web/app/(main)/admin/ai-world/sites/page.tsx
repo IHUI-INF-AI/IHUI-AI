@@ -116,7 +116,7 @@ export default function AdminAiWorldSitesPage() {
                     </span>
                     <div className="min-w-0">
                       <p className="truncate text-body font-medium">{cat.name}</p>
-                      <p className="text-xs text-muted-foreground">{cat.id}</p>
+                      <p className="text-label text-muted-foreground">{cat.id}</p>
                     </div>
                   </div>
                 ))}
@@ -132,15 +132,15 @@ export default function AdminAiWorldSitesPage() {
             </CardHeader>
             <CardContent>
               {hotApps.length === 0 ? (
-                <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+                <div className="flex items-center justify-center gap-2 py-8 text-body text-muted-foreground">
                   <Info className="h-4 w-4" />
                   {t('emptyHotApps')}
                 </div>
               ) : (
                 <div className="overflow-hidden rounded-lg border">
                   <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead className="bg-muted/40 text-left text-xs text-muted-foreground">
+                    <table className="w-full text-body">
+                      <thead className="bg-muted/40 text-left text-label text-muted-foreground">
                         <tr>
                           <th className="px-3 py-2 font-medium">{t('table.name')}</th>
                           <th className="px-3 py-2 font-medium">{t('table.id')}</th>
@@ -151,7 +151,7 @@ export default function AdminAiWorldSitesPage() {
                         {hotApps.map((app) => (
                           <tr key={app.id} className="transition-colors hover:bg-accent/50">
                             <td className="px-3 py-2 font-medium">{app.name}</td>
-                            <td className="px-3 py-2 font-mono text-xs text-muted-foreground">
+                            <td className="px-3 py-2 font-mono text-label text-muted-foreground">
                               {app.id}
                             </td>
                             <td className="px-3 py-2 text-right">

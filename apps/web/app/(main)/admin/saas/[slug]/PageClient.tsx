@@ -122,7 +122,7 @@ export default function TenantDetailPage() {
     return (
       <div className="space-y-4">
         <BackBar />
-        <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-600 dark:text-rose-500">
+        <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-body text-rose-600 dark:text-rose-500">
           {error.message}
         </div>
       </div>
@@ -157,7 +157,7 @@ export default function TenantDetailPage() {
               </h1>
               <StateBadge state={tenant.state} />
             </div>
-            <p className="mt-1 text-xs text-muted-foreground">
+            <p className="mt-1 text-label text-muted-foreground">
               {tenant.domain !== '-' ? (
                 <a
                   href={`https://${tenant.domain}`}
@@ -239,7 +239,7 @@ export default function TenantDetailPage() {
           <InfoCard
             label={t('detail.resources')}
             value={
-              <div className="text-sm">
+              <div className="text-body">
                 <div>
                   {t('detail.memory')}: <span className="font-mono">{tenant.memory}</span>
                 </div>
@@ -253,7 +253,7 @@ export default function TenantDetailPage() {
           <InfoCard
             label={t('detail.domain')}
             value={
-              <span className="break-all font-mono text-sm">
+              <span className="break-all font-mono text-body">
                 {tenant.domain !== '-' ? tenant.domain : '—'}
               </span>
             }
@@ -354,7 +354,7 @@ function InfoCard({ label, value, hint }: InfoCardProps) {
       </CardHeader>
       <CardContent>
         <div className="min-h-[2.5rem]">{value}</div>
-        {hint ? <p className="mt-2 text-xs text-muted-foreground">{hint}</p> : null}
+        {hint ? <p className="mt-2 text-label text-muted-foreground">{hint}</p> : null}
       </CardContent>
     </Card>
   )

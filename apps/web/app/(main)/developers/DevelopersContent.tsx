@@ -80,7 +80,7 @@ export function DevelopersContent(): React.JSX.Element {
 
   if (error || !data) {
     return (
-      <div className="mx-auto max-w-2xl ui-card rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+      <div className="mx-auto max-w-2xl ui-card rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
         {(error as Error)?.message ?? '加载开发者信息失败'}
       </div>
     )
@@ -106,7 +106,7 @@ export function DevelopersContent(): React.JSX.Element {
         <h1 className="text-3xl font-bold tracking-tight min-[768px]:text-5xl">
           {data.name} 开放平台
         </h1>
-        <p className="mx-auto max-w-2xl text-sm text-muted-foreground min-[768px]:text-base">
+        <p className="mx-auto max-w-2xl text-body text-muted-foreground min-[768px]:text-base">
           为开发者提供 OpenAI 兼容 API、9 大厂商模型、4 档配额,一行代码切换模型,统一鉴权。
         </p>
         <div className="flex flex-wrap items-center justify-center gap-3">
@@ -130,10 +130,12 @@ export function DevelopersContent(): React.JSX.Element {
         <h2 className="text-heading font-bold tracking-tight min-[768px]:text-display">限流策略</h2>
         <Card>
           <CardContent className="p-0">
-            <div className="grid grid-cols-2 gap-px bg-border/40 text-sm min-[640px]:grid-cols-4">
+            <div className="grid grid-cols-2 gap-px bg-border/40 text-body min-[640px]:grid-cols-4">
               <div className="bg-card p-3 text-label font-medium text-muted-foreground">档位</div>
               <div className="bg-card p-3 text-label font-medium text-muted-foreground">QPS</div>
-              <div className="bg-card p-3 text-label font-medium text-muted-foreground">日 Token</div>
+              <div className="bg-card p-3 text-label font-medium text-muted-foreground">
+                日 Token
+              </div>
               <div className="bg-card p-3 text-label font-medium text-muted-foreground">并发</div>
               {TIER_LABELS.map(({ key, label }) => {
                 const r = data.rateLimits[key]
@@ -153,7 +155,9 @@ export function DevelopersContent(): React.JSX.Element {
 
       {/* 支持厂商 */}
       <section className="space-y-4">
-        <h2 className="text-heading font-bold tracking-tight min-[768px]:text-display">支持的厂商</h2>
+        <h2 className="text-heading font-bold tracking-tight min-[768px]:text-display">
+          支持的厂商
+        </h2>
         <div className="grid grid-cols-2 gap-3 min-[640px]:grid-cols-3">
           {data.providers.map((p) => (
             <Card key={p} className="transition-colors hover:bg-accent">
@@ -182,7 +186,7 @@ export function DevelopersContent(): React.JSX.Element {
                   </span>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="min-[640px]:p-3 space-y-1 p-3 pt-0 text-xs text-muted-foreground">
+              <CardContent className="min-[640px]:p-3 space-y-1 p-3 pt-0 text-label text-muted-foreground">
                 {sdk.npm && (
                   <div>
                     npm: <code className="font-mono">{sdk.npm}</code>
@@ -210,18 +214,18 @@ export function DevelopersContent(): React.JSX.Element {
             </CardTitle>
           </CardHeader>
           <CardContent className="min-[640px]:p-3 space-y-3 p-3 pt-0">
-            <p className="text-sm text-muted-foreground">
+            <p className="text-body text-muted-foreground">
               在请求头{' '}
-              <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
+              <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-label">
                 {data.auth.header}
               </code>{' '}
               中携带 API Key,格式为{' '}
-              <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
+              <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-label">
                 Bearer &lt;your_api_key&gt;
               </code>
               。
             </p>
-            <pre className="overflow-x-auto rounded-md bg-muted p-3 text-xs leading-relaxed">
+            <pre className="overflow-x-auto rounded-md bg-muted p-3 text-label leading-relaxed">
               <code>{authExample}</code>
             </pre>
           </CardContent>

@@ -163,12 +163,12 @@ export function VideoPlayer({
           className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/80 text-white"
         >
           <AlertCircle className="h-8 w-8" aria-hidden />
-          <p className="text-sm">{t('videoLoadFailed')}</p>
+          <p className="text-body">{t('videoLoadFailed')}</p>
           <button
             type="button"
             onClick={() => setNonce((n) => n + 1)}
             aria-label={t('previewRetryAction')}
-            className="rounded-sm p-1 text-xs underline hover:bg-white/20"
+            className="rounded-sm p-1 text-label underline hover:bg-white/20"
           >
             {t('previewRetryAction')}
           </button>
@@ -214,7 +214,7 @@ export function VideoPlayer({
             >
               {mutedState ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
             </button>
-            <span className="text-xs">
+            <span className="text-label">
               {fmt((progress / 100) * duration)} / {fmt(duration)}
             </span>
             <button

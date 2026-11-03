@@ -239,20 +239,31 @@ export async function pushPoolSync(
     }
     let pushed = 0
     let skipped = 0
-    const failedIds: string[] = []
+    const nameById = new Map(accounts.map((a) => [a.poolAccountId, a.name]))
+    const failures: Array<{ id: string; reason: string }> = []
     for (const r of results) {
       if (r?.status === 'synced') pushed++
       else if (r?.status === 'skipped') skipped++
-      else if (r?.poolAccountId) failedIds.push(r.poolAccountId)
+      else if (r?.poolAccountId)
+        failures.push({ id: r.poolAccountId, reason: r.reason ?? '未知原因' })
     }
+    const failedIds = failures.map((f) => f.id)
     const failed = failedIds.length
+    // 逐条原因必须带回台账:此前只拼「N 条同步失败」,导致 494 次连败也看不出是
+    // 同名唯一约束还是 429/过期(2026-11-03 实测 minimax:cn 就卡在这里)。
+    const detail = failures
+      .map((f) => {
+        const label = nameById.get(f.id) ?? f.id
+        return `${label}(${f.id.slice(0, 8)}): ${f.reason}`
+      })
+      .join('; ')
     return {
       ok: failed === 0,
       pushed,
       skipped,
       failed,
       failedIds,
-      error: failed > 0 ? `${failed} 条签到同步失败` : null,
+      error: failed > 0 ? `${failed} 条签到同步失败: ${detail}`.slice(0, 200) : null,
     }
   } catch (e) {
     const msg = e instanceof Error ? e.message.slice(0, 200) : '未知错误'
@@ -397,6 +408,107 @@ export function parseCheckinSyncMeta(extraMetadata: unknown): CheckinSyncMeta {
   }
 }
 
+/** 升级告警阈值(2026-11-03 立):attempts >= 20 或首次 pending 超 6h,先到先触发 */
+export const CHECKIN_SYNC_ESCALATE_ATTEMPTS = 20
+export const CHECKIN_SYNC_ESCALATE_AFTER_MS = 6 * 60 * 60 * 1000
+
+/** extraMetadata.checkinSync 里只与升级相关的两个时刻(坏形状一律按 null) */
+export interface CheckinSyncEscalationMeta {
+  firstPendingAt: string | null
+  escalatedAt: string | null
+}
+
+export function parseCheckinSyncEscalation(extraMetadata: unknown): CheckinSyncEscalationMeta {
+  const none: CheckinSyncEscalationMeta = { firstPendingAt: null, escalatedAt: null }
+  let meta = extraMetadata
+  if (typeof meta === 'string') {
+    try {
+      meta = JSON.parse(meta)
+    } catch {
+      return none
+    }
+  }
+  if (!meta || typeof meta !== 'object' || Array.isArray(meta)) return none
+  const cs = (meta as Record<string, unknown>).checkinSync
+  if (!cs || typeof cs !== 'object' || Array.isArray(cs)) return none
+  const c = cs as Record<string, unknown>
+  return {
+    firstPendingAt: typeof c.firstPendingAt === 'string' ? c.firstPendingAt : null,
+    escalatedAt: typeof c.escalatedAt === 'string' ? c.escalatedAt : null,
+  }
+}
+
+/** 是否需要升级(纯函数):已升级过的不再重复;跨阈值/超时窗才升级 */
+export function shouldEscalateCheckinSyncFailure(
+  meta: CheckinSyncEscalationMeta,
+  attempts: number,
+  now: Date,
+): boolean {
+  if (meta.escalatedAt) return false
+  if (attempts >= CHECKIN_SYNC_ESCALATE_ATTEMPTS) return true
+  if (!meta.firstPendingAt) return false
+  const first = Date.parse(meta.firstPendingAt)
+  return Number.isFinite(first) && now.getTime() - first >= CHECKIN_SYNC_ESCALATE_AFTER_MS
+}
+
+export interface CheckinSyncEscalationTarget {
+  id: string
+  providerCode: string
+  name: string
+  extraMetadata: unknown
+}
+
+/**
+ * 单账号升级一次:先写 escalatedAt 去重(并发/多轮重复触发也只发一封),
+ * 再经既有告警出口 pushAlert 投递;投递失败只记日志,绝不回滚台账、不中断重推。
+ */
+export async function escalateCheckinSyncFailureOnce(
+  row: CheckinSyncEscalationTarget,
+  attempts: number,
+  lastError: string,
+  now: Date = new Date(),
+): Promise<boolean> {
+  if (
+    !shouldEscalateCheckinSyncFailure(parseCheckinSyncEscalation(row.extraMetadata), attempts, now)
+  )
+    return false
+  const marker = now.toISOString()
+  await db
+    .update(aiRelayAccountPool)
+    .set({
+      extraMetadata: sql`coalesce(${aiRelayAccountPool.extraMetadata}, '{}'::jsonb) || jsonb_build_object(
+        'checkinSync', coalesce(${aiRelayAccountPool.extraMetadata}->'checkinSync', '{}'::jsonb)
+          || jsonb_build_object('escalatedAt', ${marker}::text)
+      )`,
+      updatedAt: now,
+    })
+    .where(inArray(aiRelayAccountPool.id, [row.id]))
+  try {
+    const { pushAlertWithResult } = await import('./alert-notification-service.js')
+    await pushAlertWithResult({
+      title: `号池签到同步连续失败: ${row.providerCode}/${row.name}`,
+      message: [
+        `账号: ${row.name}`,
+        `poolAccountId: ${row.id}`,
+        `provider: ${row.providerCode}`,
+        `累计失败: ${attempts} 次`,
+        `最近原因: ${lastError.slice(0, 200)}`,
+        '',
+        '该号已连续多轮无法写入签到侧,请核对同名冲突/凭证版本/内网服务状态。',
+      ].join('\n'),
+      severity: 'warning',
+      source: 'relay-account-pool-checkin-sync',
+      metadata: { poolAccountId: row.id, providerCode: row.providerCode, attempts },
+    })
+  } catch (e) {
+    logger.warn('[checkin-sync] 升级告警投递失败(台账已留痕)', {
+      accountId: row.id,
+      err: e instanceof Error ? e.message.slice(0, 200) : '未知错误',
+    })
+  }
+  return true
+}
+
 /** 落 pending(attempts 在 SQL 内原子 +1;state=null 时显式写 JSON null 清旧值) */
 export async function markCheckinSyncPending(
   ids: string[],
@@ -405,6 +517,15 @@ export async function markCheckinSyncPending(
   error: string,
 ): Promise<void> {
   if (ids.length === 0) return
+  // 失败当场落日志(2026-11-03 立):此前只有 lastError 字段与 20 次/6h 升级告警,
+  // 在「重推轮本身没跑」或「未达升级阈值」的窗口里,失败只躺在 jsonb 里没人看见。
+  // 这里只打 id/kind/原因(不碰 token),让 grep 日志能直接回答「哪几个号、为什么」。
+  logger.warn('[checkin-sync] 落待推(本次同步失败,等待重推)', {
+    count: ids.length,
+    ids: ids.slice(0, 20),
+    kind,
+    error: error.slice(0, 200),
+  })
   await db
     .update(aiRelayAccountPool)
     .set({
@@ -415,6 +536,8 @@ export async function markCheckinSyncPending(
           'pendingAt', ${new Date().toISOString()}::text,
           'lastError', ${error.slice(0, 200)}::text,
           'attempts', coalesce((${aiRelayAccountPool.extraMetadata}->'checkinSync'->>'attempts')::int, 0) + 1,
+          'firstPendingAt', coalesce(${aiRelayAccountPool.extraMetadata}->'checkinSync'->>'firstPendingAt', ${new Date().toISOString()}::text),
+          'escalatedAt', ${aiRelayAccountPool.extraMetadata}->'checkinSync'->>'escalatedAt',
           'state', ${state}::text
         )
       )`,
@@ -436,6 +559,8 @@ export async function clearCheckinSyncPending(ids: string[]): Promise<void> {
           'pendingAt', null,
           'lastError', null,
           'attempts', 0,
+          'firstPendingAt', null,
+          'escalatedAt', null,
           'state', null,
           'lastSyncedAt', ${new Date().toISOString()}::text
         )
@@ -519,7 +644,14 @@ export async function retryPendingCheckinSyncs(
         await clearCheckinSyncPending([row.id])
         out.cleared++
       } else {
-        await markCheckinSyncPending([row.id], 'state', state, r.error ?? '未知错误')
+        const err = r.error ?? '未知错误'
+        await markCheckinSyncPending([row.id], 'state', state, err)
+        await escalateCheckinSyncFailureOnce(row, meta.attempts + 1, err).catch((e: unknown) => {
+          logger.warn('[checkin-sync] 升级判定异常(不影响重推)', {
+            accountId: row.id,
+            err: e instanceof Error ? e.message.slice(0, 200) : '未知错误',
+          })
+        })
         out.stillPending++
       }
       continue
@@ -549,13 +681,27 @@ export async function retryPendingCheckinSyncs(
         await clearCheckinSyncPending([row.id])
         out.cleared++
       } else {
-        await markCheckinSyncPending([row.id], 'cred', null, r.error ?? '未知错误')
+        const err = r.error ?? '未知错误'
+        await markCheckinSyncPending([row.id], 'cred', null, err)
+        await escalateCheckinSyncFailureOnce(row, meta.attempts + 1, err).catch((e: unknown) => {
+          logger.warn('[checkin-sync] 升级判定异常(不影响重推)', {
+            accountId: row.id,
+            err: e instanceof Error ? e.message.slice(0, 200) : '未知错误',
+          })
+        })
         out.stillPending++
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message.slice(0, 200) : '未知错误'
       logger.warn('[checkin-sync] 待推行解密失败,继续重标记', { accountId: row.id, err: msg })
-      await markCheckinSyncPending([row.id], 'cred', null, `解密失败: ${msg}`)
+      const err = `解密失败: ${msg}`
+      await markCheckinSyncPending([row.id], 'cred', null, err)
+      await escalateCheckinSyncFailureOnce(row, meta.attempts + 1, err).catch((e2: unknown) => {
+        logger.warn('[checkin-sync] 升级判定异常(不影响重推)', {
+          accountId: row.id,
+          err: e2 instanceof Error ? e2.message.slice(0, 200) : '未知错误',
+        })
+      })
       out.stillPending++
     }
   }
@@ -580,9 +726,14 @@ export interface PoolStatusView {
   pendingCred: boolean
   cooldownUntil: string | null
   lastRecord: {
-    ok: boolean
+    ok: boolean | null
     action: string | null
     credits: number | null
+    message: string | null
+    code: string | null
+    httpStatus: number | null
+    /** 错误分类名(Unknown/SessionDead/BusinessError...),claim 归因用 */
+    classifiedErrorType: string | null
     createdAt: string | null
   } | null
   error: string | null
@@ -641,9 +792,17 @@ export async function fetchPoolStatus(
       cooldownUntil: typeof body.cooldownUntil === 'string' ? body.cooldownUntil : null,
       lastRecord: last
         ? {
-            ok: last.ok === true,
+            ok: last.ok === true ? true : last.ok === false ? false : null,
             action: typeof last.action === 'string' ? last.action : null,
             credits: typeof last.credits === 'number' ? last.credits : null,
+            message: typeof last.message === 'string' ? last.message.slice(0, 200) : null,
+            code:
+              typeof last.code === 'string' || typeof last.code === 'number'
+                ? String(last.code).slice(0, 32)
+                : null,
+            httpStatus: typeof last.httpStatus === 'number' ? last.httpStatus : null,
+            classifiedErrorType:
+              typeof last.classifiedErrorType === 'string' ? last.classifiedErrorType : null,
             createdAt: typeof last.createdAt === 'string' ? last.createdAt : null,
           }
         : null,

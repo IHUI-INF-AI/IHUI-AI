@@ -118,7 +118,7 @@ export default function ChatSettingsPage() {
           <Settings className="h-6 w-6 text-primary" />
           {t('title')}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       {!allow ? (
@@ -133,7 +133,7 @@ export default function ChatSettingsPage() {
                   id="cs-model"
                   value={form.model}
                   onChange={(e) => update('model', e.target.value)}
-                  className="flex h-9 w-full rounded-sm border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  className="flex h-9 w-full rounded-sm border border-input bg-transparent px-3 py-1 text-body shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 >
                   {MODELS.map((m) => (
                     <option key={m.value} value={m.value}>

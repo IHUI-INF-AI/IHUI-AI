@@ -122,8 +122,7 @@ export default function StockAnalysePage() {
   const balanceTotal = balance?.total ?? 0
   const balanceUsed = balance?.used ?? 0
   const balanceRemaining = balance?.remaining ?? 0
-  const usedPct =
-    balanceTotal > 0 ? clampPercent((balanceUsed / balanceTotal) * 100) : 0
+  const usedPct = balanceTotal > 0 ? clampPercent((balanceUsed / balanceTotal) * 100) : 0
 
   const canAnalyse = symbol.trim().length > 0 && question.trim().length > 0 && !analysing
   const isMock = Boolean(result?.mock || result?.error)
@@ -170,7 +169,7 @@ export default function StockAnalysePage() {
           <LineChart className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       {/* Token 余额卡 */}
@@ -188,19 +187,19 @@ export default function StockAnalysePage() {
             <>
               <div className="grid grid-cols-3 gap-3">
                 <div className="rounded-md bg-muted/50 p-3">
-                  <p className="text-xs text-muted-foreground">{t('total')}</p>
+                  <p className="text-label text-muted-foreground">{t('total')}</p>
                   <p className="mt-0.5 text-lg font-semibold">
                     {balanceQuery.isLoading ? '—' : balanceTotal.toLocaleString()}
                   </p>
                 </div>
                 <div className="rounded-md bg-muted/50 p-3">
-                  <p className="text-xs text-muted-foreground">{t('used')}</p>
+                  <p className="text-label text-muted-foreground">{t('used')}</p>
                   <p className="mt-0.5 text-lg font-semibold">
                     {balanceQuery.isLoading ? '—' : balanceUsed.toLocaleString()}
                   </p>
                 </div>
                 <div className="rounded-md bg-muted/50 p-3">
-                  <p className="text-xs text-muted-foreground">{t('remaining')}</p>
+                  <p className="text-label text-muted-foreground">{t('remaining')}</p>
                   <p className="mt-0.5 text-lg font-semibold text-emerald-600">
                     {balanceQuery.isLoading ? '—' : balanceRemaining.toLocaleString()}
                   </p>
@@ -250,9 +249,9 @@ export default function StockAnalysePage() {
               placeholder={t('questionPlaceholder')}
               maxLength={QUESTION_MAX_LENGTH}
               rows={4}
-              className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
             />
-            <p className="text-right text-xs text-muted-foreground">
+            <p className="text-right text-label text-muted-foreground">
               {question.length}/{QUESTION_MAX_LENGTH}
             </p>
           </div>
@@ -296,13 +295,13 @@ export default function StockAnalysePage() {
               <Alert variant="warning" title={t('mockWarning')} description={result.error} />
             )}
             {result.analysis ? (
-              <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
+              <p className="whitespace-pre-wrap break-words text-body leading-relaxed">
                 {result.analysis}
               </p>
             ) : (
               !isMock && <Empty icon={LineChart} title={t('empty')} />
             )}
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-label text-muted-foreground">
               <span className="flex items-center gap-1">
                 <Coins className="h-3.5 w-3.5" />
                 {t('tokensUsed')}: {result.tokensUsed.toLocaleString()}
@@ -343,18 +342,18 @@ export default function StockAnalysePage() {
                     onClick={() => openDetail(item)}
                     className="flex w-full items-center gap-3 rounded-sm px-2 py-2.5 text-left transition-colors hover:bg-accent"
                   >
-                    <span className="shrink-0 rounded-md bg-muted px-2 py-0.5 font-mono text-xs">
+                    <span className="shrink-0 rounded-md bg-muted px-2 py-0.5 font-mono text-label">
                       {item.symbol}
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="line-clamp-1 block text-sm">
+                      <span className="line-clamp-1 block text-body">
                         {item.analysis || t('empty')}
                       </span>
-                      <span className="block text-xs text-muted-foreground">
+                      <span className="block text-label text-muted-foreground">
                         {formatTime(item.createdAt)}
                       </span>
                     </span>
-                    <span className="flex shrink-0 items-center gap-1 text-xs text-primary">
+                    <span className="flex shrink-0 items-center gap-1 text-label text-primary">
                       {t('viewHistory')}
                       <ChevronRight className="h-3.5 w-3.5" />
                     </span>
@@ -371,7 +370,7 @@ export default function StockAnalysePage() {
         <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex flex-wrap items-center gap-2 pr-8">
-              <span className="rounded-md bg-muted px-2 py-0.5 font-mono text-sm">
+              <span className="rounded-md bg-muted px-2 py-0.5 font-mono text-body">
                 {detail?.symbol}
               </span>
               {t('result')}
@@ -396,7 +395,7 @@ export default function StockAnalysePage() {
           {detail && (
             <div className="space-y-3">
               {detail.analysis ? (
-                <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
+                <p className="whitespace-pre-wrap break-words text-body leading-relaxed">
                   {detail.analysis}
                 </p>
               ) : (

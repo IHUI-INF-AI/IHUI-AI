@@ -141,6 +141,7 @@ import './chat.css'
 import ThemeRoot from '@/components/ThemeRoot'
 
 import { AI_CHAT_HISTORY_KEY, AI_FAVORITE_MESSAGES_KEY } from '@/constants/storage'
+import { onToast } from '@/host/on-toast'
 
 const HISTORY_STORAGE_KEY = AI_CHAT_HISTORY_KEY
 const FAVORITE_STORAGE_KEY = AI_FAVORITE_MESSAGES_KEY
@@ -509,7 +510,7 @@ export default function ChatPage() {
       const res = await fetchModels()
       setModels(res?.models || [])
     } catch {
-      Taro.showToast({ title: t('ai.modelLoadFailed'), icon: 'none' })
+      onToast(t('ai.modelLoadFailed'), { kind: 'error' })
     } finally {
       setModelsLoading(false)
     }
@@ -529,7 +530,7 @@ export default function ChatPage() {
         setMaterialPage(page)
         setMaterialHasMore(page * MATERIAL_PAGE_SIZE < total)
       } catch {
-        Taro.showToast({ title: t('ai.materialLoadFailed'), icon: 'none' })
+        onToast(t('ai.materialLoadFailed'), { kind: 'error' })
       } finally {
         setMaterialsLoading(false)
       }
@@ -556,7 +557,7 @@ export default function ChatPage() {
         })),
       )
     } catch {
-      Taro.showToast({ title: t('ai.agentLoadFailed'), icon: 'none' })
+      onToast(t('ai.agentLoadFailed'), { kind: 'error' })
     } finally {
       setAgentsLoading(false)
     }
@@ -575,7 +576,7 @@ export default function ChatPage() {
         prologue: a.prologue,
       })
     } catch {
-      Taro.showToast({ title: t('ai.agentLoadFailed'), icon: 'none' })
+      onToast(t('ai.agentLoadFailed'), { kind: 'error' })
     }
   }, [activeAgentId, t])
 
@@ -669,7 +670,7 @@ export default function ChatPage() {
     })
     setLoadingEarlier(false)
     if (!outcome.ok) {
-      Taro.showToast({ title: t('ai.chat.earlierLoadFailed'), icon: 'none' })
+      onToast(t('ai.chat.earlierLoadFailed'), { kind: 'error' })
       return
     }
     setMessages((prev) => prependEarlierMessages(prev, outcome.messages))
@@ -934,14 +935,13 @@ export default function ChatPage() {
           (info) => {
             // 后端自动压缩完成,toast 提示用户(对标 CLI /compact 命令的可见性)
             // W5:i18n 化,文案与参数映射见 ai.stream.compact
-            Taro.showToast({
-              title: t('ai.stream.compact', {
+            onToast(
+              t('ai.stream.compact', {
                 before: formatTokenCount(info.tokensBefore),
                 after: formatTokenCount(info.tokensAfter),
               }),
-              icon: 'none',
-              duration: 2500,
-            })
+              { kind: 'info', duration: 2500 },
+            )
           },
           // done 回调:把 ai-service event:done 下发的 usage.total_tokens 写入最后一条 assistant 消息
           // 对标原 ai_assistant.vue obj.total_tokens → this.$set(agent_content_list[idx], 'total_tokens', obj.total_tokens)
@@ -1201,13 +1201,15 @@ export default function ChatPage() {
               // D-07(2026-10-26):失效留痕帧不弹审批卡 —— 该 approvalId 已无活等待者,
               // 只给用户一条可读提示(与 web/RN 同一条共享键)。
               if (evt.expired) {
-                Taro.showToast({
-                  title: tt(
+                Taro.showModal({
+                  title: t('common.hint'),
+                  content: tt(
                     'chat.approvalExpiredNotice',
                     '工具 {toolName} 的审批已因连接中断失效,该操作未执行;如需继续请重新发起',
                     { toolName: evt.toolName },
                   ),
-                  icon: 'none',
+                  showCancel: false,
+                  confirmText: t('common.confirm'),
                 })
                 return
               }
@@ -1279,10 +1281,11 @@ export default function ChatPage() {
             // 同款 Taro.showToast;其余 reason 不提示,不自动续写。
             onFinishReason: (evt) => {
               if (isMaxTokensTruncatedFinishReason(evt.finishReason)) {
-                Taro.showToast({
-                  title: t('chat.truncation.maxLengthNotice'),
-                  icon: 'none',
-                  duration: 2500,
+                Taro.showModal({
+                  title: t('common.hint'),
+                  content: t('chat.truncation.maxLengthNotice'),
+                  showCancel: false,
+                  confirmText: t('common.confirm'),
                 })
               }
             },
@@ -1290,7 +1293,7 @@ export default function ChatPage() {
           // G-815976:partial_done(流异常中断且已发过 chunk 的标记帧)→ 截断告知。
           // 半截回答与完整回答完全同形会让用户误以为回答完整,用与 onCompaction 同款 toast 提示。
           () => {
-            Taro.showToast({ title: t('chat.partialDoneTitle'), icon: 'none', duration: 2500 })
+            onToast(t('chat.partialDoneTitle'), { kind: 'info', duration: 2500 })
           },
         )
       } catch (e) {
@@ -1308,7 +1311,7 @@ export default function ChatPage() {
           )
           // 失败轮要"可辨认":标 error + 保留已产出的部分内容(共享层同一标记规则,与 web 端一致)
           setMessages((prev) => applyStreamError(prev, formatted.message))
-          Taro.showToast({ title: formatted.title, icon: 'none', duration: 2500 })
+          onToast(formatted.title, { kind: 'info', duration: 2500 })
         }
       } finally {
         abortRef.current = null
@@ -1370,8 +1373,7 @@ export default function ChatPage() {
         ...(notice
           ? {
               notice,
-              showNotice: (message: string) =>
-                Taro.showToast({ title: message, icon: 'none', duration: 2500 }),
+              showNotice: (message: string) => onToast(message, { kind: 'info', duration: 2500 }),
             }
           : {}),
       }),
@@ -1519,7 +1521,7 @@ export default function ChatPage() {
         return { imgUrl: filePath, fileType: 'image' }
       })
       setImgsList((prev) => [...prev, ...newItems])
-      Taro.showToast({ title: t('ai.fileSelected', { count: files.length }), icon: 'none' })
+      onToast(t('ai.fileSelected', { count: files.length }), { kind: 'info' })
     },
     [t],
   )
@@ -1544,7 +1546,7 @@ export default function ChatPage() {
 
   const handleMaterialUpload = useCallback(
     (tab: MaterialTab) => {
-      Taro.showToast({ title: t('ai.uploadMaterialTab', { tab }), icon: 'none' })
+      onToast(t('ai.uploadMaterialTab', { tab }), { kind: 'info' })
     },
     [t],
   )
@@ -1620,7 +1622,7 @@ export default function ChatPage() {
           'regenerate.sibling-failed',
           String((e as Error)?.message ?? e),
         )
-        Taro.showToast({ title: t('ai.messageVersion.regenerateFailed'), icon: 'none' })
+        onToast(t('ai.messageVersion.regenerateFailed'), { kind: 'error' })
       }
     },
     [messages, sendMessage, sessionId, thinking, t],
@@ -1638,7 +1640,7 @@ export default function ChatPage() {
         ...(kind === 'pinned' ? { pinned: !msg.pinnedAt } : { bookmarked: !msg.bookmarkedAt }),
       })
       if (!res.success) {
-        Taro.showToast({ title: t('ai.messageAction.flagFailed'), icon: 'none' })
+        onToast(t('ai.messageAction.flagFailed'), { kind: 'error' })
         return
       }
       const written = res.data?.message
@@ -1696,7 +1698,7 @@ export default function ChatPage() {
             // 分享对话(对标原 ai_assistant.vue 分享):存入待分享消息,显示分享菜单,用户点右上角···分享
             shareMsgRef.current = msg
             Taro.showShareMenu({ withShareTicket: true })
-            Taro.showToast({ title: t('ai.chatMessageItem.share'), icon: 'none' })
+            onToast(t('ai.chatMessageItem.share'), { kind: 'info' })
           },
         })
       }
@@ -1757,7 +1759,7 @@ export default function ChatPage() {
           next.delete(id)
         } else {
           next.add(id)
-          Taro.showToast({ title: t('ai.chatMessageItem.favorited'), icon: 'none' })
+          onToast(t('ai.chatMessageItem.favorited'), { kind: 'info' })
         }
         try {
           Taro.setStorageSync(FAVORITE_STORAGE_KEY, Array.from(next))

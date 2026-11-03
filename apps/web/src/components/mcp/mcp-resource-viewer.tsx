@@ -17,7 +17,7 @@ import { toMediaImageUrl } from '@/lib/media-proxy'
 // MermaidDiagram 仅在客户端加载,不影响首屏 bundle
 const MermaidDiagram = dynamic(() => import('@/components/media/MermaidDiagram'), {
   ssr: false,
-  loading: () => <div className="animate-pulse text-xs text-muted-foreground">…</div>,
+  loading: () => <div className="animate-pulse text-label text-muted-foreground">…</div>,
 })
 
 export interface McpResource {
@@ -61,14 +61,14 @@ export function McpResourceViewer({ resource }: McpResourceViewerProps) {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/30 px-3 py-2">
-        <span className="text-xs text-muted-foreground">{t('resourceUri')}:</span>
-        <span className="break-all font-mono text-xs">{uri}</span>
-        <span className="text-xs text-muted-foreground">·</span>
+        <span className="text-label text-muted-foreground">{t('resourceUri')}:</span>
+        <span className="break-all font-mono text-label">{uri}</span>
+        <span className="text-label text-muted-foreground">·</span>
         <span className="text-label font-medium">{name}</span>
         {mimeType && (
           <>
-            <span className="text-xs text-muted-foreground">·</span>
-            <span className="text-xs text-muted-foreground">{mimeType}</span>
+            <span className="text-label text-muted-foreground">·</span>
+            <span className="text-label text-muted-foreground">{mimeType}</span>
           </>
         )}
       </div>
@@ -85,11 +85,11 @@ export function McpResourceViewer({ resource }: McpResourceViewerProps) {
           />
         </div>
       ) : isJson && jsonValid ? (
-        <pre className="max-h-[400px] overflow-auto rounded-lg border bg-muted/30 p-3 text-xs">
+        <pre className="max-h-[400px] overflow-auto rounded-lg border bg-muted/30 p-3 text-label">
           {JSON.stringify(jsonData, null, 2)}
         </pre>
       ) : isMarkdown && content ? (
-        <div className="max-h-[400px] overflow-auto rounded-lg border bg-muted/30 p-3 text-sm">
+        <div className="max-h-[400px] overflow-auto rounded-lg border bg-muted/30 p-3 text-body">
           <ReactMarkdown
             remarkPlugins={[[remarkGfm, { singleTilde: false }]]}
             components={{
@@ -98,7 +98,7 @@ export function McpResourceViewer({ resource }: McpResourceViewerProps) {
                 const inline = !match && !String(children).includes('\n')
                 if (inline) {
                   return (
-                    <code className="rounded bg-muted px-1.5 py-0.5 text-sm" {...props}>
+                    <code className="rounded bg-muted px-1.5 py-0.5 text-body" {...props}>
                       {children}
                     </code>
                   )
@@ -119,18 +119,18 @@ export function McpResourceViewer({ resource }: McpResourceViewerProps) {
           </ReactMarkdown>
         </div>
       ) : isText && content ? (
-        <pre className="max-h-[400px] overflow-auto rounded-lg border bg-muted/30 p-3 text-xs whitespace-pre-wrap">
+        <pre className="max-h-[400px] overflow-auto rounded-lg border bg-muted/30 p-3 text-label whitespace-pre-wrap">
           {content}
         </pre>
       ) : downloadHref ? (
         <div className="flex flex-col items-center gap-3 rounded-lg border p-3">
           <Download className="h-8 w-8 text-muted-foreground" />
-          <a href={downloadHref} download={name} className="text-sm text-primary hover:underline">
+          <a href={downloadHref} download={name} className="text-body text-primary hover:underline">
             {t('download')} {name}
           </a>
         </div>
       ) : (
-        <div className="rounded-lg border border-dashed p-3 text-center text-sm text-muted-foreground">
+        <div className="rounded-lg border border-dashed p-3 text-center text-body text-muted-foreground">
           {t('noContent')}
         </div>
       )}

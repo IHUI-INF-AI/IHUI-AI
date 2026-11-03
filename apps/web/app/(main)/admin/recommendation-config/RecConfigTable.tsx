@@ -42,8 +42,8 @@ export function RecConfigTable({ list, isLoading, togglePending, onEdit, onToggl
 
   return (
     <div className="overflow-x-auto rounded-lg border">
-      <table className="w-full text-sm">
-        <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+      <table className="w-full text-body">
+        <thead className="bg-muted/50 text-left text-label uppercase text-muted-foreground">
           <tr>
             <th className={th}>{t('rec.colPosition')}</th>
             <th className={th}>{t('rec.colName')}</th>
@@ -57,7 +57,7 @@ export function RecConfigTable({ list, isLoading, togglePending, onEdit, onToggl
           {list.map((s) => (
             <tr key={s.id} className="transition-colors hover:bg-muted/30">
               <td className="px-4 py-2.5">
-                <code className="font-mono text-xs">{s.position}</code>
+                <code className="font-mono text-label">{s.position}</code>
               </td>
               <td className="px-4 py-2.5 font-medium">{s.name}</td>
               <td className="px-4 py-2.5">

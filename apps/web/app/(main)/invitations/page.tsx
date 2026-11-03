@@ -119,9 +119,11 @@ export default function InvitationsPage() {
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <UserPlus className="h-6 w-6 text-primary" />
-            <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">{t('title')}</h1>
+            <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">
+              {t('title')}
+            </h1>
           </div>
-          <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+          <p className="text-label text-muted-foreground">{t('subtitle')}</p>
         </div>
         <Button onClick={() => genMut.mutate()} disabled={genMut.isPending}>
           {genMut.isPending ? (
@@ -134,7 +136,7 @@ export default function InvitationsPage() {
       </header>
 
       {genMut.isError && (
-        <div className="text-xs text-destructive">{(genMut.error as Error).message}</div>
+        <div className="text-label text-destructive">{(genMut.error as Error).message}</div>
       )}
 
       <section className="space-y-3">
@@ -145,7 +147,7 @@ export default function InvitationsPage() {
             {t('loading')}
           </div>
         ) : codesQ.error ? (
-          <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+          <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
             {(codesQ.error as Error).message}
           </div>
         ) : codes.length > 0 ? (
@@ -154,7 +156,7 @@ export default function InvitationsPage() {
               <Card key={c.id} className="transition-colors hover:bg-accent">
                 <CardContent className="min-[640px]:p-3 space-y-2 p-3">
                   <div className="flex items-center justify-between gap-2">
-                    <code className="rounded bg-muted/50 px-2 py-0.5 font-mono text-sm">
+                    <code className="rounded bg-muted/50 px-2 py-0.5 font-mono text-body">
                       {c.code}
                     </code>
                     <span
@@ -166,11 +168,11 @@ export default function InvitationsPage() {
                       {t(INVITATION_STATUS_KEYS[c.status]!)}
                     </span>
                   </div>
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-1 text-label text-muted-foreground">
                     <Gift className="h-3.5 w-3.5" />
                     {t('rewardValue', { inviter: c.rewardInviter, invitee: c.rewardInvitee })}
                   </div>
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-1 text-label text-muted-foreground">
                     <Clock className="h-3.5 w-3.5" />
                     {t('expiresAt')}: {fmt(c.expiresAt)}
                   </div>
@@ -195,7 +197,7 @@ export default function InvitationsPage() {
         ) : (
           <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
             <Gift className="h-8 w-8 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">{t('emptyCodes')}</p>
+            <p className="text-body text-muted-foreground">{t('emptyCodes')}</p>
           </div>
         )}
       </section>
@@ -211,14 +213,14 @@ export default function InvitationsPage() {
             {t('loading')}
           </div>
         ) : inviteesQ.error ? (
-          <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+          <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
             {(inviteesQ.error as Error).message}
           </div>
         ) : invitees.length > 0 ? (
           <div className="overflow-hidden rounded-lg border">
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/40 text-xs text-muted-foreground">
+              <table className="w-full text-body">
+                <thead className="bg-muted/40 text-label text-muted-foreground">
                   <tr>
                     <th className="px-4 py-2 text-left font-medium">{t('user')}</th>
                     <th className="px-4 py-2 text-left font-medium">{t('registeredAt')}</th>
@@ -250,7 +252,7 @@ export default function InvitationsPage() {
         ) : (
           <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
             <Users className="h-8 w-8 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">{t('emptyInvitees')}</p>
+            <p className="text-body text-muted-foreground">{t('emptyInvitees')}</p>
           </div>
         )}
       </section>

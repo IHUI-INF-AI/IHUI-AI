@@ -110,14 +110,14 @@ export function ContextChipsRow({
       {quoted && (
         <div
           data-testid="quoted-reply-chip"
-          className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-sm"
+          className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-body"
         >
           <MessageCircle className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
           <div className="min-w-0 flex-1">
             <p className="text-label font-medium text-primary">
               {quoted.role === 'user' ? t('quotedReplyUser') : t('quotedReplyAssistant')}
             </p>
-            <p className="truncate text-xs text-muted-foreground">{quoted.content}</p>
+            <p className="truncate text-label text-muted-foreground">{quoted.content}</p>
           </div>
           <button
             type="button"
@@ -145,14 +145,14 @@ export function ContextChipsRow({
             <div
               key={i}
               data-testid={`input-queue-item-${i}`}
-              className="flex items-center gap-2 rounded-lg border border-dashed border-amber-500/40 bg-amber-500/5 px-3 py-2 text-sm"
+              className="flex items-center gap-2 rounded-lg border border-dashed border-amber-500/40 bg-amber-500/5 px-3 py-2 text-body"
             >
               <span className="flex-1 truncate text-amber-700 dark:text-amber-300">{pm.text}</span>
               <button
                 type="button"
                 data-testid={`input-queue-remove-${i}`}
                 onClick={() => onQueueRemove(i)}
-                className="text-xs text-muted-foreground hover:text-foreground"
+                className="text-label text-muted-foreground hover:text-foreground"
               >
                 {t('cancel')}
               </button>

@@ -123,11 +123,11 @@ export function MemoryPanel() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <p className="text-sm text-muted-foreground">
+          <p className="text-body text-muted-foreground">
             {contextQuery.isLoading ? t('noContext') : t('memoriesCount', { n: count })}
           </p>
           {memories.length === 0 ? (
-            <p className="rounded-md bg-muted/40 px-3 py-6 text-center text-sm text-muted-foreground">
+            <p className="rounded-md bg-muted/40 px-3 py-6 text-center text-body text-muted-foreground">
               {t('noMemory')}
             </p>
           ) : (
@@ -135,9 +135,9 @@ export function MemoryPanel() {
               {memories.map((m) => (
                 <li
                   key={m.id}
-                  className="flex items-start gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm"
+                  className="flex items-start gap-2 rounded-md border border-border bg-background px-3 py-2 text-body"
                 >
-                  <span className="shrink-0 rounded-sm bg-primary/10 px-1.5 py-0.5 text-xs text-primary">
+                  <span className="shrink-0 rounded-sm bg-primary/10 px-1.5 py-0.5 text-label text-primary">
                     {m.type === 'fact'
                       ? t('typeFact')
                       : m.type === 'preference'

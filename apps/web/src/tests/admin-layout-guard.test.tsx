@@ -27,6 +27,10 @@ vi.mock('@/hooks/use-auth-bootstrap', () => ({
 }))
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ replace, push: vi.fn(), prefetch: vi.fn() }),
+  // 守卫在 2026-10-28 新增 fullBleed 判定(layout.tsx usePathname + FULL_BLEED_PREFIXES),
+  // 替身缺这个导出会让 module proxy 直接抛「No usePathname export is defined」。
+  // 本组用例只锁守卫的弹/不弹,取非全出血路径即可,断言口径不变。
+  usePathname: () => '/admin',
 }))
 
 import AdminLayout from '../../app/(main)/admin/layout'
