@@ -21,7 +21,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const { __test__: lib } = await import(pathToFileURL(join(ROOT, 'scripts/lib/component-props-parity.mjs')).href)
 const { __test__: gate } = await import(pathToFileURL(join(ROOT, 'scripts/check-cross-end-component-props-parity.mjs')).href)
 const { pairDelta } = lib
-const { verifyAgainstBaseline, buildBaselineEntry, validateEquivalence } = gate
+const { verifyAgainstBaseline, buildBaselineEntry, validateEquivalence, validateJudged, applyJudged, updateGuard } = gate
 
 const d = (name, extra = {}) => ({ name, state: 'ok', onlyRn: [], onlyMini: [], reqDrift: [], driftTotal: 0, ...extra })
 const mk = (name, optional = false) => ({ name, optional })
@@ -210,6 +210,57 @@ describe('285 语义等价映射(生产判据直用)', () => {
   })
 })
 
+describe('285 逐键 judged 桶(生产判据直用)', () => {
+  const now = new Date('2026-11-03T00:00:00')
+  const ruling = {
+    pair: 'NavBar',
+    key: 'showSearch',
+    side: 'mini',
+    owner: 'cross-end-props-parity',
+    expires: '2028-06-30',
+    rationale: '小程序端用预设布尔槽承载搜索入口,RN 端由 rightActions 数组表达,同能力不同承载机制',
+    evidence: ['apps/miniapp-taro/src/components/NavBar.tsx:111', 'apps/mobile-rn/src/components/NavBar.tsx:64'],
+  }
+  const opts = { now, rootDir: ROOT }
+  it('judged 计数:命中键移出存差,逐键留审(owner/expires/evidence/rationale)', () => {
+    const r = applyJudged([d('NavBar', { onlyMini: ['showSearch'], driftTotal: 1 })], [ruling])
+    assert.equal(r.bad.length, 0)
+    assert.deepEqual(r.deltas[0].onlyMini, [])
+    assert.equal(r.deltas[0].driftTotal, 0)
+    assert.equal(r.applied.length, 1)
+    assert.equal(validateJudged({ entries: [ruling] }, opts).ok, true)
+  })
+  it('坏裁决判红:证据不足/单端/落点不含键名/缺 owner/过期', () => {
+    const cases = [
+      [{ ...ruling, evidence: [ruling.evidence[0]] }, 'evidence 不足 2 条'],
+      [{ ...ruling, evidence: [ruling.evidence[0], 'apps/miniapp-taro/src/components/NavBar.tsx:111'] }, '未覆盖双端'],
+      [{ ...ruling, evidence: ['apps/miniapp-taro/src/components/NavBar.tsx:99', 'apps/mobile-rn/src/components/NavBar.tsx:64'] }, '真含键名'],
+      [{ ...ruling, owner: '' }, '缺 owner'],
+      [{ ...ruling, expires: '2026-01-01' }, '已到期'],
+    ]
+    for (const [entry, needle] of cases) {
+      const v = validateJudged({ entries: [entry] }, opts)
+      assert.equal(v.ok, false)
+      assert.ok(v.bad.some((b) => b.includes(needle)), `未点名 ${needle}: ${v.bad.join(' | ')}`)
+    }
+  })
+  it('一键两归/重复裁决/失效裁决(键不在漂移集)= 判红', () => {
+    const eq = [{ pair: 'NavBar', ours: 'showSearch', theirs: 'rightActions', kind: 'content' }]
+    const double = applyJudged([d('NavBar', { onlyMini: ['showSearch'], driftTotal: 1 })], [ruling], eq)
+    assert.equal(double.bad[0].kind, 'judged-mapped-double-count')
+    const stale = applyJudged([d('NavBar', { onlyMini: [], driftTotal: 0 })], [ruling])
+    assert.equal(stale.bad[0].kind, 'judged-stale')
+    const dup = validateJudged({ entries: [ruling, ruling] }, opts)
+    assert.ok(dup.bad.some((b) => b.includes('重复裁决')))
+  })
+  it('--update-baseline 前置闸:坏裁决拒写,不得借重落账冲成 ok', () => {
+    const bad = updateGuard({ judgedLedger: { entries: [{ ...ruling, expires: '2026-01-01' }] }, deltas: [d('NavBar', { onlyMini: ['showSearch'], driftTotal: 1 })], equivalenceEntries: [] })
+    assert.equal(bad.ok, false)
+    const good = updateGuard({ judgedLedger: { entries: [ruling] }, deltas: [d('NavBar', { onlyMini: ['showSearch'], driftTotal: 1 })], equivalenceEntries: [] })
+    assert.equal(good.ok, true)
+  })
+})
+
 describe('285 形状锁(注册条目与文件在场)', () => {
   // 本仓多会话并发注册/让号时会短时重写 runner——直接读会撞上"半写窗口"假失败。
   // 完整判据(四枚 needle 全在)满足即收卷;4 轮后仍不齐 = 真缺,照样红(不是放行走后门)。
@@ -220,6 +271,7 @@ describe('285 形状锁(注册条目与文件在场)', () => {
     'apps/mobile-rn/src/components/',
     'scripts/data/cross-end-props-parity-baseline.json',
     'scripts/data/component-props-equivalence.json',
+    'scripts/data/cross-end-props-judged.json',
   ]
   const loadRunnerWindow = () => {
     let best = null
@@ -272,6 +324,7 @@ describe('285 形状锁(注册条目与文件在场)', () => {
       'packages/app/src/components/',
       'apps/mobile-rn/src/components/',
       'scripts/data/cross-end-props-parity-baseline.json',
+      'scripts/data/cross-end-props-judged.json',
     ])
       assert.ok(blk.includes(needle), `stagedTriggers 缺:${needle}`)
   })
