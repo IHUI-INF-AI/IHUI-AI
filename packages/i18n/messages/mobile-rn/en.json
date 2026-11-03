@@ -6038,6 +6038,7 @@
     "status": {
       "present": "Present",
       "late": "Late",
+      "early": "Left early",
       "absent": "Absent",
       "leave": "Leave"
     },
@@ -6045,6 +6046,7 @@
     "actionDone": "Action succeeded",
     "actionFailed": "Action failed",
     "needClassId": "Missing class info; proxy check-in/out unavailable",
+    "onlyTodayCheckIn": "Proxy check-in covers today only: backdating needs a time inside that day, not offered here",
     "batchTitle": "Whole-class check",
     "chooseClass": "Choose a class to check",
     "noClass": "No selectable class in the current list",

@@ -6038,13 +6038,15 @@
     "status": {
       "present": "정상",
       "late": "지각",
+      "early": "조퇴",
       "absent": "결석",
-      "leave": "조퇴"
+      "leave": "공결"
     },
     "chooseAction": "작업 선택",
     "actionDone": "작업 성공",
     "actionFailed": "작업 실패",
     "needClassId": "반 정보가 없어 대리 등교/하교를 할 수 없습니다",
+    "onlyTodayCheckIn": "대리 체크인은 당일만 가능합니다: 과거 날짜는 해당 날짜 내 시각이 필요하며 이 화면에서는 지원하지 않습니다",
     "batchTitle": "반 전체 출석 체크",
     "chooseClass": "출석 체크할 반을 선택하세요",
     "noClass": "현재 목록에 선택할 반이 없습니다",
