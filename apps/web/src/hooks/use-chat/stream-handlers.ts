@@ -273,50 +273,6 @@ export function createReviewFindingHandler(
 }
 
 /**
- * #9 流式 token 节流(2026-07-25 立):
- * 用 requestAnimationFrame 每帧合并一次 token,避免每个 token 触发 store 更新 + React 重渲染。
- * - batch(delta):累加 delta,标记 dirty,下帧 flush
- * - flush():立即把累积 delta 一次性 append(用于错误/中止前最后冲刺)
- * - cancel():取消 raf,清空累积(用于 finally)
- */
-export function createDeltaBatcher(appendFn: (delta: string) => void) {
-  let pending = ''
-  let rafId: number | null = null
-  const flush = () => {
-    if (rafId !== null) {
-      cancelAnimationFrame(rafId)
-      rafId = null
-    }
-    if (pending) {
-      const d = pending
-      pending = ''
-      appendFn(d)
-    }
-  }
-  const batch = (delta: string) => {
-    pending += delta
-    if (rafId === null) {
-      rafId = requestAnimationFrame(() => {
-        rafId = null
-        if (pending) {
-          const d = pending
-          pending = ''
-          appendFn(d)
-        }
-      })
-    }
-  }
-  const cancel = () => {
-    if (rafId !== null) {
-      cancelAnimationFrame(rafId)
-      rafId = null
-    }
-    pending = ''
-  }
-  return { batch, flush, cancel }
-}
-
-/**
  * #9 多 agent stream 节流(2026-07-25 立):
  * 单一 manager 管理多个 agentId 各自的 batcher,flushAll/cancelAll 统一清理。
  * 2026-10-28 流式观感档续:内泵升 smooth —— 子代理/工具流的正文输出与主链/思考/续接同谱

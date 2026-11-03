@@ -43,8 +43,6 @@ import {
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
 export const CONTRACT_PATH = join(ROOT, '.ihui-agent', 'state', 'canary', 'ramp.json')
 export const POLICY_PATH = join(ROOT, 'scripts', 'data', 'canary-policy.json')
-
-export const EXIT_OK = 0
 export const EXIT_UNKNOWN = 2
 
 /** 动作闭集:调用方(PowerShell)只按这四个动作做事,不得自行解释判定。 */

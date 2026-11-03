@@ -11,20 +11,8 @@
  */
 
 /** 开发者入口 FAQ URL(pages/dev-enter/cover — FAQ_LIST) */
-export const DEV_FAQ_URLS = {
-  DEVELOPER: 'https://blurb.kou.aizhs.top/developer.html',
-  SETTLEMENT: 'https://blurb.kou.aizhs.top/bianxian.html',
-  AUDIT: 'https://blurb.kou.aizhs.top/shangchuan.html',
-  N8N_COURSE: 'https://blurb.kou.aizhs.top/kecheng.html',
-} as const
 
 /** 开发者广场 QA URL(pages/plaza/cover — QA_FALLBACK) */
-export const PLAZA_QA_URLS = [
-  'https://www.zhihui.com/developer/qa1',
-  'https://www.zhihui.com/developer/qa2',
-  'https://www.zhihui.com/developer/qa3',
-  'https://www.zhihui.com/developer/qa4',
-] as const
 
 /** TabBar / 默认头像 CDN URL(pages/index, pages/user — defaultAvatar) */
 import { BSPAPP_BASE } from '@/constants/icon-urls'

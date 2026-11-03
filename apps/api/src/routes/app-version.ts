@@ -242,7 +242,7 @@ export function resolveAppMinVersion(envValue: string | undefined): string | nul
 }
 
 /** 带 env 读取的薄包装（路由直接调用）。 */
-export function currentAppMinVersion(): string | null {
+function currentAppMinVersion(): string | null {
   return resolveAppMinVersion(process.env[APP_MIN_VERSION_ENV])
 }
 

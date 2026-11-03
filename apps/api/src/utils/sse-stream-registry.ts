@@ -55,7 +55,7 @@ export const SSE_GRACE_PERIOD_MS = 15_000
  * 为什么是注释帧而不是 data 帧:注释帧按规范被客户端忽略,不产生 message 事件,
  * 因此永远不会插进 `id:` 序列、也不会在 Last-Event-ID 重放里冒充业务事件。
  */
-export const SSE_HEARTBEAT_INTERVAL_MS = 15_000
+const SSE_HEARTBEAT_INTERVAL_MS = 15_000
 
 export interface StreamSession {
   /** replayKey = `${conversationId}:${messageId}`;null = 不启用编号/缓冲(原样透传) */
