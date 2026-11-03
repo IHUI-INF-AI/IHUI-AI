@@ -285,7 +285,7 @@ export async function probeDb({ argv, env, envFile, codes }) {
   }
   const dsn = resolveDsn(argv, envText, env)
   if (dsn.error) return { ok: false, why: `--db 未判定:${dsn.error}` }
-  const guarded = guardDbDsn(dsn.dsn)
+  const guarded = guardDbDsn(dsn.dsn, env)
   if (!guarded.ok) return { ok: false, why: `--db 未判定:拒绝连库 —— ${guarded.why}` }
   const face = dsnFace(dsn.dsn) ?? '(不可解析)'
   const opened = await openDevClient(dsn.dsn)
