@@ -93,8 +93,6 @@ Headline claims (same source as the table below, all live-computed): **619 table
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-03。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
 
-> ⚠️ 未判定 1 项:`guardianGates`(runner 里有 2 个重复 id ⇒ 撞号,条目数不可信)
-
 <!-- END GENERATED NUMBERS -->
 <!-- END GENERATED NUMBERS -->
 
@@ -102,6 +100,19 @@ Headline claims (same source as the table below, all live-computed): **619 table
 ## Recent updates (auto-maintained)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-03**
+- 🐞 Fix:小程序 Platform.OS 类型轴补 web 修共享层 TS2367;两处 git 派生测试补显式 stdio (bed67d45fd)
+- 🔧 Chore/Other:root-guard 清单按现盘复核重封(guardian-runner 号位顺延后) (189decba97)
+- 🐞 Fix:并行入库撞号收口——props 对账 285→288、web↔RN 缺口棘轮 286→289,重复 id 归零 (5e50ac8f86)
+- 🔧 Chore/Other:README 活区 testFiles/guardianGates 按生成器现算对齐(4034/323),历史快照区不动 (6ac880c8fc)
+- 🔧 Chore/Other:react-native 桩补 Platform/Dimensions,承接共享屏 web/原生间距锁 (defe3f0994)
+- 🔧 Chore/Other:合并 origin/main(7afc9413) 后按合并面重算生成件(README×4/ui-routes×3/i18n/root-guard),并清 RP-35 滞留已勾行 (1a89df8894)
+- 🐞 Fix:清 gate-test 存量红（桌面快照翻页、鉴权门桩、横线选择器、历史写入侧取样）并让 scan-hardcoded-zh 自建输出目录 (842954d8bc)
+- 🐞 Fix:两格 quic 下 unjudged 的 reason 改归因——点名"quic 结构盲区",不再误写腿断/腿数不足 (523e3bdd37)
+- 🔧 Chore/Other:补 scripts/tests/data-json-shape.test.mjs 的溯源水印(门 47 HEAD 面点名) (5d007afdb9)
+- 🐞 Fix:工作区自愈两层派生补 timeout —— 一次 --align-drift 挂死能让整轮守护静默 3 小时 (386a71182a)
+- 🐞 Fix:考勤屏测试替身过 lint（HostElement 具名、去未用 style），清 gate-analyse 的 [lint] 红 (6e9aaf553b)
+
 **2026-11-03**
 - 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (55c2cb04cd)
 - 📚 Docs:清理 Gitee 下线后残留的过时注释,避免宣称已不存在的直链 (228e23dce4)
@@ -361,9 +372,6 @@ Headline claims (same source as the table below, all live-computed): **619 table
 
 **2026-11-03**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (415b1414a3)
-
-**2026-11-03**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (d365afb360)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
