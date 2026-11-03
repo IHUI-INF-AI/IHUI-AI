@@ -14823,6 +14823,86 @@
     "totalCount": "計 {count} 人"
   },
   "docs": {
+    "common": {
+      "backToDocs": "ドキュメントセンターに戻る",
+      "startReading": "読み始める",
+      "firstChapter": "最初の章です",
+      "lastChapter": "最後の章です",
+      "chapterBadge": "第 {num} 章 · ユーザーマニュアル"
+    },
+    "manual": {
+      "overview": {
+        "title": "ユーザーマニュアル",
+        "description": "技術的な知識がなくても、手順どおりに操作するだけです。"
+      },
+      "getting-started": {
+        "title": "はじめに"
+      },
+      "ai-chat": {
+        "title": "AI チャット"
+      },
+      "agent": {
+        "title": "Agent を使う"
+      },
+      "knowledge-base": {
+        "title": "ナレッジベース"
+      },
+      "billing": {
+        "title": "クレジットとサブスクリプション"
+      },
+      "account": {
+        "title": "アカウント設定"
+      },
+      "faq": {
+        "title": "よくある質問"
+      }
+    },
+    "meta": {
+      "overview": {
+        "title": "IHUI AI ドキュメントセンター",
+        "description": "クイックスタートから深い開発まで、IHUI AI のすべての機能をカバー"
+      },
+      "quickstart": {
+        "title": "5分クイックスタート — IHUI AI",
+        "description": "登録から最初の AI Agent 公開まで 5 分。Apache 2.0 オープンソース、100 以上のモデル、6 端末を単一のコードベースで提供。"
+      },
+      "api": {
+        "title": "API リファレンス — IHUI AI",
+        "description": "REST API + Webhook + OpenAPI 3.1、すべての主要言語の SDK をカバー。"
+      },
+      "rag": {
+        "title": "ナレッジベース RAG — IHUI AI",
+        "description": "ドキュメント解析、ベクトル検索、BM25、ナレッジグラフ"
+      },
+      "mcp": {
+        "title": "MCP ツール連携 — IHUI AI",
+        "description": "Anthropic MCP プロトコルにネイティブ対応。100 以上の標準サーバーと自作サーバーに対応。"
+      },
+      "agent": {
+        "title": "Agent 開発 — IHUI AI",
+        "description": "ビジュアルオーケストレーション + テンプレート + ベストプラクティス、6 端末へ公開。"
+      },
+      "self-host": {
+        "title": "セルフホスト構築 — IHUI AI",
+        "description": "Docker Compose / Kubernetes Helm Chart による構築ガイド"
+      },
+      "models": {
+        "title": "マルチモデルルーティング — IHUI AI",
+        "description": "100 以上の LLM を統合接続し、自動フォールバックと Combo チェーン呼び出しに対応。"
+      },
+      "workflow": {
+        "title": "ワークフローオーケストレーション — IHUI AI",
+        "description": "n8n 風のノードキャンバスで複雑な AI フローを視覚的に構築。"
+      },
+      "team": {
+        "title": "チームコラボレーション — IHUI AI",
+        "description": "RBAC、SSO、監査ログ、クレジット共有に対応した企業向けのチーム AI 協業環境。"
+      },
+      "manual": {
+        "title": "ユーザーマニュアル — IHUI AI",
+        "description": "エンドユーザー向けの図解チュートリアル。7 章で日常の全機能を紹介。"
+      }
+    },
     "navAgent": "Agent開発",
     "navApi": "APIドキュメント",
     "navDevelopers": "開発者",

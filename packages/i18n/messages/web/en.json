@@ -14820,6 +14820,86 @@
     "totalCount": "{count} total"
   },
   "docs": {
+    "common": {
+      "backToDocs": "Back to Docs",
+      "startReading": "Start Reading",
+      "firstChapter": "This is the first chapter",
+      "lastChapter": "This is the last chapter",
+      "chapterBadge": "Chapter {num} · User Manual"
+    },
+    "manual": {
+      "overview": {
+        "title": "User Manual",
+        "description": "No technical background needed — just follow the steps."
+      },
+      "getting-started": {
+        "title": "Getting Started"
+      },
+      "ai-chat": {
+        "title": "AI Chat"
+      },
+      "agent": {
+        "title": "Using Agents"
+      },
+      "knowledge-base": {
+        "title": "Knowledge Base"
+      },
+      "billing": {
+        "title": "Credits & Subscriptions"
+      },
+      "account": {
+        "title": "Account Settings"
+      },
+      "faq": {
+        "title": "FAQ"
+      }
+    },
+    "meta": {
+      "overview": {
+        "title": "IHUI AI Documentation",
+        "description": "From quickstart to advanced development — complete coverage of everything IHUI AI offers"
+      },
+      "quickstart": {
+        "title": "5-Minute Quickstart — IHUI AI",
+        "description": "Go from signup to publishing your first AI Agent in 5 minutes. Apache 2.0 open source, 100+ models, six platforms from one codebase."
+      },
+      "api": {
+        "title": "API Reference — IHUI AI",
+        "description": "REST API + Webhook + OpenAPI 3.1, with SDKs covering every major language."
+      },
+      "rag": {
+        "title": "Knowledge Base RAG — IHUI AI",
+        "description": "Document parsing, vector retrieval, BM25, and knowledge graphs"
+      },
+      "mcp": {
+        "title": "MCP Tool Integration — IHUI AI",
+        "description": "Native support for the Anthropic MCP protocol: 100+ preset servers plus custom development."
+      },
+      "agent": {
+        "title": "Agent Development — IHUI AI",
+        "description": "Visual orchestration, templates, and best practices, published to all six platforms."
+      },
+      "self-host": {
+        "title": "Self-hosting Deployment — IHUI AI",
+        "description": "Deployment guide for Docker Compose and Kubernetes Helm Chart"
+      },
+      "models": {
+        "title": "Multi-model Routing — IHUI AI",
+        "description": "Unified access to 100+ LLMs with automatic fallback and Combo chain calls."
+      },
+      "workflow": {
+        "title": "Workflow Orchestration — IHUI AI",
+        "description": "An n8n-style node canvas for visually orchestrating complex AI flows."
+      },
+      "team": {
+        "title": "Team Collaboration — IHUI AI",
+        "description": "RBAC, SSO, audit logs, and shared credits — enterprise-grade team AI collaboration."
+      },
+      "manual": {
+        "title": "User Manual — IHUI AI",
+        "description": "Illustrated tutorials for end users, covering every everyday feature in 7 chapters."
+      }
+    },
     "navAgent": "Agent Development",
     "navApi": "API Docs",
     "navDevelopers": "Developers",
