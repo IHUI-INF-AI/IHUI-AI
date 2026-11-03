@@ -104,7 +104,7 @@ export default function UseCasesIndexPage() {
               <Link
                 key={uc.slug}
                 href={`/use-cases/${uc.slug}`}
-                className="group rounded-lg border bg-card p-3 shadow-sm transition-shadow hover:shadow-md"
+                className="group rounded-lg border bg-card p-3 shadow-sm"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">

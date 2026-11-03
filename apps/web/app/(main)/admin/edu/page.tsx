@@ -110,7 +110,7 @@ export default function EduHubPage() {
           const Icon = m.icon
           return (
             <Link key={m.href} href={m.href}>
-              <Card className="transition-all hover:shadow-md hover:bg-accent">
+              <Card className="transition-all hover:bg-accent">
                 <CardContent className="min-[640px]:p-3 flex items-start gap-4 p-3">
                   <div
                     className={cn(

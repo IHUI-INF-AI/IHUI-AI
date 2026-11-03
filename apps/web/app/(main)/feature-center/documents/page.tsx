@@ -442,10 +442,7 @@ export default function DocumentsPage() {
             const formatLabel = FORMAT_LABELS[item.format] ?? item.format
             const categoryLabel = CATEGORY_LABELS[item.category] ?? item.category
             return (
-              <Card
-                key={item.id}
-                className="flex h-full flex-col transition-shadow hover:shadow-md"
-              >
+              <Card key={item.id} className="flex h-full flex-col">
                 <CardContent className="min-[640px]:p-3 flex flex-1 flex-col gap-3 p-3">
                   {/* 顶部:format 标签 + 分类徽章 */}
                   <div className="flex items-center justify-between gap-2">

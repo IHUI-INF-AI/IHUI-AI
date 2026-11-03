@@ -81,7 +81,7 @@ interface RiskView {
 }
 
 // 账号卡片操作按钮统一样式:淡底色 + 细描边、无投影,悬停时显现浅投影
-const CARD_ACTION_CLS = 'border bg-muted/40 shadow-none hover:bg-muted/60 hover:shadow-sm'
+const CARD_ACTION_CLS = 'border bg-muted/40 shadow-none hover:bg-muted/60'
 
 const STATUS_STYLE: Record<string, string> = {
   active: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',

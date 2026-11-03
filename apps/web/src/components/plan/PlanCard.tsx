@@ -37,7 +37,7 @@ export function PlanCard({ plan }: PlanCardProps) {
   const stats = React.useMemo(() => getStats(plan.id), [plan, getStats])
 
   return (
-    <Card className="flex h-full flex-col transition-colors hover:bg-accent/40 hover:shadow-md">
+    <Card className="flex h-full flex-col transition-colors hover:bg-accent/40">
       <CardHeader className="space-y-2">
         <div className="flex items-start justify-between gap-2">
           <CardTitle className="line-clamp-1 text-base">{plan.title}</CardTitle>

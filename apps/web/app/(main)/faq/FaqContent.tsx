@@ -91,7 +91,7 @@ export function FaqContent(): React.JSX.Element {
                   return (
                     <details
                       key={item.id}
-                      className="group rounded-lg border bg-card p-3 shadow-sm transition-shadow hover:shadow-md"
+                      className="group rounded-lg border bg-card p-3 shadow-sm"
                     >
                       <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
                         <h3 className="text-body font-semibold min-[768px]:text-base">

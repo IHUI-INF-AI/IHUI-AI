@@ -44,7 +44,7 @@ function CourseCardImpl({
 }: CourseCardProps) {
   const interactive = Boolean(href ?? onClick)
   const baseClass = cn(
-    'group block overflow-hidden rounded-xl border bg-card text-card-foreground shadow transition-all hover:shadow-lg',
+    'group block overflow-hidden rounded-xl border bg-card text-card-foreground shadow transition-all',
     interactive && 'cursor-pointer',
     className,
   )
