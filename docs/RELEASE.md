@@ -583,7 +583,7 @@ matrix:
 
 Windows 上用户会下载到的两份二进制都走 SignPath Foundation 的免费开源代码签名:CLI 的 `ihui.exe`(在 `ihui-windows-*.zip` 内)与桌面端的 NSIS 安装包(`*-setup.exe`)。证书由 Sectigo CA 签发,私钥保存在 SignPath HSM,不落到 CI。下载页与 README 已包含 SignPath Foundation 声明。
 
-> **桌面端一条独有约束(改这条链前必读)**:Tauri 自动更新用 minisign `.sig` 校验安装包**字节**,而 Authenticode 签名会改字节 ⇒ `release-desktop.yml` 的签名步在覆盖安装包后**必须**就地 `tauri signer sign` 重算同名 `.sig`,重算失败即硬失败。让 `.sig` 停在旧字节上的后果是全部已装客户端自动更新失败,比不签名严重。`latest.json` 由 `publish-updater-json`(needs: build)在替换之后聚合,顺序正确;`sync-downloads` 同理取替换后的资产；`sync-gitee` 已于 2026-11-03 下线(Gitee 仓为空仓、桌面直链已切 GitHub),不再参与发版链。
+> **桌面端一条独有约束(改这条链前必读)**:Tauri 自动更新用 minisign `.sig` 校验安装包**字节**,而 Authenticode 签名会改字节 ⇒ `release-desktop.yml` 的签名步在覆盖安装包后**必须**就地 `tauri signer sign` 重算同名 `.sig`,重算失败即硬失败。让 `.sig` 停在旧字节上的后果是全部已装客户端自动更新失败,比不签名严重。`latest.json` 由 `publish-updater-json`(needs: `[build, signature-gate]`,即签名门禁通过后才允许更新)在替换之后聚合,顺序正确;`sync-downloads` 同理取替换后的资产；`sync-gitee` 已于 2026-11-03 下线(Gitee 仓为空仓、桌面直链已切 GitHub),不再参与发版链。
 
 **当前状态(2026-10-20)**
 
@@ -594,7 +594,7 @@ Windows 上用户会下载到的两份二进制都走 SignPath Foundation 的免
 | 确认邮件 | ✅ 2026-10-20 12:40 收到 `SignPath Foundation Team <oss-support@signpath.org>` 的主题「Open Source Project Submitted」,正文确认已收到申请并将在 next few business days 内联系 |
 | 费用 / 证书 | 免费;Sectigo CA 签发 |
 | 私钥 | 由 SignPath HSM 保管,CI 只持短期凭据 |
-| CI 集成 | ✅ 代码面已接入(`release-cli.yml` + `release-desktop.yml`,凭据未齐时整体跳过、不影响现有发布);⏳ 等申请通过并配齐四项 secret 后跑一次真发版,核对签名链与 `latest.json` 配对 |
+| CI 集成 | ✅ 代码面已接入(`release-cli.yml` + `release-desktop.yml`)。⚠️ **凭据未齐时不再"不影响发布"**:签名步会整体跳过,但桌面端 `signature-gate` 会判红、`latest.json` 不更新(已装客户端不会收到未签名包,GitHub Release 里仍可能留有未签名资产)。申请与配置逐步见 [docs/DESKTOP_CODE_SIGNING.md](./DESKTOP_CODE_SIGNING.md);⏳ 等申请通过并配齐凭据后跑一次真发版,核对签名链与 `latest.json` 配对 |
 
 > **2026-10-20 状态更正与提交留痕**:此前本文写的「2026-10-18 已提交」与「2026-10-19 已邮件回复声誉问询」没有提交凭据或邮件凭据(QQ 邮箱收件箱、垃圾箱、已删除与已发送均无 SignPath/HubSpot 来信);2026-10-20 12:40 已实际提交成功并收到上述确认邮件。
 
@@ -610,7 +610,7 @@ Windows 上用户会下载到的两份二进制都走 SignPath Foundation 的免
 | MarkdownSkill 技能库收录 | https://www.markdownskill.com/skills/ihui-inf-ai-ihui-ai |
 | Bilibili 开源公告 | https://m.bilibili.com/opus/1227375741989027847 |
 
-**审批通过后需要的凭据**(配置在 GitHub 仓库 secrets;**名字以 workflow 实读为准** —— 两条链读同一组四个,缺任一项则签名步整体跳过、发布仍为未签名产物且不报错):
+**审批通过后需要的凭据**(配置在 GitHub 仓库 secrets;**名字以 workflow 实读为准** —— 两条链读同一组四个,缺任一项则签名步整体跳过;**桌面端缺凭据会被 `signature-gate` 判红且 `latest.json` 不更新**,CLI 链则不红。Windows 与 macOS 逐项申报步骤见 [docs/DESKTOP_CODE_SIGNING.md](./DESKTOP_CODE_SIGNING.md)):
 
 | Secret | 内容 |
 | --- | --- |
