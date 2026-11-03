@@ -415,10 +415,17 @@ async def test_second_owner_cannot_read_or_write_another_sessions_ledger(
 async def test_stateful_call_without_identity_is_401_when_auth_enforced(
     store: RecordingStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """生产态(真在做 JWT 校验)带会话却不带身份 ⇒ 401,不记账。"""
+    """生产态(真在做 JWT 校验)带会话却不带身份 ⇒ 401,不记账。
+
+    2026-11-01 起 `dev_auth_bypass_enabled()` 的唯一判据是
+    `AI_DEV_NO_AUTH=1 且 JWT_SECRET 为空`,node_env 不再参与推导。conftest 的
+    `_isolate_jwt_auth` 把 ai_dev_no_auth 设成 True(默认关鉴权),所以只改
+    node_env 已无法进入"真校验"分支 —— 这里显式关掉唯一开关,才是生产语义。
+    """
     from app.core.config import settings
 
     monkeypatch.setattr(settings, "node_env", "production")
+    monkeypatch.setattr(settings, "ai_dev_no_auth", False)
     payload = {
         "criteria": criteria("a"),
         "evidence": [machine_evidence("a", met=True)],
@@ -434,10 +441,15 @@ async def test_stateful_call_without_identity_is_401_when_auth_enforced(
 async def test_reset_needs_identity_when_auth_is_enforced(
     store: RecordingStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """清账端点走 `require_request_user_id`:生产态没有主体即 401,且不清账。"""
+    """清账端点走 `require_request_user_id`:生产态没有主体即 401,且不清账。
+
+    同上:2026-11-01 后必须关掉 `AI_DEV_NO_AUTH` 才能进入真校验分支,
+    node_env 单独不再决定鉴权开关。
+    """
     from app.core.config import settings
 
     monkeypatch.setattr(settings, "node_env", "production")
+    monkeypatch.setattr(settings, "ai_dev_no_auth", False)
     async with await _client(None) as client:
         res = await client.post("/api/agent/goal-verify/reset", json={"session_id": "s-x"})
     assert res.status_code == 401
