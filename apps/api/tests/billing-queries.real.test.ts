@@ -27,6 +27,7 @@ async function createPlan(data: {
       features: data.features ?? [],
     })
     .returning()
+  if (!row) throw new Error('billing-queries.real.test.ts: 插入未返回行(row)')
   return row
 }
 
@@ -41,8 +42,8 @@ describe('billing-queries — 真实 DB 集成测试', () => {
     await createPlan({ name: 'P2', price: 2000, interval: 'month', sortOrder: 2, isActive: false })
     const list = await findPlans()
     expect(list).toHaveLength(2) // 排除 isActive=false
-    expect(list[0].name).toBe('P1') // 按 sortOrder 升序
-    expect(list[1].name).toBe('P3')
+    expect(list[0]!.name).toBe('P1') // 按 sortOrder 升序
+    expect(list[1]!.name).toBe('P3')
   })
 
   it('findPlans — 空表返回空数组', async () => {
@@ -67,7 +68,7 @@ describe('billing-queries — 真实 DB 集成测试', () => {
       features: ['unlimited', 'priority-support', { seats: 10 }],
     })
     const list = await findPlans()
-    expect(list[0].features).toEqual(['unlimited', 'priority-support', { seats: 10 }])
+    expect(list[0]!.features).toEqual(['unlimited', 'priority-support', { seats: 10 }])
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

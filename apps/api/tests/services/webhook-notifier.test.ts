@@ -69,7 +69,7 @@ describe('webhook-notifier', () => {
       expect(result.ok).toBe(true)
       expect(result.error).toBeUndefined()
       expect(fetchMock).toHaveBeenCalledOnce()
-      const [url, init] = fetchMock.mock.calls[0]
+      const [url, init] = fetchMock.mock.calls[0]!
       expect(url).toContain('oapi.dingtalk.com/robot/send')
       expect(init.method).toBe('POST')
     })
@@ -91,7 +91,7 @@ describe('webhook-notifier', () => {
         secret: 'SEC_TEST_SECRET',
       }
       await sendDingtalk(configWithSecret, msg)
-      const [url] = fetchMock.mock.calls[0]
+      const [url] = fetchMock.mock.calls[0]!
       expect(url).toMatch(/timestamp=\d+/)
       expect(url).toMatch(/sign=/)
     })
@@ -118,7 +118,7 @@ describe('webhook-notifier', () => {
       expect(result.ok).toBe(true)
       expect(result.error).toBeUndefined()
       expect(fetchMock).toHaveBeenCalledOnce()
-      const [url, init] = fetchMock.mock.calls[0]
+      const [url, init] = fetchMock.mock.calls[0]!
       expect(url).toContain('open.feishu.cn/open-apis/bot/v2/hook')
       expect(init.method).toBe('POST')
     })
@@ -152,7 +152,7 @@ describe('webhook-notifier', () => {
       expect(result.ok).toBe(true)
       expect(result.error).toBeUndefined()
       expect(fetchMock).toHaveBeenCalledOnce()
-      const [url, init] = fetchMock.mock.calls[0]
+      const [url, init] = fetchMock.mock.calls[0]!
       expect(url).toContain('qyapi.weixin.qq.com/cgi-bin/webhook/send')
       expect(init.method).toBe('POST')
     })
@@ -200,7 +200,7 @@ describe('webhook-notifier', () => {
       }
       const result = await sendWebhookNotification(config, '内容')
       expect(result.ok).toBe(true)
-      const [, init] = fetchMock.mock.calls[0]
+      const [, init] = fetchMock.mock.calls[0]!
       const body = JSON.parse(init.body as string)
       expect(body.msgtype).toBe('text')
       expect(body.text.content).toBe('内容')
@@ -213,7 +213,7 @@ describe('webhook-notifier', () => {
         webhookUrl: 'https://oapi.dingtalk.com/robot/send?access_token=xxx',
       }
       await sendWebhookNotification(config, '正文', '标题')
-      const [, init] = fetchMock.mock.calls[0]
+      const [, init] = fetchMock.mock.calls[0]!
       const body = JSON.parse(init.body as string)
       expect(body.msgtype).toBe('markdown')
       expect(body.markdown.title).toBe('标题')
@@ -228,7 +228,7 @@ describe('webhook-notifier', () => {
       }
       const result = await sendWebhookNotification(config, '飞书内容')
       expect(result.ok).toBe(true)
-      const [, init] = fetchMock.mock.calls[0]
+      const [, init] = fetchMock.mock.calls[0]!
       const body = JSON.parse(init.body as string)
       expect(body.msg_type).toBe('text')
       expect(body.content.text).toBe('飞书内容')
@@ -241,7 +241,7 @@ describe('webhook-notifier', () => {
         webhookUrl: 'https://open.feishu.cn/open-apis/bot/v2/hook/xxx',
       }
       await sendWebhookNotification(config, '飞书正文', '飞书标题')
-      const [, init] = fetchMock.mock.calls[0]
+      const [, init] = fetchMock.mock.calls[0]!
       const body = JSON.parse(init.body as string)
       expect(body.content.text).toContain('飞书标题')
       expect(body.content.text).toContain('飞书正文')
@@ -255,7 +255,7 @@ describe('webhook-notifier', () => {
       }
       const result = await sendWebhookNotification(config, '企微内容')
       expect(result.ok).toBe(true)
-      const [, init] = fetchMock.mock.calls[0]
+      const [, init] = fetchMock.mock.calls[0]!
       const body = JSON.parse(init.body as string)
       expect(body.msgtype).toBe('text')
       expect(body.text.content).toBe('企微内容')
@@ -268,7 +268,7 @@ describe('webhook-notifier', () => {
         webhookUrl: 'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx',
       }
       await sendWebhookNotification(config, '企微正文', '企微标题')
-      const [, init] = fetchMock.mock.calls[0]
+      const [, init] = fetchMock.mock.calls[0]!
       const body = JSON.parse(init.body as string)
       expect(body.msgtype).toBe('markdown')
       expect(body.markdown.content).toContain('企微标题')

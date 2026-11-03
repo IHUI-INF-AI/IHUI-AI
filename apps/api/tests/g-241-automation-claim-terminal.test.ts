@@ -113,7 +113,7 @@ vi.mock('../src/db/index.js', async () => {
     const name = cols[0]!.name
     const op = strs[strs.length - 1]?.v?.trim()
     if (op === undefined) throw new Error('条件求值器:叶子条件读不到算子')
-    const cur = currentRowForLeaf[tsKeyOf[name] ?? name]
+    const cur = (currentRowForLeaf as unknown as Record<string, unknown>)[tsKeyOf[name] ?? name]
     // SQL 三值逻辑:与 NULL 比大小的结果是 NULL(不是 true)⇒ 关系算子/等号一律不成立;
     // 只有 is null / is not null 这两支对 NULL 有确定答案。
     if (op === 'is null') return cur === null || cur === undefined
@@ -193,14 +193,20 @@ vi.mock('../src/db/index.js', async () => {
       limit: (n: number) => {
         const limited: Record<string, unknown> = {
           then: (resolve: (v: Row[]) => unknown) => {
-            const rows = conditions.reduce((acc, c) => acc.filter((r) => matches(c, r)), snapshot())
+            const rows = conditions.reduce<Row[]>(
+              (acc, c) => acc.filter((r) => matches(c, r)),
+              snapshot(),
+            )
             return Promise.resolve(rows.slice(0, n)).then(resolve)
           },
         }
         return limited
       },
       then: (resolve: (v: Row[]) => unknown) => {
-        const rows = conditions.reduce((acc, c) => acc.filter((r) => matches(c, r)), snapshot())
+        const rows = conditions.reduce<Row[]>(
+          (acc, c) => acc.filter((r) => matches(c, r)),
+          snapshot(),
+        )
         return Promise.resolve(rows).then(resolve)
       },
     }
@@ -310,7 +316,7 @@ const nextId = (): string => {
 
 function makeRow(over: Partial<Row> = {}): Row {
   const id = over.id ?? nextId()
-  return {
+  const row: Row = {
     id,
     userId: '00000000-0000-4000-8000-000000000fee',
     name: '测试自动化',
@@ -330,10 +336,12 @@ function makeRow(over: Partial<Row> = {}): Row {
     terminalReason: null,
     claimToken: null,
     claimedAt: null,
+    settlementStatus: null,
+    settlementTerminalAt: null,
     createdAt: new Date('2026-10-01T00:00:00.000Z'),
     updatedAt: new Date('2026-10-01T00:00:00.000Z'),
-    ...over,
   }
+  return Object.assign(row, over)
 }
 
 /** 到期且未被认领的 once 行(scheduled_at 已过)。 */
@@ -379,7 +387,7 @@ const upstreamCalls = (): number => streamMock.mock.calls.length
 const warnedText = (): string =>
   warnSpy.mock.calls
     .flat()
-    .map((part) => (typeof part === 'string' ? part : ''))
+    .map((part: unknown) => (typeof part === 'string' ? part : ''))
     .join('\n')
 
 // =============================================================================

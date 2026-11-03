@@ -89,6 +89,7 @@ export function ExamHistoryScreen() {
       refreshing={refreshing}
       error={error}
       onRefresh={() => load(true)}
+      onRetry={() => { void load(); }}
       onPressItem={(id) => navigation.navigate('ExamResult', { id })}
       onBack={() => navigation.goBack()}
       colorScheme={resolvedTheme}

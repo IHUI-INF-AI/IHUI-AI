@@ -54,7 +54,7 @@ class FakeStore implements CommandAckFactStore {
       fingerprint: input.fingerprint,
       status: input.status,
       payload: input.payload,
-      entityRefs: input.entityRefs,
+      entityRefs: input.entityRefs ?? [],
       createdAt: input.createdAt ?? new Date(),
       expiresAt: input.expiresAt ?? null,
     }

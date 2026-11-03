@@ -66,8 +66,11 @@ vi.mock('../src/services/relay-account-usage.js', () => ({
 
 import {
   SWEEP_LOCK_NAME,
+  REFRESH_EXPIRY_WARN_MS,
   __test__,
   healthStatusOf,
+  refreshExpiresAtOf,
+  refreshExpiryWarningOf,
   renewalPolicyOf,
   shouldDeferRefresh,
   sweepAccountPool,
@@ -78,6 +81,10 @@ import {
 } from '../src/services/relay-account-shared-state.js'
 import { ACCOUNT_SCHEDULABLE_HEALTH_STATES } from '../src/services/relay-pool-stats-service.js'
 import { registerRelayAdapter } from '../src/services/relay-upstream-adapters.js'
+import type {
+  AdapterAccountContext,
+  HealthCheckResult,
+} from '../src/services/relay-upstream-adapters.js'
 
 function sweepRow(overrides: Record<string, unknown> = {}): unknown {
   return {
@@ -156,9 +163,10 @@ describe('sweepAccountPool 分布式锁', () => {
       providerCode: 'trae',
       buildChatRequest: () => ({ url: 'https://x.test', method: 'POST', headers: {}, body: {} }),
       translateStreamChunk: () => null,
-      translateNonStream: (_c, body) => (body ?? {}) as Record<string, unknown>,
+      translateNonStream: (_c: AdapterAccountContext, body: unknown) =>
+        (body ?? {}) as Record<string, unknown>,
       checkHealth,
-      isAuthFailure: (status) => status === 401,
+      isAuthFailure: (status: number) => status === 401,
     } as never)
     accountRows = [sweepRow()]
     const out = await sweepAccountPool()
@@ -182,9 +190,10 @@ describe('sweepAccountPool 分布式锁', () => {
       providerCode: 'trae',
       buildChatRequest: () => ({ url: 'https://x.test', method: 'POST', headers: {}, body: {} }),
       translateStreamChunk: () => null,
-      translateNonStream: (_c, body) => (body ?? {}) as Record<string, unknown>,
+      translateNonStream: (_c: AdapterAccountContext, body: unknown) =>
+        (body ?? {}) as Record<string, unknown>,
       checkHealth,
-      isAuthFailure: (status) => status === 401,
+      isAuthFailure: (status: number) => status === 401,
     } as never)
     accountRows = [sweepRow()]
     const out = await sweepAccountPool()
@@ -202,10 +211,11 @@ describe('client-first 续期策略(trae 池不与客户端抢轮换)', () => {
       providerCode: 'trae',
       buildChatRequest: () => ({ url: 'https://x.test', method: 'POST', headers: {}, body: {} }),
       translateStreamChunk: () => null,
-      translateNonStream: (_c, body) => (body ?? {}) as Record<string, unknown>,
+      translateNonStream: (_c: AdapterAccountContext, body: unknown) =>
+        (body ?? {}) as Record<string, unknown>,
       checkHealth: vi.fn(async () => ({ ok: true })),
       refreshToken,
-      isAuthFailure: (status) => status === 401,
+      isAuthFailure: (status: number) => status === 401,
     }
   }
 
@@ -286,10 +296,11 @@ describe('client-first 续期策略(trae 池不与客户端抢轮换)', () => {
       providerCode: 'workbuddy',
       buildChatRequest: () => ({ url: 'https://x.test', method: 'POST', headers: {}, body: {} }),
       translateStreamChunk: () => null,
-      translateNonStream: (_c, body) => (body ?? {}) as Record<string, unknown>,
+      translateNonStream: (_c: AdapterAccountContext, body: unknown) =>
+        (body ?? {}) as Record<string, unknown>,
       checkHealth: vi.fn(async () => ({ ok: true })),
       refreshToken,
-      isAuthFailure: (status) => status === 401,
+      isAuthFailure: (status: number) => status === 401,
     } as never)
     accountRows = [
       sweepRow({ providerCode: 'workbuddy', tokenExpiresAt: new Date(Date.now() + 5 * 60_000) }),
@@ -302,12 +313,116 @@ describe('client-first 续期策略(trae 池不与客户端抢轮换)', () => {
   })
 })
 
+describe('refresh 绝对寿命(60 天)落库与提前预警', () => {
+  const NOW = new Date('2026-11-03T12:00:00.000Z')
+
+  function adapterWithRefresh(refreshToken: ReturnType<typeof vi.fn>): Record<string, unknown> {
+    return {
+      providerCode: 'workbuddy',
+      buildChatRequest: () => ({ url: 'https://x.test', method: 'POST', headers: {}, body: {} }),
+      translateStreamChunk: () => null,
+      translateNonStream: (_c: unknown, body: unknown) => (body ?? {}) as Record<string, unknown>,
+      checkHealth: vi.fn(async () => ({ ok: true })),
+      refreshToken,
+      isAuthFailure: (status: number) => status === 401,
+    }
+  }
+
+  it('纯函数:合法秒数 → now + 秒数;缺失/0/负/NaN/Infinity → null(禁止 Invalid Date)', () => {
+    const at = refreshExpiresAtOf(5_183_999, NOW)
+    expect(at).not.toBeNull()
+    expect(at!.getTime() - NOW.getTime()).toBe(5_183_999_000)
+    for (const bad of [undefined, 0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(refreshExpiresAtOf(bad, NOW), String(bad)).toBeNull()
+    }
+  })
+
+  it('纯函数:最早到期 < 7 天才告警;恰好 7 天/未知不告警;过期给「已耗尽」', () => {
+    const inDays = (d: number) => new Date(NOW.getTime() + d * 24 * 60 * 60 * 1000)
+    expect(refreshExpiryWarningOf(null, NOW)).toBeNull()
+    expect(refreshExpiryWarningOf(inDays(20), NOW)).toBeNull()
+    // 恰好 7 天 = 未越过阈值(< 才告警)
+    expect(refreshExpiryWarningOf(inDays(7), NOW)).toBeNull()
+    expect(refreshExpiryWarningOf(inDays(6.5), NOW)).toContain('7 天阈值')
+    expect(refreshExpiryWarningOf(inDays(-0.1), NOW)).toContain('已耗尽')
+    expect(REFRESH_EXPIRY_WARN_MS).toBe(7 * 24 * 60 * 60 * 1000)
+  })
+
+  it('workbuddy 刷新回传 refreshExpiresIn ⇒ 回写 refresh_expires_at = now + 秒数', async () => {
+    const before = Date.now()
+    const refreshToken = vi.fn(async () => ({
+      token: 'wb-new',
+      refreshToken: 'wb-rt',
+      expiresAt: new Date(Date.now() + 86_400_000),
+      refreshExpiresIn: 5_183_999,
+    }))
+    registerRelayAdapter(adapterWithRefresh(refreshToken) as never)
+    accountRows = [
+      sweepRow({ providerCode: 'workbuddy', tokenExpiresAt: new Date(Date.now() + 5 * 60_000) }),
+    ]
+    const out = await sweepAccountPool()
+    expect(out.refreshed).toBeGreaterThan(0)
+    const writes = updateCalls.filter((s) => 'refreshExpiresAt' in s)
+    expect(writes.length).toBeGreaterThan(0)
+    const at = writes[0]?.refreshExpiresAt as Date
+    expect(at).toBeInstanceOf(Date)
+    expect(Number.isNaN(at.getTime())).toBe(false)
+    expect(at.getTime()).toBeGreaterThanOrEqual(before + 5_183_999_000)
+    expect(at.getTime()).toBeLessThanOrEqual(Date.now() + 5_183_999_000)
+  })
+
+  it('refreshExpiresIn 缺失 ⇒ 跳过 refresh_expires_at 写入(不得落 null/Invalid Date)', async () => {
+    const refreshToken = vi.fn(async () => ({
+      token: 'wb-new',
+      refreshToken: 'wb-rt',
+      expiresAt: new Date(Date.now() + 86_400_000),
+    }))
+    registerRelayAdapter(adapterWithRefresh(refreshToken) as never)
+    accountRows = [
+      sweepRow({ providerCode: 'workbuddy', tokenExpiresAt: new Date(Date.now() + 5 * 60_000) }),
+    ]
+    await sweepAccountPool()
+    expect(refreshToken).toHaveBeenCalled()
+    expect(updateCalls.some((s) => 'refreshExpiresAt' in s)).toBe(false)
+  })
+
+  it('refreshExpiresIn 非法(0/NaN)⇒ 跳过写入(不把 Invalid Date 落库)', async () => {
+    for (const bad of [0, Number.NaN]) {
+      updateCalls.length = 0
+      const refreshToken = vi.fn(async () => ({
+        token: 'wb-new',
+        refreshToken: 'wb-rt',
+        expiresAt: new Date(Date.now() + 86_400_000),
+        refreshExpiresIn: bad,
+      }))
+      registerRelayAdapter(adapterWithRefresh(refreshToken) as never)
+      accountRows = [
+        sweepRow({ providerCode: 'workbuddy', tokenExpiresAt: new Date(Date.now() + 5 * 60_000) }),
+      ]
+      await sweepAccountPool()
+      expect(
+        updateCalls.some((s) => 'refreshExpiresAt' in s),
+        String(bad),
+      ).toBe(false)
+    }
+  })
+
+  it('sweep 结果带 refreshExpiresAt/refreshExpiryWarn 键(无已登记行时 null,不冒绿)', async () => {
+    const out = await sweepAccountPool()
+    expect(out).toHaveProperty('refreshExpiresAt')
+    expect(out).toHaveProperty('refreshExpiryWarn')
+    expect(out.refreshExpiresAt).toBeNull()
+    expect(out.refreshExpiryWarn).toBeNull()
+  })
+})
+
 describe('健康三态定级(取不到 ≠ 失效)', () => {
   it('healthStatusOf:ok → healthy;未判定 → unknown;明确拒收 → down', () => {
     expect(healthStatusOf({ ok: true })).toBe('healthy')
     expect(healthStatusOf({ ok: false, indeterminate: true })).toBe('unknown')
     expect(healthStatusOf({ ok: false })).toBe('down')
-    expect(healthStatusOf({ ok: false, indeterminate: false, error: '401' })).toBe('down')
+    const rejected: HealthCheckResult = { ok: false, indeterminate: false, error: '401' }
+    expect(healthStatusOf(rejected)).toBe('down')
   })
 
   it('巡检遇到未判定结果保留 unknown,不得写 down', async () => {
@@ -320,9 +435,10 @@ describe('健康三态定级(取不到 ≠ 失效)', () => {
       providerCode: 'trae',
       buildChatRequest: () => ({ url: 'https://x.test', method: 'POST', headers: {}, body: {} }),
       translateStreamChunk: () => null,
-      translateNonStream: (_c, body) => (body ?? {}) as Record<string, unknown>,
+      translateNonStream: (_c: AdapterAccountContext, body: unknown) =>
+        (body ?? {}) as Record<string, unknown>,
       checkHealth,
-      isAuthFailure: (status) => status === 401,
+      isAuthFailure: (status: number) => status === 401,
     } as never)
     accountRows = [sweepRow()]
     const out = await sweepAccountPool()
@@ -361,9 +477,10 @@ describe('sweepAccountPool 台账清理与并发上限', () => {
       providerCode: 'trae',
       buildChatRequest: () => ({ url: 'https://x.test', method: 'POST', headers: {}, body: {} }),
       translateStreamChunk: () => null,
-      translateNonStream: (_c, body) => (body ?? {}) as Record<string, unknown>,
+      translateNonStream: (_c: AdapterAccountContext, body: unknown) =>
+        (body ?? {}) as Record<string, unknown>,
       checkHealth,
-      isAuthFailure: (status) => status === 401,
+      isAuthFailure: (status: number) => status === 401,
     } as never)
     accountRows = Array.from({ length: 8 }, () => sweepRow())
     const out = await sweepAccountPool()

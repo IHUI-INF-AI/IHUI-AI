@@ -15,11 +15,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { ApiResult } from '@ihui/types'
 
-const { mockGetToken, mockExpireAuth, mockGoToLogin, mockToast } = vi.hoisted(() => ({
+const { mockGetToken, mockExpireAuth, mockGoToLogin, mockOnToast } = vi.hoisted(() => ({
   mockGetToken: vi.fn((): string => ''),
   mockExpireAuth: vi.fn(),
   mockGoToLogin: vi.fn(),
-  mockToast: vi.fn(),
+  mockOnToast: vi.fn(),
 }))
 
 vi.mock('@/utils/auth', () => ({
@@ -28,26 +28,32 @@ vi.mock('@/utils/auth', () => ({
   // 登录页已删 ⇒ 401 的去向只剩这一个出口,测试也照它断言,不再断言具体路由串
   goToLogin: mockGoToLogin,
 }))
-vi.mock('@tarojs/taro', () => ({
-  default: { showToast: mockToast },
-  showToast: mockToast,
-}))
+// 提示已收口到宿主端口;断言打端口层信号,不再打 Taro.showToast。
+vi.mock('@/host/on-toast', () => ({ onToast: mockOnToast }))
 vi.mock('@/i18n', () => ({ t: (k: string) => k }))
 
 import { unwrapApi } from '../src/utils/api-bridge'
 
 const expired = (): Promise<ApiResult<never>> =>
-  Promise.resolve({ success: false, error: '未授权', status: 401 } as ApiResult<never>)
+  Promise.resolve({
+    success: false,
+    error: '未授权',
+    status: 401,
+  } as ApiResult<never>)
 
 const otherFailure = (): Promise<ApiResult<never>> =>
-  Promise.resolve({ success: false, error: '服务端炸了', status: 500 } as ApiResult<never>)
+  Promise.resolve({
+    success: false,
+    error: '服务端炸了',
+    status: 500,
+  } as ApiResult<never>)
 
 describe('unwrapApi 的 401 分型', () => {
   beforeEach(() => {
     vi.useFakeTimers()
     mockGetToken.mockReset().mockReturnValue('')
     mockExpireAuth.mockClear()
-    mockToast.mockClear()
+    mockOnToast.mockClear()
     mockGoToLogin.mockClear()
   })
   afterEach(() => {
@@ -58,7 +64,7 @@ describe('unwrapApi 的 401 分型', () => {
     mockGetToken.mockReturnValue('')
     await expect(unwrapApi(expired())).rejects.toThrow('未授权')
     expect(mockExpireAuth).not.toHaveBeenCalled()
-    expect(mockToast).not.toHaveBeenCalled()
+    expect(mockOnToast).not.toHaveBeenCalled()
     vi.advanceTimersByTime(2000)
     expect(mockGoToLogin).not.toHaveBeenCalled()
   })
@@ -67,7 +73,7 @@ describe('unwrapApi 的 401 分型', () => {
     mockGetToken.mockReturnValue('a-real-looking-jwt')
     await expect(unwrapApi(expired())).rejects.toThrow('未授权')
     expect(mockExpireAuth).toHaveBeenCalledTimes(1)
-    expect(mockToast).toHaveBeenCalledTimes(1)
+    expect(mockOnToast).toHaveBeenCalledWith('auth.expired', { kind: 'error' })
     vi.advanceTimersByTime(900)
     expect(mockGoToLogin).toHaveBeenCalledTimes(1)
     expect(mockGoToLogin).toHaveBeenCalledWith()
@@ -92,7 +98,7 @@ describe('unwrapApi 的 401 分型', () => {
   it('A4 非 401 的失败:照旧 toast + 抛,但不碰会话', async () => {
     mockGetToken.mockReturnValue('jwt')
     await expect(unwrapApi(otherFailure())).rejects.toThrow('服务端炸了')
-    expect(mockToast).toHaveBeenCalledTimes(1)
+    expect(mockOnToast).toHaveBeenCalledWith('服务端炸了', { kind: 'error' })
     expect(mockExpireAuth).not.toHaveBeenCalled()
     vi.advanceTimersByTime(2000)
     expect(mockGoToLogin).not.toHaveBeenCalled()

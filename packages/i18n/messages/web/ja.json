@@ -9118,6 +9118,30 @@
           "title": "メディアファイルの数が上限を超えています",
           "action": "添付を減らして再試行"
         },
+        "MEMORY_DREAM_FAILED": {
+          "title": "記憶の統合に失敗しました",
+          "action": "しばらくしてから再試行してください"
+        },
+        "MEMORY_FORGET_FAILED": {
+          "title": "記憶の整理に失敗しました",
+          "action": "しばらくしてから再試行してください"
+        },
+        "MEMORY_PROCEDURAL_SAVE_FAILED": {
+          "title": "ツール使用記憶の保存に失敗しました",
+          "action": "しばらくしてから再試行してください"
+        },
+        "MEMORY_RECALL_FAILED": {
+          "title": "記憶の検索に失敗しました",
+          "action": "しばらくしてから再試行してください"
+        },
+        "MEMORY_SAVE_FAILED": {
+          "title": "記憶の保存に失敗しました",
+          "action": "しばらくしてから再試行してください"
+        },
+        "MEMORY_TOPICS_FAILED": {
+          "title": "記憶テーマの生成に失敗しました",
+          "action": "しばらくしてから再試行してください"
+        },
         "MISSING_DATA": {
           "title": "必須パラメータがありません",
           "action": "パラメータを補って再試行"
@@ -20861,6 +20885,7 @@
     "downloadAndroidSysReq": "Android 8.0 (API 26) 以上",
     "downloadAssets": "ダウンロード",
     "downloadAvailable": "公開中",
+    "downloadAvailablePlatforms": "公開中のプラットフォーム",
     "downloadBack": "戻る",
     "downloadCli": "CLI ツール",
     "downloadCliDesc": "ターミナルで一発呼び出し、スクリプト化",
@@ -20899,6 +20924,8 @@
     "downloadMobileDesc": "H5 モバイル、QR で即利用",
     "downloadMobileInstallGuide": "Mobile RN クライアントはソースからビルドします。GitHub リポジトリの apps/mobile-rn ディレクトリの README を参照して自行コンパイルしてください。",
     "downloadMobileSysReq": "iOS 14+ / Android 8+、React Native 0.76+ ランタイム",
+    "downloadNotLaunchedHint": "IHUI AI では {platform} 向けのダウンロードはまだ用意していません。以下から公開中のプラットフォームを選択するか、Web 版で全機能をご利用いただけます。",
+    "downloadNotLaunchedTitle": "{platform} はまだ提供されていません",
     "downloadNow": "今すぐダウンロード",
     "downloadSystemRequirements": "動作環境",
     "downloadTitle": "アプリをダウンロード",

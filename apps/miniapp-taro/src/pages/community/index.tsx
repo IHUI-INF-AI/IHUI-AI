@@ -43,6 +43,7 @@ import { rnRadius } from '@ihui/design-tokens'
 import type { AgentInfo } from '@/components/AgentListPanel'
 import type { DrawerModelGroup, DrawerUserInfo, DrawerChatItem } from '@/components/DrawerComponent'
 import './index.css'
+import { onToast } from '@/host/on-toast'
 
 /* ============ 类型定义 ============ */
 
@@ -375,7 +376,7 @@ export default function Community() {
     if (item.link) {
       Taro.navigateTo({ url: item.link })
     } else {
-      Taro.showToast({ title: tt('community.text5', '即将上线，敬请期待'), icon: 'none' })
+      onToast(tt('community.text5', '即将上线，敬请期待'), { kind: 'info' })
     }
   }
 
@@ -453,7 +454,7 @@ export default function Community() {
         setPayInfo(info)
         setShowPayPopup(true)
       } catch {
-        Taro.showToast({ title: tt('community.failed6', '获取价格信息失败'), icon: 'none' })
+        onToast(tt('community.failed6', '获取价格信息失败'), { kind: 'error' })
       }
     },
     [tt],
@@ -481,9 +482,9 @@ export default function Community() {
               : a,
           ),
         )
-        Taro.showToast({ title: tt('ai.agentDetail.favorited', '已收藏'), icon: 'success' })
+        onToast(tt('ai.agentDetail.favorited', '已收藏'), { kind: 'success' })
       } catch {
-        Taro.showToast({ title: tt('setting.operationFailed', '操作失败'), icon: 'none' })
+        onToast(tt('setting.operationFailed', '操作失败'), { kind: 'error' })
       }
     },
     [tt],
@@ -505,9 +506,9 @@ export default function Community() {
               : a,
           ),
         )
-        Taro.showToast({ title: tt('community.like7', '已点赞'), icon: 'success' })
+        onToast(tt('community.like7', '已点赞'), { kind: 'success' })
       } catch {
-        Taro.showToast({ title: tt('setting.operationFailed', '操作失败'), icon: 'none' })
+        onToast(tt('setting.operationFailed', '操作失败'), { kind: 'error' })
       }
     },
     [tt],
@@ -537,7 +538,7 @@ export default function Community() {
       } else {
         Taro.navigateTo({
           url,
-          fail: () => Taro.showToast({ title: tt('community.text8', '页面未配置'), icon: 'none' }),
+          fail: () => onToast(tt('community.text8', '页面未配置'), { kind: 'error' }),
         })
       }
     }
@@ -564,13 +565,11 @@ export default function Community() {
       Taro.setClipboardData({
         data: feishuUrl,
         success: () =>
-          Taro.showToast({
-            title: tt('community.copy9', '链接已复制,请在浏览器打开'),
-            icon: 'none',
+          onToast(tt('community.copy9', '链接已复制,请在浏览器打开'), {
+            kind: 'info',
             duration: 2000,
           }),
-        fail: () =>
-          Taro.showToast({ title: tt('community.failed10', '复制失败,请重试'), icon: 'none' }),
+        fail: () => onToast(tt('community.failed10', '复制失败,请重试'), { kind: 'error' }),
       })
     }
   }
@@ -580,7 +579,7 @@ export default function Community() {
     // 对齐原项目 handleShowFullList:携带 chatId + title 参数
     Taro.navigateTo({
       url: `/pkg-ai/ai/chat?chatId=${chat.id}&title=${encodeURIComponent(chat.title)}`,
-      fail: () => Taro.showToast({ title: tt('community.text11', '对话页未配置'), icon: 'none' }),
+      fail: () => onToast(tt('community.text11', '对话页未配置'), { kind: 'error' }),
     })
   }
 
@@ -593,10 +592,10 @@ export default function Community() {
         if (res.confirm) {
           try {
             await api.removeModelChat(String(chat.id))
-            Taro.showToast({ title: tt('message.deleted', '已删除'), icon: 'success' })
+            onToast(tt('message.deleted', '已删除'), { kind: 'success' })
             void loadHistoryChat()
           } catch {
-            Taro.showToast({ title: tt('developer.index.deleteFail', '删除失败'), icon: 'none' })
+            onToast(tt('developer.index.deleteFail', '删除失败'), { kind: 'error' })
           }
         }
       },
@@ -789,10 +788,7 @@ export default function Community() {
                   color="var(--color-muted-foreground)"
                   style={{ padding: rpx(8), flexShrink: 0 }}
                   onClick={() => {
-                    Taro.showToast({
-                      title: tt('community.search13', '语音搜索请在完整版使用'),
-                      icon: 'none',
-                    })
+                    onToast(tt('community.search13', '语音搜索请在完整版使用'), { kind: 'info' })
                   }}
                 />
                 {/* 图片搜索按钮(对齐原项目 handleIconClick L1113-1207。
@@ -805,10 +801,7 @@ export default function Community() {
                   onClick={async () => {
                     try {
                       await chooseImages(1)
-                      Taro.showToast({
-                        title: tt('community.search14', '图片搜索请在完整版使用'),
-                        icon: 'none',
-                      })
+                      onToast(tt('community.search14', '图片搜索请在完整版使用'), { kind: 'info' })
                     } catch {
                       // 用户取消或失败,静默
                     }
@@ -841,10 +834,7 @@ export default function Community() {
                     Taro.navigateTo({
                       url: '/pkg-content/category-detail/index',
                       fail: () =>
-                        Taro.showToast({
-                          title: tt('community.detail16', '分类详情页未配置'),
-                          icon: 'none',
-                        }),
+                        onToast(tt('community.detail16', '分类详情页未配置'), { kind: 'error' }),
                     })
                   }
                   hoverClass="opacity-60"
@@ -971,10 +961,7 @@ export default function Community() {
               }
               // 3. mock 模式(后端未配置微信支付)
               if (payRes?.mock) {
-                Taro.showToast({
-                  title: tt('community.success17', '支付成功(mock)'),
-                  icon: 'success',
-                })
+                onToast(tt('community.success17', '支付成功(mock)'), { kind: 'success' })
                 setShowPayPopup(false)
                 void loadData(true)
                 return
@@ -987,7 +974,7 @@ export default function Community() {
                 !payRes.package ||
                 !payRes.signType
               ) {
-                Taro.showToast({ title: tt('community.pay18', '支付参数异常'), icon: 'none' })
+                onToast(tt('community.pay18', '支付参数异常'), { kind: 'error' })
                 return
               }
               await requestPayment({
@@ -997,13 +984,13 @@ export default function Community() {
                 signType: payRes.signType,
                 paySign: payRes.paySign,
               })
-              Taro.showToast({ title: tt('pay.result.paid', '支付成功'), icon: 'success' })
+              onToast(tt('pay.result.paid', '支付成功'), { kind: 'success' })
               setShowPayPopup(false)
               void loadData(true)
             } catch (err) {
               // requestPayment 已处理 cancel/fail 的 toast;unwrapApi 已处理 API 失败 toast
               if (err !== 'cancel') {
-                Taro.showToast({ title: tt('pay.failed', '支付失败,请重试'), icon: 'none' })
+                onToast(tt('pay.failed', '支付失败,请重试'), { kind: 'error' })
               }
             }
           }}

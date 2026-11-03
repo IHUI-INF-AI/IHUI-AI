@@ -30,11 +30,11 @@ vi.hoisted(() => {
 })
 
 // 可链式 + 可 await 的通用 db 桩:任何属性访问返回自身,await 得 []
-function chainStub() {
+function chainStub(): object {
   const target = function () {}
   return new Proxy(target, {
     get: (_t, prop) => {
-      if (prop === 'then') return (resolve) => resolve([])
+      if (prop === 'then') return (resolve: (value: unknown) => unknown) => resolve([])
       if (prop === Symbol.toPrimitive) return () => ''
       return chainStub()
     },
@@ -83,7 +83,7 @@ const FILES = {
 
 const UUID = '22222222-2222-4222-8222-222222222222'
 // [file, method, invalid-url, invalid-payload?, valid-url, valid-payload?]
-const CASES: Array<[string, string, string, unknown?, string, unknown?]> = [
+const CASES: Array<[keyof typeof FILES, string, string, unknown, string, unknown?]> = [
   ['admin', 'GET', '/users/not-a-uuid', undefined, `/users/${UUID}`],
   // 刻意带合法 body:空 body 时 ajv 对 body type:'object' 的先拒属 G-257 残余③
   // ("POST body 走 JSON Schema 的边缘仍可能被 ajv 先拒 ⇒ 正解是全局 setErrorHandler,全 API 决策"),不在本票射程
@@ -173,14 +173,18 @@ const CASES: Array<[string, string, string, unknown?, string, unknown?]> = [
   ],
 ]
 
-async function buildServer(file: string): Promise<FastifyInstance> {
+async function buildServer(file: keyof typeof FILES): Promise<FastifyInstance> {
   const mod = await FILES[file]()
   const server = Fastify({ logger: false })
   // notifications.ts 在注册期用 distributedRateLimit 装饰器;测试实例补同形桩
-  server.decorate('distributedRateLimit', {
+  const rateLimitStub: FastifyInstance['distributedRateLimit'] = {
     addRule: () => {},
+    check: async () => ({ allowed: true, count: 0, limit: 0, retryAfterMs: 0, remaining: 0, rule: '' }),
+    setWeight: () => {},
+    stats: () => ({ rules: [], totalAllowed: 0, totalBlocked: 0, loadFactor: 1 }),
     preHandler: () => async () => {},
-  })
+  }
+  server.decorate('distributedRateLimit', rateLimitStub)
   let registered = false
   for (const fn of Object.values(mod)) {
     if (typeof fn !== 'function') continue
@@ -207,7 +211,7 @@ function expectErrorEnvelope(body: unknown, code = 400): void {
 
 describe('G-261 十九站点:非法参数 ⇒ 400 且 code 为数字(修复前逐条实测 500)', () => {
   const servers = new Map<string, FastifyInstance>()
-  const getServer = async (file: string) => {
+  const getServer = async (file: keyof typeof FILES) => {
     if (!servers.has(file)) servers.set(file, await buildServer(file))
     return servers.get(file)!
   }

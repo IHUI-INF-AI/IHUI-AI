@@ -42,6 +42,8 @@
  * 30. GET    /admin/relay/pool-policy      — 号池选号策略只读面(O93):八枚 IHUI_RELAY_POOL_*
  *            钮的「env 名 / 当前生效值 / 默认值 / 是否偏离默认」整档视图。只读、mutable:false
  *            (钮住在进程级 env,改完必须重启 api 进程;面板刻意不提供写入 —— 不做假旋钮)
+ * 31. GET    /admin/relay/account-pool/reauth-status — 待人工处理账号机读面(2026-11-03 立):
+ *            按 provider × reason 给 needsReauth 计数,合并号池 down/到期与签到 claim 证据
  *
  * 加密:token/refreshToken/cookies/账号级 proxyUrl 走 encryptField(AES-256-GCM),
  * 响应面永不回传密文/明文(代理只回脱敏值)。
@@ -68,7 +70,10 @@ import {
   recognizeImportShape,
   RELAY_PROVIDERS,
 } from '../../services/relay-account-format.js'
-import { getRelayAdapter } from '../../services/relay-upstream-adapters.js'
+import {
+  getRelayAdapter,
+  isRefreshableProviderCode,
+} from '../../services/relay-upstream-adapters.js'
 import { healthStatusOf } from '../../services/relay-account-pool-scheduler.js'
 // 号池体检判据单源在 @ihui/shared(web 管理页与 CLI 同源,绝不各自抄一份枚举/阈值,§0.6)
 import { relayAccountIdleDays, resolveRelayAccountVerdict } from '@ihui/shared'
@@ -90,6 +95,15 @@ import {
   refreshOne,
   sweepAccountPool,
 } from '../../services/relay-account-pool-scheduler.js'
+import {
+  fetchPoolAccounts,
+  parseCheckinLastRecord,
+} from '../../services/relay-account-pool-reconcile.js'
+import {
+  buildReauthReport,
+  classifyPoolRow,
+  type PoolReauthRow,
+} from '../../services/relay-account-pool-reauth.js'
 import {
   collectRelayTaskStates,
   RELAY_POOL_TASKS,
@@ -1068,6 +1082,10 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
   const checkinStatusBodySchema = z.object({
     ids: z.array(z.string().min(1)).min(1).max(20),
   })
+  const reauthStatusQuerySchema = z.object({
+    provider: z.string().min(1).max(64).optional(),
+    owner: z.string().min(1).max(64).optional(),
+  })
   server.post('/admin/relay/account-pool/checkin-status', async (request, reply) => {
     const b = checkinStatusBodySchema.safeParse(request.body ?? {})
     if (!b.success)
@@ -1078,10 +1096,49 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
         providerCode: aiRelayAccountPool.providerCode,
         ownerUserId: aiRelayAccountPool.ownerUserId,
         uid: aiRelayAccountPool.uid,
+        name: aiRelayAccountPool.name,
+        isEnabled: aiRelayAccountPool.isEnabled,
+        healthStatus: aiRelayAccountPool.healthStatus,
+        tempUnschedulable: aiRelayAccountPool.tempUnschedulable,
+        tokenExpiresAt: aiRelayAccountPool.tokenExpiresAt,
+        lastErrorMessage: aiRelayAccountPool.lastErrorMessage,
+        hasRefreshToken:
+          sql<boolean>`case when ${aiRelayAccountPool.refreshTokenEnc} is not null and ${aiRelayAccountPool.refreshTokenEnc} <> '' then true else false end`.as(
+            'has_refresh_token',
+          ),
       })
       .from(aiRelayAccountPool)
       .where(inArray(aiRelayAccountPool.id, b.data.ids))
     const byId = new Map(rows.map((r) => [r.id, r]))
+    // 与 reauth-status 共用同一分类器;skip/幂等已签不会被标,down 固定归 account_down。
+    const reauthOf = (
+      row: (typeof rows)[number],
+      record: ReturnType<typeof parseCheckinLastRecord>,
+    ) => {
+      const r = classifyPoolRow(
+        {
+          id: row.id,
+          providerCode: row.providerCode,
+          uid: row.uid,
+          name: row.name,
+          isEnabled: row.isEnabled,
+          healthStatus: row.healthStatus,
+          tempUnschedulable: row.tempUnschedulable,
+          tokenExpiresAt: row.tokenExpiresAt,
+          hasRefreshToken: row.hasRefreshToken,
+          lastErrorMessage: row.lastErrorMessage,
+          refreshSupported: isRefreshableProviderCode(row.providerCode),
+        },
+        record ?? null,
+      )
+      return {
+        needsReauth: r.needsReauth,
+        reauthReason: r.reason,
+        reauthReasons: r.reasons,
+        reauthDetail: r.detail,
+        reauthNextAction: r.nextAction,
+      }
+    }
     const items: Record<string, unknown> = {}
     for (const id of b.data.ids) {
       const row = byId.get(id)
@@ -1091,15 +1148,70 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
       }
       const platform = checkinPlatformFor(row.providerCode)
       if (!platform) {
-        items[id] = { found: false, noEngine: true }
+        // 无签到引擎不等于无需人工:down/到期无续期仍要标出来(凭据有效的 unsupported 不标)
+        items[id] = { found: false, noEngine: true, ...reauthOf(row, null) }
         continue
       }
-      items[id] = await fetchPoolStatus(platform, {
+      const status = await fetchPoolStatus(platform, {
         poolAccountId: row.id,
         uid: row.uid ?? '',
       })
+      items[id] = {
+        ...status,
+        ...reauthOf(row, status.found ? parseCheckinLastRecord(status.lastRecord) : null),
+      }
     }
     return reply.send(success({ items }))
+  })
+
+  // ===== 31. GET /admin/relay/account-pool/reauth-status — 待人工处理账号机读面 =====
+  // 与 22 的分工:22 是页内 ≤20 的实钻点查,本端点是一次全量 + 一次签到侧拉取,
+  // 给运维/巡检读 provider × reason 计数。签到侧不可达时只降级 claim 证据,
+  // `checkinSource.ok=false` 显式报错 —— 绝不把「没拉到」写成「没有 claim 失败」。
+  server.get('/admin/relay/account-pool/reauth-status', async (request, reply) => {
+    const q = reauthStatusQuerySchema.safeParse(request.query)
+    if (!q.success)
+      return reply.status(400).send(error(400, q.error.issues[0]?.message ?? '参数错误'))
+    const { provider, owner } = q.data
+    if (owner === 'me' && !request.userId) return reply.status(401).send(error(401, '未登录'))
+    const conds: SQL[] = []
+    const ownerCond = ownerListCondition(owner, request.userId)
+    if (ownerCond) conds.push(ownerCond)
+    if (provider) conds.push(eq(aiRelayAccountPool.providerCode, provider))
+    const where = conds.length > 0 ? and(...conds) : undefined
+    try {
+      const [rows, checkin] = await Promise.all([
+        dbRead.select(safeProjection).from(aiRelayAccountPool).where(where),
+        fetchPoolAccounts(),
+      ])
+      const poolRows: PoolReauthRow[] = rows.map((row) => ({
+        id: row.id,
+        providerCode: row.providerCode,
+        uid: row.uid,
+        name: row.name,
+        isEnabled: row.isEnabled,
+        healthStatus: row.healthStatus,
+        tempUnschedulable: row.tempUnschedulable,
+        tokenExpiresAt: row.tokenExpiresAt,
+        hasRefreshToken: row.hasRefreshToken,
+        lastErrorMessage: row.lastErrorMessage,
+        refreshSupported: isRefreshableProviderCode(row.providerCode),
+      }))
+      const report = buildReauthReport(poolRows, checkin)
+      return reply.send(
+        success({
+          generatedAt: new Date().toISOString(),
+          total: rows.length,
+          needsReauth: report.counts.total,
+          counts: report.counts,
+          checkinSource: report.checkinSource,
+          items: report.items,
+        }),
+      )
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '读取待人工处理账号失败'))
+    }
   })
 
   // ===== 23. POST /admin/relay/accounts/:id/checkin-run — 立即签到 =====

@@ -8,7 +8,7 @@
  */
 
 import { StyleSheet, type TextStyle } from 'react-native'
-import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType, rnCssLight } from '@ihui/design-tokens'
 import type { AppThemeTokens } from '../../theme/tokens'
 
 export function formatQuickNoteStamp(ts: number): string {
@@ -118,7 +118,7 @@ export function createQuickNoteEditorStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     modalOverlay: {
       flex: 1,
-      backgroundColor: 'rgba(0,0,0,0.5)',
+      backgroundColor: rnCssLight.black50,
       justifyContent: 'center',
       alignItems: 'center',
     },

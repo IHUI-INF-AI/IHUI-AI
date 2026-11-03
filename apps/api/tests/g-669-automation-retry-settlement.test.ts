@@ -168,6 +168,11 @@ function makeRow(over: Partial<Row> = {}): Row {
     lastResult: null,
     attempt: 0,
     lastError: null,
+    terminalReason: null,
+    claimToken: null,
+    claimedAt: null,
+    settlementStatus: null,
+    settlementTerminalAt: null,
     createdAt: new Date('2026-09-01T00:00:00.000Z'),
     updatedAt: new Date('2026-09-01T00:00:00.000Z'),
     ...over,
@@ -224,7 +229,7 @@ const upstreamCalls = (): number => streamMock.mock.calls.length
 const warnedText = (): string =>
   warnSpy.mock.calls
     .flat()
-    .map((part) => (typeof part === 'string' ? part : ''))
+    .map((part: unknown) => (typeof part === 'string' ? part : ''))
     .join('\n')
 
 // =============================================================================

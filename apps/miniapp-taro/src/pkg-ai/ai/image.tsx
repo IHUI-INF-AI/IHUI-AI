@@ -14,6 +14,7 @@ import EmptyState from '@/components/EmptyState'
 import { formatDateByTemplate } from '@ihui/shared'
 import { safeDecodeURIComponent } from '@ihui/shared'
 import ThemeRoot from '@/components/ThemeRoot'
+import { onToast } from '@/host/on-toast'
 
 interface HistoryItem {
   id: string
@@ -112,7 +113,7 @@ export default function ImagePage() {
       saveHistory(next)
     } catch (e) {
       logger.error('ai/image', '生成图片', e)
-      Taro.showToast({ title: t('ai.image.generateFailed'), icon: 'none' })
+      onToast(t('ai.image.generateFailed'), { kind: 'error' })
     } finally {
       setLoading(false)
     }
@@ -123,10 +124,10 @@ export default function ImagePage() {
     try {
       const res = await Taro.downloadFile({ url: result })
       await Taro.saveImageToPhotosAlbum({ filePath: res.tempFilePath })
-      Taro.showToast({ title: t('ai.image.downloadSuccess'), icon: 'success' })
+      onToast(t('ai.image.downloadSuccess'), { kind: 'success' })
     } catch (e) {
       logger.error('ai/image', '下载图片', e)
-      Taro.showToast({ title: t('ai.image.downloadFailed'), icon: 'none' })
+      onToast(t('ai.image.downloadFailed'), { kind: 'error' })
     }
   }, [result, t])
 
@@ -136,10 +137,10 @@ export default function ImagePage() {
       const next = new Set(prev)
       if (next.has(result)) {
         next.delete(result)
-        Taro.showToast({ title: t('ai.image.favoriteRemoved'), icon: 'none' })
+        onToast(t('ai.image.favoriteRemoved'), { kind: 'info' })
       } else {
         next.add(result)
-        Taro.showToast({ title: t('ai.image.favoriteAdded'), icon: 'success' })
+        onToast(t('ai.image.favoriteAdded'), { kind: 'success' })
       }
       saveFavorites(next)
       return next
@@ -197,9 +198,7 @@ export default function ImagePage() {
       ) : null}
       {!result ? (
         <View className="px-[32rpx] pb-[24rpx]">
-          <Text className="text-label text-muted-foreground">
-            {t('ai.image.tryThese')}
-          </Text>
+          <Text className="text-label text-muted-foreground">{t('ai.image.tryThese')}</Text>
           <View className="flex flex-wrap gap-[16rpx] mt-[16rpx]">
             {examples.map((ex) => (
               <Text
@@ -282,9 +281,7 @@ export default function ImagePage() {
                   src={h.url}
                   mode="aspectFill"
                 />
-                <Text className="flex-1 text-label text-foreground truncate">
-                  {h.prompt}
-                </Text>
+                <Text className="flex-1 text-label text-foreground truncate">{h.prompt}</Text>
                 <Text className="text-badge text-[var(--color-text-tertiary)] ml-[16rpx]">
                   {fmtTime(h.createdAt)}
                 </Text>

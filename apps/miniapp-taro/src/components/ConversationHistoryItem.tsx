@@ -80,13 +80,11 @@ export default function ConversationHistoryItem({
             <Text className="text-caption text-muted-foreground flex-shrink-0">{time}</Text>
           </View>
           {preview ? (
-            <Text className="block text-[length:26rpx] text-muted-foreground mt-[8rpx] leading-[1.4] truncate">
+            <Text className="block text-body-sm text-muted-foreground mt-[8rpx] leading-[1.4] truncate">
               {preview}
             </Text>
           ) : null}
-          <Text className="block text-caption text-muted-foreground mt-[12rpx]">
-            {countLabel}
-          </Text>
+          <Text className="block text-caption text-muted-foreground mt-[12rpx]">{countLabel}</Text>
         </View>
       </View>
       {canPin ? (

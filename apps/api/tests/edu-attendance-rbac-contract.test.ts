@@ -30,9 +30,9 @@
  * "该用户是否被授予该权限点",判序与豁免语义是真身)。
  */
 import { existsSync, readFileSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import Fastify, { type FastifyInstance } from 'fastify'
+import Fastify, { type FastifyError, type FastifyInstance } from 'fastify'
 
 /**
  * 夹具账本(hoisted:vi.mock 工厂要在模块求值前拿到它)。
@@ -107,7 +107,7 @@ vi.mock('../src/config/index.js', () => ({
     HOST: '0.0.0.0',
     LOG_LEVEL: 'silent',
     CORS_ORIGIN: 'http://localhost:8801',
-    DATABASE_URL: 'postgres://localhost:8810/forbidden-in-mock-tests',
+    DATABASE_URL: 'postgres://127.0.0.1:5399/forbidden-in-mock-tests',
     REDIS_URL: 'redis://localhost:6379',
     JWT_SECRET: 'test-jwt-secret-at-least-32-characters-long!!!',
     JWT_EXPIRES_IN: '7d',
@@ -149,7 +149,7 @@ vi.mock('../src/db/index.js', () => {
         lits.includes(b.childId) &&
         (!lits.includes('confirmed') || b.status === 'confirmed')
       ) {
-        out.push({ id: `binding-${b.parentId}-${b.childId}`, parentId: b.parentId, ...b })
+        out.push({ ...b, id: `binding-${b.parentId}-${b.childId}` })
       }
     }
     for (const a of H.attendance) {
@@ -381,7 +381,7 @@ let appPromise: Promise<FastifyInstance> | null = null
 async function getApp(): Promise<FastifyInstance> {
   if (!appPromise) {
     const app = Fastify({ logger: false })
-    app.setErrorHandler((err, _request, reply) => {
+    app.setErrorHandler((err: FastifyError, _request, reply) => {
       const statusCode =
         typeof (err as { statusCode?: number }).statusCode === 'number'
           ? (err as { statusCode: number }).statusCode
@@ -398,7 +398,7 @@ async function getApp(): Promise<FastifyInstance> {
 interface CallOptions {
   method: 'GET' | 'POST' | 'PUT' | 'DELETE'
   path: string
-  body?: unknown
+  body?: Record<string, unknown>
   /** 登录主体 userId(造真三段式凭据);不传 = 无 token */
   as?: string
 }
@@ -513,7 +513,7 @@ interface WriteEndpointCase {
   name: string
   method: 'POST' | 'PUT' | 'DELETE'
   path: string
-  body?: unknown
+  body?: Record<string, unknown>
   /** 正控期望状态码 */
   okStatus: number
 }
@@ -865,10 +865,8 @@ describe('edu-attendance-rule 判定纯函数(迟到/早退/正常/输入缺失�
   } | null> {
     if (!RULE_FILE_EXISTS) return null
     try {
-      const mod = (await import('../src/services/edu-attendance-rule.js')) as Record<
-        string,
-        unknown
-      >
+      // 该服务件此刻未落盘(待 ATT-JOB 席),按已探测到的绝对路径动态载入;静态字面量 import 会让 tsc 报模块缺失。
+      const mod = (await import(pathToFileURL(RULE_SERVICE_PATH).href)) as Record<string, unknown>
       const test = mod.__test__ as Record<string, unknown> | undefined
       if (!test || typeof test.judgeStatusDetailed !== 'function') return null
       return {

@@ -30,6 +30,48 @@ export function AgentChatScreen(props: Record<string, unknown>) {
   return createElement('div', { 'data-testid': 'shared-agent-chat-screen' }, null)
 }
 
+/**
+ * 2026-11-03 AgentReview 薄壳批:列表 / 详情两屏同 Plaza / Agent 型 —— 本替身只做 props 捕获,
+ * 判的是「RN 壳把取数结果 / route item / 回退 / 重试 / 条目点击交给共享屏」这一层;
+ * 共享屏渲染本身由 packages/app 的套件负责。真身 exports 见 packages/app/src/index.ts
+ * (AgentReviewListScreen:154 / AgentReviewDetailScreen:278),替身缺这两条出口时,
+ * 壳渲染即 "Element type is invalid: got: undefined",两套件收集期/类型检查同时红。
+ */
+export const agentReviewListScreenPropsCaptured: Array<Record<string, unknown>> = []
+export function AgentReviewListScreen(props: Record<string, unknown>) {
+  agentReviewListScreenPropsCaptured.push(props)
+  return createElement('div', { 'data-testid': 'shared-agent-review-list-screen' }, null)
+}
+
+export const agentReviewDetailScreenPropsCaptured: Array<Record<string, unknown>> = []
+export function AgentReviewDetailScreen(props: Record<string, unknown>) {
+  agentReviewDetailScreenPropsCaptured.push(props)
+  return createElement('div', { 'data-testid': 'shared-agent-review-detail-screen' }, null)
+}
+
+/**
+ * 2026-11-03 薄壳批:CoursePlanet / MoreCourse / StudyIndex 三屏走 props 捕获替身。
+ * 判的是「RN 壳把取数结果、分页态与导航端口交给共享屏」这一层;共享屏渲染本身
+ * 由 packages/app 的套件负责。三枚名字若缺席,薄壳渲染即 "Element type is invalid"。
+ */
+export const coursePlanetScreenPropsCaptured: Array<Record<string, unknown>> = []
+export function CoursePlanetScreen(props: Record<string, unknown>) {
+  coursePlanetScreenPropsCaptured.push(props)
+  return createElement('div', { 'data-testid': 'shared-course-planet-screen' }, null)
+}
+
+export const moreCourseScreenPropsCaptured: Array<Record<string, unknown>> = []
+export function MoreCourseScreen(props: Record<string, unknown>) {
+  moreCourseScreenPropsCaptured.push(props)
+  return createElement('div', { 'data-testid': 'shared-more-course-screen' }, null)
+}
+
+export const studyIndexScreenPropsCaptured: Array<Record<string, unknown>> = []
+export function StudyIndexScreen(props: Record<string, unknown>) {
+  studyIndexScreenPropsCaptured.push(props)
+  return createElement('div', { 'data-testid': 'shared-study-index-screen' }, null)
+}
+
 export type PlazaScreenProps = {
   t: (key: string) => string
   colorScheme?: 'light' | 'dark'

@@ -46,7 +46,7 @@ import { loadTrafficPolicy, selectTrafficLane } from '../../scripts/canary-traff
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const DEFAULT_CONTRACT = join(ROOT, '.ihui-agent', 'state', 'canary', 'ramp.json')
 /** 车道计数落盘的唯一默认落点(观测面;与契约同目录)。 */
-export const DEFAULT_STATS_PATH = join(ROOT, '.ihui-agent', 'state', 'canary', 'split-stats.json')
+const DEFAULT_STATS_PATH = join(ROOT, '.ihui-agent', 'state', 'canary', 'split-stats.json')
 
 // 灰度槽位探活:契约写着比例、但承载新构建的实例还没起(或已挂)时,那一部分流量会打到
 // 空端口 —— 5% 的 502 比"没放量"坏得多。故探活不通过 ⇒ 该部分流量回落 stable(老版本在线)。
@@ -145,7 +145,7 @@ export function laneFor({ contract, headers, remoteAddress, canaryUp = true }) {
 }
 
 /** TCP 探活(纯本机,不发业务请求):端口能连上即视为"实例在位"。 */
-export function probePort(port, { timeoutMs = PROBE_TIMEOUT_MS } = {}) {
+function probePort(port, { timeoutMs = PROBE_TIMEOUT_MS } = {}) {
   return new Promise((resolvePromise) => {
     const socket = net.connect({ host: '127.0.0.1', port })
     let settled = false
@@ -190,11 +190,11 @@ export function createHealthCache({ ttlMs = HEALTH_TTL_MS, probe = probePort } =
  *  - 落盘是"分流器进程自己的累计",不是"本轮增量" —— 消费方(gray.ps1 复用已在位的分流器进程),
  *    读数措辞必须如实(§0.3)。
  */
-export const STATS_FLUSH_INTERVAL_MS = 5000
-export const STATS_FLUSH_EVERY = 100
+const STATS_FLUSH_INTERVAL_MS = 5000
+const STATS_FLUSH_EVERY = 100
 
 /** 落盘形态(纯函数,可测;只含观测字段,不含任何判据输入)。 */
-export function laneStatsShape(counters, { contractPercent = null, updatedAt }) {
+function laneStatsShape(counters, { contractPercent = null, updatedAt }) {
   return {
     updatedAt,
     contractPercent,

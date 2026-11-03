@@ -87,7 +87,9 @@ beforeAll(
     const { agentsRoutes } = await import('../src/routes/agents.js')
     // with-redis:在 register **之前** decorate(封装上下文按创建链继承根装饰,request.server 指根)
     appRedis = Fastify()
-    appRedis.decorate('redis', makeRedis())
+    // 桩 redis 与路由声明的 Redis 类型不同形,装饰口按插件层的宽口径走(同 cache-resilience-null)
+    const decorable = appRedis as unknown as { decorate(name: string, value: unknown): void }
+    decorable.decorate('redis', makeRedis())
     await appRedis.register(agentsRoutes, { prefix: '/api' })
     await appRedis.ready()
     // without-redis:不装饰 ⇒ request.server.redis 为 undefined,路由走 503 分支

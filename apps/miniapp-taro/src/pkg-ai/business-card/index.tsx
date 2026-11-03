@@ -12,6 +12,7 @@ import * as api from '@/api'
 import { BUSINESS_CARD_DATA_KEY } from '@/constants/storage'
 import ThemeRoot from '@/components/ThemeRoot'
 import './index.css'
+import { onToast } from '@/host/on-toast'
 
 type StoredData = {
   uuid?: string
@@ -50,7 +51,7 @@ export default function BusinessCardIndex() {
       Taro.setStorageSync(BUSINESS_CARD_DATA_KEY, merged)
       setCard(tempPath)
       setIsShow(true)
-      Taro.showToast({ title: tt('businessCard.uploaded', '名片已上传'), icon: 'success' })
+      onToast(tt('businessCard.uploaded', '名片已上传'), { kind: 'success' })
     } catch {
       // ignore
     } finally {
@@ -62,9 +63,9 @@ export default function BusinessCardIndex() {
     if (!card) return
     try {
       await Taro.saveImageToPhotosAlbum({ filePath: card })
-      Taro.showToast({ title: tt('businessCard.savedToAlbum', '已保存到相册'), icon: 'success' })
+      onToast(tt('businessCard.savedToAlbum', '已保存到相册'), { kind: 'success' })
     } catch {
-      Taro.showToast({ title: tt('businessCard.saveFailed', '保存失败'), icon: 'none' })
+      onToast(tt('businessCard.saveFailed', '保存失败'), { kind: 'error' })
     }
   }, [card, tt])
 

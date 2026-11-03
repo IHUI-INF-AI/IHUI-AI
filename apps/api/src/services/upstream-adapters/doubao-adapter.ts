@@ -41,17 +41,10 @@ import type { RelayProviderCode } from '../relay-account-format.js'
 
 /** 实证:2026-10-27 号机 Cookies 里 .doubao.com 会话族所在主域 */
 const DOUBAO_BASE = 'https://www.doubao.com'
-/** 海外预留:豆包海外版 Cici(无本机取证,常量留位;拿到实证再换,导出供管理面读取) */
-export const DOUBAO_GLOBAL_BASE: string | null = null
 /** chat 端点(推断:通用惯例路径;未实证) */
 const DOUBAO_CHAT_URL = `${DOUBAO_BASE}/api/chat/completions`
 /** 额度端点(推断:通用惯例路径;未实证) */
 const DOUBAO_QUOTA_URL = `${DOUBAO_BASE}/api/user/quota`
-
-/** chat 直连契约未实证的统一错误(转发层按普通上游错误处理,不刷新不重试) */
-export const DOUBAO_CHAT_CONTRACT_UNVERIFIED =
-  'DOUBAO_CHAT_CONTRACT_UNVERIFIED: 豆包上游为字节私有端点,无公开文档;' +
-  'chat 请求构造为合理推断形状,响应形状未实证,直连结果只能如实未判定'
 
 /** 鉴权失效类响应文案标记(通用形态;无豆包专有实证码) */
 const AUTH_BODY_MARKERS = [

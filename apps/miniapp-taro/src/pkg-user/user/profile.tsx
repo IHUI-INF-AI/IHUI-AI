@@ -18,6 +18,7 @@ import ProfileAvatar from './profile-avatar'
 import ProfileLogoutButton from './profile-logout'
 import './profile.css'
 import LineIcon from '@/components/LineIcon'
+import { onToast } from '@/host/on-toast'
 
 export default function Profile() {
   const { t } = useI18n()
@@ -33,7 +34,7 @@ export default function Profile() {
       setForm(await getProfile())
     } catch (e) {
       logger.error('user/profile', '获取用户信息', e)
-      Taro.showToast({ title: t('common.failed'), icon: 'none' })
+      onToast(t('common.failed'), { kind: 'error' })
     }
     // 附加读数三枚各自独立:取不到留 null(渲染 '--' / 不出值),不把「没取到」说成「就是 0 / 没认证」。
     // /user/profile 不回统计也不回 realName ⇒ 计数走 /api/statistics/user-center + /api/orders/me,

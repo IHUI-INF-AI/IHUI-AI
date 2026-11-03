@@ -33,8 +33,9 @@ export function ExamScreen({
   onRefresh,
   onStart,
   onBack,
-  colorScheme = 'light',
-}: ExamScreenProps) {
+  onRetry,
+  colorScheme = 'light'
+}: ExamScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -67,7 +68,7 @@ export function ExamScreen({
       <View style={styles.container}>
         <ErrorState
           message={error}
-          onRetry={onRefresh}
+          onRetry={onRetry}
           retryLabel={t('exam.retry')}
           colorScheme={colorScheme}
         />
