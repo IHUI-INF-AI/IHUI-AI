@@ -30,11 +30,13 @@ permissions:
 #   "被取消",既证不了修复、也警不了回归(§0.9 判据必须在真跑它的那一刻才成立)。
 #   false 的 GitHub 语义(镜像头注已实测记载):在跑的 run 不被挤掉 ⇒ 跑完出结论;
 #   排队中未开跑的旧 run 仍只保留最新一个 ⇒ 不烧历史 sha、不堆并发。
+# 2026-11-03 实测修正:false 并不能保住 main 的终态 —— GitHub 会取消同组里更早的 **pending**
+# run(与 cancel-in-progress 无关),实测 run 41576145991 / 41579145214 两枚 main 提交被判
+# cancelled。故 main 档 group 换成 run 级唯一值(= 不分组、不排队),非 main 档仍按 ref 收敛。
 concurrency:
-  group: ci-monorepo-${{ github.ref }}
-  # ⚠️ main 恒为 false:多会话每 3-5min 推一次 main,true 即整条 main 验证链再次"永远没结论"。
-  # 2026-11-03:非 main 才允许砍 —— PR / 特性分支的 run 不会成为 main 的分支保护结论,砍掉
-  # 只是省排队(实测 run 41559672693 排队 5min);main 仍按上面的历史判据保住终态结论。
+  group: "ci-monorepo-${{ github.ref == 'refs/heads/main' && github.run_id || github.ref }}"
+  # main 上不加组:多会话每 3-5min 推一次,任何排队形态都会让旧 SHA 判 cancelled。
+  # 非 main(PR / 特性分支)才允许砍:它们的 run 不承载 main 的分支保护结论。
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 env:

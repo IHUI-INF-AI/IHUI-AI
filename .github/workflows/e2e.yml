@@ -34,12 +34,30 @@ on:
 permissions:
   contents: read
 
-# 陈旧 run 收敛(2026-11-03):e2e 不承载 required check(分支保护现读只有
-# `CI / lint-typecheck-test (push)`),同一 ref 上只保留最新一枚 —— 实测 e2e 单跑 54m,
-# 旧 SHA 的排队/重复跑会把总墙钟叠成 100m+。
+# 并发闸(2026-11-03):e2e 单跑 54~75min,是唯一能单独把 runner 池占满的工作流
+# (实测 2026-11-03T04:16Z 同时 8 枚 e2e in_progress + 3 枚 queued,占当时 19 个
+# in-progress run 的 42%)。e2e **不承载 required check**(分支保护现读只有
+# `CI / lint-typecheck-test (push)`),所以这里只管"同时占几个 runner",不承担分支保护结论。
+#
+# 两档策略:
+#  · main / develop(push 档):按 ref 分组 + cancel-in-progress true ⇒ 同一 ref 只保留
+#    最新一枚,陈旧 run 秒让位。代价:main 若持续 3~5min 一推,main 档 e2e 会长期停在
+#    "最新那枚"而跑不完 —— 刻意的取舍:用"永远在跑最新"换"不占池";e2e 不是门禁,不欠结论。
+#  · 其余 ref(PR / 特性分支):统一进同一条 `pr-queue` + cancel-in-progress false
+#    ⇒ PR 侧全仓同时最多 1 枚 e2e。代价:PR 的 e2e 要排队(最长约一个 e2e 时长),且队列里
+#    更早的 pending 会被新 pending 顶掉(GitHub 原生语义;被顶掉的 PR 只是没跑 e2e,不挡合并)。
+#  合计硬上限 = 1(main) + 1(develop) + 1(PR 队列) = 3,正常态 ≤2。
+#
+# 为什么不是"2 槽轮转":GitHub 表达式**没有算术运算符**(没有 `%`,也没有 `+ - * /`),
+# 写 `run_number % 2` 会直接让整个 workflow 变成 startup failure(实测 run 41579143968
+# 与 41578405565:created 与 updated 同一秒、jobs=0)。既然无法确定性轮转,就退到
+# "一条 PR 队列"—— 它给出的上限 3 比原来 8 低得多,且语义可读。
+#
+# 为什么不用第三方限流 action:GitHub 原生没有"全仓并发上限",第三方 action 会新增一条
+# 失败面(其 token/网络抖动会让 e2e 直接红);单队列是确定性的、零依赖。
 concurrency:
-  group: e2e-${{ github.ref }}
-  cancel-in-progress: true
+  group: "e2e-${{ (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop') && github.ref || 'pr-queue' }}"
+  cancel-in-progress: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' }}
 
 env:
   NODE_VERSION: '22'

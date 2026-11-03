@@ -9,6 +9,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
 import { __test__ as kit } from '../check-tunnel-leg-health.mjs'
+import { QUIC_HEALTHY, HTTP2_HEALTHY, QUIC_DROPPED } from './fixtures/tunnel-leg-transport.samples.mjs'
 
 const NETSH_FIXTURE = [
   '接口 6: 以太网',
@@ -483,6 +484,95 @@ test('形状锁:v4 取材必须是原生 netsh,采集失败源必须能分别点
   assert.ok(/'interface',\s*'ipv6',\s*'show',\s*'addresses'/.test(code), 'ipv6 那一路不许被摘')
   assert.ok(/`netsh ipv4\(/.test(code) && /`netsh ipv6\(/.test(code), '失败源清单必须分族点名,不许两路共用一个名字顶账')
   assert.ok(/netshV4Probe:\s*netshV4Probe|netshV4Probe,/ .test(code), 'collect 必须把 netshV4Probe 交给 judge(取材与判据同一路线)')
+})
+
+// ───────── quic 腿数支(2026-11-03 立,修"每 4 小时一封假红")─────────
+// 立案事实:服务 ImagePath 已带 `--protocol quic` ⇒ 腿走 UDP,netstat 的 TCP 7843/7844 结构上恒 0;
+// 旧判据只数 TCP ⇒ 进程在而"0 腿 = 隧道断了",2026-11-02 22:41 已寄出一封假红。同刻真值 = metrics
+// `cloudflared_tunnel_ha_connections = 4`。样本照本机真实读数抄在 fixtures/tunnel-leg-transport.samples.mjs。
+
+function sampleInput(sample, overrides = {}) {
+  return {
+    processProbe: 'ok',
+    pids: sample.pids,
+    netshProbe: 'ok',
+    netshV4Probe: 'ok',
+    netstatProbe: 'ok',
+    legs: kit.parseNetstatLegs(sample.netstat, sample.pids).legs,
+    addresses: kit.parseNetshAddresses(NETSH_FIXTURE),
+    metricsProbe: 'ok',
+    metricsProtocol: kit.detectProtocolFromMetrics(sample.metrics),
+    protocolHint: kit.detectProtocolFromServiceCmdline(sample.serviceCmdline),
+    haConnections: kit.parseTunnelHaConnections(sample.metrics),
+    udpSockets: kit.parseNetstatUdpSockets(sample.netstat, sample.pids),
+    ...overrides,
+  }
+}
+
+test('① quic 样本(TCP 0 / UDP 4 / gauge 4)⇒ leg-count 不判 breach,读 4 条且来源是 metrics gauge', () => {
+  const d = kit.judge(sampleInput(QUIC_HEALTHY))
+  const leg = d['leg-count']
+  assert.equal(leg.verdict, 'ok', '修的就是这一格:进程在而 TCP 0 不许再说"隧道断了"')
+  assert.equal(leg.reading.legs, 4, '腿数必须真的读到 4')
+  assert.equal(leg.reading.protocol, 'quic')
+  assert.equal(leg.reading.source, 'metrics:cloudflared_tunnel_ha_connections')
+  assert.equal(leg.reading.netstatTcpLegs, 0, 'TCP 0 是 quic 的结构事实,照实留档而不是拿来判红')
+  assert.equal(leg.reading.udpSockets, 4, 'UDP 去重端口 4(双栈 8 行不重复计)')
+  assert.equal(leg.reading.corroboration.status, 'agree', 'gauge 与 UDP 旁证一致 ⇒ 留证据字段')
+  assert.notEqual(kit.decideExit(d, true), 1, '假红不许再出现(其余维未判定 ⇒ 3,但绝不是 1)')
+  // 要求 4 的现状锁:quic 下这两维仍 unjudged,不借新主源顺手改判
+  assert.equal(d['deprecated-source'].verdict, 'unjudged')
+  assert.equal(d['single-source-point'].verdict, 'unjudged')
+})
+
+test('② http2 样本(TCP 4 / gauge 4)⇒ 仍按旧逻辑绿,两源一致留证据字段', () => {
+  const d = kit.judge(sampleInput(HTTP2_HEALTHY))
+  const leg = d['leg-count']
+  assert.equal(leg.verdict, 'ok', '旧协议的判据与结论都不动')
+  assert.equal(leg.reading.legs, 4)
+  assert.equal(leg.reading.protocol, 'http2', '没有 quic 指标族 + 配置声明 http2 ⇒ http2')
+  assert.equal(leg.reading.source, 'netstat:tcp', 'http2 下仍以 TCP 枚举为主源(旧逻辑)')
+  assert.equal(leg.reading.haConnections, 4)
+  assert.equal(leg.reading.corroboration.status, 'agree')
+  assert.equal(d['deprecated-source'].verdict, 'ok')
+})
+
+test('③ 真掉腿(gauge 1 / TCP 0)⇒ 仍判红;同形状 gauge 4 ⇒ 绿(证明判据在消费 gauge,没把假红修成假绿)', () => {
+  const dropped = kit.judge(sampleInput(QUIC_DROPPED))
+  assert.equal(dropped['leg-count'].verdict, 'breach', '只剩 1 条腿 = HA 无冗余,必须仍会寄信')
+  assert.equal(dropped['leg-count'].reading.legs, 1)
+  assert.match(dropped['leg-count'].reason, /1 条腿/)
+  assert.equal(kit.decideExit(dropped, true), 1, '阳性对照命中时必须 exit=1(guardian 只在 breach 派信)')
+  // 反向钉:同一份 netstat(TCP 0)只把 gauge 改回 4 ⇒ 必须绿;若判据偷偷改回"TCP 0 即红",这里翻红
+  const healthySameNetstat = kit.judge(sampleInput(QUIC_DROPPED, { haConnections: 4, udpSockets: 4 }))
+  assert.equal(healthySameNetstat['leg-count'].verdict, 'ok')
+})
+
+test('协议判不出 ⇒ unjudged(不判红也不判绿,且 exit 3 = 不派信)', () => {
+  const d = kit.judge(
+    sampleInput(QUIC_HEALTHY, { metricsProbe: 'failed', metricsProtocol: null, protocolHint: null, haConnections: null, udpSockets: null }),
+  )
+  assert.equal(d['leg-count'].verdict, 'unjudged')
+  assert.match(d['leg-count'].reason, /不判红也不判绿/, '§0.10 的失效方向必须写在文案里')
+  assert.equal(kit.decideExit(d, true), 3)
+})
+
+test('gauge 读不出而协议 = quic ⇒ unjudged(不许拿 TCP 0 冒充断流)', () => {
+  const d = kit.judge(sampleInput(QUIC_HEALTHY, { metricsProbe: 'failed', haConnections: null }))
+  assert.equal(d['leg-count'].verdict, 'unjudged')
+  assert.match(d['leg-count'].reason, /不可测|不判红也不判绿/)
+})
+
+test('形状锁:腿数主源必须是 metrics gauge,netstat 只在 http2 下作交叉校验', () => {
+  const raw = readFileSync(fileURLToPath(new URL('../check-tunnel-leg-health.mjs', import.meta.url)), 'utf8')
+  const code = raw
+    .split(/\r?\n/)
+    .filter((l) => !l.trim().startsWith('//') && !l.trim().startsWith('*') && !l.trim().startsWith('/*'))
+    .join('\n')
+  assert.ok(/cloudflared_tunnel_ha_connections/.test(code), '必须真读这个 gauge(不是只改文案)')
+  assert.ok(/haConnections = parseTunnelHaConnections\(text\)/.test(code), '必须复用同一条 metrics 抓取路径解析')
+  assert.ok(/metricsProbe === 'absent'/.test(code), '旧夹具/第三方调用(没采 metrics)必须仍走原样判据,不得凭空多一格 unjudged')
+  assert.ok(/detectProtocolFromMetrics|detectProtocolFromServiceCmdline/.test(code), '协议判定必须来自 metrics/服务配置')
 })
 
 

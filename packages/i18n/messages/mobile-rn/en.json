@@ -6040,7 +6040,16 @@
       "late": "Late",
       "absent": "Absent",
       "leave": "Leave"
-    }
+    },
+    "chooseAction": "Choose action",
+    "actionDone": "Action succeeded",
+    "actionFailed": "Action failed",
+    "needClassId": "Missing class info; proxy check-in/out unavailable",
+    "batchTitle": "Whole-class check",
+    "chooseClass": "Choose a class to check",
+    "noClass": "No selectable class in the current list",
+    "batchResult": "Done: created {created}, skipped {skipped}, missed {missed}",
+    "qrEntry": "Show check-in QR"
   },
   "eduGrades": {
     "title": "Grades",
@@ -7207,5 +7216,31 @@
     "empty": "Start a conversation",
     "searchNoResult": "No results",
     "retry": "Retry"
+  },
+  "eduMyAttendance": {
+    "title": "My Attendance",
+    "selfCheckIn": "Check in",
+    "date": "Date",
+    "notLoggedIn": "Not signed in; unavailable",
+    "classByBackendHint": "Class is resolved automatically from your enrollment",
+    "scanCheckIn": "Scan to check in"
+  },
+  "eduAttendanceQr": {
+    "title": "Check-in QR code",
+    "chooseClass": "Select class",
+    "noClass": "No class available",
+    "classLoadFailed": "Failed to load class list",
+    "pickClassFirst": "Select a class first",
+    "qrTip": "Students scan this code with Scan to check in",
+    "expiresIn": "Expires in {s}s",
+    "refresh": "Regenerate code",
+    "nextStepHint": "Enable an attendance rule and set the scan secret (qrSecret) for this class, then regenerate",
+    "scanTitle": "Scan to check in",
+    "scanHint": "Put the teacher check-in QR code inside the frame",
+    "scanSubmitting": "Checking in...",
+    "scanInvalidCode": "Not a check-in QR code of this system",
+    "scanDone": "Checked in",
+    "scanFailed": "Check-in failed",
+    "needLogin": "Sign in before scanning"
   }
 }

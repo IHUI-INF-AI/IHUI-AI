@@ -1645,8 +1645,8 @@ export function verdictLine(v) {
   // 自跑那一轮的 not-ours:证据是真的,但**来源**必须点名 —— 钩子里那一轮从未跑到批量检查。
   // 不写清来源,下一行日志读起来就和"守门在提交链上跑过、没点名本次文件"完全同形。
   if (v.kind === 'not-ours' && v.batchSelfRun)
-    return `✅ ${v.reason} —— 取证来自 **safe-commit 自跑**的那一轮守门批(钩子内那一轮从未跑到批量检查);据此走应急跳门。不得把这行读成"守门没跑",也不得读成"钩子里跑过了"`
-  if (v.kind === 'not-ours') return `✅ ${v.reason}(据此走应急跳门,守门结论以下方逐道复跑记录为准)`
+    return `✅ ${v.reason} —— 取证来自 **safe-commit 自跑**的那一轮守门批(钩子内那一轮从未跑到批量检查);据此退避重试带钩子提交(2026-11-02 起不再自动跳门)。不得把这行读成"守门没跑",也不得读成"钩子里跑过了"`
+  if (v.kind === 'not-ours') return `✅ ${v.reason}(据此退避重试带钩子的普通提交;不再自动追加 --no-verify,守门结论以下方逐道复跑记录为准)`
   return `⚠️ ${v.reason} —— 按应急路径落地,已留痕;请勿把它读成"通过了守门"或"因他人代码"${
     v.batchSelfRun ? '(safe-commit 自跑取证也未取得门级结论)' : ''
   }`
