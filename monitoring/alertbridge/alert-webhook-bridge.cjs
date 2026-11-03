@@ -23,7 +23,14 @@
 //     (2026-11-02 修)。此前每次推送都刷新时间戳 ⇒ 持续 firing 的告警窗口永远推不远,
 //     只在第一次响、之后永不再报(PostgresDown 实测被压住的正是这一格)。
 //     语义仍是"同一身份在两次投递之间至少隔 BRIDGE_DEDUP_MIN",不是"最后一次推送后再等"。
-//   - 状态文件只存 `dedup` 一张表:落盘走 tmp+rename 原子替换(硬杀不会留半写 JSON);启动时
+//   - resolved **不再摘档**(2026-11-03 修):此前恢复事件距上次投递 ≥ RECOOL_MIN(30 分钟)
+//     就删 dedup 档,下一次 firing 被当新身份 ⇒ 43/38/62 分钟的短间隔重寄(AiLlm 席实测
+//     AiLlmHighFailureRate 24h 内 resolved 11 次、5 封)。现在恢复只记账、**保留 lastSentTs**,
+//     并登记一条与 BRIDGE_DEDUP_MIN **解耦**的 24h 发送上限(同身份 24h 至多 1 封)。
+//     为什么不用"把 BRIDGE_DEDUP_MIN 抬到 1440":那会违反"窗口必须 < AM repeat_interval(240 分钟)"
+//     的余量约束;24h 上限只压"恢复过的身份",持续 firing 的首次/窗口外投递照旧即时(不静音)。
+//   - 状态文件存 `dedup`(上次真正投递时刻)与 `holds`(恢复后到期的 24h 上限)两张表:
+//     落盘走 tmp+rename 原子替换(硬杀不会留半写 JSON);启动时
 //     JSON/形态损坏 ⇒ 原文件先备份成 .corrupt-* 再按空态起算(ERROR 日志 + state_load_failures
 //     计数,不吞错、可人工恢复);条目级非法值(非数/非正/未来时刻)只跳过该条,且未来时间戳
 //     在判据层也不构成压制(否则时钟回拨会把同身份告警压到时钟追平为止)。
@@ -50,7 +57,7 @@
 //   此前本文件全文不读 alert.status ⇒ 一条恢复与一条新故障走同一条邮件流水线,
 //   标题都是"基础设施告警 — X";故障持续 >去重窗口后才恢复的,那封"恢复"就会以
 //   故障面目到人(§5e-1 要杜绝的正是这种把人训回"忽略告警"的假警报)。
-//   现在:显式 status=resolved ⇒ 只清偿(摘该身份去重档,下次 firing 立即可再报)+
+//   现在:显式 status=resolved ⇒ 只记账(**不摘去重档**,保留 lastSentTs 并登记 24h 同身份上限)+
 //   ALERT-CLEARED 形态记日志(与 deploy/win/ihui-deploy.ps1 的 ALERT-CLEARED 同形态),
 //   **绝不进故障邮件**;status 缺失/其它取值 ⇒ fail-open 照旧到人(失效方向必须是
 //   "多报一次",绝不能是"多静音一条")。
@@ -116,22 +123,25 @@ const PORT = parseInt(process.env.BRIDGE_PORT || '9096', 10)
 // 仍可由 BRIDGE_DEDUP_MIN 覆盖;覆盖值 ≥ AM repeat_interval 时自检 ⑪ 会红。
 const DEDUP_WINDOW_MIN = parseInt(process.env.BRIDGE_DEDUP_MIN || '230', 10)
 /**
- * 恢复后的最小间隔(分钟):距上次同身份投递不足这么久就恢复 ⇒ 判 flapping,**不摘去重档**
- * (2026-10-18 立,修"邮箱一直在报警")。
+ * 恢复后的 24h 发送上限(2026-11-03 立,取代 2026-10-18 的 RECOOL 冷却窗)。
  *
- * 为什么必须有这一格:原实现 `applyResolvedClears` 收到 status=resolved 就 `store.delete(key)`
- * 把去重档整个摘掉,语义是"真恢复了,下次故障立刻再报"。但现役 Alertmanager 开了
- * send_resolved,而 LLM 类告警的判据是"30 分钟滑窗内的失败率/错误率"—— 样本量随业务量
- * 起伏,窗口一滑过去就 resolved、滑回来又 firing,于是 **firing→resolved→firing 每轮都重寄
- * 一封**,240 分钟的去重窗被清偿逻辑架空:实测 LlmProviderErrorBurst / AiLlmHighFailureRate
- * 每约 2 小时各一封(10-16 6 封 / 10-17 13 封),收件人看到的正是"一直在报警"。
+ * 真正的多信源不是 `ALERT-CLEARED` 分支本身,而是它调用的 `applyResolvedClears`:
+ * 只要距上次投递 ≥ RECOOL_MIN(30 分钟)就 `store.delete(key)`;下一次 firing 被当新身份,
+ * 230 分钟窗当场失效。AiLlm 席实测 AiLlmHighFailureRate 24h 内 resolved 11 次、寄出 5 封,
+ * 间隔 43/38/62 分钟 —— 远小于 230。
  *
- * 方向锁(与 §5e-1 同向):这里**只在"刚寄过信就恢复"这一窄情形**下保留档,恢复持续时间
- * 超过 RECOOL 才真清偿 ⇒ 真正修好后再次故障依旧立即报(不静音),被压住的只有抖动本身。
- * 失效方向因此是"多压一条同一个抖动的重复信",不是"多静音一个新故障"。
+ * 现在:resolved **一律不摘档**(`store` 里的 lastSentTs 原样保留),另在本文件的状态里登记
+ * `holds[key] = lastSentTs + 24h`;判据先看 holds,再走原有 230 分钟窗口。
+ * 这条 24h 上限与 BRIDGE_DEDUP_MIN **解耦**:不把 230 硬抬到 1440(那会违反"窗口必须
+ * 严格小于 AM repeat_interval=240 分钟"的余量约束,把持续告警压成 8h 沉默)。
+ * 只压"恢复过的身份"⇒ 持续真故障的首次投递、以及窗口外的重报照旧即时,不会被一起静音。
  */
-const RECOOL_MIN = parseInt(process.env.BRIDGE_RECOOL_MIN || '30', 10)
-const RECOOL_MS = RECOOL_MIN * 60 * 1000
+const IDENTITY_HOLD_MS = (() => {
+  const rawMs = parseInt(String(process.env.BRIDGE_IDENTITY_HOLD_MS == null ? '' : process.env.BRIDGE_IDENTITY_HOLD_MS), 10)
+  if (Number.isFinite(rawMs) && rawMs >= 0) return rawMs
+  const rawMin = parseInt(String(process.env.BRIDGE_IDENTITY_HOLD_MIN == null ? '' : process.env.BRIDGE_IDENTITY_HOLD_MIN), 10)
+  return Number.isFinite(rawMin) && rawMin >= 0 ? rawMin * 60 * 1000 : 24 * 60 * 60 * 1000
+})()
 const LOG_FILE = process.env.LOG_FILE || 'D:\\DevEnv\\logs\\alert-webhook-bridge.log'
 const STATE_FILE = process.env.STATE_FILE || 'D:\\DevEnv\\state\\alert-bridge-state.json'
 /** 未送达标记:与 STATE_FILE 同目录(⇒ 沙箱把两者一起指进 .ihui-agent/tmp 即零线上污染) */
@@ -237,6 +247,9 @@ function formatAlert(alert) {
 // 窗口内的去重决定随内存一起丢,重启后同一条告警被再寄一次(实测 skipped:0)。现在改为
 // 每一次会改变去重状态的 webhook 都在**回响应之前**同步落盘(文件极小,代价可忽略)。
 const dedup = new Map() // key=`alertname|instance` -> lastDeliveredTs(最近一次**真正投递**时刻;被抑制的推送不写)
+/** 恢复后的 24h 上限:key -> holdUntilTs。resolved 只写这里、**不删 dedup**;
+ *  与 BRIDGE_DEDUP_MIN 解耦(230 仍留给持续 firing 的重复推送,见 IDENTITY_HOLD_MS 注释)。 */
+const clearHolds = new Map()
 const MAX_DEDUP_AGE_MS = DEDUP_WINDOW_MIN * 60 * 1000
 /**
  * 时钟容差(2026-11-02 三修)。时间戳落在"未来"只有两种来源:机器时钟回拨,或状态文件被
@@ -254,8 +267,13 @@ function parseGoDurationMs(text) {
   return Number(m[1]) * { h: 3600000, m: 60000, s: 1000 }[m[2]]
 }
 
-/** 去重判据(纯读,注入 store ⇒ 只有一个状态源,不造第二份;**判定本身绝不写状态**) */
-function decideDedup(store, key, nowMs, windowMs) {
+/** 去重判据(纯读,注入 store ⇒ 只有一个状态源,不造第二份;**判定本身绝不写状态**)。
+ *  holds(可选)= 恢复后登记的 24h 上限表;它先于窗口判定,且与 BRIDGE_DEDUP_MIN 解耦。 */
+function decideDedup(store, key, nowMs, windowMs, holds = null) {
+  const hold = holds && typeof holds.get === 'function' ? Number(holds.get(key)) : 0
+  // 上限值本身由本进程写(≤ lastSentTs + IDENTITY_HOLD_MS);越界的坏值不得压制(同上:坏状态
+  // 文件/时钟回拨的失效方向必须是"多寄一封",不是"多静音一条")。
+  if (Number.isFinite(hold) && hold > nowMs && hold - nowMs <= IDENTITY_HOLD_MS + CLOCK_SKEW_MS) return true
   const last = store.get(key)
   if (!last) return false
   const ts = Number(last)
@@ -267,21 +285,24 @@ function decideDedup(store, key, nowMs, windowMs) {
 }
 /** 一批告警 → 待投递子集(只有判定**可投递**的条目才落状态;被抑制的只读旧值、
  *  不得写回时间戳 —— 写回就是给窗口续期,持续 firing 的告警会被永远压住) */
-function partitionAlerts(alerts, store, nowMs, windowMs) {
+function partitionAlerts(alerts, store, nowMs, windowMs, holds = null) {
   let dedupedCount = 0
   const toPush = (Array.isArray(alerts) ? alerts : []).filter((a) => {
     const labels = a.labels || {}
     const key = `${labels.alertname || ''}|${labels.instance || ''}`
-    const isDup = decideDedup(store, key, nowMs, windowMs)
+    const isDup = decideDedup(store, key, nowMs, windowMs, holds)
     if (isDup) { dedupedCount++; return false }
     store.set(key, nowMs) // 仅"可投递"这一刻建档/刷新 —— 窗口锚在最近一次真正投递
+    // 真发出去 = 24h 上限已到期(否则上面就判重了);顺手摘掉过期 hold,不让它继续堆在状态里。
+    if (holds && typeof holds.delete === 'function') holds.delete(key)
     return true
   })
   return { toPush, dedupedCount }
 }
 
-/** 状态文件形态只有一个键 `dedup`(纯函数 ⇒ --self-test 钉死"无预算/计数字段"的无总量封顶契约) */
-function serializeState(store, nowMs, windowMs = MAX_DEDUP_AGE_MS) {
+/** 状态文件形态: `dedup`(上次真正投递时刻) + `holds`(恢复后登记的 24h 上限)。
+ *  纯函数 ⇒ --self-test 钉死"无预算/计数字段"的无总量封顶契约(这两张表都不是配额)。 */
+function serializeState(store, nowMs, windowMs = MAX_DEDUP_AGE_MS, holds = null) {
   const dedupObj = {}
   for (const [k, tsRaw] of store) {
     const ts = Number(tsRaw)
@@ -289,7 +310,17 @@ function serializeState(store, nowMs, windowMs = MAX_DEDUP_AGE_MS) {
     if (!Number.isFinite(ts) || ts <= 0 || ts > nowMs + CLOCK_SKEW_MS) continue
     if (nowMs - ts < windowMs) dedupObj[k] = ts
   }
-  return JSON.stringify({ dedup: dedupObj })
+  const holdsObj = {}
+  if (holds && typeof holds.forEach === 'function') {
+    for (const [k, v] of holds) {
+      const until = Number(v)
+      // 已到期的不再落盘(它不再压制任何东西);越界(> 24h+skew)的坏值也不给压制留载体。
+      if (!Number.isFinite(until) || until <= nowMs) continue
+      if (until > nowMs + IDENTITY_HOLD_MS + CLOCK_SKEW_MS) continue
+      holdsObj[k] = until
+    }
+  }
+  return JSON.stringify({ dedup: dedupObj, holds: holdsObj })
 }
 /**
  * 落盘**必须原子**(2026-11-02 三修):先写同目录临时文件再 rename 覆盖。
@@ -297,11 +328,11 @@ function serializeState(store, nowMs, windowMs = MAX_DEDUP_AGE_MS) {
  * 下次启动解析失败 ⇒ 静默空态 ⇒ 同身份告警全量重报(多信方向)。rename 在同一卷上是
  * 原子替换:读者要么看到旧完整文件、要么看到新完整文件,不存在半写中间态。
  */
-function persistState(file, store, nowMs, log, windowMs = MAX_DEDUP_AGE_MS) {
+function persistState(file, store, nowMs, log, windowMs = MAX_DEDUP_AGE_MS, holds = null) {
   const tmp = `${file}.tmp-${process.pid}`
   try {
     fs.mkdirSync(path.dirname(file), { recursive: true })
-    fs.writeFileSync(tmp, serializeState(store, nowMs, windowMs), 'utf8')
+    fs.writeFileSync(tmp, serializeState(store, nowMs, windowMs, holds), 'utf8')
     fs.renameSync(tmp, file)
     return true
   } catch (e) {
@@ -329,7 +360,7 @@ function quarantineStateFile(file, log, why, label = '状态文件') {
     return false
   }
 }
-function loadDedupState(file, store, nowMs = Date.now(), windowMs = MAX_DEDUP_AGE_MS, log = null) {
+function loadDedupState(file, store, nowMs = Date.now(), windowMs = MAX_DEDUP_AGE_MS, log = null, holds = null) {
   let raw
   try {
     raw = fs.readFileSync(file, 'utf8')
@@ -368,7 +399,21 @@ function loadDedupState(file, store, nowMs = Date.now(), windowMs = MAX_DEDUP_AG
     if (!Number.isFinite(ts) || ts <= 0 || ts > now + CLOCK_SKEW_MS) { skipped += 1; continue }
     if (now - ts < windowMs) { store.set(k, ts); n += 1 }
   }
+  // holds(2026-11-03):恢复后登记的 24h 上限。旧格式没有这张表 ⇒ 空表,不影响 dedup。
+  // 条目校验:非数/已到期/越界(> IDENTITY_HOLD_MS+skew)一律不载入;坏值方向仍是"多寄一封"。
+  let heldN = 0
+  if (holds && typeof holds.set === 'function' && s.holds && typeof s.holds === 'object' && !Array.isArray(s.holds)) {
+    for (const k of Object.keys(s.holds)) {
+      const until = Number(s.holds[k])
+      if (!Number.isFinite(until) || until <= now || until > now + IDENTITY_HOLD_MS + CLOCK_SKEW_MS) continue
+      holds.set(k, until)
+      heldN += 1
+    }
+  } else if (holds && s.holds != null && (typeof s.holds !== 'object' || Array.isArray(s.holds))) {
+    if (log) log('[state][WARN] holds 字段类型不对,已忽略(去重表照常载入)')
+  }
   if (skipped && log) log(`[state][WARN] 状态文件有 ${skipped} 条时间戳非法(非数/非正/未来),已跳过;其余 ${n} 条正常载入`)
+  if (heldN && log) log(`[state] 载入 ${heldN} 条恢复后 24h 发送上限(同身份在到期前不再重报)`)
   return n
 }
 
@@ -525,8 +570,8 @@ const METRIC_SPECS = [
   ['ihui_alertbridge_alerts_received_total', 'counter', 'Alerts received before dedup.', (s) => s.counters.alertsReceived],
   ['ihui_alertbridge_alerts_dedup_suppressed_total', 'counter', 'Alerts suppressed by identity (alertname+instance) inside the dedup window.', (s) => s.counters.dedupSuppressed],
   ['ihui_alertbridge_alerts_selfscope_reported_total', 'counter', 'Alerts whose log-source anchor says "collector / monitoring self noise": recorded here (log + this counter) instead of waking a human. Zero when the split is blind.', (s) => s.counters.selfScopeReported],
-  ['ihui_alertbridge_alerts_cleared_total', 'counter', 'Alerts with explicit status=resolved: the dedup identity was cleared and an ALERT-CLEARED log line written; never mailed as an incident.', (s) => s.counters.alertsCleared],
-  ['ihui_alertbridge_alerts_cleared_held_total', 'counter', 'Resolved alerts judged flapping (recovered within BRIDGE_RECOOL_MIN of the last delivery): the dedup identity is KEPT so the next firing does not re-mail. High values mean an alert is oscillating, not that it is healthy.', (s) => s.counters.alertsClearedHeld],
+  ['ihui_alertbridge_alerts_cleared_total', 'counter', 'Alerts with explicit status=resolved: recorded as ALERT-CLEARED; the dedup anchor is NOT deleted (a 24h per-identity hold is registered instead) and nothing is mailed as an incident.', (s) => s.counters.alertsCleared],
+  ['ihui_alertbridge_alerts_cleared_held_total', 'counter', 'Resolved alerts whose dedup anchor was KEPT (never deleted since 2026-11-03), each registering a 24h per-identity send cap from lastSentTs. High values mean an alert is oscillating, not that it is healthy.', (s) => s.counters.alertsClearedHeld],
   ['ihui_alertbridge_log_anchor_ok', 'gauge', '1 = the log-source anchor label agrees between promtail and the alert rules, so the collector/business split is live; 0 = blind (bridge fails open and pages everything) — alerts.yml rule LogSourceSplitBlind reads this.', (s) => (s.logAnchorOk ? 1 : 0)],
   ['ihui_alertbridge_mail_batches_delivered_total', 'counter', 'Mail batches delivered on either the branded or the plain-text path.', (s) => s.counters.batchesDelivered],
   ['ihui_alertbridge_mail_batches_failed_total', 'counter', 'Mail batches where BOTH the branded and the plain-text path failed (alerts never reached a human).', (s) => s.counters.batchesFailed],
@@ -938,9 +983,9 @@ async function runMailRetry(id, { log = writeLog, dispatch = dispatchBrandMail, 
 /** 一批告警 → 投递计划(纯函数:先按来源分流、再对"要炸到人"的那一支做身份去重)。
  *  handleAlert 与 --self-test 都走这一条铰链 —— 分流判据若只在生产路径里内联一份,
  *  自检就是在测另一件事(本仓"判据必须在真跑它的那一刻才成立"同族)。 */
-function planDelivery(alerts, anchor, store, nowMs, windowMs) {
+function planDelivery(alerts, anchor, store, nowMs, windowMs, holds = null) {
   const { page, selfReportOnly } = logAnchor.splitAlertsByLogSource(alerts, anchor)
-  const { toPush, dedupedCount } = partitionAlerts(page, store, nowMs, windowMs)
+  const { toPush, dedupedCount } = partitionAlerts(page, store, nowMs, windowMs, holds)
   return { toPush, dedupedCount, selfReportOnly, page }
 }
 
@@ -987,32 +1032,33 @@ function statusDimension(alerts, queued, cleared) {
 }
 
 /**
- * 清偿(纯函数):恢复事件摘掉该身份的去重档 ⇒ 下一次真 firing 立刻可再报,
- * 不被旧窗口压住(清偿语义与 deploy/win/ihui-deploy.ps1 的 ALERT-CLEARED 同一形态)。
- * 返回本次摘除的身份键列表(含"窗口内本无"的,逐键如实报数)。
+ * 恢复事件记账(纯函数,2026-11-03 改):**绝不删档**。
+ *
+ * 旧实现(2026-10-18)在 `now - last >= RECOOL_MIN(30 分钟)` 时 `store.delete(key)`,
+ * 语义是"真恢复了,下次故障立刻再报";代价是同身份 30 分钟后再次 firing 被当新身份,
+ * 230 分钟窗当场失效。真实日志里 AiLlmHighFailureRate 24h resolved 11 次、
+ * 相邻两封间隔 43/38/62 分钟,远小于 230 —— 这就是轰炸源。
+ *
+ * 现在:保留 lastSentTs,并在 holds 里登记 `lastSentTs + holdMs`(默认 24h)。
+ * 上限**从上次真正投递起算**,不是从 CLEAR 起算 —— 所以"恢复之前已寄过、恢复后仍在
+ * 24h 内"的 re-fire 一样被压住。`cleared` 恒为空表(保留字段只为调用点/日志口径稳定)。
+ * 档本就不存在(从未投递)⇒ 不登记上限:那不是"恢复",是第一次故障,首封必须即时送达。
  */
-function applyResolvedClears(store, resolved, nowMs = Date.now(), recoolMs = RECOOL_MS) {
-  const cleared = []
+function applyResolvedClears(store, resolved, nowMs = Date.now(), holds = null, holdMs = IDENTITY_HOLD_MS) {
   const held = []
-  const now = Number.isFinite(Number(nowMs)) ? Number(nowMs) : Date.now()
-  const cooldown = Number.isFinite(Number(recoolMs)) && Number(recoolMs) >= 0 ? Number(recoolMs) : RECOOL_MS
+  const hold = Number.isFinite(Number(holdMs)) && Number(holdMs) >= 0 ? Number(holdMs) : IDENTITY_HOLD_MS
   for (const a of resolved || []) {
     const labels = (a && a.labels) || {}
     const key = `${labels.alertname || ''}|${labels.instance || ''}`
     const last = Number(store.get(key))
-    /**
-     * 距上次同身份投递已超过冷却窗 ⇒ 判真恢复,摘档(下次 firing 立即再报)。
-     * 否则(刚寄过信就恢复)⇒ 判 flapping,**保留档**,让剩余去重窗继续压住下一轮抖动。
-     * 档本就不存在(已被窗口淘汰)也归 held:那条真恢复早已生效,不需要再造一个档。
-     */
-    if (Number.isFinite(last) && last > 0 && now - last >= cooldown) {
-      store.delete(key)
-      cleared.push(key)
-    } else {
-      held.push(key)
+    if (Number.isFinite(last) && last > 0 && holds && typeof holds.set === 'function') {
+      const until = Math.max(Number(holds.get(key)) || 0, last + hold)
+      holds.set(key, until)
     }
+    // 不再 store.delete(key):锚点必须活到 24h 上限到期,否则下一次 firing 又被当新身份。
+    held.push(key)
   }
-  return { cleared, held }
+  return { cleared: [], held }
 }
 
 // ── webhook 处理 ───────────────────────────────────────────────────────────────
@@ -1036,26 +1082,26 @@ async function handleAlert(reqBody) {
   const statusDimOf = (queued) => statusDimension(alerts, queued, resolved.length)
   if (resolved.length) {
     counters.alertsCleared += resolved.length
-    // 清偿带冷却:刚寄过信就恢复 ⇒ 判抖动、保留去重档(压住下一轮 firing 的重寄);
-    // 只有恢复持续超过 RECOOL_MIN 才真摘档。见 RECOOL_MIN 处的方向锁注释。
-    const { cleared, held } = applyResolvedClears(dedup, resolved, now, RECOOL_MS)
+    // 2026-11-03:恢复**一律不摘档**(旧行为按 RECOOL 30 分钟删档,是 43/38/62 分钟重寄的根因)。
+    // 保留 lastSentTs,并在 clearHolds 登记 lastSentTs + 24h;到期前同身份 re-fire 一律不寄。
+    const { cleared, held } = applyResolvedClears(dedup, resolved, now, clearHolds)
     counters.alertsClearedHeld += held.length
     const shown = resolved.slice(0, 3).map((a) => formatAlert(a).replace(/\n/g, ' / ')).join(' ;; ')
     const clearNote = held.length
-      ? `其中 ${cleared.length} 条恢复已超 ${RECOOL_MIN} 分钟⇒真清偿(下次 firing 立即可再报);${held.length} 条判抖动(距上次投递不足 ${RECOOL_MIN} 分钟)⇒保留去重档压住下一轮重寄`
-      : `同身份去重档已清偿,下次 firing 立即可再报`
+      ? `${held.length} 条已登记 24h 同身份发送上限(从上次投递起算;${cleared.length} 条实际摘档 —— 本实现恒不摘档)`
+      : `无投递锚点(首次故障前收到恢复,不设上限)`
     writeLog(`ALERT-CLEARED 收到恢复 ${resolved.length} 条(不计故障、不寄邮件;${clearNote};前 3 条:${shown}) ${statusDimOf(paging.length)}`)
   }
   if (!paging.length) {
-    // 本批全是恢复:摘除的去重档同样必须回响应前落盘(跨重启延续,同下方纪律)
-    if (!persistState(STATE_FILE, dedup, now, writeLog)) counters.statePersistFailures += 1
+    // 本批全是恢复:24h 上限同样必须回响应前落盘(跨重启延续;否则重启后第一条 firing 就会重寄)
+    if (!persistState(STATE_FILE, dedup, now, writeLog, MAX_DEDUP_AGE_MS, clearHolds)) counters.statePersistFailures += 1
     return { cleared: resolved.length }
   }
   // ① 按日志来源分流:采集器/监控自身造成的 → 只记账;其余 → 照旧走身份去重 + 邮件。
   //    锚点对不上时 splitAlertsByLogSource 把所有告警放进"照旧到人"那一支(fail-open),
   //    所以这一层在失明态下与分流接入前的行为逐字一致(不会顺手压掉任何一条)。
   const anchor = currentLogAnchor(now)
-  const { toPush, dedupedCount, selfReportOnly, page } = planDelivery(paging, anchor, dedup, now, MAX_DEDUP_AGE_MS)
+  const { toPush, dedupedCount, selfReportOnly, page } = planDelivery(paging, anchor, dedup, now, MAX_DEDUP_AGE_MS, clearHolds)
   counters.dedupSuppressed += dedupedCount
   if (selfReportOnly.length) {
     counters.selfScopeReported += selfReportOnly.length
@@ -1066,7 +1112,7 @@ async function handleAlert(reqBody) {
     }
   }
   // 回响应前同步落盘(含 partitionAlerts 刚为**可投递**条目写入的时间戳;被抑制的不写也不动旧值)⇒ 跨重启延续,杜绝重启后重寄。
-  if (!persistState(STATE_FILE, dedup, now, writeLog)) counters.statePersistFailures += 1
+  if (!persistState(STATE_FILE, dedup, now, writeLog, MAX_DEDUP_AGE_MS, clearHolds)) counters.statePersistFailures += 1
 
   if (!toPush.length) {
     if (!page.length && selfReportOnly.length) {
@@ -1253,7 +1299,7 @@ async function runSelfTest() {
   const afterRestart = partitionAlerts(alerts, storeB, 1000 + 2 * 60000, HOUR)
   eq('重启后收到同一告警 ⇒ 仍判重复(修前实测 skipped:0 的那个洞)', [afterRestart.toPush.length, afterRestart.dedupedCount], [0, 2])
   eq('重启后不同身份告警照寄(去重态不得顺手压掉新告警)', partitionAlerts([{ labels: { alertname: 'NewIssue', instance: 'c:9100' } }], storeB, 1000 + HOUR, HOUR).toPush.length, 1)
-  eq('状态文件形态只有 dedup(无预算/计数字段 ⇒ 结构上不存在总量封顶)', Object.keys(JSON.parse(fs.readFileSync(stateFile, 'utf8'))), ['dedup'])
+  eq('状态文件形态只有 dedup+holds(无预算/计数字段 ⇒ 结构上不存在总量封顶)', Object.keys(JSON.parse(fs.readFileSync(stateFile, 'utf8'))), ['dedup', 'holds'])
   eq('状态文件缺失 ⇒ 空态起算(null,不抛错)', loadDedupState(tmpProbe('nope'), new Map(), Date.now()), null)
 
   // ④ 无总量封顶:闸门只认"开关 + 空批",连续不同身份告警一律放行
@@ -1492,21 +1538,30 @@ async function runSelfTest() {
   const tri9 = splitAlertsByStatus([firingA, resolvedA, noStatusA, pendingA])
   eq('⑨a 只有显式 resolved 进清偿支(阳性对照:恢复不被当故障)', tri9.resolved.map((x) => x.labels.alertname), ['PgDown'])
   eq('⑨b firing/缺 status/其它取值全留在到人支(反向锁:故障照寄不被静音)', tri9.paging.map((x) => x.labels.alertname), ['ApiDown', 'Weird', 'AlsoReal'])
-  // ⑨c 清偿带冷却(2026-10-18 改):四态成对,把"抖动重寄"这一格钉死。
-  //   c-1 刚寄过信就恢复 ⇒ 保留档   c-2 保留档真压住下一轮 firing(修的就是这一格)
-  //   c-3 恢复持续超冷却窗 ⇒ 真摘档  c-4 摘档后下次 firing 立即再报(反向锁:不静音新故障)
-  const RECOOL = 30 * 60 * 1000
+  // ⑨c 恢复不再摘档 + 24h 上限(2026-11-03 改,取代 RECOOL 冷却窗):把"翻面重寄"钉死。
+  //   c-1 恢复只记账、保留 lastSentTs,并登记 24h 上限
+  //   c-2 恢复后 24h 内 re-fire 被压(含"恢复前已寄过"的那一封)
+  //   c-3 恢复满 30 分钟(RECOOL 旧阈值)之后仍在 24h 内 ⇒ 仍被压(修的就是这一格)
+  //   c-4 跨 24h 边界恢复发送(反向锁:不永久静音)
+  //   c-5 从未恢复的持续 firing 在窗口外照常送达(反向锁:真故障不被上限一起静音)
+  const HOLD = 24 * HOUR
   const flapStore = new Map()
+  const flapHolds = new Map()
   partitionAlerts([resolvedA], flapStore, 1000, HOUR) // 模拟刚寄出过一封
-  const heldOnly = applyResolvedClears(flapStore, [resolvedA], 1000 + 60 * 1000, RECOOL) // 距投递仅 1 分钟 ⇒ 抖动
-  eq('⑨c-1 刚寄过信就恢复 ⇒ 判抖动、保留去重档(不摘)', [heldOnly.cleared.length, heldOnly.held.length, flapStore.has('PgDown|pg:1')], [0, 1, true])
-  const afterFlap = partitionAlerts([{ labels: { alertname: 'PgDown', instance: 'pg:1' } }], flapStore, 1000 + 120 * 1000, HOUR)
-  eq('⑨c-2 保留档真压住下一轮 firing(重寄被消掉 —— "邮箱一直在报警"的那一格)', afterFlap.toPush.length, 0)
-  const trueRecover = applyResolvedClears(flapStore, [resolvedA], 1000 + 60 * 60 * 1000, RECOOL) // 距投递 1 小时 ⇒ 真恢复
-  eq('⑨c-3 恢复持续超冷却窗 ⇒ 真摘档(下次故障不被旧窗口压住)', [trueRecover.cleared.length, trueRecover.held.length, flapStore.has('PgDown|pg:1')], [1, 0, false])
-  const clearedKeys = applyResolvedClears(sStore, tri9.resolved, Date.now(), RECOOL)
-  eq('⑨c-4 清偿摘档:同身份下一次 firing 立即再报(不被旧窗口压住)', [clearedKeys.cleared.length, partitionAlerts([{ labels: { alertname: 'PgDown', instance: 'pg:1' } }], sStore, Date.now() + 1000, HOUR).toPush.length], [1, 1])
-  eq('⑨c-5 冷却窗取生产常量(判据不抄第二份:改了 BRIDGE_RECOOL_MIN 默认值这里跟着动)', RECOOL_MS, 30 * 60 * 1000)
+  const heldOnly = applyResolvedClears(flapStore, [resolvedA], 1000 + 60 * 1000, flapHolds)
+  eq('⑨c-1 恢复只记账、绝不摘档;并登记 lastSentTs+24h 上限', [heldOnly.cleared.length, heldOnly.held.length, flapStore.has('PgDown|pg:1'), flapHolds.get('PgDown|pg:1')], [0, 1, true, 1000 + HOLD])
+  const afterFlap = partitionAlerts([{ labels: { alertname: 'PgDown', instance: 'pg:1' } }], flapStore, 1000 + 120 * 1000, HOUR, flapHolds)
+  eq('⑨c-2 恢复后 24h 内 re-fire 被压(重寄被消掉 —— "邮箱一直在报警"的那一格)', afterFlap.toPush.length, 0)
+  const trueRecover = applyResolvedClears(flapStore, [resolvedA], 1000 + 60 * 60 * 1000, flapHolds) // 距投递 1 小时(旧 RECOOL 已判"真恢复")
+  eq('⑨c-3 恢复满 30 分钟(旧 RECOOL 阈值)后仍在 24h 内 ⇒ 不摘档、仍被压', [trueRecover.cleared.length, trueRecover.held.length, flapStore.has('PgDown|pg:1'), partitionAlerts([{ labels: { alertname: 'PgDown', instance: 'pg:1' } }], flapStore, 1000 + 31 * 60 * 1000, HOUR, flapHolds).toPush.length], [0, 1, true, 0])
+  const after24h = partitionAlerts([{ labels: { alertname: 'PgDown', instance: 'pg:1' } }], flapStore, 1000 + HOLD + 1000, HOUR, flapHolds)
+  eq('⑨c-4 跨 24h 边界恢复发送(上限到期即放行,不永久静音)', [after24h.toPush.length, flapHolds.has('PgDown|pg:1')], [1, false])
+  const sustainedStore = new Map()
+  partitionAlerts([{ labels: { alertname: 'Sustained', instance: 's:1' } }], sustainedStore, 1000, HOUR)
+  eq('⑨c-5 从未恢复的持续 firing 在窗口外照常送达(真故障不被 24h 上限一起静音)', partitionAlerts([{ labels: { alertname: 'Sustained', instance: 's:1' } }], sustainedStore, 1000 + 2 * HOUR, HOUR, new Map()).toPush.length, 1)
+  const clearedKeys = applyResolvedClears(sStore, tri9.resolved, Date.now(), new Map())
+  eq('⑨c-6 恢复支恒不摘档(clear 列表恒空;锚点仍在)', [clearedKeys.cleared.length, clearedKeys.held.length, sStore.has('PgDown|pg:1')], [0, 1, true])
+  eq('⑨c-7 上限取生产常量 24h(与 BRIDGE_DEDUP_MIN 解耦;改了默认值这里跟着动)', IDENTITY_HOLD_MS, 24 * HOUR)
   eq('⑨d 空/非数组输入不炸且全 fail-open 到人', [splitAlertsByStatus(undefined).paging.length, splitAlertsByStatus([]).resolved.length], [0, 0])
   const cCleared = {}
   for (const key of Object.keys(counters)) cCleared[key] = 0
@@ -1666,7 +1721,7 @@ function startServer() {
   // `for: 10m` 会把一次正常重启读成"分流失明"。
   const anchor = currentLogAnchor()
   server.listen(PORT, '127.0.0.1', () => {
-    const n = loadDedupState(STATE_FILE, dedup, Date.now(), MAX_DEDUP_AGE_MS, writeLog) // 去重态跨重启延续;损坏文件先备份再空态起算
+    const n = loadDedupState(STATE_FILE, dedup, Date.now(), MAX_DEDUP_AGE_MS, writeLog, clearHolds) // 去重态 + 24h 上限跨重启延续;损坏文件先备份再空态起算
     // 重启接管待重试:只接 10 分钟内的记录;更早的一律丢弃(补发陈年告警 = 新造轰炸)。
     const rq = loadRetryQueue(RETRY_FILE, Date.now(), writeLog)
     pendingRetries.clear()
