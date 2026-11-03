@@ -101,6 +101,10 @@ Headline claims (same source as the table below, all live-computed): **618 table
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-03**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (22205c4117)
+- 🐞 Fix:游客态手机打开文档站不再被面板整屏遮住(票 D53 第二枚) (704ae4ed73)
+
+**2026-11-03**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (06507c867d)
 
 **2026-11-03**
@@ -201,9 +205,6 @@ Headline claims (same source as the table below, all live-computed): **618 table
 - 🐞 Fix:收编器改路径白名单——业务代码/测试与规则文件不再自动入库 (f6e0ba44a9)
 - 🔧 Chore/Other:清偿旧版快照区数字 —— scrub --scope=all 用生成器同源现算值清 README 全量存量 54315 处(README.md/README.en.md 共 29820 行改写、5 行挂历史叙述豁免、manual 0)；同笔给 scrub 增显式维护档 archive|all(缺省行级棘轮不动,自检 21/21) (15f9293a7d)
 - 🔧 Chore/Other:补登 6 枚远端带入文件的溯源水印(门47 HEAD面欠账清偿) (c3c03c7da3)
-
-**2026-11-02**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (624f3fded6)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
