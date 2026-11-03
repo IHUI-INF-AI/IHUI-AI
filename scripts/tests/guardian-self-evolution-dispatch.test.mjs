@@ -11,7 +11,6 @@ import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import {
   dispatchDeployOutcomeIntake,
   dispatchDeployFeedback,
-  dispatchExportUserFeedback,
   dispatchE2eAutofill,
 } from '../git-guardian.mjs'
 
@@ -23,20 +22,19 @@ function codeOnly(src) {
   return src.split(/\r?\n/).filter((l) => !/^\s*\/\//.test(l)).join('\n')
 }
 
-const FNS = [dispatchDeployOutcomeIntake, dispatchDeployFeedback, dispatchExportUserFeedback, dispatchE2eAutofill]
-const NAMES = ['dispatchDeployOutcomeIntake', 'dispatchDeployFeedback', 'dispatchExportUserFeedback', 'dispatchE2eAutofill']
+const FNS = [dispatchDeployOutcomeIntake, dispatchDeployFeedback, dispatchE2eAutofill]
+const NAMES = ['dispatchDeployOutcomeIntake', 'dispatchDeployFeedback', 'dispatchE2eAutofill']
 const DISABLE_ENVS = [
   'IHUI_GUARDIAN_DISABLE_DEPLOY_OUTCOME',
   'IHUI_GUARDIAN_DISABLE_DEPLOY_FEEDBACK',
-  'IHUI_GUARDIAN_DISABLE_USER_FEEDBACK_EXPORT',
   'IHUI_GUARDIAN_DISABLE_E2E_AUTOFILL',
 ]
 
-test('自进化四腿均已导出为 dispatch 函数', () => {
+test('自进化三腿均已导出为 dispatch 函数(user-feedback 导出腿已于 2026-11-04 退役)', () => {
   for (const fn of FNS) assert.equal(typeof fn, 'function', `期望导出函数,实际 ${typeof fn}`)
 })
 
-test('自进化四腿均真接进派发轮(非注释死代码)', () => {
+test('自进化三腿均真接进派发轮(非注释死代码)', () => {
   const code = codeOnly(SRC)
   for (const name of NAMES) assert.ok(code.includes(`${name}(`), `${name} 未接进派发轮调用点`)
 })
