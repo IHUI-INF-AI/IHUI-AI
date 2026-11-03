@@ -8,12 +8,12 @@
 // 改路由请改 RootNavigator.tsx 后重新生成。
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/mobile-rn/scripts/generate-ui-routes.mjs
-// sourceCommit: 33bcc6dc9a700c5bd0c287fd5ad8550645b5c342
-// inputsSha256: 6470c0225c5d19d5417aeea2c1955a6d3b11e4fa12d2ce45d6e4f1ba8fc3ce7d
-// input: apps/mobile-rn/src/navigation/RootNavigator.tsx 298ee39ac1d0a58a0c6f544e1dd78764d5d34b0cd596d6025438d26729a4151c
+// sourceCommit: 05be848608b65a020ec985cba0fa209b6123b146
+// inputsSha256: d382c7682b2670888324a2ca6e29409c837c4f225b716d67571d277f22712a5e
+// input: apps/mobile-rn/src/navigation/RootNavigator.tsx 22e124989c03d66e8661202238ea1977d2eeb51f5308044529691db54891350b
 // input: apps/mobile-rn/src/navigation/linking.ts 5d0669776885554d59463e5bf928d7a3c264d936a4977c0428877a9a19612cb6
 // skipped: unauthedBranchScreens=3(未登录分支 Screen 不入白名单,桥接挂载时不存在)
-// generatedAt: 2026-11-03T06:43:12.169Z
+// generatedAt: 2026-11-03T07:00:19.158Z
 // IHUI-GEN-PIN-END
 
 /** AI 可导航 Screen 条目:name 是 react-navigation 的 screen name(不是 URL 路径) */
@@ -28,7 +28,7 @@ export interface RnUiRouteEntry {
   requiredParams: string[]
 }
 
-/** 全量白名单:前 341 条是已登录分支 RootStack.Screen,后 5 条是 Main Tab */
+/** 全量白名单:前 339 条是已登录分支 RootStack.Screen,后 5 条是 Main Tab */
 export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'Main', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Login', tab: false, requiresParams: false, requiredParams: [] },
@@ -224,7 +224,6 @@ export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'PointRule', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'PointHistory', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'VipLevel', tab: false, requiresParams: true, requiredParams: ['id'] },
-  { name: 'VipUpgrade', tab: false, requiresParams: true, requiredParams: ['id'] },
   { name: 'VipBenefit', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'VipCompare', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'CertList', tab: false, requiresParams: false, requiredParams: [] },
@@ -267,7 +266,6 @@ export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'StudyPlan', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'StudyProgress', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'ExamResult', tab: false, requiresParams: true, requiredParams: ['id'] },
-  { name: 'ExamDetail', tab: false, requiresParams: true, requiredParams: ['id'] },
   { name: 'ExamHistory', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'ExamQuestion', tab: false, requiresParams: true, requiredParams: ['examId'] },
   { name: 'CertDetail', tab: false, requiresParams: true, requiredParams: ['id'] },
