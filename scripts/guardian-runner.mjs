@@ -6926,6 +6926,24 @@ const checks = [
       '  💡 应急放行:HUSKY_SKIP_HOVER_LIFT_SINGLE_SOURCE=1 git commit ...(不推荐;跳过会留痕)',
     ].join('\n'),
   },
+  // 编号 289:台账 deferred@ 到期判据(2026-11-03 立;判据见脚本头注)。deferred 日当天放行,
+  // 次日起红;--grace N 把红线顺延 N 天。台账/侧车取不到或 marker 日期非法 ⇒ exit 2,不记绿。
+  // 不声明 stagedTriggers:到期与本次暂存了哪些文件无关,只在 AGENTS.md 提交时才跑就退回"靠人记"。
+  {
+    id: '289',
+    label: '📆 台账 deferred@ 到期判据(blocking:到期未复评即红,逐条点名 行号|编号|日期|owner)',
+    script: 'check-plan-deferred-expiry.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_PLAN_DEFERRED_EXPIRY',
+    onFailHint: [
+      '  💡 到期不是"再挂一天"的理由:复评后改 deferred@ 续期(写明为什么还要挂、何时再评),',
+      '     或结清并摘行;不许只删标记。宽限只在真要补复评时用 --grace N,别把它当续期。',
+      '     取证:node scripts/check-plan-deferred-expiry.mjs --as-of 2027-04-01 --json',
+      '     镜像:node --test scripts/tests/check-plan-deferred-expiry.test.mjs',
+      '     应急放行:HUSKY_SKIP_PLAN_DEFERRED_EXPIRY=1 git commit ...(不推荐;跳过会留痕)',
+    ].join('\n'),
+  },
 ]
 
 // === push 门检查集(2026-08-31 新增) ===
