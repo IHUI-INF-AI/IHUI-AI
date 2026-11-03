@@ -15,6 +15,7 @@ import {
   Scissors,
   Sparkles,
   Telescope,
+  Wrench,
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
@@ -49,8 +50,8 @@ const ADD_MENU_OVERLAY_ID = 'add-menu-popover'
 export function AddMenuPopover(props: {
   open: boolean
   onOpenChange: (next: boolean) => void
-  mode: 'menu' | 'prompt' | 'skill' | 'voice'
-  onModeChange: (mode: 'menu' | 'prompt' | 'skill' | 'voice') => void
+  mode: 'menu' | 'prompt' | 'skill' | 'voice' | 'tools'
+  onModeChange: (mode: 'menu' | 'prompt' | 'skill' | 'voice' | 'tools') => void
   isStreaming: boolean
   /** 当前输入框文本(用于"添加引用" disabled 判定) */
   inputValue: string
@@ -85,6 +86,11 @@ export function AddMenuPopover(props: {
    *  多源建议 / 一键润色等从底栏降级下来的入口,渲染在"深度研究"之后、"压缩上下文"之前。
    *  由宿主传入而非本组件内部 import,避免 message-input ↔ add-menu-popover 循环依赖。 */
   extraMenuItems?: React.ReactNode
+  /** 「更多工具」抽屉(2026-11-04 信息架构重构):宿主把底栏降级的次要控件
+   *  (任务进度 / 权限 / 模式 / Agent / 上下文环 / 语音 / 流式 Steer 等)以 ReactNode 传入,
+   *  在 + 菜单内成组展示。仍由宿主 import 与持有状态,本组件只负责"分组 + 返回"，
+   *  不复制任何动作逻辑。 */
+  toolsMenuItems?: React.ReactNode
 }): React.JSX.Element {
   const t = useTranslations('chat')
   const tA11y = useTranslations('a11y')
@@ -110,6 +116,7 @@ export function AddMenuPopover(props: {
     compacting = false,
     compactDisabled = false,
     extraMenuItems,
+    toolsMenuItems,
   } = props
 
   const triggerRef = React.useRef<HTMLButtonElement | null>(null)
@@ -235,7 +242,9 @@ export function AddMenuPopover(props: {
           // `button[data-state='closed']:focus-visible { box-shadow: none }` 抑制关闭后焦点环常驻。
           // 详见 scripts/check-popover-trigger-data-state.mjs。
           data-state={open ? 'open' : 'closed'}
-          disabled={isStreaming}
+          /* 2026-11-04 信息架构重构:触发器不再因流式而整体禁用 ——
+             流式专属动作(Steer / 打断并发送)现在住在「更多工具」抽屉里,
+             整钮禁用会让这些动作在流式期间彻底不可达。菜单项各自保留 disabled 判据。 */
           onClick={() => onOpenChange(!open)}
           className={cn(
             // min-w-8(2026-11-03):纯 + 图标态自然宽 30px,桌面端点击区需 ≥32px;移动端由
@@ -259,7 +268,7 @@ export function AddMenuPopover(props: {
             // z-popover(2026-09-14 补):portal 挂 body 且 z-auto,营销首页 hero 区
             // 祖先 z-10 会整体压住弹层 —— 菜单可见但所有点击被 H1 拦截(实测
             // prompt-templates/chat-manual-compact e2e 与真实用户同路径失败)。
-            className="z-popover w-60 rounded-md border bg-popover text-popover-foreground shadow-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="pointer-events-auto z-[2200] w-60 rounded-md border bg-popover text-popover-foreground shadow-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
             style={
               coords
                 ? { position: 'fixed', top: coords.top, left: coords.left }
@@ -299,6 +308,30 @@ export function AddMenuPopover(props: {
                     onModeChange('menu')
                   }}
                 />
+              </div>
+            ) : mode === 'tools' && toolsMenuItems ? (
+              /* 更多工具抽屉(2026-11-04):返回菜单 + 宿主注入的控件组。
+                 控件仍在宿主(message-input)里 import 与持有状态,这里只做分组容器。 */
+              <div className="w-60 p-1" data-testid="composer-tools-panel">
+                <button
+                  type="button"
+                  role="menuitem"
+                  data-testid="composer-tools-back"
+                  onClick={() => {
+                    onModeChange('menu')
+                  }}
+                  className={cn(
+                    'flex items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-label transition-colors',
+                    'text-popover-foreground hover:bg-accent hover:text-accent-foreground',
+                  )}
+                >
+                  <ArrowRight
+                    className="h-3.5 w-3.5 shrink-0 rotate-180 text-muted-foreground"
+                    aria-hidden
+                  />
+                  <span className="min-w-0 flex-1 truncate">{t('backToMenu')}</span>
+                </button>
+                <div className="mt-1 border-t border-border/60 pt-1">{toolsMenuItems}</div>
               </div>
             ) : (
               <div className="flex w-60 flex-col gap-0.5 p-1">
@@ -392,6 +425,30 @@ export function AddMenuPopover(props: {
                   <Mic className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                   <span className="min-w-0 flex-1 truncate">{t('voiceRecord.menuLabel')}</span>
                 </button>
+                {/* 更多工具入口(2026-11-04 信息架构重构):底栏降级的次要控件
+                    (任务进度 / 权限 / 模式 / Agent / 上下文环 / 语音 / 流式 Steer)收纳于此,
+                    点击进入 tools 子层;不改变任何控件自身的弹层与状态机。 */}
+                {toolsMenuItems && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    data-testid="composer-tools-entry"
+                    onClick={() => {
+                      onModeChange('tools')
+                    }}
+                    className={cn(
+                      'flex items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-label transition-colors',
+                      'text-popover-foreground hover:bg-accent hover:text-accent-foreground',
+                    )}
+                  >
+                    <Wrench className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    <span className="min-w-0 flex-1 truncate">{t('moreTools')}</span>
+                    <ArrowRight
+                      className="ml-auto h-2.5 w-2.5 shrink-0 text-muted-foreground/60"
+                      aria-hidden
+                    />
+                  </button>
+                )}
                 <button
                   type="button"
                   role="menuitem"
@@ -412,6 +469,7 @@ export function AddMenuPopover(props: {
                 <button
                   type="button"
                   role="menuitem"
+                  disabled={isStreaming}
                   onClick={() => {
                     onOpenDeepResearch()
                   }}

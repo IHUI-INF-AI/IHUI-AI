@@ -543,9 +543,9 @@ export function MessageInput({
   // - prompt:PromptTemplates 弹层
   // - skill:SkillLibrary 弹层
   const [addMenuOpen, setAddMenuOpen] = React.useState(false)
-  const [addMenuMode, setAddMenuMode] = React.useState<'menu' | 'prompt' | 'skill' | 'voice'>(
-    'menu',
-  )
+  const [addMenuMode, setAddMenuMode] = React.useState<
+    'menu' | 'prompt' | 'skill' | 'voice' | 'tools'
+  >('menu')
   // D28 /side 快速侧问(2026-09-20 立):当前会话侧问队列(store 持久化,切会话不丢)
   const sideQueue = chatStore((s) =>
     conversationId ? s.sideQueueByConversation[conversationId] : undefined,
@@ -1376,13 +1376,11 @@ export function MessageInput({
               className="ai-input-toolbar flex min-w-0 flex-wrap items-center gap-1 overflow-visible px-2 pb-2 pt-1"
               data-testid="ai-input-toolbar"
             >
-              {/* ── 左簇:任务进度 + 添加 ───────────────────────────────────── */}
-              {/* 左簇独立成组:flex-shrink:0 由 globals.css 统一给,窄档整簇换行而不是被压窄 */}
+              {/* ── 左簇:仅「添加 +」一个锚点 ───────────────────────────────
+                  2026-11-04 信息架构重构:任务进度、权限、模式、Agent、上下文环、语音、
+                  语音笔记全部从底栏移入「+ → 更多工具」抽屉(见 toolsMenuItems),
+                  底栏只保留 [+] [模型] [发送/停止] 四个锚点(对标 Claude/ChatGPT composer)。 */}
               <div className="ai-input-toolbar-left flex min-w-0 items-center gap-1">
-                {/* leftIcon 固定为任务清单语义(2026-09-30 用户指出双锤子:
-                  默认跟随当前模式取图标 → build 档与 ModeSwitcher 的 Hammer 同屏撞脸;
-                  本入口语义是"任务进度面板",对标 Trae/Qoder 任务列表用 ListTodo) */}
-                <AgentProgressTrigger iconOnly leftIcon={ListTodo} />
                 {/* "添加"下拉菜单(2026-07-25 终极整合,2026-07-30 提取到 AddMenuPopover 子组件)
                   行为零变更:关闭时重置 menu 态 / disabled 状态 / 所有回调透传 */}
                 <AddMenuPopover
@@ -1500,6 +1498,58 @@ export function MessageInput({
                       />
                     </>
                   }
+                  /* 2026-11-04 信息架构重构:「更多工具」抽屉。
+                     原底栏 6 枚次要控件(任务进度 / 权限 / 模式 / Agent / 上下文环 / 语音转文字 /
+                     语音笔记)在 + 菜单里成组收纳,点击后仍是各自原有的弹层与状态机,零功能删减。
+                     流式期间的 Steer / 打断并发送 也只在这个抽屉里出现。 */
+                  toolsMenuItems={
+                    <div
+                      className="flex flex-col gap-1 px-1 pb-1"
+                      data-testid="composer-tools-drawer"
+                    >
+                      <span className="px-1.5 pb-0.5 text-[11px] font-medium text-muted-foreground">
+                        {t('moreTools')}
+                      </span>
+                      <div className="flex flex-wrap items-center gap-1 rounded-sm border border-border/60 bg-muted/20 p-1.5">
+                        <AgentProgressTrigger leftIcon={ListTodo} />
+                        <PermissionModePopover
+                          disabled={isStreaming}
+                          onExplainMode={(mode) => setInfoMode(mode)}
+                        />
+                        <ModeSwitcher disabled={isStreaming} />
+                        <AgentPicker />
+                        <ContextUsageRing model={model} isStreaming={isStreaming} />
+                        <VoiceToolbar onTranscript={handleVoiceTranscript} disabled={isStreaming} />
+                        <VoiceNote conversationId={conversationId} />
+                      </div>
+                      {isStreaming && (
+                        <div className="flex flex-col gap-0.5 border-t border-border/60 pt-1">
+                          <button
+                            type="button"
+                            role="menuitem"
+                            data-testid="steer-button"
+                            disabled={!value.trim()}
+                            onClick={() => void steer()}
+                            className="flex items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-label text-popover-foreground hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <Zap className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                            <span className="min-w-0 flex-1 truncate">{t('steer')}</span>
+                          </button>
+                          <button
+                            type="button"
+                            role="menuitem"
+                            data-testid="interrupt-and-send-button"
+                            disabled={!value.trim()}
+                            onClick={() => void interruptAndSend()}
+                            className="flex items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-label text-popover-foreground hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <ArrowUp className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                            <span className="min-w-0 flex-1 truncate">{tq('interruptAndRun')}</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  }
                 />
               </div>
               {/* 斜杠 / @ / 截图 三个独立按钮已移除(2026-09-18 用户规则:"这里这么多按钮都重合了"):
@@ -1543,30 +1593,13 @@ export function MessageInput({
                 aria-hidden="true"
                 tabIndex={-1}
               />
-              {/* ── 右簇:权限 + 模式 + 上下文 + 模型 + 语音 + 发送 ─────────────── */}
-              {/* ai-input-toolbar-right:吃掉左簇之外的剩余宽度(flex-1),内容按优先级
-                  在 globals.css 的三档 @container 里收文字;仍装不下时组内换行,不压缩 */}
+              {/* ── 右簇:模型 + 发送/停止 ─────────────────────────────────── */}
+              {/* 2026-11-04 信息架构重构:右簇由 6 枚控件收敛为「模型选择 + 发送/停止」。
+                  权限 / 模式 / Agent / 上下文环 / 语音 / 语音笔记移入 + 菜单的
+                  「更多工具」抽屉(toolsMenuItems);流式期间的 Steer / 打断并发送
+                  也在同一抽屉里(见上),底栏恒为单行 4 锚点。 */}
               <div className="ai-input-toolbar-right flex min-w-0 flex-1 flex-wrap items-center justify-end gap-1">
-                {/* 次要控件组:容器变窄时在组内换行(globals.css 给直接子项 flex-shrink:0),
-                    绝不再靠压缩子项宽度把按钮挤到互相覆盖 */}
                 <div className="ai-input-toolbar-actions flex min-w-0 flex-wrap items-center justify-end gap-1">
-                  {/* 权限模式(2026-09-30 icon-only 化):盾/手/罗盘/警盾图标 + 档位色语义,
-                    档名走 Tooltip;弹层内含模式卡片 + 高危说明 ⓘ + 历史内嵌段 */}
-                  <PermissionModePopover
-                    disabled={isStreaming}
-                    onExplainMode={(mode) => setInfoMode(mode)}
-                  />
-                  {/* 模式选择器(2026-09-13 矩阵 A #24):同会话模式切换的可见控件,
-                    与 / 命令、Ctrl+1-5、AI 自动判断三通道共用 useModeStore 单一状态源 */}
-                  <ModeSwitcher disabled={isStreaming} />
-                  {/* D01(2026-10-25 立)对话内 Agent 选择器:紧挨模型选择器左侧,
-                    胶囊形态同规格(h-8 / rounded-sm);选中态写 chat store selectedAgentId,
-                    发送链路随请求透传 personaId → ai-service 并入 system 与工具白名单。
-                    流式中**不禁用**(与 ModelSelector 同一可达性口径):切换只影响下一轮载荷,
-                    禁掉会重演"机制齐但入口够不到"。 */}
-                  <AgentPicker />
-                  {/* 高级参数入口(P1-7)与推理强度轴收纳进模型弹层 footer,见 ModelSelector */}
-                  <ContextUsageRing model={model} isStreaming={isStreaming} />
                   {/* 模型选择器 + footer(推理强度轴 D130 + 采样参数 P1-7):
                     D130 守门判据要求 <ReasoningEffortInputAxis model={model} 挂载行留在本文件,
                     footer 节点即该挂载点 —— 摘掉它档位就永远进不了请求(测试①③) */}
@@ -1583,12 +1616,9 @@ export function MessageInput({
                       </>
                     }
                   />
-                  {/* 语音入口整合:单一 Mic 按钮直接触发语音转文字,挨着发送键 */}
-                  <VoiceToolbar onTranscript={handleVoiceTranscript} disabled={isStreaming} />
-                  {/* D43 会话内快捷笔记(G-51)装车(2026-10-18):组件与 12 相状态机、归档/插入
-                    早在 HEAD,但生产零渲染 ⇒ 票面"笔记可一键插入对话"在界面上拿不到。
-                    conversationId 传当前会话,归档记录按会话标注;无会话时为 null(仍可用)。 */}
-                  <VoiceNote conversationId={conversationId} />
+                  {/* 语音转文字 / 语音笔记 / 任务进度 / 权限 / 模式 / Agent / 上下文环
+                      已于 2026-11-04 移入「+ → 更多工具」抽屉(toolsMenuItems)。
+                      底栏不再渲染它们,单行锚点 = + / 模型 / 发送·停止。 */}
                 </div>
                 {/* 主操作独立成组且 shrink-0:发送/停止在任何宽度下都不参与收缩,永远可见可点 */}
                 <div className="ai-input-toolbar-send flex shrink-0 items-center gap-1">
@@ -1600,50 +1630,9 @@ export function MessageInput({
                     与全项目图标按钮对齐),禁用态同源 ICON_BUTTON_ACTION_DISABLED_CLASS) */}
                   {isStreaming ? (
                     <>
-                      {/* Steer 中途引导(2026-09-19 立):流式期间闪电按钮,不打断当前工具执行,
-                        将输入框文本经 /chat/steer 注入 ai-service 队列,下一轮 LLM 调用前生效。
-                        Enter 仍走 W27 FIFO 排队(两者互不影响);空输入禁用。 */}
-                      <Tooltip content={t('steer')}>
-                        <span className="inline-flex">
-                          <button
-                            type="button"
-                            onClick={() => void steer()}
-                            disabled={!value.trim()}
-                            className={cn(
-                              ICON_BUTTON_ACTION_BASE_CLASS,
-                              value.trim()
-                                ? 'bg-amber-500 text-white hover:bg-amber-600'
-                                : ICON_BUTTON_ACTION_DISABLED_CLASS,
-                            )}
-                            aria-label={t('steer')}
-                            data-testid="steer-button"
-                          >
-                            <Zap className="h-4 w-4" />
-                          </button>
-                        </span>
-                      </Tooltip>
-                      {/* 差距③配套(2026-10-30 立):「打断并发送」= 组合语义(零新状态机)——
-                        先按 submit 同款 W27 路径入队当前输入,再走既有 onStop 停流;
-                        本组件"流结束自动出队"effect 随即发送队首。空输入禁用(双保险)。 */}
-                      <Tooltip content={tq('interruptAndRun')}>
-                        <span className="inline-flex">
-                          <button
-                            type="button"
-                            onClick={() => void interruptAndSend()}
-                            disabled={!value.trim()}
-                            className={cn(
-                              ICON_BUTTON_ACTION_BASE_CLASS,
-                              value.trim()
-                                ? 'bg-violet-500 text-white hover:bg-violet-600'
-                                : ICON_BUTTON_ACTION_DISABLED_CLASS,
-                            )}
-                            aria-label={tq('interruptAndRun')}
-                            data-testid="interrupt-and-send-button"
-                          >
-                            <ArrowUp className="h-4 w-4" />
-                          </button>
-                        </span>
-                      </Tooltip>
+                      {/* Steer 中途引导 / 打断并发送(2026-11-04 信息架构重构):
+                         两枚流式专属动作已移入「+ → 更多工具」抽屉的流式分组,
+                         底栏主操作槽只保留「停止」一枚;状态机与请求链路完全未变。 */}
                       <Tooltip content={stopLabel ?? t('stop')}>
                         <button
                           type="button"
