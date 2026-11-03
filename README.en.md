@@ -60,7 +60,7 @@ Full positioning narrative (value pyramid, cost comparison, differentiation, ben
 the Chinese README, and blocks any stale value.
 
 Headline claims (same source as the table below, all live-computed): **619 tables · 4683 API routes ·
-25 WebSocket endpoints · 100 catalogued LLMs · 38 platforms auto-publishing · 4023 test files ·
+25 WebSocket endpoints · 100 catalogued LLMs · 38 platforms auto-publishing · 4025 test files ·
 322 engineering gates · 52 CI workflows · 5-language i18n parity · 9 app packages · 16 shared packages ·
 14 compose services**.
 
