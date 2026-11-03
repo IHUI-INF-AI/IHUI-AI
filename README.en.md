@@ -82,13 +82,13 @@ Headline claims (same source as the table below, all live-computed): **619 table
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 4036 | `testFiles` |
+| 测试文件 | 4037 | `testFiles` |
 | CI 工作流 | 52 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 326 | `guardianGates` |
 | — blocking | 296 | `guardianBlocking` |
 | — warn | 32 | `guardianWarn` |
-| 跟踪文件 | 19017 | `trackedFiles` |
+| 跟踪文件 | 19022 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-03。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -100,6 +100,20 @@ Headline claims (same source as the table below, all live-computed): **619 table
 ## Recent updates (auto-maintained)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-03**
+- 🔧 Chore/Other:合并后派生件重算 —— ui-routes 329 页 / README 近期块×4 / last-sha (f3a4ce5649)
+- 🐞 Fix:计划任务档禁用把 main 单轮链 74 条巡检腿整体停摆 27h —— 恢复任务档 + 游标类两枚同挂 tick (a1029c579c)
+- 🐞 Fix:for-each-ref 顶穿默认 1MiB 缓冲 ⇒ 22,298 条"假缺失"的失明根因 (5625a4b4ee)
+- 🚀 Feature/Improvement:考勤趋势图的 web 五语言键按 HEAD 面重构后入库(不带走别人已入库的键) (2b53f979d7)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (cd02912f6e)
+- 🐞 Fix:daemon tick 补齐隧道腿/短信通道/发起腿/隧道指标 4 个审计派发 (84bdfb5b7f)
+- 🚀 Feature/Improvement:教师端考勤统计补真趋势图——同板块成绩页早有图表而考勤页停在进度条 (c76c79dffb)
+- 🚀 Feature/Improvement:下载栏八端运行期真值哨兵装车(guardian 30min 轮) (63b4f77013)
+- 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (d4a120413d)
+- 🔧 Chore/Other:bump nativewind from 4.2.6 to 4.2.7 (774e4e53b0)
+- 🐞 Fix:添加按钮桌面点击区补足 32px (3855f738d5)
+- 🐞 Fix:O21b create 版本正向用例声明 text/markdown —— md 纳入上传白名单后,octet-stream 会被 MIME 一致性闸判 400 (5d30f42942)
+
 **2026-11-03**
 - 🐞 Fix:文档上传再收四档 tsv/json/ods/odp,并把收了却解析不了的那条腿一起补齐(票 D53 第十批,③桶 6 到 1) (405e2a5b46)
 - 🐞 Fix:小程序端考勤改口服务端判定,状态档与点名时刻走单一契约文件 (ebc76ae16c)
@@ -573,9 +587,6 @@ Headline claims (same source as the table below, all live-computed): **619 table
 
 **2026-11-03**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (1fb2f45d04)
-
-**2026-11-03**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (30d2f7ca16)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
