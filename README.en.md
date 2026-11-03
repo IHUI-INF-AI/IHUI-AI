@@ -101,6 +101,11 @@ Headline claims (same source as the table below, all live-computed): **618 table
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-03**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (dffec0afec)
+- 🐞 Fix:考勤阈值时刻解析补收带秒形态,迟到/早退与每日补缺勤不再静默判不出(票 B67/B71 残余格) (3b29aa1bef)
+- 🚀 Feature/Improvement:文档中心余下 4 页接 docs.* i18n 并把 tip 块表情换矢量 Lightbulb(票 D53 第三批·余格) (5d27ad4027)
+
+**2026-11-03**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (28e56a22ac)
 - 🔧 Chore/Other:diag-manifest (c3f5d12ac5)
 
@@ -154,9 +159,6 @@ Headline claims (same source as the table below, all live-computed): **618 table
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (a5d5975971)
 - 🚀 Feature/Improvement:文档中心文案抽进 docs.* 命名空间,五语言同批齐备(票 D53) (ef8a1a3f9c)
 - 🐞 Fix:面板 tooltip 字号脱离 11px 字面量,归到 caption 角色档 (259c615623)
-
-**2026-11-03**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (24ed9b91f5)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
