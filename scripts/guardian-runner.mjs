@@ -6775,8 +6775,12 @@ const checks = [
   //   - 其他工作树脏 / 有 stash ⇒ 只告警不阻断(并行会话的在飞 WIP 不得让本树恒红);
   //   - 主工作树**残量**(未暂存/未跟踪/冲突/stash)⇒ 阻断;主树 staged = 本次提交内容,不计脏。
   // 收尾核验(要连 staged 一起判)走严格模式:node scripts/check-worktree-status.mjs。
+  // 编号 285(2026-11-03 让号):本条原登记为 282,与 43fe135510(11-03 01:37)先占的
+  // `check-web-rn-gap-ratchet.mjs` 撞号 ⇒ 门 89 R5 判红(同 id 两道门会串 skipEnv 与失败归属);
+  // 在册口径是「后来者必须改号」,后到的是本条(119c860fc8,11-03 08:32),故本条让号、那一支不动。
+  // 取号按「注册前现读」:数值 id 现读最大 284,285..300 全空 ⇒ 落 285。判据/档位/skipEnv 一字未动。
   {
-    id: '282',
+    id: '285',
     label: '📚 文档中心公开面健康对账(blocking;D1 hreflang 声明↔路由文件存在 / D2 sitemap 收录↔路由 / D3 docs 的 icon 字段禁 emoji)',
     script: 'check-docs-public-health.mjs',
     args: ['--staged'],
