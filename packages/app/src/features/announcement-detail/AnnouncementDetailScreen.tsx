@@ -4,7 +4,7 @@
 
 import { rnSpacing, rnType } from '@ihui/design-tokens'
 import { useMemo } from 'react'
-import { View, Text, ScrollView, StyleSheet } from 'react-native'
+import { View, Text, ScrollView, StyleSheet, Platform } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AnnouncementDetailItem, AnnouncementDetailScreenProps } from '../../types'
 
@@ -27,7 +27,7 @@ export function AnnouncementDetailScreen({
   error,
   onBack,
   onRetry,
-  colorScheme = 'light'
+  colorScheme = 'light',
 }: AnnouncementDetailScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
@@ -65,7 +65,13 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingBottom: rnSpacing['3xl'],
     },
-    title: { marginTop: rnSpacing.sm, fontSize: 22, fontWeight: '600', color: tk.text.primary },
+    title: {
+      marginTop: rnSpacing.sm,
+      // web 产物锁 22(web 快照/读数不变);原生侧落 heading 20 档
+      fontSize: Platform.OS === 'web' ? 22 : rnType.heading.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+    },
     metaRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',

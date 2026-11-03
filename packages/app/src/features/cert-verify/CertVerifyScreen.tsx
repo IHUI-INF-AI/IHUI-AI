@@ -110,7 +110,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     verifyBtn: {
       marginTop: rnSpacing.lg,
-      paddingVertical: 15,
+      paddingVertical: rnSpacing['md-loose'],
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',

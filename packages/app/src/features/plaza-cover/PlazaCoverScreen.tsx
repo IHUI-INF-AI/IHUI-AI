@@ -157,7 +157,7 @@ function createStyles(tk: AppThemeTokens) {
     primaryBtn: {
       backgroundColor: tk.brand.cta,
       borderRadius: rnRadius.sm,
-      paddingVertical: 15,
+      paddingVertical: rnSpacing['md-loose'],
       alignItems: 'center',
     } as ViewStyle,
     primaryBtnText: {

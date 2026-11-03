@@ -193,7 +193,7 @@ export function createStudentStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
       flexDirection: 'row',
       gap: rnSpacing['xs-loose'],
-      paddingVertical: 11,
+      paddingVertical: rnSpacing['sm-loose'],
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },

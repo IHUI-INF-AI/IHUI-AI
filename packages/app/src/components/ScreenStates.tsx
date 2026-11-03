@@ -6,7 +6,7 @@ import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { SCREEN_STATES_STATE_MIN_HEIGHT_PX } from '@ihui/shared/ui/screen-states-spec'
 
 import { useEffect, useMemo, useRef, type ReactNode } from 'react'
-import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native'
+import { Animated, Easing, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../theme/tokens'
 import { Tappable } from '@ihui/ui-native'
 
@@ -296,7 +296,8 @@ function createStyles(tk: AppThemeTokens) {
     stateDesc: { fontSize: 13, color: tk.text.tertiary, textAlign: 'center', lineHeight: 19 },
     stateBtn: {
       marginTop: rnSpacing['xs-loose'],
-      paddingHorizontal: 18,
+      // web 产物锁 18(web 快照/读数不变);原生侧落 lg 16 档
+      paddingHorizontal: Platform.OS === 'web' ? 18 : rnSpacing.lg,
       paddingVertical: 9,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,

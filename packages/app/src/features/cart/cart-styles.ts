@@ -105,7 +105,7 @@ export function createCartStyles(tk: AppThemeTokens) {
     totalLabel: { fontSize: 13, color: tk.text.secondary },
     totalPrice: { fontSize: rnType.subtitle.size, fontWeight: '700', color: tk.danger.DEFAULT },
     checkoutBtn: {
-      paddingHorizontal: 18,
+      paddingHorizontal: rnSpacing['lg'],
       height: 36,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,

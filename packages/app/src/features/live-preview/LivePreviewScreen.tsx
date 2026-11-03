@@ -23,7 +23,7 @@ export function LivePreviewScreen({
   onSubscribe,
   onBack,
   onRetry,
-  colorScheme = 'light'
+  colorScheme = 'light',
 }: LivePreviewScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
@@ -115,7 +115,7 @@ function createStyles(tk: AppThemeTokens) {
     btn: {
       marginTop: rnSpacing.xl,
       backgroundColor: tk.brand.cta,
-      paddingVertical: 15,
+      paddingVertical: rnSpacing['md-loose'],
       borderRadius: rnRadius.sm,
       alignItems: 'center',
     },
