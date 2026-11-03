@@ -15,7 +15,12 @@ import {
   probeDocBySlug,
   serverApiOrigin,
 } from '../lib/docs-slug-probe'
-import { docsDetailGateStatus, extractDocsDetailSlug } from '../lib/docs-detail-gate'
+import {
+  docsDetailGateStatus,
+  extractDocsDetailSlug,
+  isDocsGateDocumentRequest,
+  renderDocsGateHtml,
+} from '../lib/docs-detail-gate'
 
 /** 造一枚 fetch 桩:固定状态码 + 文本体 */
 function stubFetch(status: number, body: string): typeof fetch {
@@ -172,6 +177,28 @@ describe('docs-detail-gate 三个反向例(404 / 200 / 500 语义分开)', () =>
     })
     expect(r).toBeNull()
     expect(docProbeHttpStatus('unauthorized')).toBeNull()
+  })
+
+  it('硬码响应体:404 与 500 文案互不冒充,自带 noindex', () => {
+    const h404 = renderDocsGateHtml(404)
+    const h500 = renderDocsGateHtml(500)
+    expect(h404.startsWith('<!DOCTYPE html>')).toBe(true)
+    expect(h404).toContain('文档不存在')
+    expect(h404).not.toContain('服务暂时不可用')
+    expect(h500).toContain('文档服务暂时不可用')
+    expect(h500).not.toContain('404')
+    expect(h404).toContain('noindex')
+    expect(h500).toContain('noindex')
+  })
+
+  it('RSC 取数请求不落硬码(Proxy 不能往 RSC 通道塞 HTML),文档请求落码', () => {
+    expect(isDocsGateDocumentRequest(new Headers({ rsc: '1' }))).toBe(false)
+    expect(isDocsGateDocumentRequest(new Headers({ accept: 'text/x-component' }))).toBe(false)
+    expect(
+      isDocsGateDocumentRequest(new Headers({ accept: 'text/html,application/xhtml+xml' })),
+    ).toBe(true)
+    expect(isDocsGateDocumentRequest(new Headers({ 'sec-fetch-dest': 'document' }))).toBe(true)
+    expect(isDocsGateDocumentRequest(new Headers({ accept: '*/*' }))).toBe(true)
   })
 
   it('只认文档详情单段路径:静态文档页 / 索引 / 多段路径一律不探针', () => {
