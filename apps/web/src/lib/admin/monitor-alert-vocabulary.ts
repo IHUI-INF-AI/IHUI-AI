@@ -40,12 +40,7 @@ import {
  * 2026-10-31 立)。本文件只做 **re-export + 展示元数据**,不得再写第二份同值数组
  * (第二份必然漂移,AGENTS §0.6;票据 ③ 的机器判据见 scripts/check-monitor-alert-vocabulary.mjs)。
  */
-export {
-  MONITOR_ALERT_SEVERITIES,
-  MONITOR_ALERT_STATUSES,
-  isMonitorAlertSeverity,
-  isMonitorAlertStatus,
-}
+export { MONITOR_ALERT_SEVERITIES, MONITOR_ALERT_STATUSES }
 export type { MonitorAlertSeverity, MonitorAlertStatus }
 
 /** 未判定占位文案:读数/取值取不到时显式说出来,不许兜成 0 或空串。 */
