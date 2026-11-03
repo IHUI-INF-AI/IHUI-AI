@@ -225,4 +225,15 @@
   - [ ] O62819 [deploy-feedback] [deploy_outcome/alert_firing] pass-entry-broken /deploy/pass-entry-broken 部署异常 ⇒ 排查链路并修复（登记@2026-10-28/deploy-feedback;来源:deploy_outcome;证据:dims=api+llm action=pass-entry-broken 窗口=1440min count=1 first=2026-10-27T17:30:26.786Z last=2026-10-27T17:30:26.786Z route=/deploy/pass-entry-broken sample="deploy_outcome action=pass-entry-broken sha=[hex:35]…"）【让号@2026-10-31:原编号 O68;union-converge F9 归并新增撞号组,未推的本地面让号;改前整行原文逐字见 .ihui-agent/archive/PROJECT_PLAN_yielded-ids-2026-09-29.md】
   - [ ]〔归:台账器物面｜等:—〕 O62819 **侧车归属改判无出口**:`scripts/data/plan-fields.jsonl` 的 `O02#跨端UI单一源` 记录仍是 2026-10-25 的 `waiting:none`,而行内标头已改归机主真机面 ⇒ v2 尺以侧车为准,派单反复把 O02 列成"现在可做"。现读唯一写侧车的出口 `plan-fields-extract.mjs --apply` 自带"桶零变化"守恒闸(防搬说辞改判定),仓内已无 reclassify 工具 ⇒ 需一条**声明式改判出口**(逐条给 before/after 桶 + why,复用 dispositionOfV2 复算,禁批量)。〔登记@2026-10-29:派单现读 12 行剔 10 仍出单 O02 为凭〕【让号@2026-10-31:原编号 O68;union-converge F9 归并新增撞号组,未推的本地面让号;改前整行原文逐字见 .ihui-agent/archive/PROJECT_PLAN_yielded-ids-2026-09-29.md】
 - 编号 O67 → O62819(键位前沿 42819 + 跳距 20000,试 1 枚)
+
+---
+
+## 让号留痕(补记 @2026-11-03,由 scripts/plan-collide-renumber.mjs 追加)
+
+> 下列**改前整行原文**逐字取自被审面的 PROJECT_PLAN.md,不做任何改写。
+> 它们的存在就是门 71 的那条放行出口:原文能在 .ihui-agent/archive/PROJECT_PLAN_*.md 里找到 ⇒ 不算丢。
+> 落点归档件:.ihui-agent/archive/PROJECT_PLAN_yielded-ids-2026-09-29.md
+
+- 编号 Y-70 → Y-20079(键位前沿 79 + 跳距 20000,试 1 枚)
+  - [ ] Y-70 (2026-11-02) **RN 全平台发布矩阵三格未收:华为缺 Connect API 客户端 / app_versions 无 store 维度 / 鸿蒙无产物**:发布面已由 `scripts/release-mobile-rn.mjs` 扩成 12 腿逐家现读(实读:签名件与 87MB release APK 在位、EAS Update 两渠道端到端实证可发、Google Play SA 已授权且 alpha 挂 0.0.6/26101921)。三格各差一件事:① 华为那枚 `华为appid 密钥.txt` 过 Publishing API 回 `205524993 client token auth failed`(端点已证可达,旁证 HMS OAuth 能签 token)⇒ 缺的是 AGC「用户与权限→Connect API」创建的 API 客户端 client_id/client_secret,补进密钥目录即通;② `app_versions.platform` 枚举 = ios/android/web/harmony/cli 无 store 维度 ⇒ 多渠道各一条 latest 表达不出来,需一次加列迁移(走门 49 B1–B9);③ 鸿蒙全仓零 `.ets`/`oh-package.json5`/`react-native-harmony` ⇒ 先做产物适配再回本腿。附带真缺陷:`/download/harmony` 被静默 fallback 成 desktop(`DownloadDetailContent.tsx:107`),须改显式态。（进行中@2026-11-02/qoder-rn-release）
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
