@@ -76,8 +76,8 @@ pnpm doc:numbers                                      # 人读表(每个数旁�
 node scripts/gen-doc-numbers.mjs --markdown           # 重新生成下面这个块
 node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 ```
-对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
-100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
+对外关键数字声明(与本页生成块同源,均现算):**619 张表 · 4683 API 路由 · 25 个 WebSocket 端点 ·
+100 入库模型 · 38 平台自动发布 · 4021 测试文件 · 320 道工程守门 · 52 CI workflows ·
 5 语言 i18n parity · 9 个 app 包 · 16 共享包 · 15 Compose 服务**。
 <!-- BEGIN GENERATED NUMBERS (node scripts/gen-doc-numbers.mjs --markdown) -->
 | 指标 | 现值 | 取数键 |
