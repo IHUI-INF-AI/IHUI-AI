@@ -20,6 +20,7 @@ const {
   setupRestoreOnExit,
   auditStagingFiles,
 } = require('./staging-snapshot.js')
+const { sanitizeGitEnv } = require('./hook-git-env.js')
 
 /**
  * ⛔ 被 require()/import() 时必须**立即返回**,不得执行下面任何一步(§22d 的 CJS 对应形态:
@@ -42,22 +43,12 @@ if (require.main !== module) {
   return
 }
 
-// ─── GIT_DIR 去污(2026-10-01,5 道守门链内崩实证根治)─────────────
-// IDE(Trae)git 扩展向会话注入 GIT_DIR=D:/IHUI-AI-git-repo(worktree 之外的
-// gitdir 指针)。子 git 进程以 scratch 物化目录为 cwd 跑 git init/add、或对
-// gitdir 跑 work-tree 型命令时全部报 "fatal: this operation must be run in a
-// work tree"([152]/[164]/[167]/[168]/[172] 链内全灭、单跑全绿的根因)。
-// delete 后 git 从 cwd(worktree 根)经 ./.git 指针文件发现同一仓库,语义不变。
-for (const k of [
-  'GIT_DIR',
-  'GIT_WORK_TREE',
-  'GIT_INDEX_FILE',
-  'GIT_OBJECT_DIRECTORY',
-  'GIT_ALTERNATE_OBJECT_DIRECTORIES',
-  'GIT_QUARANTINE_PATH',
-]) {
-  delete process.env[k]
-}
+// ─── GIT_* 去污(2026-10-01 立;2026-11-03 起 GIT_INDEX_FILE 改为有条件保留)─────
+// 判据与 shell 入口 `.husky/pre-commit` 同源,唯一实现 = ./hook-git-env.js(头注写清判据)。
+// 关键:IDE 注入的 GIT_DIR/GIT_WORK_TREE 无条件清;而 `git commit --only/--amend -- <路径>`
+// 交给钩子的临时索引(next-index-<pid>.lock)**必须留住** —— 否则 lint-staged 会去写
+// 父 git 正持锁的共享 index.lock(exit 128),或 restore --worktree 掉别人的未暂存改动。
+sanitizeGitEnv(process.env)
 
 // ── 专项段档位判据(2026-10-22 立,与 scripts/lib/gate-scope.mjs 同口径)───────────
 // **必须定义在文件顶部**:下方 13 处专项守门(footer / portal / button / credential /
@@ -367,7 +358,31 @@ auditStagingFiles()
 //      永远不会出现在钩子可见的输出里。所以还必须认它自己的指纹文案。
 // ⚠️ 认指纹 ≠ 吞错误:重试耗尽后照样 exit 1(见调用点),只是把"这是 EBUSY 形态、已重试几次、
 //    怎么绕"写成人能直接照做的诊断,而不是让人对着一句 git error 猜。
-const LINT_STAGED_CMD = 'npx lint-staged --max-arg-length 4096 --no-stash'
+//
+// ─── lint-staged 的「不碰共享面」双开关(2026-11-03 立)─────────────────────────
+// 背景:本仓是多 agent 并行工作区,共享暂存区/工作树里常有别人的在途改动。lint-staged
+// 17.3.0 有两处会写**共享真实索引或真实工作树**的分支,都必须关掉:
+//
+//  ① `--stash`(默认):prepare 阶段 `git stash` 真工作树、结束后 `git stash apply` 还原
+//     (gitWorkflow.js:252 起)。本仓 2026-09-29 实测 stash 通道把 gitdir 弄坏过,故用
+//     `--no-stash`(同时把 revert 置 false,见 cli.js:170)。
+//
+//  ② `--hide-partially-staged`(默认):对 MM 文件(暂存+未暂存)执行
+//     `git restore --worktree -- <files>`(gitWorkflow.js:299,唯一一处 restore --worktree),
+//     把工作树临时回滚到索引、跑完任务再用 $GIT_DIR/lint-staged_unstaged.patch 重放。
+//     重放失败/进程被杀 ⇒ 别人的未暂存改动静默留在 patch 里、工作树里消失
+//     (2026-09-29 一次丢 7 个文件;2026-11-03 又丢 PROJECT_PLAN.md 3 行)。
+//     `--no-hide-partially-staged` 后 lib/state.js:shouldHidePartiallyStagedFiles 恒 false
+//     ⇒ runAll.js:311 不进入该分支、:327 也不重放 ⇒ **全程不执行 restore --worktree**。
+//     代价(明写):MM 文件若落在本次提交集内,任务按工作树内容跑、回写 `git add` 会连同
+//     未暂存部分一起 stage —— 方向是"多暂存"而不是"静默丢弃",且本仓提交面由
+//     safe-commit 只 add 声明文件,影响面收敛在本次提交集。两害相权取其轻,取"不丢"。
+//
+// 与 GIT_INDEX_FILE 保留的配合:`commit --only` 的临时索引只含本次路径、且 index 与
+// worktree 逐字相同 ⇒ 既不产生 MM 判定,也不存在"别人的文件";lint-staged 全程只写
+// 本次提交的临时索引,共享 index.lock 一次都不碰。
+const LINT_STAGED_CMD =
+  'npx lint-staged --max-arg-length 4096 --no-stash --no-hide-partially-staged'
 // 递增退避 250/750/2000/5000ms:EBUSY 是负载相关的间歇病(本机空载复现率低、并发时升高),
 // 给它几拍重试通常第二三次就通了。间隔递增是为了不给本机已经很忙的进程面再加压。
 // 2026-10-08 由 [200,600,1500] 加厚到 4 档:当日多 agent 并发提交峰值期实测 5/5 连败 ——
@@ -528,26 +543,31 @@ function runLintStaged() {
     console.error(
       `     1) 查并发面:tasklist | findstr /i "git node" —— 杀掉残留的 git/node 进程再 commit;`,
     )
+    // ⚠️ 手工复跑必须与 LINT_STAGED_CMD **同旗**:少给 --no-hide-partially-staged 会走
+    //    `git restore --worktree` 那条路,当场把并发会话未暂存的改动卷进 patch(见上方双开关注释)。
     console.error(
-      `     2) 原样手工复跑一次(EBUSY 是间歇病,单独跑通常就通):npx lint-staged --max-arg-length 4096 --no-stash`,
+      `     2) 原样手工复跑一次(EBUSY 是间歇病,单独跑通常就通):npx lint-staged --max-arg-length 4096 --no-stash --no-hide-partially-staged`,
     )
     console.error(
       `     3) 仍红则先看 lint-staged 自己的 git 步骤是否真有问题(别把这句 git error 当 lint 报错):`,
     )
-    console.error(`        npx lint-staged --max-arg-length 4096 --no-stash --debug`)
+    console.error(
+      `        npx lint-staged --max-arg-length 4096 --no-stash --no-hide-partially-staged --debug`,
+    )
   }
-  // ⚠️ 同款指纹的第二种病(2026-10-08 探针实证,勿再误诊):「Failed to stage changes from tasks」
-  //    也可能是 pathspec/--only 提交形态 —— `git commit -- <路径>` 在钩子运行期间父 git 持有
-  //    .git/index.lock(GIT_INDEX_FILE=next-index-*.lock),而本薄壳 unset 了 GIT_INDEX_FILE ⇒
-  //    lint-staged 的 git add 落在真实索引上必然失败:任务全绿仍死在 staging 步,重试无效
-  //    (与负载无关;探针实测 --only 钩子期 LOCK-HELD / plain 提交 NO-LOCK)。它的错误同样被
-  //    吞进 lint-staged 的 debugLog,只剩指纹文案,于是被上面当成 EBUSY 反复退避。
+  // ⚠️ 同款指纹的第二种病(2026-10-08 探针实证,2026-11-03 **已根治**):「Failed to stage changes from tasks」
+  //    原形态是 pathspec/--only 提交 —— `git commit -- <路径>` 期间父 git 持有 .git/index.lock
+  //    (GIT_INDEX_FILE=next-index-*.lock),而旧薄壳把这个指针无条件 unset ⇒ lint-staged 的
+  //    git add 落在真实索引上必然失败:任务全绿仍死在 staging 步,重试无效(与负载无关)。
+  //    现在 shell 与 sanitizeGitEnv 都会保留**存在**的 GIT_INDEX_FILE 指针 ⇒ 本形态理论上不再出现。
+  //    若仍见到这句指纹,先按下一行核对"指针是不是被谁在中途清掉了",别再照旧建议改普通提交:
+  //    那会绕过本次修复,把 lint-staged 重新推回共享索引。
   if (last && last.stderrText && last.stderrText.includes('Failed to stage changes from tasks')) {
     console.error(
-      `   ⚠ 若本次提交带了路径参数(git commit -m ... -- <路径>):这是 --only 持锁病,不是 EBUSY ——`,
+      `   ⚠ 见到本指纹:旧形态(2026-11-03 前)是 --only 持锁病;本次修复后若仍出现,先核对钩子内`,
     )
     console.error(
-      `     改用普通提交(git commit -m ...,不带路径参数;先确认暂存区只剩本笔文件),其余守门照常跑,勿再重试。`,
+      `     GIT_INDEX_FILE 是否仍是父 git 给的 next-index-*.lock(存在且非空)——被清掉才是病根。`,
     )
   }
   if (last && last.stderrText) {

@@ -3,12 +3,18 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * WorkBuddy 回灌定时接线锁(2026-10-29 立)。
+ * WorkBuddy 回灌接线锁(2026-10-29 立;2026-11-03 定时腿撤除后改向)。
  *
- * 立因:落库脚本与服务层注释都写着"worker cron 每 10 分钟经 relay-workbuddy-session-sync
- * 回灌",而 worker 实际只注册了 trae/qoder —— 判据造好了没装车(§0.9)。本锁把"第三条腿
- * 真的在提交链上跑"钉住,形态摘掉即翻红。
- * 判据面与 relay-{trae,qoder}-session-sync-wiring.test.ts 同构(§22c:读同一把尺子)。
+ * 立因(原):落库脚本与服务层注释都写着"worker cron 每 10 分钟经 relay-workbuddy-session-sync
+ * 回灌",而 worker 实际只注册了 trae/qoder —— 判据造好了没装车(§0.9)。
+ *
+ * 2026-11-03 改向:API 进程以 LocalSystem 身份运行,结构上读不到交互用户的 auth 文件,
+ * 该腿每 10 分钟必然失败一次,属纯噪声;WorkBuddy 续期本就由服务端 sweep 负责(server 策略),
+ * 故撤除定时注册。本锁改为钉住「不再被误加回来」:
+ * ① worker 注册表不再有 upsert / cron 常量 / job 名;
+ * ② 不再按 job.name 派发该腿;
+ * ③ 遗留 Redis scheduler 必须显式移除(删代码不会自动清理);
+ * ④ 脚本与手动触发口保留为一次性工具。
  */
 import { test } from 'vitest'
 import assert from 'node:assert/strict'
@@ -26,17 +32,23 @@ const ORCHESTRATOR_SRC = readFileSync(
   'utf8',
 )
 
-test('① 定时注册:workbuddy-session-sync 走 upsertJobScheduler 且每 10 分钟', () => {
-  assert.match(WORKER_SRC, /upsertJobScheduler\(\s*'workbuddy-session-sync-cron'/)
-  assert.match(WORKER_SRC, /WORKBUDDY_SYNC_CRON_PATTERN\s*=\s*'\*\/10 \* \* \* \*'/)
-  assert.match(WORKER_SRC, /name:\s*'workbuddy-session-sync'/)
+test('① 定时注册已撤除:worker 注册表里不再存在 workbuddy-session-sync', () => {
+  assert.doesNotMatch(
+    WORKER_SRC,
+    /upsertJobScheduler\(\s*'workbuddy-session-sync-cron'/,
+    'workbuddy 定时注册不得加回(服务身份读不到交互用户 auth 文件,该腿必然失败)',
+  )
+  assert.doesNotMatch(WORKER_SRC, /WORKBUDDY_SYNC_CRON_PATTERN/)
+  assert.doesNotMatch(WORKER_SRC, /name:\s*'workbuddy-session-sync'/)
 })
 
-test('② 处理器分支先于 unknown-job 兜底,且点名本 job', () => {
-  const branch = WORKER_SRC.indexOf("job.name === 'workbuddy-session-sync'")
-  const fallback = WORKER_SRC.indexOf("job.name !== 'sweep'")
-  assert.ok(branch > 0, '缺少 workbuddy-session-sync 处理分支')
-  assert.ok(fallback > branch, '分支必须排在 unknown-job 兜底之前')
+test('② 处理分支已撤除:不再按 job.name 派发该腿', () => {
+  assert.doesNotMatch(WORKER_SRC, /job\.name === 'workbuddy-session-sync'/)
+})
+
+test('②b 遗留 Redis scheduler 显式移除(删代码不会自动清理注册)', () => {
+  assert.match(WORKER_SRC, /RETIRED_WORKBUDDY_SCHEDULER_ID/)
+  assert.match(WORKER_SRC, /removeJobScheduler\(RETIRED_WORKBUDDY_SCHEDULER_ID\)/)
 })
 
 test('③ 手动触发口按名交出,且编排脚本名在位(任务中心 import 的是名字,不是路径)', () => {

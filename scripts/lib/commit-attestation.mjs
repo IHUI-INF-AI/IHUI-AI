@@ -141,6 +141,9 @@ export function buildCommittedRecord({
   declaredFiles,
   gatesRan,
   hookSkipped = false,
+  // 跳门原因(2026-11-02):只有 hookSkipped 为真且调用方给了原因时才写 —— 带钩子路径的记录
+  // 形状保持原样(不多一个空串字段),读侧也只在有值时留字段。
+  hookSkipReason = '',
   ticketKey = '',
   ticketLine = '',
   nowIso = new Date().toISOString(),
@@ -157,6 +160,11 @@ export function buildCommittedRecord({
     declaredFiles: (Array.isArray(declaredFiles) ? declaredFiles : []).map(String),
     gatesRan: gatesRan === true,
     hookSkipped: hookSkipped === true,
+  }
+  // 跳门原因:与 hookSkipped 同生同灭(没跳门就不写,免得空白字段被读成"跳过但没原因")。
+  if (rec.hookSkipped) {
+    const why = String(hookSkipReason ?? '').trim()
+    if (why !== '') rec.hookSkipReason = why.slice(0, 400)
   }
   // 票→提交环(决策链审计用):只在会话显式给了票键时记,缺席 = 无票提交(如运维/清扫),
   // 不写空串冒充"票已绑定"(§0.3:没判绝不写成判过)。
@@ -247,6 +255,8 @@ export function readLedgerRecords(root = REPO_ROOT) {
         // 票→提交环:读侧同样只留显式绑定过的,缺席读成空串(调用方按空串判"无票")。
         ticketKey: typeof o.ticketKey === 'string' ? o.ticketKey : '',
         ticketLine: typeof o.ticketLine === 'string' ? o.ticketLine : '',
+        // 跳门原因(2026-11-02):有值才留(缺席读成空串 = 默认带钩子路径/旧记录)。
+        hookSkipReason: typeof o.hookSkipReason === 'string' ? o.hookSkipReason : '',
       })
     })
   return { ok: true, state: 'read', path, records, badLines, why: null }
