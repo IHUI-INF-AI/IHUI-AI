@@ -143,7 +143,11 @@ describe('号池 sweep 产出面 × 消费面同键', () => {
   it('产出面每一枚值都是标量(不得偷偷多发对象/嵌套键而消费面不解码)', async () => {
     const ran = await sweepAccountPool()
     for (const [key, value] of Object.entries(ran)) {
-      expect(typeof value, `sweepAccountPool().${key}`).toMatch(/^(number|boolean)$/)
+      // string/null 承载 refreshExpiresAt 与 refreshExpiryWarn(标量);对象/数组一律判红
+      expect(
+        value === null || ['number', 'boolean', 'string'].includes(typeof value),
+        `sweepAccountPool().${key}`,
+      ).toBe(true)
     }
   })
 
