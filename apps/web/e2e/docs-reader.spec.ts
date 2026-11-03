@@ -54,8 +54,10 @@ async function probeHeading(page: import('@playwright/test').Page): Promise<Poin
   await page.waitForSelector('.ai-panel-root', { timeout: 5_000 }).catch(() => {})
   const box = await h1.boundingBox()
   expect(box, 'H1 必须量得到盒(量不到 = 未判定,不得记绿)').not.toBeNull()
-  const x = (box as { x: number }).x + (box as { x: number }).width / 2
-  const y = (box as { y: number }).y + (box as { y: number }).height / 2
+  // boundingBox 的完整盒型是 { x, y, width, height }(原断言只断言了 x,访问 width 时 TS 判空)
+  const boxRect = box as { x: number; y: number; width: number; height: number }
+  const x = boxRect.x + boxRect.width / 2
+  const y = boxRect.y + boxRect.height / 2
 
   return page.evaluate(
     ({ x, y, h1Box }) => {
