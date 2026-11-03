@@ -9118,6 +9118,30 @@
           "title": "メディアファイルの数が上限を超えています",
           "action": "添付を減らして再試行"
         },
+        "MEMORY_DREAM_FAILED": {
+          "title": "記憶の統合に失敗しました",
+          "action": "しばらくしてから再試行してください"
+        },
+        "MEMORY_FORGET_FAILED": {
+          "title": "記憶の整理に失敗しました",
+          "action": "しばらくしてから再試行してください"
+        },
+        "MEMORY_PROCEDURAL_SAVE_FAILED": {
+          "title": "ツール使用記憶の保存に失敗しました",
+          "action": "しばらくしてから再試行してください"
+        },
+        "MEMORY_RECALL_FAILED": {
+          "title": "記憶の検索に失敗しました",
+          "action": "しばらくしてから再試行してください"
+        },
+        "MEMORY_SAVE_FAILED": {
+          "title": "記憶の保存に失敗しました",
+          "action": "しばらくしてから再試行してください"
+        },
+        "MEMORY_TOPICS_FAILED": {
+          "title": "記憶テーマの生成に失敗しました",
+          "action": "しばらくしてから再試行してください"
+        },
         "MISSING_DATA": {
           "title": "必須パラメータがありません",
           "action": "パラメータを補って再試行"
