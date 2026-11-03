@@ -40,28 +40,28 @@ export default function VipPayConfirm({
         hoverClass="opacity-60"
       >
         <View className="flex items-center justify-between mb-4">
-          <Text className="text-base font-medium vip-text">
+          <Text className="text-title font-medium vip-text">
             {tt('pay.confirmOrder', '确认订单')}
           </Text>
-          <Text className="text-sm vip-text-muted" onClick={onCancel}>
+          <Text className="text-body vip-text-muted" onClick={onCancel}>
             ×
           </Text>
         </View>
 
         <View className="bg-muted rounded-xl p-4 mb-4">
           <View className="flex justify-between items-center mb-2">
-            <Text className="text-sm vip-text">{planName}</Text>
-            <Text className="text-base font-bold text-warning">¥{price}</Text>
+            <Text className="text-body vip-text">{planName}</Text>
+            <Text className="text-title font-bold text-warning">¥{price}</Text>
           </View>
           {originalPrice && (
             <View className="flex justify-between items-center">
-              <Text className="text-xs vip-text-muted">{tt('pay.originalPrice', '原价')}</Text>
-              <Text className="text-xs vip-text-muted line-through">¥{originalPrice}</Text>
+              <Text className="text-label vip-text-muted">{tt('pay.originalPrice', '原价')}</Text>
+              <Text className="text-label vip-text-muted line-through">¥{originalPrice}</Text>
             </View>
           )}
         </View>
 
-        <Text className="block text-sm vip-text mb-2">{tt('pay.paymentMethod', '支付方式')}</Text>
+        <Text className="block text-body vip-text mb-2">{tt('pay.paymentMethod', '支付方式')}</Text>
         <View className="flex space-x-3 mb-4">
           <View
             className={`flex-1 flex items-center justify-center py-3 rounded-lg border-2 ${
@@ -76,7 +76,7 @@ export default function VipPayConfirm({
               size={28}
               color="var(--color-muted-foreground)"
             />
-            <Text className="text-sm vip-text">{tt('pay.wechat', '微信支付')}</Text>
+            <Text className="text-body vip-text">{tt('pay.wechat', '微信支付')}</Text>
           </View>
           <View
             className={`flex-1 flex items-center justify-center py-3 rounded-lg border-2 ${
@@ -91,7 +91,7 @@ export default function VipPayConfirm({
               size={28}
               color="var(--color-muted-foreground)"
             />
-            <Text className="text-sm vip-text">{tt('pay.alipay', '支付宝')}</Text>
+            <Text className="text-body vip-text">{tt('pay.alipay', '支付宝')}</Text>
           </View>
         </View>
 
@@ -101,7 +101,7 @@ export default function VipPayConfirm({
           onClick={onConfirm}
           hoverClass="opacity-60"
         >
-          <Text className="text-sm text-warning-foreground font-medium">
+          <Text className="text-body text-warning-foreground font-medium">
             {t('pay.confirmPay', { price })}
           </Text>
         </View>

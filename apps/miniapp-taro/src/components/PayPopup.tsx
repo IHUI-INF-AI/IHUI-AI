@@ -143,10 +143,10 @@ export default function PayPopup({
       >
         {/* 标题区 */}
         <View className="flex items-center justify-between mb-4">
-          <Text className="text-base font-medium text-foreground">
+          <Text className="text-title font-medium text-foreground">
             {title || tt('pay.purchaseContent', '购买内容')}
           </Text>
-          <Text className="text-sm text-muted-foreground" onClick={onClose}>
+          <Text className="text-body text-muted-foreground" onClick={onClose}>
             {tt('common.close', '关闭')}
           </Text>
         </View>
@@ -154,21 +154,21 @@ export default function PayPopup({
         {/* 价格区(对齐原项目 product-price:¥符号 + 大号金额 + 划线原价) */}
         <View className="mb-4">
           {isFree ? (
-            <Text className="text-2xl font-bold text-primary">{tt('common.free', '免费')}</Text>
+            <Text className="text-display font-bold text-primary">{tt('common.free', '免费')}</Text>
           ) : isLimitFree ? (
-            <Text className="text-2xl font-bold text-warning">
+            <Text className="text-display font-bold text-warning">
               {tt('pay.limitedFree', '限时免费')}
             </Text>
           ) : isVipFree ? (
-            <Text className="text-2xl font-bold text-warning">
+            <Text className="text-display font-bold text-warning">
               {tt('pay.memberFree', '会员免费')}
             </Text>
           ) : (
             <View className="flex items-baseline">
               <Text className="text-lg font-bold text-destructive">¥</Text>
-              <Text className="text-2xl font-bold text-destructive">{displayAmount}</Text>
+              <Text className="text-display font-bold text-destructive">{displayAmount}</Text>
               {displayOriginal && (
-                <Text className="text-sm text-muted-foreground line-through ml-2">
+                <Text className="text-body text-muted-foreground line-through ml-2">
                   ¥{displayOriginal}
                 </Text>
               )}
@@ -193,7 +193,7 @@ export default function PayPopup({
         {/* 支付方式选择(对齐原项目 payment-options:微信支付选项) */}
         {isPaid && (
           <View className="mb-4">
-            <Text className="block text-sm text-foreground mb-2">
+            <Text className="block text-body text-foreground mb-2">
               {tt('pay.paymentMethod', '支付方式')}
             </Text>
             <View className="flex space-x-3">
@@ -206,7 +206,7 @@ export default function PayPopup({
                 onClick={() => onMethodChange?.('wechat')}
                 hoverClass="opacity-60"
               >
-                <Text className="text-sm text-foreground">{tt('pay.wechat', '微信支付')}</Text>
+                <Text className="text-body text-foreground">{tt('pay.wechat', '微信支付')}</Text>
               </View>
               <View
                 className={`flex-1 flex items-center justify-center py-3 rounded-lg border-2 ${
@@ -217,7 +217,7 @@ export default function PayPopup({
                 onClick={() => onMethodChange?.('alipay')}
                 hoverClass="opacity-60"
               >
-                <Text className="text-sm text-foreground">{tt('pay.alipay', '支付宝')}</Text>
+                <Text className="text-body text-foreground">{tt('pay.alipay', '支付宝')}</Text>
               </View>
             </View>
           </View>
@@ -226,7 +226,7 @@ export default function PayPopup({
         {/* 错误提示(对齐"用户友好错误提示"约束) */}
         {errorMsg && (
           <View className="mb-3">
-            <Text className="text-xs text-destructive">{errorMsg}</Text>
+            <Text className="text-label text-destructive">{errorMsg}</Text>
           </View>
         )}
 
@@ -238,7 +238,7 @@ export default function PayPopup({
               onClick={onPay}
               hoverClass="opacity-60"
             >
-              <Text className="text-sm text-warning">{tt('pay.memberFree', '会员免费')}</Text>
+              <Text className="text-body text-warning">{tt('pay.memberFree', '会员免费')}</Text>
             </View>
           )}
           {isPaid && (
@@ -249,7 +249,7 @@ export default function PayPopup({
               onClick={handlePay}
               hoverClass="opacity-60"
             >
-              <Text className="text-sm text-[var(--color-surface-light)] font-medium">
+              <Text className="text-body text-[var(--color-surface-light)] font-medium">
                 {isLoading
                   ? tt('pay.paying', '支付中...')
                   : `${tt('pay.buyNow', '立即支付')} ¥${displayAmount}`}
@@ -261,10 +261,10 @@ export default function PayPopup({
         {/* 协议链接(对齐原项目 agreement:点击立即支付表示同意《用户协议》) */}
         {isPaid && (
           <View className="mt-3 text-center">
-            <Text className="text-xs text-muted-foreground">
+            <Text className="text-label text-muted-foreground">
               {tt('pay.agreementPrefix', '点击立即支付,表示同意')}
             </Text>
-            <Text className="text-xs text-[var(--color-link)] ml-1">
+            <Text className="text-label text-[var(--color-link)] ml-1">
               {tt('pay.userAgreement', '《用户协议》')}
             </Text>
           </View>
