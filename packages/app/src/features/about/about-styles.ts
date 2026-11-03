@@ -24,7 +24,12 @@ export function createAboutStyles(tk: AppThemeTokens) {
     headerTitle: { fontSize: rnType.subtitle.size, fontWeight: '700', color: tk.text.primary },
     scroll: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'], gap: rnSpacing.md },
     hero: { alignItems: 'center', gap: rnSpacing.sm, paddingTop: rnSpacing.sm },
-    heroTitle: { fontSize: 28, fontWeight: '700', textAlign: 'center', color: tk.text.primary },
+    heroTitle: {
+      fontSize: rnType.displayLg.size,
+      fontWeight: '700',
+      textAlign: 'center',
+      color: tk.text.primary,
+    },
     bodyText: { fontSize: 13, lineHeight: 20, color: tk.text.secondary },
     itemLabel: { fontSize: rnType.body.size, color: tk.text.primary },
     sectionTitle: { fontSize: rnType.subtitle.size, fontWeight: '700', color: tk.text.primary },
