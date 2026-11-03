@@ -850,8 +850,9 @@ git branch -d hotfix/v1.2.4
      否则 Release 已经上线、而 `desktop-feed.json` 仍吐旧版本。
      下载页快照由 `resolve-desktop-download.mjs` 在 `release-desktop.yml` 与每日 `sync-downloads.yml` 两处
      **重生成**(2026-10-17 起 CI 只上传产物、不再自动提交回 main,入库需人工提交);
-     Windows 包下载面**国内优先 Gitee、境外回落 GitHub**:仅当 Gitee 资产存在且 Content-Length 与
-     GitHub 原件 size **逐字节对账一致**时才出 Gitee 直链,否则保持 GitHub release 原始 URL 并写告警 ——
+     全部桌面平台(Windows / macOS x86_64 / macOS aarch64 / Linux)下载面**国内主通道 Gitee、境外兜底 GitHub**:
+     仅当 Gitee 资产存在且 Content-Length 与 GitHub 原件 size **逐字节对账一致**时才出 Gitee 直链,
+     否则保持 GitHub release 原始 URL 并写告警 ——
      同名不等于同物(0.1.75 实锤:同名差 4,173 字节 ⇒ 客户端下载成功而验签必失败)。
      (原第 2 条 GitHub `desktop-updater-feed/latest.json` 回退端点已删除——它只由 CI 维护、
      本机发版通道无 GH_TOKEN,属"看似有兜底、实际随发布路径分叉"的假能力。)
@@ -921,7 +922,15 @@ git push origin desktop-v0.1.15
 3. `release-desktop.yml` 自动执行:3 个构建 job(windows-x64 / macos-universal / linux-x64;macOS universal 一份产物同时覆盖 Apple Silicon 与 Intel)构建 → 上传安装包 + `.sig` 签名包到 Release → `publish-updater-json` 聚合全部平台生成 `latest.json`(仅上传到发版 Release;原"固定 feed tag `desktop-updater-feed`"上传已随 2026-10-05 兜底端点删除移除)→ `sync-downloads` 把产物同步到 `apps/web/public/downloads/` 并作为 artifact 留档(2026-10-17 起 CI 不再自动提交回 main)
    - **注意**:exe/msi 不入库是 `.gitignore` 的决定(`apps/web/public/downloads/desktop/`),**不是**体积限制 —— 2026-10-18 现读 Windows 安装包约 10 MB(旧句"~230MB 超过 GitHub 单文件 100MB 限制"属 `offlineInstaller` 时代,枚 ac695ce9d7a 改回 embedBootstrapper 后已不成立)。
 4. `sync-downloads` job 同时运行 `scripts/resolve-desktop-download.mjs`,从 GitHub Releases API **动态解析**最新 `desktop-v*` release 的安装包(URL/大小/版本/发布日期),刷新 `apps/web/src/config/desktop-feed.generated.ts` 快照并作为 artifact 留档。Web 下载页(`/download/desktop`)构建期读取该快照渲染下载按钮——**发版后仍需有人跑 `pnpm resolve:desktop-download` 并提交,下载页才会换到新版**(2026-10-17 起 CI 不再自动提交回 main,"自动更新、无需手动"那句已不成立)。
-5. **烘焙更新器第一数据源(必做,漏做则 `/desktop-feed.json` 继续吐旧版)**:等 CI 的 build(含 SignPath 签名与 `.sig` 重算)产出后(**公开更新源只烘焙 CI 产出的包,SignPath 凭据齐备时会自动带 Authenticode**;本机 `release-desktop-local.mjs --allow-unsigned-upload` 的包只作审批前应急下载,不得烘焙进本文件),从**本次 Release** 取 `latest.json`(`gh release download desktop-vX.Y.Z -p latest.json -O .ihui-agent/tmp/latest.json`),1:1 写入 `apps/web/src/config/desktop-latest.generated.ts`;Windows 直链**优先 Gitee**(仅当已补传且 Content-Length 与 GitHub 原件逐字节相等),否则保持 GitHub release 原始 URL 并写告警;改任何 URL 前必须按 Content-Length 与 GitHub 资产 size 对账(同名不同字节 ⇒ 下载成功但验签必失败,0.1.75 已实锤)。验收三条:① `version` 等于本次 tag 去掉 `desktop-v`;② Windows 直链 host ∈ {`gitee.com`, `github.com`},Content-Length 等于 Release 里同名 `.exe` 的 size(host=`gitee.com` 时还须等于 GitHub 原件);③ 四平台 `signature` 与 Release 的 `latest.json` 逐字相同。改完提交并等 Web 部署生效。
+5. **烘焙更新器第一数据源(必做,漏做则 `/desktop-feed.json` 继续吐旧版)**:等 CI 的 build(含 SignPath 签名与 `.sig` 重算)产出后(**公开更新源只烘焙 CI 产出的包,SignPath 凭据齐备时会自动带 Authenticode**;本机 `release-desktop-local.mjs --allow-unsigned-upload` 的包只作审批前应急下载,不得烘焙进本文件),从**本次 Release** 取 `latest.json`(`gh release download desktop-vX.Y.Z -p latest.json -O .ihui-agent/tmp/latest.json`),再跑全平台烘焙:
+
+```bash
+export GITEE_OWNER=JLSLSSZWHYXGS_0   # 或 --gitee-owner;未设时从旧烘焙文件的 Gitee 直链派生
+node scripts/bake-desktop-latest.mjs --latest-json .ihui-agent/tmp/latest.json --tag desktop-vX.Y.Z --all-platforms --check  # 只读比对
+node scripts/bake-desktop-latest.mjs --latest-json .ihui-agent/tmp/latest.json --tag desktop-vX.Y.Z --all-platforms          # 写盘 + 水印
+```
+
+判据:逐平台按资产名取 GitHub Releases API 的 size,再 HEAD Gitee 直链;**只有 Gitee 附件存在且 Content-Length 与 GitHub 原件逐字节相等**才改写为 Gitee 直链,缺附件/字节不等/量不到 ⇒ 保留 GitHub 并告警 —— 禁止未对账就改写(同名不同字节 ⇒ 下载成功但验签必失败,0.1.75 已实锤)。验收四条:① `version` 等于本次 tag 去掉 `desktop-v`;② 被改写的平台 host=`gitee.com` 且字节等于 GitHub 原件,未改写的保持 `github.com`;③ 四平台 `signature` 与 Release 的 `latest.json` 逐字相同;④ `--check` exit 0。改完提交并等 Web 部署生效。
 6. 用户端:应用启动时 `checkForUpdate()` 拉唯一端点(`https://aizhs.top/desktop-feed.json`)的 `latest.json` → 比对版本 → 下载签名包 → `downloadAndInstall()` 验签安装 → 重启
 
 > 本机 `scripts/release-desktop-local.mjs` 是 Windows 应急通道:它只做 Tauri 更新签名,不做 Authenticode,**默认上传 Gitee(国内主通道)**;本地验证必须显式 `--no-upload`,产物仅留本机。确需在 SignPath 审批前发未签名包,显式加 `--allow-unsigned-upload`,且该包不得烘焙进公开更新源。
