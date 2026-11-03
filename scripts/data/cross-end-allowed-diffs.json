@@ -902,26 +902,6 @@
       "count": 1,
       "reason": "RN 用 fontSize 作图标/emoji/首字母的字形盒,web 侧同类元素由 SVG/图标组件承载,没有可对齐的排版档;登记为 RN 单侧展示元素,零观感改动。",
       "evidence": "check-web-rn-style-tiers --json: packages/app/src/features/topup-success/TopupSuccessScreen.tsx 的 icon 为 fontSize=64(1 处);台账 scripts/data/cross-end-fork-decisions.json"
-    },
-    {
-      "component": "Button",
-      "platform": "both",
-      "owner": "cross-end-ui",
-      "expires": "2026-11-17",
-      "key": "geometry",
-      "count": 12,
-      "reason": "存量债首次可见,非本批引入:web 腿此前不可判读(父面 286ce1da49f 单独检出复跑本门 RC=0、配对 7 对;本批提交后 8 对)。两侧 Button 源文件自 9cb7c5a858(10-26)起零改动(现读 git log -- 两文件)。小程序侧只有 40 一档、web 侧 4/6/8/10/12/24/28/32/36/44/48 十一档。收口姿势按本门口径②:让小程序 Button 消费 packages/design-tokens/src/button-variants.ts 的 SHARED_BUTTON_* 同一份表(数值进 shared、类名留各端),禁止给单端补数字凑平。到期前必须复核收敛或续期,过期即红。",
-      "evidence": "check-cross-end-ui-parity --json: web.findings Button diffCount=12(miniapp apps/miniapp-taro/src/components/Button.tsx onlyMiniapp=[40] / web packages/ui-react/src/components/button.tsx onlyRn=[4,6,8,10,12,24,28,32,36,44,48])"
-    },
-    {
-      "component": "Button",
-      "platform": "both",
-      "owner": "cross-end-ui",
-      "expires": "2026-11-17",
-      "key": "radius",
-      "count": 2,
-      "reason": "同上族同成因(小程序圆角 6 档 vs web 4 档,两侧源文件本批未触碰)。收口=两端同取 packages/design-tokens/src/radius.js 的角色档,不各自抄档。到期前复核。",
-      "evidence": "check-cross-end-ui-parity --json: web.findings Button radiusCount=2(onlyMiniapp=[6] / onlyRn=[4])"
     }
   ]
 }
