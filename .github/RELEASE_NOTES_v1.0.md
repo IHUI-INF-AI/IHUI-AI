@@ -99,7 +99,7 @@ Tauri · Electron · Expo · React Native · Taro · WXT · Next.js · Remix · 
 ## 5 分钟快速开始
 
 ```bash
-# 1. Clone(国内用户用 Gitee/GitCode 镜像更快)
+# 1. Clone(GitHub 是唯一源;国内镜像通道已于 2026-10-23 下线)
 git clone https://github.com/IHUI-INF-AI/IHUI-AI.git
 cd IHUI-AI
 
@@ -120,10 +120,10 @@ pnpm dev
 # ai-service: http://localhost:8803
 ```
 
-国内镜像:
+> 国内镜像通道已于 2026-10-23 下线（Gitee/GitCode 代码镜像均停止同步，仓库不再可用），
+> 本项目只保留 GitHub 一处源：
 
-- Gitee:https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI
-- GitCode:https://gitcode.com/IHUI-AI/IHUI-AI
+- GitHub:https://github.com/IHUI-INF-AI/IHUI-AI
 
 ---
 

@@ -726,8 +726,9 @@ oem11.inf，gamevieweridddriver.inf_amd64_9586929572de2d1b"）——即"彻底�
   整仓（含全历史 + LFS）推到 Gitee 与 GitCode 两个国内仓，该作业已随渠道弃用**整体删除**，
   仓库配置里的 `gitee` / `gitcode` 远端也已移除，`git remote -v` 现只有 `origin`（GitHub）一个。
   ⇒ **进 git 的东西不再被同步到第三方托管平台。**
-  仍存在的第三方出站只有一处：桌面端安装包作为 release 附件上传到 Gitee（`release-desktop.yml`
-  的 `sync-gitee` 作业），供国内用户下载安装包；它只承载**构建产物**，不承载仓库历史。
+  桌面端安装包上传到第三方平台的出站也已于 2026-11-03 下线：Gitee 发布目标（空仓、零推送历史）
+  停用，`release-desktop.yml` 的 `sync-gitee` 作业不再执行；CI 只把安装包上传到 GitHub Release，
+  Gitee 不再是下载/更新面的任何一环。它历史上只承载**构建产物**，不承载仓库历史。
   历史事实仍须记住：2026-10-23 之前推过的全部提交与 LFS 对象**已经**留在那两个平台上，
   删除作业不会回收它们；需要彻底清除须到对应平台删除仓库或强制 GC（属机主侧操作）。
   同时该任务会**删除国内仓的内部备份 tag**（`:99-148`，`git push --delete`）。
