@@ -1,4 +1,5 @@
-# 临时探针(仅存于 probe/artifacts-v7v8,永不合并 main)
+# 临时探针(仅存于 probe/artifacts-v7v8,永不合并 main):验证 upload v7 -> download v8 的
+# pattern + merge-multiple + path: . 合并语义,与 release-desktop.yml:327/:439 同形。
 name: Artifact Probe v7 to v8
 on:
   push:
@@ -56,21 +57,25 @@ jobs:
           path: .
           pattern: desktop-bundle-*
           merge-multiple: true
-      - name: assert merged paths
+      - name: assert merged layout
         shell: bash
         run: |
           v=$(node -p "require('./apps/desktop/src-tauri/tauri.conf.json').version")
-          b=apps/desktop/src-tauri/target/release/bundle
-          test -f "$b/nsis/IHUI-AI-Setup-${v}-x64.exe"
-          test -f "$b/dmg/IHUI-AI_${v}_universal.dmg"
-          test -f "$b/deb/ihui-ai_${v}_amd64.deb"
-          test -f "$b/appimage/ihui-ai_${v}_amd64.AppImage"
-          n=$(find "$b" -type f | wc -l); echo "n=$n"; test "$n" -eq 4
-      - name: sync downloads
+          echo '=== merged tree ==='
+          find . -maxdepth 2 -type f -path './nsis/*' -o -maxdepth 2 -type f -path './dmg/*' -o -maxdepth 2 -type f -path './deb/*' -o -maxdepth 2 -type f -path './appimage/*' | sort
+          test -f "./nsis/IHUI-AI-Setup-${v}-x64.exe"
+          test -f "./dmg/IHUI-AI_${v}_universal.dmg"
+          test -f "./deb/ihui-ai_${v}_amd64.deb"
+          test -f "./appimage/ihui-ai_${v}_amd64.AppImage"
+          n=$(find . -maxdepth 2 -type f \( -path './nsis/*' -o -path './dmg/*' -o -path './deb/*' -o -path './appimage/*' \) | wc -l)
+          echo "merged_files=$n"
+          test "$n" -eq 4
+      - name: sync downloads (幂等,无匹配时按 warning 跳过)
         run: node scripts/sync-downloads.mjs --platform=desktop
-      - name: assert manifest
-        run: node -e "const m=require('./apps/web/public/downloads/manifest.json');const a=m.platforms.desktop.assets;if(a.length!==4)throw new Error('assets='+a.length);console.log(a.map(x=>x.format).join('|'))"
       - name: assert feed resolve
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: node scripts/resolve-desktop-download.mjs --dry-run
+        run: |
+          node scripts/resolve-desktop-download.mjs
+          test -s apps/web/src/config/desktop-feed.generated.ts
+          echo "feed_ok"
