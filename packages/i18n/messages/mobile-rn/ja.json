@@ -6040,7 +6040,16 @@
       "late": "遅刻",
       "absent": "欠席",
       "leave": "休み"
-    }
+    },
+    "chooseAction": "操作を選択",
+    "actionDone": "操作に成功しました",
+    "actionFailed": "操作に失敗しました",
+    "needClassId": "クラス情報がないため代理の登校・下校ができません",
+    "batchTitle": "クラス一括点呼",
+    "chooseClass": "点呼するクラスを選択",
+    "noClass": "現在のリストに選択できるクラスがありません",
+    "batchResult": "点呼完了：新規 {created}、スキップ {skipped}、見落とし {missed}",
+    "qrEntry": "チェックインQRを表示"
   },
   "eduGrades": {
     "title": "成績管理",
@@ -7207,5 +7216,31 @@
     "empty": "コンテンツはまだありません。おしみに",
     "searchNoResult": "結果なし",
     "retry": "再試行"
+  },
+  "eduMyAttendance": {
+    "title": "自分の出席",
+    "selfCheckIn": "自分で登校登録",
+    "date": "日付",
+    "notLoggedIn": "ログインしていないため操作できません",
+    "classByBackendHint": "クラスは在籍情報に基づいて自動的に決定されます",
+    "scanCheckIn": "スキャンしてチェックイン"
+  },
+  "eduAttendanceQr": {
+    "title": "チェックインQRコード",
+    "chooseClass": "クラスを選択",
+    "noClass": "選択できるクラスがありません",
+    "classLoadFailed": "クラス一覧の読み込みに失敗しました",
+    "pickClassFirst": "最初にクラスを選択してください",
+    "qrTip": "生徒はこのコードをスキャンしてチェックインで読み取ります",
+    "expiresIn": "{s} 秒で有効期限切れ",
+    "refresh": "再発行",
+    "nextStepHint": "出欠ルールを有効化しスキャン鍵(qrSecret)を設定してから再発行してください",
+    "scanTitle": "スキャンしてチェックイン",
+    "scanHint": "先生のチェックインQRコードを枠内に合わせてください",
+    "scanSubmitting": "チェックイン中...",
+    "scanInvalidCode": "本システムのチェックインQRコードではありません",
+    "scanDone": "チェックインしました",
+    "scanFailed": "チェックインに失敗しました",
+    "needLogin": "ログインしてからスキャンしてください"
   }
 }

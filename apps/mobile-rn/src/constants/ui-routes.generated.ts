@@ -8,12 +8,12 @@
 // 改路由请改 RootNavigator.tsx 后重新生成。
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/mobile-rn/scripts/generate-ui-routes.mjs
-// sourceCommit: 0223f5e98721381b52b082c4c2e4ba26f0278aae
-// inputsSha256: ac6b54556ced4312a5217a3d418f72efd83c820566c20fc243fbdf2c108dda1e
-// input: apps/mobile-rn/src/navigation/RootNavigator.tsx 4299e2602d618f2895f465bf04af9e7e9531abccd6840c9fa96b9c1c5e174429
+// sourceCommit: 153bf2b63d04c9265114351ec5d60b6352fed529
+// inputsSha256: 15e584508c6d219b99f43a4be023c51efa2d1afb7512772565b280836aa4dc3e
+// input: apps/mobile-rn/src/navigation/RootNavigator.tsx e12a4e6078c3569176d967c15a4d72910353dbc13df83296727838647cee5e6c
 // input: apps/mobile-rn/src/navigation/linking.ts 5d0669776885554d59463e5bf928d7a3c264d936a4977c0428877a9a19612cb6
 // skipped: unauthedBranchScreens=3(未登录分支 Screen 不入白名单,桥接挂载时不存在)
-// generatedAt: 2026-11-03T03:44:04.177Z
+// generatedAt: 2026-11-03T01:53:53.228Z
 // IHUI-GEN-PIN-END
 
 /** AI 可导航 Screen 条目:name 是 react-navigation 的 screen name(不是 URL 路径) */
@@ -28,7 +28,7 @@ export interface RnUiRouteEntry {
   requiredParams: string[]
 }
 
-/** 全量白名单:前 336 条是已登录分支 RootStack.Screen,后 5 条是 Main Tab */
+/** 全量白名单:前 338 条是已登录分支 RootStack.Screen,后 5 条是 Main Tab */
 export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'Main', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Login', tab: false, requiresParams: false, requiredParams: [] },
@@ -95,6 +95,9 @@ export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'DeveloperConversations', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'ModelsPrompts', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'EduAttendance', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'EduMyAttendance', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'EduAttendanceQr', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'EduAttendanceScan', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'EduGrades', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'EduParent', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'EduParentBind', tab: false, requiresParams: false, requiredParams: [] },
@@ -202,7 +205,6 @@ export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'QrCode', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'NotificationSettings', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'AgentReviewList', tab: false, requiresParams: false, requiredParams: [] },
-  { name: 'AgentReviewDetail', tab: false, requiresParams: true, requiredParams: ['item'] },
   { name: 'AgentStat', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'AgentSetting', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Carte', tab: false, requiresParams: false, requiredParams: [] },

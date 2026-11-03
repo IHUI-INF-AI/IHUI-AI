@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import type { Metadata } from 'next'
+import { getTranslations } from 'next-intl/server'
 import Link from 'next/link'
 import { Smartphone, Coins } from 'lucide-react'
 import { CodeBlock } from '@/components/docs/code-block'
@@ -41,23 +42,25 @@ const agentJsonLd = {
   ],
 }
 
-export const metadata: Metadata = {
-  title: 'Agent 开发 — 智汇 AI 全栈 AI 操作系统',
-  description:
-    '可视化编排 + 模板开发 + 最佳实践。从 0 搭建企业级 AI Agent:提示词工程、工具集成、知识库挂载、工作流、六端发布、变现。',
-  alternates: {
-    canonical: '/docs/agent',
-    // hreflang 死链已删(2026-11-02 实测):/zh-cn /zh-tw /ko /ja 目录与 /en 子页均 404,只留 canonical + x-default
-    languages: {
-      'x-default': '/docs/agent',
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('docs')
+  return {
+    title: t('meta.agent.title'),
+    description: t('meta.agent.description'),
+    alternates: {
+      canonical: '/docs/agent',
+      // hreflang 死链已删(2026-11-02 实测):/zh-cn /zh-tw /ko /ja 目录与 /en 子页均 404,只留 canonical + x-default
+      languages: {
+        'x-default': '/docs/agent',
+      },
     },
-  },
-  openGraph: {
-    title: 'Agent 开发 — 智汇 AI',
-    description: '可视化编排 + 模板 + 最佳实践,六端发布。',
-    url: `${SITE_URL}/docs/agent`,
-    type: 'article',
-  },
+    openGraph: {
+      title: t('meta.agent.title'),
+      description: t('meta.agent.description'),
+      url: `${SITE_URL}/docs/agent`,
+      type: 'article',
+    },
+  }
 }
 
 export default function AgentDocsPage() {
