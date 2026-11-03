@@ -41,7 +41,7 @@ function ftypBox(brand: string): Buffer {
  * 无固定魔数的纯文本类型 —— 必须显式豁免,不许靠"忘了写 case 就返回 false/true"蒙混。
  * txt/csv 的 checkMagicNumber 语义是"无需校验,直接放行"(见实现注释)。
  */
-const MAGIC_EXEMPT: readonly string[] = ['txt', 'csv']
+const MAGIC_EXEMPT: readonly string[] = ['txt', 'csv', 'md']
 
 /** 每个需要魔数判据的扩展名的正样本(必须与"并集 - MAGIC_EXEMPT"逐项对齐)。 */
 const MAGIC_FIXTURES: Record<string, Buffer> = {
@@ -182,6 +182,14 @@ describe('既有路由接受面不缩小', () => {
   it('validator 端到端放行 txt(声明 text/plain)', () => {
     const result = validateUploadFile(Buffer.from('hello\n', 'utf8'), 'a.txt', 'text/plain')
     expect(result.ok).toBe(true)
+  })
+
+  // 票 D53(2026-11-03):解析面/小程序/前端 accept 三处都实现了 Markdown,唯独白名单不收
+  // ⇒ 用户在知识库上传框选中 .md 必吃 400。浏览器值与退回值两档都得放行。
+  it('validator 端到端放行 md(text/markdown 与 text/plain 两种声明值)', () => {
+    const body = Buffer.from('# 标题\n\n正文\n', 'utf8')
+    expect(validateUploadFile(body, 'note.md', 'text/markdown').ok).toBe(true)
+    expect(validateUploadFile(body, 'note.md', 'text/plain').ok).toBe(true)
   })
 })
 
