@@ -94,6 +94,146 @@ export function validateEquivalence(table, rootDir = ROOT) {
 const RULING_WHY_MIN = 24
 
 /**
+ * 逐键裁决台账(scripts/data/cross-end-props-judged.json):把「已登记平台/承载差异」的单键从存差
+ * 移入 judged 桶。口径:
+ *   存差 = 未实现 + 未映射 + 未裁决
+ * 因此 judged 键仍逐条审计(owner/expires/evidence≥2 条/rationale),且:
+ *   · 证据必须双端落点(每条 ≥1 侧),且至少一条在键的声明侧真含该键名(防拿两枚无关行凑数);
+ *   · 同一 pair|key 不得重复裁决;不得与映射表同键(一键两归 = 判红);
+ *   · 键已不在漂移集仍留在台账 = 判红(会吞掉以后同键的漂移,必须撤销条目);
+ *   · 过期 / 缺字段 / 证据不足 = 坏裁决,判红且 --update-baseline 拒写。
+ */
+export const JUDGED_REL = 'scripts/data/cross-end-props-judged.json'
+const END_ROOTS = { rn: ['apps/mobile-rn/', 'packages/app/'], mini: ['apps/miniapp-taro/'] }
+
+function parseEvidencePoint(raw) {
+  const m = typeof raw === 'string' ? raw.match(/^([^\s:]+):(\d+)(?:-(\d+))?$/) : null
+  if (!m) return null
+  return { rel: m[1], start: Number(m[2]), end: m[3] ? Number(m[3]) : Number(m[2]) }
+}
+
+/** 逐键裁决体检:结构 + owner/expires/rationale + 证据双端落点 + 声明侧真含键名。 */
+export function validateJudged(ledger, { now = new Date(), rootDir = ROOT } = {}) {
+  const bad = []
+  if (!ledger || !Array.isArray(ledger.entries)) return { ok: false, bad: ['裁决台账结构坏:缺少 entries 数组'] }
+  const seen = new Set()
+  ledger.entries.forEach((e, i) => {
+    const at = `entries[${i}](${e?.pair ?? '?'}/${e?.key ?? '?'})`
+    for (const f of ['pair', 'key', 'owner', 'rationale'])
+      if (typeof e?.[f] !== 'string' || !e[f].trim()) bad.push(`${at}: 缺 ${f}(必填)`)
+    if (!['rn', 'mini'].includes(e?.side)) bad.push(`${at}: side=${String(e?.side)} 不在 rn|mini`)
+    if (typeof e?.rationale === 'string' && e.rationale.trim().length < RULING_WHY_MIN)
+      bad.push(`${at}: rationale 过短(< ${RULING_WHY_MIN} 字)`)
+    const expiresRaw = typeof e?.expires === 'string' ? e.expires.trim() : ''
+    const expiresAt = /^\d{4}-\d{2}-\d{2}$/.test(expiresRaw) ? new Date(`${expiresRaw}T23:59:59`) : null
+    if (!expiresAt || Number.isNaN(expiresAt.getTime())) bad.push(`${at}: 缺 expires(YYYY-MM-DD)`)
+    else if (expiresAt.getTime() < now.getTime()) bad.push(`${at}: expires 已到期(${expiresRaw})`)
+    const dedupe = `${e?.pair}|${e?.key}`
+    if (seen.has(dedupe)) bad.push(`${at}: 重复裁决 ${dedupe}(一键两账)`)
+    seen.add(dedupe)
+    const evidence = Array.isArray(e?.evidence) ? e.evidence : []
+    if (evidence.length < 2) bad.push(`${at}: evidence 不足 2 条(已能量出的单键差异不得用单条证据裁决)`)
+    const ends = new Set()
+    let declarationHit = false
+    for (const raw of evidence) {
+      const p = parseEvidencePoint(raw)
+      if (!p) {
+        bad.push(`${at}: evidence 不是 文件:行 形态:${String(raw)}`)
+        continue
+      }
+      if (p.start < 1 || p.start > p.end) {
+        bad.push(`${at}: evidence 行号非法:${raw}`)
+        continue
+      }
+      const abs = join(rootDir, p.rel)
+      if (!existsSync(abs)) {
+        bad.push(`${at}: evidence 文件不存在:${p.rel}`)
+        continue
+      }
+      let lines
+      try {
+        lines = readFileSync(abs, 'utf8').split(/\r?\n/)
+      } catch {
+        bad.push(`${at}: evidence 读不到:${p.rel}`)
+        continue
+      }
+      if (p.end > lines.length) {
+        bad.push(`${at}: evidence 行号越界:${raw}(共 ${lines.length} 行)`)
+        continue
+      }
+      for (const [end, roots] of Object.entries(END_ROOTS))
+        if (roots.some((r) => p.rel.startsWith(r))) ends.add(end)
+      if (typeof e?.key === 'string' && new RegExp(`\\b${e.key}\\b`).test(lines[p.start - 1])) declarationHit = true
+    }
+    if (ends.size < 2) bad.push(`${at}: evidence 未覆盖双端(需 rn 与 mini 各至少 1 条)`)
+    if (!declarationHit) bad.push(`${at}: evidence 无一条落在声明侧且真含键名 ${String(e?.key)}`)
+  })
+  return { ok: bad.length === 0, bad }
+}
+
+/**
+ * 把 judge 命中的键从存差里剔除(纯函数,镜像测试直接喂 pairDelta 同形对象)。
+ * 只认 side 对应的 onlyRn/onlyMini;键不复现 = judged-stale(判红,不许留账吞未来漂移)。
+ * 与映射表同键 = 一键两归;未在册对 = judged-unknown-pair。
+ */
+export function applyJudged(deltas, judgedEntries = [], equivalenceEntries = []) {
+  const byPair = new Map()
+  for (const e of judgedEntries) {
+    if (!e?.pair || !e?.key) continue
+    if (!byPair.has(e.pair)) byPair.set(e.pair, [])
+    byPair.get(e.pair).push(e)
+  }
+  const bad = []
+  const applied = []
+  const adjusted = deltas.map((d) => {
+    const rulings = byPair.get(d.name)
+    if (!rulings || d.state === 'undetermined') {
+      if (rulings && d.state === 'undetermined')
+        bad.push({ pair: d.name, kind: 'judged-on-undetermined', detail: '该对未判定,不得用逐键裁决冒充对齐' })
+      return { ...d }
+    }
+    const mappedKeys = new Set(
+      equivalenceEntries.filter((x) => x?.pair === d.name).flatMap((x) => [x.ours, x.theirs]),
+    )
+    const dropRn = new Set()
+    const dropMini = new Set()
+    for (const r of rulings) {
+      if (mappedKeys.has(r.key))
+        bad.push({
+          pair: d.name,
+          kind: 'judged-mapped-double-count',
+          detail: `键 ${r.key} 同时出现在映射表与裁决台账(一键两归)`,
+        })
+      const inRn = (d.onlyRn ?? []).includes(r.key)
+      const inMini = (d.onlyMini ?? []).includes(r.key)
+      if (r.side === 'rn' ? !inRn : !inMini)
+        bad.push({
+          pair: d.name,
+          kind: 'judged-stale',
+          detail: `裁决键 ${r.key}(${r.side}) 已不在本轮漂移集 —— 撤销条目,否则会吞掉同键未来漂移`,
+        })
+      if (r.side === 'rn') dropRn.add(r.key)
+      else dropMini.add(r.key)
+      applied.push({ pair: d.name, key: r.key, side: r.side, owner: r.owner, expires: r.expires })
+    }
+    const onlyRn = (d.onlyRn ?? []).filter((k) => !dropRn.has(k))
+    const onlyMini = (d.onlyMini ?? []).filter((k) => !dropMini.has(k))
+    return { ...d, onlyRn, onlyMini, judged: rulings.map((r) => r.key), driftTotal: onlyRn.length + onlyMini.length + (d.reqDrift?.length ?? 0) }
+  })
+  for (const name of byPair.keys())
+    if (!deltas.some((d) => d.name === name))
+      bad.push({ pair: name, kind: 'judged-unknown-pair', detail: '裁决台账里的对不在本轮配对集(改名/拆族/消失)' })
+  return { deltas: adjusted, applied, bad }
+}
+
+/** --update-baseline 前置闸:坏裁决一律拒写(不许借重落账把坏裁决冲成 ok)。 */
+export function updateGuard({ judgedLedger, deltas, equivalenceEntries, now, rootDir = ROOT }) {
+  const v = validateJudged(judgedLedger, { now, rootDir })
+  const a = v.ok ? applyJudged(deltas, judgedLedger.entries, equivalenceEntries) : { bad: [], deltas }
+  return { ok: v.ok && a.bad.length === 0, bad: [...v.bad, ...a.bad.map((b) => `${b.pair}:${b.kind} ${b.detail}`)] }
+}
+
+/**
  * 台账 not-applicable 裁决校验:三字段(owner/expires/evidence)+ why + 证据落点。
  * 只有 ok 才允许把该对记成"已裁决";可测对(measurable)还要求 ≥2 条证据覆盖双端。
  * 否则裁决无效、仍按 undetermined 点名 / 可测对直接判红
@@ -245,7 +385,7 @@ export function verifyAgainstBaseline(deltas, baseline, opts = {}) {
     // 已裁决不适用对不计入存量口径(与计数口径一致,否则整对剔除会被误读成"漂移下降")
     const adj = new Set(adjudicated.map((a) => a.pair))
     const nowDrift = deltas.reduce((s, d) => s + (adj.has(d.name) ? 0 : (d.driftTotal ?? 0)), 0)
-    const prevDrift = baseline?.counts?.driftKeysTotal
+    const prevDrift = baseline?.counts?.rawDriftKeysTotal ?? baseline?.counts?.driftKeysTotal
     const drop = typeof prevDrift === 'number' ? prevDrift - nowDrift : 0
     if (drop < grow)
       bad.push({
@@ -300,6 +440,26 @@ async function main() {
   if (equivBad.length) die(`映射表体检失败 ${equivBad.length} 处:${equivBad.join(' · ')}`, 1)
   const equivalenceEntryCount = par.equivalence?.entryCount ?? equivTable.entries.length
 
+  let judgedLedger = { rule: '', entries: [] }
+  if (existsSync(join(ROOT, JUDGED_REL))) {
+    try {
+      judgedLedger = JSON.parse(readFileSync(join(ROOT, JUDGED_REL), 'utf8'))
+    } catch (e) {
+      die(`裁决台账 ${JUDGED_REL} 读不到或 JSON 坏:${String(e?.message).slice(0, 120)} —— 判据输入缺失不记绿`, 2)
+    }
+  }
+  const judgedValid = validateJudged(judgedLedger, { now: new Date(), rootDir: ROOT })
+  if (!judgedValid.ok)
+    die(`坏裁决 ${judgedValid.bad.length} 处(证据不足/过期/一键两归/字段缺失):${judgedValid.bad.slice(0, 8).join(' · ')}`, 1)
+  // 存差 = 未实现 + 未映射 + 未裁决:judged 命中的键从本轮存差剔除,但台账逐键留审、键不入映射
+  const judgedApply = applyJudged(par.deltas, judgedLedger.entries, equivTable.entries)
+  if (judgedApply.bad.length)
+    die(
+      `坏裁决 ${judgedApply.bad.length} 处:${judgedApply.bad.map((b) => `${b.pair}:${b.kind} ${b.detail}`).join(' · ')}`,
+      1,
+    )
+  const liveDeltas = judgedApply.deltas
+
   const baselineExists = existsSync(join(ROOT, BASELINE_REL))
   let prior = { pairs: {} }
   if (baselineExists) {
@@ -335,11 +495,14 @@ async function main() {
     const unresolvedUndet = par.deltas.filter((d) => d.state === 'undetermined').length - undetAdjudicated
     if (par.deltas.length > 0 && unresolvedUndet / par.deltas.length > 0.5)
       die(`拒写基线:${unresolvedUndet}/${par.deltas.length} 对未判定 —— 多半是编译面瞬时取不到,不得把"没读到"誊进台账冒充"判过"`, 2)
-    const live = par.deltas.filter((d) => !keptRulings.has(d.name))
+    const live = liveDeltas.filter((d) => !keptRulings.has(d.name))
+    // 重落账前置:坏裁决/失效裁决一律拒写(--update-baseline 不得吞掉判红)
+    const guard = updateGuard({ judgedLedger, deltas: par.deltas, equivalenceEntries: equivTable.entries })
+    if (!guard.ok) die(`拒写基线:坏裁决 ${guard.bad.length} 处 —— ${guard.bad.slice(0, 6).join(' · ')}`, 2)
     const out = {
       generatedAt: new Date().toISOString(),
       face,
-      rule: '差值棘轮:在册集合只减不增;新键/新对未入账=红;undetermined=warn 点名(有效 not-applicable 裁决除外)。已能量出的整对不适用亦按 pair-level 裁决剔除存量。升绝对零前置=存量归零。',
+      rule: '差值棘轮:在册集合只减不增;新键/新对未入账=红;undetermined=warn 点名(有效 not-applicable 裁决除外)。已能量出的整对不适用亦按 pair-level 裁决剔除存量。存差=未实现+未映射+未裁决,逐键 judged 台账仅移出存差、不入映射、逐条留审(owner/expires/evidence≥2/rationale),坏裁决/过期/一键两归/失效裁决=红且拒写。升绝对零前置=存差归零。',
       pairs: {},
       counts: {
         pairs: par.deltas.length,
@@ -349,17 +512,18 @@ async function main() {
         notApplicable: keptRulings.size,
         maxKeyDrift: live.length ? Math.max(0, ...live.map((d) => d.driftTotal ?? 0)) : 0,
         driftKeysTotal: live.reduce((s, d) => s + (d.driftTotal ?? 0), 0),
+        judgedKeysTotal: judgedApply.applied.length,
+        rawDriftKeysTotal: live.reduce((s, d) => s + ((d.onlyRn?.length ?? 0) + (d.onlyMini?.length ?? 0) + (d.reqDrift?.length ?? 0)), 0),
         adjudicatedDriftKeys: par.deltas
           .filter((d) => keptRulings.has(d.name))
           .reduce((s, d) => s + (d.driftTotal ?? 0), 0),
-        equivalenceEntries: equivalenceEntryCount,
         mappedKeysTotal: par.deltas.reduce((s, d) => s + (d.mappedKeyCount ?? 0), 0),
       },
     }
     for (const d of par.deltas)
       out.pairs[d.name] = keptRulings.has(d.name) ? prior.pairs[d.name] : buildBaselineEntry(d, prior?.pairs?.[d.name])
     writeFileSync(join(ROOT, BASELINE_REL), JSON.stringify(out, null, 2) + '\n', 'utf8')
-    log(`✅ 基线已落账 → ${BASELINE_REL}(pairs=${out.counts.pairs} 含差=${out.counts.drifted} 未判定=${out.counts.undetermined} 裁决不适用=${out.counts.notApplicable} 漂移键总数=${out.counts.driftKeysTotal})`)
+    log(`✅ 基线已落账 → ${BASELINE_REL}(pairs=${out.counts.pairs} 含差=${out.counts.drifted} 未判定=${out.counts.undetermined} 裁决不适用=${out.counts.notApplicable} 存差键=${out.counts.driftKeysTotal} judged=${out.counts.judgedKeysTotal})`)
     process.exit(0)
   }
   if (!baselineExists)
@@ -373,7 +537,7 @@ async function main() {
 
   const { bad, warn, shrunk, adjudicated } = verifyAgainstBaseline(par.deltas, baseline, { equivalenceEntryCount })
   const adj = new Set(adjudicated.map((a) => a.pair))
-  const live = par.deltas.filter((d) => !adj.has(d.name))
+  const live = liveDeltas.filter((d) => !adj.has(d.name))
   const counts = {
     pairs: par.deltas.length,
     drifted: live.filter((d) => d.state === 'ok' && d.driftTotal > 0).length,
@@ -381,22 +545,26 @@ async function main() {
     notApplicable: adjudicated.length,
     adjudicatedDriftKeys: adjudicated.reduce((s, a) => s + (a.driftKeys ?? 0), 0),
     driftKeysTotal: live.reduce((s, d) => s + (d.driftTotal ?? 0), 0),
+    judgedKeysTotal: judgedApply.applied.length,
+    rawDriftKeysTotal: live.reduce((s, d) => s + ((d.onlyRn?.length ?? 0) + (d.onlyMini?.length ?? 0) + (d.reqDrift?.length ?? 0)), 0),
     mappedKeysTotal: par.deltas.reduce((s, d) => s + (d.mappedKeyCount ?? 0), 0),
     equivalenceEntries: equivalenceEntryCount,
     newBad: bad.length,
     warnCount: warn.length,
     shrunkPairs: shrunk.length,
   }
-  if (jsonMode) console.log(JSON.stringify({ face, counts, bad, warn, shrunk, adjudicated }, null, 1))
+  if (jsonMode) console.log(JSON.stringify({ face, counts, bad, warn, shrunk, adjudicated, judged: judgedApply.applied }, null, 1))
   else {
     log(`🧩 两端同名组件 props 对账(守门 285,差值棘轮;面=${face})`)
     log(
-      `  配对 ${counts.pairs} · 存差 ${counts.drifted} 对/${counts.driftKeysTotal} 键 · 映射等价 ${counts.mappedKeysTotal} 键(表 ${counts.equivalenceEntries} 条) · 未判定 ${counts.undetermined}${counts.notApplicable ? ` · 已裁决不适用 ${counts.notApplicable}(另 ${counts.adjudicatedDriftKeys} 键整对外置)` : ''} · 本轮新增退化 ${bad.length}`,
+      `  配对 ${counts.pairs} · 存差 ${counts.drifted} 对/${counts.driftKeysTotal} 键 · 已裁决 judged ${counts.judgedKeysTotal} 键 · 映射等价 ${counts.mappedKeysTotal} 键(表 ${counts.equivalenceEntries} 条) · 未判定 ${counts.undetermined}${counts.notApplicable ? ` · 已裁决不适用 ${counts.notApplicable}(另 ${counts.adjudicatedDriftKeys} 键整对外置)` : ''} · 本轮新增退化 ${bad.length}`,
     )
     for (const d of par.deltas)
       for (const m of d.mapped ?? []) log(`  ≡ 语义等价 ${d.name}:rn[${m.ours}]↔mini[${m.theirs}](${m.kind})`)
     for (const a of adjudicated)
       log(`  ⚪ ${a.pair}(not-applicable${a.measurable ? `,整对外置 ${a.driftKeys} 键` : ''}): owner=${a.owner} expires=${a.expires} —— ${a.why}`)
+    for (const j of judgedApply.applied)
+      log(`  🧾 judged ${j.pair}:${j.key}(${j.side}) owner=${j.owner} expires=${j.expires}`)
     for (const b of bad) log(`  🔴 ${b.pair}(${b.kind}):${b.detail ?? b.why ?? ''}`)
     for (const w of warn) log(`  ⚠️ ${w.pair}(${w.kind}):${w.why ?? ''}`)
     for (const s of shrunk) log(`  ✅ 收敛 ${s.pair}: 已消键 rn[${s.goneRn}] mini[${s.goneMini}] —— 复核后可 --update-baseline 收紧`)
@@ -500,7 +668,16 @@ function selfTest() {
 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
-export const __test__ = { verifyAgainstBaseline, buildBaselineEntry, validateEquivalence, validateNotApplicable }
+export const __test__ = {
+  verifyAgainstBaseline,
+  buildBaselineEntry,
+  validateEquivalence,
+  validateNotApplicable,
+  validateJudged,
+  applyJudged,
+  updateGuard,
+  JUDGED_REL,
+}
 if (isDirectRun) {
   main().catch((e) => {
     console.error(`❌ ${e?.message ?? e}\n${e?.stack ?? ''}`)
