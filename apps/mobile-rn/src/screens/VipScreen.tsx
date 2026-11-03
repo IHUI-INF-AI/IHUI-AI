@@ -43,7 +43,7 @@ import { useI18n } from '../i18n'
 import { useRefreshOnFocus } from '../hooks'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
-import { navigateAfterVipPay } from './vip-pay-exit'
+import { navigateAfterVipPay } from '../navigation/vip-pay-exit'
 import { rpx } from '../utils/rpx'
 
 import { rnRadius } from '@ihui/design-tokens'
