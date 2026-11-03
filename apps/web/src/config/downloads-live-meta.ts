@@ -454,12 +454,30 @@ export function judgeMiniappQr(
   }
 }
 
+/**
+ * 把"腿自己报的字节数"并进已有的一格里(注册表那一行仍是版本与日期的权威)。
+ * 只认正整数体积:非 live 的格子、拿不到长度、这一格本来没有资产,一律**原样返回**——
+ * 留 0(页面上是 `-`,"未量")远好于拿估算冒充真实体积。
+ */
+export function applyProbedAssetSize(info: LivePlatformInfo, sizeBytes: number): LivePlatformInfo {
+  if (info.source !== 'live') return info
+  const assets = info.assets ?? []
+  const head = assets[0]
+  // 没有首格就原样返回:这一档不凭空造一行资产(noUncheckedIndexedAccess 也逼着先把这层判掉)
+  if (head === undefined) return info
+  const n = Number(sizeBytes)
+  if (!Number.isFinite(n) || n <= 0) return info
+  if (head.sizeBytes === n) return info
+  return { ...info, assets: [{ ...head, sizeBytes: n }, ...assets.slice(1)] }
+}
+
 /** 镜像测试入口(AGENTS §22c:测试 import 这份判据,不得复制一份) */
 export const __test__ = {
   judgeAppVersionRow,
   judgeNpmRegistryDoc,
   judgeIosReleaseDoc,
   judgeExtensionArtifact,
+  applyProbedAssetSize,
   pickNewestArtifact,
   parseVersionFromArtifactName,
   extensionAssetHref,
