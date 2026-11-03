@@ -10,6 +10,7 @@ import { apiFailureToText } from '@ihui/shared/utils'
 import { ExamScreen as SharedExamScreen, type ExamItem, type ExamStatus } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
+import { useHostPorts } from '../host/use-host-ports'
 import { formatDateByTemplate } from '../utils/date-utils'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
@@ -42,6 +43,7 @@ export function ExamScreen() {
   const { t } = useI18n()
   const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp>()
+  const { onNavigate } = useHostPorts()
   const [exams, setExams] = useState<ExamItem[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -74,8 +76,9 @@ export function ExamScreen() {
     if (status === 'notStarted') return setToast(t('exam.notStarted'))
     if (exam.attemptCount >= exam.maxAttempts && exam.maxAttempts > 0)
       return setToast(t('exam.noAttemptsLeft'))
-    // 孤儿路由修复:ExamQuestion 注册无入口,「开始考试」跳转到答题页
-    navigation.navigate('ExamQuestion', { examId: exam.id })
+    // 孤儿路由修复:ExamQuestion 注册无入口,「开始考试」走导航端口进答题页
+    // 目标与参数契约:ExamQuestion 已注册且必填 examId,与共享屏 onStart 的 ExamItem.id 兼容
+    onNavigate('ExamQuestion', { examId: exam.id })
   }
 
   return (

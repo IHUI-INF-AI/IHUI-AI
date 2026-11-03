@@ -69,7 +69,7 @@ import { FloatBox, ModelTypeButtonGroup } from '@/components'
 import SkillsPopup, { type AgentItem } from '@/components/SkillsPopup'
 import VoiceInput from '@/components/VoiceInput'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, taroSpacing } from '@ihui/design-tokens'
 const closeInputPng = aizhsUrl('remote-images/close_input.png')
 import { rpx } from '@/utils/rpx'
 import * as api from '@/api'
@@ -1678,7 +1678,11 @@ export default function Index() {
                 按住说话 → 走 streaming-recognizer 真流式识别 →
                 松手 onComplete 把文案回填输入框(handleVoiceComplete)。 */}
             {state.isVoiceInput && (
-              <View style={{ padding: '12rpx 20rpx 4rpx' }}>
+              <View
+                style={{
+                  padding: `${rpx(taroSpacing['xs-loose'])} ${rpx(taroSpacing['sm-loose'])} ${rpx(taroSpacing['2xs'])}`,
+                }}
+              >
                 <VoiceInput
                   placeholder={tt('ai.voice.holdToSpeak', '按住说话')}
                   onChange={handleVoiceChange}

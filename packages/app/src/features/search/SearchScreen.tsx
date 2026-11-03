@@ -108,7 +108,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.md,
       marginBottom: rnSpacing.md,
     },
-    title: { flex: 1, fontSize: 22, fontWeight: '600', color: tk.text.primary },
+    title: { flex: 1, fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
     searchRow: {
       flexDirection: 'row',
       alignItems: 'center',

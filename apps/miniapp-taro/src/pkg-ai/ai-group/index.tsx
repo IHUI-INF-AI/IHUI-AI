@@ -157,8 +157,8 @@ export default function AiGroup() {
             <Text
               className={
                 activeCategory === cat.key
-                  ? 'text-[length:26rpx] font-semibold text-[var(--color-primary-foreground)]'
-                  : 'text-[length:26rpx] text-muted-foreground'
+                  ? 'text-body-sm leading-[normal] font-semibold text-[var(--color-primary-foreground)]'
+                  : 'text-body-sm leading-[normal] text-muted-foreground'
               }
             >
               {cat.label}

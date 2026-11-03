@@ -32,15 +32,15 @@ export default function CourseHeader({ data = { title: '' }, onTeacherClick }: C
       {data.cover && (
         <Image className="w-full" style={{ height: '180px' }} src={data.cover} mode="aspectFill" />
       )}
-      <View className="px-4 py-3">
-        <Text className="block text-base font-medium text-foreground">{data.title}</Text>
+      <View className="px-lg py-md">
+        <Text className="block text-title font-medium text-foreground">{data.title}</Text>
 
         {data.tags && data.tags.length > 0 && (
-          <View className="flex flex-wrap mt-2">
+          <View className="flex flex-wrap mt-sm">
             {data.tags.map((tag, i) => (
               <Text
                 key={i}
-                className="text-caption px-2 py-[4rpx] mr-[12rpx] mb-1 rounded bg-primary/10 text-primary"
+                className="text-caption px-sm py-[4rpx] mr-[12rpx] mb-xs rounded bg-primary/10 text-primary"
               >
                 {tag}
               </Text>
@@ -48,39 +48,39 @@ export default function CourseHeader({ data = { title: '' }, onTeacherClick }: C
           </View>
         )}
 
-        <View className="flex items-center justify-between mt-3">
+        <View className="flex items-center justify-between mt-md">
           <View className="flex items-center" hoverClass="opacity-60" onClick={onTeacherClick}>
             {data.teacherAvatar && (
               <Image
-                className="w-7 h-7 mr-2 rounded-md bg-muted"
+                className="w-7 h-7 mr-sm rounded-md bg-muted"
                 src={data.teacherAvatar}
                 mode="aspectFill"
               />
             )}
-            {data.teacher && <Text className="text-xs text-foreground mr-3">{data.teacher}</Text>}
+            {data.teacher && <Text className="text-label text-foreground mr-md">{data.teacher}</Text>}
           </View>
           <View className="flex items-center">
             {data.lessonCount !== undefined && (
-              <Text className="text-xs text-muted-foreground mr-2">
+              <Text className="text-label text-muted-foreground mr-sm">
                 {data.lessonCount} {tt('course.lessonUnit', '节')}
               </Text>
             )}
             {data.studentCount !== undefined && (
-              <Text className="text-xs text-muted-foreground mr-2">
+              <Text className="text-label text-muted-foreground mr-sm">
                 {data.studentCount} {tt('course.studentUnit', '人学')}
               </Text>
             )}
             {data.rating !== undefined && (
               <>
-                <LineIcon name="star" size="14px" color="var(--color-warning)" className="mr-1" />
-                <Text className="text-xs text-warning">{data.rating.toFixed(1)}</Text>
+                <LineIcon name="star" size="14px" color="var(--color-warning)" className="mr-xs" />
+                <Text className="text-label text-warning">{data.rating.toFixed(1)}</Text>
               </>
             )}
           </View>
         </View>
 
         {data.price !== undefined && (
-          <View className="mt-2 flex flex-col gap-1">
+          <View className="mt-sm flex flex-col gap-xs">
             {data.price > 0 && (
               <View className="inline-flex items-center self-start h-[36rpx] px-[10rpx] rounded-lg bg-muted">
                 <Image
@@ -95,10 +95,10 @@ export default function CourseHeader({ data = { title: '' }, onTeacherClick }: C
               </View>
             )}
             <View className="flex items-baseline">
-              <Text className="text-xs text-destructive mr-1">¥</Text>
-              <Text className="text-xl font-bold text-destructive">{data.price}</Text>
+              <Text className="text-label text-destructive mr-xs">¥</Text>
+              <Text className="text-heading font-bold text-destructive">{data.price}</Text>
               {data.originalPrice && (
-                <Text className="text-xs text-muted-foreground line-through ml-2">
+                <Text className="text-label text-muted-foreground line-through ml-sm">
                   ¥{data.originalPrice}
                 </Text>
               )}

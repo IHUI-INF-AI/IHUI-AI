@@ -36,7 +36,7 @@ const RADIUS_CLASS: Record<typeof VIP_BADGE_RADIUS_TIER, string> = { md: 'rounde
 const PADDING_X_CLASS: Record<number, string> = { 8: 'px-2', 10: 'px-2.5' }
 const PADDING_Y_CLASS: Record<number, string> = { 2: 'py-0.5', 4: 'py-1' }
 const GAP_CLASS: Record<number, string> = { 2: 'gap-0.5', 4: 'gap-1' }
-const TEXT_CLASS: Record<typeof VIP_BADGE_TEXT_TIER, string> = { xs: 'text-xs' }
+const TEXT_CLASS: Record<typeof VIP_BADGE_TEXT_TIER, string> = { xs: 'text-label' }
 
 /** 档名集合的消费形态:**类型级**键约束 —— spec 增档而本端没给类名 ⇒ tsc 直接红。 */
 const SIZING_CLASS: Record<(typeof VIP_BADGE_SIZE_TIERS)[number], string> = {

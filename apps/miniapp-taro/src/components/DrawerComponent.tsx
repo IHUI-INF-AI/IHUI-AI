@@ -262,6 +262,8 @@ export default function DrawerComponent(props: DrawerComponentProps) {
                   fontSize: rpx(taroGeometry.textBody),
                   lineHeight: rpx(56),
                   color: 'var(--color-foreground)',
+                  // 本组件 5 处复合 padding 保持字面量:父级几何由跨端门 128 静态比对,
+                  // 改成 rpx(taroSpacing.*) 模板表达式后门解不出值、差异 12→13 判红(2026-11-03)。
                   padding: '4rpx 28rpx',
                 }}
                 onClick={() => {

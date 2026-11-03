@@ -19,7 +19,11 @@ import { execFileSync, spawnSync } from 'node:child_process'
 import { copyFileSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { __test__ as claims } from '../check-task-claims.mjs'
+import {
+  __test__ as claims,
+  judgeTwinsAdjudication,
+  readTwinsAdjudicationLedger,
+} from '../check-task-claims.mjs'
 import { SIM_THRESHOLD } from '../lib/live-doc-similarity.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { resolveGitBin } from '../lib/gitdir.mjs'
@@ -957,19 +961,25 @@ test('T25 形状锁:读数档零复算、零写盘 —— 年龄只问 analyzeLe
 // 立因(现读,不是推断):台账自 2026-10-28 起「完成即整行删除」,面上再没有 `- [x]` 对照行
 // (`--json` 的 `totals.completed = 0`)⇒ `--twins` 打印的"可证 0 条 / 弱证据 0 条 / 0 组"
 // 在旧行为下 exit 0,与被读成"这一族已清零"无法区分。而它其实是"没得比"(§0.3:枚举到 0 个
-// 候选判死不记绿;§12f:判据失效的表现永远是安静)。T26 钉三件:空对照面 exit 2 且点名、
-// 有对照行时**绝不许**一律喊未判定、默认 / --json 两档同样不得把"没得比"洗成"零副本"。
+// 候选判死不记绿;§12f:判据失效的表现永远是安静)。O01(2026-11-03)收口后:空对照面按
+// `scripts/data/plan-twin-similarity-adjudications.json` 判「挂账 + 到期」= 已判(deferred,exit 0),
+// 但账本坏/到期/缺字段仍回未判定(exit 2,由 O01 单测钉死)。T26 钉:空面给挂账且四要素点名、
+// 有对照行时**绝不许**喊挂账/未判定、默认 / --json 两档同样不得把"没得比"洗成"零副本"。
 
-test('T26 空对照面判"未判定"而不是 0:--twins exit 2 点名;有对照行则不喊', () => {
+test('T26 空对照面判"挂账 + 到期"而不是 0:--twins exit 0 点名四要素;有对照行则不喊', () => {
   const dir = mkScratch('claims-t26')
   try {
     const NO_DONE = '- [ ] G-801 未勾甲:把台账读数补齐\n- [ ]（进行中@2026-09-25/qa） G-802 在途乙的题面\n'
     const noDone = join(dir, 'no-done.md')
     writeFileSync(noDone, NO_DONE)
     const r1 = runCli(['--twins', '--plan', noDone])
-    assert.equal(r1.status, 2, `空对照面必须 exit 2「未判定」(不是 0),实得 ${r1.status}:${r1.out}`)
+    assert.equal(r1.status, 0, `空对照面已按挂账判(deferred),必须 exit 0,实得 ${r1.status}:${r1.out}`)
     assert.match(r1.out, /对照面/, '没打印对照面读数 ⇒ 下一位仍会把 0 读成已清零')
-    assert.match(r1.out, /未判定/, '未判定原因必须逐条打印(判据失效的表现永远是安静)')
+    assert.match(r1.out, /挂账/, '空面必须打印「挂账(判定)」,不许安静')
+    assert.match(r1.out, /owner=/, '挂账必须点名 owner(不然到期没人认领)')
+    assert.match(r1.out, /到期=/, '挂账必须点名到期日')
+    assert.match(r1.out, /证据=/, '挂账必须点名 evidence')
+    assert.doesNotMatch(r1.out, /❌ \*\*未判定\*\*/, '已判挂账却仍逐条喊未判定 ⇒ 又回到 O01 的悬空态')
     assert.match(r1.out, /已勾 \[x\] 行 0 条/, '对照面枚数必须现读打印')
     // 骨架相同组那一半**不依赖**对照集 ⇒ 未判定也不许连它一起吞掉
     assert.match(r1.out, /正文骨架逐字相同/, 'dup 组照给,不许因为对照面空就整档闭嘴')
@@ -979,13 +989,15 @@ test('T26 空对照面判"未判定"而不是 0:--twins exit 2 点名;有对照�
     writeFileSync(withDone, `${NO_DONE}- [x] ✅(2026-10-20) G-803 已闭环丙的题面\n`)
     const r2 = runCli(['--twins', '--plan', withDone])
     assert.equal(r2.status, 0, `有对照行时不得非零:${r2.out}`)
-    assert.doesNotMatch(r2.out, /未判定/, '有对照行仍喊未判定 ⇒ 判死防线过头,把量到的 0 也吞了')
+    assert.doesNotMatch(r2.out, /未判定|挂账/, '有对照行仍喊未判定/挂账 ⇒ 判死防线过头,把量到的 0 也吞了')
     assert.match(r2.out, /已勾 \[x\] 行 1 条/, '对照面枚数读错')
 
-    // 默认汇总:既有行形态不动,只追加"这一枚未判定"的注记
+    // 默认汇总:既有行形态不动,只追加"这一枚挂账判定"的注记
     const d = runCli(['--plan', noDone])
     assert.match(d.out, /^  无人认领:  \d+/m, '既有汇总行被改动')
-    assert.match(d.out, /对照面空\(已勾 \[x\] 行 0 条\)/, '默认档没标注"可证枚数未判定" ⇒ 派单的人会当成零副本')
+    assert.match(d.out, /对照面空\(已勾 \[x\] 行 0 条\)/, '默认档没标注"对照面空" ⇒ 派单的人会当成零副本')
+    assert.match(d.out, /挂账判定/, '默认档没把挂账状态带出来 ⇒ 派单的人只读汇总行时会当成未判定')
+    assert.doesNotMatch(d.out, /\*\*未判定\*\*/, '默认档已判挂账却仍写未判定 ⇒ 又回到 O01 的悬空态')
     const d2 = runCli(['--plan', withDone])
     assert.doesNotMatch(d2.out, /对照面空/, '有对照行却仍打"对照面空"注记')
 
@@ -995,15 +1007,18 @@ test('T26 空对照面判"未判定"而不是 0:--twins exit 2 点名;有对照�
       assert.ok(k in j, `默认 JSON 少了既有键 ${k}`)
     assert.equal(j.twinsFace.doneRows, 0, '对照面枚数没进机器档')
     assert.ok(j.twinsFace.undetermined.length > 0, '机器档分不出"比过且零"与"没得比" ⇒ 调用方只能把 0 当已清零')
+    assert.equal(j.twinsFace.adjudication.status, 'deferred', '机器档没带挂账判定 ⇒ 调用方只能把空面读成未判定')
+    assert.ok(j.twinsFace.adjudication.owner && j.twinsFace.adjudication.expires, '机器档挂账缺 owner/expires')
     const j2 = JSON.parse(runCli(['--plan', withDone, '--json']).out)
     assert.equal(j2.twinsFace.doneRows, 1)
     assert.equal(j2.twinsFace.undetermined.length, 0, '有对照行却在 JSON 里仍报未判定')
+    assert.equal(j2.twinsFace.adjudication.status, 'not-needed', '有对照行不该报挂账')
   } finally {
     rmScratch(dir)
   }
 })
 
-test('T26b 形状锁:对照面只问 lib 单源 parseTaskRows,退出码由未判定决定(不得写成恒 0)', () => {
+test('T26b 形状锁:对照面只问 lib 单源 parseTaskRows,退出码由「挂账/未判定」两态决定(不得写成恒 0)', () => {
   const src = readFileSync(SCRIPT, 'utf8')
   const body = sliceFunction(src, 'export function buildTwinsFaceReadout(')
   assert.match(body, /parseTaskRows\(content\)/, '对照面没走 lib 的单一解析器 ⇒ 勾选行定义又有了第二份(§0.6)')
@@ -1019,12 +1034,66 @@ test('T26b 形状锁:对照面只问 lib 单源 parseTaskRows,退出码由未判
   )
   assert.match(
     src,
-    /process\.exitCode = twinsFace\.undetermined\.length > 0 \? 2 : 0/,
-    '--twins 的退出码没接未判定 ⇒ 空对照面仍 exit 0,0 条继续冒充已判',
+    /process\.exitCode = twinsVerdict\.status === 'deferred' \? 0 : twinsFace\.undetermined\.length > 0 \? 2 : 0/,
+    '--twins 退出码没接「挂账/未判定」两态 ⇒ 空对照面要么仍 exit 2(挂账不成立)要么 exit 0(未判定冒充已判)',
   )
   assert.match(
     src,
     /twinsFace: \{[\s\S]{0,240}undetermined: twinsFace\.undetermined/,
     '--json 没带对照面读数 ⇒ 机器消费方结构上打不到"没得比"这一态',
   )
+})
+
+// O01(2026-11-03):第三型不再停在「未判定」——空对照面按账本判「挂账 + 到期」。
+// 失效方向必须恒为"多要一次定向说明":到期 / 残缺 / 坏账本任一 ⇒ 回未判定,绝不放行。
+test('O01 挂账判定:齐备账本 deferred;到期/残条/坏账本 undetermined;可量到 not-needed', () => {
+  const empty = claims.buildTwinsFaceReadout('- [ ] G-1 未勾的一条活\n')
+  const entry = {
+    type: 'similarity-twins',
+    owner: 'PROJECT_PLAN 台账持有人',
+    expires: '2026-12-31',
+    evidence: '空对照面结构性出现(完成即整行删除)',
+  }
+  const at = (iso) => Date.parse(`${iso}T00:00:00+08:00`)
+  const ok = judgeTwinsAdjudication(empty, { entries: [entry], nowMs: at('2026-11-03') })
+  assert.equal(ok.status, 'deferred')
+  assert.equal(ok.expires, '2026-12-31')
+  assert.equal(ok.daysLeft, 58)
+  assert.equal(
+    judgeTwinsAdjudication(empty, { entries: [entry], nowMs: at('2026-12-31') }).status,
+    'deferred',
+    '到期当天仍算有效',
+  )
+  assert.equal(
+    judgeTwinsAdjudication(empty, { entries: [entry], nowMs: at('2027-01-01') }).status,
+    'undetermined',
+    '到期未续必须回未判定(挂账不是无限期豁免)',
+  )
+  assert.equal(
+    judgeTwinsAdjudication(empty, { entries: [{ type: 'similarity-twins', expires: '2026-12-31' }] }).status,
+    'undetermined',
+    '缺 owner/evidence 不得代替判定',
+  )
+  assert.equal(
+    judgeTwinsAdjudication(empty, { entries: [], ledgerError: 'ENOENT' }).status,
+    'undetermined',
+    '坏账本不得默认挂账',
+  )
+  const withDone = claims.buildTwinsFaceReadout('- [ ] G-1 未勾\n- [x] ✅(2026-09-25) G-9 已闭环\n')
+  assert.equal(
+    judgeTwinsAdjudication(withDone, { entries: [entry] }).status,
+    'not-needed',
+    '本面可量到 ⇒ 规则用不上,不许喊挂账',
+  )
+})
+
+test('O01 账本形态:owner/expires/evidence 齐,type=similarity-twins,日期形状合法', () => {
+  const { entries, error } = readTwinsAdjudicationLedger()
+  assert.equal(error, null, `挂账账本读不到/坏:${error}`)
+  const entry = entries.find((e) => e.type === 'similarity-twins')
+  assert.ok(entry, '账本里没有 type=similarity-twins 的条目')
+  assert.equal(entry.status, 'deferred')
+  assert.ok(entry.owner && entry.owner.trim(), 'owner 不得为空')
+  assert.ok(entry.evidence && entry.evidence.trim(), 'evidence 不得为空')
+  assert.match(String(entry.expires), /^\d{4}-\d{2}-\d{2}$/, 'expires 必须是 YYYY-MM-DD')
 })

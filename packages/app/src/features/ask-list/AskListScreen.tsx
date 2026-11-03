@@ -117,7 +117,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.md,
       marginBottom: rnSpacing.md,
     },
-    title: { flex: 1, fontSize: 22, fontWeight: '600', color: tk.text.primary },
+    title: { flex: 1, fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
     action: { fontSize: rnType.display.size, color: tk.brand.DEFAULT, fontWeight: '600' },
     card: {
       padding: rnSpacing['md-loose'],

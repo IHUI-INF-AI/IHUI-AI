@@ -195,7 +195,7 @@ function createStyles(tk: AppThemeTokens) {
     content: { padding: rnSpacing.lg, paddingBottom: rnSpacing['3xl'] },
     backBtn: { paddingBottom: rnSpacing.xs },
     header: { paddingTop: rnSpacing.xs, paddingBottom: rnSpacing.lg },
-    headerTitle: { fontSize: 22, fontWeight: '700', color: tk.text.primary },
+    headerTitle: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
     headerSub: {
       marginTop: rnSpacing.sm,
       fontSize: rnType.body.size,
@@ -289,7 +289,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    submitBtnText: { fontSize: 17, fontWeight: '700', color: tk.surface.light },
+    submitBtnText: { fontSize: rnType.title.size, fontWeight: '700', color: tk.surface.light },
     reportCard: {
       padding: rnSpacing.lg,
       borderRadius: rnRadius.lg,

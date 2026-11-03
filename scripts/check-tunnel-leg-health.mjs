@@ -74,6 +74,7 @@
  * 一律落到对应维的 unjudged,不回落、不猜。
  */
 import { execFile } from 'node:child_process'
+import { existsSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
 
 const REMOTE_TUNNEL_PORTS = [7843, 7844]
@@ -98,6 +99,17 @@ const TASKLIST = 'C:/Windows/System32/tasklist.exe'
 // `/f:XML` 输出与区域无关(Level 是数字、TimeCreated 是 ISO、cloudflared 的正文恒英文)——
 // `/f:CSV` 与 `/f:RD` 在本机实测直接报「选项 f 的值无效」,别改回去。
 const WEVTUTIL = 'C:/Windows/System32/wevtutil.exe'
+// netstat / netsh 必须是绝对路径(§5b 同型):守护由 nssm 托管,而 nssm 的 AppEnvironmentExtra 是
+// **同名变量整值覆盖**(不是追加),本机该键写的正是 `PATH=C:/Program Files\Git\cmd` ⇒ 服务身份的 PATH
+// 里没有 System32,裸名派生只会得到 `spawn netstat ENOENT` / `spawn netsh ENOENT`(2026-11-03 实测)。
+// 推导优先 + 硬编码兜底 + 按当次存在性选在位者,与 check-service-binary-paths.mjs 的 NETSTAT_CANDIDATES
+// 同一范式;该服务键下 `SystemRoot` 实测为空值,`windir` 才是有效值,所以两者都容错,再去掉尾部斜杠。
+const SYSTEM_ROOT = (process.env.SystemRoot || process.env.windir || 'C:\\Windows').replace(/[\\/]+$/, '')
+const NETSTAT_CANDIDATES = [SYSTEM_ROOT + '\\System32\\netstat.exe', 'C:\\Windows\\System32\\netstat.exe']
+const NETSH_CANDIDATES = [SYSTEM_ROOT + '\\System32\\netsh.exe', 'C:\\Windows\\System32\\netsh.exe']
+const pickBin = (candidates) => candidates.find((p) => existsSync(p)) ?? candidates[candidates.length - 1]
+export const NETSTAT_BIN = pickBin(NETSTAT_CANDIDATES)
+export const NETSH_BIN = pickBin(NETSH_CANDIDATES)
 const SPAWN_TIMEOUT_MS = 15000
 const TASKLIST_TIMEOUT_MS = 10_000
 // 重启账的量纲依据(全部现读,非拍的):14 天内 provider=Cloudflared 共 21 条、**全为 Level 4(信息)**,
@@ -731,11 +743,21 @@ export function judge({ processProbe, pids, netshProbe, netshV4Probe = 'absent',
 
   const sources = [...new Set(legs.map((l) => l.source))]
   const legsKnown = processProbe === 'ok' && pids.length > 0 && netstatProbe === 'ok' && legs.length > 0
+  // quic 结构盲区归因(2026-11-03 方案 A,只修文案):协议判得出 quic 且 TCP 枚举为 0 时,
+  // deprecated-source / single-source-point 的失明根因是「Windows UDP 行无远端地址、本地地址
+  // 为通配 ⇒ 逐腿源地址物理上不可枚举」(见 parseNetstatUdpSockets 头注),不是"腿已全断/腿数
+  // 不足"——同一时刻 metrics gauge 可能正读着 4 条活腿。verdict 仍 unjudged、exit 仍 3、不发信,
+  // 判定强度一字未动。
+  const quicBlind = legs.length === 0 && resolveProtocol({ protocolHint, metricsProtocol, haConnections, tcpLegs: legs.length }) === 'quic'
 
   if (!legsKnown) {
     dims['deprecated-source'] = {
       verdict: 'unjudged',
-      reason: dims['leg-count'].verdict === 'breach' ? '无腿可查在用源地址(腿已全断)' : '没有可判的在用腿,源地址枚举为 0 ⇒ 不记绿',
+      reason: quicBlind
+        ? 'quic 结构盲区:UDP netstat 行无远端地址,逐腿源地址物理上不可枚举 ⇒ 该维 quic 下不可判(不记绿也不判红)'
+        : dims['leg-count'].verdict === 'breach'
+          ? '无腿可查在用源地址(腿已全断)'
+          : '没有可判的在用腿,源地址枚举为 0 ⇒ 不记绿',
     }
   } else {
     const amplifying = sources.length === 1 && legs.length >= 2
@@ -750,7 +772,12 @@ export function judge({ processProbe, pids, netshProbe, netshV4Probe = 'absent',
   }
 
   if (!legsKnown) {
-    dims['single-source-point'] = { verdict: 'unjudged', reason: '腿数不足以评估单点(枚举 <1 条腿 ⇒ 该维不判定)' }
+    dims['single-source-point'] = {
+      verdict: 'unjudged',
+      reason: quicBlind
+        ? 'quic 结构盲区:UDP netstat 行无远端地址,逐腿源地址物理上不可枚举 ⇒ 该维 quic 下不可判(单点评估依赖逐腿源地址)'
+        : '腿数不足以评估单点(枚举 <1 条腿 ⇒ 该维不判定)',
+    }
   } else if (legs.length >= 2 && sources.length === 1) {
     dims['single-source-point'] = { verdict: 'warn', reason: `全部 ${legs.length} 条腿共用同一源地址 ${sources[0]}(单点;健康态亦为此形态 ⇒ 只报数不判红,§12e)`, reading: { sources: 1 } }
   } else {
@@ -864,9 +891,9 @@ export function decideExit(dims, controlPassed) {
 async function collect() {
   const [ps, netsh, netshV4, netstat, ev, sc] = await Promise.all([
     runCapture(TASKLIST, ['/NH', '/FO', 'CSV', '/FI', 'IMAGENAME eq cloudflared.exe'], TASKLIST_TIMEOUT_MS),
-    runCapture('netsh', ['interface', 'ipv6', 'show', 'addresses']),
-    runCapture('netsh', ['interface', 'ipv4', 'show', 'addresses']),
-    runCapture('netstat', ['-ano']),
+    runCapture(NETSH_BIN, ['interface', 'ipv6', 'show', 'addresses']),
+    runCapture(NETSH_BIN, ['interface', 'ipv4', 'show', 'addresses']),
+    runCapture(NETSTAT_BIN, ['-ano']),
     runCapture(WEVTUTIL, ['qe', 'Application', `/q:*[System[Provider[@Name=\'Cloudflared\'] and TimeCreated[timediff(@SystemTime) <= ${RESTART_EVENT_WINDOW_MS}]]]`, '/f:XML', '/c:200'], SPAWN_TIMEOUT_MS),
     runCapture(SC_EXE, ['qc', CLOUDFLARED_SERVICE_NAME], SPAWN_TIMEOUT_MS),
   ])

@@ -2670,7 +2670,7 @@ const styles = StyleSheet.create({
     lineHeight: 28,
   },
   unsubscribeTitle: {
-    fontSize: 17,
+    fontSize: rnType.title.size,
     fontWeight: '700',
     color: tokens.text.primary,
     marginBottom: rpx(16),

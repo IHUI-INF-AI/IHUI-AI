@@ -147,7 +147,7 @@ export default function TopicListPage() {
               {tabs.map((tab) => (
                 <View
                   key={tab.key}
-                  className={`flex-1 flex items-center justify-center h-[64rpx] text-[length:26rpx] rounded-lg ${activeTab === tab.key ? 'text-foreground bg-muted font-semibold' : 'text-[var(--color-text-tertiary)] bg-card'}`}
+                  className={`flex-1 flex items-center justify-center h-[64rpx] text-body-sm leading-[normal] rounded-lg ${activeTab === tab.key ? 'text-foreground bg-muted font-semibold' : 'text-[var(--color-text-tertiary)] bg-card'}`}
                   onClick={() => switchTab(tab.key)}
                   hoverClass="opacity-60"
                 >
@@ -212,41 +212,41 @@ export default function TopicListPage() {
 
             {/* 状态提示对齐 RN center:py 120rpx / gap 16;字 13dp→26rpx text.tertiary */}
             {list.length === 0 && !loading && !error ? (
-              <View className="flex flex-col items-center py-[120rpx] text-[var(--color-text-tertiary)] text-[length:26rpx]">
+              <View className="flex flex-col items-center py-[120rpx] text-[var(--color-text-tertiary)] text-body-sm leading-[normal]">
                 <Text>{tt('topic.list.empty', '暂无话题')}</Text>
               </View>
             ) : null}
 
             {error && !loading ? (
               <View
-                className="flex flex-col items-center py-[120rpx] text-[var(--color-text-tertiary)] text-[length:26rpx]"
+                className="flex flex-col items-center py-[120rpx] text-[var(--color-text-tertiary)] text-body-sm leading-[normal]"
                 onClick={() => load(true)}
                 hoverClass="opacity-60"
               >
-                <Text className="text-[length:26rpx] text-[var(--color-danger)]">
+                <Text className="text-body-sm leading-[normal] text-[var(--color-danger)]">
                   {tt('topic.list.loadFailed', '加载失败')}
                 </Text>
-                <Text className="text-[length:26rpx] text-foreground mt-[12rpx]">
+                <Text className="text-body-sm leading-[normal] text-foreground mt-[12rpx]">
                   {tt('topic.list.retry', '点击重试')}
                 </Text>
               </View>
             ) : null}
 
             {loading ? (
-              <View className="flex flex-col items-center py-[120rpx] text-[var(--color-text-tertiary)] text-[length:26rpx]">
+              <View className="flex flex-col items-center py-[120rpx] text-[var(--color-text-tertiary)] text-body-sm leading-[normal]">
                 <Text>{tt('topic.list.loading', '加载中…')}</Text>
               </View>
             ) : null}
 
             {/* 加载更多对齐 RN footer:py 24rpx / 字 26rpx text.tertiary */}
             {loadingMore ? (
-              <View className="flex flex-col items-center py-[24rpx] text-[var(--color-text-tertiary)] text-[length:26rpx]">
+              <View className="flex flex-col items-center py-[24rpx] text-[var(--color-text-tertiary)] text-body-sm leading-[normal]">
                 <Text>{tt('topic.list.loadingMore', '加载中…')}</Text>
               </View>
             ) : null}
 
             {!loading && !loadingMore && !hasMore && list.length > 0 ? (
-              <View className="flex flex-col items-center py-[24rpx] text-[var(--color-text-tertiary)] text-[length:26rpx]">
+              <View className="flex flex-col items-center py-[24rpx] text-[var(--color-text-tertiary)] text-body-sm leading-[normal]">
                 <Text>{tt('topic.list.noMore', '没有更多了')}</Text>
               </View>
             ) : null}

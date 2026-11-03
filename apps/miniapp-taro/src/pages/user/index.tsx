@@ -1366,7 +1366,7 @@ export default function UserIndex() {
               <Text className="flex-1 ml-[20rpx] text-strong text-foreground">
                 {item.fallback ? tt(item.key, item.fallback) : t(item.key)}
               </Text>
-              <Text className="text-[length:26rpx] text-[var(--color-brand-accent-deep)]">
+              <Text className="text-body-sm leading-[normal] text-[var(--color-brand-accent-deep)]">
                 {'>'}
               </Text>
             </View>

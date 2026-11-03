@@ -22,7 +22,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createElement, type ReactNode } from 'react'
-import { render, fireEvent, waitFor } from '@testing-library/react'
+import { render, fireEvent, waitFor, act } from '@testing-library/react'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
@@ -35,7 +35,10 @@ const api = vi.hoisted(() => ({
 
 vi.mock('@ihui/api-client', () => ({ fetchApi: api.fetchApi }))
 vi.mock('../src/lib/token', () => ({ ensureFreshToken: api.ensureFreshToken }))
-vi.mock('../src/components/BottomPops', () => ({ appAlert: api.appAlert, showToast: api.showToast }))
+vi.mock('../src/components/BottomPops', () => ({
+  appAlert: api.appAlert,
+  showToast: api.showToast,
+}))
 vi.mock('@react-navigation/native', () => ({ useNavigation: () => ({ goBack: vi.fn() }) }))
 vi.mock('lucide-react-native', () => {
   const icon = () => createElement('i')
@@ -85,10 +88,43 @@ async function startScan(container: HTMLElement) {
   fireEvent.click(reauth!)
 }
 
+/**
+ * 本屏 2500ms 轮询的确定性触发(2026-11-03 去抖)。
+ *
+ * 真因是真实 async 竞态,不是 fake timer 没推进:`setInterval(2500)` 与 waitFor 的 4000ms
+ * 预算只差 1.5s,满载时"首跳 + 取数/渲染"越过预算就首轮偶发红。这里不改被测实现,也不
+ * 靠加大超时糊过去 —— 只把本屏这一条 2500ms 定时器拦下来,由用例按帧手动触发;RTL 自己
+ * 的 50ms 轮询与用例里 200ms 负向断言仍走真定时器,等待/断言强度一条不减。
+ */
+const realSetInterval = globalThis.setInterval
+let scanPollTick: (() => void) | null = null
+function captureScanPoll() {
+  vi.spyOn(globalThis, 'setInterval').mockImplementation(((
+    fn: TimerHandler,
+    delay?: number,
+    ...args: unknown[]
+  ) => {
+    if (delay === 2500) {
+      scanPollTick = fn as () => void
+      return 0 as unknown as ReturnType<typeof setInterval>
+    }
+    return realSetInterval(fn as (...rest: unknown[]) => void, delay, ...args)
+  }) as unknown as typeof setInterval)
+}
+async function tickScanPoll() {
+  await waitFor(() => expect(scanPollTick, '扫码轮询定时器没挂上').toBeTruthy())
+  await act(async () => {
+    scanPollTick!()
+    await Promise.resolve()
+    await Promise.resolve()
+  })
+}
+
 /** 一路推到"该出二维码"那一帧 */
 async function openQrFrame(container: HTMLElement) {
   await openPanel(container)
   await startScan(container)
+  await tickScanPoll()
   await waitFor(() => expect(container.querySelector('img')).toBeTruthy(), { timeout: 4000 })
 }
 
@@ -112,6 +148,8 @@ const renderScreen = () =>
 describe('PublishAccountsScreen — 二维码这一腿的凭据', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    scanPollTick = null
+    captureScanPoll()
     mockStartScan()
     api.ensureFreshToken.mockResolvedValue('fresh-ticket')
   })
@@ -127,6 +165,7 @@ describe('PublishAccountsScreen — 二维码这一腿的凭据', () => {
     const { container } = renderScreen()
     await openPanel(container)
     await startScan(container)
+    await tickScanPoll()
 
     // ensureFreshToken 已被叫到,而它还没回来 ⇒ 此刻只有 loading,没有裂图
     await waitFor(() => expect(api.ensureFreshToken).toHaveBeenCalled())
@@ -143,6 +182,7 @@ describe('PublishAccountsScreen — 二维码这一腿的凭据', () => {
     const { container } = renderScreen()
     await openPanel(container)
     await startScan(container)
+    await tickScanPoll()
     await waitFor(() => expect(api.ensureFreshToken).toHaveBeenCalled())
     await new Promise((r) => setTimeout(r, 200))
     expect(container.querySelector('img')).toBeNull()
@@ -155,7 +195,9 @@ describe('PublishAccountsScreen — 二维码这一腿的凭据', () => {
     expect(callsAfterFirstPaint).toBeGreaterThanOrEqual(1)
 
     fireEvent.error(container.querySelector('img')!)
-    await waitFor(() => expect(api.ensureFreshToken.mock.calls.length).toBe(callsAfterFirstPaint + 1))
+    await waitFor(() =>
+      expect(api.ensureFreshToken.mock.calls.length).toBe(callsAfterFirstPaint + 1),
+    )
 
     // 第二发仍失败 ⇒ 额度用尽:不再第三次刷凭据(旧实现会一直裂、一直无人管)
     fireEvent.error(container.querySelector('img')!)

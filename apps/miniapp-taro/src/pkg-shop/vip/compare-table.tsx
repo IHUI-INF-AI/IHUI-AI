@@ -44,7 +44,8 @@ export default function CompareTable() {
     void load()
   }, [load])
 
-  const cell = 'flex-1 py-[20rpx] px-[16rpx] text-center text-muted-foreground text-[length:22rpx]'
+  const cell =
+    'flex-1 py-[20rpx] px-[16rpx] text-center text-muted-foreground text-caption leading-[normal]'
 
   /**
    * /vip-compare 的 feature 值 = vip_levels.benefits 里的机器键(生产现读形如

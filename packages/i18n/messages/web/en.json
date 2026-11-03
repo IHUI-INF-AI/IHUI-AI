@@ -29560,7 +29560,14 @@
     "qrRotated": "Key rotated (fingerprint {fingerprint})",
     "qrSecretNote": "The secret itself is never shown; only its fingerprint is",
     "qrNeedSetup": "Configure the rules above and rotate the key first",
-    "qrLoadFailed": "Failed to load the QR code"
+    "qrLoadFailed": "Failed to load the QR code",
+    "trendChartTitle": "Attendance trend",
+    "trendChartScope": "Scope: {scope}",
+    "trendChartHint": "Attendance rate = present ÷ records logged in that period (students without a record are not in the denominator)",
+    "trendCountAxisLabel": "Records",
+    "trendChartAria": "Daily attendance rate line with stacked status bars for {scope} in the selected period",
+    "statusOther": "Other",
+    "scopeAllClasses": "All classes"
   },
   "eduCertificates": {
     "certificateNo": "No.: {no}",

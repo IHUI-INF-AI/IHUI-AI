@@ -4,7 +4,8 @@
 
 import { View, Text } from '@tarojs/components'
 import { useState, type CSSProperties } from 'react'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, taroSpacing } from '@ihui/design-tokens'
+import { rpx } from '@/utils/rpx'
 
 export interface StudyBarItem {
   id: number
@@ -38,7 +39,7 @@ const styles: Record<string, CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: '4rpx 0',
+    padding: `${rpx(taroSpacing['2xs'])} 0`,
     border: '1px solid var(--color-border)',
   },
   barItem: {

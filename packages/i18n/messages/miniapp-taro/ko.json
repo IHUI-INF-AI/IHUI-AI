@@ -4820,8 +4820,9 @@
     "status": {
       "present": "정상",
       "late": "지각",
+      "early": "조퇴",
       "absent": "결석",
-      "leave": "조퇴"
+      "leave": "휴가"
     },
     "student": "학생",
     "batchCheckIn": "반 일괄 출석",
@@ -4831,7 +4832,10 @@
     "batchDoneToast": "일괄 등교 완료",
     "batchResult": "출석 처리 완료：신규 {created}명，건너뜀 {skipped}명，미저장 {missed}명",
     "noClassReason": "반 정보를 가져오지 못해 반 일괄 출석을 할 수 없습니다",
-    "multiClass": "목록에 여러 반이 있습니다，이번에는 {classId}만 처리합니다"
+    "multiClass": "목록에 여러 반이 있습니다，이번에는 {classId}만 처리합니다",
+    "checkInAt": "등교 시각",
+    "momentNow": "지금",
+    "backfillNeedsTime": "과거 날짜를 등록하려면 해당 날짜의 등교 시각이 필요합니다"
   },
   "eduMgmt": {
     "attendanceTitle": "출석 관리",

@@ -404,7 +404,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     chatListContent: {
       padding: rnSpacing['sm-loose'], // 历史 .chat-messages padding 20rpx
-      paddingBottom: 30, // rpx(60)
+      paddingBottom: rnSpacing['3xl'], // rpx(60)
     },
     messageRow: {
       flexDirection: 'row',
