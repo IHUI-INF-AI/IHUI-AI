@@ -46,7 +46,7 @@ export function createStudentStyles(tk: AppThemeTokens) {
     },
     scroll: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'], gap: rnSpacing.md },
     hero: { gap: rnSpacing.xs },
-    heroTitle: { fontSize: 22, fontWeight: '700', color: tk.text.primary },
+    heroTitle: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
     heroSubtitle: { fontSize: rnType.label.size, color: tk.text.secondary },
     sectionTitle: {
       fontSize: rnType.title.size,
@@ -82,9 +82,13 @@ export function createStudentStyles(tk: AppThemeTokens) {
     },
     statHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     statLabel: { fontSize: rnType.label.size, color: tk.text.secondary },
-    statValue: { fontSize: 22, fontWeight: '700', color: tk.text.primary },
-    statValueCompleted: { fontSize: 22, fontWeight: '700', color: STUDENT_PALETTE.completed.fg },
-    statValueBrand: { fontSize: 22, fontWeight: '700', color: tk.brand.DEFAULT },
+    statValue: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
+    statValueCompleted: {
+      fontSize: rnType.heading.size,
+      fontWeight: '700',
+      color: STUDENT_PALETTE.completed.fg,
+    },
+    statValueBrand: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.brand.DEFAULT },
     // —— 快捷入口(报告页)——
     quickGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing['sm-loose'] },
     quickItem: {
@@ -189,7 +193,7 @@ export function createStudentStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
       flexDirection: 'row',
       gap: rnSpacing['xs-loose'],
-      paddingVertical: 11,
+      paddingVertical: rnSpacing['sm-loose'],
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },

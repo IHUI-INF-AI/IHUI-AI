@@ -34,7 +34,7 @@ export function CheckInScreen({
   onRefresh,
   onBack,
   onRetry,
-  colorScheme = 'light'
+  colorScheme = 'light',
 }: CheckInScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
@@ -148,7 +148,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     statsRow: { flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap' },
     statsCol: { flex: 1, alignItems: 'center', minWidth: 72 },
-    statsValue: { fontSize: 22, fontWeight: '700', color: tk.brand.DEFAULT },
+    statsValue: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.brand.DEFAULT },
     statsLabel: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.brand.DEFAULT },
     signBtn: {
       marginTop: rnSpacing['md-loose'],

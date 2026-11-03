@@ -196,7 +196,7 @@ const styles = StyleSheet.create({
   },
   titleWrap: { flex: 1, minWidth: 0, gap: rnSpacing['2xs'] },
   title: { color: tokens.text.primary, fontSize: rnType.strong.size, fontWeight: '600' },
-  body: { color: tokens.text.secondary, fontSize: 12.5 },
+  body: { color: tokens.text.secondary, fontSize: rnType.label.size },
   // 关闭钮:独立圆角块(原来只有一枚 18px 的 X,可点面太小也不成块)
   closeBtn: {
     width: rnSpacing.xl + rnSpacing.sm,

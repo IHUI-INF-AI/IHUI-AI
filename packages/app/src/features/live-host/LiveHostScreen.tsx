@@ -277,7 +277,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     actionBtn: {
       flex: 1,
-      paddingVertical: 15,
+      paddingVertical: rnSpacing['md-loose'],
       borderRadius: rnRadius.sm,
       alignItems: 'center',
     },

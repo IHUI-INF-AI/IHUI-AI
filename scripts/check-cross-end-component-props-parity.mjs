@@ -1,0 +1,247 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/* eslint-disable no-console */
+/**
+ * check-cross-end-component-props-parity.mjs —— 守门 285:两端同名组件 props 键集/必选性的
+ * **台账制差值棘轮**(判据引擎 = scripts/lib/component-props-parity.mjs,本文件零复算)。
+ *
+ * 立因:跨端对账族的最后一格零尺 —— 同名组件对的 props 行为对称性(键集缺失/必选性漂移)
+ * 此前只随门 128 读数打印、不判(门 128 头注明写"props 命名只随读数打印,不是观感本身")。
+ * 失效型是静默的:调用端把一个只有对端消费的 prop 传出去 ⇒ 本端无该腿、不报错、看不出错
+ * (与 badge-spec 的"缺档静默掉色"同族,从档降到腿)。补齐后本门随提交链与守护巡检自跑。
+ *
+ * 档位(§12e 恒红门禁令):2026-11-03 现读存量 = 18 对里 17 对有差、0 全对齐、1 未判定 ——
+ * 全量绝对判红结构上是恒红门,唯一结局是逼人 --no-verify 连坐全部守门。所以:
+ *   · 基线台账(scripts/data/cross-end-props-parity-baseline.json)登记当下账;
+ *   · 只拦**新增退化**:在册对的 onlyRn/onlyMini/reqDrift 出现台账之外的新键 ⇒ 红(逐键点名);
+ *     全新同名对带着漂移进仓而台账没记 ⇒ 红(出路=显式 --update-baseline 落账,不许静默入账);
+ *   · 键集缩小 = 向统一收敛 ⇒ 绿并提示可收紧台账;
+ *   · undetermined 一律 warn 点名(判红=把类型面一时解析不出冒成违规;判绿=把没量冒成量过,§0.3);
+ *   · 升绝对零的唯一前置 = 存量归零(数字现读,不写死在本文件)。
+ *
+ * 取材面(§0.4 横向口径):默认 HEAD blob;--staged 判索引;两面旗同给 exit 2;
+ * 取不到被审面(门 128 collect 失踪/基线坏)⇒ exit 2 未判定,绝不回落另一个面。
+ *
+ * 用法:
+ *   node scripts/check-cross-end-component-props-parity.mjs                 # 人读(HEAD 面)
+ *   node scripts/check-cross-end-component-props-parity.mjs --staged|--json|--quiet
+ *   node scripts/check-cross-end-component-props-parity.mjs --update-baseline # 落账(带保护)
+ *   node scripts/check-cross-end-component-props-parity.mjs --self-test       # 纯函数正反例
+ * 应急: HUSKY_SKIP_CROSS_END_PROPS_PARITY=1 git commit ...(跳门必须留痕,守门 89 同款纪律)
+ */
+import { writeFileSync } from 'node:fs'
+import { dirname, join, resolve } from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+
+import { computeParity } from './lib/component-props-parity.mjs'
+import { catBatch, readWorktreeFile, selectFace, Undetermined } from './lib/face-reader.mjs'
+
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+const BASELINE_REL = 'scripts/data/cross-end-props-parity-baseline.json'
+const argv = process.argv.slice(2)
+const jsonMode = argv.includes('--json')
+const quietMode = argv.includes('--quiet')
+const stagedMode = argv.includes('--staged')
+const worktreeMode = argv.includes('--worktree')
+const updateMode = argv.includes('--update-baseline')
+
+if (process.env.HUSKY_SKIP_CROSS_END_PROPS_PARITY) {
+  console.log('⏭️ skipped: HUSKY_SKIP_CROSS_END_PROPS_PARITY set')
+  process.exit(0)
+}
+const log = (...a) => {
+  if (!jsonMode && !quietMode) console.log(...a)
+}
+const die = (msg, code = 1) => {
+  console.error(`❌ ${msg}`)
+  process.exit(code)
+}
+
+/** 与引擎 pairDelta 输出对齐的纯判定(台账 vs 本轮):返回 {bad:[], warn:[], shrunk:[]} */
+export function verifyAgainstBaseline(deltas, baseline) {
+  const bad = []
+  const warn = []
+  const shrunk = []
+  const book = baseline?.pairs ?? {}
+  for (const d of deltas) {
+    if (d.state === 'undetermined') {
+      warn.push({ pair: d.name, kind: 'undetermined', why: d.reason })
+      continue
+    }
+    const e = book[d.name]
+    if (!e) {
+      const driftish = (d.onlyRn?.length ?? 0) + (d.onlyMini?.length ?? 0) + (d.reqDrift?.length ?? 0)
+      if (driftish > 0)
+        bad.push({
+          pair: d.name,
+          kind: 'unregistered-new-pair',
+          detail: `全新同名对带 ${driftish} 处差进仓而台账没记(静默入账=没人裁决过这一对)`,
+        })
+      else warn.push({ pair: d.name, kind: 'unregistered-clean-pair', why: '无差且台账未记,建议 --update-baseline 落账' })
+      continue
+    }
+    if (e.state === 'undetermined') {
+      warn.push({ pair: d.name, kind: 'booked-undetermined-now-parseable', why: '台账记的是未判定,本轮已能量出 —— 可收紧台账' })
+      continue
+    }
+    const baseRn = new Set(e.onlyRn ?? [])
+    const baseMini = new Set(e.onlyMini ?? [])
+    const baseDrift = new Set(e.reqDrift ?? [])
+    const newRn = (d.onlyRn ?? []).filter((k) => !baseRn.has(k))
+    const newMini = (d.onlyMini ?? []).filter((k) => !baseMini.has(k))
+    const newDrift = (d.reqDrift ?? []).filter((k) => !baseDrift.has(k))
+    if (newRn.length || newMini.length || newDrift.length) {
+      bad.push({
+        pair: d.name,
+        kind: 'new-drift-keys',
+        detail: `新增: rn侧独有不消费腿 [${newRn}] · mini侧 [${newMini}] · 必选性漂移 [${newDrift}]`,
+      })
+    }
+    const goneRn = [...baseRn].filter((k) => !(d.onlyRn ?? []).includes(k))
+    const goneMini = [...baseMini].filter((k) => !(d.onlyMini ?? []).includes(k))
+    if (goneRn.length || goneMini.length) shrunk.push({ pair: d.name, goneRn, goneMini })
+  }
+  const live = new Set(deltas.map((d) => d.name))
+  for (const k of Object.keys(book)) if (!live.has(k)) warn.push({ pair: k, kind: 'book-stale', why: '在册对本轮不在配对集(改名/拆族/可达性变化) ⇒ 复核台账,不冒红' })
+  return { bad, warn, shrunk }
+}
+
+export function buildBaselineEntry(d) {
+  if (d.state === 'undetermined') return { state: 'undetermined', reason: d.reason }
+  return {
+    state: 'ok',
+    onlyRn: d.onlyRn ?? [],
+    onlyMini: d.onlyMini ?? [],
+    reqDrift: d.reqDrift ?? [],
+    driftTotal: d.driftTotal ?? 0,
+  }
+}
+
+/**
+ * 台账按判定面读:head/staged 走 git 对象出口(与门 128 的取材同面),worktree 才读盘。
+ * 台账与内容必须同面同轮 —— 拿旧账判新树,正是 §0.4 要防的假绿。
+ */
+function readBaselineText(face, rel) {
+  if (face === 'worktree') return readWorktreeFile(ROOT, rel)
+  const spec = `${face === 'staged' ? ':' : 'HEAD:'}${rel}`
+  try {
+    return catBatch(ROOT, [spec], { maxBuffer: 1 << 24 }).get(spec) ?? null
+  } catch (e) {
+    throw new Undetermined(`${face} 面取不到 ${rel}: ${e?.message ?? e}`)
+  }
+}
+
+async function main() {
+  const picked = selectFace({ staged: stagedMode, worktree: worktreeMode, def: 'head' })
+  if (picked.error) die(`未判定:${picked.error}(§0.4 不回落另一个面)`, 2)
+  const face = picked.face
+  if (worktreeMode) die('提示:--worktree 仅人工逃生舱;提交链/守护一律 head|staged(§0.4)', 2)
+
+  if (argv.includes('--self-test')) return selfTest()
+
+  const par = await computeParity(ROOT, face)
+  if (par.state !== 'ok') die(`未判定:${par.reason} —— 不记绿也不冒红`, 2)
+
+  const baselineText = readBaselineText(face, BASELINE_REL)
+  if (updateMode) {
+    const undet = par.deltas.filter((d) => d.state === 'undetermined').length
+    if (par.deltas.length > 0 && undet / par.deltas.length > 0.5)
+      die(`拒写基线:${undet}/${par.deltas.length} 对未判定 —— 多半是编译面瞬时取不到,不得把"没读到"誊进台账冒充"判过"`, 2)
+    const out = {
+      generatedAt: new Date().toISOString(),
+      face,
+      rule: '差值棘轮:在册集合只减不增;新键/新对未入账=红;undetermined=warn 点名。升绝对零前置=存量归零。',
+      pairs: {},
+      counts: {
+        pairs: par.deltas.length,
+        drifted: par.deltas.filter((d) => d.state === 'ok' && d.driftTotal > 0).length,
+        aligned: par.deltas.filter((d) => d.state === 'ok' && d.driftTotal === 0).length,
+        undetermined: undet,
+        maxKeyDrift: Math.max(0, ...par.deltas.map((d) => d.driftTotal ?? 0)),
+        driftKeysTotal: par.deltas.reduce((s, d) => s + (d.driftTotal ?? 0), 0),
+      },
+    }
+    for (const d of par.deltas) out.pairs[d.name] = buildBaselineEntry(d)
+    writeFileSync(join(ROOT, BASELINE_REL), JSON.stringify(out, null, 2) + '\n', 'utf8')
+    log(`✅ 基线已落账 → ${BASELINE_REL}(pairs=${out.counts.pairs} 含差=${out.counts.drifted} 未判定=${out.counts.undetermined} 漂移键总数=${out.counts.driftKeysTotal})`)
+    process.exit(0)
+  }
+  if (baselineText === null)
+    die(`台账 ${BASELINE_REL} 不存在 —— 首跑请用 --update-baseline 落账(拒绝用隐式空账冒充"全对齐")`, 2)
+  let baseline
+  try {
+    baseline = JSON.parse(baselineText)
+  } catch (e) {
+    die(`台账 ${BASELINE_REL} 坏:${String(e?.message).slice(0, 120)} —— 判不出不记绿(§0.3)`, 2)
+  }
+
+  const { bad, warn, shrunk } = verifyAgainstBaseline(par.deltas, baseline)
+  const counts = {
+    pairs: par.deltas.length,
+    drifted: par.deltas.filter((d) => d.state === 'ok' && d.driftTotal > 0).length,
+    undetermined: par.deltas.filter((d) => d.state === 'undetermined').length,
+    driftKeysTotal: par.deltas.reduce((s, d) => s + (d.driftTotal ?? 0), 0),
+    newBad: bad.length,
+    warnCount: warn.length,
+    shrunkPairs: shrunk.length,
+  }
+  if (jsonMode) console.log(JSON.stringify({ face, counts, bad, warn, shrunk }, null, 1))
+  else {
+    log(`🧩 两端同名组件 props 对账(守门 285,差值棘轮;面=${face})`)
+    log(`  配对 ${counts.pairs} · 存差 ${counts.drifted} 对/${counts.driftKeysTotal} 键 · 未判定 ${counts.undetermined} · 本轮新增退化 ${bad.length}`)
+    for (const b of bad) log(`  🔴 ${b.pair}(${b.kind}):${b.detail ?? b.why ?? ''}`)
+    for (const w of warn) log(`  ⚠️ ${w.pair}(${w.kind}):${w.why ?? ''}`)
+    for (const s of shrunk) log(`  ✅ 收敛 ${s.pair}: 已消键 rn[${s.goneRn}] mini[${s.goneMini}] —— 复核后可 --update-baseline 收紧`)
+    if (!bad.length && !warn.length) log('  ✅ 无新增退化,台账在册键集未见扩大')
+  }
+  if (bad.length) die(`新增退化 ${bad.length} 处 —— 修腿或(确属两端有意分形)在 commit message 写明后 --update-baseline 落账`, 1)
+  process.exit(0)
+}
+
+/** 自检:纯判据正反例(deltas 直接构造 pairDelta 同形对象,不重建类型面;镜像测试 import 同一条判据,§22c 不复刻) */
+function selfTest() {
+  const d = (name, extra = {}) => ({ name, state: 'ok', onlyRn: [], onlyMini: [], reqDrift: [], driftTotal: 0, ...extra })
+  const base = {
+    pairs: {
+      Foo: { state: 'ok', onlyRn: ['onBar'], onlyMini: [], reqDrift: [] },
+      U: { state: 'undetermined', reason: '上一台账周期编译面取不到' },
+      ZZ: { state: 'ok', onlyRn: [], onlyMini: [], reqDrift: [] },
+    },
+  }
+  const checks = []
+  const t = (label, cond) => checks.push([label, cond])
+  // 在册键复刻 ⇒ 绿
+  t('在册键无新增=绿', verifyAgainstBaseline([d('Foo', { onlyRn: ['onBar'], driftTotal: 1 })], base).bad.length === 0)
+  // 新键 ⇒ 红且点名
+  t('新增 rn 独有不消费腿=红', (() => { const v = verifyAgainstBaseline([d('Foo', { onlyRn: ['onBar', 'onZonk'], driftTotal: 2 })], base); return v.bad.length === 1 && v.bad[0].pair === 'Foo' && v.bad[0].detail.includes('onZonk') })())
+  // 键集缩小(收敛)⇒ 绿 + shrunk 提示
+  t('消键收敛=绿与提示', (() => { const v = verifyAgainstBaseline([d('Foo')], base); return v.bad.length === 0 && v.shrunk.length === 1 })())
+  // 全新对带差未入账 ⇒ 红;全新对无差 ⇒ 绿(建议落账)
+  t('新对带差未入账=红', verifyAgainstBaseline([d('Brand', { onlyRn: ['a'], driftTotal: 1 })], base).bad.length === 1)
+  t('新对无差=绿', verifyAgainstBaseline([d('CleanNew')], base).bad.length === 0)
+  // 本轮 undetermined ⇒ warn 不红(在册与不在册同此);基线里 ZZ 不在本轮 ⇒ book-stale 也算 warn,只断言"无红 + U/N 都被点名"
+  t('未判定=warn 不红', (() => { const v = verifyAgainstBaseline([{ name: 'U', state: 'undetermined', reason: '本轮取不到' }, { name: 'N', state: 'undetermined', reason: '新族取不到' }], base); return v.bad.length === 0 && v.warn.some((w) => w.pair === 'U' && w.kind === 'undetermined') && v.warn.some((w) => w.pair === 'N')})())
+  // 在册对消失 ⇒ book-stale warn 不红
+  t('台账腐烂=warn 不红', (() => { const v = verifyAgainstBaseline([d('Foo')], { pairs: { Foo: base.pairs.Foo, Gone: { state: 'ok', onlyRn: [], onlyMini: [], reqDrift: [] } } }); return v.bad.length === 0 && v.warn.some((w) => w.kind === 'book-stale' && w.pair === 'Gone') })())
+  let fails = 0
+  for (const [label, cond] of checks) {
+    if (!cond) {
+      console.error(`✗ self-test:${label}`)
+      fails++
+    } else console.log(`✅ ${label}`)
+  }
+  console.log(fails ? `❌ self-test 失败 ${fails}/${checks.length} 例` : `✅ self-test ${checks.length} 例全过`)
+  process.exit(fails ? 1 : 0)
+}
+
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+export const __test__ = { verifyAgainstBaseline, buildBaselineEntry }
+if (isDirectRun) {
+  main().catch((e) => {
+    console.error(`❌ ${e?.message ?? e}\n${e?.stack ?? ''}`)
+    process.exit(2)
+  })
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

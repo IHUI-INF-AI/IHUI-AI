@@ -31,8 +31,8 @@ import {
  */
 const HEIGHT_CLASS: Record<number, string> = { 36: 'h-9' }
 const RADIUS_CLASS: Record<typeof INPUT_RADIUS_TIER, string> = { sm: 'rounded-sm' }
-const PADDING_X_CLASS: Record<number, string> = { 12: 'px-3' }
-const TEXT_CLASS: Record<typeof INPUT_TEXT_TIER, string> = { sm: 'text-sm' }
+const PADDING_X_CLASS: Record<number, string> = { 12: 'px-md' }
+const TEXT_CLASS: Record<typeof INPUT_TEXT_TIER, string> = { sm: 'text-body' }
 const BORDER_WIDTH_CLASS: Record<number, string> = { 1: 'border' }
 
 export type InputProps = ComponentProps<typeof TaroInput>

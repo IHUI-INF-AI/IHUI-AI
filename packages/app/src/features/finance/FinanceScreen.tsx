@@ -26,7 +26,7 @@ export function FinanceScreen({
   error,
   onBack,
   onRetry,
-  colorScheme = 'light'
+  colorScheme = 'light',
 }: FinanceScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
@@ -98,7 +98,12 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.light,
     },
     label: { fontSize: rnType.body.size, color: tk.text.secondary },
-    value: { marginTop: rnSpacing.sm, fontSize: 22, fontWeight: '600', color: tk.text.primary },
+    value: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.heading.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+    },
     valuePrimary: { color: tk.success.DEFAULT },
   })
 }

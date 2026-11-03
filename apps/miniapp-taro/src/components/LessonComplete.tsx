@@ -35,7 +35,7 @@ export default function LessonComplete({
     <View className="fixed inset-0 z-[2000] flex items-center justify-center" onClick={onClose}>
       <View className="absolute inset-0 bg-[var(--color-black-50)]" />
       <View
-        className="relative bg-card ui-panel rounded-xl mx-8 px-6 py-6 max-w-xs w-full text-center"
+        className="relative bg-card ui-panel rounded-xl mx-3xl px-2xl py-2xl max-w-xs w-full text-center"
         hoverClass="opacity-60"
         onClick={(e) => e.stopPropagation()}
       >
@@ -43,48 +43,48 @@ export default function LessonComplete({
           name="party-popper"
           size={72}
           color="var(--color-muted-foreground)"
-          className="block mb-3 mx-auto"
+          className="block mb-md mx-auto"
         />
-        <Text className="block text-base font-medium text-foreground mb-1">
+        <Text className="block text-title font-medium text-foreground mb-xs">
           {tt('lesson.complete', '学习完成!')}
         </Text>
-        <Text className="block text-xs text-muted-foreground mb-4">{lessonTitle}</Text>
+        <Text className="block text-label text-muted-foreground mb-lg">{lessonTitle}</Text>
 
-        <View className="flex justify-around mb-4 py-3 bg-muted rounded-lg">
+        <View className="flex justify-around mb-lg py-md bg-muted rounded-lg">
           <View>
-            <Text className="block text-sm font-medium text-foreground">{duration || '00:00'}</Text>
-            <Text className="block text-xs text-muted-foreground">
+            <Text className="block text-body font-medium text-foreground">{duration || '00:00'}</Text>
+            <Text className="block text-label text-muted-foreground">
               {tt('lesson.studyDuration', '学习时长')}
             </Text>
           </View>
           <View>
-            <Text className="block text-sm font-medium text-warning">+{points}</Text>
-            <Text className="block text-xs text-muted-foreground">
+            <Text className="block text-body font-medium text-warning">+{points}</Text>
+            <Text className="block text-label text-muted-foreground">
               {tt('lesson.points', '积分')}
             </Text>
           </View>
         </View>
 
         {nextLessonTitle && (
-          <Text className="block text-xs text-muted-foreground mb-4">
+          <Text className="block text-label text-muted-foreground mb-lg">
             {t('lesson.next', { title: nextLessonTitle })}
           </Text>
         )}
 
-        <View className="flex space-x-3">
+        <View className="flex space-x-md">
           <View
             className="flex-1 py-[20rpx] rounded-md bg-muted"
             hoverClass="opacity-60"
             onClick={onShare}
           >
-            <Text className="text-sm text-foreground">{tt('lesson.share', '分享')}</Text>
+            <Text className="text-body text-foreground">{tt('lesson.share', '分享')}</Text>
           </View>
           <View
             className="flex-1 py-[20rpx] rounded-md bg-primary"
             onClick={onContinue}
             hoverClass="opacity-60"
           >
-            <Text className="text-sm text-primary-foreground">
+            <Text className="text-body text-primary-foreground">
               {nextLessonTitle ? tt('lesson.continue', '继续学习') : tt('lesson.done', '完成')}
             </Text>
           </View>

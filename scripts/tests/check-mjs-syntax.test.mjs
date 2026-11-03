@@ -11,13 +11,14 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { spawnSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { spawnSync, execFileSync } from 'node:child_process'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { __test__ as gate } from '../check-mjs-syntax.mjs'
 import { idsOfRegistry } from '../check-gate-wiring.mjs'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(HERE, '..', '..')
@@ -95,5 +96,46 @@ test('自检本体真跑通(交付前置):--self-test 全过且点名例数', ()
   const st = run(['--self-test'])
   assert.equal(st.status, 0, `${st.stdout}\n${st.stderr}`)
   assert.match(st.stdout, /✅ 自检 \d+\/\d+ 例全过/)
+})
+
+// RP-47 双测试(2026-11-03):真 bug 的根因是索引面解析取错列(`ls-files -s` 的 meta[2] 是 stage 号
+// 而不是 oid),不是 `git show :path` / `rev-parse` 用法。下面两条各钉一端:
+// ① 有暂存:取到的必须是**暂存 blob**(索引 v1),不得回落工作树(v2);
+// ② 暂存为空:索引一枚 .mjs 都没有 ⇒ 未判定 exit 2 语义,绝不回落工作树/HEAD 记绿。
+function newRepo(prefix) {
+  const dir = mkScratch(prefix)
+  const git = (args) => execFileSync('git', args, { cwd: dir, encoding: 'utf8', windowsHide: true })
+  git(['init', '-q'])
+  return { dir, git }
+}
+
+test('staged 面(有暂存):取到的是暂存 blob,不是工作树内容', () => {
+  const { dir, git } = newRepo('mjs-staged-hit-')
+  try {
+    const p = join(dir, 'probe.mjs')
+    writeFileSync(p, 'export const v = 1\n')
+    git(['add', 'probe.mjs'])
+    writeFileSync(p, 'export const v = 2\n') // 工作树改成 v2;索引面仍是 v1
+    const files = gate.collectFaceFiles(dir, 'staged')
+    assert.equal(files.length, 1, `暂存面应恰 1 枚,实得 ${files.length}`)
+    assert.equal(files[0].p, 'probe.mjs')
+    assert.equal(files[0].s, 'export const v = 1\n', '必须读暂存 blob(v1);读到 v2 = 回落了工作树')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('staged 面(暂存为空):判未判定,不回落工作树记绿', () => {
+  const { dir } = newRepo('mjs-staged-empty-')
+  try {
+    writeFileSync(join(dir, 'probe.mjs'), 'export const v = 1\n') // 只在工作树,不入索引
+    assert.throws(
+      () => gate.collectFaceFiles(dir, 'staged'),
+      /枚举到的 \.mjs 为 0 枚/,
+      '空索引必须判未判定(§0.3),不得读工作树冒充"扫过且干净"',
+    )
+  } finally {
+    rmScratch(dir)
+  }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

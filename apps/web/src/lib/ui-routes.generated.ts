@@ -11,7 +11,7 @@
  */
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/web/scripts/generate-ui-routes.mjs
-// sourceCommit: 70e0a1bec3777c19263d87e59dba8ea4e6af3510
+// sourceCommit: 05afa46b95fcb58e55541c67fc5f2bbdc79d200c
 // inputsSha256: 2f7eaf5861113145fecb5171d19f67379539b7cbefa698fd7c8abc4f7dd7a6e3
 // input: apps/web/app/(auth)/apple/callback/page.tsx f328ceb139ed3b61c0e79bc671e93885a6c1e1b6b7c356febbc97f3255da2075
 // input: apps/web/app/(auth)/callback/page.tsx d17f249c8506951babf768ff47e0800dc7ed191a9c80ddb124142a8520bcd80e
@@ -936,7 +936,7 @@
 // input: apps/web/app/sso/wecom/page.tsx 35efcf616fc264c76204fb3d155f464682cd239b37965652b930391e0e7144b6
 // input: apps/web/app/status/page.tsx 7caf130705141568c833b1c99562fc85fb5939f05f7897976fb833e6b39f4521
 // skipped: excludedTopSegments(sso|h5|api)=9 pages; duplicatePaths(保留先扫描到的)=0
-// generatedAt: 2026-11-03T08:00:15.572Z
+// generatedAt: 2026-11-03T08:46:17.394Z
 // IHUI-GEN-PIN-END
 
 export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [

@@ -111,7 +111,7 @@ function createStyles(tk: AppThemeTokens) {
     title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
     body: { flex: 1, alignItems: 'center', padding: rnSpacing['2xl'], gap: rnSpacing.md },
     icon: { fontSize: 64, marginTop: rnSpacing.md },
-    titleText: { fontSize: 22, fontWeight: '700', color: tk.success.deep },
+    titleText: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.success.deep },
     card: {
       width: '100%',
       backgroundColor: tk.surface.light,
