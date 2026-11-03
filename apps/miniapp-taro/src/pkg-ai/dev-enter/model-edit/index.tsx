@@ -13,6 +13,9 @@ import { useState, useCallback } from 'react'
 import { get } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
 import { onToast } from '@/host/on-toast'
+import { isModelEditFieldReadOnly } from '@ihui/shared/constants'
+import { submitModelEdit } from '@ihui/shared/utils'
+import { updateAgentBilling } from '@ihui/api-client'
 
 const CATEGORIES = [
   t('deventerModeledit.r1'),
@@ -75,6 +78,20 @@ export default function ModelEdit() {
   }>({})
   const [categories, setCategories] = useState<string[]>([])
   const [deptIndex, setDeptIndex] = useState(0)
+  // 与 RN 共享屏读同一份清单(packages/shared/src/constants/model-edit.ts):库里没有归宿的字段
+  // 一律置灰 + 提示,不给用户"能改"的假象 —— 此前端内一个字都没接,是"能改但不生效"的真缺陷。
+  const roCategory = isModelEditFieldReadOnly('categories')
+  const roDept = isModelEditFieldReadOnly('dept')
+  const roCycle = isModelEditFieldReadOnly('cycle')
+  const roFreeDur = isModelEditFieldReadOnly('freeDur')
+  const roAudience = isModelEditFieldReadOnly('audience')
+  const roDiscount = isModelEditFieldReadOnly('discount')
+  const readOnlyHint = (show: boolean) =>
+    show ? (
+      <Text className="block text-caption leading-[normal] text-muted-foreground mt-[-8rpx] mb-[16rpx]">
+        {t('modelEdit.readOnlyHint')}
+      </Text>
+    ) : null
   const [saleType, setSaleType] = useState<SaleType>('limited')
   const [chargePeriod, setChargePeriod] = useState<ChargePeriod>('monthly')
   const [limitedDuration, setLimitedDuration] = useState<LimitedDuration>('7day')
@@ -170,15 +187,15 @@ export default function ModelEdit() {
     { value: 'full', label: tt('devEnter.modelEdit.discountFull', '全部参与') },
   ]
 
-  const renderOpts = (opts: Opt[], current: string, onSelect: (v: string) => void) => (
+  const renderOpts = (opts: Opt[], current: string, onSelect: (v: string) => void, disabled = false) => (
     <ThemeRoot>
       <View className="flex flex-wrap gap-[20rpx]">
         {opts.map((o) => (
           <View
             key={o.value}
-            className={`${OPT_BASE} ${current === o.value ? OPT_ACTIVE : ''}`}
-            onClick={() => onSelect(o.value)}
-            hoverClass="opacity-60"
+            className={`${OPT_BASE} ${current === o.value ? OPT_ACTIVE : ''} ${disabled ? 'opacity-[0.55]' : ''}`}
+            onClick={disabled ? undefined : () => onSelect(o.value)}
+            hoverClass={disabled ? 'none' : 'opacity-60'}
           >
             <Text>{o.label}</Text>
           </View>
@@ -190,12 +207,24 @@ export default function ModelEdit() {
   const onSubmit = async () => {
     if (submitting) return
     setSubmitting(true)
-    // 后端没有「模型收费配置」这条腿:`/developer/agents/:id/charge` 全仓零注册,而可落库的
-    // 只有 PUT /agents/:id 的 price/isFree 两列,本表单其余 7 项(分类/部门/收费周期/限时/
-    // 目标群体/折扣)在库里没有归宿 ⇒ 既不打必然 404 的路径,也不再把失败念成"已模拟提交"。
-    logger.warn('model-edit', '收费配置提交', '接口未开放,本次未提交')
-    onToast(tt('devEnter.modelEdit.mockSuccess', '接口暂未开放,未提交'), { kind: 'error' })
-    setSubmitting(false)
+    try {
+      // 与 RN 端同形:仅 price/isFree 两列真落库(PUT /agents/:agentId),其余只读字段不进 body。
+      // 端点由宿主注入(同跨端纪律),成功只在真实请求回来后才出现,失败原样上屏。
+      const outcome = await submitModelEdit(
+        (id, payload) => updateAgentBilling(id, payload),
+        agentId,
+        { saleType, price },
+      )
+      if (outcome.ok) {
+        onToast(tt('devEnter.modelEdit.saveSuccess', '保存成功'), { kind: 'success' })
+      } else {
+        onToast(outcome.error.message, { kind: 'error' })
+      }
+    } catch (e) {
+      onToast(e instanceof Error ? e.message : String(e), { kind: 'error' })
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -253,13 +282,14 @@ export default function ModelEdit() {
             <Text className="block text-body leading-[normal] font-semibold text-[var(--color-text-medium)] mt-[32rpx] mb-[16rpx]">
               {tt('modelEdit.labelCategory', '分类')}
             </Text>
+            {readOnlyHint(roCategory)}
             <View className="flex flex-wrap gap-[20rpx]">
               {CATEGORIES.map((c) => (
                 <View
                   key={c}
-                  className={`${TAG_BASE} ${categories.includes(c) ? TAG_ACTIVE : ''}`}
-                  onClick={() => toggleCategory(c)}
-                  hoverClass="opacity-60"
+                  className={`${TAG_BASE} ${categories.includes(c) ? TAG_ACTIVE : ''} ${roCategory ? 'opacity-[0.55]' : ''}`}
+                  onClick={roCategory ? undefined : () => toggleCategory(c)}
+                  hoverClass={roCategory ? 'none' : 'opacity-60'}
                 >
                   <Text>{c}</Text>
                 </View>
@@ -270,13 +300,17 @@ export default function ModelEdit() {
             <Text className="block text-body leading-[normal] font-semibold text-[var(--color-text-medium)] mt-[32rpx] mb-[16rpx]">
               {tt('devEnter.modelEdit.departmentLabel', '部门')}
             </Text>
+            {readOnlyHint(roDept)}
             <Picker
               mode="selector"
               range={DEPARTMENTS}
               value={deptIndex}
+              disabled={roDept}
               onChange={(e) => setDeptIndex(Number(e.detail.value))}
             >
-              <View className="flex items-center justify-between h-[72rpx] px-[28rpx] rounded-xl border border-brand-accent-deep bg-muted text-body leading-[normal] font-semibold text-foreground box-border">
+              <View
+                className={`flex items-center justify-between h-[72rpx] px-[28rpx] rounded-xl border border-brand-accent-deep bg-muted text-body leading-[normal] font-semibold text-foreground box-border ${roDept ? 'opacity-[0.55]' : ''}`}
+              >
                 <Text>{DEPARTMENTS[deptIndex]}</Text>
                 <LineIcon name="chevron-down" size={24} color="var(--color-muted-foreground)" />
               </View>
@@ -294,7 +328,8 @@ export default function ModelEdit() {
                 <Text className="block text-body leading-[normal] font-semibold text-[var(--color-text-medium)] mt-[32rpx] mb-[16rpx]">
                   {tt('modelEdit.labelCycle', '结算周期')}
                 </Text>
-                {renderOpts(periodOpts, chargePeriod, (v) => setChargePeriod(v as ChargePeriod))}
+                {readOnlyHint(roCycle)}
+                {renderOpts(periodOpts, chargePeriod, (v) => setChargePeriod(v as ChargePeriod), roCycle)}
                 {saleType === 'paid' ? (
                   <>
                     <Text className="block text-body leading-[normal] font-semibold text-[var(--color-text-medium)] mt-[32rpx] mb-[16rpx]">
@@ -329,8 +364,12 @@ export default function ModelEdit() {
                     <Text className="block text-body leading-[normal] font-semibold text-[var(--color-text-medium)] mt-[32rpx] mb-[16rpx]">
                       {tt('modelEdit.labelFreeDur', '免费时长')}
                     </Text>
-                    {renderOpts(durationOpts, limitedDuration, (v) =>
-                      setLimitedDuration(v as LimitedDuration),
+                    {readOnlyHint(roFreeDur)}
+                    {renderOpts(
+                      durationOpts,
+                      limitedDuration,
+                      (v) => setLimitedDuration(v as LimitedDuration),
+                      roFreeDur,
                     )}
                   </>
                 ) : null}
@@ -341,7 +380,8 @@ export default function ModelEdit() {
                     <Text className="block text-body leading-[normal] font-semibold text-[var(--color-text-medium)] mt-[32rpx] mb-[16rpx]">
                       {tt('modelEdit.labelDiscount', '折扣')}
                     </Text>
-                    {renderOpts(discountOpts, discount, (v) => setDiscount(v as Discount))}
+                    {readOnlyHint(roDiscount)}
+                    {renderOpts(discountOpts, discount, (v) => setDiscount(v as Discount), roDiscount)}
                   </>
                 }
               </View>
@@ -351,7 +391,8 @@ export default function ModelEdit() {
             <Text className="block text-body leading-[normal] font-semibold text-[var(--color-text-medium)] mt-[32rpx] mb-[16rpx]">
               {tt('modelEdit.labelAudience', '可见范围')}
             </Text>
-            {renderOpts(groupOpts, targetGroup, (v) => setTargetGroup(v as TargetGroup))}
+            {readOnlyHint(roAudience)}
+            {renderOpts(groupOpts, targetGroup, (v) => setTargetGroup(v as TargetGroup), roAudience)}
 
             {/* 提交审核 — RN btn:mt28→56rpx、h50→100rpx、r12→24rpx、brand.DEFAULT 底 */}
             {/* RN btnText 用 surface.light(#FFFFFF 恒白),暗色下白底白字不可读 → 修正为 text-primary-foreground(暗色自动反转) */}
