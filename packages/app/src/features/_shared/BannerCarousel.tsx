@@ -30,7 +30,7 @@ import {
   carouselDotStyle,
   carouselIndicatorWrapStyle,
 } from '@ihui/shared/ui/carousel-spec'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnCssLight } from '@ihui/design-tokens'
 
 export interface BannerCarouselProps {
   images: readonly ImageSourcePropType[]
@@ -42,7 +42,10 @@ const toUnit = (px: number) => px
 
 const AUTOPLAY_INTERVAL = 3000
 
-export function BannerCarousel({ images, height = carouselDefaultHeightPx() }: BannerCarouselProps) {
+export function BannerCarousel({
+  images,
+  height = carouselDefaultHeightPx(),
+}: BannerCarouselProps) {
   const { width: windowWidth } = useWindowDimensions()
   const [containerWidth, setContainerWidth] = useState(0)
   const slideWidth = containerWidth > 0 ? containerWidth : windowWidth
@@ -70,11 +73,7 @@ export function BannerCarousel({ images, height = carouselDefaultHeightPx() }: B
   if (images.length === 0) return null
 
   return (
-    <View
-      style={[styles.container, { height }]}
-      onLayout={onLayout}
-      accessibilityLabel="轮播图"
-    >
+    <View style={[styles.container, { height }]} onLayout={onLayout} accessibilityLabel="轮播图">
       <ScrollView
         ref={scrollRef}
         horizontal
@@ -119,5 +118,5 @@ const styles = StyleSheet.create({
   },
   dot: { borderRadius: rnRadius.sm },
   dotActive: { backgroundColor: '#FFFFFF' },
-  dotInactive: { backgroundColor: 'rgba(255,255,255,0.5)' },
+  dotInactive: { backgroundColor: rnCssLight.white50 },
 })
