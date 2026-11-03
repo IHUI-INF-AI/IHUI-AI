@@ -18,6 +18,13 @@
  * 存储层是替身:Map 模拟 Taro.storage(含"key 不存在返回空串"的真实语义),不连任何真机/服务。
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+// 静态 import 只为**预热模块图**(2026-11-03 flake 定位):`@ihui/shared` 桶文件的首次
+// transform+加载实测 3.1s(本机单跑),它原本落在 M1 的用例窗口里 —— 动态 import 触发
+// 的按需 transform 全记在 testTimeout 内,全量并行(worker 争 CPU)时逼近/越过 15s。
+// 静态 import 在**文件收集期**完成同一段冷启动(不受 testTimeout 约束),用例内首次
+// import 只剩 35ms;判据(取工厂先于盘写、旧 key 迁到新 key 并被清、变异对照无工厂调用)
+// 一字未动,只是把冷启动移出被计时的窗口。M3 直接用它跑迁移,不再二次动态 import。
+import { migrateLegacyStorageKey } from '@ihui/shared'
 import type * as TaroStorageAdapter from '../src/stores/storage-adapter'
 
 const { taroStorage, callLog } = vi.hoisted(() => ({
@@ -90,7 +97,6 @@ describe('小程序 store 持久化装配点 ⇒ 端工厂单点', () => {
 
   it('M3 变异对照(夹具，不碰生产面):端内重抄形态迁移照样成功 ⇒ 承重的是"取工厂"那条断言', async () => {
     const { createSyncTransport } = await import('@ihui/shared/stores')
-    const { migrateLegacyStorageKey } = await import('@ihui/shared')
     taroStorage['probe_legacy'] = '{"p":1}'
     const before = callLog.length
 
