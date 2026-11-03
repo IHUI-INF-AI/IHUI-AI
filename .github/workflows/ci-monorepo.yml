@@ -257,15 +257,11 @@ jobs:
   test:
     needs: setup
     runs-on: ubuntu-latest
-    # 2026-11-03(CI 提速):Unit tests 单 job 实测 671s(run 41539163265),其中 apps/api /
-    # apps/web 两个包占大头。分片口径与 ci.yml 同源(scripts/ci-test-shards.mjs 从 workspace
-    # 现读"声明 scripts.test 的包"再装箱),不手抄清单;`--assert` 保证每个包恰好跑一次,
-    # 新增包不会被静默漏测。
-    strategy:
-      fail-fast: false
-      max-parallel: 4
-      matrix:
-        shard: [1, 2, 3, 4]
+    # 2026-11-03 实测改判(勿重开):本 workflow 曾按 4 分片跑同一套 scripts/ci-test-shards.mjs,
+    # 真实 run 41567631844 的分片 job 墙钟 8m23/8m47/10m25/10m47,而分片前 Unit tests 步 =
+    # 671s → 收益 3.5%(<10%),同时多占 3 个 runner 槽(该 run 里 setup/typecheck/lint 的排队
+    # 从 2min 涨到 15min+)。按"只保留实测 >10% 的项"的口径**已回退**为单 job 全量。
+    # ci.yml 那侧保留 4 分片:那里旧 Test 步 925s → 最慢分片 549s(≈41%),收益成立。
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         id: checkout
@@ -277,12 +273,9 @@ jobs:
       - name: Install dependencies
         id: install
         run: pnpm install --frozen-lockfile
-      - name: Assert test shard plan coverage (每个测试包恰好一次)
-        id: test-shard-coverage
-        run: node scripts/ci-test-shards.mjs --assert
-      - name: Unit tests (shard ${{ matrix.shard }}/4)
+      - name: Unit tests
         id: test
-        run: node scripts/ci-test-shards.mjs --shard ${{ matrix.shard }}/4
+        run: pnpm run test
       # 观测档(2026-10-31 接线):mobile-rn vitest 里落在 tests/__mocks__ 的别名替身面 ——
       # 此前全仓四路调度点皆无,"替身面在扩张"没人看得见。按门体契约恒 RC=0(只报名不判红)。
       - name: mobile-rn vitest 替身面观测(只报名,不判红)
@@ -294,10 +287,9 @@ jobs:
         if: failure()
         env:
           TRIAGE_WORKFLOW_FILE: .github/workflows/ci-monorepo.yml
-          TRIAGE_IDS: checkout install test-shard-coverage test mrn-vitest-mocks
+          TRIAGE_IDS: checkout install test mrn-vitest-mocks
           O_CHECKOUT: ${{ steps.checkout.outcome }}
           O_INSTALL: ${{ steps.install.outcome }}
-          O_TEST_SHARD_COVERAGE: ${{ steps.test-shard-coverage.outcome }}
           O_TEST: ${{ steps.test.outcome }}
           O_MRN_VITEST_MOCKS: ${{ steps.mrn-vitest-mocks.outcome }}
         run: bash scripts/ci-failure-triage.sh
