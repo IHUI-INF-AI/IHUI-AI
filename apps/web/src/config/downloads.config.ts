@@ -126,26 +126,6 @@ export function isDownloadPlatform(value: string | undefined | null): value is D
   return typeof value === 'string' && (DOWNLOAD_PLATFORMS as readonly string[]).includes(value)
 }
 
-/**
- * 8 端枚举的唯一清单。
- * 此前详情页内联了一份 `validPlatforms`,归一化规则住在两处 —— 运行期解析器与渲染组件
- * 一旦对"哪些算合法端"不一致,就会出现"按 bogus 解析、按 desktop 渲染"这种错位。
- */
-export const DOWNLOAD_PLATFORMS: readonly DownloadPlatform[] = [
-  'web',
-  'desktop',
-  'ios',
-  'android-apk',
-  'mobile',
-  'wechat-miniapp',
-  'extension',
-  'cli',
-]
-
-export function isDownloadPlatform(raw: string): raw is DownloadPlatform {
-  return (DOWNLOAD_PLATFORMS as readonly string[]).includes(raw)
-}
-
 /** 无效/缺失的 platform 参数一律归到 desktop(与详情页既有回落行为一致,且只在这里判一次) */
 export function normalizeDownloadPlatform(raw: string | undefined | null): DownloadPlatform {
   return typeof raw === 'string' && isDownloadPlatform(raw) ? raw : 'desktop'
