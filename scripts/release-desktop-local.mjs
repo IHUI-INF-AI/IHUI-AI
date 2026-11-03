@@ -4,18 +4,17 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 桌面端本机一键发版(2026-09-17 极致化;2026-11-03 起 Gitee 直传默认关闭):
- *   node scripts/release-desktop-local.mjs [--no-install] [--no-push] [--no-upload] [--upload-gitee] [--allow-unsigned-upload] [--minor|--major]
- * 流程:bump 版本 → tauri build(薄壳+签名,~2.5 分钟)→ [--upload-gitee:Gitee release 直传] →
+ * 桌面端本机一键发版(2026-09-17 极致化;2026-11-03 起 Gitee 为国内主通道,默认直传):
+ *   node scripts/release-desktop-local.mjs [--no-install] [--no-push] [--no-upload] [--allow-unsigned-upload] [--minor|--major]
+ * 流程:bump 版本 → tauri build(薄壳+签名,~2.5 分钟)→ Gitee release 直传 →
  *       提交推送 → 本机静默自装。
- *   2026-11-03:Gitee 仓为空仓、零推送历史,桌面直链已切 GitHub ⇒ 发布目标下线,
- *     本脚本默认只构建+签名、不上传;上传代码保留供恢复(显式加 --upload-gitee)。
- *   --upload-gitee:恢复旧的 Gitee 直传(前置:先初始化 Gitee 仓并推 main,见
- *     release-desktop.yml 的 sync-gitee job 注释)。
- *   --no-upload:跳过 Gitee 直传(现为默认行为;保留旗标兼容旧命令)。
- *   --allow-unsigned-upload:配合 --upload-gitee 放行"本机未签名包"(仅应急;公开 Windows 发布走 CI/SignPath)。
+ *   2026-11-03:Gitee 已复活为国内主通道(仓库浏览 + 发布包下载),本脚本**默认上传**;
+ *     本地验证必须显式 --no-upload,避免"跑一次本地构建就往外传孤儿资产"。
+ *   --no-upload:显式关闭 Gitee 直传,产物仅留本机(本地验证/无网络时用)。
+ *   --upload-gitee:历史旗标,现为默认行为,保留兼容旧命令(不再改变行为)。
+ *   --allow-unsigned-upload:未签名包上传放行(仅应急;公开 Windows 发布走 CI/SignPath)。
  * 仅发 Windows(本机通道);全平台走 CI(tag → release-desktop.yml)。
- * 前置:~/.tauri/ 更新签名密钥;--upload-gitee 时还需 gitee.com token。
+ * 前置:~/.tauri/ 更新签名密钥;默认直传还需 gitee.com token。
  */
 import { execFileSync, execSync, spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
@@ -52,13 +51,12 @@ const SLOW_COMMIT = process.argv.includes('--slow-commit');
 //    (2026-10-18 更正本注旧句"Gitee API 不暴露 asset id、无法逐删":已被同日实测证伪 ——
 //     /releases/{id}/attach_files 返回 id 与 size,DELETE by id 返回 204 即真删,孤儿资产**可以**
 //     逐件清,别再按"清不掉"行事。)
-// 2026-11-03:Gitee 发布目标下线(空仓/零推送/直链已切 GitHub)⇒ 默认不上传;
-// 恢复旧通道必须显式 --upload-gitee,避免"跑一次本地构建就往外传孤儿资产"。
-const UPLOAD_GITEE = process.argv.includes('--upload-gitee');
-const NO_UPLOAD = process.argv.includes('--no-upload') || !UPLOAD_GITEE;
-// 本机通道只做 Tauri 更新签名(minisign),不做 Authenticode;Gitee 附件在 2026-10-18~2026-11-03
-// 曾同时是 Windows 更新器直链(见 desktop-latest.generated.ts);2026-11-03 直链已切 GitHub,
-// 只有显式 --upload-gitee 恢复旧通道时才重新成立。公开 Windows 发布一律走 CI 的 SignPath 签名腿;
+// 2026-11-03:Gitee 国内主通道 ⇒ 默认上传;--no-upload 显式关闭。
+// (--upload-gitee 为历史旗标,保留兼容但不再改变默认行为。)
+const NO_UPLOAD = process.argv.includes('--no-upload');
+// 本机通道只做 Tauri 更新签名(minisign),不做 Authenticode;Gitee 附件是**国内主下载通道**
+// (2026-10-18~2026-11-03 曾同时是 Windows 更新器直链;2026-11-03 复活后默认成立,
+//  仅当字节与 GitHub 原件对账一致时 feed 才改写)。公开 Windows 发布一律走 CI 的 SignPath 签名腿;
 // 本机上传仍须显式认领"未签名",失效方向是多要一次定向说明,不是静默放行。
 const ALLOW_UNSIGNED_UPLOAD = process.argv.includes('--allow-unsigned-upload');
 const KEEP_VERSION = process.argv.includes('--keep-version');
@@ -69,7 +67,7 @@ if (!NO_UPLOAD && !ALLOW_UNSIGNED_UPLOAD) {
     '❌ 本机发版脚本只做 Tauri 更新签名(minisign),不做 Authenticode。\n' +
       '   公开 Windows 发布请走 CI:git tag desktop-vX.Y.Z && git push origin desktop-vX.Y.Z\n' +
       '   (release-desktop.yml 在 SignPath 四项凭据齐备时自动签名)。\n' +
-      '   确需发布未签名包(例如 SignPath 审批前应急),显式同时加 --upload-gitee --allow-unsigned-upload。',
+      '   确需发布未签名包(例如 SignPath 审批前应急),显式加 --allow-unsigned-upload(且不要带 --no-upload)。',
   )
   process.exit(1)
 }
@@ -278,11 +276,7 @@ console.log(`\n=== 产物: ${exeName} (${exeSize}MB) + sig ===`);
 
 // ── 3. Gitee 直传(python 实现:undici multipart 对 Gitee 报 401,urllib 实证可行)──
 if (NO_UPLOAD) {
-  console.log(
-    UPLOAD_GITEE
-      ? '\n=== --no-upload:跳过 Gitee 直传,产物仅在本机 ==='
-      : '\n=== Gitee 发布通道已于 2026-11-03 下线:跳过直传,产物仅在本机(恢复见 --upload-gitee) ===',
-  );
+  console.log('\n=== --no-upload:跳过 Gitee 直传,产物仅在本机 ===');
 } else {
 const giteeScript = path.join(ROOT, '.github/scripts/gitee-release-attach.py');
 // 2026-09-17:git credential 里的 gitee 凭证对 API 无效(31 位,实证 401)——
@@ -303,10 +297,10 @@ if (gr.status !== 0) { console.error('ERROR: Gitee 发行阶段失败'); process
 //   ① 客户端唯一更新器端点 https://aizhs.top/desktop-feed.json
 //      —— 第一数据源是 apps/web/src/config/desktop-latest.generated.ts(发版后人工烘焙并提交);
 //         本机发版脚本**不刷它**。运行期解析与 desktop-feed.generated.ts 只是损坏/缺键时的兜底。
-//   ② Gitee release 附件(安装包直链):历史上 2026-10-18~2026-11-03 烘焙快照把 Windows 主包
-//      直指这里,它当时**同时是更新面**;2026-11-03 直链已切 GitHub,只有显式 --upload-gitee
-//      恢复旧通道时才重新成立。本机上传的包没有 Authenticode,默认拒绝
-//      (见顶部 --allow-unsigned-upload 守卫);公开发布走 CI 的 SignPath 签名腿。
+//   ② Gitee release 附件(安装包直链):2026-10-18~2026-11-03 曾把 Windows 主包直指这里,
+//      2026-11-03 一度切 GitHub;同日复活后重新成为国内主通道(字节对账一致才改写直链)。
+//      本机上传的包没有 Authenticode,默认拒绝(见顶部 --allow-unsigned-upload 守卫);
+//      公开发布走 CI 的 SignPath 签名腿。
 //   ③ (已删除,2026-10-05)原 GitHub `desktop-updater-feed/latest.json` 兜底端点:它只由 CI 的
 //      generate-latest-json.mjs 维护,而本机通道无 GH_TOKEN ⇒ 本机发版后它原地不动,
 //      是一个"看似有兜底、实际随发布路径分叉"的假能力。CI 侧维护逻辑(generate-latest-json.mjs
@@ -343,7 +337,7 @@ console.log(`\n=== ✅ desktop v${version} 本机发版完成(Windows) ===`);
 if (NO_UPLOAD) {
   console.log(`    本地产物(未上传): ${exePath}`);
 } else {
-  console.log(`    Gitee 直链: https://gitee.com/${GITEE_OWNER}/${GITEE_REPO}/releases/download/desktop-v${version}/${exeName}`);
+  console.log(`    Gitee 直链(国内主通道): https://gitee.com/${GITEE_OWNER}/${GITEE_REPO}/releases/download/desktop-v${version}/${exeName}`);
 }
 console.log(`    全平台(macos/linux)如需发布: git tag desktop-v${version} && git push origin desktop-v${version} 触发 CI`);
 
