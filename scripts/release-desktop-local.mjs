@@ -56,10 +56,10 @@ const SLOW_COMMIT = process.argv.includes('--slow-commit');
 // 恢复旧通道必须显式 --upload-gitee,避免"跑一次本地构建就往外传孤儿资产"。
 const UPLOAD_GITEE = process.argv.includes('--upload-gitee');
 const NO_UPLOAD = process.argv.includes('--no-upload') || !UPLOAD_GITEE;
-// 本机通道只做 Tauri 更新签名(minisign),不做 Authenticode;而 Gitee 附件自 2026-10-18 起
-// 同时是 Windows 更新器直链(见 desktop-latest.generated.ts),所以未签名的本机包一旦上传
-// 就会直接进入用户下载/更新面。公开 Windows 发布一律走 CI 的 SignPath 签名腿;本机上传
-// 必须显式认领"未签名",失效方向是多要一次定向说明,不是静默放行。
+// 本机通道只做 Tauri 更新签名(minisign),不做 Authenticode;Gitee 附件在 2026-10-18~2026-11-03
+// 曾同时是 Windows 更新器直链(见 desktop-latest.generated.ts);2026-11-03 直链已切 GitHub,
+// 只有显式 --upload-gitee 恢复旧通道时才重新成立。公开 Windows 发布一律走 CI 的 SignPath 签名腿;
+// 本机上传仍须显式认领"未签名",失效方向是多要一次定向说明,不是静默放行。
 const ALLOW_UNSIGNED_UPLOAD = process.argv.includes('--allow-unsigned-upload');
 const KEEP_VERSION = process.argv.includes('--keep-version');
 const BUMP = process.argv.includes('--minor') ? 'minor' : process.argv.includes('--major') ? 'major' : 'patch';
@@ -303,8 +303,9 @@ if (gr.status !== 0) { console.error('ERROR: Gitee 发行阶段失败'); process
 //   ① 客户端唯一更新器端点 https://aizhs.top/desktop-feed.json
 //      —— 第一数据源是 apps/web/src/config/desktop-latest.generated.ts(发版后人工烘焙并提交);
 //         本机发版脚本**不刷它**。运行期解析与 desktop-feed.generated.ts 只是损坏/缺键时的兜底。
-//   ② Gitee release 附件(安装包直链):自 2026-10-18 起烘焙快照把 Windows 主包直指这里 ⇒
-//      它**同时是更新面**,不再只是"人工下载存档"。本机上传的包没有 Authenticode,默认拒绝
+//   ② Gitee release 附件(安装包直链):历史上 2026-10-18~2026-11-03 烘焙快照把 Windows 主包
+//      直指这里,它当时**同时是更新面**;2026-11-03 直链已切 GitHub,只有显式 --upload-gitee
+//      恢复旧通道时才重新成立。本机上传的包没有 Authenticode,默认拒绝
 //      (见顶部 --allow-unsigned-upload 守卫);公开发布走 CI 的 SignPath 签名腿。
 //   ③ (已删除,2026-10-05)原 GitHub `desktop-updater-feed/latest.json` 兜底端点:它只由 CI 的
 //      generate-latest-json.mjs 维护,而本机通道无 GH_TOKEN ⇒ 本机发版后它原地不动,
@@ -324,7 +325,7 @@ if (!NO_PUSH) {
   const MSG = `chore(desktop): 版本 bump ${version}(本机一键发版)`;
   if (SLOW_COMMIT) {
     const r = spawnSync(process.execPath, ['scripts/safe-commit.mjs', '-m', MSG, '--', 'apps/desktop/src-tauri/tauri.conf.json', 'apps/desktop/package.json'], { stdio: 'inherit', windowsHide: true });
-    if (r.status !== 0) console.log('⚠️ 版本 bump 提交受阻(可能并行会话竞争),不影响已发布的 Gitee 资产');
+    if (r.status !== 0) console.log('⚠️ 版本 bump 提交受阻(可能并行会话竞争),不影响已上传的产物');
   } else {
     const land = spawnSync(process.execPath, ['scripts/object-space-land.mjs'], {
       stdio: 'inherit', windowsHide: true,
@@ -334,7 +335,7 @@ if (!NO_PUSH) {
         LAND_MSG: MSG + '\n\n(快速落地:本机一键发版的机械版本号 bump,对象空间通道;safe-commit 历史路径实测 EBUSY×4 + 取证 17min + 沙箱拦截三病)',
       },
     });
-    if (land.status !== 0) console.log('⚠️ 版本 bump 快速落地受阻(不影响已发布的 Gitee 资产;可手工补落地)');
+    if (land.status !== 0) console.log('⚠️ 版本 bump 快速落地受阻(不影响已上传的产物;可手工补落地)');
   }
 }
 
