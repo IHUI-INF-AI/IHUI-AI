@@ -100,7 +100,7 @@ function createStyles(tk: AppThemeTokens) {
     success: { marginTop: rnSpacing.md, fontSize: rnType.body.size, color: tk.success.DEFAULT },
     submitBtn: {
       marginTop: rnSpacing.lg,
-      paddingVertical: 15,
+      paddingVertical: rnSpacing['md-loose'],
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',

@@ -122,7 +122,7 @@ function createStyles(tk: AppThemeTokens) {
     textarea: { minHeight: 100, maxHeight: 200 },
     submitBtn: {
       marginTop: rnSpacing.xl,
-      paddingVertical: 15,
+      paddingVertical: rnSpacing['md-loose'],
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',

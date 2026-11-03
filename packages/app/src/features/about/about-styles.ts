@@ -69,11 +69,11 @@ export function createAboutStyles(tk: AppThemeTokens) {
     statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing['sm-loose'] },
     statCell: { flexGrow: 1, flexBasis: '44%', alignItems: 'center', gap: rnSpacing.xs },
     statValue: { fontSize: rnType.display.size, fontWeight: '700', color: tk.brandAccent.deep },
-    ctaCard: { alignItems: 'center', paddingVertical: 18, gap: rnSpacing['sm-loose'] },
+    ctaCard: { alignItems: 'center', paddingVertical: rnSpacing['lg'], gap: rnSpacing['sm-loose'] },
     ctaPrimary: {
       alignSelf: 'stretch',
       alignItems: 'center',
-      paddingVertical: 11,
+      paddingVertical: rnSpacing['sm-loose'],
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
@@ -85,7 +85,7 @@ export function createAboutStyles(tk: AppThemeTokens) {
     ctaSecondary: {
       alignSelf: 'stretch',
       alignItems: 'center',
-      paddingVertical: 11,
+      paddingVertical: rnSpacing['sm-loose'],
       borderRadius: rnRadius.sm,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: tk.border.medium,
@@ -95,7 +95,7 @@ export function createAboutStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      paddingVertical: 13,
+      paddingVertical: rnSpacing['md'],
     },
   })
 }
