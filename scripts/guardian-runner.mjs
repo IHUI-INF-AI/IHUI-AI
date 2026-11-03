@@ -6927,6 +6927,65 @@ const checks = [
       '  💡 应急放行:HUSKY_SKIP_HOVER_LIFT_SINGLE_SOURCE=1 git commit ...(不推荐;跳过会留痕)',
     ].join('\n'),
   },
+  // 编号 290:小程序交互卫生门(P2 自动化缺口,2026-11-03 立)。判据见脚本头部:
+  // A1 假可点(空 handler / undefined / pointer-events-none 死点击)blocking;A2 空端口
+  // (onNavigate/onToast/onPickFile 等被赋空实现,端口名与端口等价门同一份,不造第二套)
+  // blocking;A3 无按压反馈 advisory 不进退出码(A3 现读 174 处,大量是命中区铺满的合法结构,
+  // 静态判不出观感,判红就是拿误报逼人写冗余代码 ⇒ §12e);A4 showModal 纯提示误用 advisory。
+  // 台账 scripts/data/miniapp-interaction-allowlist.json 到期即红、认领差额双向点名。
+  // 首跑(2026-11-03):719 文件 / 8464 标签(847 个可点),blocking 0(A1/A2 现读 0,按 §12e 可直接 blocking)。
+  {
+    id: '290',
+    label:
+      '🧪 小程序交互卫生门(blocking:A1 假可点/A2 空端口 绝对零容忍;A3 无反馈/A4 modal 误用 出 advisory 不进退出码)',
+    script: 'check-miniapp-interaction-hygiene.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: ['apps/miniapp-taro/src/', 'scripts/check-miniapp-interaction-hygiene.mjs', 'scripts/data/miniapp-interaction-allowlist.json'],
+    skipEnv: 'HUSKY_SKIP_MINIAPP_INTERACTION_HYGIENE',
+    onFailHint: [
+      '  💡 A1 假可点:onClick/onLongClick/onTap 绑了空实现(() => {} / undefined / noop)或 className 带',
+      '     pointer-events-none 却挂 onClick —— 死可点,删 handler 或删空壳。A2 空端口:onNavigate/onToast/',
+      '     onPickFile 等端口回调被赋空实现 —— 端口与等价门同源,别造第二套黑名单。',
+      '  💡 A3/A4 只是 advisory(不进退出码):A3 = View/Text 挂 onClick 无 hoverClass/active 变体且非导航项',
+      '     (首读 174 处,不 blocking,理由见注册注释);A4 = Taro.showModal 无取消语义(单按钮提示)。',
+      '     取证:node scripts/check-miniapp-interaction-hygiene.mjs --self-test(12 例,含变异自证)',
+      '     镜像:node --test scripts/tests/check-miniapp-interaction-hygiene.test.mjs',
+      '     应急放行:HUSKY_SKIP_MINIAPP_INTERACTION_HYGIENE=1 git commit ...(不推荐;跳过会留痕)',
+    ].join('\n'),
+  },
+  // 编号 291:web↔RN 用户可见措辞一致性门(P2 自动化缺口,2026-11-03 立)。判据见脚本头部:
+  // B1 blocking —— 同屏 web 已走 i18n 键、RN 却硬编码与之逐字相同的中文(JSX 文本节点或
+  // placeholder/title/accessibilityLabel 等用户可见属性);B2 advisory —— 两侧键不同但译文同值。
+  // 台账 scripts/data/web-rn-copy-diffs.json 到期即红、B1 认领差额红、B2 差额只 advisory。
+  // 首跑(2026-11-03):aligned 屏 287 / web 文件 1062,B1 11 全部挂账、B2 113 记档。
+  {
+    id: '291',
+    label:
+      '🗣️ web↔RN 措辞一致性门(blocking:同屏同文案 RN 硬编码而 web 走 i18n;B2 同值异键只出 advisory)',
+    script: 'check-web-rn-copy-parity.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: [
+      'apps/web/app/',
+      'apps/mobile-rn/src/',
+      'packages/app/src/features/',
+      'scripts/data/web-rn-screen-map.jsonl',
+      'scripts/check-web-rn-copy-parity.mjs',
+      'scripts/data/web-rn-copy-diffs.json',
+    ],
+    skipEnv: 'HUSKY_SKIP_WEB_RN_COPY_PARITY',
+    onFailHint: [
+      '  💡 B1 红 = 同一句话被写了两遍:web 该屏已用 i18n 键,RN 还手写中文。改法是把 RN 那处换成',
+      '     同一个键(跨端共享屏由宿主注入 t,直接 t(\'全键\'))。代码字符串/日志/样式类名不在射程。',
+      '  💡 若确属存量未清(改键会动观感或跨包),往 scripts/data/web-rn-copy-diffs.json 逐屏登记',
+      '     file(web 路由)/rule/count/owner/expires/evidence;到期即红,认领数少于现读即红。',
+      '  💡 B2 同值异键只出 advisory(合并键空间动 i18n 结构,裁决权归人),记档即可,不阻提交。',
+      '     取证:node scripts/check-web-rn-copy-parity.mjs --self-test(12 例);--json 看逐屏读数',
+      '     镜像:node --test scripts/tests/check-web-rn-copy-parity.test.mjs',
+      '     应急放行:HUSKY_SKIP_WEB_RN_COPY_PARITY=1 git commit ...(不推荐;跳过会留痕)',
+    ].join('\n'),
+  },
   // 编号 289:台账 deferred@ 到期判据(2026-11-03 立;判据见脚本头注)。deferred 日当天放行,
   // 次日起红;--grace N 把红线顺延 N 天。台账/侧车取不到或 marker 日期非法 ⇒ exit 2,不记绿。
   // 射程写 ['**/*'](= 任何提交都跑):到期与本次暂存了哪些文件无关;只在碰台账/文档时才跑
