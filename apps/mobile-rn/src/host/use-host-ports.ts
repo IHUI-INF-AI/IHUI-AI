@@ -92,7 +92,7 @@ function reportHostPortError(detail: string): void {
   showHostToast(detail, { kind: 'error' })
 }
 
-export function useHostNavigate(): OnNavigate {
+function useHostNavigate(): OnNavigate {
   const navigation = useNavigation()
   return useCallback<OnNavigate>(
     (target, params, options) => {
@@ -116,7 +116,7 @@ export function useHostNavigate(): OnNavigate {
   )
 }
 
-export function useHostToast(): OnToast {
+function useHostToast(): OnToast {
   return useCallback<OnToast>((message, options) => {
     showHostToast(message, options)
   }, [])

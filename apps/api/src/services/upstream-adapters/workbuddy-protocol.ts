@@ -381,8 +381,6 @@ export function buildHealthHeaders(i: {
  * 旧接口 `/v2/billing/meter/get-user-resource` 仍可作兼容回退,本适配器不接(无字段收益)。
  */
 export const RESOURCE_SUMMARY_PATH = '/billing/meter/get-user-resource-summary'
-export const RESOURCE_PAID_PACKAGES_PATH = '/billing/meter/get-user-resource-paid-packages'
-export const RESOURCE_FREE_PACKAGES_PATH = '/billing/meter/get-user-resource-free-packages'
 
 /**
  * 权益接口基址。与 chat 域(`copilot.tencent.com`)**不同**:它属于用户中心 web 域,
@@ -509,7 +507,7 @@ export function extractResourceList(root: unknown, key: 'Packages' | 'Accounts')
 }
 
 /** 上游回包的 code(根或 data.code;字符串数字也认);没有 code ⇒ null(不是 undefined) */
-export function resourceResponseCode(root: unknown): number | null {
+function resourceResponseCode(root: unknown): number | null {
   const o = asRecord(root)
   const direct = numOrUndef(o['code'])
   if (direct !== undefined) return direct

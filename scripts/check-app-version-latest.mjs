@@ -280,44 +280,131 @@ export function summarize(items) {
 // 网络探针(仅 IO,不含判据)
 // =============================================================================
 
-async function readJson(url, { fetchImpl = fetch, timeoutMs = 20000, token } = {}) {
-  const res = await fetchImpl(url, {
-    redirect: 'follow',
-    signal: AbortSignal.timeout(timeoutMs),
-    headers: token ? { authorization: `Bearer ${token}` } : {},
-  })
-  const text = await res.text()
-  let body
-  try {
-    body = JSON.parse(text)
-  } catch {
-    return {
-      httpStatus: res.status,
-      body: null,
-      error: `响应不是 JSON(HTTP ${res.status}): ${text.slice(0, 120)}`,
-    }
-  }
-  return { httpStatus: res.status, body, error: null }
+/**
+ * 一轮对账的墙上时钟预算(默认 90s)。重试让最坏耗时翻倍 ⇒ 必须有总闸:
+ * 派发侧(git-guardian)给的 execFileSync 上限是 120s,超了会**连结论一起被杀**,
+ * 那一轮就只剩"未判定"而没有红/绿 —— 预算闸把"跑不完"变成点名"预算用尽"的未判定。
+ */
+export const DEFAULT_BUDGET_MS = 90_000
+/** 剩余预算不足这个数就别再开新请求(开了一定超时,徒增一轮未判定)。 */
+const MIN_REMAINING_MS = 2000
+
+/** 取本轮还能用的毫秒数;无预算闸(测试/手工)时按 timeoutMs 原样放行。 */
+function budgetLeft(deadlineAt, timeoutMs) {
+  if (!deadlineAt) return timeoutMs
+  return Math.max(0, Math.min(timeoutMs, deadlineAt - Date.now()))
 }
 
 /**
- * 下载探针:手动跟跳(不用 redirect:'follow',因为 x-release-* 只挂在 302 那一跳,
- * follow 会把中间头丢掉),最后用 Range: bytes=0-0 拿到 206 + 总大小,不拖 80MB。
- * 任何网络异常都折成 undetermined 并带原因,绝不抛给调用方。
+ * 读一个 JSON 端点。**传输层失败**(连接异常/超时)重试一次;"不是 JSON"不重试 ——
+ * 那是回答(占位页正是这一型)。现读同一 URL 三连测 3.5s / 2.7s / 挂死,20s 预算下挂死那档
+ * 会把整端读成未判定;一条天天量不出结论的尺子等于没有尺子(§0.9),但重试**绝不**把红洗成绿
+ * —— 两次都不通照旧 undetermined,并把每次的失败原因逐条写进 detail。
+ */
+export async function readJson(
+  url,
+  { fetchImpl = fetch, timeoutMs = 20000, token, retries = 1, deadlineAt = null } = {},
+) {
+  const tries = []
+  for (let i = 0; i <= retries; i++) {
+    const left = budgetLeft(deadlineAt, timeoutMs)
+    if (left < MIN_REMAINING_MS) {
+      return {
+        httpStatus: 0,
+        body: null,
+        error: `本轮预算用尽(剩余 ${left}ms < ${MIN_REMAINING_MS}ms)${tries.length > 0 ? `;先前尝试:${tries.join(' ⊕ ')}` : ''}`,
+        attempts: i,
+      }
+    }
+    try {
+      const res = await fetchImpl(url, {
+        redirect: 'follow',
+        signal: AbortSignal.timeout(left),
+        headers: token ? { authorization: `Bearer ${token}` } : {},
+      })
+      const text = await res.text()
+      let body
+      try {
+        body = JSON.parse(text)
+      } catch {
+        return {
+          httpStatus: res.status,
+          body: null,
+          error: `响应不是 JSON(HTTP ${res.status}): ${text.slice(0, 120)}`,
+          attempts: i + 1,
+        }
+      }
+      return { httpStatus: res.status, body, error: null, attempts: i + 1 }
+    } catch (e) {
+      tries.push(`${e instanceof Error ? `${e.name}: ${e.message}` : String(e)}`)
+      if (i < retries) continue
+      return {
+        httpStatus: 0,
+        body: null,
+        error: `请求失败(共 ${tries.length} 次尝试:${tries.join(' ⊕ ')})`,
+        attempts: tries.length,
+      }
+    }
+  }
+  return { httpStatus: 0, body: null, error: '请求失败(未进入任何一次尝试)', attempts: 0 }
+}
+
+/**
+ * 下载探针(带一次重试):只有**传输层**失败才重来,'absent'(404/重定向超限)是回答,不重试。
+ * 与 readJson 同一档纪律 —— 现读 apk 指针三连测 9.0s / 0.6s / 4.6s,20s 预算下第一档就贴边,
+ * 偶发挂死会把一条能判的腿读成未判定。两次都不通 ⇒ 照旧 undetermined,并写明共试了几次。
  */
 export async function probeDownload(
   url,
-  { fetchImpl = fetch, timeoutMs = 20000, maxHops = 3 } = {},
+  { fetchImpl = fetch, timeoutMs = 20000, maxHops = 3, retries = 1, deadlineAt = null } = {},
+) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const left = budgetLeft(deadlineAt, timeoutMs)
+    if (left < MIN_REMAINING_MS) {
+      return {
+        state: 'undetermined',
+        detail: `本轮预算用尽(剩余 ${left}ms < ${MIN_REMAINING_MS}ms)`,
+        attempts: attempt,
+      }
+    }
+    const r = await probeDownloadOnce(url, {
+      fetchImpl,
+      timeoutMs: left,
+      maxHops,
+      deadlineAt,
+    })
+    if (r.state !== 'undetermined') return { ...r, attempts: attempt + 1 }
+    if (attempt >= retries)
+      return { ...r, detail: `${r.detail}(共 ${attempt + 1} 次尝试)`, attempts: attempt + 1 }
+  }
+  return { state: 'undetermined', detail: '未进入任何一次探针', attempts: 0 }
+}
+
+/**
+ * 单次跟跳:手动跳(不用 redirect:'follow',因为 x-release-* 只挂在 302 那一跳,
+ * follow 会把中间头丢掉),最后用 Range: bytes=0-0 拿到 206 + 总大小,不拖 42MB。
+ * 任何网络异常都折成 undetermined 并带原因,绝不抛给调用方。
+ */
+async function probeDownloadOnce(
+  url,
+  { fetchImpl = fetch, timeoutMs = 20000, maxHops = 3, deadlineAt = null } = {},
 ) {
   const release = { version: null, code: null }
   let current = url
   try {
     for (let hop = 1; hop <= maxHops + 1; hop++) {
       // 每一跳都带 Range:302 那跳的正文是空的,带 Range 不影响重定向;而万一首跳直接
-      // 回文件(CDN 不做指针中转),Range 保证不会把 80MB 拖回来。线上实测 302 仍带 x-release-*。
+      // 回文件(CDN 不做指针中转),Range 保证不会把 42MB 拖回来。线上实测 302 仍带 x-release-*。
+      const hopLeft = budgetLeft(deadlineAt, timeoutMs)
+      if (hopLeft < MIN_REMAINING_MS) {
+        return {
+          state: 'undetermined',
+          detail: `本轮预算用尽(第 ${hop} 跳前剩余 ${hopLeft}ms,停在 ${current})`,
+        }
+      }
       const res = await fetchImpl(current, {
         redirect: 'manual',
-        signal: AbortSignal.timeout(timeoutMs),
+        signal: AbortSignal.timeout(hopLeft),
         headers: { range: 'bytes=0-0' },
       })
       const headers = res.headers
@@ -375,11 +462,13 @@ export async function probeCrossPlatformLatest({
   baseUrl = DEFAULT_BASE_URL,
   fetchImpl = fetch,
   timeoutMs = 20000,
+  deadlineAt = null,
 } = {}) {
   try {
     const { body, error } = await readJson(`${baseUrl}/api/app-version/latest`, {
       fetchImpl,
       timeoutMs,
+      deadlineAt,
     })
     if (error) return { state: 'undetermined', detail: error }
     if (body?.code !== 0)
@@ -407,6 +496,7 @@ export async function probeAdminList({
   token,
   fetchImpl = fetch,
   timeoutMs = 20000,
+  deadlineAt = null,
 } = {}) {
   if (!token) {
     return {
@@ -417,7 +507,12 @@ export async function probeAdminList({
   }
   try {
     const url = `${baseUrl}/api/app-version?platform=${encodeURIComponent(platform)}&pageSize=100`
-    const { body, error, httpStatus } = await readJson(url, { fetchImpl, timeoutMs, token })
+    const { body, error, httpStatus } = await readJson(url, {
+      fetchImpl,
+      timeoutMs,
+      token,
+      deadlineAt,
+    })
     if (error) return { state: 'undetermined', detail: error }
     if (httpStatus === 401 || httpStatus === 403)
       return { state: 'undetermined', detail: `admin 令牌被拒(HTTP ${httpStatus}) ⇒ 换新 JWT 再跑` }
@@ -712,27 +807,23 @@ export async function runCheck({
   adminToken = '',
   fetchImpl = fetch,
   timeoutMs = 20000,
+  budgetMs = DEFAULT_BUDGET_MS,
 } = {}) {
+  const deadlineAt = Date.now() + budgetMs
   const items = []
-  let payload = null
-  try {
-    const { body, error } = await readJson(
-      `${baseUrl}/api/app-version/latest?platform=${encodeURIComponent(platform)}`,
-      { fetchImpl, timeoutMs },
-    )
-    if (error) items.push(item('endpoint', 'undetermined', `取 /latest 失败: ${error}`))
-    else payload = body
-  } catch (e) {
-    items.push(
-      item('endpoint', 'undetermined', `取 /latest 异常(${e instanceof Error ? e.message : e})`),
-    )
-  }
+  // readJson 自己把传输层失败折成 {error}(并已在预算内重试)⇒ 这里不再包一层 catch:
+  // 再包一层会把"预算用尽"和"两次都不通"两种成因洗成同一句话,而点名成因正是这把尺的用处。
+  const { body: payload, error: endpointError } = await readJson(
+    `${baseUrl}/api/app-version/latest?platform=${encodeURIComponent(platform)}`,
+    { fetchImpl, timeoutMs, deadlineAt },
+  )
+  if (endpointError) items.push(item('endpoint', 'undetermined', `取 /latest 失败: ${endpointError}`))
 
   const parsed = payload ? judgeLatestPayload(payload, { platform }) : { latest: null, items: [] }
   items.push(...parsed.items)
   const row = parsed.latest
 
-  const cross = await probeCrossPlatformLatest({ baseUrl, fetchImpl, timeoutMs })
+  const cross = await probeCrossPlatformLatest({ baseUrl, fetchImpl, timeoutMs, deadlineAt })
   items.push(
     item(
       'cross-platform-latest',
@@ -747,7 +838,7 @@ export async function runCheck({
     const leg = judgeOwnLegUrl(row.downloadUrl)
     items.push(item('download-url-own-leg', leg.ok ? 'pass' : 'fail', leg.reason))
     if (leg.ok && profile) {
-      const probe = await probeDownload(row.downloadUrl, { fetchImpl, timeoutMs })
+      const probe = await probeDownload(row.downloadUrl, { fetchImpl, timeoutMs, deadlineAt })
       items.push(judgeDownloadProbe(probe, profile))
       items.push(judgeVersionConsistency(row, probe, profile))
     } else {
@@ -777,12 +868,27 @@ export async function runCheck({
 
   // table-state 是**诊断**而非票面判据:无令牌时不参与红/绿(否则脚本永远不能绿),
   // 但它决定"该 INSERT 还是该 UPDATE",所以必须打在输出里。
-  const admin = await probeAdminList({ baseUrl, platform, token: adminToken, fetchImpl, timeoutMs })
+  const admin = await probeAdminList({
+    baseUrl,
+    platform,
+    token: adminToken,
+    fetchImpl,
+    timeoutMs,
+    deadlineAt,
+  })
   const diagnostics = [
     item('table-state', admin.state === 'present' ? 'pass' : 'undetermined', admin.detail),
   ]
 
-  return { items, diagnostics, ...summarize(items), platform, baseUrl }
+  return {
+    items,
+    diagnostics,
+    ...summarize(items),
+    platform,
+    baseUrl,
+    elapsedMs: Date.now() - (deadlineAt - budgetMs),
+    budgetMs,
+  }
 }
 
 function printHuman(result) {
@@ -796,6 +902,9 @@ function printHuman(result) {
   const { red, undetermined } = result
   console.log(
     `\n结论: ${result.state.toUpperCase()}  (红 ${red.length} / 未判定 ${undetermined.length} / 共 ${result.items.length})`,
+  )
+  console.log(
+    `本轮耗时 ${result.elapsedMs}ms / 预算 ${result.budgetMs}ms(每腿单次 20s,传输层失败重试一次)`,
   )
   if (red.length > 0) {
     console.log('红的项(不放宽判据,修数据而不是修尺):')
