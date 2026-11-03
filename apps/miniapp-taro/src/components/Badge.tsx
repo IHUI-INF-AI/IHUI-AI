@@ -29,7 +29,7 @@ import {
  * `variant` 类型直接复用 `@ihui/design-tokens` 的 `BadgeBaseProps`(两端一致),不在此另起枚举。
  */
 const RADIUS_CLASS: Record<typeof BADGE_RADIUS_TIER, string> = { md: 'rounded-md' }
-const PADDING_X_CLASS: Record<number, string> = { 10: 'px-2.5' }
+const PADDING_X_CLASS: Record<number, string> = { 10: 'px-sm-loose' }
 const PADDING_Y_CLASS: Record<number, string> = { 2: 'py-0.5' }
 const TEXT_CLASS: Record<typeof BADGE_TEXT_TIER, string> = { xs: 'text-label' }
 
