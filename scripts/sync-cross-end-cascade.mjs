@@ -28,7 +28,8 @@
  * 用法:
  *   node scripts/sync-cross-end-cascade.mjs                 # 只读预演(写盘段跳过,verify 段照跑)
  *   node scripts/sync-cross-end-cascade.mjs --apply         # 全链落盘(web→RN→小程序 一键跟随)
- *   node scripts/sync-cross-end-cascade.mjs --only=reconcile,verify   # 按段类过滤
+ *   node scripts/sync-cross-end-cascade.mjs --only=verify-ui-parity  # 按段 id 只跑指定段(见 STAGES)
+ *   node scripts/sync-cross-end-cascade.mjs --only=converge,verify   # 亦可按段类过滤
  *   node scripts/sync-cross-end-cascade.mjs --json          # 机器可读结论(驾驶舱/CI 可消费)
  *   node scripts/sync-cross-end-cascade.mjs --self-test     # 判序自检(零副作用,不落盘不派子进程)
  *
@@ -217,7 +218,7 @@ const STAGES = [
   {
     name: 'verify-screen-coverage',
     kind: 'verify',
-    desc: '校验:共享屏→小程序镜像覆盖(门 131)',
+    desc: '校验:共享屏→小程序镜像覆盖(门 237)',
     script: 'check-cross-end-screen-coverage.mjs',
     base: ['--json'],
     redOnFail: true,
@@ -257,6 +258,8 @@ const STAGES = [
 ]
 
 const KINDS = [...new Set(STAGES.map((s) => s.kind))]
+/** 段 id 唯一真相:--only 的白名单与报错清单都必须从这里取,不得另抄一份字面量。 */
+const STAGE_IDS = STAGES.map((s) => s.name)
 
 /** 三档旗标解析;非法形态返回 {usageError}(失效方向 = 多要一次定向说明,不是多放一次跳门) */
 export function parseArgs(argv) {
@@ -277,18 +280,20 @@ export function parseArgs(argv) {
     else if (a.startsWith('--only=')) opts.only = a.slice(7).split(',').filter(Boolean)
     else if (a.startsWith('--skip=')) opts.skip = new Set(a.slice(7).split(',').filter(Boolean))
     else
-      opts.usageError = `未知旗标:${a}(可用 --apply/--dry-run/--only=<kind|name>/--skip=<name>/--json/--self-test)`
+      opts.usageError = `未知旗标:${a}(可用 --apply/--dry-run/--only=<stageId|kind>/--skip=<name>/--json/--self-test)`
   }
   if (opts.apply && opts.dryRun) opts.usageError = '--apply 与 --dry-run 互斥,两面旗同给当场拒绝'
   if (opts.usageError) return opts
-  // --only 令牌既认段类也认段名(混给亦可;全不命中 ⇒ usageError,防"打错字静默空跑")
-  if (opts.only) {
-    const hit = opts.only.filter((t) => KINDS.includes(t) || STAGES.some((s) => s.name === t))
+  // --only 令牌既认段 id 也认段类(混给亦可;全不命中 ⇒ usageError,防"打错字静默空跑")
+  if (opts.only !== null) {
+    if (opts.only.length === 0)
+      return { ...opts, usageError: `--only= 后没有段 id ⇒ 未执行任何段(可用 stageId=${STAGE_IDS.join('/')})` }
+    const hit = opts.only.filter((t) => STAGE_IDS.includes(t) || KINDS.includes(t))
     if (hit.length !== opts.only.length) {
       const bad = opts.only.filter((t) => !hit.includes(t))
       return {
         ...opts,
-        usageError: `--only 含未知令牌:${bad.join(',')} ⇒ 未执行任何段(段类=${KINDS.join('/')})`,
+        usageError: `--only 含未知令牌:${bad.join(',')} ⇒ 未执行任何段(可用 stageId=${STAGE_IDS.join('/')};段类=${KINDS.join('/')})`,
       }
     }
   }
@@ -424,10 +429,16 @@ async function selfTestRun() {
   const assert = (await import('node:assert/strict')).default
   const W = (over = {}) => ({ name: 'w', kind: 'land', write: true, ...over })
   const V = (over = {}) => ({ name: 'v', kind: 'verify', write: false, redOnFail: true, ...over })
-  await test('S1 缺省档:写盘段跳过、verify 段执行', () => {
+  await test('S1 缺省档:写盘段跳过、verify 段执行(真段 apply 腿只预演)', () => {
     const o = parseArgs([])
     assert.equal(stageDisposition(W(), o).state, 'skipped')
     assert.equal(stageDisposition(V(), o), null)
+    // 用真链条上的 apply 腿再锁一次:缺省档不得装配写旗,也不得真派发
+    const css = STAGES.find((s) => s.name === 'verify-css-tokens')
+    assert.ok(css?.write && css.apply?.length, 'verify-css-tokens 的 apply 腿登记缺失')
+    assert.equal(stageDisposition(css, o).state, 'skipped')
+    assert.deepEqual(stageArgv(css, o), [])
+    assert.deepEqual(stageArgv(css, parseArgs(['--apply'])), ['--write'])
   })
   await test('S2 --apply:写盘段放行', () => {
     const o = parseArgs(['--apply'])
@@ -437,9 +448,27 @@ async function selfTestRun() {
     assert.match(parseArgs(['--apply', '--dry-run']).usageError, /互斥/)
     assert.match(parseArgs(['--nope']).usageError, /未知旗标/)
   })
-  await test('S4 --only 既认段类也认段名,打错字不空跑', () => {
-    assert.match(parseArgs(['--only=verify']).usageError ?? '', /^$/)
-    assert.match(parseArgs(['--only=写盘']).usageError, /未知令牌/)
+  await test('S4 --only=<stageId> 对全部 20 段严格只跑指定段', () => {
+    assert.equal(STAGES.length, 20, '段数变了 ⇒ 本自检的 20 段全覆盖断言必须同步改')
+    for (const s of STAGES) {
+      const sel = selectStages(STAGES, parseArgs([`--only=${s.name}`]))
+      assert.deepEqual(
+        sel.map((x) => x.name),
+        [s.name],
+        `--only=${s.name} 必须恰好命中该段(多带/漏带都算选择器失效)`,
+      )
+    }
+  })
+  await test('S5 --only 认段类但不会扩成全部段;打错字/空值当场 exit 2 并列可用 id', () => {
+    assert.equal(parseArgs(['--only=verify']).usageError, null)
+    const land = selectStages(STAGES, parseArgs(['--only=land']))
+    assert.equal(land.length, 3, '--only=land 应只命中三条 land 段')
+    assert.ok(land.every((s) => s.kind === 'land'))
+    const bad = parseArgs(['--only=reconcile']).usageError
+    assert.match(bad, /未知令牌/)
+    assert.match(bad, /可用 stageId=/)
+    assert.match(bad, /portal-converge/, '报错必须列出可用段 id,不能只报段类')
+    assert.match(parseArgs(['--only=']).usageError, /没有段 id/)
     assert.equal(
       selectStages(STAGES, parseArgs(['--only=verify', '--skip=fidelity'])).some(
         (s) => s.name === 'fidelity',
@@ -447,29 +476,34 @@ async function selfTestRun() {
       false,
     )
   })
-  await test('S5 三态裁决:verify rc=1⇒red / 非verify rc=1⇒failed / 起不动⇒unjudged', () => {
+  await test('S6 三态裁决:verify rc=1⇒red / 非verify rc=1⇒failed / 起不动⇒unjudged', () => {
     assert.equal(classifyStage(V(), { ran: true, rc: 1, spawnable: true }), 'red')
     assert.equal(classifyStage(W(), { ran: true, rc: 1, spawnable: true }), 'failed')
     assert.equal(classifyStage(V(), { ran: true, rc: null, spawnable: false }), 'unjudged')
     assert.equal(classifyStage(W(), { ran: false, rc: null, spawnable: false }), 'skipped')
   })
-  await test('S6 退出码:red 与 unjudged 并存取 1(真信号优先顶红)', () => {
+  await test('S7 退出码:red 与 unjudged 并存取 1(真信号优先顶红)', () => {
     assert.equal(chainExit(['done', 'skipped']), 0)
     assert.equal(chainExit(['done', 'unjudged']), 2)
     assert.equal(chainExit(['unjudged', 'failed']), 1)
     assert.equal(chainExit(['unjudged', 'red']), 1)
   })
-  await test('S7 链条顺序不变量:派生在前、重建随后、校验压轴(倒序即拿到中间态)', () => {
+  await test('S8 链条顺序不变量:派生在前、重建随后、校验压轴(倒序即拿到中间态)', () => {
     const kinds = STAGES.map((s) => s.kind)
     assert.ok(kinds.indexOf('derive') < kinds.indexOf('land'))
     assert.ok(kinds.lastIndexOf('land') < kinds.indexOf('rebuild'))
     assert.ok(kinds.join('').endsWith('verify'.split('').join('')))
     assert.ok(kinds.at(-1) === 'verify' && kinds.at(0) === 'derive')
   })
-  await test('S8 器物在位锁:每段脚本都真实存在(出路必须跑不通才算假链条,§0.8)', () => {
-    for (const s of STAGES) assert.ok(existsSync(join(HERE, s.script)), `${s.script} 不在位`)
+  await test('S9 器物在位锁:每段脚本都真实存在,段 id 唯一且不与段类撞名', () => {
+    assert.equal(new Set(STAGE_IDS).size, STAGE_IDS.length, '段 id 出现重复 ⇒ --only 选择器无法严格命中')
+    assert.ok(!KINDS.includes('reconcile'), '段类里出现 reconcile ⇒ 段注/选择器需重新对齐')
+    for (const s of STAGES) {
+      assert.ok(existsSync(join(HERE, s.script)), `${s.script} 不在位`)
+      assert.ok(!KINDS.includes(s.name), `段 id ${s.name} 与段类同名 ⇒ --only 选择器歧义`)
+    }
   })
-  console.log('✅ self-test 8 例全绿')
+  console.log('✅ self-test 9 例全绿')
 }
 
 async function main() {
@@ -513,6 +547,7 @@ async function main() {
 export const __test__ = {
   STAGES,
   KINDS,
+  STAGE_IDS,
   parseArgs,
   selectStages,
   stageArgv,
