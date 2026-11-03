@@ -264,7 +264,7 @@ export function pickKey(raw, re) {
  * ⑥ 应用 .env 关键凭据**齐备性**(2026-09-27 立)。
  *
  * 为什么本门原有各条都看不见它:①②③④判的是"凭据在不在、还有效吗",全部指向**外部**凭据
- * (服务环境块 / 同步盘 key 文件 / GitHub / Gitee);而 `apps/api/.env` 里"某个键值为空 ⇒ 某条
+ * (服务环境块 / 同步盘 key 文件 / GitHub;Gitee 已于 2026-11-03 下线,不再列入);而 `apps/api/.env` 里"某个键值为空 ⇒ 某条
  * 生产链路 fail-closed 静默拒客"这一型零覆盖。实测形状就是 2026-09-26 那次 `.env` 被整体替换清空
  * 之后,`USDT_WEBHOOK_SECRET` 空着从 08-08 起就一直空着 —— 唯一痕迹是启动时一条 ERROR 日志
  * (apps/api/src/routes/payment-usdt.ts:186),此后每个回调静默收 401,而到人链路上
@@ -428,7 +428,7 @@ export async function runChecks() {
   //    理由:机主确认 Gitee/GitCode 代码镜像仓早已弃用,镜像作业(mirror-to-cn.yml)同时下线。
   //    留着这一条等于每天替一个不存在的下游报警(实测它最后的状态是"Gitee main 落后 N 天"),
   //    而那条告警的唯一出路是去 Gitee 点「Git GC」—— 对一个不再同步的仓做体积回收毫无意义。
-  //    Gitee 凭据本身仍有用途(桌面端安装包资产 CDN),其有效性检查在下文 ② 保留。
+  //    Gitee 凭据自 2026-11-03 也不再被消费(发布目标下线,探活已随 ④ 删除),不再保留任何检查。
   return out
 }
 
