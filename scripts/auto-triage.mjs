@@ -111,6 +111,8 @@ export function loadConfig(readFile = (p) => readFileSync(p, 'utf8')) {
   if (!Array.isArray(g.sources) || g.sources.length === 0) {
     throw new TriageShapeError('形状坏:sources 必须是非空数组(第一期只吃白名单源)')
   }
+  // user-feedback 于 2026-11-04 从活动 sources 退役(8810 恒被 guardDbDsn 拒 + 本地 feedbacks 空表);
+  // 白名单保留该名字,便于改端口/换库后按同一份形状锁重新接线,不等于当前在跑。
   const KNOWN = ['mail-failure', 'index-unmerged', 'api-logs', 'grafana-alerts', 'user-feedback']
   for (const s of g.sources) {
     if (!KNOWN.includes(s))
@@ -1209,7 +1211,7 @@ async function runOnce({ dryRun = false } = {}) {
       }
     }
   }
-  // 来源五:用户反馈导出件(scripts 层无既有消费面 ⇒ 只吃既有导出 JSONL)
+  // 来源五:用户反馈导出件(2026-11-04 已从活动 sources 退役;分支保留供改端口/换库后复用)
   if (cfg.sources.includes('user-feedback')) {
     const u = readUserFeedback({ jsonlPath: String(cfg.userFeedback?.jsonl ?? '') })
     if (u.status === 'undetermined') {
