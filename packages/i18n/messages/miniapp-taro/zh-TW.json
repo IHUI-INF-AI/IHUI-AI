@@ -4817,6 +4817,7 @@
     "status": {
       "present": "正常",
       "late": "遲到",
+      "early": "早退",
       "absent": "缺勤",
       "leave": "請假"
     },
@@ -4828,7 +4829,10 @@
     "batchDoneToast": "點名完成",
     "batchResult": "點名完成：新增 {created} 人，跳過 {skipped} 人，未落庫 {missed} 人",
     "noClassReason": "未取到班級資訊，暫不能整班點名",
-    "multiClass": "清單含多個班級，本次僅點名 {classId}"
+    "multiClass": "清單含多個班級，本次僅點名 {classId}",
+    "checkInAt": "簽到時刻",
+    "momentNow": "此刻",
+    "backfillNeedsTime": "回填非當日考勤須給出該日內的打卡時刻"
   },
   "eduMgmt": {
     "attendanceTitle": "考勤管理",
