@@ -7788,62 +7788,57 @@ export function auditAasaPublicHealth(opts = {}) {
 
 // ─── App 内更新卡「latest 行」对账(2026-10-30 接线,Y-14;尺子本体 2026-10-29 立) ───
 const APP_VER_TICK = join(WORKTREE, '.ihui-agent', 'state', 'app-version-latest-tick.ts')
-const APP_VER_FIRST = join(WORKTREE, '.ihui-agent', 'state', 'app-version-latest-first.json')
-const APP_VER_LAST = join(WORKTREE, '.ihui-agent', 'state', 'app-version-latest-last.json')
+const APP_VER_STATE_DIR = join(WORKTREE, '.ihui-agent', 'state')
+/**
+ * 逐端各写一份 first/last 状态件:两端的红是两件事(android 缺行时 iOS 未必缺,反之亦然),
+ * 共用一本账会把另一端的连欠时长洗掉 —— 抑制窗因此失去终态(§5e-1 同族教训)。
+ */
+export function appVersionStateFiles(platform) {
+  return {
+    firstFile: join(APP_VER_STATE_DIR, `app-version-latest-first-${platform}.json`),
+    lastFile: join(APP_VER_STATE_DIR, `app-version-latest-last-${platform}.json`),
+  }
+}
+/**
+ * 尺子按端档案(PLATFORM_PROFILES)决定探针该当回什么类型 ⇒ 派发面也必须按端各跑一次。
+ * 只跑 android 的话,iOS 那条 latest 行(2026-11-03 上架)写错版本、站点腿回旧包都无人看见。
+ */
+export const APP_VER_PLATFORMS = ['android', 'ios']
+const APP_VER_MAIL_LABELS = { android: '安卓包(apk)', ios: 'iOS 包(ipa)' }
 const APP_VER_INTERVAL_MS = Number(
   process.env.IHUI_APP_VERSION_LATEST_INTERVAL_MS || 6 * 60 * 60 * 1000,
 )
 const APP_VER_TIMEOUT_MS = Number(process.env.IHUI_APP_VERSION_LATEST_TIMEOUT_MS || 120_000)
 
 /**
- * App 内更新卡「latest 行」对账的**常驻**派发点(尺子 = `scripts/check-app-version-latest.mjs`)。
- *
- * 立因(Y-14,2026-10-30):那把尺子 2026-10-29 造好当天,五处权威点零命中、本守护也不调度 ——
- * 线上 `GET /api/app-version/latest?platform=android` 回 `{"data":{}}` 这件事没有任何器物在盯。
- * 用户侧表现是「更新卡没有可点的下载按钮」,监控侧却永远是一条 200;§0.9「造好没装车 = 没有」。
- *
- * 按 §12e 它**刻意不进提交链**:判的是公网端点与线上表里的数据,提交者结构上改不了那一格,
- * 挂上即恒堵门。唯一调度器就是这里;手工入口 = `node scripts/check-app-version-latest.mjs`。
- *
- * 三态:fail 发信(正文给**可整改的那一步** —— 登记器物 `register-app-version-latest.mjs`
- * 已在仓内;它属 OWNER-ONLY:`requireAdmin` 只认人用 JWT,或生产机上走 `--via db`)、
- * undetermined 只写日志不喊人(§0.3 网络抖动不是缺陷)、pass 清欠账。
- * 身份按红项条数档折叠(守门 224):具体项名会随整改位移,写死进 dedupKey 就是下一场风暴。
+ * App 内更新卡「latest 行」对账的**单端**执行腿(尺子 = `scripts/check-app-version-latest.mjs`)。
+ * 节流、"尺子在不在位"与逐端循环都归外层 `auditAppVersionLatest`(其头注在本文件下方);
+ * 这里只管"跑一端、读那一端的结论、按端发信、写那一端的状态件"。
  */
-export function auditAppVersionLatest(opts = {}) {
+export function auditAppVersionPlatform(opts = {}) {
   const {
+    platform = 'android',
     now = Date.now(),
-    intervalMs = APP_VER_INTERVAL_MS,
-    tickFile = APP_VER_TICK,
-    firstFile = APP_VER_FIRST,
-    lastFile = APP_VER_LAST,
     logger = log,
     notify = notifyGuardRed,
     runner = null,
+    firstFile = appVersionStateFiles(platform).firstFile,
+    lastFile = appVersionStateFiles(platform).lastFile,
   } = opts
   const script = join(dirname(fileURLToPath(import.meta.url)), 'check-app-version-latest.mjs')
   if (!existsSync(script)) {
     logger(
-      'ℹ️ App 更新卡对账:尺子脚本不在位(scripts/check-app-version-latest.mjs)⇒ 本轮跳过,不记为已探测',
+      `ℹ️ App 更新卡对账(${platform}):尺子脚本不在位(scripts/check-app-version-latest.mjs)⇒ 本轮跳过,不记为已探测`,
     )
-    return { ran: false, why: '尺子脚本不在位' }
+    return { platform, ran: false, why: '尺子脚本不在位' }
   }
-  let lastTick = NaN
   try {
-    lastTick = Date.parse(String(readFileSync(tickFile, 'utf8')).trim())
-  } catch {
-    /* 没跑过 */
-  }
-  if (!publicProbeDue(now, lastTick, intervalMs)) return { ran: false, why: '未到节流窗口' }
-  try {
-    mkdirSync(dirname(tickFile), { recursive: true })
-    writeFileSync(tickFile, new Date(now).toISOString(), 'utf8')
     const call =
       typeof runner === 'function'
-        ? runner()
+        ? runner({ platform })
         : (() => {
             try {
-              const out = execFileSync(process.execPath, [script, '--json'], {
+              const out = execFileSync(process.execPath, [script, '--json', '--platform', platform], {
                 cwd: WORKTREE,
                 encoding: 'utf8',
                 windowsHide: true, // §5b:漏此参数在守护/计划任务下必弹控制台窗
@@ -7870,10 +7865,10 @@ export function auditAppVersionLatest(opts = {}) {
     // 因为 exit 1 也可能夹带"有红项 + 有未判定"的混合结论,退出码折不出红几条。
     if (!parsed || typeof parsed.state !== 'string') {
       logger(
-        `⚠️ App 更新卡对账未产出结论(未判定,不记为已探测):rc=${call.status} ` +
+        `⚠️ App 更新卡对账(${platform})未产出结论(未判定,不记为已探测):rc=${call.status} ` +
           `${([call.stderr, call.stdout].filter(Boolean).join(' ⊕ ') || '(无输出)').slice(0, 200)}`,
       )
-      return { ran: true, judged: false, why: '结论不可解析' }
+      return { platform, ran: true, judged: false, why: '结论不可解析' }
     }
     try {
       mkdirSync(dirname(lastFile), { recursive: true })
@@ -7881,27 +7876,30 @@ export function auditAppVersionLatest(opts = {}) {
     } catch {
       /* 状态件写不掉只影响可见性,不影响告警本身 */
     }
+    const label = APP_VER_MAIL_LABELS[platform] ?? platform
     const red = Array.isArray(parsed.red) ? parsed.red : []
     if (parsed.state === 'fail') {
       const held = alertHeldTier(noteUndeterminedStreak(firstFile, now).firstMs, now)
       notify(
-        `App 更新卡取不到安卓包:latest 行对账红 ${red.length} 项`,
+        `App 更新卡取不到${label}:latest 行对账红 ${red.length} 项`,
         [
-          '线上 GET /api/app-version/latest?platform=android 的只读对账不达标(逐条来自尺子 JSON 的 red 数组):',
+          `线上 GET /api/app-version/latest?platform=${platform} 的只读对账不达标(逐条来自尺子 JSON 的 red 数组):`,
           ...red.slice(0, 10).map((r) => `· ${r?.id ?? '?'}: ${r?.detail ?? ''}`),
           '',
-          '可整改的那一步(登记器物已在仓内,幂等,默认 dry-run):',
-          '  node scripts/register-app-version-latest.mjs                      # 先看计划',
-          '  node scripts/register-app-version-latest.mjs --apply --via api --admin-token "<管理员JWT>"',
+          '可整改的那一步(登记器物已在仓内,幂等,默认 dry-run;--platform 换成出问题的那一端):',
+          `  node scripts/register-app-version-latest.mjs --platform ${platform}                      # 先看计划`,
+          `  node scripts/register-app-version-latest.mjs --apply --via api --admin-token "<管理员JWT>" --platform ${platform}`,
           '属 OWNER-ONLY:requireAdmin 只认人用 JWT;或在生产机上走 --via db。不得手改生产库。',
+          '若是"行是对的、腿上是旧包"这一型,该动的是发布器(publish-mobile-apk.mjs / publish-mobile-ipa.mjs),不是登记表。',
         ].join('\n'),
         {
           severity: 'warning',
-          dedupKey: `verdict=fail;red=${alertCountTier(red.length)};held=${held.tier}`,
+          // 端名必须进身份:android 红与 ios 红是两件事,共一条 key 会让第二端永远收不到信(§5e-3)。
+          dedupKey: `platform=${platform};verdict=fail;red=${alertCountTier(red.length)};held=${held.tier}`,
         },
       )
-      logger(`❌ App 更新卡对账红 ${red.length} 项(已按身份去重发信)`)
-      return { ran: true, judged: true, reds: red.length }
+      logger(`❌ App 更新卡对账(${platform})红 ${red.length} 项(已按身份去重发信)`)
+      return { platform, ran: true, judged: true, reds: red.length }
     }
     if (parsed.state === 'undetermined') {
       // 未判定既不续命也不清零(§0.3):取不到输入既不是坏也不是好
@@ -7914,18 +7912,100 @@ export function auditAppVersionLatest(opts = {}) {
       //      publish-mobile-apk.mjs 登记腿不落地即非零退出并点名唯一整改命令(Y-14 根因修复),
       //      故 fail→发信 这腿维持原样作为兜底即可,升 undetermined 没有增量可整改面。〕
       const un = Array.isArray(parsed.undetermined) ? parsed.undetermined.length : 0
-      logger(`ℹ️ App 更新卡对账:未判定 ${un} 项 —— 不喊人(网络抖动不是缺陷;裁决见上,§5e-1)`)
-      return { ran: true, judged: false, undetermined: un }
+      logger(
+        `ℹ️ App 更新卡对账(${platform}):未判定 ${un} 项 —— 不喊人(网络抖动不是缺陷;裁决见上,§5e-1)`,
+      )
+      return { platform, ran: true, judged: false, undetermined: un }
     }
     clearUndeterminedStreak(firstFile)
-    logger('✅ App 更新卡对账:latest 行在位且下载地址指向自有腿')
-    return { ran: true, judged: true, reds: 0 }
+    logger(`✅ App 更新卡对账(${platform}):latest 行在位且下载地址指向自有腿`)
+    return { platform, ran: true, judged: true, reds: 0 }
   } catch (e) {
     logger(
-      '⚠️ App 更新卡对账派发失败(不阻断其余守护): ' + String((e && e.message) || e).slice(0, 160),
+      `⚠️ App 更新卡对账(${platform})派发失败(不阻断其余守护): ` +
+        String((e && e.message) || e).slice(0, 160),
     )
-    return { ran: false, why: '派发异常' }
+    return { platform, ran: false, why: '派发异常' }
   }
+}
+
+/**
+ * App 内更新卡「latest 行」对账的**常驻**派发点(尺子 = `scripts/check-app-version-latest.mjs`)。
+ *
+ * 立因(Y-14,2026-10-30):那把尺子 2026-10-29 造好当天,五处权威点零命中、本守护也不调度 ——
+ * 线上 `GET /api/app-version/latest?platform=android` 回 `{"data":{}}` 这件事没有任何器物在盯。
+ * 用户侧表现是「更新卡没有可点的下载按钮」,监控侧却永远是一条 200;§0.9「造好没装车 = 没有」。
+ *
+ * 按 §12e 它**刻意不进提交链**:判的是公网端点与线上表里的数据,提交者结构上改不了那一格,
+ * 挂上即恒堵门。唯一调度器就是这里;手工入口 = `node scripts/check-app-version-latest.mjs`。
+ *
+ * 逐端各跑一次(2026-11-03 补):尺子的第③条按 `PLATFORM_PROFILES` 判 Content-Type,iOS 也上了
+ * 自有站点腿 ⇒ 只跑 android 等于给 iOS 那条新行留了一格无人看。**一次节流窗口 = 全部端各一遍**,
+ * 节流戳共用(加端不改变发信频次),状态件与告警身份按端分开。
+ *
+ * 三态:fail 发信(正文给**可整改的那一步** —— 登记器物 `register-app-version-latest.mjs`
+ * 已在仓内;它属 OWNER-ONLY:`requireAdmin` 只认人用 JWT,或生产机上走 `--via db`)、
+ * undetermined 只写日志不喊人(§0.3 网络抖动不是缺陷)、pass 清欠账。
+ * 身份按红项条数档折叠(守门 224):具体项名会随整改位移,写死进 dedupKey 就是下一场风暴。
+ */
+export function auditAppVersionLatest(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = APP_VER_INTERVAL_MS,
+    tickFile = APP_VER_TICK,
+    platforms = APP_VER_PLATFORMS,
+    stateFilesFor = appVersionStateFiles,
+    logger = log,
+    runner = null,
+    notify = notifyGuardRed,
+  } = opts
+  if (!Array.isArray(platforms) || platforms.length === 0) {
+    logger('⚠️ App 更新卡对账:端清单为空 ⇒ 本轮未判定(不得用"没有端"冒充"全部端已探测")')
+    return { ran: false, judged: false, why: '端清单为空' }
+  }
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'check-app-version-latest.mjs')
+  if (!existsSync(script)) {
+    logger(
+      'ℹ️ App 更新卡对账:尺子脚本不在位(scripts/check-app-version-latest.mjs)⇒ 本轮跳过,不记为已探测',
+    )
+    return { ran: false, judged: false, why: '尺子脚本不在位' }
+  }
+  let lastTick = NaN
+  try {
+    lastTick = Date.parse(String(readFileSync(tickFile, 'utf8')).trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (!publicProbeDue(now, lastTick, intervalMs)) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, new Date(now).toISOString(), 'utf8')
+  } catch (e) {
+    // 节流戳写不掉 ⇒ 下一轮还会再来一遍;继续跑,但如实记下(不冒充"已探测")
+    logger('⚠️ App 更新卡对账:节流戳写不掉(' + String((e && e.message) || e).slice(0, 80) + ')')
+  }
+  const per = []
+  for (const platform of platforms) {
+    const sf = stateFilesFor(platform)
+    per.push(
+      auditAppVersionPlatform({
+        platform,
+        now,
+        logger,
+        notify,
+        runner,
+        firstFile: sf.firstFile,
+        lastFile: sf.lastFile,
+      }),
+    )
+  }
+  const reds = per.reduce((n, r) => n + (typeof r.reds === 'number' ? r.reds : 0), 0)
+  const undetermined = per.reduce((n, r) => n + (typeof r.undetermined === 'number' ? r.undetermined : 0), 0)
+  const judged = per.every((r) => r.judged === true)
+  logger(
+    `ℹ️ App 更新卡对账本轮:${per.map((r) => `${r.platform}=${r.judged === true ? (r.reds ? `红${r.reds}` : '绿') : '未判定'}`).join(' ')}(红合计 ${reds} / 未判定合计 ${undetermined})`,
+  )
+  return { ran: true, judged, reds, undetermined, per }
 }
 
 /**
@@ -13364,7 +13444,11 @@ export const __test__ = {
   auditIndexUnmerged,
   auditLintStagedPins,
   // App 更新卡 latest 行对账派发腿(2026-10-30 接线,Y-14;镜像测试按名 import,不复制判据 §22c)。
+  // 2026-11-03 拆成两层:auditAppVersionLatest = 共用节流 + 逐端循环,auditAppVersionPlatform = 单端执行。
   auditAppVersionLatest,
+  auditAppVersionPlatform,
+  APP_VER_PLATFORMS,
+  appVersionStateFiles,
   sweepDesktopDiscoveryBudget,
   sweepIosIpaRelay,
   // git filter 残留巡检(2026-10-31 立):解析判据与派发腿本体导出,镜像测试只 import 这一份(§22c)。
