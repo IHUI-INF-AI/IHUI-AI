@@ -29563,7 +29563,14 @@
     "qrRotated": "署名キーをローテーションしました（指紋 {fingerprint}）",
     "qrSecretNote": "キーの原文は画面に表示されず、指紋のみ確認できます",
     "qrNeedSetup": "上側の出席ルールを設定し、署名キーをローテーションしてください",
-    "qrLoadFailed": "QRコードの取得に失敗しました"
+    "qrLoadFailed": "QRコードの取得に失敗しました",
+    "trendChartTitle": "出席の推移",
+    "trendChartScope": "集計範囲：{scope}",
+    "trendChartHint": "出席率 = 正常出席 ÷ 当該時間帯の出席記録数（未打刻の生徒は分母に含みません）",
+    "trendCountAxisLabel": "件数",
+    "trendChartAria": "{scope}の選択期間における日次出席率の折れ線と状態構成の積み上げ棒グラフ",
+    "statusOther": "その他",
+    "scopeAllClasses": "すべてのクラス"
   },
   "eduCertificates": {
     "certificateNo": "番号：{no}",
