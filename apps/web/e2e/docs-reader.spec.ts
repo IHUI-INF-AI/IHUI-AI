@@ -54,8 +54,9 @@ async function probeHeading(page: import('@playwright/test').Page): Promise<Poin
   await page.waitForSelector('.ai-panel-root', { timeout: 5_000 }).catch(() => {})
   const box = await h1.boundingBox()
   expect(box, 'H1 必须量得到盒(量不到 = 未判定,不得记绿)').not.toBeNull()
-  const x = (box as { x: number }).x + (box as { x: number }).width / 2
-  const y = (box as { y: number }).y + (box as { y: number }).height / 2
+  if (!box) throw new Error('H1 盒量不到 ⇒ 未判定,不得记绿')
+  const x = box.x + box.width / 2
+  const y = box.y + box.height / 2
 
   return page.evaluate(
     ({ x, y, h1Box }) => {
