@@ -9,7 +9,8 @@ import { appAlert } from '../components/BottomPops'
 import * as ImagePicker from 'expo-image-picker'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { createAigcTask, uploadFileMultipart, resolveFileUrl } from '@ihui/api-client'
+import { createAigcTask, resolveFileUrl } from '@ihui/api-client'
+import { uploadFileWithProgress } from './AigcPublishUpload'
 import { apiFailureToText } from '@ihui/shared/utils'
 import {
   AigcPublishScreen as SharedAigcPublishScreen,
@@ -34,6 +35,8 @@ export default function AigcPublishScreen() {
   const [prompt, setPrompt] = useState('')
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
+  /** 真实上传进度端口:0-100,来自 expo UploadTask 的 bytesSent/totalBytes;undefined = 未知 */
+  const [uploadProgress, setUploadProgress] = useState<number | undefined>(undefined)
   const [error, setError] = useState('')
   const [urlInput, setUrlInput] = useState('')
 
@@ -74,13 +77,17 @@ export default function AigcPublishScreen() {
       const asset = result.assets?.[0]
       if (!asset?.uri) return
       setUploading(true)
+      setUploadProgress(0)
       setError('')
       const isVideo = asset.type === 'video'
-      const res = await uploadFileMultipart({
-        uri: asset.uri,
-        type: asset.mimeType || (isVideo ? 'video/mp4' : 'image/jpeg'),
-        name: asset.fileName || `upload-${Date.now()}.${isVideo ? 'mp4' : 'jpg'}`,
-      })
+      const res = await uploadFileWithProgress(
+        {
+          uri: asset.uri,
+          type: asset.mimeType || (isVideo ? 'video/mp4' : 'image/jpeg'),
+          name: asset.fileName || `upload-${Date.now()}.${isVideo ? 'mp4' : 'jpg'}`,
+        },
+        { onUploadProgress: (percent) => setUploadProgress(percent) },
+      )
       if (res.success && res.data) {
         const url = resolveFileUrl(res.data.path)
         setFiles((prev) => [...prev, { id: res.data!.id, url }])
@@ -91,6 +98,7 @@ export default function AigcPublishScreen() {
       setError(t('aigcPublish.errorPickFailed'))
     } finally {
       setUploading(false)
+      setUploadProgress(undefined)
     }
   }
 
@@ -164,6 +172,7 @@ export default function AigcPublishScreen() {
       urlInput={urlInput}
       saving={saving}
       uploading={uploading}
+      uploadProgress={uploadProgress}
       error={error}
       onWorkTypeChange={(wt) => {
         setWorkType(wt)

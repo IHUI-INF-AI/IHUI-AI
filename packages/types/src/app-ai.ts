@@ -337,6 +337,14 @@ export interface AigcListScreenProps {
   onToast: OnToast
   /** 音频播放端口;缺省 = capability-off(宿主未注入时不得静默假播放) */
   audio?: AudioPort
+  /**
+   * 顶部作品轮播端口;缺省 = 不渲染。
+   * 共享屏缺少轮播能力时由宿主以数据+回调注入,渲染仍住共享屏,端内不再复制一份。
+   */
+  carousel?: {
+    items: readonly AigcListItem[]
+    onPress: (item: AigcListItem) => void
+  }
 }
 
 /** 批次 20(2026-07-29):AI/聊天屏(助手管理/AI 群组/AIGC 封面/AIGC 发布,4 屏迁移自 mobile-rn) */
@@ -481,6 +489,11 @@ export interface AigcPublishScreenProps {
   urlInput: string
   saving: boolean
   uploading: boolean
+  /**
+   * 上传进度端口:0-100,由宿主上传实现的 onUploadProgress 真实字节回调写入。
+   * 缺省 = 未知进度(只渲染 spinner,不渲染百分比/进度条),禁止用定时器伪造。
+   */
+  uploadProgress?: number
   error: string
   onWorkTypeChange: (type: AigcPublishWorkType) => void
   onTextContentChange: (text: string) => void
