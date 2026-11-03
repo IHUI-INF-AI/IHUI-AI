@@ -4,14 +4,14 @@
 
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync, existsSync } from 'node:fs'
+import { readFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import { dirname, join, parse, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { __test__ } from '../sync-prometheus-live-config.mjs'
 
-const { deriveLiveConfig, findLiveDir, CONFIG_SRC, RULES_IN_REPO } = __test__
+const { deriveLiveConfig, findLiveDir, findLiveDirIn, CONFIG_SRC, RULES_IN_REPO } = __test__
 
 test('T1 只替换 rule_files 那一处,其余逐字保留', () => {
   const src =
@@ -182,22 +182,32 @@ test('T8 真仓配置今天必须过占位符守卫(它曾因占位符进过生�
 const REPO_FROM_TEST = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const DRIVE_ANCHORED = join(parse(REPO_FROM_TEST).root, 'DevEnv')
 // G-814433 起外置根有**双形态**:项目内 <repo>/.DevEnv 优先(搬进去后就是它),老机器回落盘根形态。
-// oracle 仍不 import 被测出口(§22c),按两种形态各自独立算一遍,取本机真在位的那个。
+// 2026-11-02 实测形态是"根在、子树没搬":仓内 `.DevEnv` 只有 backups/Temp,monitor 仍在盘根侧。
+// oracle 仍不 import 被测出口(§22c),按两种形态各自独立算一遍,给出按件候选序。
 const REPO_LOCAL_DEVENV = join(REPO_FROM_TEST, '.DevEnv')
-const EXPECTED_DEVENV = existsSync(REPO_LOCAL_DEVENV) ? REPO_LOCAL_DEVENV : DRIVE_ANCHORED
+const EXPLICIT_DEVENV = String(process.env.IHUI_DEVENV_ROOT || '').trim()
+const EXPECTED_ROOTS = EXPLICIT_DEVENV
+  ? [resolve(EXPLICIT_DEVENV)]
+  : [
+      ...(existsSync(REPO_LOCAL_DEVENV) ? [REPO_LOCAL_DEVENV] : []),
+      ...(existsSync(DRIVE_ANCHORED) && resolve(DRIVE_ANCHORED) !== resolve(REPO_LOCAL_DEVENV)
+        ? [DRIVE_ANCHORED]
+        : []),
+    ]
+if (EXPECTED_ROOTS.length === 0) EXPECTED_ROOTS.push(REPO_LOCAL_DEVENV)
+const EXPECTED_CANDIDATES = EXPECTED_ROOTS.map((root) => join(root, 'monitor', 'prometheus'))
 
-test('T9 落点由共用出口派生:双形态(项目内 .DevEnv 优先 / 盘根回落)且源内不许再写死盘符', () => {
-  assert.equal(
-    __test__.CANDIDATE_LIVE_DIRS.length,
-    1,
-    '候选落点必须恰一枚(多枚 = 有人又加了一条"我猜的路径")',
+test('T9 落点按件探测:新根→旧根候选序 + 源内不许再写死盘符', () => {
+  assert.ok(
+    __test__.CANDIDATE_LIVE_DIRS.length >= 1 && __test__.CANDIDATE_LIVE_DIRS.length <= 2,
+    `候选落点应是 1~2 枚(新根/旧根),实得 ${__test__.CANDIDATE_LIVE_DIRS.length}`,
   )
-  assert.equal(
-    __test__.CANDIDATE_LIVE_DIRS[0],
-    join(EXPECTED_DEVENV, 'monitor', 'prometheus'),
-    `本机外置根形态=${EXPECTED_DEVENV};候选落点必须由它派生,不许另立第二份推导`,
+  assert.deepEqual(
+    __test__.CANDIDATE_LIVE_DIRS,
+    EXPECTED_CANDIDATES,
+    `本机外置根形态=${EXPECTED_ROOTS.join(' / ')};候选落点必须按这个顺序由共用出口派生`,
   )
-  // 反向牙:外置根只许走 devEnvRoot() 共用一个出口。有人把它写死成盘符字面量(2026-09-28 修的那型)
+  // 反向牙:外置根只许走共用出口。有人把它写死成盘符字面量(2026-09-28 修的那型)
   // 时,这一条立刻红 —— 光比对值时是看不出来的:本机恰好两种写法同值时它会一直绿。
   const src = readFileSync(
     fileURLToPath(new URL('../sync-prometheus-live-config.mjs', import.meta.url)),
@@ -205,8 +215,8 @@ test('T9 落点由共用出口派生:双形态(项目内 .DevEnv 优先 / 盘根
   )
   assert.match(
     src,
-    /const CANDIDATE_LIVE_DIRS = \[join\(devEnvRoot\(\), 'monitor', 'prometheus'\)\]/,
-    '候选落点必须由 devEnvRoot() 派生(§15b 唯一外置根);写死盘符 = 换机即失明',
+    /const CANDIDATE_LIVE_DIRS = devEnvArtifactCandidates\('monitor\/prometheus'\)/,
+    '候选落点必须由 seal 的按件选根出口派生(§15b);写死盘符 = 换机即失明',
   )
 })
 
@@ -247,7 +257,7 @@ test('T10 共用出口真被 consult:IHUI_DEVENV_ROOT 改写候选落点(摘掉�
   }
 })
 
-test('T11 反向锁:不得再自取盘符,必须真的 import 共用出口', () => {
+test('T11 反向锁:不得再自取盘符,必须真的 import 共用按件选根出口', () => {
   const src = readFileSync(
     resolve(dirname(fileURLToPath(import.meta.url)), '..', 'sync-prometheus-live-config.mjs'),
     'utf8',
@@ -264,17 +274,11 @@ test('T11 反向锁:不得再自取盘符,必须真的 import 共用出口', () 
   )
   assert.match(
     src,
-    /import \{ devEnvRoot \} from '\.\/seal-c-root-stray\.mjs'/,
-    '必须真的 import 共用出口(§22c 装车证明)',
+    /import \{ devEnvArtifactCandidates \} from '\.\/seal-c-root-stray\.mjs'/,
+    '必须真的 import 共用按件选根出口(§22c 装车证明)',
   )
-  // 边界重判(2026-10-21,签名哨兵变红后的还账):哨兵红是因为 `7ec2b804aa2`(G-345 第④格)把
-  // 共用出口改成 `devEnvRoot(repoRoot = REPO)` —— 它开始接收工作树参数了。旧登记写"要关'两层深
-  // 夹具 ⇒ 落点跟着夹具走'这一维,需要 改盘根锚定 + 夹具闸",而那次提交恰好把这两个条件都补齐了:
-  //   ① 盘根锚定:推导问 `path.parse(repoRoot).root` 要根(对任何深度都稳定,不再向上数两级);
-  //   ② 夹具闸:`countScratchSegments(repoRoot) > 0` 当场抛错(落点绝不静默跟着夹具走)。
-  // 所以那一维**已关闭**,不再是未决登记。本票调用方仍无参调用(`devEnvRoot()`),落点锚在 seal
-  // 自己的模块位置,与改前逐字同值。哨兵现在钉的是**这段登记所依赖的条件**而不是签名本身 ——
-  // 任一条件被摘(夹具闸删了/锚定退回数两级/调用方开始传参)都会红,不让登记再次腐烂成注释化石。
+  // 共用出口仍必须保住下文两条件:盘根锚定 + 夹具闸。任一条被摘,按件选根都会把落点
+  // 跟着夹具/深层工作树漂走 —— 哨兵钉的是这段登记所依赖的条件,不是签名本身。
   const sealSrc = readFileSync(
     resolve(dirname(fileURLToPath(import.meta.url)), '..', 'seal-c-root-stray.mjs'),
     'utf8',
@@ -295,9 +299,33 @@ test('T11 反向锁:不得再自取盘符,必须真的 import 共用出口', () 
     '盘根锚定退回"向上数两级" ⇒ 深层工作树会把 DevEnv 推进别人目录,登记需重新判定',
   )
   assert.match(
-    src,
-    /devEnvRoot\(\)/,
-    '调用方开始传工作树参数 ⇒ 落点锚定随调用方走,本段"锚在 seal 模块位置"的登记失效,需重新判定',
+    sealSrc,
+    /export function devEnvTargetRoots\(repoRoot = REPO\)/,
+    '双根候选序出口不见了 ⇒ 按件选根失去单一来源',
   )
+  assert.match(
+    sealSrc,
+    /export function devEnvArtifactCandidates\(\s*relPath/,
+    '按件选根候选出口不见了 ⇒ 本文件的两个候选失去来源',
+  )
+})
+
+test('T12 第二候选真被尝试:第一候选缺 prometheus.yml、第二候选在 ⇒ 取第二', () => {
+  const base = mkScratch('prom-cands-')
+  try {
+    const first = join(base, 'first')
+    const second = join(base, 'second')
+    mkdirSync(first, { recursive: true })
+    mkdirSync(second, { recursive: true })
+    writeFileSync(join(second, 'prometheus.yml'), 'global:\n  scrape_interval: 15s\n', 'utf8')
+    assert.equal(
+      findLiveDirIn([first, second]),
+      second,
+      '第二候选在位却没被取用 ⇒ 候选序只问第一根,P1 在这类机器上会重新变瞎',
+    )
+    assert.equal(findLiveDirIn([join(base, 'nope')]), null, '全都不在必须回 null,不得猜一个路径')
+  } finally {
+    rmScratch(base)
+  }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

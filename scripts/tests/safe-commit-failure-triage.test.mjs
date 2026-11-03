@@ -66,10 +66,40 @@ test('③ 身份来自唯一出口,不在端内抄第二份', () => {
 test('③a 两个发令点都走 commitArgv(裸 commitArgs 发令会漏身份)', () => {
   assert.match(src, /const commitArgv = \(skipHooks, extraCfg = \[\]\) =>/, '拼装出口不见了')
   const viaArgv = [...src.matchAll(/commitArgv\((?:false|true)/g)].map((m) => m.index)
-  assert.equal(viaArgv.length, 2, `走 commitArgv 的发令点应恰为 2(首次 + 跳门重试),实得 ${viaArgv.length}`)
+  assert.equal(
+    viaArgv.length,
+    2,
+    `走 commitArgv 的发令点应恰为 2(带钩子发令体 + 显式逃生口),实得 ${viaArgv.length}`,
+  )
   // 定义体里那一次 commitArgs(skipHooks) 不算发令点:发令点必须只写 commitArgv
   const bare = [...src.matchAll(/commitArgs\((?:false|true)\)/g)]
   assert.equal(bare.length, 0, '存在绕过 commitArgv 直接 commitArgs 的发令点 ⇒ 身份会漏')
+})
+
+test('③c not-ours 不再自动跳门:带钩子发令点在重试环里,skipHooks=true 只在 else 分支', () => {
+  // 2026-11-02(事故 5c8aec3653):归因 not-ours ⇒ 旧实现无条件追加 --no-verify ⇒ 假绿。
+  // 形状锁:①重试环比"逃生口"判定先出现;②skipHooks=true 的发令只在 else 分支
+  // (既有 env-blocked/undetermined-red 路径 + not-ours 显式逃生口),not-ours 默认进不去。
+  const hatchGate = src.indexOf("process.env.IHUI_SAFE_COMMIT_ALLOW_SKIP_HOOKS === '1'")
+  assert.ok(hatchGate > 0, '显式逃生口判据不见了 ⇒ 默认路径可能又静默跳门')
+  const retryLoop = src.indexOf('for (let retry = 1; retry <= HOOK_RETRIES; retry++)')
+  assert.ok(retryLoop > 0 && retryLoop < src.indexOf('commitArgv(true)'), '退避重试环不见了/排在跳门之后')
+  assert.match(
+    src.slice(retryLoop, src.indexOf('commitArgv(true)')),
+    /launchCommitWithHooks\(\)/,
+    '重试环必须发带钩子的普通提交(launchCommitWithHooks),不许另拼一份 argv',
+  )
+  const elseAt = src.indexOf('} else {', retryLoop)
+  assert.ok(elseAt > retryLoop, 'not-ours 重试段之后应接 else(既有路径 + 显式逃生口)')
+  assert.ok(
+    src.indexOf('commitArgv(true)') > elseAt,
+    '--no-verify 发令必须落在 else 分支里(只有显式逃生口能到)',
+  )
+  assert.doesNotMatch(
+    src.slice(retryLoop, elseAt),
+    /commitArgv\(true\)/,
+    'not-ours 重试段里出现 skipHooks=true 发令 ⇒ 又回到自动跳门',
+  )
 })
 
 test('④ 身份注入排在 git 子命令之前(git 语法要求 -c 前置)', () => {

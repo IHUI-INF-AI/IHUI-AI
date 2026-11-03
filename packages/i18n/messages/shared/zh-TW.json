@@ -2832,5 +2832,14 @@
         "eventD": "線下高端活動"
       }
     }
+  },
+  "career": {
+    "fillField": "請填寫：{name}",
+    "submitFail": "提交失敗，請稍後重試",
+    "doneTitle": "提交成功",
+    "doneBody": "問卷已提交，AI 學業建議生成後可在本頁查看。",
+    "exportingReport": "匯出中...",
+    "exportEmptyHint": "產生報告後可匯出",
+    "exportLoginRequired": "請先登入後再匯出"
   }
 }
