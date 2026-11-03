@@ -170,7 +170,7 @@ export function UploadDialog({
             <div className="rounded-md border border-dashed p-3">
               <input
                 type="file"
-                accept=".pdf,.docx,.md,.txt,.html,.htm"
+                accept=".pdf,.docx,.md,.txt"
                 onChange={(e) => setFile(e.target.files?.[0] ?? null)}
                 className="w-full text-body text-muted-foreground file:mr-3 file:rounded-sm file:border-0 file:bg-cta file:px-3 file:py-1.5 file:text-cta-foreground hover:file:bg-cta/90"
               />
