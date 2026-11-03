@@ -28,7 +28,7 @@ jobs:
   build-api:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # 2026-11-03:postinstall 新增 scripts/lib/patch-lint-staged-stdio.mjs 而镜像未 COPY,
       # build-api/build-web 双双 MODULE_NOT_FOUND。本地 pre-commit 只在暂存 Dockerfile / 根
       # package.json / .dockerignore 时触发本门,且改动前的 A 判据只读 HEAD,看不见"本次提交
@@ -52,7 +52,7 @@ jobs:
   build-web:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Check Dockerfile build context
         run: node scripts/check-dockerfile-copy-paths.mjs
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
@@ -69,7 +69,7 @@ jobs:
   build-ai-service:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
       - name: Build AI Service image
         uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5

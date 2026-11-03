@@ -43,7 +43,7 @@ jobs:
     # macos-15(Xcode 16/Swift 6.1)不满足 → 2026-08-17 实测 BUILD FAILED,改用 macos-26
     runs-on: macos-26
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup pnpm
         # 不指定 version:仓库 packageManager=pnpm@11.18.0,action 自动读取;
