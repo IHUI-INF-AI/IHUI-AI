@@ -8,12 +8,12 @@
 // 改路由请改 RootNavigator.tsx 后重新生成。
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/mobile-rn/scripts/generate-ui-routes.mjs
-// sourceCommit: 5001f53cfcb0eed5ef9334300226bfa3e8c4092c
-// inputsSha256: 8256e5ed05b7ec02dcca53798f05cc5d3e0796d16f3c43d035791dd3bc2c030a
-// input: apps/mobile-rn/src/navigation/RootNavigator.tsx 7f4021ffc6ea8127adf74efdfb6c332c18ddcf3959d2407eb97b876640f649bb
+// sourceCommit: 0223f5e98721381b52b082c4c2e4ba26f0278aae
+// inputsSha256: ac6b54556ced4312a5217a3d418f72efd83c820566c20fc243fbdf2c108dda1e
+// input: apps/mobile-rn/src/navigation/RootNavigator.tsx 4299e2602d618f2895f465bf04af9e7e9531abccd6840c9fa96b9c1c5e174429
 // input: apps/mobile-rn/src/navigation/linking.ts 5d0669776885554d59463e5bf928d7a3c264d936a4977c0428877a9a19612cb6
 // skipped: unauthedBranchScreens=3(未登录分支 Screen 不入白名单,桥接挂载时不存在)
-// generatedAt: 2026-11-03T01:53:54.333Z
+// generatedAt: 2026-11-03T03:44:04.177Z
 // IHUI-GEN-PIN-END
 
 /** AI 可导航 Screen 条目:name 是 react-navigation 的 screen name(不是 URL 路径) */
@@ -28,7 +28,7 @@ export interface RnUiRouteEntry {
   requiredParams: string[]
 }
 
-/** 全量白名单:前 335 条是已登录分支 RootStack.Screen,后 5 条是 Main Tab */
+/** 全量白名单:前 336 条是已登录分支 RootStack.Screen,后 5 条是 Main Tab */
 export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'Main', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Login', tab: false, requiresParams: false, requiredParams: [] },
@@ -202,6 +202,7 @@ export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'QrCode', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'NotificationSettings', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'AgentReviewList', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'AgentReviewDetail', tab: false, requiresParams: true, requiredParams: ['item'] },
   { name: 'AgentStat', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'AgentSetting', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Carte', tab: false, requiresParams: false, requiredParams: [] },
