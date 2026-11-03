@@ -35,7 +35,7 @@
  *   可言,head/worktree 档打印说明行而非静默跳过(§0.3)。
  *
  * 接线现实(2026-11-03 现读对账,头注与 guardian-runner.mjs 注册条目对齐):本门**已进提交链**
- *   —— runner id '282',mode=blocking,args=['--staged'],stagedTriggers=['apps/web/app/'],
+ *   —— runner id '285',mode=blocking,args=['--staged'],stagedTriggers=['apps/web/app/'],
  *   应急放行 HUSKY_SKIP_DOCS_PUBLIC_HEALTH=1。逐维定性(§12e 升 blocking 前置 = 存量归零):
  *   D1/D2/D3 的输入全是仓内静态文本(languages 声明、sitemap 条目、icon 字面量)↔ 被审面路由
  *   清单,**不需要任何外部态**(不碰真浏览器/公网/DB),本次提交内容结构上就能满足 ⇒ 三维全部
