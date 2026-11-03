@@ -243,7 +243,9 @@ import { fileVersionRoutes } from '../src/routes/file-version.js'
 const FILE_ROW = { id: FILE_ID, projectId: 'project-uuid', name: 'spec.md', uploadedBy: OWNER }
 
 /** 真 multipart 请求体:字段部分必须排在文件部分之前,否则 part.fields 取不到。 */
-function buildMultipart(parts: Array<{ name: string; filename?: string; content: string }>): {
+function buildMultipart(
+  parts: Array<{ name: string; filename?: string; contentType?: string; content: string }>,
+): {
   body: string
   boundary: string
 } {
@@ -253,7 +255,7 @@ function buildMultipart(parts: Array<{ name: string; filename?: string; content:
     lines.push(`--${boundary}`)
     if (p.filename) {
       lines.push(`Content-Disposition: form-data; name="${p.name}"; filename="${p.filename}"`)
-      lines.push('Content-Type: application/octet-stream')
+      lines.push(`Content-Type: ${p.contentType ?? 'application/octet-stream'}`)
     } else {
       lines.push(`Content-Disposition: form-data; name="${p.name}"`)
     }
@@ -477,7 +479,7 @@ describe('O21b POST /file-versions/create 属主闸门(行为级)', () => {
       const res = await postCreate(server, [
         { name: 'fileId', content: FILE_ID },
         { name: 'changeLog', content: '第三次修订' },
-        { name: 'file', filename: 'spec.md', content },
+        { name: 'file', filename: 'spec.md', contentType: 'text/markdown', content },
       ])
 
       expect(res.statusCode).toBe(201)
@@ -522,7 +524,12 @@ describe('O21b POST /file-versions/create 属主闸门(行为级)', () => {
       const res = await postCreate(server, [
         { name: 'fileId', content: FILE_ID },
         { name: 'changeLog', content: '成员补充' },
-        { name: 'file', filename: 'spec.md', content: '成员写的一行' },
+        {
+          name: 'file',
+          filename: 'spec.md',
+          contentType: 'text/markdown',
+          content: '成员写的一行',
+        },
       ])
 
       expect(res.statusCode).toBe(201)
