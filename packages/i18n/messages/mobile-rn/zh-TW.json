@@ -5763,6 +5763,7 @@
   },
   "ia": {
     "remainingPoints": "剩餘智匯值",
+    "loginRequired": "請先登入後使用",
     "recharge": "充值"
   },
   "uiCard": {

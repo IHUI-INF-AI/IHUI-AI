@@ -2219,6 +2219,9 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-03**
+- 🔧 기타:收编停留≥3分钟的未提交改动 (14cdb641cc)
+
+**2026-11-03**
 - 🔧 기타:收编停留≥3分钟的未提交改动 (48540f650b)
 
 **2026-11-03**
@@ -2332,9 +2335,6 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 - 🔧 기타:收编停留≥3分钟的未提交改动 (9b60105652)
 - 🔧 기타:AgentReviewDetail 改判 not-applicable（无 RN 详情路由/入口） (4381683c20)
 - 🚀 기능/개선:CoursePlanet/MoreCourse/StudyIndex 接共享屏薄壳 (30a2725d76)
-
-**2026-11-03**
-- 🔧 기타:收编停留≥3分钟的未提交改动 (ae46cd2635)
 <!-- END RECENT UPDATES -->
 
 <p align="center">

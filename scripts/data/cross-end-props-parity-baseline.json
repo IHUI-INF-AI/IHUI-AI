@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-11-03T10:28:52.874Z",
-  "face": "head",
-  "rule": "差值棘轮:在册集合只减不增;新键/新对未入账=红;undetermined=warn 点名。升绝对零前置=存量归零。",
+  "generatedAt": "2026-11-03T10:34:13.673Z",
+  "face": "staged",
+  "rule": "差值棘轮:在册集合只减不增;新键/新对未入账=红;undetermined=warn 点名(有效 not-applicable 裁决除外)。升绝对零前置=存量归零。",
   "pairs": {
     "AgentRuntimePanel": {
       "state": "ok",
@@ -207,16 +207,18 @@
     "IntelligentAssistant": {
       "state": "ok",
       "onlyRn": [
-        "robotImage",
-        "tokenQuantity"
+        "robotImage"
       ],
-      "onlyMini": [
-        "isLoggedIn",
-        "tokenBalance"
-      ],
+      "onlyMini": [],
       "reqDrift": [],
-      "mapped": [],
-      "driftTotal": 4
+      "mapped": [
+        {
+          "ours": "tokenQuantity",
+          "theirs": "tokenBalance",
+          "kind": "content"
+        }
+      ],
+      "driftTotal": 1
     },
     "LoginPopUp": {
       "state": "ok",
@@ -355,8 +357,23 @@
       "driftTotal": 25
     },
     "ScreenStates": {
-      "state": "undetermined",
-      "reason": "rn=undetermined(出口无默认/同名组件(出口=ScreenSkeleton,EmptyState,ErrorState,PressableCard,ScreenSkeletonProps,EmptyStateProps)) mini=undetermined(出口无默认/同名组件(出口=ScreenSkeleton,EmptyState,ErrorState,PressableCard,ScreenSkeletonProps,EmptyStateProps))"
+      "state": "not-applicable",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "evidence": [
+        "packages/app/src/components/ScreenStates.tsx:13-19",
+        "packages/app/src/components/ScreenStates.tsx:70",
+        "packages/app/src/components/ScreenStates.tsx:125",
+        "packages/app/src/components/ScreenStates.tsx:163",
+        "packages/app/src/components/ScreenStates.tsx:199",
+        "apps/miniapp-taro/src/components/ScreenStates.taro.tsx:47",
+        "apps/miniapp-taro/src/components/ScreenStates.taro.tsx:141",
+        "apps/miniapp-taro/src/components/ScreenStates.taro.tsx:180",
+        "apps/miniapp-taro/src/components/ScreenStates.taro.tsx:219",
+        "packages/app/src/components/index.ts:44-49",
+        "scripts/check-cross-end-ui-parity.mjs:1122"
+      ],
+      "why": "ScreenStates 是门128按文件基名(basename)配上的四组件族容器,不是同名组件对:两端文件各自只导出 ScreenSkeleton/EmptyState/ErrorState/PressableCard 四个具名组件及其 Props 接口,既无 default 导出,也无名为 ScreenStates 的符号;RN 侧 barrel(index.ts:44-49)也只 re-export 四个 Props 类型,不构成聚合组件。门285 的采集器只认默认出口或与文件同名出口,故两端同报 undetermined —— 这是配对对象本身不是单组件,不是解析故障。不能把四个独立 props 契约并成一个键集:那会让分属不同组件的键互相顶替(例如 RN EmptyState 的 glyph 与小程序 PressableCard 的 className 并入合集后看着'两端都有'),产生跨组件假阴性。四个子件的逐件对账需要改门128的配对粒度(按组件而非按文件),属配对口径变更,须单独裁决并重落全量台账;本条目到期前由 owner 复核是否拆分。"
     },
     "ScrollJumpButton": {
       "state": "ok",
@@ -466,10 +483,11 @@
     "pairs": 18,
     "drifted": 14,
     "aligned": 3,
-    "undetermined": 1,
+    "undetermined": 0,
+    "notApplicable": 1,
     "maxKeyDrift": 59,
-    "driftKeysTotal": 273,
-    "equivalenceEntries": 3,
-    "mappedKeysTotal": 4
+    "driftKeysTotal": 270,
+    "equivalenceEntries": 4,
+    "mappedKeysTotal": 6
   }
 }

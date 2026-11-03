@@ -5763,6 +5763,7 @@
   },
   "ia": {
     "remainingPoints": "残りポイント",
+    "loginRequired": "先にログインしてお使いください",
     "recharge": "チャージ"
   },
   "uiCard": {
