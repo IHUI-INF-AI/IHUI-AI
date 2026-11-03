@@ -125,7 +125,7 @@ groups:
           severity: warning
         annotations:
           summary: 'AI 成本落库失败'
-          description: 'ai_cost_records 写入在抛异常(业务侧完全看不见,只有这一条会响)。下一步:查 DB 连接/迁移落后/字段约束;这是计费数据,必须真修不能压掉。'
+          description: 'ai_cost_records 写入在抛异常(业务侧完全看不见,只有这一条会响)。下一步:查 DB 连接/迁移落后/字段约束;这是计费数据,必须真修不能压掉。首事件也会报:新出现的失败序列被 unless offset 15m 命中时,即使 increase 为 0 也会在 5m 内进入 firing(该子句自首个样本起约存活 15m,长于 for 的 5m);这条是唯一会响的判据,同样不能压。'
 
       - alert: AiMetricSeriesCapHit
         # 同类 for==range 死条件:for 必须小于窗口(这里 30m 窗口给 15m for 留余量)。
