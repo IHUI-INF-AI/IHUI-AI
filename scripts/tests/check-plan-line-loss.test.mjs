@@ -627,7 +627,6 @@ test('接线自检:脚本被复制进临时夹具仓(五处落点全不存在)�
     rmScratch(dir)
   }
 })
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 // 取材面源码锁(2026-09-26):全量档曾把"待提交内容"取成工作树磁盘副本,于是它与任何提交
 // 都无关地报红,而它给的出路是"从 HEAD 取回再提交" —— 照做会覆盖别人未提交的在飞内容。
@@ -2535,3 +2534,50 @@ test('同号多候选(纯函数):refusedGroups 带行号与差异摘要;--pick M
   assert.match(G.variantDiffSummary('abcX', 'abcY'), /共同前缀 3 字/)
 })
 
+/**
+ * 2026-11-03 实测的第三维:摘除台账里那些"行尾被追加过注记"的行,逐字不等、题面指纹也不命中,
+ * 只有**复合主键**(编号 + 标题前缀)能认出它。回捞侧(`healContent`)早就吃 `keyIndex`,
+ * 而检测侧 `declaredExempt` 只吃 set + 指纹 ⇒ 同一本台账两面读,现象是守护每轮喊
+ * "HEAD 缺 3 条登记行(回捞自 …)"而落地器一次都插不回去 ⇒ "跑而未成"的假红。
+ * 本例把两面钉成同一把尺,并且成对给反向牙(空 keyIndex 必须照旧判缺,证明不是放宽判据)。
+ */
+test('台账第三维:检测侧认 keyIndex(命中即不判缺)且空集照旧判缺', () => {
+  const noted =
+    '- [ ] **G-909997. 主键维靶行正文足够长abcdefg**(摘除留痕#seq3:见 plan-row-drop.jsonl)'
+  const entries = G.registeredLines(noted)
+  const empty = G.resolveRegistrationLoss(
+    entries,
+    '- [ ] G-900003 另一条在册登记行,正文也写得足够长abcdefg',
+    { set: new Set(), dropTitleFps: new Set(), keyIndex: new Map() },
+    null,
+  )
+  assert.equal(empty.length, 1, '空 keyIndex ⇒ 必须照旧判缺(反向牙:本维不是恒免)')
+  const ck = compositeKeyOf(noted)
+  assert.ok(ck, '夹具必须能解出复合主键,否则本例没测到东西')
+  const keyed = G.resolveRegistrationLoss(
+    entries,
+    '- [ ] G-900003 另一条在册登记行,正文也写得足够长abcdefg',
+    { set: new Set(), dropTitleFps: new Set(), keyIndex: new Map([[ck, noted]]) },
+    null,
+  )
+  assert.equal(keyed.length, 0, 'keyIndex 命中 ⇒ 检测侧不得再喊这一条缺')
+})
+
+test('形状锁:检测侧与回捞侧必须都从 declared.keyIndex 取同一份键表(§0.6 单源)', () => {
+  const src = readFileSync(
+    join(dirname(fileURLToPath(import.meta.url)), '..', 'check-plan-line-loss.mjs'),
+    'utf8',
+  )
+  const di = src.indexOf('const declaredExempt =')
+  assert.ok(di > 0, '找不到检测侧 declaredExempt')
+  const dbody = src.slice(di, di + 600)
+  assert.ok(dbody.includes('declaredKeyIndex'), '检测侧丢了 keyIndex 维(两面又分叉)')
+  assert.ok(dbody.includes('compositeKeyOf(e.line)'), '检测侧的主键必须用同一把 compositeKeyOf')
+  assert.ok(
+    src.slice(src.indexOf('const declaredKeyIndex'), src.indexOf('const declaredKeyIndex') + 260).includes(
+      'declared.keyIndex instanceof Map',
+    ),
+    '键表必须取自 declared.keyIndex(不得在本文件另建第二份键口径)',
+  )
+})
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

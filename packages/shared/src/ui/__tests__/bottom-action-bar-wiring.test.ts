@@ -778,9 +778,10 @@ const ONE_SIDED_FACTS: ReadonlyArray<OneSidedFact> = [
     dimension: 'geometry',
     owner: 'miniapp-taro',
     kind: 'C',
-    anchor: /padding:\s*'12rpx 0'/,
-    otherAnchor: /'12rpx 0'/,
-    why: 'C chip 纵向内衬 12rpx(=6) vs RN 固定高 TOGGLE_CHIP_HEIGHT=32,两端落屏高都约 32',
+    // 0ea20bbe01 把 rpx 字面量收编进 taroSpacing 档(weapp 像素零变化):出处形态变了、事实未变。
+    anchor: /padding:\s*`\$\{rpx\(taroSpacing\['xs-loose'\]\)\}(?: 0)?`/,
+    otherAnchor: /taroSpacing\['xs-loose'\]/,
+    why: 'C chip 纵向内衬 taroSpacing xs-loose(12rpx=6) vs RN 固定高 TOGGLE_CHIP_HEIGHT=32,两端落屏高都约 32',
   },
   // ── 半径(RD 维 3 枚;RE 维 0 是"两侧无同名元素",不是"圆角已一致") ──
   {

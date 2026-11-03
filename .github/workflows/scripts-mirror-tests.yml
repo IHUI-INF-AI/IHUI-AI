@@ -85,7 +85,7 @@ jobs:
     #   现在 continue-on-error 只贴在"测试确实跑了、但可能带存量红"那一步上(观察期语义
     #   不变),环境类失败(装不上 / 被跳过 / 一行没跑)由哨兵步当场判红。
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           # 必须取全历史。这批镜像测试里有一族判据的设计目的就是「夹具不算证明 —— 必须拿真仓
           # 历史 blob 证」(如 `check-dangling-local-imports.test.mjs` 的 D4/D5、各门的「真仓历史
@@ -105,7 +105,7 @@ jobs:
         # 同仓 ci-monorepo.yml / blue-green-deploy.yml 也都是只让它读 packageManager。
 
       - name: Setup Node
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: 24
           cache: pnpm

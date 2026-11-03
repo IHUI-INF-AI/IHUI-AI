@@ -1831,7 +1831,7 @@ export function AISidePanel() {
               <div
                 role="group"
                 aria-label={tc('headerActions.panelGroupButtons')}
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 max-[639px]:gap-1"
                 data-testid="ai-panel-header-actions-group"
               >
                 {/* 浮窗模式切换按钮(2026-07-30):
@@ -1885,7 +1885,13 @@ export function AISidePanel() {
                   <IconButton
                     onClick={toggleEnvInfo}
                     aria-label={tc('envInfoButton')}
-                    className={cn(envInfoOpen && 'bg-accent text-accent-foreground')}
+                    className={cn(
+                      /* ≤319px(如 280 折叠屏/极窄窗):再收起「环境信息」「终端」两枚
+                         桌面工具,否则 6 枚 32px 按钮仍把「关闭」挤出视口(280 实测
+                         right=298, 出界 18px、hitPct=40)。320 及以上保持可见。 */
+                      'max-[319px]:hidden',
+                      envInfoOpen && 'bg-accent text-accent-foreground',
+                    )}
                   >
                     <EnvInfoRounded checked={envInfoOpen} />
                   </IconButton>
@@ -1894,7 +1900,10 @@ export function AISidePanel() {
                   <IconButton
                     onClick={toggleTerminalDock}
                     aria-label={tc('openTerminal')}
-                    className={cn(terminalDockOpen && 'bg-accent text-accent-foreground')}
+                    className={cn(
+                      'max-[319px]:hidden',
+                      terminalDockOpen && 'bg-accent text-accent-foreground',
+                    )}
                   >
                     <SquareTerminal />
                   </IconButton>
@@ -1903,7 +1912,14 @@ export function AISidePanel() {
                   <IconButton
                     onClick={toggleWorkPanel}
                     aria-label={workAreaCollapsed ? tc('openWorkPanel') : tc('closeWorkPanel')}
-                    className={cn(workAreaCollapsed && 'bg-accent text-accent-foreground')}
+                    className={cn(
+                      /* 手机全屏浮窗(<640)不渲染工作展示区,"工作展示区"开关在手机上
+                         点了也看不见任何变化;更关键的是 header 8 枚 32px 按钮在 320-390
+                         视口里会把最右的「关闭」挤出视口(320 实测关闭按钮整体在屏外,
+                         点击区 hitPct=0)。桌面/平板档保持原样。 */
+                      'max-[639px]:hidden',
+                      workAreaCollapsed && 'bg-accent text-accent-foreground',
+                    )}
                   >
                     <PanelRightRounded left={workAreaCollapsed} />
                   </IconButton>
@@ -1951,7 +1967,13 @@ export function AISidePanel() {
                 )}
                 {!d73Expanded && (
                   <Tooltip content={tp('splitRight')}>
-                    <IconButton onClick={d73HandleSplit} aria-label={tp('splitRight')}>
+                    <IconButton
+                      onClick={d73HandleSplit}
+                      aria-label={tp('splitRight')}
+                      /* 手机全屏浮窗(<640):320 宽放不下分屏,按钮会把右侧「关闭」挤出
+                         视口;桌面/平板档保留。 */
+                      className="max-[639px]:hidden"
+                    >
                       <Columns2 />
                     </IconButton>
                   </Tooltip>
