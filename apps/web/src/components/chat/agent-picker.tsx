@@ -84,8 +84,11 @@ export function AgentPicker() {
       <DropdownMenuContent
         align="end"
         sideOffset={6}
+        style={{ zIndex: 2300 }}
         className={cn(
-          'z-popover max-h-[60vh] w-fit max-w-[320px] overflow-y-auto rounded-lg border bg-card p-1 text-card-foreground shadow-md',
+          // z-[2300](2026-11-04 第二轮收敛):触发器嵌在 + 菜单(z-[2200])第一层,
+          // 默认 z-popover(2001)会被外层盖住,菜单项看不到也点不到。
+          'z-[2300] max-h-[60vh] w-fit max-w-[320px] overflow-y-auto rounded-lg border bg-card p-1 text-card-foreground shadow-md',
           '[&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-sm [&::-webkit-scrollbar-thumb]:bg-muted-foreground/30',
         )}
       >

@@ -91,7 +91,9 @@ export function ModeSwitcher({ disabled = false }: { disabled?: boolean }) {
           <ChevronDown className="h-3 w-3 opacity-60" />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-56">
+      {/* z-[2300](2026-11-04 第二轮收敛):本触发器现嵌在 + 菜单(z-[2200])第一层,
+          默认 z-popover(2001)会被外层盖住;抬高后才能看到并点到菜单项。 */}
+      <DropdownMenuContent align="start" style={{ zIndex: 2300 }} className="w-56">
         {/* 工具面板入口(2026-09-14 合并收口):AiSidePanelTools 的唯一开关。
             ai-side-panel.tsx 挂载的 <AiSidePanelTools />(承载 Plan/Memory/Checkpoints/
             Best-of/Hooks/RepoWiki 等 W21–W29 面板)依赖本入口,缺失则永远无法打开。 */}

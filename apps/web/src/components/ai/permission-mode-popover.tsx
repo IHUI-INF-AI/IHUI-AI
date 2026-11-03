@@ -455,6 +455,9 @@ export function PermissionModePopover({
         side="top"
         align="end"
         gap={8}
+        // z-[2300](2026-11-04 第二轮收敛):触发器嵌在 + 菜单(z-[2200])第一层,
+        // PortalPanel 默认 z-popover(2001)会被外层盖住。
+        zIndexClassName="z-[2300]"
         className="w-[min(360px,calc(100vw-2rem))] rounded-xl border bg-popover p-3 text-popover-foreground shadow-md"
       >
         {/* dialog 语义与焦点属性保留在内容层(PortalPanel 容器只负责定位,
@@ -463,6 +466,9 @@ export function PermissionModePopover({
           role="dialog"
           aria-label={t('popoverTitle')}
           aria-modal="true"
+          // 2026-11-04 第二轮收敛:本面板嵌在 + 菜单第一层。AddMenuPopover 的外点关闭
+          // 处理器据此豁免(否则 mousedown 落在本面板时外层卸载,后续 click 丢失)。
+          data-composer-nested-panel=""
           tabIndex={-1}
           className="space-y-2 outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
