@@ -6,10 +6,12 @@ import { useMemo } from 'react'
 import {
   View,
   Text,
+  Image,
   FlatList,
   RefreshControl,
   Pressable,
   StyleSheet,
+  type ImageSourcePropType,
   type ImageStyle,
   type TextStyle,
   type ViewStyle,
@@ -17,6 +19,7 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { BookOpen } from 'lucide-react-native'
 import type { MoreCourseScreenProps } from '../../types'
+import { BannerCarousel } from '../_shared/BannerCarousel'
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
@@ -24,6 +27,22 @@ import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenS
 
 /** MoreCourseScreen props re-export(单一来源 @ihui/types) */
 export type { MoreCourseScreenProps }
+
+/** 知识星球资讯条目（由薄壳用 `/api/knowledge-planet/news` 映射后注入） */
+export interface MoreCoursePlanetItem {
+  id: string
+  title: string
+  cover?: string
+  summary?: string
+  createdAt: number
+}
+
+/** 知识星球区块：items 为空也保留标题栏与「进入星球」入口（与旧端内组件一致） */
+export interface MoreCoursePlanetSection {
+  items: readonly MoreCoursePlanetItem[]
+  onEnter?: () => void
+  onItemPress?: (id: string) => void
+}
 
 function formatPrice(price: number, isFree: boolean): string {
   if (isFree || price <= 0) return '免费'
@@ -43,8 +62,14 @@ export function MoreCourseScreen({
   onPressItem,
   onBack,
   onRetry,
+  bannerImages,
+  planet,
   colorScheme = 'light'
-}: MoreCourseScreenProps & { onRetry?: () => void }) {
+}: MoreCourseScreenProps & {
+  onRetry?: () => void
+  bannerImages?: readonly ImageSourcePropType[]
+  planet?: MoreCoursePlanetSection
+}) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -87,6 +112,42 @@ export function MoreCourseScreen({
     </Pressable>
   )
 
+  const renderPlanetItem = (item: MoreCoursePlanetItem) => {
+    const body = (
+      <View style={styles.planetRow}>
+        {item.cover ? (
+          <Image source={{ uri: item.cover }} style={styles.planetCover} resizeMode="cover" />
+        ) : (
+          <View style={[styles.planetCover, styles.planetCoverFallback]}>
+            <BookOpen size={20} color={tk.text.medium} />
+          </View>
+        )}
+        <View style={styles.planetBody}>
+          <Text style={styles.planetItemTitle} numberOfLines={1}>
+            {item.title}
+          </Text>
+          {item.summary ? (
+            <Text style={styles.planetSummary} numberOfLines={2}>
+              {item.summary}
+            </Text>
+          ) : null}
+        </View>
+      </View>
+    )
+    return planet?.onItemPress ? (
+      <Pressable
+        key={item.id}
+        onPress={() => planet.onItemPress?.(item.id)}
+        accessibilityRole="button"
+        accessibilityLabel={item.title}
+      >
+        {body}
+      </Pressable>
+    ) : (
+      <View key={item.id}>{body}</View>
+    )
+  }
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -111,6 +172,9 @@ export function MoreCourseScreen({
           }
           onEndReached={onEndReached}
           onEndReachedThreshold={0.3}
+          ListHeaderComponent={
+            bannerImages?.length ? <BannerCarousel images={bannerImages} /> : null
+          }
           ListEmptyComponent={
             error ? (
               <ErrorState
@@ -124,11 +188,30 @@ export function MoreCourseScreen({
             )
           }
           ListFooterComponent={
-            loadingMore ? (
-              <View style={styles.footerLoading}>
-                <Text style={styles.footerText}>加载更多...</Text>
-              </View>
-            ) : null
+            <>
+              {loadingMore ? (
+                <View style={styles.footerLoading}>
+                  <Text style={styles.footerText}>加载更多...</Text>
+                </View>
+              ) : null}
+              {planet ? (
+                <View style={styles.planetSection}>
+                  <View style={styles.planetHeader}>
+                    <Text style={styles.planetTitle}>知识星球</Text>
+                    {planet.onEnter ? (
+                      <Pressable
+                        onPress={planet.onEnter}
+                        accessibilityRole="button"
+                        accessibilityLabel="进入星球"
+                      >
+                        <Text style={styles.planetEnter}>进入星球</Text>
+                      </Pressable>
+                    ) : null}
+                  </View>
+                  {planet.items.map(renderPlanetItem)}
+                </View>
+              ) : null}
+            </>
           }
         />
       )}
@@ -194,6 +277,44 @@ function createStyles(tk: AppThemeTokens) {
     studentCount: { fontSize: rnType.label.size, color: tk.text.tertiary } as TextStyle,
     footerLoading: { paddingVertical: rnSpacing.md, alignItems: 'center' } as ViewStyle,
     footerText: { fontSize: rnType.body.size, color: tk.text.secondary } as TextStyle,
+    planetSection: {
+      marginTop: rnSpacing.lg,
+      padding: rnSpacing.md,
+      borderRadius: rnRadius.lg,
+      backgroundColor: tk.surface.light,
+    } as ViewStyle,
+    planetHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: rnSpacing.md,
+    } as ViewStyle,
+    planetTitle: {
+      fontSize: rnType.subtitle.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+    } as TextStyle,
+    planetEnter: { fontSize: rnType.body.size, color: tk.brand.DEFAULT } as TextStyle,
+    planetRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: rnSpacing.md,
+      paddingVertical: rnSpacing.sm,
+    } as ViewStyle,
+    planetCover: {
+      width: 72,
+      height: 48,
+      borderRadius: rnRadius.md,
+      backgroundColor: tk.surface.muted,
+    } as ImageStyle,
+    planetCoverFallback: { alignItems: 'center', justifyContent: 'center' } as ViewStyle,
+    planetBody: { flex: 1, gap: rnSpacing['xs-loose'] } as ViewStyle,
+    planetItemTitle: {
+      fontSize: rnType.body.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+    } as TextStyle,
+    planetSummary: { fontSize: rnType.label.size, color: tk.text.secondary } as TextStyle,
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
