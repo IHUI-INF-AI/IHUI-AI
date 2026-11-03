@@ -17,17 +17,30 @@
 // 判据基准(上海墙钟 + isPastHm);⑥~⑧ 组跑**默认窗口**,钉的是"absent_after 晚于
 // 跑批时刻的那一日不再永远漏判"这一新格(正反成对:次日补得出 / 同轮再跑不重复 /
 // leave 不被改写 / 规则与报名日之前的历史不造)。
+//
+// 排课门控(2026-11-07,ATT-SCHEDGATE 票)加的两组:⑨ 钉三态行为(有课日照判 /
+// 无课日零写 / 判不出 ⇒ 照旧判),⑩ 钉星期几与档位折法由生产实现单源定义。
+// **①~⑧ 组全部落 `schedule: NO_SCHEDULE_ROWS`(该班从没排过课)= no-schedule 档 ⇒
+// 照旧判 ⇒ 旧断言逐字不动**;只有 readOrder 两处按新增的一次排课查询如实插了
+// 'schedule'(那条 SQL 整轮只发一次,不按班轮询)。假库另加两条防线:未注册身份的表
+// 被读也计 unscripted(防"生产新读一张假库不认识的表"静默答空刷成假绿),
+// 以及 `H.failReads` 让指定表抛错(钉"表不可读 ⇒ 照旧判")。
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { eduAttendanceRecord, eduAttendanceRule, eduEnrollment } from '@ihui/database'
+import {
+  eduAttendanceRecord,
+  eduAttendanceRule,
+  eduCourseSchedule,
+  eduEnrollment,
+} from '@ihui/database'
 
 /**
  * 夹具账本(hoisted:vi.mock 工厂要在模块求值前拿到它)。
  * 每个计数器与世界状态都在 beforeEach 清零 ⇒ "跑两次逐字相同"才是判据而非运气。
  */
 const H = vi.hoisted(() => {
-  type TableKey = 'rule' | 'record' | 'enrollment'
+  type TableKey = 'rule' | 'record' | 'enrollment' | 'schedule'
   type Row = Record<string, unknown>
 
   /** 假库的 (student_id, class_id, date) 去重指纹 —— 对应 uq_edu_att_student_class_date 的索引列 */
@@ -69,14 +82,17 @@ const H = vi.hoisted(() => {
       if (t === tables.rule) return 'rule'
       if (t === tables.record) return 'record'
       if (t === tables.enrollment) return 'enrollment'
+      if (t === tables.schedule) return 'schedule'
       return undefined
     },
     uniqKey,
     applyInsert,
     /** 脚本化读队列:每张表按调用顺序吐出预置行集(= "真库会答什么") */
-    reads: { rule: [], record: [], enrollment: [] } as Record<TableKey, Row[][]>,
+    reads: { rule: [], record: [], enrollment: [], schedule: [] } as Record<TableKey, Row[][]>,
     /** 取不到脚本还硬读 ⇒ 记账(每条用例断言为 0,防"空答复"把断言刷成假绿) */
     unscripted: 0,
+    /** 点名"这张表读不动"(模拟 relation 不存在 / 连接异常):生产侧必须落"照旧判" */
+    failReads: [] as TableKey[],
     /** 实际发生的读表序(用于证明未到阈值时连在册学生都不查) */
     readOrder: [] as TableKey[],
     /** 假库世界状态:edu_attendance_record 的行 */
@@ -112,15 +128,23 @@ vi.mock('../src/db/index.js', () => {
     const step: Record<string, unknown> = {}
     step.from = vi.fn((t: unknown) => {
       const key = H.keyOf(t)
-      if (key) {
-        H.readOrder.push(key)
-        const queue = H.reads[key]
-        const next = queue.shift()
-        if (next) rows = next
-        else {
-          H.unscripted += 1
-          rows = []
-        }
+      if (!key) {
+        // 未注册身份的表也被读了 ⇒ 同样记账(否则"生产新读了一张假库不认识的表"
+        // 会静默答空,把断言刷成假绿 —— 本票的排课表正是这条防线的来处)
+        H.unscripted += 1
+        rows = []
+        return step
+      }
+      H.readOrder.push(key)
+      if (H.failReads.includes(key)) {
+        throw new Error(`relation "${key}" does not exist`)
+      }
+      const queue = H.reads[key]
+      const next = queue.shift()
+      if (next) rows = next
+      else {
+        H.unscripted += 1
+        rows = []
       }
       return step
     })
@@ -196,6 +220,10 @@ const AT_06_30 = new Date('2026-11-02T22:30:00.000Z')
 const AT_CRON_04 = new Date('2026-11-04T10:30:00.000Z')
 /** 同一 cron 时刻但落在周一:北京 2026-11-09 18:30,窗口要吃掉周六/周日 */
 const AT_CRON_MON = new Date('2026-11-09T10:30:00.000Z')
+/** **周六**那轮的 cron 时刻:北京 2026-11-07 18:30(2026-11-07 = weekday 6),排课门控的主案 */
+const AT_SAT = new Date('2026-11-07T10:30:00.000Z')
+/** 周一~周五的星期几档(1..7 = 周一..周日,与 edu_course_schedule.weekday 同键;夹具数据,非判据) */
+const WEEKDAYS = { mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6, sun: 7 } as const
 /** 规则/报名的下界列默认给一个远早于窗口的时刻 ⇒ 不构成回溯阻力(真实库里就是历史行) */
 const EARLY = new Date('2026-01-01T00:00:00.000Z')
 
@@ -255,6 +283,18 @@ const existingRowsFor = (studentIds: string[], dates: string[]): Rows[] =>
 const enrollRow = (studentId: string, enrollDate?: string): Rows =>
   enrollDate ? { studentId, enrollDate } : { studentId }
 
+/**
+ * 排课表答复里的"有效排课"行(投影与生产的 select 同键:`classId` + `weekday`)。
+ * weekday 档 = **1=周一…7=周日**,与 `edu_course_schedule.weekday` 列注释同键。
+ * 给空数组 `[]` = 该班在排课表里**一条有效记录都没有** ⇒ 门控判不出"无课" ⇒ 照旧判缺勤。
+ * (假库的 where 是 no-op,所以"软删行不出现在答复里"这一条由本夹具直接表达,
+ *  与真库 `isNull(eduCourseSchedule.deletedAt)` 的答形同构。)
+ */
+const schedRow = (classId: string, weekday: number): Rows => ({ classId, weekday })
+
+/** 该班"从没排过课"的答复(既有用例全部走这一档 ⇒ 门控落 no-schedule、照旧判,旧断言逐字不变)。 */
+const NO_SCHEDULE_ROWS: Rows[][] = [[]]
+
 /** 断言用:库里 absent 行的日期集合(升序)。 */
 const absentDates = (studentId?: string): string[] =>
   H.records
@@ -263,10 +303,10 @@ const absentDates = (studentId?: string): string[] =>
     .sort()
 
 type Rows = Record<string, unknown>
-type TableKey = 'rule' | 'record' | 'enrollment'
+type TableKey = 'rule' | 'record' | 'enrollment' | 'schedule'
 
 const script = (queues: Partial<Record<TableKey, Rows[][]>>) => {
-  for (const key of ['rule', 'enrollment', 'record'] as const) {
+  for (const key of ['rule', 'enrollment', 'record', 'schedule'] as const) {
     const q = queues[key]
     if (q) H.reads[key].push(...q)
   }
@@ -276,8 +316,10 @@ beforeEach(() => {
   H.tables.rule = eduAttendanceRule
   H.tables.record = eduAttendanceRecord
   H.tables.enrollment = eduEnrollment
-  H.reads = { rule: [], record: [], enrollment: [] }
+  H.tables.schedule = eduCourseSchedule
+  H.reads = { rule: [], record: [], enrollment: [], schedule: [] }
   H.unscripted = 0
+  H.failReads = []
   H.readOrder = []
   H.records = []
   H.insertBatches = []
@@ -292,6 +334,7 @@ describe('runAbsentAttendance ①:未签到 ∧ 已过 absentAfter ⇒ 落 absen
       rule: [[ruleRow(CLASS_A, '08:30')]],
       enrollment: [[{ studentId: STUDENT_1 }, { studentId: STUDENT_2 }]],
       record: [[]],
+      schedule: NO_SCHEDULE_ROWS,
     })
 
     const result = await runAbsentAttendance(AT_10_00, SAME_DAY_ONLY)
@@ -325,13 +368,21 @@ describe('runAbsentAttendance ①:未签到 ∧ 已过 absentAfter ⇒ 落 absen
         [{ studentId: STUDENT_2 }, { studentId: STUDENT_3 }],
       ],
       record: [[], []],
+      schedule: NO_SCHEDULE_ROWS,
     })
 
     const result = await runAbsentAttendance(AT_10_00, SAME_DAY_ONLY)
 
     expect(result).toMatchObject({ rules: 2, students: 3, created: 3, skipped: 0 })
     expect(H.records).toHaveLength(3)
-    expect(H.readOrder).toEqual(['rule', 'enrollment', 'record', 'enrollment', 'record'])
+    expect(H.readOrder).toEqual([
+      'rule',
+      'schedule',
+      'enrollment',
+      'record',
+      'enrollment',
+      'record',
+    ])
     expect(H.unscripted).toBe(0)
   })
 })
@@ -344,6 +395,7 @@ describe('runAbsentAttendance ②:已签到者不被补 absent', () => {
       rule: [[ruleRow(CLASS_A, '08:30')]],
       enrollment: [[{ studentId: STUDENT_1 }, { studentId: STUDENT_2 }, { studentId: STUDENT_3 }]],
       record: [[existingRow(STUDENT_1, '2026-11-03')]],
+      schedule: NO_SCHEDULE_ROWS,
     })
 
     const result = await runAbsentAttendance(AT_10_00, SAME_DAY_ONLY)
@@ -367,6 +419,7 @@ describe('runAbsentAttendance ③:同一天重复执行必须幂等', () => {
       rule: [[ruleRow(CLASS_A, '08:30')]],
       enrollment: [[{ studentId: STUDENT_1 }, { studentId: STUDENT_2 }]],
       record: [[]],
+      schedule: NO_SCHEDULE_ROWS,
     })
     const first = await runAbsentAttendance(AT_10_00, SAME_DAY_ONLY)
     expect(first.created).toBe(2)
@@ -377,6 +430,7 @@ describe('runAbsentAttendance ③:同一天重复执行必须幂等', () => {
       rule: [[ruleRow(CLASS_A, '08:30')]],
       enrollment: [[{ studentId: STUDENT_1 }, { studentId: STUDENT_2 }]],
       record: [[existingRow(STUDENT_1, '2026-11-03'), existingRow(STUDENT_2, '2026-11-03')]],
+      schedule: NO_SCHEDULE_ROWS,
     })
     const second = await runAbsentAttendance(AT_10_00, SAME_DAY_ONLY)
 
@@ -399,6 +453,7 @@ describe('runAbsentAttendance ③:同一天重复执行必须幂等', () => {
       rule: [[ruleRow(CLASS_A, '08:30')]],
       enrollment: [[{ studentId: STUDENT_1 }, { studentId: STUDENT_2 }]],
       record: [[]], // 预筛"看不见"已有行 ⇒ 候选仍是两人
+      schedule: NO_SCHEDULE_ROWS,
     })
 
     const result = await runAbsentAttendance(AT_10_00, SAME_DAY_ONLY)
@@ -450,6 +505,7 @@ describe('runAbsentAttendance ④:未到阈值时刻 ⇒ 不补', () => {
       rule: [[ruleRow(CLASS_A, '18:30:00')]],
       enrollment: [[{ studentId: STUDENT_1 }, { studentId: STUDENT_2 }]],
       record: [[]],
+      schedule: NO_SCHEDULE_ROWS,
     })
 
     const result = await runAbsentAttendance(AT_19_00, SAME_DAY_ONLY)
@@ -534,6 +590,7 @@ describe('runAbsentAttendance ⑤:代码里没有"默认阈值"兜底分支(按�
       rule: [[ruleRow(CLASS_A, '08:30')]],
       enrollment: [[{ studentId: STUDENT_1 }, { studentId: STUDENT_2 }]],
       record: [[existingRow(STUDENT_1, '2026-11-03'), existingRow(STUDENT_2, '2026-11-03')]],
+      schedule: NO_SCHEDULE_ROWS,
     })
 
     const result = await runAbsentAttendance(AT_10_00, SAME_DAY_ONLY)
@@ -634,6 +691,7 @@ describe('runAbsentAttendance ⑦:本票主案 —— absent_after 晚于跑批�
       rule: [[ruleRow(CLASS_A, '19:00')]],
       enrollment: [[enrollRow(STUDENT_1), enrollRow(STUDENT_2)]],
       record: [[]],
+      schedule: NO_SCHEDULE_ROWS,
     })
 
     const result = await runAbsentAttendance(AT_CRON_04)
@@ -649,8 +707,9 @@ describe('runAbsentAttendance ⑦:本票主案 —— absent_after 晚于跑批�
       skipped: 0,
       missedIds: [],
     })
-    // 读放大与旧实现同量级:一班一条 enroll + 一条"整窗已有记录"查询(不按日轮询)
-    expect(H.readOrder).toEqual(['rule', 'enrollment', 'record'])
+    // 读放大不随窗口/班级涨:排课表**整轮一条 SQL**(不按班轮询)+ 一班一条 enroll +
+    //   一条"整窗已有记录"查询(不按日轮询)
+    expect(H.readOrder).toEqual(['rule', 'schedule', 'enrollment', 'record'])
     expect(H.insertCalls).toBe(1)
     expect(H.unscripted).toBe(0)
     for (const row of H.records) {
@@ -666,6 +725,7 @@ describe('runAbsentAttendance ⑦:本票主案 —— absent_after 晚于跑批�
       rule: [[ruleRow(CLASS_A, '19:00')]],
       enrollment: [[enrollRow(STUDENT_1)]],
       record: [[]],
+      schedule: NO_SCHEDULE_ROWS,
     })
     const first = await runAbsentAttendance(AT_CRON_04)
     expect(first.created).toBe(window.length - 1) // 当日未到阈值 ⇒ 只有前 3 天
@@ -676,6 +736,7 @@ describe('runAbsentAttendance ⑦:本票主案 —— absent_after 晚于跑批�
       rule: [[ruleRow(CLASS_A, '19:00')]],
       enrollment: [[enrollRow(STUDENT_1)]],
       record: [existingRowsFor([STUDENT_1], window)],
+      schedule: NO_SCHEDULE_ROWS,
     })
     const second = await runAbsentAttendance(AT_CRON_04)
 
@@ -700,6 +761,7 @@ describe('runAbsentAttendance ⑦:本票主案 —— absent_after 晚于跑批�
       rule: [[ruleRow(CLASS_A, '19:00')]],
       enrollment: [[enrollRow(STUDENT_1)]],
       record: [[existingRow(STUDENT_1, leaveDate)]],
+      schedule: NO_SCHEDULE_ROWS,
     })
 
     const result = await runAbsentAttendance(AT_CRON_04)
@@ -721,6 +783,7 @@ describe('runAbsentAttendance ⑦:本票主案 —— absent_after 晚于跑批�
       rule: [[ruleRow(CLASS_A, '19:00')]],
       enrollment: [[enrollRow(STUDENT_1)]],
       record: [[]],
+      schedule: NO_SCHEDULE_ROWS,
     })
 
     await runAbsentAttendance(AT_CRON_MON)
@@ -734,6 +797,7 @@ describe('runAbsentAttendance ⑦:本票主案 —— absent_after 晚于跑批�
       rule: [[ruleRow(CLASS_A, '08:30')]],
       enrollment: [[enrollRow(STUDENT_1)]],
       record: [[]],
+      schedule: NO_SCHEDULE_ROWS,
     })
 
     const result = await runAbsentAttendance(new Date('2026-11-03T16:30:00.000Z'))
@@ -761,6 +825,7 @@ describe('runAbsentAttendance ⑦:本票主案 —— absent_after 晚于跑批�
       rule: [[ruleRow(CLASS_A, '08:30')]],
       enrollment: [[enrollRow(STUDENT_1)]],
       record: [[]], // 真库不会把软删行答出来(SQL 里 isNull(deletedAt))
+      schedule: NO_SCHEDULE_ROWS,
     })
 
     const result = await runAbsentAttendance(AT_10_00, SAME_DAY_ONLY)
@@ -778,6 +843,7 @@ describe('runAbsentAttendance ⑧:回溯下界 —— 规则没建/学生没进�
       rule: [[ruleRow(CLASS_A, '19:00', new Date('2026-11-03T10:30:00.000Z'))]],
       enrollment: [[enrollRow(STUDENT_1)]],
       record: [[]],
+      schedule: NO_SCHEDULE_ROWS,
     })
 
     await runAbsentAttendance(AT_CRON_04)
@@ -790,6 +856,7 @@ describe('runAbsentAttendance ⑧:回溯下界 —— 规则没建/学生没进�
       rule: [[ruleRow(CLASS_A, '19:00')]],
       enrollment: [[enrollRow(STUDENT_1, '2026-11-03')]],
       record: [[]],
+      schedule: NO_SCHEDULE_ROWS,
     })
 
     const result = await runAbsentAttendance(AT_CRON_04)
@@ -804,12 +871,345 @@ describe('runAbsentAttendance ⑧:回溯下界 —— 规则没建/学生没进�
       rule: [[ruleRow(CLASS_A, '19:00', null)]], // 取不到 createdAt
       enrollment: [[{ studentId: STUDENT_1, enrollDate: '不是日期' }]],
       record: [[]],
+      schedule: NO_SCHEDULE_ROWS,
     })
 
     const result = await runAbsentAttendance(AT_CRON_04)
 
     expect(result.created).toBe(DEFAULT_BACKFILL_DAYS) // 前 3 天全补(当日未到 19:00 不判)
     expect(absentDates(STUDENT_1)).toEqual(['2026-11-01', '2026-11-02', '2026-11-03'])
+  })
+})
+
+describe('排课门控 ⑨:那天根本没课 ⇒ 不写缺勤(2026-11-07,ATT-SCHEDGATE 票)', () => {
+  /**
+   * 立因(现读为证):回溯窗一开,判定只看"那天有没有打卡"、不看"那天有没有课"的旧病
+   * 被成倍放大 —— 每轮多写 3 个业务日的假缺勤。对要进免责链条的记录,**误判比漏判更脏**:
+   * 漏判没人响,误判会直接变成给家长看的记录。
+   * 本组把三态逐档钉死:判得出无课 ⇒ 不写;判不出(没排过课/表读不动/weekday 坏) ⇒ **照旧判**。
+   */
+  const info = vi.mocked(logger.info)
+  const warn = vi.mocked(logger.warn)
+
+  /** 点名要看得见内容,不是只数次数:从 logger 调用里挑出消息含指定串的第一条 */
+  const findLog = (include: string): { msg: string; data: Record<string, unknown> } => {
+    for (const spy of [info, warn]) {
+      for (const call of spy.mock.calls) {
+        const msg = String(call[0] ?? '')
+        if (msg.includes(include)) {
+          return { msg, data: (call[1] ?? {}) as Record<string, unknown> }
+        }
+      }
+    }
+    throw new Error(`日志里没有含「${include}」的一条 ⇒ 点名没落地`)
+  }
+
+  beforeEach(() => {
+    info.mockClear()
+    warn.mockClear()
+  })
+
+  it('正向对照(成对之一):该班周六**有课** ⇒ 周六照样补出缺勤,门控没把有课的日子吞掉', async () => {
+    script({
+      rule: [[ruleRow(CLASS_A, '08:30')]],
+      enrollment: [[enrollRow(STUDENT_1), enrollRow(STUDENT_2)]],
+      record: [[]],
+      schedule: [[schedRow(CLASS_A, WEEKDAYS.sat)]],
+    })
+
+    const result = await runAbsentAttendance(AT_SAT, SAME_DAY_ONLY)
+
+    expect(result).toEqual({ rules: 1, students: 2, created: 2, skipped: 0, missedIds: [] })
+    expect(absentDates()).toEqual(['2026-11-07', '2026-11-07'])
+    expect(findLog('edu attendance absent job done').data).toMatchObject({
+      scheduleGatedOutDates: 0,
+      scheduleFullyGatedClasses: 0,
+      scheduleNoSchoolClasses: 0,
+      scheduleUnjudgedClasses: 0,
+      scheduleReadFailed: false,
+    })
+    expect(H.unscripted).toBe(0)
+  })
+
+  it('无排课的周六 ⇒ 整班一条不写,且连在册学生都不查(零 IO),日志点名被剔的日子', async () => {
+    script({
+      rule: [[ruleRow(CLASS_A, '08:30')]],
+      schedule: [[schedRow(CLASS_A, WEEKDAYS.mon), schedRow(CLASS_A, WEEKDAYS.fri)]],
+    })
+
+    const result = await runAbsentAttendance(AT_SAT, SAME_DAY_ONLY)
+
+    expect(result).toEqual({ rules: 1, students: 0, created: 0, skipped: 0, missedIds: [] })
+    expect(H.records).toHaveLength(0)
+    expect(H.insertCalls).toBe(0)
+    expect(H.readOrder).toEqual(['rule', 'schedule'])
+    expect(findLog('该班窗口内全无排课').data).toMatchObject({
+      classId: CLASS_A,
+      gatedOut: ['2026-11-07'],
+    })
+    expect(findLog('edu attendance absent job done').data).toMatchObject({
+      scheduleGatedOutDates: 1,
+      scheduleFullyGatedClasses: 1,
+      scheduleNoSchoolClasses: 0,
+      scheduleUnjudgedClasses: 0,
+    })
+    expect(H.unscripted).toBe(0)
+  })
+
+  it('窗口内逐日门控:周五有课照判、周六周日无课剔掉(absent_after 晚于跑批 ⇒ 当日仍不判)', async () => {
+    script({
+      rule: [[ruleRow(CLASS_A, '19:00')]],
+      enrollment: [[enrollRow(STUDENT_1)]],
+      record: [[]],
+      schedule: [[schedRow(CLASS_A, WEEKDAYS.mon), schedRow(CLASS_A, WEEKDAYS.fri)]],
+    })
+
+    const result = await runAbsentAttendance(AT_CRON_MON)
+
+    // 窗口 11-06(五)/11-07(六)/11-08(日)/11-09(一,当日未到 19:00 不判)⇒ 只剩 11-06
+    expect(absentDates(STUDENT_1)).toEqual(['2026-11-06'])
+    expect(result.created).toBe(1)
+    expect(findLog('edu attendance absent job done').data).toMatchObject({
+      scheduleGatedOutDates: 2,
+      scheduleFullyGatedClasses: 0,
+    })
+    expect(H.unscripted).toBe(0)
+  })
+
+  it('反向对照(与上一条同夹具):周末也排了课 ⇒ 六/日照旧补,门控只认"有没有课"不认"是不是周末"', async () => {
+    script({
+      rule: [[ruleRow(CLASS_A, '19:00')]],
+      enrollment: [[enrollRow(STUDENT_1)]],
+      record: [[]],
+      schedule: [
+        [
+          schedRow(CLASS_A, WEEKDAYS.fri),
+          schedRow(CLASS_A, WEEKDAYS.sat),
+          schedRow(CLASS_A, WEEKDAYS.sun),
+        ],
+      ],
+    })
+
+    const result = await runAbsentAttendance(AT_CRON_MON)
+
+    expect(absentDates(STUDENT_1)).toEqual(['2026-11-06', '2026-11-07', '2026-11-08'])
+    expect(result.created).toBe(3)
+    expect(findLog('edu attendance absent job done').data).toMatchObject({
+      scheduleGatedOutDates: 0,
+    })
+  })
+
+  it('该班排课表**一条有效记录都没有** ⇒ 判不出"无课",照旧判缺勤并点名班级枚数(跳过变永久停摆这一格被封死)', async () => {
+    script({
+      rule: [[ruleRow(CLASS_A, '08:30')]],
+      enrollment: [[enrollRow(STUDENT_1), enrollRow(STUDENT_2)]],
+      record: [[]],
+      schedule: [[]], // 库里这班从没排过课
+    })
+
+    const result = await runAbsentAttendance(AT_SAT, SAME_DAY_ONLY)
+
+    // 失效方向 = 照旧判:周六也照写(与"正向对照:周六有课"同形),绝不静默整班跳过
+    expect(result).toEqual({ rules: 1, students: 2, created: 2, skipped: 0, missedIds: [] })
+    expect(absentDates()).toEqual(['2026-11-07', '2026-11-07'])
+    const named = findLog('一条有效记录都没有')
+    expect(named.data).toMatchObject({ sampleIds: [CLASS_A], omittedIds: 0 })
+    expect(findLog('edu attendance absent job done').data).toMatchObject({
+      scheduleNoSchoolClasses: 1,
+      scheduleUnjudgedClasses: 0,
+      scheduleGatedOutDates: 0,
+    })
+    expect(H.unscripted).toBe(0)
+  })
+
+  it('两班对照:有排课的班被门控、没排课的班照旧判,两档各走各的、不互相传染;排课表整轮只读一条', async () => {
+    script({
+      rule: [[ruleRow(CLASS_A, '08:30'), ruleRow(CLASS_B, '08:30')]],
+      // A 班被门控判成"整窗无课"⇒ 结构上不会去读它的在册学生(零 IO),
+      // 所以 enroll/record 队列里只有 B 班那一枚答复(多给就是一条没人消费的死脚本)
+      enrollment: [[enrollRow(STUDENT_2)]],
+      record: [[]],
+      schedule: [[schedRow(CLASS_A, WEEKDAYS.mon)]], // 只有 A 班排过课,B 班零行
+    })
+
+    const result = await runAbsentAttendance(AT_SAT, SAME_DAY_ONLY)
+
+    expect(result).toMatchObject({ rules: 2, students: 1, created: 1 })
+    expect(H.records.filter((r) => r.classId === CLASS_A)).toHaveLength(0)
+    expect(absentDates(STUDENT_2)).toEqual(['2026-11-07'])
+    expect(H.readOrder).toEqual(['rule', 'schedule', 'enrollment', 'record'])
+    expect(H.readOrder.filter((k) => k === 'schedule')).toHaveLength(1)
+    expect(findLog('edu attendance absent job done').data).toMatchObject({
+      scheduleFullyGatedClasses: 1,
+      scheduleNoSchoolClasses: 1,
+      scheduleGatedOutDates: 1,
+    })
+    expect(H.unscripted).toBe(0)
+  })
+
+  it('排课表读不动(relation 不存在)⇒ 照旧判缺勤 + warn 点名,不抛错、不把"读不到"记成"没课"', async () => {
+    H.failReads = ['schedule']
+    script({
+      rule: [[ruleRow(CLASS_A, '08:30')]],
+      enrollment: [[enrollRow(STUDENT_1), enrollRow(STUDENT_2)]],
+      record: [[]],
+    })
+
+    const result = await runAbsentAttendance(AT_SAT, SAME_DAY_ONLY)
+
+    expect(result).toEqual({ rules: 1, students: 2, created: 2, skipped: 0, missedIds: [] })
+    expect(H.records).toHaveLength(2)
+    const named = findLog('排课表读不到')
+    expect(named.data).toMatchObject({ classes: 1, sampleIds: [CLASS_A] })
+    expect(String(named.data.reason)).toContain('does not exist')
+    expect(findLog('edu attendance absent job done').data).toMatchObject({
+      scheduleReadFailed: true,
+      scheduleUnjudgedClasses: 1,
+      scheduleNoSchoolClasses: 0,
+      scheduleGatedOutDates: 0,
+    })
+  })
+
+  it('weekday 列读得到却全是非法档 ⇒ unjudged:照旧判缺勤并点名(排课数据坏了不等于没课)', async () => {
+    script({
+      rule: [[ruleRow(CLASS_A, '08:30')]],
+      enrollment: [[enrollRow(STUDENT_1)]],
+      record: [[]],
+      schedule: [
+        [
+          { classId: CLASS_A, weekday: '周六' },
+          { classId: CLASS_A, weekday: 9 },
+        ],
+      ],
+    })
+
+    const result = await runAbsentAttendance(AT_SAT, SAME_DAY_ONLY)
+
+    expect(result).toEqual({ rules: 1, students: 1, created: 1, skipped: 0, missedIds: [] })
+    const named = findLog('读不出合法星期几')
+    expect(named.data).toMatchObject({ sampleIds: [CLASS_A], malformedWeekdayRows: 2 })
+    expect(findLog('edu attendance absent job done').data).toMatchObject({
+      scheduleUnjudgedClasses: 1,
+      scheduleMalformedWeekdays: 2,
+    })
+    expect(H.unscripted).toBe(0)
+  })
+
+  it('已有 leave 的日子不因门控改写:门控只减"无课日",既有行一字不动、有课日照常补', async () => {
+    seedRow(STUDENT_1, CLASS_A, '2026-11-07', 'leave')
+    const before = H.records.find((r) => r.date === '2026-11-07')
+    script({
+      rule: [[ruleRow(CLASS_A, '08:30')]],
+      enrollment: [[enrollRow(STUDENT_1), enrollRow(STUDENT_2)]],
+      record: [[existingRow(STUDENT_1, '2026-11-07')]],
+      schedule: [[schedRow(CLASS_A, WEEKDAYS.sat)]], // 只有周六排课
+    })
+
+    const result = await runAbsentAttendance(AT_SAT)
+
+    // 默认窗 11-04(三)~11-07(六):前三天无课 ⇒ 被门控剔掉(各 1 枚,共 3 枚),
+    // 11-07 有课 ⇒ 照判;而 11-07 上 S1 已有 leave ⇒ 不写、不改
+    expect(absentDates(STUDENT_2)).toEqual(['2026-11-07'])
+    expect(absentDates(STUDENT_1)).toEqual([])
+    expect(result.created).toBe(1)
+    const after = H.records.find((r) => r.date === '2026-11-07')
+    expect(after?.status).toBe('leave')
+    expect(after?.id).toBe(before?.id)
+    expect(H.insertBatches.flat().map((v) => `${v.studentId}@${v.date}`)).not.toContain(
+      `${STUDENT_1}@2026-11-07`,
+    )
+    expect(findLog('edu attendance absent job done').data).toMatchObject({
+      scheduleGatedOutDates: 3,
+      scheduleFullyGatedClasses: 0,
+    })
+  })
+})
+
+describe('排课门控 ⑩:星期几与三态档位由生产实现单源定义(§22c 判据零复制)', () => {
+  it('weekdayOfBizDayKey:1=周一…7=周日 七日照表(与 edu_course_schedule.weekday 同键);非法形 ⇒ null', () => {
+    expect(jobTest.weekdayOfBizDayKey('2026-11-02')).toBe(WEEKDAYS.mon)
+    expect(jobTest.weekdayOfBizDayKey('2026-11-03')).toBe(WEEKDAYS.tue)
+    expect(jobTest.weekdayOfBizDayKey('2026-11-04')).toBe(WEEKDAYS.wed)
+    expect(jobTest.weekdayOfBizDayKey('2026-11-05')).toBe(WEEKDAYS.thu)
+    expect(jobTest.weekdayOfBizDayKey('2026-11-06')).toBe(WEEKDAYS.fri)
+    expect(jobTest.weekdayOfBizDayKey('2026-11-07')).toBe(WEEKDAYS.sat)
+    expect(jobTest.weekdayOfBizDayKey('2026-11-01')).toBe(WEEKDAYS.sun)
+    // 周日界与跨年:2026-11-08 仍是周日、2027-01-01 是周五
+    expect(jobTest.weekdayOfBizDayKey('2026-11-08')).toBe(WEEKDAYS.sun)
+    expect(jobTest.weekdayOfBizDayKey('2027-01-01')).toBe(WEEKDAYS.fri)
+    // 量不到 ⇒ null(不猜星期几 ⇒ 调用方按"照旧判"处置)
+    expect(jobTest.weekdayOfBizDayKey('2026-11-7')).toBeNull()
+    expect(jobTest.weekdayOfBizDayKey('昨天')).toBeNull()
+    expect(jobTest.weekdayOfBizDayKey('2026-13-40')).toBeNull()
+    expect(jobTest.weekdayOfBizDayKey('')).toBeNull()
+  })
+
+  it('buildClassScheduleGates:≥1 条合法 weekday ⇒ gated;零行 ⇒ no-schedule;全非法 ⇒ unjudged', () => {
+    const gated = jobTest.buildClassScheduleGates({
+      classIds: [CLASS_A],
+      rows: [
+        { classId: CLASS_A, weekday: 6 },
+        { classId: CLASS_A, weekday: '6' },
+      ],
+    })
+    expect(gated.gates.get(CLASS_A)?.state).toBe('gated')
+    expect(Array.from(gated.gates.get(CLASS_A)?.weekdays ?? []).sort()).toEqual([6])
+    expect(gated.foreignRows).toBe(0)
+
+    // 从没排过课 ⇒ no-schedule(照旧判,不是"整班跳过")
+    const silent = jobTest.buildClassScheduleGates({ classIds: [CLASS_A], rows: [] })
+    expect(silent.gates.get(CLASS_A)?.state).toBe('no-schedule')
+
+    // 读到了课却折不出星期几 ⇒ unjudged(与 no-schedule 分档,便于日志分别点名)
+    const broken = jobTest.buildClassScheduleGates({
+      classIds: [CLASS_A],
+      rows: [
+        { classId: CLASS_A, weekday: null },
+        { classId: CLASS_A, weekday: 8 },
+      ],
+    })
+    expect(broken.gates.get(CLASS_A)?.state).toBe('unjudged')
+    expect(broken.gates.get(CLASS_A)?.malformedWeekdays).toBe(2)
+
+    // 答复里出现别的班 ⇒ 只报数不改档位
+    const foreign = jobTest.buildClassScheduleGates({
+      classIds: [CLASS_A],
+      rows: [{ classId: CLASS_B, weekday: 1 }],
+    })
+    expect(foreign.foreignRows).toBe(1)
+    expect(foreign.gates.get(CLASS_A)?.state).toBe('no-schedule')
+  })
+
+  it('gateDueDates:**失效方向恒为照旧判** —— no-schedule / unjudged / 无档位一律全量放行', () => {
+    const dates = ['2026-11-06', '2026-11-07', '2026-11-08']
+    for (const state of ['no-schedule', 'unjudged'] as const) {
+      const passed = jobTest.gateDueDates(dates, {
+        state,
+        weekdays: new Set<number>(),
+        malformedWeekdays: state === 'unjudged' ? 1 : 0,
+      })
+      expect(passed.dates).toEqual(dates)
+      expect(passed.gatedOut).toEqual([])
+    }
+    expect(jobTest.gateDueDates(dates, undefined).dates).toEqual(dates)
+
+    const gated = jobTest.gateDueDates(dates, {
+      state: 'gated',
+      weekdays: new Set([WEEKDAYS.fri]),
+      malformedWeekdays: 0,
+    })
+    expect(gated.dates).toEqual(['2026-11-06'])
+    expect(gated.gatedOut).toEqual(['2026-11-07', '2026-11-08'])
+
+    // 日键畸形折不出星期几 ⇒ 照旧判并单列计数(判不出 ≠ 无课)
+    const undetermined = jobTest.gateDueDates(['2026-11-07', '不是日期'], {
+      state: 'gated',
+      weekdays: new Set([WEEKDAYS.mon]),
+      malformedWeekdays: 0,
+    })
+    expect(undetermined.dates).toEqual(['不是日期'])
+    expect(undetermined.undetermined).toEqual(['不是日期'])
+    expect(undetermined.gatedOut).toEqual(['2026-11-07'])
   })
 })
 
@@ -851,6 +1251,7 @@ describe('runAbsentAttendance 计数诚实性(门 134 同型)', () => {
       rule: [[ruleRow(CLASS_A, '08:30')]],
       enrollment: [[{ studentId: STUDENT_1 }, { studentId: STUDENT_1 }, { studentId: STUDENT_2 }]],
       record: [[]],
+      schedule: NO_SCHEDULE_ROWS,
     })
 
     const result = await runAbsentAttendance(AT_10_00, SAME_DAY_ONLY)
@@ -865,6 +1266,7 @@ describe('runAbsentAttendance 计数诚实性(门 134 同型)', () => {
       rule: [[ruleRow(CLASS_A, '08:30')]],
       enrollment: [[enrollRow(STUDENT_1, '2026-10-01'), enrollRow(STUDENT_1, '2026-11-02')]],
       record: [[]],
+      schedule: NO_SCHEDULE_ROWS,
     })
 
     const result = await runAbsentAttendance(AT_10_00)
@@ -881,6 +1283,7 @@ describe('runAbsentAttendance 计数诚实性(门 134 同型)', () => {
       rule: [[ruleRow(CLASS_A, '08:30')]],
       enrollment: [[{ studentId: STUDENT_1 }]],
       record: [[]],
+      schedule: NO_SCHEDULE_ROWS,
     })
     const first = await runAbsentAttendance(AT_10_00)
     expect(H.unscripted).toBe(0)
@@ -891,6 +1294,7 @@ describe('runAbsentAttendance 计数诚实性(门 134 同型)', () => {
     H.reads.rule.push([ruleRow(CLASS_A, '08:30')])
     H.reads.enrollment.push([{ studentId: STUDENT_1 }])
     H.reads.record.push([existingRow(STUDENT_1, window[0]!)])
+    H.reads.schedule.push([])
     const second = await runAbsentAttendance(AT_10_00)
 
     // 并发/读漏:预筛只答出 1 天而库里其实 4 天都有 ⇒ insert 仍会发,但 uq 索引 +
@@ -908,6 +1312,7 @@ describe('runAbsentAttendance 计数诚实性(门 134 同型)', () => {
     H.reads.rule.push([ruleRow(CLASS_A, '08:30')])
     H.reads.enrollment.push([{ studentId: STUDENT_1 }])
     H.reads.record.push(existingRowsFor([STUDENT_1], stillThere))
+    H.reads.schedule.push([])
     const third = await runAbsentAttendance(AT_10_00)
 
     // 幂等是按 (学生,日期) **对**判的:已存在的 3 天不进 values,缺的那 1 天照补
