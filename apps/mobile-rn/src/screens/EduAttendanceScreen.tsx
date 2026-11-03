@@ -226,7 +226,7 @@ function EduAttendanceScreen() {
         },
       ])
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
     [recordById, runRowAction, t],
   )
 
@@ -277,7 +277,6 @@ function EduAttendanceScreen() {
       { text: t('common.cancel'), style: 'cancel' },
       ...classIds.map((classId) => ({ text: classId, onPress: () => void runBatch(classId) })),
     ])
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [classIds, runBatch, t])
 
   const columns: ConsoleColumn[] = [
