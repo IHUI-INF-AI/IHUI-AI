@@ -104,10 +104,8 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | — blocking | 296 | `guardianBlocking` |
 | — warn | 32 | `guardianWarn` |
 | 跟踪文件 | 19017 | `trackedFiles` |
-
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-03。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
-
 <!-- END GENERATED NUMBERS -->
 **一句话口径**:数字一律现读,文档里不写「约 N 个」——那种写法必然腐烂。
 ---
@@ -5624,7 +5622,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (4070d7a682)
 - 🐞 修复:同一 alertId 跨进程原子占位,堵住双跑重复投递 (84cc8a94db)
 - 📚 文档:认领文档中心格式层与排版收口票(7 簇并行,主席统一落地) (89b014b18a)
-
 **2026-11-02**
 - 🚀 新功能/改进:按服务名复用轮级锁，锁跳过时回滚预记状态 (74ec597cd7)
 - 🚀 新功能/改进:接入轮级原子锁终结 daemon 与计划任务双跑 (7297e37425)
@@ -5644,7 +5641,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🐞 修复:去重窗口不再被重复推送续期——被抑制的推送只读不写,持续 firing 按窗口重报 (19f67b3b45)
 - 📚 文档:修正 AiLlm 告警注释里 printf 措辞（与 humanizePercentage 模板对齐） (99f9e0ed34)
 - 🐞 修复:修 AiLlm 告警正文把比率当百分比格式化（printf "%.0f%%" → humanizePercentage） (e7bab5a086)
-
 **2026-11-03**
 - 🚀 新功能/改进:新增小程序交互卫生门(290)与 web↔RN 措辞一致性门(291) (f664fb52e9)
 - 🚀 新功能/改进:落语义等价映射表 + 门285 mapped 分类与棘轮 —— 3 条命名等价(onPress↔onTap×2、label↔labelKey)归 mapped 4 键,漂移 277→273;表扩容须同轮收敛 (2ccede4e8e)
@@ -5662,7 +5658,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🐞 修复:ColorfulLoader 两端同源收口 —— RN 补 visible(不渲染即 null)、小程序适配层补 duration(默认共享档),门285 消 2 键 (657b9ed59f)
 - 🔧 工程/其他:store-migration-end-factory 冷启动移出用例窗口——全量超时 flake 的确定化收口 (3b72141949)
 - 🐞 修复:门 30a 悬空 commit 分档——等价残留(仅树逐字同)不判红,四档逐次报数 (18a0179a49)
-
 **2026-11-03**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (434987ae32)
 - 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (a69c95034d)
@@ -41753,3 +41748,6 @@ A: Yes. ~14839+ tests / 4036 test files / 67 e2e spec / 4683 API 路由 / 619 �
 - 根护栏清单自洽(2026-11-03 补**第二张脸**,**不进提交链**): `check-root-guard-manifest-sync.mjs` 原先只判本机 HEAD,而部署环构建的是远端 tip —— 本机 main 落后 origin 317 枚那段,巡检连判 12 轮"✅ 自洽",部署环同刻三轮 `verdict=fail`,墙立了 4.7 小时无人从守护侧发现。现加 `--against-remote origin`(tip 只认 `git ls-remote` 的当次回答,对象不在本地就补取一趟,取不到 ⇒ 未判定不回落 HEAD),调度器 `git-guardian.mjs` 的 `auditRootGuardManifestSync()` 改为 **head + remote 两面各判一次、分桶不并桶**,到人身份 = `face=<面>;manifest-drift`(两面红不许互相吞)。镜像:`node --test scripts/tests/check-root-guard-manifest-sync.test.mjs`(M8–M12 钉住三态与两面派发)。
 - 号池只读尺子(2026-11-01 立,同上进不了提交链): `check-pool-isolation.mjs`(号池隔离性六维体检 D1 设备簇/D2 共用 rt/D3 同 uid 双行/D4 rt 终点证据/D5 出口亲和/D6 死副本;薄壳入口——判据单源在 `apps/api/scripts/relay-pool-isolation-audit.ts`,本器只以 tsx 转发跑它,§0.6 零复算;只读不写库不回显凭据;接线 = git-guardian 巡检轮 `sweepPoolIsolation`——门 89 第五处权威点「守护调度器」已认它,此行补的是 R4 文档面)
 - **运行期真值出口**:`GET /downloads.json`(根级 `.json`,不走 `/api/` —— nginx 把整段 `/api/` 转给后端,Next 路由经公网到不了)与 `apps/web/src/config/downloads-live.ts`:各端版本号与安装包在**运行期**解析(desktop 取 release 分页枚举、android 取 `app_versions` 注册表 latest 行、ios 取 `ios-nightly` 固定 tag 资产、cli 取 npm `dist-tags.latest`、扩展取 `public/downloads/extension/` 实物文件字节),构建期常量只作兜底;取不到的端如实标未接入并给机器可读原因码,侧栏下载栏经 `use-live-downloads` 消费同一出口
+- UI / 容器 hover 浮起数值源(2026-11-03 立,blocking,runner id '287'): `check-hover-lift-single-source.mjs`(`apps/web/**` 与 `packages/ui-react/**` 里任何 `hover:`/`group-hover:`/`sm:hover:` 变体后跟 `translate-y-*` 或 `shadow*` 的 Tailwind 字面量 ⇒ 判红;全站唯一数值源是 `apps/web/app/globals.css` 的 `--lift-*`,那块头注本就写着"端内不得再各写",但**铁律只是注释**时它不存在(§0.9),实测当天全仓 24 个文件 30 处散写。豁免只走具名台账 `scripts/data/hover-lift-single-source-allowlist.json`(reason ≥10 字 + until 到期;到期或登记数大于命中数 ⇒ 红,§0.7)。编号以 runner 现值为准(该条原登记 285,与文档中心公开面门撞号后顺延)。
+- 跨端 / 同名组件 props 对称性(2026-11-03 立,blocking,runner id '288'): `check-cross-end-component-props-parity.mjs`(两端同名组件的 props **键集与必选性**对称性,判据引擎单源 = `scripts/lib/component-props-parity.mjs`,本门零复算;档位按 §12e 走**台账制差值棘轮** —— 存量 18 对里 17 对有差是当下事实,全量绝对判红只会变成逼人 `--no-verify`,故基线台账 `scripts/data/cross-end-props-parity-baseline.json` 登记在册差,只拦**新增退化**(在册对出现台账之外的新 onlyRn/onlyMini/reqDrift 键 ⇒ 逐键点名)。立因:调用端把一个只有对端消费的 prop 传出去,本端没有那条腿、不报错、看不出来 —— 失效型是静默的,从"掉色"降到"掉腿"。)
+- 下载栏 / 八端运行期真值(2026-11-03 立,**不进提交链**): `check-downloads-live-health.mjs`(读**用户看到的那份** `/downloads.json`,先本机源站臂后公网臂,判五档:D1 整站新鲜度超 25 分钟没刷新 / D2 少一端(形状漂移)/ D3 必备端 `unavailable`(立即类)/ D4 该端 `sizeBytes<=0`(体积拿不到=腿断)/ D5 `web` 那一格不再是「PWA 无安装包」只报名不判红)。立因:八端的降级契约是「取不到就不覆盖底稿」,而**全仓没有任何一道哨兵读这个出口** —— cli / extension / 微信小程序码 / mobile 四条腿永远不会有告警,`generatedAt` 全仓零消费者。防噪声:snapshot(一次网络抖动)需**连续两轮**同判据才喊人,节流戳与台账各一份;红档身份 = `downloads-health;red=<计数档>`(不含时刻/sha,§5e-3)。调度器 = `git-guardian.mjs` 的 `sweepDownloadsLiveHealth()`(daemon tick + main 单轮两处,30 分钟节流)。自检 `node scripts/check-downloads-live-health.mjs --self-test`(13 例,含"摘掉新鲜度判据即翻红"与"无任何时刻字段 ⇒ no-timestamp"两条反向锁)+ 镜像 `node --test scripts/tests/downloads-live-health.test.mjs`(9 例:成对红绿 / 两轮确认 / 未判定不并桶 / 臂序 / 装车锁 / 节流锁 / 反向锁)。刻意不注册进提交链(§12e:站点没刷新不是本次提交者的错,挂上去即恒红)。

@@ -29535,7 +29535,14 @@
     "qrRotated": "已輪換金鑰（指紋 {fingerprint}）",
     "qrSecretNote": "金鑰原文不顯示在介面，僅核對指紋",
     "qrNeedSetup": "請先在上方設定規則並輪換金鑰",
-    "qrLoadFailed": "二維碼取得失敗"
+    "qrLoadFailed": "二維碼取得失敗",
+    "trendChartTitle": "出勤趨勢",
+    "trendChartScope": "統計範圍：{scope}",
+    "trendChartHint": "出勤率 = 正常出勤人次 ÷ 該時段有考勤記錄人次（未打卡的學生不在分母內）",
+    "trendCountAxisLabel": "人次",
+    "trendChartAria": "{scope}在所選時段的每日出勤率折線與狀態構成堆疊柱",
+    "statusOther": "其他",
+    "scopeAllClasses": "全部班級"
   },
   "eduCertificates": {
     "certificateNo": "編號：{no}",
