@@ -243,6 +243,7 @@ export function runFidelityJson() {
     const out = execFileSync(process.execPath, [script, '--json'], {
       cwd: ROOT,
       stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
       maxBuffer: 64 * 1024 * 1024,
     })
     return JSON.parse(out.toString('utf8'))

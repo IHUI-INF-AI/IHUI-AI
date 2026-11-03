@@ -23,6 +23,8 @@ export * from './model-names'
 export * from './web-portal'
 export * from './about-sections'
 export * from './carte-sections'
+// ModelEdit 只读字段清单:RN 共享屏与小程序同名页读同一份,禁止端内各抄一份(「能改但不生效」的根因)
+export * from './model-edit'
 // D120/D124:注入来源 kind 闭集 + 词表键(web 聚合条 / ui-react 单条交代共用同一份)
 export * from './injection-kinds'
 // G-100:Apple AASA 单一真相源(web 8801 与 api 8802 同源消费,禁止各端再抄 JSON)
