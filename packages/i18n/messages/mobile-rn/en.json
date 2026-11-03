@@ -941,7 +941,9 @@
     "version": "Version",
     "language": "Language",
     "theme": "Theme",
-    "logoutConfirmBody": "Sign out of this account?"
+    "logoutConfirmBody": "Sign out of this account?",
+    "accountDeletionConfirmLabel": "Confirm Deletion",
+    "accountDeletionConfirmTitle": "Confirm Deletion"
   },
   "menu": {
     "artifacts": "Artifacts",
@@ -3537,7 +3539,11 @@
     "opType4": "Refund",
     "opType5": "Commission",
     "loginRequiredHint": "Sign in to view fund flows",
-    "goLogin": "Sign in"
+    "goLogin": "Sign in",
+    "rechargeFail": "Recharge Failed",
+    "rechargeSuccess": "Recharge Successful",
+    "contactSupport": "Contact Support",
+    "retryRecharge": "Retry Recharge"
   },
   "activity": {
     "empty": "No activities",
@@ -7208,5 +7214,14 @@
     "empty": "Start a conversation",
     "searchNoResult": "No results",
     "retry": "Retry"
+  },
+  "learnMapPage": {
+    "completed": "Completed",
+    "empty": "No learning paths yet"
+  },
+  "user": {
+    "security": {
+      "sendCode": "Send Code"
+    }
   }
 }
