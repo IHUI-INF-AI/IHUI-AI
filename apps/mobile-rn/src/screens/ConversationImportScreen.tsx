@@ -18,6 +18,7 @@ import {
   type ParsedImportConversation,
 } from '@ihui/api-client'
 import { ConversationImportScreen as SharedConversationImportScreen } from '@ihui/rn-app'
+import { useHostPorts } from '../host/use-host-ports'
 import type {
   CommittedImportConversation,
   ConversationImportHistoryRow,
@@ -144,6 +145,7 @@ export function ConversationImportScreen() {
   const { t } = useI18n()
   const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp>()
+  const { onToast } = useHostPorts()
 
   /** 解析结果正文只留内存:预览行仅元信息,提交时按 id 取回 */
   const parsedRef = useRef<Map<number, ParsedImportConversation>>(new Map())
@@ -156,23 +158,35 @@ export function ConversationImportScreen() {
   }))
 
   const onPickFile = useCallback(async (): Promise<PickedImportFile | null> => {
-    const result = await DocumentPicker.getDocumentAsync({
-      type: '*/*',
-      copyToCacheDirectory: true,
-      multiple: false,
-    })
-    if (result.canceled || result.assets.length === 0) return null
-    const asset = result.assets[0]
-    if (!asset) return null
-    return {
-      // 无 name 时从 uri 末段取真实文件名(带后缀才能过后端白名单校验);
-      // 硬编码 'conversation-export' 这种无后缀名会被服务端以"无后缀"400 拒掉。
-      name: asset.name ?? asset.uri.split(/[/?#]/).filter(Boolean).pop() ?? 'conversation-export',
-      uri: asset.uri,
-      mimeType: asset.mimeType ?? 'application/octet-stream',
-      size: asset.size,
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: '*/*',
+        copyToCacheDirectory: true,
+        multiple: false,
+      })
+      if (result.canceled || result.assets.length === 0) {
+        // 取消不是错误,但不能静默:给用户一个明确的"本次未选择"反馈
+        onToast(t('common.cancel'))
+        return null
+      }
+      const asset = result.assets[0]
+      if (!asset) return null
+      return {
+        // 无 name 时从 uri 末段取真实文件名(带后缀才能过后端白名单校验);
+        // 硬编码 'conversation-export' 这种无后缀名会被服务端以"无后缀"400 拒掉。
+        name:
+          asset.name ?? asset.uri.split(/[/?#]/).filter(Boolean).pop() ?? 'conversation-export',
+        uri: asset.uri,
+        mimeType: asset.mimeType ?? 'application/octet-stream',
+        size: asset.size,
+      }
+    } catch (e) {
+      // 选择器缺失/权限/读取失败:必须走 toast 明确告知,禁止 catch 后静默返回 null
+      const detail = e instanceof Error && e.message ? `(${e.message})` : ''
+      onToast(`${t('common.failed')}${detail}`)
+      return null
     }
-  }, [])
+  }, [onToast, t])
 
   const onParse = useCallback(
     async (picked: PickedImportFile, sourceValue: string): Promise<ImportParseResult> => {
