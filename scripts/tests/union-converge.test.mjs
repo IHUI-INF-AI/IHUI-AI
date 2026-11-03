@@ -1142,7 +1142,7 @@ test('R-L 指针针只有一个来源:必须 import,不得在本文件里再写�
   const code = maskComments(src) // 头注原样写着那句指针文字,不剥注释就会拿说明当判据
   assert.match(
     code,
-    /import\s*\{[^}]*\bDUP_POINTER_RE\b[^}]*\}\s*from\s*'\.\/lib\/plan-task-index\.mjs'/,
+    /import\s*\{[^}]*\bDUP_POINTER_RE\b[^}]*\}\s*from\s*'\.\/(?:lib\/)?plan-task-index\.mjs'/,
     '必须复用尺子那一份 DUP_POINTER_RE(两处各写一遍必漂移,漂移的固定代价是例外与派单口径不同形)',
   )
   assert.doesNotMatch(
@@ -1664,7 +1664,7 @@ test('R-T 装车锁(源码级):折叠表必须接进 liveDocExpectedCounts 本�
 test('R-U 装车锁(源码级):折叠判据必须先过"是不是同一件事"的相似度闸 —— 摘掉它,同号两个不同议题会被静默删掉一侧', () => {
   const src = maskComments(srcOfTool())
   assert.match(src, /if \(sim < SIM_THRESHOLD\) continue/, '相似度闸不得被摘掉')
-  assert.match(src, /from '\.\/lib\/live-doc-similarity\.mjs'/, '阈值与 Jaccard 必须复用那一份实现,不得在门里再写第二把尺子')
+  assert.match(src, /from '\.\/(?:lib\/)?live-doc-similarity\.mjs'/, '阈值与 Jaccard 必须复用那一份实现,不得在门里再写第二把尺子')
 })
 test('R-V 源码级锁(G-1018289 ③):git 可执行必须来自 §5b 唯一出口,不得写死本机安装路径', () => {
   const src = maskComments(readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../union-converge.mjs'), 'utf8'))

@@ -11,7 +11,6 @@ import {
   getStorageSync,
   reLaunch,
   setClipboardData,
-  showToast,
 } from '@tarojs/taro'
 import { useEffect, useRef, useState } from 'react'
 import { WEBVIEW_FILE_CACHE_KEY } from '@/constants/storage'
@@ -27,6 +26,7 @@ import {
 import { safeDecodeURIComponent } from '@ihui/shared'
 import ThemeRoot from '@/components/ThemeRoot'
 import { isTrustedWebviewUrl } from '@/utils/webview-trust'
+import { onToast } from '@/host/on-toast'
 
 /** 导航到 webview 页面并加载指定 URL(title 可选:带上后导航栏显示功能名而非空白) */
 export function navigateToWebView(url: string, title?: string): void {
@@ -63,8 +63,8 @@ export default function WebviewIndex() {
         // 安全不回退:应用内不加载;保留可达性 —— 复制链接,由用户在自己浏览器打开。
         console.warn('webview 拒绝加载非信任 URL,已改为复制链接:', decodedUrl)
         void setClipboardData({ data: decodedUrl })
-          .then(() => showToast({ title: t('webview.untrustedCopied'), icon: 'none' }))
-          .catch(() => showToast({ title: t('webview.untrusted'), icon: 'none' }))
+          .then(() => onToast(t('webview.untrustedCopied'), { kind: 'info' }))
+          .catch(() => onToast(t('webview.untrusted'), { kind: 'info' }))
       } else {
         // 追加除 url/title 外的其他参数到 URL query string
         const h5Params: Record<string, string | undefined> = { ...params }
@@ -135,13 +135,13 @@ export default function WebviewIndex() {
         } else {
           // 换票失败(code 过期/网络异常):如实提示,并释放防重锁允许用户回 H5 重试
           ssoReturnInflightRef.current = false
-          showToast({ title: t('login.loginFailed'), icon: 'none' })
+          onToast(t('login.loginFailed'), { kind: 'error' })
         }
       })
       .catch((err: unknown) => {
         logger.warn('webview', 'sso 回传消费异常', String(err))
         ssoReturnInflightRef.current = false
-        showToast({ title: t('login.loginFailed'), icon: 'none' })
+        onToast(t('login.loginFailed'), { kind: 'error' })
       })
   }
 
@@ -157,14 +157,10 @@ export default function WebviewIndex() {
       <ThemeRoot>
         <View className="min-h-screen bg-card">
           <View className="px-[32rpx] pt-[24rpx] pb-[16rpx]">
-            <Text className="text-title font-medium text-foreground">
-              {t('webview.title')}
-            </Text>
+            <Text className="text-title font-medium text-foreground">{t('webview.title')}</Text>
           </View>
           <View className="flex flex-col items-center py-[96rpx]">
-            <Text className="text-body text-muted-foreground">
-              {t('webview.missingUrl')}
-            </Text>
+            <Text className="text-body text-muted-foreground">{t('webview.missingUrl')}</Text>
           </View>
         </View>
       </ThemeRoot>

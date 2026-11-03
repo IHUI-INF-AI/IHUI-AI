@@ -24,12 +24,12 @@
  *
  * 三桶与退出码:
  *   covered            至少一枚 RN 壳直接 import ⇒ 绿
- *   needsManual        未覆盖,且已在 `scripts/data/rn-host-shell-manual.json` 登记(owner + expires)
- *                      ⇒ 在期即「挂账」不判红;缺 owner/expires 或已到期 ⇒ exit 1
+ *   needsManual        未覆盖,且已在 `scripts/data/rn-host-shell-manual.json` 登记(owner + expires + evidence)
+ *                      ⇒ 在期即「挂账」不判红;缺 owner/expires/evidence 或已到期 ⇒ exit 1
  *   seedableMissing    未覆盖、未登记、`classify` 判 seedable ⇒ 列入自动造壳队列,**exit 1**
  *   未覆盖且 classify 判 needs-manual/undetermined 而未登记 ⇒ 记 needsManual(owner=null)并 exit 1
  *
- * 账本只认 `shared`(屏名或相对路径)+ `owner` + `expires`(YYYY-MM-DD,当天仍算在期)+ `reason`。
+ * 账本只认 `shared`(屏名或相对路径)+ `owner` + `expires`(YYYY-MM-DD,当天仍算在期)+ `evidence`(可复核文件/行号/读数)。
  * 不为消红伪造登记:本脚本不写账本,`needsManual` 的 owner 必须由人认领。
  *
  * 用法:node scripts/check-rn-host-shell-coverage.mjs [--json] [--gate] [--staged|--worktree]
@@ -146,7 +146,9 @@ export function judgeCoverage({
       const issues = []
       const owner = typeof entry.owner === 'string' ? entry.owner.trim() : ''
       const expires = typeof entry.expires === 'string' ? entry.expires : ''
+      const evidence = typeof entry.evidence === 'string' ? entry.evidence.trim() : ''
       if (!owner) issues.push('缺 owner')
+      if (!evidence) issues.push('缺 evidence')
       if (!/^\d{4}-\d{2}-\d{2}$/.test(expires)) issues.push('expires 缺失或非 YYYY-MM-DD')
       else if (expires < today) {
         issues.push(`已到期(${expires})`)
@@ -167,7 +169,9 @@ export function judgeCoverage({
         spec: s.spec,
         owner: owner || null,
         expires: expires || null,
+        verdict: typeof entry.verdict === 'string' ? entry.verdict : null,
         reason: typeof entry.reason === 'string' ? entry.reason : null,
+        evidence: evidence || null,
         issues,
       })
       continue

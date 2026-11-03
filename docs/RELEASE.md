@@ -463,6 +463,27 @@ node scripts/release-mobile-rn.mjs --leg ota-preview --execute -m "<本次说明
 >
 > **`eas.json` 的 `submit.production.android` 不得写 `packageName`**:eas-cli schema 回 `"submit.production.android.packageName" is not allowed`,而它一拒就顶掉**所有** eas 命令(连 `channel:list` 都退 1)。包名只从 `app.json` 的 `android.package` 读。回归锁 M4。
 
+#### Android 对外下载腿(站点 CDN;唯一真源 2026-11-03 立)
+
+| 项 | 口径 |
+| --- | --- |
+| 唯一真源 | `scripts/data/mobile-download-leg.json` 的 `downloadUrl`(站点 CDN 腿;本表不复制字面量,避免第二份地址) |
+| 页面取值 | `NEXT_PUBLIC_DOWNLOAD_APK_URL`,由 `deploy/scripts/prod-bundle/deploy.sh` 从单源写入;禁止各页面各写一份 URL |
+| 覆盖 | 部署机/联调可设 `IHUI_MOBILE_DOWNLOAD_URL`;不得写回仓库 |
+| 正式签名 | 只有持 `~/.android/ihui-release.keystore` 的机器能出;证书 SHA-256 基准 `62:B0:FF:0E…`(hex `62b0ff0e950125230683aacfb5d0b110d93d30a229ca5df1950a572255b82514`) |
+| CI | 私钥不进 GitHub Secrets ⇒ CI 永久只产 `ihui-ai-dev-<run>.apk/.aab`,不发布 Release 正式包 |
+| EAS | EAS 自动 keystore `62:0C:C9:58…` 与基准不同源;对齐前**禁止**其 AAB 对外分发 |
+| 发布 | `pwsh -File scripts/build-mobile-rn-release.ps1 ...`;第 5 步调 `publish-mobile-apk.mjs`,随后 `check-mobile-download-leg.mjs --apk` 复核 |
+| 门 | `node scripts/check-mobile-download-leg.mjs [--apk <APK>] [--download] [--json]`;退出码 0=ok / 1=fail / 2=skipped 或未判定(**skip 不是绿**) |
+| CI 门 | `.github/workflows/mobile-download-leg.yml`(`workflow_dispatch` + 每日定时;不跑 PR) |
+
+**手工上传(仅这一步需要人;不需 GitHub/keystore 凭据,只需生产签出副本的写权限)**:
+
+1. 把正式签名 APK 放到生产签出副本 `deploy/server-root/remote-images/download/ihui-ai-<version>-<versionCode>.apk`。
+2. 更新同目录 `ihui-ai-latest.apk.redirect.json` 的 `url`/`version`/`versionCode`/`size`/`sha256`/`publishedAt`(字段以 `publish-mobile-apk.mjs` 写出的为准)。
+3. 从公网回读 `…/ihui-ai-latest.apk` 必须是 302 → 新副本,且目标 `Content-Length` 等于 APK 实际字节数。
+4. 在持钥机器上跑 `node scripts/check-mobile-download-leg.mjs --apk <本地APK>`,必须 exit 0。
+
 > **Android 提交轨道 = 门槛命脉（2026-10-20 实测）**：`eas submit -p android` 落到哪条轨道完全由 `eas.json` 的 `submit.production.android.track` 决定，命令本身不说明。个人号"12 名测试员连续 14 天"的正式版门槛**只认封闭测试**，而封闭测试在 androidpublisher v3 里的轨道名是 **`alpha`**（公开测试 = `beta`；**不存在 `closed`/`open` 这两个 API 名**，问 `/tracks/closed` 必返 404，那不是"闭测没轨道"）。`track: "internal"` 的提交永远进不了门槛。
 >
 > 现读轨道与测试员名单的可移植出路（任何有服务账号权限的机器都能跑，不依赖本仓脚本）：`POST /edits`（空 body 必须带 `Content-Length: 0`）→ `GET /edits/{editId}/tracks` → `GET /edits/{editId}/testers/alpha` → 用完 `DELETE /edits/{editId}`。**一枚应用只允许一枚活跃 edit**，再建会顶掉别人正在用的那枚，所以读完必须删。本机另有便捷器 `scripts/check-play-tracks.cjs`，但注意：**它未被 git 追踪**（`.gitignore` 的裸规则 `*.cjs`），换克隆不存在，只当本机快捷方式用，别把它当交付物。

@@ -16,6 +16,7 @@ import type { ChatMessage } from '@/api'
 import { rateChatMessage, sendToolApprovalResponse } from '@/api'
 import { APPROVAL_ACTIONS } from './permission-tier-text'
 import { rnRadius } from '@ihui/design-tokens'
+import { onToast } from '@/host/on-toast'
 const sikaoIcon = aizhsUrl('remote-images/sikao_icon.png')
 const downloadIcon = aizhsUrl('remote-images/download.png')
 const copyIcon = aizhsUrl('remote-images/copy.png')
@@ -198,12 +199,12 @@ export default function ChatMessageItem({
   /** 复制内容到剪贴板(对标原 ai_assistant.vue copyHandle) */
   function copyContent(content: string) {
     if (!content || !content.trim()) {
-      Taro.showToast({ title: t('ai.chatMessageItem.noContent'), icon: 'none' })
+      onToast(t('ai.chatMessageItem.noContent'), { kind: 'info' })
       return
     }
     Taro.setClipboardData({
       data: content,
-      success: () => Taro.showToast({ title: t('success.copied'), icon: 'none' }),
+      success: () => onToast(t('success.copied'), { kind: 'info' }),
     })
   }
 
@@ -220,7 +221,7 @@ export default function ChatMessageItem({
       data: msg.codeContent,
       success: () => {
         setCodeCopied(true)
-        Taro.showToast({ title: t('success.copied'), icon: 'none' })
+        onToast(t('success.copied'), { kind: 'info' })
         setTimeout(() => setCodeCopied(false), 1500)
       },
     })
@@ -290,7 +291,7 @@ export default function ChatMessageItem({
     }
     Taro.hideLoading()
     if (!failed) {
-      Taro.showToast({ title: t(labelKey), icon: 'success' })
+      onToast(t(labelKey), { kind: 'success' })
       return
     }
     const setting = await Taro.getSetting().catch(() => null)
@@ -304,7 +305,7 @@ export default function ChatMessageItem({
         },
       })
     } else {
-      Taro.showToast({ title: t(labelKey), icon: 'none' })
+      onToast(t(labelKey), { kind: 'info' })
     }
   }
 

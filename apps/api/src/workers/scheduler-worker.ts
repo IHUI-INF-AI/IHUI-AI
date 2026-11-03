@@ -33,6 +33,7 @@ import {
   markInactiveAgents,
   cleanupOldHeatStats,
   cleanupOauthSessions,
+  recordAbsentDaily,
 } from '../services/scheduled-tasks-service.js'
 import { pushAlert, pushAlertWithResult } from '../services/alert-notification-service.js'
 import { scanAndChargeDueContracts } from '../services/subscription-service.js'
@@ -859,6 +860,29 @@ export function startSchedulerWorker(server: FastifyInstance): Worker {
                 name,
                 result.notifyFailed > 0 || missed ? 'failed' : 'success',
               )
+            } catch {
+              /* 指标采集失败不影响业务 */
+            }
+            return result
+          }
+          case 'edu-attendance-absent-daily': {
+            // 考勤缺勤补录(B67,2026-11-02):阈值判定单源在 services/edu-attendance-rule.ts,
+            // 补录面在 services/edu-attendance-absent-job.ts —— 本 case 只决定"何时跑、算成什么终态",
+            // 不复算任何判据(§0.6)。missedIds 非空即记 failed:静默少补等于继续把缺勤统计成 0,
+            // 与 edu-arrear-remind-daily 的"失败必须响"同一口径。
+            const result = await recordAbsentDaily()
+            server.log.info(
+              {
+                rules: result.rules,
+                students: result.students,
+                created: result.created,
+                skipped: result.skipped,
+                missed: result.missedIds.length,
+              },
+              'edu attendance absent backfill done',
+            )
+            try {
+              server.recordJobExecution(name, result.missedIds.length > 0 ? 'failed' : 'success')
             } catch {
               /* 指标采集失败不影响业务 */
             }

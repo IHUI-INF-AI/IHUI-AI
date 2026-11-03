@@ -20,6 +20,7 @@ import ErrorView from '@/components/ErrorView'
 import { formatDateByTemplate } from '@ihui/shared'
 import { safeDecodeURIComponent } from '@ihui/shared'
 import ThemeRoot from '@/components/ThemeRoot'
+import { onToast } from '@/host/on-toast'
 
 type Vendor = 'sora2' | 'kling' | 'doubao' | 'dashscope'
 type Status = 'idle' | 'pending' | 'running' | 'succeeded' | 'failed'
@@ -159,7 +160,7 @@ export default function VideoPage() {
   const onGenerate = useCallback(async () => {
     if (!prompt || status === 'pending' || status === 'running') return
     if (!currentVendor.available) {
-      Taro.showToast({ title: t('ai.video.modelUnavailable'), icon: 'none' })
+      onToast(t('ai.video.modelUnavailable'), { kind: 'error' })
       return
     }
     setStatus('pending')
@@ -185,7 +186,7 @@ export default function VideoPage() {
         setHistory(next)
         saveHistory(next)
       } else {
-        Taro.showToast({ title: t('ai.video.taskSubmitted'), icon: 'none' })
+        onToast(t('ai.video.taskSubmitted'), { kind: 'info' })
       }
     } catch (e) {
       logger.error('ai/video', '生成视频', e)
@@ -208,10 +209,10 @@ export default function VideoPage() {
     try {
       const res = await Taro.downloadFile({ url: resultUrl })
       await Taro.saveVideoToPhotosAlbum({ filePath: res.tempFilePath })
-      Taro.showToast({ title: t('ai.video.downloadSuccess'), icon: 'success' })
+      onToast(t('ai.video.downloadSuccess'), { kind: 'success' })
     } catch (e) {
       logger.error('ai/video', '下载视频', e)
-      Taro.showToast({ title: t('ai.video.downloadFailed'), icon: 'none' })
+      onToast(t('ai.video.downloadFailed'), { kind: 'error' })
     }
   }, [resultUrl, t])
 
@@ -302,9 +303,7 @@ export default function VideoPage() {
               <VideoPlayer src={resultUrl} />
             ) : (
               <View className="h-[420rpx] flex items-center justify-center bg-[var(--color-black-90)] rounded-md">
-                <Text className="text-label text-[var(--color-text-tertiary)]">
-                  {statusText}
-                </Text>
+                <Text className="text-label text-[var(--color-text-tertiary)]">{statusText}</Text>
               </View>
             )}
             {resultUrl ? (
@@ -346,9 +345,7 @@ export default function VideoPage() {
                   onClick={() => replayHistory(h)}
                   hoverClass="opacity-60"
                 >
-                  <Text className="flex-1 text-label text-foreground truncate">
-                    {h.prompt}
-                  </Text>
+                  <Text className="flex-1 text-label text-foreground truncate">{h.prompt}</Text>
                   <Text className="text-badge text-[var(--color-text-tertiary)] ml-[16rpx]">
                     {t(VENDORS.find((v) => v.key === h.vendor)?.nameKey ?? '')} ·{' '}
                     {fmtTime(h.createdAt)}

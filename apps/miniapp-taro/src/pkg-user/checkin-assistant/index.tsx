@@ -13,6 +13,7 @@ import { rnRadius } from '@ihui/design-tokens'
 // 自动做任务(WorkBuddy 任务中心六族):与 web 端 WorkbuddyTaskPanel 同能力、同口径。
 // 组件自身只在存在 platform==='workbuddy' 账号时渲染,页面只负责挂载。
 import WorkbuddyTaskSection from './WorkbuddyTaskSection'
+import { onToast } from '@/host/on-toast'
 
 const PLATFORMS = ['trae', 'workbuddy', 'qoder', 'minimax'] as const
 
@@ -43,7 +44,7 @@ export default function CheckinAssistant() {
       const data = await api.get<{ accounts: CheckinAccount[] }>('/checkin/accounts')
       setList(data.accounts ?? [])
     } catch {
-      Taro.showToast({ title: t('checkinAssistant.actionFailed'), icon: 'none' })
+      onToast(t('checkinAssistant.actionFailed'), { kind: 'error' })
     } finally {
       setLoading(false)
     }
@@ -67,17 +68,17 @@ export default function CheckinAssistant() {
       const gained =
         typeof record?.credits_delta === 'number' ? record.credits_delta : record?.credits
       const ok = record?.ok !== false
-      Taro.showToast({
-        title: !ok
+      onToast(
+        !ok
           ? t('checkinAssistant.lastFailed')
           : typeof gained === 'number'
             ? t('checkinAssistant.lastOk', { credits: gained })
             : t('accountPool.checkinSuccess'),
-        icon: ok ? 'success' : 'none',
-      })
+        { kind: ok ? 'success' : 'error' },
+      )
       void load()
     } catch {
-      Taro.showToast({ title: t('checkinAssistant.actionFailed'), icon: 'none' })
+      onToast(t('checkinAssistant.actionFailed'), { kind: 'error' })
     }
   }
 
@@ -86,7 +87,7 @@ export default function CheckinAssistant() {
       await api.patch(`/checkin/accounts/${acc.id}/enabled`, { enabled: !acc.enabled })
       void load()
     } catch {
-      Taro.showToast({ title: t('checkinAssistant.actionFailed'), icon: 'none' })
+      onToast(t('checkinAssistant.actionFailed'), { kind: 'error' })
     }
   }
 
@@ -101,7 +102,7 @@ export default function CheckinAssistant() {
             await api.del(`/checkin/accounts/${acc.id}`)
             void load()
           } catch {
-            Taro.showToast({ title: t('checkinAssistant.actionFailed'), icon: 'none' })
+            onToast(t('checkinAssistant.actionFailed'), { kind: 'error' })
           }
         })()
       },
@@ -121,10 +122,10 @@ export default function CheckinAssistant() {
       setName('')
       setJwt('')
       setRefreshToken('')
-      Taro.showToast({ title: t('checkinAssistant.add'), icon: 'success' })
+      onToast(t('checkinAssistant.add'), { kind: 'success' })
       void load()
     } catch {
-      Taro.showToast({ title: t('checkinAssistant.actionFailed'), icon: 'none' })
+      onToast(t('checkinAssistant.actionFailed'), { kind: 'error' })
     } finally {
       setBusy(false)
     }
@@ -139,7 +140,7 @@ export default function CheckinAssistant() {
           <Text className="block text-heading font-bold text-foreground">
             {t('checkinAssistant.title')}
           </Text>
-          <Text className="mt-[8rpx] block text-[length:26rpx] leading-[38rpx] text-muted-foreground">
+          <Text className="mt-[8rpx] block text-body-sm leading-[38rpx] text-muted-foreground">
             {t('checkinAssistant.subtitle')}
           </Text>
 
@@ -163,9 +164,7 @@ export default function CheckinAssistant() {
                 className="mt-[20rpx] rounded-lg border border-border bg-card p-[24rpx]"
               >
                 <View className="flex flex-wrap items-center justify-between gap-[12rpx]">
-                  <Text className="text-strong font-semibold text-foreground">
-                    {acc.name}
-                  </Text>
+                  <Text className="text-strong font-semibold text-foreground">{acc.name}</Text>
                   <View className="flex flex-wrap items-center gap-[8rpx]">
                     <Text className="rounded-md bg-muted px-[10rpx] py-[4rpx] text-caption text-muted-foreground">
                       {acc.platform}

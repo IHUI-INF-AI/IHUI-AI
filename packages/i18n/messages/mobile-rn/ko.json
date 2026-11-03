@@ -1389,6 +1389,7 @@
     "labelPrice": "가격",
     "labelSaleType": "판매 유형",
     "pricePlaceholder": "가격 입력",
+    "readOnlyHint": "이 항목은 아직 수정할 수 없습니다",
     "submit": "저장",
     "submitting": "제출 중..."
   },

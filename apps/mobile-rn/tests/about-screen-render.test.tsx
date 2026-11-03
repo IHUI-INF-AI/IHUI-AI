@@ -11,35 +11,10 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createElement, type ReactNode } from 'react'
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { render, screen, fireEvent, cleanup } from '@testing-library/react'
 import { messages, getValueByPath, type Locale } from '../src/i18n'
 
-/**
- * 2026-11-03 夹具补齐 `getState`(不是实现缺陷):RN「关于」薄壳改成渲染共享屏并经宿主端口
- * 跳转后,`performHostNavigate` 先用 `navigation.getState().routeNames` 判 target 是否在册
- * (src/host/use-host-ports.ts:52 取,未登记在 97 行 dev 抛);旧夹具只给了 navigate/goBack
- * ⇒ 第一次点击就 `TypeError: nav.getState is not a function`,看到的是夹具缺件而不是"没跳"。
- */
-const nav = vi.hoisted(() => ({
-  navigate: vi.fn(),
-  goBack: vi.fn(),
-  routeNames: [
-    'Agreement',
-    'Privacy',
-    'AppPermission',
-    'UsageRules',
-    'BusinessLicense',
-    'IcpRecord',
-    'ModelRecord',
-    'ApiSettings',
-    'Help',
-    'CustomerService',
-    'Register',
-    'WebView',
-  ] as string[],
-}))
+const nav = vi.hoisted(() => ({ navigate: vi.fn(), goBack: vi.fn() }))
 
 vi.mock('react-native', () => {
   const mk = (tag: string) =>
@@ -71,13 +46,28 @@ vi.mock('react-native', () => {
   }
 })
 
-vi.mock('@react-navigation/native', () => ({
-  useNavigation: () => ({
-    navigate: nav.navigate,
-    goBack: nav.goBack,
-    getState: () => ({ routeNames: nav.routeNames }),
-  }),
-}))
+/**
+ * 导航替身必须带 `getState()`:本屏经 `useHostPorts` 的 `performHostNavigate` 先查
+ * `getState().routeNames` 再决定跳不跳(未登记 target 要 dev 抛错,绝不静默 navigate)。
+ * `@react-navigation/native` 的真实 provider 恒有 `getState`,`LooseNavigation` 也把它声明为必需 ——
+ * 所以这里补的是 mock 的契约缺口,不是把产品代码放宽成"没 getState 就跳过校验"(那会让
+ * 未知 target 重新变成假绿)。
+ *
+ * `routeNames` 从生成白名单 `RN_UI_ROUTES` 派生(RootNavigator 已登录分支 + 5 个 tab),
+ * 再补未登录分支的 `Register`(AboutScreen 主 CTA 的落点;未登录分支屏按生成器口径不入白名单)。
+ * 返回形状与小程序 `CompatNavigation.getState` 同构:`{ routeNames, index, route, params }`。
+ */
+vi.mock('@react-navigation/native', async () => {
+  const { RN_UI_ROUTES } = await import('../src/constants/ui-routes.generated')
+  const routeNames = [...RN_UI_ROUTES.map((entry) => entry.name), 'Register']
+  return {
+    useNavigation: () => ({
+      navigate: nav.navigate,
+      goBack: nav.goBack,
+      getState: () => ({ routeNames, index: 0, route: 'About', params: {} }),
+    }),
+  }
+})
 
 // 图标素材不是本页的判据;替掉以免 lucide 的 RN 依赖把套件拖进收集期失败。
 // 名单必须覆盖 AboutScreen + aboutPageSections 两处 import —— 漏一个就是运行时 export 缺失。
@@ -199,41 +189,20 @@ describe('AboutScreen 渲染与跳转', () => {
     ]
     for (const [key, target] of rows) {
       fireEvent.click(screen.getByText(val(key)))
-      // 宿主端口按 (target, params, options) 固定三参转发:入口屏无参、非 tab 目标,
-      // 故后两参为 undefined。钉精确形状可同时守住目标屏、不带参与非 tab 语义。
-      expect(nav.navigate, `${key} 没跳 ${target}`).toHaveBeenCalledWith(
-        target,
-        undefined,
-        undefined,
-      )
+      expect(nav.navigate, `${key} 没跳 ${target}`).toHaveBeenCalledWith(target)
     }
     expect(nav.navigate).toHaveBeenCalledTimes(rows.length)
-  })
-
-  it('夹具声明的 12 个跳转目标逐个在 RootNavigator 注册面(不在本文件另造一份"在册")', () => {
-    // getState().routeNames 是夹具给出的"已注册"凭据;凭据本身必须对真实现取,否则
-    // 上面那条「跳到已注册屏」会退化成自证。逐名回查 RootNavigator 的 <RootStack.Screen name>。
-    const src = readFileSync(join(__dirname, '../src/navigation/RootNavigator.tsx'), 'utf8')
-    for (const name of nav.routeNames) {
-      expect(src, `${name} 未在 RootNavigator 注册`).toMatch(
-        new RegExp(`<RootStack\\.Screen\\s+name="${name}"`),
-      )
-    }
   })
 
   it('CTA 落点:注册进本端屏,开放平台走 WebView 且 URL 由同源底座拼出', () => {
     renderScreen()
     fireEvent.click(screen.getByText(val('about.ctaPrimary')))
-    expect(nav.navigate).toHaveBeenCalledWith('Register', undefined, undefined)
+    expect(nav.navigate).toHaveBeenCalledWith('Register')
     fireEvent.click(screen.getByText(val('about.ctaSecondary')))
-    expect(nav.navigate).toHaveBeenCalledWith(
-      'WebView',
-      {
-        url: `${WEB_BASE_URL}/developer`,
-        title: val('about.ctaSecondary'),
-      },
-      undefined,
-    )
+    expect(nav.navigate).toHaveBeenCalledWith('WebView', {
+      url: `${WEB_BASE_URL}/developer`,
+      title: val('about.ctaSecondary'),
+    })
   })
 })
 

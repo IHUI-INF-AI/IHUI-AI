@@ -18,6 +18,7 @@ import {
 } from '@/api'
 import { requestWxPayment, requestAliPayment, type AnyPayParams } from '@/utils/pay'
 import ThemeRoot from '@/components/ThemeRoot'
+import { onToast } from '@/host/on-toast'
 
 type PayMethod = 'wechat' | 'alipay' | 'balance'
 
@@ -201,7 +202,7 @@ export default function PayIndex() {
 
   const onSelectMethod = (m: PayMethod) => {
     if (m === 'balance' && balanceInsufficient) {
-      Taro.showToast({ title: tt('pay.balanceInsufficient', '余额不足,请充值'), icon: 'none' })
+      onToast(tt('pay.balanceInsufficient', '余额不足,请充值'), { kind: 'info' })
       return
     }
     setPayMethod(m)
@@ -213,7 +214,7 @@ export default function PayIndex() {
    */
   const applyCoupon = async (id: string) => {
     if (!orderNo) {
-      Taro.showToast({ title: t('pay.orderAbnormal'), icon: 'none' })
+      onToast(t('pay.orderAbnormal'), { kind: 'info' })
       return
     }
     try {
@@ -233,7 +234,7 @@ export default function PayIndex() {
     // 只列本单可用的券：门槛不足/不适用的券选下去必然报错，列出来只会误导
     const usable = coupons.filter((c) => c.usable !== false)
     if (usable.length === 0) {
-      Taro.showToast({ title: tt('pay.noCoupon', '暂无可用优惠券'), icon: 'none' })
+      onToast(tt('pay.noCoupon', '暂无可用优惠券'), { kind: 'info' })
       return
     }
     const items = [
@@ -252,11 +253,11 @@ export default function PayIndex() {
 
   const onPay = async () => {
     if (!orderNo) {
-      Taro.showToast({ title: t('pay.orderAbnormal'), icon: 'none' })
+      onToast(t('pay.orderAbnormal'), { kind: 'info' })
       return
     }
     if (expired) {
-      Taro.showToast({ title: tt('pay.orderExpired', '订单已超时,请重新下单'), icon: 'none' })
+      onToast(tt('pay.orderExpired', '订单已超时,请重新下单'), { kind: 'error' })
       return
     }
     if (submitting) return
@@ -270,9 +271,8 @@ export default function PayIndex() {
         // 余额已扣、订单已结清，但权益发放失败：如实告知而不是谎报成功。
         // 钱已付出不可回滚，所以仍跳结果页（订单确实已支付），只是提示用户联系客服。
         if (res?.activated === false) {
-          Taro.showToast({
-            title: res.warning || tt('pay.activateDelayed', '权益发放延迟，请联系客服'),
-            icon: 'none',
+          onToast(res.warning || tt('pay.activateDelayed', '权益发放延迟，请联系客服'), {
+            kind: 'info',
           })
         }
         Taro.redirectTo({ url: `/pkg-shop/pay/result/index?orderNo=${orderNo}&status=paid` })
@@ -284,7 +284,7 @@ export default function PayIndex() {
           subject: orderDetail.goodsName || tt('pay.vipSubscription', '会员订阅'),
         })
         if (!res.tradeNo) {
-          Taro.showToast({ title: tt('pay.configNotReady', '支付宝支付配置未就绪'), icon: 'none' })
+          onToast(tt('pay.configNotReady', '支付宝支付配置未就绪'), { kind: 'error' })
           return
         }
         try {
@@ -305,7 +305,7 @@ export default function PayIndex() {
         return
       }
       if (!res.payInfo) {
-        Taro.showToast({ title: t('pay.missingParams'), icon: 'none' })
+        onToast(t('pay.missingParams'), { kind: 'error' })
         return
       }
       await dispatchPay(res.payInfo, orderNo)
@@ -313,7 +313,7 @@ export default function PayIndex() {
       // unwrapApi 已 toast 过后端给的具体原因（余额不足 / 订单已超时 / 状态已变更），
       // 这里再弹一条"操作失败"只会把它盖掉；只有拿不到原因的异常才兜一条通用文案。
       const msg = err instanceof Error ? err.message : ''
-      if (!msg) Taro.showToast({ title: t('common.failed'), icon: 'none' })
+      if (!msg) onToast(t('common.failed'), { kind: 'error' })
     } finally {
       setSubmitting(false)
     }
@@ -344,11 +344,11 @@ export default function PayIndex() {
       return
     }
     if (payInfo.method === 'native') {
-      Taro.showToast({ title: t('pay.useWechatScan'), icon: 'none' })
+      onToast(t('pay.useWechatScan'), { kind: 'info' })
       return
     }
     if (payInfo.mock && payInfo.error) {
-      Taro.showToast({ title: t('pay.configNotReady'), icon: 'none' })
+      onToast(t('pay.configNotReady'), { kind: 'error' })
     }
     Taro.redirectTo({ url: `/pkg-shop/pay/result/index?orderNo=${no}` })
   }
