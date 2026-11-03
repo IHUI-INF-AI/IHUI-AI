@@ -6,9 +6,9 @@ name: Backfill Gitee Assets
 
 # 手动补齐 Gitee release 缺失的资产(2026-10-17 立)。
 #
-# ── 2026-11-03 下线:Gitee 发布目标已下线(空仓、零推送历史、桌面直链已切 GitHub)。
-#    本入口保留作**恢复脚手架**,不再执行;恢复步骤见 release-desktop.yml 的 sync-gitee
-#    job 上方注释(先初始化 Gitee 仓并推 main → 补 secrets → 删两处 `if: ${{ false }}`)。
+# ── 2026-11-03 复活:Gitee 为国内主通道(仓库浏览 + 发布包下载),本入口默认可用。
+#    显式关闭:仓库 Settings → Variables 设 `GITEE_SYNC_ENABLED=false`(与 sync-gitee job 同开关)。
+#    用途:发版时顺带同步超时/断流后,按 tag 补齐缺失资产(只上传,不重建、不改 GitHub 侧字节)。
 #
 # 为什么需要独立入口:`release-desktop.yml` 里的 sync-gitee job 是**发版时顺带**做的,
 # 一旦在它跑的过程中超时/断流,缺失的资产只能等**下一次发版**才补 —— 而用户下载页是
@@ -38,9 +38,9 @@ concurrency:
 
 jobs:
   backfill:
-    name: Backfill Gitee assets (${{ github.event.inputs.tag }}) (已下线 2026-11-03)
-    # 2026-11-03 下线:入口保留作恢复脚手架,不再执行。
-    if: ${{ false }}
+    name: Backfill Gitee assets (${{ github.event.inputs.tag }})
+    # 默认开启;显式关闭:仓库 Settings → Variables → GITEE_SYNC_ENABLED=false
+    if: ${{ vars.GITEE_SYNC_ENABLED != 'false' }}
     runs-on: ubuntu-latest
     # 79MB 级资产从 GitHub 拉到国内,再传 Gitee,慢是常态;给足预算但**必须有上限**,
     # 不能像 sync-gitee 那样挂一小时还占着 runner。
