@@ -114,16 +114,18 @@ t('R2 漂移且只读档 ⇒ drift,不写云端(自愈只在 --apply)', async ()
   if (teo.calls.some((c) => c.action === 'ModifyAccelerationDomain')) fail('只读档写了云端')
 })
 
-t('R3 --apply 漂移 ⇒ 改源站到现测出口 + 回源参数原样 + 入口验证通过(repaired)', async () => {
+t('R3 --apply 漂移 ⇒ 改源站到现测出口 + 回源参数原样 + 直打源站验证通过(repaired)', async () => {
   writeLedger()
   const teo = fakeTeo({ origin: OLD })
   let entryUrl = ''
+  let entryHeaders = null
   const out = await T.run(
     baseRun({
       teo: teo.call,
       mode: 'apply',
-      entryFetch: async (u) => {
+      entryFetch: async (u, _tmo, _int, hdrs) => {
         entryUrl = u
+        entryHeaders = hdrs
         return { ok: true, lastCode: 200, waitedMs: 7 }
       },
     }),
@@ -135,14 +137,17 @@ t('R3 --apply 漂移 ⇒ 改源站到现测出口 + 回源参数原样 + 入口�
   if (p.OriginInfo.Origin !== WAN) fail(`没改成现测出口:${JSON.stringify(p)}`)
   if (p.OriginInfo.OriginType !== 'IP_DOMAIN' || p.OriginInfo.HostHeader !== 'www.aizhs.top') fail(`回源 Host/类型被改:${JSON.stringify(p)}`)
   if (p.OriginProtocol !== 'HTTP' || p.HttpOriginPort !== 8801 || p.HttpsOriginPort !== 443) fail(`协议/端口被改:${JSON.stringify(p)}`)
-  if (entryUrl !== 'https://www.aizhs.top/api/health') fail(`入口验证 URL 不对:${entryUrl}`)
+  // 2026-11-03 修正:验证靶必须直打源站(回环 + EO 回源端口),绝不走 www(CDN 面恒 200 = 假绿)
+  if (entryUrl !== 'http://127.0.0.1:8801/api/health') fail(`源站验证 URL 不对:${entryUrl}`)
+  if (!entryHeaders || entryHeaders.Host !== 'www.aizhs.top') fail(`回源 Host 头没带上:${JSON.stringify(entryHeaders)}`)
+  if (out.verifyTarget !== 'http://127.0.0.1:8801/api/health') fail(`verifyTarget 没登记:${out.verifyTarget}`)
 })
 
-t('R4 入口验证不过 ⇒ 回滚原值(rolledBack=true),state=failed', async () => {
+t('R4 源站验证不过 ⇒ 回滚原值(rolledBack=true),state=failed', async () => {
   writeLedger()
   const teo = fakeTeo({ origin: OLD })
   const out = await T.run(baseRun({ teo: teo.call, mode: 'apply', entryFetch: async () => ({ ok: false, lastCode: 502, waitedMs: 3 }) }))
-  if (out.state !== 'failed' || !String(out.reason).startsWith('entry-unverified') || out.rolledBack !== true || out.origin !== OLD) fail(JSON.stringify(out))
+  if (out.state !== 'failed' || !String(out.reason).startsWith('origin-unverified') || out.rolledBack !== true || out.origin !== OLD) fail(JSON.stringify(out))
   const mods = teo.calls.filter((c) => c.action === 'ModifyAccelerationDomain').map((c) => c.payload.OriginInfo.Origin)
   if (mods.length !== 2 || mods[0] !== WAN || mods[1] !== OLD) fail(`回滚序列不对:${JSON.stringify(mods)}`)
   if (teo.st.origin !== OLD) fail('云端没回滚')
@@ -246,6 +251,69 @@ t('R13 首次改源站 API 失败 ⇒ failed(modify-failed),不进入口验证',
   if (out.state !== 'failed' || !String(out.reason).startsWith('modify-failed') || out.oldOrigin !== OLD) fail(JSON.stringify(out))
   if (entryCalled) fail('写失败后还去验证入口')
   if (teo.calls.filter((c) => c.action === 'ModifyAccelerationDomain').length !== 1) fail('写失败后不该有回滚以外的第二次写')
+})
+
+t('R14 verifyUrl 显式覆盖默认源站靶(IHUI_EO_VERIFY_URL 同路)', async () => {
+  writeLedger()
+  let entryUrl = ''
+  const out = await T.run(
+    baseRun({
+      teo: fakeTeo({ origin: OLD }).call,
+      mode: 'apply',
+      verifyUrl: 'http://10.1.2.3:9999/probe',
+      entryFetch: async (u) => {
+        entryUrl = u
+        return { ok: true, lastCode: 200, waitedMs: 1 }
+      },
+    }),
+  )
+  if (out.state !== 'repaired') fail(JSON.stringify(out))
+  if (entryUrl !== 'http://10.1.2.3:9999/probe') fail(`覆盖没生效:${entryUrl}`)
+  if (out.verifyTarget !== 'http://10.1.2.3:9999/probe') fail(`verifyTarget 没登记覆盖值:${out.verifyTarget}`)
+  // env 路:不传参时读 IHUI_EO_VERIFY_URL
+  const envOut = await T.run(
+    baseRun({
+      env: { IHUI_EO_VERIFY_URL: 'http://env-host:1234/healthz' },
+      teo: fakeTeo({ origin: OLD }).call,
+      mode: 'apply',
+      entryFetch: async (u) => {
+        entryUrl = u
+        return { ok: true, lastCode: 200, waitedMs: 1 }
+      },
+    }),
+  )
+  if (envOut.state !== 'repaired' || entryUrl !== 'http://env-host:1234/healthz') fail(`env 覆盖没生效:${entryUrl}`)
+})
+
+t('R15 --check-cdn 第二检查独立记录:CDN 面失败不改源站 verdict', async () => {
+  writeLedger()
+  const teo = fakeTeo({ origin: OLD })
+  const seen = []
+  const out = await T.run(
+    baseRun({
+      teo: teo.call,
+      mode: 'apply',
+      verifyCdn: true,
+      entryFetch: async (u) => {
+        seen.push(u)
+        // 源站靶 OK,CDN 面 FAIL —— 两个 verdict 必须分开
+        return u.startsWith('http://127.0.0.1') ? { ok: true, lastCode: 200, waitedMs: 1 } : { ok: false, lastCode: 521, waitedMs: 1 }
+      },
+    }),
+  )
+  if (out.state !== 'repaired' || out.verified !== true) fail(`源站判定被 CDN 面污染:${JSON.stringify(out)}`)
+  if (out.cdnVerified !== false || out.cdnLastCode !== 521) fail(`CDN 面结果没如实记录:${JSON.stringify(out)}`)
+  if (seen[0] !== 'http://127.0.0.1:8801/api/health' || seen[1] !== 'https://www.aizhs.top/api/health') fail(`两检查顺序/靶不对:${JSON.stringify(seen)}`)
+  // 源站 FAIL 时不跑 CDN 面(回滚优先),reason 指明源站靶
+  const out2 = await T.run(
+    baseRun({
+      teo: fakeTeo({ origin: OLD }).call,
+      mode: 'apply',
+      verifyCdn: true,
+      entryFetch: async () => ({ ok: false, lastCode: 502, waitedMs: 1 }),
+    }),
+  )
+  if (out2.state !== 'failed' || out2.cdnTarget !== undefined) fail(`源站失败仍跑了 CDN 面/状态不对:${JSON.stringify(out2)}`)
 })
 
 let pass = 0
