@@ -28,12 +28,15 @@ export interface ColorfulLoaderProps {
   size?: number
   /** 单圈旋转时长(ms),默认取共享档 */
   duration?: number
+  /** 是否渲染;false 时返回 null(与小程序端同名 prop 同义,默认 true) */
+  visible?: boolean
 }
 
 export function ColorfulLoader({
   size = COLORFUL_LOADER_DEFAULT_SIZE_PX,
   duration = COLORFUL_LOADER_SPIN_MS,
-}: ColorfulLoaderProps): React.JSX.Element {
+  visible = true,
+}: ColorfulLoaderProps): React.JSX.Element | null {
   const rotate = useRef(new Animated.Value(0)).current
   const scale = useRef(new Animated.Value(0.8)).current
 
@@ -67,6 +70,8 @@ export function ColorfulLoader({
       scaleAnim.stop()
     }
   }, [rotate, scale, duration])
+
+  if (!visible) return null
 
   const spin = rotate.interpolate({
     inputRange: [0, 1],
