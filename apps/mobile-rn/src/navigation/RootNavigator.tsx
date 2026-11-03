@@ -597,7 +597,7 @@ export type RootStackParamList = {
   AgentSetting: undefined
   Carte: undefined
   ApiSettings: undefined
-  ModelEdit: undefined
+  ModelEdit: { agentId?: string } | undefined
   CourseAnnex: undefined
   CourseResource: undefined
   CourseQAList: undefined
