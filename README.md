@@ -97,15 +97,19 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 4021 | `testFiles` |
+| 测试文件 | 4034 | `testFiles` |
 | CI 工作流 | 52 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
-| 工程守门 | 320 | `guardianGates` |
-| — blocking | 291 | `guardianBlocking` |
-| — warn | 31 | `guardianWarn` |
-| 跟踪文件 | 18950 | `trackedFiles` |
+| 工程守门 | 323 | `guardianGates` |
+| — blocking | 293 | `guardianBlocking` |
+| — warn | 32 | `guardianWarn` |
+| 跟踪文件 | 18997 | `trackedFiles` |
+
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-03。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
+
+> ⚠️ 未判定 1 项:`guardianGates`(runner 里有 2 个重复 id ⇒ 撞号,条目数不可信)
+
 <!-- END GENERATED NUMBERS -->
 **一句话口径**:数字一律现读,文档里不写「约 N 个」——那种写法必然腐烂。
 ---
@@ -5446,6 +5450,55 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - **所属端**:后端 `apps/api`;消费端见上表"所属端 / 消费方"一列(web / mobile-rn / 小程序)。
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-03**
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (55c2cb04cd)
+- 📚 文档:清理 Gitee 下线后残留的过时注释,避免宣称已不存在的直链 (228e23dce4)
+- 🐞 修复:Gitee 下线后不再输出常驻 warn,避免用一种噪音换另一种 (8c928e3283)
+- ♻️ 重构:共享屏间距 26 处落档 + 2 处 Platform 锁 web 值,销账 18 条 decision (73dfd3f56c)
+- 🐞 修复:B02② 会话切换时 chatSync 判据面与 resyncPending 一起换人(同 id 重设不动,补 1 条判据测试) (03b1cec6db)
+- 🐞 修复:下线空仓 Gitee 发布目标,消除创建标签失败红噪音 (e0869bea5a)
+- 🐞 修复:PayPopup 回退误带入的他会话间距中间态，仅保留 ¥ 档位落档 (2ea19b406b)
+- 🐞 修复:RP-1 号域族注册表(RP 多字母族在册,单字母逐字不变)+ O01 空对照面收口为「挂账+到期」; immutable-exempt: 族注册表为新增只读取表,挂账判定只在空对照面改判,既有判红档与退出码语义不动 (73eac1c22b)
+- ⚡ 性能:36px 图片变体替换两处固定尺寸引用(logo/reddit) (cc40e6b3d0)
+- 🐞 修复:RP-47×2 staged 面双测试(有暂存必须取索引 blob/暂存为空判未判定不回落工作树) (1952b604cd)
+- ♻️ 重构:钱包/课程/排行等 92 处间距默认档落具名档 (7afdef0638)
+- 🐞 修复:runGate 的 node 分支显式 windowsHide(守门 no-visible-spawn 73 行按面转绿;超时与错误文案不变) (f4e33958fc)
+- 🐞 修复:页脚备案号合规——显示网站号并外链工信部 beian.miit.gov.cn(补实际改动) (4aea31e9a9)
+- 🐞 修复:repair-eo-origin 验证靶改直打源站(修假绿回滚判据) (902e9ed65b)
+- 🐞 修复:出包链 windowsHide 接线回归锁(静态扫描全部 spawn/exec 调用点+门体形态锁,2 项) (f04f0b8ab7)
+- 🔧 工程/其他:D171 形状锁五→六处，点名 O67 发令前只读点名 (fd1fe89c72)
+- ♻️ 重构:门128 几何名额回退 3 处(4/8 档恢复 numeric) (b295cede8c)
+- 🚀 新功能/改进:proxy 增加 HTTP→HTTPS 301 应用层兜底(判据只认 CDN 正向证据) (374aecc15c)
+- 🐞 修复:18 处人工档位判定·落 8 保 10·不动几何额度 (ec9802df54)
+- 📚 文档:守门 207 体积清偿归零(96,790→95,910) (8e09798d32)
+- 🐞 修复:页脚备案号合规——显示网站号并外链工信部 beian.miit.gov.cn (7fac191097)
+- ♻️ 重构:支付/分销/课程头/简介/VIP/课时 87 处间距默认档落具名档 (9772113c78)
+- ⚡ 性能:36px 图片变体替换两处固定尺寸引用(logo/reddit) (81372b1e93)
+- 🔧 工程/其他:删除死文件 public/wwLogin-1.0.0.js(全仓零引用) (0fa810fa6c)
+- ⚡ 性能:PDF worker 长缓存——/pdfjs/* 由 max-age=0 提至 7 天 (f82e28158b)
+- ♻️ 重构:共享屏 17/28/32/36 字号落 title/displayLg 档·10 处 (7a241e4d3e)
+- ♻️ 重构:模型配置/运行时/评论 92 处间距默认档落具名档 (d32e043698)
+- ♻️ 重构:共享屏 22px 标题/数值落 heading 20 档·71 处 (d2f150f983)
+- 🔧 工程/其他:告警投递判据表加防误删闸 + scripts/data/*.json 通用形态闸 (755a07df12)
+- 🐞 修复:默认永不跳钩,锁重试收窄为 3 次/指数退避/60s,新增 --allow-skip-hooks (c3898fdb14)
+- 🐞 修复:修掉 zh-TW 下载文案里两处简体「平台」残留(门 2b 落地后复跑点名) (10ad69e61c)
+- 🔧 工程/其他:提交后格式化回流 2 文件 (1eac95dcd6)
+- 🔧 工程/其他:重封根护栏清单 + 摘 AGENTS 合并残留并压回预算 + 补两处 windowsHide 字面量 (b4faab6d55)
+- ♻️ 重构:默认档等值落具名档·课程批 73 处 (904cb347c2)
+- ♻️ 重构:默认档等值落具名档·屏级批 58 处 (511fcc7b95)
+- ♻️ 重构:默认档等值落具名档·组件批 68 处 (766687c346)
+- 🐞 修复:--next-id 拒发池外号,池满点名改走 next-plan-id(G-44/G-54) (42f6d6414f)
+- 🔧 工程/其他:补齐 9 枚随合并入仓却无载荷的文件,并同批重封根护栏清单 (e1ada60b68)
+- ♻️ 重构:销账 6 条已全清 decision、补细 19 条挂账证据 (903c6cee1a)
+- ♻️ 重构:22px 上边距落 xl 20 档、30px 内边距落 3xl 32 档 (d5a54b93f4)
+- ♻️ 重构:18px 间距落 lg 16 档、30px 落 3xl 32 档 (83617072bc)
+- 📚 文档:门 287 号位现读回灌两枚残留 —— hover 门入库时与同批 props 对账门撞 285,落地腿已把 runner 注册块与门体头注顺延为 287(HEAD 面在位);本枚对齐其余两处字面:README 点名条 runner id 与 UI/样式尾注、镜像⑦形状锁号位 regex+文案(prettier 归位后水印已复验完整)。README 盘上派生块(跟踪文件 18947/收编行,可重算件)随本枚带落;props 门自身与其 285 条目未触碰。盘面 scripts/guardian-runner.mjs 为已落地历史拷贝的幻影漂移(§5b 形态,P1 对账尺当轮点名),已按 30c 出路②单文件 checkout HEAD 对齐——零丢失(盘 blob 系上一枚落地态,本票文字全部已入 HEAD)。 (1c9cdb39c2)
+- ♻️ 重构:17/32/40/12.5 字号落 title/displayLg/label 档 (4e11292057)
+- 🔧 工程/其他:结清 B67/B70/B71、G-1222560/59/56 与 Z-1 两条(证据见行内) (85f1c08855)
+- 🚀 新功能/改进:指标存在性门让号 282→286 装车,根护栏巡检补上「远端 tip」那张脸 (8b56f8a460)
+- ♻️ 重构:22px 金额/标题落 heading 20 档 (2be9294d5f)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (14cdb641cc)
+
 **2026-11-03**
 - 🐞 修复:收窄家长端鉴权用例 unknown 类型并清零 e2e --no-ignore eslint 报错 (75a9836204)
 - 🐞 修复:给 @ihui/rn-app 替身补出 AgentReview 列表/详情两屏与 props 捕获出口(与真身 154/278 行同步) (73f7fb1242)
