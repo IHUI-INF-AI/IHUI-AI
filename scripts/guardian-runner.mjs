@@ -6871,6 +6871,7 @@ const checks = [
       'scripts/check-cross-end-component-props-parity.mjs',
       'scripts/lib/component-props-parity.mjs',
       'scripts/data/cross-end-props-parity-baseline.json',
+      'scripts/data/component-props-equivalence.json',
       'scripts/lib/cross-end-screen-props.mjs',
     ],
     onFailHint:
