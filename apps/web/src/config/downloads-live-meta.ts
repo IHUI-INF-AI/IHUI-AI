@@ -18,6 +18,9 @@
 import type { LiveDesktopSource, ReleaseScanSummary } from './desktop-feed-live'
 import type { DownloadAsset, DownloadPlatform, PlatformMeta } from './downloads.config'
 
+/** 小于这个字节数的"码"一律当占位图,不点亮入口(实测坏图 = 11 B) */
+export const MINIAPP_QR_MIN_BYTES = 2048
+
 export type LiveSourceKind = 'live' | 'snapshot' | 'unavailable'
 
 export interface LivePlatformInfo {
@@ -419,6 +422,30 @@ export function judgeIpaPointerProbe(
   }
 }
 
+/**
+ * 微信小程序那一端的判据:它没有"版本号可枚举"的发布源,但**码本身**是实物 ——
+ * 有真图(字节够大)就算这一端已接入,拿不到就照实未接入。
+ * 字节下限是必须的:仓里那个占位文件曾经就是 11 字节的空 png(2026-11-03 实测),
+ * 按"文件存在"判会把坏图点亮成"可扫码"。
+ */
+export function judgeMiniappQr(
+  input: { exists: boolean; sizeBytes: number },
+  nowIso: string,
+  assetHref = '/images/common/miniapp-qr.png',
+): LivePlatformInfo {
+  const base: Omit<LivePlatformInfo, 'source'> = { platform: 'wechat-miniapp', resolvedAt: nowIso }
+  if (!input.exists) return { ...base, source: 'unavailable', reason: 'miniapp-qr-file-missing' }
+  if (!Number.isFinite(input.sizeBytes) || input.sizeBytes < MINIAPP_QR_MIN_BYTES) {
+    return { ...base, source: 'unavailable', reason: `miniapp-qr-stub:${input.sizeBytes}B(<${MINIAPP_QR_MIN_BYTES}B)` }
+  }
+  // 版本号仍留空:小程序的"已发布版本"只有公众平台后台知道,这里不编 —— 接入与否由实物图说话
+  return {
+    ...base,
+    source: 'live',
+    assets: [{ href: assetHref, sizeBytes: input.sizeBytes, format: '微信小程序' }],
+  }
+}
+
 /** 镜像测试入口(AGENTS §22c:测试 import 这份判据,不得复制一份) */
 export const __test__ = {
   judgeAppVersionRow,
@@ -433,5 +460,6 @@ export const __test__ = {
   liveEntryView,
   toDesktopLiveInfo,
   judgeIpaPointerProbe,
+  judgeMiniappQr,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
