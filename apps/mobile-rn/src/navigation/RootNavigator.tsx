@@ -611,6 +611,8 @@ export type RootStackParamList = {
   PointRule: undefined
   PointHistory: undefined
   VipLevel: { id: string }
+  // nav-B:跨端逻辑名 pages/vip/upgrade 在 RN 的落点,复用 VipLevel 壳(同一屏,参数契约一致)
+  VipUpgrade: { id: string }
   VipBenefit: undefined
   VipCompare: undefined
   CertList: undefined
@@ -658,6 +660,8 @@ export type RootStackParamList = {
   StudyPlan: undefined
   StudyProgress: undefined
   ExamResult: { id: string }
+  // nav-B:考试记录详情(ExamHistory 列表条目落点),复用 ExamResult 壳,参数为记录 id
+  ExamDetail: { id: string }
   ExamHistory: undefined
   ExamQuestion: { examId: string }
   CertDetail: { id: string }
@@ -1171,6 +1175,7 @@ function RootNavigatorInner() {
             <RootStack.Screen name="PointRule" component={PointRuleScreen} />
             <RootStack.Screen name="PointHistory" component={PointHistoryScreen} />
             <RootStack.Screen name="VipLevel" component={VipLevelScreen} />
+            <RootStack.Screen name="VipUpgrade" component={VipLevelScreen} />
             <RootStack.Screen name="VipBenefit" component={VipBenefitScreen} />
             <RootStack.Screen name="VipCompare" component={VipCompareScreen} />
             <RootStack.Screen name="CertList" component={CertListScreen} />
@@ -1225,6 +1230,7 @@ function RootNavigatorInner() {
             <RootStack.Screen name="StudyPlan" component={StudyPlanScreen} />
             <RootStack.Screen name="StudyProgress" component={StudyProgressScreen} />
             <RootStack.Screen name="ExamResult" component={ExamResultScreen} />
+            <RootStack.Screen name="ExamDetail" component={ExamResultScreen} />
             <RootStack.Screen name="ExamHistory" component={ExamHistoryScreen} />
             <RootStack.Screen name="ExamQuestion" component={ExamQuestionScreen} />
             <RootStack.Screen name="CertDetail" component={CertDetailScreen} />
