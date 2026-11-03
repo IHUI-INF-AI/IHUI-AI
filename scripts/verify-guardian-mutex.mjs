@@ -17,13 +17,14 @@
  *   node scripts/verify-guardian-mutex.mjs --window-hours 24 --align-gap-ms 60000 --dedupe-hours 4
  *
  * 退出码:0 = 量到了(不代表通过);1 = 关键输入读不到(日志/台账缺失),结论不可用。
- * 通过与否由调用方按 `verdict` 判:只有 `single-run-clean` 或 `mutex-effective` 才算绿。
+ * 通过与否由调用方按 `verdict` 判:只有 `single-run-clean`(单载体 + 锁 held + 无硬双跑证据)才算绿;
+ * `undetermined` 一律不得记绿。
  */
 
 import { execFileSync } from 'node:child_process'
 import { readFileSync, statSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { inspectGuardianLock } from './lib/guardian-lock.mjs'
 
@@ -65,7 +66,8 @@ function parseLogRows(text, since) {
     if (!m) continue
     const ts = Date.parse(m[1])
     if (!Number.isFinite(ts) || ts < since) continue
-    rows.push({ ts, iso: m[1], msg: m[2], line })
+    // 同 minute 同语义要证明"两个载体",必须能读到 pid;日志行没有 pid 时记 0,不臆断。
+    rows.push({ ts, iso: m[1], msg: m[2], pid: Number(String(m[2]).match(/pid=(\d+)/)?.[1] ?? 0) || 0, line })
   }
   return rows
 }
@@ -100,7 +102,7 @@ function groupBy(rows, keyOf) {
   return map
 }
 
-function duplicateStats(rows, { onlyStrict = false, withinMs = 60_000 } = {}) {
+export function duplicateStats(rows, { onlyStrict = false, withinMs = 60_000 } = {}) {
   const filtered = onlyStrict ? rows.filter((r) => /^[✅❌]/u.test(r.msg)) : rows
   const groups = []
   // 同分钟 = 同一自然分钟;withinMs 口径用于"同一时刻两轮"的更宽判据。
@@ -113,10 +115,12 @@ function duplicateStats(rows, { onlyStrict = false, withinMs = 60_000 } = {}) {
   }
   for (const [key, list] of map) {
     if (list.length <= 1) continue
+    const pids = [...new Set(list.map((r) => r.pid).filter((p) => p > 0))]
     groups.push({
       key,
       count: list.length,
       extras: list.length - 1,
+      pids,
       first: list[0],
       second: list[1],
       gapMs: list[1].ts - list[0].ts,
@@ -126,8 +130,44 @@ function duplicateStats(rows, { onlyStrict = false, withinMs = 60_000 } = {}) {
   return {
     groups: groups.length,
     extras: groups.reduce((n, g) => n + g.extras, 0),
+    // 只有"同一组里出现两个不同 pid"才证明是两个载体;同 pid 同毫秒只是同轮重复。
+    twoPidGroups: groups.filter((g) => g.pids.length >= 2).length,
     top: groups.slice(0, 5),
   }
+}
+
+/**
+ * 双跑结论只认"能证明两个载体 / 两轮并发"的硬证据;宽档 ℹ️ 重复只作输出附注。
+ * 硬证据:
+ *   1. 载体进程 > 1;
+ *   2. 同 minute 同语义 ✅/❌ 里出现两个不同 pid;
+ *   3. 轮级锁被非 daemon 持有(role=round,或持有 pid 不在 daemon 列表)且 daemon 同时存在;
+ *   4. 日志出现 `🛑 守护启动被拒` / `🛑 轮级锁已失去`。
+ * 证据不足(进程表取不到 / 窗口内无载体 / 无 daemon 载体 / 日志缺段)⇒ undetermined,不记绿。
+ */
+export function decideVerdict({
+  carriers = null,
+  daemonCount = null,
+  daemonPids = [],
+  lock = null,
+  strictDup = null,
+  refusalHits = 0,
+  logReadable = true,
+} = {}) {
+  if (!logReadable || carriers === null || daemonCount === null) return 'undetermined'
+  const held = Boolean(lock?.exists && lock?.state === 'held')
+  const role = String(lock?.role ?? '')
+  const lockPid = Number(lock?.pid) || 0
+  const lockHeldByRound = held && role === 'git-guardian:round'
+  const lockHeldByOtherPid = held && lockPid > 0 && daemonPids.length > 0 && !daemonPids.includes(lockPid)
+  const twoPidDup = Number(strictDup?.twoPidGroups) > 0
+  if (carriers > 1 || twoPidDup || refusalHits > 0 || lockHeldByRound || lockHeldByOtherPid) {
+    return 'double-run-unmitigated'
+  }
+  if (daemonCount === 0 || carriers === 0) return 'undetermined'
+  if (carriers === 1 && held) return 'single-run-clean'
+  // 没有 held 锁就不给绿:否则 `IHUI_GUARDIAN_LOCK_MODE=off` 或锁丢失时会被静默记成通过。
+  return 'undetermined'
 }
 
 function alignRepeats(rows, gapMs) {
@@ -266,6 +306,11 @@ function sourceWiring() {
   return { readable: true, acquireCalls, mainGuarded, daemonGuarded }
 }
 
+const isDirectRun =
+  Boolean(process.argv[1]) && import.meta.url === pathToFileURL(process.argv[1]).href
+
+// CLI 只读探针:被测试 import 时只导出纯判据,不跑任何真探针。
+if (isDirectRun) {
 const logText = readText(LOG_FILE)
 if (typeof logText !== 'string') {
   console.error(`❌ 日志读不到(${LOG_FILE}):${logText.error} —— 结论不可用`)
@@ -289,26 +334,19 @@ const daemonCount = procs.ok ? procs.list.filter((p) => p.daemon).length : null
 const taskCount = procs.ok ? procs.list.filter((p) => !p.daemon).length : null
 const carriers = procs.ok ? procs.list.length : null
 
-/**
- * 结论只看证据,不猜:
- *  - 双载体同时存活 + 日志里仍有同语义重复 / 对齐 <60s 重复 ⇒ double-run-unmitigated;
- *  - 源码已接锁 + 日志 24h 无上述重复 ⇒ mutex-effective(仍需连续 3 天复跑确认);
- *  - 单载体 + 无重复 ⇒ single-run-clean;
- *  - 其它 ⇒ undetermined(不得记绿)。
- */
-let verdict = 'undetermined'
-const dupEvidence = allDup.extras > 0 || align.repeatPairs > 0
-if (dupEvidence && wiring.readable && wiring.acquireCalls === 0) {
-  // 24h 日志里已经留下双跑痕迹,但抓拍那一刻恰好只有一台在跑(计划任务轮次每 2 分钟才起一次,
-  // 窗口极窄)⇒ 不能因为"瞬时只有一台"就记成未判定。锁尚未接进源码时,重复本身就是双跑实证。
-  verdict = 'double-run-unmitigated'
-} else if (carriers !== null && carriers >= 2 && dupEvidence) {
-  verdict = 'double-run-unmitigated'
-} else if (wiring.readable && wiring.acquireCalls > 0 && allDup.extras === 0 && align.repeatPairs === 0) {
-  verdict = 'mutex-effective'
-} else if (carriers === 1 && allDup.extras === 0 && align.repeatPairs === 0) {
-  verdict = 'single-run-clean'
-}
+const refusalRows = rows.filter(
+  (r) => r.msg.includes('🛑 守护启动被拒') || r.msg.includes('🛑 轮级锁已失去'),
+)
+const daemonPids = procs.ok ? procs.list.filter((p) => p.daemon).map((p) => p.pid) : []
+const verdict = decideVerdict({
+  carriers,
+  daemonCount,
+  daemonPids,
+  lock,
+  strictDup,
+  refusalHits: refusalRows.length,
+  logReadable: true,
+})
 
 const report = {
   generatedAt: new Date(nowMs).toISOString(),
@@ -317,8 +355,9 @@ const report = {
     path: LOG_FILE,
     sizeBytes: logSize,
     validRows: rows.length,
-    sameMinuteAll: { groups: allDup.groups, extras: allDup.extras, top: allDup.top },
-    sameMinuteStrict: { groups: strictDup.groups, extras: strictDup.extras, top: strictDup.top },
+    sameMinuteAll: { groups: allDup.groups, extras: allDup.extras, twoPidGroups: allDup.twoPidGroups, top: allDup.top },
+    sameMinuteStrict: { groups: strictDup.groups, extras: strictDup.extras, twoPidGroups: strictDup.twoPidGroups, top: strictDup.top },
+    refusal: { hits: refusalRows.length, top: refusalRows.slice(0, 3).map((r) => r.line) },
     align: { messages: align.count, repeatPairsUnderGap: align.repeatPairs, gapMs: alignGapMs, examples: align.pairs },
   },
   carriers: {
@@ -356,7 +395,10 @@ if (asJson) {
   console.log(`轮级锁:${lockLine}`)
   console.log(`源码接线:acquireGuardianLock=${wiring.readable ? wiring.acquireCalls : '读不到'} 处,main=${wiring.mainGuarded},daemon=${wiring.daemonGuarded}`)
   console.log('')
-  console.log(`同分钟同语义:${allDup.groups} 组 / ${allDup.extras} 条多余(严格 ✅/❌:${strictDup.groups} 组 / ${strictDup.extras} 条)`)
+  console.log(
+    `同分钟同语义:${allDup.groups} 组 / ${allDup.extras} 条多余(附注;严格 ✅/❌:${strictDup.groups} 组 / ${strictDup.extras} 条,其中两 pid ${strictDup.twoPidGroups} 组)`,
+  )
+  console.log(`硬双跑证据:🛑 拒锁/失锁 ${refusalRows.length} 条`)
   for (const g of allDup.top) {
     console.log(`  - x${g.count} gap=${Math.round(g.gapMs / 1000)}s ${g.first.iso} 与 ${g.second.iso}`)
     console.log(`      ${g.first.line}`)
@@ -381,4 +423,5 @@ if (asJson) {
   }
   console.log('')
   console.log(`结论:${verdict}`)
+}
 }
