@@ -1346,6 +1346,10 @@ html[data-workbench-immersive='true'] aside[data-main-sidebar] {
 /* ============================================================
  * 容器 hover 浮起(2026-10-22 机主定档:全站卡片统一「稍微放大 + 浮起」)
  *
+ * 2026-11-03 机主二次定档:浮起**太重**→ 全站减淡为"稍微有点感觉"即可 ——
+ * 位移 4px→2px、缩放 1.015→1.008、两层阴影整体收敛(第一层 6px/12%→3px/6%,
+ * 第二层 30px/25%→18px/12%,暗档同比例)。只动这枚数值源,不散改各页。
+ *
  * 单一源头:数值只写这一处(--lift-*)。
  * 端内不得再各写 hover:scale-105 / hover:shadow-xl / hover:-translate-y-*(全仓曾散着
  * 72 处不同数值的浮起写法,那正是"不统一"的成因)。
@@ -1362,15 +1366,15 @@ html[data-workbench-immersive='true'] aside[data-main-sidebar] {
  * ② prefers-reduced-motion 下整体关掉 —— 位移类反馈必须尊重系统减动效设置。
  * ============================================================ */
 :root {
-  --lift-scale: 1.015;
-  --lift-offset: -4px;
+  --lift-scale: 1.008;
+  --lift-offset: -2px;
   /* 立体感两层,而且**不能有"无偏移 + 大扩散"那一层**:
      上一版我加了 `0 0 16px / 0 0 18px` 的"环境影"想补四周包裹感,结果 40% 黑 + 零偏移 + 18px
      扩散就是在卡片四周画出一圈均匀黑晕 —— 机主连说三轮"还有描边",指的就是它,
      而它长得和边框一模一样,删掉 border-color 也治不了(§4「不要发光边框」的反例还有这一型:
      **用阴影造出边框**)。四周的贴合感改由负 spread 负责:它让阴影在边缘收缩、只在中远距离散开。 */
-  --lift-shadow: 0 2px 6px -1px var(--color-black-12), 0 14px 30px -10px var(--color-black-25);
-  --lift-shadow-dark: 0 2px 6px -1px var(--color-black-50), 0 16px 34px -12px var(--color-black-70);
+  --lift-shadow: 0 1px 3px -1px var(--color-black-6), 0 8px 18px -8px var(--color-black-12);
+  --lift-shadow-dark: 0 1px 3px -1px var(--color-black-30), 0 10px 20px -10px var(--color-black-45);
   --duration-lift: 160ms;
 }
 /* 刻意**不分层**:Tailwind 的 shadow / hover:shadow-* 住在 utilities 层,
