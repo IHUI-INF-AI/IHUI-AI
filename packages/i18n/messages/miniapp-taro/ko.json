@@ -6977,7 +6977,8 @@
     "labelFreeDur": "무료 시간",
     "labelSaleType": "판매 유형",
     "submit": "저장",
-    "submitting": "제출 중..."
+    "submitting": "제출 중...",
+    "readOnlyHint": "이 항목은 아직 수정할 수 없습니다"
   },
   "modelIncome": {
     "accumulated": "누적 수익",
