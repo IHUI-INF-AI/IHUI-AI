@@ -19,7 +19,8 @@ export interface UpFile {
 }
 
 /** 标签 / 输入框的类名:同页三处表单块共用一份,避免各写一份字面量 */
-export const LABEL_CLASS = 'block mt-[28rpx] mb-[12rpx] text-[length:28rpx] text-muted-foreground'
+export const LABEL_CLASS =
+  'block mt-[28rpx] mb-[12rpx] text-body leading-[normal] text-muted-foreground'
 export const FIELD_CLASS =
   'w-full bg-[var(--color-muted)] rounded-sm border-[length:2rpx] border-[var(--color-border)] px-[24rpx] text-[length:32rpx] text-foreground box-border'
 

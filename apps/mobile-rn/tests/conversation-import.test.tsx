@@ -28,6 +28,7 @@ const { rnMocks } = vi.hoisted(() => ({
     commitConversationImport: vi.fn(),
     getConversationImportHistory: vi.fn(),
     goBack: vi.fn(),
+    onToast: vi.fn(),
   },
 }))
 
@@ -51,6 +52,14 @@ vi.mock('../src/i18n', () => ({
 
 vi.mock('../src/context/ThemeContext', () => ({
   useTheme: () => ({ resolvedTheme: 'light' }),
+}))
+
+vi.mock('../src/host/use-host-ports', () => ({
+  useHostPorts: () => ({
+    onToast: rnMocks.onToast,
+    onNavigate: vi.fn(),
+    onShowActionSheet: vi.fn(),
+  }),
 }))
 
 vi.mock('../src/components/NavBar', async () => {
@@ -153,6 +162,7 @@ function commitPayloadAt(index: number): CommitPayload {
 
 beforeEach(() => {
   rnMocks.getConversationImportHistory.mockResolvedValue(HISTORY_RESULT)
+  rnMocks.onToast.mockClear()
 })
 
 describe('ConversationImportScreen(RN)', () => {
@@ -373,7 +383,7 @@ describe('ConversationImportScreen(RN)', () => {
     await waitFor(() => expect(rnMocks.getConversationImportHistory).toHaveBeenCalledTimes(2))
   })
 
-  it('取消文件选择不触发解析', async () => {
+  it('取消文件选择不触发解析,并给出明确 toast(不静默)', async () => {
     rnMocks.getDocumentAsync.mockResolvedValue({ canceled: true, assets: [] })
 
     render(<ConversationImportScreen />)
@@ -385,6 +395,23 @@ describe('ConversationImportScreen(RN)', () => {
     await waitFor(() => expect(rnMocks.getDocumentAsync).toHaveBeenCalledTimes(1))
     expect(rnMocks.fetchApi).not.toHaveBeenCalled()
     expect(screen.queryByText('conversationImport.previewTitle')).toBeNull()
+    await waitFor(() => expect(rnMocks.onToast).toHaveBeenCalledWith('common.cancel'))
+  })
+
+  it('选择器抛错时给出失败 toast 并保持未选中(不静默吞错)', async () => {
+    rnMocks.getDocumentAsync.mockRejectedValue(new Error('permission denied'))
+
+    render(<ConversationImportScreen />)
+    await waitFor(() => expect(rnMocks.getConversationImportHistory).toHaveBeenCalled())
+
+    fireEvent.click(screen.getByText('conversationImport.sourceCursor'))
+    fireEvent.click(screen.getByText('conversationImport.pickFile'))
+
+    await waitFor(() => expect(rnMocks.getDocumentAsync).toHaveBeenCalledTimes(1))
+    expect(rnMocks.fetchApi).not.toHaveBeenCalled()
+    await waitFor(() =>
+      expect(rnMocks.onToast).toHaveBeenCalledWith('common.failed(permission denied)'),
+    )
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

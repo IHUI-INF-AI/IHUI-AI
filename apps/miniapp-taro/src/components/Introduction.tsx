@@ -22,26 +22,26 @@ export default function Introduction({
 }: IntroductionProps) {
   const tt = useTt()
   return (
-    <View className="px-4 py-3">
+    <View className="px-lg py-md">
       {content ? (
-        <Text className="block text-sm text-foreground leading-relaxed">{content}</Text>
+        <Text className="block text-body text-foreground leading-relaxed">{content}</Text>
       ) : (
-        <Text className="block text-sm text-muted-foreground">{tt('intro.empty', '暂无简介')}</Text>
+        <Text className="block text-body text-muted-foreground">{tt('intro.empty', '暂无简介')}</Text>
       )}
       {agents.length > 0 && (
-        <View className="mt-3 pt-3">
-          <Text className="block text-xs text-muted-foreground mb-2">
+        <View className="mt-md pt-md">
+          <Text className="block text-label text-muted-foreground mb-sm">
             {tt('intro.relatedAI', '关联 AI 应用')}
           </Text>
           <View className="flex flex-wrap">
             {agents.map((agent) => (
               <View
                 key={agent.id}
-                className="mr-2 mb-[12rpx] px-[20rpx] py-1 rounded-md border border-primary/20 bg-primary/10"
+                className="mr-sm mb-[12rpx] px-[20rpx] py-xs rounded-md border border-primary/20 bg-primary/10"
                 onClick={() => onAgentClick?.(agent)}
                 hoverClass="opacity-60"
               >
-                <Text className="text-xs text-primary">{agent.name}</Text>
+                <Text className="text-label text-primary">{agent.name}</Text>
               </View>
             ))}
           </View>

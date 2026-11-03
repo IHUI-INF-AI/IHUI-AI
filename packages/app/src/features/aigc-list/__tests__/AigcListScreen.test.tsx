@@ -43,8 +43,8 @@ function renderScreen(overrides: Partial<AigcListScreenProps> = {}) {
     onToast,
     ...overrides,
   }
-  render(<AigcListScreen {...props} />)
-  return { onToast, onPressItem }
+  const { container } = render(<AigcListScreen {...props} />)
+  return { onToast, onPressItem, container }
 }
 
 describe('AigcListScreen 音频端口', () => {
@@ -62,6 +62,23 @@ describe('AigcListScreen 音频端口', () => {
     fireEvent.click(screen.getByText('aigcList.playAudio'))
     expect(play).toHaveBeenCalledWith(AUDIO_URL)
     expect(onToast).not.toHaveBeenCalled()
+    cleanup()
+  })
+})
+
+describe('AigcListScreen 轮播可选端口', () => {
+  it('未注入 carousel ⇒ 不渲染轮播(缺省关闭)', () => {
+    const { container } = renderScreen()
+    expect(container.querySelector('[testid="aigc-list-carousel"]')).toBeNull()
+    cleanup()
+  })
+
+  it('注入 carousel ⇒ 共享屏渲染卡片,点击回调带回条目', () => {
+    const onPress = vi.fn()
+    const { container } = renderScreen({ carousel: { items: [audioItem], onPress } })
+    expect(container.querySelector('[testid="aigc-list-carousel"]')).toBeTruthy()
+    fireEvent.click(container.querySelector('[testid="aigc-carousel-aigc-audio-1"]')!)
+    expect(onPress).toHaveBeenCalledWith(audioItem)
     cleanup()
   })
 })

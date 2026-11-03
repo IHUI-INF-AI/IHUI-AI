@@ -379,7 +379,7 @@ export function AiFeedTimeline({ items, sources, total }: Props) {
                   return (
                     <div
                       key={it.id}
-                      className="group flex flex-row items-start gap-3 rounded-lg border bg-background/40 p-3 transition-all hover:border-primary/40 hover:bg-accent/40 hover:shadow-sm"
+                      className="group flex flex-row items-start gap-3 rounded-lg border bg-background/40 p-3 transition-all hover:border-primary/40 hover:bg-accent/40"
                     >
                       <div className="w-10 shrink-0 pt-0.5 text-right">
                         <span className="text-label font-mono text-muted-foreground">{time}</span>
