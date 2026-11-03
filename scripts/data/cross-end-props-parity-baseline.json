@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-03T11:26:09.047Z",
+  "generatedAt": "2026-11-03T11:34:19.313Z",
   "face": "staged",
   "rule": "差值棘轮:在册集合只减不增;新键/新对未入账=红;undetermined=warn 点名(有效 not-applicable 裁决除外)。升绝对零前置=存量归零。",
   "pairs": {
@@ -101,22 +101,28 @@
     "Carousel": {
       "state": "ok",
       "onlyRn": [
-        "autoplayInterval",
         "banner",
-        "itemWidth",
-        "onItemPress"
+        "itemWidth"
       ],
       "onlyMini": [
-        "autoplay",
         "courseMeta",
-        "interval",
         "items",
-        "onItemClick",
         "variant"
       ],
       "reqDrift": [],
-      "mapped": [],
-      "driftTotal": 10
+      "mapped": [
+        {
+          "ours": "autoplayInterval",
+          "theirs": "interval",
+          "kind": "content"
+        },
+        {
+          "ours": "onItemPress",
+          "theirs": "onItemClick",
+          "kind": "event"
+        }
+      ],
+      "driftTotal": 5
     },
     "ColorfulLoader": {
       "state": "ok",
@@ -478,8 +484,8 @@
     "undetermined": 0,
     "notApplicable": 1,
     "maxKeyDrift": 59,
-    "driftKeysTotal": 263,
-    "equivalenceEntries": 4,
-    "mappedKeysTotal": 6
+    "driftKeysTotal": 258,
+    "equivalenceEntries": 6,
+    "mappedKeysTotal": 10
   }
 }

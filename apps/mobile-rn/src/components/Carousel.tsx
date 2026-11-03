@@ -50,6 +50,8 @@ export interface CarouselProps {
    *  容器有左右边距时必须传容器实际宽,否则 slide 比可视区宽、左右被裁切。 */
   itemWidth?: number
   autoplayInterval?: number
+  /** 是否自动轮播;false 时停在当前页(与小程序端同名 prop 同义,默认 true) */
+  autoplay?: boolean
   onItemPress?: (item: CarouselSlide, index: number) => void
 }
 
@@ -101,6 +103,7 @@ export default function Carousel({
   height = DEFAULT_HEIGHT,
   itemWidth,
   autoplayInterval = 3000,
+  autoplay = true,
   onItemPress,
 }: CarouselProps) {
   /**
@@ -123,7 +126,7 @@ export default function Carousel({
     [banner, failedSources],
   )
 
-  const { current, setCurrent } = useAutoPlay(slides.length, autoplayInterval, slides.length > 1)
+  const { current, setCurrent } = useAutoPlay(slides.length, autoplayInterval, autoplay && slides.length > 1)
   const scrollRef = useRef<ScrollView>(null)
   // slide 步长:调用方传了 itemWidth(容器实际宽)用它,否则退回应用框架实际宽
   const appFrameWidth = useAppFrameWidth()
