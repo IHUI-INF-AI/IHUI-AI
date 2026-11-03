@@ -9052,7 +9052,7 @@ function healFromBackup() {
 
 /** 兜底 2:从远端整仓重建(慢,42 秒实测,保证最新) */
 function healFromRemote() {
-  log('修复: 从远端重建 gitdir <- ' + GITEE_URL)
+  log('修复: 从远端重建 gitdir <- origin (GitHub;Gitee 发布目标已于 2026-11-03 下线,不再作为兜底远端)')
   if (!gitdirTargetSafe()) return false
   if (existsSync(GITDIR)) {
     if (!archiveGitdir('remote-' + Date.now())) return false
