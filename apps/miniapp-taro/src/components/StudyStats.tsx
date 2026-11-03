@@ -32,28 +32,28 @@ export default function StudyStats({ data = {} }: StudyStatsProps) {
   const weekPercent = weekTarget > 0 ? (weekMinutes / weekTarget) * 100 : 0
 
   return (
-    <View className="bg-card mx-3 my-3 rounded-lg p-4">
-      <Text className="block text-body font-medium text-foreground mb-3">
+    <View className="bg-card mx-md my-md rounded-lg p-lg">
+      <Text className="block text-body font-medium text-foreground mb-md">
         {tt('study.statsTitle', '学习数据')}
       </Text>
 
-      <View className="flex items-center mb-4">
+      <View className="flex items-center mb-lg">
         <ProgressCircle percent={weekPercent} size={70} showText text={`${weekMinutes}m`} />
-        <View className="ml-4 flex-1">
+        <View className="ml-lg flex-1">
           <Text className="block text-label text-muted-foreground">
             {tt('study.weeklyStudy', '本周学习')}
           </Text>
           <Text className="text-title font-medium text-foreground">
             {Math.floor(weekMinutes / 60)}h {weekMinutes % 60}m
           </Text>
-          <Text className="block text-label text-muted-foreground mt-1">
+          <Text className="block text-label text-muted-foreground mt-xs">
             目标 {tt('StudyStats.y1', 'h,已完成')}
             {Math.floor(weekTarget / 60)} {Math.floor(weekPercent)}%
           </Text>
         </View>
       </View>
 
-      <View className="grid grid-cols-3 gap-2 pt-3">
+      <View className="grid grid-cols-3 gap-sm pt-md">
         <View className="text-center">
           <Text className="block text-title font-medium text-primary">{totalLessons}</Text>
           <Text className="block text-label text-muted-foreground">

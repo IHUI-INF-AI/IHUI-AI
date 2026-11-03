@@ -84,24 +84,24 @@ export default function WithdrawalPage() {
 
   return (
     <ThemeRoot>
-      <View className="min-h-screen bg-background p-4">
+      <View className="min-h-screen bg-background p-lg">
         {/* 可提现金额卡片 — 对齐 RN WithdrawScreen balanceCard(padding 14/radius 12/白卡) */}
-        <View className="px-4 py-3 rounded-lg bg-card mb-4">
+        <View className="px-lg py-md rounded-lg bg-card mb-lg">
           <Text className="block text-body text-muted-foreground">
             {tt('wallet.withdrawal.availableYuan', '可提现金额(元)')}
           </Text>
-          <Text className="block text-display font-bold text-foreground mt-2">
+          <Text className="block text-display font-bold text-foreground mt-sm">
             {priceFmt.format(available)}
           </Text>
         </View>
 
         {/* 提现金额 + 提现方式卡片 — 对齐 RN WithdrawScreen card(padding 12/radius 12/border.light) */}
-        <View className="rounded-lg border border-border bg-card p-4">
+        <View className="rounded-lg border border-border bg-card p-lg">
           <Text className="block text-body text-muted-foreground">
             {tt('wallet.withdrawal.amountLabel', '提现金额')}
           </Text>
           <View
-            className="flex items-center mt-2 h-[50px] px-3 rounded-xl border border-border bg-[var(--color-muted)]"
+            className="flex items-center mt-sm h-[50px] px-md rounded-xl border border-border bg-[var(--color-muted)]"
             style={ffAmount.focusStyle}
           >
             <Text className="text-title font-semibold text-foreground">¥</Text>
@@ -118,10 +118,10 @@ export default function WithdrawalPage() {
             </Text>
           </View>
 
-          <Text className="block text-body text-muted-foreground mt-4 mb-2">
+          <Text className="block text-body text-muted-foreground mt-lg mb-sm">
             {tt('distribution.withdraw.method', '提现方式')}
           </Text>
-          <View className="flex gap-3">
+          <View className="flex gap-md">
             {methods.map((m) => (
               <View
                 key={m.value}
@@ -157,7 +157,7 @@ export default function WithdrawalPage() {
         </Button>
 
         <View
-          className="mt-3 text-center text-caption text-[var(--color-text-tertiary)]"
+          className="mt-md text-center text-caption text-[var(--color-text-tertiary)]"
           onClick={goRecords}
           hoverClass="opacity-60"
         >

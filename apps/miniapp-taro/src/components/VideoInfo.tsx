@@ -23,13 +23,13 @@ export default function VideoInfo({ info = {} }: VideoInfoProps) {
   const { t } = useI18n()
   const tt = useTt()
   return (
-    <View className="bg-card px-4 py-3">
+    <View className="bg-card px-lg py-md">
       <Text className="block text-title font-medium text-foreground">
         {info.title || tt('VideoInfo.p1', '视频详情')}
       </Text>
-      <View className="flex items-center mt-2">
+      <View className="flex items-center mt-sm">
         {info.teacher && (
-          <Text className="text-label text-muted-foreground mr-3">
+          <Text className="text-label text-muted-foreground mr-md">
             {tt('video.teacher', '讲师')}: {info.teacher}
           </Text>
         )}
@@ -39,22 +39,22 @@ export default function VideoInfo({ info = {} }: VideoInfoProps) {
           </Text>
         )}
         {info.chapterCount !== undefined && info.chapterCount > 0 && (
-          <Text className="text-label text-muted-foreground ml-3">
+          <Text className="text-label text-muted-foreground ml-md">
             {t('video.chapterCount', { n: info.chapterCount })}
           </Text>
         )}
       </View>
       {info.description && (
-        <Text className="block text-body text-muted-foreground mt-2 leading-relaxed">
+        <Text className="block text-body text-muted-foreground mt-sm leading-relaxed">
           {info.description}
         </Text>
       )}
       {info.tags && info.tags.length > 0 && (
-        <View className="flex flex-wrap mt-2">
+        <View className="flex flex-wrap mt-sm">
           {info.tags.map((tag, i) => (
             <Text
               key={i}
-              className="text-caption px-2 py-[4rpx] mr-[12rpx] mb-1 rounded bg-muted text-muted-foreground"
+              className="text-caption px-sm py-[4rpx] mr-[12rpx] mb-xs rounded bg-muted text-muted-foreground"
             >
               {tag}
             </Text>

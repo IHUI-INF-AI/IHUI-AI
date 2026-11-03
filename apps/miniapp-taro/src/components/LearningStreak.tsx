@@ -30,13 +30,13 @@ export default function LearningStreak({
   const { t } = useI18n()
   const tt = useTt()
   return (
-    <View className="bg-card rounded-lg px-4 py-4">
-      <View className="flex items-center justify-between mb-3">
+    <View className="bg-card rounded-lg px-lg py-lg">
+      <View className="flex items-center justify-between mb-md">
         <View className="flex items-center">
           <Text className="text-title font-semibold text-foreground">
             {tt('streak.title', '学习连签')}
           </Text>
-          <View className="ml-2 flex items-center gap-1 text-label text-warning">
+          <View className="ml-sm flex items-center gap-xs text-label text-warning">
             <LineIcon name="flame" size={24} color="var(--color-warning)" />
             <Text>{t('streak.continuousDays', { n: streakDays })}</Text>
           </View>
@@ -46,7 +46,7 @@ export default function LearningStreak({
         </Text>
       </View>
 
-      <View className="flex justify-between mb-4">
+      <View className="flex justify-between mb-lg">
         {weekDays.map((day, idx) => (
           <View
             key={idx}
@@ -74,7 +74,7 @@ export default function LearningStreak({
       </View>
 
       <View
-        className={`w-full py-2 rounded-md text-center text-body ${
+        className={`w-full py-sm rounded-md text-center text-body ${
           signedToday
             ? 'bg-muted text-muted-foreground'
             : 'bg-gradient-to-r from-[var(--color-brand-accent)] to-[var(--color-danger)] text-[var(--color-brand-accent-foreground)]'
