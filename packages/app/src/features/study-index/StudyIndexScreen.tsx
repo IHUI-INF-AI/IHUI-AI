@@ -411,9 +411,14 @@ function createStyles(tk: AppThemeTokens) {
       position: 'absolute',
       right: 24,
       bottom: 32,
-      width: 56,
-      height: 56,
-      borderRadius: 28,
+      width: rnGeometry.fabBox,
+      height: rnGeometry.fabBox,
+      /**
+       * 正方 FAB 的正圆 = 方盒档的一半(几何表达式),不写死 28:28 超 RADIUS_STEPS
+       * 最大档 2xl=16,裸数字属绕档;盒边长已收进 rnGeometry.fabBox 单源,
+       * 视觉与原 56×56 / 半径 28 完全一致。
+       */
+      borderRadius: rnGeometry.fabBox / 2,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: tk.brand.cta,
