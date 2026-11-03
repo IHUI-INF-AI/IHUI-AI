@@ -4793,7 +4793,8 @@
       "active": "生效",
       "rejected": "已拒絕",
       "cancelled": "已解除"
-    }
+    },
+    "myAttendanceHint": "查看並自簽"
   },
   "eduChildAttendance": {
     "title": "孩子考勤",
@@ -4819,7 +4820,15 @@
       "absent": "缺勤",
       "leave": "請假"
     },
-    "student": "學生"
+    "student": "學生",
+    "batchCheckIn": "整班點名",
+    "checkInFor": "代簽",
+    "checkedInToast": "簽到成功",
+    "checkedOutToast": "簽退成功",
+    "batchDoneToast": "點名完成",
+    "batchResult": "點名完成：新增 {created} 人，跳過 {skipped} 人，未落庫 {missed} 人",
+    "noClassReason": "未取到班級資訊，暫不能整班點名",
+    "multiClass": "清單含多個班級，本次僅點名 {classId}"
   },
   "eduMgmt": {
     "attendanceTitle": "考勤管理",
@@ -7088,5 +7097,15 @@
   },
   "studyIndex": {
     "receiveFreeBody": "連結已複製到剪貼板,可在瀏覽器粘貼打開"
+  },
+  "eduMyAttendance": {
+    "title": "我的考勤",
+    "selfCheckIn": "我要簽到",
+    "selfDoneToast": "簽到成功",
+    "classByBackendHint": "班級由後端按在冊學籍自動確定",
+    "remarkPlaceholder": "備註(可選)",
+    "scanCheckIn": "掃碼簽到",
+    "scanDoneToast": "掃碼簽到成功",
+    "scanInvalidToast": "這不是本系統的簽到二維碼"
   }
 }
