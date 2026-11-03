@@ -5,7 +5,7 @@
 import { aizhsUrl } from '@/constants/icon-urls'
 import { useTt, type TtFn } from '@/i18n'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
-import { cn, rnRadius, rnRadiusFor, taroGeometry, taroSpacing } from '@ihui/design-tokens'
+import { cn, rnRadius, rnRadiusFor, taroGeometry } from '@ihui/design-tokens'
 import type { CSSProperties } from 'react'
 import LineIcon from '@/components/LineIcon'
 import { ICONS } from '@/components/LineIcon/icons'
@@ -262,7 +262,9 @@ export default function DrawerComponent(props: DrawerComponentProps) {
                   fontSize: rpx(taroGeometry.textBody),
                   lineHeight: rpx(56),
                   color: 'var(--color-foreground)',
-                  padding: `${rpx(taroSpacing['2xs'])} ${rpx(taroSpacing['md-loose'])}`,
+                  // 本组件 5 处复合 padding 保持字面量:父级几何由跨端门 128 静态比对,
+                  // 改成 rpx(taroSpacing.*) 模板表达式后门解不出值、差异 12→13 判红(2026-11-03)。
+                  padding: '4rpx 28rpx',
                 }}
                 onClick={() => {
                   if (item.key === 'newChat') {
@@ -286,7 +288,7 @@ export default function DrawerComponent(props: DrawerComponentProps) {
           </View>
 
           {/* 历史对话标题 */}
-          <View style={{ padding: `${rpx(taroSpacing['sm-loose'])} 23rpx 10rpx` }}>
+          <View style={{ padding: '20rpx 23rpx 10rpx' }}>
             <Text
               className="font-bold"
               style={{
@@ -301,7 +303,7 @@ export default function DrawerComponent(props: DrawerComponentProps) {
           {/* 历史对话列表:scroll-y,按模型 + 日期分组 */}
           <ScrollView scrollY className="flex-1">
             {groupedData.length === 0 ? (
-              <View style={{ padding: `${rpx(taroSpacing.xl)} 23rpx` }} className="text-center">
+              <View style={{ padding: '40rpx 23rpx' }} className="text-center">
                 <Text
                   style={{
                     fontSize: rpx(taroGeometry.textLabel),
@@ -365,7 +367,7 @@ export default function DrawerComponent(props: DrawerComponentProps) {
                               'flex items-center justify-between',
                               isActive && 'ai-menu-item-active',
                             )}
-                            style={{ padding: `${rpx(taroSpacing['sm-loose'])} 23rpx` }}
+                            style={{ padding: '20rpx 23rpx' }}
                             onClick={() => onChatItemClick?.(chat)}
                             hoverClass="opacity-60"
                           >
@@ -410,7 +412,7 @@ export default function DrawerComponent(props: DrawerComponentProps) {
             <View
               className="flex items-center justify-between"
               style={{
-                padding: `${rpx(taroSpacing['xs-loose'])} 13rpx`,
+                padding: '12rpx 13rpx',
                 background: 'var(--color-card)',
               }}
             >
