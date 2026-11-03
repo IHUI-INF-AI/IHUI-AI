@@ -35,8 +35,8 @@ const TEXT_CLASS: Record<typeof TOOLTIP_TEXT_TIER, string> = { xs: 'text-label' 
 const SHADOW_CLASS: Record<typeof TOOLTIP_SHADOW_TIER, string> = { md: 'shadow-md' }
 
 /** 本端承载:RN 的 `TOOLTIP_GAP_PX` 数值在本端落成外边距类(4px 档 = mb-1/mt-1)。 */
-const GAP_BOTTOM_CLASS: Record<number, string> = { 4: 'mb-1' }
-const GAP_TOP_CLASS: Record<number, string> = { 4: 'mt-1' }
+const GAP_BOTTOM_CLASS: Record<number, string> = { 4: 'mb-xs' }
+const GAP_TOP_CLASS: Record<number, string> = { 4: 'mt-xs' }
 
 export interface TooltipProps {
   text: string

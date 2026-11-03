@@ -29,13 +29,13 @@ export default function VideoTabs(props: VideoTabsProps) {
   const tt = useTt()
   const { tabs = DEFAULT_TABS(tt), active = 'catalog', onChange } = props
   return (
-    <View className="flex bg-card mb-2">
+    <View className="flex bg-card mb-sm">
       {tabs.map((tab) => {
         const isActive = tab.key === active
         return (
           <View
             key={tab.key}
-            className="flex-1 flex items-center justify-center py-3"
+            className="flex-1 flex items-center justify-center py-md"
             onClick={() => onChange?.(tab.key)}
             hoverClass="opacity-60"
           >
@@ -44,7 +44,7 @@ export default function VideoTabs(props: VideoTabsProps) {
             >
               {tab.label}
               {tab.count !== undefined && tab.count > 0 && (
-                <Text className="text-label ml-1 text-muted-foreground">{tab.count}</Text>
+                <Text className="text-label ml-xs text-muted-foreground">{tab.count}</Text>
               )}
             </Text>
             {isActive && (

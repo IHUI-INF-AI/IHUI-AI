@@ -50,21 +50,21 @@ export default function CourseRating({
     >
       <View className="absolute inset-0 bg-[var(--color-black-50)]" />
       <View
-        className="relative bg-card ui-panel rounded-xl mx-8 px-6 py-5 max-w-xs w-full"
+        className="relative bg-card ui-panel rounded-xl mx-3xl px-6 py-5 max-w-xs w-full"
         hoverClass="opacity-60"
         onClick={(e) => e.stopPropagation()}
       >
-        <Text className="block text-title font-medium text-foreground mb-3 text-center">
+        <Text className="block text-title font-medium text-foreground mb-md text-center">
           {tt('course.ratingTitle', '评价课程')}
         </Text>
 
-        <View className="flex justify-center mb-2">
+        <View className="flex justify-center mb-sm">
           {[1, 2, 3, 4, 5].map((star) => (
             // 命中区/间距留在包装 View 上(原 Text 的 mx-1 与三个触摸回调一字未动),
             // 载体换成 LineIcon:60rpx = 原 text-3xl(30px)的同档取值。
             <View
               key={star}
-              className="mx-1"
+              className="mx-xs"
               onClick={() => setRating(star)}
               onTouchStart={() => setHoverRating(star)}
               onTouchEnd={() => setHoverRating(0)}
@@ -81,12 +81,12 @@ export default function CourseRating({
             </View>
           ))}
         </View>
-        <Text className="block text-label text-muted-foreground text-center mb-4">
+        <Text className="block text-label text-muted-foreground text-center mb-lg">
           {labels[hoverRating || rating] || tt('course.ratingPlaceholder', '请评分')}
         </Text>
 
-        <View className="bg-muted rounded-lg px-3 py-2 mb-4">
-          <Text className="block text-label text-muted-foreground mb-1">
+        <View className="bg-muted rounded-lg px-md py-sm mb-lg">
+          <Text className="block text-label text-muted-foreground mb-xs">
             {tt('course.ratingDescLabel', '写下你的评价')}
           </Text>
           <FocusInput

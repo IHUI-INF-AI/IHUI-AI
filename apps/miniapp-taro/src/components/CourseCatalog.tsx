@@ -66,10 +66,10 @@ export default function CourseCatalog({
             <Image src={cover} mode="aspectFill" className="w-full h-full" lazyLoad />
           </View>
         ) : null}
-        <View className="p-4">
-          <Text className="block text-title font-medium text-foreground mb-1">{name}</Text>
+        <View className="p-lg">
+          <Text className="block text-title font-medium text-foreground mb-xs">{name}</Text>
           {intro ? (
-            <Text className="block text-body text-muted-foreground mb-3 line-clamp-2">{intro}</Text>
+            <Text className="block text-body text-muted-foreground mb-md line-clamp-2">{intro}</Text>
           ) : null}
           <View className="flex items-center justify-between">
             <Text className="text-label text-muted-foreground">
@@ -81,7 +81,7 @@ export default function CourseCatalog({
                 if (!joined) onJoin?.(id)
               }}
               className={cn(
-                'px-4 py-[12rpx] rounded-md',
+                'px-lg py-[12rpx] rounded-md',
                 joined ? 'bg-muted text-muted-foreground' : 'bg-cta text-cta-foreground',
               )}
             >
@@ -98,7 +98,7 @@ export default function CourseCatalog({
   // ===== default variant:课程目录列表(原实现)=====
   return (
     <View className="bg-card">
-      <View className="flex items-center justify-between px-4 py-3 mb-2">
+      <View className="flex items-center justify-between px-lg py-md mb-sm">
         <View className="flex items-center">
           <Image
             src={bspappUrl('tabbar/home/zhongxia/popular-courser.png')}
@@ -128,7 +128,7 @@ export default function CourseCatalog({
         lowerThreshold={50}
       >
         {loading ? (
-          <View className="py-8 text-center">
+          <View className="py-3xl text-center">
             <Text className="text-body text-muted-foreground">
               {tt('common.loadingShort', '加载中...')}
             </Text>
