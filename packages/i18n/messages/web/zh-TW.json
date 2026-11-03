@@ -14824,6 +14824,86 @@
     "totalCount": "共 {count} 人"
   },
   "docs": {
+    "common": {
+      "backToDocs": "返回文件中心",
+      "startReading": "開始閱讀",
+      "firstChapter": "已是第一章",
+      "lastChapter": "已是最後一章",
+      "chapterBadge": "第 {num} 章 · 使用說明手冊"
+    },
+    "manual": {
+      "overview": {
+        "title": "使用說明手冊",
+        "description": "無需技術背景,跟著步驟操作即可。"
+      },
+      "getting-started": {
+        "title": "開始使用"
+      },
+      "ai-chat": {
+        "title": "AI 對話"
+      },
+      "agent": {
+        "title": "使用 Agent"
+      },
+      "knowledge-base": {
+        "title": "知識庫"
+      },
+      "billing": {
+        "title": "積分與訂閱"
+      },
+      "account": {
+        "title": "帳戶設定"
+      },
+      "faq": {
+        "title": "常見問題"
+      }
+    },
+    "meta": {
+      "overview": {
+        "title": "智匯 AI 文件中心",
+        "description": "從快速開始到深度開發,完整涵蓋智匯 AI 全部能力"
+      },
+      "quickstart": {
+        "title": "5 分鐘快速開始 — 智匯 AI",
+        "description": "5 分鐘從註冊到發布第一個 AI Agent。Apache 2.0 開放原始碼,100+ 模型,六端同源。"
+      },
+      "api": {
+        "title": "API 參考 — 智匯 AI",
+        "description": "REST API + Webhook + OpenAPI 3.1,SDK 全語言涵蓋。"
+      },
+      "rag": {
+        "title": "知識庫 RAG — 智匯 AI",
+        "description": "文件解析、向量檢索、BM25、知識圖譜"
+      },
+      "mcp": {
+        "title": "MCP 工具整合 — 智匯 AI",
+        "description": "原生支援 Anthropic MCP 協議,內建 100+ Server,亦可自行開發。"
+      },
+      "agent": {
+        "title": "Agent 開發 — 智匯 AI",
+        "description": "視覺化編排 + 範本 + 最佳實踐,六端發布。"
+      },
+      "self-host": {
+        "title": "自託管部署 — 智匯 AI",
+        "description": "Docker Compose / Kubernetes Helm Chart 部署指南"
+      },
+      "models": {
+        "title": "多模型調度 — 智匯 AI",
+        "description": "100+ LLM 統一接入,自動 fallback,Combo 鏈組合呼叫。"
+      },
+      "workflow": {
+        "title": "工作流編排 — 智匯 AI",
+        "description": "n8n 風格節點畫布,視覺化編排複雜 AI 流程。"
+      },
+      "team": {
+        "title": "團隊協作 — 智匯 AI",
+        "description": "RBAC、SSO、稽核、積分共用,企業級團隊 AI 協作。"
+      },
+      "manual": {
+        "title": "使用說明手冊 — 智匯 AI",
+        "description": "面向終端使用者的圖文教學,7 章涵蓋全部常用功能。"
+      }
+    },
     "navAgent": "Agent 開發",
     "navApi": "API 文檔",
     "navDevelopers": "開發者",
