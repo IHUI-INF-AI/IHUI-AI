@@ -6853,6 +6853,27 @@ const checks = [
     onFailHint:
       '  💡 单独复验:node scripts/check-rn-host-shell-coverage.mjs [--gate|--json]。缺口两条正路:① 补 RN 壳(node scripts/gen-rn-host-shell.mjs --all --write);② 在 scripts/data/rn-host-shell-manual.json 逐条认领(owner + expires + reason)。挂账到期即判红,禁止为消红批量伪造认领。',
   },
+  {
+    id: '285',
+    label:
+      '🦾 两端同名组件 props 行为对账(blocking,差值棘轮:同名配对组件的 props 键集/必选性只减不增 —— 缺腿是静默失效型,调用端传过去本端无声忽略)',
+    script: 'check-cross-end-component-props-parity.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_CROSS_END_PROPS_PARITY',
+    stagedTriggers: [
+      'apps/miniapp-taro/src/components/',
+      'packages/app/src/components/',
+      'packages/app/src/features/',
+      'apps/mobile-rn/src/components/',
+      'scripts/check-cross-end-component-props-parity.mjs',
+      'scripts/lib/component-props-parity.mjs',
+      'scripts/data/cross-end-props-parity-baseline.json',
+      'scripts/lib/cross-end-screen-props.mjs',
+    ],
+    onFailHint:
+      '  💡 本门拦的是"两端腿差变大",不是"两端有腿差"(存量账在 scripts/data/cross-end-props-parity-baseline.json,与本次改动无关的旧差不拦你)。① 看差在哪:node scripts/check-cross-end-component-props-parity.mjs --json;② 修腿正路 = 两端消费同一份源(共享组件 + 平台 adapter),让差集只减;③ 确属平台机制的有意分形(无障碍通道/键盘通道这类),在 commit message 写明理由后 node scripts/check-cross-end-component-props-parity.mjs --update-baseline 落账 —— 拒写保护:未判定>50% 视为编译面瞬时故障不会落账。',
+  },
   // --- 跨端「声明承载 vs 真承载」差集棘轮(2026-11-03 立,守门 284)---
   {
     id: '284',
@@ -6869,6 +6890,39 @@ const checks = [
     skipEnv: 'HUSKY_SKIP_DECLARED_CARRIAGE',
     onFailHint:
       '  💡 registry 新增了一条「某小程序页承载某共享屏」的声明,而那一页的 blob 里**没有**该壳的值 import(注释与 import type 都不算)。单独复验:node scripts/check-declared-carriage.mjs [--gate|--json]。两条正路:① 把那一页改成真的承载壳(页与 import 同批落);② 该端结构上不能承载就摘掉这条 registry 行(连同 app.config 路由一起核)。禁止为消红补注释——本尺就判注释不算。',
+  },
+  // 编号 285:注册前现读 `id: '285'` 在本文件与 HEAD 面均为 0(现读最大 284;取号规则 = 注册前现读
+  // 最大 + 1,撞号由门 89 R5/R13 反查)。立因(2026-11-03,机主"容器 hover 太重"二次定档):
+  // 全站浮起唯一数值源 = apps/web/app/globals.css 的 `--lift-*`(2026-10-22 定档、11-03 减淡),
+  // 其头注铁律"端内不得再各写 hover:scale-105 / hover:shadow-xl / hover:-translate-y-*"**此前只是
+  // 注释**(§0.9:判据不在真跑它的那一刻才成立 = 没有)。同日实测 24 个文件 30 处散写,营销定价卡
+  // 的 group-hover:-translate-y-2(8px,Tailwind translate 独立属性)与源 transform -2px **叠加**,
+  // 所以"调了数值源还是重"。散写已于本枚前一批整体清零,非容器豁免族(按钮档/1px chip/图标箭头/
+  // 工具 chrome)入具名台账 ⇒ D1 立门当次 HEAD 现读 = 0,按 §12e 可直接 blocking,非恒红门。
+  {
+    id: '285',
+    label:
+      '🎈 容器 hover 浮起单一数值源(blocking;hover 变体段后的 translate-y/shadow 散写绝对零,豁免=具名台账带到期且逐文件计数配平)',
+    script: 'check-hover-lift-single-source.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: ['apps/web/', 'packages/ui-react/'],
+    skipEnv: 'HUSKY_SKIP_HOVER_LIFT_SINGLE_SOURCE',
+    onFailHint: [
+      '  💡 红的意思是:某处又给**容器**手写了 hover 浮起(translate-y / shadow 族),而全站唯一数值源是',
+      '     apps/web/app/globals.css 的 `--lift-*`(2026-11-03 机主定档:稍微有点感觉)。',
+      '     Tailwind 的 translate 是独立属性、源用 transform,两支会**叠加**成双倍位移 —— 散写不是"多一个',
+      '     风格"而是"把全站调轻的数值源旁路掉"。',
+      '  💡 修法:① 普通容器卡 ⇒ 散写位移/浮起阴影删掉即可(Card 基座与 main 内 bg-card 容器由源自动接管,',
+      '        非 bg-card 的卡显式挂 `ui-lift`);bg/border 的 subtle 变色与静态 shadow 不在射程;',
+      '     ② 图片 hover 推开 / 图标微缩放 / 按钮档 / 1px chip 微动 ⇒ 属非容器身份,往',
+      '        scripts/data/hover-lift-single-source-allowlist.json 登记 file/liftCalls/reason(≥10字)/until,',
+      '        计数必须与被审面逐文件命中**配平**(多了判红,少了判清单腐烂);',
+      '     ③ 整页级大壳不该浮 ⇒ 挂 .ui-lift-off 退出,也不要回来散写。',
+      '     取证:node scripts/check-hover-lift-single-source.mjs --self-test(18 例,含变异自证)',
+      '     镜像:node --test scripts/tests/check-hover-lift-single-source.test.mjs',
+      '  💡 应急放行:HUSKY_SKIP_HOVER_LIFT_SINGLE_SOURCE=1 git commit ...(不推荐;跳过会留痕)',
+    ].join('\n'),
   },
 ]
 

@@ -23,10 +23,7 @@ export function FeatureCard({ title, description, badge, footer, onClick }: Feat
       role={onClick ? 'button' : undefined}
       tabIndex={onClick ? 0 : undefined}
       onClick={onClick}
-      className={
-        'flex h-full flex-col transition-shadow ' +
-        (onClick ? 'cursor-pointer hover:shadow-md' : '')
-      }
+      className={'flex h-full flex-col transition-shadow ' + (onClick ? 'cursor-pointer' : '')}
     >
       <CardHeader>
         <div className="flex items-start justify-between gap-2">
