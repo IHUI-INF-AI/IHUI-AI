@@ -17,6 +17,7 @@ import RefundHeader from './refund-header'
 import RefundOrderCard from './refund-order-card'
 import { getRnTokens } from '@ihui/design-tokens'
 import { useAppTheme } from '@/lib/theme'
+import { onToast } from '@/host/on-toast'
 
 const REASONS = (tt: TtFn): Array<{ key: string; fb: string }> => [
   { key: 'orderRefund.d1', fb: tt('orderRefund.d1', '不想要了') },
@@ -83,14 +84,11 @@ export default function OrderRefund() {
 
   const onSubmit = async () => {
     if (!reason) {
-      Taro.showToast({
-        title: tt('order.refund.selectReasonFirst', '请选择退款原因'),
-        icon: 'none',
-      })
+      onToast(tt('order.refund.selectReasonFirst', '请选择退款原因'), { kind: 'info' })
       return
     }
     if (!order?.id) {
-      Taro.showToast({ title: tt('order.loadFailed', '订单信息加载失败'), icon: 'none' })
+      onToast(tt('order.loadFailed', '订单信息加载失败'), { kind: 'error' })
       return
     }
     const found = REASONS(tt).find((r) => r.key === reason)
@@ -108,10 +106,10 @@ export default function OrderRefund() {
     setSubmitting(true)
     try {
       await refund({ orderId: String(order.id), reason: composed })
-      Taro.showToast({ title: tt('order.refund.submitted', '退款申请已提交'), icon: 'success' })
+      onToast(tt('order.refund.submitted', '退款申请已提交'), { kind: 'success' })
       setTimeout(() => Taro.navigateBack(), 1500)
     } catch {
-      Taro.showToast({ title: tt('setting.operationFailed', '操作失败'), icon: 'none' })
+      onToast(tt('setting.operationFailed', '操作失败'), { kind: 'error' })
     } finally {
       setSubmitting(false)
     }

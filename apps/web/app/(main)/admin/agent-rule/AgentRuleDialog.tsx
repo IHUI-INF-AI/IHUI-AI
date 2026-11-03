@@ -61,7 +61,7 @@ export function AgentRuleDialog({
             <DialogTitle>{editing ? t('editTitle') : t('createTitle')}</DialogTitle>
           </DialogHeader>
           {err && (
-            <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <div className="rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">
               {err}
             </div>
           )}
@@ -138,7 +138,7 @@ export function AgentRuleDialog({
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
               placeholder={t('placeholderDescription')}
-              className="min-h-[80px] w-full rounded-sm border border-input bg-transparent px-3 py-2 text-sm"
+              className="min-h-[80px] w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body"
             />
           </div>
           <DialogFooter>

@@ -111,7 +111,7 @@ export function EnterpriseContent() {
           <h1 className="text-display min-[768px]:text-3xl min-[1024px]:text-4xl font-bold tracking-tight">
             {t('hero.title')}
           </h1>
-          <p className="mx-auto max-w-2xl text-sm text-muted-foreground min-[768px]:text-base">
+          <p className="mx-auto max-w-2xl text-body text-muted-foreground min-[768px]:text-base">
             {t('hero.subtitle')}
           </p>
           <div className="flex flex-wrap items-center justify-center gap-6 pt-2">
@@ -119,7 +119,7 @@ export function EnterpriseContent() {
               <div className="text-display font-bold tracking-tight">
                 <AnimatedNumber value={18000} prefix="¥" duration={2000} />
               </div>
-              <div className="text-xs text-muted-foreground">{t('hero.priceStandard')}</div>
+              <div className="text-label text-muted-foreground">{t('hero.priceStandard')}</div>
             </div>
             <div className="text-center">
               <div className="flex items-center gap-2">
@@ -130,13 +130,13 @@ export function EnterpriseContent() {
                   -67%
                 </span>
               </div>
-              <div className="text-xs text-muted-foreground">{t('hero.priceEarlyBird')}</div>
+              <div className="text-label text-muted-foreground">{t('hero.priceEarlyBird')}</div>
             </div>
             <div className="text-center">
               <div className="text-display font-bold tracking-tight">
                 <AnimatedNumber value={18} duration={1500} />
               </div>
-              <div className="text-xs text-muted-foreground">{t('hero.earlyBirdSlots')}</div>
+              <div className="text-label text-muted-foreground">{t('hero.earlyBirdSlots')}</div>
             </div>
           </div>
           <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
@@ -164,7 +164,7 @@ export function EnterpriseContent() {
               </div>
               <div className="flex-1 min-w-0 space-y-2">
                 <h2 className="text-lg font-semibold tracking-tight">{t('positioning.title')}</h2>
-                <p className="text-sm text-muted-foreground">{t('positioning.description')}</p>
+                <p className="text-body text-muted-foreground">{t('positioning.description')}</p>
                 <div className="flex flex-wrap gap-2 pt-1">
                   {positioningTags.map((tag) => (
                     <span
@@ -207,10 +207,10 @@ export function EnterpriseContent() {
                       <span className="text-label font-medium text-muted-foreground">{m.tag}</span>
                     </div>
                     <h3 className="text-base font-semibold tracking-tight">{m.title}</h3>
-                    <p className="text-sm text-muted-foreground">{m.description}</p>
+                    <p className="text-body text-muted-foreground">{m.description}</p>
                     <div className="flex flex-wrap gap-1.5 pt-1">
                       {m.features.map((f) => (
-                        <span key={f} className="rounded-md bg-muted px-2 py-0.5 text-xs">
+                        <span key={f} className="rounded-md bg-muted px-2 py-0.5 text-label">
                           {f}
                         </span>
                       ))}
@@ -242,19 +242,19 @@ export function EnterpriseContent() {
               <div className="flex flex-col items-start justify-between gap-4 min-[768px]:flex-row min-[768px]:items-center">
                 <div className="space-y-1">
                   <h2 className="text-heading font-bold tracking-tight">{t('join.title')}</h2>
-                  <p className="text-sm text-muted-foreground">{t('join.subtitle')}</p>
+                  <p className="text-body text-muted-foreground">{t('join.subtitle')}</p>
                 </div>
                 <div className="text-right">
-                  <div className="text-xs text-muted-foreground line-through">¥18000</div>
+                  <div className="text-label text-muted-foreground line-through">¥18000</div>
                   <div className="text-heading font-bold tracking-tight min-[768px]:text-display text-primary">
                     ¥6000
                   </div>
-                  <div className="text-xs text-muted-foreground">{t('join.perYear')}</div>
+                  <div className="text-label text-muted-foreground">{t('join.perYear')}</div>
                 </div>
               </div>
               <div className="grid grid-cols-1 gap-2 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
                 {benefits.map((b) => (
-                  <div key={b} className="flex items-center gap-2 text-sm">
+                  <div key={b} className="flex items-center gap-2 text-body">
                     <Check className="h-4 w-4 shrink-0 text-success-text" />
                     <span>{b}</span>
                   </div>
@@ -265,7 +265,7 @@ export function EnterpriseContent() {
                   {t('join.joinNow')}
                   <ArrowRight className="ml-1 h-4 w-4" />
                 </Button>
-                <span className="text-xs text-muted-foreground">{t('join.consultHint')}</span>
+                <span className="text-label text-muted-foreground">{t('join.consultHint')}</span>
               </div>
             </CardContent>
           </Card>

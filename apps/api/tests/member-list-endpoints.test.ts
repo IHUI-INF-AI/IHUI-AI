@@ -21,7 +21,7 @@
  * db 的 select 链返回预设行,不触库。
  */
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
-import Fastify from 'fastify'
+import Fastify, { type FastifyError } from 'fastify'
 
 const { mockAuthenticate, dbQueue, eqCalls } = vi.hoisted(() => ({
   mockAuthenticate: vi.fn(),
@@ -201,7 +201,7 @@ describe('补缺口:GET /api/addresses + GET /api/notes + GET /api/study/plans �
   const server = Fastify({ logger: false })
 
   beforeAll(async () => {
-    server.setErrorHandler((err, _request, reply) => {
+    server.setErrorHandler((err: FastifyError, _request, reply) => {
       const statusCode =
         err.statusCode && err.statusCode >= 400 && err.statusCode < 600 ? err.statusCode : 500
       reply.status(statusCode).send({

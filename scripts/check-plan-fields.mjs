@@ -49,8 +49,11 @@
  * (哪天把 stock/dup 也判红)仍未升档,那一步的前置才是存量归零。
  *
  * 机读末行:`PLAN-FIELDS-RESULT state=clean|warn|red|undetermined a1=<n|NA> a2=<n> a3=<n|NA>
- *  dup=<n> conflict=<n> blind=<n> midform=<n> orphan=<n> stock=<n> face=<head|staged|worktree>`
+ *  dup=<n> leaseDup=<n> conflict=<n> blind=<n> midform=<n> orphan=<n> stock=<n> face=<head|staged|worktree>`
  * 退出码:0 = clean/warn / 1 = red / 2 = 未判定(取不到台账或侧车面,含 A3 的基准侧车面)。
+ * `--strict`(2026-11-03 立):把两个存量维升成红 —— ①`dup > 0`;②`〔千段租约〕` 行按
+ * `(族, 机器, 段)` **绝对唯一**,同键两行即红,并逐组点名行号与重复内容摘要。默认档逐字不变
+ * (仍只报数),这样别的腿不会被存量 dup 打断;strict 档是给清偿/写盘器的判据,不是新的恒红门。
  * `orphan`(侧车记录在台账里找不到对应行)与 `midform`(语义同、形态未收敛)都只报数、不进 verdict。
  */
 import path from 'node:path'
@@ -65,6 +68,7 @@ import {
   resolveSidecar,
 } from './lib/plan-field-line.mjs'
 import { fieldsFor } from './lib/plan-fields.mjs'
+import { leaseDupGroupsOfRows } from './lib/plan-id-lease.mjs'
 import {
   bucketFromFields,
   claimMarkOf,
@@ -175,6 +179,17 @@ export function judge(
   const a2List = []
   const midformList = []
   const blindList = []
+  // 租约绝对唯一维(2026-11-03 立,门 130 strict 档):同一 `(族, 机器, 段)` 两行即重复。
+  // 用行面真实 1 基行号点名,重复内容摘要逐组给 —— 只看数的 "dup" 清不掉"两行同时占一段"。
+  const leaseDupGroups = leaseDupGroupsOfRows(rows)
+  const leaseDupList = []
+  for (const g of leaseDupGroups) {
+    const head = g[0]
+    const where = g.map((e) => `L${e.lineNo}`).join(' / ')
+    leaseDupList.push(
+      `  ${where}  同键(${head.machine} 段=${head.segment}) 重复 ×${g.length}:${clip(head.raw)}`,
+    )
+  }
   let stock = 0
   // 孤儿键归并维(2026-10-26 票①"新旧标识符双向差 ∧ ANC 标题锚点"):改号器只换台账行号、
   // 不搬侧车键,抽取器又按新号补写 ⇒ 同一件事两把键,旧号键成孤儿。判据单源 import
@@ -265,6 +280,7 @@ export function judge(
     a2: a2List.length,
     a3: a3List.length,
     dup,
+    leaseDup: leaseDupGroups.length,
     conflict: conflicts.length,
     blind: blindList.length,
     midform: midformList.length,
@@ -279,6 +295,7 @@ export function judge(
     a1List,
     a2List,
     a3List,
+    leaseDupList,
     midformList,
     conflictList,
     blindList,
@@ -380,31 +397,41 @@ export function readFaces(root = ROOT, face = 'head') {
   }
 }
 
-export function verdict(v, face) {
+export function verdict(v, face, { strict = false } = {}) {
   const a1Text = v.hasBase ? String(v.a1) : 'NA'
   const a3Text = v.hasBaseSide ? String(v.a3) : 'NA'
   // midform(语义同、形态未收敛)只报数:它不是归属说错,判红就是与提交内容无关的恒红门(§12e)。
   // rot 走差值棘轮:基准侧车面已有的已禁形态签名只报数(存量清偿前置),本次新增才拦红(§12e)。
   const rotText = v.hasBaseSide ? String(v.rotNew) : 'NA'
+  const leaseDup = Number(v.leaseDup ?? 0) || 0
+  // --strict(2026-11-03 立):把两个**只报数**的存量维升成红 —— ①同键同读数 dup 组;
+  // ②`〔千段租约〕` 同 `(族, 机器, 段)` 多行。默认档保持只报数(不打断其它腿的存量清偿节奏)。
+  const strictRed = strict && (Number(v.dup) > 0 || leaseDup > 0)
   const red =
-    v.a2 > 0 || (v.hasBase && v.a1 > 0) || (v.hasBaseSide && v.a3 > 0) || (v.hasBaseSide && v.rotNew > 0)
+    strictRed ||
+    v.a2 > 0 ||
+    (v.hasBase && v.a1 > 0) ||
+    (v.hasBaseSide && v.a3 > 0) ||
+    (v.hasBaseSide && v.rotNew > 0)
   const state = red ? 'red' : v.stock > 0 ? 'warn' : 'clean'
   return {
     state,
     code: red ? 1 : 0,
     line:
       `PLAN-FIELDS-RESULT state=${state} a1=${a1Text} a2=${v.a2} a3=${a3Text} dup=${v.dup} ` +
+      `leaseDup=${leaseDup} ` +
       `conflict=${v.conflict} blind=${v.blind} midform=${v.midform} orphan=${v.orphan} ` +
-      `adopt=${v.adopt} rot=${v.rot} rotn=${rotText} stock=${v.stock} face=${face}`,
+      `adopt=${v.adopt} rot=${v.rot} rotn=${rotText} stock=${v.stock} face=${face}` +
+      (strict ? ' strict=1' : ''),
   }
 }
 
-function run({ root = ROOT, face = 'head' } = {}) {
+function run({ root = ROOT, face = 'head', strict = false } = {}) {
   const f = readFaces(root, face)
   if (!f.ok) {
     console.log(`⚠️ 未判定 —— ${f.why}`)
     console.log(
-      `PLAN-FIELDS-RESULT state=undetermined a1=NA a2=NA a3=NA dup=NA conflict=NA blind=NA midform=NA orphan=NA adopt=NA rot=NA rotn=NA stock=NA face=${face}`,
+      `PLAN-FIELDS-RESULT state=undetermined a1=NA a2=NA a3=NA dup=NA leaseDup=NA conflict=NA blind=NA midform=NA orphan=NA adopt=NA rot=NA rotn=NA stock=NA face=${face}`,
     )
     return 2
   }
@@ -423,7 +450,7 @@ function run({ root = ROOT, face = 'head' } = {}) {
   console.log(
     `A1 新增行缺交代 ${v.hasBase ? v.a1 : 'NA'} 枚 / A2 标头不一致 ${v.a2} 枚 / ` +
       `A3 新增矛盾键组 ${v.hasBaseSide ? v.a3 : 'NA'} 组 / ` +
-      `同键同读数 dup ${v.dup} 组 / 全量矛盾 ${v.conflict} 组 / A2 盲区点名 ${v.blind} 枚 / ` +
+      `同键同读数 dup ${v.dup} 组 / 租约同 (族,机器,段) 重复 ${v.leaseDup} 组 / 全量矛盾 ${v.conflict} 组 / A2 盲区点名 ${v.blind} 枚 / ` +
       `中间态 ${v.midform} 枚(语义同、形态未收敛;点名不判红) / ` +
       `孤儿记录 ${v.orphan} 条(只报数,不判红) / ` +
       `孤儿键归并 ${v.adopt} 条(搬+退场;另有不可归并 ${v.adoptSkipped} 条逐条点名) / ` +
@@ -439,6 +466,9 @@ function run({ root = ROOT, face = 'head' } = {}) {
   for (const l of v.midformList.slice(0, 20)) console.log(`  · 中间态 ${l}`)
   if (v.midformList.length > 20)
     console.log(`  · 中间态 …另 ${v.midformList.length - 20} 枚同型未逐条打印`)
+  for (const l of v.leaseDupList.slice(0, 20)) console.log(`  · 租约重复 ${l}`)
+  if (v.leaseDupList.length > 20)
+    console.log(`  · 租约重复 …另 ${v.leaseDupList.length - 20} 组同型未逐条打印`)
   for (const l of v.conflictList.slice(0, 20)) console.log(`  · 矛盾组 ${l}`)
   if (v.conflictList.length > 20)
     console.log(`  · 矛盾组 …另 ${v.conflictList.length - 20} 组同型未逐条打印`)
@@ -460,7 +490,7 @@ function run({ root = ROOT, face = 'head' } = {}) {
     console.log(
       `   存量 ${v.stock} 枚 = 靠散文判的行(抽取器抽不出可搬的值,按规矩一条记录都不造)⇒ node scripts/plan-fields-extract.mjs --apply 对它们无效(changed=0,跑了也清不掉)。出路二选一:①用 live-doc-edit 在该行正文补「归属:…/在等:…」让抽取器可搬 ②确无可搬说辞的按 plan-fields-extract 头注的声明档处置(--reclassify 只改已有记录、--retire-orphans 只退孤儿键,手改 jsonl 不算通道)`,
     )
-  const r = verdict(v, face)
+  const r = verdict(v, face, { strict })
   console.log(r.line)
   return r.code
 }
@@ -620,7 +650,7 @@ function main() {
   if (argv.includes('--staged') && argv.includes('--worktree')) {
     console.log('❌ 用法错 —— --staged 与 --worktree 不得同用(两个判定面互斥,§0.4)')
     console.log(
-      'PLAN-FIELDS-RESULT state=undetermined a1=NA a2=NA a3=NA dup=NA conflict=NA blind=NA midform=NA orphan=NA adopt=NA rot=NA rotn=NA stock=NA face=none',
+      'PLAN-FIELDS-RESULT state=undetermined a1=NA a2=NA a3=NA dup=NA leaseDup=NA conflict=NA blind=NA midform=NA orphan=NA adopt=NA rot=NA rotn=NA stock=NA face=none',
     )
     return 2
   }
@@ -629,7 +659,8 @@ function main() {
     : argv.includes('--worktree')
       ? 'worktree'
       : 'head'
-  return run({ root: ROOT, face })
+  // --strict:dup(同键同读数)与租约同键重复从"只报数"升成红;默认档逐字不变(§12e 存量清偿节奏)。
+  return run({ root: ROOT, face, strict: argv.includes('--strict') })
 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href

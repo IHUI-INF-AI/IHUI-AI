@@ -33,6 +33,7 @@ export const UNION_BOOLEAN_FLAGS = Object.freeze([
   '--move-aware-detail',
   '--resurrect-block',
   '--show-all-bad',
+  '--legacy-lenient',
   '--help',
 ])
 
@@ -257,6 +258,7 @@ export const USAGE = [
   '      node scripts/union-converge.mjs --show-all-bad      # 全列落地闸障碍(缺省只印前 15 条并报名余下几条)',
   '      node scripts/union-converge.mjs --move-aware-detail # 逐行打印"因搬运感知而未取回"的行',
   '      node scripts/union-converge.mjs --resurrect-block   # 把行级复活的"新增强"折进落地闸(缺省只报数)',
+  '      node scripts/union-converge.mjs --legacy-lenient    # 逃生阀:退回旧口径(整份取对侧不再量三项差);stderr 必打醒目告警',
   '      node scripts/union-converge.mjs --self-test         # 真临时仓回归自检',
   '      node scripts/union-converge.mjs --help|-h           # 本用法(rc=0,不执行任何动作)',
   `未知/拿不准的旗标出路(闸不静默掉进默认档,也不把同步链押死): ${UNKNOWN_FLAG_ESCAPE_ENV.enable}=1 ` +

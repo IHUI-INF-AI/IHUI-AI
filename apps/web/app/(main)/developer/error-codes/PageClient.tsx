@@ -19,7 +19,7 @@ export default function ErrorCodesPageClient() {
           <AlertTriangle className="h-5 w-5 text-primary" aria-hidden />
           {t('errorCodes.title')}
         </h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">{t('errorCodes.subtitle')}</p>
+        <p className="mt-0.5 text-body text-muted-foreground">{t('errorCodes.subtitle')}</p>
       </div>
 
       <ErrorCodeTable />
@@ -34,7 +34,7 @@ export default function ErrorCodesPageClient() {
             >
               <span className="flex min-w-0 items-center gap-2">
                 <BookOpen className="h-4 w-4 shrink-0 text-primary" aria-hidden />
-                <span className="text-sm">{t('errorCodes.apiDocsDesc')}</span>
+                <span className="text-body">{t('errorCodes.apiDocsDesc')}</span>
               </span>
               <ArrowRight
                 className="h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100"
@@ -47,7 +47,7 @@ export default function ErrorCodesPageClient() {
             >
               <span className="flex min-w-0 items-center gap-2">
                 <KeyRound className="h-4 w-4 shrink-0 text-primary" aria-hidden />
-                <span className="text-sm">{t('errorCodes.apiKeysDesc')}</span>
+                <span className="text-body">{t('errorCodes.apiKeysDesc')}</span>
               </span>
               <ArrowRight
                 className="h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100"

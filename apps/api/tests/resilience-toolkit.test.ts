@@ -16,6 +16,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import Fastify, { type FastifyInstance } from 'fastify'
 import fp from 'fastify-plugin'
+import type { Redis } from 'ioredis'
 import { resilienceToolkit } from '../src/plugins/resilience-toolkit.js'
 import { hotConfig } from '../src/utils/hot-config.js'
 import { deadLetterQueue } from '../src/utils/dead-letter-queue.js'
@@ -44,7 +45,7 @@ function makeMockRedis(): MockRedis {
 /** 替代真实 redis plugin 的 fake — 必须以 name='redis' 注册才能被 resilienceToolkit 识别为依赖。 */
 const fakeRedisPlugin = fp(
   async (s) => {
-    s.decorate('redis', makeMockRedis())
+    s.decorate('redis', makeMockRedis() as unknown as Redis)
   },
   { name: 'redis', fastify: '5.x' },
 )

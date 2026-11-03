@@ -46,8 +46,9 @@ export function RankingScreen({
   error,
   onRefresh,
   onBack,
-  colorScheme = 'light',
-}: RankingScreenProps) {
+  onRetry,
+  colorScheme = 'light'
+}: RankingScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
   const rangeItems = useMemo(() => RANGES.map((r) => ({ id: r, label: t(RANGE_KEYS[r]!) })), [t])
@@ -88,7 +89,7 @@ export function RankingScreen({
       {error ? (
         <ErrorState
           message={error}
-          onRetry={onRefresh}
+          onRetry={onRetry}
           retryLabel={t('ranking.retry')}
           colorScheme={colorScheme}
         />

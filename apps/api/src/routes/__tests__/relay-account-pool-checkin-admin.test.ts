@@ -54,6 +54,12 @@ const hoisted = vi.hoisted(() => ({
     record: { ok: true } as Record<string, unknown> | null,
     error: null as string | null,
   },
+  /** reauth-status 拉取的签到侧全量(默认空;按用例注入) */
+  poolAccounts: {
+    ok: true,
+    accounts: [] as Array<Record<string, unknown>>,
+    error: null as string | null,
+  },
 }))
 
 vi.mock('../../plugins/require-permission.js', () => ({
@@ -141,6 +147,8 @@ vi.mock('../../services/relay-account-usage.js', () => ({
 }))
 vi.mock('../../services/relay-upstream-adapters.js', () => ({
   getRelayAdapter: vi.fn(() => null),
+  // checkin-status 归因用:有签到引擎且有 refresh 协议的平台(真实现口径)
+  isRefreshableProviderCode: (code: string) => ['trae', 'workbuddy', 'qoder'].includes(code),
 }))
 vi.mock('../../services/relay-proxy-pool.js', () => ({
   listProxies: vi.fn(async () => ({})),
@@ -178,6 +186,12 @@ vi.mock('../../services/relay-account-pool-checkin-sync.js', () => ({
   listCheckinSyncPending: vi.fn(async () => []),
   retryPendingCheckinSyncs: vi.fn(async () => ({})),
   parseCheckinSyncMeta: vi.fn(() => ({})),
+}))
+
+vi.mock('../../services/relay-account-pool-reconcile.js', () => ({
+  // 只 mock 本路由用到的两个导出;对账纯函数由 relay-account-pool-reconcile.test.ts 覆盖
+  fetchPoolAccounts: vi.fn(async () => hoisted.poolAccounts),
+  parseCheckinLastRecord: (raw: unknown) => raw,
 }))
 
 import relayAccountPoolRoutes from '../admin/relay-account-pool.js'
@@ -225,6 +239,7 @@ beforeEach(async () => {
     error: null,
   }
   hoisted.statusViews = {}
+  hoisted.poolAccounts = { ok: true, accounts: [], error: null }
   hoisted.runResult = { ok: true, httpStatus: 200, record: { ok: true }, error: null }
   vi.mocked(pushPoolSync).mockClear()
   vi.mocked(markCheckinSyncPending).mockClear()
@@ -358,6 +373,154 @@ describe('POST /admin/relay/account-pool/checkin-status', () => {
     expect(items['pool-1']).toMatchObject({ ok: true, found: true, pendingCred: true })
     expect(items['pool-2']).toMatchObject({ found: false, noEngine: true })
     expect(items['pool-ghost']).toMatchObject({ found: false })
+  })
+})
+
+// =============================================================================
+// 31. GET /admin/relay/account-pool/reauth-status
+// =============================================================================
+
+describe('GET /admin/relay/account-pool/reauth-status', () => {
+  it('按 provider × reason 读出 needsReauth 计数;down 落 account_down,正常 skip 不误标', async () => {
+    const now = Date.now()
+    hoisted.statusRows.push(
+      poolRow({
+        id: 'trae-down',
+        providerCode: 'trae',
+        healthStatus: 'down',
+        tempUnschedulable: true,
+        tokenExpiresAt: null,
+        hasRefreshToken: true,
+        lastErrorMessage: 'refresh token is not matched to the client',
+      }),
+      poolRow({
+        id: 'minimax-expired',
+        providerCode: 'minimax',
+        healthStatus: 'healthy',
+        tempUnschedulable: false,
+        tokenExpiresAt: new Date(now - 86_400_000),
+        hasRefreshToken: true,
+        lastErrorMessage: null,
+      }),
+      poolRow({
+        id: 'qoder-skip',
+        providerCode: 'qoder',
+        healthStatus: 'healthy',
+        tempUnschedulable: false,
+        tokenExpiresAt: new Date(now + 86_400_000),
+        hasRefreshToken: true,
+        lastErrorMessage: null,
+      }),
+      poolRow({
+        id: 'doubao-healthy',
+        providerCode: 'doubao',
+        healthStatus: 'healthy',
+        tempUnschedulable: false,
+        tokenExpiresAt: null,
+        hasRefreshToken: false,
+        lastErrorMessage: null,
+      }),
+    )
+    hoisted.poolAccounts = {
+      ok: true,
+      error: null,
+      accounts: [
+        {
+          accountId: 1,
+          poolAccountId: 'trae-down',
+          ownerUserId: null,
+          platform: 'trae',
+          identityKey: 'trae-down',
+          enabled: true,
+          poolCredVersion: 1,
+          poolPendingCred: null,
+          lastRecord: {
+            ok: false,
+            action: 'claim',
+            message: 'not able to authenticate you',
+            code: '1001',
+            httpStatus: null,
+            classifiedErrorType: 'BusinessError',
+            createdAt: new Date(now).toISOString(),
+          },
+        },
+        {
+          accountId: 2,
+          poolAccountId: 'qoder-skip',
+          ownerUserId: null,
+          platform: 'qoder',
+          identityKey: 'qoder-skip',
+          enabled: true,
+          poolCredVersion: 1,
+          poolPendingCred: null,
+          lastRecord: {
+            ok: true,
+            action: 'skip_already',
+            message: null,
+            code: null,
+            httpStatus: null,
+            classifiedErrorType: null,
+            createdAt: new Date(now).toISOString(),
+          },
+        },
+      ],
+    }
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/admin/relay/account-pool/reauth-status',
+    })
+    expect(res.statusCode).toBe(200)
+    const data = (
+      res.json() as {
+        data: {
+          total: number
+          needsReauth: number
+          counts: {
+            total: number
+            byProvider: Record<string, number>
+            byReason: Record<string, number>
+            byProviderReason: Record<string, Record<string, number>>
+          }
+          checkinSource: { ok: boolean; error: string | null }
+          items: Array<{ id: string; needsReauth: boolean; reauthReason: string | null }>
+        }
+      }
+    ).data
+    expect(data.total).toBe(4)
+    expect(data.needsReauth).toBe(2)
+    expect(data.counts).toEqual({
+      total: 2,
+      byProvider: { trae: 1, minimax: 1 },
+      byReason: { account_down: 1, expired_no_refresh: 1 },
+      byProviderReason: { trae: { account_down: 1 }, minimax: { expired_no_refresh: 1 } },
+    })
+    expect(data.checkinSource).toEqual({ ok: true, error: null })
+    const byId = new Map(data.items.map((i) => [i.id, i]))
+    expect(byId.get('trae-down')?.reauthReason).toBe('account_down')
+    expect(byId.get('qoder-skip')?.needsReauth).toBe(false)
+    expect(byId.get('doubao-healthy')?.needsReauth).toBe(false)
+  })
+
+  it('签到侧不可达 → 只做池侧分类,checkinSource 显式报错', async () => {
+    hoisted.statusRows.push(
+      poolRow({ id: 'opencode-down', providerCode: 'opencode', healthStatus: 'down' }),
+    )
+    hoisted.poolAccounts = { ok: false, accounts: [], error: 'pool-accounts HTTP 500: boom' }
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/admin/relay/account-pool/reauth-status',
+    })
+    expect(res.statusCode).toBe(200)
+    const data = (
+      res.json() as {
+        data: {
+          counts: { byReason: Record<string, number> }
+          checkinSource: { ok: boolean; error: string | null }
+        }
+      }
+    ).data
+    expect(data.counts.byReason).toEqual({ account_down: 1 })
+    expect(data.checkinSource).toEqual({ ok: false, error: 'pool-accounts HTTP 500: boom' })
   })
 })
 

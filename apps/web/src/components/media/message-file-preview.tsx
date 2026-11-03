@@ -184,7 +184,7 @@ export function CsvPreview({ src }: { src: string }) {
         href={src}
         target="_blank"
         rel="noopener noreferrer"
-        className="my-0 inline-flex items-center gap-1.5 rounded-md border border-border bg-streamed-container-bg px-2.5 py-1 text-sm transition-colors hover:bg-streamed-container-bg-hover"
+        className="my-0 inline-flex items-center gap-1.5 rounded-md border border-border bg-streamed-container-bg px-2.5 py-1 text-body transition-colors hover:bg-streamed-container-bg-hover"
         data-testid="csv-preview-fallback"
       >
         {src.split('/').pop()?.split('?')[0] || 'CSV'}
@@ -239,9 +239,9 @@ export function CsvPreview({ src }: { src: string }) {
       ) : (
         <div className="max-h-[360px] overflow-auto">
           {rows === null ? (
-            <p className="p-3 text-xs text-muted-foreground">{t('csvLoading')}</p>
+            <p className="p-3 text-label text-muted-foreground">{t('csvLoading')}</p>
           ) : (
-            <table className="w-full border-collapse text-xs" data-testid="csv-table">
+            <table className="w-full border-collapse text-label" data-testid="csv-table">
               <thead>
                 <tr>
                   {header.map((h, i) => (
@@ -272,3 +272,4 @@ export function CsvPreview({ src }: { src: string }) {
     </div>
   )
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

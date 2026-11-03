@@ -101,6 +101,15 @@ export const Linking = {
 }
 
 /**
+ * `action` 的唯一真值。返回值必须引用这两个常量而不是再写一遍字面量:
+ * 调用方写的是 `res.action === Share.dismissedAction`,若常量与返回值任一格缺失,
+ * `undefined === undefined` 恰为真 ⇒ 会把「分享已就绪」误判成「用户已取消」。
+ * 这是静默假阴性,不是理论风险(共用的 RN 屏 AiCareerScreen 就是按该常量判的)。
+ */
+const SHARED_ACTION = 'sharedAction' as const
+const DISMISSED_ACTION = 'dismissedAction' as const
+
+/**
  * RN Share:小程序**没有**从代码直接拉起转发面板的 API(转发只能由右上角菜单或
  * `<button open-type="share">` 触发)。降级契约(登记差异):
  *  · 把 `url ?? message` 写进剪贴板 —— 用户仍能一键粘贴到任意会话;
@@ -110,8 +119,8 @@ export const Linking = {
  * 没有内容也开不了菜单时才返回 `dismissedAction`,让调用方的取消分支可达。
  */
 export const Share = {
-  sharedAction: 'sharedAction' as const,
-  dismissedAction: 'dismissedAction' as const,
+  sharedAction: SHARED_ACTION,
+  dismissedAction: DISMISSED_ACTION,
   share: async (options: { message?: string; url?: string; title?: string }) => {
     const content = options.url ?? options.message ?? ''
     if (content) {
@@ -122,16 +131,20 @@ export const Share = {
       }
     }
     if (typeof Taro.showShareMenu === 'function') {
-      Taro.showShareMenu({
-        withShareTicket: true,
-        showShareItems: ['shareAppMessage', 'shareTimeline'],
-        // 后台未开通分享权限 / 个人主体 appId 会 fail(与 utils/share.ts 同一口径:静默)
-        fail: () => {},
-      })
-      return { action: 'sharedAction' as const, activityType: undefined }
+      try {
+        Taro.showShareMenu({
+          withShareTicket: true,
+          showShareItems: ['shareAppMessage', 'shareTimeline'],
+          // 后台未开通分享权限 / 个人主体 appId 会 fail(与 utils/share.ts 同一口径:静默)
+          fail: () => {},
+        })
+      } catch {
+        // 同步抛(宿主未实现/参数被拒)也只降级到「内容已就绪」,不能把整次分享变成拒绝
+      }
+      return { action: SHARED_ACTION, activityType: undefined }
     }
-    if (!content) return { action: 'dismissedAction' as const, activityType: undefined }
-    return { action: 'sharedAction' as const, activityType: undefined }
+    if (!content) return { action: DISMISSED_ACTION, activityType: undefined }
+    return { action: SHARED_ACTION, activityType: undefined }
   },
 }
 
@@ -849,6 +862,14 @@ function useAnimatedStyleSubscription(style: unknown): void {
   }, [])
 }
 
+/**
+ * 包装组件:**保留静态 style,再叠加动画值** —— 逐叶解值,静态键原样透传。
+ * 旧实现把整个 `style` 从 props 里摘掉(`const { style: _animatedStyle, ...rest }`),
+ * 调用方写在同一个 style 里的背景/尺寸/边距会随动画一起消失;这比"动画直接落终值"更严重,
+ * 因为它连不含动画的静态外观也一起丢了。当前实现要求两件事同时成立:
+ *  ① 静态键(含数组/嵌套数组形态)一个不丢;② 动画节点在渲染时取**当前帧值**,不是创建时快照。
+ * 回归锁见 animated.test.ts 的「静态 style 与动画值合并」用例。
+ */
 function createAnimatedComponent<P extends object>(Component: (props: P) => ReactElement) {
   return function AnimatedComponent(props: P): ReactElement {
     const style = (props as { style?: unknown }).style

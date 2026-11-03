@@ -77,12 +77,12 @@ export default function RecruitmentDetailPage() {
       <div className="mx-auto w-full max-w-3xl space-y-4">
         <Link
           href="/recruitment"
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
           {t('back')}
         </Link>
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {(error as Error)?.message ?? t('notExist')}
         </div>
       </div>
@@ -99,19 +99,21 @@ export default function RecruitmentDetailPage() {
     <div className="px-4 py-4 mx-auto w-full max-w-4xl space-y-4">
       <Link
         href="/recruitment"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         {t('back')}
       </Link>
 
       <header className="space-y-3">
-        <div className="inline-flex items-center gap-2 rounded-md bg-primary/10 px-3 py-1 text-sm text-primary">
+        <div className="inline-flex items-center gap-2 rounded-md bg-primary/10 px-3 py-1 text-body text-primary">
           <Target className="h-4 w-4" />
           {data.subtitle ?? t('defaultSubtitle')}
         </div>
-        <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">{data.title}</h1>
-        <p className="text-xs text-muted-foreground min-[768px]:text-base">{data.description}</p>
+        <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">
+          {data.title}
+        </h1>
+        <p className="text-label text-muted-foreground min-[768px]:text-base">{data.description}</p>
       </header>
 
       {stats.length > 0 && (
@@ -132,7 +134,7 @@ export default function RecruitmentDetailPage() {
                   </div>
                   <div>
                     <div className="text-lg font-bold">{s.value}</div>
-                    <div className="text-xs text-muted-foreground">{s.label}</div>
+                    <div className="text-label text-muted-foreground">{s.label}</div>
                   </div>
                 </CardContent>
               </Card>
@@ -156,7 +158,7 @@ export default function RecruitmentDetailPage() {
                   <li
                     key={r.title}
                     className={cn(
-                      'flex items-start gap-2 rounded-md p-2 text-sm transition-colors',
+                      'flex items-start gap-2 rounded-md p-2 text-body transition-colors',
                       highlightIdx === i && 'bg-primary/5',
                     )}
                   >
@@ -171,7 +173,7 @@ export default function RecruitmentDetailPage() {
                 ))}
               </ul>
             ) : (
-              <p className="text-sm text-muted-foreground">{t('emptyRequirements')}</p>
+              <p className="text-body text-muted-foreground">{t('emptyRequirements')}</p>
             )}
           </CardContent>
         </Card>
@@ -187,7 +189,7 @@ export default function RecruitmentDetailPage() {
             {benefits.length > 0 ? (
               <ul className="space-y-3">
                 {benefits.map((b) => (
-                  <li key={b.title} className="flex items-start gap-2 text-sm">
+                  <li key={b.title} className="flex items-start gap-2 text-body">
                     <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
                     <div>
                       <div className="font-medium">{b.title}</div>
@@ -197,7 +199,7 @@ export default function RecruitmentDetailPage() {
                 ))}
               </ul>
             ) : (
-              <p className="text-sm text-muted-foreground">{t('emptyBenefits')}</p>
+              <p className="text-body text-muted-foreground">{t('emptyBenefits')}</p>
             )}
           </CardContent>
         </Card>
@@ -213,12 +215,12 @@ export default function RecruitmentDetailPage() {
         <CardContent>
           <div className="flex flex-col items-center justify-center gap-2 py-10">
             <Users className="h-8 w-8 text-muted-foreground/40" />
-            <p className="text-sm text-muted-foreground">{t('emptyApplicants')}</p>
+            <p className="text-body text-muted-foreground">{t('emptyApplicants')}</p>
           </div>
         </CardContent>
       </Card>
 
-      <div className="text-center text-xs text-muted-foreground">
+      <div className="text-center text-label text-muted-foreground">
         {t('publishTime', { date: dateFmt.format(new Date()) })}
       </div>
     </div>

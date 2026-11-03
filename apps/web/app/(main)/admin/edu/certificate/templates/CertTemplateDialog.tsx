@@ -73,7 +73,7 @@ export function CertTemplateDialog({
             </DialogTitle>
           </DialogHeader>
           {err && (
-            <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <div className="rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">
               {err}
             </div>
           )}
@@ -88,11 +88,11 @@ export function CertTemplateDialog({
                   />
                 </div>
               ) : (
-                <div className="flex h-32 items-center justify-center rounded-md border text-sm text-muted-foreground">
+                <div className="flex h-32 items-center justify-center rounded-md border text-body text-muted-foreground">
                   {t('placeholderBackgroundImage')}
                 </div>
               )}
-              <div className="space-y-1 rounded-md border p-3 text-sm">
+              <div className="space-y-1 rounded-md border p-3 text-body">
                 <div className="text-base font-semibold">{form.name || t('labelName')}</div>
                 {form.description && (
                   <div className="text-muted-foreground">{form.description}</div>

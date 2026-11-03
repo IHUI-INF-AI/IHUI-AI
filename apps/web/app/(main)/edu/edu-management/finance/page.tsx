@@ -770,7 +770,7 @@ function SchedulePanel({ enrollments }: { enrollments: RosterItem[] }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-sm">账期 / 缴费计划</CardTitle>
+        <CardTitle className="text-body">账期 / 缴费计划</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid gap-1.5">
@@ -845,7 +845,7 @@ function SchedulePanel({ enrollments }: { enrollments: RosterItem[] }) {
                 />
               </div>
             ) : null}
-            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+            <label className="flex items-center gap-2 text-label text-muted-foreground">
               <input
                 type="checkbox"
                 checked={replace}
@@ -867,18 +867,18 @@ function SchedulePanel({ enrollments }: { enrollments: RosterItem[] }) {
 
         {enrollmentId ? (
           listQuery.isLoading ? (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2 text-body text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
               加载中…
             </div>
           ) : schedules.length === 0 ? (
-            <div className="text-sm text-muted-foreground">该报名还没有账期</div>
+            <div className="text-body text-muted-foreground">该报名还没有账期</div>
           ) : (
             <ul className="space-y-1">
               {schedules.map((s) => (
                 <li
                   key={s.id}
-                  className="flex items-center justify-between text-xs text-muted-foreground"
+                  className="flex items-center justify-between text-label text-muted-foreground"
                 >
                   <span>{`${s.periodLabel} · ${s.dueDate} · 应缴 ${s.amountDue}`}</span>
                   <span>{`${s.status} 已缴 ${s.paidAmount}${s.refundAmount ? ` 退 ${s.refundAmount}` : ''}`}</span>
@@ -1083,7 +1083,7 @@ function ApproveRefundDialog({
         </DialogHeader>
         {refund && (
           <div className="space-y-3 py-2">
-            <div className="rounded-md border p-3 text-sm space-y-1">
+            <div className="rounded-md border p-3 text-body space-y-1">
               <p>
                 <span className="text-muted-foreground">学员：</span>
                 {refund.studentName}
@@ -1499,7 +1499,7 @@ export default function FinancePage() {
 
       <header className="space-y-1">
         <h1 className="text-display font-bold tracking-tight">财务管理</h1>
-        <p className="text-xs text-muted-foreground">管理学费标准、缴费记录和退费申请</p>
+        <p className="text-label text-muted-foreground">管理学费标准、缴费记录和退费申请</p>
       </header>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -1541,7 +1541,7 @@ export default function FinancePage() {
                 添加学费标准
               </Button>
               {tuitionQuery.isLoading && (
-                <div className="ml-auto flex items-center text-xs text-muted-foreground">
+                <div className="ml-auto flex items-center text-label text-muted-foreground">
                   <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
                   加载中...
                 </div>
@@ -1560,7 +1560,7 @@ export default function FinancePage() {
             </Card>
           ) : tuitions.length === 0 ? (
             <Card>
-              <CardContent className="py-12 text-center text-sm text-muted-foreground">
+              <CardContent className="py-12 text-center text-body text-muted-foreground">
                 暂无学费标准
               </CardContent>
             </Card>
@@ -1568,7 +1568,7 @@ export default function FinancePage() {
             <Card>
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="w-full text-body">
                     <thead>
                       <tr className="bg-muted/40">
                         <th className="px-4 py-3 text-left font-medium text-muted-foreground">
@@ -1600,14 +1600,16 @@ export default function FinancePage() {
                     <tbody>
                       {tuitions.map((t) => (
                         <tr key={t.id} className="hover:bg-muted/30">
-                          <td className="px-4 py-3 text-xs">{t.className}</td>
-                          <td className="px-4 py-3 text-xs text-muted-foreground">{t.termName}</td>
+                          <td className="px-4 py-3 text-label">{t.className}</td>
+                          <td className="px-4 py-3 text-label text-muted-foreground">
+                            {t.termName}
+                          </td>
                           <td className="px-4 py-3 text-label font-medium">{t.feeName}</td>
-                          <td className="px-4 py-3 text-xs">{t.amount.toLocaleString()}</td>
-                          <td className="px-4 py-3 text-xs text-muted-foreground">
+                          <td className="px-4 py-3 text-label">{t.amount.toLocaleString()}</td>
+                          <td className="px-4 py-3 text-label text-muted-foreground">
                             {BILLING_CYCLE_MAP.get(t.billingCycle) ?? t.billingCycle}
                           </td>
-                          <td className="px-4 py-3 text-xs">{t.effectiveDate}</td>
+                          <td className="px-4 py-3 text-label">{t.effectiveDate}</td>
                           <td className="px-4 py-3">
                             <Badge
                               variant="secondary"
@@ -1624,7 +1626,7 @@ export default function FinancePage() {
                               <Button
                                 variant="ghost"
                                 size="xs"
-                                className="text-xs"
+                                className="text-label"
                                 onClick={() => {
                                   setEditingTuition(t)
                                   setTuitionDialogOpen(true)
@@ -1636,7 +1638,7 @@ export default function FinancePage() {
                               <Button
                                 variant="ghost"
                                 size="xs"
-                                className="text-xs text-red-500"
+                                className="text-label text-red-500"
                                 onClick={() => deleteTuition.mutate(t.id)}
                                 disabled={deleteTuition.isPending}
                               >
@@ -1661,7 +1663,9 @@ export default function FinancePage() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-body font-medium text-muted-foreground">总收入</CardTitle>
+                <CardTitle className="text-body font-medium text-muted-foreground">
+                  总收入
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-display font-bold text-green-600">
@@ -1686,7 +1690,9 @@ export default function FinancePage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-display font-bold text-orange-500">{summary?.unpaidCount ?? '-'}</p>
+                <p className="text-display font-bold text-orange-500">
+                  {summary?.unpaidCount ?? '-'}
+                </p>
               </CardContent>
             </Card>
             <Card>
@@ -1742,7 +1748,7 @@ export default function FinancePage() {
                 添加缴费
               </Button>
               {paymentQuery.isLoading && (
-                <div className="ml-auto flex items-center text-xs text-muted-foreground">
+                <div className="ml-auto flex items-center text-label text-muted-foreground">
                   <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
                   加载中...
                 </div>
@@ -1773,7 +1779,7 @@ export default function FinancePage() {
             </Card>
           ) : payments.length === 0 ? (
             <Card>
-              <CardContent className="py-12 text-center text-sm text-muted-foreground">
+              <CardContent className="py-12 text-center text-body text-muted-foreground">
                 暂无缴费记录
               </CardContent>
             </Card>
@@ -1781,7 +1787,7 @@ export default function FinancePage() {
             <Card>
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="w-full text-body">
                     <thead>
                       <tr className="bg-muted/40">
                         <th className="px-4 py-3 text-left font-medium text-muted-foreground">
@@ -1817,13 +1823,13 @@ export default function FinancePage() {
                       {payments.map((p) => (
                         <tr key={p.id} className="hover:bg-muted/30">
                           <td className="px-4 py-3 text-label font-medium">{p.studentName}</td>
-                          <td className="px-4 py-3 text-xs">{p.className}</td>
-                          <td className="px-4 py-3 text-xs">{p.feeName}</td>
+                          <td className="px-4 py-3 text-label">{p.className}</td>
+                          <td className="px-4 py-3 text-label">{p.feeName}</td>
                           <td className="px-4 py-3 text-label font-medium">
                             {p.amount.toLocaleString()}
                           </td>
-                          <td className="px-4 py-3 text-xs">{p.paymentDate}</td>
-                          <td className="px-4 py-3 text-xs text-muted-foreground">
+                          <td className="px-4 py-3 text-label">{p.paymentDate}</td>
+                          <td className="px-4 py-3 text-label text-muted-foreground">
                             {PAYMENT_METHOD_MAP.get(p.paymentMethod) ?? p.paymentMethod}
                           </td>
                           <td className="px-4 py-3">
@@ -1837,13 +1843,13 @@ export default function FinancePage() {
                               {PAYMENT_STATUS_MAP.get(p.status) ?? p.status}
                             </Badge>
                           </td>
-                          <td className="px-4 py-3 text-xs text-muted-foreground">
+                          <td className="px-4 py-3 text-label text-muted-foreground">
                             {p.receiptNo || '-'}
                           </td>
                           <td className="px-4 py-3">
                             <button
                               type="button"
-                              className="text-xs text-red-600 hover:underline disabled:opacity-50 disabled:hover:no-underline"
+                              className="text-label text-red-600 hover:underline disabled:opacity-50 disabled:hover:no-underline"
                               disabled={voidPayment.isPending}
                               onClick={() => handleVoidPayment(p)}
                             >
@@ -1864,11 +1870,11 @@ export default function FinancePage() {
           {legacyPayments.length > 0 && (
             <Card>
               <CardContent className="p-0">
-                <div className="bg-muted/40 px-4 py-3 text-xs text-muted-foreground">
+                <div className="bg-muted/40 px-4 py-3 text-label text-muted-foreground">
                   历史账 · 遗留课程平台（只读，共 {legacyTotal} 条；不参与欠费与汇总口径）
                 </div>
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="w-full text-body">
                     <thead>
                       <tr className="bg-muted/40">
                         <th className="px-4 py-3 text-left font-medium text-muted-foreground">
@@ -1908,19 +1914,19 @@ export default function FinancePage() {
                               遗留
                             </Badge>
                           </td>
-                          <td className="px-4 py-3 font-mono text-xs">{p.userUuid}</td>
-                          <td className="px-4 py-3 text-xs">{p.courseId}</td>
-                          <td className="px-4 py-3 text-xs text-muted-foreground">
+                          <td className="px-4 py-3 font-mono text-label">{p.userUuid}</td>
+                          <td className="px-4 py-3 text-label">{p.courseId}</td>
+                          <td className="px-4 py-3 text-label text-muted-foreground">
                             {p.orderNo || '-'}
                           </td>
                           <td className="px-4 py-3 text-label font-medium">
                             {p.amount.toLocaleString()}
                           </td>
-                          <td className="px-4 py-3 text-xs text-muted-foreground">
+                          <td className="px-4 py-3 text-label text-muted-foreground">
                             {p.createTime ? p.createTime.slice(0, 19).replace('T', ' ') : '-'}
                           </td>
-                          <td className="px-4 py-3 text-xs">{p.status}</td>
-                          <td className="px-4 py-3 text-xs text-muted-foreground">
+                          <td className="px-4 py-3 text-label">{p.status}</td>
+                          <td className="px-4 py-3 text-label text-muted-foreground">
                             {p.logs.length === 0
                               ? '-'
                               : p.logs
@@ -1955,7 +1961,7 @@ export default function FinancePage() {
                 申请退费
               </Button>
               {refundQuery.isLoading && (
-                <div className="ml-auto flex items-center text-xs text-muted-foreground">
+                <div className="ml-auto flex items-center text-label text-muted-foreground">
                   <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
                   加载中...
                 </div>
@@ -1974,7 +1980,7 @@ export default function FinancePage() {
             </Card>
           ) : refunds.length === 0 ? (
             <Card>
-              <CardContent className="py-12 text-center text-sm text-muted-foreground">
+              <CardContent className="py-12 text-center text-body text-muted-foreground">
                 暂无退费记录
               </CardContent>
             </Card>
@@ -1982,7 +1988,7 @@ export default function FinancePage() {
             <Card>
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="w-full text-body">
                     <thead>
                       <tr className="bg-muted/40">
                         <th className="px-4 py-3 text-left font-medium text-muted-foreground">
@@ -2015,15 +2021,15 @@ export default function FinancePage() {
                       {refunds.map((r) => (
                         <tr key={r.id} className="hover:bg-muted/30">
                           <td className="px-4 py-3 text-label font-medium">{r.studentName}</td>
-                          <td className="px-4 py-3 text-xs">{r.className}</td>
+                          <td className="px-4 py-3 text-label">{r.className}</td>
                           <td className="px-4 py-3 text-label font-medium">
                             {r.amount.toLocaleString()}
                           </td>
-                          <td className="px-4 py-3 text-xs">{r.refundDate}</td>
-                          <td className="px-4 py-3 text-xs text-muted-foreground">
+                          <td className="px-4 py-3 text-label">{r.refundDate}</td>
+                          <td className="px-4 py-3 text-label text-muted-foreground">
                             {PAYMENT_METHOD_MAP.get(r.refundMethod) ?? r.refundMethod}
                           </td>
-                          <td className="px-4 py-3 text-xs text-muted-foreground">
+                          <td className="px-4 py-3 text-label text-muted-foreground">
                             <TruncatedText value={r.reason} className="max-w-[120px]" />
                           </td>
                           <td className="px-4 py-3">
@@ -2042,7 +2048,7 @@ export default function FinancePage() {
                               <Button
                                 variant="outline"
                                 size="xs"
-                                className="text-xs"
+                                className="text-label"
                                 onClick={() => {
                                   setApprovingRefund(r)
                                   setApproveRefundOpen(true)
@@ -2115,7 +2121,7 @@ export default function FinancePage() {
                 发送催费({reminderSelected.size})
               </Button>
               {arrearsQuery.isLoading && (
-                <div className="ml-auto flex items-center text-xs text-muted-foreground">
+                <div className="ml-auto flex items-center text-label text-muted-foreground">
                   <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
                   加载中...
                 </div>
@@ -2134,7 +2140,7 @@ export default function FinancePage() {
             </Card>
           ) : arrearsList.length === 0 ? (
             <Card>
-              <CardContent className="py-12 text-center text-sm text-muted-foreground">
+              <CardContent className="py-12 text-center text-body text-muted-foreground">
                 暂无欠费学生
               </CardContent>
             </Card>
@@ -2142,7 +2148,7 @@ export default function FinancePage() {
             <Card>
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="w-full text-body">
                     <thead>
                       <tr className="bg-muted/40">
                         <th className="w-10 px-4 py-3" />
@@ -2181,15 +2187,15 @@ export default function FinancePage() {
                             />
                           </td>
                           <td className="px-4 py-3 text-label font-medium">{r.studentName}</td>
-                          <td className="px-4 py-3 text-xs">
+                          <td className="px-4 py-3 text-label">
                             {BUSINESS_LINE_MAP.get(r.businessLine) ?? r.businessLine}
                           </td>
-                          <td className="px-4 py-3 text-xs">{r.className}</td>
-                          <td className="px-4 py-3 text-xs text-muted-foreground">
+                          <td className="px-4 py-3 text-label">{r.className}</td>
+                          <td className="px-4 py-3 text-label text-muted-foreground">
                             {r.studentPhone ?? '-'}
                           </td>
-                          <td className="px-4 py-3 text-xs">{r.totalFee.toLocaleString()}</td>
-                          <td className="px-4 py-3 text-xs">{r.paidAmount.toLocaleString()}</td>
+                          <td className="px-4 py-3 text-label">{r.totalFee.toLocaleString()}</td>
+                          <td className="px-4 py-3 text-label">{r.paidAmount.toLocaleString()}</td>
                           <td className="px-4 py-3 text-label font-medium text-red-600">
                             {r.dueAmount.toLocaleString()}
                           </td>
@@ -2218,7 +2224,7 @@ export default function FinancePage() {
             ) : reminderStats ? (
               <Card>
                 <CardContent className="min-[640px]:p-3 space-y-2 p-3">
-                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <div className="flex flex-wrap items-center gap-2 text-label">
                     <Badge variant="secondary" className="text-[10px] text-white bg-blue-500">
                       登记催缴 {reminderStats.total} 条
                     </Badge>
@@ -2255,7 +2261,7 @@ export default function FinancePage() {
                       </Badge>
                     )}
                   </div>
-                  <p className="text-xs leading-relaxed text-muted-foreground">
+                  <p className="text-label leading-relaxed text-muted-foreground">
                     {reminderStats.caveat}
                   </p>
                 </CardContent>
@@ -2285,7 +2291,7 @@ export default function FinancePage() {
                   </SelectContent>
                 </Select>
                 {reminderRecordsQuery.isLoading && (
-                  <div className="ml-auto flex items-center text-xs text-muted-foreground">
+                  <div className="ml-auto flex items-center text-label text-muted-foreground">
                     <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
                     加载中...
                   </div>
@@ -2297,7 +2303,7 @@ export default function FinancePage() {
               <Alert variant="danger" description="加载催费记录失败，请稍后重试" />
             ) : reminderRecords.length === 0 ? (
               <Card>
-                <CardContent className="py-12 text-center text-sm text-muted-foreground">
+                <CardContent className="py-12 text-center text-body text-muted-foreground">
                   暂无催费记录
                 </CardContent>
               </Card>
@@ -2305,7 +2311,7 @@ export default function FinancePage() {
               <Card>
                 <CardContent className="p-0">
                   <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
+                    <table className="w-full text-body">
                       <thead>
                         <tr className="bg-muted/40">
                           <th className="px-4 py-3 text-left font-medium text-muted-foreground">
@@ -2328,13 +2334,13 @@ export default function FinancePage() {
                       <tbody>
                         {reminderRecords.map((m) => (
                           <tr key={m.id} className="hover:bg-muted/30">
-                            <td className="px-4 py-3 text-xs">
+                            <td className="px-4 py-3 text-label">
                               {REMINDER_CHANNEL_MAP.get(m.channel) ?? m.channel}
                             </td>
                             <td className="px-4 py-3 text-label font-medium">
                               {m.dueAmount.toLocaleString()}
                             </td>
-                            <td className="px-4 py-3 text-xs text-muted-foreground">
+                            <td className="px-4 py-3 text-label text-muted-foreground">
                               <TruncatedText value={m.message ?? '-'} className="max-w-[320px]" />
                             </td>
                             <td className="px-4 py-3">
@@ -2348,7 +2354,7 @@ export default function FinancePage() {
                                 {REMINDER_STATUS_MAP.get(m.status) ?? m.status}
                               </Badge>
                             </td>
-                            <td className="px-4 py-3 text-xs text-muted-foreground">
+                            <td className="px-4 py-3 text-label text-muted-foreground">
                               {new Date(m.createdAt).toLocaleString('zh-CN')}
                             </td>
                           </tr>
@@ -2368,7 +2374,7 @@ export default function FinancePage() {
                 <DialogTitle>发送催费</DialogTitle>
               </DialogHeader>
               <div className="space-y-4">
-                <p className="text-xs text-muted-foreground">
+                <p className="text-label text-muted-foreground">
                   已选择 {reminderSelected.size}{' '}
                   条欠费记录，发送后将通过所选通道通知学生（短信/微信通道当前同步发送一条站内信兜底）。
                 </p>
@@ -2395,7 +2401,7 @@ export default function FinancePage() {
                     placeholder="留空则使用系统默认催缴文案"
                     value={reminderMessage}
                     onChange={(e) => setReminderMessage(e.target.value)}
-                    className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   />
                 </div>
               </div>

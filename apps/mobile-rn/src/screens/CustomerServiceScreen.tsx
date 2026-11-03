@@ -24,6 +24,8 @@ export function CustomerServiceScreen() {
   const [info, setInfo] = useState<CustomerServiceInfo | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [reloadKey, setReloadKey] = useState(0)
+  const reload = () => setReloadKey((key) => key + 1)
 
   useEffect(() => {
     let cancelled = false
@@ -46,7 +48,7 @@ export function CustomerServiceScreen() {
     return () => {
       cancelled = true
     }
-  }, [t])
+  }, [t, reloadKey])
 
   const onCall = () => {
     if (info?.phone) void Linking.openURL(`tel:${info.phone}`)
@@ -64,6 +66,7 @@ export function CustomerServiceScreen() {
       onCall={onCall}
       onEmail={onEmail}
       onBack={() => navigation.goBack()}
+      onRetry={reload}
       colorScheme={resolvedTheme}
     />
   )

@@ -82,7 +82,7 @@ export function TagFormDialog({
               aria-invalid={!!nameErr}
             />
             {nameErr ? (
-              <p className="text-xs text-destructive">
+              <p className="text-label text-destructive">
                 {tValidation(nameErr as Parameters<typeof tValidation>[0])}
               </p>
             ) : null}

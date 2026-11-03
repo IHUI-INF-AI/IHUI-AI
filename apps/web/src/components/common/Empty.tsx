@@ -30,7 +30,7 @@ export function Empty({
       </div>
       <div className="space-y-1">
         <h3 className="text-base font-medium">{title}</h3>
-        {description && <p className="text-sm text-muted-foreground">{description}</p>}
+        {description && <p className="text-body text-muted-foreground">{description}</p>}
       </div>
       {action && <div className="mt-2">{action}</div>}
     </div>

@@ -64,7 +64,7 @@ describe('G-644 PUT /llm-configs/:id 三态补丁', () => {
     await server.close()
   })
 
-  const put = (body: unknown) =>
+  const put = (body: object) =>
     server.inject({ method: 'PUT', url: '/api/user/llm-configs/1', payload: body })
 
   it('apiKey:null ⇒ 显式清除(写 null,不是"未触碰")', async () => {
@@ -73,7 +73,7 @@ describe('G-644 PUT /llm-configs/:id 三态补丁', () => {
     const r = await put({ apiKey: null })
     expect(r.statusCode).toBe(200)
     expect(updateCaptured).toHaveLength(1)
-    expect(updateCaptured[0].set.apiKeyEnc).toBeNull()
+    expect(updateCaptured[0]!.set.apiKeyEnc).toBeNull()
   })
 
   it("apiKey:'' ⇒ 沿用(set 里不得出现 apiKeyEnc 键)", async () => {
@@ -82,7 +82,7 @@ describe('G-644 PUT /llm-configs/:id 三态补丁', () => {
     const r = await put({ apiKey: '' })
     expect(r.statusCode).toBe(200)
     expect(updateCaptured).toHaveLength(1)
-    expect('apiKeyEnc' in updateCaptured[0].set).toBe(false)
+    expect('apiKeyEnc' in updateCaptured[0]!.set).toBe(false)
   })
 
   it('apiKey 非空串 ⇒ 加密写入(值是 encryptJSON 的 JSON 串)', async () => {
@@ -90,8 +90,8 @@ describe('G-644 PUT /llm-configs/:id 三态补丁', () => {
     existingRow = { id: 1, ownerUuid: 'user-1', apiKeyEnc: null, extraConfig: null }
     const r = await put({ apiKey: 'sk-new-value' })
     expect(r.statusCode).toBe(200)
-    expect(typeof updateCaptured[0].set.apiKeyEnc).toBe('string')
-    expect(updateCaptured[0].set.apiKeyEnc).not.toContain('sk-new-value')
+    expect(typeof updateCaptured[0]!.set.apiKeyEnc).toBe('string')
+    expect(updateCaptured[0]!.set.apiKeyEnc).not.toContain('sk-new-value')
   })
 
   it('不传 apiKey ⇒ 未触碰(set 里无该键)——三态的另一半', async () => {
@@ -99,7 +99,7 @@ describe('G-644 PUT /llm-configs/:id 三态补丁', () => {
     existingRow = { id: 1, ownerUuid: 'user-1', apiKeyEnc: 'enc-old', extraConfig: null }
     const r = await put({ name: '新名字' })
     expect(r.statusCode).toBe(200)
-    expect('apiKeyEnc' in updateCaptured[0].set).toBe(false)
+    expect('apiKeyEnc' in updateCaptured[0]!.set).toBe(false)
   })
 
   it('存量 extraConfig 是坏 JSON 且要改 contextLength ⇒ 点名 500 拒绝,不静默整体覆写', async () => {
@@ -121,7 +121,7 @@ describe('G-644 PUT /llm-configs/:id 三态补丁', () => {
     }
     const r = await put({ contextLength: 8192 })
     expect(r.statusCode).toBe(200)
-    const extra = JSON.parse(String(updateCaptured[0].set.extraConfig))
+    const extra = JSON.parse(String(updateCaptured[0]!.set.extraConfig))
     expect(extra).toEqual({ foo: 'keep-me', contextLength: 8192 })
   })
 })

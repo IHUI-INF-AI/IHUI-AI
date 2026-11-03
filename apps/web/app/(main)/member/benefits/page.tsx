@@ -43,7 +43,7 @@ export default function MemberBenefitsPage() {
           <Award className="h-5 w-5 text-primary" />
           会员权益
         </h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">不同等级会员可享受的专属权益</p>
+        <p className="mt-0.5 text-body text-muted-foreground">不同等级会员可享受的专属权益</p>
       </div>
 
       {error && <Alert variant="danger" description={(error as Error).message} />}
@@ -56,7 +56,7 @@ export default function MemberBenefitsPage() {
       ) : items.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
           <Award className="h-8 w-8 text-muted-foreground opacity-40" />
-          <p className="text-sm text-muted-foreground">暂无权益数据</p>
+          <p className="text-body text-muted-foreground">暂无权益数据</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
@@ -83,7 +83,7 @@ export default function MemberBenefitsPage() {
                     )}
                   </div>
                   {benefits.length > 0 ? (
-                    <ul className="space-y-1.5 text-sm">
+                    <ul className="space-y-1.5 text-body">
                       {benefits.map((item, i) => (
                         <li key={i} className="flex items-start gap-2">
                           <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" />
@@ -92,7 +92,7 @@ export default function MemberBenefitsPage() {
                       ))}
                     </ul>
                   ) : (
-                    <p className="text-sm text-muted-foreground">暂无具体权益说明</p>
+                    <p className="text-body text-muted-foreground">暂无具体权益说明</p>
                   )}
                 </CardContent>
               </Card>

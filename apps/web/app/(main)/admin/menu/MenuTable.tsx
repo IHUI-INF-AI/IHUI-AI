@@ -53,7 +53,7 @@ export function MenuTable({
       render: (m) => (
         <TruncatedText
           value={m.icon || '-'}
-          className="max-w-[200px] font-mono text-xs text-muted-foreground"
+          className="max-w-[200px] font-mono text-label text-muted-foreground"
           mono
         />
       ),
@@ -64,7 +64,7 @@ export function MenuTable({
       render: (m) => (
         <TruncatedText
           value={m.path || '-'}
-          className="max-w-[200px] font-mono text-xs text-muted-foreground"
+          className="max-w-[200px] font-mono text-label text-muted-foreground"
           mono
         />
       ),
@@ -92,7 +92,9 @@ export function MenuTable({
           ) : (
             <EyeOff className="h-4 w-4 text-muted-foreground" />
           )}
-          <span className={cn('text-xs', m.visible ? 'text-emerald-600' : 'text-muted-foreground')}>
+          <span
+            className={cn('text-label', m.visible ? 'text-emerald-600' : 'text-muted-foreground')}
+          >
             {m.visible ? t('visible') : t('hidden')}
           </span>
         </button>

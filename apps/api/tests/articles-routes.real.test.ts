@@ -11,6 +11,7 @@ import { articleRoutes } from '../src/routes/articles.js'
 
 async function createCategory(name: string, sort = 0, status = 1) {
   const [row] = await db.insert(newsCategories).values({ name, sort, status }).returning()
+  if (!row) throw new Error('articles-routes.real.test.ts: 插入未返回行(row)')
   return row
 }
 
@@ -35,6 +36,7 @@ async function createArticle(data: {
       summary: data.summary,
     })
     .returning()
+  if (!row) throw new Error('articles-routes.real.test.ts: 插入未返回行(row)')
   return row
 }
 

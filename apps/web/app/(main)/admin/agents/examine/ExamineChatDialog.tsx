@@ -153,13 +153,15 @@ export function ExamineChatDialog({ open, target, onClose }: ExamineChatDialogPr
           <div className="flex flex-col border rounded-lg">
             <div className="flex-1 overflow-y-auto p-3 space-y-3">
               {chatMsgs.length === 0 ? (
-                <p className="text-center text-sm text-muted-foreground mt-10">{t('chatEmpty')}</p>
+                <p className="text-center text-body text-muted-foreground mt-10">
+                  {t('chatEmpty')}
+                </p>
               ) : (
                 chatMsgs.map((m, i) => (
                   <div key={i} className="space-y-1">
-                    <div className="rounded-lg bg-primary/10 px-3 py-2 text-sm">{m.ques}</div>
+                    <div className="rounded-lg bg-primary/10 px-3 py-2 text-body">{m.ques}</div>
                     {m.content && (
-                      <div className="rounded-lg bg-muted px-3 py-2 text-sm">{m.content}</div>
+                      <div className="rounded-lg bg-muted px-3 py-2 text-body">{m.content}</div>
                     )}
                   </div>
                 ))
@@ -184,7 +186,7 @@ export function ExamineChatDialog({ open, target, onClose }: ExamineChatDialogPr
             </div>
           </div>
           <div className="flex flex-col border rounded-lg p-3 space-y-3 overflow-y-auto">
-            <div className="space-y-1 text-sm">
+            <div className="space-y-1 text-body">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">{t('fieldAgentId')}</span>
                 <span>{target?.agentId}</span>
@@ -208,7 +210,7 @@ export function ExamineChatDialog({ open, target, onClose }: ExamineChatDialogPr
                 value={approvalRemark}
                 onChange={(e) => setApprovalRemark(e.target.value)}
                 rows={3}
-                className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 placeholder={t('approvalRemarkPlaceholder')}
               />
             </div>

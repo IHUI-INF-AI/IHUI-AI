@@ -85,7 +85,7 @@ export const ChatGenAgnes = React.memo(function ChatGenAgnes() {
     <Card>
       <CardHeader>
         <CardTitle>{t('agnesChatTitle')}</CardTitle>
-        <p className="text-sm text-muted-foreground">{t('agnesChatSubtitle')}</p>
+        <p className="text-body text-muted-foreground">{t('agnesChatSubtitle')}</p>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
@@ -115,7 +115,7 @@ export const ChatGenAgnes = React.memo(function ChatGenAgnes() {
         {answer ? (
           <div className="space-y-1">
             <div className="text-body font-medium">{t('result')}</div>
-            <div className="whitespace-pre-wrap rounded-md border bg-muted/40 p-3 text-sm">
+            <div className="whitespace-pre-wrap rounded-md border bg-muted/40 p-3 text-body">
               {answer}
             </div>
           </div>

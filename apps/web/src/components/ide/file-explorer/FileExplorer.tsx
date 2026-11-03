@@ -1,7 +1,6 @@
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 'use client'
 // 2026-09-09 0-6 组件拆分:file-explorer.tsx(596 行)拆为文件夹结构。
@@ -253,7 +252,7 @@ export function FileExplorer() {
               ? t('fileExplorer.fileNamePlaceholder')
               : t('fileExplorer.folderNamePlaceholder')
           }
-          className="w-full rounded-sm border border-border bg-background px-2 py-0.5 text-xs focus:outline-none"
+          className="w-full rounded-sm border border-border bg-background px-2 py-0.5 text-label focus:outline-none"
         />
       </div>
     )
@@ -267,7 +266,7 @@ export function FileExplorer() {
             key={tab}
             onClick={() => setSubTab(tab)}
             className={cn(
-              'rounded-sm px-2 py-0.5 text-xs transition-colors duration-150',
+              'rounded-sm px-2 py-0.5 text-label transition-colors duration-150',
               subTab === tab
                 ? 'bg-muted text-foreground'
                 : 'text-muted-foreground hover:text-foreground',
@@ -331,7 +330,7 @@ export function FileExplorer() {
         {subTab === 'files' &&
           (search ? (
             matched.length === 0 ? (
-              <div className="px-3 py-2 text-xs text-muted-foreground">
+              <div className="px-3 py-2 text-label text-muted-foreground">
                 {t('fileExplorer.noMatch')}
               </div>
             ) : (
@@ -362,7 +361,7 @@ export function FileExplorer() {
                       e.stopPropagation()
                       setMenuPos({ x: e.clientX, y: e.clientY, node })
                     }}
-                    className="flex cursor-pointer items-center gap-1 rounded-sm px-2 py-0.5 text-xs hover:bg-muted/50"
+                    className="flex cursor-pointer items-center gap-1 rounded-sm px-2 py-0.5 text-label hover:bg-muted/50"
                   >
                     <Icon className={cn('h-3.5 w-3.5 shrink-0', getFileColor(node.name))} />
                     {isRenaming ? (
@@ -380,7 +379,7 @@ export function FileExplorer() {
                             setRenamingNode(null)
                           }
                         }}
-                        className="w-full rounded-sm border border-border bg-background px-1 text-xs focus:outline-none"
+                        className="w-full rounded-sm border border-border bg-background px-1 text-label focus:outline-none"
                       />
                     ) : isDeleting ? (
                       <div className="flex flex-1 items-center gap-1">
@@ -392,7 +391,7 @@ export function FileExplorer() {
                             e.stopPropagation()
                             void handleDelete()
                           }}
-                          className="rounded-sm bg-red-500 px-1.5 py-0.5 text-xs text-white hover:bg-red-600"
+                          className="rounded-sm bg-red-500 px-1.5 py-0.5 text-label text-white hover:bg-red-600"
                         >
                           {t('fileExplorer.confirm')}
                         </button>
@@ -401,7 +400,7 @@ export function FileExplorer() {
                             e.stopPropagation()
                             setDeletingNode(null)
                           }}
-                          className="rounded-sm px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-muted"
+                          className="rounded-sm px-1.5 py-0.5 text-label text-muted-foreground hover:bg-muted"
                         >
                           {t('fileExplorer.cancel')}
                         </button>
@@ -414,15 +413,15 @@ export function FileExplorer() {
               })
             )
           ) : !workspacePath ? (
-            <div className="px-3 py-2 text-xs text-muted-foreground">
+            <div className="px-3 py-2 text-label text-muted-foreground">
               {t('editorEmpty.subtitle')}
             </div>
           ) : loading ? (
-            <div className="px-3 py-2 text-xs text-muted-foreground">...</div>
+            <div className="px-3 py-2 text-label text-muted-foreground">...</div>
           ) : error ? (
-            <div className="px-3 py-2 text-xs text-red-500">{error}</div>
+            <div className="px-3 py-2 text-label text-red-500">{error}</div>
           ) : fileTree.length === 0 ? (
-            <div className="px-3 py-2 text-xs text-muted-foreground">
+            <div className="px-3 py-2 text-label text-muted-foreground">
               {t('fileExplorer.noMatch')}
             </div>
           ) : (

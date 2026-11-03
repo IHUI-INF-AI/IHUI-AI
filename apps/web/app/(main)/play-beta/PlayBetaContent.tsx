@@ -71,7 +71,7 @@ export function PlayBetaContent(): React.JSX.Element {
         <h1 className="mt-3 text-display min-[768px]:text-3xl min-[1024px]:text-4xl font-bold tracking-tight">
           {t('hero.title')}
         </h1>
-        <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground min-[768px]:text-base">
+        <p className="mx-auto mt-2 max-w-xl text-body text-muted-foreground min-[768px]:text-base">
           {t('hero.subtitle')}
         </p>
       </section>
@@ -82,10 +82,10 @@ export function PlayBetaContent(): React.JSX.Element {
             <CardContent className="min-[640px]:p-3 flex flex-col items-center gap-3 p-3 text-center">
               <CheckCircle2 className="h-10 w-10 text-emerald-500" />
               <h2 className="text-heading font-bold text-foreground">{t('success.title')}</h2>
-              <p className="text-sm text-muted-foreground">{t('success.desc')}</p>
+              <p className="text-body text-muted-foreground">{t('success.desc')}</p>
               <ol className="mt-2 w-full space-y-2 text-left">
                 {STEPS.map((key, idx) => (
-                  <li key={key} className="flex items-start gap-2 text-sm text-muted-foreground">
+                  <li key={key} className="flex items-start gap-2 text-body text-muted-foreground">
                     <span
                       className={cn(
                         'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-primary/10 text-label font-semibold text-primary',
@@ -103,14 +103,14 @@ export function PlayBetaContent(): React.JSX.Element {
           <Card className="border-border">
             <CardContent className="min-[640px]:p-3 p-3">
               <h2 className="text-body font-semibold text-foreground">{t('join.title')}</h2>
-              <p className="mt-1 text-sm text-muted-foreground">{t('join.desc')}</p>
+              <p className="mt-1 text-body text-muted-foreground">{t('join.desc')}</p>
               <Button asChild className="mt-3 w-full">
                 <a href={PLAY_TESTING_URL} target="_blank" rel="noopener noreferrer">
                   <ExternalLink className="mr-1 h-4 w-4" />
                   {t('join.button')}
                 </a>
               </Button>
-              <p className="mt-2 text-xs text-muted-foreground">{t('join.hint')}</p>
+              <p className="mt-2 text-label text-muted-foreground">{t('join.hint')}</p>
             </CardContent>
           </Card>
         </div>
@@ -122,7 +122,7 @@ export function PlayBetaContent(): React.JSX.Element {
               <h2 className="mb-3 text-body font-semibold text-foreground">{t('why.title')}</h2>
               <ul className="space-y-2.5">
                 {whyItems.map((item, idx) => (
-                  <li key={idx} className="flex items-start gap-2 text-sm text-muted-foreground">
+                  <li key={idx} className="flex items-start gap-2 text-body text-muted-foreground">
                     <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" />
                     <span>{item}</span>
                   </li>
@@ -159,7 +159,7 @@ export function PlayBetaContent(): React.JSX.Element {
                   aria-hidden="true"
                 />
 
-                <label className="flex cursor-pointer items-start gap-2 text-xs text-muted-foreground">
+                <label className="flex cursor-pointer items-start gap-2 text-label text-muted-foreground">
                   <Checkbox
                     checked={agreed}
                     onCheckedChange={(v) => setAgreed(v === true)}
@@ -173,7 +173,7 @@ export function PlayBetaContent(): React.JSX.Element {
                   </span>
                 </label>
 
-                {status === 'error' && <p className="text-xs text-destructive">{errorMsg}</p>}
+                {status === 'error' && <p className="text-label text-destructive">{errorMsg}</p>}
 
                 <Button
                   type="submit"
@@ -206,7 +206,7 @@ export function PlayBetaContent(): React.JSX.Element {
             {FAQ.map((item) => (
               <div key={item.q}>
                 <h3 className="text-body font-medium text-foreground">{t(item.q)}</h3>
-                <p className="mt-1 text-sm text-muted-foreground">{t(item.a)}</p>
+                <p className="mt-1 text-body text-muted-foreground">{t(item.a)}</p>
               </div>
             ))}
           </div>

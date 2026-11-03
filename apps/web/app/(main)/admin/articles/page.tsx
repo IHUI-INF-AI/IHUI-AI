@@ -137,7 +137,7 @@ export default function AdminArticlesPage() {
       <BackButton />
       <div>
         <h1 className="text-display font-bold tracking-tight">文章管理</h1>
-        <p className="mt-1 text-sm text-muted-foreground">管理文章内容、发布状态与分类</p>
+        <p className="mt-1 text-body text-muted-foreground">管理文章内容、发布状态与分类</p>
       </div>
 
       <ArticleTable

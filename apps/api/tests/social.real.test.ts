@@ -21,6 +21,7 @@ import { users } from '@ihui/database'
 
 async function createTestUser(phone: string, nickname?: string) {
   const [row] = await db.insert(users).values({ phone, nickname }).returning()
+  if (!row) throw new Error('social.real.test.ts: 插入未返回行(row)')
   return row
 }
 

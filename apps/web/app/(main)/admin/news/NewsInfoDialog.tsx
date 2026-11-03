@@ -44,7 +44,7 @@ export function NewsInfoDialog(props: Props) {
             <DialogTitle>{editingInfo ? '编辑信息' : '新增信息'}</DialogTitle>
           </DialogHeader>
           {infoErr && (
-            <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <div className="rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">
               {infoErr}
             </div>
           )}

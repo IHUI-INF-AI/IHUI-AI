@@ -144,7 +144,7 @@ export function CategoryShell({
       {navGroups.map((group, idx) => (
         <div key={group.label ?? idx} className="space-y-1">
           {group.label && (
-            <p className="px-2.5 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+            <p className="px-2.5 pb-1 pt-1 text-label font-semibold uppercase tracking-wider text-muted-foreground/70">
               {group.label}
             </p>
           )}
@@ -181,11 +181,13 @@ export function CategoryShell({
           )}
           <div className="min-w-0 flex-1">
             <h1 className="text-heading font-bold tracking-tight">{title}</h1>
-            {description && <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>}
+            {description && (
+              <p className="mt-0.5 text-label text-muted-foreground">{description}</p>
+            )}
           </div>
           {/* 移动端当前项指示(<640px 显示) */}
           {activeItem && (
-            <p className="hidden min-w-0 max-w-[40%] truncate text-xs text-muted-foreground min-[640px]:hidden">
+            <p className="hidden min-w-0 max-w-[40%] truncate text-label text-muted-foreground min-[640px]:hidden">
               {activeItem.label}
             </p>
           )}

@@ -19,6 +19,40 @@ export function AgentScreen(props: Record<string, unknown>) {
   return createElement('div', { 'data-testid': 'shared-agent-screen', ...props }, null)
 }
 
+/**
+ * AgentChatScreen(B4 流式消费宿主):与上方 Plaza/Agent 同型 —— 本替身只做 props 捕获,
+ * 判的是「RN 宿主把增量文本/流式态/显式错误交给共享屏」这一层,共享屏渲染本身由
+ * packages/app 的套件负责。替身缺这条出口时宿主渲染拿到 undefined ⇒ 用例收集期即红。
+ */
+export const agentChatPropsCaptured: Array<Record<string, unknown>> = []
+export function AgentChatScreen(props: Record<string, unknown>) {
+  agentChatPropsCaptured.push(props)
+  return createElement('div', { 'data-testid': 'shared-agent-chat-screen' }, null)
+}
+
+/**
+ * 2026-11-03 薄壳批:CoursePlanet / MoreCourse / StudyIndex 三屏走 props 捕获替身。
+ * 判的是「RN 壳把取数结果、分页态与导航端口交给共享屏」这一层;共享屏渲染本身
+ * 由 packages/app 的套件负责。三枚名字若缺席,薄壳渲染即 "Element type is invalid"。
+ */
+export const coursePlanetScreenPropsCaptured: Array<Record<string, unknown>> = []
+export function CoursePlanetScreen(props: Record<string, unknown>) {
+  coursePlanetScreenPropsCaptured.push(props)
+  return createElement('div', { 'data-testid': 'shared-course-planet-screen' }, null)
+}
+
+export const moreCourseScreenPropsCaptured: Array<Record<string, unknown>> = []
+export function MoreCourseScreen(props: Record<string, unknown>) {
+  moreCourseScreenPropsCaptured.push(props)
+  return createElement('div', { 'data-testid': 'shared-more-course-screen' }, null)
+}
+
+export const studyIndexScreenPropsCaptured: Array<Record<string, unknown>> = []
+export function StudyIndexScreen(props: Record<string, unknown>) {
+  studyIndexScreenPropsCaptured.push(props)
+  return createElement('div', { 'data-testid': 'shared-study-index-screen' }, null)
+}
+
 export type PlazaScreenProps = {
   t: (key: string) => string
   colorScheme?: 'light' | 'dark'

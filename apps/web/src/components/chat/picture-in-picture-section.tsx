@@ -89,13 +89,13 @@ export function PictureInPictureSection({ conversationId }: { conversationId: st
     <section
       data-testid="pip-section"
       aria-label={t('pictureInPicture.sectionLabel')}
-      className="mx-auto mb-2 max-w-2xl rounded-lg border bg-card p-3 text-sm"
+      className="mx-auto mb-2 max-w-2xl rounded-lg border bg-card p-3 text-body"
     >
       <div className="mb-2 flex items-center gap-2 font-semibold">
         <PictureInPicture2 className="h-4 w-4 text-primary" aria-hidden />
         <span>{t('pictureInPicture.sectionLabel')}</span>
       </div>
-      <p className="mb-2 text-xs text-muted-foreground">{t('pictureInPicture.title')}</p>
+      <p className="mb-2 text-label text-muted-foreground">{t('pictureInPicture.title')}</p>
       <div className="flex flex-col gap-2">
         <label className="flex items-center gap-2">
           <input
@@ -130,7 +130,7 @@ export function PictureInPictureSection({ conversationId }: { conversationId: st
       {visible ? (
         <div
           data-testid="pip-empty-state"
-          className="mt-2 flex items-center justify-center gap-2 rounded-md border border-dashed px-3 py-4 text-xs text-muted-foreground"
+          className="mt-2 flex items-center justify-center gap-2 rounded-md border border-dashed px-3 py-4 text-label text-muted-foreground"
         >
           <span>{t('pictureInPicture.emptyState')}</span>
           {canOpenPip ? (
@@ -146,13 +146,15 @@ export function PictureInPictureSection({ conversationId }: { conversationId: st
         </div>
       ) : null}
       {failed ? (
-        <p role="alert" data-testid="pip-update-failed" className="mt-2 text-xs text-destructive">
+        <p
+          role="alert"
+          data-testid="pip-update-failed"
+          className="mt-2 text-label text-destructive"
+        >
           {t('pictureInPicture.updateFailed')}
         </p>
       ) : null}
     </section>
   )
 }
-
-export default PictureInPictureSection
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

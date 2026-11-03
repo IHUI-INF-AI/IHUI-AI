@@ -164,14 +164,14 @@ export default function KeySchedulingPage() {
           <Gauge className="h-5 w-5" aria-hidden />
           号池调度精细控制
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="mt-1 text-body text-muted-foreground">
           账号级临时摘除(不打健康牌)、速率倍率覆盖、RPM 覆盖。留空 =
           恢复全局默认;改动写库后选路即时生效。
         </p>
       </div>
 
       <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full text-xs" style={{ tableLayout: 'fixed' }}>
+        <table className="w-full text-label" style={{ tableLayout: 'fixed' }}>
           <thead className="bg-muted/50 text-left text-muted-foreground">
             <tr>
               <th className="px-3 py-2 font-medium">渠道</th>
@@ -285,7 +285,7 @@ export default function KeySchedulingPage() {
       {/* 全局策略默认档(只读):本页的 per-key 覆盖就叠在这张档之上 */}
       <RelayPoolPolicyCard />
 
-      <p className="flex items-center gap-1 text-xs text-muted-foreground">
+      <p className="flex items-center gap-1 text-label text-muted-foreground">
         <Label className="text-label font-normal">说明</Label>
         「临时摘除」不改变健康状态,仅让选路跳过该账号,适合上游抖动但不想打健康牌的场景;
       </p>
@@ -296,7 +296,7 @@ export default function KeySchedulingPage() {
         </div>
       )}
       {patchBusy && (
-        <div className="fixed bottom-4 right-4 flex items-center gap-2 rounded-lg border bg-card px-3 py-2 text-xs">
+        <div className="fixed bottom-4 right-4 flex items-center gap-2 rounded-lg border bg-card px-3 py-2 text-label">
           <LoaderIcon className="h-4 w-4 animate-spin" aria-hidden />
           正在写入...
         </div>

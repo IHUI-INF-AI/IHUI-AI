@@ -175,20 +175,20 @@ export function CommandPalette({
         <div className="flex items-center bg-muted/30 px-2 py-1.5">
           <SearchInput
             ref={inputRef}
-            className="text-sm"
+            className="text-body"
             placeholder={t('searchPlaceholder')}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={onKeyDown}
             wrapperClassName="p-1.5 flex-1 min-w-0"
           />
-          <kbd className="mr-2 shrink-0 rounded border bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+          <kbd className="mr-2 shrink-0 rounded border bg-muted px-1.5 py-0.5 text-label text-muted-foreground">
             ESC
           </kbd>
         </div>
         <div ref={listRef} className="max-h-[50vh] overflow-y-auto p-1">
           {flatItems.length === 0 ? (
-            <div className="py-8 text-center text-sm text-muted-foreground">{t('noResults')}</div>
+            <div className="py-8 text-center text-body text-muted-foreground">{t('noResults')}</div>
           ) : (
             sections.map((section, sIdx) => {
               // 计算该 section 在 flatItems 中的起始偏移
@@ -228,7 +228,7 @@ export function CommandPalette({
                           <div className="truncate text-body font-medium">
                             {text.getLabel(item.id)}
                           </div>
-                          <div className="truncate text-xs text-muted-foreground">
+                          <div className="truncate text-label text-muted-foreground">
                             {text.getDescription(item.id)}
                           </div>
                         </div>
@@ -245,7 +245,7 @@ export function CommandPalette({
             })
           )}
         </div>
-        <div className="flex items-center justify-between bg-muted/30 px-4 py-2 text-xs text-muted-foreground">
+        <div className="flex items-center justify-between bg-muted/30 px-4 py-2 text-label text-muted-foreground">
           <span>{t('keyboardHint')}</span>
           <span>{t('resultCount', { count: flatItems.length })}</span>
         </div>

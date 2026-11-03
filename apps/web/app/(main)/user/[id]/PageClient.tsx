@@ -99,7 +99,7 @@ export default function PublicUserProfilePage() {
     return (
       <div className="flex flex-col items-center justify-center gap-2 py-8 text-center text-muted-foreground">
         <AlertCircle className="h-8 w-8 opacity-40" />
-        <p className="text-sm">{t('notFound')}</p>
+        <p className="text-body">{t('notFound')}</p>
       </div>
     )
   }
@@ -120,7 +120,7 @@ export default function PublicUserProfilePage() {
           src={user.avatar ?? undefined}
           name={user.nickname}
           size="xl"
-          className="h-20 w-20 text-2xl"
+          className="h-20 w-20 text-display"
         />
         <div className="min-w-0 flex-1 space-y-1">
           <div className="flex items-center gap-2">
@@ -128,12 +128,12 @@ export default function PublicUserProfilePage() {
               {user.nickname || 'User'}
             </h1>
             {isSelf && (
-              <span className="rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+              <span className="rounded-md bg-muted px-2 py-0.5 text-label text-muted-foreground">
                 {t('isYou')}
               </span>
             )}
           </div>
-          {user.bio ? <p className="text-sm text-muted-foreground">{user.bio}</p> : null}
+          {user.bio ? <p className="text-body text-muted-foreground">{user.bio}</p> : null}
         </div>
         {canFollow && (
           <div className="flex shrink-0 gap-2">
@@ -173,7 +173,7 @@ export default function PublicUserProfilePage() {
             className="flex flex-col items-center justify-center rounded-lg border bg-card px-3 py-3"
           >
             <span className="text-heading font-bold tabular-nums">{item.value}</span>
-            <span className="mt-0.5 text-xs text-muted-foreground">{item.label}</span>
+            <span className="mt-0.5 text-label text-muted-foreground">{item.label}</span>
           </div>
         ))}
       </div>

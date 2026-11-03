@@ -105,6 +105,26 @@ function hasLocalOwnershipPredicate(src: string): boolean {
   return /(?:function|const|let)\s+(?:ownsDispatchById|isDispatchVisibleTo)\s*[=(]/.test(src)
 }
 
+/**
+ * 从 import 语句取具名导入集合(对换行/缩进稳健)。
+ *
+ * 2026-11-03 立:本文件的 `import { isAdminViewer, isDispatchVisibleTo, ownsDispatchById }
+ * from '../utils/dispatch-ownership.js'` 是多行写法,旧判据按**单行** find 只会命中
+ * 收尾行 `} from ...`,自然取不到成员名 —— 判据形同虚设。这里按整条 import 语句
+ * (跨行匹配花括号内成员)解析,模块路径仍按字面量精确匹配;语句缺失返回 null。
+ */
+function namedImportsFrom(src: string, modulePath: string): string[] | null {
+  const escaped = modulePath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const re = new RegExp(String.raw`import\s*(?:type\s*)?\{([^}]*)\}\s*from\s*(['"])${escaped}\2`)
+  const m = re.exec(src)
+  if (!m) return null
+  return m[1]!
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0)
+    .map((s) => s.split(/\s+as\s+/)[0]!.trim())
+}
+
 const BY_ID_ROUTES = [
   '/subagents/:id/cancel',
   '/subagents/:id/resume',
@@ -161,10 +181,22 @@ describe('subagent 派单面 user-scoped 归属存续锁(结构层)', () => {
   })
 
   it('(b) 判据来自 dispatch-ownership 的唯一导出,路由目录内不得另写', () => {
-    const importLine =
-      SRC.split('\n').find((line) => line.includes("from '../utils/dispatch-ownership.js'")) ?? ''
-    expect(importLine, '路由必须从唯一出口导入判据').toContain('ownsDispatchById')
-    expect(importLine).toContain('isDispatchVisibleTo')
+    const imported = namedImportsFrom(SRC, '../utils/dispatch-ownership.js')
+    expect(imported, '路由必须从唯一出口导入判据').not.toBeNull()
+    expect(imported!, '路由必须从唯一出口导入 ownsDispatchById').toContain('ownsDispatchById')
+    expect(imported!, '路由必须从唯一出口导入 isDispatchVisibleTo').toContain('isDispatchVisibleTo')
+
+    // 变异自证:把 ownsDispatchById 从具名导入里摘掉 ⇒ 同一判据必须判否
+    // (防止解析器退化成"只要存在 import 语句就算过")
+    const withoutOwns = SRC.replace(
+      /import\s*\{[^}]*\}\s*from\s*'\.\.\/utils\/dispatch-ownership\.js'/,
+      (stmt) => stmt.replace(/,\s*ownsDispatchById/, ''),
+    )
+    expect(withoutOwns, '摘导入没摘到东西 ⇒ 这一格不成对照').not.toBe(SRC)
+    const mutatedImports = namedImportsFrom(withoutOwns, '../utils/dispatch-ownership.js')
+    expect(mutatedImports, '变异体仍应有该 import 语句').not.toBeNull()
+    expect(mutatedImports!).not.toContain('ownsDispatchById')
+    expect(mutatedImports!).toContain('isDispatchVisibleTo')
 
     // 主路由内也不许用 `dispatch.ownerUserId === userId` 另写一份归属表达
     expect(SRC).not.toMatch(/\.ownerUserId\s*[!=]==\s*userId/)
@@ -191,9 +223,7 @@ describe('subagent 派单面 user-scoped 归属存续锁(结构层)', () => {
     ]) {
       const body = routeBody(SRC, route)
       expect(body, `路由 ${route} 应存在于源文件`).not.toBeNull()
-      expect(body!, `${route} 应含 isDispatchVisibleTo 归属过滤`).toContain(
-        'isDispatchVisibleTo',
-      )
+      expect(body!, `${route} 应含 isDispatchVisibleTo 归属过滤`).toContain('isDispatchVisibleTo')
     }
   })
 })
@@ -221,10 +251,14 @@ describe('subagent 派单面 user-scoped 归属存续锁(跨租户行为层)', (
   it('(c) 非本人请求 4 个按 id 端点一律 404,且 service 零调用(闸在 service 之前)', async () => {
     const asTenantA = { 'x-probe-user': 'tenant-a' }
 
-    const cases: Array<{ method: 'GET' | 'POST'; url: string; payload?: unknown }> = [
+    const cases: Array<{ method: 'GET' | 'POST'; url: string; payload?: object }> = [
       { method: 'POST', url: '/api/subagents/b-1/cancel' },
       { method: 'POST', url: '/api/subagents/b-1/resume' },
-      { method: 'POST', url: '/api/subagents/b-1/attention', payload: { attention: 'awaiting_answer' } },
+      {
+        method: 'POST',
+        url: '/api/subagents/b-1/attention',
+        payload: { attention: 'awaiting_answer' },
+      },
       { method: 'GET', url: '/api/subagents/b-1/artifacts/a' },
       { method: 'GET', url: '/api/subagents/b-1/stats' },
     ]
@@ -286,9 +320,9 @@ describe('subagent 派单面 user-scoped 归属存续锁(跨租户行为层)', (
       headers: asTenantB,
     })
     expect(artifactRes.statusCode).toBe(200)
-    expect((artifactRes.json() as { data: { artifact: { content: string } } }).data.artifact.content).toBe(
-      '全文',
-    )
+    expect(
+      (artifactRes.json() as { data: { artifact: { content: string } } }).data.artifact.content,
+    ).toBe('全文')
     expect(mocks.artifactMock).toHaveBeenCalledWith('b-1', 'a')
   })
 })

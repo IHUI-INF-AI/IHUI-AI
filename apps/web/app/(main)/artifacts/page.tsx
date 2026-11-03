@@ -163,7 +163,7 @@ export default function ArtifactsPage() {
     return (
       <div className="px-4 space-y-4 py-4">
         <BackButton />
-        <p className="py-8 text-center text-sm text-muted-foreground">{t('loading')}</p>
+        <p className="py-8 text-center text-body text-muted-foreground">{t('loading')}</p>
       </div>
     )
   }
@@ -190,15 +190,15 @@ export default function ArtifactsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="mb-3 text-xs text-muted-foreground">{t('desc')}</p>
+          <p className="mb-3 text-label text-muted-foreground">{t('desc')}</p>
           {error && <Alert variant="danger" title={error} closable className="mb-3" />}
           {previewError && (
             <Alert variant="danger" title={previewError} closable className="mb-3" />
           )}
           {loading ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">{t('loading')}</p>
+            <p className="py-8 text-center text-body text-muted-foreground">{t('loading')}</p>
           ) : items.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">{t('empty')}</p>
+            <p className="py-8 text-center text-body text-muted-foreground">{t('empty')}</p>
           ) : (
             <>
               <div className="overflow-x-auto">
@@ -227,15 +227,15 @@ export default function ArtifactsPage() {
                             {t(`kind_${item.kind}`)}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-xs tabular-nums">v{item.version}</TableCell>
-                        <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+                        <TableCell className="text-label tabular-nums">v{item.version}</TableCell>
+                        <TableCell className="whitespace-nowrap text-label text-muted-foreground">
                           {formatCreated(item.created_at, t)}
                         </TableCell>
                         <TableCell>
                           <Link
                             href={`/chat?conversationId=${encodeURIComponent(item.session_id)}`}
                             data-testid={`session-link-${item.id}`}
-                            className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                            className="inline-flex items-center gap-1 text-label text-primary hover:underline"
                           >
                             <MessageSquare className="h-3.5 w-3.5" />
                             {t('viewSession')}
@@ -282,7 +282,7 @@ export default function ArtifactsPage() {
                 </Table>
               </div>
               <div className="mt-3 flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">
+                <span className="text-label text-muted-foreground">
                   {t('countSummary', { loaded: items.length, total })}
                 </span>
                 <div className="flex items-center gap-2">

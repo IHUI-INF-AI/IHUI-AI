@@ -27,11 +27,11 @@ function DetailItem({
 }) {
   return (
     <div className={cn('flex flex-col gap-1', full && 'min-[640px]:col-span-2')}>
-      <span className="text-xs text-muted-foreground">{label}</span>
+      <span className="text-label text-muted-foreground">{label}</span>
       <span
         className={cn(
           'text-body font-medium',
-          mono && 'font-mono text-xs',
+          mono && 'font-mono text-label',
           highlight && 'text-lg font-bold text-primary',
         )}
       >
@@ -152,7 +152,7 @@ export function RefundDetailInfo({
       <div className="rounded-lg border p-3">
         <h3 className="mb-3 text-body font-semibold text-muted-foreground">{t('auditRecords')}</h3>
         {records.length === 0 ? (
-          <p className="py-4 text-center text-sm text-muted-foreground">{t('noAuditRecords')}</p>
+          <p className="py-4 text-center text-body text-muted-foreground">{t('noAuditRecords')}</p>
         ) : (
           <div className="space-y-3">
             {records.map((rec) => (
@@ -176,11 +176,11 @@ export function RefundDetailInfo({
                   {t(AUDIT_ACTION_KEY[rec.action] ?? rec.action)}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <div className="text-xs text-muted-foreground">
+                  <div className="text-label text-muted-foreground">
                     {t('auditor')}: <span className="font-mono">{rec.auditorId}</span> ·{' '}
                     {dateFmt.format(new Date(rec.createdAt))}
                   </div>
-                  {rec.reason && <div className="mt-1 text-sm">{rec.reason}</div>}
+                  {rec.reason && <div className="mt-1 text-body">{rec.reason}</div>}
                 </div>
               </div>
             ))}

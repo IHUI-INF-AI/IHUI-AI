@@ -33,6 +33,7 @@ import {
 import './index.css'
 import { aizhsUrl } from '@/constants/icon-urls'
 import LevelsSection from './levels-section'
+import { onToast } from '@/host/on-toast'
 
 // 4 项会员特权(对齐原项目 zhs_app-ZZ,垂直列表展示)
 interface VipFeature {
@@ -202,7 +203,7 @@ export default function VipIndexPage() {
         return
       }
       if (payInfo.mock && payInfo.error) {
-        Taro.showToast({ title: t('vip.index.configNotReady'), icon: 'none' })
+        onToast(t('vip.index.configNotReady'), { kind: 'error' })
       }
       Taro.redirectTo({ url: successUrl })
     },
@@ -237,7 +238,7 @@ export default function VipIndexPage() {
       setPriceOptions(defaultPlans)
       setSelectedPlan((prev) => prev ?? defaultPlans[0] ?? null)
       setLoadFailed(true)
-      Taro.showToast({ title: t('common.failed'), icon: 'none' })
+      onToast(t('common.failed'), { kind: 'error' })
     } finally {
       Taro.hideLoading()
     }
@@ -252,7 +253,7 @@ export default function VipIndexPage() {
     (levelId: string) => {
       const plan = priceOptions.find((opt) => opt.id === levelId)
       if (!plan) {
-        Taro.showToast({ title: t('vip.selectPlanFirst'), icon: 'none' })
+        onToast(t('vip.selectPlanFirst'), { kind: 'info' })
         return
       }
       setSelectedPlan(plan)
@@ -263,7 +264,7 @@ export default function VipIndexPage() {
 
   const onUpgradeClick = useCallback(() => {
     if (!selectedPlan) {
-      Taro.showToast({ title: t('vip.selectPlanFirst'), icon: 'none' })
+      onToast(t('vip.selectPlanFirst'), { kind: 'info' })
       return
     }
     setShowPayConfirm(true)
@@ -284,7 +285,7 @@ export default function VipIndexPage() {
       dispatchVipPay(res.payInfo, res.orderNo, selectedPlan.price, selectedPlan.name)
     } catch (e) {
       logger.error('vip/index', '开通VIP', e)
-      Taro.showToast({ title: t('common.failed'), icon: 'none' })
+      onToast(t('common.failed'), { kind: 'error' })
     }
   }, [selectedPlan, autoRenew, t, dispatchVipPay])
 
@@ -296,7 +297,7 @@ export default function VipIndexPage() {
   const onIntroduceClick = useCallback(() => setShowIntroduce(true), [])
   const onIntroduceSubscribe = useCallback(() => {
     if (!selectedPlan) {
-      Taro.showToast({ title: t('vip.selectPlanFirst'), icon: 'none' })
+      onToast(t('vip.selectPlanFirst'), { kind: 'info' })
       return
     }
     setShowIntroduce(false)
@@ -309,7 +310,7 @@ export default function VipIndexPage() {
   }, [])
   const onNoticeAgree = useCallback(() => {
     if (!noticeAgreed) {
-      Taro.showToast({ title: t('vip.index.agreeFirst'), icon: 'none' })
+      onToast(t('vip.index.agreeFirst'), { kind: 'info' })
       return
     }
     setShowNotice(false)

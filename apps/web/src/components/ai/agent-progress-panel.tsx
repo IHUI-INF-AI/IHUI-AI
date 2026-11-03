@@ -52,7 +52,7 @@ export function AgentProgressPanel({ steps }: AgentProgressPanelProps) {
   if (steps.length === 0) {
     return (
       <div className="rounded-xl border bg-card p-3">
-        <p className="py-6 text-center text-sm text-muted-foreground">
+        <p className="py-6 text-center text-body text-muted-foreground">
           暂无执行进度,运行 Agent 后在此查看
         </p>
       </div>
@@ -109,13 +109,13 @@ export function AgentProgressPanel({ steps }: AgentProgressPanelProps) {
                     )}
                   </button>
                   {step.duration !== undefined && (
-                    <span className="shrink-0 text-xs text-muted-foreground">
+                    <span className="shrink-0 text-label text-muted-foreground">
                       {formatDuration(step.duration)}
                     </span>
                   )}
                 </div>
                 {hasDetail && isOpen && (
-                  <p className="mt-1 whitespace-pre-wrap rounded-md bg-muted/40 px-2.5 py-1.5 text-xs text-muted-foreground">
+                  <p className="mt-1 whitespace-pre-wrap rounded-md bg-muted/40 px-2.5 py-1.5 text-label text-muted-foreground">
                     {step.detail}
                   </p>
                 )}

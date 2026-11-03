@@ -217,7 +217,7 @@ export function AgentRuntimeLog({ agentId, running }: Props) {
 
   if (!agentId) {
     return (
-      <div className="flex h-full items-center justify-center rounded-lg border bg-card p-3 text-center text-sm text-muted-foreground">
+      <div className="flex h-full items-center justify-center rounded-lg border bg-card p-3 text-center text-body text-muted-foreground">
         {t('selectAgentPrompt')}
       </div>
     )
@@ -226,7 +226,7 @@ export function AgentRuntimeLog({ agentId, running }: Props) {
   return (
     <div className="flex h-full flex-col rounded-lg border bg-card">
       <div className="flex items-center justify-between gap-2 px-3 py-2">
-        <div className="flex items-center gap-2 text-sm">
+        <div className="flex items-center gap-2 text-body">
           {connected ? (
             <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-500">
               <span className="h-1.5 w-1.5 animate-pulse rounded-xs bg-emerald-500" />
@@ -267,7 +267,7 @@ export function AgentRuntimeLog({ agentId, running }: Props) {
               {t('notRunning')}
             </span>
           )}
-          <span className="text-xs text-muted-foreground">
+          <span className="text-label text-muted-foreground">
             {t('logCount', { count: logs.length })}
           </span>
         </div>
@@ -284,7 +284,7 @@ export function AgentRuntimeLog({ agentId, running }: Props) {
         {logs.length === 0 ? (
           usingFallback ? (
             // 2026-08-02 修复 Bug #9:SSE 失败时显示明确错误占位 + 重试按钮
-            <div className="py-8 text-center text-xs text-red-500/70">
+            <div className="py-8 text-center text-label text-red-500/70">
               <AlertTriangle className="mx-auto mb-2 h-5 w-5" aria-hidden />
               <p>{t('sseConnectionFailed')}</p>
               {connectionError && (
@@ -299,7 +299,7 @@ export function AgentRuntimeLog({ agentId, running }: Props) {
               </button>
             </div>
           ) : (
-            <div className="py-8 text-center text-xs text-muted-foreground">{t('noLogs')}</div>
+            <div className="py-8 text-center text-label text-muted-foreground">{t('noLogs')}</div>
           )
         ) : (
           <div className="space-y-1.5">
@@ -309,7 +309,7 @@ export function AgentRuntimeLog({ agentId, running }: Props) {
               const Icon = isFail ? XCircle : cfg.icon
               const color = isFail ? 'text-destructive' : cfg.color
               return (
-                <div key={i} className="flex items-start gap-2 text-xs">
+                <div key={i} className="flex items-start gap-2 text-label">
                   <span className="shrink-0 tabular-nums text-muted-foreground">
                     {timeFmt.format(new Date(entry.ts))}
                   </span>

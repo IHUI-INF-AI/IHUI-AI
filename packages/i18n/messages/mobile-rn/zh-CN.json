@@ -1389,6 +1389,7 @@
     "labelPrice": "价格",
     "labelSaleType": "售卖类型",
     "pricePlaceholder": "请输入价格",
+    "readOnlyHint": "该字段暂不支持修改",
     "submit": "保存",
     "submitting": "提交中..."
   },
@@ -1600,6 +1601,7 @@
     "empty": "暂无消息,发送第一条开始对话吧",
     "placeholder": "输入消息...",
     "send": "发送",
+    "stop": "停止",
     "loadFailed": "加载聊天失败",
     "sendFailed": "发送失败"
   },

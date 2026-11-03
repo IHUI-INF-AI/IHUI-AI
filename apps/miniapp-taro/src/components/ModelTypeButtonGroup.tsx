@@ -15,7 +15,7 @@ export interface ModelTypeConfig {
   icon: IconName
 }
 
-export const MODEL_TYPES: ModelTypeConfig[] = [
+const MODEL_TYPES: ModelTypeConfig[] = [
   { type: 'skills', label: t('ModelTypeButtonGroup.m1'), icon: 'brain' },
   { type: 'talk', label: t('aigc.list.catText'), icon: 'message-square' },
   { type: 'image', label: t('modelPlaza.tabImage'), icon: 'image' },

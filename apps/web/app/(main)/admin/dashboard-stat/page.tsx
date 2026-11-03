@@ -60,11 +60,11 @@ export default function DashboardStatPage() {
       <BackButton />
       <header className="flex flex-col gap-1">
         <h1 className="text-lg font-semibold tracking-tight">仪表板统计</h1>
-        <p className="text-xs text-muted-foreground">管理仪表板统计相关数据</p>
+        <p className="text-label text-muted-foreground">管理仪表板统计相关数据</p>
       </header>
 
       {isError && (
-        <div className="rounded-lg border border-red-500/30 bg-red-500/5 px-4 py-2.5 text-sm text-red-600">
+        <div className="rounded-lg border border-red-500/30 bg-red-500/5 px-4 py-2.5 text-body text-red-600">
           数据加载失败,请稍后重试或检查 API 连接
         </div>
       )}

@@ -184,7 +184,7 @@ export function ModelDetailDialog({ entry, open, onClose, searchQuery = '' }: Pr
                 </span>
               ) : null}
             </div>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <div className="flex items-center gap-2 text-label text-muted-foreground">
               <span>{highlight(entry.vendor, searchQuery)}</span>
               <span>·</span>
               <span>{entry.arenaRank ? `#${entry.arenaRank}` : '-'}</span>
@@ -221,7 +221,7 @@ export function ModelDetailDialog({ entry, open, onClose, searchQuery = '' }: Pr
             <h4 className="text-label font-semibold text-muted-foreground">{t('coreParams')}</h4>
             <div className="space-y-1.5">
               {paramRows.map((row) => (
-                <div key={row.label} className="flex items-center justify-between gap-3 text-xs">
+                <div key={row.label} className="flex items-center justify-between gap-3 text-label">
                   <span className="text-muted-foreground">{row.label}</span>
                   <span className="font-medium tabular-nums">{row.value}</span>
                 </div>
@@ -230,20 +230,22 @@ export function ModelDetailDialog({ entry, open, onClose, searchQuery = '' }: Pr
             {entry.highlight ? (
               <div className="mt-3 rounded-md bg-cta/5 px-3 py-2">
                 <p className="text-[10px] font-medium text-muted-foreground">{t('highlight')}</p>
-                <p className="mt-0.5 text-xs leading-relaxed">{entry.highlight}</p>
+                <p className="mt-0.5 text-label leading-relaxed">{entry.highlight}</p>
               </div>
             ) : null}
           </div>
 
           {/* 右:能力雷达图 */}
           <div className="space-y-2">
-            <h4 className="text-label font-semibold text-muted-foreground">{t('capabilityRadar')}</h4>
+            <h4 className="text-label font-semibold text-muted-foreground">
+              {t('capabilityRadar')}
+            </h4>
             {caps ? (
               <div className="rounded-md bg-muted/20 p-3">
                 <CapabilityRadar capabilities={caps} size={200} />
               </div>
             ) : (
-              <div className="flex h-40 items-center justify-center text-xs text-muted-foreground">
+              <div className="flex h-40 items-center justify-center text-label text-muted-foreground">
                 {t('noCapabilityData')}
               </div>
             )}
@@ -258,7 +260,7 @@ export function ModelDetailDialog({ entry, open, onClose, searchQuery = '' }: Pr
                 <h4 className="text-label font-semibold text-muted-foreground">
                   {t('officialResources')}
                 </h4>
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-label">
                   {platform.officialKeyUrl ? (
                     <a
                       href={platform.officialKeyUrl}

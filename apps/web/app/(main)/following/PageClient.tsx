@@ -90,7 +90,7 @@ function FollowingContent() {
           <Users className="h-6 w-6 text-primary" />
           {t('title')}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       <div className="flex flex-wrap gap-1 rounded-lg border bg-muted/30 p-1">
@@ -126,7 +126,7 @@ function FollowingContent() {
             ) : (
               <UserMinus className="h-8 w-8 opacity-40" />
             )}
-            <p className="text-sm">{t(EMPTY_KEY[tab] ?? 'empty.unknown')}</p>
+            <p className="text-body">{t(EMPTY_KEY[tab] ?? 'empty.unknown')}</p>
           </div>
         ) : (
           <div className="space-y-3">

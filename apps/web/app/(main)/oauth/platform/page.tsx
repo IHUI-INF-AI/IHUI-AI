@@ -69,7 +69,7 @@ export default function OauthPlatformPage() {
           <h2 className="text-heading font-bold tracking-tight min-[768px]:text-display">
             {t('featuresTitle')}
           </h2>
-          <p className="text-sm text-muted-foreground">{t('featuresSubtitle')}</p>
+          <p className="text-body text-muted-foreground">{t('featuresSubtitle')}</p>
         </div>
         <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
           {features.map((f) => {
@@ -81,7 +81,7 @@ export default function OauthPlatformPage() {
                     <Icon className="h-5 w-5" />
                   </div>
                   <h3 className="text-base font-semibold">{f.title}</h3>
-                  <p className="text-sm text-muted-foreground">{f.desc}</p>
+                  <p className="text-body text-muted-foreground">{f.desc}</p>
                 </CardContent>
               </Card>
             )
@@ -95,7 +95,7 @@ export default function OauthPlatformPage() {
           <h2 className="text-heading font-bold tracking-tight min-[768px]:text-display">
             {t('stepsTitle')}
           </h2>
-          <p className="text-sm text-muted-foreground">{t('stepsSubtitle')}</p>
+          <p className="text-body text-muted-foreground">{t('stepsSubtitle')}</p>
         </div>
         <div className="grid grid-cols-1 gap-4 min-[768px]:grid-cols-4">
           {steps.map((s, i) => {
@@ -109,7 +109,7 @@ export default function OauthPlatformPage() {
                   <Icon className="h-5 w-5" />
                 </div>
                 <h3 className="text-base font-semibold">{s.title}</h3>
-                <p className="text-sm text-muted-foreground">{s.desc}</p>
+                <p className="text-body text-muted-foreground">{s.desc}</p>
               </div>
             )
           })}
@@ -118,8 +118,10 @@ export default function OauthPlatformPage() {
 
       {/* Bottom CTA */}
       <section className="rounded-2xl bg-primary/5 px-6 py-8 text-center">
-        <h2 className="text-heading font-bold tracking-tight min-[768px]:text-display">{t('ctaTitle')}</h2>
-        <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground">{t('ctaSubtitle')}</p>
+        <h2 className="text-heading font-bold tracking-tight min-[768px]:text-display">
+          {t('ctaTitle')}
+        </h2>
+        <p className="mx-auto mt-2 max-w-xl text-body text-muted-foreground">{t('ctaSubtitle')}</p>
         <div className="mt-6 flex justify-center">
           <Link href="/oauth/my-authorized">
             <Button size="lg">

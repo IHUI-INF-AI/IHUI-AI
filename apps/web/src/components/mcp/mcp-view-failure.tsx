@@ -74,7 +74,9 @@ export function McpViewFailure({
                 {t(entry.titleKey)}
               </span>
               {context && (
-                <span className="break-all font-mono text-xs text-muted-foreground">{context}</span>
+                <span className="break-all font-mono text-label text-muted-foreground">
+                  {context}
+                </span>
               )}
             </div>
 
@@ -84,7 +86,7 @@ export function McpViewFailure({
               </div>
             )}
 
-            <p className="text-xs leading-relaxed text-muted-foreground">{t(entry.actionKey)}</p>
+            <p className="text-label leading-relaxed text-muted-foreground">{t(entry.actionKey)}</p>
           </div>
         </div>
 

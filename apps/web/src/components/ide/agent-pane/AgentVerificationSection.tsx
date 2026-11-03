@@ -110,7 +110,7 @@ export function AgentVerificationSection({ view }: AgentVerificationSectionProps
     <div
       data-testid="agent-goal-verification"
       data-goal-status={view.kind}
-      className="shrink-0 space-y-1.5 bg-card px-2 pb-2 text-xs"
+      className="shrink-0 space-y-1.5 bg-card px-2 pb-2 text-label"
     >
       <div className="flex items-center gap-1.5">
         <Icon className="h-3 w-3 shrink-0" aria-hidden />

@@ -83,7 +83,7 @@ export function ImageGenZhipu() {
     <Card>
       <CardHeader>
         <CardTitle>{t('zhipuImageTitle')}</CardTitle>
-        <p className="text-sm text-muted-foreground">{t('zhipuImageSubtitle')}</p>
+        <p className="text-body text-muted-foreground">{t('zhipuImageSubtitle')}</p>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
@@ -135,7 +135,7 @@ export function ImageGenZhipu() {
         </Button>
 
         {mutation.isError ? (
-          <p className="text-sm text-destructive">{(mutation.error as Error).message}</p>
+          <p className="text-body text-destructive">{(mutation.error as Error).message}</p>
         ) : null}
         <div className="grid grid-cols-2 gap-3">
           {images.map((url) => (
@@ -153,7 +153,7 @@ export function ImageGenZhipu() {
                 download
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                className="inline-flex items-center gap-1 text-label text-primary hover:underline"
               >
                 <Download className="h-3 w-3" />
                 {t('download')}

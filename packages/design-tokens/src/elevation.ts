@@ -10,8 +10,8 @@
  * 本表把"层级"收成一份,再以双投影落到两端。
  *
  * 消费方式:
- *  - RN → `rnElevation.md` 得到 RN ShadowStyle 四元组(直接喂 View style)
- *  - 小程序 / web → `taroElevation.md` / `cssElevation.md` 得到 `box-shadow` 字符串
+ *  - RN → `ELEVATION_STEPS.md` 得到 RN ShadowStyle 四元组(直接喂 View style)
+ *  - 小程序 / web → `ELEVATION_CSS.md` / `ELEVATION_CSS_VAR.md` 得到 `box-shadow` 字符串
  *
  * 取值依据:与 tokens.css 的 `--shadow-premium: 0 2px 8px var(--color-black-6)` 同量级起步,
  * sm/md/lg/xl 按 2/4/8 的 offset 与 radius 递增,opacity 0.05→0.16,符合移动端轻投影习惯。
@@ -66,12 +66,6 @@ export const ELEVATION_CSS: Record<string, string> = {
   lg: '0 4px 16px rgba(0,0,0,0.12)',
   xl: '0 8px 24px rgba(0,0,0,0.16)',
 }
-
-/** RN / 共享包侧消费入口:View style 里写 `{ ...rnElevation.md }` */
-export const rnElevation = ELEVATION_STEPS
-
-/** 小程序侧消费入口:style 里写 `boxShadow: taroElevation.lg` */
-export const taroElevation = ELEVATION_CSS
 
 /** 同义的 CSS 变量名(web / CSS 端引用形式,守门与迁移脚本共用) */
 export const ELEVATION_CSS_VAR = {

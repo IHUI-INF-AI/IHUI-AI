@@ -472,6 +472,7 @@ export function ChatScreen() {
   const { resolvedTheme } = useTheme()
   const { t } = useI18n()
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>()
+  const { onNavigate, onToast } = useHostPorts()
   const route = useRoute<RouteProp<RootStackParamList, 'Chat'>>()
   const rootNav = navigation.getParent<RootNav>()
   const { user: authUser, token: authToken } = useAuth()
@@ -902,7 +903,7 @@ export function ChatScreen() {
       appAlert(t('common.hint'), t('chat.vipOnlyModel'), [
         {
           text: t('chat.openVipBtn'),
-          onPress: () => navigation.navigate('Vip', { type: 'IntroducePopup' }),
+          onPress: () => onNavigate('Vip', { type: 'IntroducePopup' }),
         },
         { text: t('common.cancel'), style: 'cancel' },
       ])
@@ -2224,6 +2225,16 @@ export function ChatScreen() {
     ],
   )
 
+  /**
+   * 素材卡片删除。定义必须早于 renderListHeader —— 后者把它放进 useCallback 的依赖数组,
+   * 而依赖数组在渲染时即刻求值;放到原处(其后 270 行)会在同一轮渲染里撞 TDZ。
+   * 消费面只有 renderListHeader 一处,故就近上移;并用 useCallback 固定身份,
+   * 否则每轮渲染都换引用,exhaustive-deps 会判「deps 每次都变」。
+   */
+  const removeMaterialCard = useCallback((id: string): void => {
+    setMaterialCards((prev) => prev.filter((c) => c.id !== id))
+  }, [])
+
   const renderListHeader = useCallback((): React.ReactNode => {
     const nodes: React.ReactNode[] = []
     // 对话页顶部「查看卡片」折叠区(对齐 Uniapp ai_index2.vue 行 117-131:tishi_block + intelligent-assistant)
@@ -2245,7 +2256,7 @@ export function ChatScreen() {
           <View style={styles.tishiCardWrap}>
             <IntelligentAssistant
               tokenQuantity={tokenQuantity}
-              onRecharge={() => navigation.navigate('AppTopup')}
+              onRecharge={() => onNavigate('AppTopup')}
             />
           </View>
         ) : null}
@@ -2343,6 +2354,7 @@ export function ChatScreen() {
   }, [
     materialCards,
     inputFiles,
+    removeMaterialCard,
     removeImage,
     compactionInfo,
     pendingQuestions,
@@ -2351,7 +2363,7 @@ export function ChatScreen() {
     t,
     tishiShow,
     tokenQuantity,
-    navigation,
+    onNavigate,
   ])
 
   const renderListFooter = useCallback((): React.ReactNode => {
@@ -2494,10 +2506,6 @@ export function ChatScreen() {
     setMaterialDetailError('')
     setMaterialDetailLoading(false)
   }, [])
-
-  const removeMaterialCard = (id: string): void => {
-    setMaterialCards((prev) => prev.filter((c) => c.id !== id))
-  }
 
   // ── Drawer 回调 ──
   const closeDrawer = (): void => setDrawerVisible(false)
@@ -2836,9 +2844,8 @@ export function ChatScreen() {
     // 对齐 Uniapp:Agent 选中后跳 AiAssistant 传 agentId 参数
     // (AiAssistant 路由 params 已更新为 { agentId?: string; title?: string })
     // 对齐 Uniapp ai_index.vue handleAgentPitch → /pages/tools/ai_assistant(智能体对话页)
-    navigation.navigate('AiAssistantN8n', { agentId: id })
+    onNavigate('AiAssistantN8n', { agentId: id })
   }
-
   // BottomActionBar 已切换到 prompt 模式(模型条 + 开关 + 输入 + 发送 + 辅助行 + 图标组)
   // bottomActions 旧 API 已移除,所有交互通过 prompt 模式 props 传入
 
@@ -2859,8 +2866,6 @@ export function ChatScreen() {
   const sharedMessages: ChatScreenMessageWithReasoning[] = messages
     .filter((m) => m.role !== 'system')
     .map(toChatScreenMessage)
-
-  const { onNavigate, onToast } = useHostPorts()
 
   return (
     <View style={styles.root}>

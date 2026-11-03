@@ -28,15 +28,15 @@ export function MonitorLogs({ logs, t }: Props) {
       <CardContent>
         <div className="mb-3 grid grid-cols-2 min-[640px]:grid-cols-3 gap-2">
           <div className="rounded-md border p-2 text-center">
-            <div className="text-xs text-muted-foreground">{t('monitor.logTotal')}</div>
+            <div className="text-label text-muted-foreground">{t('monitor.logTotal')}</div>
             <div className="mt-0.5 text-lg font-bold">{formatNumber(logs?.total ?? 0)}</div>
           </div>
           <div className="rounded-md border p-2 text-center">
-            <div className="text-xs text-muted-foreground">{t('monitor.logErrors')}</div>
+            <div className="text-label text-muted-foreground">{t('monitor.logErrors')}</div>
             <div className="mt-0.5 text-lg font-bold text-red-600">{logs?.errors ?? 0}</div>
           </div>
           <div className="rounded-md border p-2 text-center">
-            <div className="text-xs text-muted-foreground">{t('monitor.logWarnings')}</div>
+            <div className="text-label text-muted-foreground">{t('monitor.logWarnings')}</div>
             <div className="mt-0.5 text-lg font-bold text-amber-600">{logs?.warnings ?? 0}</div>
           </div>
         </div>
@@ -44,7 +44,7 @@ export function MonitorLogs({ logs, t }: Props) {
           {recent.map((l) => (
             <div
               key={l.id}
-              className="flex items-center gap-2 rounded px-2 py-1 text-xs hover:bg-muted/30"
+              className="flex items-center gap-2 rounded px-2 py-1 text-label hover:bg-muted/30"
             >
               <span
                 className={cn(

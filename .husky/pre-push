@@ -59,15 +59,32 @@ else
         [ -z "$lsha" ] && continue
         # 删除分支(local 全 0)→ 无改动文件
         case "$lsha" in 0000000000000000000000000000000000000000) continue ;; esac
+        # >>> push-scope-new-branch (begin; scripts/tests/pre-push-new-branch-scope.test.mjs 逐字抽取)
         case "$rsha" in
           0000000000000000000000000000000000000000)
-            # 新分支:仅取该 commit 自身改动
-            git show --name-only --format= "$lsha" 2>/dev/null
+            # 新分支:先取该 commit 自身改动。tip 是 merge commit 时 git show 的 combined diff
+            # 恒为空(实测 0 行),不能把「取不到面」读成「没有改动」—— 那会让 PUSH_SCOPE_FILES
+            # 为空,下游门退回 HEAD 全量面(实测 47p 31224ms)。
+            # 二级推导(2026-11-03):相对目标分支的合并基点取差集,即这条新分支真实新增的内容。
+            # 同场实测:merge tip 下非空 9 行,且不含 main 侧自带改动;另两条候选不采用 ——
+            # diff-tree --first-parent 单用同样 0 行,加 -m 会把 main 侧自带的那枚文件混进来(10 行)。
+            # 两档都取不到 ⇒ 输出空,由下游维持原有「回退全量面 + 告警」,绝不伪造空 scope。
+            _nb_scope="$(git show --name-only --format= "$lsha" 2>/dev/null)"
+            if [ -z "$_nb_scope" ]; then
+              _nb_base="$(git merge-base origin/main "$lsha" 2>/dev/null)"
+              if [ -n "$_nb_base" ]; then
+                _nb_scope="$(git diff --name-only "$_nb_base" "$lsha" 2>/dev/null)"
+              fi
+            fi
+            if [ -n "$_nb_scope" ]; then
+              printf '%s\n' "$_nb_scope"
+            fi
             ;;
           *)
             git diff --name-only "$rsha" "$lsha" 2>/dev/null
             ;;
         esac
+        # <<< push-scope-new-branch (end)
       # 注:不做反斜杠归一化 —— check-typecheck.mjs 内 getScopeFiles() 已统一
       #     replaceAll('\\','/')(shell 侧 sed 转义在 sh/hook 双重解析下极易写错,已踩坑)
       done | grep -v '^$' | sort -u

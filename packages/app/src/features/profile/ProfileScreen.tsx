@@ -9,6 +9,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { ChevronRight } from 'lucide-react-native'
 import { useFontMultiplier } from '../../components/MoreLink'
 import { ScreenSkeleton } from '../../components/ScreenStates'
+import { isCapabilityOff, resolveOptionalPort } from '../../host/ports'
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
@@ -36,12 +37,16 @@ export function ProfileScreen({
   menuSections = [],
   onNavigate,
   onLogout,
+  onToast,
   realnameStatus,
   colorScheme = 'light',
 }: ProfileScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
   const fontMultiplier = useFontMultiplier()
+  // 端口闸:导航缺省时不再 `?.()` 静默吞掉点击;能提示就把原因上屏,提示腿也缺省则保持可见降级。
+  const navigate = resolveOptionalPort(onNavigate)
+  const toast = resolveOptionalPort(onToast)
   // 实名徽标配色(见 realnameBadgeTone;取不到状态 ⇒ null ⇒ 不渲染,不猜默认态)
   const badgeTone = realnameStatus ? realnameBadgeTone(tk, realnameStatus) : null
 
@@ -97,7 +102,15 @@ export function ProfileScreen({
                 <TouchableOpacity
                   key={item.key}
                   style={styles.menuItem}
-                  onPress={() => onNavigate?.(item.key)}
+                  onPress={() => {
+                    if (isCapabilityOff(navigate)) {
+                      if (!isCapabilityOff(toast)) {
+                        toast(t('common.failed'), { kind: 'error' })
+                      }
+                      return
+                    }
+                    navigate(item.key)
+                  }}
                 >
                   {typeof item.icon === 'string' ? (
                     <Text style={styles.menuIcon}>{item.icon}</Text>

@@ -81,14 +81,14 @@ export function TermDialog({
 
         <div className="max-h-48 space-y-1 overflow-y-auto rounded-md border p-2">
           {terms.length === 0 ? (
-            <p className="py-4 text-center text-sm text-muted-foreground">{t('noTerms')}</p>
+            <p className="py-4 text-center text-body text-muted-foreground">{t('noTerms')}</p>
           ) : (
             terms.map((item) => (
               <div
                 key={item.id}
                 role="button"
                 tabIndex={0}
-                className="flex cursor-pointer items-center justify-between rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent"
+                className="flex cursor-pointer items-center justify-between rounded-md px-2 py-1.5 text-body transition-colors hover:bg-accent"
                 onClick={() => resetForm(item)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') resetForm(item)
@@ -102,7 +102,7 @@ export function TermDialog({
                     </Badge>
                   )}
                 </span>
-                <span className="text-xs text-muted-foreground">
+                <span className="text-label text-muted-foreground">
                   {item.startDate} ~ {item.endDate}
                 </span>
               </div>
@@ -111,7 +111,9 @@ export function TermDialog({
         </div>
 
         <div className="space-y-3">
-          <p className="text-body font-medium">{editTerm ? t('editTermTitle') : t('newTermTitle')}</p>
+          <p className="text-body font-medium">
+            {editTerm ? t('editTermTitle') : t('newTermTitle')}
+          </p>
           <div className="grid gap-1.5">
             <Label>{t('termName')}</Label>
             <Input
@@ -130,7 +132,7 @@ export function TermDialog({
               <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
             </div>
           </div>
-          <label className="flex items-center gap-2 text-sm">
+          <label className="flex items-center gap-2 text-body">
             <input
               type="checkbox"
               className="h-4 w-4 rounded-sm border-gray-300"

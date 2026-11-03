@@ -126,4 +126,248 @@ export function relayAccountIdleDays(
   if (!Number.isFinite(clock) || clock === -Infinity) return null
   return Math.max(0, Math.round(((now - clock) / 86_400_000) * 10) / 10)
 }
+
+/**
+ * 「必须人工处理」的机读原因(2026-11-03 立)。
+ *
+ * 与六态 verdict 的分工:verdict 回答「凭据寿命还剩多少」,reauth 回答
+ * 「这一轮为什么没签上、要不要人去重录」。两者共享同一份输入,不另造一套账号体检。
+ *
+ * 五类中前四类是验收硬要求,`credential_expired` 是保活面补充:
+ * - invalid_cookie_decrypt: publish_cookie 密文 InvalidTag,连探活都解不开。
+ * - credential_expired: 其余 expired(含 checkin JWT 解密失败/真实到期),只能重录。
+ * - expired_no_refresh: token 已过期且该平台没有可用 refresh 协议(如 minimax)。
+ * - claim_failed: 凭证仍可用但 claim 被明确拒绝(SessionDead/Client/BusinessError)。
+ * - account_down: 健康检查 down / tempUnschedulable,已被调度器摘除。
+ *
+ * 互斥折叠(2026-11-03 定稿):同一账号命中多条只取一个 `reason` 计数;
+ * `reasons` 保留全部命中作证据,主原因排第一。已 down/temp 的账号固定归
+ * `account_down` —— 这一轮没签上的直接原因是它根本没被调度,不能笼统算成
+ * `claim_failed`;更具体的 expired/claim 证据仍在 `reasons` 里。
+ */
+export type RelayAccountReauthReason =
+  | 'invalid_cookie_decrypt'
+  | 'credential_expired'
+  | 'expired_no_refresh'
+  | 'claim_failed'
+  | 'account_down'
+
+export const RELAY_ACCOUNT_REAUTH_ACTION: Record<RelayAccountReauthReason, string> = {
+  invalid_cookie_decrypt: '凭据密文无法解密(密钥轮换或密文损坏),需重新扫码录入该账号',
+  credential_expired: '凭据已过期且无法自动续期,需重新登录或扫码录入',
+  expired_no_refresh: 'token 已过期且该平台无 refresh 协议,需重新登录导入',
+  claim_failed: '凭证仍在但 claim 被明确拒绝,需人工登录核验账号状态',
+  account_down: '账号已 down / 临时摘除,需人工核验凭据后重新启用',
+}
+
+/** 签到侧最近一条记录(只读投影,不含任何凭据)。 */
+export interface RelayAccountCheckinSignal {
+  ok: boolean | null
+  action?: string | null
+  code?: string | number | null
+  message?: string | null
+  classifiedErrorType?: string | null
+}
+
+export interface RelayAccountReauthInput {
+  providerCode: string
+  tokenExpiryMs: number | null
+  hasRefreshToken?: boolean
+  /** 该 provider 的适配器是否有 refresh 协议;调用方用 isRefreshableProviderCode 判定 */
+  refreshSupported?: boolean
+  healthStatus?: string | null
+  tempUnschedulable?: boolean | null
+  lastErrorMessage?: string | null
+  lastCheckin?: RelayAccountCheckinSignal | null
+  /** 保活面来源:publish_cookie / publish_token / checkin */
+  source?: string | null
+  lastErrorKind?: string | null
+  lastError?: string | null
+}
+
+export interface RelayAccountReauthResult {
+  needsReauth: boolean
+  reason: RelayAccountReauthReason | null
+  /** 全部命中,主原因在第一位;用于审计,不参与计数 */
+  reasons: RelayAccountReauthReason[]
+  detail: string | null
+  nextAction: string | null
+}
+
+// 可重试分类:网络/限流/服务端/风控/无活动 —— 重试或等下一轮会好,不该喊人重录。
+const REAUTH_RETRYABLE_ERRORS = new Set([
+  'Unknown',
+  'SoftRate',
+  'Server',
+  'NotFound',
+  'Challenge',
+  'PlanLimit',
+])
+// 幂等已签被误记成失败的历史包袱(trae 9095):必须当成功,不能标 needs_reauth。
+const REAUTH_ALREADY_MARKERS = [
+  '今日已签到',
+  '今天已签到',
+  '已经签到',
+  '已签到',
+  'already',
+  '请明日再来',
+  '明日再来',
+]
+// 无活动不是凭证失败(qoder 活动未下发),等下一轮即可。
+const REAUTH_NON_CREDENTIAL_MARKERS = [
+  '活动未下发',
+  '等下一轮',
+  '活动已结束',
+  '已结束',
+  'no campaign',
+]
+const REAUTH_AUTH_ERROR_TYPES = new Set(['SessionDead', 'Client', 'BusinessError'])
+const REAUTH_AUTH_MARKERS = [
+  '未登录',
+  '登录失效',
+  '登录过期',
+  'authenticate',
+  'unauthorized',
+  '401',
+  'token 无效',
+  'token无效',
+  '凭证失效',
+  '凭证无效',
+]
+const REAUTH_DECRYPT_MARKERS = ['invalidtag', '凭证无法解密', '解密失败', 'decrypt']
+
+function reauthText(value: unknown): string {
+  return value === null || value === undefined ? '' : String(value)
+}
+
+function reauthHas(text: string, markers: readonly string[]): boolean {
+  const low = text.toLowerCase()
+  return markers.some((m) => low.includes(m.toLowerCase()))
+}
+
+function reauthCode(value: string | number | null | undefined): string {
+  return value === null || value === undefined ? '' : String(value).trim()
+}
+
+export function resolveRelayAccountReauth(
+  input: RelayAccountReauthInput,
+  now: number = Date.now(),
+): RelayAccountReauthResult {
+  const matched: RelayAccountReauthReason[] = []
+  const errorText = reauthText(input.lastError)
+
+  // 1/2: 保活面 expired 只能重录;publish_cookie 的解密失败单独成因。
+  if (input.lastErrorKind === 'expired') {
+    if (input.source === 'publish_cookie' && reauthHas(errorText, REAUTH_DECRYPT_MARKERS)) {
+      matched.push('invalid_cookie_decrypt')
+    } else {
+      matched.push('credential_expired')
+    }
+  }
+
+  // 3: token 已过期且没有可用的续期通道。
+  const expiry =
+    input.tokenExpiryMs !== null && Number.isFinite(input.tokenExpiryMs)
+      ? input.tokenExpiryMs
+      : null
+  if (
+    expiry !== null &&
+    expiry < now &&
+    (input.hasRefreshToken !== true || input.refreshSupported === false)
+  ) {
+    matched.push('expired_no_refresh')
+  }
+
+  // 4: claim 被明确拒绝。只认凭证类证据,网络/限流/无活动/已签一律排除。
+  const c = input.lastCheckin
+  if (c && c.ok === false && reauthText(c.action) === 'claim') {
+    const code = reauthCode(c.code)
+    const message = reauthText(c.message)
+    const type = reauthText(c.classifiedErrorType)
+    const already =
+      code === '9095' || code === '10001' || reauthHas(message, REAUTH_ALREADY_MARKERS)
+    const retryable = REAUTH_RETRYABLE_ERRORS.has(type)
+    const nonCredential = reauthHas(message, REAUTH_NON_CREDENTIAL_MARKERS)
+    const authEvidence =
+      REAUTH_AUTH_ERROR_TYPES.has(type) || reauthHas(message, REAUTH_AUTH_MARKERS)
+    if (!already && !retryable && !nonCredential && authEvidence) matched.push('claim_failed')
+  }
+
+  // 5: 调度层已摘除。
+  const down = input.healthStatus === 'down' || input.tempUnschedulable === true
+  if (down) matched.push('account_down')
+
+  if (matched.length === 0) {
+    return { needsReauth: false, reason: null, reasons: [], detail: null, nextAction: null }
+  }
+
+  // 互斥折叠:down/temp 且没有更高优先的保活类原因时,主原因固定 account_down。
+  const overrideDown =
+    down &&
+    matched.includes('account_down') &&
+    !matched.includes('invalid_cookie_decrypt') &&
+    !matched.includes('credential_expired')
+  const reasons: RelayAccountReauthReason[] = overrideDown
+    ? ['account_down', ...matched.filter((r) => r !== 'account_down')]
+    : matched
+  // matched 已非空(上方早退),overrideDown 分支又显式保留了 account_down ⇒ 首元素恒存在
+  const reason = reasons[0] as RelayAccountReauthReason
+
+  let detail: string | null = null
+  if (reason === 'invalid_cookie_decrypt' || reason === 'credential_expired') {
+    detail = errorText.slice(0, 200) || null
+  } else if (reason === 'expired_no_refresh') {
+    detail =
+      expiry !== null
+        ? `token 已于 ${new Date(expiry).toISOString()} 到期,且该平台无可用 refresh 协议`
+        : null
+  } else if (reason === 'claim_failed') {
+    detail = reauthText(c?.message).slice(0, 200) || 'claim 返回明确拒绝'
+  } else if (reason === 'account_down') {
+    detail =
+      reauthText(input.lastErrorMessage).slice(0, 200) ||
+      (input.tempUnschedulable === true
+        ? '账号已临时摘除(tempUnschedulable)'
+        : '健康检查已标记 down')
+  }
+
+  return {
+    needsReauth: true,
+    reason,
+    reasons,
+    detail,
+    nextAction: RELAY_ACCOUNT_REAUTH_ACTION[reason],
+  }
+}
+
+/**
+ * 按 provider / reason 聚合(只统计 needsReauth=true,每账号按主原因计一次)。
+ * 返回三面:provider 计数、reason 计数、provider×reason 交叉表 —— 直接喂状态接口。
+ */
+export function summarizeRelayAccountReauth(
+  items: ReadonlyArray<{
+    providerCode: string
+    needsReauth: boolean
+    reason: RelayAccountReauthReason | null
+  }>,
+): {
+  total: number
+  byProvider: Record<string, number>
+  byReason: Record<string, number>
+  byProviderReason: Record<string, Record<string, number>>
+} {
+  const byProvider: Record<string, number> = {}
+  const byReason: Record<string, number> = {}
+  const byProviderReason: Record<string, Record<string, number>> = {}
+  let total = 0
+  for (const item of items) {
+    if (!item.needsReauth || item.reason === null) continue
+    total += 1
+    byProvider[item.providerCode] = (byProvider[item.providerCode] ?? 0) + 1
+    byReason[item.reason] = (byReason[item.reason] ?? 0) + 1
+    const bucket = (byProviderReason[item.providerCode] ??= {})
+    bucket[item.reason] = (bucket[item.reason] ?? 0) + 1
+  }
+  return { total, byProvider, byReason, byProviderReason }
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

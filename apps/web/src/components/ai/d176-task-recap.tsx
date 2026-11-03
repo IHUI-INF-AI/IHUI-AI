@@ -183,7 +183,7 @@ export function TaskRecapEntry() {
                   value={purpose}
                   onChange={(e) => setPurpose(e.target.value)}
                   disabled={unavailable || generating}
-                  aria-disabled={(unavailable || generating) || undefined}
+                  aria-disabled={unavailable || generating || undefined}
                 />
               </div>
 
@@ -214,11 +214,11 @@ export function TaskRecapEntry() {
                   <p className="text-[11px] leading-relaxed text-muted-foreground">
                     {tc('recap.phase.done')}
                   </p>
-                  <p className="whitespace-pre-wrap text-xs leading-relaxed text-foreground">
+                  <p className="whitespace-pre-wrap text-label leading-relaxed text-foreground">
                     {summary}
                   </p>
                   {nextAction && (
-                    <p className="whitespace-pre-wrap text-xs leading-relaxed text-foreground/80">
+                    <p className="whitespace-pre-wrap text-label leading-relaxed text-foreground/80">
                       {nextAction}
                     </p>
                   )}
@@ -252,7 +252,7 @@ export function TaskRecapEntry() {
                     size="sm"
                     data-testid="recap-generate-submit"
                     disabled={unavailable || generating || !conversationId}
-                    aria-disabled={(unavailable || generating || !conversationId) || undefined}
+                    aria-disabled={unavailable || generating || !conversationId || undefined}
                     onClick={() => void handleGenerate()}
                   >
                     {tc('recap.handoff.title')}

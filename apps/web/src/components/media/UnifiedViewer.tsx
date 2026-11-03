@@ -150,7 +150,7 @@ export function UnifiedViewer({ url, fileName, className }: UnifiedViewerProps) 
                 className="min-h-0 flex-1 justify-center"
               />
             ) : (
-              <pre className="min-h-0 flex-1 overflow-auto p-3 text-sm">
+              <pre className="min-h-0 flex-1 overflow-auto p-3 text-body">
                 <code>{feed.content}</code>
               </pre>
             )}
@@ -159,8 +159,8 @@ export function UnifiedViewer({ url, fileName, className }: UnifiedViewerProps) 
         {kind === 'other' && (
           <div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">
             <FileText className="h-8 w-8" />
-            <p className="text-sm">{t('unsupportedPreviewFormat')}</p>
-            <a href={url} download={fileName} className="text-sm text-primary hover:underline">
+            <p className="text-body">{t('unsupportedPreviewFormat')}</p>
+            <a href={url} download={fileName} className="text-body text-primary hover:underline">
               {t('downloadFile')}
             </a>
           </div>

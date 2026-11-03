@@ -636,7 +636,8 @@ describe('runRelayTaskById(触发分发,mock 执行体)', () => {
       expect(r?.detail, id).toMatch(/回灌完成:applied=/)
 
       const mod = await import('../src/workers/relay-account-pool-worker.js')
-      mod[exportName].mockResolvedValueOnce({
+      const trigger = mod[exportName] as unknown as ReturnType<typeof vi.fn>
+      trigger.mockResolvedValueOnce({
         code: 2,
         applied: 0,
         skipped: 0,

@@ -224,6 +224,8 @@ import {
   refundOrder,
 } from '../src/services/order-service.js'
 import { createUser } from '../src/db/queries.js'
+import type { User } from '@ihui/database'
+import type { RiskRuleEngine } from '../src/services/risk-engine-service.js'
 import { logger } from '../src/utils/logger.js'
 
 /**
@@ -243,16 +245,35 @@ const authRoutesProbe = await (async () => {
 })()
 
 const SAMPLE_UUID = '00000000-0000-4000-8000-000000000001'
-const mockUser = {
+/**
+ * createUser 返回的是完整 users 行(User)。此处按 schema 补全必填/可空列,
+ * 不造"只有注册用到的几列"的半行(否则类型上就不是一条真实用户行)。
+ */
+const mockUser: User = {
   id: SAMPLE_UUID,
   phone: '13800000001',
   email: null,
+  username: null,
   passwordHash: '$2a$10$mockedhashvalue',
   nickname: '用户0001',
   avatar: null,
+  bio: null,
+  gender: 0,
+  birthday: null,
   familyId: '00000000-0000-4000-8000-000000000002',
   roleId: 0,
+  deptId: null,
   status: 1,
+  isVip: 0,
+  identityType: 'normal',
+  level: 0,
+  isSystemAdmin: false,
+  inviteCode: null,
+  parentId: null,
+  twoFactorSecret: null,
+  twoFactorEnabled: false,
+  twoFactorBackupCodes: [],
+  twoFactorEnabledAt: null,
   createdAt: new Date(),
   updatedAt: new Date(),
 }
@@ -265,9 +286,12 @@ async function boot(opts: { withAuth?: boolean } = {}): Promise<FastifyInstance>
   if (opts.withAuth) {
     if (!authRoutesProbe.ok) throw new Error('auth 路由不可装载:' + authRoutesProbe.reason)
     await app.register(cookie)
-    app.decorate('riskEngine', {
-      evaluateRisk: () => ({ action: 'ALLOW' as const, hits: [], score: 0 }),
-    })
+    app.decorate(
+      'riskEngine',
+      {
+        evaluateRisk: () => ({ action: 'ALLOW' as const, hits: [], totalScore: 0 }),
+      } as unknown as RiskRuleEngine,
+    )
     app.register(authRoutesProbe.authRoutes, { prefix: '/api/auth' })
     app.register(authRoutesProbe.authExtendedRoutes, { prefix: '/api' })
   }

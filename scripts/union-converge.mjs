@@ -77,6 +77,11 @@
  *       #   纪律照抄 --take-ours/--take-theirs:逐条声明、逐条打印、写进合并提交信息;
  *       #   声明的路径两侧都取不到 ⇒ 未判定(不记通过,拦落地);声明了非活文档路径
  *       #   ⇒ 声明未命中判红(整路径取对侧请改用 --take-theirs,它对非活文档本来就生效)。
+ *   node scripts/union-converge.mjs --legacy-lenient
+ *       # A6b(2026-11-03)逃生阀:显式退回旧口径 —— --take-theirs-doc 整份取对侧前**不再量**
+ *       #   本侧带号键/空行/非空行三项差(少内容也不阻断)。默认在 CHECK 与 APPLY 两档恒量(写盘
+ *       #   那一步不该靠调用方记得加旗);本旗一经出现,stderr 必打一行醒目告警,该次运行不得
+ *       #   被读成"零丢失"。
  *   node scripts/union-converge.mjs --resolve '<path>=<内容文件>' [--resolve ...]
  *       # 真三方报冲突后,**人工判完的回灌出口**(2026-09-26 立)。此前"请人工判"是一句死路:
  *       #   工具不接收人工结果,人只能去做裸 git 手术(read-tree/commit-tree/update-ref),
@@ -155,20 +160,7 @@ import { backupOrphanCommit, orphanBackupRefName } from './lib/orphan-backup.mjs
 import { rerunAffectedGates } from './lib/land-gate-rerun.mjs'
 // 旗标取值的唯一出口(G-322):`--theirs` / `--base` 的"给了旗标就必须有值"判据归单源,本文件不写副本。
 import { requireFlagValue } from './lib/flag-value.mjs'
-import {
-  auditPlan,
-  malformedLine,
-  f9GroupLine,
-  DUP_POINTER_RE,
-  lineNoteCount,
-  mergeNoteUnits,
-  keyOfRow,
-  compositeKeyOf,
-} from './lib/plan-task-index.mjs'
-import { SIM_THRESHOLD, jaccard, tokenize, stripState } from './lib/live-doc-similarity.mjs'
-// 冲突标记的「成套 / 空区 / 有正文区」分类判据(2026-11-01,MARKERS 票):与守门 79 共用
-// `lib/conflict-marker-triples.mjs` 那一份实现,本器不再抄第二条「什么算成对标记」(§0.6)。
-import { classifyMarkerTriples } from './lib/conflict-marker-triples.mjs'
+import { mergeNoteUnits, keyOfRow } from './lib/plan-task-index.mjs'
 // **落地前**自检(L33560,2026-11-01):本器用 commit-tree 造提交,pre-commit 不跑 ⇒ 守门 79 在这条
 // 通道上一次都没看过将要落地的内容。判据本体仍住 lib(配对 = conflict-marker-triples;分型 = 这份),
 // 本文件只负责"把产物面那份内容交进去"与"把判红折进既有 bad 通道(退出码 1)"。
@@ -176,18 +168,14 @@ import { gateLandingMarkers } from './lib/conflict-marker-landing-gate.mjs'
 // 搬运感知判据(2026-09-28):占位注释的解析与"哪些行属于那个被搬走的条目"的块归属,
 // 一律复用归档器那一份实现(`lib/plan-task-headings.mjs` 的 parseCompletedTaskBlocks),
 // **不得在本归并器里再抄一条"什么算一个已完成条目"的正则** —— 两处各写一遍必漂移。
-import {
-  collectReferencedArchives,
-  archivedLineSuppressions,
-  subtractSuppressed,
-} from './lib/ledger-move-aware.mjs'
+import { collectReferencedArchives, archivedLineSuppressions } from './lib/ledger-move-aware.mjs'
 // 行级复活判据(2026-10-07,台账票 G-383 最后一格):与落地器(object-space-land.mjs)和守门 84
 // 的 R1r 共用**这一份**实现 —— 本器不再抄第二条"什么算一行复活"(两处算同一件事必漂移,
 // 是本仓记过最多次的失败型;判据本体与它的三态语义见该库头注,本文件只做取材与定级)。
 import { resurrectAnalysis } from './lib/stale-content-analysis.mjs'
 // 同题去重(2026-10-15,根治 union 重复再生):union 产出后、落地前按标题指纹折叠 PROJECT_PLAN 的
 // 同题行 —— 同一件事物理上只留一行,被丢弃行的独有注记/票号并入保留行(信息守恒)。
-import { dedupeByFingerprint, dedupeGroups, uniqueNotes, selfIdOf, noteSegments } from './lib/dedupe-ledger.mjs'
+import { dedupeByFingerprint, dedupeGroups } from './lib/dedupe-ledger.mjs'
 // 折叠去向的举证只用**这一把**指纹尺子(与 dedupe-ledger / 守门 194 / 守门 203 同一个来源):
 // 自证侧问"被折掉的那一行,产物面里还有没有同一件事的那一行",问的是**身份**而不是**策略** ——
 // 折谁、注记怎么并、保留行怎么选全都住在 lib/dedupe-ledger,本器一处也不重写(§22c)。
@@ -195,11 +183,7 @@ import { extractTaskFingerprint } from './check-plan-task-duplicates.mjs'
 // 摘除台账(2026-10-23 接进本器,堵"完成即删"的最后一条回潮通道):只有它认得出
 // "这一行是别人按台账正当摘除过的",而不是"对侧多出来的一行"。判据与 `scrub-declared-removals`
 // 同一份(§0.6 单一真相源,本器零复算)。
-// G-34/G-43(2026-10-25):补"复合主键/指纹"认账所需的一把既有单源 —— `titleFpOf`(题面 32 字指纹,
-// scrub 维三同一把尺);本器不写第二份台账解析。
-// 2026-10-26:`rowStateOf` 也走同一出口 —— "本侧那份同主键行是活票还是已结清"决定让不让路,
-// 状态位不许在本器里另写一条正则(§0.6/§22c)。
-import { declaredRows, rowStateOf, titleFpOf } from './scrub-declared-removals.mjs'
+import { declaredRows } from './scrub-declared-removals.mjs'
 // 归档移出凭据(2026-10-25,守门 207 第二刀①):AGENTS 的重复登记副本按 §1 合法出路
 // 「整区逐字移入 archive + 原位留指针」搬走后,对侧旧基线里那份逐字同行会被本表读成
 // 「对侧相对基底新增」⇒ 补回,清偿成果一轮被吞回。判据住 lib(与 merge-live-doc 的第四态同源),
@@ -228,7 +212,6 @@ import {
   theirsRewriteCaps,
   yieldedIdCaps,
   declaredDropCaps,
-  rawMentionsId,
   declaredFamilyCaps,
   formatLedgerEvidence,
   foldLedgerOf,
@@ -952,6 +935,75 @@ export function applyResurrectBlock(p) {
 }
 
 
+/**
+ * A6(2026-11-03):`--take-theirs-doc` 的整份取代零丢失判据。
+ *
+ * 旧判据只有"合并树里该路径 blob 逐字等于对侧",于是"整份取对侧"本身被当成零丢失 ——
+ * 对侧若是一份滞后/缺行的稿,本侧的带号行、空行、非空行会整批消失而无一声点名。
+ * 现在在取对侧之前先量三笔差:带号键逐键计数、空行数、非空行数;任何一项相对本侧减少
+ * 都必须阻断,除非调用方用 `--take-theirs-doc <path>=<理由>` 显式声明这次少内容的去向。
+ * 判据只有这一份:buildUnion(产出面)与 verifyUnion(自证面)都调它,不得各写一份。
+ */
+export const TAKE_DOC_MIN_REASON = 10
+
+/** 声明集兼容 Set(旧测试/旧调用)与 Map(path→理由,CLI 新形态)。 */
+export function takeDocPaths(docs) {
+  if (docs instanceof Map || docs instanceof Set) return [...docs.keys()]
+  return Array.isArray(docs) ? [...docs] : []
+}
+
+export function takeDocHas(docs, path) {
+  return docs instanceof Map || docs instanceof Set ? docs.has(path) : false
+}
+
+export function takeDocReason(docs, path) {
+  if (!(docs instanceof Map)) return ''
+  return String(docs.get(path) ?? '').trim()
+}
+
+export function takeTheirsDocLoss(oursText, theirsText) {
+  const linesOf = (t) => String(t ?? '').replace(/\r\n/g, '\n').split('\n')
+  const keyCounts = (t) => {
+    const m = new Map()
+    for (const l of linesOf(t)) {
+      const k = keyOfRow(l)
+      if (k) m.set(k, (m.get(k) || 0) + 1)
+    }
+    return m
+  }
+  const a = linesOf(oursText)
+  const b = linesOf(theirsText)
+  const ak = keyCounts(oursText)
+  const bk = keyCounts(theirsText)
+  const missingKeys = []
+  for (const [k, n] of ak) {
+    const have = bk.get(k) || 0
+    if (have < n) missingKeys.push({ key: k, ours: n, theirs: have })
+  }
+  const blankOurs = a.filter((l) => l.trim() === '').length
+  const blankTheirs = b.filter((l) => l.trim() === '').length
+  const nonBlankOurs = a.length - blankOurs
+  const nonBlankTheirs = b.length - blankTheirs
+  const losses = []
+  if (missingKeys.length)
+    losses.push(
+      `带号键少 ${missingKeys.length} 枚(` +
+        missingKeys.slice(0, 6).map((x) => `${x.key} ${x.ours}→${x.theirs}`).join(', ') +
+        (missingKeys.length > 6 ? ', …' : '') +
+        ')',
+    )
+  if (blankTheirs < blankOurs) losses.push(`空行少 ${blankOurs - blankTheirs} 行(${blankOurs}→${blankTheirs})`)
+  if (nonBlankTheirs < nonBlankOurs)
+    losses.push(`非空行少 ${nonBlankOurs - nonBlankTheirs} 行(${nonBlankOurs}→${nonBlankTheirs})`)
+  return {
+    ok: losses.length === 0,
+    losses,
+    missingKeys,
+    blank: { ours: blankOurs, theirs: blankTheirs },
+    nonBlank: { ours: nonBlankOurs, theirs: nonBlankTheirs },
+  }
+}
+
 /** 构造合并树。临时索引走 §26 的夹具唯一落点 `mkScratch` ——
  *  硬编码 `cwd/.ihui-agent/tmp` 会在"对临时仓库做取证"时直接 ENOENT(自检第一轮即如此),
  *  而且把夹具写进仓库树内还会让 git 的 toplevel 向上逃逸。
@@ -970,6 +1022,7 @@ export function buildUnion(
   foldKeep = null,
   declaredLoss = null,
   takeTheirsDocs = null,
+  lenient = false,
 ) {
   const scratch = mkScratch('union-idx')
   const idx = join(scratch, 'index')
@@ -1021,6 +1074,8 @@ export function buildUnion(
     // 声明位置在活文档循环之前 —— 循环里就要往里 push,挂到 2) 的清单堆里会撞 TDZ(见 violations 同款)。
     const keptTheirsDocs = []
     const takeDocsUndetermined = []
+    // A6:声明理由放行的"本侧少内容"格,逐条交回报告面(不得静默折进"0 丢失")。
+    const takeDocCredits = []
     for (const p of LIVE_DOCS) {
       const a = show(ours, p, cwd)
       const b = show(theirs, p, cwd)
@@ -1030,13 +1085,28 @@ export function buildUnion(
       // 写入走 update-index 直接引用对侧 blob oid(与 --take-theirs 同一形态,不另造 blob)。
       // 复活对账/搬运感知/状态分叉这几维都随行级 union 一起跳过:它们量的是"union 带回了什么",
       // 本路径根本没有 union;整份取代的留痕就是 keptTheirsDocs 这条逐路径点名本身。
-      if (takeTheirsDocs?.has?.(p)) {
+      if (takeDocHas(takeTheirsDocs, p)) {
         const theirsBlob = blobOf(theirs, p, cwd)
         if (!theirsBlob) {
           // 取不到输入 ⇒ 未判定,绝不冒充"对侧本来就是空的"而静默跳过:落地闸会拦下这一格
           // (verifyUnion 对同一声明点名),此处照常落回普通行 union 让报告仍能展示合并形态。
           takeDocsUndetermined.push({ doc: p, reason: '对侧取不到该路径的 blob(路径不存在/对象不在本机)' })
         } else {
+          // A6:整份取代之前先量本侧会少什么;少内容且没有理由声明 ⇒ 折进 violations 阻断落地。
+          // A6b(`--legacy-lenient` 逃生阀):显式退回旧行为,整份取对侧不再量三项差;告警在 CLI 入口打。
+          if (!lenient) {
+            const loss = takeTheirsDocLoss(a, b)
+            const why = takeDocReason(takeTheirsDocs, p)
+            if (!loss.ok && why.length < TAKE_DOC_MIN_REASON) {
+              violations.push(
+                `${p} 整份取对侧会让本侧少内容(${loss.losses.join('; ')}),` +
+                  `且未用 --take-theirs-doc '${p}=<理由>' 声明这次少内容的去向 ⇒ 阻断(不记通过)`,
+              )
+            } else if (!loss.ok) {
+              takeDocCredits.push({ doc: p, why, losses: loss.losses })
+              console.log(`   ⚠️ ${p} 整份取对侧已声明少内容(${loss.losses.join('; ')});理由:${why}`)
+            }
+          }
           run(['update-index', '--add', '--cacheinfo', `100644,${theirsBlob},${p}`])
           keptTheirsDocs.push(p)
           console.log(
@@ -1491,6 +1561,8 @@ export function buildUnion(
       keptTheirs,
       // --take-theirs-doc(2026-10-27):整份取对侧已生效的活文档(逐条点名)与未判定格(拦落地的红住 verifyUnion)。
       keptTheirsDocs,
+      // A6:整份取对侧已声明"本侧少内容"的格(逐条点名理由),不得折进零丢失。
+      takeTheirsDocCredits: takeDocCredits,
       takeTheirsDocsUndetermined: takeDocsUndetermined,
       humanResolved,
       violations,
@@ -1563,6 +1635,7 @@ export function verifyUnion(
   foldLedgers = null,
   supersede = null,
   takeTheirsDocs = null,
+  lenient = false,
 ) {
   const M = new Set(listPaths(tree, cwd))
   const bad = []
@@ -1633,7 +1706,18 @@ export function verifyUnion(
     // --take-theirs-doc 的自证语义(2026-10-27):对这类路径,"零丢失"= **整 blob 逐字等于对侧**。
     // 行级期望表(liveDocExpectedCounts)不跑 —— 本侧独有行被整份取代是声明本身,不是归并失误;
     // 但声明绝不因此免检:树里不是对侧那一份字节 ⇒ 照红,取不到对侧 ⇒ 未判定(不记通过)。
-    if (takeTheirsDocs?.has?.(p)) {
+    if (takeDocHas(takeTheirsDocs, p)) {
+      // A6:整份取代的自证不能只验"树 == 对侧"——先量本侧会少什么,少内容且无理由声明照样红。
+      // A6b(`--legacy-lenient`):逃生阀开启时自证也回到旧口径(只验 blob 逐字等于对侧)。
+      if (!lenient && a !== null && b !== null) {
+        const loss = takeTheirsDocLoss(a, b)
+        const why = takeDocReason(takeTheirsDocs, p)
+        if (!loss.ok && why.length < TAKE_DOC_MIN_REASON)
+          bad.push(
+            `${p} --take-theirs-doc 自证:本侧少内容(${loss.losses.join('; ')}),` +
+              '且未声明理由 ⇒ 整份取对侧不是零丢失,不记通过',
+          )
+      }
       const tb = blobOf(theirs, p, cwd)
       const mb = blobOf(tree, p, cwd)
       if (!tb)
@@ -2081,6 +2165,7 @@ export function plan(
   foldKeep = null,
   declaredLoss = null,
   takeTheirsDocs = null,
+  lenient = false,
 ) {
   // 直接走 API 的调用方也必须拿到同一句诊断,而不是 git 的 "Not a valid commit name" 加一串堆栈
   // (G-473 ②:取不到要写成"未判定 + 出口",不得表现为工具故障)。CLI 那一支在 resolveTargets
@@ -2127,20 +2212,32 @@ export function plan(
     foldKeep,
     declaredLoss,
     takeTheirsDocs,
+    lenient,
   )
   // needHuman 同时进 bad:任何只看 bad 的调用方(含 git-sync-converge 之外的使用者)都不可能
   //   把一枚含冲突文件的树落地。冲突详情仍单独留清单,报告要点名到"是哪个文件"。
   const blocked = built.needHuman.map((h) => `${h.path} 需人工判(${h.kind}):${h.detail}`)
   // 折叠台账必须**同轮**交给落地自证(§0.4 同面同轮):产物面是折叠之后那一份,自证侧若拿不到
   // 这本账,就会对着一个"产物面根本不存在的重数"判红 —— 本机实测 289 处「未存活行」而真丢失 0。
-  const vu = verifyUnion(ours, theirs, built.tree, cwd, base, moveAwareCache, built.foldLedgers, supersede, takeTheirsDocs)
+  const vu = verifyUnion(
+    ours,
+    theirs,
+    built.tree,
+    cwd,
+    base,
+    moveAwareCache,
+    built.foldLedgers,
+    supersede,
+    takeTheirsDocs,
+    lenient,
+  )
   // --take-theirs-doc 的陈旧/错道声明必须当场点名(§0.3:配了清单 ≠ 这轮真放过东西):
   //  · 声明的路径两侧都取不到 ⇒ 未判定(不记通过);
   //  · 声明的路径存在但不在活文档清单 ⇒ 未命中(该族整路径取对侧本就由 --take-theirs 负责,
   //    --take-theirs-doc 只对"会被行级 union 覆盖选边"的活文档才有意义)。
   // buildUnion 的活文档循环只遍历 LIVE_DOCS,不在清单里的声明那里永远看不见 ⇒ 只能在 plan() 这一层拦。
   const staleDocPicks = []
-  for (const d of takeTheirsDocs || []) {
+  for (const d of takeDocPaths(takeTheirsDocs)) {
     if (LIVE_DOCS.includes(d)) continue
     const exists = blobOf(ours, d, cwd) || blobOf(theirs, d, cwd)
     staleDocPicks.push(
@@ -4059,6 +4156,15 @@ async function main() {
   }
   if (argv.includes('--self-test')) return selfTest()
   const apply = argv.includes('--apply')
+  // A6b 逃生阀:显式退回旧口径(整份取对侧不再量本侧三项差)。告警必须每次开跑都打且足够醒目,
+  // 不许静默 —— 逃生阀本身也是"少带内容"的合法入口,账面必须能看见它被开了。
+  const legacyLenient = argv.includes('--legacy-lenient')
+  if (legacyLenient) {
+    console.error(
+      '⚠️ [union-converge] --legacy-lenient:--take-theirs-doc 的三项丢失检测已关闭' +
+        '(带号键/空行/非空行任一减少都不再阻断,整份取对侧回到旧行为)。仅限确知风险时使用。',
+    )
+  }
   // --theirs <sha> 的取值交单源出口(G-322)。旧写法 `argv[i + 1]` 有两型吞值都**静默降级**:
   //   ① `--theirs` 收尾(无值)⇒ undefined 进 resolveTargets,被读成"调用方没点名" ⇒ 回落到自动
   //      解析 origin/<branch>,`explicit` 那一维也翻假,于是"本地纯落后"短路把一次显式点名的合并
@@ -4088,9 +4194,15 @@ async function main() {
   //   对侧滞后的基线形态会照旧并回结果(生产签出实测 121 行回灌)。本旗标让"整份取对侧"
   //   真正落到树上,自证语义 = 合并树该路径 blob 逐字等于对侧 blob(见 verifyUnion 该分支)。
   //   纪律照抄 --take-ours/--take-theirs:逐条声明、逐条打印、写进合并提交信息,绝不默认生效。
-  const takeTheirsDocs = new Set()
-  for (let i = 0; i < argv.length; i++)
-    if (argv[i] === '--take-theirs-doc' && argv[i + 1]) takeTheirsDocs.add(argv[++i])
+  // A6(2026-11-03):值可写成 `<path>=<理由>` —— 整份取对侧若让本侧少带号行/空行/非空行,
+  //   必须用这份理由显式声明;只写 path(旧形态)在无丢失时仍照旧可用,有丢失则阻断。
+  const takeTheirsDocs = new Map()
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] !== '--take-theirs-doc' || !argv[i + 1]) continue
+    const spec = argv[++i]
+    const at = spec.indexOf('=')
+    takeTheirsDocs.set(at > 0 ? spec.slice(0, at) : spec, at > 0 ? spec.slice(at + 1).trim() : '')
+  }
   // --resolve <path>=<文件>(可重复):人工判完冲突后的**回灌出口**。与 --take-ours 的关键区别:
   //   它不选边 —— 喂进来的整份内容照样过"两侧独有行不得减少"的断言,少哪一侧当场 violations。
   // --union-capped <path>=<文件>(可重复,G-585):同一个入口,但先按"两侧最大值"机械封顶多余副本
@@ -4360,6 +4472,7 @@ async function main() {
     foldKeep.size ? foldKeep : null,
     declaredLoss.size ? declaredLoss : null,
     takeTheirsDocs.size ? takeTheirsDocs : null,
+    legacyLenient,
   )
   console.log(
     `[union-converge] ${apply ? 'APPLY' : 'CHECK ONLY'} base=${p.base.slice(0, 11)} ours=${t.head.slice(0, 11)} theirs=${t.theirs.slice(0, 11)} / 取对侧 ${p.tookTheirs.length} 路径 / 活文档整份取对侧 ${p.keptTheirsDocs?.length ?? 0} / 两侧同改三方归并 ${p.mergedClean.length} / 需人工 ${p.needHuman.length} / 对侧删除不传播 ${p.skippedDeletes.length} / 删除随合并传播 ${p.propagatedDeletes?.length ?? 0} / 影子 .js 随合并删掉 ${p.shadowDeletes?.length ?? 0} / 影子 .js 未恢复 ${p.shadowRestores?.length ?? 0} / 活文档行 union`,
@@ -4411,6 +4524,11 @@ async function main() {
   for (const r of p.keptTheirsDocs || [])
     console.log(
       `  · 活文档整份取对侧(已声明 --take-theirs-doc):${r} —— 行级 union 已跳过,该路径整 blob 等于对侧(对侧行级 union 会回灌滞后基线时才用,声明者须附取证)`,
+    )
+  // A6(2026-11-03):整份取代让本侧少内容的格必须逐条点名 —— 不许把它折进"零丢失"。
+  for (const c of p.takeTheirsDocCredits || [])
+    console.log(
+      `  · 整份取对侧已声明少内容(非零丢失,凭理由放行):${c.doc} —— ${c.losses.join('; ')};理由:${c.why}`,
     )
   for (const u of p.takeTheirsDocsUndetermined || [])
     console.log(
@@ -4537,6 +4655,9 @@ async function main() {
     (p.keptTheirs?.length ? `;取对侧(已声明+可复核): ${p.keptTheirs.join(' ')}` : '') +
     (p.keptTheirsDocs?.length
       ? `;活文档整份取对侧(已声明 --take-theirs-doc,整 blob 等于对侧、跳过行级 union): ${p.keptTheirsDocs.join(' ')}`
+      : '') +
+    (p.takeTheirsDocCredits?.length
+      ? `;整份取对侧已声明少内容(带理由,非零丢失): ${p.takeTheirsDocCredits.map((c) => `${c.doc}(${c.losses.join('|')})`).join(' ')}`
       : '') +
     (p.acceptedGrowth?.length
       ? `;已声明放行的量纲放大(带理由,非静默): ${p.acceptedGrowth.join(' | ')}`
@@ -4696,6 +4817,9 @@ export const __test__ = {
   buildUnion,
   unionLines,
   verifyUnion,
+  // A6(2026-11-03):整份取对侧的零丢失判据只此一份,镜像测试直接 import,不得复算第二份
+  takeTheirsDocLoss,
+  takeDocPaths,
   resolveTargets,
   hasCommit,
   unreachableObjectGuidance,

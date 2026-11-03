@@ -89,7 +89,7 @@ export default function OnlineUsersPage() {
     {
       key: 'ip',
       title: 'IP地址',
-      render: (u) => <code className="font-mono text-xs text-muted-foreground">{u.ip}</code>,
+      render: (u) => <code className="font-mono text-label text-muted-foreground">{u.ip}</code>,
     },
     {
       key: 'loginAt',
@@ -111,14 +111,14 @@ export default function OnlineUsersPage() {
       render: (u) => (
         <div className="flex items-center gap-1.5">
           <DeviceIcon device={u.device} />
-          <span className="text-xs text-muted-foreground">{u.device}</span>
+          <span className="text-label text-muted-foreground">{u.device}</span>
         </div>
       ),
     },
     {
       key: 'location',
       title: '登录位置',
-      render: (u) => <span className="text-xs text-muted-foreground">{u.location ?? '-'}</span>,
+      render: (u) => <span className="text-label text-muted-foreground">{u.location ?? '-'}</span>,
     },
     {
       key: 'actions',
@@ -152,7 +152,7 @@ export default function OnlineUsersPage() {
             <Users className="h-6 w-6 text-primary" />
             在线用户
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">查看当前在线用户列表,支持强制下线</p>
+          <p className="mt-1 text-body text-muted-foreground">查看当前在线用户列表,支持强制下线</p>
         </div>
         <Badge variant="success">
           <Users className="h-3 w-3" />

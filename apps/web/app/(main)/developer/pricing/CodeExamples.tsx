@@ -58,7 +58,7 @@ export function CodeExamples(): React.JSX.Element {
           <p className="text-body font-semibold">{t('examplesTitle')}</p>
         </div>
 
-        <p className="text-xs text-muted-foreground">{t('examplesSubtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('examplesSubtitle')}</p>
 
         <div className="flex flex-wrap gap-1.5">
           {LANGS.map((l) => {
@@ -82,7 +82,7 @@ export function CodeExamples(): React.JSX.Element {
             className={cn(
               // 2026-08-17 P3:dark 模式代码块用更深 zinc-950(与 markdown-stream 对齐),
               // 原 bg-zinc-950 light + dark:bg-zinc-900 反向,已修正
-              'overflow-x-auto rounded-md bg-zinc-100 p-3 text-xs leading-relaxed text-zinc-800',
+              'overflow-x-auto rounded-md bg-zinc-100 p-3 text-label leading-relaxed text-zinc-800',
               'dark:bg-zinc-950 dark:text-zinc-100',
             )}
           >
@@ -101,7 +101,7 @@ export function CodeExamples(): React.JSX.Element {
           </button>
         </div>
 
-        <p className="text-xs text-muted-foreground">
+        <p className="text-label text-muted-foreground">
           {/* D04① 词包腿可点击载体:句中本来就报的站内路由包进 <link>,内文以 "/" 过 SAFE_HREF ⇒ 产出真 <a href> */}
           {t.rich('examplesTip', { link: richAnchorRenderer('link') })}
         </p>

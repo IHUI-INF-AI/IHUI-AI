@@ -4,13 +4,14 @@
 
 import { t } from '@/i18n'
 import Taro from '@tarojs/taro'
+import { onToast } from '@/host/on-toast'
 
 export function saveImageToPhotosAlbum(filePath: string): Promise<void> {
   return new Promise((resolve, reject) => {
     Taro.saveImageToPhotosAlbum({
       filePath,
       success: () => {
-        Taro.showToast({ title: t('album.saveSuccess'), icon: 'success' })
+        onToast(t('album.saveSuccess'), { kind: 'success' })
         resolve()
       },
       fail: (err) => {
@@ -25,7 +26,7 @@ export function saveImageToPhotosAlbum(filePath: string): Promise<void> {
             },
           })
         } else {
-          Taro.showToast({ title: t('album.saveFailed'), icon: 'none' })
+          onToast(t('album.saveFailed'), { kind: 'error' })
         }
         reject(err)
       },
@@ -36,7 +37,7 @@ export function saveImageToPhotosAlbum(filePath: string): Promise<void> {
 export async function saveNetworkImageToAlbum(imageUrl: string): Promise<void> {
   const url = String(imageUrl || '').trim()
   if (!url) {
-    Taro.showToast({ title: t('album.urlEmpty'), icon: 'none' })
+    onToast(t('album.urlEmpty'), { kind: 'error' })
     throw new Error(t('album.urlEmpty'))
   }
 

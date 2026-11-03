@@ -117,7 +117,7 @@ export function TokenPieChart({ distribution, size = 220 }: TokenPieChartProps) 
           total tokens
         </text>
       </svg>
-      <div className="grid w-full grid-cols-2 gap-x-3 gap-y-1 text-xs">
+      <div className="grid w-full grid-cols-2 gap-x-3 gap-y-1 text-label">
         {slices.map((s) => (
           <div key={s.key} className="flex items-center gap-1.5">
             <span

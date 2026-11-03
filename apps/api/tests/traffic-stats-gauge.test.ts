@@ -79,7 +79,7 @@ import {
 
 let server: FastifyInstance | undefined
 
-const WINDOWS = BM.TRAFFIC_WINDOWS as readonly string[]
+const WINDOWS = BM.TRAFFIC_WINDOWS
 const SOURCES = BM.TRAFFIC_SOURCES as readonly string[]
 const FAMILIES = BM.CLIENT_FAMILIES as readonly string[]
 

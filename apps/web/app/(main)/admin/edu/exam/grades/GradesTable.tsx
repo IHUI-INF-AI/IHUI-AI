@@ -70,7 +70,7 @@ export function GradesTable({ records, isLoading, error, onGrade }: Props) {
                   {r.paperTitle ?? r.paperId.slice(0, 8)}
                 </TableCell>
                 <TableCell className="px-4 py-2.5 font-medium">{Number(r.score)}</TableCell>
-                <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">
+                <TableCell className="px-4 py-2.5 text-label text-muted-foreground">
                   {r.submittedAt ?? '-'}
                 </TableCell>
                 <TableCell className="px-4 py-2.5 text-right">
