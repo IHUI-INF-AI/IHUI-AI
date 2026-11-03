@@ -43,6 +43,7 @@ import {
 } from 'react-native'
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { Loading } from '@ihui/ui-native'
 import {
   MODEL_LIST_AGENT_GLYPH_PX,
   MODEL_LIST_BADGE_FONT_PX,
@@ -115,7 +116,13 @@ export interface ModelListProps {
   groups: ModelListGroup[]
   selectionMode?: ModelListSelectionMode
   selectedIds?: string[]
+  /** 单选便利入参(与小程序端同名同义):未给 selectedIds 时作为唯一选中项 */
+  selectedId?: string
   onSelectChange?: (ids: string[]) => void
+  /** 单项选中回调(与小程序端同名同义):回传被点的模型条目 */
+  onSelect?: (item: ModelListItem) => void
+  /** 加载态(与小程序端同名同义):true 时只渲染加载占位,不铺列表 */
+  loading?: boolean
   onEndReached?: () => void
   /** Agent 模式选项(对齐 Uniapp showAgentMode,可选) */
   showAgentMode?: boolean
@@ -283,8 +290,11 @@ function AgentModeRow({
 export default function ModelList({
   groups,
   selectionMode = 'single',
-  selectedIds = [],
+  selectedIds,
+  selectedId,
+  onSelect,
   onSelectChange,
+  loading = false,
   onEndReached,
   showAgentMode = false,
   agentModeSelected = false,
@@ -293,7 +303,17 @@ export default function ModelList({
   style,
 }: ModelListProps): React.ReactElement {
   const { t } = useI18n()
-  const selectedSet = new Set(selectedIds)
+  /** 选择态:selectedIds(复数)优先,退化到单值 selectedId */
+  const effectiveSelectedIds = selectedIds ?? (selectedId === undefined ? [] : [selectedId])
+  const selectedSet = new Set(effectiveSelectedIds)
+
+  if (loading) {
+    return (
+      <View style={[styles.empty, style]}>
+        <Loading color={tokens.text.secondary} />
+      </View>
+    )
+  }
 
   /** 列表分组 section 数据(组内按 isTop 排序,RN SectionList 要求 data 字段为 ItemT[]) */
   const sections: SectionListData<ModelListItem, { title: string }>[] = groups
@@ -303,17 +323,18 @@ export default function ModelList({
       return { title: resolveTitle(g, t), data: models }
     })
 
-  const handlePress = (id: string): void => {
+  const handlePress = (item: ModelListItem): void => {
+    onSelect?.(item)
     if (!onSelectChange) return
     if (selectionMode === 'single') {
-      onSelectChange([id])
+      onSelectChange([item.id])
       return
     }
     const next = new Set(selectedSet)
-    if (next.has(id)) {
-      next.delete(id)
+    if (next.has(item.id)) {
+      next.delete(item.id)
     } else {
-      next.add(id)
+      next.add(item.id)
     }
     onSelectChange(Array.from(next))
   }
@@ -329,7 +350,7 @@ export default function ModelList({
       total={section.data.length}
       selected={selectedSet.has(item.id)}
       animate={animateEntrance}
-      onPress={() => handlePress(item.id)}
+      onPress={() => handlePress(item)}
     />
   )
 

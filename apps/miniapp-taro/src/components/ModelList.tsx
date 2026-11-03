@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, type CSSProperties } from 'react'
 import { useI18n, useTt, type TtFn } from '@/i18n'
 import { View, Text } from '@tarojs/components'
 import { cn, rnRadius, TARO_RPX_PER_PX, taroSpacing } from '@ihui/design-tokens'
@@ -86,6 +86,18 @@ export interface ModelListProps {
   agentActive?: boolean
   /** popup 模式:Agent 模式点击回调 */
   onAgentSelect?: () => void
+  /** 是否展示 Agent 模式行(与 RN 端同名同义;缺省按是否给 onAgentSelect 判定) */
+  showAgentMode?: boolean
+  /** 选择模式(与 RN 端同名同义):'single' 单选 / 'multiple' 多选,默认单选 */
+  selectionMode?: 'single' | 'multiple'
+  /** 多选选中集合(与 RN 端同名同义);提供时优先于本端的单值 selectedId */
+  selectedIds?: string[]
+  /** 选择变更回调(与 RN 端同名同义):回传当前选中 id 集合 */
+  onSelectChange?: (ids: string[]) => void
+  /** 逐项入场动画(与 RN 端同名同义,默认开启;复用端内 ai-slide-up) */
+  animateEntrance?: boolean
+  /** 外层容器样式(与 RN 端同名同义) */
+  style?: CSSProperties
 }
 
 const TYPE_LABELS = (tt: TtFn): Record<string, string> => ({
@@ -106,10 +118,40 @@ export default function ModelList({
   currentType = '',
   agentActive = false,
   onAgentSelect,
+  showAgentMode,
+  selectionMode = 'single',
+  selectedIds,
+  onSelectChange,
+  animateEntrance = true,
+  style,
 }: ModelListProps) {
   const tt = useTt()
   const { locale } = useI18n()
   const [historyExpanded, setHistoryExpanded] = useState(false)
+
+  /** 选择态:selectedIds(与 RN 同名)优先;退化到本端历史的单值 selectedId */
+  const selectedSet = useMemo(() => {
+    if (selectedIds) return new Set(selectedIds)
+    return new Set(selectedId === undefined ? [] : [String(selectedId)])
+  }, [selectedIds, selectedId])
+
+  /** 选中动作:本端历史的 onSelect(回传条目)与 RN 同名的 onSelectChange(回传 id 集)都触发 */
+  const handleSelect = (model: ModelItem): void => {
+    onSelect?.(model)
+    if (!onSelectChange) return
+    if (selectionMode === 'multiple') {
+      const next = new Set(selectedSet)
+      const key = String(model.id)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      onSelectChange(Array.from(next))
+      return
+    }
+    onSelectChange([String(model.id)])
+  }
+
+  /** Agent 行显隐:显式开关优先,缺省沿用「给了回调就展示」的既有行为 */
+  const agentVisible = showAgentMode ?? onAgentSelect !== undefined
 
   // 默认列表只保留"最新 + 对话类",其余全部收进历史模型折叠区(判定在后端,
   // 分组在 packages/shared,此处只做装配 — 见 utils/model-catalog.ts)
@@ -127,7 +169,7 @@ export default function ModelList({
     // ===== popup 模式:对齐原项目 ModelList.vue(分类弹出列表 + slideUp 动画)=====
     if (loading) {
       return (
-        <View style={{ padding: '10rpx 0 0' }}>
+        <View style={{ padding: '10rpx 0 0', ...(style ?? {}) }}>
           {Array.from({ length: 3 }).map((_, i) => (
             <View
               key={i}
@@ -170,6 +212,7 @@ export default function ModelList({
           style={{
             paddingTop: toUnit(MODEL_LIST_EMPTY_PADDING_Y_PX),
             paddingBottom: toUnit(MODEL_LIST_EMPTY_PADDING_Y_PX),
+            ...(style ?? {}),
           }}
         >
           {/* 空态字号与纵向留白取共享源(与 RN emptyText / empty 容器同档) */}
@@ -194,6 +237,7 @@ export default function ModelList({
           // 规则 3「一端有档另一端无 ⇒ 取较大者并让缺失端补同档」→ 本端补 24。
           paddingTop: '10rpx',
           paddingBottom: toUnit(MODEL_LIST_CONTENT_BOTTOM_PADDING_PX),
+          ...(style ?? {}),
         }}
       >
         {/* 分类标题(对齐原项目 .title,display:none 在原项目但保留为视觉锚点)*/}
@@ -206,9 +250,13 @@ export default function ModelList({
         ) : null}
 
         {/* Agent 模式选项(对齐原项目 chu-row pitch === -1)*/}
-        {onAgentSelect ? (
+        {agentVisible ? (
           <View
-            className={cn('ai-chu-row ai-slide-up', agentActive && 'ai-chu-row-active')}
+            className={cn(
+              'ai-chu-row',
+              animateEntrance && 'ai-slide-up',
+              agentActive && 'ai-chu-row-active',
+            )}
             onClick={onAgentSelect}
             hoverClass="opacity-60"
           >
@@ -287,13 +335,17 @@ export default function ModelList({
 
         {/* 默认模型列表项:只展示"最新 + 对话类" */}
         {split.primary.map((model, index) => {
-          const selected = model.id === selectedId
+          const selected = selectedSet.has(String(model.id))
           return (
             <View
               key={model.id}
-              className={cn('ai-chu-row ai-slide-up', selected && 'ai-chu-row-active')}
+              className={cn(
+                'ai-chu-row',
+                animateEntrance && 'ai-slide-up',
+                selected && 'ai-chu-row-active',
+              )}
               style={{ animationDelay: `${index * 0.08}s` }}
-              onClick={() => onSelect?.(model)}
+              onClick={() => handleSelect(model)}
               hoverClass="opacity-60"
             >
               <View className="flex items-center">
@@ -492,12 +544,16 @@ export default function ModelList({
                   </Text>
                 </View>
                 {group.items.map((model) => {
-                  const selected = model.id === selectedId
+                  const selected = selectedSet.has(String(model.id))
                   return (
                     <View
                       key={model.id}
-                      className={cn('ai-chu-row', selected && 'ai-chu-row-active')}
-                      onClick={() => onSelect?.(model)}
+                      className={cn(
+                        'ai-chu-row',
+                        animateEntrance && 'ai-slide-up',
+                        selected && 'ai-chu-row-active',
+                      )}
+                      onClick={() => handleSelect(model)}
                       hoverClass="opacity-60"
                     >
                       <View className="flex items-center">
@@ -569,7 +625,7 @@ export default function ModelList({
   // ===== 默认 'list' 模式:兼容 ChatDrawers 等旧调用 =====
   if (loading) {
     return (
-      <View className="px-3 py-2">
+      <View className="px-3 py-2" style={style}>
         {Array.from({ length: 3 }).map((_, i) => (
           <View key={i} className="flex items-center py-3 animate-pulse">
             <View className="w-10 h-10 mr-3 rounded-lg bg-muted" />
@@ -595,6 +651,7 @@ export default function ModelList({
         style={{
           paddingTop: toUnit(MODEL_LIST_EMPTY_PADDING_Y_PX),
           paddingBottom: toUnit(MODEL_LIST_EMPTY_PADDING_Y_PX),
+          ...(style ?? {}),
         }}
       >
         {/* 空态字号与 popup 变体、RN 端同档 —— 同一组件的两枚空态不该有两种字号 */}
@@ -609,17 +666,17 @@ export default function ModelList({
   }
 
   return (
-    <View className="px-3 py-1">
+    <View className="px-3 py-1" style={style}>
       {/* 默认列表:只展示"最新 + 对话类" */}
       {split.primary.map((model) => {
-        const selected = model.id === selectedId
+        const selected = selectedSet.has(String(model.id))
         return (
           <View
             key={model.id}
             className={`flex items-center py-[20rpx] px-3 mb-2 rounded-lg transition-colors ${
               selected ? 'bg-muted' : 'bg-card'
             }`}
-            onClick={() => onSelect?.(model)}
+            onClick={() => handleSelect(model)}
             hoverClass="opacity-60"
           >
             <View className="flex items-center justify-center w-10 h-10 mr-3 rounded-lg bg-muted">
@@ -682,14 +739,14 @@ export default function ModelList({
                 </Text>
               </View>
               {group.items.map((model) => {
-                const selected = model.id === selectedId
+                const selected = selectedSet.has(String(model.id))
                 return (
                   <View
                     key={model.id}
                     className={`flex items-center py-[20rpx] px-3 mb-2 rounded-lg transition-colors ${
                       selected ? 'bg-muted' : 'bg-card'
                     }`}
-                    onClick={() => onSelect?.(model)}
+                    onClick={() => handleSelect(model)}
                     hoverClass="opacity-60"
                   >
                     <View className="flex items-center justify-center w-10 h-10 mr-3 rounded-lg bg-muted">
