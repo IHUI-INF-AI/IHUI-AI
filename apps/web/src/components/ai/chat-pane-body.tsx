@@ -470,7 +470,13 @@ export function ChatPaneBody({ paneId, conversationId }: ChatPaneBodyProps) {
       className="flex h-full min-h-0 w-full flex-col overflow-hidden"
       data-chat-pane-body={paneId}
     >
-      <div className="relative min-h-0 flex-1">
+      {/* 2026-11-03:补 overflow-hidden —— 本层是相对定位块,按 CSS 绘制顺序整棵子树会盖在
+          后面的非定位兄弟(AiSidePanelTools / MessageInput)之上。输入区变高(排队侧问交互条 +
+          D75 侧任务卡 + 状态槽)时,上面留给消息列的高度可能小于 MessageList 顶部固定块
+          (搜索条 / 档位胶囊 / D181 画中画节),溢出的画中画空态卡就会压在输入区的
+          「插话优先 / 排队优先」按钮上:CI e2e 实测点击被 <div data-testid="pip-empty-state">
+          拦截(真用户同样点不到)。消息列只允许在自己的框内滚动,不许越界绘制。 */}
+      <div className="relative min-h-0 flex-1 overflow-hidden">
         {/* D28 补齐层:导入会话的来源交代 + 分析入口(与根窗格同一组件、同一显示条件;
             自建会话整块不渲染)。入口在片3 才接通 —— 弹窗草稿此前恒写根单例,点了不落本窗格。 */}
         {importProvenance && (
