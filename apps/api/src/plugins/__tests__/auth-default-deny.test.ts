@@ -72,6 +72,10 @@ describe('鉴权默认拒绝兜底闸', () => {
     app.get('/api/configs', async () => ({ ok: true }))
     app.get('/api/announcements', async () => ({ ok: true }))
     app.get('/api/ai-education/teacher-certification', async () => ({ ok: true }))
+    // 2026-11-03 文档中心读面(web 详情页与 web 端存在性探针的消费面):
+    // routes/content.ts 的 GET /docs 与 GET /docs/:slug 全文件零鉴权,线上匿名实测曾被本闸 401。
+    app.get('/api/docs', async () => ({ ok: true }))
+    app.get('/api/docs/:slug', async () => ({ ok: true }))
     // 2026-11-01:"凭据校验在 handler 内"的内部面。本用例只验**闸不抢跑**;
     // 真拒否发生在 handler 的 secretsEqual/内部票校验上(那一条另有各自的用例,不在这里冒充)。
     app.post('/api/ai/callback', async () => ({ ok: true }))
@@ -302,6 +306,9 @@ describe('鉴权默认拒绝兜底闸', () => {
         '/api/configs',
         '/api/announcements',
         '/api/ai-education/teacher-certification',
+        // 2026-11-03:文档列表与详情(公开页面的读面)
+        '/api/docs',
+        '/api/docs/quickstart',
       ]) {
         const res = await app.inject({ method: 'GET', url })
         expect(res.statusCode, url).toBe(200)
@@ -350,6 +357,12 @@ describe('鉴权默认拒绝兜底闸', () => {
     expect(__test__.isAuthDefaultPublicPath('/api/health?probe=1')).toBe(true)
     expect(__test__.isAuthDefaultPublicPath('/api/agents/abc-123')).toBe(true)
     expect(__test__.isAuthDefaultPublicPath('/api/knowledge/docs')).toBe(false)
+    // 2026-11-03 文档读面:段边界必须钉死 —— 尾斜杠前缀不得顺带放过同前缀兄弟路径,
+    // `/api/admin/docs`(adminContentRoutes 插件级 requireAdmin)也不得被这条前缀吞进来。
+    expect(__test__.isAuthDefaultPublicPath('/api/docs')).toBe(true)
+    expect(__test__.isAuthDefaultPublicPath('/api/docs/quickstart')).toBe(true)
+    expect(__test__.isAuthDefaultPublicPath('/api/docsXYZ')).toBe(false)
+    expect(__test__.isAuthDefaultPublicPath('/api/admin/docs')).toBe(false)
   })
 
   it('enforce 实测补全的 33 条路径:内容面放行,个人/权限面拦截', () => {
