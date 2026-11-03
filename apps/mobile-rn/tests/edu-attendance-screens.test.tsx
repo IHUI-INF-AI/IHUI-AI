@@ -135,8 +135,11 @@ vi.mock('@react-navigation/native', () => ({
 
 vi.mock('@ihui/ui-native', () => ({
   Tappable: (props: { children?: ReactNode; onPress?: () => void; [k: string]: unknown }) => {
-    const { children, onPress, ...rest } = props
-    return createElement('button', { ...rest, onClick: onPress }, children)
+    const { children, onPress, style, ...rest } = props
+    // style 可能是 RN 的数组形态;react-dom 只认扁平对象,直接下发会抛「set on proxy」
+    const flat = (v: unknown): unknown =>
+      Array.isArray(v) ? Object.assign({}, ...v.filter(Boolean).map(flat)) : v
+    return createElement('button', { ...rest, onClick: onPress, style: flat(style) }, children)
   },
 }))
 
