@@ -32,11 +32,55 @@ import { test, expect, ADMIN_USER } from './fixtures'
 // 只认前者的话,`toHaveURL` 必须抢在 replace 之前那一瞬才命中 ⇒ 用例随时翻红;两形态都收才稳。
 const WALLBOARD = /\/admin\/monitor\/(wallboard|panels\?view=wallboard)/
 const AUTHORIZE_BUTTON = /授权并跳转|授权|Authorize|进入网站/i
+const OAUTH_STATUS = '/api/auth/oauth-status'
 
-/** 打开 SSO 登录页 → 账号密码 tab → 填 admin 凭据 → 勾协议(勾不上走 notice-dialog 兜底)。 */
-async function preparePasswordLogin(page: import('@playwright/test').Page, query = '') {
+/**
+ * 打开登录页并切到账号密码 tab。
+ * 首个 tab 由**异步**地区判定决定:判定未返回或返回 5xx(CI 里 `/api/auth/oauth-status` 会吃到
+ * FST_UNDER_PRESSURE 503)时按 locale 兜底,境内档首个 tab 是二维码,而进入二维码面板会按产品
+ * 既定流程自动弹协议通知窗 —— 遮罩会把密码 tab 的 click 拦成 20s 超时(2026-11-02/03 长期红的直接原因)。
+ * 所以先等地区判定请求落地(成功/失败都算落地),再按真实用户路径处理:弹窗在场就点「同意」,
+ * 不在场直接切 tab。等待全部锚定页面自身状态,不 sleep、不抬 click 超时。
+ */
+async function openPasswordTab(page: import('@playwright/test').Page, query = '') {
+  const regionSettled = page
+    .waitForResponse((r) => r.url().includes(OAUTH_STATUS), { timeout: 20_000 })
+    .catch(() => null)
   await page.goto(`/sso/login${query}`, { waitUntil: 'domcontentloaded', timeout: 45_000 })
-  await page.getByTestId('login-tab-password').click({ timeout: 20_000 })
+  await regionSettled
+  // 判定落地后 React 还需提交一帧才会重排 tab / 弹窗;等两帧渲染完成,而不是 sleep 固定时长。
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+      ),
+  )
+  // 境内兜底首屏(qr)可能弹协议窗(共享 LoginForm 那扇,或宿主自带门禁那扇)。遮罩会拦掉
+  // 密码 tab 的 click,所以按真实用户路径处理:有可见弹窗就点「同意」,直到清空 —— 不 sleep、
+  // 不抬 click 超时。`last()` 是因为两扇同时在场时后挂载的在更上层,点它才不会被遮罩拦住。
+  for (let i = 0; i < 4; i += 1) {
+    const visibleAgree = page.getByTestId('agreement-notice-agree').filter({ visible: true })
+    const remaining = await visibleAgree.count()
+    if (remaining === 0) break
+    await visibleAgree.last().click({ timeout: 10_000 })
+    await expect
+      .poll(() => page.getByTestId('agreement-notice-agree').filter({ visible: true }).count(), {
+        timeout: 10_000,
+      })
+      .toBeLessThan(remaining)
+  }
+  await expect(
+    page.getByTestId('agreement-notice-agree').filter({ visible: true }),
+    '切 tab 前不应再残留可见的协议窗遮罩',
+  ).toHaveCount(0, { timeout: 10_000 })
+  const passwordTab = page.getByTestId('login-tab-password')
+  await expect(passwordTab, '密码 tab 应可见').toBeVisible({ timeout: 10_000 })
+  await passwordTab.click({ timeout: 20_000 })
+}
+
+/** 切到账号密码 tab → 填 admin 凭据 → 勾协议(勾不上走 notice-dialog 兜底)。 */
+async function preparePasswordLogin(page: import('@playwright/test').Page, query = '') {
+  await openPasswordTab(page, query)
   const account = page.locator('#login-form-account')
   await expect(account).toBeVisible({ timeout: 15_000 })
   await account.fill(ADMIN_USER.account)
