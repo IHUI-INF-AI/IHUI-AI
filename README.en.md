@@ -82,13 +82,13 @@ Headline claims (same source as the table below, all live-computed): **618 table
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 4002 | `testFiles` |
+| 测试文件 | 4004 | `testFiles` |
 | CI 工作流 | 51 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 316 | `guardianGates` |
 | — blocking | 287 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
-| 跟踪文件 | 18846 | `trackedFiles` |
+| 跟踪文件 | 18859 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-03。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -100,6 +100,15 @@ Headline claims (same source as the table below, all live-computed): **618 table
 ## Recent updates (auto-maintained)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-03**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (153bf2b63d)
+
+**2026-11-03**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (f018abb84b)
+
+**2026-11-03**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (884719fa8e)
+
 **2026-11-03**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (22205c4117)
 - 🐞 Fix:游客态手机打开文档站不再被面板整屏遮住(票 D53 第二枚) (704ae4ed73)
@@ -163,48 +172,6 @@ Headline claims (same source as the table below, all live-computed): **618 table
 - 🐞 Fix:RP-35 后端健康页按归一化读取 /api/health 裸对象 (65102e7774)
 - 🚀 Feature/Improvement:B4 Agent 会话 SSE 消费侧——共享 streamAgentChat 增量回调+abort,断线带 Last-Event-ID 重连一次,仍败回落 v2 分页读+一次性 POST;RN 宿主增量渲染/done 落库替换/失败显式报错;共享屏仅四枚可选 props(缺省显式关闭);新增 4+3 例测试,双端 typecheck 0,门273 --staged 零新增 (0335facba1)
 - 🐞 Fix:build-fail 同题不再按 TS 号分身,证据补可定位失败原因(B87/B88/B91) (3c846ee8d5)
-
-**2026-11-02**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (f565869c64)
-- 🐞 Fix:回补被并发归并折掉的 B69/B87/B88 三行;B69/B68 按已结清标注(B87/B88/B91 同题三登记只计一次) (eff8c8e869)
-
-**2026-11-02**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (049b1fcdc7)
-- 🐞 Fix:B68 oauth-keys /list 不再被压力闸 503,副本失败降级主库 (2c3a0d1b33)
-- 🚀 Feature/Improvement:发布面从四条腿扩成全平台矩阵(华为通道已证可达,缺的是凭据类型) (dceb9c5695)
-- 🚀 Feature/Improvement:登记全平台发布矩阵三格未收(华为凭据类型/store 维度/鸿蒙产物) (94e1a44d78)
-
-**2026-11-02**
-- 🔧 Chore/Other:考勤/请假端点权限面·越权·批量诚实性契约测试(不连库,vi.mock 假库;钉 edu:manage/edu:view 成对三路与零副作用断言;自签/扫码/家长考勤三处承载层鉴权未接线缺口显式点名) (6ad65cdbb5)
-- 🐞 Fix:收口被整块重复的登记(F6 块级判据的修复出口) (8ce7aa98b5)
-- 🚀 Feature/Improvement:登记考勤收口批 4 票(判定依据与缺勤补录/三条写路径/权限与越权用例/学生本人三端可见可操作) (eac4cac0c7)
-- 🐞 Fix:演练记录不再生产告警,旧信号不按墙钟窗口复活成票(B69) (6506c8efe1)
-- 🐞 Fix:收口被整块重复的登记(F6 块级判据的修复出口) (2655d64bb9)
-- 🚀 Feature/Improvement:B3 Agent 会话 SSE 流式回复端点(Last-Event-ID 重放/15s 心跳/单写者接管) (247f9f5652)
-- 🐞 Fix:发布链两处跑不通的出路按实测改掉,站点腿根因与本机承载面分开报 (cb447bab63)
-- 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (9f6675b8a2)
-- 🚀 Feature/Improvement:打通 RN 发布链路(五腿唯一出口 + OTA 桶解耦 + Play 读数器物化) (377af4364d)
-- 📚 Docs:结清 Y-14(安卓 latest 行实测在位,登记腿已常态化) (a2da71c391)
-- 🚀 Feature/Improvement:发布链路登记余两格(站点落点/Play 签名一致性) (1fa03b6655)
-- 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (922f84068c)
-- 🐞 Fix:补齐 ImagePicker 资产字段/底部安全区,Share 返回常量并锁 Animated 静态样式合并(B3+B4) (13bf8f6c82)
-- 🐞 Fix:回捞被 78e1cb99 误扫的 7 条活登记(RP-37/B69/RP-35/B68/B87/B88/B91) (00806a8dff)
-- ♻️ Refactor:500 字摘要截断收敛为单一数值口径 (e972681f74)
-- 🐞 Fix:收口被整块重复的登记(F6 块级判据的修复出口) (1eaf77b8b4)
-- 🚀 Feature/Improvement:音频端口化 —— 可选 AudioPort,缺省走 capability-off(RN 壳 expo-audio 注入) (3b2c98c6f5)
-- 📚 Docs:补 13 条回捞行侧车归属/在等/证据,stock 19→12 (ce6201bcc3)
-- 🐞 Fix:M4 nav-A — RN 壳 push 收口到 onNavigate 端口(9 壳 38 处;CourseDetail 讲师入口改指 TeacherDetail) (e8f8967f07)
-- 🚀 Feature/Improvement:Agent 会话分页读 version=2,seq 游标与 v1 兼容(B2) (0da2a6a9a7)
-- 🐞 Fix:$rp 参数通道补页面 unload 释放,并钉住容量/释放单测 (bb92d216f2)
-- 🐞 Fix:Agent 会话写路径改原子追加,修复 20 条窗口截断(B1) (7f39323460)
-- 🐞 Fix:announcements 补 platforms 列声明 —— 迁移 20261024160000 为真源 (3ca684ddc8)
-- 🐞 Fix:wallet 测试 i18n 替身稳定化 —— 根治 4GB 堆 OOM(真泄漏) (880b86817f)
-- 📚 Docs:标注 B53/B91 与同形态告警的签名差异,消除副本读数(+2→0) (03584c62b6)
-- 🐞 Fix:三组既有红灯按新契约回正 —— 遥测 store 形状/usePathname/引导时序 (8ae8bf4537)
-- 📚 Docs:补 15 条待办归属/在等字段(证据不足标 unassigned 并注明原因),对齐 5 条行内标头与侧车 (e252177924)
-- 🐞 Fix:收编器改路径白名单——业务代码/测试与规则文件不再自动入库 (f6e0ba44a9)
-- 🔧 Chore/Other:清偿旧版快照区数字 —— scrub --scope=all 用生成器同源现算值清 README 全量存量 54315 处(README.md/README.en.md 共 29820 行改写、5 行挂历史叙述豁免、manual 0)；同笔给 scrub 增显式维护档 archive|all(缺省行级棘轮不动,自检 21/21) (15f9293a7d)
-- 🔧 Chore/Other:补登 6 枚远端带入文件的溯源水印(门47 HEAD面欠账清偿) (c3c03c7da3)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
