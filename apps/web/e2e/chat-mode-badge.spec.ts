@@ -30,6 +30,15 @@ import { attachErrorGuards } from '../tests/e2e/fixtures/helpers'
  *           aria-label={t('chat.modeTaskAria', { mode: modeLabel })}>
  *     <ModeIcon className="h-3.5 w-3.5" />
  *   </button>
+ *
+ * 2026-11-04 信息架构重构校准:该按钮已从输入卡片可见底栏移入「+ → 更多工具」抽屉,
+ * 底栏可见区只剩 `+` / 模型选择 / 发送(停止);抽屉仅在 + 菜单 mode==='tools' 时挂载。
+ * 因此:
+ *   - 「输入区就绪」判据改用可见锚点 `add-menu-trigger`(原徽标此刻尚未挂载);
+ *   - 读/断言徽标(data-mode / aria-label / tooltip)前一律先 openComposerTools;
+ *   - 打字 / 斜杠命令 / Ctrl+1..4 前先 closeComposerMenu(Esc;菜单自写 popover,
+ *     外部 mousedown 亦会关闭)。
+ * 断言内容与预算(timeout 数值)一字未动,只改"怎么到达元素"。
  */
 
 const MODES = ['build', 'plan', 'review', 'spec'] as const
@@ -88,6 +97,54 @@ function modeAria(locale: string, mode: Mode): string {
 }
 
 const LOCALES = Object.keys(MODE_LABEL_EXPECT) as Array<keyof typeof MODE_LABEL_EXPECT>
+
+/** 输入区可见底栏锚点(2026-11-04 信息架构重构):
+ *  `+` = `add-menu-trigger`(可见),点开后是 portal 的 role="menu" 一层菜单;
+ *  「更多工具」入口 `composer-tools-entry` 进入抽屉,抽屉 `composer-tools-panel`
+ *  才是 `agent-progress-trigger` 的挂载处(mode==='tools' 才渲染)。 */
+const ADD_MENU_TRIGGER = '[data-testid="add-menu-trigger"]'
+/** 菜单已打开判据(一层 = 快捷设置组,抽屉层 = tools 面板,二者互斥) */
+const ADD_MENU_OPEN_MARK =
+  '[data-testid="composer-quick-settings"], [data-testid="composer-tools-panel"]'
+const TOOLS_ENTRY = '[data-testid="composer-tools-entry"]'
+const TOOLS_PANEL = '[data-testid="composer-tools-panel"]'
+const PROGRESS_TRIGGER = '[data-testid="agent-progress-trigger"]'
+
+/** 打开 `+` 菜单(幂等:已开则不动 —— 菜单是自写 popover,再点一次 `+` 会把它点关) */
+async function openComposerMenu(page: Page) {
+  const trigger = page.locator(ADD_MENU_TRIGGER)
+  await expect(trigger).toBeVisible()
+  if ((await trigger.getAttribute('aria-expanded').catch(() => null)) !== 'true') {
+    await trigger.click()
+  }
+  await expect(page.locator(ADD_MENU_OPEN_MARK).first()).toBeVisible()
+}
+
+/** 进入「+ → 更多工具」抽屉(徽标唯一挂载处;已打开则幂等返回) */
+async function openComposerTools(page: Page) {
+  const panel = page.locator(TOOLS_PANEL)
+  if (await panel.isVisible().catch(() => false)) return
+  await openComposerMenu(page)
+  await page.locator(TOOLS_ENTRY).click()
+  await expect(panel).toBeVisible()
+}
+
+/** 关闭 `+` 菜单(打字 / 斜杠命令 / 快捷键前必须先关,菜单会接管键盘与 mousedown)。
+ *  Esc 只在菜单位于 overlay 栈顶时才被消费;万一被嵌套弹层压下(Esc 未生效),
+ *  退回"点 textarea 左上角空白"触发外部 mousedown 的兜底路径。 */
+async function closeComposerMenu(page: Page) {
+  const trigger = page.locator(ADD_MENU_TRIGGER)
+  if ((await trigger.getAttribute('aria-expanded').catch(() => null)) !== 'true') return
+  await page.keyboard.press('Escape')
+  if ((await trigger.getAttribute('aria-expanded').catch(() => null)) === 'true') {
+    await page
+      .locator('textarea')
+      .first()
+      .click({ position: { x: 8, y: 8 } })
+      .catch(() => {})
+  }
+  await expect(trigger).toHaveAttribute('aria-expanded', 'false', { timeout: 5000 })
+}
 
 /** 设置 zustand persist 的 mode store(让页面加载时直接进入目标 mode)
  *  2026-08-27 修复:真实 persist key 是 `ihui-mode`(src/stores/mode.ts:39),
@@ -165,7 +222,8 @@ async function switchLocale(page: Page, locale: string) {
   // 2026-11-03:waitUntil='commit' —— 只需导航已提交即返回;addInitScript 在文档创建时
   // 就已生效,词包/语言在这一次加载内收敛,随后用下面的条件等待替代"整页 domcontentloaded"。
   await page.goto('/chat', { waitUntil: 'commit' })
-  await page.waitForSelector('[data-testid="agent-progress-trigger"]', { timeout: 10000 })
+  // 2026-11-04:就绪锚点改为可见底栏的 `+`(徽标已移入抽屉,此刻尚未挂载)
+  await page.waitForSelector(ADD_MENU_TRIGGER, { timeout: 10000 })
 }
 
 /** 检测是否弹出登录模态框(若弹出,返回命中元素描述;null 表示无)
@@ -223,16 +281,26 @@ async function waitForAuthResolved(page: Page) {
  *  SSR HTML 先到、effect 后挂),固定 500ms 等待仍可能丢按键 → 轮询重按直至生效。
  *  fullyParallel + workers=CPU/2 下单文件 21 用例并发打 dev server,冷编译期
  *  hydration 可达 10s+ → 预算扩到 20s(40 × 500ms),先等 app 全局标记(客户端
- *  bundle 已 eval)再按,验证的是"快捷键最终切到目标模式"这一用户可感知行为。 */
+ *  bundle 已 eval)再按,验证的是"快捷键最终切到目标模式"这一用户可感知行为。
+ *  2026-11-04:徽标在「+ → 更多工具」抽屉里,抽屉不开时 `agent-progress-trigger`
+ *  不挂载 ⇒ 每轮改为「按 → 开抽屉读 data-mode → 命中即返回;未命中先关菜单再重按」,
+ *  仍是 40 × 500ms 预算,不放宽。 */
 async function pressModeShortcut(page: Page, digit: string, expectedMode: Mode) {
-  const badge = page.locator('[data-testid="agent-progress-trigger"]')
   // 等客户端水合完成(快捷键监听已随 GlobalHooksProvider 挂载;2026-09-14 起用
   // localStorage initialized 标记,兼容 production build 无 __IHUI_LANGUAGE_STORE__)
   await waitForAppHydrated(page)
+  // 菜单开着时按键会被弹层上下文干扰,先关掉
+  await closeComposerMenu(page)
   for (let i = 0; i < 40; i++) {
-    if ((await badge.getAttribute('data-mode').catch(() => null)) === expectedMode) return
     await page.keyboard.press(`Control+${digit}`)
     await page.waitForTimeout(500)
+    await openComposerTools(page)
+    const mode = await page
+      .locator(PROGRESS_TRIGGER)
+      .getAttribute('data-mode')
+      .catch(() => null)
+    if (mode === expectedMode) return
+    await closeComposerMenu(page)
   }
 }
 
@@ -265,7 +333,8 @@ test.describe('ChatModeBadge + 3 通道模式切换', () => {
     })
     // 强制刷新到干净状态(zh-CN + build)
     await authenticatedPage.goto('/chat', { waitUntil: 'domcontentloaded' })
-    await authenticatedPage.waitForSelector('[data-testid="agent-progress-trigger"]', {
+    // 2026-11-04:就绪锚点 = 可见的 `+`(徽标已在「更多工具」抽屉内,不展开不挂载)
+    await authenticatedPage.waitForSelector(ADD_MENU_TRIGGER, {
       timeout: 10000,
     })
   })
@@ -274,7 +343,9 @@ test.describe('ChatModeBadge + 3 通道模式切换', () => {
   // 1. 默认态:打开 /chat → badge 显示 build/构建
   // ============================================
   test('默认模式为 build,CurrentModeBadge 渲染 "构建"', async ({ authenticatedPage }) => {
-    const badge = authenticatedPage.locator('[data-testid="agent-progress-trigger"]')
+    // 2026-11-04:先展开 + → 更多工具抽屉,徽标只在该抽屉内挂载
+    await openComposerTools(authenticatedPage)
+    const badge = authenticatedPage.locator(PROGRESS_TRIGGER)
     await expect(badge).toHaveAttribute('data-mode', 'build', { timeout: 5000 })
     // iconOnly 变体不渲染文本 span,模式文案经 aria-label 暴露(2026-09-14 校准)
     await expect(badge).toHaveAttribute('aria-label', '构建任务')
@@ -283,6 +354,8 @@ test.describe('ChatModeBadge + 3 通道模式切换', () => {
   test('CurrentModeBadge DOM 结构:data-testid + data-mode + aria-label(iconOnly)', async ({
     authenticatedPage,
   }) => {
+    // 2026-11-04:徽标在工具抽屉内,先进入抽屉再读 DOM 结构
+    await openComposerTools(authenticatedPage)
     const result = await authenticatedPage.evaluate(() => {
       const badge = document.querySelector('[data-testid="agent-progress-trigger"]')
       if (!badge) return null
@@ -311,12 +384,12 @@ test.describe('ChatModeBadge + 3 通道模式切换', () => {
     test(`斜杠命令 ${SLASH_CMDS[mode]} 切换到 ${mode} 模式`, async ({ authenticatedPage }) => {
       test.setTimeout(90_000) // hydration 等待 20s + fill/Enter 轮询 30s + 断言余量
       const { consoleErrors } = attachErrorGuards(authenticatedPage)
-      const badge = authenticatedPage.locator('[data-testid="agent-progress-trigger"]')
+      const badge = authenticatedPage.locator(PROGRESS_TRIGGER)
       // /build 的可观察前提:从非 build 态出发(默认态就是 build,重复发送无模式变化)
       if (mode === 'build') {
         await setModeStore(authenticatedPage, 'plan')
         await authenticatedPage.reload({ waitUntil: 'domcontentloaded' })
-        await authenticatedPage.waitForSelector('[data-testid="agent-progress-trigger"]', {
+        await authenticatedPage.waitForSelector(ADD_MENU_TRIGGER, {
           timeout: 10_000,
         })
       }
@@ -333,12 +406,16 @@ test.describe('ChatModeBadge + 3 通道模式切换', () => {
       // 被 hydration 重置为空(badge 不变、无 toast)。先等水合完成(2026-09-14:
       // localStorage initialized 标记,兼容 prod build 无 __IHUI_LANGUAGE_STORE__),
       // 再轮询 fill+Enter 直至 badge 生效(验证"命令最终切到目标模式"的可感知行为)。
+      // 2026-11-04:徽标在「+ → 更多工具」抽屉里 —— 打字前先关菜单(否则弹层会吃掉
+      // 输入区交互),每轮发完命令后再开抽屉读 data-mode,未命中先关菜单再重发。
       await waitForAppHydrated(authenticatedPage)
+      await closeComposerMenu(authenticatedPage)
       const textarea = authenticatedPage.locator('textarea').first()
       let switched = false
       for (let i = 0; i < 20 && !switched; i++) {
         await textarea.fill(`${SLASH_CMDS[mode]} `)
         await textarea.press('Enter')
+        await openComposerTools(authenticatedPage)
         for (let j = 0; j < 6; j++) {
           if ((await badge.getAttribute('data-mode').catch(() => null)) === mode) {
             switched = true
@@ -346,6 +423,7 @@ test.describe('ChatModeBadge + 3 通道模式切换', () => {
           }
           await authenticatedPage.waitForTimeout(250)
         }
+        if (!switched) await closeComposerMenu(authenticatedPage)
       }
       // 断言 badge 已切换(文案经 aria-label 暴露,iconOnly 无文本 span;zh-CN 形态逐字不变)
       await expect(badge).toHaveAttribute('data-mode', mode, { timeout: 3000 })
@@ -372,7 +450,9 @@ test.describe('ChatModeBadge + 3 通道模式切换', () => {
       const textarea = authenticatedPage.locator('textarea').first()
       await textarea.focus()
       await pressModeShortcut(authenticatedPage, CTRL_KEY_MAP[mode], mode)
-      const badge = authenticatedPage.locator('[data-testid="agent-progress-trigger"]')
+      // 2026-11-04:命中时 pressModeShortcut 已把抽屉留在打开态;这里幂等再确认一次
+      await openComposerTools(authenticatedPage)
+      const badge = authenticatedPage.locator(PROGRESS_TRIGGER)
       await expect(badge).toHaveAttribute('data-mode', mode, { timeout: 3000 })
     })
   }
@@ -385,7 +465,8 @@ test.describe('ChatModeBadge + 3 通道模式切换', () => {
       ta?.blur()
     })
     await pressModeShortcut(authenticatedPage, '2', 'plan')
-    const badge = authenticatedPage.locator('[data-testid="agent-progress-trigger"]')
+    await openComposerTools(authenticatedPage)
+    const badge = authenticatedPage.locator(PROGRESS_TRIGGER)
     await expect(badge).toHaveAttribute('data-mode', 'plan', { timeout: 3000 })
   })
 
@@ -400,8 +481,10 @@ test.describe('ChatModeBadge + 3 通道模式切换', () => {
       // 先重置到 build(避免前一个 case 状态污染)
       await setModeStore(authenticatedPage, 'build')
       await authenticatedPage.reload({ waitUntil: 'domcontentloaded' })
-      await authenticatedPage.waitForSelector('[data-testid="agent-progress-trigger"]')
+      // 2026-11-04:就绪锚点 = 可见的 `+`(徽标已移入「更多工具」抽屉)
+      await authenticatedPage.waitForSelector(ADD_MENU_TRIGGER)
       // 找 textarea + 输入 + 提交
+      await closeComposerMenu(authenticatedPage)
       const textarea = authenticatedPage.locator('textarea').first()
       await textarea.fill(input)
       await textarea.press('Enter')
@@ -410,7 +493,9 @@ test.describe('ChatModeBadge + 3 通道模式切换', () => {
       if (await isLoginModalOpen(authenticatedPage)) {
         test.skip(true, '登录模态框弹出,跳过 send 触发的关键词测试')
       }
-      const badge = authenticatedPage.locator('[data-testid="agent-progress-trigger"]')
+      // 2026-11-04:send 后再开抽屉,轮询读徽标 data-mode(轮询预算 16×500ms 不变)
+      await openComposerTools(authenticatedPage)
+      const badge = authenticatedPage.locator(PROGRESS_TRIGGER)
       // 2026-08-26 修复:关键词判定依赖 AI 响应(通道 3 语义),本地无 LLM 配额时
       // send 后 mode 永不切换 → 轮询等待判定,超时则 skip(环境依赖,非功能回归)。
       let matched = false
@@ -442,7 +527,8 @@ test.describe('ChatModeBadge + 3 通道模式切换', () => {
       await switchLocale(authenticatedPage, locale)
       // 访问 /chat,等待 i18n 重新加载
       await authenticatedPage.goto('/chat', { waitUntil: 'domcontentloaded' })
-      await authenticatedPage.waitForSelector('[data-testid="agent-progress-trigger"]', {
+      // 2026-11-04:就绪锚点 = 可见的 `+`(徽标在抽屉内,展开后才读 aria-label)
+      await authenticatedPage.waitForSelector(ADD_MENU_TRIGGER, {
         timeout: 10000,
       })
       // 2026-08-26 修复:persist rehydrate 异步 —— useLanguageStore 从 localStorage 恢复
@@ -455,7 +541,9 @@ test.describe('ChatModeBadge + 3 通道模式切换', () => {
         )
         .catch(() => {}) // 等待失败不阻断后续(badge 断言仍会暴露真实问题)
       // build 模式(默认)
-      const badge = authenticatedPage.locator('[data-testid="agent-progress-trigger"]')
+      // 2026-11-04:徽标在「+ → 更多工具」抽屉内,先展开再断言 data-mode / aria-label
+      await openComposerTools(authenticatedPage)
+      const badge = authenticatedPage.locator(PROGRESS_TRIGGER)
       await expect(badge).toHaveAttribute('data-mode', 'build', { timeout: 5000 })
       // 2026-08-28:persist rehydrate + next-intl messages 重载在高负载下可能 >5s
       // (zh-TW 曾命中 zh-CN 初始态"构建"而非"構建")→ 放宽到 15s
@@ -487,7 +575,10 @@ test.describe('ChatModeBadge + 3 通道模式切换', () => {
     if (await isLoginModalOpen(authenticatedPage)) {
       test.skip(true, '登录模态框弹出,跳过 tooltip 测试')
     }
-    const badge = authenticatedPage.locator('[data-testid="agent-progress-trigger"]')
+    // 2026-11-04:徽标在「+ → 更多工具」抽屉内 —— 抽屉打开状态下 hover 徽标,
+    // tooltip 语义(模式名 + 切换提示)不变
+    await openComposerTools(authenticatedPage)
+    const badge = authenticatedPage.locator(PROGRESS_TRIGGER)
     await badge.hover()
     await authenticatedPage.waitForTimeout(400)
     // 找 tooltip(由 @radix-ui/react-tooltip 或 sonner 提供)

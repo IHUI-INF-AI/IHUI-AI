@@ -504,6 +504,20 @@ async function dropConversationIntoPane(
   expect(dropped, `${paneId} 必须暴露 [data-pane-empty] 落点`).toBe('dispatched')
 }
 
+/**
+ * 到达「向右拆分」入口(2026-11-04 信息架构重构后的取法):
+ * 入口已从面板头部可见 IconButton 收进「⋯」溢出菜单,菜单项是 Radix `DropdownMenu.Item`
+ * ⇒ 渲染成 `role="menuitem"`(不再是 button)。先点触发器 `ai-panel-overflow-trigger`
+ * 打开菜单,再点同名菜单项;「入口存在」的判据由 toBeVisible 承担
+ * (等价替换原来的 `toHaveCount(1, { timeout: 30_000 })`,超时数值同值)。
+ */
+async function splitRight(page: Page): Promise<void> {
+  await page.locator('[data-testid="ai-panel-overflow-trigger"]').click()
+  const item = page.getByRole('menuitem', { name: SPLIT_ENTRY_RE })
+  await expect(item).toBeVisible({ timeout: 30_000 })
+  await item.click()
+}
+
 async function sendInPane(page: Page, pane: string, text: string): Promise<void> {
   const box = page.locator(`[data-pane-leaf="${pane}"] textarea`).first()
   await expect(box).toBeVisible({ timeout: 30_000 })
@@ -560,9 +574,9 @@ async function prepareSameConversationTwoPanes(page: Page, spec: ConvSpec): Prom
     timeout: 30_000,
   })
 
-  const entry = page.getByRole('button', { name: SPLIT_ENTRY_RE })
-  await expect(entry).toHaveCount(1, { timeout: 30_000 })
-  await entry.first().click()
+  // 2026-11-04 信息架构重构:拆分入口从头部 IconButton 收进「⋯」溢出菜单 ⇒ button 变 menuitem,
+  // 原 toHaveCount(1) 的"入口存在"语义由 helper 内的 toBeVisible 承担(判据不缩水)。
+  await splitRight(page)
   await expect(page.locator('[data-pane-split-root]')).toHaveAttribute(
     'data-pane-leaf-count',
     '2',

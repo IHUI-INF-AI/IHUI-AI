@@ -27,6 +27,16 @@ async function bodyScrollHeight(page: Page): Promise<number> {
   return page.evaluate(() => document.body.scrollHeight)
 }
 
+/**
+ * 展开「+」菜单(2026-11-04 信息架构重构)。
+ * 上下文用量环从可见右簇移入 + 菜单 →「更多工具」抽屉,必须先展开菜单才能拿到触发器。
+ * 菜单是自写 popover(position: fixed,不参与文档流),因此不会改变 body.scrollHeight。
+ */
+async function openAddMenu(page: Page): Promise<void> {
+  await page.getByTestId('add-menu-trigger').click()
+  await expect(page.getByTestId('composer-quick-controls')).toBeVisible({ timeout: 5000 })
+}
+
 /** 校验当前所有 body 直属 dialog/menu 浮层:fixed + 视口内 */
 async function assertPanelsInViewport(page: Page): Promise<void> {
   const violations = await page.evaluate(() => {
@@ -84,11 +94,20 @@ test.describe('浮动弹窗视口定位(斜杠/用量环弹窗)', () => {
     await page.waitForLoadState('domcontentloaded')
     const before = await bodyScrollHeight(page)
 
+    // 2026-11-04 结构变化:上下文用量环从可见右簇移入 + 菜单 →「更多工具」抽屉。
+    // 到达路径:+ → 更多工具(composer-tools-entry) → 工具面板/抽屉(composer-tools-panel /
+    // composer-tools-drawer),环的 data-testid 与弹窗定位断言保持原样。
+    await openAddMenu(page)
+    await page.getByTestId('composer-tools-entry').click()
+    await expect(page.getByTestId('composer-tools-panel')).toBeVisible({ timeout: 5000 })
+
+    // 原用例(before 仍在页面加载后采样:新增的 + 菜单与工具抽屉同样不得撑开 body)
     const trigger = page.getByTestId('context-usage-trigger')
     await expect(trigger).toBeVisible({ timeout: 20_000 })
     await trigger.click()
     await page.waitForTimeout(500)
 
+    // 点环时 + 菜单保持打开(环在菜单内部,菜单是 fixed 浮层,同样不得撑高 body)
     const after = await bodyScrollHeight(page)
     expect(after, '弹窗打开后 body.scrollHeight 不得变化(布局被撑开即病根复发)').toBe(before)
 

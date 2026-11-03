@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { test, expect } from './fixtures'
+import { test, expect, type Page } from './fixtures'
 
 /**
  * 同会话模式切换 E2E(2026-09-13 矩阵 A #24)。
@@ -14,9 +14,34 @@ import { test, expect } from './fixtures'
  *    ai-chat-stream.ts zod strip 静默剥离,请求 body 根本观察不到 mode)
  * 3. 快捷键通道:Ctrl+5 → 切到 ask
  *
+ * 2026-11-04 信息架构重构:ModeSwitcher 从可见底栏移入「+」菜单第一层的
+ * composer-quick-controls(+ 菜单是自写 popover,点菜单外或 Esc(栈顶)关闭)。
+ * 因此本 spec 里每次断言 mode-switcher 的 data-mode / 可用性前都要先展开菜单;
+ * 需要输入或发送时先关菜单再操作。断言语义与超时数值保持不变。
+ *
  * mock:stream 路由返回最小 SSE(chunk + done);conversations 三端点 mock 与
  * ai-tool-loop.spec.ts 同构(避免打真实后端形成覆盖竞态)。
  */
+
+/**
+ * 展开「+」菜单并等待第一层快捷设置(composer-quick-controls)出现 ——
+ * ModeSwitcher 现在只在这一层里挂载。
+ */
+async function openAddMenu(page: Page) {
+  await page.getByTestId('add-menu-trigger').click()
+  await expect(page.getByTestId('composer-quick-controls')).toBeVisible({ timeout: 5000 })
+}
+
+/**
+ * 关闭「+」菜单(Esc 在栈顶时消费)。
+ * 菜单关闭后 ModeSwitcher 随之卸载,故只在需要输入/发送时调用。
+ */
+async function closeAddMenu(page: Page) {
+  await page.keyboard.press('Escape')
+  await expect(page.getByTestId('add-menu-trigger')).toHaveAttribute('data-state', 'closed', {
+    timeout: 5000,
+  })
+}
 
 const SSE_BODY = [
   'event: chunk\ndata: {"content":"已收到,当前模式已生效"}\n\n',
@@ -80,7 +105,9 @@ test.describe('同会话模式切换(ModeSwitcher + 契约透传)', () => {
       return
     }
 
-    // ---- ① 打开 ModeSwitcher 菜单:5 个模式选项齐备 ----
+    // ---- ① 打开 + 菜单 → ModeSwitcher 可见:5 个模式选项齐备 ----
+    // 2026-11-04 结构变化:ModeSwitcher 不再在可见底栏,需先点 add-menu-trigger 展开 + 菜单
+    await openAddMenu(authenticatedPage)
     const switcher = authenticatedPage.getByTestId('mode-switcher')
     await expect(switcher).toBeVisible()
     await switcher.click()
@@ -93,6 +120,8 @@ test.describe('同会话模式切换(ModeSwitcher + 契约透传)', () => {
     // ---- ② 选 ask → 触发器即时反映 + 发送后 body.mode === 'ask' ----
     await authenticatedPage.getByTestId('mode-option-ask').click()
     await expect(switcher).toHaveAttribute('data-mode', 'ask')
+    // 菜单开着时无法在输入框输入/回车发送,先 Esc 关菜单(菜单项已随选择关闭,Esc 落在 + 菜单栈顶)
+    await closeAddMenu(authenticatedPage)
     await textarea.fill('什么是依赖注入?')
     await authenticatedPage.keyboard.press('Enter')
     await expect.poll(() => capturedModes.length, { timeout: 15000 }).toBeGreaterThan(0)
@@ -103,17 +132,22 @@ test.describe('同会话模式切换(ModeSwitcher + 契约透传)', () => {
     })
 
     // ---- ③ 同会话切回 build → 再次发送 body.mode === 'build' ----
+    // 菜单关闭期间 ModeSwitcher 卸载,重新展开 + 菜单后才能断言其恢复可用并再次切换
+    await openAddMenu(authenticatedPage)
     await expect(switcher).toBeEnabled({ timeout: 15000 })
     await switcher.click()
     await authenticatedPage.getByTestId('mode-option-build').click()
     await expect(switcher).toHaveAttribute('data-mode', 'build')
+    await closeAddMenu(authenticatedPage)
     await textarea.fill('帮我实现一个工具')
     await authenticatedPage.keyboard.press('Enter')
     await expect.poll(() => capturedModes.length, { timeout: 15000 }).toBe(2)
     expect(capturedModes[1]).toBe('build')
 
     // ---- ④ 快捷键通道:Ctrl+5 → ask ----
+    // 快捷键直接改 store;重新展开 + 菜单断言触发器即时反映(Ctrl+5 不依赖菜单是否打开)
     await authenticatedPage.keyboard.press('Control+5')
+    await openAddMenu(authenticatedPage)
     await expect(switcher).toHaveAttribute('data-mode', 'ask')
 
     expect(authenticatedPage.url()).toContain('/chat')

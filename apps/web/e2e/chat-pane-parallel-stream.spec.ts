@@ -33,7 +33,9 @@ import { expect, test } from './fixtures'
  *    取证 use-chat/stream-runtime.ts:33 + use-chat.ts:43 `getStreamRuntime(chatStore).abortRef`)。
  *
  * ── 会话侧的既有事实(照抄 G-934 的实机结论,不重新推导)──
- * 拆分入口 = 面板头部 IconButton(aria-label「向右拆分」);窗格 DOM 钩子
+ * 拆分入口(2026-11-04 信息架构重构后)= 面板头部「⋯」溢出菜单里的 menuitem
+ * (aria-label「向右拆分」);重构前它是头部可见 IconButton ⇒ 取法从 button 改为 menuitem
+ * (见 splitRight helper);窗格 DOM 钩子
  * `[data-pane-split-root]` / `[data-pane-leaf-count]` / `[data-pane-leaf="<paneId>"]`;
  * 空窗格落点 `[data-pane-empty]` 是**内层** div(React `onDrop` 挂这一层),
  * 自定义 MIME `application/x-ihui-conversation` 只有手搓 `DataTransfer` 才带得动;
@@ -531,6 +533,20 @@ async function dropConversationIntoPane(
 }
 
 /**
+ * 到达「向右拆分」入口(2026-11-04 信息架构重构后的取法):
+ * 入口已从面板头部可见 IconButton 收进「⋯」溢出菜单,菜单项是 Radix `DropdownMenu.Item`
+ * ⇒ 渲染成 `role="menuitem"`(不再是 button)。先点触发器 `ai-panel-overflow-trigger`
+ * 打开菜单,再点同名菜单项;「入口存在」的判据由 toBeVisible 承担
+ * (等价替换原来的 `toHaveCount(1, { timeout: 30_000 })`,超时数值同值)。
+ */
+async function splitRight(page: Page): Promise<void> {
+  await page.locator('[data-testid="ai-panel-overflow-trigger"]').click()
+  const item = page.getByRole('menuitem', { name: SPLIT_ENTRY_RE })
+  await expect(item).toBeVisible({ timeout: 30_000 })
+  await item.click()
+}
+
+/**
  * 铺好"两格两会话"的现场:根格承载甲(侧栏点开 → 拆分入口登记根格承载),
  * pane-1 承载乙(拖入落格)。返回时两格各自的历史已就位。
  */
@@ -544,10 +560,10 @@ async function prepareTwoPanes(page: Page): Promise<void> {
   const single = page.locator('[data-testid="message-list-inline-panel"]').first()
   await expect(single).toHaveAttribute('data-window-total', '2', { timeout: 30_000 })
 
-  // 拆分前全页只有一枚拆分入口(出现两枚说明容器已挂载,点的就不是同一件事)
-  const entry = page.getByRole('button', { name: SPLIT_ENTRY_RE })
-  await expect(entry).toHaveCount(1, { timeout: 30_000 })
-  await entry.first().click()
+  // 拆分前全页只有一枚拆分入口(出现两枚说明容器已挂载,点的就不是同一件事)。
+  // 2026-11-04 信息架构重构:入口从头部 IconButton 收进「⋯」溢出菜单 ⇒ button 变 menuitem,
+  // 原 toHaveCount(1) 的"入口存在"语义由 helper 内的 toBeVisible 承担(判据不缩水)。
+  await splitRight(page)
 
   const root = page.locator('[data-pane-split-root]')
   await expect(root).toHaveAttribute('data-pane-leaf-count', '2', { timeout: 30_000 })
