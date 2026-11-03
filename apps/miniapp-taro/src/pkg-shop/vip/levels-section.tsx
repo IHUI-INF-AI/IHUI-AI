@@ -34,7 +34,7 @@ export default function LevelsSection({
         {t('vip.levelsTitle')}
       </Text>
       {!loaded ? null : levels.length === 0 ? (
-        <Text className="block py-[48rpx] text-center text-[length:26rpx] text-muted-foreground">
+        <Text className="block py-[48rpx] text-center text-body-sm leading-[normal] text-muted-foreground">
           {t('vip.empty')}
         </Text>
       ) : (

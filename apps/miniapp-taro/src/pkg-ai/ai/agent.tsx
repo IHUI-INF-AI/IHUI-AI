@@ -342,7 +342,7 @@ export default function AgentPage() {
                 hoverClass="opacity-80"
               >
                 <Text
-                  className={`text-[length:26rpx] ${active ? 'text-[var(--color-surface-light)] font-semibold' : 'text-[var(--color-muted-foreground)]'}`}
+                  className={`text-body-sm leading-[normal] ${active ? 'text-[var(--color-surface-light)] font-semibold' : 'text-[var(--color-muted-foreground)]'}`}
                 >
                   {tb.label}
                 </Text>
@@ -372,7 +372,7 @@ export default function AgentPage() {
                       hoverClass="opacity-60"
                     >
                       <Text
-                        className={`text-[length:26rpx] ${active ? 'text-[var(--color-surface-light)] font-semibold' : 'text-[var(--color-muted-foreground)]'}`}
+                        className={`text-body-sm leading-[normal] ${active ? 'text-[var(--color-surface-light)] font-semibold' : 'text-[var(--color-muted-foreground)]'}`}
                       >
                         {cat.label}
                       </Text>
@@ -411,9 +411,7 @@ export default function AgentPage() {
             <Text className="text-body text-foreground font-semibold">
               {t('ai.agentList.hotRecommend')}
             </Text>
-            <Text className="text-caption text-muted-foreground">
-              {t('ai.agentList.hot')}
-            </Text>
+            <Text className="text-caption text-muted-foreground">{t('ai.agentList.hot')}</Text>
           </View>
           <ScrollView scrollX enhanced showScrollbar={false} className="whitespace-nowrap">
             {hotBanner.map((agent, idx) => (
@@ -435,7 +433,7 @@ export default function AgentPage() {
                     <Text>NO.{idx + 1}</Text>
                   </View>
                 </View>
-                <Text className="block text-[length:26rpx] text-foreground font-medium mt-2 truncate w-full text-center">
+                <Text className="block text-body-sm leading-[normal] text-foreground font-medium mt-2 truncate w-full text-center">
                   {agent.name}
                 </Text>
                 {agent.uses !== undefined && (

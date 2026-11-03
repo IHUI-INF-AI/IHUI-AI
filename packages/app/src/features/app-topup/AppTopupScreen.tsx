@@ -196,7 +196,7 @@ function createStyles(tk: AppThemeTokens) {
       opacity: 0.8,
     },
     balanceValue: {
-      fontSize: 32,
+      fontSize: rnType.displayLg.size,
       fontWeight: '700',
       color: tk.brand.ctaForeground,
     },

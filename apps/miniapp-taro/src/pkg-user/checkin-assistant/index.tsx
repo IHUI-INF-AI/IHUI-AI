@@ -153,7 +153,7 @@ export default function CheckinAssistant() {
               <Text className="block text-strong font-semibold text-foreground">
                 {t('checkinAssistant.empty')}
               </Text>
-              <Text className="mt-[8rpx] block text-[length:26rpx] text-muted-foreground">
+              <Text className="mt-[8rpx] block text-body-sm leading-[normal] text-muted-foreground">
                 {t('checkinAssistant.emptyHint')}
               </Text>
             </View>

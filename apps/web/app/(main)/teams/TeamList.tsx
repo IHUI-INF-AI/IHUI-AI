@@ -42,10 +42,7 @@ export function TeamList({ data, isLoading, error }: Props) {
       ) : data && data.length > 0 ? (
         <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
           {data.map((team) => (
-            <Card
-              key={team.id}
-              className="flex h-full flex-col transition-colors hover:bg-accent hover:shadow-md"
-            >
+            <Card key={team.id} className="flex h-full flex-col transition-colors hover:bg-accent">
               <CardHeader>
                 <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
                   <Users className="h-5 w-5" />
