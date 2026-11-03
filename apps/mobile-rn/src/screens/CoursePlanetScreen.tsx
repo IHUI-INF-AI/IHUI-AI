@@ -1,6 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​​‌‌‌​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌​‌‌​⁠
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
  * CoursePlanetScreen 课程星球页 —— mobile-rn 薄壳。
@@ -13,15 +13,57 @@
  * 端口口径：共享屏全部 props 逐项真实接线；`onRetry` 单独绑定真实 reload，
  * 不用 `onRetry ?? onRefresh` 之类的别名，也不回落空函数。
  */
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
 import { toUserFriendlyMessage } from '@ihui/shared/utils'
-import { CoursePlanetScreen as SharedCoursePlanetScreen } from '@ihui/rn-app'
+import {
+  CoursePlanetScreen as SharedCoursePlanetScreen,
+  type CoursePlanetMenuEntry,
+} from '@ihui/rn-app'
 import { useTheme } from '../context/ThemeContext'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import type { ImageSourcePropType } from 'react-native'
+import IMG_LUNBO6 from '../../assets/images/carousel/lunbo6.jpg'
+import IMG_CAROUSEL1 from '../../assets/images/carousel/carousel1.jpg'
+import IMG_CAROUSEL2 from '../../assets/images/carousel/carousel2.jpg'
+import IMG_CAROUSEL3 from '../../assets/images/carousel/carousel3.jpg'
+import IMG_CAROUSEL_TWO from '../../assets/images/carousel/carousel4-footer1-two.png'
+import IMG_LUNBO1 from '../../assets/images/carousel/lunbo1.png'
+import IMG_LUNBO2 from '../../assets/images/carousel/lunbo2.png'
+import IMG_MENU_PIC from '../../assets/images/menu/8.png'
+import IMG_MENU_VIDEO from '../../assets/images/menu/4.png'
+import IMG_MENU_COPY from '../../assets/images/menu/2.png'
+import IMG_MENU_AGENT from '../../assets/images/menu/11.png'
+import IMG_MENU_RPA from '../../assets/images/menu/5.png'
+import IMG_MENU_CODE from '../../assets/images/menu/7.png'
+import IMG_MENU_MUSIC from '../../assets/images/menu/3.png'
+import IMG_MENU_OTHER from '../../assets/images/menu/10.png'
+
+/** 顶部轮播 7 张图(旧壳 SWIPER_IMAGES 原样恢复;打包器返回资源句柄,类型按 RN 口径收窄) */
+const BANNER_IMAGES = [
+  IMG_LUNBO6,
+  IMG_CAROUSEL1,
+  IMG_CAROUSEL2,
+  IMG_CAROUSEL3,
+  IMG_CAROUSEL_TWO,
+  IMG_LUNBO1,
+  IMG_LUNBO2,
+] as unknown as readonly ImageSourcePropType[]
+
+/** 菜单项 id/图标与 label 的 i18n 键(旧壳 Menu 默认 8 项,顺序不变) */
+const MENU_ENTRIES = [
+  { id: '1', name: 'menu.catImage', icon: IMG_MENU_PIC },
+  { id: '2', name: 'menu.catVideo', icon: IMG_MENU_VIDEO },
+  { id: '3', name: 'menu.catCopy', icon: IMG_MENU_COPY },
+  { id: '4', name: 'menu.catAgent', icon: IMG_MENU_AGENT },
+  { id: '5', name: 'menu.catRpa', icon: IMG_MENU_RPA },
+  { id: '6', name: 'menu.catCode', icon: IMG_MENU_CODE },
+  { id: '7', name: 'menu.catMusic', icon: IMG_MENU_MUSIC },
+  { id: '8', name: 'menu.catOther', icon: IMG_MENU_OTHER },
+] as const
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 type CourseType = 'all' | 'free' | 'paid'
@@ -81,6 +123,20 @@ export function CoursePlanetScreen() {
     void reload()
   }, [reload])
 
+  // 菜单 label 走既有 i18n key（旧壳 Menu 默认 8 项，顺序/图标不变）
+  const menuItems = useMemo<CoursePlanetMenuEntry[]>(
+    () => MENU_ENTRIES.map((item) => ({ id: item.id, label: t(item.name), icon: item.icon })),
+    [t],
+  )
+
+  // 菜单项即课程分类：跳分类详情（旧壳 onMenuPress 语义）
+  const onMenuPress = useCallback(
+    (item: CoursePlanetMenuEntry) => {
+      navigation.navigate('CategoryDetail', { categoryId: item.id, title: item.label })
+    },
+    [navigation],
+  )
+
   return (
     <SharedCoursePlanetScreen
       t={t}
@@ -94,7 +150,11 @@ export function CoursePlanetScreen() {
       onRefresh={onRefresh}
       onBack={() => navigation.goBack()}
       onRetry={reload}
+      bannerImages={BANNER_IMAGES}
+      menuItems={menuItems}
+      onMenuPress={onMenuPress}
       colorScheme={resolvedTheme}
     />
   )
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

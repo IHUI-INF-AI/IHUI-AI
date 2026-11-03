@@ -112,4 +112,33 @@ describe('CoursePlanetScreen 薄壳', () => {
       expect(lastProps().error).toBe('common.loadFailPullRetry')
     })
   })
+
+  it('注入 7 张轮播图与 8 项菜单（label 走既有 i18n key）', async () => {
+    await renderLoaded()
+    const props = lastProps()
+    expect((props.bannerImages as unknown[]).length).toBe(7)
+    const menu = props.menuItems as Array<{ id: string; label: string; icon: unknown }>
+    expect(menu.map((m) => m.id)).toEqual(['1', '2', '3', '4', '5', '6', '7', '8'])
+    expect(menu.map((m) => m.label)).toEqual([
+      'menu.catImage',
+      'menu.catVideo',
+      'menu.catCopy',
+      'menu.catAgent',
+      'menu.catRpa',
+      'menu.catCode',
+      'menu.catMusic',
+      'menu.catOther',
+    ])
+    expect(menu.every((m) => m.icon)).toBe(true)
+  })
+
+  it('点菜单 → CategoryDetail（id + 本地化标题）', async () => {
+    await renderLoaded()
+    const menu = lastProps().menuItems as Array<{ id: string; label: string }>
+    ;(lastProps().onMenuPress as (item: { id: string; label: string }) => void)(menu[5]!)
+    expect(apiMocks.navigate).toHaveBeenCalledWith('CategoryDetail', {
+      categoryId: '6',
+      title: 'menu.catCode',
+    })
+  })
 })
