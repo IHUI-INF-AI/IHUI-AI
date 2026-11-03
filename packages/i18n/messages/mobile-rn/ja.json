@@ -941,7 +941,9 @@
     "version": "バージョン",
     "language": "言語",
     "theme": "テーマ",
-    "logoutConfirmBody": "このアカウントからログアウトしますか？"
+    "logoutConfirmBody": "このアカウントからログアウトしますか？",
+    "accountDeletionConfirmLabel": "アカウント削除を確認",
+    "accountDeletionConfirmTitle": "アカウント削除を確認"
   },
   "menu": {
     "artifacts": "成果物センター",
@@ -3537,7 +3539,11 @@
     "opType4": "返金",
     "opType5": "コミッション",
     "loginRequiredHint": "ログインして資金履歴を表示",
-    "goLogin": "ログイン"
+    "goLogin": "ログイン",
+    "rechargeFail": "チャージ",
+    "rechargeSuccess": "チャージ",
+    "contactSupport": "サポートに連絡",
+    "retryRecharge": "再チャージ"
   },
   "activity": {
     "empty": "アクティビティがありません",
@@ -7208,5 +7214,14 @@
     "empty": "コンテンツはまだありません。おしみに",
     "searchNoResult": "結果なし",
     "retry": "再試行"
+  },
+  "learnMapPage": {
+    "completed": "完了",
+    "empty": "学習パスがありません"
+  },
+  "user": {
+    "security": {
+      "sendCode": "コード取得"
+    }
   }
 }

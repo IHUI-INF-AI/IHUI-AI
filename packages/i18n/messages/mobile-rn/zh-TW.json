@@ -941,7 +941,9 @@
     "version": "版本",
     "language": "語言",
     "theme": "主題",
-    "logoutConfirmBody": "確認退出當前帳號？"
+    "logoutConfirmBody": "確認退出當前帳號？",
+    "accountDeletionConfirmLabel": "確認注銷",
+    "accountDeletionConfirmTitle": "確認注銷"
   },
   "menu": {
     "artifacts": "產物中心",
@@ -3537,7 +3539,11 @@
     "opType4": "退款",
     "opType5": "佣金",
     "loginRequiredHint": "登入後查看資金流水",
-    "goLogin": "前往登入"
+    "goLogin": "前往登入",
+    "rechargeFail": "充值失敗",
+    "rechargeSuccess": "充值成功",
+    "contactSupport": "聯系客服",
+    "retryRecharge": "重新充值"
   },
   "activity": {
     "empty": "暫無活動",
@@ -7208,5 +7214,14 @@
     "empty": "開始新的任務",
     "searchNoResult": "無匹配結果",
     "retry": "重試"
+  },
+  "learnMapPage": {
+    "completed": "已完成",
+    "empty": "暫無學習路徑"
+  },
+  "user": {
+    "security": {
+      "sendCode": "發送驗證碼"
+    }
   }
 }

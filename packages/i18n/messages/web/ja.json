@@ -23264,6 +23264,8 @@
     "accountDeletionResend": "{seconds}秒後に再送信可能",
     "accountDeletionSendCode": "コード",
     "accountDeletionSubmit": "アカウント削除を確認",
+    "accountDeletionConfirmLabel": "アカウント削除を確認",
+    "accountDeletionConfirmTitle": "アカウント削除を確認",
     "accountDeletionSuccess": "アカウントを削除しました。ログインページに遷移します",
     "accountDeletionTitle": "アカウント削除",
     "accountDeletionWarning": "この操作は取り消せません。すべてのデータが削除されます。",

@@ -941,7 +941,9 @@
     "version": "버전",
     "language": "언어",
     "theme": "테마",
-    "logoutConfirmBody": "이 계정에서 로그아웃하시겠어요?"
+    "logoutConfirmBody": "이 계정에서 로그아웃하시겠어요?",
+    "accountDeletionConfirmLabel": "삭제 확인",
+    "accountDeletionConfirmTitle": "삭제 확인"
   },
   "menu": {
     "artifacts": "산출물 센터",
@@ -3537,7 +3539,11 @@
     "opType4": "환불",
     "opType5": "커미션",
     "loginRequiredHint": "로그인 후 자금 내역을 확인하세요",
-    "goLogin": "로그인"
+    "goLogin": "로그인",
+    "rechargeFail": "충전실패",
+    "rechargeSuccess": "충전성공",
+    "contactSupport": "고객 지원",
+    "retryRecharge": "다시 충전"
   },
   "activity": {
     "empty": "활동이 없습니다",
@@ -7208,5 +7214,14 @@
     "empty": "콘텐츠가 없습니다",
     "searchNoResult": "결과 없음",
     "retry": "재시도"
+  },
+  "learnMapPage": {
+    "completed": "완료됨",
+    "empty": "학습 경로가 없습니다"
+  },
+  "user": {
+    "security": {
+      "sendCode": "전송인증 코드"
+    }
   }
 }

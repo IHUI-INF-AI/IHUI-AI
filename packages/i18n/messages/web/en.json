@@ -23261,6 +23261,8 @@
     "accountDeletionResend": "Resend in {seconds}s",
     "accountDeletionSendCode": "Send Code",
     "accountDeletionSubmit": "Confirm Deletion",
+    "accountDeletionConfirmLabel": "Confirm Deletion",
+    "accountDeletionConfirmTitle": "Confirm Deletion",
     "accountDeletionSuccess": "Account deleted, redirecting to login",
     "accountDeletionTitle": "Account Deletion",
     "accountDeletionWarning": "This action is irreversible. All data will be permanently lost.",
