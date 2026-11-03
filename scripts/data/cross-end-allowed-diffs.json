@@ -930,6 +930,33 @@
       "expires": "2027-03-27",
       "reason": "showImagePicker/onImageSelected 是 RN 语音条上的拍照/选图入口,RN 文件自述「全站无调用方接线」;小程序语音条不承载图像输入通道 → 宿主能力差异,登记而不实现死入口。",
       "evidence": "check-cross-end-component-props-parity --json: VoiceInput onlyRn 含 showImagePicker/onImageSelected;对照 apps/mobile-rn/src/components/VoiceInput.tsx 该两键声明与注释"
+    },
+    {
+      "component": "Carousel",
+      "key": "platform:carousel-slide-model",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-03-27",
+      "reason": "同一轮播数据槽位两端项模型不同:RN 用 banner:CarouselSlide(含 link 跳转字段),小程序用 items:CarouselItem(含 price/isFree/tag 课程字段);各自页面按本端模型取数,不是命名差异,登记为数据模型差异,不硬摊平。",
+      "evidence": "check-cross-end-component-props-parity --json: Carousel onlyRn 含 banner / onlyMini 含 items;对照两端组件文件顶部类型声明"
+    },
+    {
+      "component": "Carousel",
+      "key": "platform:slide-step-width",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-03-27",
+      "reason": "itemWidth 是 RN 端分页步长:RN 用横向 ScrollView + 显式 slide 宽,容器有边距时必须传实际宽;小程序用 swiper 原生分页、页宽恒为容器宽,无同名概念 → 宿主布局能力差异。",
+      "evidence": "check-cross-end-component-props-parity --json: Carousel onlyRn 含 itemWidth;对照 apps/mobile-rn/src/components/Carousel.tsx slideWidth 取值处与 apps/miniapp-taro/src/components/Carousel.tsx swiper 段"
+    },
+    {
+      "component": "Carousel",
+      "key": "platform:course-overlay-variant",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-03-27",
+      "reason": "variant/courseMeta 是小程序端「课程专用轮播」叠层(标题+价格/免费标签);RN 端把课程形态拆成独立 CourseCarousel 组件承载,同名组件不承担叠加层 → 架构分工差异,登记而不复制渲染。",
+      "evidence": "check-cross-end-component-props-parity --json: Carousel onlyMini 含 variant/courseMeta;对照 apps/mobile-rn/src/components/CourseCarousel.tsx 独立承载课程叠加"
     }
   ]
 }
