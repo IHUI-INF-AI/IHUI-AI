@@ -65,7 +65,7 @@ export function readFaceText(rel, face = FACE_SEL.face, root = ROOT) {
 }
 
 /** 按被审面取闸门配置;取不到抛 Undetermined,由调用方折成 exit 2 —— 不回落另一个面。 */
-export function readGatesFace(face = FACE_SEL, root = ROOT) {
+export function readGatesFace(face = FACE_SEL.face, root = ROOT) {
   if (face === 'worktree') {
     const t = readWorktreeFile(root, GATES_REL)
     if (t === null || t === undefined) throw new Undetermined(`工作树(逃生舱)取不到 ${GATES_REL}`)
@@ -467,6 +467,13 @@ async function selfTest() {
     } catch {
       return false
     }
+  })())
+  ok('H19b 不传 face ⇒ 默认取 FACE_SEL.face,而不是整个选面对象', (() => {
+    // 默认值是对象时 `face === 'staged'/'worktree'` 全落空 ⇒ 一律静默按 HEAD 读;
+    // 本机 --self-test 的 FACE_SEL.face 恰好也是 head,行为上看不出差别,故同时钉默认表达式本身
+    // (写死断言,不读环境变量;回归到对象写法即红)。
+    const defaultExpr = /face\s*=\s*FACE_SEL\.face\s*(?:,|\))/.test(readGatesFace.toString())
+    return defaultExpr && typeof FACE_SEL.face === 'string' && readGatesFace(undefined, ROOT) === readGatesFace(FACE_SEL.face, ROOT)
   })())
   const wiredSrc = 'function runOnce(){ const valve = gateTicketByHumanValve({ ticketText, mode, valveListText }) }'
   ok('H21 派发路径没有调用点 ⇒ drift(闸只是装饰,这正是 2026-11-01 之前的实测形态)', judgeValveGate([], { mode: 'observe', headSource: 'function runOnce(){ dispatchSession(gates, ticket) }' }).state === 'drift')
