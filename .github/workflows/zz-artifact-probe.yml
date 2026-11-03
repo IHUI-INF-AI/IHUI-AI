@@ -1,1 +1,76 @@
-test
+# 临时探针(仅存于 probe/artifacts-v7v8,永不合并 main)
+name: Artifact Probe v7 to v8
+on:
+  push:
+    branches: [probe/artifacts-v7v8]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { label: win-x64, os: windows-latest }
+          - { label: macos-universal, os: macos-latest }
+          - { label: linux-x64, os: ubuntu-latest }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: make bundles
+        shell: bash
+        run: |
+          v=$(node -p "require('./apps/desktop/src-tauri/tauri.conf.json').version")
+          b=apps/desktop/src-tauri/target/release/bundle
+          mkdir -p "$b/nsis" "$b/deb" "$b/appimage" "$b/dmg"
+          case '${{ matrix.label }}' in
+            win-x64) printf x > "$b/nsis/IHUI-AI-Setup-${v}-x64.exe" ;;
+            macos-universal) printf x > "$b/dmg/IHUI-AI_${v}_universal.dmg" ;;
+            linux-x64) printf x > "$b/deb/ihui-ai_${v}_amd64.deb"; printf x > "$b/appimage/ihui-ai_${v}_amd64.AppImage" ;;
+          esac
+      - name: upload
+        id: u
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: desktop-bundle-${{ matrix.label }}
+          path: |
+            apps/desktop/src-tauri/target/release/bundle/nsis/*.exe
+            apps/desktop/src-tauri/target/release/bundle/deb/*.deb
+            apps/desktop/src-tauri/target/release/bundle/appimage/*.AppImage
+            apps/desktop/src-tauri/target/release/bundle/dmg/*.dmg
+          if-no-files-found: warn
+          retention-days: 7
+      - name: assert artifact-id
+        shell: bash
+        run: test -n "${{ steps.u.outputs.artifact-id }}" && echo "id=${{ steps.u.outputs.artifact-id }}"
+  merge:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: download pattern merge
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          path: .
+          pattern: desktop-bundle-*
+          merge-multiple: true
+      - name: assert merged paths
+        shell: bash
+        run: |
+          v=$(node -p "require('./apps/desktop/src-tauri/tauri.conf.json').version")
+          b=apps/desktop/src-tauri/target/release/bundle
+          test -f "$b/nsis/IHUI-AI-Setup-${v}-x64.exe"
+          test -f "$b/dmg/IHUI-AI_${v}_universal.dmg"
+          test -f "$b/deb/ihui-ai_${v}_amd64.deb"
+          test -f "$b/appimage/ihui-ai_${v}_amd64.AppImage"
+          n=$(find "$b" -type f | wc -l); echo "n=$n"; test "$n" -eq 4
+      - name: sync downloads
+        run: node scripts/sync-downloads.mjs --platform=desktop
+      - name: assert manifest
+        run: node -e "const m=require('./apps/web/public/downloads/manifest.json');const a=m.platforms.desktop.assets;if(a.length!==4)throw new Error('assets='+a.length);console.log(a.map(x=>x.format).join('|'))"
+      - name: assert feed resolve
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/resolve-desktop-download.mjs --dry-run
