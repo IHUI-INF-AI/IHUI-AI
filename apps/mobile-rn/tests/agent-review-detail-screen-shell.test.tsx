@@ -78,16 +78,37 @@ describe('AgentReview 薄壳', () => {
     expect(props.item).toEqual(ITEM)
     expect(props.error).toBe('')
     expect(props.loading).toBe(false)
+    expect(typeof props.onRetry).toBe('function')
     ;(props.onBack as () => void)()
     expect(navMocks.goBack).toHaveBeenCalledTimes(1)
   })
 
-  it('缺 item 时降级为错误态（不渲染空详情）', () => {
+  it('重试是真重载：按 id 重取 /agent-reviews 并刷新条目', async () => {
+    navMocks.params = { item: ITEM }
+    apiMock.fetchApi.mockResolvedValue({
+      success: true,
+      data: [{ ...ITEM, content: '重载后的内容' }],
+    })
+    render(<AgentReviewDetailScreen />)
+    const props = agentReviewDetailScreenPropsCaptured[agentReviewDetailScreenPropsCaptured.length - 1]!
+    ;(props.onRetry as () => void)()
+    await waitFor(() => {
+      expect(apiMock.fetchApi).toHaveBeenCalledWith('/agent-reviews')
+      const latest =
+        agentReviewDetailScreenPropsCaptured[agentReviewDetailScreenPropsCaptured.length - 1]!
+      expect(latest.item).toEqual(expect.objectContaining({ id: 'r1', content: '重载后的内容' }))
+      expect(latest.error).toBe('')
+    })
+  })
+
+  it('缺 item 时降级为错误态（不渲染空详情，重试不发请求）', () => {
     navMocks.params = {}
     render(<AgentReviewDetailScreen />)
     const props = agentReviewDetailScreenPropsCaptured[agentReviewDetailScreenPropsCaptured.length - 1]!
-    expect(props.item).toBeUndefined()
+    expect(props.item).toBeNull()
     expect(props.error).toBe('agentReviewDetail.empty')
+    ;(props.onRetry as () => void)()
+    expect(apiMock.fetchApi).not.toHaveBeenCalled()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
