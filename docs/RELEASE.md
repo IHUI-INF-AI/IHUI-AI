@@ -63,7 +63,7 @@ IHUI-AI 采用 **Git tag 驱动**的发布模型:打 tag → 触发 GitHub Actio
 | token 备份 | ✅ 已落盘 | `Get-ChildItem D:\DevEnv\secrets` | `npm-token-ihui-cli-2026-10-19.txt`(仓库外,不入 git;`~/.npmrc` 备份为 `~/.npmrc.bak`) |
 | token 写权限实测 | ✅ 通过(无 OTP 提示、无 403) | `npm dist-tag add ihui-cli@1.0.0 latest --registry=https://registry.npmjs.org/` | `npm warn dist-tag add latest is already set to version 1.0.0` |
 | token 包级写操作实测(deprecate) | ✅ 通过(无 OTP、无 403) | `npm deprecate ihui-cli@0.0.0-stage "staging placeholder, use 1.0.0" --registry=https://registry.npmjs.org/` | `npm notice deprecating ihui-cli@0.0.0-stage with message "staging placeholder, use 1.0.0"`;回读 `npm view ihui-cli@0.0.0-stage deprecated` → `staging placeholder, use 1.0.0` |
-| CI 发布 secrets | ⚠️ 部分未配置;npm 侧只需 `NPM_PUBLISH_TOKEN` | `gh secret list --repo IHUI-INF-AI/IHUI-AI`(先 `$env:GH_TOKEN=$null` 走 keyring) | 21 项:`ALERT_EMAIL_TO` / `DEPLOY_SSH_PRIVATE_KEY` / `DESKTOP_API_URL` / `DESKTOP_TAURI_KEY_PASSWORD` / `DESKTOP_TAURI_PRIVATE_KEY` / `GITCODE_OWNER` / `GITCODE_TOKEN` / `GITEE_OWNER` / `GITEE_TOKEN` / `NPM_BOOT_EMAIL` / `NPM_BOOT_PASSWORD` / `NPM_BOOT_PUBKEY` / `NPM_BOOT_USERNAME` / **`NPM_PUBLISH_TOKEN`(2026-10-19T03:04:21Z 已配)** / `NPM_WEB_PASSWORD` / `NPM_WEB_USERNAME` / `SIGNPATH_EMAIL` / `SMTP_HOST` / `SMTP_PASS` / `SMTP_PORT` / `SMTP_USER`;**无** `NPM_TOKEN` / `PYPI_TOKEN` / `MAVEN_*` / `NUGET_*`。注:`NPM_WEB_USERNAME` / `NPM_WEB_PASSWORD` 已于 2026-10-19 从 `npm-bootstrap.yml` 移除引用(`trusted_publisher` 分支删除),这两个 secret 成为无引用残留,可由 owner 可选删除。**2026-10-23 追加**:`GITCODE_OWNER` / `GITCODE_TOKEN` 也已成为无引用残留(GitCode 渠道整体弃用,`mirror-to-cn.yml` 已删除),可由 owner 删除;`GITEE_OWNER` / `GITEE_TOKEN` 自 2026-11-03 起也已成为**无引用残留**(Gitee 发布目标下线:Gitee 仓为空仓、零推送历史、桌面直链已切 GitHub),可由 owner 删除;恢复步骤见 `release-desktop.yml` 的 sync-gitee job 注释 |
+| CI 发布 secrets | ⚠️ 部分未配置;npm 侧只需 `NPM_PUBLISH_TOKEN` | `gh secret list --repo IHUI-INF-AI/IHUI-AI`(先 `$env:GH_TOKEN=$null` 走 keyring) | 21 项:`ALERT_EMAIL_TO` / `DEPLOY_SSH_PRIVATE_KEY` / `DESKTOP_API_URL` / `DESKTOP_TAURI_KEY_PASSWORD` / `DESKTOP_TAURI_PRIVATE_KEY` / `GITCODE_OWNER` / `GITCODE_TOKEN` / `GITEE_OWNER` / `GITEE_TOKEN` / `NPM_BOOT_EMAIL` / `NPM_BOOT_PASSWORD` / `NPM_BOOT_PUBKEY` / `NPM_BOOT_USERNAME` / **`NPM_PUBLISH_TOKEN`(2026-10-19T03:04:21Z 已配)** / `NPM_WEB_PASSWORD` / `NPM_WEB_USERNAME` / `SIGNPATH_EMAIL` / `SMTP_HOST` / `SMTP_PASS` / `SMTP_PORT` / `SMTP_USER`;**无** `NPM_TOKEN` / `PYPI_TOKEN` / `MAVEN_*` / `NUGET_*`。注:`NPM_WEB_USERNAME` / `NPM_WEB_PASSWORD` 已于 2026-10-19 从 `npm-bootstrap.yml` 移除引用(`trusted_publisher` 分支删除),这两个 secret 成为无引用残留,可由 owner 可选删除。**2026-10-23 追加**:`GITCODE_OWNER` / `GITCODE_TOKEN` 也已成为无引用残留(GitCode 渠道整体弃用,`mirror-to-cn.yml` 已删除),可由 owner 删除;`GITEE_OWNER` / `GITEE_TOKEN` 则于 2026-11-03 **复活为国内主通道**的发布凭据(`sync-gitee` / `backfill` 默认启用),不再是无引用残留 |
 | OIDC trusted publishing | ⛔ **不采用(用户定案:不要 2FA,不绑认证器)** | 历史实测:`npm trust github ihui-cli ...` | 曾返回 `403 Forbidden ... Two-factor authentication is required for this operation`。npm 已下线 TOTP 注册(`404 Adding a new TOTP 2FA is no longer supported.`),只剩 WebAuthn 安全密钥一条路。**用户明确拒绝,故永久放弃该通道,改用 token 发布** |
 | Trusted Publisher 网页登记实测 | ⛔ 已终止(用户不要 2FA,不再尝试) | `https://www.npmjs.com/package/ihui-cli/access` → Add Trusted Publisher | 2026-10-19 实测:表单可填可提交,但跳 `Confirm Password to Continue` 后直接落到 `/settings/ihui-ai/tfa` 要求加安全密钥,无邮箱 OTP 分支。**该路径按用户指示永久关闭** |
 | desktop GitHub Release | ✅ 已发布(对照项) | `git tag -l 'desktop-v*'` | `desktop-v0.1.42` 等已产出(见 `release-desktop.yml`) |
@@ -583,6 +583,7 @@ matrix:
 
 Windows 上用户会下载到的两份二进制都走 SignPath Foundation 的免费开源代码签名:CLI 的 `ihui.exe`(在 `ihui-windows-*.zip` 内)与桌面端的 NSIS 安装包(`*-setup.exe`)。证书由 Sectigo CA 签发,私钥保存在 SignPath HSM,不落到 CI。下载页与 README 已包含 SignPath Foundation 声明。
 
+D
 > **桌面端一条独有约束(改这条链前必读)**:Tauri 自动更新用 minisign `.sig` 校验安装包**字节**,而 Authenticode 签名会改字节 ⇒ `release-desktop.yml` 的签名步在覆盖安装包后**必须**就地 `tauri signer sign` 重算同名 `.sig`,重算失败即硬失败。让 `.sig` 停在旧字节上的后果是全部已装客户端自动更新失败,比不签名严重。`latest.json` 由 `publish-updater-json`(needs: `[build, signature-gate]`,即签名门禁通过后才允许更新)在替换之后聚合,顺序正确;`sync-downloads` 同理取替换后的资产；`sync-gitee` 已于 2026-11-03 下线(Gitee 仓为空仓、桌面直链已切 GitHub),不再参与发版链。
 
 **当前状态(2026-10-20)**
@@ -849,9 +850,8 @@ git branch -d hotfix/v1.2.4
      否则 Release 已经上线、而 `desktop-feed.json` 仍吐旧版本。
      下载页快照由 `resolve-desktop-download.mjs` 在 `release-desktop.yml` 与每日 `sync-downloads.yml` 两处
      **重生成**(2026-10-17 起 CI 只上传产物、不再自动提交回 main,入库需人工提交);
-     Windows 包直链**保持 GitHub release 原始 URL**。Gitee 国内发行已于 2026-11-03 下线(仓为空仓、
-     零推送历史,线上 0.1.77 已走 GitHub 直链),不再作为下载/更新面的候选。历史规则保留:若将来
-     恢复其他镜像通道,必须先按 Content-Length 与 GitHub 资产 size **逐字节对账**才准改用 ——
+     Windows 包下载面**国内优先 Gitee、境外回落 GitHub**:仅当 Gitee 资产存在且 Content-Length 与
+     GitHub 原件 size **逐字节对账一致**时才出 Gitee 直链,否则保持 GitHub release 原始 URL 并写告警 ——
      同名不等于同物(0.1.75 实锤:同名差 4,173 字节 ⇒ 客户端下载成功而验签必失败)。
      (原第 2 条 GitHub `desktop-updater-feed/latest.json` 回退端点已删除——它只由 CI 维护、
      本机发版通道无 GH_TOKEN,属"看似有兜底、实际随发布路径分叉"的假能力。)
@@ -871,7 +871,7 @@ git branch -d hotfix/v1.2.4
   > ✅ **主端点缺 mac/linux 键已修(2026-09-24)**:站点 feed 的 `platforms` 不再由 route 自己
   > `find(a => /Windows/i.test(a.format))` 拼单键,而是输出快照的 `updaterPlatforms` 四键映射。
   > 平台推断/择优(`exe>msi`、`AppImage>deb>rpm`、universal 一次填 `darwin-x86_64`+`darwin-aarch64`)、
-  > 空签名不出键、URL host 白名单(`{github.com, gitee.com}`;2026-10-12 backfill 补齐后**四平台全部放行** Gitee,口径见 `scripts/lib/tauri-updater-platforms.mjs` 的 `GITEE_ALLOWED_PLATFORMS`。旧句"mac/linux 只认 GitHub,因其 Gitee 直链实测 404"已随补齐失效,别再按它推理;2026-11-03 后记:Gitee 发布目标已下线,本节仅作历史记录,`gitee.com` 白名单不再有命中)
+  > 空签名不出键、URL host 白名单(`{github.com, gitee.com}`;2026-10-12 backfill 补齐后**四平台全部放行** Gitee,口径见 `scripts/lib/tauri-updater-platforms.mjs` 的 `GITEE_ALLOWED_PLATFORMS`。旧句"mac/linux 只认 GitHub,因其 Gitee 直链实测 404"已随补齐失效,别再按它推理;2026-11-03 复活:Gitee 为国内主通道,`gitee.com` 白名单恢复命中(仍只在字节对账通过时改写))
   > 全部收在唯一真相源 `scripts/lib/tauri-updater-platforms.mjs`,CI 的 `generate-latest-json.mjs`
   > 与快照生成器 `resolve-desktop-download.mjs` 共用它 —— 两条 feed 从此同源同形。
   > **macOS 绝不能用 `.dmg` 填 darwin 键**:dmg 不是可更新产物、没有配套 `.sig`(快照里 dmg 的 signature 恒为空串),
@@ -921,10 +921,10 @@ git push origin desktop-v0.1.15
 3. `release-desktop.yml` 自动执行:3 个构建 job(windows-x64 / macos-universal / linux-x64;macOS universal 一份产物同时覆盖 Apple Silicon 与 Intel)构建 → 上传安装包 + `.sig` 签名包到 Release → `publish-updater-json` 聚合全部平台生成 `latest.json`(仅上传到发版 Release;原"固定 feed tag `desktop-updater-feed`"上传已随 2026-10-05 兜底端点删除移除)→ `sync-downloads` 把产物同步到 `apps/web/public/downloads/` 并作为 artifact 留档(2026-10-17 起 CI 不再自动提交回 main)
    - **注意**:exe/msi 不入库是 `.gitignore` 的决定(`apps/web/public/downloads/desktop/`),**不是**体积限制 —— 2026-10-18 现读 Windows 安装包约 10 MB(旧句"~230MB 超过 GitHub 单文件 100MB 限制"属 `offlineInstaller` 时代,枚 ac695ce9d7a 改回 embedBootstrapper 后已不成立)。
 4. `sync-downloads` job 同时运行 `scripts/resolve-desktop-download.mjs`,从 GitHub Releases API **动态解析**最新 `desktop-v*` release 的安装包(URL/大小/版本/发布日期),刷新 `apps/web/src/config/desktop-feed.generated.ts` 快照并作为 artifact 留档。Web 下载页(`/download/desktop`)构建期读取该快照渲染下载按钮——**发版后仍需有人跑 `pnpm resolve:desktop-download` 并提交,下载页才会换到新版**(2026-10-17 起 CI 不再自动提交回 main,"自动更新、无需手动"那句已不成立)。
-5. **烘焙更新器第一数据源(必做,漏做则 `/desktop-feed.json` 继续吐旧版)**:等 CI 的 build(含 SignPath 签名与 `.sig` 重算)产出后(**公开更新源只烘焙 CI 产出的包,SignPath 凭据齐备时会自动带 Authenticode**;本机 `release-desktop-local.mjs --allow-unsigned-upload` 的包只作审批前应急下载,不得烘焙进本文件),从**本次 Release** 取 `latest.json`(`gh release download desktop-vX.Y.Z -p latest.json -O .ihui-agent/tmp/latest.json`),1:1 写入 `apps/web/src/config/desktop-latest.generated.ts`;不得改任何 URL:Windows 直链保持 GitHub release 原始 URL(Gitee 分发已于 2026-11-03 下线);若将来恢复镜像通道,改前必须按 Content-Length 与 GitHub 资产 size 对账(同名不同字节 ⇒ 下载成功但验签必失败,0.1.75 已实锤)。验收三条:① `version` 等于本次 tag 去掉 `desktop-v`;② Windows 直链 host=`github.com` 且 Content-Length 等于 Release 里同名 `.exe` 的 size;③ 四平台 `signature` 与 Release 的 `latest.json` 逐字相同。改完提交并等 Web 部署生效。
+5. **烘焙更新器第一数据源(必做,漏做则 `/desktop-feed.json` 继续吐旧版)**:等 CI 的 build(含 SignPath 签名与 `.sig` 重算)产出后(**公开更新源只烘焙 CI 产出的包,SignPath 凭据齐备时会自动带 Authenticode**;本机 `release-desktop-local.mjs --allow-unsigned-upload` 的包只作审批前应急下载,不得烘焙进本文件),从**本次 Release** 取 `latest.json`(`gh release download desktop-vX.Y.Z -p latest.json -O .ihui-agent/tmp/latest.json`),1:1 写入 `apps/web/src/config/desktop-latest.generated.ts`;Windows 直链**优先 Gitee**(仅当已补传且 Content-Length 与 GitHub 原件逐字节相等),否则保持 GitHub release 原始 URL 并写告警;改任何 URL 前必须按 Content-Length 与 GitHub 资产 size 对账(同名不同字节 ⇒ 下载成功但验签必失败,0.1.75 已实锤)。验收三条:① `version` 等于本次 tag 去掉 `desktop-v`;② Windows 直链 host ∈ {`gitee.com`, `github.com`},Content-Length 等于 Release 里同名 `.exe` 的 size(host=`gitee.com` 时还须等于 GitHub 原件);③ 四平台 `signature` 与 Release 的 `latest.json` 逐字相同。改完提交并等 Web 部署生效。
 6. 用户端:应用启动时 `checkForUpdate()` 拉唯一端点(`https://aizhs.top/desktop-feed.json`)的 `latest.json` → 比对版本 → 下载签名包 → `downloadAndInstall()` 验签安装 → 重启
 
-> 本机 `scripts/release-desktop-local.mjs` 是 Windows 应急通道:它只做 Tauri 更新签名,不做 Authenticode,默认只构建+签名、不上传(Gitee 直传已于 2026-11-03 下线;恢复需显式加 `--upload-gitee` 并先满足 `release-desktop.yml` 注释里的恢复前置);确需在 SignPath 审批前发未签名包,显式加 `--allow-unsigned-upload`,且该包不得烘焙进公开更新源。
+> 本机 `scripts/release-desktop-local.mjs` 是 Windows 应急通道:它只做 Tauri 更新签名,不做 Authenticode,**默认上传 Gitee(国内主通道)**;本地验证必须显式 `--no-upload`,产物仅留本机。确需在 SignPath 审批前发未签名包,显式加 `--allow-unsigned-upload`,且该包不得烘焙进公开更新源。
 
 > 手动刷新快照(CI 失败兜底 / 本地调试):`node scripts/resolve-desktop-download.mjs`(有差异才写);`--check` 仅对比(有差异退出码 1);`--offline` 仅查看本地快照。
 

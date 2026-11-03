@@ -984,23 +984,24 @@ jobs:
           echo "产物已同步到 apps/web/public/downloads/(desktop + extension)" >> $GITHUB_STEP_SUMMARY
           echo "下载页/更新器版本号:站点运行期直读发布源,发版即生效(无需快照入库)" >> $GITHUB_STEP_SUMMARY
 
-  # ── 2026-11-03 下线:Gitee 国内发行目标(空仓、零推送历史、直链已切 GitHub)──
-  # 判定依据(逐条可复核):
-  #   ① Gitee 仓 JLSLSSZWHYXGS_0/IHUI-AI 为**空仓**:API 查无 main/master 分支、无 tag、无 release;
-  #   ② 线上 https://aizhs.top/desktop-feed.json 的 0.1.77 已走 GitHub 直链(入库烘焙快照
-  #      apps/web/src/config/desktop-latest.generated.ts),Gitee 不再是下载/更新面的任何一环;
-  #   ③ 2026-11-03 run 41568378733 的 Sync Gitee 必然 400:"创建标签失败:desktop-v0.1.77"
-  #      (Gitee 侧没有 main 分支 ⇒ target_commitish=main 建不出 tag),每次发版多一条红噪音。
-  # ⇒ 下线这个发布目标,但**保留完整 job 代码**供恢复;恢复前置条件(缺一不可):
-  #   a) 在 Gitee 初始化仓库并推送至少 main 分支(或改 sync-gitee.py 的 target_commitish);
-  #   b) 补齐 GITEE_TOKEN / GITEE_OWNER secrets(见 .github/SECRETS.md);
-  #   c) 删掉下面 job 的 `if: ${{ false }}`;
-  #   d) 先手动 dispatch backfill-gitee-assets.yml 验证可写,再随发版启用。
+  # ── 2026-11-03 复活:Gitee 为**国内主通道**(仓库浏览 + 发布包下载),GitHub 为境外/兜底 ──
+  # 当日早些时候的"下线"判定已撤回,原因与处置:
+  #   ① 原判定的前提是 Gitee 空仓(无 main/tag/release)⇒ target_commitish=main 建不出 tag,
+  #      每次发版 400「创建标签失败」。该前提已由"仓库初始化 + 推 main 快照"消除;
+  #   ② 新语义:本 job 默认执行、Gitee Release 首发;资产逐件上传并按字节+SHA256 与 GitHub 对账;
+  #      下载面只在「Gitee 资产存在且字节与 GitHub 原件一致」时改写直链,否则回落 GitHub + 告警。
+  #   ③ 显式关闭开关:仓库 Settings → Variables 设 `GITEE_SYNC_ENABLED=false` 即跳过本 job
+  #      (未设置时默认开启,避免"以为在同步其实没跑")。
+  # 初始化/恢复前置(本任务已执行):
+  #   a) Gitee 仓已有 main(逐字等于 origin/main 树的快照提交),不再是空仓;
+  #   b) GITEE_TOKEN / GITEE_OWNER secrets 在位(见 .github/SECRETS.md);
+  #   c) 已手动 dispatch backfill-gitee-assets.yml 验证 Release/上传链路;
+  #   d) 之后随每次 desktop-v* 发版自动同步。
   # 以下 2026-09-17 / 2026-10-17 的历史说明原样保留,便于恢复时理解原设计。
   #
   # 2026-09-17 立 / 2026-10-17 校正:国内发行(Gitee)自动化——安装包+更新签名
   # 尽力镜像到 Gitee release。**Gitee 侧不是更新器端点**:客户端只认
-  # aizhs.top 单端点(见 sync-gitee.py 末尾第 5 节),此处作国内手动下载的附件存档。
+  # aizhs.top 单端点(见 sync-gitee.py 末尾第 5 节),此处为国内主下载通道。
   #
   # 2026-10-17 修掉"Windows 包永远传不上"的结构性缺口(用户报「Gitee 怎么能从来不工作」):
   #   实测链条 —— 0.1.74 的 Gitee release 里 mac/linux 资产齐全,但 **只有
@@ -1015,11 +1016,10 @@ jobs:
   #     真要恢复完全离线,必须先另解决分发通道。守门 scripts/check-version-drift.mjs 的
   #     H 判据会在 offlineInstaller 回归时判红(需显式豁免并写明分发方案)。
   sync-gitee:
-    name: Sync release to Gitee (国内发行,已下线 2026-11-03)
+    name: Sync release to Gitee (国内主通道)
     needs: [build, publish-updater-json]
-    # 2026-11-03 下线:空仓 + 直链已切 GitHub ⇒ 不再执行、不再阻断 Release。
-    # 恢复步骤见本 job 上方注释;不要直接删 job,先满足 a)~d) 四个前置。
-    if: ${{ false }}
+    # 默认开启;显式关闭:仓库 Settings → Variables → GITEE_SYNC_ENABLED=false
+    if: ${{ vars.GITEE_SYNC_ENABLED != 'false' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
