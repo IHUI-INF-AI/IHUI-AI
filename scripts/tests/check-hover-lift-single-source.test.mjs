@@ -40,7 +40,9 @@ test('① 判据导出的键齐备(改名即红:镜像与门体天然同尺的�
 })
 
 test('② 命中形态:group-hover/变体链/色档逐一按枚计,静态与 scale 族放行', () => {
-  const hits = GATE.judgeLiftLiterals(`const c = "group-hover:-translate-y-2 group-hover:shadow-xl"`)
+  const hits = GATE.judgeLiftLiterals(
+    `const c = "group-hover:-translate-y-2 group-hover:shadow-xl"`,
+  )
   assert.equal(hits.length, 2)
   const pass = GATE.judgeLiftLiterals(
     `const c = "object-cover group-hover:scale-105 shadow-lg bg-card p-3 hover:bg-accent/40"`,
@@ -69,7 +71,12 @@ test('⑤ 台账:超出登记数判红、少于登记数判腐烂,两侧都不�
     },
   ]
   const mk = (n) =>
-    new Map([['a.tsx', Array.from({ length: n }, (_, i) => ({ line: i + 1, dim: 'shadow', snippet: 's' }))]])
+    new Map([
+      [
+        'a.tsx',
+        Array.from({ length: n }, (_, i) => ({ line: i + 1, dim: 'shadow', snippet: 's' })),
+      ],
+    ])
   const v1 = GATE.judgeAgainstAllowlist(mk(2), entries, { today: '2026-11-03' })
   assert.equal(v1.violations.length, 0)
   assert.equal(v1.stale.length, 0)
@@ -88,23 +95,31 @@ test('⑥ 台账:到期条目 exempt 归零、缺 until/短 reason 一律 malfor
   )
   assert.equal(vExp.expired.length, 1)
   assert.ok(!('malformed' in vExp) || !vExp.malformed)
-  const bad1 = GATE.judgeAgainstAllowlist(perFile, [{ file: 'a.tsx', liftCalls: 1, reason: '足够长度的豁免原因说明' }], {
-    today: '2026-11-03',
-  })
+  const bad1 = GATE.judgeAgainstAllowlist(
+    perFile,
+    [{ file: 'a.tsx', liftCalls: 1, reason: '足够长度的豁免原因说明' }],
+    {
+      today: '2026-11-03',
+    },
+  )
   assert.ok(bad1.malformed)
-  const bad2 = GATE.judgeAgainstAllowlist(perFile, [{ file: 'a.tsx', liftCalls: 1, reason: '短', until: '2099-01-01' }], {
-    today: '2026-11-03',
-  })
+  const bad2 = GATE.judgeAgainstAllowlist(
+    perFile,
+    [{ file: 'a.tsx', liftCalls: 1, reason: '短', until: '2099-01-01' }],
+    {
+      today: '2026-11-03',
+    },
+  )
   assert.ok(bad2.malformed)
 })
 
-test('⑦ 形状锁:runner 注册条目 blocking+skipEnv 成套且 script 文件在位', () => {
+test('⑦ 形状锁:runner 注册条目 blocking+skipEnv 成套且 script 文件在位(号位现读=287;与同批 props 门撞 285 后由落地腿顺延)', () => {
   const runner = readFileSync(join(ROOT, 'scripts', 'guardian-runner.mjs'), 'utf8')
-  const re = /\{\s*id:\s*'285',[\s\S]*?\n {2}\},/
+  const re = /\{\s*id:\s*'287',[\s\S]*?\n {2}\},/
   const m = runner.match(re)
-  assert.ok(m, 'runner 未注册 id 285(门没装车 = 没有,§0.9)')
+  assert.ok(m, 'runner 未注册 id 287(门没装车 = 没有,§0.9)')
   const entry = m[0]
-  assert.ok(entry.includes("mode: 'blocking'"), '285 必须是 blocking(清扫后存量=0,非恒红门)')
+  assert.ok(entry.includes("mode: 'blocking'"), '287 必须是 blocking(清扫后存量=0,非恒红门)')
   assert.ok(
     entry.includes("skipEnv: 'HUSKY_SKIP_HOVER_LIFT_SINGLE_SOURCE'"),
     'blocking 门必须带成套应急跳过变量',
@@ -114,13 +129,19 @@ test('⑦ 形状锁:runner 注册条目 blocking+skipEnv 成套且 script 文件
     '注册对象里出现两枚 id = R13 吞号形态',
   )
   const scriptName = entry.match(/script:\s*'([^']+)'/)?.[1]
-  assert.ok(scriptName && existsSync(join(ROOT, 'scripts', scriptName)), `script 指向的文件不存在:${scriptName}`)
+  assert.ok(
+    scriptName && existsSync(join(ROOT, 'scripts', scriptName)),
+    `script 指向的文件不存在:${scriptName}`,
+  )
 })
 
 test('⑧ 形状锁:浮起数值源仍单点(--lift-scale 只在 globals.css 声明一次)', () => {
   const css = readFileSync(join(ROOT, 'apps', 'web', 'app', 'globals.css'), 'utf8')
   const decls = css.match(/--lift-scale:/g) || []
   assert.equal(decls.length, 1, '--lift-scale 声明必须全仓恰一枚(单一真相源漂开即红)')
-  assert.ok(existsSync(join(ROOT, 'scripts', 'data', GATE.LEDGER_REL.split('/').pop())), '豁免台账必须与门同批在位')
+  assert.ok(
+    existsSync(join(ROOT, 'scripts', 'data', GATE.LEDGER_REL.split('/').pop())),
+    '豁免台账必须与门同批在位',
+  )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
