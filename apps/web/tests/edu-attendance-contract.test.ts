@@ -197,7 +197,6 @@ describe('edu attendance web contract', () => {
 
   it('五语言 eduAttendance 趋势键齐备、非空、{scope} 插值位不丢、语族不串', () => {
     const cjk = /[぀-ゟ가-힯一-鿿]/u // 假名 | 谚文 | 汉字
-    const kanaOrHangul = /[぀-ゟ가-힯]/u
     for (const loc of WEB_MSGS) {
       const msgs = JSON.parse(read(`packages/i18n/messages/web/${loc}.json`)) as Record<
         string,

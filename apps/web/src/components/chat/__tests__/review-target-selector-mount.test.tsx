@@ -29,6 +29,13 @@ vi.mock('next-intl', () => ({
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }),
 }))
+// message-input 的传递依赖链 brand-icon → @lobehub/icons → @lobehub/ui → emoji-mart 会在
+// vitest 下崩(@emoji-mart/data 的 native.json 缺 `type: json` 导入属性,与本文件被测面无关)。
+// 与 prompt-polish.test.tsx 同法替换为空实现,不必拉整条模型选择器依赖树。
+vi.mock('@/components/ai/brand-icon', () => ({
+  BrandIcon: () => null,
+  inferVendor: () => undefined,
+}))
 // 传输层:整组件挂载会拉起 api-client(令牌注入 / 会话拉取),这里只留可编程替身。
 vi.mock('@ihui/api-client', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>
