@@ -73,7 +73,11 @@
 
 import { NextResponse, type NextRequest } from 'next/server'
 import { verifyAccessTokenEdge } from '@/lib/auth-utils'
-import { docsDetailGateStatusOf } from '@/lib/docs-detail-gate'
+import {
+  docsDetailGateStatusOf,
+  isDocsGateDocumentRequest,
+  renderDocsGateHtml,
+} from '@/lib/docs-detail-gate'
 import { evaluateOriginHostGuard } from '@/lib/origin-direct-host-guard'
 // 鉴权射程(2026-10-21 随 matcher 全站化迁入函数内,逐字等价于旧 matcher
 // `['/admin/:path*', '/edu/edu-management/:path*']` 的命中集,不多不少)。
@@ -246,21 +250,20 @@ export async function proxy(request: NextRequest) {
     // 必须在 Proxy 落状态码——页面侧 notFound()/抛错会被根段与 (main) 段的 loading.tsx
     // 流式外壳吞成 200(探针矩阵 v-b/c/d/g 实测),判据与理由见 src/lib/docs-detail-gate.ts。
     // 非文档详情请求(含静态文档页、/docs 索引、/docs/manual/xxx)直接返回 null,零开销。
+    // 落码方式(2026-11-04 生产纠正):Proxy 直接返回 Response,不用 rewrite-with-status ——
+    // 生产 `next start -H 0.0.0.0` + 反代 `x-forwarded-proto: https` 下,rewrite 目标与请求 Host
+    // 不同源 ⇒ Next 当外部代理去 fetch 无 TLS 端口 ⇒ 线上 500 `Internal Server Error`(21 字节)。
     const docsStatus = await docsDetailGateStatusOf(request)
     if (docsStatus === null) return pass()
-    const applyNonce = (headers: Headers): void => {
-      if (!csp || !nonce) return
-      headers.set('x-nonce', nonce)
-      headers.set('content-security-policy', csp)
-    }
-    const reqHeaders = new Headers(request.headers)
-    applyNonce(reqHeaders)
-    const res = NextResponse.rewrite(request.nextUrl.clone(), {
-      status: docsStatus,
-      request: { headers: reqHeaders },
+    // RSC 取数请求放行:响应体必须是 RSC 载荷,硬码与 not-found 界面交给页面自身。
+    if (!isDocsGateDocumentRequest(request.headers)) return pass()
+    const headers = new Headers({
+      'content-type': 'text/html; charset=utf-8',
+      'cache-control': 'no-store',
+      'x-robots-tag': 'noindex',
     })
-    if (csp) res.headers.set('content-security-policy', csp)
-    return res
+    if (csp) headers.set('content-security-policy', csp)
+    return new NextResponse(renderDocsGateHtml(docsStatus), { status: docsStatus, headers })
   }
 
   // 不阻塞 /admin/unauthorized(让用户看到无权限页)
