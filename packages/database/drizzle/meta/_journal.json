@@ -2524,6 +2524,13 @@
       "version": "7",
       "tag": "20261102190000_agent_runtime_sessions_lookup",
       "breakpoints": true
+    },
+    {
+      "idx": 364,
+      "when": 1793624400000,
+      "version": "7",
+      "tag": "20261102210000_edu_attendance_rule",
+      "breakpoints": true
     }
   ]
 }
