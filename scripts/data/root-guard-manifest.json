@@ -1,15 +1,15 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-11-03T02:13:19.366Z",
+  "sealedAt": "2026-11-03T03:47:04.449Z",
   "sealedBy": "root-guard --seal",
-  "reason": "复核 119c860fc8(门 282 文档中心公开面健康门)+ 421b3e3daf/e2d8b52784(门 47p 溯源水印 push 档)对 scripts/guardian-runner.mjs 的改动:相对上次封印那枚 4ec42583d6 的差面现读 +47/-0(纯新增注册条目,既有档位一字未动),门体 check-doc-center-public-health.mjs / check-watermark-coverage.mjs --push-scope 均真在位 ⇒ 按在册 --seal 出口重封清单",
+  "reason": "复核 21292f5271 与 5001f53cfc 两笔合并改 guardian-runner 后未重封:对照 HEAD 面内容确认仅新增门体注册条目,既有档位未改,按在册出口重封",
   "targets": [
     {
       "id": "guardian-runner",
       "path": "scripts/guardian-runner.mjs",
       "mode": "file",
-      "sha256": "12b725982de97bd9de0df4790f38477db40755f1c057d8257fa3320a6610aca3"
+      "sha256": "d94a84b6a63cafb953bba3941caa93ecb5b5f1156a9011a6a5a44bf609d8227d"
     },
     {
       "id": "judgement-libs",
