@@ -101,6 +101,9 @@ Headline claims (same source as the table below, all live-computed): **618 table
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-03**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (d58fdb106f)
+
+**2026-11-03**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (2a94268b4e)
 - 🚀 Feature/Improvement:考勤端上面收口 票B67 B70 B72 三端可见可操作可配置 (286ce1da49)
 
@@ -151,10 +154,6 @@ Headline claims (same source as the table below, all live-computed): **618 table
 - 📚 Docs:auto-triage 自动登记(api-logs;第 1 期感知层产线动作,O65) (ef806aa543)
 - 📚 Docs:auto-triage 自动登记(api-logs;第 1 期感知层产线动作,O65) (d6b41fae4f)
 - 🔧 Chore/Other:x (8701732dfd)
-
-**2026-11-03**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (4070d7a682)
-- 📚 Docs:认领文档中心格式层与排版收口票(7 簇并行,主席统一落地) (89b014b18a)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
