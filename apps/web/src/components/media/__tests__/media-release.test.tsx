@@ -44,6 +44,11 @@ function emulatePlaybackState(video: HTMLVideoElement) {
 }
 
 describe('G-856 切离即暂停(media-release 三臂)', () => {
+  // 外部音视频统一走同源代理(CSP media-src 收窄,见 FilePreview.tsx:35 注释与
+  // apps/ai-service/app/routers/media_tasks.py:685),故断言以代理形态为准,
+  // 仍逐字钉死被编码的原始 URL —— 换回裸链/漏编码都会红。
+  const proxied = (u: string) => `/api/media/stream?url=${encodeURIComponent(u)}`
+
   // 画廊内 usePreviewMediaProbe 走网络探测:stub 成永不落定,pending 不干扰渲染面
   const fetchMock = vi.fn(() => new Promise<Response>(() => {}))
   beforeEach(() => {
@@ -64,7 +69,7 @@ describe('G-856 切离即暂停(media-release 三臂)', () => {
     const view = render(<FilePreview {...props} />)
     // 画廊第 1 项是 video ⇒ 单持久 video 元素在位,src 指向第 1 项
     const video = view.getByTestId('image-preview-video') as HTMLVideoElement
-    expect(video.getAttribute('src')).toBe('https://example.com/a.mp4')
+    expect(video.getAttribute('src')).toBe(proxied('https://example.com/a.mp4'))
     // 让元素先进入"播放中"形态(jsdom 无真实媒体,以最小旗标仿真,见 emulatePlaybackState)
     const pauseSpy = emulatePlaybackState(video)
     expect(video.paused).toBe(false)
@@ -76,7 +81,7 @@ describe('G-856 切离即暂停(media-release 三臂)', () => {
     expect(pauseSpy).toHaveBeenCalled()
     expect(video.paused).toBe(true)
     // 单持久元素按设计切 src:第 2 项就位,且第 1 项的收口已发生
-    expect(video.getAttribute('src')).toBe('https://example.com/b.mp4')
+    expect(video.getAttribute('src')).toBe(proxied('https://example.com/b.mp4'))
   })
 
   it('② VideoPlayer 失活(active=false)⇒ 只暂停,源保留可续播', () => {
@@ -92,7 +97,7 @@ describe('G-856 切离即暂停(media-release 三臂)', () => {
     // (回归锁:effect 清理曾在此处误走释放路径摘掉 src,见 media-release 卸载旗注释)
     expect(pauseSpy).toHaveBeenCalled()
     expect(video.paused).toBe(true)
-    expect(video.getAttribute('src')).toBe('https://example.com/a.mp4')
+    expect(video.getAttribute('src')).toBe(proxied('https://example.com/a.mp4'))
   })
 
   it('③ VideoPlayer 卸载 ⇒ 暂停 + 摘源 + 复位(解码资源真正交回)', () => {
@@ -112,7 +117,7 @@ describe('G-856 切离即暂停(media-release 三臂)', () => {
     const video = view.container.querySelector('video')!
     expect(video).not.toBeNull()
     // 渐进分支(非 FLV/HLS)同步挂源
-    expect(video.getAttribute('src')).toBe('https://example.com/live.mp4')
+    expect(video.getAttribute('src')).toBe(proxied('https://example.com/live.mp4'))
     emulatePlaybackState(video)
 
     view.rerender(<LivePlayer src="https://example.com/live.mp4" active={false} />)

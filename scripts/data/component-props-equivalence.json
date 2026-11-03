@@ -1,0 +1,41 @@
+{
+  "rule": "语义等价映射表:只收「同一语义槽位、两端命名不同」的键(event/content/style 三类);命中条目计入 mapped,不计入门285 漂移存量。行为缺口(一端真没有对应能力)不得入表,只能真实现或登记到分叉台账。表条目增长必须与漂移键同轮减少,否则门判红。",
+  "entries": [
+    {
+      "pair": "BackChevron",
+      "ours": "onPress",
+      "theirs": "onTap",
+      "kind": "event",
+      "owner": "cross-end-props-parity",
+      "evidence": {
+        "rn": "packages/app/src/components/BackChevron.tsx:83",
+        "mini": "apps/miniapp-taro/src/components/BackChevron.tsx:82"
+      },
+      "rationale": "同一激活动作槽位:RN 走 Pressable onPress(零参回调),小程序走 View onClick 的 onTap(带 ITouchEvent);两端都只透传给共享核心 BackChevronCore 的 onPress,行为等价,仅事件命名随平台惯例不同。"
+    },
+    {
+      "pair": "ScrollJumpButton",
+      "ours": "onPress",
+      "theirs": "onTap",
+      "kind": "event",
+      "owner": "cross-end-props-parity",
+      "evidence": {
+        "rn": "packages/app/src/components/ScrollJumpButton.tsx:46",
+        "mini": "apps/miniapp-taro/src/components/ScrollJumpButton.tsx:59"
+      },
+      "rationale": "同一激活动作槽位:两端都是「按钮被按下」的单一回调,各自按平台惯例命名(onPress/onTap),消费侧语义与触发时机一致。"
+    },
+    {
+      "pair": "ScrollJumpButton",
+      "ours": "label",
+      "theirs": "labelKey",
+      "kind": "content",
+      "owner": "cross-end-props-parity",
+      "evidence": {
+        "rn": "packages/app/src/components/ScrollJumpButton.tsx:51",
+        "mini": "apps/miniapp-taro/src/components/ScrollJumpButton.tsx:64"
+      },
+      "rationale": "同一无障碍名称槽位:RN 由调用方给本地化字面量(屏幕阅读器只会念这一个字符串),小程序给 i18n 键由端内取词;两端都只喂 ariaLabel/accessibilityLabel,不参与可见渲染。"
+    }
+  ]
+}
