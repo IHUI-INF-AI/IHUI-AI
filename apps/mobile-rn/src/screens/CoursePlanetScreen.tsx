@@ -3,50 +3,28 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * CoursePlanetScreen 课程星球页
+ * CoursePlanetScreen 课程星球页 —— mobile-rn 薄壳。
  *
- * 对齐历史项目 pagesA/coursePlanet/index.vue(注:原文件模板整体被注释下线,
- * 但区块结构保留为对齐依据):
- * - 原页面结构:main-container(padding 20rpx, 渐变底 #fafcff→#81b5ff)
- *   > CourseCarousel(图片轮播) → MoreTitles(推荐课程) → Menu(课程菜单 8 项)
- *   → MoreTitles(课程赛道) → CourseCarouselList(入门/精选双 tab 列表)
- *   → MoreTitles(最新课程) → UpToDate(最新课程 2 列网格)
- * - RN 侧组件映射:CourseCarouselList → CourseCarousel variant='list'
- *   (CourseList1/CourseList2 → courses/courses2);UpToDate → CourseCarousel
- *   variant='UpToDate';顶部轮播 → CourseCarousel variant='swiper'。
- * - MoreTitles 原接收 images 装饰图 + title,RN 组件仅保留标题语义,3 处区段头一致对齐。
- * - Menu 默认 items 即原 Menu/index.vue 内置 8 项(tabbar/coursePlanet 图标),无需扩展 props。
- * - 加载态接入 components/common/Loading;原模板顶部搜索框不在本次对齐范围(原文件已注释)。
+ * 渲染主体是共享层 `@ihui/rn-app` 的 CoursePlanetScreen（单一真相源）：
+ * 壳侧只保留数据加载（`GET /api/course-planet`）、tab 选中态与导航端口注入，
+ * 不再复制共享屏的课程列表渲染。
+ *
+ * 路由与入口：RootNavigator.tsx:678/1245，drawer-nav.ts:259/921-922。
+ * 端口口径：共享屏全部 props 逐项真实接线；`onRetry` 单独绑定真实 reload，
+ * 不用 `onRetry ?? onRefresh` 之类的别名，也不回落空函数。
  */
-import { rnType } from '@ihui/design-tokens'
-import { useCallback, useEffect, useRef, useState } from 'react'
-import {
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native'
+import { useCallback, useEffect, useState } from 'react'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
 import { toUserFriendlyMessage } from '@ihui/shared/utils'
-import { currentRnTheme, tokens } from '../theme/active-tokens'
-import { ScrollJumpButton } from '@ihui/rn-app'
-import { scrollJumpInsetPx } from '@ihui/shared/ui/scroll-jump-spec'
+import { CoursePlanetScreen as SharedCoursePlanetScreen } from '@ihui/rn-app'
+import { useTheme } from '../context/ThemeContext'
 import { useI18n } from '../i18n'
-import CourseCarousel, { type CourseCarouselItem } from '../components/CourseCarousel'
-import { type CarouselSlideImg } from '../components/Carousel'
-import { MoreTitles } from '../components/MoreTitles'
-import Menu from '../components/Menu'
-import Loading from '../components/common/Loading'
-import { NavBar } from '../components/NavBar'
 import type { RootStackParamList } from '../navigation/RootNavigator'
-import { rpx } from '../utils/rpx'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
+type CourseType = 'all' | 'free' | 'paid'
 
 /** 课程星球接口返回的单门课程(沿用本页既有取数契约) */
 interface PlanetCourse {
@@ -63,66 +41,20 @@ interface PlanetData {
   selected: PlanetCourse[]
 }
 
-/**
- * 顶部图片轮播(对齐来源:原 CourseCarousel/index.vue 内置 carouselList 7 张图,
- * 原页面 <CourseCarousel @item-click="onCarouselItemClick" /> 未传外部数据)
- */
-// 2026-10-15 本地化:原 bspapp 云存储 CDN(mp-aab956eb-…)整体不可达(HTTP 000),
-// 7 张轮播图按原 CDN 路径打包进应用(文件副本与 apps/web/public 本地化批次同源):
-//   tabbar/ai_agent/lunbo6.jpg                  → assets/images/carousel/lunbo6.jpg
-//   tabbar/home/carousel4-footer1/carousel1.jpg → assets/images/carousel/carousel1.jpg
-//   tabbar/home/carousel4-footer1/carousel2.jpg → assets/images/carousel/carousel2.jpg
-//   tabbar/home/carousel4-footer1/carousel3.jpg → assets/images/carousel/carousel3.jpg
-//   tabbar/home/carousel4-footer1/carousel4-footer1-two.png → assets/images/carousel/carousel4-footer1-two.png
-//   tabbar/home/carousel4-footer1/lunbo1.png    → assets/images/carousel/lunbo1.png
-//   tabbar/home/carousel4-footer1/lunbo2.png    → assets/images/carousel/lunbo2.png
-// RN 静态资源打包必须用 require(Metro asset 插件契约),此处豁免 no-require-imports;
-// 写法与 ModelRecordScreen/ProfileScreen 同档(块级 disable,只罩资源声明行)。
-/* eslint-disable @typescript-eslint/no-require-imports */
-const IMG_LUNBO6 = require('../../assets/images/carousel/lunbo6.jpg')
-const IMG_CAROUSEL1 = require('../../assets/images/carousel/carousel1.jpg')
-const IMG_CAROUSEL2 = require('../../assets/images/carousel/carousel2.jpg')
-const IMG_CAROUSEL3 = require('../../assets/images/carousel/carousel3.jpg')
-const IMG_CAROUSEL_TWO = require('../../assets/images/carousel/carousel4-footer1-two.png')
-const IMG_LUNBO1 = require('../../assets/images/carousel/lunbo1.png')
-const IMG_LUNBO2 = require('../../assets/images/carousel/lunbo2.png')
-/* eslint-enable @typescript-eslint/no-require-imports */
-
-const SWIPER_IMAGES: readonly CarouselSlideImg[] = [
-  IMG_LUNBO6,
-  IMG_CAROUSEL1,
-  IMG_CAROUSEL2,
-  IMG_CAROUSEL3,
-  IMG_CAROUSEL_TWO,
-  IMG_LUNBO1,
-  IMG_LUNBO2,
-]
-
-/** 接口课程 → CourseCarouselItem(封面字段 coverImage → img) */
-function toCarouselItem(c: PlanetCourse): CourseCarouselItem {
-  return { id: c.id, title: c.title, price: c.price, isFree: c.isFree, img: c.coverImage }
-}
+const EMPTY_DATA: PlanetData = { hot: [], beginner: [], selected: [] }
 
 export function CoursePlanetScreen() {
   const { t } = useI18n()
+  const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp>()
-  const [data, setData] = useState<PlanetData>({ hot: [], beginner: [], selected: [] })
+  const [data, setData] = useState<PlanetData>(EMPTY_DATA)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
-  const [showBackToTop, setShowBackToTop] = useState(false)
-  const scrollRef = useRef<ScrollView>(null)
-
-  const handleScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    setShowBackToTop(e.nativeEvent.contentOffset.y > 200)
-  }, [])
-
-  const handleBackToTop = useCallback(() => {
-    scrollRef.current?.scrollTo({ y: 0, animated: true })
-  }, [])
+  const [selectedType, setSelectedType] = useState<CourseType>('all')
 
   // 对齐原 coursePlanet():getCoursePlanet → beginner_courses/selected_courses/hot_courses
-  const load = useCallback(async () => {
+  const reload = useCallback(async () => {
     setError('')
     try {
       const res = await fetchApi<PlanetData>('/api/course-planet')
@@ -141,117 +73,29 @@ export function CoursePlanetScreen() {
   }, [t])
 
   useEffect(() => {
-    void load()
-  }, [load])
+    void reload()
+  }, [reload])
 
   const onRefresh = useCallback(() => {
     setRefreshing(true)
-    void load()
-  }, [load])
-
-  // 课程点击:对齐本页既有跳转(课程详情);原 vue 的 vip/pay 购买分流依赖支付与本地存储,不在本次范围
-  const onCoursePress = useCallback(
-    (id: string) => {
-      navigation.navigate('CourseDetail', { id })
-    },
-    [navigation],
-  )
-
-  // 课程菜单点击:菜单 8 项即课程分类(图片/视频/文案/智能体/RPA/编程/音乐/其他),
-  // 跳分类详情页(对齐 RootStack 已注册的 CategoryDetail 路由)
-  const onMenuPress = useCallback(
-    (item: { id: number | string; name: string }) => {
-      navigation.navigate('CategoryDetail', { categoryId: String(item.id), title: item.name })
-    },
-    [navigation],
-  )
-
-  // 原入门/精选双 tab 列表(CourseList1/CourseList2)
-  const beginnerItems = data.beginner.map(toCarouselItem)
-  const selectedItems = data.selected.map(toCarouselItem)
-  // 原最新课程网格(list)
-  const hotItems = data.hot.map(toCarouselItem)
+    void reload()
+  }, [reload])
 
   return (
-    <View style={styles.root}>
-      <NavBar title={t('coursePlanet.title')} onBack={() => navigation.goBack()} />
-      <ScrollView
-        ref={scrollRef}
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
-      >
-        {/* 1. CourseCarousel 顶部图片轮播(对齐原 <CourseCarousel @item-click />,
-            原点击回调仅 console.log,RN 侧不接线) */}
-        <CourseCarousel courses={[]} variant="swiper" images={[...SWIPER_IMAGES]} />
-
-        {/* 2. MoreTitles 推荐课程(对齐原 <MoreTitles :images="images" title="推荐课程" />) */}
-        <MoreTitles title={t('courseScreen.recommended')} />
-
-        {/* 3. Menu 课程菜单(对齐原 <Menu />,用组件默认 8 项即原 Menu/index.vue 数据) */}
-        <Menu onPress={onMenuPress} />
-
-        {/* 4. MoreTitles 课程赛道(对齐原 images=6.png 一处) */}
-        <MoreTitles title={t('courseScreen.track')} />
-
-        {/* 5. 入门/精选双 tab 课程列表(对齐原 <CourseCarouselList :CourseList1 :CourseList2 />) */}
-        <CourseCarousel
-          courses={beginnerItems}
-          courses2={selectedItems}
-          variant="list"
-          onPress={onCoursePress}
-        />
-
-        {/* 6. MoreTitles 最新课程(对齐原 images=9.png 一处) */}
-        <MoreTitles title={t('courseScreen.latest')} />
-
-        {/* 7. 最新课程 2 列网格(对齐原 <UpToDate :list="list" />) */}
-        <CourseCarousel courses={hotItems} variant="UpToDate" onPress={onCoursePress} />
-
-        {/* 错误提示(原页面无,保留本页既有错误反馈能力) */}
-        {error !== '' && !loading ? <Text style={styles.errorText}>{error}</Text> : null}
-      </ScrollView>
-      {/* 加载中遮罩 */}
-      {loading ? <Loading text={t('common.loading')} fullscreen /> : null}
-      {/* 返回顶部按钮:外观与几何不在此设定(2026-10-20 统一收进共享单一源) */}
-      {showBackToTop ? (
-        <ScrollJumpButton
-          direction="top"
-          onPress={handleBackToTop}
-          label={t('common.backToTop')}
-          colorScheme={currentRnTheme()}
-          style={{ position: 'absolute', right: scrollJumpInsetPx(), bottom: scrollJumpInsetPx() }}
-        />
-      ) : null}
-    </View>
+    <SharedCoursePlanetScreen
+      t={t}
+      data={data}
+      loading={loading}
+      refreshing={refreshing}
+      error={error}
+      selectedType={selectedType}
+      onTypeChange={setSelectedType}
+      onCoursePress={(id) => navigation.navigate('CourseDetail', { id })}
+      onRefresh={onRefresh}
+      onBack={() => navigation.goBack()}
+      onRetry={reload}
+      colorScheme={resolvedTheme}
+    />
   )
 }
-
-const styles = StyleSheet.create({
-  // 原 main-container: linear-gradient(180deg,#fafcff 0%,#81b5ff 100%);
-  // 项目未引入渐变库,取两端混合色 #C1DAFE 纯色近似
-  root: {
-    flex: 1,
-    backgroundColor: tokens.brandAccent.light,
-  },
-  scroll: {
-    flex: 1,
-  },
-  // 原 main-container: padding:20rpx 20rpx 0 20rpx → 10dp(rpx/2 换算)
-  scrollContent: {
-    padding: rpx(20),
-  },
-  errorText: {
-    fontSize: rnType.label.size,
-    color: tokens.danger.DEFAULT,
-    textAlign: 'center',
-    paddingVertical: rpx(16),
-  },
-  // 返回顶部按钮样式已收进 @ihui/shared/ui/scroll-jump-spec(2026-10-20 用户定「不许单独设定」;
-  //  此处原写 rgba(255,255,255,0.85) 半透明白底 + 顶部居中)。
-  //  端内不得再留第二份盒档 —— 见 @ihui/rn-app ScrollJumpButton 头注。
-})
-
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

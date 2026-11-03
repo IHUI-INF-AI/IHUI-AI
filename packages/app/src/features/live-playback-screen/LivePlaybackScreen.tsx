@@ -35,8 +35,9 @@ export function LivePlaybackScreen({
   onPressItem,
   onClosePlayer,
   onBack,
-  colorScheme = 'light',
-}: LivePlaybackScreenProps) {
+  onRetry,
+  colorScheme = 'light'
+}: LivePlaybackScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -47,7 +48,7 @@ export function LivePlaybackScreen({
     return (
       <ErrorState
         message={error}
-        onRetry={onRefresh}
+        onRetry={onRetry}
         retryLabel={t('livePlayback.retry') || undefined}
         colorScheme={colorScheme}
       />

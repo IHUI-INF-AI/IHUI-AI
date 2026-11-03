@@ -18,7 +18,7 @@
 import { Writable } from 'node:stream'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { pino } from 'pino'
+import { pino, type Logger } from 'pino'
 import { describe, expect, it } from 'vitest'
 import {
   LOG_REDACT_CENSOR,
@@ -33,7 +33,7 @@ const OPENAI_KEY = 'sk-proj-AbCdEf1234567890abcdef'
 /** 捕获 pino 落盘文本(不经真实 stdout)。 */
 function captureLogger(opts: Record<string, unknown> = {}): {
   read: () => string
-  logger: ReturnType<typeof pino>
+  logger: Logger
 } {
   const chunks: string[] = []
   const stream = new Writable({

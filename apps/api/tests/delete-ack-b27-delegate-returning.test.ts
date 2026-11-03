@@ -36,7 +36,7 @@ const { chain } = vi.hoisted(() => ({
 }))
 
 vi.mock('../src/db/index.js', () => {
-  const deleteFn = vi.fn(() => ({
+  const deleteFn = vi.fn((..._args: unknown[]) => ({
     where: vi.fn(() => {
       chain.whereCalls += 1
       const settled = Promise.resolve(chain.returningQueue.shift() ?? [])

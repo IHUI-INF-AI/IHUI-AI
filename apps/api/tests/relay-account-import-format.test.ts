@@ -428,9 +428,9 @@ describe('validateAccountExport 吃外来备份形状', () => {
     expect(report.ok).toBe(true)
     expect(report.valid).toBe(1)
     const acc = report.accounts[0]
-    expect(acc.uid).toBe('u-keycloak')
-    expect(acc.hasRefreshToken).toBe(true)
-    expect(acc.tokenExpiresAt).toBe(new Date(FUTURE * 1000).toISOString())
+    expect(acc!.uid).toBe('u-keycloak')
+    expect(acc!.hasRefreshToken).toBe(true)
+    expect(acc!.tokenExpiresAt).toBe(new Date(FUTURE * 1000).toISOString())
   })
 
   it('归一后仍按 canonical 面工作:token 在场 ⇒ 零漂移(既有形状零回归)', () => {
@@ -439,7 +439,7 @@ describe('validateAccountExport 吃外来备份形状', () => {
       { providerCode: 'trae', now: NOW },
     )
     expect(report.ok).toBe(true)
-    expect(report.accounts[0].uid).toBe('501')
+    expect(report.accounts[0]!.uid).toBe('501')
   })
 })
 

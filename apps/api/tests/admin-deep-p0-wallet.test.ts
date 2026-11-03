@@ -89,7 +89,7 @@ vi.mock('../src/db/index.js', () => {
       insert: vi.fn(),
       update: vi.fn(),
       delete: vi.fn(),
-      transaction: vi.fn(async (fn: (tx: typeof tx) => Promise<unknown>) => fn(tx)),
+      transaction: vi.fn(async (fn: (txArg: unknown) => Promise<unknown>) => fn(tx)),
       execute: vi.fn().mockResolvedValue([]),
     },
     dbRead: {
@@ -129,7 +129,7 @@ describe('adminWalletRoutes — /api/admin/wallet/*', () => {
     mockRequireAdmin
       .mockReset()
       .mockImplementation(
-        async (request: { userId?: string; jwtPayload?: { roleId?: number } }) => {
+        async (request: { userId?: string; jwtPayload?: { userId?: string; roleId?: number } }) => {
           request.userId = ADMIN_USER
           request.jwtPayload = { userId: ADMIN_USER, roleId: 1 }
         },

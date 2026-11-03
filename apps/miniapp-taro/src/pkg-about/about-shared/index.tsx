@@ -16,10 +16,11 @@ import ThemeRoot from '@/components/ThemeRoot'
 import { WEB_BASE_URL } from '@/constants/web-portal'
 import { ABOUT_ENTRY_IDS } from '@ihui/shared/constants'
 import { AboutScreen as SharedAboutScreen } from '@ihui/rn-app/features/about/AboutScreen'
-import type { OnNavigate, OnToast } from '@ihui/types'
+import type { OnNavigate } from '@ihui/types'
 import Taro from '@tarojs/taro'
 import { useCallback } from 'react'
 
+import { onToast } from '@/host/on-toast'
 import { useTheme } from '@/rn-compat/theme'
 
 /**
@@ -28,11 +29,7 @@ import { useTheme } from '@/rn-compat/theme'
  * 在此之前任何落空都走可见失败,不静默吞。
  */
 const onNavigate: OnNavigate = (target) => {
-  void Taro.showToast({ title: `导航未接入: ${target}`, icon: 'none' })
-}
-
-const onToast: OnToast = (message, options) => {
-  void Taro.showToast({ title: message, icon: 'none', duration: options?.duration ?? 1500 })
+  onToast(`导航未接入: ${target}`, { kind: 'error' })
 }
 
 export default function AboutSharedScreen() {

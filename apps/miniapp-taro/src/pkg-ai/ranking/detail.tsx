@@ -13,6 +13,7 @@ import { DrawerComponent } from '@/components'
 import ThemeRoot from '@/components/ThemeRoot'
 import { ScreenSkeleton } from '@/components/ScreenStates.taro'
 import './detail.css'
+import { onToast } from '@/host/on-toast'
 
 /** 排行榜详情数据(字段从列表项中筛选,后端无单条详情接口时走列表 find) */
 interface RankingDetail {
@@ -135,7 +136,7 @@ export default function RankingDetailPage() {
       })
     } catch (e) {
       logger.error('ranking/detail', tt('ranking.detail.loadFailed', '加载失败'), e)
-      Taro.showToast({ title: tt('ranking.detail.loadFailed', '获取详情失败'), icon: 'none' })
+      onToast(tt('ranking.detail.loadFailed', '获取详情失败'), { kind: 'error' })
     } finally {
       setLoading(false)
     }
@@ -149,7 +150,7 @@ export default function RankingDetailPage() {
       if (!url) return
       Taro.setClipboardData({
         data: url,
-        success: () => Taro.showToast({ title: tt('success.copied', '已复制'), icon: 'success' }),
+        success: () => onToast(tt('success.copied', '已复制'), { kind: 'success' }),
       })
     },
     [tt],

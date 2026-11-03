@@ -88,7 +88,7 @@ function memoryStore(opts?: { throwOnConsume?: boolean }) {
     seen,
     log,
     store: {
-      async consume(jti: string) {
+      async consume(jti: string, _ttlSeconds: number) {
         log.push(jti)
         if (opts?.throwOnConsume) throw new Error('redis is down')
         if (seen.has(jti)) return 'replayed' as const
@@ -107,7 +107,7 @@ function fakeRedis() {
     map,
     calls: callsArr,
     client: {
-      async set(key: string, value: string, ...rest: unknown[]) {
+      async set(key: string, _value: string, ...rest: unknown[]) {
         callsArr.push({ key, args: rest })
         if (map.has(key)) return null
         map.set(key, 1)
@@ -470,7 +470,7 @@ describe('变异取证', () => {
    */
   it('A 重放检查确实被执行(把 consume 摘掉 ⇒ 本条必红)', async () => {
     const s = memoryStore()
-    const spy = vi.fn(async (jti: string) => {
+    const spy = vi.fn(async (jti: string, _ttlSeconds: number) => {
       const r = await s.store.consume(jti, 60)
       return r
     })

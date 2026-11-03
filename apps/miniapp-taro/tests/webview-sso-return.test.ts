@@ -22,10 +22,10 @@
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
-const { taroStorage, mockFetch, mockShowToast, authSpies } = vi.hoisted(() => ({
+const { taroStorage, mockFetch, mockOnToast, authSpies } = vi.hoisted(() => ({
   taroStorage: {} as Record<string, unknown>,
   mockFetch: vi.fn(),
-  mockShowToast: vi.fn(),
+  mockOnToast: vi.fn(),
   authSpies: {
     setToken: vi.fn(),
     setRefreshToken: vi.fn(),
@@ -42,10 +42,12 @@ vi.mock('@tarojs/taro', () => {
     setStorageSync: (key: string, val: unknown) => {
       taroStorage[key] = val
     },
-    showToast: mockShowToast,
   }
   return { ...named, default: named }
 })
+
+// 登录成功提示已收口到宿主端口;断言打端口层信号。
+vi.mock('@/host/on-toast', () => ({ onToast: mockOnToast }))
 
 vi.mock('@/utils/auth', () => authSpies)
 
@@ -121,7 +123,10 @@ describe('G-957 webview 回传取码契约(extractSsoCodeFromWebviewMessages)', 
 
   it('容错:data 直接是单个对象(非数组)也取码', () => {
     expect(
-      extractSsoCodeFromWebviewMessages({ type: SSO_WEBVIEW_MESSAGE_TYPE, sso_code: 'CODE-8' }),
+      extractSsoCodeFromWebviewMessages({
+        type: SSO_WEBVIEW_MESSAGE_TYPE,
+        sso_code: 'CODE-8',
+      }),
     ).toBe('CODE-8')
   })
 
@@ -165,9 +170,14 @@ describe('G-957 回传消费契约(consumeSsoCode,启动腿与回传腿共用)',
     expect(authSpies.setToken).toHaveBeenCalledWith(tokenData.accessToken)
     expect(authSpies.setRefreshToken).toHaveBeenCalledWith(tokenData.refreshToken)
     expect(authSpies.setUserInfo).toHaveBeenCalledWith(
-      expect.objectContaining({ id: tokenData.user.id, uuid: tokenData.user.id }),
+      expect.objectContaining({
+        id: tokenData.user.id,
+        uuid: tokenData.user.id,
+      }),
     )
-    expect(mockShowToast).toHaveBeenCalledWith({ title: 'login.loginSuccess', icon: 'success' })
+    expect(mockOnToast).toHaveBeenCalledWith('login.loginSuccess', {
+      kind: 'success',
+    })
   })
 
   it('换票失败(HTTP 非 2xx):不写盘、不弹提示、返回 false(调用方决定后续)', async () => {
@@ -177,7 +187,7 @@ describe('G-957 回传消费契约(consumeSsoCode,启动腿与回传腿共用)',
     expect(authSpies.setToken).not.toHaveBeenCalled()
     expect(authSpies.setRefreshToken).not.toHaveBeenCalled()
     expect(authSpies.setUserInfo).not.toHaveBeenCalled()
-    expect(mockShowToast).not.toHaveBeenCalled()
+    expect(mockOnToast).not.toHaveBeenCalled()
   })
 
   it('空码:不发请求、返回 false(app.tsx 启动腿短路语义保持)', async () => {

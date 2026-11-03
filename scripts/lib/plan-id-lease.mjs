@@ -328,6 +328,61 @@ export function parseLeases(content, family) {
 }
 
 /**
+ * 租约行的绝对唯一身份 `(族, 机器, 段)`:段的号域由族决定,同一台机器在 G 族占 `1~20` 与在 D 族
+ * 占 `1~20` 是两段不同的号,不能互相判重 —— 所以族必须进键。与 `parseLeases` 的三读数齐 + 主键
+ * 恰等于段尾不同,判重**不要求主键自洽**:漂移行同样是"这段被写了两遍",只是 drift 另计。
+ * 返回 `null` 表示这一行不是可判重的租约(没 marker / 没 checkbox 主键 / 段或机读不回)。
+ */
+export function leaseIdentityOf(raw) {
+  const line = String(raw ?? '')
+  if (!line.includes(LEASE_MARK)) return null
+  const key = keyOfRow(line)
+  const seg = SEGMENT_RE.exec(line)
+  const mach = MACHINE_RE.exec(line)
+  if (!key || !seg || !mach) return null
+  const start = Number(seg[2])
+  const end = Number(seg[3])
+  if (!Number.isFinite(start) || !Number.isFinite(end) || start <= 0 || end < start) return null
+  const keyHead = ID_HEAD_RE.exec(key)
+  const family = String(seg[1] ?? '')
+    .replace(/[^A-Za-z]/g, '')
+    .toUpperCase() || String(keyHead?.[1] ?? '').toUpperCase()
+  if (!family) return null
+  return {
+    family,
+    machine: mach[1],
+    start,
+    end,
+    segment: `${family}:${start}~${end}`,
+    key: `${family}|${mach[1]}|${start}~${end}`,
+  }
+}
+
+/**
+ * 同 `(族, 机器, 段)` 两行即重复(租约绝对唯一判据,门 130/A3 的 strict 档吃它)。
+ * 输入按 `parseTaskRows` 的行形状(`{raw, line}`),行号用**被审面里的真实 1 基行号**;
+ * 返回按首次出现顺序的分组,只留 `n > 1`。单源实现:内容字符串入口只是把行拆给同一个函数。
+ */
+export function leaseDupGroupsOfRows(rows = []) {
+  const byKey = new Map()
+  for (const r of rows ?? []) {
+    const raw = String(r?.raw ?? r ?? '')
+    const id = leaseIdentityOf(raw)
+    if (!id) continue
+    const entry = { lineNo: Number(r?.line) || 0, raw, ...id }
+    const list = byKey.get(id.key)
+    if (list) list.push(entry)
+    else byKey.set(id.key, [entry])
+  }
+  return [...byKey.values()].filter((g) => g.length > 1)
+}
+
+/** 内容字符串入口(供没有现成 `parseTaskRows` 结果的调用方复用同一把尺)。 */
+export function leaseDupGroupsOf(content) {
+  return leaseDupGroupsOfRows(parseTaskRows(content))
+}
+
+/**
  * 取号游标的租约判定(纯函数;2026-10-14 起池式)。
  *  - 自有段(按 machine)从最新段起找还有空闲的:**只认完全落在池内的段**(end ≤ poolMax)——
  *    池外旧段是历史定格,续发就突破两位数上限 ⇒ 不可续。段内已用 = usedNumbers ∩ [start,end]
@@ -556,10 +611,51 @@ export function decideLease({
 /**
  * 把租约行并进 next 内容:登记区在 ⇒ 行插到区头(最新在前,行间无序依赖);不在 ⇒ 文件尾
  * 新建(空行 + 标题 + 行)。只追加、不删不改任何既有行 —— 台账门 71 的防丢面见到的只是增量。
+ *
+ * **幂等(2026-11-03 立)**:追加前先按 `(族, 机器, 段)` 查重(单源 `leaseIdentityOf`,
+ * 与 `parseLeases` 同一组段/机正则)。命中既有行或本批内同键 ⇒ 默认**不写**,返回原数组并挂
+ * `unchanged = true`(保持数组形态,现役调用方 `.join('\n')` 不受影响);`failOnLeaseDup` ⇒
+ * 抛错并点名已有行号与重复内容摘要。`decideLease` 每轮现读现算,不加缓存。
  */
-export function appendLeaseRows(lines, rows) {
+export function appendLeaseRows(lines, rows, { failOnLeaseDup = false } = {}) {
   const out = lines.map(String)
   const rowsList = rows.map(String)
+  const existing = []
+  for (let i = 0; i < out.length; i += 1) {
+    const id = leaseIdentityOf(out[i])
+    if (id) existing.push({ ...id, lineNo: i + 1, raw: out[i] })
+  }
+  const newIds = rowsList.map((raw) => {
+    const id = leaseIdentityOf(raw)
+    return id ? { ...id, raw } : null
+  })
+  const collision = (() => {
+    for (const id of newIds) {
+      if (!id) continue
+      const hit = existing.find((e) => e.key === id.key)
+      if (hit) return { id, hits: [hit], kind: '既有行' }
+      const twin = newIds.find((x) => x && x !== id && x.key === id.key)
+      if (twin) return { id, hits: [], kind: '本批内同键' }
+    }
+    return null
+  })()
+  if (collision) {
+    const where = collision.hits.length
+      ? collision.hits.map((e) => `L${e.lineNo}`).join(' / ')
+      : '本批 rows'
+    const summary = String(collision.hits[0]?.raw ?? collision.id.raw)
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 120)
+    if (failOnLeaseDup) {
+      throw new Error(
+        `租约重复(${collision.kind}):${collision.id.machine} 段=${collision.id.segment} 与 ${where} 同键` +
+          `「${summary}」—— 同一段只能有一行,拒绝追加`,
+      )
+    }
+    out.unchanged = true
+    return out
+  }
   const idx = out.findIndex((l) => l.trim() === LEASE_SECTION_TITLE)
   if (idx >= 0) {
     out.splice(idx + 1, 0, ...rowsList)

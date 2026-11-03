@@ -80,7 +80,7 @@ export function loadWorkbuddyTasks(accountId: number): Promise<TaskListResponse>
   )
 }
 
-export function loadWorkbuddySchedulerStatus(): Promise<CheckinSchedulerStatusResponse> {
+function loadWorkbuddySchedulerStatus(): Promise<CheckinSchedulerStatusResponse> {
   return api.get<CheckinSchedulerStatusResponse>('/checkin/scheduler/status')
 }
 

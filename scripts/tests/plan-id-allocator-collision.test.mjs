@@ -56,18 +56,22 @@ after(() => {
 const TOKEN = (title) => `- [ ] {{NEXT_ID:G}} **${title}** 正文`
 
 /**
- * 夹具:本机自有段 G-901~G-950(主键=段尾号 G-950),段内 901/902/903 是**声明位**登记行
- * (⇒ `usedIdsOfPrefix` 看得见,不进候选),而下一枚空闲号 904 只以**正文引用**形态存在 ——
+ * 夹具:本机自有段 G-1~G-99(主键=段尾号 G-99),段内 1/2/3 是**声明位**登记行
+ * (⇒ `usedIdsOfPrefix` 看得见,不进候选),而下一枚空闲号 4 只以**正文引用**形态存在 ——
  * 正是"段内空闲序"与"文中已声明的号"重合的那一刻。
+ *
+ * ⚠️ 段必须落在池内(LEASE_POOL_MAX=99,2026-10-29 963c5655da 回退后的两位数池宽):
+ *    旧夹具写 G-901~G-950,池宽 999 时代成立;池回到 99 后 decideLease 落 `claim` 分支,
+ *    段内空闲序这条判据根本没有机会执行 ⇒ 测的就不是本票的防线了。
  */
 function occupiedFixture(proseLines) {
   const ledgerLines = [
-    '# 临时台账(G-14 夹具)',
+    '# 临时台账(取号器夹具)',
     '',
-    '- [x] G-950 〔千段租约〕 本机=' + MACHINE + ' 段=G-901~G-950(取号器专用行)',
-    '- [ ] G-901 **段内已声明的既有题甲** 正文',
-    '- [ ] G-902 **段内已声明的既有题乙** 正文',
-    '- [ ] G-903 **段内已声明的既有题丙** 正文',
+    '- [x] G-99 〔千段租约〕 本机=' + MACHINE + ' 段=G-1~G-99(取号器专用行)',
+    '- [ ] G-1 **段内已声明的既有题甲** 正文',
+    '- [ ] G-2 **段内已声明的既有题乙** 正文',
+    '- [ ] G-3 **段内已声明的既有题丙** 正文',
     ...proseLines,
     '',
   ]
@@ -75,61 +79,61 @@ function occupiedFixture(proseLines) {
 }
 
 test('① 阳性对照(改动前):未过滤候选序的第一枚就是撞上的那个号', () => {
-  const prose = ['承 G-904 的取证:这一号只在正文引用里出现,不是登记行的声明位。']
+  const prose = ['承 G-4 的取证:这一号只在正文引用里出现,不是登记行的声明位。']
   const { face, ledgerText } = occupiedFixture(prose)
   const r = __test__.resolveIdTokens([TOKEN('新登记甲')], face, null, { machineId: MACHINE })
   assert.equal(r.ok, true, `夹具必须能发号;实得 ${JSON.stringify({ reason: r.reason })}`)
   assert.equal(
     r.scanReport[0].firstCandidate,
-    'G-904',
+    'G-4',
     '改动前(无全文件扫描)发出去的正是未过滤候选序第一枚 —— 这一条就是"改动前会发出撞号"的取证',
   )
   assert.equal(r.scanReport[0].family, 'G')
   // 撞号确实只活在**文件面**上:声明位口径(`usedIdsOfPrefix`)看不见它,全文件扫描才看得见。
-  assert.ok(!/^\s*-\s\[[ xX]\]\s*G-904/m.test(ledgerText), '夹具里 G-904 不得是声明位(否则测的是另一条判据)')
-  assert.ok(scanFamilyIds(face, 'G').has(904), '全文件扫描必须看见正文引用里的 904')
-  assert.equal(ledgerText.includes('承 G-904'), true)
+  assert.ok(!/^\s*-\s\[[ xX]\]\s*G-4/m.test(ledgerText), '夹具里 G-4 不得是声明位(否则测的是另一条判据)')
+  assert.ok(scanFamilyIds(face, 'G').has(4), '全文件扫描必须看见正文引用里的 4')
+  assert.equal(ledgerText.includes('承 G-4'), true)
 })
 
 test('② 阳性对照(改动后):跳过并逐枚打印命中行号', () => {
-  const prose = ['承 G-904 的取证:这一号只在正文引用里出现,不是登记行的声明位。']
+  const prose = ['承 G-4 的取证:这一号只在正文引用里出现,不是登记行的声明位。']
   const { face, ledgerText } = occupiedFixture(prose)
   const r = __test__.resolveIdTokens([TOKEN('新登记甲')], face, null, { machineId: MACHINE })
-  assert.equal(r.assigned, 'G-905', '段内 904 已被占 ⇒ 必须顺延到 905(不是跨段、不是重占)')
+  assert.equal(r.assigned, 'G-5', '段内 4 已被占 ⇒ 必须顺延到 5(不是跨段、不是重占)')
   assert.deepEqual(r.leaseClaims, [], '跳过发生在自有段内 ⇒ 不得因此另占新段(千段租约规则不变)')
   assert.equal(r.scanReport[0].skipped.length, 1)
   const skip = r.scanReport[0].skipped[0]
-  assert.equal(skip.id, 'G-904')
-  const expectedLine = ledgerText.split('\n').findIndex((l) => l.includes('承 G-904')) + 1
+  assert.equal(skip.id, 'G-4')
+  const expectedLine = ledgerText.split('\n').findIndex((l) => l.includes('承 G-4')) + 1
   assert.equal(skip.sites[0].line, expectedLine, `命中位置必须报台账真实行号(期望 ${expectedLine})`)
-  assert.match(skip.sites[0].snippet, /G-904/, '片段必须把命中的号带出来,否则点名人还得自己再搜一遍')
+  assert.match(skip.sites[0].snippet, /G-4/, '片段必须把命中的号带出来,否则点名人还得自己再搜一遍')
   // 逐枚打印:一行一枚,带"哪一行",而不是一句"某某号已被占"。
-  const detail = r.scanNotes.filter((n) => n.includes('跳过 G-904'))
+  const detail = r.scanNotes.filter((n) => n.includes('跳过 G-4'))
   assert.equal(detail.length, 1, `必须逐枚给出跳过明细;实得 ${JSON.stringify(r.scanNotes)}`)
-  assert.ok(detail[0].includes(`第 ${expectedLine} 行`), `明细必须带位置;实得 ${detail[0]}`)
+  assert.ok(detail[0].includes(`第 ${expectedLine}` + ' 行'), `明细必须带位置;实得 ${detail[0]}`)
   assert.ok(detail[0].includes('顺延'), '必须说明去向(顺延取下一枚),不只是"跳过"')
   // 落地的号绝不能再是扫描号集里的号(这是本票的判据本体)。
-  assert.ok(!scanFamilyIds(face, 'G').has(905))
+  assert.ok(!scanFamilyIds(face, 'G').has(5))
 })
 
 test('③ 阳性对照(连登三票,2026-10-22 病型):三枚号都被占 ⇒ 三票各拿一个不撞的新号', () => {
-  // 病型原文:一席走 `{{NEXT_ID:G}}` 连登三票,拿到的 G-924/G-926/G-929 每一枚都已挂在别席既存题上。
+  // 病型原文:一席走 `{{NEXT_ID:G}}` 连登三票,拿到的每一枚都已挂在别席既存题上。
   const prose = [
-    '<!-- 已归档(2026-10-21):✅(2026-10-21) **G-904 别席既存题甲** —— 完整内容在归档件 -->',
-    '<!-- 已归档(2026-10-21):✅(2026-10-21) **G-905 别席既存题乙** —— 完整内容在归档件 -->',
-    '<!-- 已归档(2026-10-21):✅(2026-10-21) **G-906 别席既存题丙** —— 完整内容在归档件 -->',
+    '<!-- 已归档(2026-10-21):✅(2026-10-21) **G-4 别席既存题甲** —— 完整内容在归档件 -->',
+    '<!-- 已归档(2026-10-21):✅(2026-10-21) **G-5 别席既存题乙** —— 完整内容在归档件 -->',
+    '<!-- 已归档(2026-10-21):✅(2026-10-21) **G-6 别席既存题丙** —— 完整内容在归档件 -->',
   ]
   const { face } = occupiedFixture(prose)
   const r = __test__.resolveIdTokens([TOKEN('新票甲'), TOKEN('新票乙'), TOKEN('新票丙')], face, null, {
     machineId: MACHINE,
   })
   assert.equal(r.ok, true)
-  assert.equal(r.assigned, 'G-907,G-908,G-909', '三个候选(904/905/906)全被占 ⇒ 顺延到 907/908/909')
+  assert.equal(r.assigned, 'G-7,G-8,G-9', '三个候选(4/5/6)全被占 ⇒ 顺延到 7/8/9')
   const ids = r.assigned.split(',')
   assert.equal(new Set(ids).size, 3, '同一轮连登不得发出重复号')
   const scanned = scanFamilyIds(face, 'G')
   for (const id of ids) assert.ok(!scanned.has(Number(id.slice(2))), `${id} 仍在扫描号集里 ⇒ 撞号`)
-  for (const skipId of ['G-904', 'G-905', 'G-906'])
+  for (const skipId of ['G-4', 'G-5', 'G-6'])
     assert.ok(
       r.scanNotes.some((n) => n.includes(`跳过 ${skipId}`) && n.includes('第 ')),
       `${skipId} 必须逐枚点名并带位置;实得 ${JSON.stringify(r.scanNotes)}`,
@@ -140,35 +144,35 @@ test('④ 反向对照(无重合):发出的号与改动前逐字相同,且不产
   const { face } = occupiedFixture(['正文引用的都是段外的号:G-120 与 G-200 只是别处取证。'])
   const r = __test__.resolveIdTokens([TOKEN('新登记甲')], face, null, { machineId: MACHINE })
   assert.equal(r.ok, true)
-  assert.equal(r.assigned, 'G-904', '段内首个空闲号照发(不得恒跳过)')
+  assert.equal(r.assigned, 'G-4', '段内首个空闲号照发(不得恒跳过)')
   assert.equal(
     r.scanReport[0].firstCandidate,
-    'G-904',
+    'G-4',
     '正常路径:发号必须与"改动前那一枚"逐字相同(本票不许顺手改配额/号段/候选序)',
   )
   assert.deepEqual(r.scanNotes, [], '没有命中时不得产出跳过点名(正常路径输出与改动前逐字相同)')
   assert.deepEqual(r.leaseNotes, [
-    `号段租约:本机=${MACHINE} 在自有段 G-901~G-950 内按空闲序连号(本次首号=G-904)`,
+    `号段租约:本机=${MACHINE} 在自有段 G-1~G-99 内按空闲序连号(本次首号=G-4)`,
   ])
 })
 
 test('⑤ 归档件侧的重合同样算占(占用面 = 台账 ⊕ 归档件,不是只看台账)', () => {
   const { face } = scratchLedger({
     ledgerLines: [
-      '# 临时台账(G-14 夹具)',
-      '- [x] G-950 〔千段租约〕 本机=' + MACHINE + ' 段=G-901~G-950(取号器专用行)',
-      '- [ ] G-901 **段内已声明的既有题甲** 正文',
-      '- [ ] G-902 **段内已声明的既有题乙** 正文',
-      '- [ ] G-903 **段内已声明的既有题丙** 正文',
+      '# 临时台账(取号器夹具)',
+      '- [x] G-99 〔千段租约〕 本机=' + MACHINE + ' 段=G-1~G-99(取号器专用行)',
+      '- [ ] G-1 **段内已声明的既有题甲** 正文',
+      '- [ ] G-2 **段内已声明的既有题乙** 正文',
+      '- [ ] G-3 **段内已声明的既有题丙** 正文',
     ],
     archiveLines: [
       '### 已归档',
-      '承 G-904 的取证:这一号只活在归档件的正文里(不是登记行的声明位,窄面结构上看不见)。',
+      '承 G-4 的取证:这一号只活在归档件的正文里(不是登记行的声明位,窄面结构上看不见)。',
     ],
   })
   const r = __test__.resolveIdTokens([TOKEN('新登记甲')], face, null, { machineId: MACHINE })
-  assert.equal(r.assigned, 'G-905', '归档件里已占的 904 必须跳过(窄面发号正是本缺陷的症状)')
-  assert.ok(r.scanReport[0].skipped.some((s) => s.id === 'G-904'))
+  assert.equal(r.assigned, 'G-5', '归档件里已占的 4 必须跳过(窄面发号正是本缺陷的症状)')
+  assert.ok(r.scanReport[0].skipped.some((s) => s.id === 'G-4'))
 })
 
 test('⑥ 未判定:扫描面取不到 ⇒ 拒绝发号,绝不退回"段内空闲序照发"', () => {

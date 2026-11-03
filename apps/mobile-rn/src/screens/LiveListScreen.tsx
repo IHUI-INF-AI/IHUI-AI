@@ -90,6 +90,7 @@ export function LiveListScreen() {
       loadingMore={loadingMore}
       onPressItem={(item: LiveListItem) => onNavigate('LiveDetail', { id: item.id })}
       onBack={() => navigation.goBack()}
+      onRetry={() => { void refresh(); }}
       colorScheme={resolvedTheme}
       onNavigate={onNavigate}
     />

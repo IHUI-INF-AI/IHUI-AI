@@ -333,7 +333,7 @@ function mergeProxyQuery(target: URL, query: unknown): URL {
  * 页面照常渲染,但永远拿不到本站源身份。onSend 挂插件级,错误页/流式响应一并覆盖;
  * STRIP_HEADERS 已剥上游 CSP,本头是唯一生效策略。
  */
-export const EMBED_PROXY_CSP = 'sandbox allow-scripts allow-forms allow-popups'
+const EMBED_PROXY_CSP = 'sandbox allow-scripts allow-forms allow-popups'
 
 export const embedProxyRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('onSend', async (_request, reply, payload) => {

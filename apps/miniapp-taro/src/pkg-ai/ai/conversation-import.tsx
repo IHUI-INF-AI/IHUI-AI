@@ -228,12 +228,14 @@ export default function ConversationImportPage() {
         }),
       )
     } else {
-      Taro.showToast({
-        title: tt('conversationImport.commitDone', '导入完成:成功 {imported},失败 {failed}', {
+      Taro.showModal({
+        title: tt('common.hint', '提示'),
+        content: tt('conversationImport.commitDone', '导入完成:成功 {imported},失败 {failed}', {
           imported: outcome.imported,
           failed: outcome.failed,
         }),
-        icon: 'none',
+        showCancel: false,
+        confirmText: tt('common.confirm', '确认'),
       })
     }
     resetPreview()
@@ -397,9 +399,7 @@ export default function ConversationImportPage() {
 
           {/* Step 4 导入历史 */}
           {historyError ? (
-            <Text className="block text-label text-destructive mb-[12rpx]">
-              {historyError}
-            </Text>
+            <Text className="block text-label text-destructive mb-[12rpx]">{historyError}</Text>
           ) : null}
           <ImportHistoryList items={history} tt={tt} />
         </View>

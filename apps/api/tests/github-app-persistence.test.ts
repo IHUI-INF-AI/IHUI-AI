@@ -69,12 +69,7 @@ function sign(body: string, secret: string = SECRET): string {
   return `sha256=${createHmac('sha256', secret).update(body, 'utf8').digest('hex')}`
 }
 
-function post(
-  server: FastifyInstance,
-  event: string,
-  payload: unknown,
-  delivery: string,
-): ReturnType<FastifyInstance['inject']> {
+function post(server: FastifyInstance, event: string, payload: unknown, delivery: string) {
   const body = JSON.stringify(payload)
   return server.inject({
     method: 'POST',

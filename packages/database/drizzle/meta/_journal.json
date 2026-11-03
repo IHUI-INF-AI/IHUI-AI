@@ -2527,8 +2527,15 @@
     },
     {
       "idx": 364,
-      "when": 1793624400000,
       "version": "7",
+      "when": 1793635790143,
+      "tag": "0364_app_versions_store_channel",
+      "breakpoints": true
+    },
+    {
+      "idx": 365,
+      "version": "7",
+      "when": 1793635790144,
       "tag": "20261102210000_edu_attendance_rule",
       "breakpoints": true
     }

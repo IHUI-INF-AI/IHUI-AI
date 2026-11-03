@@ -102,9 +102,10 @@ export function VipTraderScreen({
   onRefresh,
   onOpen,
   onBack,
-  colorScheme = 'light',
+  onRetry,
+  colorScheme = 'light',  
   onToast,
-}: VipTraderScreenProps) {
+}: VipTraderScreenProps & { onRetry?: () => void }) {
   assertRequiredPort('onToast', onToast)
 
   const tk = getTokens(colorScheme)
@@ -151,7 +152,7 @@ export function VipTraderScreen({
       ) : error ? (
         <ErrorState
           message={error}
-          onRetry={onRefresh}
+          onRetry={onRetry}
           retryLabel={t('common.retry')}
           colorScheme={colorScheme}
         />

@@ -170,7 +170,7 @@ export function categoryOf<M extends Pick<LlmModel, 'category'>>(model: M): Mode
 }
 
 /** 读取模型代次档位(后端字段缺失时按"最新"兜底) */
-export function tierOf<M extends Pick<LlmModel, 'model_tier'>>(model: M): ModelTier {
+function tierOf<M extends Pick<LlmModel, 'model_tier'>>(model: M): ModelTier {
   return normalizeTier(model.model_tier)
 }
 

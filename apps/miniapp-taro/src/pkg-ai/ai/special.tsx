@@ -12,6 +12,7 @@ import { getAgentList } from '@/api'
 import { REMOTE_ICONS } from '@/constants/remote-icons'
 import ThemeRoot from '@/components/ThemeRoot'
 import CategoryBar from '@/components/CategoryBar'
+import { onToast } from '@/host/on-toast'
 
 /**
  * 远程图标静态注册表:noUncheckedIndexedAccess 下 Record 点号访问返回 string | undefined,
@@ -200,10 +201,10 @@ export default function SpecialModelsPage() {
       if (m.route) {
         Taro.navigateTo({ url: m.route }).catch((e) => {
           logger.error('ai/special', t('aiSpecial.y1', { p1: m.key }), e)
-          Taro.showToast({ title: tt('ai.special.pageError', '操作失败'), icon: 'none' })
+          onToast(tt('ai.special.pageError', '操作失败'), { kind: 'error' })
         })
       } else {
-        Taro.showToast({ title: tt('ai.special.pageError', '操作失败'), icon: 'none' })
+        onToast(tt('ai.special.pageError', '操作失败'), { kind: 'error' })
       }
     },
     [tt],
@@ -211,7 +212,7 @@ export default function SpecialModelsPage() {
 
   const goHistory = useCallback(() => {
     Taro.navigateTo({ url: '/pkg-ai/ai/history' }).catch(() => {
-      Taro.showToast({ title: tt('ai.special.historySoon', '历史记录即将开放'), icon: 'none' })
+      onToast(tt('ai.special.historySoon', '历史记录即将开放'), { kind: 'info' })
     })
   }, [tt])
 

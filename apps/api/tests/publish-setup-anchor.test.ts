@@ -35,20 +35,20 @@ function registryPlatformIds(): string[] {
   const re = /platformId:\s*'([a-z0-9_]+)'/g
   let m: RegExpExecArray | null
   while ((m = re.exec(src)) !== null) {
-    if (!ids.includes(m[1])) ids.push(m[1])
+    if (!ids.includes(m[1]!)) ids.push(m[1]!)
   }
   return ids
 }
 
 function anchorOf(hint: string): string | null {
   const m = /PUBLISH_SETUP\.md#([A-Za-z0-9_-]+)/.exec(hint)
-  return m ? m[1] : null
+  return m ? m[1]! : null
 }
 
 describe('publish setupHint 与文档锚点的契约', () => {
   const doc = readFileSync(DOC_PATH, 'utf8')
   const ids = registryPlatformIds()
-  const docAnchors = [...doc.matchAll(/<a id="([a-z0-9_]+)"><\/a>/g)].map((m) => m[1])
+  const docAnchors = [...doc.matchAll(/<a id="([a-z0-9_]+)"><\/a>/g)].map((m) => m[1]!)
 
   it('枚举到注册表条目与文档锚点(空扫描不算通过)', () => {
     expect(ids.length).toBeGreaterThanOrEqual(14)

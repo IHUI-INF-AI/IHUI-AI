@@ -152,8 +152,10 @@ vi.mock('../src/db/workspace-queries.js', () => {
 
 import { fileVersionRoutes } from '../src/routes/file-version.js'
 import { workspaceRoutes } from '../src/routes/workspace.js'
-import fileVersionSrc from '../src/routes/file-version.ts?raw'
-import workspaceSrc from '../src/routes/workspace.ts?raw'
+import { readFileSync } from 'node:fs'
+
+const fileVersionSrc = readFileSync(new URL('../src/routes/file-version.ts', import.meta.url), 'utf8')
+const workspaceSrc = readFileSync(new URL('../src/routes/workspace.ts', import.meta.url), 'utf8')
 
 const FILE_ROW = { id: FILE_ID, projectId: 'project-uuid', name: 'spec.md', uploadedBy: OWNER }
 const VERSION_ROW = {

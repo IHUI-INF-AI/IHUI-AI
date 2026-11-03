@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
-import Fastify from 'fastify'
+import Fastify, { type FastifyError } from 'fastify'
 
 const { mockAuthenticate, mockLogAction, dbQueue } = vi.hoisted(() => ({
   mockAuthenticate: vi.fn(),
@@ -87,7 +87,7 @@ const U3 = '99999999-9999-4999-8999-999999999999'
 
 function mockAdmin() {
   mockAuthenticate.mockImplementation(
-    async (request: { userId?: string; jwtPayload?: { roleId?: number } }) => {
+    async (request: { userId?: string; jwtPayload?: { userId?: string; roleId?: number } }) => {
       request.userId = ADMIN_USER
       request.jwtPayload = { userId: ADMIN_USER, roleId: 1 }
     },
@@ -109,7 +109,7 @@ describe('admin deep P0 batch operations', () => {
   const server = Fastify({ logger: false })
 
   beforeAll(async () => {
-    server.setErrorHandler((err, _request, reply) => {
+    server.setErrorHandler((err: FastifyError, _request, reply) => {
       const statusCode =
         err.statusCode && err.statusCode >= 400 && err.statusCode < 600 ? err.statusCode : 500
       reply.status(statusCode).send({

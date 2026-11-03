@@ -47,7 +47,7 @@ global.fetch = mockFetch as unknown as typeof fetch
 // 夹具(合成假值,无真实凭据;project-key 键名用本机实证的 URI 编码形)
 // =============================================================================
 
-const tmpRoots: string[][] = []
+const tmpRoots: string[] = []
 
 afterAll(() => {
   for (const root of tmpRoots) {
@@ -98,12 +98,12 @@ describe('zcode extractZcodeAccounts(两态)', () => {
     expect(result.accounts).toHaveLength(1)
     const acc = result.accounts[0]
     // region 来自 project-key-location 键名里的 host(bigmodel.cn → cn)
-    expect(acc['region']).toBe('cn')
-    expect(acc['regions']).toEqual(['cn'])
+    expect(acc!['region']).toBe('cn')
+    expect(acc!['regions']).toEqual(['cn'])
     // §0.6 raw 直通:credentials.json 整图逐字保留
-    expect(acc['oauth:bigmodel:access_token']).toBe('zc-oauth-token-fixture')
-    expect(acc['zcodejwttoken']).toBe('zc-jwt-fixture')
-    expect(acc[CN_PROJECT_KEY_NAME]).toBe('zc-project-key-fixture')
+    expect(acc!['oauth:bigmodel:access_token']).toBe('zc-oauth-token-fixture')
+    expect(acc!['zcodejwttoken']).toBe('zc-jwt-fixture')
+    expect(acc![CN_PROJECT_KEY_NAME]).toBe('zc-project-key-fixture')
     // meta 摘要零回显:只有指纹/长度/布尔
     expect(result.meta.sessions[0]).toMatchObject({
       region: 'cn',
@@ -120,7 +120,7 @@ describe('zcode extractZcodeAccounts(两态)', () => {
       makeCredMap({ [GLOBAL_PROJECT_KEY_NAME]: 'zc-global-key', [CN_PROJECT_KEY_NAME]: '' }),
     )
     const result = await zcodeExtract.extractZcodeAccounts({ roots: [root] })
-    expect(result.accounts[0]['region']).toBe('global')
+    expect(result.accounts[0]!['region']).toBe('global')
   })
 
   it('目录缺失 ⇒ throw ZCODE_DIR_MISSING(点名原因)', async () => {

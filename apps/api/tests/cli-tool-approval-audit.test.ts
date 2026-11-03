@@ -186,7 +186,7 @@ function armDbCaptures(failToolNames: readonly string[] = []): string[] {
   return insertTexts
 }
 
-async function inject(payload: unknown, auth = 'user') {
+async function inject(payload: object, auth: string | null = 'user') {
   const app = await buildApp()
   return app.inject({
     method: 'POST',
@@ -262,12 +262,12 @@ describe('86H 正向:flag/approved/denied 三路各成一行', () => {
     expect(metas[1]).not.toContain('cause')
     // 隐私口径按**键集**判,比"整条 SQL 里搜 args"结实:metadata 列的键是封闭集,
     // 多一个键(哪怕叫 args/command)当场红 —— 而不是等它恰好带出原文才看得见。
-    expect(Object.keys(JSON.parse(metas[2]) as Record<string, unknown>).sort()).toEqual([
+    expect(Object.keys(JSON.parse(metas[2]!) as Record<string, unknown>).sort()).toEqual([
       'cause',
       'route',
       'sessionId',
     ])
-    expect(Object.keys(JSON.parse(metas[0]) as Record<string, unknown>).sort()).toEqual([
+    expect(Object.keys(JSON.parse(metas[0]!) as Record<string, unknown>).sort()).toEqual([
       'route',
       'sessionId',
     ])

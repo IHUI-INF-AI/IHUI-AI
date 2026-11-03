@@ -4,14 +4,25 @@
 
 name: Build Android APK
 
-# Android APK 全自动构建 + 分发(2026-08-06 立,2026-08-06 增 Release 自动发布)。
+# Android APK 全自动构建(2026-08-06 立;2026-11-03 定性为 **dev 包**)。
 # 背景:本机(Windows)clang 存在系统级 rename 问题,RN 原生编译无法完成;
 #       改用 GitHub Actions ubuntu runner 构建(干净 Linux,无此问题)。
 # 流程(全自动):
 #   - 触发:① main 分支 push(仅移动端相关代码变更)② 手动 workflow_dispatch ③ v* tag
-#   - ubuntu runner 构建 release APK
-#   - 构建成功后自动发布为 GitHub Release 资产(固定文件名 ihui-ai-latest.apk)
-#   - 下载页 APK_URL 指向最新 Release 固定地址,引导页自动生效(无需人工放入)
+#   - **出包门链(任一红即中止)**:node scripts/mobile-release-gate.mjs
+#     ⇒ RN 闭包 typecheck / RN 闭包测试 / check-mobile-version-code / check-mobile-api-base-bake
+#     与本地构建入口 scripts/build-mobile-rn-release.ps1 共用同一份实现,失败行点名是哪道门。
+#   - ubuntu runner 构建 release 变体 APK + AAB
+#   - 产物定性为 **dev 包**:文件名 ihui-ai-dev-<run_number>.apk/.aab,**禁止发布到 GitHub Release**
+#
+# 2026-11-03 为什么选 dev 包而不是"注入 IHUI_RELEASE_* 走正式签名":
+#   CI 里没有正式 keystore/密码(它们只在机主用户级 ~/.gradle 与 ~/.android,不入库)。
+#   要"正式签名"就得先把私钥搬进 GitHub Secrets —— 那是外部凭据动作,且一旦注入后
+#   build.gradle 缺凭据仍会静默回退 debug 签名,等于把"正式包"的名义挂在一个可能仍是
+#   debug 签名的产物上。当前 CI 无凭据,改名 dev + 禁发布是风险最低且今天就能落地的选项:
+#   用户不会再从 Release 下到一枚 debug 签名的"latest.apk";正式 APK 仍走机主本地
+#   build-mobile-rn-release.ps1(该入口缺凭据直接拒绝构建,产物验收按证书指纹判死)。
+#
 # 生产配置:API 指向 https://api.aizhs.top(已实测 /api/health 200)。
 #
 # 2026-09-15 修复(GitHub runner 环境漂移,与仓库代码无关):
@@ -48,7 +59,7 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   apk:
@@ -142,37 +153,43 @@ jobs:
           # tee 到 stdout 的同时写进 $GITHUB_ENV ⇒ 后续 prebuild / gradle 两步都能读到
           node scripts/resolve-mobile-version.mjs --app mobile-rn --kind "$KIND" --tag "$TAG" --emit github | tee -a "$GITHUB_ENV"
 
+      # 门→包绑定(2026-11-03 立):与本地 scripts/build-mobile-rn-release.ps1 共用同一份实现。
+      # 顺序:RN 闭包 typecheck → RN 闭包测试 → check-mobile-version-code → check-mobile-api-base-bake。
+      # 任一红即 step 失败,后续 prebuild/gradle/upload 全部跳过 ⇒ 不产出可发布产物。
+      # 放在 Resolve mobile version 之后:版本号门审的是 IHUI_VERSION_CODE 解析出的那份配置。
+      - name: 'Release gate chain (typecheck → RN tests → version-code → base-bake)'
+        run: node scripts/mobile-release-gate.mjs
+
       - name: Generate Android project (expo prebuild)
         working-directory: apps/mobile-rn
         # EXPO_PUBLIC_* 见 job 级 env(2026-10-13):必须覆盖到 gradle 打包那一步,不能只挂在 prebuild。
         run: npx expo prebuild --platform android --no-install
 
-      - name: Build release APK
+      - name: Build release-variant APK + AAB (dev package)
         working-directory: apps/mobile-rn/android
-        run: ./gradlew assembleRelease --no-daemon
+        run: ./gradlew assembleRelease bundleRelease --no-daemon
 
-      - name: Prepare APK artifact (fixed filename)
+      # dev 包固定带 dev- 前缀,文件名本身即定性:任何人从 artifact 下载页看到的都不是
+      # ihui-ai-latest.apk;CI 不再有发布 Release 的权限(permissions: contents: read)。
+      - name: Prepare dev artifacts (ihui-ai-dev-<run_number>)
         run: |
           ls apps/mobile-rn/android/app/build/outputs/apk/release/
-          cp apps/mobile-rn/android/app/build/outputs/apk/release/app-release.apk ./ihui-ai-latest.apk
-          ls -lh ihui-ai-latest.apk
+          ls apps/mobile-rn/android/app/build/outputs/bundle/release/
+          cp apps/mobile-rn/android/app/build/outputs/apk/release/app-release.apk "./ihui-ai-dev-${GITHUB_RUN_NUMBER}.apk"
+          cp apps/mobile-rn/android/app/build/outputs/bundle/release/app-release.aab "./ihui-ai-dev-${GITHUB_RUN_NUMBER}.aab"
+          ls -lh ./*.apk ./*.aab
 
-      - name: Upload APK artifact
+      # 验签(dev 档只判"签名有效",不比对正式 keystore —— CI 没有正式凭据):
+      # 至少保证坏签名/未签名产物不会被当成 dev 包流传。体积基线不在 dev 档判(见脚本头注)。
+      - name: Verify dev APK/AAB signature
+        run: node scripts/mobile-release-artifact-check.mjs --mode dev --apk "./ihui-ai-dev-${GITHUB_RUN_NUMBER}.apk" --aab "./ihui-ai-dev-${GITHUB_RUN_NUMBER}.aab"
+
+      - name: Upload dev artifacts (NOT a release)
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: ihui-ai-android-apk
-          path: ihui-ai-latest.apk
+          name: ihui-ai-android-dev-apk
+          path: |
+            ihui-ai-dev-${{ github.run_number }}.apk
+            ihui-ai-dev-${{ github.run_number }}.aab
 
-      # 自动发布 Release(2026-08-06 增):
-      #   - tag 触发 → 发布到该 tag
-      #   - 手动触发 → 自动创建 nightly 标签发布
-      # 下载页固定地址(指向最新 Release,永远可用):
-      #   https://github.com/IHUI-INF-AI/IHUI-AI/releases/latest/download/ihui-ai-latest.apk
-      - name: Publish to GitHub Release
-        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
-        with:
-          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || format('nightly-{0}', github.run_id) }}
-          files: ihui-ai-latest.apk
-          generate_release_notes: false
-          make_latest: true
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

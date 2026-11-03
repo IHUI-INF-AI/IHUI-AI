@@ -6,7 +6,7 @@ import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest'
 import Fastify from 'fastify'
 
 // checkAuth 走插件层假实现:本文件判的是路由接线与投影,不是 JWT
-const mockCheckAuth = vi.fn(async () => true)
+const mockCheckAuth = vi.fn(async (..._args: unknown[]) => true)
 vi.mock('../src/plugins/auth.js', () => ({
   checkAuth: (...args: unknown[]) => mockCheckAuth(...args),
 }))

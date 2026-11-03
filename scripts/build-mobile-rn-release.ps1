@@ -8,20 +8,29 @@
   mobile-rn release APK 一键构建(签名流水线, 2026-09-03 P2 落地)
 .DESCRIPTION
   流程:
+    0. 出包门链(任一红即中止,不产出可发布产物): node scripts/mobile-release-gate.mjs --worktree
+       ⇒ RN 依赖闭包 typecheck / RN 依赖闭包测试 / check-mobile-version-code / check-mobile-api-base-bake
+       与 CI 共用同一份实现(.github/workflows/mobile-apk-build.yml 调同一脚本),失败信息点名是哪道门
     1. 幂等注入 release 签名配置(node scripts/patch-rn-release-signing.mjs,
        android/ 为 Expo prebuild 生成物, prebuild 后必须重打)
     2. 前置检查: keystore(~/.android/ihui-release.keystore) + 签名凭据(~/.gradle/gradle.properties)
+       **缺凭据直接拒绝构建** —— 不再产出 debug 签名的"正式包"(2026-11-03 立)
     2.5 后端基址对账:烤进包的 API/WEB/WS 基址必须是显式的;含回环地址而没给 -AllowLocalBackend 即拒绝构建
-    3. gradlew assembleRelease(前台执行——后台任务会被环境 ~2min 终结)
+    3. gradlew :app:assembleRelease :app:bundleRelease(前台执行——后台任务会被环境 ~2min 终结)
+       同时产出 APK 与 AAB(Gradle 共享 JS bundle 任务,一次构建两件产物)
     3.5 从产出的 APK 里读回 assets/index.android.bundle,确认三个基址真在里面、且无回环残留
-    4. apksigner 验签
+    4. 产物验收 node scripts/mobile-release-artifact-check.mjs:
+       APK apksigner 验签 + 证书指纹必须等于正式 keystore;AAB jarsigner 验签 + 同指纹;
+       debug 签名/换签名一律判失败;APK/AAB 体积对 scripts/data/mobile-release-size-baseline.json
+       比较(超 +15% 告警、超 +30% 判红;首次/更新基线须显式 -UpdateSizeBaseline)
     5. 发布到固定下载地址(-NoPublish 可跳过):node scripts/publish-mobile-apk.mjs
        落版本名副本 + 翻指针 ⇒ 用户链接恒定,不必跟着版本号换地址
 
   签名凭据设计(不入库):
     - keystore: C:/Users/Administrator/.android/ihui-release.keystore(仓库外)
     - 密码:    用户级 ~/.gradle/gradle.properties 的 IHUI_RELEASE_* 属性(Gradle 自动读取)
-    - build.gradle 未检测到凭据时 release 回退 debug 签名(仅本机可装, 不可上架)
+    - build.gradle 的 debug 回退只留给 CI 的 dev 包(dev 包禁发布到 Release);
+      本脚本在缺凭据时于构建前抛错,产物验收还会再按证书指纹判死(双保险)
 
   用法:
     pwsh -File scripts/build-mobile-rn-release.ps1                  # 默认双 ABI(arm64-v8a+x86_64)
@@ -43,7 +52,9 @@
 .PARAMETER FullAbi
   构建全部 ABI(含 x86 32 位)
 .PARAMETER SkipVerify
-  跳过 apksigner 验签
+  跳过签名验签(仅应急;体积基线仍会记录/判定)。常态不许给 —— debug 签名正是这条链之前的隐患。
+.PARAMETER UpdateSizeBaseline
+  显式改写 scripts/data/mobile-release-size-baseline.json 的 APK/AAB 体积基线(签名全部通过后才写)。
 .PARAMETER ApiBaseUrl
   烤进包的 API 基址(写 EXPO_PUBLIC_API_BASE_URL)。缺省 = 沿用当前环境/ apps/mobile-rn/.env 的值。
   为什么必须由脚本管:release 走的是 `gradlew assembleRelease`,**不经过 eas**,所以 eas.json 的
@@ -70,10 +81,11 @@
 .PARAMETER NoPublish
   只出包、不发布到公网固定地址(2026-10-29 立的第 5 步默认开启)。
   默认动作:构建+回读+验签全过后,调 `node scripts/publish-mobile-apk.mjs` 发到站点 CDN 腿
-  `https://www.aizhs.top/remote-images/download/ihui-ai-latest.apk`(EdgeOne,国内实测 1–4MB/s;
+  (固定地址的唯一真源 = `scripts/data/mobile-download-leg.json`,本文不再复制字面量;
   这条不是实物文件,而是 cdn-server 读旁边指针转出的 no-cache 302,真正长缓存的是带版本号那份)。
   固定地址 ⇒ 用户不用换链接;发布末尾还要从公网回读一次(302 目标 + 大小 + Content-Type),
-  取不到即整条链失败 —— 不许"包好了但没发出去"读成成功。
+  再由 `scripts/check-mobile-download-leg.mjs --apk` 复核证书基准,任一不绿即整条链失败 ——
+  不许"包好了但没发出去"或"发出去但不是正式签名"读成成功。
   腾讯云 COS 备用腿(dl.aizhs.top)已于 2026-10-30 整桶下线:按外网下行流量计费,建桶当天被
   下载 3.48GB 就扣了 1.54 元并把账户打成欠费,而它只是冗余(实测比站点腿慢两个数量级)。
 #>
@@ -82,6 +94,7 @@ param(
   [string]$Abi = '',
   [switch]$FullAbi,
   [switch]$SkipVerify,
+  [switch]$UpdateSizeBaseline,
   [switch]$ShowVersionCode,
   [switch]$NoPublish,
   [string]$ApiBaseUrl = '',
@@ -348,6 +361,17 @@ if ($ShowVersionCode) {
   return
 }
 
+Write-Host "`n===== [门链] 出包前置门链(任一红即中止) =====" -ForegroundColor Cyan
+Push-Location $RepoRoot
+try {
+  # 与 CI 共用 scripts/mobile-release-gate.mjs 这一份实现,禁止在本脚本另写一份清单(两处清单必然漂移)。
+  # --worktree:审的是"将要构建的这份盘上内容",不是 HEAD blob。
+  node scripts/mobile-release-gate.mjs --worktree
+  if ($LASTEXITCODE -ne 0) {
+    throw "出包门链失败(exit=$LASTEXITCODE)—— 见上一行点名的门;本次不构建、不产出任何可发布产物。"
+  }
+} finally { Pop-Location }
+
 Write-Host "`n===== [1/5] 幂等注入 release 签名配置 =====" -ForegroundColor Cyan
 Push-Location $RepoRoot
 try {
@@ -361,10 +385,14 @@ $GradleProps = "$env:USERPROFILE\.gradle\gradle.properties"
 $hasKs = Test-Path $Keystore
 $hasProps = (Test-Path $GradleProps) -and (Select-String -Path $GradleProps -Pattern 'IHUI_RELEASE_STORE_FILE' -Quiet)
 if (-not $hasKs -or -not $hasProps) {
+  # 2026-11-03 立:缺凭据不再"回退 debug 签名继续出包"。debug 签名的包一旦被发到固定下载地址,
+  # 用户装上去与正式包签名不一致 ⇒ 覆盖安装失败 / 商店拒收,而构建账面上却是"成功"。
+  # 要 debug 包请走 CI 的 dev 包或 assembleDebug,不要把 release 入口变成 debug 出口。
   Write-Warning "release 签名凭据缺失: keystore=$hasKs, gradle.properties=$hasProps"
-  Write-Warning '将回退 debug 签名(APK 仅本机可装)。生成凭据参考:'
+  Write-Warning '生成凭据参考(仅首次):'
   Write-Warning "  1) keytool -genkeypair -keystore `"$Keystore`" -alias ihui-release -keyalg RSA -keysize 2048 -validity 10000"
   Write-Warning '  2) 在 ~/.gradle/gradle.properties 写入 IHUI_RELEASE_STORE_FILE/STORE_PASSWORD/KEY_ALIAS/KEY_PASSWORD'
+  throw '拒绝构建:release 签名凭据缺失。本入口只产出正式签名包;debug 签名产物按判据直接判失败。'
 } else {
   Write-Host "  keystore OK: $Keystore" -ForegroundColor Green
   Write-Host '  签名凭据 OK (~/.gradle/gradle.properties)' -ForegroundColor Green
@@ -439,7 +467,7 @@ $env:EXPO_PUBLIC_WEB_URL = $Backend.Web
 $env:EXPO_PUBLIC_WS_BASE_URL = $Backend.Ws
 if ($AllowLocalBackend) { Write-Warning 'AllowLocalBackend:本次包的基址含回环地址,只能在配了 adb reverse 的机器上验证' }
 
-Write-Host "`n===== [3/5] gradlew assembleRelease (versionCode=$VersionCode) =====" -ForegroundColor Cyan
+Write-Host "`n===== [3/5] gradlew assembleRelease + bundleRelease (versionCode=$VersionCode) =====" -ForegroundColor Cyan
 Write-Host "  ABI: $($abiArg -replace '^.*=','')"
 if (-not (Test-Path $Gradle)) { throw "gradlew 不存在: $Gradle (请先 expo prebuild)" }
 
@@ -455,29 +483,43 @@ try {
   $prevAbiEnv = $env:ORG_GRADLE_PROJECT_reactNativeArchitectures
   $env:ORG_GRADLE_PROJECT_reactNativeArchitectures = ($abiArg -replace '^-PreactNativeArchitectures=', '')
   try {
-    & .\gradlew.bat :app:assembleRelease "-PversionCode=$VersionCode" --console=plain
-    if ($LASTEXITCODE -ne 0) { throw "gradle assembleRelease 失败 (exit=$LASTEXITCODE)" }
+    # AAB 与 APK 一次构建:createBundleReleaseJsAndAssets 是两者共享的任务,不会把 JS bundle 打两遍。
+    & .\gradlew.bat :app:assembleRelease :app:bundleRelease "-PversionCode=$VersionCode" --console=plain
+    if ($LASTEXITCODE -ne 0) { throw "gradle assembleRelease/bundleRelease 失败 (exit=$LASTEXITCODE)" }
   } finally {
     $env:ORG_GRADLE_PROJECT_reactNativeArchitectures = $prevAbiEnv
   }
 } finally { Pop-Location }
 
 $Apk = Join-Path $AndroidDir 'app/build/outputs/apk/release/app-release.apk'
-if (-not (Test-Path $Apk)) { throw "产物未找到: $Apk" }
+$Aab = Join-Path $AndroidDir 'app/build/outputs/bundle/release/app-release.aab'
+if (-not (Test-Path $Apk)) { throw "APK 产物未找到: $Apk" }
+if (-not (Test-Path $Aab)) { throw "AAB 产物未找到: $Aab —— bundleRelease 没产出,不许只交 APK" }
 $SizeMB = [math]::Round((Get-Item $Apk).Length / 1MB, 1)
+$AabSizeMB = [math]::Round((Get-Item $Aab).Length / 1MB, 1)
 
 # 产物 ABI 对账:BUILD SUCCESSFUL ≠ 目标 ABI 真在包里。2026-10-21 实测:逗号列表经 gradlew.bat(批处理)
 # 被 cmd 再切一刀 ⇒ 只打进 x86_64,arm64 真机安装报 INSTALL_FAILED_NO_MATCHING_ABIS。
+# AAB 的 native lib 落在 base/lib/<abi>/,APK 落在 lib/<abi>/,所以按 `(^|/)lib/<abi>/*.so` 统一取。
+function Get-NativeAbis {
+  param([string]$ArchivePath)
+  Add-Type -AssemblyName System.IO.Compression.FileSystem
+  $zip = [System.IO.Compression.ZipFile]::OpenRead($ArchivePath)
+  try {
+    return @($zip.Entries |
+      Where-Object { $_.FullName -match '(^|/)lib/([^/]+)/[^/]+\.so$' } |
+      ForEach-Object { ($_.FullName -split '/')[-2] } |
+      Sort-Object -Unique)
+  } finally { $zip.Dispose() }
+}
 $wantAbis = if ($FullAbi) { @('armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64') } elseif ($Abi) { @($Abi -split ',') } else { @($DefaultAbi -split ',') }
 $wantAbis = @($wantAbis | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' })
-$zipAbi = [System.IO.Compression.ZipFile]::OpenRead($Apk)
-try {
-  $presentAbis = @($zipAbi.Entries | Where-Object { $_.FullName -like 'lib/*/*.so' } | ForEach-Object { ($_.FullName -split '/')[1] } | Sort-Object -Unique)
-} finally { $zipAbi.Dispose() }
-$missingAbis = @($wantAbis | Where-Object { $presentAbis -notcontains $_ })
-Write-Host "  ABI 实装:$($presentAbis -join ',')  期望:$($wantAbis -join ',')" -ForegroundColor Gray
-if ($missingAbis.Count -gt 0) {
-  throw "APK 缺目标 ABI:$($missingAbis -join ', ') —— 构建成功但装不上对应真机。不要看 BUILD SUCCESSFUL 就交付。"
+foreach ($artifact in @(@{ Name = 'APK'; Path = $Apk; Abis = (Get-NativeAbis $Apk) }, @{ Name = 'AAB'; Path = $Aab; Abis = (Get-NativeAbis $Aab) })) {
+  $missingAbis = @($wantAbis | Where-Object { $artifact.Abis -notcontains $_ })
+  Write-Host "  $($artifact.Name) ABI 实装:$($artifact.Abis -join ',')  期望:$($wantAbis -join ',')" -ForegroundColor Gray
+  if ($missingAbis.Count -gt 0) {
+    throw "$($artifact.Name) 缺目标 ABI:$($missingAbis -join ', ') —— 构建成功但装不上对应真机。不要看 BUILD SUCCESSFUL 就交付。"
+  }
 }
 
 Write-Host "`n===== [3.5/5] 从包里回读烤进去的后端(不信任「我传了 env」) =====" -ForegroundColor Cyan
@@ -500,22 +542,30 @@ if (-not $AllowLocalBackend) {
 }
 Write-Host "  回读一致:API/WEB/WS 三个基址都真在包里,且无回环残留 ✓" -ForegroundColor Green
 
-Write-Host "`n===== [4/5] 验签 + 报告 =====" -ForegroundColor Cyan
-if (-not $SkipVerify) {
-  $BuildTools = Get-ChildItem "$env:ANDROID_HOME\build-tools" -Directory -ErrorAction SilentlyContinue |
-    Sort-Object { [version]$_.Name } -Descending | Select-Object -First 1
-  $ApkSigner = Join-Path $BuildTools.FullName 'apksigner.bat'
-  if (Test-Path $ApkSigner) {
-    & $ApkSigner verify --print-certs $Apk 2>&1 | Select-String 'Signer #1 certificate DN' | ForEach-Object { Write-Host "  $($_.Line.Trim())" -ForegroundColor Green }
-    if ($LASTEXITCODE -ne 0) { Write-Warning '验签失败(签名无效!)' } else { Write-Host '  签名有效 ✓' -ForegroundColor Green }
-  } else { Write-Warning "apksigner 未找到: $ApkSigner (跳过验签)" }
-}
+Write-Host "`n===== [4/5] 产物验收:签名一致性 + 体积基线 =====" -ForegroundColor Cyan
+Push-Location $RepoRoot
+try {
+  $checkArgs = @(
+    'scripts/mobile-release-artifact-check.mjs',
+    '--apk', $Apk,
+    '--aab', $Aab,
+    '--version-code', "$VersionCode"
+  )
+  if ($SkipVerify) { $checkArgs += '--skip-signature' }
+  if ($UpdateSizeBaseline) { $checkArgs += '--update-baseline' }
+  node @checkArgs
+  if ($LASTEXITCODE -ne 0) {
+    throw "产物验收失败(exit=$LASTEXITCODE)—— 签名不一致 / debug 签名 / 体积超 +30% 均在此判死,禁止发布。"
+  }
+} finally { Pop-Location }
 
 Write-Host "`n===== [5/5] 发布到固定下载地址 =====" -ForegroundColor Cyan
 $VersionName = (Get-Content (Join-Path $RepoRoot 'apps/mobile-rn/package.json') -Raw | ConvertFrom-Json).version
 # 站点 CDN 腿(EdgeOne,2026-10-29 实测国内 1–4MB/s);这是唯一出口,
 # COS/CF 备用腿已于 2026-10-30 下线(按流量计费且比站点腿慢两个数量级)。
-$PublishUrl = 'https://www.aizhs.top/remote-images/download/ihui-ai-latest.apk'
+# 地址不在本脚本复制:唯一真源 = scripts/data/mobile-download-leg.json(部署机可用 env 覆盖)。
+$MobileLeg = Get-Content (Join-Path $RepoRoot 'scripts/data/mobile-download-leg.json') -Raw | ConvertFrom-Json
+$PublishUrl = if ($env:IHUI_MOBILE_DOWNLOAD_URL) { $env:IHUI_MOBILE_DOWNLOAD_URL } else { $MobileLeg.downloadUrl }
 if ($NoPublish) {
   Write-Warning 'NoPublish: 本次只出包,未发布到公网(固定地址仍是上一版)'
 } else {
@@ -523,12 +573,18 @@ if ($NoPublish) {
   try {
     node scripts/publish-mobile-apk.mjs --apk $Apk --version $VersionName --version-code $VersionCode
     if ($LASTEXITCODE -ne 0) { throw "publish-mobile-apk.mjs 失败 (exit=$LASTEXITCODE) —— 包已构建但未发布,不许当成成功" }
+    node scripts/check-mobile-download-leg.mjs --apk $Apk
+    if ($LASTEXITCODE -ne 0) {
+      throw "下载腿门失败 (exit=$LASTEXITCODE) —— 公网地址/体积/证书基准未全绿(2=skipped/未判定也不是绿),不许当成发布成功"
+    }
   } finally { Pop-Location }
 }
 
 Write-Host "`n========== BUILD RELEASE DONE ==========" -ForegroundColor Green
 Write-Host "  APK:      $Apk"
 Write-Host "  大小:     ${SizeMB} MB"
+Write-Host "  AAB:      $Aab"
+Write-Host "  AAB 大小: ${AabSizeMB} MB"
 Write-Host "  version:  $VersionName (code=$VersionCode)"
 if (-not $NoPublish) {
   Write-Host "  下载地址: $PublishUrl" -ForegroundColor Green

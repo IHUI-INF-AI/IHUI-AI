@@ -16,6 +16,7 @@ import * as api from '@/api'
 import { AGENT_DIALOGUE_DATA_KEY } from '@/constants/storage'
 import { safeDecodeURIComponent } from '@ihui/shared'
 import ThemeRoot from '@/components/ThemeRoot'
+import { onToast } from '@/host/on-toast'
 
 type MsgType = 'user' | 'seller' | 'system'
 type MediaType = 'image' | 'audio' | 'video' | 'file' | null
@@ -203,7 +204,7 @@ export default function AgentDialogue() {
         hasMoreRef.current = processed.length > 0
       } catch (e) {
         logger.error('agentDialogue', '加载历史', e)
-        Taro.showToast({ title: tt('agentDialogue.loadFailed', '加载失败'), icon: 'none' })
+        onToast(tt('agentDialogue.loadFailed', '加载失败'), { kind: 'error' })
       } finally {
         setLoading(false)
       }
@@ -309,9 +310,8 @@ export default function AgentDialogue() {
       if (data.event === 'room_message' || data.event === 'message') {
         addMessageToList(data)
       } else if (data.event === 'error') {
-        Taro.showToast({
-          title: data.message || data.msg || tt('agentDialogue.sendFailed', '发送失败'),
-          icon: 'none',
+        onToast(data.message || data.msg || tt('agentDialogue.sendFailed', '发送失败'), {
+          kind: 'error',
         })
       } else if (data.content && (data.user_uuid || data.sender_uuid)) {
         addMessageToList(data)
@@ -365,7 +365,7 @@ export default function AgentDialogue() {
     const content = inputContent.trim()
     if (!content || sending) return
     if (!userUuidRef.current) {
-      Taro.showToast({ title: tt('agentDialogue.userMissing', '用户信息不完整'), icon: 'none' })
+      onToast(tt('agentDialogue.userMissing', '用户信息不完整'), { kind: 'error' })
       return
     }
     const tempId = genId('temp')
@@ -404,7 +404,7 @@ export default function AgentDialogue() {
       })
       if (!ok) {
         setChatList((prev) => prev.filter((m) => m.id !== tempId))
-        Taro.showToast({ title: tt('agentDialogue.sendFailed', '发送失败'), icon: 'none' })
+        onToast(tt('agentDialogue.sendFailed', '发送失败'), { kind: 'error' })
       }
     } else {
       // ws 不可用降级:标记为已发送
@@ -434,20 +434,14 @@ export default function AgentDialogue() {
 
   const openAudio = useCallback(
     (_url: string) => {
-      Taro.showToast({
-        title: tt('agentDialogue.openInBrowser', '请在浏览器中打开'),
-        icon: 'none',
-      })
+      onToast(tt('agentDialogue.openInBrowser', '请在浏览器中打开'), { kind: 'info' })
     },
     [tt],
   )
 
   const openFile = useCallback(
     (_url: string) => {
-      Taro.showToast({
-        title: tt('agentDialogue.openInBrowser', '请在浏览器中打开'),
-        icon: 'none',
-      })
+      onToast(tt('agentDialogue.openInBrowser', '请在浏览器中打开'), { kind: 'info' })
     },
     [tt],
   )
@@ -669,9 +663,7 @@ export default function AgentDialogue() {
           onClick={sendMessage}
           hoverClass="opacity-60"
         >
-          <Text className="text-title font-semibold text-primary-foreground">
-            {t('chat.send')}
-          </Text>
+          <Text className="text-title font-semibold text-primary-foreground">{t('chat.send')}</Text>
         </View>
       </View>
     </ThemeRoot>

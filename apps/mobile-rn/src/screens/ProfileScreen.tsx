@@ -65,6 +65,7 @@ import { useAuth } from '../context/AuthContext'
 import { rnAuthStore } from '../stores/auth-store'
 import { useTheme } from '../context/ThemeContext'
 import { useI18n } from '../i18n'
+import { useHostPorts } from '../host/use-host-ports'
 import { FREE_RESOURCE_URL } from '../constants/links'
 import { useUiTextField } from '../lib/use-ui-text-field'
 import { LoginPopUp } from '../components/LoginPopUp'
@@ -241,6 +242,8 @@ export function ProfileScreen() {
   const rootNav = navigation.getParent<RootNav>()
   const { user, logout, ready } = useAuth()
   const { resolvedTheme } = useTheme()
+  // M4 api-B:补 onToast 端口(失败路径不得再静默吞掉;宿主实现由 useHostPorts 提供)
+  const { onToast } = useHostPorts()
   // 悬浮 TabBar 让位(2026-10-16):内容滚到底部时仍完整露在胶囊之上,可继续滚到玻璃底下
   const insets = useSafeAreaInsets()
   // 返回顶部按钮(对齐 Uniapp user/index.vue toodown:滚动超过阈值显示,点击回顶)
@@ -349,18 +352,25 @@ export function ProfileScreen() {
    * Drawer 的 groupByModelAndDate 已在组件内实现,这里只需把 API 结果映射为 DrawerConversationItem[]。
    */
   const loadDrawerConversations = useCallback(async () => {
-    const res = await listConversations({ page: 1, pageSize: 50 })
-    if (res.success) {
-      const items: DrawerConversationItem[] = res.data.conversations.map((c) =>
-        mapConversationToDrawer(c, t('plaza.index.untitledConv')),
-      )
-      setDrawerConversations(items)
-    } else {
-      // 静默失败:不弹错误(对齐 Uniapp loadHistoryChat catch 后 setGroupedData([]))
+    try {
+      const res = await listConversations({ page: 1, pageSize: 50 })
+      if (res.success) {
+        const items: DrawerConversationItem[] = res.data.conversations.map((c) =>
+          mapConversationToDrawer(c, t('plaza.index.untitledConv')),
+        )
+        setDrawerConversations(items)
+      } else {
+        // 列表失败不再静默:清空 + 轻提示真实原因(保留可重入,不挡 Drawer 其他内容)。
+        setDrawerConversations([])
+        onToast(toUserFriendlyMessage(res.error || t('profile.netRetry')), { kind: 'error' })
+      }
+    } catch (e) {
       setDrawerConversations([])
+      onToast(toUserFriendlyMessage(e), { kind: 'error' })
+    } finally {
+      setDrawerConversationsLoaded(true)
     }
-    setDrawerConversationsLoaded(true)
-  }, [t])
+  }, [t, onToast])
 
   // Drawer 首次打开时懒加载历史对话(对齐 Uniapp onShow + loadHistoryChat)
   useEffect(() => {
@@ -732,6 +742,7 @@ export function ProfileScreen() {
                 error={error}
                 colorScheme={resolvedTheme}
                 realnameStatus={realnameBadge}
+                onToast={onToast}
                 menuSections={menuSections}
                 onNavigate={(key) => {
                   const item = MENU_SECTIONS.flatMap((s) => s.items).find((m) => m.key === key)
