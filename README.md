@@ -5451,6 +5451,11 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-03**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (dffec0afec)
+- 🐞 修复:考勤阈值时刻解析补收带秒形态,迟到/早退与每日补缺勤不再静默判不出(票 B67/B71 残余格) (3b29aa1bef)
+- 🚀 新功能/改进:文档中心余下 4 页接 docs.* i18n 并把 tip 块表情换矢量 Lightbulb(票 D53 第三批·余格) (5d27ad4027)
+
+**2026-11-03**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (28e56a22ac)
 - 🔧 工程/其他:diag-manifest (c3f5d12ac5)
 
@@ -5504,9 +5509,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (a5d5975971)
 - 🚀 新功能/改进:文档中心文案抽进 docs.* 命名空间,五语言同批齐备(票 D53) (ef8a1a3f9c)
 - 🐞 修复:面板 tooltip 字号脱离 11px 字面量,归到 caption 角色档 (259c615623)
-
-**2026-11-03**
-- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (24ed9b91f5)
 <!-- END RECENT UPDATES -->
 同轮收口(2026-10-21 下午，五枚已入库)：把上一段里"只存不拦"的部分接成实链，并把跨端剩下的三处半截补齐。① **IP 白名单生效链**：判定唯一出口 `apps/api/src/routes/user/ip-whitelist-guard.ts`，挂在 18 条新登录腿的"凭据已验证之后、签发之前"；空表 = 未启用（不另开开关），已在线会话不受影响（换网不掉线），最后一次修改白名单的来源 IP 恒被放行（自救出口，否则清错一次就永久锁死）；被拒回 403 并落 `security_logs` 事件 `login_blocked_by_ip_allowlist`（登录前无主体，故 `recordSecurityEvent` 新增由承载层显式传主体的口子）。覆盖率由 `tests/ip-whitelist-issuance-coverage.test.ts` 机器守：全仓 6 个签发原语的每个调用点要么挂闸门、要么在具名豁免清单里带理由登记，将来新腿漏挂当场响。② **RN 安全中心接上这张卡**（`src/components/IpWhitelistPanel.tsx`，端内不复制 IP 文法校验，400 只翻本地化提示）。③ **五项 agent 护栏开关改为按登录主体生效**：`apps/ai-service/app/services/agent_security_prefs.py` 直连同库读 `user_preferences`（进程默认 ⊕ 该用户显式表态，缺省与改动前逐字一致），危险命令硬门与全局 kill switch 不受用户档影响。④ **小程序关于页补齐**为与 web/RN 同构的六段 + 保留 10 条合规入口（三端同脸，§4）。⑤ 删掉 PDF `print` / `sign` 两条零消费方的假 pending 端点（改成 404 断言留在原地），`openapi.json` 同步摘除两条 path。
 - **2026-10-21 公网提速批次的四件器物(点名义务在此,判据细节住器物头注;`§0.9` 的口径是"已接线而文档不点名 ⇒ 红")**:
