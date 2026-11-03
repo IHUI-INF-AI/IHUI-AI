@@ -71,6 +71,9 @@ import { appendLanding, isRowComplete, readLanding, ledgerPathFor } from './lib/
 // 取 oid 与 collectiblePaths 同尺:库内 worktree 面用 gitRaw(['hash-object','--',rel], root),
 // 这里必须问同一把尺(自拼裸 git 或换 hash-object 参数 = 两侧算法不一致 ⇒ 永远 contested)。
 import { gitRaw } from './lib/face-reader.mjs'
+// 旧档回写判据(2026-11-03 立,与守门 292 同一实现):派生文本若逐字等于该路径某个祖先 blob
+// 而 HEAD 已有更新档 ⇒ 拒绝写盘。立因见 lib/ancestor-downgrade.mjs 头注(4 组件旧 blob 回写)。
+import { ancestorBlobOf, describeMatch, gitBlobOidOfText } from './lib/ancestor-downgrade.mjs'
 // 归属闸(2026-11-03 立,挂守护周期腿的**前置条件**):判据单源 = scripts/lib/git-paths.mjs
 // (三枚 lander 与 fix-rn-color-literals 共用同一份,§0.6 / 门 191 —— 本文件不得再写第二份)。
 // 多会话共享工作区里,自动腿写他席正在编辑的文件 = 覆盖别人的未提交工作(§12/§16 事故型)。
@@ -84,8 +87,9 @@ const SPEC_DIR = 'packages/shared/src/ui'
 
 /**
  * 本腿的在册短名。**逐字取既有自称名,不自立新名**(取证 `git grep -n "gen-ui-mirror"`):
- *   · `scripts/git-guardian.mjs` 对它**零命中**(守护只在 sweepParityCockpit 里派生 parity-auto,
- *     且只传 --json ⇒ 本腿从未被守护带过写档);
+ *   · `scripts/git-guardian.mjs` 在 2026-10-28 对它零命中;2026-11-03 起守护新增
+ *     `sweepUiMirrorLeg` → `gen-ui-mirror.mjs --apply`(30 分钟一轮,只写工作树并申报账本,
+ *     落库交 `sweepCrossEndLandingLeg` 收),本器自此有守护调度点;
  *   · 全仓唯一给它登记过名字的地方 = `scripts/parity-auto.mjs` 的 `id: 'ui-mirror'`(:124),
  *     同文件 `SELF_HEALABLE`(:68)也以这个名字把本腿列为「红灯可机器自修」;
  *   · 同族素材同名:豁免台账 `scripts/data/ui-mirror-waivers.json`(lib/ui-mirror-waivers.mjs 的
@@ -102,6 +106,31 @@ export function worktreeBlobOid(rel, root = ROOT) {
   } catch {
     return null
   }
+}
+
+/**
+ * 写盘前闸:这份派生文本写下去,会不会把文件**逐字**变回 HEAD 某枚祖先的旧档?
+ * 返回 { allow, match?, undetermined?, why }。判据与守门 292 同一实现(lib/ancestor-downgrade.mjs):
+ *   · HEAD 无该路径(新增壳)⇒ 放行(无祖先可比);
+ *   · 与 HEAD 同 blob ⇒ 放行(零改动);
+ *   · 等于祖先 blob 且 ≠ HEAD ⇒ 拒绝写盘并点名(这不是"镜像",是把旧检出档搬回来)。
+ * 实测根因:RN 侧未 token 化,`px-2.5 / text-xs` 原样覆盖小程序已 token 化声明,
+ * 写出的整文件 blob 逐字等于 `766687c346^` / `ec9802df54^` —— 30 分钟一轮,反复回写。
+ */
+export function downgradeGuardOf(rel, text, root = ROOT) {
+  const candOid = gitBlobOidOfText(text)
+  let headOid = null
+  try {
+    headOid = String(gitRaw(['rev-parse', '--verify', `HEAD:${rel}`], root)).trim().toLowerCase()
+  } catch {
+    headOid = null
+  }
+  if (!headOid) return { allow: true, why: 'HEAD 无该路径(新增文件,无祖先可比)' }
+  if (headOid === candOid) return { allow: true, why: '与 HEAD 同 blob(零改动)' }
+  const anc = ancestorBlobOf(rel, candOid, { root })
+  if (!anc.judged) return { allow: false, undetermined: true, why: anc.why }
+  if (anc.match) return { allow: false, match: anc.match, why: '派生结果逐字等于祖先版本' }
+  return { allow: true, why: '不是任何祖先 blob' }
 }
 
 /** 本 leg 在册且行完整的 path→oid 映射;账本取不到 ⇒ {ok:false, reason}(不冒充空集)。 */
@@ -518,6 +547,7 @@ async function main(argv, opts = {}) {
   // 归属闸(2026-11-03):整轮取一次脏集(只读 git 动作);只挡写盘,不动任何计数与退出码判序。
   const ownership = ownershipGate({ root })
   const held = []
+  const downgrades = []
 
   const rows = pairsOf(only, root)
   let red = 0
@@ -574,6 +604,23 @@ async function main(argv, opts = {}) {
     if (apply) {
       const out = applyPair(rn, mp, { waivedNames: verdict.used })
       if (out.changed) {
+        // 写盘前闸(2026-11-03):派生结果若逐字等于祖先 blob,拒绝写盘 —— 这台器物的权威面是
+        // "RN 壳更懂映射",但 RN 尚未 token 化时,它推出的是**旧档**,不是新权衡。宁可让漂移
+        // 继续红并点名,也不把旧检出档写回来(§0.3:取不到/更旧 ⇒ 不写,不猜)。
+        const guard = downgradeGuardOf(row.mpRel, out.text, root)
+        if (!guard.allow) {
+          if (guard.undetermined) {
+            undetermined += 1
+            console.log(`   ↳ ? 祖先面取不到(${guard.why})⇒ 本轮不写 ${row.mpRel}`)
+          } else {
+            downgrades.push(describeMatch(row.mpRel, guard.match))
+            console.log(
+              `   ↳ ⛔ 派生结果逐字等于祖先版本 ${guard.match.commit.slice(0, 10)}(HEAD 已有更新档)⇒ 本轮不写 ${row.mpRel};` +
+                '需先让 RN 壳对齐同一档(token 化),再派生',
+            )
+          }
+          continue
+        }
         writeFileSync(join(root, row.mpRel), out.text, 'utf8')
         writtenPaths.push(row.mpRel)
         console.log(`   ↳ 已写回 ${row.mpRel}(仅 import + 绑定声明)`)
@@ -588,10 +635,13 @@ async function main(argv, opts = {}) {
     console.log(
       `  🔒 held(归属未明,不猜 ⇒ 本轮不写)${held.length} 枚:${held.slice(0, 6).join(', ')}${held.length > 6 ? ' …' : ''}`,
     )
+  if (downgrades.length)
+    console.log(`  ⛔ downgrade(派生结果=祖先旧档,拒写)${downgrades.length} 枚:${downgrades.join(', ')}`)
   console.log(
     `结论 landing=${landingInfo.landing}(新登记 ${landingInfo.appended}/在册去重 ${landingInfo.deduped})` +
       ` skipLanded=${skipLanded.length}` +
       ` held=${held.length}` +
+      ` downgrade=${downgrades.length}` +
       (ownership.ok ? '' : ' ownership=unjudged') +
       ` 写出=${writtenPaths.length}` +
       (landingInfo.landingError ? ` landingError=${landingInfo.landingError}` : '') +
