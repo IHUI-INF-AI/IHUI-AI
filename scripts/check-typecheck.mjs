@@ -147,9 +147,10 @@ function getHeadDiffFiles() {
 //  2. **取材面 = worktree**,与 tsc 实际读盘的面一致。门 103 的头注写过"取哪个面判错是
 //     本仓最高频的假绿源";本门判据面必须与被 typecheck 的面同面,否则闭包按磁盘建图却
 //     按索引判责,两套面互相对不上。
-//  3. **建图失败不静默、也不崩**:退回未加宽的 scope(= 改前的逐字行为)并打一行
-//     ⚠️ 可见告警。既不假装加宽成功(那会静默关掉一道判据),也不把环境故障升级成
-//     push 硬拦(§22b 的"按失败处理"是针对类型结论,不是针对判据增强失败)。
+//  3. **建图失败不静默、也不放行**(2026-11-02 P3):退回未加宽的 scope 并打一行 ⚠️ 可见
+//     告警;**同时关闭降级判据**(fail-closed)——建图失败时我们证明不了"这些报错都在范围外",
+//     继续降级就是把假绿当结论。代价只落在"本来就有类型报错"的推送上:tsc 全绿的推送在
+//     shouldDegrade 之前就 exit 0,不会被这道 fail-closed 挡住。
 //  4. `buildGraph` 是**唯一的测试缝**(默认就是 import-graph 的 buildFileGraph):
 //     建图要 4~25 秒且只认真仓,不许单元测试里真建一次图。生产调用不传该参,
 //     走默认值 —— 缝只开在"怎么建图"这一层,判据本身(闭包/退回/可见理由)无可绕。
@@ -198,8 +199,12 @@ function isPathInStaged(errFile, stagedList) {
   )
 }
 
-/** 降级判定核心:暂存区非空 && 解析到报错文件 && 全部报错文件均不在暂存区 → 降级为警告 */
-function shouldDegrade(errorFiles, stagedList) {
+/**
+ * 降级判定核心:范围非空 && 解析到报错文件 && 全部报错文件均不在范围内 → 降级为警告。
+ * closureOk=false ⇒ 依赖闭包加宽失败,此时"范围外"证明不成立,一律不降级(fail-closed)。
+ */
+function shouldDegrade(errorFiles, stagedList, { closureOk = true } = {}) {
+  if (closureOk === false) return false
   if (!Array.isArray(stagedList) || stagedList.length === 0) return false
   if (!errorFiles || errorFiles.length === 0) return false
   return errorFiles.every((f) => !isPathInStaged(f, stagedList))
@@ -377,6 +382,42 @@ if (SELF_TEST) {
     !shouldDegrade(errOnImporter, wA.files),
     '样例18b 加宽后:B 的报错命中 scope ⇒ 不降级(改契约会红 importer,病根闭合)',
   )
+  assert(
+    !shouldDegrade(errOnImporter, wA.files, { closureOk: wA.ok }),
+    '样例18c 建图成功时显式传 closureOk:true ⇒ 结论与 18b 一致(B 在加宽 scope 内仍拦)',
+  )
+
+  // 样例19(2026-11-02 P3):建图/闭包失败必须 fail-closed —— 三种场景显式对照(改前 vs 改后)。
+  // 选 fail-closed 而非 exit 2 的理由:shouldDegrade 是纯判定点,closureOk:false 直接返回
+  // false 即可,语义最小;exit 2 会把"建图故障"升级成进程级硬失败,连"报错在范围内也该拦"
+  // 的既有语义都要重走,且对 tsc 全绿的正常推送毫无必要(它在降级判定前已 exit 0)。
+  const efForeign = extractErrorFiles(
+    'apps/y: src/foreign.ts(1,1): error TS2322: Type X is not assignable.',
+  )
+  assert(wA.ok === true && wSolo.ok === true, '样例19a 建图成功 ⇒ ok:true(无下游/空闭包都不是失败)')
+  assert(wNoGraph.ok === false, '样例19b 建图失败 ⇒ ok:false(给降级判据的 fail-closed 信号)')
+  // 场景 A:建图成功 + 报错在范围内 ⇒ 仍拦。
+  console.log(
+    `[self-test] 场景A 建图成功(${wA.ok}) + 报错在范围内 ⇒ shouldDegrade=${shouldDegrade(errOnImporter, wA.files, { closureOk: wA.ok })}(期望 false=仍拦)`,
+  )
+  assert(
+    !shouldDegrade(errOnImporter, wA.files, { closureOk: wA.ok }),
+    '场景A 建图成功且报错在范围内 ⇒ 仍拦(正常路径不得被误挡)',
+  )
+  // 场景 B:建图成功 + 报错确定在范围外 ⇒ 仍降级为警告。
+  const bDegrade = shouldDegrade(efForeign, wA.files, { closureOk: wA.ok })
+  console.log(
+    `[self-test] 场景B 建图成功(${wA.ok}) + 报错在范围外 ⇒ shouldDegrade=${bDegrade}(期望 true=降级)`,
+  )
+  assert(bDegrade, '场景B 建图成功且报错确定在范围外 ⇒ 仍降级为警告(他席噪音不误挡)')
+  // 场景 C:建图失败 ⇒ 现在拦(改前放行)。
+  const cBefore = shouldDegrade(efForeign, ['apps/x/src/a.ts'])
+  const cAfter = shouldDegrade(efForeign, ['apps/x/src/a.ts'], { closureOk: wNoGraph.ok })
+  console.log(
+    `[self-test] 场景C 建图失败(${wNoGraph.ok}) ⇒ 改前 shouldDegrade=${cBefore}=放行,改后=${cAfter}=拦(fail-closed)`,
+  )
+  assert(cBefore, '场景C 基准:不看闭包成败时(=改前)同一输入会降级放行(假绿存在)')
+  assert(!cAfter, '场景C 建图失败 ⇒ 改后不降级(宁可拦,不可假绿)')
 
   process.env.PUSH_SCOPE_FILES = prevEnv
 
@@ -423,8 +464,13 @@ if (DRY_RUN) {
     for (const f of _widen.added.slice(0, 20)) console.log(`  + ${f}(经反向依赖闭包纳入)`)
     if (_widen.added.length > 20) console.log(`  ... 共 ${_widen.added.length} 个新增消费者`)
   }
+  if (!_widen.ok) {
+    console.log(
+      '[check-typecheck] ⚠️ 加宽判据不可用(建图/闭包失败)⇒ 降级判据已关闭(fail-closed):任何报错都将维持失败',
+    )
+  }
   console.log(
-    `[check-typecheck] scope 降级: ${scopeEnabled ? '启用(全部报错文件均不在本次改动范围时 → 降级为警告 exit 0)' : '不启用(改动范围为空或 git 不可用)——报错将维持原失败行为'}`,
+    `[check-typecheck] scope 降级: ${scopeEnabled && _widen.ok ? '启用(全部报错文件均不在本次改动范围时 → 降级为警告 exit 0)' : _widen.ok ? '不启用(改动范围为空或 git 不可用)——报错将维持原失败行为' : '不启用(加宽判据不可用 ⇒ fail-closed)——报错将维持原失败行为'}`,
   )
   // 快通道只看**原始**改动清单(边界 1):闭包跨端会把快通道关掉,单文件 push 从定向
   // 几分钟变成全量 25 分钟 —— 那是拿另一类恒红换本票的绿。
@@ -545,13 +591,21 @@ if (_fast) {
   }
   // 与全量路径同源的 scope 降级判定(EXTRACT_ERROR_FILES/shouldDegrade 见下方全量分支)
   const fastErrorFiles = extractErrorFiles(`${_fout}\n${_ferr}`)
-  if (scopeEnabled && fastErrorFiles.length > 0 && shouldDegrade(fastErrorFiles, scopeFiles)) {
+  if (
+    scopeEnabled &&
+    fastErrorFiles.length > 0 &&
+    shouldDegrade(fastErrorFiles, scopeFiles, { closureOk: _widen.ok })
+  ) {
     console.log('')
     console.log(
       `ℹ️ apps/${_fast.app} 定向 typecheck 的 ${fastErrorFiles.length} 个报错文件均不在本次改动范围(${scopeLabel},属并行会话噪音),降级为警告`,
     )
     for (const f of fastErrorFiles.slice(0, 20)) console.log(`   - ${f}`)
     console.log('ℹ️ 判定:本次 push 放行(exit 0);报错由其所属会话负责修复')
+    // 2026-11-02 P4:机器签名行必须打在降级块**末尾** —— .husky/pre-push 失败时只回显
+    // `tail -40`,签名在末尾才不会被 per-file 清单挤出窗口。git-push-guard 只认这一串
+    // (或上面那行人类可读证据)才允许 --no-verify。
+    console.log('[IHUI-SCOPE-DEGRADE] 全部报错文件均不在本次推送范围,降级为警告(exit 0)')
     process.exit(0)
   }
   console.error(
@@ -651,12 +705,14 @@ child.on('close', (code, signal) => {
 
   // 2026-08-31:staged-scope 降级判定(改动原因见文件头注释)
   const errorFiles = extractErrorFiles(`${out}\n${err}`)
-  if (scopeEnabled && shouldDegrade(errorFiles, scopeFiles)) {
+  if (scopeEnabled && shouldDegrade(errorFiles, scopeFiles, { closureOk: _widen.ok })) {
     console.log('')
     console.log(`ℹ️ 全部报错文件均不在本次改动范围(${scopeLabel},属并行会话工作区噪音),降级为警告`)
     console.log(`ℹ️ 解析到报错文件共 ${errorFiles.length} 个(样例前 20 个):`)
     for (const f of errorFiles.slice(0, 20)) console.log(`   - ${f}`)
     console.log('ℹ️ 判定:本次 push 放行(exit 0);报错文件的类型修复由其所属会话负责')
+    // 2026-11-02 P4:同上,签名行必须在末尾(见快通道同一注释)。
+    console.log('[IHUI-SCOPE-DEGRADE] 全部报错文件均不在本次推送范围,降级为警告(exit 0)')
     process.exit(0)
   }
 
