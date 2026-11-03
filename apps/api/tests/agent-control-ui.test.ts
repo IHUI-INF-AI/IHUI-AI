@@ -912,7 +912,7 @@ describe('agent-control ui category — /api/agent-control/*', () => {
       category: 'ext_ui',
       action: 'fill',
       params: { target: 'el:input#3', value: 'AI 写入' },
-      __user_id: USER_A,
+      userId: USER_A,
     })
     await executed
     expect(mockPush).toHaveBeenCalledTimes(1)

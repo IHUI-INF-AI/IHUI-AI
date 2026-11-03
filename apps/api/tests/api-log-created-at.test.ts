@@ -70,7 +70,7 @@ const { config } = await import('../src/config/index.js')
 type InsertRow = Parameters<typeof addApiLogsBatch>[0][number]
 
 /** 只为把 values 数组渲染成真正的 INSERT 语句(toSQL,不执行、不连库) ⇒ 判据落在 SQL 形态上。 */
-const probeDb = drizzle({} as unknown as Parameters<typeof drizzle>[0])
+const probeDb = drizzle('postgresql://test:test@localhost:5432/test')
 
 function renderInsert(rows: readonly Record<string, unknown>[]): {
   sql: string

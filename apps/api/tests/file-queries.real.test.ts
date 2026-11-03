@@ -17,11 +17,13 @@ import {
 
 async function createTestUser(phone: string) {
   const [row] = await db.insert(users).values({ phone }).returning()
+  if (!row) throw new Error('file-queries.real.test.ts: 插入未返回行(row)')
   return row
 }
 
 async function createTestProject(userId: string, name: string) {
   const [row] = await db.insert(projects).values({ userId, name }).returning()
+  if (!row) throw new Error('file-queries.real.test.ts: 插入未返回行(row)')
   // 创建者自动写入 project_members(role=owner)
   await db.insert(projectMembers).values({ projectId: row.id, userId, role: 'owner' })
   return row
@@ -37,6 +39,7 @@ async function createTestFile(
     .insert(files)
     .values({ projectId, name, path: `/uploads/${name}`, size: 100, mimeType, uploadedBy })
     .returning()
+  if (!row) throw new Error('file-queries.real.test.ts: 插入未返回行(row)')
   return row
 }
 
@@ -135,7 +138,7 @@ describe('file-queries — 真实 DB 集成测试', () => {
       // 组合
       const r4 = await searchFiles({ userId: u.id, projectId: p1.id, mimeType: 'application/pdf' })
       expect(r4).toHaveLength(1)
-      expect(r4[0].name).toBe('report.pdf')
+      expect(r4[0]!.name).toBe('report.pdf')
     })
 
     it('tag 过滤 — 仅返回带指定标签的文件', async () => {
@@ -148,6 +151,7 @@ describe('file-queries — 真实 DB 集成测试', () => {
         .insert(tags)
         .values({ name: 'important', slug: 'important' })
         .returning()
+      if (!tag) throw new Error('file-queries.real.test.ts: 插入未返回行(tag)')
       await db.insert(tagRelations).values({
         tagId: tag.id,
         resourceType: 'file',
@@ -156,7 +160,7 @@ describe('file-queries — 真实 DB 集成测试', () => {
       })
       const r = await searchFiles({ userId: u.id, tag: tag.id })
       expect(r).toHaveLength(1)
-      expect(r[0].name).toBe('tagged.txt')
+      expect(r[0]!.name).toBe('tagged.txt')
     })
   })
 
@@ -244,11 +248,11 @@ describe('file-queries — 真实 DB 集成测试', () => {
 
       const r1 = await findRecentFiles(u.id, 10)
       expect(r1).toHaveLength(3)
-      expect(r1[0].name).toBe('f3.txt') // 最新在前
+      expect(r1[0]!.name).toBe('f3.txt') // 最新在前
       const r2 = await findRecentFiles(u.id, 2)
       expect(r2).toHaveLength(2)
-      expect(r2[0].name).toBe('f3.txt')
-      expect(r2[1].name).toBe('f2.txt')
+      expect(r2[0]!.name).toBe('f3.txt')
+      expect(r2[1]!.name).toBe('f2.txt')
     })
 
     it('无关用户看不到他人文件', async () => {

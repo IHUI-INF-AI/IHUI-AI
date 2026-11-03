@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { describe, it, expect, afterAll, beforeAll, vi } from 'vitest'
-import Fastify from 'fastify'
+import Fastify, { type FastifyError } from 'fastify'
 
 vi.mock('../src/config/index.js', () => ({
   config: {
@@ -12,8 +12,8 @@ vi.mock('../src/config/index.js', () => ({
     HOST: '0.0.0.0',
     LOG_LEVEL: 'info',
     CORS_ORIGIN: 'http://localhost:8801',
-    DATABASE_URL: 'postgres://localhost:8810/test',
-    REDIS_URL: 'redis://localhost:8811',
+    DATABASE_URL: 'postgres://127.0.0.1:5399/test',
+    REDIS_URL: 'redis://127.0.0.1:6399',
     JWT_SECRET: 'test-jwt-secret-at-least-32-characters-long!!!',
     JWT_EXPIRES_IN: '7d',
     AI_SERVICE_URL: 'http://localhost:8803',
@@ -61,7 +61,7 @@ describe('transcode routes', () => {
   const server = Fastify({ logger: false })
 
   beforeAll(async () => {
-    server.setErrorHandler((error, _request, reply) => {
+    server.setErrorHandler((error: FastifyError, _request, reply) => {
       const statusCode =
         error.statusCode && error.statusCode >= 400 && error.statusCode < 600
           ? error.statusCode

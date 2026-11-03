@@ -110,6 +110,7 @@ function checkinRow(over: Partial<CheckinSideRow> = {}): CheckinSideRow {
     enabled: true,
     poolCredVersion: 7,
     poolPendingCred: null,
+    lastRecord: null,
     ...over,
   }
 }
@@ -263,10 +264,18 @@ describe('planReconciliation', () => {
     ])
   })
 
-  it('codearts(无签到引擎)整行忽略,计 outOfScope', () => {
-    const plan = planReconciliation([poolRow({ providerCode: 'codearts' })], [])
+  it('codearts/doubao(无签到引擎)整行忽略,计 outOfScope 并按 provider 归因', () => {
+    const plan = planReconciliation(
+      [
+        poolRow({ providerCode: 'codearts' }),
+        poolRow({ id: 'pool-2', uid: 'uid-2', providerCode: 'doubao' }),
+      ],
+      [],
+    )
     expect(plan.actions).toEqual([])
-    expect(plan.outOfScope).toBe(1)
+    expect(plan.outOfScope).toBe(2)
+    // 归因必须是可机读的 {provider: count},不能只留一个总数(否则看不出谁被跳过)
+    expect(plan.outOfScopeByProvider).toEqual({ codearts: 1, doubao: 1 })
   })
 
   it('签到侧无 pool_account_id 的脏数据:不动,计 orphanNoPoolId', () => {

@@ -53,6 +53,7 @@ const { vipRoutes, adminVipRoutes } = await import('../src/routes/vip.js')
 
 async function createUser(phone: string, nickname?: string) {
   const [row] = await db.insert(users).values({ phone, nickname, isVip: 0 }).returning()
+  if (!row) throw new Error('vip-auth-routes.real.test.ts: 插入未返回行(row)')
   return row
 }
 
@@ -71,6 +72,7 @@ async function createVipLevel(data: {
       status: data.status ?? 1,
     })
     .returning()
+  if (!row) throw new Error('vip-auth-routes.real.test.ts: 插入未返回行(row)')
   return row
 }
 
@@ -95,6 +97,7 @@ async function createUserVip(data: {
       status: data.status ?? 1,
     })
     .returning()
+  if (!row) throw new Error('vip-auth-routes.real.test.ts: 插入未返回行(row)')
   return row
 }
 
@@ -284,14 +287,14 @@ describe('vip-auth-routes — 需鉴权路由真实 DB 集成测试', () => {
       .where(eq(orders.id, body.data.orderId))
       .limit(1)
     expect(orderRow).toBeDefined()
-    expect(orderRow.userId).toBe(user.id)
-    expect(Number(orderRow.amount)).toBe(3000)
+    expect(orderRow!.userId).toBe(user.id)
+    expect(Number(orderRow!.amount)).toBe(3000)
 
     // 验证 VIP 已在 DB 中激活(development 环境)
     const [vipRow] = await db.select().from(userVips).where(eq(userVips.userId, user.id)).limit(1)
     expect(vipRow).toBeDefined()
-    expect(vipRow.vipLevelId).toBe(level.id)
-    expect(vipRow.status).toBe(1)
+    expect(vipRow!.vipLevelId).toBe(level.id)
+    expect(vipRow!.status).toBe(1)
   })
 
   it('POST /api/vip/purchase — paymentMethod 默认 wechat', async () => {
@@ -309,7 +312,7 @@ describe('vip-auth-routes — 需鉴权路由真实 DB 集成测试', () => {
       .from(orders)
       .where(eq(orders.id, body.data.orderId))
       .limit(1)
-    expect(orderRow.paymentMethod).toBe('wechat')
+    expect(orderRow!.paymentMethod).toBe('wechat')
   })
 
   it('POST /api/vip/purchase — paymentMethod 可指定 alipay', async () => {
@@ -327,7 +330,7 @@ describe('vip-auth-routes — 需鉴权路由真实 DB 集成测试', () => {
       .from(orders)
       .where(eq(orders.id, body.data.orderId))
       .limit(1)
-    expect(orderRow.paymentMethod).toBe('alipay')
+    expect(orderRow!.paymentMethod).toBe('alipay')
   })
 
   it('POST /api/vip/purchase — 缺 vipLevelId 时 zod 抛错(测试 server 无全局 errorHandler 返回 500)', async () => {
@@ -441,7 +444,7 @@ describe('vip-auth-routes — 需鉴权路由真实 DB 集成测试', () => {
     expect(body.data.cancelled).toBe(true)
 
     const [updated] = await db.select().from(userVips).where(eq(userVips.id, vip.id)).limit(1)
-    expect(updated.status).toBe(2)
+    expect(updated!.status).toBe(2)
   })
 
   // =====================================================================
@@ -612,9 +615,9 @@ describe('vip-auth-routes — 需鉴权路由真实 DB 集成测试', () => {
       .where(eq(orders.id, body.data.orderId))
       .limit(1)
     expect(orderRow).toBeDefined()
-    expect(orderRow.userId).toBe(user.id)
-    expect(Number(orderRow.amount)).toBe(3000)
-    expect(orderRow.status).toBe('pending')
+    expect(orderRow!.userId).toBe(user.id)
+    expect(Number(orderRow!.amount)).toBe(3000)
+    expect(orderRow!.status).toBe('pending')
   })
 
   it('POST /api/vip/order — quantity=2 时 amount = price * 2', async () => {

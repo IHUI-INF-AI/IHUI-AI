@@ -482,11 +482,14 @@ export function getPlatformMetaMap(): Record<DownloadPlatform, PlatformMeta> {
       systemRequirementsKey: 'downloadExtensionSysReq',
       installGuideKey: 'downloadExtensionInstallGuide',
       githubReleasesUrl: 'https://github.com/IHUI-INF-AI/IHUI-AI/releases',
-      // 真实扩展包(从 apps/extension/.output/chrome-mv3/ 打包)
+      // 真实扩展包(从 apps/extension/.output/chrome-mv3/ 打包)。
+      // 体积这里**一律填 0** = "未量":此前写死的 6498757 与实物差 3 倍多,而实物在
+      // 工作树与生产签出里也是两个不同字节数(2026-11-02 实测 1852871 / 1897977)。
+      // 运行期由 downloads-live 枚举实物填真实字节与版本;取不到时 UI 显示 '-'。
       assets: [
         {
           href: '/downloads/extension/IHUI-AI-Extension-chrome-v1.0.0.zip',
-          sizeBytes: 6498757,
+          sizeBytes: 0,
           format: 'Chrome MV3 ZIP',
         },
       ],

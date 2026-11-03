@@ -76,6 +76,7 @@ vi.mock('../src/services/workspace-lock-heartbeat.js', () => ({
 }))
 
 import { SubagentDispatchService } from '../src/services/subagent-dispatch-service'
+import type { ExtendedDispatchInput } from '../src/services/subagent-dispatch-service'
 
 const KEY_QUEUE = 'subagent:dispatch:queue'
 const KEY_DISPATCH = 'subagent:dispatch:'
@@ -198,7 +199,7 @@ async function flush(ms = 30): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-const baseInput = {
+const baseInput: ExtendedDispatchInput = {
   goal: 'queue-test',
   affectedFiles: ['apps/api/src/x.ts'],
   verifyCommands: [],
