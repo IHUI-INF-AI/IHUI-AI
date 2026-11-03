@@ -378,9 +378,13 @@ export function VoiceNote({ conversationId = null, sttEnabled = true }: VoiceNot
         size="sm"
         onClick={() => setOpen((v) => !v)}
         data-testid="voice-note-trigger"
+        aria-label={t('title')}
+        title={t('title')}
       >
         <Mic className="h-4 w-4" />
-        {t('title')}
+        {/* 底栏窄档由 globals.css @container 隐藏本标签(仅留麦克风图标),
+            无障碍名称不降级:aria-label/title 已提到触发按钮上 */}
+        <span className="voice-note-label">{t('title')}</span>
       </Button>
 
       {open && (
