@@ -254,6 +254,7 @@ export default function CheckinAssistant() {
               className={`mt-[24rpx] flex h-[88rpx] items-center justify-center rounded-xl bg-[var(--color-cta)] ${
                 busy ? 'opacity-60' : ''
               }`}
+              hoverClass="opacity-60"
               onClick={() => void submit()}
             >
               <Text className="text-strong font-semibold text-[var(--color-cta-foreground)]">

@@ -93,12 +93,15 @@ export default function Password() {
                 value={oldPwd}
                 onInput={(e) => setOldPwd(e.detail.value)}
               />
-              <Text
-                className="absolute right-[24rpx] text-body text-muted-foreground"
+              <View
+                className="absolute right-0 top-0 flex h-full items-center px-[24rpx]"
+                hoverClass="opacity-60"
                 onClick={() => setShowOld((v) => !v)}
               >
-                {showOld ? tt('user.password.hide', '隐藏') : tt('user.password.show', '显示')}
-              </Text>
+                <Text className="text-body text-muted-foreground">
+                  {showOld ? tt('user.password.hide', '隐藏') : tt('user.password.show', '显示')}
+                </Text>
+              </View>
             </View>
           </View>
           <View className="flex flex-col gap-[12rpx]">
@@ -114,12 +117,15 @@ export default function Password() {
                 value={newPwd}
                 onInput={(e) => setNewPwd(e.detail.value)}
               />
-              <Text
-                className="absolute right-[24rpx] text-body text-muted-foreground"
+              <View
+                className="absolute right-0 top-0 flex h-full items-center px-[24rpx]"
+                hoverClass="opacity-60"
                 onClick={() => setShowNew((v) => !v)}
               >
-                {showNew ? tt('user.password.hide', '隐藏') : tt('user.password.show', '显示')}
-              </Text>
+                <Text className="text-body text-muted-foreground">
+                  {showNew ? tt('user.password.hide', '隐藏') : tt('user.password.show', '显示')}
+                </Text>
+              </View>
             </View>
             {newPwd !== '' && !newPwdValid && (
               <Text className="mt-[12rpx] text-caption text-destructive">
@@ -140,12 +146,17 @@ export default function Password() {
                 value={confirmPwd}
                 onInput={(e) => setConfirmPwd(e.detail.value)}
               />
-              <Text
-                className="absolute right-[24rpx] text-body text-muted-foreground"
+              <View
+                className="absolute right-0 top-0 flex h-full items-center px-[24rpx]"
+                hoverClass="opacity-60"
                 onClick={() => setShowConfirm((v) => !v)}
               >
-                {showConfirm ? tt('user.password.hide', '隐藏') : tt('user.password.show', '显示')}
-              </Text>
+                <Text className="text-body text-muted-foreground">
+                  {showConfirm
+                    ? tt('user.password.hide', '隐藏')
+                    : tt('user.password.show', '显示')}
+                </Text>
+              </View>
             </View>
             {confirmPwd !== '' && !confirmMatch && (
               <Text className="mt-[12rpx] text-caption text-destructive">
@@ -154,9 +165,15 @@ export default function Password() {
             )}
           </View>
 
-          <Text className="text-right text-body text-primary" onClick={gotoForgot}>
-            {tt('user.password.forgotOld', '忘记原密码?通过手机验证修改')}
-          </Text>
+          <View
+            className="flex justify-end py-[16rpx]"
+            hoverClass="opacity-60"
+            onClick={gotoForgot}
+          >
+            <Text className="text-right text-body text-primary">
+              {tt('user.password.forgotOld', '忘记原密码?通过手机验证修改')}
+            </Text>
+          </View>
 
           <View
             className={`mt-[16rpx] flex h-[100rpx] items-center justify-center rounded-xl bg-primary ${

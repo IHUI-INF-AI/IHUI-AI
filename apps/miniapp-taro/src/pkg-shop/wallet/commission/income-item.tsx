@@ -75,6 +75,7 @@ export function IncomeItem({ row }: { row: IncomeRow }) {
           {row.orderId ? (
             <View
               className="ml-[16rpx] px-[16rpx] py-[6rpx] rounded-sm border border-border"
+              hoverClass="opacity-60"
               onClick={copyOrder}
             >
               <Text className="text-caption text-primary">{t('income.copy')}</Text>
