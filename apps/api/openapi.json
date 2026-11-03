@@ -32240,6 +32240,15 @@
         }
       }
     },
+    "/api/admin/relay/account-pool/reauth-status": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/admin/relay/account-pool/renewal-capability": {
       "get": {
         "responses": {
