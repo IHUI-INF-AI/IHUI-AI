@@ -128771,6 +128771,15 @@
         }
       }
     },
+    "/api/edu-ai-management/attendance/batch-check-in": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/edu-ai-management/attendance/check-in": {
       "post": {
         "responses": {
@@ -128782,6 +128791,76 @@
     },
     "/api/edu-ai-management/attendance/check-out": {
       "put": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/edu-ai-management/attendance/export": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/edu-ai-management/attendance/me": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/edu-ai-management/attendance/qrcode": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/edu-ai-management/attendance/qrcode-check-in": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/edu-ai-management/attendance/rule": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "put": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/edu-ai-management/attendance/rule/rotate-qr-secret": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/edu-ai-management/attendance/self-check-in": {
+      "post": {
         "responses": {
           "200": {
             "description": "Default Response"
