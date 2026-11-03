@@ -386,6 +386,51 @@ git commit
 
 ---
 
+## 3b. 跨端五门(285/289/290/291/292,2026-11-03 落地,均 blocking)
+
+> 编号 = `scripts/guardian-runner.mjs` 注册 id(`id: '285'`/`'289'`/`'290'`/`'291'`/`'292'`);本节只记语义与出口,存量/计数一律现读(`AGENTS.md §0.1`)。
+
+### 第 285 项 check-cross-end-component-props-parity.mjs(差值棘轮,不是绝对恒红)
+
+- **判什么**:两端同名组件对的 props 键集与必选性。判据引擎在 `scripts/lib/component-props-parity.mjs`(门脚本零复算)。
+- **存差键**:每对只记 `onlyRn` / `onlyMini` / `reqDrift` 三个集合;台账 `scripts/data/cross-end-props-parity-baseline.json` 登记当下账。
+- **棘轮**:在册对的三个集合**只减不增**,新键 ⇒ 红并逐键点名;全新同名对带漂移进仓而未落账 ⇒ 红;键集缩小 = 向统一收敛 ⇒ 绿并可提示收紧台账。落账唯一出口 `node scripts/check-cross-end-component-props-parity.mjs --update-baseline`(不许静默入账)。
+- **`mapped` 等价映射表**:`scripts/data/component-props-equivalence.json` 只收「同一语义槽位、两端命名不同」的键(event/content/style 三类);命中即归 `mapped`、从存差键剔除、不计存量(`scripts/lib/component-props-parity.mjs:184`)。**行为缺口不得入表**(一端真没有对应能力只能真实现或登记分叉台账);表条目增长必须与漂移键同轮减少,否则红;两端已自然对齐的条目记 `mappedStale` 供体检,不静默留白。
+- **`not-applicable` 裁决档**(整对不构成对账对象):owner + expires + evidence(仓库内 `文件:行`,该行必须真是声明)+ why 四件齐全、未到期才生效。可裁 `undetermined`(把"没读到"显式裁决掉),也可裁"能量出但确非同物"的整对(后者至少 2 条证据覆盖双端);缺字段/过期/证据指空 ⇒ `invalid-not-applicable-ruling` 红,`--update-baseline` 冲不掉,只能显式撤销;不许拿它把单键缺口洗成"整对不适用"。
+- **出口**:`node scripts/check-cross-end-component-props-parity.mjs [--staged|--json|--quiet|--self-test]`;应急 `HUSKY_SKIP_CROSS_END_PROPS_PARITY=1`。
+
+### 第 289 项 check-plan-deferred-expiry.mjs(台账 `deferred@` 到期)
+
+- **标记**:`deferred@YYYY-MM-DD(到期复评)` 里的日期是**允许继续挂着的最后一天**——当天不红,次日起红(`scripts/check-plan-deferred-expiry.mjs:10`);编号/owner 分别取 `scripts/lib/plan-task-index.mjs` 与 `scripts/data/plan-fields.jsonl`,本门不复制键名规则。
+- **宽限**:`--grace N`(默认 0)把红线整体顺延 N 天,是"允许补复评的时间",不是"再挂 N 天"(`scripts/check-plan-deferred-expiry.mjs:15`)。
+- **三态**:0 全未到期(汇总 `rows=N expired=M`)/ 1 到期未复评(逐条点名行号+编号+日期+owner+超期天数)/ 2 未判定(台账或侧车取不到、marker 日期非法、参数非法)。真出路只有两条:复评后续期,或结清摘行;**不许只删标记**。
+- **出口**:`node scripts/check-plan-deferred-expiry.mjs [--as-of YYYY-MM-DD] [--grace N] [--staged|--worktree|--json|--gate]`;应急 `HUSKY_SKIP_PLAN_DEFERRED_EXPIRY=1`。
+
+### 第 290 项 check-miniapp-interaction-hygiene.mjs(只判静态可证的死可点)
+
+- **A1 blocking 假可点**(`scripts/check-miniapp-interaction-hygiene.mjs:15`):handler 是空实现(`() => {}` / `() => undefined` / `() => void 0` / `() => null` / 同文件可证的空函数名)、可点标签的 className 同时带 `pointer-events-none`、handler 字面量为 `undefined`/`null`。绝对零容忍。
+- **A2 blocking 空端口**(`:23`):`onNavigate`/`onToast` 等端口被赋空实现(JSX 属性或对象字面量);端口名 import 门「端口等价层」的 `PORT_TYPE_DECLARATIONS`,端口表新增自动进射程,本门不另立清单。
+- **A3 advisory 交互反馈缺失**(`:30`):可点 `View`/`Text` 既无 `hoverClass`、也无 `active:`/`hover:` 类变体,且 handler 无导航意图 ⇒ 只报数;`--strict` 才折进退出码。不上 blocking 的原因:静态判不出"外层已有反馈、内层只做命中区"的合法结构,判红就是拿误报逼人写冗余代码。
+- **A4 advisory**(`:44`):`Taro.showModal` 无 `showCancel`/`cancelText`/`onCancel`,也无 `success`/`fail` 处理取消 ⇒ 用模态框做单按钮提示。
+- **A3 挂账形态**:条目进 `scripts/data/miniapp-interaction-allowlist.json`,带 owner/expires/evidence/rationale/count;A3 条目的 `expires` 不得早于 `ADVISORY_MIN_EXPIRES`(`2027-01-31`)。判序:到期即红;现读多于认领 ⇒ advisory(未挂账);认领多于现读 ⇒ advisory(清单腐烂,复核后下调或删除);现读归零 ⇒ 可销账。**A3 可挂账,但挂账不是销账。**
+- **出口**:`node scripts/check-miniapp-interaction-hygiene.mjs [--gate|--staged] [--json] [--strict] [--self-test]`;应急 `HUSKY_SKIP_MINIAPP_INTERACTION_HYGIENE=1`。
+
+### 第 291 项 check-web-rn-copy-parity.mjs(web↔RN 可见措辞)
+
+- **B1 blocking**:同屏 web 侧已走 i18n 键,RN 侧仍硬编码与该键 `zh-CN` 译文**逐字相同**的中文(JSX 文本节点或 `placeholder`/`title`/`accessibilityLabel` 等用户可见属性)。
+- **B2 advisory**:两侧键不同(`K_rn ≠ K_web`)但译文逐字相同。
+- **B3 同义键异值(`B3-synonym-drift`)**:B1/B2 只认逐字相等,同义换词与同族取值不同是**结构性盲区**;B3 按语义族 `SYNONYM_FAMILIES` 把不同键名的同义键配对,再用归一化(大小写/标点/术语/单位/占位符顺序)后的取值比较,分"硬编码值落在族内"与"两侧键同族异名"两路取证。
+- **台账**:`scripts/data/web-rn-copy-diffs.json`。B1/B3 新增未挂账 ⇒ 红;B2 只 advisory;但三条 rule 的条目**过期/缺字段一律红**(账本纪律不因 advisory 档放松)。
+- **出口**:`node scripts/check-web-rn-copy-parity.mjs [--gate|--staged] [--json] [--self-test]`;应急 `HUSKY_SKIP_WEB_RN_COPY_PARITY=1`。
+
+### 第 292 项 check-staged-downgrade.mjs(旧 blob 回写)
+
+- **判据**:暂存 blob **整 blob 逐字**等于该路径某枚祖先 blob、而 HEAD 已有更新版本 ⇒ 红,点名「路径 + 祖先 sha + HEAD oid」。祖先窗口默认回看 80 枚"改过该路径"的提交(`scripts/lib/ancestor-downgrade.mjs:30`);判据单源同文件,`gen-ui-mirror --apply` 写手侧前置复用(`downgrade=` 拒写)。
+- **合法回滚**:提交正文行首写 `intentional-revert: <依据>`(大小写不敏感,依据去空白 ≥8 字符,`scripts/lib/ancestor-downgrade.mjs:33`、`:36`);行首才认,模板注释 `#` 之后不算(`:52`)。命中 ⇒ 放行并逐条留痕 `.ihui-agent/state/intentional-revert.jsonl`(留痕失败不影响放行)。空口"有意回退"不算。
+- **出口**:`node scripts/check-staged-downgrade.mjs --staged`;应急 `HUSKY_SKIP_STALE_DOWNGRADE=1`。
+
+---
+
 ## 4. post-commit git-push-guard.mjs
 
 `scripts/git-push-guard.mjs` 是 [AGENTS.md §21](../AGENTS.md) 任务完成硬定义的核心防线,解决"commit 后忘记 push"协作事故。
@@ -450,9 +495,10 @@ HUSKY_SKIP_TYPECHECK=1 git push   # 紧急 push,不推荐
 
 ### 6.1 `--no-verify` 合法 vs 非法
 
-**合法场景**(见 [AGENTS.md §12/§16](../AGENTS.md)):
-- pre-push / pre-commit hook 失败原因是**其他 agent 代码**(schema drift / 其他模块 TS/lint 错误 / 其他 agent 未完成 migration),不在本任务范围
-- 本任务改动文件已通过 typecheck + lint + build 验证
+**默认没有合法场景(2026-11-03 机主明令,见 [AGENTS.md §12](../AGENTS.md))**:
+- 钩子判红后的归因只回答"这道红是不是本任务引入的",**不是跳钩授权**;默认非零退出、不落地。
+- 出路只有三条:修红后重跑 / 等并发会话释放索引 / 走 `node scripts/object-space-land.mjs`(不跑钩子,落地后自动复跑受影响门并把结果打进 stdout)。
+- 仅限人工确认后显式走 `safe-commit.mjs --allow-skip-hooks="<原因>"`(正文自动写入「人工授权跳钩」一行,默认关闭);裸 `--no-verify` 不再列为合法操作。
 
 **非法场景**:
 - hook 失败原因是**本任务自己代码** → 必须修复后正常 commit,**禁止** `--no-verify` 跳过
@@ -466,7 +512,19 @@ HUSKY_SKIP_TYPECHECK=1 git push   # 紧急 push,不推荐
 | post-commit | `HUSKY_SKIP_PUSH=1 git commit` | 跳过自动 push,commit 仅落地本地 |
 | pre-push | `HUSKY_SKIP_TYPECHECK=1 git push` | 跳过全量 typecheck |
 
-> `--no-verify` 不是流程事故,前提是本任务改动文件已通过 typecheck + lint + build 验证(见 [AGENTS.md §16](../AGENTS.md))。
+> `--no-verify` 不是流程事故,前提是本任务改动文件已通过 typecheck + lint + build 验证(见 [AGENTS.md §16](../AGENTS.md))。**2026-11-03 起该前提不再构成授权**:默认永不跳钩,见 §6.1。
+
+### 6.3 跨端五门应急跳过变量(2026-11-03)
+
+| 门 | 脚本 | 跳过变量 | 默认档 |
+|----|------|----------|--------|
+| 285 | `scripts/check-cross-end-component-props-parity.mjs` | `HUSKY_SKIP_CROSS_END_PROPS_PARITY=1` | blocking(差值棘轮) |
+| 289 | `scripts/check-plan-deferred-expiry.mjs` | `HUSKY_SKIP_PLAN_DEFERRED_EXPIRY=1` | blocking |
+| 290 | `scripts/check-miniapp-interaction-hygiene.mjs` | `HUSKY_SKIP_MINIAPP_INTERACTION_HYGIENE=1` | blocking(A1/A2);A3/A4 advisory |
+| 291 | `scripts/check-web-rn-copy-parity.mjs` | `HUSKY_SKIP_WEB_RN_COPY_PARITY=1` | blocking(B1/B3);B2 advisory |
+| 292 | `scripts/check-staged-downgrade.mjs` | `HUSKY_SKIP_STALE_DOWNGRADE=1` | blocking |
+
+> 五个变量名以 `scripts/guardian-runner.mjs` 的 `skipEnv` 现值为准(`AGENTS.md §0.8`);跳过只免本次退出码,不销账、不删台账,且必须留痕(守门 89 同款纪律)。
 
 ---
 
