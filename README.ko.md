@@ -2221,6 +2221,13 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-03**
+- 🔧 기타:合并 origin/main 后重算四语 README 数字与最近更新、重建三端生成件并重封根护栏 (c497ced6bf)
+- 🐞 수정:恢复被归并丢弃的 unknown 收窄与 e2e 类型导入 (3d7d912572)
+- 🐞 수정:收掉收敛合并的两处后遗症——docs 公开面门重复登记摘除(正号 285),指标存在性门补 R4 文档点名 (657534b221)
+- 🐞 수정:文档中心每页只剩一个 H1 且它必须是本页主题;不存在的 slug 不再把 slug 当标题(票 D53 第八批) (b2267de78c)
+- 🔧 기타:收敛非 required 高频 workflow —— visual-regression/lighthouse/i18n-dead 转 schedule+dispatch,real-db/mirror/style-spec 按 ref 只跑最新,android APK 改 per-ref 取消 (6d42d30f15)
+
+**2026-11-03**
 - 🐞 수정:老格式 Office 预览默认不再外发文件地址,文档中心口径同批改准(票 D53 第七批) (4fe47b7af3)
 - 🔧 기타:收编停留≥3分钟的未提交改动 (ac7a1c3ac3)
 - 🔧 기타:对齐 README.md 头条表/API/测试/守门/CI 五处数字 (72d41e857d)
@@ -2524,9 +2531,6 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 **2026-11-03**
 - 🔧 기타:收编停留≥3分钟的未提交改动 (0fff93a09c)
-
-**2026-11-03**
-- 🔧 기타:收编停留≥3分钟的未提交改动 (696ab99e91)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
