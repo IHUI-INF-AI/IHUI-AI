@@ -204,6 +204,15 @@ os.environ.setdefault("IHUI_SQLITE_SYNCHRONOUS", "OFF")
 # 环境变量优先级高于 pydantic 的 .env,故开发者显式配置不会被覆盖。
 os.environ.setdefault("CORS_ORIGIN", "http://localhost:8801")
 
+# 2026-11-04:同一条时序约束也适用于 NODE_ENV —— 2026-11-01 起 Settings.node_env 缺省
+# 改成 "production",而 app.main 在**模块导入期**就执行 create_app() → settings.validate_secrets(),
+# 生产档缺 JWT_SECRET 会当场 ValueError。测试文件(如 tests/test_health.py)在模块级
+# `from app.main import app`,即早于 autouse fixture `_isolate_jwt_auth` 的 monkeypatch;
+# CI 又没有 .env 补密钥 ⇒ 收集期整片 ERROR。这里在 conftest 加载期(早于任何测试模块导入)
+# 把进程标成 development,与 _isolate_jwt_auth 的既有语义一致(该 fixture 仍逐用例再钉一次);
+# 生产档必须拒绝空密钥的行为由 tests/test_auth_failclosed_defaults.py 用 fresh Settings() 独立覆盖。
+os.environ.setdefault("NODE_ENV", "development")
+
 # 2026-09-20 性能立:app.main 导入税 ~6.2s(LangChain/LiteLLM/Playwright 全链)。
 # 不再模块级 import,改为首次使用时惰性加载:
 #   - 纯单元测试文件所在的 xdist worker 完全免付 6.2s;
