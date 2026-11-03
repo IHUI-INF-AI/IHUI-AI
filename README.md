@@ -41023,3 +41023,35 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失     | 4000 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
 - **4000 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
 A: Yes. ~14839+ tests / 4000 test files / 67 e2e spec / 4673 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
+对外关键数字声明(与本页生成块同源,均现算):**619 张表 · 4683 API 路由 · 25 个 WebSocket 端点 ·
+100 入库模型 · 38 平台自动发布 · 4006 测试文件 · 317 道工程守门 · 51 CI workflows ·
+| 数据库表 | 619 | `dbTables` |
+| API 路由 | 4683 | `apiRoutes` |
+| 测试文件 | 4006 | `testFiles` |
+| 工程守门 | 317 | `guardianGates` |
+| — blocking | 288 | `guardianBlocking` |
+| 跟踪文件 | 18895 | `trackedFiles` |
+上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-03。
+  <strong>619 张表 · 4683 API 路由 · 25 WebSocket 通道 · 88 守门脚本 · 56+ pre-commit 项 · 4006 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 51 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
+| **代码规模** | 8 端代码 / 205 schema 文件 / **619 数据库表**(实测 pgTable)/ drizzle-kit push 模式 / **4683 API 路由 + 25 WebSocket 通道**(实测 grep)/ 250+ Web 页面 / 200+ 组件 / 104 hooks / 16 共享包 / 5 语言 i18n parity(35 JSON 文件 7 端 × 5 语言) |
+| **测试覆盖** | **4006 测试文件 / ~14839+ 测试用例**(490 .test.ts + 67 .spec.ts + 162 test_*.py;TS ~10176 用例 + Python 4663 用例)+ Locust 压测 + Lighthouse 性能 + Visual Regression                                                                      |
+→ **IHUI-AI(智汇 AI)**。Apache 2.0 开源,176 大模型统一调度,PostgreSQL 行级安全多租户,完整商业闭环(10 支付网关 + VIP + 积分 + 钱包 + 订阅 + 退款),8 端同源 Monorepo(Web/API/AI-Service/Desktop/Extension/Mobile/Miniapp/CLI),542 张表 / 4683 API 路由 / 4006 测试文件 / ~14839+ 测试用例。5 分钟 Fork 到上线。**GitHub**:https://github.com/IHUI-INF-AI/IHUI-AI
+→ **IHUI-AI 工程守门**:87 守门/验证脚本(59 check + 11 verify + 6 guard + 2 sync + 9 scan)+ pre-commit 56+10 项(40 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段 + 51 CI workflows + post-commit 自动 push + lost-commit tag 自动同步 + 4006 测试文件 / ~14939+ 测试用例 + 67 e2e spec + Knip 死代码检测 + Lighthouse 性能 + Locust 压测 + mypy strict(Python 0 errors)+ tsc --noEmit(TS 0 errors)。每一行代码都通过三重门禁。
+核心数字: 8 端 / 176 模型 / 542 表 / 4393 API / 24 MCP 工具 / **38 发布平台** / **反风控五层防线 37+ 检测点** / **AI 对话可视化 inline 到消息气泡** / 88 守门脚本 / 4006 测试文件 / ~14839+ 测试用例 / 5 语言 i18n(7 端 35 JSON)/ 109 万行代码
+   技术护城河    │  • 8 端 / 542 表 / drizzle-kit push / 4683 API 路由    │
+| **代码规模** | 8 端代码 / 205 schema 文件 / 619 数据库表 / drizzle-kit push / 4683 API 路由 / 250+ Web 页面 / 16 共享包 / 88 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
+|                   | API                 | Fastify 5 / **4683 API 路由跨 288 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **288 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+|                   | **教务与考勤**      | 班级考勤规则(`edu_attendance_rule`:迟到 `lateAfter` / 早退 `earlyBefore` / 缺勤 `absentAfter` 三档 `HH:MM` 阈值 + 扫码密钥,Web 教务页可视化配置)/ 每日缺勤自动补录(调度任务 `edu-attendance-absent-daily`,按 `absentAfter` 为未签到在册学生补 `absent` 行,出勤率分母不再只算已签到的人)/ 请假审批联动(审批通过同事务按区间幂等落 `leave`)/ 整班批量点名(回库确认 `created·skipped·missedIds`)/ 考勤 CSV 导出 / 签到方式三档 `manual`(教师代签)·`self`(学生自签)·`qrcode`(HMAC 签名 60s TTL 二维码,教师端 Web+RN 渲染、RN+小程序扫码)/ 学生本人考勤页(Web+RN+小程序,`GET /attendance/me` 只认登录态且归属由服务端现取)/ 家长端考勤查看;人脸签到档按裁决不做空壳实现(需第三方人脸库与活体检测及合规授权) |
+|                   | 测试覆盖            | **4006 测试文件 / ~14839+ 测试用例**(490 .test.ts + 67 .spec.ts + 162 test_*.py;TS ~10176 + Python 4663)+ Vitest + Playwright + pytest + Locust 压测 + Lighthouse 性能 + Visual Regression                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+- **教务考勤**:班级阈值规则(迟到/早退/缺勤)/ 每日缺勤自动补录 / 请假审批联动 / 整班批量点名 / CSV 导出 / 代签·自签·扫码三档签到 / 学生本人页三端同步
+- **规模**:619 张表 · 4683 API 路由 · 4006 测试文件 · ~14839 测试用例
+- **质量**:317 道工程守门（288 blocking）· 51 CI workflows · 删水印即 CI 失败
+### 通病 ② 边界条件处理不足 → 实际:4006 测试文件 / ~14839+ 测试用例 + 67 e2e + 微服务工程模式
+| 边界条件缺失     | 4006 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
+- 619 数据库表 + drizzle-kit push + 16 共享包 + pgvector + 知识图谱 + Knip + Lighthouse + Locust 压测
+- **API(Fastify 5)**:4683 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
+- **4006 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
+A: Yes. ~14839+ tests / 4006 test files / 67 e2e spec / 4683 API 路由 / 619 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
+> **8 端代码 · 619 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 619 张数据库表 · 4451 个 API 路由。**
+- **教务考勤**:班级阈值规则(迟到/早退/缺勤)/ 每日缺勤自动补录 / 请假审批联动 / 整班批量点名 / CSV 导出 / 代签·自签·扫码三档签到 / 学生本人页三端同步
