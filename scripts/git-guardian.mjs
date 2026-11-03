@@ -12264,6 +12264,13 @@ function acquireSingleInstance(pidFile = GUARDIAN_PID_FILE) {
 }
 
 async function main() {
+  // --status 是只读入口(2026-11-03):必须先于轮级锁返回。常驻守护(--daemon)长期持有生产锁,
+  // 旧路径让 --status 去抢锁,抢不到就把"上一轮巡检仍在跑…"写进 stdout ⇒ 机器消费者 JSON.parse 失败;
+  // 且这条日志会被 append 进生产 git-guardian.log —— 只读查询不得产生任何写盘或输出污染。
+  if (STATUS_ONLY) {
+    console.log(JSON.stringify(status(), null, 1))
+    return 0
+  }
   // 手工/只读入口不参与单实例闸:它们要么不写盘,要么是人在等结果
   const manual = process.argv.includes('--check') || process.argv.includes('--notify-test')
   // 2026-11-02:一次性轮次也走轮级原子锁。旧的 acquireSingleInstance 是 pid 文件 read→write,
@@ -12387,10 +12394,6 @@ async function main() {
   }
 
   const before = status()
-  if (STATUS_ONLY) {
-    console.log(JSON.stringify(before, null, 1))
-    return 0
-  }
 
   // 任务漂移自检(2026-09-22 立):活任务曾被改回直跑 node.exe → Interactive 会话每 2 分钟
   // 闪一扇可见黑窗。安装器是对的,但任务层没人兜底;常规巡检顺手核对,漂移即静默重注册。
