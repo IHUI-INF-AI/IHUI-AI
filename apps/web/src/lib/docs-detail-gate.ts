@@ -79,4 +79,30 @@ export async function docsDetailGateStatus(
 export function docsDetailGateStatusOf(request: NextRequest): Promise<404 | 500 | null> {
   return docsDetailGateStatus(request.nextUrl.pathname)
 }
+
+/**
+ * 只有"文档请求"才落硬状态码;RSC 取数请求(客户端路由跳转)不落。
+ *
+ * 立因(2026-11-04 生产实测):Proxy 用 rewrite-with-status 落码时,生产 next start 是
+ * `-H 0.0.0.0 -p 8851` 且反代带 `x-forwarded-proto: https`,Next 组装出的内部目标
+ * `https://0.0.0.0:8851/...` 与请求 Host 的 `https://localhost:8851/...` 不同源 ⇒ 被判"外部代理"
+ * ⇒ 真去 fetch 一个没有 TLS 的端口 ⇒ 500 `Internal Server Error`(21 字节)。
+ * 所以硬码改成 Proxy 直接返回 Response,不再借 Next 的渲染通道。
+ * RSC 请求的响应体必须是 RSC 载荷,Proxy 不能塞 HTML —— 这类请求放行,
+ * 由页面自身 notFound() 渲染 not-found 界面(状态码对 RSC 无意义)。
+ */
+export function isDocsGateDocumentRequest(headers: Headers): boolean {
+  if (headers.get('rsc') === '1') return false
+  const accept = (headers.get('accept') ?? '').toLowerCase()
+  return !accept.includes('text/x-component')
+}
+
+/** 硬状态码响应体:自包含 HTML(零脚本、零外链),404 与 500 文案分开且互不冒充。 */
+export function renderDocsGateHtml(status: 404 | 500): string {
+  const [title, heading, detail] =
+    status === 404
+      ? ['页面不存在', '文档不存在', '这个文档链接无效或已被移除。']
+      : ['服务暂时不可用', '文档服务暂时不可用', '后端异常或超时,请稍后重试。']
+  return `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${status} · ${title} | 智汇AI</title><style>html,body{margin:0;height:100%;background:#0b0f14;color:#e6edf3;font:15px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif}main{display:flex;min-height:100%;align-items:center;justify-content:center;padding:24px}div{max-width:520px;text-align:center}strong{display:block;font-size:40px;letter-spacing:.04em;color:#58a6ff}h1{margin:12px 0 8px;font-size:22px}p{margin:0 0 24px;color:#8b949e}a{color:#58a6ff;text-decoration:none}a:hover{text-decoration:underline}</style></head><body><main><div><strong>${status}</strong><h1>${heading}</h1><p>${detail}</p><a href="/docs">返回文档中心</a></div></main></body></html>`
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
