@@ -819,8 +819,7 @@ describe.each(FAMILIES)('家族 $name 取词契约', (fam: Family) => {
     expect(bad, `硬编码中文越过额度:${bad.map((b) => `${b.f}=${b.n}>${b.cap}`).join(' ')}`).toEqual(
       [],
     )
-  }, // (PR#65 run 36350697722 'rules' 族超时红;本地热盘 0ms)。判据不变,仅预算 30s。 // 本用例逐族 spawn 权威守门脚本(跨进程 node 冷启动),CI 冷 runner 上单族可超默认 5s
-  30_000)
+  }, 30_000) // (PR#65 run 36350697722 'rules' 族超时红;本地热盘 0ms)。判据不变,仅预算 30s。 // 本用例逐族 spawn 权威守门脚本(跨进程 node 冷启动),CI 冷 runner 上单族可超默认 5s
 })
 
 describe('跨族卫生', () => {

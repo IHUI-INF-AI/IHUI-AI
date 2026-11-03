@@ -1,0 +1,550 @@
+{
+  "version": 1,
+  "note": "scripts/check-web-rn-copy-parity.mjs(守门 291)的措辞差异账本。每条必须有 file(web 路由)/ rule(B1-hardcoded-cjk 红 / B2-key-diff 警告)/ count(该屏该规则现读数)/ owner / expires(YYYY-MM-DD,当天仍在期) / evidence(可复核的 RN 文件:行号 + 两侧键值)。到期即红;count 少于现读 = 新增未挂账红(B1)或 advisory(B2);多于现读 = 清单腐烂 advisory。脚本只读不写。",
+  "entries": [
+    {
+      "file": "learn",
+      "rule": "B1-hardcoded-cjk",
+      "count": 2,
+      "owner": "web-rn-copy",
+      "expires": "2027-01-31",
+      "evidence": "packages/app/src/features/learn/LearnScreen.tsx:106 「已完成」↔ web learnMapPage.completed ; packages/app/src/features/learn/LearnScreen.tsx:117 「暂无学习路径」↔ web learnMapPage.empty ; 首读 2026-11-03 2 处"
+    },
+    {
+      "file": "settings/account-deletion",
+      "rule": "B1-hardcoded-cjk",
+      "count": 3,
+      "owner": "web-rn-copy",
+      "expires": "2027-01-31",
+      "evidence": "packages/app/src/features/account-cancel/AccountCancelScreen.tsx:48 「手机号」↔ web settings.accountDeletionPhoneLabel ; packages/app/src/features/account-cancel/AccountCancelScreen.tsx:87 「确认注销」↔ web settings.accountDeletionSubmit ; 首读 2026-11-03 3 处"
+    },
+    {
+      "file": "user/security",
+      "rule": "B1-hardcoded-cjk",
+      "count": 3,
+      "owner": "web-rn-copy",
+      "expires": "2027-01-31",
+      "evidence": "packages/app/src/features/change-phone/ChangePhoneScreen.tsx:100 「发送验证码」↔ web user.security.sendCode ; packages/app/src/features/change-phone/ChangePhoneScreen.tsx:93 「验证码」↔ web user.security.code ; 首读 2026-11-03 3 处"
+    },
+    {
+      "file": "wallet/recharge/fail",
+      "rule": "B1-hardcoded-cjk",
+      "count": 2,
+      "owner": "web-rn-copy",
+      "expires": "2027-01-31",
+      "evidence": "packages/app/src/features/topup-fail/TopupFailScreen.tsx:42 「充值失败」↔ web wallet.rechargeFail ; packages/app/src/features/topup-fail/TopupFailScreen.tsx:55 「联系客服」↔ web wallet.contactSupport ; 首读 2026-11-03 2 处"
+    },
+    {
+      "file": "wallet/recharge/success",
+      "rule": "B1-hardcoded-cjk",
+      "count": 1,
+      "owner": "web-rn-copy",
+      "expires": "2027-01-31",
+      "evidence": "packages/app/src/features/topup-success/TopupSuccessScreen.tsx:46 「充值成功」↔ web wallet.rechargeSuccess ; 首读 2026-11-03 1 处"
+    },
+    {
+      "file": "activities",
+      "rule": "B2-key-diff",
+      "count": 2,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "evidence": "packages/app/src/features/activity/ActivityScreen.tsx activity.empty ↔ activities.empty 同值「暂无活动」 ; activity.joinNow ↔ activities.join 同值「立即参与」 ; 首读 2026-11-03 2 处"
+    },
+    {
+      "file": "activities/[slug]",
+      "rule": "B2-key-diff",
+      "count": 1,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "evidence": "packages/app/src/features/activity-detail/ActivityDetailScreen.tsx activityDetail.title ↔ activities.descriptionLabel 同值「活动详情」 ; 首读 2026-11-03 1 处"
+    },
+    {
+      "file": "agents",
+      "rule": "B2-key-diff",
+      "count": 1,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "evidence": "packages/app/src/features/agent-screen/AgentScreen.tsx common.back ↔ agentsCategoriesPage.back 同值「返回」 ; 首读 2026-11-03 1 处"
+    },
+    {
+      "file": "agents/[id]",
+      "rule": "B2-key-diff",
+      "count": 2,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "evidence": "packages/app/src/features/agent-detail/AgentDetailScreen.tsx agentDetail.price ↔ agent.fieldPrice 同值「价格」 ; agentDetail.free ↔ agent.free 同值「免费」 ; 首读 2026-11-03 2 处"
+    },
+    {
+      "file": "agents/create",
+      "rule": "B2-key-diff",
+      "count": 6,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "evidence": "packages/app/src/features/agent-create/AgentCreateScreen.tsx common.loading ↔ agent.loading 同值「加载中...」 ; agentCreate.name ↔ agent.fieldName 同值「名称」 ; 首读 2026-11-03 6 处"
+    },
+    {
+      "file": "agents/stats",
+      "rule": "B2-key-diff",
+      "count": 1,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "evidence": "packages/app/src/features/agent-stat/AgentStatScreen.tsx common.back ↔ agentsStatsPage.back 同值「返回」 ; 首读 2026-11-03 1 处"
+    },
+    {
+      "file": "ai-skills",
+      "rule": "B2-key-diff",
+      "count": 1,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "evidence": "apps/mobile-rn/src/screens/AiSkillScreen.tsx common.cancel ↔ aiSkillsPage.importCancel 同值「取消」 ; 首读 2026-11-03 1 处"
+    },
+    {
+      "file": "ai-world",
+      "rule": "B2-key-diff",
+      "count": 3,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "evidence": "packages/app/src/features/ai-world/AiWorldScreen.tsx common.back ↔ aiWorldCreatePage.back 同值「返回」 ; aiWorld.title ↔ common.aiWorld.title 同值「AI 世界」 ; 首读 2026-11-03 3 处"
+    },
+    {
+      "file": "announcements",
+      "rule": "B2-key-diff",
+      "count": 2,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "evidence": "packages/app/src/features/announcement/AnnouncementScreen.tsx announcement.empty ↔ announcements.empty 同值「暂无公告」 ; announcement.pinned ↔ announcements.pinned 同值「置顶」 ; 首读 2026-11-03 2 处"
+    },
+    {
+      "file": "asks",
+      "rule": "B2-key-diff",
+      "count": 1,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "evidence": "packages/app/src/features/ask-list/AskListScreen.tsx askList.empty ↔ asks.empty 同值「暂无问答」 ; 首读 2026-11-03 1 处"
+    },
+    {
+      "file": "bi-dashboard",
+      "rule": "B2-key-diff",
+      "count": 1,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "evidence": "apps/mobile-rn/src/screens/DashboardScreen.tsx common.loading ↔ biDashboard.loading 同值「加载中...」 ; 首读 2026-11-03 1 处"
+    },
+    {
+      "file": "certificate",
+      "rule": "B2-key-diff",
+      "count": 2,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "evidence": "packages/app/src/features/certificate/CertificateScreen.tsx certificate.empty ↔ certificate.download.noCertificates 同值「暂无证书」 ; certificate.issuedDate ↔ certificate.detail.issueDate 同值「颁发日期」 ; 首读 2026-11-03 2 处"
+    },
+    {
+      "file": "chat",
+      "rule": "B2-key-diff",
+      "count": 1,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "evidence": "packages/app/src/features/chat/ChatScreen.tsx chat.modelLabel ↔ chatSettingsPage.model 同值「模型」 ; 首读 2026-11-03 1 处"
+    },
+    {
+      "file": "checkin",
+      "rule": "B2-key-diff",
+      "count": 1,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "evidence": "apps/mobile-rn/src/screens/CheckinAssistantScreen.tsx common.cancel ↔ checkin.captureWbWebCancel 同值「取消」 ; 首读 2026-11-03 1 处"
+    },
+    {
+      "file": "distribution",
+      "rule": "B2-key-diff",
+      "count": 2,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "evidence": "packages/app/src/features/distribution/DistributionScreen.tsx common.back ↔ distributionTeamDetailPage.back 同值「返回」 ; common.loading ↔ distribution.loading 同值「加载中...」 ; 首读 2026-11-03 2 处"
+    },
+    {
+      "file": "distribution/commission",
+      "rule": "B2-key-diff",
+      "count": 1,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "evidence": "apps/mobile-rn/src/screens/DistributionCompanyScreen.tsx common.loading ↔ distribution.loading 同值「加载中...」 ; 首读 2026-11-03 1 处"
+    },
+    {
+      "file": "distribution/team",
+      "rule": "B2-key-diff",
+      "count": 3,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "evidence": "packages/app/src/features/team/TeamScreen.tsx common.back ↔ distributionTeamDetailPage.back 同值「返回」 ; team.title ↔ distribution.teamTitle 同值「我的团队」 ; 首读 2026-11-03 3 处"
+    },
+    {
+      "file": "edu/exam",
+      "rule": "B2-key-diff",
+      "count": 2,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "evidence": "packages/app/src/features/exam/ExamScreen.tsx exam.title ↔ eduExamListPage.title 同值「在线考试」 ; exam.startExam ↔ eduExamListPage.start 同值「开始考试」 ; 首读 2026-11-03 2 处"
+    },
+    {
+      "file": "edu/exam/[id]",
+      "rule": "B2-key-diff",
+      "count": 2,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "evidence": "packages/app/src/features/exam-question/ExamQuestionScreen.tsx examQuestion.prev ↔ eduExamPage.prevQuestion 同值「上一题」 ; examQuestion.next ↔ eduExamPage.nextQuestion 同值「下一题」 ; 首读 2026-11-03 2 处"
+    },
+    {
+      "file": "edu/exam/[id]/result",
+      "rule": "B2-key-diff",
+      "count": 1,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "evidence": "packages/app/src/features/exam-result/ExamResultScreen.tsx examResult.failed ↔ eduExamResultPage.failed 同值「未通过」 ; 首读 2026-11-03 1 处"
+    },
+    {
+      "file": "edu/notes",
+      "rule": "B2-key-diff",
+      "count": 1,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "evidence": "packages/app/src/features/note-list/NoteListScreen.tsx noteList.empty ↔ eduNotesPage.empty 同值「暂无笔记」 ; 首读 2026-11-03 1 处"
+    },
+    {
+      "file": "edu/parent",
+      "rule": "B2-key-diff",
+      "count": 1,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "evidence": "apps/mobile-rn/src/screens/EduParentScreen.tsx common.cancel ↔ eduParent.cancel 同值「取消」 ; 首读 2026-11-03 1 处"
+    },
+    {
+      "file": "edu/progress",
+      "rule": "B2-key-diff",
+      "count": 2,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "evidence": "packages/app/src/features/study-progress/StudyProgressScreen.tsx studyProgress.title ↔ eduProgressPage.title 同值「学习进度」 ; studyProgress.weekMinutes ↔ eduProgressPage.weeklyHours 同值「本周学习时长」 ; 首读 2026-11-03 2 处"
+    },
+    {
+      "file": "edu/qa",
+      "rule": "B2-key-diff",
+      "count": 2,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "evidence": "packages/app/src/features/course-qa-list/CourseQAListScreen.tsx courseQAList.ask ↔ edu.qa.askBtn 同值「提问」 ; courseQAList.empty ↔ edu.qa.empty 同值「暂无问答」 ; 首读 2026-11-03 2 处"
+    },
+    {
+      "file": "exam",
+      "rule": "B2-key-diff",
+      "count": 1,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "evidence": "packages/app/src/features/exam/ExamScreen.tsx exam.questions ↔ exam.questionCountLabel 同值「题目数」 ; 首读 2026-11-03 1 处"
+    },
+    {
+      "file": "feedback",
+      "rule": "B2-key-diff",
+      "count": 1,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "evidence": "packages/app/src/features/feedback/FeedbackScreen.tsx feedback.contact ↔ feedback.field_contact 同值「联系方式」 ; 首读 2026-11-03 1 处"
+    },
+    {
+      "file": "following",
+      "rule": "B2-key-diff",
+      "count": 2,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "evidence": "packages/app/src/features/follow/FollowScreen.tsx follow.title ↔ follows.title 同值「关注」 ; common.loading ↔ follows.loading 同值「加载中...」 ; 首读 2026-11-03 2 处"
+    },
+    {
+      "file": "knowledge-rag",
+      "rule": "B2-key-diff",
+      "count": 1,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "evidence": "apps/mobile-rn/src/screens/KnowledgeRagScreen.tsx common.loading ↔ knowledgeRag.list.loading 同值「加载中...」 ; 首读 2026-11-03 1 处"
+    },
+    {
+      "file": "learn/[id]",
+      "rule": "B2-key-diff",
+      "count": 3,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "evidence": "packages/app/src/features/course-detail/CourseDetailScreen.tsx courseDetail.rating ↔ learnRatePage.rating 同值「评分」 ; courseDetail.free ↔ learn.free 同值「免费」 ; 首读 2026-11-03 3 处"
+    },
+    {
+      "file": "learn/payment/confirm",
+      "rule": "B2-key-diff",
+      "count": 3,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "evidence": "packages/app/src/features/payment/PaymentScreen.tsx payment.orderNo ↔ learnPaymentConfirmPage.fields.orderNo 同值「订单号」 ; payment.method ↔ learnPaymentConfirmPage.fields.payMethod 同值「支付方式」 ; 首读 2026-11-03 3 处"
+    },
+    {
+      "file": "live",
+      "rule": "B2-key-diff",
+      "count": 2,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "evidence": "packages/app/src/features/live/LiveScreen.tsx live.empty ↔ eduAi.live.empty 同值「暂无直播」 ; live.startAt ↔ live.startTime 同值「开始时间」 ; 首读 2026-11-03 2 处"
+    },
+    {
+      "file": "member/addresses",
+      "rule": "B2-key-diff",
+      "count": 2,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "evidence": "apps/mobile-rn/src/screens/AddressesScreen.tsx common.cancel ↔ memberAddressFormPage.cancel 同值「取消」 ; common.save ↔ memberAddressFormPage.save 同值「保存」 ; 首读 2026-11-03 2 处"
+    },
+    {
+      "file": "member/coupons",
+      "rule": "B2-key-diff",
+      "count": 3,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "evidence": "packages/app/src/features/coupon/CouponScreen.tsx coupon.title ↔ memberCouponsPage.title 同值「优惠券」 ; coupon.empty ↔ memberCouponsPage.empty 同值「暂无优惠券」 ; 首读 2026-11-03 3 处"
+    },
+    {
+      "file": "member/exam/record",
+      "rule": "B2-key-diff",
+      "count": 1,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "evidence": "packages/app/src/features/exam-history/ExamHistoryScreen.tsx examHistory.empty ↔ memberExamRecordPage.empty 同值「暂无考试记录」 ; 首读 2026-11-03 1 处"
+    },
+    {
+      "file": "member/feedback",
+      "rule": "B2-key-diff",
+      "count": 2,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "evidence": "packages/app/src/features/feedback/FeedbackScreen.tsx feedback.title ↔ member.feedback.title 同值「意见反馈」 ; feedback.submit ↔ member.feedback.submit 同值「提交」 ; 首读 2026-11-03 2 处"
+    },
+    {
+      "file": "member/subscription",
+      "rule": "B2-key-diff",
+      "count": 3,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "evidence": "packages/app/src/features/subscriptions/SubscriptionsScreen.tsx subscriptions.title ↔ memberSubscriptionPage.title 同值「订阅管理」 ; common.loading ↔ memberSubscriptionPage.loading 同值「加载中...」 ; 首读 2026-11-03 3 处"
+    },
+    {
+      "file": "patrol",
+      "rule": "B2-key-diff",
+      "count": 2,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "evidence": "apps/mobile-rn/src/screens/PatrolScreen.tsx common.cancel ↔ patrol.cancel 同值「取消」 ; common.delete ↔ patrol.action.delete 同值「删除」 ; 首读 2026-11-03 2 处"
+    },
+    {
+      "file": "payment",
+      "rule": "B2-key-diff",
+      "count": 3,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "evidence": "packages/app/src/features/payment/PaymentScreen.tsx payment.method ↔ payment.checkout.paymentMethod 同值「支付方式」 ; common.loading ↔ payment.checkout.loading 同值「加载中...」 ; 首读 2026-11-03 3 处"
+    },
+    {
+      "file": "points",
+      "rule": "B2-key-diff",
+      "count": 4,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "evidence": "packages/app/src/features/points/PointsScreen.tsx points.level ↔ points.levelLabel 同值「等级」 ; common.retry ↔ points.retry 同值「重试」 ; 首读 2026-11-03 4 处"
+    },
+    {
+      "file": "points/tasks",
+      "rule": "B2-key-diff",
+      "count": 1,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "evidence": "apps/mobile-rn/src/screens/TaskCenterScreen.tsx taskCenter.claimed ↔ points.tasks.claimed 同值「已领取」 ; 首读 2026-11-03 1 处"
+    },
+    {
+      "file": "publish",
+      "rule": "B2-key-diff",
+      "count": 1,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "evidence": "packages/app/src/features/publish/PublishScreen.tsx common.back ↔ publish.accounts.back 同值「返回」 ; 首读 2026-11-03 1 处"
+    },
+    {
+      "file": "publish/history",
+      "rule": "B2-key-diff",
+      "count": 1,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "evidence": "apps/mobile-rn/src/screens/PublishScreen.tsx common.cancel ↔ publish.history.cancel 同值「取消」 ; 首读 2026-11-03 1 处"
+    },
+    {
+      "file": "resources",
+      "rule": "B2-key-diff",
+      "count": 2,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "evidence": "apps/mobile-rn/src/screens/ResourcesScreen.tsx common.cancel ↔ resourceFormPage.submit.cancel 同值「取消」 ; common.loading ↔ resources.loading 同值「加载中...」 ; 首读 2026-11-03 2 处"
+    },
+    {
+      "file": "resources/[id]",
+      "rule": "B2-key-diff",
+      "count": 1,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "evidence": "apps/mobile-rn/src/screens/ResourcesScreen.tsx common.loading ↔ resources.loading 同值「加载中...」 ; 首读 2026-11-03 1 处"
+    },
+    {
+      "file": "search",
+      "rule": "B2-key-diff",
+      "count": 1,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "evidence": "packages/app/src/features/search/SearchScreen.tsx search.title ↔ common.search 同值「搜索」 ; 首读 2026-11-03 1 处"
+    },
+    {
+      "file": "settings/devices",
+      "rule": "B2-key-diff",
+      "count": 2,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "evidence": "apps/mobile-rn/src/screens/DevicesScreen.tsx common.cancel ↔ settings.devices.cancel 同值「取消」 ; common.error ↔ settings.devices.taskColError 同值「错误」 ; 首读 2026-11-03 2 处"
+    },
+    {
+      "file": "settings/notifications",
+      "rule": "B2-key-diff",
+      "count": 3,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "evidence": "packages/app/src/features/notification-settings/NotificationSettingsScreen.tsx notificationSettings.title ↔ settings.notificationsTitle 同值「通知设置」 ; notificationSettings.email ↔ settings.emailNotif 同值「邮件通知」 ; 首读 2026-11-03 3 处"
+    },
+    {
+      "file": "student/certificates",
+      "rule": "B2-key-diff",
+      "count": 2,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "evidence": "packages/app/src/features/cert-list/CertListScreen.tsx certList.title ↔ student.myCertsTitle 同值「我的证书」 ; certList.issuedAt ↔ student.issuedAt 同值「颁发时间」 ; 首读 2026-11-03 2 处"
+    },
+    {
+      "file": "student/notes",
+      "rule": "B2-key-diff",
+      "count": 1,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "evidence": "packages/app/src/features/note-list/NoteListScreen.tsx noteList.empty ↔ notes.empty 同值「暂无笔记」 ; 首读 2026-11-03 1 处"
+    },
+    {
+      "file": "student/papers",
+      "rule": "B2-key-diff",
+      "count": 2,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "evidence": "apps/mobile-rn/src/screens/MyPapersScreen.tsx common.cancel ↔ papers.cancel 同值「取消」 ; common.loading ↔ student.loading 同值「加载中...」 ; 首读 2026-11-03 2 处"
+    },
+    {
+      "file": "subscriptions",
+      "rule": "B2-key-diff",
+      "count": 1,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "evidence": "packages/app/src/features/subscriptions/SubscriptionsScreen.tsx common.loading ↔ subscriptions.loading 同值「加载中...」 ; 首读 2026-11-03 1 处"
+    },
+    {
+      "file": "team-knowledge",
+      "rule": "B2-key-diff",
+      "count": 1,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "evidence": "apps/mobile-rn/src/screens/TeamKnowledgeScreen.tsx common.cancel ↔ teamKnowledge.cancelBtn 同值「取消」 ; 首读 2026-11-03 1 处"
+    },
+    {
+      "file": "team-memory",
+      "rule": "B2-key-diff",
+      "count": 1,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "evidence": "apps/mobile-rn/src/screens/TeamMemoryScreen.tsx common.cancel ↔ teamMemory.cancelBtn 同值「取消」 ; 首读 2026-11-03 1 处"
+    },
+    {
+      "file": "user/fans",
+      "rule": "B2-key-diff",
+      "count": 1,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "evidence": "packages/app/src/features/user-fans/UserFansScreen.tsx common.loading ↔ user.fans.loading 同值「加载中...」 ; 首读 2026-11-03 1 处"
+    },
+    {
+      "file": "user/follow",
+      "rule": "B2-key-diff",
+      "count": 2,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "evidence": "packages/app/src/features/follow/FollowScreen.tsx common.loading ↔ user.follow.loading 同值「加载中...」 ; follow.unfollow ↔ user.follow.unfollow 同值「取消关注」 ; 首读 2026-11-03 2 处"
+    },
+    {
+      "file": "user/profile",
+      "rule": "B2-key-diff",
+      "count": 1,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "evidence": "packages/app/src/features/profile-edit/ProfileEditScreen.tsx common.cancel ↔ user.profile.cropCancel 同值「取消」 ; 首读 2026-11-03 1 处"
+    },
+    {
+      "file": "user/realname",
+      "rule": "B2-key-diff",
+      "count": 5,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "evidence": "packages/app/src/features/real-name-auth/RealNameAuthScreen.tsx realNameAuth.name ↔ user.realname.form.name 同值「真实姓名」 ; realNameAuth.namePlaceholder ↔ user.realname.form.namePlaceholder 同值「请输入真实姓名」 ; 首读 2026-11-03 5 处"
+    },
+    {
+      "file": "user/subscription",
+      "rule": "B2-key-diff",
+      "count": 1,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "evidence": "packages/app/src/features/subscriptions/SubscriptionsScreen.tsx common.loading ↔ user.subscription.loading 同值「加载中...」 ; 首读 2026-11-03 1 处"
+    },
+    {
+      "file": "vip",
+      "rule": "B2-key-diff",
+      "count": 2,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "evidence": "packages/app/src/features/vip/VipScreen.tsx vip.duration ↔ vip.durationDays 同值「{days} 天」 ; common.loading ↔ vip.loading 同值「加载中...」 ; 首读 2026-11-03 2 处"
+    },
+    {
+      "file": "wallet/recharge",
+      "rule": "B2-key-diff",
+      "count": 1,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "evidence": "apps/mobile-rn/src/screens/PurchaseScreen.tsx purchase.payMethod ↔ wallet.rechargeMethod 同值「支付方式」 ; 首读 2026-11-03 1 处"
+    },
+    {
+      "file": "wallet/withdraw",
+      "rule": "B2-key-diff",
+      "count": 2,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "evidence": "packages/app/src/features/withdraw/WithdrawScreen.tsx withdraw.amount ↔ wallet.withdrawAmount 同值「提现金额」 ; withdraw.bankCard ↔ wallet.methodBank 同值「银行卡」 ; 首读 2026-11-03 2 处"
+    },
+    {
+      "file": "workspace",
+      "rule": "B2-key-diff",
+      "count": 2,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "evidence": "apps/mobile-rn/src/screens/WorkspaceScreen.tsx common.loading ↔ workspace.loading 同值「加载中...」 ; common.retry ↔ workspace.retry 同值「重试」 ; 首读 2026-11-03 2 处"
+    },
+    {
+      "file": "workspace/permissions",
+      "rule": "B2-key-diff",
+      "count": 1,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "evidence": "apps/mobile-rn/src/screens/WorkspaceScreen.tsx common.loading ↔ workspace.permissionsPage.loading 同值「加载中...」 ; 首读 2026-11-03 1 处"
+    }
+  ]
+}
