@@ -13,6 +13,11 @@ import { fetchApi } from '@/lib/api'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import { TruncatedText, BackButton } from '@/components/common'
 import { cn } from '@/lib/utils'
+// 展示元数据(中文 label / 词表外「未判定」)同样是单一真相源,页面不得自带一份英文 label。
+import {
+  monitorAlertSeverityMeta,
+  monitorAlertStatusMeta,
+} from '@/lib/admin/monitor-alert-vocabulary'
 // 共享词表唯一真相源(canonical,§0.6 单一真相源:页面内不得再写一份合法值数组)。
 import {
   MONITOR_ALERT_SEVERITIES,
@@ -65,28 +70,54 @@ interface BadgeStyle {
 }
 
 const SEVERITY_STYLE: Record<MonitorAlertSeverity, BadgeStyle> = {
-  info: { bg: 'bg-sky-500/10', text: 'text-sky-600', label: 'Info' },
-  warning: { bg: 'bg-amber-500/10', text: 'text-amber-600', label: 'Warning' },
-  critical: { bg: 'bg-red-500/10', text: 'text-red-600', label: 'Critical' },
+  info: {
+    bg: 'bg-sky-500/10',
+    text: 'text-sky-600',
+    label: monitorAlertSeverityMeta('info').label,
+  },
+  warning: {
+    bg: 'bg-amber-500/10',
+    text: 'text-amber-600',
+    label: monitorAlertSeverityMeta('warning').label,
+  },
+  critical: {
+    bg: 'bg-red-500/10',
+    text: 'text-red-600',
+    label: monitorAlertSeverityMeta('critical').label,
+  },
 }
 const STATUS_STYLE: Record<MonitorAlertStatus, BadgeStyle> = {
-  firing: { bg: 'bg-red-500/10', text: 'text-red-600', label: 'Firing' },
-  suppressed: { bg: 'bg-amber-500/10', text: 'text-amber-600', label: 'Suppressed' },
-  resolved: { bg: 'bg-emerald-500/10', text: 'text-emerald-600', label: 'Resolved' },
+  firing: {
+    bg: 'bg-red-500/10',
+    text: 'text-red-600',
+    label: monitorAlertStatusMeta('firing').label,
+  },
+  suppressed: {
+    bg: 'bg-amber-500/10',
+    text: 'text-amber-600',
+    label: monitorAlertStatusMeta('suppressed').label,
+  },
+  resolved: {
+    bg: 'bg-emerald-500/10',
+    text: 'text-emerald-600',
+    label: monitorAlertStatusMeta('resolved').label,
+  },
 }
 const NEUTRAL_BADGE: Pick<BadgeStyle, 'bg' | 'text'> = {
   bg: 'bg-muted',
   text: 'text-muted-foreground',
 }
 
-/** 带兜底的取用出口:未知枚举不抛错、不折成已知档,原样显示裸值(空值显示 —) */
+/** 带兜底的取用出口:未知枚举显式「未判定」(词表规范),不冒充已知档、也不渲染裸值 */
 function severityBadge(value: string): BadgeStyle {
-  if (isMonitorAlertSeverity(value)) return SEVERITY_STYLE[value]
-  return { ...NEUTRAL_BADGE, label: value.trim() === '' ? '—' : value }
+  const meta = monitorAlertSeverityMeta(value)
+  if (isMonitorAlertSeverity(value)) return { ...SEVERITY_STYLE[value], label: meta.label }
+  return { ...NEUTRAL_BADGE, label: meta.label }
 }
 function statusBadge(value: string): BadgeStyle {
-  if (isMonitorAlertStatus(value)) return STATUS_STYLE[value]
-  return { ...NEUTRAL_BADGE, label: value.trim() === '' ? '—' : value }
+  const meta = monitorAlertStatusMeta(value)
+  if (isMonitorAlertStatus(value)) return { ...STATUS_STYLE[value], label: meta.label }
+  return { ...NEUTRAL_BADGE, label: meta.label }
 }
 
 const FIRED_AT_FMT = new Intl.DateTimeFormat('zh-CN', {
@@ -96,7 +127,7 @@ const FIRED_AT_FMT = new Intl.DateTimeFormat('zh-CN', {
   minute: '2-digit',
 })
 function formatFiredAt(value: string | null): string {
-  if (!value) return '—'
+  if (!value) return '-'
   const d = new Date(value)
   return Number.isNaN(d.getTime()) ? value : FIRED_AT_FMT.format(d)
 }
@@ -120,19 +151,19 @@ export default function ErrorDashboardPage() {
     },
   })
   const { data: alerts = [] } = useQuery<AlertRow[]>({
-    queryKey: ['admin', 'error-dashboard', 'errors'],
+    // 筛选必须落到服务端查询:真列名 severity/status 由后端过滤,前端筛选不重写这份语义
+    queryKey: ['admin', 'error-dashboard', 'errors', severityFilter, statusFilter],
     queryFn: async () => {
-      const r = await fetchApi<AlertsResponse>('/api/admin/error-dashboard/errors')
+      const params = new URLSearchParams()
+      if (severityFilter !== 'all') params.set('severity', severityFilter)
+      if (statusFilter !== 'all') params.set('status', statusFilter)
+      const qs = params.toString()
+      const r = await fetchApi<AlertsResponse>(
+        `/api/admin/error-dashboard/errors${qs ? `?${qs}` : ''}`,
+      )
       const payload = r.success ? r.data : undefined
       return payload && Array.isArray(payload.list) ? payload.list : []
     },
-  })
-
-  // 筛选真列名:旧实现拿 e.level(后端无此列,恒 undefined)比较 ⇒ 任何非 all 筛选恒空
-  const filtered = alerts.filter((a) => {
-    if (severityFilter !== 'all' && a.severity !== severityFilter) return false
-    if (statusFilter !== 'all' && a.status !== statusFilter) return false
-    return true
   })
 
   const cards = [
@@ -255,7 +286,7 @@ export default function ErrorDashboardPage() {
       {/* 错误列表 */}
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">{t('errorDash.errorList')}</h2>
-        {filtered.length === 0 ? (
+        {alerts.length === 0 ? (
           <div className="rounded-lg border border-dashed py-8 text-center text-muted-foreground">
             {t('errorDash.noData')}
           </div>
@@ -273,7 +304,7 @@ export default function ErrorDashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((a) => {
+                {alerts.map((a) => {
                   const sev = severityBadge(a.severity)
                   const st = statusBadge(a.status)
                   return (
@@ -282,7 +313,7 @@ export default function ErrorDashboardPage() {
                         <code className="font-mono text-label">{a.name}</code>
                       </td>
                       <td className="px-4 py-2.5">
-                        <TruncatedText value={a.message ?? '—'} className="max-w-[260px]" />
+                        <TruncatedText value={a.message ?? '-'} className="max-w-[260px]" />
                       </td>
                       <td className="px-4 py-2.5 font-mono text-label text-muted-foreground">
                         {a.source}

@@ -4146,13 +4146,17 @@ export function healUnresponsiveServices(opts = {}) {
     const c = parsed.counts
     const acted = (parsed.results || []).filter((x) => String(x.kind).startsWith('restarted'))
     const failed = (parsed.results || []).filter((x) => x.kind === 'restart-failed')
+    // `restarted-unverified` = 重启动作发出去了,但复验仍不应答(2026-10-21 事故型:boot 期抛错,
+    // 重启一百次也没用)。它**不是**"全部拉起成功",不能被下面的静音档吞掉;只有
+    // `restarted-recovered` 才属于"自愈的预期结果,只记日志不占人通道"。
+    const unverified = (parsed.results || []).filter((x) => x.kind === 'restarted-unverified')
     if (acted.length > 0 || failed.length > 0) {
       const body = [...acted, ...failed].map((x) => `· ${x.name} ${x.kind} — ${x.why}`).join('\n')
       const desp =
-        `本轮拉起 ${acted.length} 台 / 失败 ${failed.length} 台(实时计数只进正文,不进身份):\n${body}\n\n在册 ${c.checked ?? '?'} 台:应答 ${c.answering ?? '?'} / 设计内停止 ${c.expectedStopped ?? '?'} / 未判定 ${c.undetermined ?? '?'} / 观察 ${c.watch ?? '?'} / 冷却 ${c.cooldown ?? '?'} / 窗口封顶 ${c.capped ?? '?'}\n手动复现:node scripts/heal-unresponsive-services.mjs(只读)`
+        `本轮拉起 ${acted.length} 台 / 失败 ${failed.length} 台 / 重启后仍不应答 ${unverified.length} 台(实时计数只进正文,不进身份):\n${body}\n\n在册 ${c.checked ?? '?'} 台:应答 ${c.answering ?? '?'} / 设计内停止 ${c.expectedStopped ?? '?'} / 未判定 ${c.undetermined ?? '?'} / 观察 ${c.watch ?? '?'} / 冷却 ${c.cooldown ?? '?'} / 窗口封顶 ${c.capped ?? '?'}\n手动复现:node scripts/heal-unresponsive-services.mjs(只读)`
       // §噪声治理:全部拉起成功是自愈的"预期结果",只记日志不占人通道;
-      // 只有出现 restart-failed(收信人能处置的真异常)才发信到人。
-      if (failed.length > 0) {
+      // 只有真异常(restart-failed / 重启后仍不应答)才发信到人。
+      if (failed.length > 0 || unverified.length > 0) {
         notify(
           // 名字里不许带计数(型③,同元运维巡检那一格):原先每轮拉起/失败台数一变就是新身份,
           // 4 小时窗口形同虚设。计数进正文,身份里只留档位与服务名集合。
@@ -6938,6 +6942,143 @@ export function sweepAutonomyLegHealth(opts = {}) {
     return { ran: true, judged: true, breaches: 0, unjudged: 0 }
   } catch (e) {
     logger('⚠️ 发起腿健康派发失败(不阻断其余守护): ' + String((e && e.message) || e).slice(0, 160))
+    return { ran: false, why: '派发异常' }
+  }
+}
+
+/**
+ * 服务清单快照 ↔ 注册表现读的**常驻**派发点(尺子 = `scripts/check-service-inventory.mjs`,2026-11-03 立)。
+ *
+ * 立因:这把尺子此前**零自动派发点**(guardian-runner 0 命中、未进提交链/CI),入库快照烂在另一台
+ * 机的读数(host=lichunchuan / repoRoot=G:)数月无人发现。判机器状态 ⇒ 不进提交链(§12e);
+ * 本函数是它唯一的周期调度器。
+ * 口径与既有审计同族:只有 drift 才走人通道;unjudged/取数失败只写日志(§0.3);FACE-RED 是
+ * "仓里缺建服源"的债账面,不是本尺的漂移,绝不据此发信。身份只带 drift 计数(§5e-3);去重窗口
+ * 由 notifyGuardRed 统一管理,不另造计时器。
+ */
+const SERVICE_INVENTORY_TICK = join(WORKTREE, '.ihui-agent', 'state', 'service-inventory-tick.ts')
+const SERVICE_INVENTORY_LAST = join(WORKTREE, '.ihui-agent', 'state', 'service-inventory-last.json')
+const SERVICE_INVENTORY_INTERVAL_MS = Number(
+  process.env.IHUI_SERVICE_INVENTORY_INTERVAL_MS || 30 * 60 * 1000,
+)
+const SERVICE_INVENTORY_TIMEOUT_MS = Number(
+  process.env.IHUI_SERVICE_INVENTORY_TIMEOUT_MS || 120_000,
+)
+
+export function auditServiceInventory(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = SERVICE_INVENTORY_INTERVAL_MS,
+    tickFile = SERVICE_INVENTORY_TICK,
+    lastFile = SERVICE_INVENTORY_LAST,
+    logger = log,
+    notify = notifyGuardRed,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'check-service-inventory.mjs')
+  if (!existsSync(script)) {
+    logger(
+      'ℹ️ 服务清单:尺子脚本不在位(scripts/check-service-inventory.mjs)⇒ 本轮跳过,不记为已探测',
+    )
+    return { ran: false, why: '尺子脚本不在位' }
+  }
+  let lastTick = NaN
+  try {
+    lastTick = Date.parse(String(readFileSync(tickFile, 'utf8')).trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (!publicProbeDue(now, lastTick, intervalMs)) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, new Date(now).toISOString(), 'utf8')
+    const call =
+      typeof runner === 'function'
+        ? runner()
+        : (() => {
+            try {
+              const out = execFileSync(process.execPath, [script, '--json'], {
+                cwd: WORKTREE,
+                encoding: 'utf8',
+                windowsHide: true, // §5b:漏此参数在计划任务/守护下必弹控制台窗
+                timeout: SERVICE_INVENTORY_TIMEOUT_MS, // 守门 80:热路径派生一律带上限
+                maxBuffer: 1 << 22,
+                stdio: ['ignore', 'pipe', 'pipe'], // §12g:派生必须显式接管 stdio
+              })
+              return { status: 0, stdout: String(out || ''), stderr: '' }
+            } catch (e) {
+              return {
+                status: typeof e.status === 'number' ? e.status : 2,
+                stdout: String(e.stdout || ''),
+                stderr: String(e.stderr || e.message || ''),
+              }
+            }
+          })()
+    // --json 正文之后还会再打一行 `OK=… DRIFT=… FACE-RED=… UNJUDGED=…` 汇总;
+    // 结论只认这一行 —— 它才是三态分桶的稳定出口,--json 只用来取漂移明细。
+    const out = String(call.stdout || '')
+    const lines = out.trimEnd().split(/\r?\n/)
+    const tail = lines.length > 0 ? lines[lines.length - 1] : ''
+    const m = /^OK=(\d+) DRIFT=(\d+) FACE-RED=(\d+) UNJUDGED=(\d+)/.exec(tail.trim())
+    if (!m) {
+      logger(
+        `⚠️ 服务清单未产出结论(未判定,不记为已探测):rc=${call.status} ${([call.stderr, call.stdout].filter(Boolean).join(' ⊕ ') || '(无输出)').split(/\r?\n/)[0].slice(0, 140)}`,
+      )
+      return { ran: true, judged: false, why: '结论不可解析' }
+    }
+    const [okCount, drift, faceRed, unjudged] = m.slice(1, 5).map(Number)
+    let parsed = null
+    try {
+      parsed = JSON.parse(lines.slice(0, -1).join('\n'))
+    } catch {
+      /* 汇总行已取到;明细只影响信体可读性 */
+    }
+    try {
+      mkdirSync(dirname(lastFile), { recursive: true })
+      writeFileSync(
+        lastFile,
+        JSON.stringify(
+          { at: new Date(now).toISOString(), ok: okCount, drift, faceRed, unjudged },
+          null,
+          1,
+        ),
+        'utf8',
+      )
+    } catch {
+      /* 状态件写不掉只影响 --status 可见性,不影响判据 */
+    }
+    if (unjudged > 0) {
+      logger(`ℹ️ 服务清单:未判定 ${unjudged} 项(取数通道或入库件不可读)⇒ 只写日志不喊人(§0.3)`)
+      return { ran: true, judged: false, drift, unjudged }
+    }
+    if (drift > 0 && call.status !== 0) {
+      const bad = (parsed && parsed.verdicts ? parsed.verdicts : [])
+        .filter((v) => v.status === 'drift')
+        .map((v) => `${v.name}=${((v.fields || []).map((f) => f.key) || []).join('+')}`)
+      notify(
+        '服务清单快照与注册表漂移(该闸门此前无自动派发点)',
+        `读数:OK=${okCount} DRIFT=${drift} FACE-RED=${faceRed} UNJUDGED=${unjudged}\n` +
+          `漂移项:${bad.slice(0, 12).join(' ｜ ') || '(尺子未给明细)'}${bad.length > 12 ? ` …共 ${bad.length} 枚` : ''}\n` +
+          '尺子:scripts/check-service-inventory.mjs(只读注册表枚举 + 与入库清单逐字节对账)\n' +
+          '取证:node scripts/check-service-inventory.mjs --json\n' +
+          '出路:快照不得手改单条 —— 现读注册表后 `node scripts/check-service-inventory.mjs --snapshot > <临时文件>`,核对脱敏与跨机残留后覆写 scripts/data/service-inventory.json,再同步生产副本并复跑无 --snapshot 的对账。',
+        { severity: 'warning', dedupKey: `service-inventory;drift=${drift}` },
+      )
+      logger(`❌ 服务清单漂移:${drift} 枚(已按身份去重发信)`)
+      return { ran: true, judged: true, drift, unjudged: 0 }
+    }
+    if (drift > 0) {
+      logger(
+        `⚠️ 服务清单读数自相矛盾:DRIFT=${drift} 而 rc=${call.status}(正常应为非 0)⇒ 只报数不喊人`,
+      )
+      return { ran: true, judged: false, drift, unjudged: 0, why: '读数自相矛盾' }
+    }
+    logger(
+      `✅ 服务清单:OK=${okCount} 条,drift=0${faceRed > 0 ? `(${faceRed} 条 FACE-RED 属仓内建服源债账,非本尺判据)` : ''}`,
+    )
+    return { ran: true, judged: true, drift: 0, unjudged: 0, faceRed }
+  } catch (e) {
+    logger('⚠️ 服务清单派发失败(不阻断其余守护): ' + String((e && e.message) || e).slice(0, 160))
     return { ran: false, why: '派发异常' }
   }
 }
@@ -12260,6 +12401,13 @@ function acquireSingleInstance(pidFile = GUARDIAN_PID_FILE) {
 }
 
 async function main() {
+  // --status 是只读入口(2026-11-03):必须先于轮级锁返回。常驻守护(--daemon)长期持有生产锁,
+  // 旧路径让 --status 去抢锁,抢不到就把"上一轮巡检仍在跑…"写进 stdout ⇒ 机器消费者 JSON.parse 失败;
+  // 且这条日志会被 append 进生产 git-guardian.log —— 只读查询不得产生任何写盘或输出污染。
+  if (STATUS_ONLY) {
+    console.log(JSON.stringify(status(), null, 1))
+    return 0
+  }
   // 手工/只读入口不参与单实例闸:它们要么不写盘,要么是人在等结果
   const manual = process.argv.includes('--check') || process.argv.includes('--notify-test')
   // 2026-11-02:一次性轮次也走轮级原子锁。旧的 acquireSingleInstance 是 pid 文件 read→write,
@@ -12383,10 +12531,6 @@ async function main() {
   }
 
   const before = status()
-  if (STATUS_ONLY) {
-    console.log(JSON.stringify(before, null, 1))
-    return 0
-  }
 
   // 任务漂移自检(2026-09-22 立):活任务曾被改回直跑 node.exe → Interactive 会话每 2 分钟
   // 闪一扇可见黑窗。安装器是对的,但任务层没人兜底;常规巡检顺手核对,漂移即静默重注册。
@@ -12513,6 +12657,10 @@ async function main() {
     // 立因 = auto-evolve 这条腿在本机断了 6 天(48 轮仅 1 成功),期间零判据在跑 —— 失败被记成
     // "票失败"并封票,真因(执行体路径钉死别机盘符)一行也没被点名。判机器状态 ⇒ 不进提交链(§12e)。
     if (!CHECK_ONLY) sweepAutonomyLegHealth()
+    // 服务清单快照 ↔ 注册表现读(2026-11-03 立,尺子 = scripts/check-service-inventory.mjs):
+    // 立因 = 该闸门此前零自动派发点,快照烂在另一台机读数(host=lichunchuan/G:)无人发现。
+    // 判机器状态 ⇒ 不进提交链(§12e);只有 drift 才发信,unjudged/取数失败只写日志。
+    if (!CHECK_ONLY) auditServiceInventory()
     // Qoder 会话回灌计划任务存续(2026-10-31 立,尺子 = scripts/check-qoder-session-sync-task.mjs):
     // 立因 = 回灌腿以交互用户身份跑(DPAPI 只能由登录用户解),它的失效形态全是安静 —— 任务被删/
     // 禁用/改成 S4U/停摆都不会让池里那枚号立刻变红。判机器状态 ⇒ 不进提交链(§12e),本行是唯一调度器。
@@ -12787,6 +12935,9 @@ function startDaemon(bootGuard = null) {
         auditTunnelLegHealth()
         auditSmsChannelHealth()
         sweepAutonomyLegHealth()
+        // 服务清单快照 ↔ 注册表现读:与 main() 单轮路径同一挂点语义,共用节流戳
+        // ⇒ 双执行体并存时只有先到那个真派生,不会翻倍发信。
+        auditServiceInventory()
         // 根护栏清单自洽性:**必须挂 tick** —— startDaemon 是 setTimeout 链且不重读本文件,
         // 只挂 main() 一次性路径的话常驻守护永不判(与上面 feedback-loop 同一条教训)。
         auditRootGuardManifestSync()
@@ -12807,6 +12958,42 @@ function startDaemon(bootGuard = null) {
         //      的清单并带变异自证,而不是把人家的架构收口一次推平。
         auditImmutableGuardNewCommits()
         auditSweeperLiveness()
+        // A 档 12 面同挂 tick(2026-11-03 晚,机主令"毫无遗漏"):计划任务档被禁用后 daemon 是
+        // 唯一执行体,而实测**重开任务档也救不了它们** —— daemon 常驻持有 `git-guardian:daemon`
+        // 整把轮级锁,任务那一轮现读 `上一轮巡检仍在跑(pid=…)⇒ 本轮静默退出`。于是这 12 面
+        // 自 11-02T16:05Z 起零派发(节流戳冻结现读:deploy-stall-tick / index-unmerged-tick /
+        // host-timezone / disk-root-hygiene / git-filter-residue 等全部停在 15:56Z 前后)。
+        // 逐面核过才搬:全部自带节流戳、健康时只读一份 json、派生子进程 ≤120s,双执行体并存时
+        // 只先到那一个真跑(与上面各枚同一挂点语义),发信一律走 notify 的身份去重(§5e-3)。
+        watchPatrolHeartbeat()
+        watchWatchdog()
+        auditIndexUnmerged()
+        auditDeployStall()
+        auditPushDivergenceLeg()
+        auditGitFilterResidue()
+        auditHostTimezone()
+        auditDiskRootHygiene()
+        auditTempLanding()
+        auditOrphanDeletionRefs()
+        auditMigrationGaps()
+        auditRegistrySyncHealth()
+        // 第二批 11 面(同日续,2026-11-03 深夜):与上面同一判据(只挂 main() 的周期腿在 daemon
+        // 独占轮级锁后就是永久不跑),这一批按"贵在最省"的次序挑 —— 全部 6h/30min/5min 自带节流、
+        // 健康档只读一份 json 或一次 git 问话、子进程上限 ≤120s,且都不写工作树。
+        // `sweepLessonDraft`/`healMirrorPurgeLeg`/`sweepHandMirrorUpgrades` 三枚会走具名落地通道,
+        // 但各自带节流戳与"无活可派即零写零推"的收口(现读日志行「自进化派发:…零落地零推送」同型),
+        // 因此并存不翻倍。B 档(≥5 分钟长腿 / 真换口令 / 重启服务)仍刻意留在此处之外,理由见上一批注释。
+        auditAasaPublicHealth()
+        auditAppVersionLatest()
+        auditAssetPathHealth()
+        auditOriginGuardLiveness()
+        auditProdDepAdvisories()
+        sweepDesktopDiscoveryBudget()
+        auditQoderSessionSyncTask()
+        auditWorkbuddySessionSyncTask()
+        sweepLessonDraft()
+        healMirrorPurgeLeg()
+        sweepHandMirrorUpgrades()
         sweepDownloadsLiveHealth()
         auditLintStagedPins()
         // 反馈闭环六段巡检(2026-10-28 立;与 main() 单轮路径同一挂点语义,共用
@@ -13923,6 +14110,8 @@ export const __test__ = {
   auditSweeperLiveness,
   auditIndexUnmerged,
   auditLintStagedPins,
+  // 服务清单快照派发腿(2026-11-03 接线;镜像测试按名 import,不复制判据 §22c)。
+  auditServiceInventory,
   // App 更新卡 latest 行对账派发腿(2026-10-30 接线,Y-14;镜像测试按名 import,不复制判据 §22c)。
   // 2026-11-03 拆成两层:auditAppVersionLatest = 共用节流 + 逐端循环,auditAppVersionPlatform = 单端执行。
   auditAppVersionLatest,

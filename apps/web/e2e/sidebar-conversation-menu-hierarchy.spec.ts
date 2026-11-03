@@ -40,6 +40,25 @@ async function ensureConversations(page: Page): Promise<void> {
   }
 }
 
+/**
+ * 关净当前所有 Radix 菜单层(Escape 逐层收 + 等 DOM 里不再有 [role="menu"])。
+ *
+ * 为什么需要(CI 2026-11-03 实锤,断言4 `menu2` element(s) not found):
+ * 「导出为 Markdown」是异步 mutation(sidebar-chat-history.tsx handleExport →
+ * exportMutation.mutate),选中项后根菜单可能尚未随子菜单一起收起;此时再点
+ * ⋮ 触发钮 = 把仍开着的菜单 toggle 关掉,于是后面等不到 menu。菜单开着时点
+ * 触发器会关闭它,是 Radix 的合法交互、不是产品缺陷 ⇒ 用例先关净再点。
+ */
+async function closeAllMenus(page: Page): Promise<void> {
+  for (let i = 0; i < 3; i++) {
+    if ((await page.locator('[role="menu"]').count()) === 0) return
+    await page.keyboard.press('Escape')
+  }
+  await page
+    .waitForFunction(() => !document.querySelector('[role="menu"]'), undefined, { timeout: 5000 })
+    .catch(() => {})
+}
+
 async function openMenuForFirstConversation(page: Page) {
   await page.goto('/chat', { waitUntil: 'domcontentloaded', timeout: 60000 })
   await page.waitForSelector(SIDEBAR_HISTORY_SELECTOR, { timeout: 30000 })
@@ -118,6 +137,10 @@ test.describe('侧栏会话菜单层级(重构后)', () => {
 
     // ── 断言 4:压缩子菜单 2 项 ──
     const more2 = page.getByTestId('conversation-more-menu').first()
+    // 先关净导出后可能仍开着的根菜单(否则 click = toggle 关掉),再等 ⋮ 可用:
+    // 导出 mutation 未落定前 busyId 置位会让触发钮 disabled(带 spinner),click 会空转。
+    await closeAllMenus(page)
+    await expect(more2).toBeEnabled()
     await more2.click()
     const menu2 = page.getByRole('menu').first()
     await expect(menu2).toBeVisible()
@@ -128,14 +151,11 @@ test.describe('侧栏会话菜单层级(重构后)', () => {
     console.log('[menu-hierarchy] 压缩子菜单:', JSON.stringify(compLabels))
     expect(compLabels.length).toBe(2)
     await page.screenshot({ path: 'test-results/menu-hierarchy-3-compress-sub.png' })
-    // 关干净两级菜单(Escape 各关一层),再等 menu 全部收起;否则点触发钮会 toggle 反向关掉
-    await page.keyboard.press('Escape')
-    await page.keyboard.press('Escape')
-    await page
-      .waitForFunction(() => !document.querySelector('[role="menu"]'), undefined, { timeout: 5000 })
-      .catch(() => {})
+    // 关干净两级菜单,再等 menu 全部收起;否则点触发钮会 toggle 反向关掉
+    await closeAllMenus(page)
 
     // ── 断言 5:绑定 Issue 对话框出现白话用法提示 ──
+    await expect(more2).toBeEnabled()
     await more2.click()
     const menu3 = page.getByRole('menu').first()
     await expect(menu3).toBeVisible({ timeout: 10000 })
@@ -191,11 +211,8 @@ test.describe('侧栏会话菜单层级(重构后)', () => {
     await page.screenshot({ path: 'test-results/menu-hierarchy-5-history-export-sub.png' })
 
     // 压缩子菜单 2 项
-    await page.keyboard.press('Escape')
-    await page.keyboard.press('Escape')
-    await page
-      .waitForFunction(() => !document.querySelector('[role="menu"]'), undefined, { timeout: 5000 })
-      .catch(() => {})
+    await closeAllMenus(page)
+    await expect(more).toBeEnabled()
     await more.click()
     await page.getByTestId('conversation-compress-submenu').filter({ visible: true }).last().click()
     const compSub = page.getByRole('menu').nth(1)

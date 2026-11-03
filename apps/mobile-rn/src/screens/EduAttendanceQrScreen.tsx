@@ -29,7 +29,7 @@ import QRCodeSvg from 'react-native-qrcode-svg'
 import { fetchApi } from '@ihui/api-client'
 import { getTokens } from '@ihui/rn-app'
 import { Tappable } from '@ihui/ui-native'
-import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnRadius, rnRadiusFor, rnSpacing, rnType, rnCssLight } from '@ihui/design-tokens'
 import { appAlert } from '../components/BottomPops'
 import { useAuthStore, selectIsAuthenticated } from '../stores/auth-store'
 import { useI18n } from '../i18n'
@@ -532,7 +532,7 @@ function createQrStyles(tk: ReturnType<typeof getTokens>) {
       paddingHorizontal: rnSpacing.xl,
       paddingTop: rnSpacing.lg,
       paddingBottom: rnSpacing['2xl'],
-      backgroundColor: 'rgba(0,0,0,0.35)',
+      backgroundColor: rnCssLight.black35,
     },
     camTitle: {
       color: CAMERA_TEXT,
@@ -561,8 +561,8 @@ function createQrStyles(tk: ReturnType<typeof getTokens>) {
     camCancel: {
       borderRadius: rnRadiusFor.control,
       borderWidth: 1,
-      borderColor: 'rgba(255,255,255,0.7)',
-      backgroundColor: 'rgba(0,0,0,0.4)',
+      borderColor: rnCssLight.white70,
+      backgroundColor: rnCssLight.black40,
       paddingHorizontal: rnSpacing.xl,
       paddingVertical: rnSpacing.sm,
     },
@@ -573,7 +573,7 @@ function createQrStyles(tk: ReturnType<typeof getTokens>) {
 /** 相机层文字恒白(画面是暗底,不能依赖主题色);与 ScanLoginScreen 同一处理。 */
 const CAMERA_TEXT = '#FFFFFF'
 const CAMERA_SHADOW = {
-  textShadowColor: 'rgba(0,0,0,0.75)',
+  textShadowColor: rnCssLight.black75,
   textShadowOffset: { width: 0, height: 1 },
   textShadowRadius: 3,
 }
