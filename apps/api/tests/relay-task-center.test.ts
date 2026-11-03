@@ -97,8 +97,15 @@ describe('RELAY_POOL_TASKS 注册表(单一源)', () => {
       if (triggerableIds.has(t.id)) {
         expect(t.triggerable, t.id).toBe(true)
         expect(t.queue).toBeTruthy()
-        expect(t.schedulerId).toBeTruthy()
         expect(t.jobName).toBeTruthy()
+        if (t.id === 'workbuddy-session-sync') {
+          // 定时腿已撤除:无 schedulerId,但登记停用原因(仅手动一次性触发)
+          expect(t.schedulerId).toBeUndefined()
+          expect(t.retired).toMatch(/2026-11-03/)
+          expect(t.schedule).toMatch(/已停用/)
+        } else {
+          expect(t.schedulerId, t.id).toBeTruthy()
+        }
       } else {
         expect(t.triggerable, t.id).toBe(false)
         expect(t.note, `${t.id} 必须给真实出路(§0.8)`).toBeTruthy()
@@ -155,6 +162,22 @@ describe('collectRelayTaskStates(注入探针)', () => {
     // trae-sync scheduler 不在且无执行记录 ⇒ 未判定点名,不冒绿
     const trae = tasks.find((t) => t.id === 'trae-session-sync')!
     expect(trae.indeterminateReason).toMatch(/worker 未启动/)
+  })
+
+  it('已停用的定时腿(workbuddy)⇒ 判「已停用」,不冒 worker 未启动', async () => {
+    const tasks = await collectRelayTaskStates({
+      connection: { fake: true },
+      deps: stubDeps({
+        getSchedulerNext: async () => null,
+        getLastJobRun: async () => null,
+      }),
+    })
+    const wb = tasks.find((t) => t.id === 'workbuddy-session-sync')!
+    expect(wb.schedulable).toBe(false)
+    // 注册表明确登记了停用 ⇒ 状态源可读,不算未判定
+    expect(wb.sourceOk).toBe(true)
+    expect(wb.indeterminateReason).toBeNull()
+    expect(wb.disabledReason).toMatch(/2026-11-03/)
   })
 
   it('tick 文件不可读 ⇒ guardian/schtasks 族如实 indeterminate', async () => {
@@ -407,35 +430,52 @@ describe('judgeTickCarrierRun(心跳在位 ≠ 执行成功,2026-11-01 分栏口
   })
 
   it('器物自述 fail=0 ⇒ lastRunOk:true(有真实结果输入才给绿,不是无脑降级)', () => {
-    const r = judge({ ts: '2026-11-01T00:00:00Z', fail: 0 }, {
-      ...base,
-      atField: 'ts',
-      carrierLabel: '计划任务',
-      nowMs: NOW,
-    })
+    const r = judge(
+      { ts: '2026-11-01T00:00:00Z', fail: 0 },
+      {
+        ...base,
+        atField: 'ts',
+        carrierLabel: '计划任务',
+        nowMs: NOW,
+      },
+    )
     expect(r.sourceOk).toBe(true)
     expect(r.lastRunOk).toBe(true)
     expect(r.lastRunDetail).toMatch(/fail=0/)
   })
 
   it('器物自述 fail>0 ⇒ lastRunOk:false 并点名条数(正向对照,与上一例成对)', () => {
-    const r = judge({ ts: '2026-11-01T00:00:00Z', fail: 2 }, {
-      ...base,
-      atField: 'ts',
-      carrierLabel: '计划任务',
-      nowMs: NOW,
-    })
+    const r = judge(
+      { ts: '2026-11-01T00:00:00Z', fail: 2 },
+      {
+        ...base,
+        atField: 'ts',
+        carrierLabel: '计划任务',
+        nowMs: NOW,
+      },
+    )
     expect(r.lastRunOk).toBe(false)
     expect(r.lastRunDetail).toMatch(/失败项 2 个/)
   })
 
   it('raw=null(文件读不到)⇒ sourceOk:false,走既有 indeterminate 路径,不出任何成败结论', () => {
     const r = judge(null, { ...base, nowMs: NOW })
-    expect(r).toEqual({ sourceOk: false, lastRunAt: null, lastRunOk: null, lastRunDetail: null, stale: false })
+    expect(r).toEqual({
+      sourceOk: false,
+      lastRunAt: null,
+      lastRunOk: null,
+      lastRunDetail: null,
+      stale: false,
+    })
   })
 
   it('文件在但时刻缺失/不可解析 ⇒ 与读不到同栏(sourceOk:false),不猜', () => {
-    for (const raw of [{}, { attemptAt: 42 }, { attemptAt: 'not-a-date' }, { ts: '2026-01-01T00:00:00Z' }]) {
+    for (const raw of [
+      {},
+      { attemptAt: 42 },
+      { attemptAt: 'not-a-date' },
+      { ts: '2026-01-01T00:00:00Z' },
+    ]) {
       const r = judge(raw, { ...base, nowMs: NOW })
       expect(r.sourceOk, JSON.stringify(raw)).toBe(false)
       expect(r.lastRunOk).toBeNull()
@@ -463,7 +503,10 @@ describe('judgeTickCarrierRun(心跳在位 ≠ 执行成功,2026-11-01 分栏口
   })
 
   it('state:"dispatched" 是派发态不是执行结果 ⇒ 不得被读成成败(现读 guardian 侧的真实形态)', () => {
-    const r = judge({ attemptAt: '2026-11-01T00:00:00Z', state: 'dispatched' }, { ...base, nowMs: NOW })
+    const r = judge(
+      { attemptAt: '2026-11-01T00:00:00Z', state: 'dispatched' },
+      { ...base, nowMs: NOW },
+    )
     expect(r.lastRunOk).toBeNull()
     expect(r.lastRunDetail).toMatch(/没自述执行结果/)
   })
@@ -473,9 +516,7 @@ describe('judgeTickCarrierRun(心跳在位 ≠ 执行成功,2026-11-01 分栏口
     const tasks = await collectRelayTaskStates({
       deps: stubDeps({
         readTickJson: async (relPath) =>
-          relPath.includes('credential-health')
-            ? { ts: freshAt, fail: 0 }
-            : { attemptAt: freshAt },
+          relPath.includes('credential-health') ? { ts: freshAt, fail: 0 } : { attemptAt: freshAt },
       }),
     })
     const sentinel = tasks.find((t) => t.id === 'relay-capacity-sentinel')!
