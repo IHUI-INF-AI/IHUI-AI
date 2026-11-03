@@ -285,7 +285,8 @@ function faceReader(rev) {
  *
  * 三条不许漂的纪律:
  *  ① 清单与全部目标都从**同一枚 rev** 取(§0.4 同面同轮)⇒ 候选面自洽才放,候选面自己红照样红;
- *  ② 不掺解锁记录(人工解锁绑的是工作树哈希,跨面套用它就是把一次性放行变成永久放行);
+ *  ② 不掺**别的面的**解锁记录(2026-11-03 更正:解锁与封存现在一律绑被审面哈希,旧写法"人工解锁
+ *     绑的是工作树哈希"正是那次 47 轮冻结的另一半 —— 面只有一处定义,见 seal/unlock);
  *  ③ rev 形态不对 / 候选面取不到 ⇒ `verdict='unknown'` ⇒ 调用方维持原判,
  *     **绝不把"没判成"读成"放行"**(§0.3),也不因此新增红(§12e)。
  */
@@ -370,10 +371,21 @@ function readOrDie(path, label) {
   }
 }
 
-/** --seal:按现盘重算清单。必须给理由(人工复核的机读留痕)。 */
+/**
+ * --seal:按**被审面(缺省 HEAD blob)**重算清单 —— 与 `--check` 同面同尺(§0.4)。
+ *
+ * 为什么不是"按现盘":旧实现封的是工作树字节,而本仓共享工作树常年滞后 HEAD。2026-11-03 实测:
+ * 部署环连冻 47 轮,`--seal` 交出 bf5502484c51(工作树 302,612 B),而闸那一侧 `--check` 量的是
+ * HEAD blob a09208df9396(315,034 B)⇒ **"重封"这件事本身结构上不可能让闸变绿**,现象正是
+ * 本器自己那句差面判读写的"清单 ↔ 工作树 ↔ HEAD 三面里某一面对不上(在另一枚签出/另一时刻 --seal 过)"。
+ * 现在:封被审面;工作树那份若不同,只在返回的 `faceNotes` 里点名(不静默,也不为它封)。
+ * 取不到被审面 ⇒ 抛错不写盘(未判定不等于通过,§0.3)。
+ */
 export function seal({
   reason,
   manifestPath = MANIFEST_PATH,
+  rev = 'HEAD',
+  faceHash = faceHashOf,
   readFile = (p) => readFileSync(p, 'utf8'),
   root = ROOT,
   now = new Date(),
@@ -381,10 +393,19 @@ export function seal({
   if (!reason || !reason.trim())
     throw new Error('--seal 必须给 --reason(封存是人工动作,空理由拒写)')
   const old = loadManifest(readOrDie(manifestPath, '清单'))
+  const faceNotes = []
   const targets = old.targets.map((t) => {
-    const h = hashTarget(t, readFile, root)
-    if (!h.ok) throw new Error(`封存失败:${h.why}`)
-    return { ...t, sha256: h.sha256 }
+    const h = faceHash(t, rev)
+    if (typeof h !== 'string' || !h)
+      throw new Error(
+        `封存失败:${rev} 面上取不到 ${t.path}(未判定不封存;先确认该路径在被审面上真在位)`,
+      )
+    const wt = hashTarget(t, readFile, root)
+    if (wt.ok && wt.sha256 !== h)
+      faceNotes.push(
+        `${t.id}:工作树副本 ${wt.sha256.slice(0, 12)} ≠ ${rev} 面 ${h.slice(0, 12)} ⇒ 封的是 ${rev} 面;盘上那份是未提交的在飞改动,要让它进清单必须先提交再重封`,
+      )
+    return { ...t, sha256: h }
   })
   const doc = {
     $comment:
@@ -399,18 +420,23 @@ export function seal({
   const tmp = `${manifestPath}.tmp-${process.pid}`
   writeFileSync(tmp, `${JSON.stringify(doc, null, 2)}\n`, 'utf8')
   renameSync(tmp, manifestPath)
-  return doc
+  // faceNotes 只随返回值走(打进 CLI),**不进清单文件** —— 清单是闸的输入,掺进诊断文本会改掉它的哈希口径。
+  return { ...doc, faceNotes }
 }
 
-/** --unlock:把「人已复核」绑定到当前内容哈希,并写过期时刻。 */
+/**
+ * --unlock:把「人已复核」绑定到**被审面(缺省 HEAD blob)**的内容哈希,并写过期时刻。
+ * 与 seal 同一条理由(§0.4 同面同尺):闸判的是 HEAD 面,解锁记录按 `target.id + sha256` 逐字比对,
+ * 若这里绑工作树哈希,滞后的共享工作树会造出"锁放了但仍然红"——同一次事故的另一半。
+ */
 export function unlock({
   targetId,
   reason,
   ttlMin = 120,
+  rev = 'HEAD',
+  faceHash = faceHashOf,
   manifest,
   unlockPath = UNLOCK_PATH,
-  readFile = (p) => readFileSync(p, 'utf8'),
-  root = ROOT,
   now = Date.now(),
 } = {}) {
   if (!reason || !reason.trim()) throw new Error('--unlock 必须给 --reason(空理由拒写)')
@@ -420,8 +446,9 @@ export function unlock({
     throw new Error(
       `清单里没有目标 ${targetId}(现有:${manifest.targets.map((x) => x.id).join('/')})`,
     )
-  const h = hashTarget(t, readFile, root)
-  if (!h.ok) throw new Error(`解锁失败:${h.why}`)
+  const h = faceHash(t, rev)
+  if (typeof h !== 'string' || !h)
+    throw new Error(`解锁失败:${rev} 面上取不到 ${t.path}(未判定不解锁,§0.3)`)
   let doc = { records: [] }
   if (existsSync(unlockPath)) {
     try {
@@ -436,14 +463,14 @@ export function unlock({
   doc.records = doc.records.filter((r) => r?.id !== targetId || Date.parse(r?.expiresAt) > now)
   doc.records.push({
     id: targetId,
-    sha256: h.sha256,
+    sha256: h,
     reason: reason.trim(),
     at: at.toISOString(),
     expiresAt: expiresAt.toISOString(),
   })
   mkdirSync(dirname(unlockPath), { recursive: true })
   writeFileSync(unlockPath, `${JSON.stringify(doc, null, 2)}\n`, 'utf8')
-  return { id: targetId, sha256: h.sha256, expiresAt: expiresAt.toISOString() }
+  return { id: targetId, sha256: h, expiresAt: expiresAt.toISOString() }
 }
 
 function fmt(res) {
@@ -533,8 +560,10 @@ function main(argv) {
   if (has('--seal')) {
     const doc = seal({ reason: val('--reason', '') })
     console.log(
-      `✅ 已封存 ${doc.targets.length} 条:${doc.targets.map((t) => `${t.id}=${t.sha256.slice(0, 12)}`).join(' / ')}`,
+      `✅ 已按 HEAD 面封存 ${doc.targets.length} 条:${doc.targets.map((t) => `${t.id}=${t.sha256.slice(0, 12)}`).join(' / ')}`,
     )
+    for (const n of doc.faceNotes ?? [])
+      console.log(`⚠️ 面差点名:${n}`)
     return
   }
   let manifest
