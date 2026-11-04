@@ -466,6 +466,18 @@ export type { BackChevronProps } from './components'
 export { ScrollJumpButton } from './components'
 export type { ScrollJumpButtonProps } from './components'
 
+/** 跨端共享同构组件(NavBar/PayButton/TabBar):随 TabBar 液态玻璃接入(068af74ddf),
+ * 尚未挂到静态可达入口;自本 barrel 导出使 web/desktop/mobile-rn 宿主可 import(消费接线由各端负责)。 */
+export { NavBar, PayButton, TabBar } from './components'
+export type {
+  NavBarProps,
+  PayButtonProps,
+  PayButtonType,
+  TabBarProps,
+  TabBarKey,
+  TabBarItemConfig,
+} from './components'
+
 /** 统一分类栏(横滑条 + 点击下拉窗),两端共用;文案与图标一律由调用方 items 传入 */
 export { CategoryInlineBar, CategoryDropdown } from './components'
 export type { CategoryInlineBarProps, CategoryDropdownProps, CategoryItem } from './components'

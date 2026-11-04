@@ -17,10 +17,12 @@
  */
 import type { Metadata } from 'next'
 import { DownloadDetailContent } from './DownloadDetailContent'
+import { PlatformNotLaunched } from './PlatformNotLaunched'
 import {
   DOWNLOAD_PLATFORMS,
   getPlatformMeta,
   isDownloadPlatform,
+  normalizeDownloadPlatform,
 } from '@/config/downloads.config'
 import { mergeLiveMeta } from '@/config/downloads-live-meta'
 import { resolveLiveDownload } from '@/config/downloads-live'
@@ -47,9 +49,6 @@ export const metadata: Metadata = {
 // 2026-08-17 修复:generateStaticParams 原仅返回 desktop,导致静态导出(out/)
 // 缺 android-apk 等平台下载页(线上 /download/android-apk 会 404 或走占位)。
 // 2026-11-02:清单改取 DOWNLOAD_PLATFORMS 单源 —— 此前这里手抄一份 8 端数组,加一端要改两处。
-// 现返回全部 8 端,静态导出将生成各平台独立 HTML,客户端运行时再按 env 渲染。
-// 2026-11-03:清单不再在此手抄第二份 —— 直接 map DOWNLOAD_PLATFORMS 唯一来源;
-// 未登记的端(如 /download/harmony)渲染成显式「尚未上线」态,不回落 desktop。
 export function generateStaticParams() {
   return DOWNLOAD_PLATFORMS.map((platform) => ({ platform }))
 }
@@ -58,14 +57,15 @@ export const revalidate = 600
 
 export default async function DownloadPage({ params }: DownloadPageProps) {
   const { platform: rawPlatform } = await params
-  // 认不出的平台段直接把原串交给 client 走显式「尚未上线」态:不回落 desktop
-  // (2026-11-03 收口),也没有可解析的上游 —— 不白跑一次运行期解析。
+  // 认不出的平台段不再静默折成 desktop(此前 /download/harmony 会被渲染成桌面版详情页,
+  // 用户误以为那就是鸿蒙版)。不在下载中心清单里 ⇒ 显式「尚未上线」态,并列出可点走的平台。
   if (!isDownloadPlatform(rawPlatform)) {
-    return <DownloadDetailContent platform={rawPlatform} />
+    return <PlatformNotLaunched platformParam={rawPlatform} />
   }
+  const platform = normalizeDownloadPlatform(rawPlatform)
   // 只解析被请求的那一端:其余端的上游开销不应摊到这次渲染上
-  const live = await resolveLiveDownload(rawPlatform)
-  const meta = mergeLiveMeta(getPlatformMeta(rawPlatform), live)
-  return <DownloadDetailContent platform={rawPlatform} meta={meta} />
+  const live = await resolveLiveDownload(platform)
+  const meta = mergeLiveMeta(getPlatformMeta(platform), live)
+  return <DownloadDetailContent platform={platform} meta={meta} />
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

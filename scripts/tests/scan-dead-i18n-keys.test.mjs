@@ -40,6 +40,7 @@ import { test, describe, before, after, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
+import { builtinModules } from 'node:module'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 // §22c:判据实现只此一份,测试直接 import,不复制
@@ -1469,6 +1470,58 @@ describe('判定面纪律(缺省 HEAD blob / --staged 索引 blob / --worktree �
       2,
       '基线形状坏 ⇒ 未判定 exit 2',
     )
+  })
+
+  // ── 静态依赖面锁(2026-11-04 立,run 41786625799 的 i18n-dead-keys 判红形态) ──
+
+  test('S4 扫描器 import 图只许相对路径 + node 内置模块(零 install 的 cert job 必须能加载)', () => {
+    // 现场:8-End Consistency Cert 只做 checkout + setup-node(不跑 pnpm install),而
+    // rn-carried-keys.mjs / rn-shell-closure.mjs 在模块加载期静态 `import ts from 'typescript'`
+    // ⇒ scan-dead-i18n-keys.mjs 连"扫哪个面"都没走到就先 ERR_MODULE_NOT_FOUND,报告里是一段
+    // module 解析栈而不是任何死键。判据不是"能不能变绿",而是**加载期不得有第三方依赖**:
+    // AST 解析只在 miniapp-taro 承载闭包那一路需要,已改为调用点 createRequire。
+    // 本用例把整条相对 import 闭包走一遍,出现任何非内置裸包即判红(将来再有人静态引库当场拦住)。
+    const builtins = new Set(builtinModules)
+    const seen = new Set()
+    const offenders = []
+    const visit = (abs) => {
+      if (seen.has(abs)) return
+      seen.add(abs)
+      // 先剥注释/文档块:这些文件里大量注释提到 "from './lib/xxx.mjs'"、"from 'x'" 之类的字样,
+      // 不剥会当成真导入(自测自己误判,同 §0.7 的"判据自己先过反例")。
+      const text = fs
+        .readFileSync(abs, 'utf8')
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/^[ \t]*(?:\/\/|\/\/\/\/).*$/gm, '')
+      const fromRe = /^[ \t]*(?:import|export)\s[\s\S]*?from[ \t]*['"]([^'"]+)['"]/gm
+      const bareRe = /^[ \t]*import[ \t]*['"]([^'"]+)['"]/gm
+      const specs = [...text.matchAll(fromRe), ...text.matchAll(bareRe)].map((m) => m[1])
+      for (const spec of specs) {
+        if (spec.startsWith('.')) {
+          const rel = path.resolve(path.dirname(abs), spec)
+          if (!fs.existsSync(rel)) {
+            offenders.push(`${path.relative(REPO_ROOT, abs)} → 相对导入落点不存在:${spec}`)
+            continue
+          }
+          visit(rel)
+          continue
+        }
+        if (spec.startsWith('node:') || builtins.has(spec)) continue
+        offenders.push(`${path.relative(REPO_ROOT, abs)} → 加载期第三方依赖:${spec}`)
+      }
+    }
+    visit(SCRIPT_PATH)
+    assert.deepEqual(offenders, [], `扫描器加载期不得依赖任何第三方包:\n${offenders.join('\n')}`)
+    // 双保险:两处 AST 消费者不得再出现静态 typescript 导入(动态 require 不受此断言影响)
+    for (const rel of ['../lib/rn-carried-keys.mjs', '../lib/rn-shell-closure.mjs']) {
+      const src = fs.readFileSync(path.resolve(__dirname, rel), 'utf8')
+      assert.doesNotMatch(
+        src,
+        /^[ \t]*import\s+ts\s*(?:,|\s)\s*[^\n]*from\s*['"]typescript['"]/m,
+        `${rel} 不得在加载期静态取 typescript`,
+      )
+      assert.match(src, /requireHere\(\s*'typescript'\s*\)/, `${rel} 的 typescript 必须走调用点惰性加载`)
+    }
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
