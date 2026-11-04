@@ -45,7 +45,7 @@ export function AccountCancelScreen({
         <Text style={styles.desc}>注销账号后，您的所有数据将被永久删除且无法恢复。</Text>
 
         <View style={styles.fieldGroup}>
-          <Text style={styles.label}>手机号</Text>
+          <Text style={styles.label}>{t('settings.accountDeletionPhoneLabel')}</Text>
           <TextField
             colorScheme={colorScheme}
             style={styles.input}
@@ -84,7 +84,7 @@ export function AccountCancelScreen({
         </View>
 
         <View style={styles.fieldGroup}>
-          <Text style={styles.label}>确认注销</Text>
+          <Text style={styles.label}>{t('settings.accountDeletionConfirmLabel')}</Text>
           <TextField
             colorScheme={colorScheme}
             style={styles.input}
@@ -113,7 +113,7 @@ export function AccountCancelScreen({
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>确认注销</Text>
+            <Text style={styles.modalTitle}>{t('settings.accountDeletionConfirmTitle')}</Text>
             <Text style={styles.modalBody}>注销后数据不可恢复，请再次确认是否继续？</Text>
             <View style={styles.modalActions}>
               <TouchableOpacity style={styles.modalCancel} onPress={onCloseModal}>
