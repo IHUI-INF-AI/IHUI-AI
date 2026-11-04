@@ -14,18 +14,41 @@
  *
  * 本文件只做纯图遍历(零 IO、零判定),取文件内容由调用方注入,便于门与器物共用(§0.6)。
  */
-import ts from 'typescript'
+import { createRequire } from 'node:module'
+
+/**
+ * typescript **惰性加载**(2026-11-04 立)。
+ * 立因:8-End Consistency Cert 的 job 只做 checkout + setup-node(零 `pnpm install`),而本模块
+ * 在 import 期静态取 typescript ⇒ 整只扫描器连"按 target=web 跑不跑"都没走到就先
+ * ERR_MODULE_NOT_FOUND 判红(run 41786625799 的 i18n-dead-keys 即此形态,不是死键)。
+ * web 面的取材面里没有任何调用点需要 AST 解析,静态依赖纯属"为 miniapp-taro 的承载闭包买单"。
+ * 改成调用点取值:有依赖时行为与原来逐字节一致(同一份 typescript、同一套 API),无依赖且不走
+ * 闭包算式时正常跑完;真要走闭包而依赖缺失,由 rn-carried-keys 侧的既有 catch 折成"只会多报"。
+ */
+const requireHere = createRequire(import.meta.url)
+let cachedTs = null
+function getTs() {
+  if (cachedTs === null) {
+    try {
+      cachedTs = requireHere('typescript')
+    } catch (e) {
+      throw new Error(`typescript 未安装或不可解析(AST 解析面不可用):${e?.message ?? e}`)
+    }
+  }
+  return cachedTs
+}
 
 const TS_EXTS = ['.tsx', '.ts', '.jsx', '.js', '.mjs', '.json']
 /** 相对导入带目录形态时按 index.* 补全(Taro/Metro 都这么解)。 */
 const INDEX_FILES = TS_EXTS.map((e) => `index${e}`)
 
 /** 一个文件里所有"说明符 + 是否值导入"的取用点(import/export from,含裸 side-effect import)。 */
-export function specifiersOf(text, lang = ts.ScriptKind.TSX) {
+export function specifiersOf(text, lang = null) {
+  const ts = getTs()
   const out = []
   let src
   try {
-    src = ts.createSourceFile('x', text, ts.ScriptTarget.Latest, true, lang)
+    src = ts.createSourceFile('x', text, ts.ScriptTarget.Latest, true, lang ?? ts.ScriptKind.TSX)
   } catch {
     return out
   }
@@ -91,6 +114,7 @@ export function walkClosure({ roots, readFile = null, readBatch = null, toRel, i
         unresolved.push({ from: file, spec: '(正文取不到)', note: 'readBatch/readFile 返回空 ⇒ 该支路没走' })
         continue
       }
+      const ts = getTs()
       const lang = file.endsWith('.ts') && !file.endsWith('.d.ts') ? ts.ScriptKind.TS : ts.ScriptKind.TSX
       for (const { spec, names } of specifiersOf(text, lang)) {
         if (isBare(spec)) {
@@ -157,9 +181,10 @@ export function pkgNameOf(spec) {
 export const RN_NATIVE_RE = /^(react-native(-[-\w]+)?|expo[-\w]*|@react-native[\w-]*\/[\w-]+|@expo\/[\w-]+|nativewind)$/
 
 /** 别名表键:按 AST 取 `alias: { … }` 对象字面量的属性名(两处块都要,顶层与平台段是整体替换关系)。 */
-export function aliasKeysOf(text, lang = ts.ScriptKind.TS) {
+export function aliasKeysOf(text, lang = null) {
+  const ts = getTs()
   const keys = []
-  const src = ts.createSourceFile('cfg', text, ts.ScriptTarget.Latest, true, lang)
+  const src = ts.createSourceFile('cfg', text, ts.ScriptTarget.Latest, true, lang ?? ts.ScriptKind.TS)
   const walk = (node) => {
     if (ts.isPropertyAssignment(node) && node.name.getText() === 'alias' && ts.isObjectLiteralExpression(node.initializer)) {
       for (const p of node.initializer.properties) keys.push((p.name?.getText() ?? '').replace(/^['"]|['"]$/g, ''))
