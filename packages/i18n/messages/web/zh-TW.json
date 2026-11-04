@@ -23318,6 +23318,8 @@
     "accountDeletionResend": "{seconds}s 後重新發送",
     "accountDeletionSendCode": "發送驗證碼",
     "accountDeletionSubmit": "確認注銷",
+    "accountDeletionConfirmLabel": "確認注銷",
+    "accountDeletionConfirmTitle": "確認注銷",
     "accountDeletionSuccess": "賬號已注銷，正在跳轉登錄頁",
     "accountDeletionTitle": "賬號注銷",
     "accountDeletionWarning": "此操作不可逆，所有數據將永久丟失。",
@@ -25856,8 +25858,7 @@
     "empty": "暫無活動",
     "startTime": "開始時間",
     "endTime": "結束時間",
-    "participants": "參與人數",
-    "joinNow": "立即參與"
+    "participants": "參與人數"
   },
   "agentReviewDetail": {
     "title": "審核詳情",
@@ -26108,8 +26109,6 @@
     "unverifiedDesc": "您尚未完成實名認證，請完善以下資訊。",
     "name": "真實姓名",
     "namePlaceholder": "請輸入真實姓名",
-    "idNumber": "身分證號",
-    "idNumberPlaceholder": "請輸入身分證號",
     "submitting": "提交中…",
     "submit": "提交認證"
   },
@@ -26121,7 +26120,6 @@
     "title": "學習進度",
     "courses": "學習課程",
     "totalMinutes": "累計學習時長",
-    "weekMinutes": "本週學習時長",
     "streak": "連續學習",
     "courseProgress": "課程進度"
   },
@@ -26791,11 +26789,8 @@
   },
   "agentCreate": {
     "title": "建立 Agent",
-    "name": "名稱",
     "namePlaceholder": "請輸入名稱",
-    "category": "分類",
     "categoryPlaceholder": "請選擇分類",
-    "description": "描述",
     "descPlaceholder": "請輸入描述",
     "systemPrompt": "系統提示詞",
     "promptPlaceholder": "請輸入系統提示詞",
@@ -26862,7 +26857,6 @@
     "remove": "移除"
   },
   "certList": {
-    "title": "我的證書",
     "empty": "暫無證書",
     "issuer": "頒發機構",
     "issuedAt": "頒發時間"
@@ -26914,7 +26908,6 @@
   },
   "courseQAList": {
     "title": "課程問答",
-    "ask": "提問",
     "empty": "暫無問答",
     "asker": "提問者",
     "answers": "回答"
@@ -26991,7 +26984,6 @@
     "actionEdit": "編輯"
   },
   "notificationSettings": {
-    "title": "通知設定",
     "push": "推播通知",
     "message": "訊息提醒",
     "email": "郵件通知",
@@ -27092,9 +27084,7 @@
   "withdraw": {
     "title": "提現",
     "availableBalance": "可提現餘額",
-    "amount": "提現金額",
     "amountPlaceholder": "請輸入提現金額",
-    "bankCard": "銀行卡 ID",
     "bankCardPlaceholder": "請輸入銀行卡 ID(選填)",
     "submitting": "提現中...",
     "submit": "確認提現",
@@ -27489,7 +27479,6 @@
   },
   "team": {
     "retry": "重試",
-    "title": "我的團隊",
     "subtitle": "團隊管理",
     "totalMembers": "總成員",
     "activeMembers": "活躍成員",

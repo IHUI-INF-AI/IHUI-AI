@@ -76,7 +76,8 @@ export interface InputAreaProps {
   onSend?: (text: string) => void
   onVoicePress?: () => void
   onVoiceRelease?: (filePath: string) => void
-  onUpload?: (files: string[]) => void
+  /** 添加文件/图片(对齐 RN 端同名 prop:选文件由调用方负责,组件只发起点按) */
+  onImageAdd?: () => void
   onRemoveImage?: (index: number) => void
   imgsList?: InputFileItem[]
   /** 仅禁用发送按钮,不禁用 textarea */
@@ -88,8 +89,6 @@ export interface InputAreaProps {
   onFocus?: () => void
   onBlur?: () => void
   onKeyboardHeightChange?: (height: number) => void
-  /** 放大态变化通知父组件 */
-  onFangdaChange?: (active: boolean) => void
 
   // ── 跨端对齐(门285 B2 存量收敛):以下 16 项对齐 mobile-rn/src/components/InputArea.tsx ──
   // 仅对齐类型契约,RN 同名项缺省即降级为原行为;组件内部暂未接线的保持可选,
@@ -180,7 +179,7 @@ export default function InputArea({
   onSend,
   onVoicePress,
   onVoiceRelease,
-  onUpload,
+  onImageAdd,
   disabled = false,
   maxLength = 50000,
   autoFocus = false,
@@ -190,7 +189,6 @@ export default function InputArea({
   onFocus,
   onBlur,
   onKeyboardHeightChange,
-  onFangdaChange,
 }: InputAreaProps) {
   const { t } = useI18n()
   const [mode, setMode] = useState<Mode>('text')
@@ -250,14 +248,10 @@ export default function InputArea({
     onInput?.('')
   }, [onInput])
 
-  // 切换放大(通知父组件放大态变化)
+  // 切换放大
   const toggleFangda = useCallback(() => {
-    setIsFangdaActive((prev) => {
-      const next = !prev
-      onFangdaChange?.(next)
-      return next
-    })
-  }, [onFangdaChange])
+    setIsFangdaActive((prev) => !prev)
+  }, [])
 
   // 删除附件
   const handleRemoveImage = useCallback(
@@ -267,28 +261,11 @@ export default function InputArea({
     [onRemoveImage],
   )
 
-  // 加号旋转 + 取消后回退(成功选图后保持 isShowIcon,仅用户取消时回退)
-  const handleUploadToggle = useCallback(async () => {
+  // 加号旋转 + 通知调用方选文件(选文件由调用方负责,与 RN 端 onImageAdd 同契约)
+  const handleUploadToggle = useCallback(() => {
     setIsShowIcon((v) => !v)
-    try {
-      const imgRes = await Taro.chooseImage({
-        count: 9,
-        sizeType: ['compressed'],
-        sourceType: ['album', 'camera'],
-      })
-      const files = Array.isArray(imgRes.tempFilePaths) ? imgRes.tempFilePaths : []
-      if (files.length) onUpload?.(files)
-    } catch {
-      try {
-        const fileRes = await Taro.chooseMessageFile({ count: 9, type: 'file' })
-        const files = (fileRes.tempFiles || []).map((f: { path: string }) => f.path)
-        if (files.length) onUpload?.(files)
-      } catch {
-        /* 用户取消:回退加号旋转 */
-        setIsShowIcon(false)
-      }
-    }
-  }, [onUpload])
+    onImageAdd?.()
+  }, [onImageAdd])
 
   // 键盘高度自管(e.detail.height 单位为 px)
   const handleFocus = useCallback(
@@ -590,13 +567,14 @@ export default function InputArea({
                   : {}),
               }}
             >
-              {/* 语音切换按钮 search-box1:50rpx×44rpx */}
+              {/* 语音切换按钮 search-box1:50rpx×48rpx */}
               <View
                 className={cn('search-box1', mode === 'voice' ? 'active' : '')}
                 style={{
                   width: toUnit(INPUT_AREA_AI_HOME_VOICE_BTN_W_PX),
-                  // 高度 44rpx(=22)留在端内:22 这一档两端共享(RN 框内放大钮盒同为 22)
-                  height: rpx(44),
+                  // 高度收敛到 48rpx(=24):RN 删除框内放大钮后,原 22 档失去对端出处;
+                  // 24 是两端共用档(design-tokens 间距档 rnSpacing.2xl),不再单独占一档。
+                  height: rpx(48),
                   display: 'flex',
                   alignItems: 'center',
                   flex: 'none',
@@ -641,7 +619,8 @@ export default function InputArea({
                     color: 'var(--color-foreground)',
                     lineHeight: rpx(40),
                     flex: 1,
-                    minHeight: rpx(44),
+                    // 同语音钮高度:22 档收敛到两端共用 24(48rpx)
+                    minHeight: rpx(48),
                   } as CSSProperties
                 }
                 value={value}
@@ -876,7 +855,8 @@ export default function InputArea({
           <View className="flex-1 min-h-10 bg-muted rounded-sm px-3 py-2 flex items-center">
             <Textarea
               className="w-full text-sm text-foreground dark:text-muted-foreground bg-transparent"
-              style={{ minHeight: rpx(40), maxHeight: rpx(200), width: '100%' }}
+              // 默认变体输入框上限收敛到 120(=240rpx),与 RN 卡片式 INPUT_MAX_HEIGHT 同值
+              style={{ minHeight: rpx(40), maxHeight: rpx(240), width: '100%' }}
               value={value}
               placeholder={placeholder || t('messageInput.placeholder')}
               placeholderStyle="color: var(--color-muted-foreground); font-size: 28rpx;"

@@ -15,6 +15,11 @@
  * 用法(由 .husky/commit-msg 调用):
  *   node scripts/check-style-verification.mjs <commit-msg-file>
  *
+ * 退出码(三态,AGENTS.md §0.3):
+ *   0 = 通过(无 apps/web 的 .css 改动,或改动且 message 带 Verified-DOM trailer)
+ *   1 = 真违规(.css 改动但 message 缺 Verified-DOM trailer)
+ *   2 = 未判定(缺 commit-msg 参数 / git 取暂存区失败 / message 文件读不到)
+ *
  * 跳过:HUSKY_SKIP_STYLE_VERIFY=1(紧急 commit 时使用,但建议补验证)
  */
 import { readFileSync } from 'node:fs'
@@ -29,8 +34,8 @@ if (process.env.HUSKY_SKIP_STYLE_VERIFY === '1') {
 
 const msgFile = process.argv[2]
 if (!msgFile) {
-  console.error('❌ check-style-verification: 缺少 commit message 文件参数')
-  process.exit(1)
+  console.error('❌ check-style-verification: 缺少 commit message 文件参数 —— 未判定(exit 2)')
+  process.exit(2)
 }
 
 let stagedCssFiles = []
@@ -41,15 +46,27 @@ try {
     .split('\n')
     .filter(Boolean)
     .filter((f) => f.startsWith('apps/web/') && f.endsWith('.css'))
-} catch {
-  process.exit(0)
+} catch (e) {
+  // 取不到暂存区(非 git / git 一过性失败)⇒ 未判定,不得静默放行
+  console.error(
+    `❌ check-style-verification: 取不到 git 暂存区(git diff --cached 失败)—— 未判定(exit 2):${e?.message ?? e}`,
+  )
+  process.exit(2)
 }
 
 if (stagedCssFiles.length === 0) {
   process.exit(0)
 }
 
-const msg = readFileSync(msgFile, 'utf8')
+let msg
+try {
+  msg = readFileSync(msgFile, 'utf8')
+} catch (e) {
+  console.error(
+    `❌ check-style-verification: 读不到 commit message 文件 ${msgFile} —— 未判定(exit 2):${e?.message ?? e}`,
+  )
+  process.exit(2)
+}
 const hasVerifiedDom = /^Verified-DOM:\s*.+$/m.test(msg)
 
 if (!hasVerifiedDom) {
