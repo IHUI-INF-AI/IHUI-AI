@@ -5,6 +5,10 @@
   "siteLegUrlPrefix": "/remote-images/download",
   "latestKey": "ihui-ai-latest.apk",
   "minApkBytes": 52428800,
+  "cnLegTag": "mobile-apk-latest",
+  "cnLegOwner": "JLSLSSZWHYXGS_0",
+  "cnLegRepo": "IHUI-AI",
+  "cnLegUrl": "https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI/releases/download/mobile-apk-latest/ihui-ai-latest.apk",
   "releaseCertSha256": "62b0ff0e950125230683aacfb5d0b110d93d30a229ca5df1950a572255b82514",
   "releaseCertSha256Display": "62:B0:FF:0E…"
 }
