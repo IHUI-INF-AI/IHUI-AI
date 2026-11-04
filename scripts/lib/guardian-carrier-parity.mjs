@@ -115,10 +115,56 @@ export function isLegDefinition(line) {
 /** 收集 [from,to) 里被调用、且在 defs 里算"腿"的名字(仅语句/守卫位,注释行跳过)。 */
 
 /**
- * @param {{source:string, minDarkWarn?:number}} p
+ * 具名豁免(§0.7"豁免必须验过才免且会到期",§0.10 失效方向=多要一次说明):
+ * 条目形如 `{ name, owner, reason, expires }`。规则:
+ *   · 命中且未到期 ⇒ 从 dark 里摘掉,但**在读数里点名**摘了哪几条、为什么(不许静默);
+ *   · 已到期 ⇒ 照旧判黑,并在 why 里写"豁免到期";
+ *   · 登记的 name 在当下面**不再命中** ⇒ 记 `rotting`(清单腐烂,和豁免本身一样是红);
+ *   · 缺 reason/owner/expires 或 reason 短于 10 字 ⇒ 视同没登记(不许白名单化入口)。
+ * @returns {{kept:string[],expired:string[],rotting:string[],malformed:string[]}}
+ */
+export function applyCarrierExemptions(darkList, exemptions, now = Date.now()) {
+  const dark = new Set(darkList ?? [])
+  const kept = []
+  const expired = []
+  const malformed = []
+  const hit = new Set()
+  for (const e of Array.isArray(exemptions) ? exemptions : []) {
+    const name = String(e?.name ?? '')
+    if (!name) continue
+    const reason = String(e?.reason ?? '').trim()
+    const exp = Date.parse(String(e?.expires ?? ''))
+    if (!e?.owner || reason.length < 10 || !Number.isFinite(exp)) {
+      malformed.push(name || '(无名字目)')
+      continue // 形状坏 ⇒ 视同没登记,照旧判黑
+    }
+    if (!dark.has(name)) {
+      continue // 由 rotting 统计算
+    }
+    hit.add(name)
+    if (exp < now) expired.push(name)
+    else kept.push(name)
+  }
+  const rotting = (Array.isArray(exemptions) ? exemptions : [])
+    .map((e) => String(e?.name ?? ''))
+    .filter((n) => n && !dark.has(n) && !hit.has(n) && n !== '')
+    .filter((n, i, arr) => arr.indexOf(n) === i)
+  const removed = new Set([...kept]) // 到期/未命中的都不摘
+  const malformedSet = new Set(malformed)
+  return {
+    darkRemaining: [...dark].filter((n) => !removed.has(n)).sort(),
+    waived: kept.sort(),
+    expired: expired.sort(),
+    rotting: rotting.sort(),
+    malformed: malformedSet ? [...malformedSet].sort() : [],
+  }
+}
+
+/**
+ * @param {{source:string, exemptions?:Array, now?:number}} p
  * @returns {{state:'ok'|'drift'|'unjudged', dark:Array, darkCount:number, mainCount:number, daemonCount:number, why:string}}
  */
-export function judgeCarrierParity({ source } = {}) {
+export function judgeCarrierParity({ source, exemptions = [], now = Date.now() } = {}) {
   const text = String(source ?? '')
   if (!text.trim()) return { state: 'unjudged', dark: [], darkCount: 0, mainCount: 0, daemonCount: 0, why: '被审面取不到 git-guardian 源 ⇒ 不判(绝不扫别的面顶替)' }
   const lines = text.split(/\r?\n/)
@@ -195,20 +241,33 @@ export function judgeCarrierParity({ source } = {}) {
   }
   const dark = [...mainSet].filter((n) => !daemonSet.has(n)).sort()
   const allDark = [...dark, ...unclassifiedDark.map((n) => `~${n}`)].sort()
+  const ex = applyCarrierExemptions(allDark, exemptions, now)
+  const remaining = ex.darkRemaining
+  const dirty = remaining.length + ex.expired.length + ex.rotting.length + ex.malformed.length
+  const notes = []
+  if (ex.waived.length) notes.push(`具名豁免摘掉 ${ex.waived.length} 条(${ex.waived.join('/')})`)
+  if (ex.expired.length) notes.push(`豁免已到期仍判黑:${ex.expired.join(',')}`)
+  if (ex.rotting.length) notes.push(`豁免清单腐烂(登记的 name 当下面不再命中):${ex.rotting.join(',')}`)
+  if (ex.malformed.length) notes.push(`豁免条目形状坏⇒视同没登记:${ex.malformed.join(',')}`)
   return {
-    state: allDark.length > 0 ? 'drift' : 'ok',
-    dark: allDark,
-    darkCount: allDark.length,
+    state: dirty > 0 ? 'drift' : 'ok',
+    dark: remaining,
+    darkCount: remaining.length,
     prefixDark: dark,
     unclassifiedDark,
+    waived: ex.waived,
+    expiredExempt: ex.expired,
+    rottingExempt: ex.rotting,
+    malformedExempt: ex.malformed,
     mainCount: mainSet.size,
     daemonCount: daemonSet.size,
-    why: allDark.length
-      ? `main 区 ${mainSet.size} 条 / daemon 常驻区 ${daemonSet.size} 条 ⇒ ${dark.length} 条只在一次性 main 里` +
-        `${unclassifiedDark.length ? ` + ${unclassifiedDark.length} 条不合腿名前缀但按签名是腿(~ 前缀点名),同样只在 main 里` : ''},daemon 常驻时结构上跑不到`
-      : `两承载面调用集已齐平(main=${mainSet.size} daemon=${daemonSet.size};unclassified=0)`,
+    why:
+      dirty === 0
+        ? `两承载面调用集已齐平(main=${mainSet.size} daemon=${daemonSet.size};具名豁免 ${ex.waived.length} 条在册未到期)`
+        : `main 区 ${mainSet.size} 条 / daemon 常驻区 ${daemonSet.size} 条 ⇒ ${remaining.length} 条只在一次性 main 里` +
+          `(${remaining.join(', ')})${notes.length ? ';' + notes.join(';') : ''}`,
   }
 }
 
-export const __test__ = { LEG_CALL_RE, LEG_NAME_RE, TOP_FN_RE, bodyEnd, hasLegSignature, isLegDefinition, judgeCarrierParity }
+export const __test__ = { LEG_CALL_RE, LEG_NAME_RE, TOP_FN_RE, bodyEnd, hasLegSignature, isLegDefinition, applyCarrierExemptions, judgeCarrierParity }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

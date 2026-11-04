@@ -263,7 +263,16 @@ export function judgeCarrierParityFace({ face = FACE_SEL.face, root = ROOT } = {
   } catch {
     src = null
   }
-  const r = judgeCarrierParity({ source: src ?? '' })
+  // 豁免清单同样按被审面取(与判据本体同面);取不到 ⇒ 空集 ⇒ 不摘任何一条,
+  // 失效方向恒为"多判一条黑",绝不因为台账读不到就放开(§0.10)。
+  let exemptions = []
+  try {
+    const parsed = JSON.parse(readFaceText('scripts/data/guardian-carrier-parity-exemptions.json', face, root))
+    if (Array.isArray(parsed.exemptions)) exemptions = parsed.exemptions
+  } catch {
+    exemptions = []
+  }
+  const r = judgeCarrierParity({ source: src ?? '', exemptions, now: Date.now() })
   const names = r.dark.slice(0, 6).join(', ')
   return {
     dim: 'A9-carrier-parity',
