@@ -26,7 +26,6 @@
 {"key":"ranking.empty","kind":"different-screen","reason":"同名不同物:端内是 AI 榜单/抽屉空态,基准侧 RankingScreen 是用户积分排行;端内用户榜另用 ranking.noData,已并存两值","expires":"2027-06-30"}
 {"key":"vipTrader.opened","kind":"different-screen","reason":"基准侧该键兼作「已开通态按钮标签」与确认弹窗结果提示两角色,端内只在支付成功 toast 用 ⇒ 键的角色不同,非同一处文案","expires":"2027-06-30"}
 {"key":"agreement.title","kind":"semantic-split-needed","reason":"端内同键既被 setNavigationBarTitle 当聚合页名(协议与政策)又被壳内屏当页标题(单份协议),基准侧只有后者 ⇒ 待拆成聚合名与屏标题两枚键","expires":"2027-01-31"}
-{"key":"exam.questions","kind":"semantic-split-needed","reason":"两宿主不同形态:壳承载的 ExamScreen 渲成「{n} 题:5」(端内取词不传 params 即不插值,会把占位符原样上屏),而 wrong-list 手写页要的是带值的「{n} 题」⇒ 必须拆键","expires":"2027-01-31"}
 {"key":"common.failed","kind":"semantic-split-needed","reason":"逐调用点实测 27 处:15 处语义确是「加载失败」(现值对),12 处是「操作/动作失败」含提现记录状态位(现值不准)⇒ 直改基准值会把 15 处改错,待拆 common.actionFailed","expires":"2027-01-31"}
 {"key":"conversationImport.desc","kind":"pending-product","reason":"基准侧比端内多一句「导入后可在历史对话列表查看」,属信息增删而非平台限制,要不要给小程序补这句需产品定口径","expires":"2027-01-31"}
 {"key":"course.loadFailed","kind":"pending-product","reason":"「课程加载失败」与「加载课程失败」语序差,两端均无语义损失也不涉平台限制;统一需先定哪侧是文案规范,不单方面改","expires":"2027-01-31"}

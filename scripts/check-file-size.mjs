@@ -78,6 +78,7 @@ check-file-size.mjs — 单文件行数守门(仅拦新增超大文件)
 阈值:默认 800 行(环境变量 FILE_SIZE_LIMIT 或 --limit=N 可覆盖)。
 范围:apps/web/src、apps/web/app 及任意 apps/<app>/src;扩展名 .ts/.tsx/.js/.jsx。
 staged 模式:仅 git 新增文件(Added)超阈值才阻塞,不惩罚存量文件编辑。
+退出码:0 通过/不适用;1 超阈值(staged);2 未判定(git 取面失败/文件读不到/扫描面为空)。
 `)
   process.exit(0)
 }
@@ -100,7 +101,8 @@ function countLines(file) {
     if (src.endsWith('\n')) n -= 1
     return n
   } catch {
-    return 0
+    // 读不到对象 ≠ 0 行;折成 0 会让超大文件静默过门(2026-11-04 假绿专项)。
+    return null
   }
 }
 
@@ -146,9 +148,9 @@ function getStagedAddedFiles() {
       .filter((f) => !GENERATED_NAME_RE.test(f))
       .filter((f) => !isExcludedDirName(f.split('/')[0]))
       .map((f) => join(ROOT, f))
-      .filter((f) => existsSync(f))
   } catch {
-    return []
+    // 取不到 staged 面 ≠ 没有新增文件;折成空集会让门空转绿灯。
+    return null
   }
 }
 
@@ -166,22 +168,41 @@ console.log('')
 let files = []
 if (isStaged) {
   files = getStagedAddedFiles()
+  if (files === null) {
+    console.error(`${C.red}❌ [单文件行数守门] staged 面取不到(git diff --cached 失败)⇒ 未判定(exit 2)${C.reset}`)
+    process.exit(2)
+  }
   if (files.length === 0) {
-    console.log(`${C.green}✅ 暂存区无新增 .ts/.tsx/.js/.jsx 文件,跳过${C.reset}`)
+    console.log(`${C.green}✅ 暂存区无新增 .ts/.tsx/.js/.jsx 文件,不适用${C.reset}`)
     process.exit(0)
   }
 } else {
   for (const root of scanRoots()) {
     files = files.concat(collectFiles(root))
   }
+  if (files.length === 0) {
+    console.error(`${C.red}❌ [单文件行数守门] 扫描面为空(未找到 apps/*/src|app 下任何 .ts/.tsx/.js/.jsx)⇒ 未判定(exit 2)${C.reset}`)
+    process.exit(2)
+  }
 }
 
 const oversized = []
+const unreadable = []
 for (const file of files) {
   const n = countLines(file)
+  if (n === null) {
+    unreadable.push(relative(ROOT, file))
+    continue
+  }
   if (n > threshold) {
     oversized.push({ file: relative(ROOT, file), lines: n })
   }
+}
+
+if (unreadable.length > 0) {
+  console.error(`${C.red}❌ [单文件行数守门] ${unreadable.length} 个文件读不到,无法判定行数 ⇒ 未判定(exit 2)${C.reset}`)
+  for (const f of unreadable) console.error(`  ${f}`)
+  process.exit(2)
 }
 
 oversized.sort((a, b) => b.lines - a.lines)

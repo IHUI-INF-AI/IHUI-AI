@@ -103,10 +103,15 @@ const STAGES = [
   {
     name: 'land-web',
     kind: 'land',
-    desc: 'web 端非色档落档自愈',
+    // 2026-11-04:此处原为 apply: ['--apply'](**不带字重锁**)。具名档是三元组(size/line-height/
+    // font-weight),裸 --apply 会把无 font-* 伴随的 text-xl→text-heading 从 400 顶到 700(落档器
+    // 头注的编译取证反例)= 静默改全站字重;且与守护恒带 --only-weight-locked 的口径分叉,
+    // 一键链与自愈腿会互相打架。现与守护逐字同口径:锁档 + 补 font-[weight:inherit] 后
+    // 仍是可证零变化,再叠 --limit 20 小批落盘(落点账本 skipLanded 逐轮续跑)。
+    desc: 'web 端非色档落档自愈(锁字重 + 继承钉,与守护同口径)',
     script: 'land-web-style-tiers.mjs',
     base: [],
-    apply: ['--apply'],
+    apply: ['--apply', '--only-weight-locked', '--pin-inherit-weight', '--limit', '20'],
     write: true,
     timeoutMs: 20 * 60 * 1000,
   },
@@ -190,6 +195,16 @@ const STAGES = [
     apply: ['--land'],
     write: true,
     timeoutMs: 20 * 60 * 1000,
+  },
+  {
+    name: 'message-pack',
+    kind: 'pack',
+    desc: '小程序词包整块缺口:基准侧已有译文 ⇒ 逐字搬(不代拟)',
+    script: 'sync-miniapp-message-keys.mjs',
+    base: ['--json'],
+    apply: ['--apply'],
+    write: true,
+    timeoutMs: 10 * 60 * 1000,
   },
   {
     name: 'rebuild-dist',

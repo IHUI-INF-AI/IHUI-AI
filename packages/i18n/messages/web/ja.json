@@ -17112,6 +17112,7 @@
     },
     "codeEditor": {
       "lspStatus": "LSP",
+      "attributionToggle": "AI 行の帰属表示",
       "zoomIn": "拡大",
       "zoomOut": "縮小"
     },
@@ -23357,6 +23358,8 @@
     "accountDeletionResend": "{seconds}秒後に再送信可能",
     "accountDeletionSendCode": "コード",
     "accountDeletionSubmit": "アカウント削除を確認",
+    "accountDeletionConfirmLabel": "アカウント削除を確認",
+    "accountDeletionConfirmTitle": "アカウント削除を確認",
     "accountDeletionSuccess": "アカウントを削除しました。ログインページに遷移します",
     "accountDeletionTitle": "アカウント削除",
     "accountDeletionWarning": "この操作は取り消せません。すべてのデータが削除されます。",
@@ -23891,6 +23894,8 @@
     "agentSecuritySaveFailed": "セキュリティ設定の保存に失敗しました",
     "analyticsEnabled": "利用状況の分析",
     "analyticsEnabledDesc": "オンにすると、クリック・ページ訪問・所要時間などの匿名の利用イベントを記録し、プロダクト改善に用います。入力された本文・コード・ファイルパスは記録しません。オフにすると送信を直ちに停止し、機能への影響はありません。",
+    "rumEnabled": "パフォーマンス・エラー診断(任意)",
+    "rumEnabledDesc": "既定ではオフです。オンにした場合のみ、匿名の起動時間、AI の初回トークン遅延、ストリーミング中の長タスク数、脱識別化したエラー概要を改善目的で送信します。ファイルパス、ワークスペース名、メールアドレス、デバイス指紋は送信しません。オフにすると即座に収集を停止し、保留データを破棄して以降のリクエストも発生しません。",
     "llmRawRetentionOptOut": "LLM送受信本文を保持しない",
     "llmRawRetentionOptOutDesc": "質問とAI回答の本文はデータベースに保存されません",
     "codeIndexEgressOptOut": "コード意味インデックスを作成しない",
@@ -25893,8 +25898,7 @@
     "empty": "イベントはありません",
     "startTime": "開始時間",
     "endTime": "終了時間",
-    "participants": "参加人数",
-    "joinNow": "今すぐ参加"
+    "participants": "参加人数"
   },
   "agentReviewDetail": {
     "title": "審査詳細",
@@ -26145,8 +26149,6 @@
     "unverifiedDesc": "実名認証は未完了です。以下の情報を入力して完了してください。",
     "name": "本名",
     "namePlaceholder": "本名を入力してください",
-    "idNumber": "身分証明書番号",
-    "idNumberPlaceholder": "身分証明書番号を入力してください",
     "submitting": "送信中…",
     "submit": "認証を送信"
   },
@@ -26158,7 +26160,6 @@
     "title": "学習進捗",
     "courses": "受講コース",
     "totalMinutes": "累計学習時間",
-    "weekMinutes": "今週の学習時間",
     "streak": "連続学習",
     "courseProgress": "コース進捗"
   },
@@ -26828,11 +26829,8 @@
   },
   "agentCreate": {
     "title": "エージェントを作成",
-    "name": "名前",
     "namePlaceholder": "名前を入力してください",
-    "category": "カテゴリ",
     "categoryPlaceholder": "カテゴリを選択してください",
-    "description": "説明",
     "descPlaceholder": "説明を入力してください",
     "systemPrompt": "システムプロンプト",
     "promptPlaceholder": "システムプロンプトを入力してください",
@@ -26899,7 +26897,6 @@
     "remove": "削除"
   },
   "certList": {
-    "title": "マイ証明書",
     "empty": "証明書はありません",
     "issuer": "発行機関",
     "issuedAt": "発行日時"
@@ -26951,7 +26948,6 @@
   },
   "courseQAList": {
     "title": "コース Q&A",
-    "ask": "質問する",
     "empty": "Q&A はありません",
     "asker": "質問者",
     "answers": "回答"
@@ -27028,7 +27024,6 @@
     "actionEdit": "編集"
   },
   "notificationSettings": {
-    "title": "通知設定",
     "push": "プッシュ通知",
     "message": "メッセージ通知",
     "email": "メール通知",
@@ -27129,9 +27124,7 @@
   "withdraw": {
     "title": "出金",
     "availableBalance": "出金可能残高",
-    "amount": "出金額",
     "amountPlaceholder": "出金額を入力してください",
-    "bankCard": "銀行カード",
     "bankCardPlaceholder": "銀行カード番号を入力してください",
     "submitting": "出金中...",
     "submit": "出金を確認",
@@ -27526,7 +27519,6 @@
   },
   "team": {
     "retry": "再試行",
-    "title": "マイチーム",
     "subtitle": "チーム管理",
     "totalMembers": "総メンバー",
     "activeMembers": "アクティブメンバー",

@@ -9,6 +9,7 @@ import { useTranslations } from 'next-intl'
 import { toast } from '@/components/common'
 
 import { detectDangerousCommands } from '@/lib/dangerous-command-detector'
+import { analyzeCommandRisk } from '@ihui/shared/utils/command-risk'
 import { compressImage } from '@/lib/file-utils'
 import { formatFileSize } from '@/config/downloads.config'
 import {
@@ -114,6 +115,28 @@ const DANGEROUS_PATTERN_KEY: Record<string, string> = {
   rmEnv: 'permission.dangerousPattern.rmEnv',
   rmGit: 'permission.dangerousPattern.rmGit',
   forcePushMain: 'permission.dangerousPattern.forcePushMain',
+}
+
+/**
+ * 语义判定 code → 既有 i18n pattern 键的展示映射(2026-11-04 立)。
+ * 仅用于标题描述复用既有翻译,不参与判定;新 code 未映射时落 unknown。
+ * 判定本身只看 analyzeCommandRisk 的 level 与 code,不受本表影响。
+ */
+const SEMANTIC_LEGACY_PATTERN: Record<string, string> = {
+  DOWNLOAD_PIPE_EXEC: 'curlPipeSh',
+  DECODE_PIPE_EXEC: 'curlPipeSh',
+  DOWNLOAD_TO_INTERPRETER: 'curlPipeSh',
+  RM_ROOT_OR_HOME: 'rmRrfRoot',
+  RM_NO_PRESERVE_ROOT: 'rmRrfRoot',
+  RM_RECURSIVE_FORCE: 'rmRrfRoot',
+  SENSITIVE_FILE_DELETE: 'rmEnv',
+  DD_WRITE_DEVICE: 'ddToDisk',
+  MKFS_DISK: 'mkfsDisk',
+  REDIRECT_DEVICE: 'redirectToDevice',
+  CHMOD_WORLD_WRITABLE: 'chmodRoot',
+  CHOWN_OWNERSHIP: 'chmodRoot',
+  SUDO_ESCALATION: 'sudoAny',
+  FORCE_PUSH_PROTECTED: 'forcePushMain',
 }
 
 /** 矩阵 A #19:超长纯文本粘贴阈值,超过则转为文本引用 chip 而非塞入 textarea */
@@ -496,6 +519,45 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
       // - critical/high → 弹确认 toast(带「仍要发送」action),用户点 action 才真发
       // - medium → 普通 toast 警告(不阻断,只提醒)
       if (isHighRisk) {
+        // 语义判定优先(2026-11-04):旧实现逐条正则扫原文 —— `echo <b64> | base64 -d | bash`
+        // 与 `bash -c "$(curl ...)"` 这类组合会漏,而引号内的 `curl x | sh` 又会误杀。
+        // 新判定先还原管道/子 shell/命令替换结构,只在可执行位置命中并给出稳定 code。
+        // 旧正则表保留为兜底(仅在语义判定 safe 时运行),维持既有 critical/high 确认与
+        // medium 警告契约,避免 i18n 键失效。
+        const risk = analyzeCommandRisk(text)
+        if (risk.level !== 'safe') {
+          const topReason = risk.reasons[0]!
+          const patternLabel = t(
+            DANGEROUS_PATTERN_KEY[SEMANTIC_LEGACY_PATTERN[topReason.code] ?? ''] ??
+              'permission.dangerousPattern.unknown',
+          )
+          // blocked 表示执行即不可逆(如 rm -rf /、下载内容直接交给 shell),不提供「仍要发送」入口;
+          // needs-approval 仍需人工确认后才发送。
+          const proceed =
+            risk.level === 'blocked'
+              ? {}
+              : {
+                  action: {
+                    label: t('permission.dangerousCommandProceed'),
+                    onClick: () => {
+                      void submit()
+                    },
+                  },
+                }
+          toast(t('permission.dangerousCommandTitle'), {
+            description: t('permission.dangerousCommandDesc', {
+              pattern: patternLabel,
+              reason: topReason.message,
+            }),
+            duration: 10_000,
+            ...proceed,
+            cancel: {
+              label: t('permission.dangerousCommandCancel'),
+              onClick: () => {},
+            },
+          })
+          return
+        }
         const detection = detectDangerousCommands(text)
         if (detection.hasDangerous) {
           // 找出最严重的 critical/high 命中的 pattern + reason 展示

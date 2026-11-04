@@ -9,7 +9,8 @@
  * 它只回答三个问题,且每一问都允许"未判定"而不是猜绿:
  *   1. 配置里的 URL 从公网可达吗(HEAD/GET 跟随 302 后必须是 200/206);
  *   2. Content-Length 在合理量级吗(默认 >= 50MiB,`--min-bytes` 可调);
- *   3. 手里的 APK(`--apk` 或 `--download`)证书 SHA-256 等于正式基准 `62:B0:FF:0E…` 吗。
+ *   3. 手里的 APK(`--apk` 或 `--download`)证书 SHA-256 等于**官网安装证书**基准 `62:B0:FF:0E…` 吗
+ *      (只对官网腿自己的 `siteApkCertSha256`;Play 上传/应用签名两值不参与本门)。
  *
  * 三态退出码(口径写死,调用方不得把 2 当 0):
  *   0 = 全绿(URL/体积 ok,且证书在要求校验时等于基准)
@@ -21,8 +22,10 @@
  * 读旁边 `ihui-ai-latest.apk.redirect.json` 转出的 no-cache 302;真正长缓存的是带版本号副本。
  * 门必须验证"用户点下去最终拿到的那一枚",所以判最终 200/206,不判 302 本身。
  *
- * 为什么证书基准写死在单源 JSON 而不是读 keystore:门的职责是"对外分发的那枚包与官网证书
+ * 为什么证书基准写死在单源 JSON 而不是读 keystore:门的职责是"对外分发的那枚包与官网安装证书
  * 同源",基准是公开指纹 `62:B0:FF:0E…`;读 keystore 需要密码,CI/审计机不该有。
+ * 三值分离(2026-11-03):本门只取 `siteApkCertSha256`。Play 上传证书 / Play 应用签名证书
+ * 与官网腿互不校验;未实测时 `judgeLegCertDigest` 判 skipped 并点名"待 Play Console 量取"。
  * 出处 = `scripts/data/mobile-download-leg.json`(唯一真源)。
  *
  * 用法:
@@ -46,10 +49,10 @@ import { apkCert } from './mobile-release-artifact-check.mjs'
 import {
   DEFAULT_MOBILE_DOWNLOAD_URL,
   MIN_APK_BYTES,
-  RELEASE_CERT_SHA256,
-  RELEASE_CERT_SHA256_DISPLAY,
+  SITE_APK_CERT_SHA256,
+  SITE_APK_CERT_SHA256_DISPLAY,
   isLocalDownloadHost,
-  judgeCertDigest,
+  judgeLegCertDigest,
   judgeDownloadProbe,
   resolveMobileDownloadUrl,
   summarizeExit,
@@ -235,7 +238,7 @@ function certCheckForApk(file) {
     const toolMissing = /找不到 apksigner/.test(cert.error)
     return { state: toolMissing ? 'skipped' : 'fail', reason: cert.error }
   }
-  return judgeCertDigest({ actual: cert.digest, expected: RELEASE_CERT_SHA256 })
+  return judgeLegCertDigest('siteApk', { actual: cert.digest })
 }
 
 function selfTest() {
@@ -283,15 +286,33 @@ function selfTest() {
     const j = judgeDownloadProbe({ status: 200, contentLength: null })
     return { ok: j.state === 'undetermined', detail: j.reason }
   })
-  expect('cert-ok-baseline', () => {
-    const j = judgeCertDigest({ actual: RELEASE_CERT_SHA256 })
+  expect('cert-site-ok-baseline', () => {
+    const j = judgeLegCertDigest('siteApk', { actual: SITE_APK_CERT_SHA256 })
     return { ok: j.state === 'ok', detail: j.reason }
   })
-  // 伪造签名场景:与基准不等必须 fail,且点名基准 62:B0:FF:0E…
-  expect('cert-fail-forged-signature', () => {
+  // 伪造签名场景:与官网基准不等必须 fail,且点名基准 62:B0:FF:0E…
+  expect('cert-site-fail-forged-signature', () => {
     const forged = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
-    const j = judgeCertDigest({ actual: forged })
-    return { ok: j.state === 'fail' && j.reason.includes(RELEASE_CERT_SHA256_DISPLAY), detail: j.reason }
+    const j = judgeLegCertDigest('siteApk', { actual: forged })
+    return { ok: j.state === 'fail' && j.reason.includes(SITE_APK_CERT_SHA256_DISPLAY), detail: j.reason }
+  })
+  // Play 两值未实测 ⇒ skipped(不判绿),并点名待 Play Console 量取
+  expect('cert-play-unmeasured-skipped', () => {
+    for (const leg of ['playUploadKey', 'playAppSigning']) {
+      const j = judgeLegCertDigest(leg, { actual: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855' })
+      if (j.state !== 'skipped' || !/待 Play Console 量取/.test(j.reason)) {
+        return { ok: false, detail: `${leg}:${j.state} ${j.reason}` }
+      }
+    }
+    return { ok: true, detail: '两个 Play 值均 skipped 并点名量取入口' }
+  })
+  // Play 值已测 ⇒ 参与校验(夹具模拟已登记形态,证明不会永远 skipped)
+  expect('cert-play-measured-checks', () => {
+    const measured = 'a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90'
+    const baseline = { label: 'Play 上传密钥证书', sha256: measured, display: 'A1:B2:C3:D4…' }
+    const ok = judgeLegCertDigest('playUploadKey', { actual: measured, baseline })
+    const bad = judgeLegCertDigest('playUploadKey', { actual: SITE_APK_CERT_SHA256, baseline })
+    return { ok: ok.state === 'ok' && bad.state === 'fail', detail: `ok=${ok.state} bad=${bad.state}` }
   })
   expect('exit-priority-fail-over-skip', () => ({
     ok: summarizeExit([{ state: 'skipped' }, { state: 'fail' }]) === EXIT.fail,
@@ -306,7 +327,7 @@ function selfTest() {
   for (const c of cases) {
     console.log(`${c.pass ? 'PASS' : 'FAIL'} self-test:${c.name}${c.detail ? ` — ${c.detail}` : ''}`)
   }
-  console.log(failed.length === 0 ? 'SELFTEST OK (12/12)' : `SELFTEST FAILED (${failed.length}/${cases.length})`)
+  console.log(failed.length === 0 ? `SELFTEST OK (${cases.length}/${cases.length})` : `SELFTEST FAILED (${failed.length}/${cases.length})`)
   return failed.length === 0 ? EXIT.ok : EXIT.fail
 }
 
@@ -403,7 +424,7 @@ function usage() {
   console.log(`用法: node scripts/check-mobile-download-leg.mjs [选项]
 
   --url <URL>          覆盖单源地址(默认 scripts/data/mobile-download-leg.json)
-  --apk <path>         校验本地 APK 证书 SHA-256 必须等于基准 ${RELEASE_CERT_SHA256_DISPLAY}
+  --apk <path>         校验本地 APK 证书 SHA-256 必须等于官网安装证书基准 ${SITE_APK_CERT_SHA256_DISPLAY}
   --download           临时下载公网包再验证书(需要 ANDROID_HOME 下有 apksigner)
   --min-bytes <n>      体积下限,默认 ${MIN_APK_BYTES}(50MiB)
   --timeout-ms <n>     探针超时,默认 ${DEFAULT_TIMEOUT_MS}ms

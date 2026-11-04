@@ -24,6 +24,11 @@
  *
  * 用法:
  *   node scripts/check-overlay-zindex.mjs [--staged]
+ *
+ * 退出码:
+ *   0 = 通过(扫描面非空且无违规)
+ *   1 = 发现违规(阻塞)
+ *   2 = 未判定(扫描面为空 / 文件读不到)
  */
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs'
 import { join, relative } from 'node:path'
@@ -115,6 +120,12 @@ function findViolations(content, filePath) {
 
 // ─── 主流程 ─────────────────────────────────────────────────
 
+if (process.argv.includes('--help')) {
+  console.log('用法: node scripts/check-overlay-zindex.mjs [--staged]')
+  console.log('守门:fixed inset-0 + 视觉遮罩背景 + 禁止 z 类(z-0/10/20/30/40/50)三条件同时满足。')
+  process.exit(0)
+}
+
 const repoRoot = process.cwd()
 const allViolations = []
 let scannedFiles = 0
@@ -124,10 +135,21 @@ for (const scanDir of SCAN_DIRS) {
   const files = walkDir(fullDir)
   for (const file of files) {
     scannedFiles++
-    const content = readFileSync(file, 'utf8')
+    let content
+    try {
+      content = readFileSync(file, 'utf8')
+    } catch (e) {
+      console.error(`${C.red}❌ 全屏遮罩 z-index 检查:${relative(repoRoot, file)} 读不到(${e?.message ?? e})⇒ 未判定(exit 2)${C.reset}`)
+      process.exit(2)
+    }
     const violations = findViolations(content, file)
     allViolations.push(...violations)
   }
+}
+
+if (scannedFiles === 0) {
+  console.error(`${C.red}❌ 全屏遮罩 z-index 检查:扫描面为空(未找到 ${SCAN_DIRS.join(' / ')} 下任何源码文件)⇒ 未判定(exit 2)${C.reset}`)
+  process.exit(2)
 }
 
 if (allViolations.length === 0) {

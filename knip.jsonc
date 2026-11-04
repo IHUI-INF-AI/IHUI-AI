@@ -12,7 +12,25 @@
   // 2026-10-20 增 .github/scripts/**:同族第三处 —— CI 工作流 run 步骤直接 node 调用
   // (npm-bootstrap.yml:79 `node npm-bootstrap-runner.mjs`),knip 静态面看不见工作流调用,
   // 与 2026-09-25 的 ignoreBinaries 同型盲区;该文件由工作流承载体调用,非产品依赖图成员。
-  "ignore": ["scripts/**", "deploy/scripts/**", ".github/scripts/**"],
+  // 2026-11-04(剩余盲区收口):后四面与上面三条**同族** —— 都是「由外部承载体按约定或路径
+  // 调用、不在 products 运行时 import 图里」的工具面,不是死代码。逐面实证:对这四个前缀在
+  // apps/ packages/ 里 git grep 全 0 命中;它们的真实装载方分别是 benchmarks/run.mjs 的子进程、
+  // SKILL.md 的 bin 约定、人工/CI 直跑、以及本机代理目录。
+  //   benchmarks/**   基准任务夹具 + 跑分器(107 项)
+  //   .ihui/skills/** 第三方 skill 包,自带 bin(104 项)
+  //   docs/**         一次性审计/取证工具 plan-audit·benchmark-evidence·enterprise-service(22 项)
+  //   .ihui-agent/**  本机代理运行目录,不进产品构建(5 项)
+  // 注意 deploy/** 是原 deploy/scripts/** 的**扩大**(同族两处:cdn-server / generate-placeholders /
+  // saas-admin-api / win 引导器,均由 nssm·docker-compose·CI 直调),不是新开一类豁免。
+  "ignore": [
+    "scripts/**",
+    "deploy/**",
+    ".github/scripts/**",
+    "benchmarks/**",
+    ".ihui/skills/**",
+    "docs/**",
+    ".ihui-agent/**"
+  ],
   // 2026-09-25(B6 定性票):CI 工作流 run 步骤里以 root 上下文调用的真二进制 = 框架装载型,非未声明依赖。
   // 立因:knip 把 .github/workflows/e2e-browser-hub.yml 的 `pnpm exec playwright`(L157)与
   // `pnpm exec drizzle-kit`(L202)记进 root workspace 的 binaries,而这两个包声明在 apps/web /
@@ -55,18 +73,56 @@
     // 装机位置(注册表是该脚本设计上唯一的"客户端装在哪"真相源,换不掉)。它不是未声明依赖,
     // 是 OS 自带工具,knip 的 binaries 维度结构上无法区分二者 ⇒ 与上面同档登记。
     // 到期复核 2027-05-01:若该脚本改用配置/清单文件承载安装位置,应删本条。
-    "reg"
+    "reg",
+    // 2026-11-04:storybook / vitest 都**已声明**在各自 workspace 的 devDependencies
+    // (apps/web 的 storybook ^10.5.5、packages/shared 的 vitest catalog:),knip 仍把它们
+    // 记成 unlisted binary —— 原因是 pnpm 软链下 apps/web/node_modules 里没有这两个包的
+    // 实体目录,knip 读不到 bin 映射。删声明是错的方向:dependencies/unlisted 两维会立刻判红。
+    "storybook",
+    "vitest"
   ],
   "workspaces": {
     "apps/api": {
-      "entry": ["src/server.ts"],
+      // 2026-11-04:补 worker 进程入口。docker-compose.yml:151 以
+      // `command: ['node','apps/api/dist/worker-entry.js']` 启动它(relay-standalone 同款第二处),
+      // 属**进程入口**,不是死代码 —— knip 看不见 compose 的命令串。
+      "entry": ["src/server.ts", "src/worker-entry.ts"],
       "project": ["src/**/*.ts"]
     },
     "apps/web": {
-      "entry": ["app/**/page.tsx", "app/**/layout.tsx"],
+      // 2026-11-04:两条都是「唯一消费方在 knip 射程之外」的静态盲区,加 entry 会把它们
+      // 错标成运行时根,故用 ignore 并把消费方钉在这里:
+      //   · src/lib/py-line-count.ts —— scripts/check-line-split-parity.mjs:54 按路径读取,
+      //     再落到临时目录 import(:379-382);而 scripts/** 已在根 ignore 里。
+      //     产品侧确实零 import(src/lib/hunk-diff.ts:80 明确注释不与之合并)。
+      //   · src/lib/import-analysis-catalog.generated.ts —— 2026-10-03 下沉到 packages/shared
+      //     之后遗留的旧投影,产品零消费方;但它仍是 scripts/tests/check-declared-shortcuts.test.mjs
+      //     的「产物档真值靶子」(:257 以 git show HEAD: 读它,断言派生产物不采声明)。
+      //     删靶子等于删掉那格判据,故保留文件 + 在此登记。
+      "ignore": [
+        "src/lib/py-line-count.ts",
+        "src/lib/import-analysis-catalog.generated.ts"
+      ],
+      // 2026-11-04(假债根因,实测 -599 项):entry 是 **override**,不是 merge ——
+      // 只写 page/layout 就把 vitest/playwright 插件推断出的测试入口**全覆盖掉**了,
+      // 于是 e2e/**(125) + tests/**(85) 连同它们 import 的 src 组件一起被判"未引用文件"。
+      // 这不是历史死代码,是配置把证据面屏蔽了:补回入口后 files 907→308。
+      "entry": [
+        "app/**/page.tsx",
+        "app/**/layout.tsx",
+        "e2e/**/*.{spec,setup}.ts",
+        "tests/**/*.{test,spec}.{ts,tsx}",
+        "playwright.stream-lifecycle.config.ts",
+        "playwright.visual.config.ts"
+      ],
       "project": ["**/*.{ts,tsx}"]
     },
     "apps/cli": {
+      // 2026-11-04:entry 是 **override**(不是 merge),所以必须把 package.json bin 派生的
+      // 真入口 src/index.ts 一起写上,否则补一个就丢一个。
+      // worker-entry.ts 由 SubagentWorkerPool 以 path.join(hereDir,'worker-entry.js') 解析后
+      // fork() 装载(worker-pool.ts:1324/:776)—— 路径拼接,knip 静态图不可见。
+      "entry": ["src/index.ts", "src/subagents/worker-entry.ts"],
       "project": ["src/**/*.ts"],
       // 2026-10-20:esbuild/postject 是 SEA 单文件构建链(build-sea.mjs / build-npm.mjs)的
       // 真依赖,但这两个构建脚本位于 apps/cli/scripts/,在本 workspace 的 project 模式
@@ -85,7 +141,9 @@
       // 与 tests/visit-tracker.test.ts 都 import lib/visit-tracker.ts,却因入口缺位而不可达)。
       // 这是修配置盲区,不是白名单遮盖:补入口后 knip 仍照常判「入口可达但没人用」的导出。
       // 到期复核:启用 @knip/wxt 插件(能按 wxt 约定发现入口)后应删本条 entry 通配。
-      "entry": ["src/i18n/index.tsx", "entrypoints/**/*.{ts,tsx}"],
+      // 2026-11-04:与 apps/web 同型 —— entry 是 override,vitest 插件推断的测试入口被覆盖,
+      // tests/setup/** 的 setup 文件因此被判未引用(happy-dom-storage.ts 由 vitest setupFiles 装载)。
+      "entry": ["src/i18n/index.tsx", "entrypoints/**/*.{ts,tsx}", "tests/**/*.{ts,tsx}"],
       "project": ["**/*.{ts,tsx}"],
       // 2026-11-03(Knip 棘轮 devDependencies +2 归因):两条都是"声明真实、knip 解析面看不见":
       //   · @wxt-dev/module-react —— wxt.config.ts:9 以**字符串** modules:['@wxt-dev/module-react'] 装载,
@@ -105,7 +163,21 @@
       // 到期复核:对应屏幕接入后删本白名单;若屏幕确认不做,组件应删除而非续挂。
       "ignore": [
         "src/components/automation/AutomationCard.tsx",
-        "src/components/dashboard/MetricCard.tsx"
+        "src/components/dashboard/MetricCard.tsx",
+        // 2026-11-04:Metro 平台后缀(.web.ts/.web.tsx)变体。配对的无后缀文件被真实 import
+        // (ModelList.tsx→./brand-icon、App.tsx→./src/lib/wechat 与 ./src/lib/web-shell),
+        // web 平台由 metro.config.cjs 的 resolveRequest(经 Expo upstream :186/:459)选中这些变体;
+        // knip 不建模平台后缀,结构上看不见。与本段 @lobehub/icons 那条同族。
+        // 到期复核:@knip/react-native 插件真正生效(需先修好 metro.config.cjs 在非 apps/mobile-rn
+        // cwd 下 require('../tailwind.config') 的路径解析)后删本条。
+        "src/components/brand-icon.web.tsx",
+        "src/lib/web-shell.web.ts",
+        "src/lib/wechat.web.ts",
+        // host-toast.ts 是 2026-11-04 下沉到 @ihui/shared/utils/host-toast 后留下的转发壳,
+        // 运行时零 import。但它是 scripts/data/host-port-equivalence.json:21 的 rnImpl 锚点,
+        // 由 scripts/check-host-port-equivalence.mjs:183/:192 以 existsSync 校验"实现存在",
+        // 而 scripts/** 在根 ignore 里 ⇒ 静态图结构性看不见。删锚点会摘掉跨端端口等价判据的一侧。
+        "src/host/host-toast.ts"
       ],
       // @lobehub/icons 由 brand-icon.web.tsx 以深路径 default 导入(react-native-web 平台扩展 .web.tsx),
       // knip 静态面不解析 .web.tsx 平台变体,会把这条真实依赖误报为未用;2026-10-17 厂商矢量图标接入(f72e53becd)。
@@ -113,6 +185,21 @@
       "ignoreDependencies": ["@lobehub/icons"]
     },
     "apps/miniapp-taro": {
+      // 2026-11-04:两个跨端配对壳,产品侧零 import,但有**判据价值**,不是死代码:
+      //   · src/components/Avatar.tsx —— ① packages/shared/src/ui/__tests__/avatar-spec-wiring.test.ts:106
+      //     以 readFileSync 逐字读它并断言 SIZES 五档与 spec 一致(:117 diffAgainstSpec,:139 变异自证),
+      //     删了测试直接 ENOENT;② scripts/gen-ui-mirror.mjs:484 由 slug 'avatar' 反推它为小程序侧腿。
+      //     2026-11-04 曾随「24 件孤儿副本」误删(9936c8b41e),远端测试因此断链,本笔恢复。
+      //   · src/components/Tooltip.tsx —— 同机制的 tooltip 配对壳(Tooltip.tsx:8-15 从
+      //     @ihui/shared/ui/tooltip-spec 取档值,映射表与 RN 壳逐字相等)。缺壳时 gen-ui-mirror
+      //     只记「两端壳缺一(不在射程)」不判红,故删了不会红 —— 但那会让 tooltip 跨端唯一表
+      //     退化成单端,属于静默失去一条判据面,与本轮「消除盲区」反向,故一并恢复并登记。
+      // 到期复核:若将来 avatar/tooltip 的跨端一致性判据改为消费 spec 的运行时断言(而非读源码),
+      // 这两个壳可以真正下线,届时删本条。
+      "ignore": [
+        "src/components/Avatar.tsx",
+        "src/components/Tooltip.tsx"
+      ],
 // BEGIN:knip-taro-entries(由 scripts/gen-knip-taro-entries.mjs 生成,禁止手改)
       // rn-compat 构建别名:键集与 apps/miniapp-taro/config/index.ts 逐项相等
       // (自检 scripts/tests/knip-taro-alias-parity.test.mjs;alias 增减而此处不跟上即判红)。
@@ -120,6 +207,7 @@
       // 真正让这些目标可达的是上面 entry 里的同名文件,paths 保留是为了键集漂移可见。
       // @rn-shells/* 与 @ihui/rn-app/* 来自 apps/miniapp-taro/tsconfig.json,非 rn-compat,不参与自检。
       "entry": [
+        "config/index.ts",
         "src/app.tsx",
         "src/custom-tab-bar/index.config.ts",
         "src/custom-tab-bar/index.tsx",
@@ -516,6 +604,7 @@
         "src/pkg-user/edu-mgmt-attendance/index.tsx",
         "src/pkg-user/edu-mgmt-finance/index.tsx",
         "src/pkg-user/edu-mgmt-grades/index.tsx",
+        "src/pkg-user/edu-my-attendance/index.tsx",
         "src/pkg-user/edu-parent/index.tsx",
         "src/pkg-user/edu-teacher-study-plan/index.tsx",
         "src/pkg-user/fans/index.config.ts",
@@ -575,6 +664,7 @@
         "src/pkg-user/user/settings.config.ts",
         "src/pkg-user/user/settings.tsx",
         "src/rn-compat/expo-blur.tsx",
+        "src/rn-compat/i18n.ts",
         "src/rn-compat/icons-generated.tsx",
         "src/rn-compat/index.ts",
         "src/rn-compat/native-asset.ts",
@@ -588,6 +678,7 @@
         "src/rn-compat/navigation.tsx",
         "src/rn-compat/platform.tsx",
         "src/rn-compat/storage.ts",
+        "src/rn-compat/theme.tsx",
       ],
       "paths": {
         "@rn-shells/*": ["../mobile-rn/src/screens/*"],

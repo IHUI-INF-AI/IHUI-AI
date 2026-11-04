@@ -68,7 +68,7 @@ test('⑤ porcelain 的 locked/prunable/detached 标记', () => {
   assert.equal(rows[1].prunable, true)
 })
 
-test('⑥ 批量回收判定:只收批准落点内、干净、已并入且超龄的 wt/*', () => {
+test('⑥ 批量回收判定:批准落点内、干净、已并入且超龄即收(2026-11-04 起不按分支名收口)', () => {
   const now = 1 + 30 * 86_400_000
   const base = {
     path: '/repo/.worktrees/wt-a',
@@ -82,7 +82,11 @@ test('⑥ 批量回收判定:只收批准落点内、干净、已并入且超龄
   assert.equal(aw.evaluateReapCandidate({ ...base, locked: true }).action, 'skip')
   assert.equal(aw.evaluateReapCandidate({ ...base, dirty: true }).action, 'skip')
   assert.equal(aw.evaluateReapCandidate({ ...base, merged: false }).action, 'skip')
-  assert.equal(aw.evaluateReapCandidate({ ...base, branch: '(detached)' }).action, 'skip')
+  // 旧命名闸已摘:任意分支名不再被拦;形态判不出(无分支且非 detached)才保守保留。
+  assert.equal(aw.evaluateReapCandidate({ ...base, branch: 'feature/x' }).action, 'remove')
+  assert.equal(aw.evaluateReapCandidate({ ...base, branch: '' }).action, 'skip')
+  assert.equal(aw.evaluateReapCandidate({ ...base, branch: '', detached: true }).action, 'remove')
+  assert.equal(aw.evaluateReapCandidate({ ...base, branch: '', detached: true, merged: false }).action, 'skip')
   assert.equal(aw.evaluateReapCandidate({ ...base, path: '/elsewhere/wt-a' }).action, 'skip')
   assert.equal(aw.evaluateReapCandidate({ ...base, minIdleDays: 31 }).action, 'skip')
   assert.equal(aw.evaluateReapCandidate({ ...base, lastActivityMs: 0 }).action, 'skip')

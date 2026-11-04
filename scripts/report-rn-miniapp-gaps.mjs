@@ -16,10 +16,13 @@
 // 用法:
 //   node scripts/report-rn-miniapp-gaps.mjs                 # 打印账本(不写盘)
 //   node scripts/report-rn-miniapp-gaps.mjs --write <file>  # 写入 markdown
-//   node scripts/report-rn-miniapp-gaps.mjs --json
-import { dirname, resolve } from 'node:path'
+//   node scripts/report-rn-miniapp-gaps.mjs --json           # 含 hooks 三桶 + blockedAudit 侧车审核
+//
+// 2026-11-04:文末「已造页」单按台账 evidence 已显式写出的裁决分桶,不再把全部 generated
+// 一律当成「每条都要补齐取数/交互/跳转」。规则与失效方向见 pendingHooks 上方注释。
+import { dirname, join, resolve } from 'node:path'
 import { execFileSync } from 'node:child_process'
-import { writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { __test__ as cov } from './check-cross-end-screen-coverage.mjs'
 // 判定台账(单源 lib):读"这一格验过没有",把已判定与未判定分开(§0.6)。
@@ -108,6 +111,142 @@ const rows = gaps.map((s) => {
   }
 })
 
+/** 已造页(verdict=generated)的全量工作单:不在缺口集里,单列成一张单 */
+const pendingHooks = verdictRows.rows.filter((r) => r.verdict === 'generated')
+
+/**
+ * 2026-11-04 修「97 条假账」(只读报告器,不进提交链):
+ * 台账 verdict 词表只有 missing / not-applicable / generated 三档(单源
+ * scripts/lib/cross-end-verdicts.mjs 的 VERDICT_KINDS),但逐条 evidence 早已写下裁决结论 ——
+ * 现读 97 条里含 `定档 aligned` 的 50 条、`复核后已修复` 的 31 条,另有 `[mobile-only]` /
+ * `[blocked-structure]` / `[blocked-api]` 等明确标签。旧实现把**全部** generated 一律列成
+ * 「每条都要补齐取数/交互/跳转」⇒ 报告器与自己的台账互相打架:人说功能已对齐,机器天天派单。
+ *
+ * 这里**不新增判据、不改台账词表、不替人裁决**:只把 evidence 里已显式写出的结论读出来分桶。
+ * 任何一条没命中显式标记 ⇒ 一律留在 pending(失效方向是「多报一次」,绝不静默丢缺口)。
+ * 分类规则与每桶条数都写进输出,下一席可逐条复核;证据过期应改台账 evidence,不是改这里。
+ */
+const CLOSED_RE = /定档 aligned[:：]|复核后已修复[:：]|不构成缺口|\[no-change-needed\]/
+const BLOCKED_RE = /\[(?:blocked-structure|blocked-api|mobile-only)\]|端内已尽可修|需产品决策/
+const hooksBucketOf = (r) => {
+  const e = String(r.evidence || '')
+  if (CLOSED_RE.test(e)) return 'closed'
+  if (BLOCKED_RE.test(e)) return 'blocked'
+  return 'pending'
+}
+const hooks = { closed: [], blocked: [], pending: [] }
+for (const r of pendingHooks) hooks[hooksBucketOf(r)].push(r)
+
+/**
+ * 2026-11-04 把 8 条 blocked 从 evidence 自由文本升级为可机读侧车。
+ * 三条硬边界(与上一轮「不替人裁决」同构):
+ *   ① 分桶真相源仍是上面的 evidence 正则 —— 侧车只做 join 增列,**不参与分桶**;
+ *      侧车有无、内容如何,都不改变 hooks 三桶任何一行。
+ *   ② 不新增 VERDICT_KINDS、不改 114 行主台账一个字节(改的是独立 jsonl 侧车)。
+ *   ③ 失效方向恒为「多报」:evidence 判 blocked 而侧车没登记 ⇒ unregistered;
+ *      侧车点了但 evidence 已不判 blocked ⇒ stale(含被 CLOSED_RE 优先短路的
+ *      [mobile-only] closed 行);字段坏/重复/blockKind 与 evidence 标签不符 ⇒ 各自点名。
+ *      decidedBy 空 = 「待产品裁决」的正常态,**不判红** —— 不替产品拍板,
+ *      也不能因为没人拍板就把 8 条全判成 invalid 造出一批新红。
+ */
+const BLOCKED_LEDGER_PATH = 'scripts/data/miniapp-blocked-ledger.jsonl'
+const BLOCK_KINDS = Object.freeze(['blocked-structure', 'blocked-api', 'mobile-only'])
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/
+
+function readBlockedLedger(face, root) {
+  const rel = BLOCKED_LEDGER_PATH.replace(/\\/g, '/')
+  let text = null
+  if (face === 'worktree') {
+    const p = join(root, rel)
+    if (existsSync(p)) text = readFileSync(p, 'utf8')
+  } else {
+    // 与 readVerdicts 同一取材面纪律:默认 HEAD blob,--staged 判索引,取不到绝不回落另一面。
+    const spec = face === 'staged' ? `:${rel}` : `HEAD:${rel}`
+    try {
+      text = execFileSync('git', ['-C', root, 'show', spec], {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+        maxBuffer: 16 * 1024 * 1024,
+        windowsHide: true,
+      })
+    } catch {
+      text = null
+    }
+  }
+  const rows = []
+  const bad = []
+  if (text == null) return { available: false, rows, bad }
+  for (const line of String(text).split('\n')) {
+    const s = line.trim()
+    if (!s || s.startsWith('//')) continue
+    try {
+      rows.push(JSON.parse(s))
+    } catch {
+      bad.push({ raw: s, why: '非 JSON' })
+    }
+  }
+  return { available: true, rows, bad }
+}
+
+function blockedRowProblem(row) {
+  if (!row || typeof row !== 'object') return '非对象'
+  if (typeof row.screen !== 'string' || !row.screen) return '缺 screen'
+  if (!BLOCK_KINDS.includes(row.blockKind)) return `blockKind 非法:${String(row.blockKind)}`
+  if (typeof row.reason !== 'string' || row.reason.length < 20) return 'reason 缺或少于 20 字'
+  if (typeof row.owner !== 'string' || !row.owner) return '缺 owner'
+  if (typeof row.decidedBy !== 'string') return '缺 decidedBy(空串=待裁决)'
+  if (typeof row.recheckAt !== 'string' || !ISO_DATE_RE.test(row.recheckAt)) return 'recheckAt 非 YYYY-MM-DD'
+  if (Number.isNaN(Date.parse(`${row.recheckAt}T00:00:00Z`))) return 'recheckAt 非真实日历日'
+  if (typeof row.evidenceRef !== 'string' || !/:\d+$/.test(row.evidenceRef)) return 'evidenceRef 非 文件:行'
+  return null
+}
+
+const evidenceBlockKindOf = (e) => {
+  const m = String(e || '').match(/\[(blocked-structure|blocked-api|mobile-only)\]/)
+  return m ? m[1] : null
+}
+
+const bl = readBlockedLedger(face, ROOT)
+const blockedScreens = new Set(hooks.blocked.map((r) => r.shared))
+const blockedByScreen = new Map()
+const ba = { unregistered: [], invalid: [], duplicate: [], stale: [], mismatch: [], expired: [] }
+const today = new Date().toISOString().slice(0, 10)
+for (const row of bl.rows) {
+  const why = blockedRowProblem(row)
+  if (why) {
+    ba.invalid.push({ screen: String(row?.screen ?? '?'), why })
+    continue
+  }
+  if (blockedByScreen.has(row.screen)) {
+    ba.duplicate.push(row.screen)
+    continue
+  }
+  blockedByScreen.set(row.screen, row)
+  if (!blockedScreens.has(row.screen)) {
+    ba.stale.push(row.screen)
+    continue
+  }
+  const src = hooks.blocked.find((r) => r.shared === row.screen)
+  const ek = evidenceBlockKindOf(src?.evidence)
+  if (ek && ek !== row.blockKind) ba.mismatch.push({ screen: row.screen, ledger: row.blockKind, evidence: ek })
+  if (row.recheckAt < today) ba.expired.push(row.screen)
+}
+for (const s of blockedScreens) if (!blockedByScreen.has(s)) ba.unregistered.push(s)
+const blockedByKind = {}
+for (const row of blockedByScreen.values()) blockedByKind[row.blockKind] = (blockedByKind[row.blockKind] ?? 0) + 1
+const blockedAudit = {
+  ledgerPath: BLOCKED_LEDGER_PATH,
+  available: bl.available,
+  ledgerRows: bl.rows.length,
+  ledgerBad: bl.bad.length,
+  registered: blockedByScreen.size,
+  byKind: blockedByKind,
+  pendingDecision: [...blockedByScreen.values()].filter((r) => !r.decidedBy).length,
+  hooksBlockedFromEvidence: hooks.blocked.length,
+  ...ba,
+  note: '侧车只做 join 增列,不参与分桶;真相源仍是 evidence 正则。decidedBy 空=待产品裁决,不替产品拍板。',
+}
+
 const stats = {
   face,
   sharedTotal: shared.length,
@@ -127,13 +266,24 @@ const stats = {
   ledgerMissing: verdictRows.rows.filter((r) => r.verdict === 'missing').length,
   ledgerGenerated: verdictRows.rows.filter((r) => r.verdict === 'generated').length,
   ledgerNotApplicable: verdictRows.rows.filter((r) => r.verdict === 'not-applicable').length,
+  // 已造页按台账 evidence 已写明的结论分桶(规则见上方注释);三桶之和恒等于 ledgerGenerated。
+  hooksGenerated: pendingHooks.length,
+  hooksClosed: hooks.closed.length,
+  hooksBlocked: hooks.blocked.length,
+  hooksPending: hooks.pending.length,
+  // blocked 侧车审核读数(失效方向恒为多报;详见 blockedAudit 上方注释)
+  blockedRegistered: blockedAudit.registered,
+  blockedUnregistered: blockedAudit.unregistered.length,
+  blockedInvalid: blockedAudit.invalid.length,
+  blockedStale: blockedAudit.stale.length,
+  blockedMismatch: blockedAudit.mismatch.length,
+  blockedExpired: blockedAudit.expired.length,
+  blockedDuplicate: blockedAudit.duplicate.length,
+  blockedPendingDecision: blockedAudit.pendingDecision,
 }
 
-/** 待补数据钩子的工作单:已造页但功能未跟上的屏(不在缺口集里,单列成一张单) */
-const pendingHooks = verdictRows.rows.filter((r) => r.verdict === 'generated')
-
 if (jsonMode) {
-  console.log(JSON.stringify({ stats, rows, pendingHooks }, null, 1))
+  console.log(JSON.stringify({ stats, rows, pendingHooks, hooks, blockedAudit }, null, 1))
   process.exit(0)
 }
 
@@ -154,12 +304,20 @@ lines.push(
     ` — 路径与口径单源 \`scripts/lib/cross-end-verdicts.mjs\``,
 )
 lines.push(
-  `- 台账三档: **缺页待造 ${stats.ledgerMissing}** / **已造页待补数据钩子 ${stats.ledgerGenerated}** / **不承载 ${stats.ledgerNotApplicable}**`,
+  `- 台账三档: **缺页待造 ${stats.ledgerMissing}** / **已造页 ${stats.ledgerGenerated}** / **不承载 ${stats.ledgerNotApplicable}**` +
+    ` — 已造页按台账 evidence 分桶:**已闭环 ${stats.hooksClosed}** / **需裁决 ${stats.hooksBlocked}** / **真待补 ${stats.hooksPending}**`,
 )
 if (stats.ledgerGenerated > 0) {
   lines.push(
-    `> ⚠ 已造页 ${stats.ledgerGenerated} 条**已计入上面的覆盖率**,但数据钩子/交互尚未按共享屏补齐 ⇒ ` +
-      `覆盖率不等于功能对齐(§0.3「造好没装车 = 没有」);待补清单见文末「已造页·待补数据钩子」单。`,
+    `> ⚠ 已造页 ${stats.ledgerGenerated} 条**已计入上面的覆盖率**。按台账 evidence 的显式裁决:` +
+      `已闭环 ${stats.hooksClosed} 条(aligned / 已修复 / 不构成缺口)、` +
+      `**需产品/端侧裁决 ${stats.hooksBlocked} 条**、无显式标记的「真待补」${stats.hooksPending} 条(见文末分桶单)。`,
+  )
+  lines.push(
+    `> 「真待补 ${stats.hooksPending}」只说明台账里没有未裁决条目,**不等于三端功能 100% 对齐**:` +
+      `${stats.hooksBlocked} 条 blocked 是真实存在的结构/端点缺口,需产品决策后才动得;` +
+      `覆盖率本身也不等于功能对齐(§0.3「造好没装车 = 没有」)。` +
+      `旧版把全部 ${stats.ledgerGenerated} 条一律派单,是另一种失真,故本单只按台账已写明的结论分桶。`,
   )
 }
 lines.push('')
@@ -189,15 +347,45 @@ lines.push(
 )
 if (pendingHooks.length > 0) {
   lines.push('')
-  lines.push('## 已造页 · 待补数据钩子(已计入覆盖率,功能尚未跟上)')
+  lines.push('## 已造页 · 功能对齐分桶(已计入覆盖率)')
   lines.push('')
-  lines.push('| # | 共享屏 | 判定依据 |')
-  lines.push('|---|---|---|')
-  pendingHooks.forEach((r, i) => {
-    lines.push(`| ${i + 1} | \`${r.shared}\` | ${r.evidence || '—'} |`)
-  })
+  lines.push(
+    '> 分类依据:台账 `evidence` 里**已显式写出**的裁决前缀(`定档 aligned` / `复核后已修复` / `不构成缺口` / `[no-change-needed]` ⇒ 已闭环;' +
+      '`[blocked-*]` / `[mobile-only]` / `端内已尽可修` ⇒ 需裁决)。**未命中任何标记一律留「真待补」**;' +
+      '不新增判据、不改 `VERDICT_KINDS`,证据过期请改台账 evidence。',
+  )
+  const renderBucket = (title, list) => {
+    if (!list.length) return
+    lines.push('')
+    lines.push(`### ${title}(${list.length})`)
+    lines.push('')
+    lines.push('| # | 共享屏 | 阻塞类别 | 归属 | 裁决人 | 复核日 | 判定依据 |')
+    lines.push('|---|---|---|---|---|---|---|')
+    list.forEach((r, i) => {
+      const b = blockedByScreen.get(r.shared)
+      const kind = b ? b.blockKind : '—(未登记)'
+      const owner = b ? b.owner : '—'
+      const dec = b && b.decidedBy ? b.decidedBy : '待裁决'
+      const due = b ? b.recheckAt : '—'
+      lines.push(`| ${i + 1} | \`${r.shared}\` | ${kind} | ${owner} | ${dec} | ${due} | ${r.evidence || '—'} |`)
+    })
+  }
+  renderBucket('🔴 真待补', hooks.pending)
+  renderBucket('🟡 需人工/产品裁决', hooks.blocked)
   lines.push('')
-  lines.push(`> 共 ${pendingHooks.length} 条;每条都要按对应共享屏补齐取数/交互/跳转,才算功能真对齐。`)
+  lines.push(
+    `> 合计:已造页 ${pendingHooks.length} 条 = 已闭环 ${hooks.closed.length} + 需裁决 ${hooks.blocked.length} + 真待补 ${hooks.pending.length}。` +
+      `只有「真待补」需要按对应共享屏补齐取数/交互/跳转;「已闭环」是台账自己写明的结论,不是本器新判的。`,
+  )
+  lines.push(
+    `> 侧车 \`${BLOCKED_LEDGER_PATH}\` 只做 join 增列,**不参与分桶**(真相源仍是 evidence 正则,` +
+      `\`VERDICT_KINDS\` 与 ${stats.verdictLedgerRows} 行主台账均未改动):登记 ${blockedAudit.registered} / ` +
+      `未登记 ${blockedAudit.unregistered.length} / 坏行 ${blockedAudit.invalid.length} / ` +
+      `腐烂 ${blockedAudit.stale.length} / 标签不符 ${blockedAudit.mismatch.length} / ` +
+      `到期 ${blockedAudit.expired.length} / 重复 ${blockedAudit.duplicate.length};` +
+      `待产品裁决 ${blockedAudit.pendingDecision} 条(\`decidedBy\` 空是正常态,本器不替产品拍板)。` +
+      `任一异常都只会让本单多报并保留该行的 blocked 桶,绝不静默放行。`,
+  )
 }
 const md = lines.join('\n') + '\n'
 if (writePath) {
