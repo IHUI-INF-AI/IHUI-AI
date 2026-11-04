@@ -96,6 +96,23 @@
  *  (probeQuietWindow 不注入 scanStore 时)仍然零写盘,只有 main / 巡检臂显式接 store 才写。
  *  可观测:每轮打印「本轮扫多少 / 环内累计 / 游标还剩几个目录 / 按上一完整环估算还需几轮」。
  *
+ * ══ 自动臂按需加密(2026-11-04,治「节奏 × 轮数」的结构冲突)══
+ *  立因:续扫一环约 13 轮,而本臂原节拍 30 分钟/轮 ⇒ 整环跨度约 6.5 小时 > 静默阈值 60 分钟,
+ *  自动臂结构上永远只能给 progress(pending),human 连跑才收敛。机主裁决:选「按需加密」,
+ *  **不做常驻加密**(不永久占巡检时间片),也不接受「永远 pending」。
+ *  正解:环打开且未闭合 ⇒ 本臂自己的下一轮间隔调到 DENSE_PATROL_INTERVAL_MS(4 分钟);
+ *  环闭合 / 游标作废 / 连续加密触顶 ⇒ 立刻回落 PATROL_INTERVAL_MS(30 分钟)。
+ *  4 分钟的依据:守护计划任务 2 分钟一 tick,实际可达粒度 = 2 分钟,4 分钟 = 每两 tick 一轮
+ *  (不抖、不空转);13 轮 × 4 分钟 = 52 分钟 + 末轮探针(实测 ~70 秒)≈ 53 分钟 ≤ 60,
+ *  15 轮滑移余量仍 ≤ 60。只动本臂相位,不改守护轮与任何其它门的 tick ⇒ 其它门节奏不变,
+ *  代价只有加密轮里本臂探针占掉的那一次单轮时长(见报告「延迟上限」)。
+ *  不无限加密:DENSE_MAX_HOLD_MS(2 小时)到点即回落 + 报警 + **封禁本环加密**
+ *  (suppressedFor 落盘),环闭合或重开新环才重新计数 —— 卡死的环不把巡检永久拖进高频。
+ *  环态判据单源:scanCycleFacts 只读已落盘的续扫游标(栈非空且 key/root/maxDepth/版本全同),
+ *  加密账本只有 denseStartedAt / cycleSignature / suppressedFor 三项,不存被扫内容。
+ *  可观测:加密轮日志与 --probe 都打印「是否加密中 / 依据 / 环内已扫几轮 / 预计还需几轮 /
+ *  最迟回落时刻(上限)」;回落与触顶各留一行。
+ *
  * ══ 用法 ══
  *   node scripts/devenv-migrate.mjs              # 默认:探测 + 盘点 + 预演(只落续扫游标,不碰旧根)
  *   node scripts/devenv-migrate.mjs --probe      # 只打印静默窗口三态(同样只落续扫游标)
@@ -1887,11 +1904,239 @@ export const ARM_CONFIG = join(ROOT, 'scripts', 'data', 'devenv-migrate-arm.json
 export const ARM_TICK = join(ROOT, '.ihui-agent', 'state', 'devenv-migrate-arm-tick.iso')
 /** 节流窗口 30 分钟:窗口判据要求旧根静默 ≥60 分钟,半小时采样足以在窗口出现后抓住它。 */
 export const PATROL_INTERVAL_MS = Number(process.env.IHUI_DEVENV_MIGRATE_ARM_INTERVAL_MS || 30 * 60 * 1000)
+/**
+ * 按需加密(2026-11-04):续扫环一旦**打开且未闭合**,只把**本臂自己**的下一轮派发间隔调密,
+ * 环一闭合/游标作废/触顶立刻回落 30 分钟。它是相位调整,不是常驻加密:环不在开就不加密。
+ * 4 分钟的依据:守护计划任务 2 分钟一 tick ⇒ 实际可达粒度就是 2 分钟,4 分钟 = 每两 tick 跑一次
+ * (既不对着 tick 抖,也不空转);13 轮 × 4 分钟 = 52 分钟,加末轮探针耗时(实测约 70 秒)≈ 53 分钟,
+ * 仍在 SCAN_CYCLE_MAX_SPAN_MINUTES=60 之内(留两轮滑移余量:15 轮 × 4 分钟 + 末轮 ≈ 57 分钟仍 ≤ 60)。
+ * 只动本臂自己的节流,不改守护轮与任何其它巡检项的 tick 文件 ⇒ 其余门节奏不变(见报告「延迟上限」)。
+ */
+export const DENSE_PATROL_INTERVAL_MS = Number(
+  process.env.IHUI_DEVENV_MIGRATE_ARM_DENSE_INTERVAL_MS || 4 * 60 * 1000,
+)
+/** 连续加密上限:到点必须回落原节拍并报警,且**本环不再加密**(环闭合/重开后重新计数),防卡死的环把巡检永久拖进高频。 */
+export const DENSE_MAX_HOLD_MS = Number(process.env.IHUI_DEVENV_MIGRATE_ARM_DENSE_MAX_MS || 2 * 60 * 60 * 1000)
+/** 守护计划任务的实际 tick(2 分钟一轮):加密粒度不得低于它,否则算出来的 due 也跑不起来。 */
+export const GUARDIAN_TICK_MS = 2 * 60 * 1000
+/** 加密态落盘(只存「从哪一刻开始加密 / 哪一环 / 哪一环已触顶」,不存被扫内容)。 */
+export const ARM_DENSE_STATE = join(ROOT, '.ihui-agent', 'state', 'devenv-migrate-arm-dense.json')
 
 /** 节流判定(纯函数):取不到戳 ⇒ 视为**该跑了**(与 archiveGcArmDue 同一条失效方向)。 */
 export function devenvArmDue(nowMs, tickMs, intervalMs = PATROL_INTERVAL_MS) {
   if (!Number.isFinite(tickMs)) return true
   return nowMs - tickMs >= intervalMs
+}
+
+/** 续扫两面(判① 全树 / 判② 锁面)的开环身份:与 driveScan 的 key/root/maxDepth 逐字同形,对不上即「游标作废」。 */
+const SCAN_FACE_SPECS = [
+  { name: 'legacyTree', key: 'legacyTree', maxDepth: SCAN_DEPTH_UNBOUNDED, budget: ENUM_BUDGET },
+  { name: 'legacyLocks', key: 'legacyLocks', maxDepth: LEGACY_LOCK_SCAN.maxDepth, budget: LEGACY_LOCK_SCAN.entryBudget },
+]
+
+/**
+ * 「环是否打开」的**唯一**判据:直接读已落盘的续扫游标,不另立第二份状态。
+ * 打开 = 至少一面游标可续(key/root/maxDepth/版本全同)且栈非空(还有目录没遍历完)。
+ * 闭合 = 栈空(整环扫完);作废 = 形状/身份对不上(下一轮会重开环,但**现在**不据此加密)。
+ * 之所以必须核对 root/maxDepth:游标是跨版本持久件,只凭「栈非空」会把上一个根的残栈当成本环。
+ * @param {{load:Function}|null} scanStore
+ * @returns {{open:boolean, faces:Array<object>, openFaces:string[], rounds:number|null,
+ *            estimatedRoundsRemaining:(number|null), remainingUnknown:boolean,
+ *            cycleStartedAt:(number|null), signature:string, why:string}}
+ */
+export function scanCycleFacts(scanStore) {
+  const faces = []
+  for (const spec of SCAN_FACE_SPECS) {
+    let loaded
+    try {
+      loaded = scanStore
+        ? scanStore.load(spec.name)
+        : { kind: 'absent', state: null, why: '未接续扫游标(不猜环态)' }
+    } catch (e) {
+      loaded = { kind: 'invalid', state: null, why: `续扫游标读不到(${(e && e.message) || e})` }
+    }
+    const s = loaded && loaded.state
+    const shapeOk = Boolean(s) && typeof s === 'object' && s.v === SCAN_STATE_VERSION && s.key === spec.key && s.root === LEGACY_ROOT && s.maxDepth === spec.maxDepth
+    const pendingDirs = shapeOk && Array.isArray(s.stack) ? s.stack.length : 0
+    const est = shapeOk && s.lastComplete && Number.isFinite(s.lastComplete.entries) ? s.lastComplete.entries : null
+    const scannedTotal = shapeOk && Number.isFinite(s.scannedTotal) ? s.scannedTotal : 0
+    faces.push({
+      name: spec.name,
+      open: shapeOk && pendingDirs > 0,
+      shapeOk,
+      pendingDirs,
+      rounds: shapeOk && Number.isFinite(s.rounds) ? s.rounds : null,
+      scannedTotal,
+      cycleStartedAt: shapeOk && Number.isFinite(s.cycleStartedAt) ? s.cycleStartedAt : null,
+      estimatedCycleEntries: est,
+      estimatedRoundsRemaining: est === null ? null : Math.max(0, Math.ceil((est - scannedTotal) / spec.budget)),
+    })
+  }
+  const openFaces = faces.filter((f) => f.open)
+  const rounds = openFaces.reduce((m, f) => (f.rounds !== null && f.rounds > m ? f.rounds : m), 0)
+  const remainKnown = openFaces.map((f) => f.estimatedRoundsRemaining).filter((v) => v !== null)
+  const starts = openFaces.map((f) => f.cycleStartedAt).filter((v) => v !== null)
+  const signature = openFaces
+    .map((f) => `${f.name}@${f.cycleStartedAt === null ? '?' : f.cycleStartedAt}`)
+    .sort()
+    .join('|')
+  const why = openFaces.length
+    ? `续扫环未闭合(${openFaces.map((f) => `${f.name} 还剩 ${f.pendingDirs} 个目录`).join(';')})`
+    : faces.some((f) => !f.shapeOk && f.pendingDirs === 0 && scanStore)
+      ? '游标不可续/作废 ⇒ 环视为未打开(本轮不加密,下一轮重开环后再判)'
+      : '环已闭合(栈空)或无游标 ⇒ 不加密'
+  return {
+    open: openFaces.length > 0,
+    faces,
+    openFaces: openFaces.map((f) => f.name),
+    rounds,
+    estimatedRoundsRemaining: remainKnown.length ? Math.max(...remainKnown) : null,
+    remainingUnknown: remainKnown.length === 0,
+    cycleStartedAt: starts.length ? Math.min(...starts) : null,
+    signature,
+    why,
+  }
+}
+
+/**
+ * 加密态读取(只读;坏账不致命 —— 当作「未加密」,下一次运行会重写)。
+ * @param {{readFile?:Function, path?:string}} [opts]
+ */
+export function readArmDenseState({ readFile = (p) => readFileSync(p, 'utf8'), path = ARM_DENSE_STATE } = {}) {
+  const empty = { v: 1, denseStartedAt: null, cycleSignature: null, suppressedFor: null, why: undefined }
+  let text
+  try {
+    text = readFile(path)
+  } catch (e) {
+    if (e && e.code === 'ENOENT') return empty
+    return { ...empty, why: `加密态读不到(${(e && e.code) || e})` }
+  }
+  try {
+    const p = JSON.parse(String(text))
+    if (!p || typeof p !== 'object' || Array.isArray(p)) return { ...empty, why: '加密态形状不对(需顶层对象)' }
+    return {
+      v: 1,
+      denseStartedAt: Number.isFinite(p.denseStartedAt) ? p.denseStartedAt : null,
+      cycleSignature: typeof p.cycleSignature === 'string' ? p.cycleSignature : null,
+      suppressedFor: typeof p.suppressedFor === 'string' ? p.suppressedFor : null,
+      why: undefined,
+    }
+  } catch (e) {
+    return { ...empty, why: `加密态不可解析(${String((e && e.message) || e).slice(0, 60)})` }
+  }
+}
+
+/**
+ * 节拍决策(纯函数,零 io):唯一会缩短本臂间隔的入口。
+ * 顺序:环未打开 ⇒ 原节拍(并清加密态);本环已触顶 ⇒ 原节拍(不再加密);持有超上限 ⇒
+ * **回落原节拍 + 报警 + 本环封禁**;否则 ⇒ 加密节拍(首轮记 denseStartedAt)。
+ * @param {{now:number, tickMs:number, scan:ReturnType<typeof scanCycleFacts>, denseState:object,
+ *          baseIntervalMs?:number, denseIntervalMs?:number, maxHoldMs?:number}} cfg
+ */
+export function armCadenceDecision(cfg) {
+  const {
+    now,
+    tickMs,
+    scan,
+    denseState,
+    baseIntervalMs = PATROL_INTERVAL_MS,
+    denseIntervalMs = DENSE_PATROL_INTERVAL_MS,
+    maxHoldMs = DENSE_MAX_HOLD_MS,
+  } = cfg
+  const baseView = {
+    dense: false,
+    intervalMs: baseIntervalMs,
+    denseStartedAt: null,
+    holdMs: null,
+    fallbackAtMs: null,
+    alarm: null,
+    scan,
+  }
+  if (!scan || !scan.open) {
+    const hadDense = Boolean(denseState && Number.isFinite(denseState.denseStartedAt))
+    return {
+      ...baseView,
+      due: devenvArmDue(now, tickMs, baseIntervalMs),
+      event: hadDense ? 'exit-closed' : 'none',
+      reason: (scan && scan.why) || '环态未知',
+      nextState: { v: 1, denseStartedAt: null, cycleSignature: null, suppressedFor: null },
+      persist: hadDense || Boolean(denseState && denseState.suppressedFor),
+    }
+  }
+  const sig = scan.signature
+  if (denseState && denseState.suppressedFor === sig) {
+    return {
+      ...baseView,
+      due: devenvArmDue(now, tickMs, baseIntervalMs),
+      event: 'none',
+      reason: `本环(${sig})已触达加密上限 ⇒ 不再加密,等环闭合/重开后重置`,
+      nextState: { v: 1, denseStartedAt: null, cycleSignature: null, suppressedFor: sig },
+      persist: false,
+    }
+  }
+  const carried = denseState && Number.isFinite(denseState.denseStartedAt) && denseState.cycleSignature === sig
+  const denseStartedAt = carried ? denseState.denseStartedAt : now
+  const holdMs = Math.max(0, now - denseStartedAt)
+  if (holdMs >= maxHoldMs) {
+    const minutes = Math.round(holdMs / 60000)
+    return {
+      ...baseView,
+      due: devenvArmDue(now, tickMs, baseIntervalMs),
+      event: 'exit-cap',
+      reason: `连续加密 ${minutes} 分钟 ≥ 上限 ${Math.round(maxHoldMs / 60000)} 分钟 ⇒ 回落原节拍,本环不再加密`,
+      alarm: `连续加密 ${minutes} 分钟 ≥ 上限 ${Math.round(maxHoldMs / 60000)} 分钟 ⇒ 回落 ${Math.round(baseIntervalMs / 60000)} 分钟节拍,并封禁本环加密(卡住的环须人工看,不许把巡检永久拖进高频)`,
+      nextState: { v: 1, denseStartedAt: null, cycleSignature: null, suppressedFor: sig },
+      persist: true,
+    }
+  }
+  const enter = !carried
+  return {
+    dense: true,
+    due: devenvArmDue(now, tickMs, denseIntervalMs),
+    intervalMs: denseIntervalMs,
+    denseStartedAt,
+    holdMs,
+    fallbackAtMs: denseStartedAt + maxHoldMs,
+    alarm: null,
+    event: enter ? 'enter-dense' : 'none',
+    reason: `依据 ${scan.why}`,
+    scan,
+    nextState: { v: 1, denseStartedAt, cycleSignature: sig, suppressedFor: null },
+    persist: enter || Boolean(denseState && denseState.suppressedFor),
+  }
+}
+
+/**
+ * 只读面/日志的一句话(加密态、依据、环内轮数、预计剩余、回落时刻)。
+ * @param {{scan:object, dense:boolean, denseStartedAt:number|null, now:number,
+ *          denseIntervalMs?:number, maxHoldMs?:number, reason?:string}} cfg
+ */
+export function armDensityText(cfg) {
+  const {
+    scan,
+    dense,
+    denseStartedAt = null,
+    now,
+    denseIntervalMs = DENSE_PATROL_INTERVAL_MS,
+    maxHoldMs = DENSE_MAX_HOLD_MS,
+    reason = '',
+  } = cfg
+  const rounds = scan && Number.isFinite(scan.rounds) ? scan.rounds : 0
+  const remaining = scan ? scan.estimatedRoundsRemaining : null
+  if (!dense)
+    return `自动臂节拍:原 ${Math.round(PATROL_INTERVAL_MS / 60000)} 分钟(${reason || (scan && scan.why) || '环未打开'})`
+  const started = Number.isFinite(denseStartedAt) ? denseStartedAt : now
+  const fallbackAt = started + maxHoldMs
+  const remText =
+    remaining === null
+      ? '预计还需几轮:尚无基准(上一完整环未落账)'
+      : `预计还需约 ${remaining} 轮,按现节拍约 ${new Date(now + remaining * denseIntervalMs).toISOString()} 扫完`
+  return (
+    `自动臂节拍:加密中(${Math.round(denseIntervalMs / 60000)} 分钟/轮)` +
+    `;依据 ${(scan && scan.why) || '环未闭合'}` +
+    `;环内已扫 ${rounds} 轮;${remText}` +
+    `;最迟回落 ${new Date(fallbackAt).toISOString()}(上限 ${Math.round(maxHoldMs / 60000)} 分钟)`
+  )
 }
 
 /**
@@ -1918,16 +2163,21 @@ export function loadDevenvMigrateArm({
 
 /**
  * 巡检轮接线臂本体。默认零参数即生产形态;镜像测试全部走注入(零真搬迁、零生产副作用)。
- * 顺序:节流 → probe(判据单源) → 三态分流 → 待做盘点(既有 assessSteps) → 开关 → apply。
+ * 顺序:加密节拍决策(只读游标) → 节流 → probe(判据单源) → 三态分流 → 待做盘点(既有 assessSteps) → 开关 → apply。
+ * 加密只是本臂自己的相位:其余巡检项仍按守护轮各自的节流戳派发,不被本臂牵动(见 DENSE_PATROL_INTERVAL_MS 注释)。
  * 日志纪律:pending 与「window 但六步无待做」静默(常态,写它只会把通道喊废);
- * window 有待做 / undetermined 各留一行(前者要人开档或搬,后者是判据输入取不到)。
- * @returns {{ran:boolean, state?:string, ok?:boolean, actions:number, done?:boolean, why?:string}}
+ * window 有待做 / undetermined 各留一行(前者要人开档或搬,后者是判据输入取不到);
+ * 加密期每轮留一行(进入 / 续扫),回落 / 触顶各留一行(触顶是报警级)。
+ * @returns {{ran:boolean, state?:string, ok?:boolean, actions:number, done?:boolean, why?:string, dense:boolean, cadence:Object}}
  */
 export function devenvMigratePatrol(opts = {}) {
   const {
     now = Date.now(),
     intervalMs = PATROL_INTERVAL_MS,
+    denseIntervalMs = DENSE_PATROL_INTERVAL_MS,
+    denseMaxHoldMs = DENSE_MAX_HOLD_MS,
     tickFile = ARM_TICK,
+    denseFile = ARM_DENSE_STATE,
     configPath = ARM_CONFIG,
     io = defaultIO(),
     logger = (m) => console.log(m),
@@ -1939,6 +2189,7 @@ export function devenvMigratePatrol(opts = {}) {
     exists = existsSync,
     mkdir = mkdirSync,
     writeTick = writeFileSync,
+    writeDense = writeFileSync,
   } = opts
   let lastTick = NaN
   try {
@@ -1946,7 +2197,42 @@ export function devenvMigratePatrol(opts = {}) {
   } catch {
     /* 没跑过 */
   }
-  if (!devenvArmDue(now, lastTick, intervalMs)) return { ran: false, actions: 0, why: '未到节流窗口' }
+  // 续扫游标:巡检臂是常态自动装配面,默认就落盘(否则跨轮进度永远攒不起来);
+  // 注入非生产 probeFn(镜像测试)时不自动建 store,避免把测试 io 当磁盘写。
+  let activity = activityBase
+  const effectiveScanStore = scanStore || (probeFn === probeQuietWindow ? createScanStateStore({ io }) : null)
+  if (probeFn === probeQuietWindow) activity = { ...activity, scanStore: activity.scanStore || effectiveScanStore }
+  // 加密判据只来自已落盘游标(唯一状态源),再叠加加密态账本;没有任何第二份「环态」记忆。
+  const scan = scanCycleFacts(effectiveScanStore)
+  const cadence = armCadenceDecision({
+    now,
+    tickMs: lastTick,
+    scan,
+    denseState: readArmDenseState({ readFile, path: denseFile }),
+    baseIntervalMs: intervalMs,
+    denseIntervalMs,
+    maxHoldMs: denseMaxHoldMs,
+  })
+  if (cadence.event === 'exit-cap') logger(`⚠️ G-50 DevEnv 搬迁自动臂:${cadence.alarm}`)
+  else if (cadence.event === 'exit-closed') logger('⏸ G-50 DevEnv 搬迁自动臂:续扫环已闭合 ⇒ 加密立刻回落原节拍')
+  if (cadence.persist) {
+    try {
+      mkdir(dirname(denseFile), { recursive: true })
+      writeDense(denseFile, JSON.stringify(cadence.nextState), 'utf8')
+    } catch {
+      /* 账本写不下去只意味着下一轮重算,不得让本臂失明 */
+    }
+  }
+  const cadenceView = {
+    intervalMs: cadence.intervalMs,
+    dense: cadence.dense,
+    reason: cadence.reason,
+    denseStartedAt: cadence.denseStartedAt,
+    fallbackAtMs: cadence.fallbackAtMs,
+    rounds: scan.rounds,
+    estimatedRoundsRemaining: scan.estimatedRoundsRemaining,
+  }
+  if (!cadence.due) return { ran: false, actions: 0, why: '未到节流窗口', dense: cadence.dense, cadence: cadenceView }
   // 本窗口已留痕 ⇒ 先落节流戳(戳写不下去只意味着下轮多探一次,不得让本臂失明)。
   try {
     mkdir(dirname(tickFile), { recursive: true })
@@ -1954,39 +2240,45 @@ export function devenvMigratePatrol(opts = {}) {
   } catch {
     /* 盘错不得让本臂失明 */
   }
-  // 续扫游标:巡检臂是常态自动装配面,默认就落盘(否则跨轮进度永远攒不起来);
-  // 注入非生产 probeFn(镜像测试)时不自动建 store,避免把测试 io 当磁盘写。
-  let activity = activityBase
-  if (probeFn === probeQuietWindow) {
-    const effectiveScanStore = scanStore || createScanStateStore({ io })
-    activity = { ...activity, scanStore: activity.scanStore || effectiveScanStore }
-  }
+  if (cadence.dense)
+    logger(
+      `⏩ G-50 DevEnv 搬迁自动臂:${cadence.event === 'enter-dense' ? '进入按需加密' : '加密态续扫'} · ` +
+        armDensityText({
+          scan,
+          dense: true,
+          denseStartedAt: cadence.denseStartedAt,
+          now,
+          denseIntervalMs,
+          maxHoldMs: denseMaxHoldMs,
+        }),
+    )
   const probe = probeFn(io, now, activity)
-  if (probe.state === 'pending') return { ran: true, state: 'pending', actions: 0 }
+  const tail = { dense: cadence.dense, cadence: cadenceView }
+  if (probe.state === 'pending') return { ran: true, state: 'pending', actions: 0, ...tail }
   if (probe.state === 'undetermined') {
     const detail = [...(probe.reasons || []), ...(probe.unjudged || [])].join(' ; ')
     logger(`⚠️ G-50 DevEnv 搬迁:静默窗口未判定 ⇒ 本轮不搬(不记绿也不冒红)· ${detail}`)
-    return { ran: true, state: 'undetermined', ok: false, actions: 0 }
+    return { ran: true, state: 'undetermined', ok: false, actions: 0, ...tail }
   }
   // window:还有没有待做 —— 复用既有盘点(assessSteps),本层不另写第二份判据。
   const todo = assessSteps(io).filter((s) => s.state === 'todo')
-  if (!todo.length) return { ran: true, state: 'window', ok: true, actions: 0, done: true }
+  if (!todo.length) return { ran: true, state: 'window', ok: true, actions: 0, done: true, ...tail }
   const arm = loadDevenvMigrateArm({ configPath, readFile, exists })
   if (!arm.ok) {
     logger(`⚠️ G-50 DevEnv 搬迁:静默窗口已到(待做 ${todo.length} 步),但开关配置未判定(${arm.why})⇒ 只探测不搬`)
-    return { ran: true, state: 'window', ok: false, actions: 0 }
+    return { ran: true, state: 'window', ok: false, actions: 0, ...tail }
   }
   if (!arm.enabled) {
     logger(
       `⏸ G-50 DevEnv 搬迁:静默窗口已到(待做 ${todo.length} 步:${todo.map((s) => `S${s.id}`).join('/')}),` +
         `devenv-migrate-arm.json enabled=false ⇒ 只探测不搬(开档由机主核过盘点后改配置)`,
     )
-    return { ran: true, state: 'window', ok: true, actions: 0 }
+    return { ran: true, state: 'window', ok: true, actions: 0, ...tail }
   }
   const r = applyFn(io, probe)
   if (r.refused) {
     logger(`⚠️ G-50 DevEnv 搬迁:开臂但 apply 前置闸拒绝 ⇒ 本轮零动作 · ${r.reason}`)
-    return { ran: true, state: 'window', ok: false, actions: 0 }
+    return { ran: true, state: 'window', ok: false, actions: 0, ...tail }
   }
   const bad = r.rows.filter((row) => !row.ok)
   for (const row of r.rows) logger(`· G-50 [步骤${row.step}] ${row.ok ? 'ok' : 'FAIL'}: ${row.note}`)
@@ -1996,7 +2288,7 @@ export function devenvMigratePatrol(opts = {}) {
       ? '✅ G-50 DevEnv 搬迁:window 期执行完成且回读验证通过'
       : `⚠️ G-50 DevEnv 搬迁:执行有 ${bad.length} 行不 OK、回读${r.verified ? '通过' : '不过'} ⇒ 交人工裁决(未回滚不可逆步)`,
   )
-  return { ran: true, state: 'window', ok: pass, actions: r.rows.length }
+  return { ran: true, state: 'window', ok: pass, actions: r.rows.length, ...tail }
 }
 
 function selfTest() {
@@ -2598,6 +2890,148 @@ function selfTest() {
     return r1.refused && r2.refused && io2.writes.length === 0
   })())
 
+  // ── 按需加密(2026-11-04):只动本臂相位,环开则密、环合则回、触顶则封 ──
+  const memScanStore = (states) => ({
+    path: 'mem://scan',
+    load: (n) => ({ kind: states[n] ? 'ok' : 'absent', state: states[n] || null, why: undefined }),
+    save: () => true,
+  })
+  const scanState = (over = {}) => ({
+    v: SCAN_STATE_VERSION,
+    key: 'legacyTree',
+    root: LEGACY_ROOT,
+    maxDepth: SCAN_DEPTH_UNBOUNDED,
+    cycleStartedAt: NOW - 5 * MIN,
+    updatedAt: NOW,
+    rounds: 3,
+    scannedTotal: 600000,
+    stack: [{ d: LEGACY_ROOT, i: 1, dep: 1 }],
+    acc: {},
+    lastComplete: { entries: 2498828, rounds: 13, at: NOW - 60 * MIN },
+    ...over,
+  })
+  const emptyDense = { v: 1, denseStartedAt: null, cycleSignature: null, suppressedFor: null }
+  push('scancycle:环打开 ⇒ 加密 4 分钟/轮(13 轮 + 末轮 ≤ 60 分钟,且可观测五项齐)', (() => {
+    const facts = scanCycleFacts(memScanStore({ legacyTree: scanState() }), NOW)
+    const d = armCadenceDecision({ now: NOW, tickMs: NOW - 5 * MIN, scan: facts, denseState: emptyDense })
+    const text = armDensityText({ scan: facts, dense: true, denseStartedAt: d.denseStartedAt, now: NOW })
+    return (
+      facts.open === true &&
+      facts.rounds === 3 &&
+      facts.estimatedRoundsRemaining === 10 &&
+      d.dense === true &&
+      d.intervalMs === DENSE_PATROL_INTERVAL_MS &&
+      d.due === true &&
+      d.event === 'enter-dense' &&
+      d.nextState.denseStartedAt === NOW &&
+      (DENSE_PATROL_INTERVAL_MS / MIN) * 13 + 1.5 <= SCAN_CYCLE_MAX_SPAN_MINUTES &&
+      /加密中/.test(text) &&
+      /依据/.test(text) &&
+      /环内已扫 3 轮/.test(text) &&
+      /预计还需约 10 轮/.test(text) &&
+      /最迟回落/.test(text)
+    )
+  })())
+  push('scancycle:环闭合(栈空) ⇒ 立刻回落原 30 分钟节拍并清加密态', (() => {
+    const facts = scanCycleFacts(memScanStore({ legacyTree: scanState({ stack: [] }) }), NOW)
+    const d = armCadenceDecision({
+      now: NOW,
+      tickMs: NOW - 3 * MIN,
+      scan: facts,
+      denseState: { ...emptyDense, denseStartedAt: NOW - 10 * MIN, cycleSignature: 'legacyTree@x' },
+    })
+    return (
+      facts.open === false &&
+      d.dense === false &&
+      d.intervalMs === PATROL_INTERVAL_MS &&
+      d.due === false &&
+      d.event === 'exit-closed' &&
+      d.nextState.denseStartedAt === null &&
+      d.persist === true
+    )
+  })())
+  push('scancycle:连续加密超 2 小时 ⇒ 回落 + 报警 + 本环封禁(再跑也不加密)', (() => {
+    const facts = scanCycleFacts(memScanStore({ legacyTree: scanState() }), NOW)
+    const d = armCadenceDecision({
+      now: NOW,
+      tickMs: NOW - 3 * MIN,
+      scan: facts,
+      denseState: { ...emptyDense, denseStartedAt: NOW - 130 * MIN, cycleSignature: facts.signature },
+    })
+    const again = armCadenceDecision({
+      now: NOW + 30 * MIN,
+      tickMs: NOW - 3 * MIN,
+      scan: facts,
+      denseState: d.nextState,
+    })
+    return (
+      d.dense === false &&
+      d.intervalMs === PATROL_INTERVAL_MS &&
+      d.event === 'exit-cap' &&
+      /回落/.test(d.alarm || '') &&
+      /封禁本环/.test(d.alarm || '') &&
+      d.nextState.suppressedFor === facts.signature &&
+      again.dense === false &&
+      again.event === 'none' &&
+      /已触达加密上限/.test(again.reason)
+    )
+  })())
+  push('scancycle:环未打开 ⇒ 原节拍不受影响(无游标/游标身份对不上都不加密)', (() => {
+    const none = scanCycleFacts(memScanStore({}), NOW)
+    const stale = scanCycleFacts(memScanStore({ legacyTree: scanState({ root: join(DRIVE_ROOT, 'Other') }) }), NOW)
+    const d20 = armCadenceDecision({ now: NOW, tickMs: NOW - 20 * MIN, scan: none, denseState: emptyDense })
+    const d31 = armCadenceDecision({ now: NOW, tickMs: NOW - 31 * MIN, scan: none, denseState: emptyDense })
+    return (
+      none.open === false &&
+      stale.open === false &&
+      !d20.dense &&
+      !d20.due &&
+      d31.due === true &&
+      d20.intervalMs === PATROL_INTERVAL_MS &&
+      d31.intervalMs === PATROL_INTERVAL_MS
+    )
+  })())
+  push('scancycle:加密期其它门不被饿死(4 分钟 = 每两 tick 跑一次,奇数 tick 全留给其它门)', (() => {
+    const files = {}
+    const store = memScanStore({ legacyTree: scanState() })
+    const io2 = fakeIO(probeTree())
+    const results = []
+    for (const t of [0, 2, 4, 6]) {
+      results.push(
+        devenvMigratePatrol({
+          now: NOW + t * MIN,
+          tickFile: 'mem://tick',
+          denseFile: 'mem://dense',
+          scanStore: store,
+          io: io2,
+          logger: () => {},
+          probeFn: () => ({ state: 'pending', reasons: [], unjudged: [] }),
+          readFile: (p) => {
+            if (p in files) return files[p]
+            const e = new Error('ENOENT')
+            e.code = 'ENOENT'
+            throw e
+          },
+          mkdir: () => {},
+          writeTick: (p, text) => {
+            files[p] = text
+          },
+          writeDense: (p, text) => {
+            files[p] = text
+          },
+        }),
+      )
+    }
+    const ran = results.map((r) => r.ran)
+    return (
+      DENSE_PATROL_INTERVAL_MS >= 2 * GUARDIAN_TICK_MS &&
+      ran.join(',') === 'true,false,true,false' &&
+      results.filter((r) => !r.ran).every((r) => r.dense === true) &&
+      results.every((r) => r.cadence.intervalMs === DENSE_PATROL_INTERVAL_MS)
+    )
+  })())
+
+
   // ── 形状锁(§22c 先例:re-home 装车锁)──
   const SRC = readFileSync(fileURLToPath(import.meta.url), 'utf8')
   push('形状锁:io 写族调用只许出现在 applyMigration 起至 selfTest 前的区间(默认档零写盘的静态半边)', (() => {
@@ -2636,12 +3070,31 @@ async function main() {
   const probeOnly = argv.includes('--probe')
   const io = defaultIO()
   // 续扫游标:只有 main 显式接 store 才落盘(probeQuietWindow 自身仍可零写盘)。
-  const probe = probeQuietWindow(io, Date.now(), { scanStore: createScanStateStore({ io }) })
+  const scanStore = createScanStateStore({ io })
+  const startedAt = Date.now()
+  const probe = probeQuietWindow(io, startedAt, { scanStore })
   console.log(`[G-50 devenv-migrate] 旧根 ${LEGACY_ROOT} → 新根 ${NEW_ROOT}`)
   console.log(`静默窗口:${probe.state}`)
   for (const r of probe.reasons) console.log(`  · ${r}`)
   for (const u of probe.unjudged || []) console.log(`  ⚠ 未判定子项:${u}`)
   for (const n of activityNotes(probe.facts)) console.log(`  ℹ ${n}`)
+  // 只读面:自动臂加密态(与巡检臂同一判据 scanCycleFacts + 同一账本,零复算)。
+  const scan = scanCycleFacts(scanStore)
+  const denseState = readArmDenseState({ readFile: (p) => io.readFileSync(p, 'utf8') })
+  const activeDense = Boolean(scan.open) && Number.isFinite(denseState.denseStartedAt) && denseState.cycleSignature === scan.signature
+  const suppressed = Boolean(scan.open) && denseState.suppressedFor === scan.signature
+  const denseText = activeDense
+    ? armDensityText({ scan, dense: true, denseStartedAt: denseState.denseStartedAt, now: startedAt })
+    : armDensityText({
+        scan,
+        dense: false,
+        reason: suppressed
+          ? `本环已触达加密上限 ⇒ 不再加密(${scan.signature})`
+          : scan.open
+            ? `环未闭合 ⇒ 下一轮起按 ${Math.round(DENSE_PATROL_INTERVAL_MS / 60000)} 分钟/轮加密(本刻尚未开始)`
+            : scan.why,
+      })
+  console.log(`  ℹ ${denseText}`)
   if (probeOnly) process.exit(probe.state === 'window' ? 0 : probe.state === 'pending' ? 1 : 2)
   const assessed = assessSteps(io)
   console.log('\n票面六步盘点(现读):')
@@ -2699,5 +3152,10 @@ export const __test__ = {
   devenvArmDue,
   loadDevenvMigrateArm,
   devenvMigratePatrol,
+  // 按需加密(2026-11-04):环态判据 / 节拍决策 / 可观测文本,同一份生产件。
+  scanCycleFacts,
+  armCadenceDecision,
+  armDensityText,
+  readArmDenseState,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
