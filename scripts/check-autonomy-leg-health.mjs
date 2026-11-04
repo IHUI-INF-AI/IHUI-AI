@@ -31,7 +31,7 @@ import { preflightSessionRunner, classifySessionFailure, resolveSessionCommand }
 import { quarantinedUntilOf, LEDGER, DISPATCH_ARGS, parseTicketRows, PLAN_TASKS } from './auto-evolve.mjs'
 import { ticketKeyOf } from './lib/ticket-key.mjs'
 import { classifyLegs, actionableRows } from './lib/autonomy-leg-liveness.mjs'
-import { judgeCarrierParity } from './lib/guardian-carrier-parity.mjs'
+import { judgeCarrierParity, judgeRoadmapClaims } from './lib/guardian-carrier-parity.mjs'
 // 取材面纪律(§0.4 / 守门 118):闸门配置是**仓库内容**,一律按被审面取,不回落磁盘。
 // 共享工作树常年滞后 HEAD ⇒ 按磁盘读会在"恒红"与"假绿"之间来回跳,正是这一型。
 import { Undetermined, catBatch, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
@@ -263,7 +263,16 @@ export function judgeCarrierParityFace({ face = FACE_SEL.face, root = ROOT } = {
   } catch {
     src = null
   }
-  const r = judgeCarrierParity({ source: src ?? '' })
+  // 豁免清单同样按被审面取(与判据本体同面);取不到 ⇒ 空集 ⇒ 不摘任何一条,
+  // 失效方向恒为"多判一条黑",绝不因为台账读不到就放开(§0.10)。
+  let exemptions = []
+  try {
+    const parsed = JSON.parse(readFaceText('scripts/data/guardian-carrier-parity-exemptions.json', face, root))
+    if (Array.isArray(parsed.exemptions)) exemptions = parsed.exemptions
+  } catch {
+    exemptions = []
+  }
+  const r = judgeCarrierParity({ source: src ?? '', exemptions, now: Date.now() })
   const names = r.dark.slice(0, 6).join(', ')
   return {
     dim: 'A9-carrier-parity',
@@ -278,7 +287,45 @@ export function judgeCarrierParityFace({ face = FACE_SEL.face, root = ROOT } = {
   }
 }
 
-export function evaluateAll({ repoRoot = ROOT, gatesText, events, ticketRows, transit, valve, closure, liveness, parity } = {}) {
+/**
+ * A10-roadmap-claims —— 路线图中"§7 装车状态"那张**人手抄的表**与机器事实对账
+ * (判据零复算,全 import `scripts/lib/guardian-carrier-parity.mjs` 的 judgeRoadmapClaims)。
+ * 装这张表的必要性:A9 量出 46 条只挂 main 的那天,那张表自己正写着"只挂 main 等于永不执行"。
+ * 声明与事实并存却无人对账 ⇒ 这正是"文档说装好了"这类失效得以长期存在的结构原因。
+ */
+// 被审面走 `git show HEAD:<rel>`,pathspec 必须用正斜杠 —— 这里绝不能用 join(),
+// Windows 上它会给出 `docs\self-evolution-roadmap.md`,git 直接报"路径不存在"⇒ 整维假未判定。
+export const ROADMAP_DOC_REL = 'docs/self-evolution-roadmap.md'
+
+export function judgeRoadmapClaimsFace({ face = FACE_SEL.face, root = ROOT } = {}) {
+  let guardian = null
+  let roadmap = null
+  try {
+    guardian = readFaceText('scripts/git-guardian.mjs', face, root)
+  } catch {
+    guardian = null
+  }
+  try {
+    roadmap = readFaceText(ROADMAP_DOC_REL, face, root)
+  } catch {
+    roadmap = null
+  }
+  const r = judgeRoadmapClaims({ guardianSource: guardian ?? '', roadmapText: roadmap ?? '' })
+  const bad = (r.rows ?? []).filter((x) => x.state !== 'ok')
+  return {
+    dim: 'A10-roadmap-claims',
+    state: r.state,
+    readout: r.state === 'unjudged' ? r.why : `${r.why}${bad.length ? '' : `(已对账 ${(r.rows ?? []).length} 条声称)`}`,
+    next:
+      r.state === 'drift'
+        ? `出路:逐条要么把挂点真接进 startDaemon 的 tick(接完必须有节流戳,否则 A9 会把这枚列回黑腿),要么把表里那一行改成它的真载体 —— 不许只改表来对账,那是把声明降级去迁就已坏的事实(§12f)。`
+        : r.state === 'unjudged'
+          ? '先把两个被审面取到(守护源 + 路线图文档),再谈放量'
+          : '',
+  }
+}
+
+export function evaluateAll({ repoRoot = ROOT, gatesText, events, ticketRows, transit, valve, closure, liveness, parity, claims } = {}) {
   const dims = []
   let gates
   try {
@@ -292,6 +339,7 @@ export function evaluateAll({ repoRoot = ROOT, gatesText, events, ticketRows, tr
   if (closure) dims.push(closure)
   if (liveness) dims.push(liveness)
   if (parity) dims.push(parity)
+  if (claims) dims.push(claims)
   if (!events.ok) { /* 台账缺失只影响 A2/A3/A4 */
     dims.push({ dim: 'A2-attribution', state: 'unjudged', readout: events.why, next: '台账取不到 ⇒ 不冒充"没失败过"' })
     dims.push({ dim: 'A3-range', state: 'unjudged', readout: '无台账输入 ⇒ 封票数判不出', next: '' })
@@ -740,7 +788,8 @@ async function main() {
   })
   const liveness = judgeLivenessFace({ face: FACE_SEL.face, repoRoot, root: repoRoot })
   const parity = judgeCarrierParityFace({ face: FACE_SEL.face, root: repoRoot })
-  const result = evaluateAll({ repoRoot, gatesText, events, ticketRows: ticketRows ?? [], transit, valve, closure, liveness, parity })
+  const claims = judgeRoadmapClaimsFace({ face: FACE_SEL.face, root: repoRoot })
+  const result = evaluateAll({ repoRoot, gatesText, events, ticketRows: ticketRows ?? [], transit, valve, closure, liveness, parity, claims })
   if (asJson) {
     console.log(JSON.stringify({ verdict: result.state, face: FACE_SEL.face, ...result, identity: alertIdentity(result) }, null, 1))
   } else {
