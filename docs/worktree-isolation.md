@@ -33,8 +33,8 @@ node scripts/worktree-isolate.mjs --self-test
 ```
 ✅ 已创建隔离工作树
    路径: D:/IHUI-AI-wt-proof-selftest
-   分支: wt/proof-selftest-20261104-1748-eab114
-   基线: HEAD (0b9911f1)
+   分支: wt/proof-selftest-20261104-1757-de0b63
+   基线: HEAD (b6215339)
    进入: cd "D:/IHUI-AI-wt-proof-selftest"
          PowerShell: Set-Location -LiteralPath "D:/IHUI-AI-wt-proof-selftest"
    在树内提交: node scripts/isolated-git.mjs commit -m "<标题>" -- <相对路径...>
@@ -94,19 +94,45 @@ worktree 的 `.git` 是一个指针文件,指向 `<主 gitdir>/worktrees/<name>/
 - 不要把主树的"私有索引"思路当成 worktree 的必要条件:worktree 解决的是**跨会话共享索引**,
   `isolated-git` 解决的是**同一棵树内的钩子回写与残留索引**。两者正交。
 
+### 2.4 实测:在主树里用 isolated-git 会留下 AD 反向暂存残留
+
+本单第一次提交(`b621533`,走 `isolated-git` 私有索引)之后复查,共享索引把两件新文件记成
+`D `(已暂存删除),而工作区里文件还在、状态是 `??`:
+
+```text
+D  docs/worktree-isolation.md
+D  scripts/worktree-isolate.mjs
+?? docs/worktree-isolation.md
+?? scripts/worktree-isolate.mjs
+```
+
+这就是"私有索引提交完不推进共享索引"的可见形态。**危险点**:任何会话此时裸 `git commit`,
+都会把这两件当成"已确认删除"提交掉(即"复活已删件"的反向:把新增件删掉)。
+
+修复只碰本单路径,不动别人的暂存:
+
+```powershell
+git add -- <本单路径...>      # 让共享索引回到 HEAD/工作区
+# 或(只回索引、不动工作区)
+git reset -- <本单路径...>
+```
+
+**在 worktree 里不会出现这个形态**:索引物理上就在那棵树自己的 admin 目录,不存在跨会话共享。
+这也正是把提交搬进隔离树最直接的收益。
+
 ## 3. 自检读数(2026-11-04 实测)
 
 `node scripts/worktree-isolate.mjs --self-test`(全部落在 `mkScratch` 夹具仓):
 
 ```
-✅ A 开(干净) | exit=0 path=…/wt-clean branch=wt/clean-20261104-1747-81af35
+✅ A 开(干净) | exit=0 path=…/wt-clean branch=wt/clean-20261104-1757-21856a
 ✅ A 列(2 棵) | trees=2 exit=0
 ✅ B 脏拒删 | exit=1 ❌ 拒绝删除:工作区还有未提交内容(staged=0 unstaged=1 untracked=1 conflict=0)
 ✅ B2 干净可删 | exit=0 removed=true branchGone=true
 ✅ C 路径不存在 | exit=1 ❌ 拒绝删除:…wt-ghost 不存在,也未注册为 worktree
 ✅ D 同名冲突 | exit=1 ❌ 拒绝创建:目标路径已存在 …wt-dup
 ✅ E 已占用分支 | exit=1 ❌ 拒绝创建:分支已存在 wt/taken
-✅ F 零真实仓足迹 | 真实仓 worktree 数 3→3(本自检未新增真实检出)
+✅ F 零真实仓足迹 | 真实仓 worktree 数 4→4(本自检未新增真实检出)
 self-test: 全绿(8 组断言,全部落在 mkScratch 夹具内)
 ```
 
@@ -117,16 +143,17 @@ self-test: 全绿(8 组断言,全部落在 mkScratch 夹具内)
 ❌ 拒绝删除:工作区还有未提交内容(staged=0 unstaged=0 untracked=1 conflict=0)
    现场清单(前 1 条,共 1 条):
    ?? probe-untracked.txt
+   先提交/迁移或明确放弃这些改动再 drop(本工具绝不 force / clean -f)。
 dirty-drop-exit=1
 
 # 删掉探针(自己的实验产物)后再 drop
 ✅ 已移除 D:/IHUI-AI-wt-proof-selftest
-   分支 wt/proof-selftest-20261104-1748-eab114 已并入 HEAD,已用 git branch -d 删除
+   分支 wt/proof-selftest-20261104-1757-de0b63 已并入 HEAD,已用 git branch -d 删除
 clean-drop-exit=0
 
 # 复查:目标目录、登记、分支三样全部不残留
-D:/IHUI-AI-git-repo                           0b9911f1d5 [main]
-D:/DevEnv/Temp/ihui-docclose-wt-1793785766297 0b9911f1d5 (detached HEAD)   # 另一会话在用,与本单无关
+D:/IHUI-AI-git-repo                            b621533999 [main]
+D:/DevEnv/Temp/ihui-ratchet-tooth-ef5c6b86     18e045430c (detached HEAD)  # 另一会话在用,与本单无关
 D:/IHUI-AI-homefont-wt                         b2de284036 [push-daemon-fanout]
 D:/IHUI-AI-mergefix-wt                         a1029c579c (detached HEAD)
 # git branch --list 'wt/proof-selftest*' ⇒ 空
@@ -155,7 +182,7 @@ D:/IHUI-AI-mergefix-wt                         a1029c579c (detached HEAD)
 
 | 门 | 读数 | 说明 |
 |---|---|---|
-| 281 全工作树未提交状态 | **exit 1** | 5 棵树:主树 staged=2 unstaged=78 untracked=76;`ihui-docclose-wt` locked staged=18957;`mergefix-wt` unstaged=2;刚开的证明树 untracked=1 |
+| 281 全工作树未提交状态 | **exit 1** | 5 棵树:主树 staged=3 unstaged=72 untracked=75;`ihui-ratchet-tooth` staged=0 unstaged=1 untracked=1;`homefont-wt` 干净;`mergefix-wt` unstaged=2;刚开的证明树 untracked=1 |
 | 44 根目录整洁 | **exit 0** | 仓外 worktree 不进一级目录扫描面;仓内 `.worktrees/` 也已在白名单 |
 | 30c 陈旧副本 | **exit 0** | 当轮暂存面没有陈旧副本 |
 
