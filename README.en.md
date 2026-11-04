@@ -101,6 +101,12 @@ Headline claims (same source as the table below, all live-computed): **619 table
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-04**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (decbaf9b4c)
+- 🐞 Fix:B 组收尾补漏（showClear 两端删除、mini robotImage 真渲染） (dcd22d3ccc)
+- 🐞 Fix:平台裁决清零(46→0),A组18条真实现/删除,门128两红收口;补 pnpm-lock 记账(解门101 存量红) (2cf8856fd1)
+- 🐞 Fix:整包下载改 8 连接分片 + 诚实的速率读数 (7242b9cc3d)
+
+**2026-11-04**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (6dcc3be9c8)
 
 **2026-11-04**
@@ -299,9 +305,6 @@ Headline claims (same source as the table below, all live-computed): **619 table
 
 **2026-11-03**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (1fb2f45d04)
-
-**2026-11-03**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (30d2f7ca16)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
