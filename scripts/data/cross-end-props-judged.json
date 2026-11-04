@@ -1068,6 +1068,19 @@
       ]
     },
     {
+      "pair": "IntelligentAssistant",
+      "key": "robotImage",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "RN 机器人形象可注入位图 robotImage;小程序端按「不同媒介」裁决使用 LineIcon bot 矢量字形(随主题换色),不渲染位图,无同名腿。",
+      "evidence": [
+        "apps/mobile-rn/src/components/IntelligentAssistant.tsx:52",
+        "apps/miniapp-taro/src/components/IntelligentAssistant.tsx:90",
+        "apps/mobile-rn/src/components/IntelligentAssistant.tsx:44"
+      ]
+    },
+    {
       "pair": "UserInfoCard",
       "key": "onCopyInviteCode",
       "side": "rn",
