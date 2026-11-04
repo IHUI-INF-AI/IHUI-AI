@@ -11309,6 +11309,7 @@ function runCrossEndApplyLeg({ scriptName, args, defaultTickFile, label, opts })
     tickFile = defaultTickFile,
     logger = log,
     runner = null,
+    notify = notifyGuardRed,
   } = opts
   const script = join(dirname(fileURLToPath(import.meta.url)), scriptName)
   if (!existsSync(script)) {
@@ -11331,16 +11332,62 @@ function runCrossEndApplyLeg({ scriptName, args, defaultTickFile, label, opts })
           : `status=${r.status ?? '?'}`
       })—— 这不等于"无漂移可落"`,
     )
+    stampCrossEndDispatch(tickFile, now, r, String(r.stdout ?? ''), { state: 'unparsed' })
     return { ran: true, ok: false, state: 'undetermined', status: r.status, signal: r.signal }
   }
   const num = (k) => Number(new RegExp(`${k}=(\\d+)`).exec(line)?.[1]) || 0
+  // 2026-11-04:两种"没写成"必须分道,不得合成一个 red(§0.3):
+  //   downgrade  = 派生结果逐字等于祖先旧档、被写手闸拒掉的枚数(真"该写却没写");
+  //   undetermined = 本轮没判成的对数(祖先面取不到/归属未明),"没判"不等于"没有倒退"。
+  // 原实现两者只留在 stdout,tick 只有 rc/tail,日志只在 landed/held>0 时出话 ⇒ 两态都静默。
+  const downgrade = num('downgrade')
+  const notJudged = Number(/\?未判定\s+(\d+)/.exec(blob)?.[1]) || 0
+  const refusedWrite = downgrade > 0
+  const missedJudge = notJudged > 0 || (typeof r.status === 'number' && r.status === 2)
+  // tick 字段恒写(0 也要在,便于 grep 趋势);state 取最具体的一态。
+  stampCrossEndDispatch(tickFile, now, r, String(r.stdout ?? ''), {
+    state: refusedWrite ? 'refused-downgrade' : missedJudge ? 'undetermined' : 'ok',
+    downgrade,
+    undetermined: notJudged,
+  })
   const out = {
     ran: true,
     ok: true,
-    state: /ledger=unjudged/.test(line) ? 'unjudged-ledger' : 'ok',
+    state: refusedWrite
+      ? 'refused-downgrade'
+      : missedJudge
+        ? 'undetermined'
+        : /ledger=unjudged/.test(line)
+          ? 'unjudged-ledger'
+          : 'ok',
     landed: num('landing'),
     held: num('held'),
     skipped: num('skipLanded'),
+    downgrade,
+    undetermined: notJudged,
+  }
+  if (refusedWrite) {
+    const detail = /^.*⛔ downgrade.*$/m.exec(blob)?.[0] ?? ''
+    logger(
+      `❌ ${label}:祖先旧档拒写 downgrade=${downgrade} 枚(未判定 ${notJudged} 对)⇒ 本轮写出 ${num('写出')} 枚;` +
+        `需先让 RN 壳对齐同一档,再派生;${line.slice(0, 220)}`,
+    )
+    try {
+      notify(`${label}:派生结果=祖先旧档,拒写 ${downgrade} 枚`, `${detail || line}\n\n这不是"已落档",是写手闸拦下了旧 blob;拒写(downgrade>0)与未判定(exit 2)两态不可混:未判定=${notJudged}。`, {
+        severity: 'warning',
+        dedupKey: `cross-end-apply-downgrade:${scriptName}`,
+      })
+    } catch {
+      /* 告警面失败不改变判据面(与本守护 notify 同格) */
+    }
+    return { ...out, ok: false }
+  }
+  if (missedJudge) {
+    logger(
+      `⚠️ ${label}:未判定 ${notJudged} 对(rc=${r.status ?? '?'})⇒ 本轮没判,不等于"无漂移可落"` +
+        `(拒写 downgrade=${downgrade} 是另一态);${line.slice(0, 220)}`,
+    )
+    return { ...out, ok: false }
   }
   if (out.landed === 0 && out.held === 0) return out
   logger(`🧩 ${label}:${line.slice(0, 220)}`)
