@@ -25,7 +25,7 @@ export function NotificationSettingsScreen({
   onSave,
   onBack,
   onRetry,
-  colorScheme = 'light'
+  colorScheme = 'light',
 }: NotificationSettingsScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
@@ -35,7 +35,7 @@ export function NotificationSettingsScreen({
       <View style={styles.container}>
         <View style={styles.header}>
           <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
-          <Text style={styles.title}>{t('notificationSettings.title')}</Text>
+          <Text style={styles.title}>{t('settings.notificationsTitle')}</Text>
         </View>
         <ScreenSkeleton variant="list" count={5} colorScheme={colorScheme} />
       </View>
@@ -47,7 +47,7 @@ export function NotificationSettingsScreen({
       <View style={styles.container}>
         <View style={styles.header}>
           <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
-          <Text style={styles.title}>{t('notificationSettings.title')}</Text>
+          <Text style={styles.title}>{t('settings.notificationsTitle')}</Text>
         </View>
         <ErrorState
           message={error || t('common.empty')}
@@ -71,7 +71,7 @@ export function NotificationSettingsScreen({
     <View style={styles.container}>
       <View style={styles.header}>
         <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
-        <Text style={styles.title}>{t('notificationSettings.title')}</Text>
+        <Text style={styles.title}>{t('settings.notificationsTitle')}</Text>
       </View>
       <View style={styles.body}>
         <View style={styles.card}>

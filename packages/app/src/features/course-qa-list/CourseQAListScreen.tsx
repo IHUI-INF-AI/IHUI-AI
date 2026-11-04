@@ -43,7 +43,7 @@ export function CourseQAListScreen({
         <Text style={styles.title}>{t('courseQAList.title')}</Text>
         {onAsk ? (
           <TouchableOpacity onPress={onAsk} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Text style={styles.askText}>{t('courseQAList.ask')}</Text>
+            <Text style={styles.askText}>{t('edu.qa.askBtn')}</Text>
           </TouchableOpacity>
         ) : null}
       </View>
