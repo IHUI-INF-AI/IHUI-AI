@@ -193,6 +193,20 @@ async function mockSSEStreaming(
   const chunkDelayMs = opts.chunkDelayMs ?? 1
   await page.addInitScript(
     ({ frames, delay }: { frames: string; delay: number }) => {
+      const w = window as unknown as {
+        __h20FirstChunkAt?: number
+        __h20StreamEndAt?: number
+        __h20WindowRaf?: number
+        __h20GateTimeoutAt?: number
+        __h20NonStreamPending?: number
+        __h20NonStreamSettledAt?: number
+      }
+      // 发送期门控(2026-11-05):非流式请求在途计数 + 最近落定时刻。
+      // 发送点击后仍有消息持久化 POST、会话列表失效重取、埋点等后台请求,
+      // 它们的响应体解析续体(Response.text/json.then)可能落在首帧之后;
+      // 只做「首帧起算」无法把它们隔开,故首帧必须等这些请求落定后再吐。
+      w.__h20NonStreamPending = 0
+      w.__h20NonStreamSettledAt = 0
       const orig = window.fetch.bind(window)
       window.fetch = async (input, init) => {
         const url =
@@ -201,7 +215,15 @@ async function mockSSEStreaming(
             : input instanceof URL
               ? input.href
               : (input as Request).url
-        if (!url.includes('/ai/chat/stream')) return orig(input, init)
+        if (!url.includes('/ai/chat/stream')) {
+          w.__h20NonStreamPending = (w.__h20NonStreamPending ?? 0) + 1
+          try {
+            return await orig(input, init)
+          } finally {
+            w.__h20NonStreamPending = (w.__h20NonStreamPending ?? 0) - 1
+            w.__h20NonStreamSettledAt = performance.now()
+          }
+        }
         const enc = new TextEncoder()
         // 按 SSE 帧边界切块(lookahead 保住 "data: " 前缀),逐帧 enqueue
         const parts = frames.split(/(?=data: )/)
@@ -209,17 +231,47 @@ async function mockSSEStreaming(
         // 发送点击到首帧之间是会话创建 POST 的 Response.text/json 解析与用户消息挂载,
         // CI LoAF 归因实测正是 resolve-promise:Response.text.then / Response.json.then,
         // 不属于「流式期间新增元素渲染」;把它排除在窗口外,窗口才量的是流式渲染本体。
-        ;(window as unknown as { __h20FirstChunkAt?: number }).__h20FirstChunkAt = undefined
+        // 2026-11-05:仅「首帧起算」不够——发送期后台请求可在首帧之后才落定,
+        // 故加门控(等非流式在途清零且静默 ≥400ms),并同步记录窗口终点与窗口内 rAF 数。
+        w.__h20FirstChunkAt = undefined
+        w.__h20StreamEndAt = undefined
+        w.__h20WindowRaf = 0
+        w.__h20GateTimeoutAt = undefined
         const body = new ReadableStream<Uint8Array>({
           async start(controller) {
             try {
+              const GATE_CAP_MS = 1200
+              const SETTLE_QUIET_MS = 400
+              const gateStart = performance.now()
+              while (performance.now() - gateStart < GATE_CAP_MS) {
+                const pending = w.__h20NonStreamPending ?? 0
+                const quietMs = performance.now() - (w.__h20NonStreamSettledAt ?? 0)
+                if (pending === 0 && quietMs >= SETTLE_QUIET_MS) break
+                await new Promise((r) => setTimeout(r, 50))
+              }
+              const gateWait = Math.round(performance.now() - gateStart)
+              if (gateWait >= GATE_CAP_MS) {
+                w.__h20GateTimeoutAt = performance.now()
+                console.warn(
+                  `[perf-long-session] send-phase gate timeout: pending=${w.__h20NonStreamPending ?? 0}, waited=${gateWait}ms (首帧照常吐出,该次读数需人工判读)`,
+                )
+              }
               for (const p of parts) {
                 if (init?.signal?.aborted) break
                 controller.enqueue(enc.encode(p))
-                const w = window as unknown as { __h20FirstChunkAt?: number }
-                if (w.__h20FirstChunkAt === undefined) w.__h20FirstChunkAt = performance.now()
+                if (w.__h20FirstChunkAt === undefined) {
+                  w.__h20FirstChunkAt = performance.now()
+                  // 窗口内 rAF 计数(首帧起至流结束):用于证明窗口仍覆盖整个流式期
+                  const tick = (): void => {
+                    if (w.__h20StreamEndAt !== undefined) return
+                    w.__h20WindowRaf = (w.__h20WindowRaf ?? 0) + 1
+                    requestAnimationFrame(tick)
+                  }
+                  requestAnimationFrame(tick)
+                }
                 if (delay > 0) await new Promise((r) => setTimeout(r, delay))
               }
+              w.__h20StreamEndAt = performance.now()
               controller.close()
             } catch {
               // reader 提前 cancel(done 后 streamChat 会取消):静默收流,不留悬空 rejection
@@ -574,6 +626,35 @@ test.describe('H20 长会话性能验收(D35 分页后)', () => {
             .join(' | ')}`,
         )
       }
+    }
+
+    // 窗口覆盖读数(2026-11-05):证明门控没有把测量面缩到几帧 ——
+    // 首帧时间 / 流结束时间 / 窗口长度 / 窗口内 rAF 帧数 / 门控是否超时。
+    const coverage = await page.evaluate(() => {
+      const w = window as unknown as {
+        __h20FirstChunkAt?: number
+        __h20StreamEndAt?: number
+        __h20WindowRaf?: number
+        __h20GateTimeoutAt?: number
+        __h20NonStreamPending?: number
+      }
+      return {
+        first: w.__h20FirstChunkAt ?? 0,
+        end: w.__h20StreamEndAt ?? 0,
+        raf: w.__h20WindowRaf ?? 0,
+        gateTimeoutAt: w.__h20GateTimeoutAt ?? 0,
+        pending: w.__h20NonStreamPending ?? 0,
+      }
+    })
+    const windowLengthMs =
+      coverage.first > 0 && coverage.end > 0 ? Math.round(coverage.end - coverage.first) : -1
+    console.log(
+      `[perf-long-session] ②窗口覆盖: 首帧@${Math.round(coverage.first)}, 流结束@${Math.round(coverage.end)}, 长度=${windowLengthMs}ms, 窗口内 rAF=${coverage.raf} 帧`,
+    )
+    if (coverage.gateTimeoutAt > 0) {
+      console.log(
+        `[perf-long-session] ⚠️ send-phase gate timeout: 首帧前等待达到 1200ms 上限(在途=${coverage.pending}), 本次读数需人工判读`,
+      )
     }
 
     expect(
