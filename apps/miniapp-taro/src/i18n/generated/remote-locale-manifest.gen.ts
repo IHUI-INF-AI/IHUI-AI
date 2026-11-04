@@ -7,8 +7,8 @@
 // bytes = 载荷字节数(下载完整性粗校验)。载荷真相在 generated/remote-locales.gen.ts(离线对账)
 // 与 src/assets/remote-locales/<locale>.b64.txt(CDN 部署),三者同批派生、同钉对账。
 // IHUI-GEN-PIN-BEGIN
-// generator: apps/miniapp-taro/scripts/gen-i18n-compressed.mjs
-// sourceCommit: eda6cf460c52bc13d371700ad75ad5dcd6cb10fe
+// generator: scripts/gen-i18n-compressed.mjs
+// sourceCommit: 8f8adbfa78043b8c489cfa4b0a9b3ddc95accae3
 // inputsSha256: 94fd2f6a4292cc1ada7042a8f394465481db060bb08a95b85f4392bdf4a6b299
 // input: packages/i18n/messages/miniapp-taro/en.json 133c7b431dc9a9a9a217de0884d002762fc961ebb04d65ba2d32cd74ba7732b6
 // input: packages/i18n/messages/miniapp-taro/ja.json 2b9b0baca1e0b714df32e7231bb1b48a3873b82dc55f693b85fd0c3855cac372
@@ -24,7 +24,7 @@
 // input: packages/i18n/messages/shared/zh-TW.json c1f9b10a8ada46e07be7ddf59181fc072ed64ad9f78852b9e93ae08a62cf2497
 // carried: present
 // carriedKeys: en=586 ja=586 ko=586 zh-TW=586
-// generatedAt: 2026-11-04T08:07:11.691Z
+// generatedAt: 2026-11-04T11:11:01.415Z
 // IHUI-GEN-PIN-END
 export type RemoteLocale = 'en' | 'ja' | 'ko' | 'zh-TW'
 export const REMOTE_LOCALE_MANIFEST: Record<RemoteLocale, { version: string; bytes: number }> = {

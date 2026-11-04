@@ -86,7 +86,7 @@ const zhPackFile = resolve(outDir, 'zh-cn-pack.gen.ts')
 // CDN 部署载荷目录:与 src/assets/remote-images/ 同一镜像约定 —— 目录名即 CDN URL 路径段,
 // 运维把它整体拷进 cdn-server.js 的 server-root 后,载荷即出现在 /remote-locales/<locale>.b64.txt。
 const cdnPayloadDir = resolve(repoRoot, 'apps/miniapp-taro/src/assets/remote-locales')
-const GENERATOR_REL = 'apps/miniapp-taro/scripts/gen-i18n-compressed.mjs'
+const GENERATOR_REL = 'scripts/gen-i18n-compressed.mjs'
 
 const REMOTE_LOCALES = ['en', 'ja', 'ko', 'zh-TW']
 /** zh-CN 的钉输入清单单独一份(G5 只按 remote 那 8 份现算 ①,混进去 ⇒ ① 恒判 stale) */
