@@ -29,70 +29,70 @@
  * unsupported),差别只在于"就绪"叫 available —— APK 没有静默预下载,"就绪"本身没有内容。
  */
 
-import { Linking, Platform } from "react-native";
-import { useSyncExternalStore } from "react";
-import * as FileSystem from "expo-file-system/legacy";
-import { checkAppVersion } from "@ihui/api-client";
+import { Linking, Platform } from 'react-native'
+import { useSyncExternalStore } from 'react'
+import * as FileSystem from 'expo-file-system/legacy'
+import { checkAppVersion } from '@ihui/api-client'
 import {
   createSpeedMeter,
   downloadRanged,
   DownloadCancellation,
   DownloadCancelledError,
-} from "./ranged-download";
-import { APP_USER_AGENT, APP_VERSION } from "./config";
-import { resolveApkDownloadUrl, type ApkLegId } from "./apk-download-legs";
+} from './ranged-download'
+import { APP_USER_AGENT, APP_VERSION } from './config'
+import { resolveApkDownloadUrl, type ApkLegId } from './apk-download-legs'
 
 export type ApkUpdateState =
-  | "idle"
+  | 'idle'
   /** 正在问服务端 latest 版本 */
-  | "checking"
+  | 'checking'
   /** 服务端说没有比当前更新的包 */
-  | "up-to-date"
+  | 'up-to-date'
   /** 有更新,等用户点"下载并安装"(绝不自动下) */
-  | "available"
-  | "downloading"
+  | 'available'
+  | 'downloading'
   /** 已把安装交给系统(应用内直装)或浏览器(降级) */
-  | "installing"
-  | "error"
+  | 'installing'
+  | 'error'
   /** 非 Android(web/iOS 装不了 APK) */
-  | "unsupported";
+  | 'unsupported'
 
 /** 安装入口:应用内直装 / 浏览器降级。文案与排查都靠它区分,不靠猜。 */
-export type ApkInstallMode = "in-app" | "browser" | null;
+export type ApkInstallMode = 'in-app' | 'browser' | null
 
 export interface ApkStore {
-  state: ApkUpdateState;
+  state: ApkUpdateState
   /** 当前进程的显示版本(src/lib/config.ts 的 APP_VERSION,与原生 versionName 同源) */
-  currentVersion: string;
-  latestVersion: string | null;
-  downloadUrl: string | null;
-  releaseNotes: string | null;
+  currentVersion: string
+  latestVersion: string | null
+  downloadUrl: string | null
+  releaseNotes: string | null
   /** 服务端标记的强制更新(仅作 UI 提示;是否阻断由客户端策略决定,本模块不擅自锁死应用) */
-  forceUpdate: boolean;
+  forceUpdate: boolean
   /** 0-100,仅 downloading 时采样 */
-  progress: number;
-  downloadedBytes: number;
-  totalBytes: number;
+  progress: number
+  downloadedBytes: number
+  totalBytes: number
   /**
    * 实测速率(字节/秒,4 秒滚动窗口)。为什么非要有:85MB 走跨境腿时"百分比不动"
    * 与"几十 B/s 在动"对用户是两种完全不同的体感,而前者会被当成死机。
    */
-  bytesPerSecond: number;
+  bytesPerSecond: number
   /** 当前并发连接数(分片下载的真实读数;单流降级时为 1) */
-  connections: number;
+  connections: number
   /** 本次实际走的下载腿:site=服务端主腿 / cn=Gitee 国内腿。排查「几十 B/s」时看这一格。 */
-  downloadLeg: ApkLegId | null;
+  downloadLeg: ApkLegId | null
   /** 下载完成的本地文件(安装失败后重试时复用,不必再下 90MB) */
-  fileUri: string | null;
-  installMode: ApkInstallMode;
-  lastError: string | null;
-  lastCheckedAt: number | null;
+  fileUri: string | null
+  installMode: ApkInstallMode
+  lastError: string | null
+  lastCheckedAt: number | null
   /** 提示卡是否被用户关掉;新一轮"查到更新"时自动复位 */
-  dismissed: boolean;
+  dismissed: boolean
 }
 
 let store: ApkStore = {
-  state: "idle",
+  state: 'idle',
   currentVersion: APP_VERSION,
   latestVersion: null,
   downloadUrl: null,
@@ -109,33 +109,33 @@ let store: ApkStore = {
   lastError: null,
   lastCheckedAt: null,
   dismissed: false,
-};
+}
 
-const listeners = new Set<() => void>();
+const listeners = new Set<() => void>()
 /** 正在飞的那一趟检查(并发去重:挂载后自动检查与设置页手动检查会撞车) */
-let inFlightCheck: Promise<ApkUpdateState> | null = null;
+let inFlightCheck: Promise<ApkUpdateState> | null = null
 /** 正在飞的下载任务(取消时按类型分派:分片腿靠令牌,单流腿靠 pauseAsync) */
 type ActiveDownload =
-  | { kind: "ranged"; cancellation: DownloadCancellation }
-  | { kind: "legacy"; task: FileSystem.DownloadResumable };
+  | { kind: 'ranged'; cancellation: DownloadCancellation }
+  | { kind: 'legacy'; task: FileSystem.DownloadResumable }
 
-let activeDownload: ActiveDownload | null = null;
+let activeDownload: ActiveDownload | null = null
 
 function patch(next: Partial<ApkStore>): void {
-  store = { ...store, ...next };
-  for (const listener of listeners) listener();
+  store = { ...store, ...next }
+  for (const listener of listeners) listener()
 }
 
 function subscribe(listener: () => void): () => void {
-  listeners.add(listener);
+  listeners.add(listener)
   return () => {
-    listeners.delete(listener);
-  };
+    listeners.delete(listener)
+  }
 }
 
 /** 只有 Android 能装 APK;web 与 iOS 上没有这条通道。 */
 export function isApkUpdateSupported(): boolean {
-  return Platform.OS === "android";
+  return Platform.OS === 'android'
 }
 
 // =============================================================================
@@ -148,11 +148,11 @@ export function isApkUpdateSupported(): boolean {
  * 非该形态一律返回 null(交给调用方决定"信服务端"还是"当没更新")。
  */
 function parseVersion(value: string): number[] | null {
-  const trimmed = value.trim();
-  if (!/^\d+(?:\.\d+){0,3}$/.test(trimmed)) return null;
-  const parts = trimmed.split(".").map((n) => Number(n));
-  while (parts.length < 4) parts.push(0);
-  return parts;
+  const trimmed = value.trim()
+  if (!/^\d+(?:\.\d+){0,3}$/.test(trimmed)) return null
+  const parts = trimmed.split('.').map((n) => Number(n))
+  while (parts.length < 4) parts.push(0)
+  return parts
 }
 
 /**
@@ -162,14 +162,14 @@ function parseVersion(value: string): number[] | null {
  * (见 MEMORY「门恒绿两大成因」①实现取错层级 ②夹具与实现同错)。调用方必须显式处理 null。
  */
 export function compareVersions(a: string, b: string): number | null {
-  const pa = parseVersion(a);
-  const pb = parseVersion(b);
-  if (!pa || !pb) return null;
+  const pa = parseVersion(a)
+  const pb = parseVersion(b)
+  if (!pa || !pb) return null
   for (let i = 0; i < 4; i += 1) {
-    const diff = (pa[i] ?? 0) - (pb[i] ?? 0);
-    if (diff !== 0) return diff > 0 ? 1 : -1;
+    const diff = (pa[i] ?? 0) - (pb[i] ?? 0)
+    if (diff !== 0) return diff > 0 ? 1 : -1
   }
-  return 0;
+  return 0
 }
 
 /**
@@ -179,15 +179,15 @@ export function compareVersions(a: string, b: string): number | null {
  * 两者**同时**成立才算真有更新:读不懂时退化成"信服务端",但绝不因为读不懂就报"有更新"。
  */
 export function decideHasUpdate(input: {
-  serverHasUpdate: boolean;
-  latestVersion: string | null | undefined;
-  currentVersion: string;
+  serverHasUpdate: boolean
+  latestVersion: string | null | undefined
+  currentVersion: string
 }): boolean {
-  const latest = input.latestVersion?.trim();
-  if (!latest) return false;
-  const cmp = compareVersions(latest, input.currentVersion);
-  if (cmp === null) return input.serverHasUpdate;
-  return cmp > 0 && input.serverHasUpdate !== false;
+  const latest = input.latestVersion?.trim()
+  if (!latest) return false
+  const cmp = compareVersions(latest, input.currentVersion)
+  if (cmp === null) return input.serverHasUpdate
+  return cmp > 0 && input.serverHasUpdate !== false
 }
 
 // =============================================================================
@@ -195,21 +195,15 @@ export function decideHasUpdate(input: {
 // =============================================================================
 
 interface IntentActivityOptions {
-  data?: string;
-  type?: string;
-  flags?: number;
-  category?: string;
+  data?: string
+  type?: string
+  flags?: number
+  category?: string
 }
 
 interface IntentLauncherModule {
-  startActivityAsync?: (
-    action: string,
-    params?: IntentActivityOptions,
-  ) => Promise<unknown>;
-  startActivity?: (
-    action: string,
-    params?: IntentActivityOptions,
-  ) => Promise<unknown>;
+  startActivityAsync?: (action: string, params?: IntentActivityOptions) => Promise<unknown>
+  startActivity?: (action: string, params?: IntentActivityOptions) => Promise<unknown>
 }
 
 /**
@@ -227,23 +221,21 @@ interface IntentLauncherModule {
  */
 function lookupIntentLauncher(): IntentLauncherModule | null {
   try {
-    const registry = (
-      globalThis as unknown as { expo?: { modules?: Record<string, unknown> } }
-    ).expo?.modules;
-    const mod = registry?.ExpoIntentLauncher as
-      IntentLauncherModule | undefined;
-    if (!mod) return null;
-    if (typeof mod.startActivityAsync === "function") return mod;
-    if (typeof mod.startActivity === "function") return mod;
-    return null;
+    const registry = (globalThis as unknown as { expo?: { modules?: Record<string, unknown> } })
+      .expo?.modules
+    const mod = registry?.ExpoIntentLauncher as IntentLauncherModule | undefined
+    if (!mod) return null
+    if (typeof mod.startActivityAsync === 'function') return mod
+    if (typeof mod.startActivity === 'function') return mod
+    return null
   } catch {
-    return null;
+    return null
   }
 }
 
 /** 当前设备能否"下载完直接拉起系统安装器"(false ⇒ 只能走浏览器降级)。 */
 export function canInstallInApp(): boolean {
-  return Platform.OS === "android" && lookupIntentLauncher() !== null;
+  return Platform.OS === 'android' && lookupIntentLauncher() !== null
 }
 
 // =============================================================================
@@ -255,53 +247,47 @@ export function canInstallInApp(): boolean {
  * @returns 结束时的状态,不抛异常。
  */
 export function checkApkUpdate(): Promise<ApkUpdateState> {
-  if (inFlightCheck) return inFlightCheck;
+  if (inFlightCheck) return inFlightCheck
   inFlightCheck = runCheck().finally(() => {
-    inFlightCheck = null;
-  });
-  return inFlightCheck;
+    inFlightCheck = null
+  })
+  return inFlightCheck
 }
 
 async function runCheck(): Promise<ApkUpdateState> {
   if (!isApkUpdateSupported()) {
-    patch({ state: "unsupported", lastError: null });
-    return "unsupported";
+    patch({ state: 'unsupported', lastError: null })
+    return 'unsupported'
   }
-  patch({ state: "checking", lastError: null, lastCheckedAt: Date.now() });
+  patch({ state: 'checking', lastError: null, lastCheckedAt: Date.now() })
   try {
-    const res = await checkAppVersion({
-      version: store.currentVersion,
-      platform: "android",
-    });
+    const res = await checkAppVersion({ version: store.currentVersion, platform: 'android' })
     if (!res.success) {
-      patch({ state: "error", lastError: res.error ?? "版本检查失败" });
-      return "error";
+      patch({ state: 'error', lastError: res.error ?? '版本检查失败' })
+      return 'error'
     }
-    const data = res.data;
-    const latestVersion =
-      typeof data.latestVersion === "string" ? data.latestVersion : null;
+    const data = res.data
+    const latestVersion = typeof data.latestVersion === 'string' ? data.latestVersion : null
     const hasUpdate = decideHasUpdate({
       serverHasUpdate: data.hasUpdate !== false,
       latestVersion,
       currentVersion: store.currentVersion,
-    });
+    })
     if (!hasUpdate) {
       patch({
-        state: "up-to-date",
+        state: 'up-to-date',
         latestVersion: latestVersion ?? store.currentVersion,
         downloadUrl: null,
         releaseNotes: null,
         forceUpdate: false,
-      });
-      return "up-to-date";
+      })
+      return 'up-to-date'
     }
     patch({
-      state: "available",
+      state: 'available',
       latestVersion,
-      downloadUrl:
-        typeof data.downloadUrl === "string" ? data.downloadUrl : null,
-      releaseNotes:
-        typeof data.releaseNotes === "string" ? data.releaseNotes : null,
+      downloadUrl: typeof data.downloadUrl === 'string' ? data.downloadUrl : null,
+      releaseNotes: typeof data.releaseNotes === 'string' ? data.releaseNotes : null,
       forceUpdate: data.forceUpdate === true,
       progress: 0,
       downloadedBytes: 0,
@@ -312,14 +298,11 @@ async function runCheck(): Promise<ApkUpdateState> {
       installMode: null,
       // 新一轮更新复位一次性关闭,与 ota-update 的 ready 分支同语义
       dismissed: false,
-    });
-    return "available";
+    })
+    return 'available'
   } catch (e) {
-    patch({
-      state: "error",
-      lastError: e instanceof Error ? e.message : String(e),
-    });
-    return "error";
+    patch({ state: 'error', lastError: e instanceof Error ? e.message : String(e) })
+    return 'error'
   }
 }
 
@@ -329,10 +312,10 @@ async function runCheck(): Promise<ApkUpdateState> {
 
 /** 缓存目录常量在 web 上为 null;拿不到目录就等于没有"应用内下载"这条腿。 */
 function apkFileUri(version: string): string | null {
-  const dir = FileSystem.cacheDirectory;
-  if (!dir) return null;
+  const dir = FileSystem.cacheDirectory
+  if (!dir) return null
   // 文件名带版本号:重试同版本可复用,升级到新版本自动换文件,不会拿旧包去装新版本
-  return `${dir}ihui-ai-${version}.apk`;
+  return `${dir}ihui-ai-${version}.apk`
 }
 
 /**
@@ -340,38 +323,35 @@ function apkFileUri(version: string): string | null {
  * 保留它而不是删掉:同样 85MB,单流至少能下完,只是慢;直接报错等于把用户堵死。
  */
 async function downloadApkLegacy(url: string, target: string): Promise<string> {
-  const meter = createSpeedMeter();
-  let previous = 0;
+  const meter = createSpeedMeter()
+  let previous = 0
   const resumable = FileSystem.createDownloadResumable(
     url,
     target,
     // 与服务端其它请求同源的首方 UA:缺省 UA 会被 okhttp 默认串顶替,
     // 而后端 bot-detection 把 okhttp 列进爬虫关键字(src/lib/config.ts 的 APP_USER_AGENT 头注)。
-    { headers: { "User-Agent": APP_USER_AGENT } },
+    { headers: { 'User-Agent': APP_USER_AGENT } },
     (p) => {
-      const total = p.totalBytesExpectedToWrite;
-      const delta = p.totalBytesWritten - previous;
-      previous = p.totalBytesWritten;
-      meter.push(delta);
+      const total = p.totalBytesExpectedToWrite
+      const delta = p.totalBytesWritten - previous
+      previous = p.totalBytesWritten
+      meter.push(delta)
       patch({
-        progress:
-          total > 0
-            ? Math.min(100, Math.round((p.totalBytesWritten / total) * 100))
-            : 0,
+        progress: total > 0 ? Math.min(100, Math.round((p.totalBytesWritten / total) * 100)) : 0,
         downloadedBytes: p.totalBytesWritten,
         totalBytes: total > 0 ? total : 0,
         bytesPerSecond: meter.bytesPerSecond(),
         connections: 1,
-      });
+      })
     },
-  );
-  activeDownload = { kind: "legacy", task: resumable };
+  )
+  activeDownload = { kind: 'legacy', task: resumable }
   try {
-    const result = await resumable.downloadAsync();
-    if (!result?.uri) throw new Error("下载完成但没有拿到文件路径");
-    return result.uri;
+    const result = await resumable.downloadAsync()
+    if (!result?.uri) throw new Error('下载完成但没有拿到文件路径')
+    return result.uri
   } finally {
-    if (activeDownload?.kind === "legacy") activeDownload = null;
+    if (activeDownload?.kind === 'legacy') activeDownload = null
   }
 }
 
@@ -385,46 +365,40 @@ async function downloadApkLegacy(url: string, target: string): Promise<string> {
  * 取消/半包口径在分片腿里判,这里只负责选腿与错误归类。
  */
 async function downloadApk(url: string, version: string): Promise<string> {
-  const target = apkFileUri(version);
-  if (!target) throw new Error("设备没有可写的缓存目录");
+  const target = apkFileUri(version)
+  if (!target) throw new Error('设备没有可写的缓存目录')
 
-  const cancellation = new DownloadCancellation();
-  activeDownload = { kind: "ranged", cancellation };
+  const cancellation = new DownloadCancellation()
+  activeDownload = { kind: 'ranged', cancellation }
   try {
     const result = await downloadRanged({
       url,
       uri: target,
-      headers: { "User-Agent": APP_USER_AGENT },
+      headers: { 'User-Agent': APP_USER_AGENT },
       cancellation,
       onProgress: (p) =>
         patch({
           progress:
             p.totalBytes > 0
-              ? Math.min(
-                  100,
-                  Math.round((p.downloadedBytes / p.totalBytes) * 100),
-                )
+              ? Math.min(100, Math.round((p.downloadedBytes / p.totalBytes) * 100))
               : 0,
           downloadedBytes: p.downloadedBytes,
           totalBytes: p.totalBytes,
           bytesPerSecond: p.bytesPerSecond,
           connections: p.connections,
         }),
-    });
-    return result.uri;
+    })
+    return result.uri
   } catch (e) {
-    if (e instanceof DownloadCancelledError) throw e;
+    if (e instanceof DownloadCancelledError) throw e
     // 分片腿的任何失败(不认 Range / 首片停滞 / 重试耗尽 / 长度不符 / 写盘失败)都退回单流:
     // 它是加速尝试,不该拥有"让用户没得下"的权力。
     // activeDownload 会在下面的 finally 按身份清理,不能无条件置空
     // (否则取消会打在已经换掉的腿上)。
-    return downloadApkLegacy(url, target);
+    return downloadApkLegacy(url, target)
   } finally {
-    if (
-      activeDownload?.kind === "ranged" &&
-      activeDownload.cancellation === cancellation
-    ) {
-      activeDownload = null;
+    if (activeDownload?.kind === 'ranged' && activeDownload.cancellation === cancellation) {
+      activeDownload = null
     }
   }
 }
@@ -434,23 +408,23 @@ async function downloadApk(url: string, version: string): Promise<string> {
  * 抛错表示这条腿不可用 —— 由调用方降级,不在这里吞掉原因。
  */
 async function launchInstaller(fileUri: string): Promise<void> {
-  const launcher = lookupIntentLauncher();
-  if (!launcher) throw new Error("当前安装包不含原生意图模块");
-  const start = launcher.startActivityAsync ?? launcher.startActivity;
-  if (!start) throw new Error("原生意图模块缺少 startActivity");
+  const launcher = lookupIntentLauncher()
+  if (!launcher) throw new Error('当前安装包不含原生意图模块')
+  const start = launcher.startActivityAsync ?? launcher.startActivity
+  if (!start) throw new Error('原生意图模块缺少 startActivity')
   // content:// 由 expo-file-system 自带的 FileSystemFileProvider 提供(其 android manifest 已声明),
   // 不需要我们再补 FileProvider;FLAG_GRANT_READ_URI_PERMISSION(1)让安装器能读到这个文件。
-  const contentUri = await FileSystem.getContentUriAsync(fileUri);
-  await start("android.intent.action.VIEW", {
+  const contentUri = await FileSystem.getContentUriAsync(fileUri)
+  await start('android.intent.action.VIEW', {
     data: contentUri,
     flags: 1,
-    type: "application/vnd.android.package-archive",
-  });
+    type: 'application/vnd.android.package-archive',
+  })
 }
 
 /** 浏览器降级:把直链交给系统浏览器,由它下载并弹安装。 */
 async function openInBrowser(url: string): Promise<void> {
-  await Linking.openURL(url);
+  await Linking.openURL(url)
 }
 
 /**
@@ -464,15 +438,15 @@ async function openInBrowser(url: string): Promise<void> {
  * @returns 结束时的状态,不抛异常。
  */
 export async function applyApkUpdate(): Promise<ApkUpdateState> {
-  const { downloadUrl, latestVersion, state } = store;
-  if (state === "downloading") return "downloading";
+  const { downloadUrl, latestVersion, state } = store
+  if (state === 'downloading') return 'downloading'
   if (!downloadUrl) {
-    patch({ state: "error", lastError: "服务端没有下发安装包地址" });
-    return "error";
+    patch({ state: 'error', lastError: '服务端没有下发安装包地址' })
+    return 'error'
   }
   if (!latestVersion) {
-    patch({ state: "error", lastError: "服务端没有下发目标版本号" });
-    return "error";
+    patch({ state: 'error', lastError: '服务端没有下发目标版本号' })
+    return 'error'
   }
 
   /**
@@ -480,28 +454,28 @@ export async function applyApkUpdate(): Promise<ApkUpdateState> {
    * 256KB 探针 30s 都可能 0 字节;Gitee 国内腿同机 ttfb 0.32s。这里并发探两条腿,
    * 谁真把字节读回来且体积对账一致就走谁;全灭/异常一律保持服务端主腿(见 apk-download-legs.ts)。
    */
-  const leg = await resolveApkDownloadUrl(downloadUrl);
+  const leg = await resolveApkDownloadUrl(downloadUrl)
 
   // B:能力缺失直接交给浏览器 —— 这里**不下载**,避免"下完装不上"的双重浪费
   if (!canInstallInApp()) {
-    patch({ state: "installing", installMode: "browser", lastError: null });
+    patch({ state: 'installing', installMode: 'browser', lastError: null })
     try {
-      await openInBrowser(leg.url);
-      return "installing";
+      await openInBrowser(leg.url)
+      return 'installing'
     } catch (e) {
       patch({
-        state: "error",
+        state: 'error',
         installMode: null,
         lastError: e instanceof Error ? e.message : String(e),
-      });
-      return "error";
+      })
+      return 'error'
     }
   }
 
   // A:应用内下载 → 拉起安装器
   patch({
-    state: "downloading",
-    installMode: "in-app",
+    state: 'downloading',
+    installMode: 'in-app',
     progress: 0,
     downloadedBytes: 0,
     totalBytes: 0,
@@ -509,74 +483,65 @@ export async function applyApkUpdate(): Promise<ApkUpdateState> {
     connections: 1,
     downloadLeg: leg.leg,
     lastError: null,
-  });
-  let uri: string;
+  })
+  let uri: string
   try {
-    uri = await downloadApk(leg.url, latestVersion);
+    uri = await downloadApk(leg.url, latestVersion)
   } catch (e) {
     patch({
-      state: "error",
+      state: 'error',
       installMode: null,
       lastError: e instanceof Error ? e.message : String(e),
-    });
-    return "error";
+    })
+    return 'error'
   }
 
-  patch({ state: "installing", fileUri: uri, progress: 100 });
+  patch({ state: 'installing', fileUri: uri, progress: 100 })
   try {
-    await launchInstaller(uri);
-    return "installing";
+    await launchInstaller(uri)
+    return 'installing'
   } catch (installError) {
     // C:文件已经在本地了,先原地重试一次(有些机型首次授权后第二次才放行)
     try {
-      await launchInstaller(uri);
-      return "installing";
+      await launchInstaller(uri)
+      return 'installing'
     } catch {
       patch({
-        state: "error",
-        installMode: "browser",
-        lastError:
-          installError instanceof Error
-            ? installError.message
-            : String(installError),
-      });
+        state: 'error',
+        installMode: 'browser',
+        lastError: installError instanceof Error ? installError.message : String(installError),
+      })
       // 最后一道:把选中的那条直链给浏览器,至少让用户能升级完成(下载的临时文件由系统缓存清理)
       try {
-        await openInBrowser(leg.url);
+        await openInBrowser(leg.url)
       } catch {
         /* 浏览器也打不开就停在 error,由 UI 如实告知 */
       }
-      return "error";
+      return 'error'
     }
   }
 }
 
 /** 取消下载:回到 available,让用户能重新点(不把半截文件当成"已下载")。 */
 export async function cancelApkDownload(): Promise<void> {
-  const active = activeDownload;
-  activeDownload = null;
-  if (active?.kind === "ranged") {
+  const active = activeDownload
+  activeDownload = null
+  if (active?.kind === 'ranged') {
     // 令牌一置,分片腿立刻停派新片并 abort 在飞请求(见 ranged-download 的 onCancel)
-    active.cancellation.cancel();
-  } else if (active?.kind === "legacy") {
+    active.cancellation.cancel()
+  } else if (active?.kind === 'legacy') {
     try {
-      await active.task.pauseAsync();
+      await active.task.pauseAsync()
     } catch {
       /* 已经结束的下载 pause 会抛,忽略即可 */
     }
   }
-  patch({
-    state: "available",
-    progress: 0,
-    downloadedBytes: 0,
-    totalBytes: 0,
-    bytesPerSecond: 0,
-  });
+  patch({ state: 'available', progress: 0, downloadedBytes: 0, totalBytes: 0, bytesPerSecond: 0 })
 }
 
 /** 关掉提示卡(仅本次会话;下一轮查到更新会再出现)。 */
 export function dismissApkPrompt(): void {
-  patch({ dismissed: true });
+  patch({ dismissed: true })
 }
 
 /**
@@ -584,20 +549,15 @@ export function dismissApkPrompt(): void {
  * 已经 available/在下载/在安装/用户已关掉,都不打扰。
  */
 export function shouldAutoRecheckApk(minIntervalMs: number): boolean {
-  if (
-    store.state === "available" ||
-    store.state === "installing" ||
-    store.dismissed
-  )
-    return false;
-  if (store.state === "downloading") return false;
-  if (store.lastCheckedAt === null) return true;
-  return Date.now() - store.lastCheckedAt >= minIntervalMs;
+  if (store.state === 'available' || store.state === 'installing' || store.dismissed) return false
+  if (store.state === 'downloading') return false
+  if (store.lastCheckedAt === null) return true
+  return Date.now() - store.lastCheckedAt >= minIntervalMs
 }
 
 /** 当前状态快照(非 React 环境读取用)。 */
 export function apkSnapshot(): ApkStore {
-  return store;
+  return store
 }
 
 /** 订阅状态(useSyncExternalStore:提示卡与设置页共享同一份)。 */
@@ -606,6 +566,6 @@ export function useApkUpdate(): ApkStore {
     subscribe,
     () => store,
     () => store,
-  );
+  )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

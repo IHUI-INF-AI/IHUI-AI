@@ -31,82 +31,79 @@
  * 退回 200 全文,XHR 的 timeout 会直接把这条腿淘汰,不会把 85MB 拉进 JS 堆。
  */
 
-export type ApkLegId = "site" | "cn";
+export type ApkLegId = 'site' | 'cn'
 
 export interface ApkLeg {
-  id: ApkLegId;
-  url: string;
+  id: ApkLegId
+  url: string
 }
 
 /** 国内腿固定 tag:发布脚本每次替换同名附件,URL 恒定(与站点腿 latest 指针同形)。 */
-export const APK_CN_LEG_TAG = "mobile-apk-latest";
-export const APK_CN_LEG_ASSET = "ihui-ai-latest.apk";
-export const APK_CN_LEG_URL = `https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI/releases/download/${APK_CN_LEG_TAG}/${APK_CN_LEG_ASSET}`;
+export const APK_CN_LEG_TAG = 'mobile-apk-latest'
+export const APK_CN_LEG_ASSET = 'ihui-ai-latest.apk'
+export const APK_CN_LEG_URL = `https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI/releases/download/${APK_CN_LEG_TAG}/${APK_CN_LEG_ASSET}`
 
 /** 字面量白名单,与 desktop-download-leg.ts 的 RELEASE_TARGET_ALLOWED_ORIGINS 同源纪律。 */
 export const APK_LEG_ALLOWED_ORIGINS: readonly string[] = [
-  "https://www.aizhs.top",
-  "https://gitee.com",
-  "https://github.com",
-  "https://objects.githubusercontent.com",
-];
+  'https://www.aizhs.top',
+  'https://gitee.com',
+  'https://github.com',
+  'https://objects.githubusercontent.com',
+]
 
 /** 官网签名 APK 的体积下限,与 scripts/data/mobile-download-leg.json 的 minApkBytes 同源。 */
-export const APK_MIN_BYTES = 50 * 1024 * 1024;
+export const APK_MIN_BYTES = 50 * 1024 * 1024
 /** 探针片:256KB 足够让慢腿暴露吞吐,又不会把首片拖成几分钟。 */
-export const APK_PROBE_BYTES = 256 * 1024;
+export const APK_PROBE_BYTES = 256 * 1024
 /** 单腿探针上限:现网跨境主腿 8s 内拿不回 256KB,正好被淘汰。 */
-export const DEFAULT_LEG_PROBE_TIMEOUT_MS = 8000;
+export const DEFAULT_LEG_PROBE_TIMEOUT_MS = 8000
 
 export function isAllowedLegUrl(raw: string): boolean {
   try {
-    const u = new URL(String(raw ?? ""));
-    return (
-      u.protocol === "https:" && APK_LEG_ALLOWED_ORIGINS.includes(u.origin)
-    );
+    const u = new URL(String(raw ?? ''))
+    return u.protocol === 'https:' && APK_LEG_ALLOWED_ORIGINS.includes(u.origin)
   } catch {
-    return false;
+    return false
   }
 }
 
 /** 候选腿:服务端主腿恒在第一位(失败方向),国内腿只在主腿合法且不是它自己时追加。 */
 export function buildLegCandidates(primaryUrl: string): ApkLeg[] {
-  if (!isAllowedLegUrl(primaryUrl)) return [];
-  if (String(primaryUrl) === APK_CN_LEG_URL)
-    return [{ id: "cn", url: APK_CN_LEG_URL }];
-  const legs: ApkLeg[] = [{ id: "site", url: primaryUrl }];
+  if (!isAllowedLegUrl(primaryUrl)) return []
+  if (String(primaryUrl) === APK_CN_LEG_URL) return [{ id: 'cn', url: APK_CN_LEG_URL }]
+  const legs: ApkLeg[] = [{ id: 'site', url: primaryUrl }]
   if (isAllowedLegUrl(APK_CN_LEG_URL)) {
-    legs.push({ id: "cn", url: APK_CN_LEG_URL });
+    legs.push({ id: 'cn', url: APK_CN_LEG_URL })
   }
-  return legs;
+  return legs
 }
 
 /** `bytes 0-262143/84915649` → 84915649;读不懂返回 null,绝不用 Content-Length 猜。 */
 export function parseProbeTotal(contentRange: string | null): number | null {
-  const m = /\/\s*(\d+)\s*$/.exec(String(contentRange ?? ""));
-  if (!m) return null;
-  const n = Number(m[1]);
-  return Number.isFinite(n) && n > 0 ? n : null;
+  const m = /\/\s*(\d+)\s*$/.exec(String(contentRange ?? ''))
+  if (!m) return null
+  const n = Number(m[1])
+  return Number.isFinite(n) && n > 0 ? n : null
 }
 
 export interface LegProbe {
-  id: ApkLegId;
-  url: string;
-  status: number;
+  id: ApkLegId
+  url: string
+  status: number
   /** 包的总字节数(来自 Content-Range 的 /total,不是这一片的长度) */
-  totalBytes: number | null;
+  totalBytes: number | null
   /** 探针真读回来的字节数;0 表示没到货 */
-  receivedBytes: number;
-  elapsedMs: number;
-  error: string | null;
+  receivedBytes: number
+  elapsedMs: number
+  error: string | null
 }
 
 export interface LegChoice {
-  url: string;
-  leg: ApkLegId;
-  reason: string;
+  url: string
+  leg: ApkLegId
+  reason: string
   /** 是否真的跑过探针;主腿不合法 / 只有一条腿时为 false */
-  probed: boolean;
+  probed: boolean
 }
 
 /**
@@ -121,61 +118,59 @@ export function pickLeg(probes: LegProbe[], primaryUrl: string): LegChoice {
       p.totalBytes !== null &&
       p.totalBytes >= APK_MIN_BYTES &&
       !p.error,
-  );
+  )
   if (usable.length === 0) {
     return {
       url: primaryUrl,
-      leg: "site",
-      reason: "所有腿探针都不可用(超时/非 200-206/体积量不到)⇒ 保持服务端主腿",
+      leg: 'site',
+      reason: '所有腿探针都不可用(超时/非 200-206/体积量不到)⇒ 保持服务端主腿',
       probed: true,
-    };
+    }
   }
 
-  const site = usable.find((p) => p.id === "site") ?? null;
-  const cn = usable.find((p) => p.id === "cn") ?? null;
-  let eligible = usable;
-  let note = "";
+  const site = usable.find((p) => p.id === 'site') ?? null
+  const cn = usable.find((p) => p.id === 'cn') ?? null
+  let eligible = usable
+  let note = ''
   if (site && cn) {
     if (site.totalBytes !== cn.totalBytes) {
       // 冒名旧包防线:两条腿不是同一枚包 ⇒ 国内腿再快也不许用。
-      eligible = [site];
-      note = ` · 体积对账 different(${site.totalBytes}/${cn.totalBytes}) ⇒ 只用权威腿`;
+      eligible = [site]
+      note = ` · 体积对账 different(${site.totalBytes}/${cn.totalBytes}) ⇒ 只用权威腿`
     } else {
-      note = ` · 体积对账 same(${site.totalBytes})`;
+      note = ` · 体积对账 same(${site.totalBytes})`
     }
   } else if (cn && !site) {
-    note = " · 主腿量不到 ⇒ 单边降级到国内腿(如实记录,不假装对过账)";
+    note = ' · 主腿量不到 ⇒ 单边降级到国内腿(如实记录,不假装对过账)'
   }
 
-  const fastest = eligible.reduce((a, b) =>
-    b.elapsedMs < a.elapsedMs ? b : a,
-  );
+  const fastest = eligible.reduce((a, b) => (b.elapsedMs < a.elapsedMs ? b : a))
   return {
     url: fastest.url,
     leg: fastest.id,
     reason: `${fastest.id} 探针 ${fastest.elapsedMs}ms 最快${note}`,
     probed: true,
-  };
+  }
 }
 
 export type LegProbeTransport = (
   leg: ApkLeg,
   timeoutMs: number,
-) => Promise<Omit<LegProbe, "id" | "url">>;
+) => Promise<Omit<LegProbe, 'id' | 'url'>>
 
 /** 默认探针:RN XHR + arraybuffer,真读 256KB,超时由 XHR 自己撤单。 */
 export const xhrLegProbe: LegProbeTransport = (leg, timeoutMs) =>
   new Promise((resolve) => {
-    const started = Date.now();
-    let settled = false;
-    const finish = (out: Omit<LegProbe, "id" | "url">) => {
-      if (settled) return;
-      settled = true;
-      resolve({ ...out, elapsedMs: Math.max(0, Date.now() - started) });
-    };
-    let xhr: XMLHttpRequest;
+    const started = Date.now()
+    let settled = false
+    const finish = (out: Omit<LegProbe, 'id' | 'url'>) => {
+      if (settled) return
+      settled = true
+      resolve({ ...out, elapsedMs: Math.max(0, Date.now() - started) })
+    }
+    let xhr: XMLHttpRequest
     try {
-      xhr = new XMLHttpRequest();
+      xhr = new XMLHttpRequest()
     } catch (e) {
       finish({
         status: 0,
@@ -183,30 +178,30 @@ export const xhrLegProbe: LegProbeTransport = (leg, timeoutMs) =>
         receivedBytes: 0,
         elapsedMs: 0,
         error: String(e),
-      });
-      return;
+      })
+      return
     }
-    xhr.responseType = "arraybuffer";
-    xhr.timeout = timeoutMs;
+    xhr.responseType = 'arraybuffer'
+    xhr.timeout = timeoutMs
     xhr.onload = () => {
-      const body = xhr.response;
-      const received = body instanceof ArrayBuffer ? body.byteLength : 0;
+      const body = xhr.response
+      const received = body instanceof ArrayBuffer ? body.byteLength : 0
       finish({
         status: xhr.status,
-        totalBytes: parseProbeTotal(xhr.getResponseHeader("Content-Range")),
+        totalBytes: parseProbeTotal(xhr.getResponseHeader('Content-Range')),
         receivedBytes: received,
         elapsedMs: 0,
         error: null,
-      });
-    };
+      })
+    }
     xhr.onerror = () =>
       finish({
         status: 0,
         totalBytes: null,
         receivedBytes: 0,
         elapsedMs: 0,
-        error: "XHR onerror",
-      });
+        error: 'XHR onerror',
+      })
     xhr.ontimeout = () =>
       finish({
         status: 0,
@@ -214,11 +209,11 @@ export const xhrLegProbe: LegProbeTransport = (leg, timeoutMs) =>
         receivedBytes: 0,
         elapsedMs: 0,
         error: `探针 ${timeoutMs}ms 超时`,
-      });
+      })
     try {
-      xhr.open("GET", leg.url, true);
-      xhr.setRequestHeader("Range", `bytes=0-${APK_PROBE_BYTES - 1}`);
-      xhr.send();
+      xhr.open('GET', leg.url, true)
+      xhr.setRequestHeader('Range', `bytes=0-${APK_PROBE_BYTES - 1}`)
+      xhr.send()
     } catch (e) {
       finish({
         status: 0,
@@ -226,14 +221,14 @@ export const xhrLegProbe: LegProbeTransport = (leg, timeoutMs) =>
         receivedBytes: 0,
         elapsedMs: 0,
         error: String(e),
-      });
+      })
     }
-  });
+  })
 
 export interface ResolveLegOptions {
-  timeoutMs?: number;
+  timeoutMs?: number
   /** 测试注入点;生产省略走 xhrLegProbe */
-  transport?: LegProbeTransport;
+  transport?: LegProbeTransport
 }
 
 /**
@@ -244,25 +239,22 @@ export async function resolveApkDownloadUrl(
   primaryUrl: string,
   opts: ResolveLegOptions = {},
 ): Promise<LegChoice> {
-  const legs = buildLegCandidates(primaryUrl);
+  const legs = buildLegCandidates(primaryUrl)
   const fallback: LegChoice = {
     url: primaryUrl,
-    leg: legs[0]?.id ?? "site",
-    reason: "主腿不在允许域 / 只有一条腿 ⇒ 不探测,保持服务端主腿",
+    leg: legs[0]?.id ?? 'site',
+    reason: '主腿不在允许域 / 只有一条腿 ⇒ 不探测,保持服务端主腿',
     probed: false,
-  };
-  if (legs.length < 2) return fallback;
-  const timeoutMs = Math.max(
-    1000,
-    opts.timeoutMs ?? DEFAULT_LEG_PROBE_TIMEOUT_MS,
-  );
-  const transport = opts.transport ?? xhrLegProbe;
+  }
+  if (legs.length < 2) return fallback
+  const timeoutMs = Math.max(1000, opts.timeoutMs ?? DEFAULT_LEG_PROBE_TIMEOUT_MS)
+  const transport = opts.transport ?? xhrLegProbe
   try {
     const results = await Promise.all(
       legs.map(async (leg) => {
         try {
-          const out = await transport(leg, timeoutMs);
-          return { id: leg.id, url: leg.url, ...out };
+          const out = await transport(leg, timeoutMs)
+          return { id: leg.id, url: leg.url, ...out }
         } catch (e) {
           return {
             id: leg.id,
@@ -272,13 +264,13 @@ export async function resolveApkDownloadUrl(
             receivedBytes: 0,
             elapsedMs: timeoutMs,
             error: e instanceof Error ? e.message : String(e),
-          } satisfies LegProbe;
+          } satisfies LegProbe
         }
       }),
-    );
-    return pickLeg(results, primaryUrl);
+    )
+    return pickLeg(results, primaryUrl)
   } catch {
-    return fallback;
+    return fallback
   }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
