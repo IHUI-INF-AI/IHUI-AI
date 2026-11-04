@@ -191,6 +191,11 @@ import { declaredRows } from './scrub-declared-removals.mjs'
 import { archiveDropCaps, selectMovedOut, ARCHIVE_REL } from './lib/live-doc-archive-drops.mjs'
 import { makeRegistrar } from './lib/selftest-registrant.mjs'
 import { judgeFlags, unknownFlagEscape, USAGE as FLAG_USAGE, checkFlagCoverage } from './lib/union-converge-flags.mjs'
+// 2026-11-05 结构缺陷票①:旁路落地(CAS)后必须回写共享索引 + 落盘工作树,否则新 HEAD 里的路径
+// 在索引/磁盘上都不存在 ⇒ `git status` 恒显 `D `,下一次不带 pathspec 的提交会把它固化成删除。
+import { alignLandingPaths } from './lib/landing-worktree-align.mjs'
+// 2026-11-05 结构缺陷票②:旁路删除 `apps/**`、`packages/**` 的硬门(0 引用 + 删除意图台账)。
+import { judgeBypassDeletions } from './lib/bypass-deletion-gate.mjs'
 // —— 2026-11-01 纯搬运拆分(守门 207/103 体积清偿):以下判据族自本器**逐字搬出**到
 //    scripts/lib/union-converge-judgments.mjs(零行为改动);本器只 import 回来并原样再导出,
 //    具名导出面 / `--help` / 参数面 / 退出码 / 结论字段与拆前逐字一致。
@@ -4633,6 +4638,24 @@ async function main() {
     console.log('  未落地(加 --apply 才建合并提交;本工具从不 checkout、不碰共享工作区)')
     process.exit(0)
   }
+  // ② 旁路删除硬门(2026-11-05):删除传播的零丢失证明只证明"基底那份字节没被改过",
+  // 证明不了"没人还在引用它"。`apps/**`、`packages/**` 的删除必须**同时**满足
+  // (a) 落地的树里 0 引用;(b) 有 reason ≥10 字的删除意图台账 —— 缺一条就拒绝落地、exit 1,
+  // 并逐条点名。未判定的引用面同样拒绝(§0.3:判不出不是放行许可证)。
+  const deletionGate = judgeBypassDeletions({
+    root: ROOT,
+    rev: p.tree,
+    deletedPaths: [
+      ...new Set([...(p.propagatedDeletes ?? []), ...(p.shadowDeletes ?? []).map((x) => x.path)]),
+    ],
+  })
+  if (!deletionGate.ok) {
+    console.log(
+      `❌ 旁路删除硬门拒绝落地 ${deletionGate.blocked.length} 处(apps/**、packages/** 必须"0 引用 + 删除意图台账"):`,
+    )
+    for (const b of deletionGate.blocked) console.log(`  · ${b.path} —— ${b.reasons.join('; ')}`)
+    process.exit(1)
+  }
   const msg =
     `Merge ${t.theirs} into ${t.head} —— 文件面零丢失 union(本侧整棵树 ∪ 对侧自身改动 ∪ 两侧同改三方归并 ∪ 活文档行 union)` +
     (p.humanResolved?.length
@@ -4735,6 +4758,43 @@ async function main() {
   console.log(
     `✅ 合并落地 ${sha.slice(0, 12)}${lost.lost.length ? ` —— ⚠️ A1 复核仍报 ${lost.lost.length} 处` : ',A1 复核 0 丢失'}`,
   )
+  // ① 落地即对齐(2026-11-05)。CAS 只推进 ref,**不碰共享索引、不碰工作树**;本器此前把这条
+  // 残局交给 `heal-worktree-tracked --align-drift`,而第四层的父树签名会把"合进来的新文件"
+  // (存在于另一个父树)判成"与有意 git rm 分不清"只报不修 ⇒ `D ` 长期存在,下一次普通提交
+  // 就固化成删除。对齐判据只有一份(lib/landing-worktree-align → lib/bypass-git 的 alignSharedIndex),
+  // 这里只负责"落地这一刻"派出去,并**逐条点名**失败/让路,不许静默。
+  const declaredFiles = [...new Set([...LIVE_DOCS, ...p.tookTheirs])]
+  // declaredFiles 只覆盖"本器构造出内容"的两类;`mergedClean` / `humanResolved` 的改动路径同样会
+  // 让索引停在父提交态(`git diff --cached` 显 M)。这里以"父提交 → 合并树"的差集为上限,
+  // 仍然是同一把 alignSharedIndex 尺(别人真暂存过就跳过并点名),不另立判据。
+  let treeDiffPaths = []
+  try {
+    treeDiffPaths = git(['diff', '--name-only', t.head, p.tree])
+      .split(/\r?\n/)
+      .map((x) => x.trim())
+      .filter(Boolean)
+  } catch (e) {
+    console.log(`  ⚠️ 落地回写未判定:父提交→合并树差集取不到(${String(e?.message ?? e).slice(0, 120)})`)
+  }
+  const landingAlign = alignLandingPaths({
+    root: ROOT,
+    paths: [
+      ...declaredFiles,
+      ...treeDiffPaths,
+      ...(p.propagatedDeletes ?? []),
+      ...(p.shadowDeletes ?? []).map((x) => x.path),
+    ],
+    parentRef: t.head,
+  })
+  console.log(
+    `  🧷 落地回写:索引对齐 ${landingAlign.aligned.length} 路径 / 工作树 checkout ${landingAlign.checkedOut.length} 条`,
+  )
+  for (const f of landingAlign.failed) console.log(`  ❌ 落地回写失败:${f.path} —— ${f.reason}`)
+  for (const s of landingAlign.skipped)
+    console.log(`  ⚠️ 落地回写未动(归属他人):${s.path} —— ${s.reason}`)
+  for (const u of landingAlign.undetermined)
+    console.log(`  ⚠️ 落地回写未判定:${u.path} —— ${u.reason}`)
+  const landingAlignHardFail = landingAlign.failed.length > 0
   // 旁路合并不跑 post-commit ⇒ 守门 71 的登记行自愈永不触发;而 commit-tree + CAS 也不写钩子链那本
   // 跳门台账 ⇒ 这枚提交在总量统计里会永远落进 unknown(AGENTS §12f 那条"两个来源合起来才是总量")。
   // 两条都在落地这一刻补上,且**都不改本轮结论**:自愈失败只喊一行,留痕按 lib 契约永不抛。
@@ -4743,7 +4803,7 @@ async function main() {
     source: 'union-converge --apply',
     landedSha: sha,
     headBefore: t.head,
-    declaredFiles: [...new Set([...LIVE_DOCS, ...p.tookTheirs])],
+    declaredFiles,
     reason:
       '旁路合并落地(commit-tree + CAS)不触发钩子 ⇒ 提交链上的门禁对本枚未执行;' +
       '声明路径 = 本器构造出内容的那些(活文档 ∪ 取对侧版本的路径)',
@@ -4802,7 +4862,7 @@ async function main() {
       `❌ 落地后受影响判据复跑有臂无法判定(${affected.undetermined.length} 臂)⇒ 未判定不等于通过;本枚合并已在 HEAD ${sha.slice(0, 11)}(不回滚),请人工复跑点名臂`,
     )
   }
-  process.exit(lost.lost.length || affected.verdict === 1 ? 1 : affected.verdict === 2 ? 2 : 0)
+  process.exit(lost.lost.length || affected.verdict === 1 || landingAlignHardFail ? 1 : affected.verdict === 2 ? 2 : 0)
 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
