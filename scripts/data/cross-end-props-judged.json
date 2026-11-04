@@ -1,4 +1,83 @@
 {
-  "rule": "逐键已裁决(judged)台账:存差 = 未实现 + 未映射 + 未裁决。本表只收「已登记平台/承载差异」的单键,仅把它移出存差,不入映射;每键必须 owner / expires(YYYY-MM-DD,过期判红) / rationale(≥24 字) / evidence ≥2 条且 rn 与 mini 各至少 1 条,其中至少 1 条落在声明侧且真含键名。同一 pair|key 不得重复;不得与映射表同键(一键两归判红);键已不在本轮漂移集仍留账 = 失效裁决判红(会吞掉未来同键漂移)。坏裁决判红且 --update-baseline 拒写。",
-  "entries": []
+  "rule": "逐键裁决台账(门285):仅收「同一对里按键可量出、但确认属平台/架构承载差异」的单键;每条必须 owner + expires(≤2027-06-30) + 双端 evidence(文件:行) + rationale;不得与映射表同键,不得以空 prop 冒充实现。到期须补实现或删死腿。",
+  "entries": [
+    {
+      "pair": "UserInfoCard",
+      "key": "onCopyInviteCode",
+      "side": "rn",
+      "owner": "ihui-mobile-props",
+      "expires": "2027-06-30",
+      "rationale": "小程序端资料卡没有邀请码复制入口(该入口在别的页面);RN 卡内自带复制回调腿。",
+      "evidence": [
+        "apps/mobile-rn/src/components/UserInfoCard.tsx:106",
+        "apps/miniapp-taro/src/components/UserInfoCard.tsx:88",
+        "apps/mobile-rn/src/components/UserInfoCard.tsx:97"
+      ]
+    },
+    {
+      "pair": "UserInfoCard",
+      "key": "userInfo",
+      "side": "rn",
+      "owner": "ihui-mobile-props",
+      "expires": "2027-06-30",
+      "rationale": "RN 以 userInfo 容器为主入参(扁平字段为覆盖);小程序端只接受扁平字段(avatar/nickname/isVip 等,声明在共享 UserInfoCardMinimalProps),无容器腿。",
+      "evidence": [
+        "apps/mobile-rn/src/components/UserInfoCard.tsx:98",
+        "apps/miniapp-taro/src/components/UserInfoCard.tsx:88",
+        "apps/mobile-rn/src/components/UserInfoCard.tsx:97"
+      ]
+    },
+    {
+      "pair": "UserInfoCard",
+      "key": "desc",
+      "side": "mini",
+      "owner": "ihui-mobile-props",
+      "expires": "2027-06-30",
+      "rationale": "小程序端卡片用 desc 兜底智汇值说明;RN 端由 userInfo 的余额文案承担,无同名文案腿。",
+      "evidence": [
+        "packages/types/src/ui-native-components.ts:204",
+        "apps/mobile-rn/src/components/UserInfoCard.tsx:101",
+        "apps/miniapp-taro/src/components/UserInfoCard.tsx:88"
+      ]
+    },
+    {
+      "pair": "UserInfoCard",
+      "key": "level",
+      "side": "mini",
+      "owner": "ihui-mobile-props",
+      "expires": "2027-06-30",
+      "rationale": "小程序端卡片显示等级数字;RN 端成长值条与 VIP 标题表达等级,无同名数字腿。",
+      "evidence": [
+        "apps/miniapp-taro/src/components/UserInfoCard.tsx:89",
+        "apps/mobile-rn/src/components/UserInfoCard.tsx:111",
+        "apps/miniapp-taro/src/components/UserInfoCard.tsx:88"
+      ]
+    },
+    {
+      "pair": "UserInfoCard",
+      "key": "levelTitle",
+      "side": "mini",
+      "owner": "ihui-mobile-props",
+      "expires": "2027-06-30",
+      "rationale": "小程序端卡片显示等级称号;RN 端用 vipTitle/成长条表达,无同名称号腿。",
+      "evidence": [
+        "apps/miniapp-taro/src/components/UserInfoCard.tsx:90",
+        "apps/mobile-rn/src/components/UserInfoCard.tsx:111",
+        "apps/miniapp-taro/src/components/UserInfoCard.tsx:88"
+      ]
+    },
+    {
+      "pair": "UserInfoCard",
+      "key": "onOpenVip",
+      "side": "mini",
+      "owner": "ihui-mobile-props",
+      "expires": "2027-06-30",
+      "rationale": "小程序端卡内独立开通会员入口;RN 端用 onLevelIntro 打开等级介绍弹窗承载升级引导,无同名腿。",
+      "evidence": [
+        "apps/miniapp-taro/src/components/UserInfoCard.tsx:108",
+        "apps/mobile-rn/src/components/UserInfoCard.tsx:111",
+        "apps/miniapp-taro/src/components/UserInfoCard.tsx:88"
+      ]
+    }
+  ]
 }
