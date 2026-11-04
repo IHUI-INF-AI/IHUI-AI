@@ -196,6 +196,8 @@ import { judgeFlags, unknownFlagEscape, USAGE as FLAG_USAGE, checkFlagCoverage }
 import { alignLandingPaths } from './lib/landing-worktree-align.mjs'
 // 2026-11-05 结构缺陷票②:旁路删除 `apps/**`、`packages/**` 的硬门(0 引用 + 删除意图台账)。
 import { judgeBypassDeletions } from './lib/bypass-deletion-gate.mjs'
+// 2026-11-05 独立一笔:内容级防丢闸(键集差集 + 活文档/AGENTS 行级包含),治"整份取对侧"。
+import { formatLossReport, judgeContentLoss } from './lib/content-loss-gate.mjs'
 // —— 2026-11-01 纯搬运拆分(守门 207/103 体积清偿):以下判据族自本器**逐字搬出**到
 //    scripts/lib/union-converge-judgments.mjs(零行为改动);本器只 import 回来并原样再导出,
 //    具名导出面 / `--help` / 参数面 / 退出码 / 结论字段与拆前逐字一致。
@@ -4655,6 +4657,16 @@ async function main() {
     )
     for (const b of deletionGate.blocked) console.log(`  · ${b.path} —— ${b.reasons.join('; ')}`)
     process.exit(1)
+  }
+  // 内容级防丢闸(独立一笔,2026-11-05):文件面判据只能证明"路径还在"。`scripts/data/**` 与
+  // 五语言词包按**键集**比(oursKeys−mergedKeys、theirsKeys−mergedKeys 必须为空),活文档与
+  // AGENTS.md 按**行级包含**比;非空即判红并逐条点名。此前这套闸在别处咬出过 i18n 17 键与
+  // 3 个测试用例的真丢失 —— 那两次路径都在位,只有内容没了。
+  const contentGate = judgeContentLoss({ root: ROOT, ours: t.head, theirs: t.theirs, merged: p.tree })
+  if (!contentGate.ok) {
+    console.log(`❌ 内容级防丢闸拒绝落地:${contentGate.violations.length} 个路径少带内容(逐条点名)`)
+    console.log(formatLossReport(contentGate))
+    process.exit(contentGate.undetermined.length ? 2 : 1)
   }
   const msg =
     `Merge ${t.theirs} into ${t.head} —— 文件面零丢失 union(本侧整棵树 ∪ 对侧自身改动 ∪ 两侧同改三方归并 ∪ 活文档行 union)` +
