@@ -24,6 +24,13 @@
  * **只读对账**:决策账里"该产而信号账里没有"的条数 >0 ⇒ drift。它不是"没事故就报红"
  * 的恒红门 —— 全 pass 的决策账待产恒 0 ⇒ ok,量的是可整改的漏产(重跑摄入器即清)。
  *
+ * A14-executor-face-stall(2026-11-05 立):A13 说"从未入库",但**为什么这一轮次根本没跑判据**没人问。
+ * 自我面闸把"盘上缺被审面已有锚点"判成停派(方向对),两档都带 informational ⇒ 不计连败也不计空转(也对),
+ * 于是"一直停"在账面是安静的;而当次实测被执行的那份正是缺锚点的那份(盘上缺 7/7 条、mtime 8.54h,
+ * 派发节拍中位 0.64h ⇒ 一停就是十几个班次),而它自己不含那道闸 ⇒ 台账里连 `runner-face-*` 都不会写。
+ * 本维不要时间阈值(§"阈值必须量出来"的反面就是别拍数):缺锚点数 > 0 是二值事实 —— 跑的代码 ≠ 被判的代码。
+ * mtime 只进读数当旁证。判据与锚点表零复算:走门 299 的 parseInvariants。
+ *
  * A13-artifact-landing(2026-11-05 立,/goal 收尾审计):A11 对账的是"事故摄入腿",
  * 而**自主环自己有没有把产物送进 HEAD 从来没被量过**。当次现读:台账 248 行跨 10 天,
  * session-ok 9 枚 / artifact-manifest-missing 9 枚 / **artifact-committed 0 枚**,
@@ -78,6 +85,8 @@ import { classifyLegOutputs } from './lib/autonomy-leg-output.mjs'
 import { PROGRESS_ACTIONS, NON_PROGRESS_ACTIONS } from './lib/autonomy-nonprogress.mjs'
 import { UNKNOWN_RULE_ID, classifyAction, parseValveList, BUCKETS } from './lib/human-valve.mjs'
 import { judgeCarrierParity, judgeRoadmapClaims } from './lib/guardian-carrier-parity.mjs'
+// A14 的锚点表与解析器零复算(§0.6):"什么算一条判据锚点、怎么算命中"只住在门 299 那一份里。
+import { __test__ as INV_GATE } from './check-autonomy-invariants.mjs'
 // A11 判据零复算(§0.6):闭环有没有产出,由摄入器自己的 planIntake() 说了算,
 // 本尺不自造第二份"该产几条"的算法。装饰性依赖之外全是纯函数,import 不触发写盘。
 import { deployDecisionsFace } from './lib/deploy-decisions-face.mjs'
@@ -795,6 +804,7 @@ export function evaluateAll({
   valve,
   closure,
   landing,
+  faceStall,
   liveness,
   parity,
   claims,
@@ -826,6 +836,8 @@ export function evaluateAll({
   // A13 挨着 A7 放:A7 问"票动没动",A13 问"东西进没进仓"。两问必须并排看得见 ——
   // 分开摆正是这十天里"A7 绿而落地为零"没人撞上的原因。
   if (landing) dims.push(landing)
+  // A14 挨着 A13:A13 说"从未入库",A14 说"为什么这轮次根本没人跑过判据"。两问分开,谁都别替谁圆场。
+  if (faceStall) dims.push(faceStall)
   if (liveness) dims.push(liveness)
   if (parity) dims.push(parity)
   if (claims) dims.push(claims)
@@ -1240,6 +1252,125 @@ export function judgeArtifactLanding(
     readout: `落账腿在答题:落地 ${landed.length} 枚 / 拒绝 ${rejected.length} 枚(${dist || '无'})/ 最近落地 ${String(landed[landed.length - 1].ts ?? '?')}`,
     next: '',
   }
+}
+
+/**
+ * A14-executor-face-stall —— 自主环"被长期停放"必须是**响的**,不是安静的(2026-11-05 立)。
+ *
+ * 立因是今天自己造出来的一个死角:自我面闸(调度器派发前核验盘上那份)把"盘上缺被审面已有锚点"
+ * 判成停派 —— 方向完全对(不拿半成品当执行体)。但它落的那两档都带 `informational:true`
+ * ⇒ 既不计连败也不计空转(同样正确:共树盘脏是环境常态)⇒ **没有任何一维问"这样停了多久、会不会一直停"**。
+ * 更糟的是这维度在台账里读不到:被执行的那份盘上副本正是缺锚点的那份,它自己不含这道闸
+ * ⇒ 一条 `runner-face-*` 都不会写。当次实测:盘上那份缺被审面 7/7 条锚点、mtime 8.54h 未更新,
+ * 而派发节拍中位数只有 0.64h(10 枚 `dispatched` 现读)—— 也就是说这一停就是十几个班次,账面全绿。
+ *
+ * 判据不需要时间阈值(§"安静检测器的阈值必须量出来"反面就是"别拍个数"):
+ * **缺锚点数 > 0 本身就是二值事实** —— 跑的那份代码不等于被判的那份代码,与停了多久无关。
+ * mtime/节拍只进读数当旁证,绝不参与判定;取不到 mtime 也不把"不知道多久"折成"刚停"或"停很久"。
+ *
+ * 三面同问不是违反取材面纪律(§0.4 禁的是"同一个判定悄悄换面"):这里**两个面就是同一个判定的两个输入**
+ * —— 被审面(H/索引,按 --staged 切换)与盘上实跑面。取不到任一面 ⇒ 未判定。
+ */
+export const EXECUTOR_SCHED_REL = 'scripts/auto-evolve.mjs'
+
+export function judgeExecutorFaceStall({
+  listText = null,
+  auditedText = null,
+  diskText = null,
+  mtimeMs = null,
+  now = Date.now(),
+  schedRel = EXECUTOR_SCHED_REL,
+} = {}) {
+  const dim = 'A14-executor-face-stall'
+  if (
+    typeof listText !== 'string' ||
+    typeof auditedText !== 'string' ||
+    typeof diskText !== 'string'
+  ) {
+    return {
+      dim,
+      state: 'unjudged',
+      readout: '锚点清单 / 被审面调度器 / 盘上调度器 三面之一取不到 ⇒ 停放与否判不出',
+      next: '先修取材面(门 299 的清单与被审面本器都要读得到)',
+    }
+  }
+  let parsed
+  try {
+    parsed = INV_GATE.parseInvariants(listText)
+  } catch (e) {
+    return {
+      dim,
+      state: 'unjudged',
+      readout: `锚点清单解析抛错:${String(e?.message ?? e).slice(0, 120)}`,
+      next: '核门 299 的 parseInvariants',
+    }
+  }
+  if (parsed.problems.length) {
+    return {
+      dim,
+      state: 'unjudged',
+      readout: `锚点清单有 ${parsed.problems.length} 处问题(${parsed.problems[0].message})⇒ 不拿坏台账冒充判过`,
+      next: '先修清单门 299',
+    }
+  }
+  const me = parsed.entries.find((e) => e.path === schedRel)
+  if (!me) {
+    return {
+      dim,
+      state: 'unjudged',
+      readout: `清单里没有 ${schedRel} 这一条 ⇒ 判不出盘上是否落后(枚举到 0 判死不记绿)`,
+      next: '在 scripts/data/autonomy-invariants.json 给调度器补锚点条目',
+    }
+  }
+  const missing = me.anchors.filter((a) => auditedText.includes(a) && !diskText.includes(a))
+  const ageTxt =
+    typeof mtimeMs === 'number' && Number.isFinite(mtimeMs)
+      ? `盘上这份已 ${((now - mtimeMs) / 3600_000).toFixed(2)}h 未更新(现读旁证,不参与判定)`
+      : '盘上 mtime 取不到 ⇒ 停放时长不判'
+  if (missing.length === 0) {
+    return {
+      dim,
+      state: 'ok',
+      readout: `盘上这份未落后被审面(${me.anchors.length} 条锚点齐备)⇒ 自我面闸不会停派;${ageTxt}`,
+      next: '',
+    }
+  }
+  return {
+    dim,
+    state: 'drift',
+    readout: `自主环跑的不是被判的那份代码:盘上这份缺被审面 ${missing.length}/${me.anchors.length} 条判据锚点 ⇒ 自我面闸每轮停派,而这停放不带连败也不带空转 ⇒ 不会自己结束;${ageTxt}`,
+    next:
+      '出路只有把盘上那份了结,没有第二条:' +
+      `① 归属席位把 ${schedRel} 的在飞改动落地(合并今天的判据再提交,门 299 会拦整片回写);` +
+      '② 若那一席已不存在,按 §12 走 worktree/heal 收口,不许由尺子代裁覆盖别人现场;' +
+      '③ 不许为了变绿去放宽锚点表或把自我面闸改成"照派"—— 那正是本维要拦的方向。',
+  }
+}
+
+/** A14 取料:清单与被审面按本轮 --staged/HEAD 档走,盘上那份只走 worktree 出口(§15 根由脚本自身推)。 */
+export function judgeExecutorFaceStallFace({ face, root, now = Date.now() } = {}) {
+  const schedRel = EXECUTOR_SCHED_REL
+  let listText = null
+  let auditedText = null
+  let diskText = null
+  let mtimeMs = null
+  try {
+    listText = readFaceText(INV_GATE.DATA_REL, face, root)
+  } catch {
+    listText = null
+  }
+  try {
+    auditedText = readFaceText(schedRel, face, root)
+  } catch {
+    auditedText = null
+  }
+  try {
+    diskText = readWorktreeFile(root, schedRel)
+    mtimeMs = statSync(join(root, schedRel)).mtimeMs
+  } catch {
+    diskText = null
+  }
+  return judgeExecutorFaceStall({ listText, auditedText, diskText, mtimeMs, now })
 }
 
 /**
@@ -2459,6 +2590,117 @@ async function selfTest() {
       )
     })(),
   )
+  // —— A14 执行体面停放维度(2026-11-05 立):停派不等于停完 —— 一直停必须一直响 ——
+  const L14 = JSON.stringify({
+    entries: [
+      {
+        path: 'scripts/auto-evolve.mjs',
+        anchors: ['锚A', '锚B', '锚C'],
+        why: '调度器的判据锚点:这条不变量消失了就是有人从旧基线整片回写',
+      },
+      {
+        path: 'scripts/lib/autonomy-nonprogress.mjs',
+        anchors: ['锚D'],
+        why: '阶梯分档表:新终态漏登记等于该档永远不计空转',
+      },
+    ],
+  })
+  ok(
+    'H70 真况回放:盘上缺被审面已有锚点 ⇒ drift,读数点名缺几条与停放时长,出路点名归属席位',
+    (() => {
+      const r = judgeExecutorFaceStall({
+        listText: L14,
+        auditedText: '锚A 锚B 锚C',
+        diskText: '锚A',
+        mtimeMs: Date.parse('2026-11-04T10:00:00.000Z'),
+        now: Date.parse('2026-11-04T19:00:00.000Z'),
+      })
+      return (
+        r.dim === 'A14-executor-face-stall' &&
+        r.state === 'drift' &&
+        r.readout.includes('2/3 条判据锚点') &&
+        r.readout.includes('9.00h') &&
+        r.next.includes('归属席位')
+      )
+    })(),
+  )
+  ok(
+    'H71 成对正向:盘上是超集(自己加了东西还没提交)⇒ ok —— 共树盘脏是常态,不许做成恒红门',
+    (() => {
+      const r = judgeExecutorFaceStall({
+        listText: L14,
+        auditedText: '锚A 锚B',
+        diskText: '锚A 锚B 锚新',
+      })
+      return r.state === 'ok' && r.readout.includes('3 条锚点齐备')
+    })(),
+  )
+  ok(
+    'H72 三态不并桶:任一面取不到 ⇒ unjudged;清单里没有本器这一条 ⇒ unjudged(枚举到 0 判死不记绿)',
+    (() => {
+      const a = judgeExecutorFaceStall({ listText: L14, auditedText: null, diskText: 'x' })
+      const b = judgeExecutorFaceStall({
+        listText: JSON.stringify({
+          entries: [
+            { path: 'scripts/other.mjs', anchors: ['q'], why: '别的门的锚点,不是调度器的锚点' },
+          ],
+        }),
+        auditedText: 'q',
+        diskText: '',
+      })
+      return (
+        a.state === 'unjudged' &&
+        b.state === 'unjudged' &&
+        b.readout.includes('scripts/auto-evolve.mjs')
+      )
+    })(),
+  )
+  ok(
+    'H76 清单本身坏(缺 why)⇒ unjudged 并点名问题,不拿坏台账冒充"判过且没问题"',
+    (() => {
+      const r = judgeExecutorFaceStall({
+        listText: JSON.stringify({
+          entries: [{ path: 'scripts/auto-evolve.mjs', anchors: ['q'] }],
+        }),
+        auditedText: 'q',
+        diskText: '',
+      })
+      return r.state === 'unjudged' && r.readout.includes('问题')
+    })(),
+  )
+  ok(
+    'H73 时长只作旁证:mtime 取不到时不编造小时数,判定仍只看缺几条锚点',
+    (() => {
+      const r = judgeExecutorFaceStall({
+        listText: L14,
+        auditedText: '锚A 锚B',
+        diskText: '锚A',
+        mtimeMs: null,
+      })
+      return (
+        r.state === 'drift' && r.readout.includes('mtime 取不到') && !r.readout.includes('.00h')
+      )
+    })(),
+  )
+  ok(
+    'H74 A14 已装进 main 与 evaluateAll(有定义无接线 = 判据没装车,§0.9)',
+    (() => {
+      return (
+        healthSrc.includes(
+          'const faceStall = judgeExecutorFaceStallFace({ face: FACE_SEL.face, root: repoRoot })',
+        ) && /if \(faceStall\) dims\.push\(faceStall\)/.test(healthSrc)
+      )
+    })(),
+  )
+  ok(
+    'H75 零复算:A14 的锚点命中必须走门 299 那一份 parseInvariants(不在本器拼第二份)',
+    (() => {
+      return (
+        /INV_GATE\.parseInvariants/.test(healthSrc) &&
+        /judgeExecutorFaceStallFace[\s\S]{0,600}readFaceText\(INV_GATE\.DATA_REL/.test(healthSrc)
+      )
+    })(),
+  )
   console.log(
     fail === 0
       ? `autonomy-leg-health self-test: ${pass} 例全绿`
@@ -2550,6 +2792,7 @@ async function main() {
   const landing = judgeArtifactLanding(events.ok ? events.events : [], {
     sessionResultActions: sessionResultActionsOf(valveSource),
   })
+  const faceStall = judgeExecutorFaceStallFace({ face: FACE_SEL.face, root: repoRoot })
   // output 必须留在末位:A11 的镜像接线锁是字面串锁(/claims, output })/),插队会把它判成"判据没装车"。
   const result = evaluateAll({
     repoRoot,
@@ -2560,6 +2803,7 @@ async function main() {
     valve,
     closure,
     landing,
+    faceStall,
     liveness,
     parity,
     outputAll,
@@ -2602,6 +2846,9 @@ export const __test__ = {
   judgeArtifactLanding,
   ARTIFACT_LANDED_ACTIONS,
   ARTIFACT_REJECT_ACTIONS,
+  judgeExecutorFaceStall,
+  judgeExecutorFaceStallFace,
+  EXECUTOR_SCHED_REL,
   resolveTransitBases,
   readGatesFace,
   readFaceText,

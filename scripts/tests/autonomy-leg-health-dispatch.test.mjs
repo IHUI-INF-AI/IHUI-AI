@@ -314,6 +314,30 @@ ok(
   })(),
 )
 
+ok(
+  'L8 A14 取料层真跑给三态之一(装车自证,不硬判绿)',
+  (() => {
+    const r = HEALTH.judgeExecutorFaceStallFace({ face: 'head', root: ROOT })
+    return ['ok', 'drift', 'unjudged'].includes(r.state) && r.dim === 'A14-executor-face-stall'
+  })(),
+)
+ok(
+  'L9 A14 的锚点必须取自门 299 的清单(同一份表,尺子不自立第二套判据)',
+  (() => {
+    const src = readFileSync(join(ROOT, 'scripts', 'check-autonomy-leg-health.mjs'), 'utf8')
+    const list = JSON.parse(
+      readFileSync(join(ROOT, 'scripts', 'data', 'autonomy-invariants.json'), 'utf8'),
+    )
+    const sched = list.entries.find((e) => e.path === HEALTH.EXECUTOR_SCHED_REL)
+    return (
+      /INV_GATE\.parseInvariants/.test(src) &&
+      /readFaceText\(INV_GATE\.DATA_REL/.test(src) &&
+      !!sched &&
+      sched.anchors.length > 0
+    )
+  })(),
+)
+
 console.log(
   fail === 0
     ? `autonomy-leg dispatch lock: ${pass} 例全绿`
