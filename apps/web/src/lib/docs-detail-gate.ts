@@ -37,8 +37,26 @@ export const STATIC_DOC_SLUGS: ReadonlySet<string> = new Set([
 ])
 
 /**
+ * 与 `app/(main)/docs/<一级目录>/<二级目录>` 一一对应的静态深层文档页(当前只有 manual 一系)。
+ *
+ * 立因(2026-11-04 生产实测 `/docs/no-such/extra`):`app/(main)/docs` 下没有 catch-all 段,
+ * 构建清单里不存在任何多段文档路由,多段请求只会落到根布局的 not-found 兜底(97,434 字节营销壳、
+ * 无 x-robots-tag),和单段 404 成两种响应。故静态深层页必须放行,其余多段 `/docs/**` 一律由
+ * Proxy 落 404 + 品牌体。新增深层文档页时必须同步这里(目录名 = URL 段路径)。
+ */
+export const STATIC_DOC_SUBPATHS: ReadonlySet<string> = new Set([
+  'manual/account',
+  'manual/agent',
+  'manual/ai-chat',
+  'manual/billing',
+  'manual/faq',
+  'manual/getting-started',
+  'manual/knowledge-base',
+])
+
+/**
  * 取出「需要探针判定」的文档详情 slug;不是文档详情请求(含静态文档页、/docs 索引、
- * /docs/manual/xxx 这类多段路径)一律返回 null = 完全不碰。
+ * 多段路径)一律返回 null = 完全不碰。多段路径的判定见 `docsDeepPathGateStatus`。
  *
  * 只认单段:本应用只有默认语言有 `/docs/[slug]` 路由(`/en/docs` 是独立静态页,
  * 构建清单里没有 `/en/docs/[slug]`),所以不做语言前缀展开。
@@ -58,6 +76,24 @@ export function extractDocsDetailSlug(pathname: string): string | null {
 }
 
 /**
+ * 多段文档路径的硬状态码:静态深层页放行(null),其余一律 404。
+ *
+ * 判据是「该路径在构建清单里存不存在」,不是「后端有没有这篇」—— 多段路径没有 [slug] 段承接,
+ * 探针无从谈起,故只对账仓内目录树(STATIC_DOC_SUBPATHS),零后端往返。
+ * 只看 `/docs/` 下的 2 段及以上;`/docs` 索引与单段详情交回 extractDocsDetailSlug 那条判据。
+ */
+export function docsDeepPathGateStatus(pathname: string): 404 | null {
+  const matched = /^\/docs\/([^/]+)\/(.+)$/.exec(pathname)
+  const first = matched?.[1]
+  const rest = matched?.[2]
+  if (!first || !rest) return null
+  // 对账键是「/docs/ 之后的整条路径」,与 STATIC_DOC_SUBPATHS 的 `manual/<二级目录>` 同形;
+  // 末尾斜杠与单段判据一致地忽略(/docs/manual/account/ 仍是静态页)。
+  const subpath = `${first}/${rest}`.replace(/\/+$/, '')
+  return STATIC_DOC_SUBPATHS.has(subpath) ? null : 404
+}
+
+/**
  * 文档详情请求的硬状态码:404 / 500 / null(放行 200)。
  * 探针超时压到 2.5s:Proxy 在请求首字节之前同步跑,不能让后端抖动把整页拖成超时。
  */
@@ -65,6 +101,8 @@ export async function docsDetailGateStatus(
   pathname: string,
   options: DocProbeOptions = {},
 ): Promise<404 | 500 | null> {
+  const deepStatus = docsDeepPathGateStatus(pathname)
+  if (deepStatus) return deepStatus
   const slug = extractDocsDetailSlug(pathname)
   if (!slug) return null
   const result = await probeDocBySlug(slug, {
