@@ -742,7 +742,7 @@ test('T22 被门整批拦下 ⇒ collected 只认真入库,blocked 单列并点�
     assert.equal(fail.r.blocked, 1)
     assert.match(fail.lines.join('\n'), /⛔ 账本族本轮被拦 1 枚\(拦路者=check-capability-matrix\)/)
     const concl = fail.lines.find((l) => l.startsWith('COLLECT-RESULT'))
-    assert.match(concl, / blocked=1 dry=false blocker=check-capability-matrix$/, `结论行缺拦路者:${concl}`)
+    assert.match(concl, / blocked=1 dry=false blocker=check-capability-matrix settled=0$/, `结论行缺拦路者:${concl}`)
 
     // 阳性对照:同一夹具同一枚数,提交真成功 ⇒ blocked=0 且 blocker 键整个缺席
     const dir2 = newRepo()
@@ -753,7 +753,7 @@ test('T22 被门整批拦下 ⇒ collected 只认真入库,blocked 单列并点�
       assert.equal(okRun.r.blocked, 0)
       const c2 = okRun.lines.find((l) => l.startsWith('COLLECT-RESULT'))
       assert.ok(!c2.includes('blocker='), `成功轮不得带拦路者键:${c2}`)
-      assert.match(c2, / blocked=0 dry=false$/)
+      assert.match(c2, / blocked=0 dry=false settled=0$/)
     } finally {
       rmScratch(dir2, { bestEffort: true })
     }
@@ -805,7 +805,8 @@ test('T20 两族合流的机读面:held 相加、reason 以 + 连接具体形态
     const conclusion = lines.find((l) => l.startsWith('COLLECT-RESULT'))
     assert.match(conclusion, /^COLLECT-RESULT ledger=ok /, '前缀与首键顺序是消费者匹配面,不得动')
     assert.match(conclusion, / held=3 /)
-    assert.match(conclusion, /reason=no-whitelist-hits\+busy-index-lock$/)
+    // 尾键顺序同为消费者匹配面:reason 之后依次 blocker/hint/settled,新维只准追加在最后。
+    assert.match(conclusion, /reason=no-whitelist-hits\+busy-index-lock settled=0$/)
     // 无让路形态时 reason 键必须整个缺席(与既有形态同形,消费者按 if (r.reason) 追加)
     const plain = auto.ledgerConclusionLine(auto.baseConclusion({ dry: false }))
     assert.ok(!plain.includes('reason='), plain)
@@ -914,5 +915,88 @@ test('T21 形状锁:main/白名单族/账本族的每一条 return 都经由唯�
   assert.ok(/catch\s*\(/.test(dr), '异常路径必须有先行后抛的兜底')
   assert.ok(dr.slice(dr.indexOf('catch')).includes('emitConclusion'), '异常兜底必须经同一唯一出口')
   assert.ok(/throw\s+e/.test(dr), '兜底后必须重抛(不改退出码语义)')
+})
+
+test('T24 申报内容已在 HEAD ⇒ 落 settled 桶、剔出批;同批真活一枚都不许被连坐挤掉', () => {
+  const dir = newRepo()
+  const ALREADY = 'apps/demo/src/screens/Already.tsx'
+  try {
+    // 别席把这一枚带走了:先入库,再按**同一 blob**登记 ⇒ 账本行还在,内容已在主干。
+    put(dir, ALREADY, 'export const already = 1\n')
+    gitRaw(['add', '--', ALREADY], dir)
+    gitRaw(['commit', '-q', '-F', '-'], dir, { input: 'foreign seat lands it\n' })
+    const oid = hash(dir, ALREADY)
+    const ap = appendLanding(
+      [{ at: agedIso(10), leg: 'sweepMiniappStyleTiers', path: ALREADY, blobOid: oid }],
+      { root: dir },
+    )
+    assert.deepEqual(ap, { appended: 1, rejected: [], deduped: 0 })
+    // 同批另一枚:盘上有内容、HEAD 里没有 ⇒ 这是本轮唯一的真活
+    declare(dir, BUSINESS_PATH, 'export const fresh = 1\n')
+
+    const before = commitCount(dir)
+    const { r, spy, lines } = runLedger(dir)
+    assert.equal(r.settled, 1, '已在 HEAD 的那一枚必须落进 settled 桶')
+    assert.equal(spy.calls.length, 1, '结清件不得再交通道(safe-commit 对它是零暂存 ⇒ 整轮 0 入库)')
+    assert.deepEqual(spy.calls[0].paths, [BUSINESS_PATH], '交给通道的批里只能有真活')
+    assert.equal(r.ledgerCollected, 1, '真活一枚都不许被死行挤掉批预算')
+    assert.equal(commitCount(dir), before + 1)
+    assert.ok(
+      lines.some((l) => l.includes('账本族 settled') && l.includes(ALREADY)),
+      `结清件必须逐条点名,实得:${lines.join(' | ')}`,
+    )
+    assert.match(lines.find((l) => l.startsWith('COLLECT-RESULT')), / settled=1$/)
+
+    // 反向对照(尺子有牙):HEAD 是 v1、盘上与申报都是 v2 ⇒ **不是**结清,照旧交给通道
+    const dir2 = newRepo()
+    try {
+      put(dir2, ALREADY, 'v1\n')
+      gitRaw(['add', '--', ALREADY], dir2)
+      gitRaw(['commit', '-q', '-F', '-'], dir2, { input: 'seed v1\n' })
+      declare(dir2, ALREADY, 'v2 守护腿的新产出\n')
+      const again = runLedger(dir2)
+      assert.equal(again.r.settled, 0, '内容比 HEAD 更新 ⇒ 绝不是结清')
+      assert.deepEqual(again.spy.calls[0].paths, [ALREADY], '这一枚必须交给通道')
+      assert.equal(again.r.ledgerCollected, 1)
+    } finally {
+      rmScratch(dir2, { bestEffort: true })
+    }
+  } finally {
+    rmScratch(dir, { bestEffort: true })
+  }
+})
+
+test('T25 结清维取不到 ⇒ 一条都不剔(unjudged 上机读面),失效方向是撞显式报错而非静默丢活', () => {
+  const dir = newRepo()
+  try {
+    declare(dir, BUSINESS_PATH, 'export const a = 1\n')
+    const boom = () => {
+      throw new Error('cat-file 取不到(夹具)')
+    }
+    const entries = auto.collectLedgerEntries(new Date(), {
+      root: dir,
+      quietMs: QUIET,
+      headOidsOf: boom,
+    })
+    assert.equal(entries.ledger, 'ok', '账本本身读到了,只是结清维取不到')
+    assert.equal(entries.settledCheck, 'unjudged')
+    assert.equal(entries.settled.length, 0, '取不到 ⇒ 一条都不许剔(不得把"读不到"当"已结清")')
+    assert.equal(entries.collectible.length, 1, '真活必须留在批里')
+    assert.match(String(entries.settledCheckReason), /cat-file/, `未判定原因必须带出:${entries.settledCheckReason}`)
+
+    // 机读面:未判定必须看得见,不能与"测过且 settled=0"同形
+    const line = auto.ledgerConclusionLine(
+      auto.baseConclusion({ dry: false, settled: 0, settledCheck: 'unjudged' }),
+    )
+    assert.match(line, / settled=0 settledCheck=unjudged$/, line)
+    // 测过且都还活着 ⇒ 只写 settled=0,不写 settledCheck(缺席的 unjudged 键不得凭空出现)
+    const okLine = auto.ledgerConclusionLine(auto.baseConclusion({ dry: false, settled: 0 }))
+    assert.ok(!okLine.includes('settledCheck='), okLine)
+    // 白名单族那一类结论没有这一维 ⇒ 整键缺席(缺席 = 没测,不用 settled=0 冒充测过)
+    const plain = auto.ledgerConclusionLine(auto.baseConclusion({ dry: false }))
+    assert.ok(!plain.includes('settled='), plain)
+  } finally {
+    rmScratch(dir, { bestEffort: true })
+  }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
