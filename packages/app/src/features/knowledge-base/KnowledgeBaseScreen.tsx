@@ -126,7 +126,9 @@ export function KnowledgeBaseScreen({
               accessibilityState={{ checked: selected }}
               accessibilityLabel={item.title}
             >
-              {selected ? <Check size={14} color={styles.checkBoxOnText.color} strokeWidth={3} /> : null}
+              {selected ? (
+                <Check size={14} color={styles.checkBoxOnText.color} strokeWidth={3} />
+              ) : null}
             </TouchableOpacity>
           ) : null}
           <TouchableOpacity style={styles.cardBody} onPress={onPress}>
