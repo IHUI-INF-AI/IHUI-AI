@@ -40,6 +40,7 @@ import {
   DownloadCancelledError,
 } from './ranged-download'
 import { APP_USER_AGENT, APP_VERSION } from './config'
+import { resolveApkDownloadUrl, type ApkLegId } from './apk-download-legs'
 
 export type ApkUpdateState =
   | 'idle'
@@ -79,6 +80,8 @@ export interface ApkStore {
   bytesPerSecond: number
   /** 当前并发连接数(分片下载的真实读数;单流降级时为 1) */
   connections: number
+  /** 本次实际走的下载腿:site=服务端主腿 / cn=Gitee 国内腿。排查「几十 B/s」时看这一格。 */
+  downloadLeg: ApkLegId | null
   /** 下载完成的本地文件(安装失败后重试时复用,不必再下 90MB) */
   fileUri: string | null
   installMode: ApkInstallMode
@@ -100,6 +103,7 @@ let store: ApkStore = {
   totalBytes: 0,
   bytesPerSecond: 0,
   connections: 1,
+  downloadLeg: null,
   fileUri: null,
   installMode: null,
   lastError: null,
@@ -445,11 +449,18 @@ export async function applyApkUpdate(): Promise<ApkUpdateState> {
     return 'error'
   }
 
+  /**
+   * 选腿(2026-11-04):服务端只下发一条站点腿,而现网那条腿实测落在 Cloudflare 洛杉矶,
+   * 256KB 探针 30s 都可能 0 字节;Gitee 国内腿同机 ttfb 0.32s。这里并发探两条腿,
+   * 谁真把字节读回来且体积对账一致就走谁;全灭/异常一律保持服务端主腿(见 apk-download-legs.ts)。
+   */
+  const leg = await resolveApkDownloadUrl(downloadUrl)
+
   // B:能力缺失直接交给浏览器 —— 这里**不下载**,避免"下完装不上"的双重浪费
   if (!canInstallInApp()) {
     patch({ state: 'installing', installMode: 'browser', lastError: null })
     try {
-      await openInBrowser(downloadUrl)
+      await openInBrowser(leg.url)
       return 'installing'
     } catch (e) {
       patch({
@@ -470,11 +481,12 @@ export async function applyApkUpdate(): Promise<ApkUpdateState> {
     totalBytes: 0,
     bytesPerSecond: 0,
     connections: 1,
+    downloadLeg: leg.leg,
     lastError: null,
   })
   let uri: string
   try {
-    uri = await downloadApk(downloadUrl, latestVersion)
+    uri = await downloadApk(leg.url, latestVersion)
   } catch (e) {
     patch({
       state: 'error',
@@ -499,9 +511,9 @@ export async function applyApkUpdate(): Promise<ApkUpdateState> {
         installMode: 'browser',
         lastError: installError instanceof Error ? installError.message : String(installError),
       })
-      // 最后一道:把直链给浏览器,至少让用户能升级完成(下载的临时文件由系统缓存清理)
+      // 最后一道:把选中的那条直链给浏览器,至少让用户能升级完成(下载的临时文件由系统缓存清理)
       try {
-        await openInBrowser(downloadUrl)
+        await openInBrowser(leg.url)
       } catch {
         /* 浏览器也打不开就停在 error,由 UI 如实告知 */
       }

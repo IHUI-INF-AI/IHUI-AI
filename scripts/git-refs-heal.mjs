@@ -48,6 +48,16 @@ const WORKTREE = resolveWorktree()
 const GITDIR = resolveGitdir(WORKTREE)
 const REFS_MANIFEST = join(GITDIR, 'refs-manifest.json')
 
+/**
+ * 派生 git 的输出缓冲上限。这里必须**显式给**:execFileSync 默认 1 MiB,而 `for-each-ref refs/heads
+ * refs/tags refs/remotes` 在本仓(2026-11-03 实测 23,031 枚 tag)输出 1,052,662 B,刚好顶穿默认值报
+ * ENOBUFS ⇒ `git(..., true)` 返回 null ⇒ `currentRefs()` 交回空表 ⇒ `--status` 把清单里 22,298 条
+ * 期望项**全报成缺失**、currentCount 报 0。那台工具的全部写动作都以这张表为底,空表一旦被当成
+ * "当前一个 ref 都没有",下一轮 learning/prune 就会按它抹掉期望项。取 64 MiB:随 tag 增长留出
+ * 两个数量级余量,而它只在真读 ref 时一次性分配。
+ */
+const GIT_MAX_BUFFER_BYTES = 64 * 1024 * 1024
+
 function git(args, allowFail = false) {
   const bin = resolveGitBin()
   if (!bin) {
@@ -61,6 +71,7 @@ function git(args, allowFail = false) {
       // 返回值被消费(.trim() 后 return)⇒ stdout 仍须 pipe,只把 stdin 切掉
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true, // GUI 宿主下派生 git 不显控制台窗口(AGENTS.md §5b)
+      maxBuffer: GIT_MAX_BUFFER_BYTES,
       timeout: 180000,
     }).trim()
   } catch (e) {
@@ -110,24 +121,34 @@ export function saveManifest(map) {
 }
 
 /** 当前全部 ref(name → sha),含 packed 与松散 */
-function currentRefs() {
-  const out = git(
-    [
-      'for-each-ref',
-      '--format=%(refname) %(objectname)',
-      'refs/heads',
-      'refs/tags',
-      'refs/remotes',
-    ],
-    true,
-  )
+/**
+ * 把 `for-each-ref` 的输出解析成 ref→sha 表。**纯函数**,`out === null` 代表"问不到",
+ * 与"问到了但一个也没有"(空串 ⇒ 空表)必须是两种形态:把前者折成空表,调用方就会按
+ * "当前没有任何 ref"去重建/摘除期望项(成因与读数见 GIT_MAX_BUFFER_BYTES 注释)。
+ */
+export function parseRefsTable(out) {
+  if (out === null || out === undefined) return null
   const map = {}
-  if (!out) return map
-  for (const line of out.split('\n')) {
+  for (const line of String(out).split('\n')) {
     const [ref, sha] = line.trim().split(/\s+/)
     if (ref && sha) map[ref] = sha
   }
   return map
+}
+
+function currentRefs() {
+  return parseRefsTable(
+    git(
+      [
+        'for-each-ref',
+        '--format=%(refname) %(objectname)',
+        'refs/heads',
+        'refs/tags',
+        'refs/remotes',
+      ],
+      true,
+    ),
+  )
 }
 
 /** 单 ref 是否可解析(宽松:packed 或松散均可) */
@@ -322,6 +343,17 @@ function status() {
   const cur = currentRefs()
   const map = readManifest()
   const entries = Object.entries(map)
+  // 问不到 ref 面 ⇒ 未判定:不报"全缺失",也不给任何写动作提供空底表(§0.3)
+  if (cur === null) {
+    return {
+      gitdir: GITDIR,
+      manifestCount: entries.length,
+      currentCount: null,
+      state: 'unjudged',
+      reason: 'for-each-ref 问不到当前 ref 面 ⇒ 无法判缺失(把"问不到"折成"一个都没有"会撒数千枚松散 ref)',
+      missing: [],
+    }
+  }
   const missing = entries
     .filter(([ref, sha]) => !refExpectationSatisfied(ref, sha, cur[ref]))
     .map(([ref]) => ref)
@@ -329,6 +361,7 @@ function status() {
     gitdir: GITDIR,
     manifestCount: entries.length,
     currentCount: Object.keys(cur).length,
+    state: 'judged',
     missing,
   }
 }
@@ -438,6 +471,24 @@ function selfTest() {
       throw new Error('空值/非法值应判不存在,不得去问 git')
   })
 
+  t('ref 面解析:问不到⇒null(未判定)、空输出⇒{}、有行⇒表 —— 三者不得并桶', () => {
+    if (parseRefsTable(null) !== null) throw new Error('问不到被折成了空表(22,298 条假缺失的成因)')
+    if (parseRefsTable(undefined) !== null) throw new Error('undefined 同样必须判"问不到"')
+    const empty = parseRefsTable('')
+    if (empty === null || Object.keys(empty).length !== 0)
+      throw new Error('真空输出应是空表,且不得与"问不到"同形')
+    const ok = parseRefsTable(`${A} ${shaAlive}\n\n${B} ${shaDead}\n`)
+    if (ok[A] !== shaAlive || ok[B] !== shaDead)
+      throw new Error(`解析结果不对:${JSON.stringify(ok)}`)
+    // 反向断言:派生 git 若没带显式 maxBuffer,ENOBUFS 会把大输出静默变成 null ⇒ 整维失明
+    const src = readFileSync(new URL('./git-refs-heal.mjs', import.meta.url), 'utf8')
+    const call = src.slice(src.indexOf('function git('), src.indexOf('function git(') + 900)
+    if (!/maxBuffer:\s*GIT_MAX_BUFFER_BYTES/.test(call))
+      throw new Error('git() 丢了显式 maxBuffer ⇒ 大输出会静默报 ENOBUFS')
+    if (!(GIT_MAX_BUFFER_BYTES >= 16 * 1024 * 1024))
+      throw new Error(`maxBuffer 余量太小(${GIT_MAX_BUFFER_BYTES})`)
+  })
+
   let fail = 0
   for (const [name, fn] of cases) {
     try {
@@ -458,13 +509,19 @@ function main() {
   if (args.includes('--status')) {
     const s = status()
     console.log(JSON.stringify(s, null, 1))
-    process.exit(s.missing.length === 0 ? 0 : 1)
+    process.exit(s.state === 'unjudged' ? 2 : s.missing.length === 0 ? 0 : 1)
   }
 
   if (args.includes('--refresh-remote') && !refreshFromRemote()) process.exit(1)
 
   // 1) 以"当前可见 ref"为准更新清单(自维护:新出现的嵌套 ref 自动纳入)
   const cur = currentRefs()
+  if (cur === null) {
+    console.error(
+      '❌ 当前 ref 面问不到(for-each-ref 未产出)⇒ 本轮既不纳管也不摘除:把"读不到"当"没有"会抹掉全部期望项(§0.3)',
+    )
+    process.exit(2)
+  }
   const map = readManifest()
   let learned = 0
   for (const [ref, sha] of Object.entries(cur)) {
@@ -593,5 +650,13 @@ function main() {
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 if (isDirectRun) main()
 
-export const __test__ = { splitDeadRefs, isNestedRef, objectExists, readManifest, saveManifest }
+export const __test__ = {
+  splitDeadRefs,
+  isNestedRef,
+  objectExists,
+  readManifest,
+  saveManifest,
+  parseRefsTable,
+  GIT_MAX_BUFFER_BYTES,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

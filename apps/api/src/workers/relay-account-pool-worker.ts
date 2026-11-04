@@ -12,6 +12,11 @@
  *   号池(客户端为主策略的取数端;Trae 的 ExchangeToken 会轮换 refreshToken,池主动
  *   刷会把本机客户端顶下线,故 trae 号票未过期时池不刷,新票一律从客户端回灌)
  *
+ * WorkBuddy 定时腿已于 2026-11-03 撤除:API 进程以 LocalSystem 身份运行,结构上读不到
+ * 交互用户的 auth 文件,每 10 分钟必然失败一次,属纯噪声;上游续期本就由服务端负责
+ * (renewalPolicyOf('workbuddy')='server',每 5 分钟 sweep 续票 + 空闲保活),保活不依赖客户端。
+ * 脚本与 runWorkbuddySessionSync 出口保留为一次性手工工具,不再自动调度。
+ *
  * 与 relay-health-check-worker 同模式:server.redisForQueue 连接 + onClose 优雅关闭。
  */
 import type { FastifyInstance } from 'fastify'
@@ -37,8 +42,14 @@ const CRON_PATTERN = '*/5 * * * *'
 const TRAE_SYNC_CRON_PATTERN = '*/10 * * * *'
 /** 每 10 分钟把本机 Qoder 登录态回灌进号池(同族:refreshToken 轮换由客户端主导,池只跟随) */
 const QODER_SYNC_CRON_PATTERN = '*/10 * * * *'
-/** 每 10 分钟把本机 WorkBuddy 会话模板回灌进号池(票不回灌,只补「登录本机」的配方三键) */
-const WORKBUDDY_SYNC_CRON_PATTERN = '*/10 * * * *'
+/**
+ * 已撤除的 WorkBuddy 定时注册 id。
+ *
+ * BullMQ 的 job scheduler 存在 Redis 里,删掉注册代码不会自动消失 —— 遗留项仍会每 10 分钟
+ * 投递一条 worker 已不再处理的作业。启动时显式 remove 一次(幂等:不存在时返回 false),
+ * 让代码与 Redis 两侧的注册真正收敛。
+ */
+const RETIRED_WORKBUDDY_SCHEDULER_ID = 'workbuddy-session-sync-cron'
 /** 每 10 分钟把本机 MiniMax Code(mcode)会话回灌进号池(mcode 轮换票面,池侧无刷新能力只能跟随) */
 const MINIMAX_SYNC_CRON_PATTERN = '*/10 * * * *'
 /** 仓根(scripts/sync-*-client-session.mjs 的落点):workers→src→api→apps→root 共 4 级 */
@@ -46,7 +57,7 @@ const REPO_ROOT = resolvePath(dirname(fileURLToPath(import.meta.url)), '..', '..
 
 /**
  * 同因「未判定」降噪状态(进程内;重启即清,首轮必 warn)。
- * qoder/workbuddy 两条腿在服务身份(LocalSystem)下结构上读不到交互用户的 APPDATA/DPAPI,
+ * qoder 腿在服务身份(LocalSystem)下结构上读不到交互用户的 APPDATA/DPAPI,
  * 每回灌轮原因一字不变 —— 不降噪就是每 10 分钟一条同文 warn。判据见
  * services/relay-session-sync-noise.ts(单一真相源),本处只持有状态。
  */
@@ -164,18 +175,6 @@ export function startRelayAccountPoolWorker(server: FastifyInstance): Worker {
         },
       )
       await queue.upsertJobScheduler(
-        'workbuddy-session-sync-cron',
-        { pattern: WORKBUDDY_SYNC_CRON_PATTERN },
-        {
-          name: 'workbuddy-session-sync',
-          data: {},
-          opts: {
-            removeOnComplete: 100,
-            removeOnFail: 500,
-          },
-        },
-      )
-      await queue.upsertJobScheduler(
         'minimax-session-sync-cron',
         { pattern: MINIMAX_SYNC_CRON_PATTERN },
         {
@@ -187,10 +186,25 @@ export function startRelayAccountPoolWorker(server: FastifyInstance): Worker {
           },
         },
       )
+      // WorkBuddy 定时腿已撤除:显式移除可能的遗留注册(BullMQ 的 scheduler 存于 Redis,
+      // 删代码不会自动清理),避免它继续每 10 分钟投递 worker 已不再处理的幽灵作业。
+      try {
+        const removed = await queue.removeJobScheduler(RETIRED_WORKBUDDY_SCHEDULER_ID)
+        if (removed) {
+          server.log.info(
+            { schedulerId: RETIRED_WORKBUDDY_SCHEDULER_ID },
+            'workbuddy-session-sync 遗留定时注册已移除',
+          )
+        }
+      } catch (err) {
+        server.log.warn(
+          { err },
+          '移除 workbuddy-session-sync 遗留定时注册失败(该腿已停用,不影响其它调度)',
+        )
+      }
       server.log.info({ pattern: CRON_PATTERN }, 'relay-account-pool sweep scheduled')
       server.log.info({ pattern: TRAE_SYNC_CRON_PATTERN }, 'trae-session-sync scheduled')
       server.log.info({ pattern: QODER_SYNC_CRON_PATTERN }, 'qoder-session-sync scheduled')
-      server.log.info({ pattern: WORKBUDDY_SYNC_CRON_PATTERN }, 'workbuddy-session-sync scheduled')
       server.log.info({ pattern: MINIMAX_SYNC_CRON_PATTERN }, 'minimax-session-sync scheduled')
     } catch (err) {
       server.log.error({ err }, 'failed to schedule relay-account-pool sweep')
@@ -203,17 +217,14 @@ export function startRelayAccountPoolWorker(server: FastifyInstance): Worker {
       if (
         job.name === 'trae-session-sync' ||
         job.name === 'qoder-session-sync' ||
-        job.name === 'workbuddy-session-sync' ||
         job.name === 'minimax-session-sync'
       ) {
         // 脚本名单源在四个命名出口里,调度分支与手动触发口走同一条路
         const outcome = await (job.name === 'qoder-session-sync'
           ? runQoderSessionSync()
-          : job.name === 'workbuddy-session-sync'
-            ? runWorkbuddySessionSync()
-            : job.name === 'minimax-session-sync'
-              ? runMinimaxSessionSync()
-              : runTraeSessionSync())
+          : job.name === 'minimax-session-sync'
+            ? runMinimaxSessionSync()
+            : runTraeSessionSync())
         // 退出码 2 = 未判定(本机无对应客户端/解密失败/tsx 缺失):服务器部署形态
         // 的常态,记 warn 不记 failure(它不该进 BullMQ 失败重试风暴)
         if (outcome.code === 2) {
@@ -256,7 +267,7 @@ export function startRelayAccountPoolWorker(server: FastifyInstance): Worker {
         return null
       }
       const result = await sweepAccountPool()
-      // 日志取值面 = sweepAccountPool 的产出面(AccountPoolSweepResult 的 6 枚键),不得多读:
+      // 日志取值面 = sweepAccountPool 的产出面(AccountPoolSweepResult 的键),不得多读:
       // 签到对账 / 断链待推重推当前不在 sweep 产出里(sweep 单轮只做临期刷新 + unknown 定级
       // + down 恢复),读它们只会得到 undefined。要恢复该族埋点,先让生产端真发键(见本票回报)。
       server.log.info(
@@ -267,6 +278,9 @@ export function startRelayAccountPoolWorker(server: FastifyInstance): Worker {
           refreshSkipped: result.refreshSkipped,
           healthChecked: result.healthChecked,
           healthRecovered: result.healthRecovered,
+          // refresh 绝对寿命提前预警:最早到期 < 7 天时 warn 非空(与 logger.warn 同口径)
+          refreshExpiresAt: result.refreshExpiresAt,
+          refreshExpiryWarn: result.refreshExpiryWarn,
         },
         'relay-account-pool sweep done',
       )

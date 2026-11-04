@@ -171,15 +171,6 @@ export { FavoriteScreen } from './features/favorite/FavoriteScreen'
 export { ModelPlazaScreen } from './features/model-plaza/ModelPlazaScreen'
 export { N8nModelScreen } from './features/n8n-model/N8nModelScreen'
 export { ModelEditScreen } from './features/model-edit/ModelEditScreen'
-export {
-  buildModelEditBillingPayload,
-  submitModelEdit,
-} from './features/model-edit/model-edit-save'
-export type {
-  ModelEditBillingPayload,
-  ModelEditSaveOutcome,
-  ModelEditUpdateResult,
-} from './features/model-edit/model-edit-save'
 export { AigcListScreen } from './features/aigc-list/AigcListScreen'
 /** 批次 20(2026-07-29):AI/聊天屏(助手管理/AI 群组/AIGC 封面/AIGC 发布,4 屏迁移自 mobile-rn) */
 export { AssistantScreen } from './features/assistant/AssistantScreen'
@@ -474,6 +465,18 @@ export type { BackChevronProps } from './components'
 /** 滚动方向浮动按钮(返回顶部 / 跳到最新):RN 端唯一实现,几何与外观取自 @ihui/shared/ui 单一源 */
 export { ScrollJumpButton } from './components'
 export type { ScrollJumpButtonProps } from './components'
+
+/** 跨端共享同构组件(NavBar/PayButton/TabBar):随 TabBar 液态玻璃接入(068af74ddf),
+ * 尚未挂到静态可达入口;自本 barrel 导出使 web/desktop/mobile-rn 宿主可 import(消费接线由各端负责)。 */
+export { NavBar, PayButton, TabBar } from './components'
+export type {
+  NavBarProps,
+  PayButtonProps,
+  PayButtonType,
+  TabBarProps,
+  TabBarKey,
+  TabBarItemConfig,
+} from './components'
 
 /** 统一分类栏(横滑条 + 点击下拉窗),两端共用;文案与图标一律由调用方 items 传入 */
 export { CategoryInlineBar, CategoryDropdown } from './components'

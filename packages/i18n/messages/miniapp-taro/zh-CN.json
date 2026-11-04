@@ -408,7 +408,8 @@
     "totalRecharge": "累计充值",
     "totalWithdraw": "累计提现",
     "withdraw": "提现",
-    "points": "智汇值"
+    "points": "智汇值",
+    "rechargeSuccess": "充值成功"
   },
   "community": {
     "posts": "帖子",
@@ -2989,6 +2990,10 @@
     "text6": "等级介绍页未配置",
     "menu": {
       "subscriptions": "我的订阅"
+    },
+    "security": {
+      "code": "验证码",
+      "sendCode": "发送验证码"
     }
   },
   "vipScreen": {
@@ -3244,7 +3249,8 @@
     "contactPlaceholder": "请输入联系方式(选填)",
     "contentPlaceholder": "请输入反馈详情",
     "submit": "提交反馈",
-    "type": "类型"
+    "type": "类型",
+    "success": "提交成功"
   },
   "comment": {
     "loading": "加载中...",

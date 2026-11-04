@@ -408,7 +408,8 @@
     "totalRecharge": "누적 충전",
     "totalWithdraw": "누적 출금",
     "withdraw": "출금",
-    "points": "포인트"
+    "points": "포인트",
+    "rechargeSuccess": "충전성공"
   },
   "community": {
     "posts": "게시물",
@@ -2991,6 +2992,10 @@
     "text6": "등급 소개 페이지 미구성",
     "menu": {
       "subscriptions": "내 구독"
+    },
+    "security": {
+      "code": "인증 코드",
+      "sendCode": "전송인증 코드"
     }
   },
   "vipScreen": {
@@ -3246,7 +3251,8 @@
     "contactPlaceholder": "연락처를 입력하세요(선택)",
     "contentPlaceholder": "피드백 상세 내용을 입력하세요",
     "submit": "피드백 제출",
-    "type": "유형"
+    "type": "유형",
+    "success": "제출되었습니다"
   },
   "comment": {
     "loading": "로딩 중...",

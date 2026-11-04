@@ -73,6 +73,13 @@
 
 import { NextResponse, type NextRequest } from 'next/server'
 import { verifyAccessTokenEdge } from '@/lib/auth-utils'
+import {
+  docsDetailGateStatusOf,
+  docsGateResponseHeaders,
+  isDocsGateDocumentRequest,
+  renderDocsGateHtml,
+} from '@/lib/docs-detail-gate'
+import { brand404Body, loadBrand404Html } from '@/lib/brand-404'
 import { evaluateOriginHostGuard } from '@/lib/origin-direct-host-guard'
 // 鉴权射程(2026-10-21 随 matcher 全站化迁入函数内,逐字等价于旧 matcher
 // `['/admin/:path*', '/edu/edu-management/:path*']` 的命中集,不多不少)。
@@ -130,6 +137,49 @@ function isInternalPath(pathname: string): boolean {
   return INTERNAL_PATH_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`))
 }
 
+/**
+ * HTTP→HTTPS 301 的域名白名单(精确匹配,不含端口)。
+ * 为什么不用后缀匹配:Host 是客户端可伪造头,直连源站时 `Host: evil.com` + 伪造的
+ * `x-forwarded-proto: http` 若被放行,本跳转就成了任意域开放重定向;只认站点自身域名把这条路焊死。
+ * api.aizhs.top 不在列:机器客户端(移动端轮询等)可能被 301 打断,机器面另议。
+ */
+const HTTPS_REDIRECT_HOSTS = new Set(['aizhs.top', 'www.aizhs.top'])
+
+/** 机器面/后端代理面前缀:301 不改这些路径的语义(健康探针、rewrite 透传、资产)。 */
+function isMachineSurfacePath(pathname: string): boolean {
+  return (
+    pathname.startsWith('/api') ||
+    pathname.startsWith('/ws') ||
+    pathname.startsWith('/v1') ||
+    pathname.startsWith('/remote-images') ||
+    pathname.startsWith('/uploads') ||
+    pathname.startsWith('/_next')
+  )
+}
+
+/**
+ * 客户端侧协议:**只取正向证据,绝不猜**。
+ *   ① `cf-visitor {"scheme":"..."}` —— Cloudflare 按**客户端真实协议**写,穿过 CF→隧道/EO→源站
+ *      链路到源站时即便回源传输是 http,这里仍是客户端的 https ⇒ 不会自我循环;
+ *   ② `x-forwarded-proto` 第一跳 —— CF/EO 同样按客户端协议写。
+ * 两者都没有(本机直连 127.0.0.1、健康探针、进程间调用)⇒ null ⇒ 一律不跳。
+ * 这是防死循环的 fail-closed 边界:判据不是"源站看到的传输协议",而是"CDN 声明的客户端协议"。
+ */
+function clientScheme(request: NextRequest): string | null {
+  const cv = request.headers.get('cf-visitor')
+  if (cv) {
+    try {
+      const parsed = JSON.parse(cv) as { scheme?: unknown }
+      if (typeof parsed.scheme === 'string' && parsed.scheme) return parsed.scheme.toLowerCase()
+    } catch {
+      /* 畸形 ⇒ 忽略这一路信号,落到 x-forwarded-proto */
+    }
+  }
+  const xfp = request.headers.get('x-forwarded-proto')
+  if (xfp) return xfp.split(',')[0]?.trim().toLowerCase() || null
+  return null
+}
+
 function makeNonce(): string {
   const bytes = new Uint8Array(16)
   crypto.getRandomValues(bytes)
@@ -159,6 +209,23 @@ export async function proxy(request: NextRequest) {
     return new NextResponse('Forbidden', { status: 403 })
   }
 
+  // ── HTTP→HTTPS 301(全站 HTTPS 合规,2026-11-03 立)──────────────────────────
+  // 判据与安全边界见 clientScheme 头注:只在**正向证据**表明客户端用了 http 时才跳;
+  // 无 cf-visitor / x-forwarded-proto(本机直连、健康探针、进程间调用)一律放行 ⇒ 源站
+  // 传输协议是 http 也绝不跳,这正是"CDN 终止 TLS、源站只见 http"场景不死循环的原因。
+  // 只动 GET/HEAD(301 不改非幂等语义);机器面与白名单外域名不动;
+  // 注:CF 控制台 Always Use HTTPS 仍是边缘层第一优先(即时生效、覆盖机器面),本腿是应用层兜底。
+  const hostHeader = request.headers.get('host')
+  if (
+    (request.method === 'GET' || request.method === 'HEAD') &&
+    hostHeader &&
+    HTTPS_REDIRECT_HOSTS.has(hostHeader.split(':')[0]?.toLowerCase() ?? '') &&
+    !isMachineSurfacePath(pathname) &&
+    clientScheme(request) === 'http'
+  ) {
+    return NextResponse.redirect(`https://${hostHeader}${pathname}${search}`, 301)
+  }
+
   // ── CSP nonce 分发(2026-10-30,机制与取舍见 makeNonce 头注)──
   // 两类路径不发 nonce:非 HTML 资产(纯浪费,还会污染 CDN 缓存键)、
   // 公开可缓存页(per-request nonce 与 s-maxage 共享缓存互斥)。
@@ -181,7 +248,24 @@ export async function proxy(request: NextRequest) {
 
   // matcher 已扩为全站:非鉴权射程的请求在此原样放行(行为与旧窄 matcher 等价)
   if (!isProtectedPath(pathname)) {
-    return pass()
+    // /docs/[slug] 硬状态码闸(2026-11-03):不存在 ⇒ 404,后端故障 ⇒ 500。
+    // 必须在 Proxy 落状态码——页面侧 notFound()/抛错会被根段与 (main) 段的 loading.tsx
+    // 流式外壳吞成 200(探针矩阵 v-b/c/d/g 实测),判据与理由见 src/lib/docs-detail-gate.ts。
+    // 非文档详情请求(含静态文档页、/docs 索引、/docs/manual/xxx)直接返回 null,零开销。
+    // 落码方式(2026-11-04 生产纠正):Proxy 直接返回 Response,不用 rewrite-with-status ——
+    // 生产 `next start -H 0.0.0.0` + 反代 `x-forwarded-proto: https` 下,rewrite 目标与请求 Host
+    // 不同源 ⇒ Next 当外部代理去 fetch 无 TLS 端口 ⇒ 线上 500 `Internal Server Error`(21 字节)。
+    const docsStatus = await docsDetailGateStatusOf(request)
+    if (docsStatus === null) return pass()
+    // RSC 取数请求放行:响应体必须是 RSC 载荷,硬码与 not-found 界面交给页面自身。
+    if (!isDocsGateDocumentRequest(request.headers)) return pass()
+    // 404 用构建期预渲染的品牌资产(scripts/build-brand-404.mts → <distDir>/static/brand-404.html);
+    // 资产缺失只可能是开发期或旧产物,才退回旧手写页。500 保持独立故障文案,两种语义不合并。
+    const body =
+      docsStatus === 404
+        ? brand404Body(await loadBrand404Html(), renderDocsGateHtml(404))
+        : renderDocsGateHtml(500)
+    return new NextResponse(body, { status: docsStatus, headers: docsGateResponseHeaders(csp) })
   }
 
   // 不阻塞 /admin/unauthorized(让用户看到无权限页)

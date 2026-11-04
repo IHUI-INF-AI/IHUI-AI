@@ -34,6 +34,33 @@ on:
 permissions:
   contents: read
 
+# 并发闸(2026-11-03):e2e 单跑 54~75min,是唯一能单独把 runner 池占满的工作流
+# (实测 2026-11-03T04:16Z 同时 8 枚 e2e in_progress + 3 枚 queued,占当时 19 个
+# in-progress run 的 42%)。e2e **不承载 required check**(分支保护现读只有
+# `CI / lint-typecheck-test (push)`),所以这里只管"同时占几个 runner",不承担分支保护结论。
+#
+# 两档策略:
+#  · main / develop(push 档):按 ref 分组 + cancel-in-progress true ⇒ 同一 ref 只保留
+#    最新一枚,陈旧 run 秒让位。代价:main 若持续 3~5min 一推,main 档 e2e 会长期停在
+#    "最新那枚"而跑不完 —— 刻意的取舍:用"永远在跑最新"换"不占池";e2e 不是门禁,不欠结论。
+#  · 其余 ref(PR / 特性分支):统一进同一条 `pr-queue` + cancel-in-progress false
+#    ⇒ PR 侧全仓同时最多 1 枚 e2e。代价:PR 的 e2e 要排队(最长约一个 e2e 时长),且队列里
+#    更早的 pending 会被新 pending 顶掉(GitHub 原生语义;被顶掉的 PR 只是没跑 e2e,不挡合并)。
+#  合计硬上限 = 1(main) + 1(develop) + 1(PR 队列) = 3,正常态 ≤2。
+#
+# 为什么不是"2 槽轮转":GitHub 表达式**没有算术运算符**(没有 `%`,也没有 `+ - * /`),
+# 写 `run_number % 2` 会直接让整个 workflow 变成 startup failure(实测 run 41579143968
+# 与 41578405565:created 与 updated 同一秒、jobs=0)。既然无法确定性轮转,就退到
+# "一条 PR 队列"—— 它给出的上限 3 比原来 8 低得多,且语义可读。
+#
+# 为什么不用第三方限流 action:GitHub 原生没有"全仓并发上限",第三方 action 会新增一条
+# 失败面(其 token/网络抖动会让 e2e 直接红);单队列是确定性的、零依赖。
+# 2026-11-04:workflow_dispatch 独立 group(按 run_id 唯一),避免被后续 push 的
+# 同 group run 取消 —— 手动取证才拿得到终态;push 侧取消行为保持原样(仅 main/develop 取消)。
+concurrency:
+  group: ${{ github.event_name == 'workflow_dispatch' && format('e2e-dispatch-{0}', github.run_id) || format('e2e-{0}', (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop') && github.ref || 'pr-queue') }}
+  cancel-in-progress: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop') }}
+
 env:
   NODE_VERSION: '22'
   PNPM_VERSION: '9.15'
@@ -83,13 +110,13 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Setup pnpm
         uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
 
       - name: Setup Node
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
@@ -254,7 +281,7 @@ jobs:
 
       - name: Upload test report
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: playwright-report
           path: apps/web/playwright-report/
@@ -262,7 +289,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: test-results
           path: apps/web/test-results/

@@ -13,6 +13,9 @@
  * 纪律:
  *  - 只许本机回环的 dev/test 库:host 不在 loopback 白名单 ⇒ 拒绝;8810 是生产 SSH 隧道口
  *    (scripts/db/db_sync.py 的 prod_dsn),显式点名拒绝——取证一律不得连生产库(AGENTS §5)。
+ *    端口按**实际生效值**判,不按字面量判:DSN 写明端口时用 DSN 值(归一后数值比较);DSN 不写
+ *    端口时按 libpq 语义取 `PGPORT`(若有)否则 PostgreSQL 默认 5432。任何一处非法(非数字 /
+ *    <1 / >65535)一律拒("不猜"),绝不让"不写端口"或"08810"这类写法从黑名单边上绕过去。
  *  - 只发 SELECT / EXPLAIN,不发任何写语句;每条查询带 statement_timeout。
  *  - 探针四态与门体同形:pass / hit / undetermined,绝不并桶。
  */
@@ -25,11 +28,34 @@ const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1'])
 /** 生产隧道口:db_sync.prod_dsn 的 tunnelPort,误连即取证违规。 */
 export const FORBIDDEN_PROD_PORT = '8810'
 
+/** PostgreSQL 未写端口且无 PGPORT 时的默认口(libpq 语义)。 */
+const DEFAULT_PG_PORT = 5432
+const FORBIDDEN_PROD_PORT_NUM = Number(FORBIDDEN_PROD_PORT)
+
 /**
- * DSN 守卫(纯函数):非回环 / 非postgres协议 / 8810 ⇒ 拒绝,理由逐条说清。
+ * 端口值归一(纯函数):缺省 ⇒ { port:null };非法(非数字 / <1 / >65535) ⇒ { error }。
+ * 各档都不许"猜一个默认值"把非法输入吞成可用端口。
+ */
+function normalizePort(rawPort, label) {
+  if (rawPort === undefined || rawPort === null || String(rawPort).trim() === '') {
+    return { port: null }
+  }
+  const text = String(rawPort).trim()
+  if (!/^\d+$/.test(text)) return { error: `${label}=${text} 不是数字端口,不猜` }
+  const n = Number(text)
+  if (!Number.isInteger(n) || n < 1 || n > 65535) {
+    return { error: `${label}=${text} 超出合法端口范围 1..65535,不猜` }
+  }
+  return { port: n }
+}
+
+/**
+ * DSN 守卫(纯函数):非回环 / 非postgres协议 / 生产口 ⇒ 拒绝,理由逐条说清。
+ * 生产口按**有效端口**判(数值比较):DSN 写明端口 ⇒ 用 DSN 值;DSN 不写 ⇒ 取 `env.PGPORT`
+ * 否则 5432。故 `08810` / 无端口 + `PGPORT=8810` 都拒,`8810.0` 这类不合法写法也拒。
  * 返回 { ok:true, dsn } 或 { ok:false, why }。
  */
-export function guardDbDsn(raw) {
+export function guardDbDsn(raw, env = process.env) {
   const dsn = String(raw || '').trim()
   const m = /^postgres(?:ql)?:\/\/([^/@:]+)(?::([^@/]*))?@([^/:?]+)(?::(\d+))?\/([^\s?]+)/.exec(dsn)
   if (!m) return { ok: false, why: 'DSN 不是 postgres://user:pass@host:port/db 形态,不猜' }
@@ -37,8 +63,31 @@ export function guardDbDsn(raw) {
   if (!LOOPBACK_HOSTS.has(host.toLowerCase())) {
     return { ok: false, why: `host=${host} 不在本机回环白名单(localhost/127.0.0.1/::1)——取证不得连生产库` }
   }
-  if (port === FORBIDDEN_PROD_PORT) {
-    return { ok: false, why: `端口 ${FORBIDDEN_PROD_PORT} 是生产 SSH 隧道口(db_sync.prod_dsn),--db 档拒绝连接` }
+  let effectivePort
+  let portOrigin
+  if (port !== undefined) {
+    const p = normalizePort(port, 'DSN 端口')
+    if (p.error) return { ok: false, why: `${p.error}(连接目标必须可判,取证不猜默认口)` }
+    effectivePort = p.port
+    portOrigin = `DSN 写明端口 ${port}`
+  } else {
+    const pgport = normalizePort(env?.PGPORT, 'PGPORT')
+    if (pgport.error) {
+      return { ok: false, why: `${pgport.error} —— DSN 未写端口时 PGPORT 决定有效端口,不猜` }
+    }
+    if (pgport.port !== null) {
+      effectivePort = pgport.port
+      portOrigin = `DSN 未写端口 + PGPORT=${String(env.PGPORT).trim()}`
+    } else {
+      effectivePort = DEFAULT_PG_PORT
+      portOrigin = `DSN 未写端口且无 PGPORT(按默认 ${DEFAULT_PG_PORT})`
+    }
+  }
+  if (effectivePort === FORBIDDEN_PROD_PORT_NUM) {
+    return {
+      ok: false,
+      why: `有效端口=${effectivePort} 是生产 SSH 隧道口(db_sync.prod_dsn),--db 档拒绝连接(端口来源:${portOrigin})`,
+    }
   }
   return { ok: true, dsn }
 }

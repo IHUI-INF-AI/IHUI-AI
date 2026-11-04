@@ -19,6 +19,8 @@ import type { ScheduledTask } from '../PublishCalendar'
 // next-intl mock(组件调用 useTranslations)
 vi.mock('next-intl', () => ({
   useTranslations: () => (key: string) => key,
+  // 组件按用户语言格式化时间(PublishCalendar.tsx 的 useLocale):替身缺这个导出会在挂载期抛红。
+  useLocale: () => 'zh-CN',
 }))
 
 // @ihui/ui-react mock(Button/Card/CardContent/Badge 渲染为简单元素)

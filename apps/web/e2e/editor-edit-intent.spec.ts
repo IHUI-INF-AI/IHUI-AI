@@ -83,7 +83,7 @@ test.describe('编辑器内预测式编辑(§17 真浏览器)', () => {
         }),
       })
     })
-    let fileContent = INITIAL
+    const fileContent = INITIAL
     await page.route('**/api/workspace/fs/read', async (route) => {
       await route.fulfill({
         status: 200,

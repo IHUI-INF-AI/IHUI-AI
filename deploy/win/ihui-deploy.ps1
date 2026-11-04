@@ -345,6 +345,11 @@ $FailAlertRepeatHours = 4
 $AlertQuietStart = '23:00'; if ($env:IHUI_ALERT_QUIET_START) { $AlertQuietStart = $env:IHUI_ALERT_QUIET_START }
 $AlertQuietEnd   = '07:30'; if ($env:IHUI_ALERT_QUIET_END)   { $AlertQuietEnd   = $env:IHUI_ALERT_QUIET_END }
 $AlertQuietLedgerFile = "$Root\deploy\win\.alert-quiet-ledger.jsonl"
+# ── 族级窗口(2026-11-03 立):同一「部署告警:类别=…」24h 至多一封。
+#    判据住在 scripts/lib/alert-family-gate.mjs(与 IHUI-MONITOR 同一份实现/同一张策略表),
+#    本文件只产族名(Get-DeployAlertFamily,在 alert-dedup.ps1)并调 PS 桥。
+#    状态与监控侧共用 $Root\.ihui-agent\state\alert-family-window.json:族名带前缀,天然分槽。
+$AlertFamilyStateFile = "$Root\.ihui-agent\state\alert-family-window.json"
 # 切流受阻类告警的宽限窗(分钟,2026-10-10 加)。阈值是量出来的,不是拍的:
 #   · 轮询节奏实测 ~70 秒/轮(10-10 10:56:37→11:03:06 六轮,间隔 70±6s)⇒ 15 分钟 = 13 轮
 #   · 被挡段时长分布(10-04→10-10 全日志,37 段)min 8 / p50 32 / p90 288 分钟 ⇒ 37 段里 13 段(35%)
@@ -512,6 +517,18 @@ function Invoke-FailNotify {
             return
         }
     }
+    # [2026-11-03 族窗口] 位置刻意在 Test-AlertDueByIdentity **之前**:族窗口压住期间不得登记
+    # 本身份的 4h 去重槽,否则 24h 届满那一次会被自家 4h 窗再压一轮(与监控侧同一顺序纪律)。
+    # 族名 = 「部署告警:类别=…」,同一失败类别 24h 只留首封;不同类别/不同 generic 骨架分槽不误伤。
+    $family = Get-DeployAlertFamily -Sig $dedupSig
+    $familyGate = Test-AlertFamilyWindow -Family $family -RepoRoot $Root -StateFile $AlertFamilyStateFile
+    if ($familyGate.Suppressed) {
+        Log "ALERT 族级窗口抑制(族=$family, 首封距今 $($familyGate.AgeHours)h < 上限 $($familyGate.CooldownHours)h):本轮不寄,不登记 4h 去重槽"
+        return
+    }
+    if (-not $familyGate.Ok) {
+        Log "ALERT 族窗口判据未判定,按 fail-open 放行:$($familyGate.Error)"
+    }
     $due = Test-AlertDueByIdentity -Sig $dedupSig -StateFile $AlertNotifyStateFile -RepeatHours $FailAlertRepeatHours -Stall:$Stall
     if (-not $due.Due) {
         Log "ALERT 同身份失败告警本轮跳过:$($due.Note)"
@@ -541,6 +558,11 @@ function Invoke-FailNotify {
     } catch { $mailOk = $false }
     if ($mailOk) {
         try { Remove-Item -LiteralPath $AlertUndelFile -Force -ErrorAction SilentlyContinue } catch {}
+        # [2026-11-03 族窗口] 只在这封**确认真送达**后记族首封;失败不记 ⇒ 下一轮首封仍能重试。
+        $familyCommit = Confirm-AlertFamilyDelivery -Family $family -RepoRoot $Root -StateFile $AlertFamilyStateFile
+        if (-not $familyCommit.Ok) {
+            Log "WARN  族窗口首封未记账(族=$family):$($familyCommit.Error)(下一轮同族仍会照发,不影响送达)"
+        }
     } else {
         try {
             @{ ts = (Get-Date).ToString('o'); sig = $dedupSig; why = '品牌模板与 --plain 降级两条邮件通道均未送达(细节见部署日志 MAIL 行)' } | ConvertTo-Json |
@@ -571,6 +593,186 @@ function Fail {
     }
     try { Release-DeployLock } catch {}
     exit 1
+}
+
+# ── 硬失败公共件(2026-11-04 立)──────────────────────────────────────────────
+# 背景:API 蓝绿 rc≠0 / 实听者 stale / ai-service /health 失败,旧写法都只 WARN 后继续,
+# 末尾照打「部署完成」并被外层下面刷新绿基线 ⇒ 静默留坏版本。本组函数把这三类与新增的
+# 入口层重启/迁移快照/部署后验收统一到「写明失败摘要 + Fail(exit 1)」这一条出口。
+# 判「抖动」还是「确定性失败」只有一份实现(Test-TransientFailureText),三类重试共用。
+function Write-HardFailSummary {
+    param([string]$Class, [string]$Detail = '', [int]$Attempts = 0)
+    $oneLine = ($Detail -replace "`r?`n", ' | ').Trim()
+    if ($oneLine.Length -gt 600) { $oneLine = $oneLine.Substring(0, 600) + ' …(已截断)' }
+    # 纯 ASCII 标记:中文经 LocalSystem 管道会烂成 U+FFFD,ASCII 片段仍可 grep。
+    $line = "HARD-FAIL class=$Class attempts=$Attempts ts=$((Get-Date).ToString('o')) detail=$oneLine"
+    Log $line
+    try {
+        $stateDir = Join-Path $Root '.ihui-agent\state'
+        if (-not (Test-Path -LiteralPath $stateDir)) { New-Item -ItemType Directory -Force -Path $stateDir | Out-Null }
+        [System.IO.File]::AppendAllText((Join-Path $stateDir 'deploy-hard-fail.jsonl'), ($line + "`r`n"), [System.Text.UTF8Encoding]::new($false))
+    } catch { Log "WARN  失败摘要落盘失败(不影响本轮失败定性):$($_.Exception.Message)" }
+}
+
+function Test-TransientFailureText {
+    # 返回 $true = 抖动(允许再试一次);$false = 确定性失败(等 10s 不会自愈,不再重试)。
+    # 确定性:端口被旧孤儿占用(EADDRINUSE)、安全策略拦截、参数非法/文件缺失 —— 这些重试是白等。
+    # 抖动:连接拒绝/超时/重置/DNS 抖动/端口尚在释放/网关 502-504。
+    param([string]$Text)
+    if (-not $Text) { return $true }
+    if ($Text -match '(?i)PROGRAM BLOCKED BY SECURITY POLICY|EADDRINUSE|invalid argument|unknown option|ENOENT') { return $false }
+    return ($Text -match '(?i)ECONNREFUSED|ECONNRESET|ETIMEDOUT|EAI_AGAIN|EPIPE|ENETUNREACH|EHOSTUNREACH|timed?\s*out|timeout|not listening|socket hang up|connection refused|HTTP 50[234]')
+}
+
+function Get-NssmExe {
+    foreach ($c in @('D:\DevEnv\tools\nssm\nssm.exe', (Join-Path $env:SystemRoot 'System32\nssm.exe'))) {
+        if (Test-Path -LiteralPath $c) { return $c }
+    }
+    $g = Get-Command nssm.exe -ErrorAction SilentlyContinue
+    if ($g -and $g.Source) { return $g.Source }
+    return $null
+}
+
+function Restart-IhuiService {
+    # 服务重启走 NSSM 优先(本机实测:sc.exe 被程序黑名单封死,nssm 可用);取不到才回落 SCM。
+    # 返回 $true 只代表「命令层成功」,端口是否真监听必须由调用方另证(见 Wait-ServiceProbe)。
+    param([string]$Name)
+    $nssm = Get-NssmExe
+    try {
+        if ($nssm) {
+            $o = (& $nssm restart $Name 2>&1 | Out-String).Trim()
+            Log "  重启 $Name(nssm rc=$LASTEXITCODE)$(if ($o) { " 输出=$o" } else { '' })"
+            return ($LASTEXITCODE -eq 0)
+        }
+        Restart-Service -Name $Name -Force -ErrorAction Stop
+        Log "  重启 $Name(Restart-Service)"
+        return $true
+    } catch {
+        Log "WARN  重启 $Name 异常:$($_.Exception.Message)"
+        return $false
+    }
+}
+
+function Wait-ServiceProbe {
+    param([string]$Url, [string]$Contains = '', [int]$TimeoutSec = 10)
+    $deadline = (Get-Date).AddSeconds($TimeoutSec)
+    while ((Get-Date) -lt $deadline) {
+        if ((Invoke-Probe -Url $Url -Contains $Contains).Verdict -eq 'pass') { return $true }
+        Start-Sleep -Seconds 1
+        Update-DeployLockHeartbeat
+    }
+    return $false
+}
+
+# ── 入口层 *.mjs 内容哈希(2026-11-04 立)────────────────────────────────────────
+# 部署只「首次/迁移」时启动 router,代码更新后不重启 ⇒ 403 修复即使部署也不生效(实测 prod
+# router 进程停在 10-30,磁盘副本已 11-03 新)。这里比对「上次成功部署记录的哈希」与当前
+# deploy\win\**\*.mjs 内容哈希,变化即重启 WEB/API router,并要求端口重新监听后自证。
+function Get-EntryLayerStatePath { Join-Path $Root 'deploy\run\entry-layer-hashes.json' }
+
+function Get-EntryLayerHash {
+    param([string]$RepoRoot)
+    $map = @{}
+    $files = @(Get-ChildItem -LiteralPath (Join-Path $RepoRoot 'deploy\win') -Recurse -File -Filter '*.mjs' -ErrorAction SilentlyContinue)
+    foreach ($f in @($files | Sort-Object FullName)) {
+        $rel = $f.FullName.Substring($RepoRoot.Length).TrimStart([char[]]@('\', '/')) -replace '\\', '/'
+        try { $map[$rel] = (Get-FileHash -LiteralPath $f.FullName -Algorithm SHA256).Hash.ToLowerInvariant() }
+        catch { Log "WARN  入口层哈希读取失败:$rel ($_)" }
+    }
+    $keys = @($map.Keys | Sort-Object)
+    $joined = (@($keys | ForEach-Object { "$_=$($map[$_])" }) -join "`n")
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        $overall = ([BitConverter]::ToString($sha.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($joined)))).Replace('-', '').ToLowerInvariant()
+    } finally { $sha.Dispose() }
+    return @{ Overall = $overall; Files = $map; Count = $keys.Count }
+}
+
+function Read-EntryLayerHashState {
+    param([string]$Path)
+    if (-not (Test-Path -LiteralPath $Path)) { return $null }
+    try {
+        $j = Get-Content -LiteralPath $Path -Raw -Encoding utf8 | ConvertFrom-Json
+        if (-not $j.overall) { return $null }
+        return $j
+    } catch { Log "WARN  入口层哈希记录不可读(按无基线处理):$($_.Exception.Message)"; return $null }
+}
+
+function Write-EntryLayerHashState {
+    param([string]$Path, $Hashes, [string]$Sha = '')
+    $rec = [ordered]@{
+        v          = 1
+        overall    = $Hashes.Overall
+        sha        = $Sha
+        computedAt = (Get-Date).ToString('o')
+        files      = $Hashes.Files
+    }
+    $dir = Split-Path -Parent $Path
+    if (-not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
+    ($rec | ConvertTo-Json -Depth 5) | Set-Content -LiteralPath $Path -Encoding utf8 -NoNewline
+}
+
+function Invoke-EntryLayerRefresh {
+    param([string]$Sha = '')
+    $statePath = Get-EntryLayerStatePath
+    $prev = Read-EntryLayerHashState -Path $statePath
+    $cur = Get-EntryLayerHash -RepoRoot $Root
+    if ($cur.Count -eq 0) {
+        Log "WARN  入口层哈希未判定:deploy\win 下没有枚举到 *.mjs(跳过重启,按未判定处理)"
+        return
+    }
+    $prevMap = @{}
+    if ($prev -and $prev.files) {
+        foreach ($p in $prev.files.PSObject.Properties) { $prevMap[$p.Name] = [string]$p.Value }
+    }
+    $changed = @()
+    foreach ($k in @($cur.Files.Keys)) {
+        if (-not $prevMap.ContainsKey($k) -or $prevMap[$k] -ne $cur.Files[$k]) { $changed += $k }
+    }
+    foreach ($k in @($prevMap.Keys)) { if (-not $cur.Files.ContainsKey($k)) { $changed += $k } }
+    if ($prev -and $prev.overall -eq $cur.Overall -and $changed.Count -eq 0) {
+        Ok "入口层 *.mjs 内容未变化($($cur.Count) 个文件,overall=$($cur.Overall.Substring(0, 12)))⇒ 不重启 router"
+        return
+    }
+    $basis = if ($prev) { "overall $($prev.overall.Substring(0, 12)) → $($cur.Overall.Substring(0, 12))" } else { '无上次记录 ⇒ 保守视为有变化' }
+    Log "ROLLOUT 入口层代码有变化($basis):$($changed -join ', ')"
+    $targets = @()
+    if ($null -ne (Get-Service -Name 'IHUI-WEB-ROUTER' -ErrorAction SilentlyContinue)) { $targets += @{ Name = 'IHUI-WEB-ROUTER'; Url = 'http://127.0.0.1:8801/__bg/status'; Port = 8801 } }
+    if ($null -ne (Get-Service -Name 'IHUI-API-ROUTER' -ErrorAction SilentlyContinue)) { $targets += @{ Name = 'IHUI-API-ROUTER'; Url = 'http://127.0.0.1:8802/__bg/status'; Port = 8802 } }
+    if ($null -eq (Get-Service -Name 'IHUI-CANARY-SPLIT' -ErrorAction SilentlyContinue)) {
+        Log "ROLLOUT 未发现 8846 分流器服务(IHUI-CANARY-SPLIT),跳过(金丝雀本单不动)"
+    }
+    if ($targets.Count -eq 0) {
+        Log "WARN  入口层有变化但未发现 WEB/API router 服务(非蓝绿形态)⇒ 不重启,仅记录新哈希基线"
+        Write-EntryLayerHashState -Path $statePath -Hashes $cur -Sha $Sha
+        return
+    }
+    # 重启前留「备用色兜底」说明:双色进程仍在各自端口,router 未回来时人工可直接指向另一色。
+    $bgStateTxt = '未读到 deploy\run\web-bluegreen.json'
+    try {
+        $bgFile = Join-Path $Root 'deploy\run\web-bluegreen.json'
+        if (Test-Path -LiteralPath $bgFile) { $bgStateTxt = ((Get-Content -LiteralPath $bgFile -Raw -Encoding utf8) -replace "`r?`n", ' ').Trim() }
+    } catch {}
+    Log "ROLLOUT 重启前备援说明:web 双色状态=$bgStateTxt;router 重启的 10s 窗口内若未回来,双色进程仍在各自端口服务(人工出路=Start-Service <服务名>);本步失败将按硬失败收场(不刷绿、不打印部署完成)"
+    $allOk = $true
+    foreach ($t in $targets) {
+        $ok = $false
+        for ($attempt = 1; $attempt -le 2; $attempt++) {
+            Log "ROLLOUT 重启 $($t.Name)(第 $attempt/2 次)"
+            $null = Restart-IhuiService -Name $t.Name
+            if (Wait-ServiceProbe -Url $t.Url -TimeoutSec 10) { $ok = $true; break }
+            Log "WARN  $($t.Name) 重启后 10s 内 :$($t.Port)/__bg/status 未返回 200(第 $attempt/2 次)"
+            if ($attempt -lt 2) { Start-Sleep -Seconds 10 }
+        }
+        if ($ok) { Ok "入口层 $($t.Name) 已重启并自证 :$($t.Port)/__bg/status=200" }
+        else { Log "FAIL-SUMMARY class=entry-layer-router service=$($t.Name) attempts=2"; $allOk = $false }
+    }
+    if (-not $allOk) {
+        Write-HardFailSummary -Class 'entry-layer-router' -Attempts 2 -Detail "变化文件:$($changed -join ', ');双色状态:$bgStateTxt"
+        Fail "入口层代码变化后 router 重启未通过自证(10s 内端口未监听,已重试 1 次):本轮失败;线上双色进程仍在,但 8801/8802 入口不可用" -Detail "变化文件:$($changed -join ', ') | 双色状态:$bgStateTxt" -Reason 'entry-layer-router-not-listening'
+    }
+    Write-EntryLayerHashState -Path $statePath -Hashes $cur -Sha $Sha
+    Ok "入口层哈希基线已记录(overall=$($cur.Overall.Substring(0, 12)),$($cur.Count) 个文件)"
 }
 
 # ── 部署决策机读台账(O65 第 2 期「部署闭环」,2026-10-25)──────────────────────
@@ -1947,6 +2149,16 @@ function Build-Web {
             }
             $errTail = @(Get-Content $bldErr -Tail 8 -ErrorAction SilentlyContinue)
             $outTail = @(Get-Content $bldOut -Tail 12 -ErrorAction SilentlyContinue)
+            # 报错的**message 行在栈之上**:`-Tail 8` 恰好把 message 挤出窗口,只剩
+            # `at finalizeResolution ...` 这类栈 ⇒ 2026-11-03 实测 15:47 那 4 次失败"红了却报不出是哪一条",
+            # 归因只能靠人猜。这里额外取**头部**第一批错误行(与各流各取尾部同纪律:不跨流合并、不重排)。
+            $errHead = @(
+                Get-Content $bldErr -TotalCount 60 -ErrorAction SilentlyContinue |
+                    Select-String -Pattern 'Error|ERR_|error TS|\[plugin|Cannot find|Failed to|✖' |
+                    Select-Object -First 4 |
+                    ForEach-Object { $_.Line }
+            )
+            foreach ($l in $errHead) { Log "[build-err-head] $l" }
             foreach ($l in $errTail) { Log "[build-err] $l" }
             foreach ($l in $outTail) { Log "[build-out] $l" }
             # G-21:取"末次报错指纹" —— 同一份坏源码每轮复现同一行 ⇒ 病因身份稳定(同因照旧去重);
@@ -2589,6 +2801,144 @@ function Invoke-MigrateWithBudget {
     }
 }
 
+# ── DB 迁移前置快照(2026-11-04 立)─────────────────────────────────────────────
+# 迁移是唯一会**写生产库结构**的一步。旧链里失败只 Note-MigrateFailure、主流程照样切流;
+# 现在:检测到 pending 就先落一份可校验快照(自定义格式 + 魔数 + sha256 sidecar + TOC 条目),
+# 快照失败 ⇒ 不迁移、不切流、非 0 退出;迁移失败 ⇒ 同一出口。回滚半径不扩:本单**不**加自动 restore。
+function Resolve-PgToolExe {
+    param([string]$ToolName)
+    $dirs = New-Object System.Collections.Generic.List[string]
+    # ① 发行版安装位(按版本降序;17/18 并存取 18)
+    if ($env:ProgramFiles -and (Test-Path -LiteralPath $env:ProgramFiles)) {
+        $pf = Join-Path $env:ProgramFiles 'PostgreSQL'
+        if (Test-Path -LiteralPath $pf) {
+            $inst = @(Get-ChildItem -LiteralPath $pf -Directory -ErrorAction SilentlyContinue |
+                Sort-Object { [int]($_.Name -replace '\D', '') } -Descending)
+            foreach ($d in $inst) { $dirs.Add((Join-Path $d.FullName 'bin')) }
+        }
+    }
+    # ② 显式覆盖(换机/换盘只改机器级 env)
+    if ($env:IHUI_PG_BIN_DIR) { $dirs.Add($env:IHUI_PG_BIN_DIR) }
+    # ③ 运行中 PostgreSQL 服务 ImagePath 反查(与服务器版本天然配对)
+    try {
+        $svcs = @(Get-CimInstance Win32_Service -ErrorAction SilentlyContinue |
+            Where-Object { $_.PathName -match '(?i)postgres' -and $_.State -eq 'Running' })
+        foreach ($s in $svcs) {
+            $m = [regex]::Match($s.PathName, '^"?([^"]+?)[\\/]bin[\\/]pg_ctl\.exe', 'IgnoreCase')
+            if ($m.Success) { $dirs.Add((Join-Path $m.Groups[1].Value 'bin')) }
+        }
+    } catch {}
+    # ④ 历史落点 + ⑤ PATH
+    $dirs.Add('D:\DevEnv\runtimes\pgsql\bin')
+    $cmd = Get-Command "$ToolName.exe" -ErrorAction SilentlyContinue
+    if ($cmd -and $cmd.Source) { $dirs.Add((Split-Path -Parent $cmd.Source)) }
+    foreach ($d in @($dirs | Select-Object -Unique)) {
+        if ($d -and (Test-Path -LiteralPath (Join-Path $d "$ToolName.exe"))) { return (Join-Path $d "$ToolName.exe") }
+    }
+    return $null
+}
+
+function Get-DbNameFromUrl {
+    param([string]$Url)
+    if ($Url -match '^[A-Za-z][A-Za-z0-9+.-]*://[^/]+/([^?#/]+)') { return $Matches[1] }
+    return $null
+}
+
+function Invoke-PreMigrationSnapshot {
+    param([string]$Sha = '')
+    $pgDump = Resolve-PgToolExe -ToolName 'pg_dump'
+    if (-not $pgDump) { return @{ Ok = $false; Path = ''; Detail = 'pg_dump.exe 取不到(发行版/IHUI_PG_BIN_DIR/服务反查/历史落点/PATH 均落空)' } }
+    if (-not $env:DATABASE_URL) { return @{ Ok = $false; Path = ''; Detail = 'DATABASE_URL 未设,无法定位目标库' } }
+    # 口令来源与迁移/备份链一致:DATABASE_URL 内嵌口令优先;否则 PGPASSWORD;
+    # 两者都没有时读 apps/api/.env 的 DB_PASSWORD(仅进程内使用,不落盘、不进日志)。
+    if (-not $env:PGPASSWORD -and -not ($env:DATABASE_URL -match '://[^:/@]+:[^@]+@')) {
+        try {
+            $apiEnv = "$Root\apps\api\.env"
+            if (Test-Path -LiteralPath $apiEnv) {
+                foreach ($line in Get-Content -LiteralPath $apiEnv -Encoding utf8) {
+                    if ($line -match '^\s*DB_PASSWORD\s*=\s*(.+)$') { $env:PGPASSWORD = $Matches[1].Trim().Trim('"').Trim("'"); break }
+                }
+            }
+        } catch {}
+    }
+    $dbName = Get-DbNameFromUrl -Url $env:DATABASE_URL
+    $safeDb = if ($dbName) { $dbName -replace '[^A-Za-z0-9_.-]', '_' } else { 'db' }
+    $sha10 = if ($Sha -match '^[0-9a-f]{7,40}$') { $Sha.Substring(0, [Math]::Min(10, $Sha.Length)) } else { 'unknown' }
+    $outDir = 'D:\DevEnv\backups\pg-deploy'
+    try { if (-not (Test-Path -LiteralPath $outDir)) { New-Item -ItemType Directory -Force -Path $outDir | Out-Null } }
+    catch { return @{ Ok = $false; Path = ''; Detail = "快照目录创建失败:$outDir($_)" } }
+    # 路径与命名同时带「库名 + 时间 + 本轮 sha」 ⇒ 事后可按快照反查它是哪一版代码前置的现场。
+    $dumpPath = Join-Path $outDir ("{0}_{1}_{2}.dump" -f $safeDb, (Get-Date -Format 'yyyyMMdd_HHmmss'), $sha10)
+    $budgetSec = 600
+    if ($env:IHUI_DEPLOY_SNAPSHOT_TIMEOUT_SEC -match '^\d+$' -and [int]$env:IHUI_DEPLOY_SNAPSHOT_TIMEOUT_SEC -gt 0) {
+        $budgetSec = [int]$env:IHUI_DEPLOY_SNAPSHOT_TIMEOUT_SEC
+    }
+    $so = Join-Path $env:TEMP "ihui-snapshot-$PID-out.log"
+    $se = Join-Path $env:TEMP "ihui-snapshot-$PID-err.log"
+    $timedOut = $false
+    $code = $null
+    $errText = ''
+    try {
+        try {
+            $sp = Start-Process -FilePath $pgDump `
+                -ArgumentList @('--format=custom', '--no-owner', '--no-privileges', '--dbname', "`"$env:DATABASE_URL`"", '--file', "`"$dumpPath`"") `
+                -NoNewWindow -PassThru -RedirectStandardOutput $so -RedirectStandardError $se
+            if (-not $sp.WaitForExit($budgetSec * 1000)) {
+                & taskkill /PID $sp.Id /T /F 2>&1 | Out-Null
+                $timedOut = $true
+            } else {
+                $sp.WaitForExit()
+                $code = $sp.ExitCode
+            }
+        } catch {
+            return @{ Ok = $false; Path = ''; Detail = "pg_dump 启动异常:$($_.Exception.Message)" }
+        }
+    } finally {
+        try { $errText = ((Get-Content -LiteralPath $se -Raw -ErrorAction SilentlyContinue) | Out-String).Trim() } catch {}
+        try { Remove-Item -LiteralPath $so, $se -Force -ErrorAction SilentlyContinue } catch {}
+    }
+    if ($timedOut) { return @{ Ok = $false; Path = $dumpPath; Detail = "pg_dump 超 ${budgetSec}s 被整树终止:快照不可信" } }
+    if ($code -ne 0) {
+        $why = ($errText -replace "`r?`n", ' | ').Trim()
+        if ($why.Length -gt 400) { $why = $why.Substring(0, 400) + ' …' }
+        return @{ Ok = $false; Path = $dumpPath; Detail = "pg_dump exit=${code}:$why" }
+    }
+    if (-not (Test-Path -LiteralPath $dumpPath)) { return @{ Ok = $false; Path = $dumpPath; Detail = 'pg_dump 返回 0 但没有产物文件' } }
+    $len = (Get-Item -LiteralPath $dumpPath).Length
+    if ($len -lt 1) { return @{ Ok = $false; Path = $dumpPath; Detail = '快照文件 0 字节' } }
+    # 校验 1:自定义格式魔数必须是 PGDMP(空文件/半截文件/纯文本错误页都会在这里被拦下)
+    $magic = ''
+    try {
+        $fs = [System.IO.File]::Open($dumpPath, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
+        try {
+            $buf = New-Object byte[] 5
+            $null = $fs.Read($buf, 0, 5)
+            $magic = [System.Text.Encoding]::ASCII.GetString($buf)
+        } finally { $fs.Dispose() }
+    } catch {}
+    if ($magic -ne 'PGDMP') { return @{ Ok = $false; Path = $dumpPath; Detail = "快照魔数校验失败(实得:'$magic')" } }
+    # 校验 2:sha256 sidecar 与重算哈希一致(线下可用 Get-FileHash 独立复核)
+    $hash = (Get-FileHash -LiteralPath $dumpPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    $shaFile = "$dumpPath.sha256"
+    [System.IO.File]::WriteAllText($shaFile, "$hash  $([System.IO.Path]::GetFileName($dumpPath))`r`n", [System.Text.UTF8Encoding]::new($false))
+    if ((Get-FileHash -LiteralPath $dumpPath -Algorithm SHA256).Hash.ToLowerInvariant() -ne $hash) {
+        return @{ Ok = $false; Path = $dumpPath; Detail = '快照写出后重算 sha256 不一致' }
+    }
+    # 校验 3:pg_restore --list 能读出 TOC(有工具才做;没有则保留魔数+哈希两级,并在摘要里标明强度)
+    $strength = 'magic+sha256'
+    $pgRestore = Resolve-PgToolExe -ToolName 'pg_restore'
+    if ($pgRestore) {
+        $toc = (& $pgRestore --list $dumpPath 2>&1 | Out-String)
+        if ($LASTEXITCODE -ne 0) {
+            return @{ Ok = $false; Path = $dumpPath; Detail = "pg_restore --list 校验失败 rc=${LASTEXITCODE}:$(($toc -replace "`r?`n", ' | ').Trim())" }
+        }
+        $tocLines = @($toc -split "`r?`n" | Where-Object { $_.Trim() })
+        if ($tocLines.Count -lt 2) { return @{ Ok = $false; Path = $dumpPath; Detail = 'pg_restore --list 读不出 TOC 条目(快照疑为空壳)' } }
+        $strength = 'magic+sha256+toc'
+    }
+    return @{ Ok = $true; Path = $dumpPath; Detail = "size=$len sha256=$hash strength=$strength shaFile=$shaFile" }
+}
+
 function Invoke-DbMigrate {
     Log "DB 迁移检查(packages/database db:migrate)"
     $apiEnv = "$Root\apps\api\.env"
@@ -2602,6 +2952,27 @@ function Invoke-DbMigrate {
         $script:MigRetryNote = ''   # 瞬时失败重试说明(2026-10-13 加),Note-MigrateFailure 读它追加到告警文案
         $migBudgetSec = Get-MigrateBudgetSec
         Log "MIG   db:migrate 硬预算=${migBudgetSec}s(env IHUI_DEPLOY_MIGRATE_TIMEOUT_SEC 可覆写;生效值以此行为准)"
+        # ── 迁移前置快照(2026-11-04 立,仅当本次确有 pending)────────────────────
+        # 只在 pending>0 时落快照:无 pending 的轮次迁移是纯 no-op,不为它付一份全库 dump。
+        # 快照失败 ⇒ Fail:不执行迁移、不切流、非 0 退出(旧链在这里只是记一笔然后继续切流)。
+        $script:LastMigrationSnapshot = ''
+        $pendPre = Get-PendingMigrationCount
+        if ($null -eq $pendPre) {
+            Log "MIG   前置快照跳过:待应用迁移数无法判定(原因:${script:PendingMigrationReason})—— 不据此硬失败,迁移照旧执行"
+        } elseif ($pendPre -gt 0) {
+            $snapSha = ''
+            try { $snapSha = (& git -C $Root rev-parse --short HEAD 2>&1 | Out-String).Trim() } catch {}
+            Log "MIG   检测到 $pendPre 个待应用迁移 ⇒ 先做迁移前快照(文件名含库名/时间/sha)"
+            $snap = Invoke-PreMigrationSnapshot -Sha $snapSha
+            if (-not $snap.Ok) {
+                Write-HardFailSummary -Class 'db-snapshot' -Attempts 1 -Detail "$($snap.Detail)(目标库=$(Get-DbNameFromUrl -Url $env:DATABASE_URL))"
+                Fail "DB 迁移前置快照失败:本轮不执行迁移、不切流(线上保持旧版本)" -Detail "目标库=$(Get-DbNameFromUrl -Url $env:DATABASE_URL);$($snap.Detail)" -Reason 'db-snapshot-failed'
+            }
+            $script:LastMigrationSnapshot = $snap.Path
+            Log "MIG   快照可校验:$($snap.Path)($($snap.Detail))"
+        } else {
+            Log "MIG   无待应用迁移 ⇒ 跳过迁移前快照(pg_dump 不在无变更轮次制造无用磁盘)"
+        }
         $mig = Invoke-MigrateWithBudget -BudgetSec $migBudgetSec
         # 取码即存(2026-09-26 主修点,现读复现):旧顺序是 & pnpm db:migrate → Get-PendingMigrationCount
         # (原生 psql)→ Test-MigrateOrphans(又一次原生 psql)→ 才判 $LASTEXITCODE —— 两次 psql 把它
@@ -2649,10 +3020,14 @@ function Invoke-DbMigrate {
         }
         switch ($outcome) {
             'FAIL' {
-                # 2026-09-13 加固:失败必须能定位到具体迁移,而不是只报退出码
+                # 2026-09-13 加固:失败必须能定位到具体迁移,而不是只报退出码。
+                # 2026-11-04:从「WARN 后继续切流」升级为「本轮失败」—— 迁移已经不成功,
+                # 再让新代码上线等于把 schema 不匹配的版本推给线上;这里直接 Fail(不切流/不刷绿)。
                 $bad = ($migOut -split "`n" | Where-Object { $_ -match "\.sql|ERROR|error:" } | Select-Object -First 6) -join " | "
-                Log "WARN  db:migrate 失败(exit $migExit),本轮继续但需人工核查;线索: $bad"
-                Note-MigrateFailure -reason "exit $migExit" -pendingTxt $pendTxt
+                $snapTxt = if ($script:LastMigrationSnapshot) { $script:LastMigrationSnapshot } else { '本轮无 pending 前置,未生成快照' }
+                Write-HardFailSummary -Class 'db-migrate' -Attempts 1 -Detail "exit=$migExit pending=$pendTxt $($script:MigRetryNote) $bad"
+                Log "FAIL-SUMMARY class=db-migrate outcome=FAIL exit=$migExit snapshot=$snapTxt"
+                Fail "DB 迁移失败(exit $migExit):本轮停止,不切流、非 0 退出(线上保持旧版本)" -Detail "线索:$bad | 快照:$snapTxt | $($script:MigRetryNote)" -Reason 'db-migrate-failed'
             }
             'TIMEOUT' {
                 # 超时不改写退出码语义(根本没有码)、不静默继续:按既有失败记账器记,标注未判定
@@ -2667,8 +3042,12 @@ function Invoke-DbMigrate {
                 Log "WARN  db:migrate exit 0 但待应用数**无法判定**(原因:${script:PendingMigrationReason})—— 不计为成功,也不计失败"
             }
             'PEND' {
-                Log "WARN  db:migrate exit 0 但仍落后 $pend 个迁移 —— 属于「跑过但没应用完」,需人工核查"
-                Note-MigrateFailure -reason "exit 0 但仍有待应用" -pendingTxt $pendTxt
+                # 2026-11-04:exit 0 但仍有 pending = 「跑过没应用完」,属确定性坏状态(不是抖动),
+                # 同样不切流、非 0 退出。快照已在上游落好,人工可据此定位。
+                $snapTxt = if ($script:LastMigrationSnapshot) { $script:LastMigrationSnapshot } else { '本轮无 pending 前置,未生成快照' }
+                Write-HardFailSummary -Class 'db-migrate' -Attempts 1 -Detail "exit=0 pending=$pendTxt snapshot=$snapTxt"
+                Log "FAIL-SUMMARY class=db-migrate outcome=PEND pending=$pendTxt snapshot=$snapTxt"
+                Fail "DB 迁移跑过但仍有 $pendTxt 未应用:本轮不切流、非 0 退出(线上保持旧版本)" -Detail "快照:$snapTxt" -Reason 'db-migrate-pending'
             }
             'OK' {
                 # 唯一能打出"完成"字样的分支:退出码=0(取码即存的那份)且 pending=0 两者齐备。
@@ -3385,6 +3764,16 @@ if ($webBg) {
     Move-Item "$WebDir\.next-staging" "$WebDir\.next"
     Start-Web
 }
+
+# ── ② 入口层代码变更自动重启(2026-11-04 立)──────────────────────────────────────
+# 为什么必须放在 web 切流之后、健康门禁之前:router/分流器进程只在首次迁入蓝绿时启动,
+# 之后 deploy\win\*.mjs 变了也不会重载(实测 prod router 进程停在 10-30,而盘上副本已更新)
+# ⇒ 403 修复即便部署也不生效。这里按内容哈希比对上次成功部署记录,变化即重启并要求端口自证;
+# 重启失败按硬失败收口(双色进程仍在,但 8801/8802 入口不可用,不能当绿)。
+if (-not $dryrun) {
+    Invoke-EntryLayerRefresh -Sha $buildSha
+}
+
 # 2026-09-15 修复:next build 在 IHUI_BUILD_DIST 覆盖 distDir 时会把被跟踪的
 #   next-env.d.ts 改写为引用 .next-staging/types/...,但上方只移动构建目录、
 #   不还原该文件 → 残留污染源码树(违反 AGENTS.md「.next-* 变体永不提交」铁律)。
@@ -3640,8 +4029,9 @@ if (-not (Test-HealthGate)) {
     # Next.js 代理拿到 ECONNREFUSED,用户看到纯文本 "Internal Server Error"(登录直接失败,
     # 10-28 当天实测两轮)。现改为:起另一色(8842/8843)→ 健康门禁 → 原子写状态文件让
     # 8802 的路由层(as 1 秒热切换)→ 排空 20s → 停旧色。8802 全程有监听。
-    # 失败语义:目标色起不来就**不切流**,旧色继续服务,本步 WARN 但不判部署失败
-    # (线上无损);只有蓝绿服务不在位(单实例回滚形态)才退回旧的原地重启。
+    # 失败语义(2026-11-04 起):目标色起不来/健康不过 ⇒ 最多 2 次(间隔 10s)、只有连续失败或
+    # 明确确定性错误才判死;判死后**本轮失败**(不打印部署完成、不刷绿)。旧色仍会继续服务,
+    # 所以线上无损,但"新代码没上岗"绝不再以 WARN 混过。(蓝绿服务不在位才退回原地重启。)
     # 2026-10-28 22:5x 换执行面(Node 版,根因级):Resolve-DeployInterpreter 只能解决「子进程没有
     # cmdlet」,解决不了第二层 —— ihui-api-bluegreen.ps1 里的 sc.exe 被本机程序黑名单封死
     # (启动即 PROGRAM BLOCKED BY SECURITY POLICY),任何 shell 都绕不过。两条叠加的后果是
@@ -3655,32 +4045,54 @@ if (-not (Test-HealthGate)) {
         ($null -ne (Get-Service -Name 'IHUI-API-GREEN' -ErrorAction SilentlyContinue))
     if ($bgReady) {
         Log '蓝绿切换 api:起另一色 → 健康门禁 → 原子切流 → 排空 20s → 停旧色'
+        $bgOk = $false
         $bgRc = 1
-        try {
-            $bgOut = & $bgNode $bgScript --target auto 2>&1
-            $bgRc = $LASTEXITCODE
-            foreach ($line in @($bgOut)) { Log "  [bg] $line" }
-        } catch {
-            Log "WARN  蓝绿切换脚本异常: $_"
-        }
-        if ($bgRc -eq 0) {
-            $apiOk = $false
-            for ($i = 1; $i -le 5; $i++) {
-                if (Test-Http -url $OriginApi -contains '"status":"ok"') { $apiOk = $true; break }
-                Start-Sleep -Seconds 3
+        $bgAttempts = 0
+        $bgText = ''
+        for ($bgTry = 1; $bgTry -le 2; $bgTry++) {
+            $bgAttempts = $bgTry
+            $bgRc = 1
+            $bgText = ''
+            try {
+                $bgOut = & $bgNode $bgScript --target auto 2>&1
+                $bgRc = $LASTEXITCODE
+                $bgText = (@($bgOut) -join "`n")
+                foreach ($line in @($bgOut)) { Log "  [bg] $line" }
+            } catch {
+                $bgText = "$_"
+                Log "WARN  蓝绿切换脚本异常(第 $bgTry/2 次): $_"
             }
-            if ($apiOk) { Ok 'api 蓝绿切换完成且健康(切换期间 8802 未断监听)' }
-            else { Log "WARN  蓝绿切换返回 0 但源站健康未通过,需人工核查 IHUI-API-BLUE/GREEN" }
+            if ($bgRc -eq 0) {
+                $apiOk = $false
+                for ($i = 1; $i -le 5; $i++) {
+                    if (Test-Http -url $OriginApi -contains '"status":"ok"') { $apiOk = $true; break }
+                    Start-Sleep -Seconds 3
+                }
+                if ($apiOk) { $bgOk = $true; break }
+                Log "WARN  蓝绿切换返回 0 但源站健康未通过(第 $bgTry/2 次)"
+            } else {
+                Log "WARN  api 蓝绿切换失败 rc=$bgRc(第 $bgTry/2 次):目标色未就绪 ⇒ 未切流,旧色仍在服务;详见 D:\DevEnv\logs\api-bluegreen.log"
+                if (-not (Test-TransientFailureText -Text $bgText)) {
+                    Log "FAIL-SUMMARY class=api-bluegreen rc=$bgRc 判为确定性失败(非瞬时连接错误),不再重试"
+                    break
+                }
+            }
+            if ($bgTry -lt 2) { Start-Sleep -Seconds 10 }
+        }
+        if ($bgOk) {
+            Ok 'api 蓝绿切换完成且健康(切换期间 8802 未断监听)'
         } else {
-            Log "WARN  api 蓝绿切换失败 rc=$bgRc:目标色未就绪 ⇒ 未切流,旧色仍在服务(线上无损);详见 D:\DevEnv\logs\api-bluegreen.log"
+            $bgWhy = if ($bgAttempts -ge 2) { "连续 $bgAttempts 次未成功" } else { '第 1 次即判确定性失败(非瞬时连接错误)' }
+            Write-HardFailSummary -Class 'api-bluegreen' -Attempts $bgAttempts -Detail "rc=$bgRc $bgWhy output=$(($bgText -replace '\s+', ' ').Trim())"
+            Fail "api 蓝绿切换 $bgWhy(rc=$bgRc):本轮失败,不打印部署完成、不刷绿" -Detail "目标色起不来/健康未通过;旧色仍在服务但新代码未上岗;详见 D:\DevEnv\logs\api-bluegreen.log" -Reason 'api-bluegreen-failed'
         }
     } elseif ($apiName) {
         Log "未启用蓝绿(缺 IHUI-API-BLUE/GREEN 或 $bgScript),退回原地重启 api 服务($apiName)"
-        try {
-            sc.exe stop $apiName | Out-Null
-            Start-Sleep -Seconds 4
-            sc.exe start $apiName | Out-Null
-            Start-Sleep -Seconds 6
+        $apiRestartAttempts = 0
+        $apiRestarted = $false
+        for ($apiTry = 1; $apiTry -le 2; $apiTry++) {
+            $apiRestartAttempts = $apiTry
+            $null = Restart-IhuiService -Name $apiName
             $apiOk = $false
             for ($i = 1; $i -le 5; $i++) {
                 # 2026-10-28 改探源站直连($OriginApi)而不是公网 $ApiHealth:这一步验的是
@@ -3690,9 +4102,16 @@ if (-not (Test-HealthGate)) {
                 if (Test-Http -url $OriginApi -contains '"status":"ok"') { $apiOk = $true; break }
                 Start-Sleep -Seconds 6
             }
-            if ($apiOk) { Ok "api 重启完成且健康" }
-            else { Log "WARN  api 重启后健康未即时通过(冷启动可能较慢),需人工核查 $apiName" }
-        } catch { Log "WARN  api 重启异常: $_" }
+            if ($apiOk) { $apiRestarted = $true; break }
+            Log "WARN  api 重启后健康未通过(第 $apiTry/2 次)"
+            if ($apiTry -lt 2) { Start-Sleep -Seconds 10 }
+        }
+        if ($apiRestarted) {
+            Ok "api 重启完成且健康"
+        } else {
+            Write-HardFailSummary -Class 'api-restart' -Attempts $apiRestartAttempts -Detail "service=$apiName origin=$OriginApi"
+            Fail "api 原地重启连续 $apiRestartAttempts 次后仍不健康(源站直探未过):本轮失败,不刷绿" -Detail "服务=$apiName;公网入口故障由健康门禁单独判定" -Reason 'api-restart-unhealthy'
+        }
     } else {
         Log "未找到 api 服务(候选:IHUI-API/ihui-api/svc-api),跳过重启(tsx watch 形态自动重载)"
     }
@@ -3705,22 +4124,39 @@ if (-not (Test-HealthGate)) {
     # fresh 放行、stale 报 ALERT 并给精确出路、量不到只报未判定(§0.3 两头都不许冒充结论)。
     $freshPs = Join-Path $PSScriptRoot 'api-listener-freshness.ps1'
     if (Test-Path -LiteralPath $freshPs) {
-        $frTxt = ''
-        try {
-            $frPs = Resolve-DeployInterpreter
-            if (-not $frPs) { throw '找不到带 cmdlet 的解释器(见 Resolve-DeployInterpreter)' }
-            $frRaw = & $frPs -NoProfile -ExecutionPolicy Bypass -File $freshPs -Ports '8842;8843' -SinceIso $ScriptStartIso 2>&1
-            $frTxt = ('' + (($frRaw | Where-Object { $_ -match 'FRESHNESS\|' } | Select-Object -First 1)))
-        } catch { $frTxt = 'FRESHNESS|state=undetermined|port=8842,8843|pids=|reason=invoke-failed' }
-        if ($frTxt -notmatch 'FRESHNESS\|') { $frTxt = 'FRESHNESS|state=undetermined|port=8842,8843|pids=|reason=no-contract-line' }
+        $frPs = Resolve-DeployInterpreter
+        $frState = 'undetermined'
+        $frTxt = 'FRESHNESS|state=undetermined|port=8842,8843|pids=|reason=invoke-failed'
+        # 2026-11-04:stale 从「ALERT 后继续」升级为本轮失败。重试只是隔 10s 复测一次(进程身份
+        # 不会因为等 10s 自己变新),2 次仍 stale 即确定性失败 —— 新代码没上岗绝不能刷绿。
+        for ($frTry = 1; $frTry -le 2; $frTry++) {
+            $frTxt = ''
+            try {
+                if (-not $frPs) { throw '找不到带 cmdlet 的解释器(见 Resolve-DeployInterpreter)' }
+                $frRaw = & $frPs -NoProfile -ExecutionPolicy Bypass -File $freshPs -Ports '8842;8843' -SinceIso $ScriptStartIso 2>&1
+                $frTxt = ('' + (($frRaw | Where-Object { $_ -match 'FRESHNESS\|' } | Select-Object -First 1)))
+            } catch { $frTxt = 'FRESHNESS|state=undetermined|port=8842,8843|pids=|reason=invoke-failed' }
+            if ($frTxt -notmatch 'FRESHNESS\|') { $frTxt = 'FRESHNESS|state=undetermined|port=8842,8843|pids=|reason=no-contract-line' }
+            if ($frTxt -match 'state=fresh') { $frState = 'fresh'; break }
+            if ($frTxt -match 'state=stale') {
+                $frState = 'stale'
+                Log "WARN  api 实听者仍为旧进程(stale,第 $frTry/2 次):$(($frTxt -replace '^FRESHNESS\|', ''))"
+                if ($frTry -lt 2) { Start-Sleep -Seconds 10 }
+                continue
+            }
+            $frState = 'undetermined'
+            break
+        }
         $frBody = ($frTxt -replace '^FRESHNESS\|', '')
-        if ($frTxt -match 'state=fresh') {
+        if ($frState -eq 'fresh') {
             Ok "api 实听者已是本轮新进程($frBody)"
-        } elseif ($frTxt -match 'state=stale') {
+        } elseif ($frState -eq 'stale') {
             Log "ALERT STALE-API-LISTENER 健康 200 但应答进程早于本轮起点 ⇒ 新代码未上岗($frBody)"
             Log '  出路:按上面 pids **精确** Stop-Process 旧树(禁止按映像名批杀,会连带杀掉部署环),再 Start-Service,然后复跑 deploy/win/api-listener-freshness.ps1'
+            Write-HardFailSummary -Class 'api-listener-stale' -Attempts 2 -Detail $frBody
+            Fail "api 实听者仍是旧进程(stale,复测 2 次):本轮失败,不打印部署完成、不刷绿" -Detail "FRESHNESS=$frBody" -Reason 'api-listener-stale'
         } else {
-            Log "WARN  api 实听者身份未判定 ⇒ 既不记绿也不冒红($frBody)"
+            Log "WARN  api 实听者身份未判定 ⇒ 既不记绿也不冒红(undetermined,按既有语义只 warn、失败摘要里单列)($frBody)"
         }
     } else {
         Log "WARN  缺 deploy/win/api-listener-freshness.ps1 ⇒ 本轮无法自证 api 实听者身份(只探到 200 不等于新代码在答)"
@@ -3734,21 +4170,66 @@ if (-not (Test-HealthGate)) {
         Select-Object -First 1
     if ($aiName) {
         Log "重启 ai-service 服务($aiName)使 AI 新代码生效"
-        try {
-            sc.exe stop $aiName | Out-Null
-            Start-Sleep -Seconds 4
-            sc.exe start $aiName | Out-Null
-            Start-Sleep -Seconds 8
+        # 给部署后验收用的「重启锚点」:验收断言 a) 要求 checkin 注册行出现在这个时刻之后。
+        $script:AiRestartIso = (Get-Date).ToString('o')
+        $aiAttempts = 0
+        $aiRestarted = $false
+        for ($aiTry = 1; $aiTry -le 2; $aiTry++) {
+            $aiAttempts = $aiTry
+            $null = Restart-IhuiService -Name $aiName
             $aiOk = $false
             for ($i = 1; $i -le 5; $i++) {
                 if (Test-Http -url $AiServiceHealth) { $aiOk = $true; break }
                 Start-Sleep -Seconds 6
             }
-            if ($aiOk) { Ok "ai-service 重启完成且健康" }
-            else { Log "WARN  ai-service 重启后健康未即时通过(冷启动可能较慢),需人工核查 $aiName" }
-        } catch { Log "WARN  ai-service 重启异常: $_" }
+            if ($aiOk) { $aiRestarted = $true; break }
+            Log "WARN  ai-service 重启后 /health 未通过(第 $aiTry/2 次)"
+            if ($aiTry -lt 2) { Start-Sleep -Seconds 10 }
+        }
+        # 2026-11-04:从「WARN 后继续」升级为本轮失败 —— AI 新代码没起来时,
+        # 部署尾部照打「部署完成」会让下一轮把坏版本当基线刷绿。
+        if ($aiRestarted) {
+            Ok "ai-service 重启完成且健康"
+        } else {
+            Write-HardFailSummary -Class 'ai-service-health' -Attempts $aiAttempts -Detail "service=$aiName health=$AiServiceHealth"
+            Fail "ai-service 重启连续 $aiAttempts 次后 /health 仍非 200:本轮失败,不打印部署完成、不刷绿" -Detail "服务=$aiName;健康端点=$AiServiceHealth" -Reason 'ai-service-unhealthy'
+        }
     } else {
         Log "未找到 ai-service 服务(候选:IHUI-AI-SERVICE/ihui-ai-service/svc-ai),跳过重启"
+        $script:AiRestartIso = ''
+    }
+
+    # ── ④ 部署后功能验收(fail-closed,2026-11-04 立)───────────────────────────────
+    # 三道断言(checkin 注册行 / 回写 403 不再新增 / 入口层哈希与 prod 一致)由独立脚本给出
+    # ok/fail/undetermined 三态。语义:fail ⇒ 立即 Fail(不打印部署完成、不刷绿);undetermined
+    # ⇒ 按既有语义只 warn,但必须在摘要里显式列出(**未判定≠通过**)。验收只读日志/无凭据 HTTP,
+    # 不读 .env、不连库。
+    $verifyPs = Join-Path $PSScriptRoot 'verify-deploy-facts.ps1'
+    if (-not (Test-Path -LiteralPath $verifyPs)) {
+        Log "WARN  [VERIFY] 缺 deploy\win\verify-deploy-facts.ps1 ⇒ 部署后验收未判定(不记绿,也不据此硬失败)"
+    } else {
+        $vfyPs = Resolve-DeployInterpreter
+        if (-not $vfyPs) {
+            Log "WARN  [VERIFY] 找不到带 cmdlet 的解释器 ⇒ 部署后验收未判定"
+        } else {
+            $vfySince = if ($script:AiRestartIso) { $script:AiRestartIso } else { $ScriptStartIso }
+            try {
+                $vfyRaw = @(& $vfyPs -NoProfile -ExecutionPolicy Bypass -File $verifyPs `
+                    -ProdRoot $Root -SinceIso $vfySince -WritebackCycleMinutes 15 -WritebackWindowMinutes 20 2>&1)
+                $vfyRc = $LASTEXITCODE
+                foreach ($vl in $vfyRaw) {
+                    if (("$vl") -match 'VERIFY\|') { Log "  [verify] $vl" }
+                }
+                if ($vfyRc -ne 0) {
+                    $vfyFails = @($vfyRaw | Where-Object { "$_" -match 'VERIFY\|' -and "$_" -match 'state=fail' })
+                    Write-HardFailSummary -Class 'post-deploy-verify' -Attempts 1 -Detail ($vfyFails -join ' | ')
+                    Fail "部署后功能验收未通过($($vfyFails.Count) 项 fail):本轮失败,不打印部署完成、不刷绿" -Detail ($vfyFails -join ' | ') -Reason 'post-deploy-verify-failed'
+                }
+                Ok "部署后功能验收未出现 fail(undetermined 项见上方 [verify] 行,未判定≠通过)"
+            } catch {
+                Log "WARN  [VERIFY] 部署后验收调用异常(未判定,不据此硬失败):$_"
+            }
+        }
     }
 
     # ── 公网边缘缓存预热(装车点,判据与理由见 Invoke-ProdCacheWarm 头注)──────────────

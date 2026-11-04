@@ -45,7 +45,14 @@ import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { recordBypassLanding } from '../lib/commit-attestation.mjs'
 import { __test__ } from '../heal-worktree-tracked.mjs'
 
-const { restoreBypassOrphans, alignDrifts, refreshStaleIndex, alignLandingDebtIndex } = __test__
+const {
+  restoreBypassOrphans,
+  alignDrifts,
+  refreshStaleIndex,
+  alignLandingDebtIndex,
+  findOrphanedDeletions,
+  heal,
+} = __test__
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = resolve(HERE, '..', '..')
 const SCRIPTS = join(REPO, 'scripts')
@@ -884,6 +891,157 @@ test('T20 活工作二审:恢复历史内容(晚于 HEAD 那一版)不还原,真
   } finally {
     if (prev === undefined) delete process.env[key]
     else process.env[key] = prev
+    rmScratch(dir)
+  }
+})
+
+/**
+ * T21(2026-11-04):整文件有意删除的通知书通道。
+ *
+ * 这组断言钉的是**判据顺序**:通知书必须在 `intentTsByPath`(暂存意图推断)之前生效 ——
+ * 前者是"人写下来的整句理由",后者只能从时间窗反推。也钉 CLI 只写台账不动工作树:
+ * 声明后 `--check` 非零(差异经人工声明仍是差异),撤回后回到原判据(该恢复就恢复)。
+ */
+test('T21 已声明删除:有通知书 ⇒ 不恢复并单列 intentDeclared;CLI 声明/撤回只写台账', () => {
+  const dir = mkScratch('wt-heal-declare-')
+  try {
+    const g = (args) => gitRaw(args, dir, { timeout: 60000 })
+    g(['init', '-q', '--initial-branch=main'])
+    g(['config', 'user.email', 't@t'])
+    g(['config', 'user.name', 't'])
+    g(['config', 'core.autocrlf', 'false'])
+    writeFileSync(join(dir, 'doomed.ts'), 'export const x = 1\n')
+    writeFileSync(join(dir, 'keep.ts'), 'export const y = 1\n')
+    g(['add', '-A'])
+    g(['commit', '-qm', 'base'])
+    rmSync(join(dir, 'doomed.ts'))
+
+    // 阳性对照:无通知书时它落 safe(即旧行为下会被复活)
+    const before = findOrphanedDeletions(dir)
+    assert.ok(before.safe.includes('doomed.ts'), '夹具自证:无通知书时该路径会被恢复')
+    assert.deepEqual(before.intentDeclared, [], '无通知书时不得凭空有已声明删除')
+
+    const cli = copyCliInto(dir)
+    // 缺 reason ⇒ 用法错 exit 2,且不得留下任何台账行(不许默认一句空话)
+    const noReason = runCli(cli, ['--declare-deletion', 'doomed.ts'], dir)
+    assert.equal(noReason.status, 2, '缺 --reason 必须 exit 2')
+    assert.equal(existsSync(join(dir, 'scripts/data/intentional-file-deletions.jsonl')), false, '用法错不得写盘')
+    const shortReason = runCli(cli, ['--declare-deletion', 'doomed.ts', '--reason', '短'], dir)
+    assert.equal(shortReason.status, 2, '--reason 不足 10 字必须 exit 2')
+
+    const declared = runCli(
+      cli,
+      ['--declare-deletion', 'doomed.ts', '--reason', '孤儿副本零运行时引用,确认整文件删除', '--until', '2099-12-31'],
+      dir,
+    )
+    assert.equal(declared.status, 0, `声明应 exit 0,stderr=${String(declared.stderr).slice(0, 300)}`)
+    assert.match(declared.stdout, /DECLARED 1/, '必须回报声明条数')
+    assert.equal(existsSync(join(dir, 'doomed.ts')), false, '声明只写台账,不得顺手恢复工作树')
+
+    const after = findOrphanedDeletions(dir)
+    assert.deepEqual(after.intentDeclared, ['doomed.ts'], '有通知书 ⇒ 单列进 intentDeclared')
+    assert.deepEqual(after.noticeUndetermined, [], '台账健康时不得落进坏档桶')
+    assert.ok(!after.safe.includes('doomed.ts'), '已声明删除不得再进恢复清单')
+
+    const dry = heal(dir, { dryRun: true })
+    assert.equal(dry.intentDeclared, 1)
+    assert.deepEqual(dry.intentDeclaredPaths, ['doomed.ts'])
+    assert.equal(existsSync(join(dir, 'doomed.ts')), false, 'dryRun 也不得写盘')
+
+    // --check:有差异(经人工声明)⇒ 非零,但工作树仍不动
+    const chk = runCli(cli, ['--check'], dir)
+    assert.equal(chk.status, 1, '--check 下已声明删除必须非零退出(沿用既有可判定性口径)')
+    assert.match(chk.stdout, /已声明删除/, '结论面必须点名,不得静默')
+    assert.equal(existsSync(join(dir, 'doomed.ts')), false, '--check 全程零副作用')
+
+    // 撤回:只删对应行,其余行逐字保留;撤回后回到原判据
+    const ledger = join(dir, 'scripts/data/intentional-file-deletions.jsonl')
+    const raw = readFileSync(ledger, 'utf8')
+    assert.equal(raw.includes('\r'), false, '台账行尾必须是显式 \\n,不得落 os.EOL 的 CRLF')
+    const revoked = runCli(cli, ['--revoke-deletion', 'doomed.ts'], dir)
+    assert.equal(revoked.status, 0)
+    assert.match(revoked.stdout, /REVOKED 1/)
+    assert.equal(readFileSync(ledger, 'utf8'), '', '唯一一行被撤回后不留空壳')
+    const restored = findOrphanedDeletions(dir)
+    assert.deepEqual(restored.intentDeclared, [], '撤回后不得再有声明')
+    assert.ok(restored.safe.includes('doomed.ts'), '撤回后回到原判据:该恢复就恢复')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+/**
+ * T22 —— 第四层的**通知书闸**(2026-11-04)。
+ *
+ * 判据面:四判据(HEAD 有 blob / 索引无 / 盘无 / 缺席于至少一个父树)证明的只是"这枚缺失
+ * **可以由**旁路提交解释",不是"它一定是旁路遗留"。`git rm` 一枚上一枚提交刚加进来的文件、
+ * 或 converge 刚合进来的新文件被有意删掉 —— 四判据**同样全成立**,而当轮 `git checkout HEAD --`
+ * 会同时回写索引与工作树,把人的删除意图连同暂存一起撤销。故通知书(与第一层同一个判据源
+ * `lib/intentional-file-deletion.mjs`)必须先判。
+ *
+ * 断的是行为,不是源码文本:
+ *   ① 阳性对照:同一现场**无**通知书 ⇒ 四判据成立且可恢复(夹具自证,不是靠"零恢复"混过去);
+ *   ② 有通知书 ⇒ `heldDeclared` 点名、`paths` 为空、盘上没有、**索引也没被回写**;
+ *   ③ 台账坏档(`undetermined`)同样不恢复(§0.3:判不出不是恢复的许可证);
+ *   ④ 输出面:alignDrifts 与 heal(`--check` 走的那条)都必须透出这一档的数量与路径(不得静默)。
+ */
+test('T22 第四层通知书闸:四判据成立但通知书在册 ⇒ 进 heldDeclared,盘上/索引都不回写', () => {
+  const { dir } = makeBypassDrill()
+  try {
+    // ① 阳性对照:无通知书时这一现场确实可恢复(否则下面的"不恢复"证明不了什么)
+    const before = restoreBypassOrphans(dir, { dryRun: true })
+    assert.ok(before.paths.includes('born.ts'), '夹具自证:无通知书时四判据成立、born.ts 应进可恢复集')
+    assert.deepEqual(before.heldDeclaredPaths, [], '无通知书时不得凭空有已声明挡下的路径')
+
+    const cli = copyCliInto(dir)
+    const declared = runCli(
+      cli,
+      ['--declare-deletion', 'born.ts', '--reason', '旁路提交带入的孤儿副本,确认整文件删除', '--until', '2099-12-31'],
+      dir,
+    )
+    assert.equal(declared.status, 0, `声明应 exit 0,stderr=${String(declared.stderr).slice(0, 300)}`)
+    assert.equal(existsSync(join(dir, 'born.ts')), false, '声明只写台账,不得顺手恢复工作树')
+
+    // ② dryRun 判据面
+    const dry = restoreBypassOrphans(dir, { dryRun: true })
+    assert.equal(dry.heldDeclared, 1, '持通知书必须单列进 heldDeclared')
+    assert.deepEqual(dry.heldDeclaredPaths, ['born.ts'], '必须逐条点名')
+    assert.deepEqual(dry.paths, [], '持通知书不得再出现在可恢复清单里')
+
+    // ② 真跑:一个字节都不许回写(工作树 + 索引两边都要查 —— checkout 是两边一起写的)
+    const res = restoreBypassOrphans(dir)
+    assert.equal(res.restored, 0, '持通知书仍被恢复 = 替人撤销一次有意删除')
+    assert.equal(existsSync(join(dir, 'born.ts')), false, '不恢复 = 磁盘保持原样')
+    assert.equal(
+      gitRaw(['ls-files', '-s', '--', 'born.ts'], dir).trim(),
+      '',
+      '恢复动作会同时写索引;这一步必须连索引都不动',
+    )
+
+    // ④ 输出面:--align-drift 那条(alignDrifts)与 --check 那条(heal)都要透出
+    const al = alignDrifts(dir, { dryRun: true })
+    assert.equal(al.bypassHeldDeclared, 1, 'alignDrifts 必须透出这一档(不得静默)')
+    assert.deepEqual(al.bypassHeldDeclaredPaths, ['born.ts'])
+    const h = heal(dir, { dryRun: true })
+    assert.equal(h.bypassHeldDeclared, 1, 'heal/--check 面必须同样透出这一档')
+    assert.deepEqual(h.bypassHeldDeclaredPaths, ['born.ts'])
+    assert.equal(existsSync(join(dir, 'born.ts')), false, '默认恢复档也不得把它写回')
+
+    // ④ CLI 人类档:--align-drift 真跑(非 dryRun)也必须点名并保持盘上/索引双空
+    const cliRun = runCli(cli, ['--align-drift'], dir)
+    assert.equal(cliRun.status, 0, `--align-drift 应 exit 0,stderr=${String(cliRun.stderr).slice(0, 300)}`)
+    assert.match(cliRun.stdout, /持有删除通知书/, '人类档必须点名这一档(报数不点名 = 静默)')
+    assert.equal(existsSync(join(dir, 'born.ts')), false, 'CLI 真跑档也不得回写工作树')
+    assert.equal(gitRaw(['ls-files', '-s', '--', 'born.ts'], dir).trim(), '', 'CLI 真跑档也不得回写索引')
+
+    // ③ 台账坏档 ⇒ 判不出 ⇒ 同样进 heldDeclared,绝不读成"没声明"而恢复
+    const ledger = join(dir, 'scripts/data/intentional-file-deletions.jsonl')
+    writeFileSync(ledger, '{这不是 JSON}\n', 'utf8')
+    const broken = restoreBypassOrphans(dir, { dryRun: true })
+    assert.equal(broken.heldDeclared, 1, '台账坏档必须落 heldDeclared(判不出不等于可恢复)')
+    assert.deepEqual(broken.heldDeclaredPaths, ['born.ts'])
+    assert.deepEqual(broken.paths, [])
+  } finally {
     rmScratch(dir)
   }
 })

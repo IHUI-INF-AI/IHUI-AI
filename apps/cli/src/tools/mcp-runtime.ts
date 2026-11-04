@@ -41,6 +41,7 @@ import { createStdioFrameDecoder, encodeContentLength, encodeNdjson } from './mc
 // 且它的注释就点名了"调用端配合条件:detached 只在 Unix 侧有意义")。
 // 这里只做**装车**:不另抄一份 taskkill/kill(-pid) 逻辑 —— 两处算同一件事必漂移。
 import { killProcessTree } from '../util/spawn-isolated.js';
+import { readCliPackage } from '../util/pkg-version.js';
 import type { Tool, ToolResult, ToolContext, ToolParameter } from './index.js';
 import { getCredential, isExpired, setCredential } from './mcp-credentials.js';
 import { startOAuthFlow, refreshAccessToken, type OAuthConfig } from './mcp-oauth.js';
@@ -946,6 +947,15 @@ export function buildMcpChildEnv(serverEnv?: Record<string, string>): NodeJS.Pro
 }
 
 /**
+ * 本客户端自报身份:版本单一源头 = 本包 package.json(SEA 构建改由 IHUI_BUILD_VERSION 注入),
+ * 与 apps/cli/src/index.ts:160 同一把尺。此前三处 transport 各写死 '1.0.0',发版后仍向对端报旧号。
+ * 读不到包信息时报 'unknown' 而不是 '0.0.0' —— 对端会把后者当成一个真实版本号做兼容判断。
+ */
+function cliClientInfo(): { name: string; version: string } {
+  return { name: 'ihui-cli', version: readCliPackage(import.meta.url)?.version ?? 'unknown' };
+}
+
+/**
  * 连接单个 MCP server:按 transport 完成 initialize + tools/list + resources/prompts 预加载。
  * 失败时调用 disconnectMcpServer 清理资源并抛错。
  *
@@ -985,7 +995,7 @@ export async function connectMcpServer(server: McpServer): Promise<McpConnection
 
       await sendStdioRpc(proc, 'initialize', {
         protocolVersion: DEFAULT_PROTOCOL_VERSION,
-        clientInfo: { name: 'ihui-cli', version: '1.0.0' },
+        clientInfo: cliClientInfo(),
         capabilities: {},
       }, server.requestTimeoutMs ?? 10_000);
       sendStdioNotification(proc, 'notifications/initialized', {});
@@ -998,7 +1008,7 @@ export async function connectMcpServer(server: McpServer): Promise<McpConnection
 
       await sendHttpRpc(server.url, 'initialize', {
         protocolVersion: DEFAULT_PROTOCOL_VERSION,
-        clientInfo: { name: 'ihui-cli', version: '1.0.0' },
+        clientInfo: cliClientInfo(),
         capabilities: {},
       }, headers, server.requestTimeoutMs ?? 10_000, mcpConfigTrust(server));
     } else if (transport === 'sse') {
@@ -1074,7 +1084,7 @@ export async function connectMcpServer(server: McpServer): Promise<McpConnection
       // 4. 发送 initialize(POST 到 endpoint,等 SSE 流响应)
       await sendSseRpc(conn, 'initialize', {
         protocolVersion: DEFAULT_PROTOCOL_VERSION,
-        clientInfo: { name: 'ihui-cli', version: '1.0.0' },
+        clientInfo: cliClientInfo(),
         capabilities: {},
       });
     }

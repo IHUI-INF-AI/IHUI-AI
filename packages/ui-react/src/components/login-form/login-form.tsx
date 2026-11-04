@@ -139,8 +139,13 @@ export function LoginForm(props: LoginFormProps) {
   }, [nonQrTab])
   React.useEffect(() => {
     if (!autoFollowFirstTab || userPickedTab.current || !firstRenderableTab) return
+    // 地区判定是异步到达的:首屏先按 locale 兜底(境内档先落扫码 qr),进入 qr 会按既定流程弹协议通知窗。
+    // 地区到达后首屏可能被重排到非扫码;此时这张弹窗拦的是用户已经看不到的二维码面板,只会把邮箱/
+    // 密码表单挡死(海外访客与 e2e 都中招)。仅在「自动重排 + 未同意」时随之收起;用户手动切过 tab
+    // (userPickedTab)或已同意时不走这条,境内档(qr 仍是首屏)行为不变。
+    if (tab === 'qr' && firstRenderableTab !== 'qr' && !agreed) setNoticeOpen(false)
     setTab(firstRenderableTab)
-  }, [autoFollowFirstTab, firstRenderableTab])
+  }, [autoFollowFirstTab, firstRenderableTab, tab, agreed])
 
   const handleRequireAgree = React.useCallback(() => {
     setShowAgreeErr(true)
@@ -177,9 +182,13 @@ export function LoginForm(props: LoginFormProps) {
   // 的主机已显式关闭协议面,不代为弹窗。
   React.useEffect(() => {
     if (tab !== 'qr' || !showAgreement || agreed) return
+    // 宿主注入了扫码面板(qrComponent)时不再叠第二扇协议窗:web 的 QrCodeLogin 自带扫码
+    // 同意门禁(它先同意才渲染二维码)。两扇窗原本会同时弹出并叠在一起,下层那扇的「同意」
+    // 被上层遮罩拦住,用户与 e2e 都点不到 —— 这是 2026-11-03 长期红的直接成因之一。
+    if (qrComponent) return
     if (agreementMode === 'notice-dialog') setNoticeOpen(true)
     else setShowAgreeErr(true)
-  }, [tab, agreed, showAgreement, agreementMode])
+  }, [tab, agreed, showAgreement, agreementMode, qrComponent])
 
   // 切 tab 时清空协议错误(避免上一次的红色状态残留)
   const handleTabChange = React.useCallback((v: string) => {

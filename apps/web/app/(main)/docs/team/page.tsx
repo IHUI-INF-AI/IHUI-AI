@@ -4,7 +4,19 @@
 
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { Users, Lock, MessageCircle, Building2 } from 'lucide-react'
+import {
+  Bot,
+  Building2,
+  ClipboardList,
+  KeyRound,
+  Lightbulb,
+  Lock,
+  MessageCircle,
+  Server,
+  User,
+  Users,
+  Wrench,
+} from 'lucide-react'
 import { CodeBlock } from '@/components/docs/code-block'
 
 const SITE_URL = 'https://aizhs.top'
@@ -86,7 +98,10 @@ export default function TeamDocsPage() {
         <h2 className="text-display font-bold tracking-tight">为什么需要团队版?</h2>
         <div className="grid grid-cols-1 gap-4 min-[768px]:grid-cols-2">
           <div className="rounded-lg border bg-card p-3">
-            <p className="text-body font-semibold">👤 个人版</p>
+            <p className="flex items-center text-body font-semibold">
+              <User className="mr-1.5 inline h-4 w-4" />
+              个人版
+            </p>
             <ul className="mt-2 ml-4 list-disc space-y-1 text-sm text-muted-foreground">
               <li>独立 Agent / 知识库</li>
               <li>独立积分账户</li>
@@ -118,38 +133,52 @@ export default function TeamDocsPage() {
           <p className="text-sm text-muted-foreground">
             基于角色的权限控制(Role-Based Access Control),7 级角色覆盖企业全部场景:
           </p>
-          <div className="space-y-2">
-            <div className="grid grid-cols-2 gap-2 rounded bg-muted/60 p-3 text-label font-semibold min-[768px]:grid-cols-4">
-              <div>角色</div>
-              <div>level</div>
-              <div className="col-span-2 min-[768px]:col-span-2">权限范围</div>
-            </div>
-            {[
-              ['Super Admin', '99', '系统超级管理员(唯一,不可删除/修改)', '运维 / 安全 / 全部权限'],
-              ['Admin', '10', '团队管理员', '成员管理 + 积分充值 + Agent 审计 + 全部团队资源'],
-              ['Manager', '5', '项目负责人', '本组 Agent / 知识库 + 组员管理(无积分权限)'],
-              ['Developer', '3', '开发者', '创建 / 编辑 / 发布 Agent + 知识库读写'],
-              ['Editor', '2', '内容编辑', '编辑 Agent 提示词 + 知识库上传(不能发布)'],
-              ['Viewer', '1', '只读成员', '查看 Agent / 知识库 / 对话记录(不能修改)'],
-              ['Guest', '0', '访客', '仅能使用已发布的 Agent(不能看后台)'],
-            ].map(([role, level, scope, perms], i) => (
-              <div
-                key={role}
-                className={`grid grid-cols-2 gap-2 rounded p-3 text-sm min-[768px]:grid-cols-4 ${i % 2 === 0 ? 'bg-background' : 'bg-muted/40'}`}
-              >
-                <div className="font-medium">{role}</div>
-                <div className="font-mono text-xs">{level}</div>
-                <div className="col-span-2 text-xs text-muted-foreground min-[768px]:col-span-1">
-                  {scope}
-                </div>
-                <div className="col-span-2 text-xs text-muted-foreground min-[768px]:col-span-1">
-                  {perms}
-                </div>
-              </div>
-            ))}
+          <div className="overflow-x-auto rounded-lg border">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-muted/60 text-left text-label font-semibold">
+                  <th scope="col" className="p-3">
+                    角色
+                  </th>
+                  <th scope="col" className="p-3">
+                    level
+                  </th>
+                  <th scope="col" className="p-3">
+                    定位
+                  </th>
+                  <th scope="col" className="p-3">
+                    权限范围
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  [
+                    'Super Admin',
+                    '99',
+                    '系统超级管理员(唯一,不可删除/修改)',
+                    '运维 / 安全 / 全部权限',
+                  ],
+                  ['Admin', '10', '团队管理员', '成员管理 + 积分充值 + Agent 审计 + 全部团队资源'],
+                  ['Manager', '5', '项目负责人', '本组 Agent / 知识库 + 组员管理(无积分权限)'],
+                  ['Developer', '3', '开发者', '创建 / 编辑 / 发布 Agent + 知识库读写'],
+                  ['Editor', '2', '内容编辑', '编辑 Agent 提示词 + 知识库上传(不能发布)'],
+                  ['Viewer', '1', '只读成员', '查看 Agent / 知识库 / 对话记录(不能修改)'],
+                  ['Guest', '0', '访客', '仅能使用已发布的 Agent(不能看后台)'],
+                ].map(([role, level, scope, perms], i) => (
+                  <tr key={role} className={i % 2 === 0 ? 'bg-background' : 'bg-muted/40'}>
+                    <td className="p-3 font-medium whitespace-nowrap">{role}</td>
+                    <td className="p-3 font-mono text-xs">{level}</td>
+                    <td className="p-3 text-xs text-muted-foreground">{scope}</td>
+                    <td className="p-3 text-xs text-muted-foreground">{perms}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
           <p className="text-xs text-muted-foreground">
-            💡 <strong>资源级权限</strong>:每个 Agent / 知识库 / 工作流可单独设权限(Public / Team /
+            <Lightbulb className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
+            <strong>资源级权限</strong>:每个 Agent / 知识库 / 工作流可单独设权限(Public / Team /
             Private), 精确到"谁能看 / 谁能改 / 谁能删"。
           </p>
         </div>
@@ -174,13 +203,19 @@ export default function TeamDocsPage() {
               </p>
             </div>
             <div className="rounded-lg border bg-background p-3">
-              <p className="text-body font-semibold">🔑 OIDC</p>
+              <p className="flex items-center text-body font-semibold">
+                <KeyRound className="mr-1.5 inline h-4 w-4" />
+                OIDC
+              </p>
               <p className="mt-1 text-xs text-muted-foreground">
                 OpenID Connect,支持 Google / GitHub / Keycloak / Auth0 / Authing
               </p>
             </div>
             <div className="rounded-lg border bg-background p-3">
-              <p className="text-body font-semibold">📋 LDAP</p>
+              <p className="flex items-center text-body font-semibold">
+                <ClipboardList className="mr-1.5 inline h-4 w-4" />
+                LDAP
+              </p>
               <p className="mt-1 text-xs text-muted-foreground">
                 直接对接 Active Directory / OpenLDAP,自动同步组织架构
               </p>
@@ -374,18 +409,24 @@ export default function TeamDocsPage() {
             href="/docs/agent"
             className="rounded-lg border bg-card p-3 text-sm hover:bg-accent"
           >
-            🤖 Agent 开发 →<br />
+            <Bot className="mr-1 inline h-4 w-4" aria-hidden />
+            <span>Agent 开发 →</span>
+            <br />
             <span className="text-xs text-muted-foreground">团队共建 Agent</span>
           </Link>
           <Link href="/docs/api" className="rounded-lg border bg-card p-3 text-sm hover:bg-accent">
-            🛠️ API 参考 →<br />
+            <Wrench className="mr-1 inline h-4 w-4" aria-hidden />
+            <span>API 参考 →</span>
+            <br />
             <span className="text-xs text-muted-foreground">团队 API Key 调用</span>
           </Link>
           <Link
             href="/docs/self-host"
             className="rounded-lg border bg-card p-3 text-sm hover:bg-accent"
           >
-            🐳 自托管部署 →<br />
+            <Server className="mr-1 inline h-4 w-4" aria-hidden />
+            <span>自托管部署 →</span>
+            <br />
             <span className="text-xs text-muted-foreground">企业版私有化部署</span>
           </Link>
         </div>

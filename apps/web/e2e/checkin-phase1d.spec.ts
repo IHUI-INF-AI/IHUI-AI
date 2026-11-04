@@ -13,7 +13,7 @@
  * 前置:seed:test-users 已种 test@aizhs.top;8801 dev 在跑(签到数据面已整栈桩成内存仓,
  * 不再需要 8803 ai-service —— CI 的 e2e 作业本就不起该服务,见 installCheckinMocks)。
  */
-import { expect } from '@playwright/test'
+import { expect, type Page } from '@playwright/test'
 import { test } from './fixtures'
 import path from 'node:path'
 import fs from 'node:fs'
@@ -77,7 +77,7 @@ const jsonOk = (body: unknown) => ({
 })
 
 /** 把签到数据面整栈桩到 page 上(路由按 page 注册,故每个用例装一次;仓是模块级的) */
-async function installCheckinMocks(page: import('@playwright/test').Page): Promise<void> {
+async function installCheckinMocks(page: Page): Promise<void> {
   await page.route('**/api/checkin/scheduler/status', (route) =>
     route.fulfill(jsonOk({ enabled: true, started: true, next_run: null, next_run_qoder: null })),
   )
@@ -153,7 +153,7 @@ async function installCheckinMocks(page: import('@playwright/test').Page): Promi
   })
 }
 
-let storageStatePath = ''
+const storageStatePath = ''
 
 test.describe.serial('签到助手 · 登录态全流程', () => {
   // G-962 D组#106(批5,2026-10-22):原 beforeAll 登录建 API 上下文 + afterAll 列表后逐号删除的

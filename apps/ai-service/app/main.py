@@ -420,7 +420,7 @@ async def lifespan(app: FastAPI) -> Any:
     from app.services.news_scheduler import news_scheduler
     news_scheduler.start()
 
-    # 签到助手服务端化(2026-10-03 立):数据层幂等建表 + 每日 08:05 签到调度。
+    # 签到助手服务端化(2026-10-03 立):数据层幂等建表 + 每日 00:05/08:05 签到调度。
     # 建表 fail-open(失败只告警);调度器由 CHECKIN_CRON_ENABLED 控制开关(默认 false)。
     try:
         from app.services.checkin_store import ensure_tables as _ensure_checkin_tables

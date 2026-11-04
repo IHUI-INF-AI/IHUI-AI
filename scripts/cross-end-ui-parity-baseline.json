@@ -1,6 +1,6 @@
 {
   "counts": {
-    "BottomActionBar": 13,
+    "BottomActionBar": 12,
     "Carousel": 6,
     "DrawerComponent": 12,
     "InputArea": 15,
@@ -8,11 +8,12 @@
     "LoginPopUp": 9,
     "ModelConfigDialog": 6,
     "ModelList": 6,
-    "NavBar": 7,
+    "NavBar": 4,
     "UserInfoCard": 4,
     "VideoPlayer": 5,
     "VoiceInput": 6,
-    "SectionHeader": 1
+    "SectionHeader": 1,
+    "ScreenStates": 1
   },
   "radiusCounts": {
     "BottomActionBar": 3,
@@ -55,7 +56,8 @@
     "SearchBar": 4,
     "Tooltip": 0,
     "BusinessFormCard": 0,
-    "VideoPlayer": 6
+    "VideoPlayer": 6,
+    "Button": 12
   },
   "webRadiusCounts": {
     "AgentRuntimePanel": 1,
@@ -65,7 +67,8 @@
     "SearchBar": 2,
     "Tooltip": 0,
     "BusinessFormCard": 0,
-    "VideoPlayer": 1
+    "VideoPlayer": 1,
+    "Button": 2
   },
   "webElementRadiusCounts": {
     "AgentRuntimePanel": 0,
@@ -90,7 +93,7 @@
       "until": "2027-03-27"
     },
     "NavBar": {
-      "reason": "RN 页头有 subtitle 一支(实测 git grep -c subtitle 于 RN NavBar = 9、小程序 = 0,该端 props 根本没有这一行)→ 2/12/56 随它而来;行高 44 是 RN 自测量、小程序走微信胶囊 menuButton.height+8(平台量);32 是 RN 空侧占位块,小程序用 absolute 悬浮钮居中,无占位元素;4 是 hitSlop 命中扩张通道;13 = 胶囊兜底对象 `{ top: 26, height: 32 }` 的量纲误读(该对象是逻辑 px,经 utils/rpx.ts 的 px() 落成真 CSS px,门按小程序裸数字=rpx 折半读成 13;对面无对应元素,状态栏由 App.tsx SafeAreaView 单点注入)。圆角 RD 4 同属单侧:小程序 ai-home「加入社区群」胶囊的 rnRadius.sm,RN 无该带边框 CTA。更正@2026-10-27:旧文案「px() 通道门读不到」与现读矛盾(门确实读到了这一行,只是量纲读错),已删。",
+      "reason": "2026-11-04 收敛:小程序 NavBar 补 subtitle 一支(fe50a4123d,门 285 B3 属性对齐 RN),双行行高 56 / 副标题字号 12 / 上距 2 已两端真引用,从单侧账撤下并登记进共用清单(门 SL NavBar 5→2,counts 7→4);行高 44 是 RN 自测量、小程序走微信胶囊 menuButton.height+8(平台量);32 是 RN 空侧占位块,小程序用 absolute 悬浮钮居中,无占位元素;4 是 hitSlop 命中扩张通道;13 = 胶囊兜底对象 `{ top: 26, height: 32 }` 的量纲误读(该对象是逻辑 px,经 utils/rpx.ts 的 px() 落成真 CSS px,门按小程序裸数字=rpx 折半读成 13;对面无对应元素,状态栏由 App.tsx SafeAreaView 单点注入)。圆角 RD 4 同属单侧:小程序 ai-home「加入社区群」胶囊的 rnRadius.sm,RN 无该带边框 CTA。更正@2026-10-27:旧文案「px() 通道门读不到」与现读矛盾(门确实读到了这一行,只是量纲读错),已删。",
       "singleEndTiers": [
         {
           "tier": "NAVBAR_ROW_HEIGHT_PX",
@@ -101,35 +104,11 @@
           "until": "2027-03-27"
         },
         {
-          "tier": "NAVBAR_ROW_HEIGHT_SUBTITLE_PX",
-          "side": "rn",
-          "kind": "mechanism-variant",
-          "element": "带副标题时的双行行高 56",
-          "reason": "副标题这一支只存在于 RN(小程序 NavBarProps 现读无 subtitle 字段,全仓传参 0 处);双行行高在小程序端没有可承载的节点。",
-          "until": "2027-03-27"
-        },
-        {
           "tier": "NAVBAR_SIDE_PLACEHOLDER_PX",
           "side": "rn",
           "kind": "element-absent",
           "element": "空侧占位块宽 32",
           "reason": "RN 用一块空占位把标题夹在中间;小程序腿居中走 absolute 悬浮钮 + justify-center,结构上没有占位元素,补一个 32 = 往屏上加节点。",
-          "until": "2027-03-27"
-        },
-        {
-          "tier": "NAVBAR_SUBTITLE_FONT_PX",
-          "side": "rn",
-          "kind": "mechanism-variant",
-          "element": "副标题字号 12",
-          "reason": "同 NAVBAR_ROW_HEIGHT_SUBTITLE_PX:副标题支只在 RN,小程序端没有这一行字,不是同一元素取了不同档。",
-          "until": "2027-03-27"
-        },
-        {
-          "tier": "NAVBAR_SUBTITLE_MARGIN_TOP_PX",
-          "side": "rn",
-          "kind": "element-absent",
-          "element": "副标题与主标题的间距 2",
-          "reason": "小程序腿没有\"主标题下方再一行\"这层结构,间距无从落点;RN 独有。",
           "until": "2027-03-27"
         }
       ],
@@ -595,19 +574,11 @@
           "until": "2027-03-27"
         },
         {
-          "tier": "LOGIN_POPUP_TITLE_FONT_PX",
-          "side": "rn",
-          "kind": "element-absent",
-          "element": "授权卡标题字号 16",
-          "reason": "授权卡标题块是 RN 独有(小程序弹窗无标题),补字号等于加一个标题节点。",
-          "until": "2027-03-27"
-        },
-        {
           "tier": "LOGIN_POPUP_TITLE_MARGIN_BOTTOM_PX",
           "side": "rn",
-          "kind": "element-absent",
+          "kind": "mechanism-variant",
           "element": "授权卡标题底距 8",
-          "reason": "同 LOGIN_POPUP_TITLE_FONT_PX。",
+          "reason": "2026-11-04 小程序补授权卡标题/描述后标题节点已存在,但标题底距走 LOGIN_POPUP_SECTION_GAP_PX(与描述同块间距),未取本档 ⇒ 仍单侧;不是缺元素,是同一槽位取了另一枚档,待后续收敛。",
           "until": "2027-03-27"
         },
         {
@@ -888,17 +859,9 @@
     "VoiceInput": {
       "reason": "语音输入条的结构几何差异属设计/平台裁决项,单一源 packages/shared/src/ui/voice-input-spec.ts 头注已逐条记载并明确\"未收进来\":波形条数 7 vs 12、条宽 4 vs 3、条间距 4 vs 2、高度包络(h-5 的 60% vs 6..28 插值)、按钮内边距 16/12 vs 12/8、字号 14 vs 12、禁用透明度 0.5 vs 0.4。分叉与两端动画通道(小程序 CSS keyframes 固定高度脉冲 vs RN Animated 逐条高度插值)和录音链路(小程序流式识别 streamingRecognizer partial/final vs RN 整段上传 STT)耦合,不是\"改一端另一端不跟随\"。2026-11-02 Phase 3 几何维接上 rnType/rnSpacing 引用后的现读:diffCount=6(仅小程序 []、仅 RN [6,10,11,18,24,32])、radiusCount=3(仅小程序 8,仅 RN 2/6)、elementRadiusCount=0(RE 维仅 RN 具名 bar/clearBtn/imagePopup/imageToggleBtn/voiceBtn,两侧无同名元素故零判据)。收敛前置 = 两端录音链路统一后再收编几何,不靠给单端补数字凑平。",
       "until": "2027-03-27"
-    },
-    "VerifyCodeModal": {
-      "reason": "小程序侧零引用孤儿副本(HEAD blob git grep VerifyCodeModal 除自身零命中)⇒ 端入口不可达被默认档配对射程剔除,该族只活在人工 --pair-all 档;RN 腿为 RegisterScreen 活体。两端已收编共享源 @ihui/shared/ui/verify-code-modal-spec,--pair-all 可见的几何仅 RN 1/24 = 隐藏键盘接收器(HIDDEN_INPUT_PX=1,G-978007)与右上 × 关闭钮盒(CLOSE_BOX_PX=24),均小程序侧不存在的单侧元素(spec 自注单侧档按规则6 登记),RE 维零判据不判红。了结判据:小程序侧接线注册流或删除孤儿副本,届时按默认档实测重新登记。",
-      "until": "2027-03-27"
     }
   },
   "webWaivers": {
-    "ConfirmDialog": {
-      "reason": "两端盒档同值,只是住在不同文件:web 弹窗壳 = `git show HEAD:packages/ui-react/src/components/dialog.tsx` :98 `min-[640px]:rounded-xl`(panel→xl=12),小程序壳 = apps/miniapp-taro/src/components/ConfirmDialog.tsx:35 `borderRadius: rnRadiusFor.panel`(RADIUS_ROLES 现读 panel→xl=12,同值);按钮档 web 走 <Button> 基座 rounded-sm(packages/ui-react/src/components/button.tsx:30),小程序 :49/:57 自写 rounded-sm,两端同取 control→sm=4。本腿不跟 .tsx 的包 import ⇒ 把\"没读到\"读成\"该侧无档\",即 G-16 登记的 SL 维第二格,扩一跳即抵掉;禁止为凑集合给 web 壳再补一层圆角。",
-      "until": "2027-03-30"
-    },
     "AgentRuntimePanel": {
       "reason": "web 面板本体刻意无壳:卡片圆角由消费页外包,现读 `git grep -n \"rounded-lg\" HEAD:\"apps/web/app/(main)/agents/[id]/PageClient.tsx\"` 命中 :375(=8,与小程序根容器 :28 ui-card rounded-lg 同档),而组件文件自身 rounded 计数 小程序 1 / web 0 ⇒ 差的是档值住在哪个文件,不是取值分叉。禁止为凑集合给 web 组件根补圆角(会和消费页壳叠两层)。",
       "until": "2027-03-30"

@@ -31,6 +31,13 @@ const ranged = vi.hoisted(() => ({
     null | ((options: unknown) => Promise<{ uri: string; bytes: number; connections: number }>),
 }))
 
+/**
+ * 选腿接管点:默认恒等(既有用例全部保持原 URL),个别用例改成返回国内腿,
+ * 用来证明 applyApkUpdate 真的把选腿结果交给了下载器 —— 否则"选腿模块写了但没接上"
+ * 这类同错(实现与夹具一起绿)测不出来。
+ */
+const legChoice = vi.hoisted(() => ({ url: null as string | null }))
+
 vi.mock('@ihui/api-client', () => ({
   checkAppVersion: h.checkAppVersion,
 }))
@@ -44,6 +51,16 @@ vi.mock('expo-file-system/legacy', () => ({
   cacheDirectory: 'file:///cache/',
   createDownloadResumable: h.createDownloadResumable,
   getContentUriAsync: h.getContentUriAsync,
+}))
+
+/** 选腿的 IO 面在 apk-download-legs.test.ts 单独钉;这里只接管出口,避免用例真发探针。 */
+vi.mock('../apk-download-legs', () => ({
+  resolveApkDownloadUrl: async (primary: string) => ({
+    url: legChoice.url ?? primary,
+    leg: legChoice.url ? 'cn' : 'site',
+    reason: '测试夹具',
+    probed: Boolean(legChoice.url),
+  }),
 }))
 
 /**
@@ -119,6 +136,7 @@ beforeEach(() => {
   h.startActivityAsync.mockReset()
   h.downloadAsync.mockReset()
   ranged.impl = null
+  legChoice.url = null
   setNativeLauncher(false)
 })
 
@@ -356,6 +374,49 @@ describe('下载 + 安装', () => {
     expect(h.createDownloadResumable).toHaveBeenCalledTimes(1)
     expect(h.getContentUriAsync).toHaveBeenCalledWith('file:///cache/ihui-ai-0.0.9.apk')
     expect(mod.apkSnapshot().installMode).toBe('in-app')
+  })
+
+  describe('下载腿接线:选腿结果必须真的流到下载器', () => {
+    const CN =
+      'https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI/releases/download/mobile-apk-latest/ihui-ai-latest.apk'
+
+    async function arrange() {
+      h.checkAppVersion.mockResolvedValue(updateResponse())
+      h.downloadAsync.mockResolvedValue({ uri: 'file:///cache/ihui-ai-0.0.9.apk' })
+      h.createDownloadResumable.mockReturnValue({ downloadAsync: h.downloadAsync })
+      h.getContentUriAsync.mockResolvedValue('content://zh.ai.sq.FileSystemFileProvider/apk')
+      h.startActivity.mockResolvedValue(undefined)
+      setNativeLauncher(true)
+      const mod = await freshModule()
+      await mod.checkApkUpdate()
+      return mod
+    }
+
+    it('选腿返回国内腿 ⇒ 下载器收到的就是国内腿 URL,store 记 cn', async () => {
+      legChoice.url = CN
+      const mod = await arrange()
+      await expect(mod.applyApkUpdate()).resolves.toBe('installing')
+      expect(h.createDownloadResumable).toHaveBeenCalledWith(
+        CN,
+        'file:///cache/ihui-ai-0.0.9.apk',
+        expect.anything(),
+        expect.any(Function),
+      )
+      expect(mod.apkSnapshot().downloadLeg).toBe('cn')
+    })
+
+    it('反向:选腿没换 URL ⇒ 仍是主腿,store 记 site', async () => {
+      legChoice.url = null
+      const mod = await arrange()
+      await expect(mod.applyApkUpdate()).resolves.toBe('installing')
+      expect(h.createDownloadResumable).toHaveBeenCalledWith(
+        'https://example.test/ihui-ai-latest.apk',
+        'file:///cache/ihui-ai-0.0.9.apk',
+        expect.anything(),
+        expect.any(Function),
+      )
+      expect(mod.apkSnapshot().downloadLeg).toBe('site')
+    })
   })
 
   it('服务端没给下载地址时点了也不炸,落 error', async () => {

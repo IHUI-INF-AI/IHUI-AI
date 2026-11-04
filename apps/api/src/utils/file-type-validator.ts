@@ -18,6 +18,15 @@ export const MAX_MULTIPART_UPLOAD_SIZE = 100 * 1024 * 1024
 /**
  * 扩展名 -> 允许的 MIME 集合。集合首项为该扩展名的 canonical MIME。
  * svg / html / htm 等危险类型故意不在白名单中(XSS / RCE 风险)。
+ *
+ * 2026-11-03(票 S1 ③桶复核,html/rar 维持不收):
+ *   · html/htm:apps/api/services/document-parser.ts:127/163/270 的 htmlToText 分支
+ *     是内部/连接器喂入路径的解析(不属于用户上传可达),前端 accept 也已在 c52250f555
+ *     摘掉 html/htm 承诺;后端按 XSS 故意拒收 ⇒ 白名单不收。
+ *   · rar:仅 apps/miniapp-taro/src/rn-compat/native-document.ts:47 MIME_BY_EXT 声明,
+ *     全仓 grep 无 `unrar / rarfile / RarFile` 解码路径;apps/cli/src/tools/builtins.ts:688
+ *     只把 .rar 当"用 /bash unrar l 列出内容"的**外部命令提示**,不是服务端解包 ⇒
+ *     收了等于让用户上传一份无法解析、且压缩炸弹面未验证的容器,不收。
  */
 const EXT_MIME_MAP: Record<string, string[]> = {
   jpg: ['image/jpeg'],
@@ -38,7 +47,23 @@ const EXT_MIME_MAP: Record<string, string[]> = {
   pptx: ['application/vnd.openxmlformats-officedocument.presentationml.presentation'],
   txt: ['text/plain'],
   csv: ['text/csv', 'text/plain'],
+  // 2026-11-03(票 S1 ③桶):web 富预览的 `richPreviewKindOf` 已把 tsv 当第二型分隔符表格
+  // (apps/web/src/lib/file-preview-attachment.ts:94,与 csv 同一状态机 parseDelimitedGeneric),
+  // 唯独本白名单不收 ⇒ 用户上传 .tsv 必吃 400,那条预览分支永远走不到(死代码)。
+  // text/tab-separated-values 是 IANA 规范值(Find-Media-Type csv 同族),text/plain 是常见退回值。
+  tsv: ['text/tab-separated-values', 'text/plain'],
+  // 2026-11-03(票 S1 ③桶):两处实现都真在跑 ——
+  //   · apps/ai-service/app/tools/document_tools.py:84 SUPPORTED_EXTENSIONS[".json"]="JSON",
+  //     :341-347 有 `elif ext == ".json"` 的 json.loads 校验分支(白名单不收 ⇒ 该分支永不被喂);
+  //   · apps/miniapp-taro/src/rn-compat/native-document.ts:45 MIME_BY_EXT json: 'application/json'
+  //     ⇒ 用户在微信"从聊天记录选文件"能选中 .json,上传即被本表 400。
+  // application/json 是 RFC 8259 规范值;text/json 与 text/plain 是常见退回(纯文本档本就不验魔数)。
+  json: ['application/json', 'text/json', 'text/plain'],
   zip: ['application/zip', 'application/x-zip-compressed'],
+  // 2026-11-03(票 D53):RAG 解析面、ai-service 工具、小程序直开、前端 accept 四处都实现了
+  // Markdown,唯独这张白名单不收 ⇒ 用户在知识库上传框选中 .md 必吃 400。text/markdown 是
+  // Chromium 的声明值,text/plain 是其余客户端常见值(未声明时本函数跳过一致性、只验魔数)。
+  md: ['text/markdown', 'text/plain'],
   // 2026-10-16:语音消息上线(mobile-rn 长按录音 → 上传 → 聊天语音气泡回听)。
   // expo-audio HIGH_QUALITY 预设产出 m4a(AAC in MP4 容器);其余三档覆盖导入/转发音频。
   // audio/m4a 是非标准但客户端常见的声明值(RN FormData type),收进白名单省一次 400。
@@ -47,13 +72,39 @@ const EXT_MIME_MAP: Record<string, string[]> = {
   wav: ['audio/wav', 'audio/x-wav', 'audio/vnd.wave'],
   aac: ['audio/aac', 'audio/aacp'],
   ogg: ['audio/ogg', 'application/ogg', 'audio/x-ogg'],
+  // 2026-11-04(格式对账尺 ③ 桶收口):flac 的消费面真在跑,唯独这张白名单不收 ——
+  //   apps/ai-service/app/services/mcp_server.py:6788 _AUDIO_EXTENSIONS 含 .flac(下载落地),
+  //   apps/ai-service/app/routers/media_tasks.py:521 音频直链映射含 "flac": "flac",
+  //   apps/api/src/routes/ai-audio.ts:731 AUDIO_ALLOWED_EXTS 含 '.flac'(/api/ai/audio/upload 自成一闸)。
+  // audio/flac 是 RFC 8258 登记值,audio/x-flac 是客户端常见退回值。
+  flac: ['audio/flac', 'audio/x-flac'],
   // 2026-10-28:视频/音频容器,原仅 scanner 白名单收;MIME 只收真实存在的声明值,
   // 宁可 400 也不放行无对应解码路径的类型(如 video/quicktime 之外的 mov 变体)。
   mp4: ['video/mp4', 'audio/mp4', 'application/mp4'],
   webm: ['video/webm', 'audio/webm'],
+  // 2026-11-04(格式对账尺 ③ 桶收口):m4v = MP4 容器(brand 'M4V '),五处消费面早已认它 ——
+  //   apps/api/src/plugins/upload-scanner.ts:44 ftyp 嗅探已列 ['mp4','m4v'](嗅探声称能产 m4v,
+  //   而白名单不收 ⇒ 嗅出的类型反而过不了校验,是自相矛盾),
+  //   apps/ai-service/app/routers/media_tasks.py:520 下载映射 "m4v": "mp4",
+  //   apps/miniapp-taro/src/rn-compat/platform.tsx:69/82/151(MIME 双表 + saveVideoToPhotosAlbum),
+  //   apps/miniapp-taro/src/pkg-ai/agent-dialogue/index.tsx:59 与 packages/app/src/features/chat-room/ChatRoomScreen.tsx:90(视频扩展名正则)。
+  // 本表不收 ⇒ 用户选中 .m4v 上传必吃 400,上述分支全走不到(死代码)。
+  // video/x-m4v 是 Apple/客户端常见声明值,video/mp4 与 application/mp4 是容器真值。
+  m4v: ['video/mp4', 'video/x-m4v', 'application/mp4'],
   mov: ['video/quicktime', 'video/mov'],
   // 2026-09-08:anydoc 解析引擎接入后开放的文档格式
   odt: ['application/vnd.oasis.opendocument.text'],
+  // 2026-11-03(票 S1 ③桶):OpenDocument 家族另两型。判据同 odt:
+  //   · 同为 ZIP 容器(mimetype 首条 + 前四字节 PK\x03\x04),魔数归 odt 那一组,
+  //     不新增解压路径 ⇒ 无压缩炸弹新面;
+  //   · apps/ai-service/app/tools/document_tools.py:60-64 _ANYDOC_EXTS 与
+  //     :80-97 SUPPORTED_EXTENSIONS 两处都登记 ods/odp,并交给 anydoc 主路径,
+  //     上传白名单不收 ⇒ 那条分支永远走不到(死代码)。
+  //   · odt 已在白名单(同 anydoc 路径、同 ZIP 头),odp/ods 与 odt 属同族,
+  //     按证据同批补齐;apps/api/services/document-parser.ts 侧的 ANYDOC_MIMES
+  //     暂未含 odp/ods MIME,由后续票补(不在本票文件射程)。
+  odp: ['application/vnd.oasis.opendocument.presentation'],
+  ods: ['application/vnd.oasis.opendocument.spreadsheet'],
   rtf: ['application/rtf', 'text/rtf'],
   epub: ['application/epub+zip'],
 }
@@ -149,8 +200,10 @@ export function checkMagicNumber(ext: string, buf: Buffer): boolean {
     case 'xlsx':
     case 'pptx':
     case 'odt':
+    case 'odp':
+    case 'ods':
     case 'epub':
-      // docx/xlsx/pptx(OOXML)与 odt/epub(开放文档)物理结构均为 ZIP;
+      // docx/xlsx/pptx(OOXML)与 odt/odp/ods/epub(开放文档)物理结构均为 ZIP;
       // 空归档与跨卷归档亦放行
       return matchesAny(buf, [
         [0x50, 0x4b, 0x03, 0x04],
@@ -169,12 +222,16 @@ export function checkMagicNumber(ext: string, buf: Buffer): boolean {
       ])
     case 'txt':
     case 'csv':
+    case 'md':
+    case 'tsv':
+    case 'json':
       // 纯文本无固定 magic number,跳过文件头校验
       return true
     // ── 音频(2026-10-16 语音消息上线)──
     case 'm4a':
     case 'mp4':
-      // MP4 容器:偏移 4 起为 'ftyp'(expo-audio 录音 = ftypM4A;视频 = ftypisom/mp42)
+    case 'm4v':
+      // MP4 容器:偏移 4 起为 'ftyp'(expo-audio 录音 = ftypM4A;视频 = ftypisom/mp42;m4v = ftypM4V )
       return buf.length >= 8 && buf.subarray(4, 8).toString('latin1') === 'ftyp'
     case 'mov':
       // QuickTime 与 MP4 同源:绝大多数 .mov 也是 'ftyp' 容器(brand 多为 'qt  '),
@@ -191,6 +248,11 @@ export function checkMagicNumber(ext: string, buf: Buffer): boolean {
     case 'ogg':
       // Ogg 容器页头 'OggS'
       return matchesAny(buf, [[0x4f, 0x67, 0x67, 0x53]])
+    case 'flac':
+      // 原生 FLAC 流:首四字节即 'fLaC' 流标记(RFC 8258 §10.1)。
+      // FLAC-in-Ogg 封装不改 .flac 扩展名的话首字节是 OggS —— 那是容器与扩展名不一致,
+      // 按本函数既有口径拒(宁可 400 也不放行无对应解码路径的字节流),用户应改投 .oga。
+      return matchesAny(buf, [[0x66, 0x4c, 0x61, 0x43]])
     case 'webm':
       // EBML 头(webm/mkv 共用)
       return matchesAny(buf, [[0x1a, 0x45, 0xdf, 0xa3]])

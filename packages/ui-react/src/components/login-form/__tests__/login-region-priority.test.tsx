@@ -381,4 +381,43 @@ describe('LoginForm — 地区判据晚到时的选中项', () => {
     expect(activeTabTestId(host)).toBe('login-tab-email')
   })
 })
+
+/* ── 异步重排时收起协议窗(2026-11-03 修) ───────────────────────────────────
+ * 缺陷形态:地区判定异步到达,首屏先按 locale 兜底境内 ⇒ 首个 tab=qr ⇒ 进入扫码面板
+ * 自动弹协议窗;地区到达后首位被重排成邮箱/密码,而弹窗不关 ⇒ 遮罩挡住用户已经能看到的
+ * 表单(海外访客与 CI e2e 都中招)。修法见 login-form.tsx 的 autoFollowFirstTab effect。
+ * 成对反证:首位仍是 qr(境内档)时重排不得关窗 —— 否则等于把扫码同意门禁拆掉。 */
+
+describe('LoginForm — 地区晚到重排时收起协议窗', () => {
+  const agreementForm = (tabs: LoginTab[]) => (
+    <LoginForm
+      t={t}
+      apiClient={apiClient}
+      canAutoSubmitCredentials={() => false}
+      showThirdParty={false}
+      showRegisterLink={false}
+      tabs={tabs}
+    />
+  )
+  // Radix Dialog 走 portal 挂 document.body,读 host 恒 false
+  const noticeVisible = () => !!document.querySelector('[data-testid="agreement-notice-agree"]')
+
+  it('首屏 qr 弹出协议窗 → 地区到达后首位变邮箱 ⇒ 弹窗收起且选中项跟到 email', () => {
+    const { host, rerender } = renderForm(agreementForm(['qr', 'phone', 'email', 'password']))
+    expect(noticeVisible(), '境内兜底首屏(qr)应已按既定流程弹出协议窗').toBe(true)
+
+    rerender(agreementForm(['email', 'password', 'qr']))
+    expect(noticeVisible(), '自动重排到非扫码首位时,拦着看不见的扫码面板的弹窗必须收起').toBe(false)
+    expect(activeTabTestId(host)).toBe('login-tab-email')
+  })
+
+  it('反向断言:首位仍是 qr(境内档)时重排 ⇒ 协议窗必须还在(同意门禁不被拆掉)', () => {
+    const { host, rerender } = renderForm(agreementForm(['qr', 'phone', 'email', 'password']))
+    expect(noticeVisible()).toBe(true)
+
+    rerender(agreementForm(['qr', 'email', 'password']))
+    expect(noticeVisible(), '首位未变则不得收起:扫码路径仍须先进协议门禁').toBe(true)
+    expect(activeTabTestId(host)).toBe('login-tab-qr')
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

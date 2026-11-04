@@ -40,8 +40,16 @@ function ftypBox(brand: string): Buffer {
 /**
  * 无固定魔数的纯文本类型 —— 必须显式豁免,不许靠"忘了写 case 就返回 false/true"蒙混。
  * txt/csv 的 checkMagicNumber 语义是"无需校验,直接放行"(见实现注释)。
+ *
+ * 2026-11-03(票 S1 ③桶)追加:
+ *   · tsv —— apps/web/src/lib/file-preview-attachment.ts:94 已把 tsv 当 csv 同族分隔符表格,
+ *     IANA 规范 text/tab-separated-values 无容器头;
+ *   · json —— apps/ai-service/app/tools/document_tools.py:341 走 json.loads(读全文再校验),
+ *     RFC 8259 未定义容器头。
+ * 两者与 txt/csv/md 同族 ⇒ 显式进本豁免数组,由下面「需要魔数判据的扩展名清单与正样本表逐项对齐」
+ * 那条牙拦"加了白名单忘了登记豁免"的静默漏。
  */
-const MAGIC_EXEMPT: readonly string[] = ['txt', 'csv']
+const MAGIC_EXEMPT: readonly string[] = ['txt', 'csv', 'md', 'tsv', 'json']
 
 /** 每个需要魔数判据的扩展名的正样本(必须与"并集 - MAGIC_EXEMPT"逐项对齐)。 */
 const MAGIC_FIXTURES: Record<string, Buffer> = {
@@ -61,6 +69,10 @@ const MAGIC_FIXTURES: Record<string, Buffer> = {
   xlsx: Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x14, 0x00]),
   pptx: Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x14, 0x00]),
   odt: Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x14, 0x00]),
+  // 2026-11-03(票 S1 ③桶):OpenDocument 演示/表格与 odt 同 ZIP 容器族 ⇒ 归 checkMagicNumber
+  // 的 ZIP 分支;正样本与 odt/epub 同形(PK\x03\x04 前四字节)。
+  odp: Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x14, 0x00]),
+  ods: Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x14, 0x00]),
   epub: Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x14, 0x00]),
   doc: Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]),
   xls: Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]),
@@ -77,7 +89,11 @@ const MAGIC_FIXTURES: Record<string, Buffer> = {
   ]),
   aac: Buffer.from([0xff, 0xf1, 0x50, 0x80]),
   ogg: Buffer.from('OggS\x00\x02', 'latin1'),
+  // 2026-11-04(格式对账尺 ③ 桶收口):flac 正样本 = 首四字节 'fLaC' 流标记(RFC 8258 §10.1)
+  flac: Buffer.from('fLaC\x00\x00', 'latin1'),
   webm: Buffer.from([0x1a, 0x45, 0xdf, 0xa3, 0x01, 0x00]),
+  // 2026-11-04(同上):m4v 与 m4a/mp4 同 MP4 容器,brand 位为 'M4V '
+  m4v: ftypBox('M4V '),
 }
 
 /** 任意二进制垃圾:除豁免类型外,任何扩展名都不许让它通过魔数闸。 */
@@ -181,6 +197,36 @@ describe('既有路由接受面不缩小', () => {
 
   it('validator 端到端放行 txt(声明 text/plain)', () => {
     const result = validateUploadFile(Buffer.from('hello\n', 'utf8'), 'a.txt', 'text/plain')
+    expect(result.ok).toBe(true)
+  })
+
+  // 票 D53(2026-11-03):解析面/小程序/前端 accept 三处都实现了 Markdown,唯独白名单不收
+  // ⇒ 用户在知识库上传框选中 .md 必吃 400。浏览器值与退回值两档都得放行。
+  it('validator 端到端放行 md(text/markdown 与 text/plain 两种声明值)', () => {
+    const body = Buffer.from('# 标题\n\n正文\n', 'utf8')
+    expect(validateUploadFile(body, 'note.md', 'text/markdown').ok).toBe(true)
+    expect(validateUploadFile(body, 'note.md', 'text/plain').ok).toBe(true)
+  })
+
+  // 票 S1 ③桶(2026-11-03):web 富预览的 tsv 分支与 ai-service 的 json 分支都被本白名单挡在门外,
+  // 用户选了必吃 400;两档都是纯文本族 ⇒ 显式放行,同时把"文本档不能借魔数把二进制伪装放过"
+  // 那一面反证留档(反例由下面的 JUNK 拒绝用例覆盖,不重复)。
+  it('validator 端到端放行 tsv(text/tab-separated-values 与 text/plain 两种声明值)', () => {
+    const body = Buffer.from('a\tb\tc\n1\t2\t3\n', 'utf8')
+    expect(validateUploadFile(body, 'grid.tsv', 'text/tab-separated-values').ok).toBe(true)
+    expect(validateUploadFile(body, 'grid.tsv', 'text/plain').ok).toBe(true)
+  })
+
+  it('validator 端到端放行 json(application/json 与 text/plain 两种声明值)', () => {
+    const body = Buffer.from('{"k":1}', 'utf8')
+    expect(validateUploadFile(body, 'data.json', 'application/json').ok).toBe(true)
+    expect(validateUploadFile(body, 'data.json', 'text/plain').ok).toBe(true)
+  })
+
+  // odp/ods 与 odt 同族(ZIP 容器 + anydoc 主路径),正样本走 PK\x03\x04 头;
+  // 垃圾内容改名成 .ods 必须被魔数闸拒绝 ⇒ 由下面的 JUNK 拒绝用例承接。
+  it.each(['odp', 'ods'])('validator 端到端放行 %s(OOXML/ODF 系 ZIP 容器)', (ext) => {
+    const result = validateUploadFile(MAGIC_FIXTURES[ext]!, `sample.${ext}`, getCanonicalMime(ext)!)
     expect(result.ok).toBe(true)
   })
 })

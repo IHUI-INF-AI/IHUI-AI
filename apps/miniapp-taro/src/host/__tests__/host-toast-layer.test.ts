@@ -11,7 +11,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const taro = vi.hoisted(() => ({ showToast: vi.fn() }))
 vi.mock('@tarojs/taro', () => ({ default: taro }))
 
-import { showHostToast } from '../../../../mobile-rn/src/host/host-toast'
+import { showHostToast } from '@ihui/shared/utils/host-toast'
 import { bindHostToastToTaro, showMiniHostToast } from '../HostToastLayer'
 
 describe('小程序 host toast 落地', () => {

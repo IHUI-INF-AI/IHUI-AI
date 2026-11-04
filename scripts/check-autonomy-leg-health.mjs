@@ -23,13 +23,16 @@
  *   `--worktree` 只给人工现场诊断;取不到 ⇒ exit 2 未判定,**不回落另一个面**。
  * 退出码:0=ok / 1=drift(点名可整改项)/ 2=unjudged(取不到输入,不记绿也不冒红)
  */
-import { readFileSync, existsSync } from 'node:fs'
+import { readFileSync, existsSync, readdirSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { spawnSync } from 'node:child_process'
 import { preflightSessionRunner, classifySessionFailure, resolveSessionCommand } from './lib/autonomy-runner.mjs'
 import { quarantinedUntilOf, LEDGER, DISPATCH_ARGS, parseTicketRows, PLAN_TASKS } from './auto-evolve.mjs'
 import { ticketKeyOf } from './lib/ticket-key.mjs'
+import { classifyLegs, actionableRows } from './lib/autonomy-leg-liveness.mjs'
+import { UNKNOWN_RULE_ID } from './lib/human-valve.mjs'
+import { judgeCarrierParity, judgeRoadmapClaims } from './lib/guardian-carrier-parity.mjs'
 // 取材面纪律(§0.4 / 守门 118):闸门配置是**仓库内容**,一律按被审面取,不回落磁盘。
 // 共享工作树常年滞后 HEAD ⇒ 按磁盘读会在"恒红"与"假绿"之间来回跳,正是这一型。
 import { Undetermined, catBatch, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
@@ -50,8 +53,22 @@ const FACE_TXT = {
   worktree: '工作树(人工逃生舱,提交链不走这档)',
 }
 
+/** 按被审面取任意仓库内文件(与 readGatesFace 同一口径,不另写第二份取面逻辑)。 */
+export function readFaceText(rel, face = FACE_SEL.face, root = ROOT) {
+  if (face === 'worktree') {
+    const t = readWorktreeFile(root, rel)
+    if (t === null || t === undefined) throw new Undetermined(`工作树(逃生舱)取不到 ${rel}`)
+    return t
+  }
+  const spec = (face === 'staged' ? ':' : 'HEAD:') + rel
+  const got = catBatch(root, [spec], { maxBuffer: 1 << 26 })
+  const t = got.get(spec)
+  if (t === null || t === undefined) throw new Undetermined(`${face === 'staged' ? '索引' : 'HEAD'} 取不到 ${rel}`)
+  return t
+}
+
 /** 按被审面取闸门配置;取不到抛 Undetermined,由调用方折成 exit 2 —— 不回落另一个面。 */
-export function readGatesFace(face = FACE_SEL, root = ROOT) {
+export function readGatesFace(face = FACE_SEL.face, root = ROOT) {
   if (face === 'worktree') {
     const t = readWorktreeFile(root, GATES_REL)
     if (t === null || t === undefined) throw new Undetermined(`工作树(逃生舱)取不到 ${GATES_REL}`)
@@ -64,14 +81,15 @@ export function readGatesFace(face = FACE_SEL, root = ROOT) {
   return t
 }
 
-/** 读台账(缺文件 ⇒ 空集,但由调用方如实标 unjudged,不用 0 冒充"没失败过")。 */
-export function readLedgerEvents(limit = 400) {
+/** 读台账(缺文件 ⇒ 空集,但由调用方如实标 unjudged,不用 0 冒充"没失败过")。
+ *  默认全量读:`limit` 截断会把超窗历史行挤出被审面,判据就会随台账增长悄悄变绿/变红(§12e)。 */
+export function readLedgerEvents(limit = Infinity) {
   if (!existsSync(LEDGER)) return { ok: false, events: [], why: `台账不在位:${LEDGER}` }
   const raw = readFileSync(LEDGER, 'utf8').trim()
   if (!raw) return { ok: true, events: [], why: '台账空' }
   const events = raw
     .split('\n')
-    .slice(-limit)
+    .slice(Number.isFinite(limit) ? -limit : 0)
     .map((l) => {
       try {
         return JSON.parse(l)
@@ -167,7 +185,148 @@ export function judgeWhitelist(events, whitelist) {
   }
 }
 
-export function evaluateAll({ repoRoot = ROOT, gatesText, events, ticketRows, transit, valve, closure } = {}) {
+/**
+ * A8-leg-liveness —— 各自治腿"按不按自己的节律在动"(判据零复算,全 import
+ * `scripts/lib/autonomy-leg-liveness.mjs` 的 classifyLegs/actionableRows)。
+ *
+ * 这一维补的是 A1-A7 整族的口径缺口:那七条问的是"工序在不在位、有没有被走到",
+ * 没有一条问"这台机器多久没动了"。实测同一天两格都是这么漏掉的 ——
+ * 号池哨兵盲 146 轮(19h)与部署反馈腿静默 36h,A 面当时一律报 OK=7 DRIFT=0。
+ * @param {ReturnType<typeof classifyLegs>|null} res 取不到 ⇒ unjudged,不读成"没有黑腿"
+ */
+export function judgeLegLiveness(res) {
+  if (!res || typeof res.state !== 'string') {
+    return { dim: 'A8-leg-liveness', state: 'unjudged', readout: '派发戳/登记表取不到 ⇒ 静默时长没量', next: '先让量的人拿得到输入(§0.3)' }
+  }
+  const bad = actionableRows(res)
+  const names = bad.slice(0, 4).map((r) => `${r.id.replace(/-dispatch-last\.json$/, '')}(${r.state}${typeof r.silentMin === 'number' ? ` 静默${r.silentMin}min` : ''})`)
+  return {
+    dim: 'A8-leg-liveness',
+    state: res.state,
+    readout: `${res.summary}${names.length ? ` ｜ ${names.join(' / ')}${bad.length > 4 ? ` …共 ${bad.length} 枚` : ''}` : ''}`,
+    next:
+      res.state === 'drift'
+        ? `出路(逐条,不得整片放宽判据):① 归属函数还在否(${bad[0]?.owner || '见登记表 owner'})→ 它的 env 开关是否被机器级关掉、器物是否在位;② 守护这一趟是否根本没走到该派发点;③ 这条腿确实该退役 ⇒ 摘条目并摘器物,别把清单留着腐烂。登记表 = scripts/data/autonomy-leg-liveness.json`
+        : res.state === 'unjudged'
+          ? '有条目判不出:先把输入取到(戳可读/attemptAt 可解析/时钟不失步)再谈放量'
+          : '',
+  }
+}
+
+/**
+ * A8 的取料(两种来源必须分开,不能混成一个面):
+ *   · 登记表 = 仓内文件 ⇒ 按被审面取(§0.4 取材面纪律,与 gates/A6 的 auto-evolve.mjs 同规);
+ *     取不到 ⇒ 整维 unjudged,**绝不读成"登记表空 = 没有黑腿"**。
+ *   · 派发戳 = `.ihui-agent/state/` 运行态(gitignored)⇒ 只能读盘上真值,读它的工作树副本才是对的。
+ * 覆盖面自证在判据器里(classifyLegs 拿 disk 全集与登记表做双向对账),本层只搬运输入。
+ */
+export const LIVENESS_REGISTRY_REL = 'scripts/data/autonomy-leg-liveness.json'
+export const LIVENESS_STATE_DIR_REL = join('.ihui-agent', 'state')
+
+export function judgeLivenessFace({ face = FACE_SEL.face, root = ROOT, now = Date.now() } = {}) {
+  let legs
+  try {
+    const reg = JSON.parse(readFaceText(LIVENESS_REGISTRY_REL, face, root))
+    if (!Array.isArray(reg.legs)) throw new Error('登记表没有 legs 数组 ⇒ 形状坏')
+    legs = reg.legs
+  } catch (e) {
+    return judgeLegLiveness({ state: 'unjudged', rows: [], summary: `登记表取不到/形状坏(${String(e?.message ?? e).slice(0, 90)})⇒ 不判` })
+  }
+  const dir = join(root, LIVENESS_STATE_DIR_REL)
+  let onDisk = []
+  try {
+    onDisk = readdirSync(dir).filter((f) => f.endsWith('-dispatch-last.json'))
+  } catch (e) {
+    return judgeLegLiveness({ state: 'unjudged', rows: [], summary: `派发戳目录读不到(${String(e?.code ?? e).slice(0, 40)})⇒ 静默时长量不出` })
+  }
+  const stamps = {}
+  for (const f of onDisk) {
+    try {
+      const j = JSON.parse(readFileSync(join(dir, f), 'utf8'))
+      const at = Date.parse(String(j.attemptAt ?? '').trim())
+      stamps[f] = Number.isFinite(at) ? { readable: true, attemptAtMs: at } : { readable: false }
+    } catch {
+      stamps[f] = { readable: false }
+    }
+  }
+  return judgeLegLiveness(classifyLegs({ legs, stamps, stampFilesOnDisk: onDisk, now }))
+}
+
+/**
+ * A9-carrier-parity —— 有多少自治腿**根本不在常驻承载面上**(判据零复算,
+ * 全 import `scripts/lib/guardian-carrier-parity.mjs`)。
+ * 被审面 = 本次判定面的 git-guardian.mjs 源(§0.4:与 A6 取 auto-evolve.mjs 同规)。
+ */
+export function judgeCarrierParityFace({ face = FACE_SEL.face, root = ROOT } = {}) {
+  let src = null
+  try {
+    src = readFaceText('scripts/git-guardian.mjs', face, root)
+  } catch {
+    src = null
+  }
+  // 豁免清单同样按被审面取(与判据本体同面);取不到 ⇒ 空集 ⇒ 不摘任何一条,
+  // 失效方向恒为"多判一条黑",绝不因为台账读不到就放开(§0.10)。
+  let exemptions = []
+  try {
+    const parsed = JSON.parse(readFaceText('scripts/data/guardian-carrier-parity-exemptions.json', face, root))
+    if (Array.isArray(parsed.exemptions)) exemptions = parsed.exemptions
+  } catch {
+    exemptions = []
+  }
+  const r = judgeCarrierParity({ source: src ?? '', exemptions, now: Date.now() })
+  const names = r.dark.slice(0, 6).join(', ')
+  return {
+    dim: 'A9-carrier-parity',
+    state: r.state,
+    readout: r.state === 'unjudged' ? r.why : `${r.why}${r.dark.length ? ` ｜ 例:${names}${r.dark.length > 6 ? ` …共 ${r.dark.length} 条` : ''}` : ''}`,
+    next:
+      r.state === 'drift'
+        ? '这些腿只挂在一次性 main() 里,而常驻 daemon 全程持轮级锁 ⇒ main 每趟都让路,它们结构上跑不到。出路 = 逐条裁决:该上常驻面的把调用点补进 startDaemon 的 tick(每条都得自证有节流),确实只能一次性跑的进具名豁免清单带理由与到期。清单见 scripts/lib/guardian-carrier-parity.mjs 头注。'
+        : r.state === 'unjudged'
+          ? '先把被审面取到(HEAD/索引任一可读)再谈判定'
+          : '',
+  }
+}
+
+/**
+ * A10-roadmap-claims —— 路线图中"§7 装车状态"那张**人手抄的表**与机器事实对账
+ * (判据零复算,全 import `scripts/lib/guardian-carrier-parity.mjs` 的 judgeRoadmapClaims)。
+ * 装这张表的必要性:A9 量出 46 条只挂 main 的那天,那张表自己正写着"只挂 main 等于永不执行"。
+ * 声明与事实并存却无人对账 ⇒ 这正是"文档说装好了"这类失效得以长期存在的结构原因。
+ */
+// 被审面走 `git show HEAD:<rel>`,pathspec 必须用正斜杠 —— 这里绝不能用 join(),
+// Windows 上它会给出 `docs\self-evolution-roadmap.md`,git 直接报"路径不存在"⇒ 整维假未判定。
+export const ROADMAP_DOC_REL = 'docs/self-evolution-roadmap.md'
+
+export function judgeRoadmapClaimsFace({ face = FACE_SEL.face, root = ROOT } = {}) {
+  let guardian = null
+  let roadmap = null
+  try {
+    guardian = readFaceText('scripts/git-guardian.mjs', face, root)
+  } catch {
+    guardian = null
+  }
+  try {
+    roadmap = readFaceText(ROADMAP_DOC_REL, face, root)
+  } catch {
+    roadmap = null
+  }
+  const r = judgeRoadmapClaims({ guardianSource: guardian ?? '', roadmapText: roadmap ?? '' })
+  const bad = (r.rows ?? []).filter((x) => x.state !== 'ok')
+  return {
+    dim: 'A10-roadmap-claims',
+    state: r.state,
+    readout: r.state === 'unjudged' ? r.why : `${r.why}${bad.length ? '' : `(已对账 ${(r.rows ?? []).length} 条声称)`}`,
+    next:
+      r.state === 'drift'
+        ? `出路:逐条要么把挂点真接进 startDaemon 的 tick(接完必须有节流戳,否则 A9 会把这枚列回黑腿),要么把表里那一行改成它的真载体 —— 不许只改表来对账,那是把声明降级去迁就已坏的事实(§12f)。`
+        : r.state === 'unjudged'
+          ? '先把两个被审面取到(守护源 + 路线图文档),再谈放量'
+          : '',
+  }
+}
+
+export function evaluateAll({ repoRoot = ROOT, gatesText, events, ticketRows, transit, valve, closure, liveness, parity, claims } = {}) {
   const dims = []
   let gates
   try {
@@ -179,6 +338,9 @@ export function evaluateAll({ repoRoot = ROOT, gatesText, events, ticketRows, tr
   if (transit) dims.push(transit)
   if (valve) dims.push(valve)
   if (closure) dims.push(closure)
+  if (liveness) dims.push(liveness)
+  if (parity) dims.push(parity)
+  if (claims) dims.push(claims)
   if (!events.ok) { /* 台账缺失只影响 A2/A3/A4 */
     dims.push({ dim: 'A2-attribution', state: 'unjudged', readout: events.why, next: '台账取不到 ⇒ 不冒充"没失败过"' })
     dims.push({ dim: 'A3-range', state: 'unjudged', readout: '无台账输入 ⇒ 封票数判不出', next: '' })
@@ -271,12 +433,28 @@ export function judgeValveGate(events, { mode, headSource } = {}) {
   const byRule = {}
   for (const r of stopRows) byRule[r.ruleId ?? '(无 id)'] = (byRule[r.ruleId ?? '(无 id)'] ?? 0) + 1
   const dist = Object.entries(byRule).map(([k, v]) => `${k}×${v}`).join(' ') || '(尚无命中)'
+  // "拦对了"与"没规则可判"必须分开报:两者的出路完全相反。
+  // 具名命中 = 这一类本就归人(如回滚生产、换 key)⇒ 正确出口是**把该类票摘出自动派单面**;
+  // unknown-fail-closed = 分类器缺匹配器 ⇒ 正确出口是**补匹配器**(2026-11-04 那一枚就把
+  // 12 枚候选里 11 枚的 unknown 降到 5,靠的是给名词形态工程票与两条漏判的危险语序补规则)。
+  // 混在一个数里报,就会既有人拿"阀在拦"当成绩、也有人拿"unknown 很多"去拆 fail-closed 默认。
+  const unknownStops = byRule[UNKNOWN_RULE_ID] ?? 0
+  const namedStops = stopRows.length - unknownStops
   if (mode === 'observe') {
     return {
       dim: 'A6-human-valve-gate',
       state: unjudged.length > 0 ? 'drift' : 'ok',
-      readout: `observe 档:派发尝试 ${attempted} 轮 / 闸留痕 ${valveRows.length} 条 / 记为"会拦" ${stopRows.length} 条(${dist})/ 未判定 ${unjudged.length} 条`,
-      next: unjudged.length > 0 ? `未判定 ${unjudged.length} 条必须先归零(清单坏/取不到),否则切 enforce 就是把票无限期停派;切 enforce 的前置:observe 覆盖完整流量周期 ∧ 未判定=0` : '放量到 enforce 前,先确认 observe 覆盖了一个完整流量周期',
+      readout:
+        `observe 档:派发尝试 ${attempted} 轮 / 闸留痕 ${valveRows.length} 条 / 记为"会拦" ${stopRows.length} 条` +
+        `【具名 ${namedStops} + 无规则可判 ${unknownStops}】(${dist})/ 未判定 ${unjudged.length} 条`,
+      next:
+        unjudged.length > 0
+          ? `未判定 ${unjudged.length} 条必须先归零(清单坏/取不到),否则切 enforce 就是把票无限期停派;切 enforce 的前置:observe 覆盖完整流量周期 ∧ 未判定=0`
+          : unknownStops > 0
+            ? `注意区分两种"拦":具名 ${namedStops} 条是这一类本就归人(出路=把该类票摘出自动派单面,不是修阀);` +
+              `unknown ${unknownStops} 条是分类器缺匹配器(出路=给 lib/human-valve.mjs 的 MATCHERS 补形态)。` +
+              `拿 unknown 当"阀在起作用"会把天花板藏起来,反过来为了数字好看把 unknown 翻成 self-serve 则是拆 fail-closed 默认,两向都不许。`
+            : '放量到 enforce 前,先确认 observe 覆盖了一个完整流量周期',
     }
   }
   return {
@@ -293,7 +471,10 @@ export function judgeValveGate(events, { mode, headSource } = {}) {
  * "会话结束了"当成"这轮干成了"。AGENTS §10 要的是交付与产出一致,所以必须有第二问:
  * 票行到底动了没有。四档不并桶,且"没结算的成功"要单独点名(结算腿漏覆盖 = 尺子盲区)。
  */
-export function judgeDispatchClosure(events, { schedulerSource, windowHours = 48, now = Date.now() } = {}) {
+export function judgeDispatchClosure(
+  events,
+  { schedulerSource, windowHours = 48, now = Date.now(), activeTicketKeys = null } = {},
+) {
   if (schedulerSource === null || schedulerSource === undefined) {
     return { dim: 'A7-dispatch-closure', state: 'unjudged', readout: '派发器源码在被审面取不到 ⇒ 闭环与否判不出', next: '核 scripts/auto-evolve.mjs 是否在被审面上' }
   }
@@ -302,7 +483,14 @@ export function judgeDispatchClosure(events, { schedulerSource, windowHours = 48
   }
   const okRows = events.filter((e) => e.action === 'session-ok' && e.ticketKey)
   const settledRows = events.filter((e) => e.action === 'dispatch-settled')
-  const noProgress = settledRows.filter((e) => e.settled === 'no-progress')
+  // 按票收敛(2026-11-03 收,治"A7 次生缺陷:历史行永久顶红"):
+  // no-progress 只在**该票仍在册**时才算"现在还在零推进"。票已从派单面摘除(作废/删除/结清),
+  // 它的历史 no-progress 就不再代表当前闭环失效 —— 否则一张出册票的 7 条历史行会永远把尺子钉红,
+  // 逼人学会忽略报警(§12e)。缺省 null = 旧行为(全量算),既有自测不受影响。
+  // 注意:这不是按时间窗抹历史 —— 仍在册的票,哪怕 no-progress 是几个月前,照旧顶红。
+  const noProgress = settledRows.filter(
+    (e) => e.settled === 'no-progress' && (!activeTicketKeys || activeTicketKeys.has(e.ticketKey)),
+  )
   const unjudgedS = settledRows.filter((e) => e.settled === 'unjudged')
   const advanced = settledRows.filter((e) => e.settled === 'line-gone' || e.settled === 'line-changed')
   const cutoff = now - windowHours * 3600_000
@@ -362,18 +550,22 @@ async function selfTest() {
     return r.state === 'drift' && r.next.includes('Nope-Repo-ZZZ')
   })())
   ok('H3 空模板 ⇒ unjudged(不冒充"健康")', judgePreflight('  ', root).state === 'unjudged')
+  // 封票夹具必须用相对时间:绝对时刻一过期,判据就必然落到"已解封"分支,用例永久红(H4)
+  // 或空转假绿(H5)。语义是"此刻仍在封禁中",故取 now+1h。
   ok('H4 冤封识别:ERR_MODULE_NOT_FOUND 的失败 + 同键 quarantined ⇒ drift', (() => {
+    const future = new Date(Date.now() + 3600_000).toISOString()
     const ev = [
       { action: 'session-failed', ticketKey: 'k1', exitCode: 1, why: "Error [ERR_MODULE_NOT_FOUND]: Cannot find module 'G:/x'" },
-      { action: 'quarantined', ticketKey: 'k1', until: '2026-11-03T00:00:00.000Z', ticketLine: 'X-1 某票' },
+      { action: 'quarantined', ticketKey: 'k1', until: future, ticketLine: 'X-1 某票' },
     ]
     const r = judgeMisattribution(ev)
     return r.state === 'drift' && r.readout.includes('1')
   })())
   ok('H5 变异:真·会话失败的封票不算冤(分型不得把票的失败也免掉)', (() => {
+    const future = new Date(Date.now() + 3600_000).toISOString()
     const ev = [
       { action: 'session-failed', ticketKey: 'k2', exitCode: 1, why: 'typecheck failed' },
-      { action: 'quarantined', ticketKey: 'k2', until: '2026-11-03T00:00:00.000Z', ticketLine: 'X-2' },
+      { action: 'quarantined', ticketKey: 'k2', until: future, ticketLine: 'X-2' },
     ]
     return judgeMisattribution(ev).state === 'ok'
   })())
@@ -439,6 +631,13 @@ async function selfTest() {
       return false
     }
   })())
+  ok('H19b 不传 face ⇒ 默认取 FACE_SEL.face,而不是整个选面对象', (() => {
+    // 默认值是对象时 `face === 'staged'/'worktree'` 全落空 ⇒ 一律静默按 HEAD 读;
+    // 本机 --self-test 的 FACE_SEL.face 恰好也是 head,行为上看不出差别,故同时钉默认表达式本身
+    // (写死断言,不读环境变量;回归到对象写法即红)。
+    const defaultExpr = /face\s*=\s*FACE_SEL\.face\s*(?:,|\))/.test(readGatesFace.toString())
+    return defaultExpr && typeof FACE_SEL.face === 'string' && readGatesFace(undefined, ROOT) === readGatesFace(FACE_SEL.face, ROOT)
+  })())
   const wiredSrc = 'function runOnce(){ const valve = gateTicketByHumanValve({ ticketText, mode, valveListText }) }'
   ok('H21 派发路径没有调用点 ⇒ drift(闸只是装饰,这正是 2026-11-01 之前的实测形态)', judgeValveGate([], { mode: 'observe', headSource: 'function runOnce(){ dispatchSession(gates, ticket) }' }).state === 'drift')
   ok('H22 被审面取不到 ⇒ unjudged,不用"取不到"冒充"没接线"', judgeValveGate([], { mode: 'observe', headSource: null }).state === 'unjudged')
@@ -454,6 +653,40 @@ async function selfTest() {
   })())
   ok('H25 变异:observe 期出现未判定 ⇒ drift(enforce 前置未满足,不能放量)', judgeValveGate([{ action: 'session-failed', ticketKey: 'k' }, { action: 'valve-unjudged', ticketKey: 'k' }], { mode: 'observe', headSource: wiredSrc }).state === 'drift')
   ok('H26 档位取值非法 ⇒ drift(不猜档)', judgeValveGate([], { mode: 'yolo', headSource: wiredSrc }).state === 'drift')
+  // H27-H28:"拦对了"与"没规则可判"必须分开报(2026-11-04 实测 12 枚候选里 11 枚落 unknown,
+  // 混在一个数里报就会有人拿"阀在拦"当成绩、也有人拿"unknown 多"去拆 fail-closed 默认)。
+  ok(
+    'H27 unknown 与具名停机分档读数,且出路文案各指一边',
+    (() => {
+      const ev = [
+        { action: 'session-failed', ticketKey: 'k' },
+        { action: 'valve-observe-stop', ticketKey: 'k', ruleId: 'unknown-fail-closed' },
+        { action: 'valve-observe-stop', ticketKey: 'k', ruleId: 'unknown-fail-closed' },
+        { action: 'valve-observe-stop', ticketKey: 'k', ruleId: 'production-deploy' },
+      ]
+      const r = judgeValveGate(ev, { mode: 'observe', headSource: wiredSrc })
+      return (
+        r.state === 'ok' &&
+        r.readout.includes('具名 1') &&
+        r.readout.includes('无规则可判 2') &&
+        r.next.includes('摘出自动派单面') &&
+        r.next.includes('MATCHERS')
+      )
+    })(),
+  )
+  ok(
+    'H28 全部具名命中时不得再喊"补匹配器"(反向档:文案不能常驻吓人)',
+    (() => {
+      const r = judgeValveGate(
+        [
+          { action: 'session-failed', ticketKey: 'k' },
+          { action: 'valve-observe-stop', ticketKey: 'k', ruleId: 'api-key-change' },
+        ],
+        { mode: 'observe', headSource: wiredSrc },
+      )
+      return r.state === 'ok' && r.next.includes('完整流量周期') && !r.next.includes('MATCHERS')
+    })(),
+  )
   ok('H27 A6 的 drift 必须顶起整尺(闸哑了尺子不能报绿)', (() => {
     const g = JSON.stringify({ sessionCommandTemplate: `node \${REPO_ROOT}/apps/cli/dist/index.js`, ticketWhitelist: ['a'], humanValveMode: 'observe' })
     const r = evaluateAll({ repoRoot: root, gatesText: g, events: { ok: true, events: [{ action: 'session-ok', ticketKey: 'k' }] }, ticketRows: [{ text: 'a', line: 1 }], valve: judgeValveGate([{ action: 'session-ok', ticketKey: 'k' }], { mode: 'observe', headSource: wiredSrc }) })
@@ -516,6 +749,37 @@ async function selfTest() {
     const r = judgeDispatchClosure(ev, { schedulerSource: closureSrc, now: Date.parse('2026-11-01T05:00:00.000Z') })
     return r.state === 'drift' && r.readout.includes('结算腿生效后仍无结算行')
   })())
+  ok('H38 票仍在册 + no-progress ⇒ 仍 drift(按票收敛不得假绿放走真事故)', (() => {
+    const ev = [
+      { action: 'session-ok', ticketKey: 'k1', ts: '2026-10-31T05:00:00.000Z', ticketLine: 'B9 **某票** 原文' },
+      { action: 'dispatch-settled', ticketKey: 'k1', sourceTs: '2026-10-31T05:00:00.000Z', settled: 'no-progress', ticketLine: 'B9 **某票** 原文' },
+    ]
+    const r = judgeDispatchClosure(ev, {
+      schedulerSource: closureSrc,
+      now: Date.parse('2026-11-01T05:00:00.000Z'),
+      activeTicketKeys: new Set(['k1']),
+    })
+    return r.state === 'drift' && r.readout.includes('1 枚') && r.next.includes('B9')
+  })())
+  ok('H39 票已从在册面摘除 ⇒ 该票历史 no-progress 不再顶红(按票收敛,不按时间窗抹历史)', (() => {
+    const ev = [
+      { action: 'session-ok', ticketKey: 'k1', ts: '2026-10-31T05:00:00.000Z', ticketLine: 'B9 **某票** 原文' },
+      { action: 'dispatch-settled', ticketKey: 'k1', sourceTs: '2026-10-31T05:00:00.000Z', settled: 'no-progress', ticketLine: 'B9 **某票** 原文' },
+    ]
+    const r = judgeDispatchClosure(ev, {
+      schedulerSource: closureSrc,
+      now: Date.parse('2026-11-01T05:00:00.000Z'),
+      activeTicketKeys: new Set(['k-other']),
+    })
+    return r.state === 'ok' && r.readout.includes('已结算 1 条')
+  })())
+  ok('H40 activeTicketKeys 缺省 ⇒ 旧行为不变(历史 no-progress 照旧顶红)', (() => {
+    const ev = [
+      { action: 'session-ok', ticketKey: 'k1', ts: '2026-10-31T05:00:00.000Z', ticketLine: 'B9 **某票** 原文' },
+      { action: 'dispatch-settled', ticketKey: 'k1', sourceTs: '2026-10-31T05:00:00.000Z', settled: 'no-progress', ticketLine: 'B9 **某票** 原文' },
+    ]
+    return judgeDispatchClosure(ev, { schedulerSource: closureSrc, now: Date.parse('2026-11-01T05:00:00.000Z') }).state === 'drift'
+  })())
   console.log(fail === 0 ? `autonomy-leg-health self-test: ${pass} 例全绿` : `autonomy-leg-health self-test: ${pass} 绿 / ${fail} 红`)
   return fail === 0 ? 0 : 1
 }
@@ -568,8 +832,15 @@ async function main() {
     valveSource = null
   }
   const valve = gatesObj ? judgeValveGate(events.ok ? events.events : [], { mode: gatesObj.humanValveMode, headSource: valveSource }) : null
-  const closure = judgeDispatchClosure(events.ok ? events.events : [], { schedulerSource: valveSource })
-  const result = evaluateAll({ repoRoot, gatesText, events, ticketRows: ticketRows ?? [], transit, valve, closure })
+  const closure = judgeDispatchClosure(events.ok ? events.events : [], {
+    schedulerSource: valveSource,
+    // 在册面 = 本次派单面(与 A3 同一份 parseTicketRows 取票口径);取不到(空)⇒ null 保持旧行为
+    activeTicketKeys: ticketRows && ticketRows.length ? new Set(ticketRows.map((r) => ticketKeyOf(r.text))) : null,
+  })
+  const liveness = judgeLivenessFace({ face: FACE_SEL.face, repoRoot, root: repoRoot })
+  const parity = judgeCarrierParityFace({ face: FACE_SEL.face, root: repoRoot })
+  const claims = judgeRoadmapClaimsFace({ face: FACE_SEL.face, root: repoRoot })
+  const result = evaluateAll({ repoRoot, gatesText, events, ticketRows: ticketRows ?? [], transit, valve, closure, liveness, parity, claims })
   if (asJson) {
     console.log(JSON.stringify({ verdict: result.state, face: FACE_SEL.face, ...result, identity: alertIdentity(result) }, null, 1))
   } else {

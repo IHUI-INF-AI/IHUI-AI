@@ -809,6 +809,14 @@ export function resolveRegistrationLoss(
   const multiset = opts.multiset === true
   const declaredSet = declared instanceof Set ? declared : (declared?.set ?? new Set())
   const dropTitleFps = declared instanceof Set ? new Set() : (declared?.dropTitleFps ?? new Set())
+  // 第三维(复合主键):回捞侧 `healContent` 早就吃 `declared.keyIndex`(L2432-2450),而检测侧只吃
+  // 逐字 set + 题面指纹 ⇒ 同一本摘除台账两面读,现象是"喊 HEAD 缺 N 条、回捞侧一条都不插"
+  // (2026-11-03 实测 RP-79:逐字面 set=false、指纹=false、keyIndex=true),落地器每轮都被判
+  // "跑而未成"。检测与处置必须问同一把尺(§0.6),这一维补上后两面同形。
+  const declaredKeyIndex =
+    declared && typeof declared === 'object' && declared.keyIndex instanceof Map
+      ? declared.keyIndex
+      : null
   const retiredSet = retired instanceof Set ? retired : new Set()
   const groups = new Map()
   const textOnly = []
@@ -859,9 +867,17 @@ export function resolveRegistrationLoss(
   // 拦成本轮零回捞 + 未判定退出码。旧口径把"看不见声明"当成"没人声明过"继续插行,是 fail-open
   // (实测:被 f12-purge 正当摘掉的禁令形态行,逐字节插回台账 ⇒ "摘了又回来")。
   // 与 pointerExempt 并存:两条通道互不替代。
+  // 〔2026-11-03 补第三维〕`keyIndex`(复合主键 = 编号 + 标题前缀,取值口径 import
+  // `lib/plan-task-index.compositeKeyOf`,与回捞侧 L2444 同一把尺):行尾被追加过注记的行
+  // 逐字不等、题面指纹也不命中,但主键在台账里 ⇒ 它就是那次正当摘除的本体。
+  // 从严方向不变:三个集合都为空(台账取不到)时一条都不免。
   const declaredExempt = (e) =>
     typeof e.line === 'string' &&
-    (declaredSet.has(e.line) || (dropTitleFps.size > 0 && dropTitleFps.has(titleFpOf(e.line))))
+    (declaredSet.has(e.line) ||
+      (dropTitleFps.size > 0 && dropTitleFps.has(titleFpOf(e.line))) ||
+      (declaredKeyIndex !== null &&
+        Boolean(compositeKeyOf(e.line)) &&
+        declaredKeyIndex.has(compositeKeyOf(e.line))))
   // 已结清短留痕(2026-10-25):窗口外看不见那次翻勾时,按落盘的 retired 拒绝复插。
   // 只对"已观察到的翻勾"生效;没观察到的 ≠ 没结清(空集,行为与改前一致)。
   const retiredExempt = (e) => typeof e.marker === 'string' && retiredSet.has(e.marker)
@@ -3915,6 +3931,45 @@ function selfTest() {
     )
     // 正向牙:台账看不见时判缺 1(不豁免);台账在场时判缺 0(逐字命中)——两侧都必须是**判定**出来的
     return seen.length === 1 && blind.length === 1 && ledgered.length === 0
+  })
+
+  t('台账第三维(复合主键):检测侧与回捞侧吃同一把尺 ⇒ keyIndex 命中即不判缺(成对反向)', () => {
+    const row =
+      '- [ ] G-909998 主键维靶行:行尾被追加过注记,逐字与题面指纹都命不中,但复合主键在摘除台账里。'
+    const note = row + '(摘除留痕#seq7 见 plan-row-drop.jsonl)'
+    const face =
+      '- [ ] G-900002 另一条在册登记行,同样写得足够长以免被最短长度判据挡在射程之外。\n'
+    const seen = registeredLines(note)
+    const ck = compositeKeyOf(note)
+    const keyOnly = resolveRegistrationLoss(seen, face, {
+      set: new Set(),
+      dropTitleFps: new Set(),
+      keyIndex: new Map([[ck, note]]),
+    })
+    const noKey = resolveRegistrationLoss(seen, face, {
+      set: new Set(),
+      dropTitleFps: new Set(),
+      keyIndex: new Map(),
+    })
+    // 两侧都必须是判出来的:给主键维 ⇒ 不判缺(这就是那次"喊缺却插不回"的形态);
+    // 摘掉主键维(空 Map)⇒ 照旧判缺一条,证明本维不是把判据放宽成恒免。
+    return (
+      Boolean(ck) && seen.length === 1 && keyOnly.length === 0 && noKey.length === 1
+    )
+  })
+
+  t('形状锁:检测侧 declaredExempt 必须三维同尺(逐字 ∨ 题面指纹 ∨ 复合主键)', () => {
+    const src = readFileSync(fileURLToPath(import.meta.url), 'utf8')
+    const i = src.indexOf('const declaredExempt =')
+    const body = src.slice(i, i + 700)
+    return (
+      i > 0 &&
+      body.includes('declaredKeyIndex') &&
+      body.includes('compositeKeyOf(e.line)') &&
+      src.slice(src.indexOf('const declaredKeyIndex'), src.indexOf('const declaredKeyIndex') + 260).includes(
+        'declared.keyIndex instanceof Map',
+      )
+    )
   })
 
   t('形状锁:heal() 必须真消费闸门决议(摘掉这一支 ⇒ 上面那条未判定档就只是纸面判据)', () => {

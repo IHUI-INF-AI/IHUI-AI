@@ -6,7 +6,19 @@
 # "fatal: this operation must be run in a work tree"([152]/[164]/[167]/[168]/[172]
 # 链内全灭、单跑全绿的根因)。unset 后 git 从 cwd(worktree 根)经 ./.git
 # 指针文件发现同一仓库,语义不变。
-unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_QUARANTINE_PATH
+#
+# ─── GIT_INDEX_FILE 不再无条件清空(2026-11-03 立,根因见下)────────────
+# `git commit --only/--amend -- <路径>` 期间,git 会把「只含本次路径的临时索引」
+# (<gitdir>/next-index-<pid>.lock,绝对路径)经 GIT_INDEX_FILE 交给钩子,同时父 git
+# 持着 .git/index.lock。旧写法把它一起 unset ⇒ lint-staged 落到**共享真实索引**上:
+#   git add / git restore --worktree 都要写索引 ⇒ 撞父 git 的 index.lock ⇒ exit 128,
+#   并发会话互相堵死;还可能 restore --worktree 掉别人未暂存的改动。
+# 判据(与 scripts/lib/hook-git-env.js 同源):指针非空**且文件确实存在** ⇒ 保留;
+#   空/陈旧(文件不存在)⇒ 清掉 —— 否则所有 git 命令把它读成空索引,全仓文件都像已暂存。
+if [ -z "$GIT_INDEX_FILE" ] || [ ! -f "$GIT_INDEX_FILE" ]; then
+  unset GIT_INDEX_FILE
+fi
+unset GIT_DIR GIT_WORK_TREE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_QUARANTINE_PATH
 # ─── Pre-commit 守门薄壳(2026-09-22 弹窗根治) ─────────────────
 # 原本逻辑:本文件直接是 node 脚本(#!/usr/bin/env node),由 git 直接启动。
 # 病理:git hook 继承触发者的 console 上下文;当 commit 在无 console 的上下文

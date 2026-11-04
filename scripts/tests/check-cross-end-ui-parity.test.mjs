@@ -1549,7 +1549,10 @@ test('T37 别名归一正向:一侧引常数名、另一侧直取同一几何档
 })
 
 test('T38 反向对照:另一侧取的是**不同**的几何档 ⇒ 照判单侧(别名不许把两个档并成一个)', () => {
-  const { sl } = slRun('const s = { width: rpx(taroGeometry.otherBox) }\n', 'const s = { width: FOO_PX }\n')
+  const { sl } = slRun(
+    'const s = { width: rpx(taroGeometry.otherBox) }\n',
+    'const s = { width: FOO_PX }\n',
+  )
   assert.equal(sl.length, 1)
   assert.deepEqual(sl[0].onlyRn, ['FOO_PX'], '投影源不同 ⇒ 这条必须仍然判单侧,归一不得遮账')
 })
@@ -1586,8 +1589,14 @@ test('T40 真仓对照:票面点名的 INPUT_AREA_IN_SHELL_BTN_PX 假账在 HEAD
   const c = src.collect(ROOT, 'head', { pairAll: false })
   const sl = src.specLegAudit(c.pairs, c.text, c.tiers)
   const all = sl.flatMap((x) => [...x.onlyMiniapp, ...x.onlyRn])
-  assert.ok(!all.includes('INPUT_AREA_IN_SHELL_BTN_PX'), '改前该档被算成仅 RN 引用(实测假账),现必须不再出现')
-  assert.ok(Object.keys(src.specProjectionAliases(c.tiers)).length > 0, '真仓 spec 面投影表为空 ⇒ 这一腿没接到真数据')
+  assert.ok(
+    !all.includes('INPUT_AREA_IN_SHELL_BTN_PX'),
+    '改前该档被算成仅 RN 引用(实测假账),现必须不再出现',
+  )
+  assert.ok(
+    Object.keys(src.specProjectionAliases(c.tiers)).length > 0,
+    '真仓 spec 面投影表为空 ⇒ 这一腿没接到真数据',
+  )
 })
 
 /**
@@ -1597,15 +1606,18 @@ test('T40 真仓对照:票面点名的 INPUT_AREA_IN_SHELL_BTN_PX 假账在 HEAD
  * 锁法:先定位打印语句本身(不搜全文 —— `圆角` 这个词在 audit 的 over[] 里合法出现),
  * 再断言它逐字取 `r.over`、且不再自带 `圆角 ${...radiusCount}` 这种第二份维度计算。
  */
-test("T- WD 判红文案取单源 over[],不得复算维度", () => {
-  const txt = flat(readFileSync(SELF, "utf8"))
-  const head = txt.indexOf("for (const r of webVerdict.red)")
-  assert.ok(head >= 0, "找不到 WD 判红循环(被摘线?)")
-  const at = txt.indexOf("console.log(", head)
-  assert.ok(at > head && at - head < 500, "循环体里找不到打印语句")
+test('T- WD 判红文案取单源 over[],不得复算维度', () => {
+  const txt = flat(readFileSync(SELF, 'utf8'))
+  const head = txt.indexOf('for (const r of webVerdict.red)')
+  assert.ok(head >= 0, '找不到 WD 判红循环(被摘线?)')
+  const at = txt.indexOf('console.log(', head)
+  assert.ok(at > head && at - head < 500, '循环体里找不到打印语句')
   const win = txt.slice(at, at + 320)
-  assert.ok(/r.over.join/.test(win), "打印语句不再引用单源 over[] ⇒ 又会自算维度:" + win.slice(0, 120))
-  assert.ok(!/圆角 ${r.radiusCount}/.test(win), "打印层复算了圆角维度 ⇒ 会把几何分叉念成圆角分叉")
+  assert.ok(
+    /r.over.join/.test(win),
+    '打印语句不再引用单源 over[] ⇒ 又会自算维度:' + win.slice(0, 120),
+  )
+  assert.ok(!/圆角 ${r.radiusCount}/.test(win), '打印层复算了圆角维度 ⇒ 会把几何分叉念成圆角分叉')
 })
 
 /**
@@ -1667,9 +1679,15 @@ test('T42 类臂解析维:查无定义必点名 / 已定义必通过 / 判不出
     ['条件取用', cond],
     ['web 未建模', web],
   ])
-    assert.equal(r[0].verdict, 'undetermined', `${label} 必须判未判定,不得折成通过:${JSON.stringify(r)}`)
+    assert.equal(
+      r[0].verdict,
+      'undetermined',
+      `${label} 必须判未判定,不得折成通过:${JSON.stringify(r)}`,
+    )
   // 枚举值(`mode === 'voice'`)不是类名 —— 它会让"查无定义"喊错
-  const refs = src.usedClassRefs("<View className={cn('a-box', mode === 'voice' ? 'b-box' : '')} />")
+  const refs = src.usedClassRefs(
+    "<View className={cn('a-box', mode === 'voice' ? 'b-box' : '')} />",
+  )
   assert.ok(refs.has('a-box') && refs.has('b-box'), '条件分支里的类名仍须被看见')
   assert.ok(!refs.has('voice'), '比较运算符后的字面量被当成类名 ⇒ 会喊错的披露')
   // 装车锁:算出来必须真接进 collect 并被人读面打印(算完丢掉 = 提交链上一路绿灯)
@@ -1705,15 +1723,26 @@ test('T47 web 工具类判定真装车(票 O67):真 HEAD 面两族七枚类必�
   assert.ok(wu.candidates >= 7, `候选面缩了(现读 ${wu.candidates} 枚)⇒ 该判的类没进尺子`)
   assert.deepEqual(wu.missing, ['thin-scroll'], `编译器产出面变了:${JSON.stringify(wu.missing)}`)
   const webLegs = (j.classArm.legs ?? []).filter((l) => l.side === 'web')
-  const blind = webLegs.flatMap((l) => l.undetermined.map((u) => `${l.name}:${u.class}(${u.reason})`))
+  const blind = webLegs.flatMap((l) =>
+    l.undetermined.map((u) => `${l.name}:${u.class}(${u.reason})`),
+  )
   assert.deepEqual(blind, [], `web 腿仍有未判定 ⇒ 取源没接上这一族:${blind.join(' ')}`)
   const judged = webLegs.flatMap((l) => [
     ...(l.modeled ?? []).map((x) => x.class),
     ...(l.undefined ?? []),
   ])
-  for (const cls of ['min-h-0', 'min-w-0', 'resize-none', 'accent-primary', 'appearance-none', 'underline'])
+  for (const cls of [
+    'min-h-0',
+    'min-w-0',
+    'resize-none',
+    'accent-primary',
+    'appearance-none',
+    'underline',
+  ])
     assert.ok(judged.includes(cls), `${cls} 不在任何判定桶里(既没判过也没点名)`)
-  const mini = (j.classArm.legs ?? []).find((l) => l.name === 'AgentRuntimePanel' && l.side === 'miniapp')
+  const mini = (j.classArm.legs ?? []).find(
+    (l) => l.name === 'AgentRuntimePanel' && l.side === 'miniapp',
+  )
   assert.ok(
     mini?.undetermined?.some((u) => u.class === 'ui-card'),
     '小程序侧 ui-card(样式源里没有定义)被静默吞掉 —— §0.3 要求逐枚点名',
@@ -1732,8 +1761,7 @@ test('T47 web 工具类判定真装车(票 O67):真 HEAD 面两族七枚类必�
  */
 test('T43 同档异名正向:同一份 spec 里两枚投影常数各走一端 ⇒ 不再算两条单侧', () => {
   const sources = {
-    'packages/design-tokens/src/geometry.js':
-      'export const GEOMETRY_PX = {\n  controlBox: 32\n}\n',
+    'packages/design-tokens/src/geometry.js': 'export const GEOMETRY_PX = {\n  controlBox: 32\n}\n',
     'packages/app/src/features/x/spec.ts':
       'export const FOO_PX = GEOMETRY_PX.controlBox;\nexport const BAR_PX = GEOMETRY_PX.controlBox;\n',
   }
@@ -1771,7 +1799,11 @@ test('T44 同档异名反向:跨 spec 文件 / 不同几何档 ⇒ 照判单侧(
     },
     tiers,
   )
-  assert.deepEqual(cross[0]?.onlyMiniapp, ['FOO_PX'], '跨 spec 的同一 step 不是同一档,不得被配对划掉')
+  assert.deepEqual(
+    cross[0]?.onlyMiniapp,
+    ['FOO_PX'],
+    '跨 spec 的同一 step 不是同一档,不得被配对划掉',
+  )
   assert.deepEqual(cross[0]?.onlyRn, ['BAR_PX'])
   const diffTier = src.specLegAudit(
     pairs,
@@ -1795,7 +1827,10 @@ const ARM_TEXT = {
 }
 const ARM_PAIRS = { pairs: [{ name: 'Box', miniapp: 'm/Box.tsx', rn: 'r/Box.tsx' }] }
 const armBodyOf = (css) =>
-  src.classDefScan(css, new Set(['box-shell'])).get('box-shell')?.bodies.join('\n') ?? ''
+  src
+    .classDefScan(css, new Set(['box-shell']))
+    .get('box-shell')
+    ?.bodies.join('\n') ?? ''
 
 test('T45 类臂盒档正向:app.css 类臂的已判定声明体并入几何,同值不再报分叉', () => {
   const body = armBodyOf('.box-shell { height: 80rpx; }')
@@ -1803,7 +1838,11 @@ test('T45 类臂盒档正向:app.css 类臂的已判定声明体并入几何,同
   const without = src.audit(ARM_PAIRS, ARM_TEXT, {}, {}, null, {})
   assert.deepEqual(without.findings[0]?.geometry?.onlyRn, [40], '前提:不并类臂时这一档确实读不到')
   const withArm = src.audit(ARM_PAIRS, ARM_TEXT, {}, {}, null, {}, { 'm/Box.tsx': body })
-  assert.deepEqual(withArm.findings, [], `类臂已并进几何,同值不该再报分叉:${JSON.stringify(withArm.findings)}`)
+  assert.deepEqual(
+    withArm.findings,
+    [],
+    `类臂已并进几何,同值不该再报分叉:${JSON.stringify(withArm.findings)}`,
+  )
   // 只给几何:同名类臂里的圆角不得被 RD / RE 看见(并入 styles 会让圆角维跟着移动)
   const tbl = { DEFAULT: 6, sm: 4, md: 6, lg: 8, xl: 12 }
   const textWithRadius = {
@@ -1840,7 +1879,10 @@ test('T46 类臂盒档反向:确实不等价的档必须判红,且接线锁住 c
     /withGeometryStyles\(text, styles, armStyles, p\.miniapp\)/.test(gate),
     '几何维未从类臂声明体取数(只登记不消费)',
   )
-  assert.ok(/collected\.classArmCss \?\? \{\}/.test(gate), 'main 未把类臂声明体喂进 audit / webRadiusAudit')
+  assert.ok(
+    /collected\.classArmCss \?\? \{\}/.test(gate),
+    'main 未把类臂声明体喂进 audit / webRadiusAudit',
+  )
 })
 
 /**
@@ -1852,9 +1894,13 @@ test('T46 类臂盒档反向:确实不等价的档必须判红,且接线锁住 c
  * 现存实例(HEAD 面 `packages/shared/src/ui/tab-bar-spec.ts` 两枚)。四条用例互为对照:
  * 等价必须不报 / 真不同档必须报 / 摘掉判据必须翻红(变异自证)/ 派生量不得被认成同值。
  */
-const ALIAS_GEO_SRC = ['export const GEOMETRY_PX = {', '  controlBox: 32,', '  otherBox: 20', '}', ''].join(
-  '\n',
-)
+const ALIAS_GEO_SRC = [
+  'export const GEOMETRY_PX = {',
+  '  controlBox: 32,',
+  '  otherBox: 20',
+  '}',
+  '',
+].join('\n')
 const ALIAS_SOURCES = {
   'packages/design-tokens/src/geometry.js': ALIAS_GEO_SRC,
   'packages/shared/src/ui/alias-spec.ts': [
@@ -1883,10 +1929,7 @@ test('T49 负控(本票核心):同值异名(具名档投影)⇒ 不报单侧', (
 })
 
 test('T50 正控:真不同档 ⇒ 必须报(别名不许把两个档并成一个)', () => {
-  const { sl } = aliasSlRun(
-    'const s = { width: FOO_PX }\n',
-    'const s = { width: DEEP_PX }\n',
-  )
+  const { sl } = aliasSlRun('const s = { width: FOO_PX }\n', 'const s = { width: DEEP_PX }\n')
   assert.equal(sl.length, 1, `不同几何档必须仍判单侧:${JSON.stringify(sl)}`)
   assert.deepEqual(sl[0].onlyMiniapp, ['FOO_PX'])
   assert.deepEqual(sl[0].onlyRn, ['DEEP_PX'])
@@ -1935,11 +1978,7 @@ test('T53 真仓对照:tab-bar 两枚具名档投影在 HEAD 面被认成同一�
     'INPUT_AREA_SHELL_HEIGHT_PX',
     '目标本身是算术派生(值未判定)⇒ 不许猜值,但等价关系必须登记',
   )
-  assert.equal(
-    c.tiers.TAB_BAR_HEIGHT_PX,
-    undefined,
-    '值解不出就不入表(§0.3:没判不写判过)',
-  )
+  assert.equal(c.tiers.TAB_BAR_HEIGHT_PX, undefined, '值解不出就不入表(§0.3:没判不写判过)')
 })
 
 /* ================= web↔RN 五维几何腿(Phase 2,2026-11-02) ================= */
@@ -1997,7 +2036,11 @@ test('T62 配对的唯一锚点是 data.evidence:锚不上的行进待确认清�
       status: 'aligned',
       data: { evidence: `${rnOrphan}:1` },
     }),
-    JSON.stringify({ web: 'home', rn: 'packages/app/src/features/home/HomeScreen.tsx', status: 'pending' }),
+    JSON.stringify({
+      web: 'home',
+      rn: 'packages/app/src/features/home/HomeScreen.tsx',
+      status: 'pending',
+    }),
     'not-json',
   ].join('\n')
   const webFiles = [
@@ -2013,7 +2056,10 @@ test('T62 配对的唯一锚点是 data.evidence:锚不上的行进待确认清�
   const why = built.pending.map((p) => p.why).join(' | ')
   assert.match(why, /未锚定 rn 文件/, 'evidence 未锚定 ⇒ 待确认')
   assert.match(why, /RN 屏文件不在被审面/, 'RN 文件不在被审面 ⇒ 待确认')
-  assert.ok(!built.pending.some((p) => p.web === 'home'), '非 aligned 行不参与推导(也没被判成配上了)')
+  assert.ok(
+    !built.pending.some((p) => p.web === 'home'),
+    '非 aligned 行不参与推导(也没被判成配上了)',
+  )
 })
 
 test('T63 五维读数:两侧都有读数才判;一侧空进 one-sided,两侧空进 no-data', () => {
@@ -2085,13 +2131,7 @@ test('T64 误报由允许差异承接:未登记只报数,登记且在期内才�
 
 test('T65 真仓 HEAD:web↔RN 配对 ≥50 屏,五维都真有可判对数', () => {
   const c = src.collect(ROOT, 'head', { pairAll: false })
-  const audit = src.webRnGeometryAudit(
-    c.webRnPairs,
-    c.text,
-    c.radius,
-    c.tiers,
-    c.cssVars ?? null,
-  )
+  const audit = src.webRnGeometryAudit(c.webRnPairs, c.text, c.radius, c.tiers, c.cssVars ?? null)
   assert.equal(src.WEB_RN_GEOMETRY_DIMS.length, 5)
   assert.ok(audit.pairCount >= 50, `配对 ${audit.pairCount} 屏,低于验收线 50`)
   for (const d of src.WEB_RN_GEOMETRY_DIMS)
@@ -2106,9 +2146,21 @@ test('T54 圆角:档名 / 角色名 / 像素值是同一个档(取源 = HEAD 面
   const byRole = radiusSetOf('const s = { card: { borderRadius: rnRadiusFor.card } }', table)
   const byPx = radiusSetOf('const s = { card: { borderRadius: 8 } }', table)
   const byClass = radiusSetOf('const el = <View className="rounded-lg" />', table)
-  assert.deepEqual(byName, byPx, `档名与像素值必须同档:${JSON.stringify(byName)} vs ${JSON.stringify(byPx)}`)
-  assert.deepEqual(byRole, byPx, `角色名与像素值必须同档:${JSON.stringify(byRole)} vs ${JSON.stringify(byPx)}`)
-  assert.deepEqual(byClass, byPx, `Tailwind 档名与像素值必须同档:${JSON.stringify(byClass)} vs ${JSON.stringify(byPx)}`)
+  assert.deepEqual(
+    byName,
+    byPx,
+    `档名与像素值必须同档:${JSON.stringify(byName)} vs ${JSON.stringify(byPx)}`,
+  )
+  assert.deepEqual(
+    byRole,
+    byPx,
+    `角色名与像素值必须同档:${JSON.stringify(byRole)} vs ${JSON.stringify(byPx)}`,
+  )
+  assert.deepEqual(
+    byClass,
+    byPx,
+    `Tailwind 档名与像素值必须同档:${JSON.stringify(byClass)} vs ${JSON.stringify(byPx)}`,
+  )
   assert.equal(byPx[0], table.lg, '判等依据必须是 RADIUS_STEPS 解析出的值(不是门里另抄的像素表)')
   const other = radiusSetOf('const s = { card: { borderRadius: rnRadius.xl } }', table)
   assert.notDeepEqual(other, byPx, '真不同档必须仍被判出差异')
@@ -2231,10 +2283,16 @@ test('T57 非色档允许差异:合法条目进 delegated;到期折进 red;形�
   assert.equal(ok.platform.length, 0, '平台账与样式账必须分开,不得混桶')
 
   // 到期与平台条目同一条约束:白名单不得腐化(§12e)
-  const expired = src.allowedDiffVerdict([], [{ ...base, expires: '2026-01-01' }], { today: '2026-11-02' })
+  const expired = src.allowedDiffVerdict([], [{ ...base, expires: '2026-01-01' }], {
+    today: '2026-11-02',
+  })
   assert.equal(expired.expired.length, 1, 'styleTier 到期必须进 expired')
   assert.equal(expired.red.length, 1, 'styleTier 到期必须回红(消费方换账不等于豁免到期失效)')
-  assert.equal(expired.delegated.length, 0, '到期项不得同时出现在 delegated(否则下游会以为还有额度)')
+  assert.equal(
+    expired.delegated.length,
+    0,
+    '到期项不得同时出现在 delegated(否则下游会以为还有额度)',
+  )
 
   // 形状:kind / 结构 / 量纲 / 额度任一坏都必须判坏
   const badKeys = [
@@ -2244,10 +2302,18 @@ test('T57 非色档允许差异:合法条目进 delegated;到期折进 red;形�
     'styleTier:fontSize:font-size:32', // prop 不得带连字符
     'geometry-styleTier:fontSize:fontSize:32', // 前缀拼错
   ]
-  for (const key of badKeys) assert.ok(src.allowedDiffProblem({ ...base, key }), `非法 key 必须判坏:${key}`)
-  assert.ok(src.allowedDiffProblem({ ...base, count: 0 }), 'count=0 必须判坏(登记的是实测处数,不是无限额度)')
+  for (const key of badKeys)
+    assert.ok(src.allowedDiffProblem({ ...base, key }), `非法 key 必须判坏:${key}`)
+  assert.ok(
+    src.allowedDiffProblem({ ...base, count: 0 }),
+    'count=0 必须判坏(登记的是实测处数,不是无限额度)',
+  )
   assert.ok(src.allowedDiffProblem({ ...base, count: undefined }), 'styleTier 必须带 count')
-  assert.equal(src.allowedDiffProblem({ ...base, count: 2 }), null, '正整数 count 必须接受(逐处登记)')
+  assert.equal(
+    src.allowedDiffProblem({ ...base, count: 2 }),
+    null,
+    '正整数 count 必须接受(逐处登记)',
+  )
 })
 
 /**
@@ -2264,18 +2330,29 @@ test('T66 档引用与字面量等价(rnType / rnSpacing / rnRadius)', () => {
     'rnRadius.lg': 8,
   }
   const dims = (code) => [...src.readGeometry(code, 'rn', tiers).dims.fontSize]
-  assert.deepEqual(dims('const s = { fontSize: rnType.bodySm.size }'), dims('const s = { fontSize: 13 }'))
+  assert.deepEqual(
+    dims('const s = { fontSize: rnType.bodySm.size }'),
+    dims('const s = { fontSize: 13 }'),
+  )
   assert.deepEqual(
     dims('const s = { title: { ...rnType.bodySm, color: 1 } }'),
     [13],
     '整对象展开等价于 fontSize:size(行高/字重不入几何维)',
   )
-  assert.deepEqual(dims('const s = { lineHeight: rnType.bodySm.lineHeight }'), [], '行高引用与字面量同一口径:不入字号维')
+  assert.deepEqual(
+    dims('const s = { lineHeight: rnType.bodySm.lineHeight }'),
+    [],
+    '行高引用与字面量同一口径:不入字号维',
+  )
   const spacing = (code) => [...src.readGeometry(code, 'rn', tiers).dims.spacing]
   assert.deepEqual(spacing('const s = { gap: rnSpacing.md }'), spacing('const s = { gap: 16 }'))
   const box = (code) => [...src.readGeometry(code, 'rn', tiers).dims.widthHeight]
   assert.deepEqual(box('const s = { width: rnRadius.lg }'), box('const s = { width: 8 }'))
-  assert.deepEqual(box('const s = { borderRadius: rnRadius.lg }'), [], 'borderRadius 是圆角维地盘,不进几何维')
+  assert.deepEqual(
+    box('const s = { borderRadius: rnRadius.lg }'),
+    [],
+    'borderRadius 是圆角维地盘,不进几何维',
+  )
   const g = src.readGeometry('const s = { fontSize: rnType.ghost.size }', 'rn', tiers)
   assert.ok(
     g.unreadable.some((u) => u.raw === 'rnType.ghost.size'),
@@ -2419,5 +2496,46 @@ test('T69 webEvidence 锚:形态/面内校验 + 读数并集', () => {
   )
   assert.deepEqual(union.findings[0].dims.padding.webOnly, [8], '屏壳读数不得被取证件顶掉')
   assert.equal(union.findings[0].webEvidence, comp, '分叉明细必须点名取证件')
+})
+
+test('T70 几何维:联合被 prettier 折行也必须看得到(旧正则只截第一段 ⇒ 干净 HEAD 恒红,§12e)', () => {
+  const JS = 'export const GEOMETRY_PX = {\n  tapBox: 44,\n  fabBox: 56,\n  controlBox: 32,\n}\n'
+  const ONE_LINE = "export type GeometryStep = 'tapBox' | 'fabBox' | 'controlBox'\n"
+  const WRAPPED =
+    "export type GeometryStep =\n  | 'tapBox'\n  | 'fabBox'\n  | 'controlBox'\n\n/** 注释 */\nexport declare const x: number\n"
+  // ① 两种书写形态必须同判 —— 判据不许跟着格式化器的心情翻红
+  assert.deepEqual(
+    src.geometryDeclCheck(JS, ONE_LINE).missingInDts,
+    undefined,
+    '单行形态不得有缺档',
+  )
+  const w = src.geometryDeclCheck(JS, WRAPPED)
+  assert.equal(w.problem, undefined, `折行形态被判红 = 本门恒红(${w.problem})`)
+  assert.deepEqual(
+    w.declared,
+    ['tapBox', 'fabBox', 'controlBox'],
+    '折行联合必须逐档收齐,不是只收第一段',
+  )
+  // ② 牙:真漂移照红(表加了档而类型没跟 ⇒ 缺档必须点名)
+  const DRIFT = src.geometryDeclCheck(
+    'export const GEOMETRY_PX = {\n  tapBox: 44,\n  newStep: 8,\n}\n',
+    "export type GeometryStep =\n  | 'tapBox'\n",
+  )
+  assert.deepEqual(DRIFT.missingInDts, ['newStep'], '类型漏档不点名 = 判据被豁免洗掉')
+  // ③ 牙:反向漂移(类型承认而表里没有)也红,且不收隔壁声明
+  const REV = src.geometryDeclCheck(
+    'export const GEOMETRY_PX = {\n  tapBox: 44,\n}\n',
+    "export type GeometryStep =\n  | 'tapBox'\n  | 'ghostStep'\n",
+  )
+  assert.deepEqual(REV.missingInJs, ['ghostStep'], `反向漂移没判出:${JSON.stringify(REV)}`)
+  // ④ 取不到声明 ⇒ 未判定(不冒红也不记绿,§0.3)
+  const NO_DECL = src.geometryDeclCheck(JS, 'export declare const rnGeometry: object\n')
+  assert.equal(NO_DECL.undetermined, true, '联合缺失必须落未判定')
+  // ⑤ 联合体读到第一个非 `|` 行即止:隔壁同名声明不得被串进来当证据
+  const STOP = src.geometryDeclCheck(
+    'export const GEOMETRY_PX = {\n  tapBox: 44,\n}\n',
+    "export type GeometryStep =\n  | 'tapBox'\nexport type Other = 'ghostStep'\n",
+  )
+  assert.deepEqual(STOP.declared, ['tapBox'], `收段越界:${JSON.stringify(STOP.declared)}`)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

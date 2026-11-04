@@ -80,6 +80,7 @@ from datetime import UTC
 from pathlib import Path, PurePosixPath
 from typing import Any, cast
 
+from app import __version__
 from app.core.agents_md_state import AgentsMdState  # 批58:AGENTS.md 状态机(对标 codex agents_md.rs)
 
 # 守门 247(2026-11-01 收口):fire-and-forget 后台任务唯一出口 —— 事件循环只握弱引用,
@@ -166,7 +167,8 @@ def _make_sandbox_mode_tagger() -> Any:
 
 PROTOCOL_VERSION = "2026.09.18"
 SERVER_NAME = "ihui-agent-engine"
-SERVER_VERSION = "1.0.0"
+# 版本单一源头 = app/__init__.py 的 __version__;写死会与本服务其它 MCP 通道各报一套号。
+SERVER_VERSION = __version__
 
 # JSON-RPC 2.0 标准错误码
 PARSE_ERROR = -32700

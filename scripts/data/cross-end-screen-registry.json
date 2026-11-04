@@ -1,5 +1,5 @@
 {
-  "comment": "跨端页面覆盖登记表 —— (shared 真相源, rn 薄壳, miniapp 镜像页) 三元组。门 scripts/check-cross-end-screen-coverage.mjs 的 R1 逐条核验:三处文件必须真实存在、shared 必须在 packages/app/src/index.ts 有同名导出、小程序页必须含指向该 shared 路径的「对齐目标(RN 共享屏)」标记。字段形态:shared/rn 是仓库相对文件路径;miniapp 是 app.config.ts 里 root+pages 拼出的路由(段数不固定,实测两段与三段并存,照原样逐字抄)。本表只登记「标记链完整」的条目,登记口径逐条可复验、不依赖任何临时脚本:该小程序路由在 app.config.ts 在册 ∧ 页面(或其同目录伴生 css)含指向该共享屏的标记行 ∧ 共享屏文件真在 ∧ 该符号在 packages/app/src/index.ts 有导出 ∧ 有 RN 屏 import @ihui/rn-app 且使用该符号(RN 腿按符号找、不按同名文件 —— 实测 RN 文件名 TeacherListScreen 委托的共享符号是 LecturerListScreen)。它证明的是声明链,不证明像素同物;同页异名的假同物仍需逐屏人工复核。",
+  "comment": "跨端页面覆盖登记表 —— (shared 真相源, rn 薄壳, miniapp 镜像页) 三元组。门 scripts/check-cross-end-screen-coverage.mjs 的 R1 逐条核验:三处文件必须真实存在、shared 必须在 packages/app/src/index.ts 有同名导出、小程序页必须含指向该 shared 路径的「对齐目标(RN 共享屏)」标记。字段形态:shared/rn 是仓库相对文件路径;miniapp 是 app.config.ts 里 root+pages 拼出的路由(段数不固定,实测两段与三段并存,照原样逐字抄)。本表只登记「标记链完整」的条目,登记口径逐条可复验、不依赖任何临时脚本:该小程序路由在 app.config.ts 在册 ∧ 页面(或其同目录伴生 css)含指向该共享屏的标记行 ∧ 共享屏文件真在 ∧ 该符号在 packages/app/src/index.ts 有导出 ∧ 有 RN 屏 import @ihui/rn-app 且使用该符号(RN 腿按符号找、不按同名文件 —— 实测 RN 文件名 TeacherListScreen 委托的共享符号是 LecturerListScreen)。它证明的是声明链,不证明像素同物;同页异名的假同物仍需逐屏人工复核。 摘除记录(2026-11-04):AiCareerScreen ↔ pkg-ai/ai-career/index 三元组已删除 —— 端上实测两头不是同一功能(RN=学业问卷+报告导出;小程序该路由=智能体列表),登记「已镜像」是假声明,而该页也不含指向该共享屏的标记 ⇒ 不满足本表「只登记标记链完整」的准入,故摘除而非补标记。RN 侧该屏现落在「仅 RN 成文件/无声明」桶里按数报告,不许为凑覆盖率在小程序端伪造问卷屏。",
   "entries": [
     {
       "shared": "packages/app/src/features/about/AboutScreen.tsx",
@@ -80,11 +80,6 @@
       "shared": "packages/app/src/features/ai-assistant/AiAssistantScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/AiAssistantScreen.tsx",
       "miniapp": "pkg-ai/ai-assistant/index"
-    },
-    {
-      "shared": "packages/app/src/features/ai-career/AiCareerScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/AiCareerScreen.tsx",
-      "miniapp": "pkg-ai/ai-career/index"
     },
     {
       "shared": "packages/app/src/features/ai-group/AiGroupScreen.tsx",

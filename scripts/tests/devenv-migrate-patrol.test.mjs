@@ -136,6 +136,9 @@ function fixture({ enabled = false, tickAt = null, configShape = 'json' } = {}) 
       tickFile,
       configPath,
       logger: (m) => logs.push(String(m)),
+      // 判② 注入面:进程表必须由构造面给死 —— 否则默认面会真派生 pwsh,
+      // 派生失败(fakeIO 的 spawnSync 空 stdout)⇒ 整条结论 undetermined(与断言不符)。
+      activity: { listProcesses: () => [], pidAlive: () => false },
       applyFn: (ioArg, probeArg) => {
         applies.push({ ioArg, probeArg })
         return { refused: false, rows: [{ step: 1, ok: true, note: '构造面' }], verified: true }
@@ -173,7 +176,14 @@ test('T3 默认档锁:入库开关面必须 enabled=false(开臂是机主的决�
   assert.deepEqual(Object.keys(raw), ['enabled'])
 })
 
-test('T4 probe-only:开关关 + window ⇒ 只探测不搬,且记录型 io 上零写盘调用', () => {
+/** 唯一允许的写面:续扫游标(.ihui-agent/state/devenv-migrate-scan.json)的叠加写。
+ *  除此之外 probe-only 档不得有任何写调用(不碰旧根、不碰新根、不落预演件)。 */
+const onlyScanCursorWrites = (io) =>
+  io.writes.every(
+    (w) => w === 'mkdir' || w === 'rename' || (w.startsWith('write:') && w.includes('devenv-migrate-scan.json')),
+  )
+
+test('T4 probe-only:开关关 + window ⇒ 只探测不搬;除续扫游标外零写盘调用', () => {
   const f = fixture({ enabled: false })
   try {
     const io = fakeIO(windowTree())
@@ -181,7 +191,8 @@ test('T4 probe-only:开关关 + window ⇒ 只探测不搬,且记录型 io 上�
     assert.equal(r.ran, true)
     assert.equal(r.state, 'window')
     assert.equal(f.applies.length, 0, '合臂却派生了 apply')
-    assert.equal(io.writes.length, 0, `probe-only 档出现写调用:${io.writes.join(',')}`)
+    assert.ok(io.writes.length > 0, '默认臂应落续扫游标(否则跨轮进度攒不起来)')
+    assert.ok(onlyScanCursorWrites(io), `probe-only 档出现非游标写调用:${io.writes.join(',')}`)
     assert.equal(f.logs.length, 1, '窗口已到应恰好留一行(不搬的理由要人看得见)')
     assert.match(f.logs[0], /⏸/)
     assert.match(f.logs[0], /enabled=false/)
@@ -191,7 +202,7 @@ test('T4 probe-only:开关关 + window ⇒ 只探测不搬,且记录型 io 上�
   }
 })
 
-test('T5 窗口未到(pending)⇒ 不搬且静默(常态不刷渠道);判据理由仍如实带在证据里', () => {
+test('T5 窗口未到(pending)⇒ 不搬且静默(常态不刷渠道);写面同样只许续扫游标', () => {
   const f = fixture({ enabled: true })
   try {
     const io = fakeIO(windowTree({ legacyMin: 5 }))
@@ -199,7 +210,7 @@ test('T5 窗口未到(pending)⇒ 不搬且静默(常态不刷渠道);判据理�
     assert.equal(r.state, 'pending')
     assert.equal(f.applies.length, 0, 'pending 却派生了 apply')
     assert.equal(f.logs.length, 0, 'pending 是常态:不得每窗口刷一行')
-    assert.equal(io.writes.length, 0)
+    assert.ok(onlyScanCursorWrites(io), `pending 档出现非游标写调用:${io.writes.join(',')}`)
   } finally {
     rmScratch(f.dir)
   }
@@ -306,9 +317,18 @@ test('T11 归属锁:窗口/待做/执行判据只住器物本体 —— guardian
   for (const forbidden of ['QUIET_MINUTES', 'SESSION_IDLE_MINUTES', 'GUARDIAN_FRESH_MINUTES', 'latestWrite(', 'guardianTickAlive(']) {
     assert.equal(body.includes(forbidden), false, `臂内出现判据实现「${forbidden}」:两处各写一份必漂移`)
   }
-  assert.match(body, /probeFn\(io, now\)/, '窗口三态只许问 probeQuietWindow')
+  // 调用形锁(2026-10-29 起实现为三参:第三参 activity 是判② 的注入面)。
+  // 若实现退回旧形 probeFn(io, now),本条翻红 —— 见下方「变异自证」。
+  assert.match(body, /probeFn\(io, now, activity\)/, '窗口三态只许问 probeQuietWindow 且必须透传 activity')
   assert.match(body, /assessSteps\(io\)/, '待做盘点只许问 assessSteps')
   assert.match(body, /applyFn\(io, probe\)/, '执行只许走 applyMigration')
+})
+
+test('T11b 变异自证:实现退回旧调用形 probeFn(io, now) ⇒ 调用形锁必翻红(内存改坏源码,不碰生产文件)', () => {
+  const reverted = MSRC.replace('probeFn(io, now, activity)', 'probeFn(io, now)')
+  assert.notEqual(reverted, MSRC, '锚点漂了:实现已不再以 probeFn(io, now, activity) 调用')
+  const body = reverted.slice(reverted.indexOf('export function devenvMigratePatrol'), reverted.indexOf('function selfTest'))
+  assert.doesNotMatch(body, /probeFn\(io, now, activity\)/, '摘掉第三参后锁仍匹配 ⇒ 该锁对旧形无感')
 })
 
 test('T12 开关读取三态(纯注入面):布尔 ⇒ ok;读不到/坏形 ⇒ 未判定', () => {
@@ -316,8 +336,18 @@ test('T12 开关读取三态(纯注入面):布尔 ⇒ ok;读不到/坏形 ⇒ �
     ok: false,
     why: '开关配置不在位:X:/nope.json',
   })
-  assert.equal(loadDevenvMigrateArm({ configPath: 'X:/c.json', readFile: () => '{"enabled":true}' }).enabled, true)
-  assert.equal(loadDevenvMigrateArm({ configPath: 'X:/c.json', readFile: () => '{"enabled":"yes"}' }).ok, false)
-  assert.equal(loadDevenvMigrateArm({ configPath: 'X:/c.json', readFile: () => '{ 坏 JSON' }).ok, false)
+  // 只注入 readFile 会落回真实 existsSync(X 盘不存在)⇒ 恒「不在位」;必须两件一起给。
+  assert.equal(
+    loadDevenvMigrateArm({ configPath: 'X:/c.json', exists: () => true, readFile: () => '{"enabled":true}' }).enabled,
+    true,
+  )
+  assert.equal(
+    loadDevenvMigrateArm({ configPath: 'X:/c.json', exists: () => true, readFile: () => '{"enabled":"yes"}' }).ok,
+    false,
+  )
+  assert.equal(
+    loadDevenvMigrateArm({ configPath: 'X:/c.json', exists: () => true, readFile: () => '{ 坏 JSON' }).ok,
+    false,
+  )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

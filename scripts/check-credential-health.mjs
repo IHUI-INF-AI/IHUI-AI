@@ -63,6 +63,14 @@ import { parseEnvText } from './check-env-drift.mjs'
 // `credential-health-last.json` 是 git-guardian 的巡检心跳件,半截 = 把"巡检在跑"读成"没跑"。
 // ⚠️ 只换"怎么写":状态内容、去重窗口、UNDEL 标记的语义一字未动。
 import { atomicWriteFileSync } from './lib/atomic-write.mjs'
+// 族级窗口(2026-11-03 立):同一「凭据巡检:类别=…」24h 至多一封。
+// 判据住在 scripts/lib/alert-family-gate.mjs(与 IHUI-MONITOR / IHUI-DEPLOYLOOP 同一份实现),
+// 策略表仍是 scripts/data/alert-delivery-policy.json —— 本文件不自造窗口算法。
+import {
+  commitAlertFamilyDelivery,
+  credentialAlertFamily,
+  decideAlertFamilyWindow,
+} from './lib/alert-family-gate.mjs'
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const TASK_NAME = 'IHUI credential-health'
@@ -256,7 +264,7 @@ export function pickKey(raw, re) {
  * ⑥ 应用 .env 关键凭据**齐备性**(2026-09-27 立)。
  *
  * 为什么本门原有各条都看不见它:①②③④判的是"凭据在不在、还有效吗",全部指向**外部**凭据
- * (服务环境块 / 同步盘 key 文件 / GitHub / Gitee);而 `apps/api/.env` 里"某个键值为空 ⇒ 某条
+ * (服务环境块 / 同步盘 key 文件 / GitHub / Gitee 发布通道);而 `apps/api/.env` 里"某个键值为空 ⇒ 某条
  * 生产链路 fail-closed 静默拒客"这一型零覆盖。实测形状就是 2026-09-26 那次 `.env` 被整体替换清空
  * 之后,`USDT_WEBHOOK_SECRET` 空着从 08-08 起就一直空着 —— 唯一痕迹是启动时一条 ERROR 日志
  * (apps/api/src/routes/payment-usdt.ts:186),此后每个回调静默收 401,而到人链路上
@@ -400,9 +408,9 @@ export async function runChecks() {
       out.push({ name: 'GitHub token 可写仓库', level: rp.sc === 200 ? (push ? 'ok' : 'fail') : classifyHttpStatus(rp.sc), detail: `http=${rp.sc} push 权限=${push}` })
     }
   }
-  // ④ Gitee token(代码镜像仓已弃用,但**桌面端安装包资产仍由 Gitee release 直链分发** ——
-  //    线上 /desktop-feed.json 的 Windows 包 href 就指向它,实测 HTTP 200 ⇒ 这把 key 仍须有效,
-  //    失效会让每次发版的资产补传静默失败。判据只查"这把 token 还能用吗",不再关联任何镜像仓。)
+  // ④ Gitee token —— 2026-11-03 复活:Gitee 为国内主通道(仓库浏览 + 发布包下载),
+  //    该 token 是初始化/发版/补传的唯一凭据,失效会让资产上传静默失败 ⇒ 必须探活。
+  //    探活只走 Authorization 头,不把 token 拼进 URL query(访问日志会原样记下)。
   const giteePath = join(GIT_KEY_DIR, 'gitee apikey.txt')
   const giteeRaw = readFileSyncOr(giteePath)
   const giteeToken = pickKey(giteeRaw, /^[0-9a-f]{32}$/)
@@ -416,7 +424,7 @@ export async function runChecks() {
     })
   }
   if (giteeToken) {
-    const p = await probeHttps('gitee.com', '/api/v5/user?access_token=' + encodeURIComponent(giteeToken))
+    const p = await probeHttps('gitee.com', '/api/v5/user', { Authorization: 'token ' + giteeToken })
     let login = ''
     try {
       login = JSON.parse(p.body).login || ''
@@ -444,7 +452,8 @@ export async function runChecks() {
   //    理由:机主确认 Gitee/GitCode 代码镜像仓早已弃用,镜像作业(mirror-to-cn.yml)同时下线。
   //    留着这一条等于每天替一个不存在的下游报警(实测它最后的状态是"Gitee main 落后 N 天"),
   //    而那条告警的唯一出路是去 Gitee 点「Git GC」—— 对一个不再同步的仓做体积回收毫无意义。
-  //    Gitee 凭据本身仍有用途(桌面端安装包资产 CDN),其有效性检查在下文 ② 保留。
+  //    Gitee 代码镜像仍不恢复(2026-10-23 移除);Gitee 发布通道已于 2026-11-03 复活,
+  //    凭据探活见 ④(只探 token 有效性,不探镜像仓/不碰镜像同步)。
   return out
 }
 
@@ -1703,6 +1712,29 @@ async function maybeAlert(results, dryRun) {
     appendLedger(title, desp, { sent: false, dryRun: true, via: null, attempts: ['alert-dry:只打印正文,未调用派发器'] })
     return { sent: false, why: 'dry-run 未发送' }
   }
+  // [2026-11-03 族窗口] 位置在 decideAlert 之后、deliver 之前,且**不推进** alert 状态:
+  // 族窗口压住期间若推进逐项状态,24h 届满那次会被自家窗口再压一轮(与监控/部署侧同一纪律)。
+  // 族 = 「凭据巡检:类别=credential-fail」/「…=recovered」:失效与恢复分族,恢复通知不得被压。
+  const family = credentialAlertFamily({ recovered })
+  const familyGate = decideAlertFamilyWindow({ family })
+  if (familyGate.action === 'suppress') {
+    const ageHours = (familyGate.ageMs / 3600000).toFixed(1)
+    const capHours = (familyGate.cooldownMs / 3600000).toFixed(0)
+    appendLedger(title, desp, {
+      sent: false,
+      dryRun: false,
+      via: null,
+      attempts: [
+        `族级窗口抑制: ${family} 首封距今 ${ageHours}h < 上限 ${capHours}h(${familyGate.entryId}),本轮未投递`,
+      ],
+    })
+    return { sent: false, why: `族级窗口抑制(族=${family},首封 ${ageHours}h 内不重寄)` }
+  }
+  if (!familyGate.entryId) {
+    console.log(`ℹ️ 族窗口无策略条目(族=${family}),按 fail-open 照发`)
+  } else if (familyGate.why === 'state-undetermined') {
+    console.log(`⚠️ 族窗口状态不可判定 ⇒ ${familyGate.stateError};本轮 fail-open 照发`)
+  }
   // 台账改到投递**之后**落盘,并带上真实结果:旧写法在寄出之前就用 null 落一条,于是
   // "(dry-run,未投递)"被恒写进每一行投递史(缺陷②)。deliver() 内部层层 catch 不会抛,
   // 这里再兜一层 try 是为"投递流程自己崩了也留痕",而不是为"先落一条再说"。
@@ -1725,6 +1757,9 @@ async function maybeAlert(results, dryRun) {
     // 原子替换(G-653):写出的字节与改动前逐字相同,只是下一轮再也读不到半截 JSON。
     atomicWriteFileSync(STATE, JSON.stringify(next))
     rmSync(UNDEL, { force: true })
+    // [2026-11-03 族窗口] 只在这封**确认真送达**后记族首封;失败不记 ⇒ 下一轮首封仍能重试。
+    const famCommit = commitAlertFamilyDelivery({ family })
+    if (!famCommit.ok) console.log(`⚠️ 族窗口首封未记账(族=${family}): ${famCommit.error}(下一轮同族仍会照发)`)
   } else {
     // 未送达标记同样必须完整:它是"这条告警从未寄出去"的唯一证据,半截 = 下轮读不出 ⇒ 判不出。
     atomicWriteFileSync(

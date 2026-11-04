@@ -77,6 +77,7 @@ import path from 'node:path'
 import { hostname } from 'node:os'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { PS_CANDIDATES } from './check-service-binary-paths.mjs'
+import { atomicWriteFileSync } from './lib/atomic-write.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 export const INVENTORY_REL = 'scripts/data/service-inventory.json'
@@ -84,6 +85,14 @@ export const INVENTORY_PATH = path.join(ROOT, 'scripts', 'data', 'service-invent
 
 export const SNAP_HEAD = '#SVCINV v1'
 export const SNAP_TAIL = '#SVCINV-END'
+/**
+ * 快照新鲜度阈值:20h(唯一出处,禁止在派发侧另写一个魔法数)。
+ *
+ * 为什么是 20h 而不是 24h:守护派发是 30min 一班,但机器休眠、守护重启、单轮跳过都会吃掉
+ * 一两个班次;20h 留出 4h 余量,仍能保证**每个自然日内至少刷新一次**(下游不会读到隔夜旧读数),
+ * 又不会把"隔夜没动"本身误判成故障。
+ */
+export const SNAPSHOT_REFRESH_MAX_AGE_MS = 20 * 60 * 60 * 1000
 /** nssm 四键在清单里的固定字段名(顺序稳定,自证面逐键比)。 */
 export const NSSM_KEYS = ['application', 'appParameters', 'appDirectory', 'appStdout']
 /** 敏感键名词根(REG_MULTI_SZ env 块逐行按键名判;大小写不敏感)。 */
@@ -328,7 +337,8 @@ export const REPO_SERVICE_USE_VERB_RE =
   /((?:Get|Start|Stop|Restart|Set)-Service\b|nssm\s+(?:get|set|install|restart|stop|start)\b|sc(?:\.exe)?\s+(?:config|query|start|stop)\b)/i
 
 /** 服务名 token(整词,盘符/路径前缀不算):`G:\IHUI-AI\…` 里的 IHUI-AI 是目录名，不是服务。 */
-const REPO_NAME_TOKEN_RE = /(?<![A-Za-z0-9_\\/.:-])((?:IHUI|Keycloak)(?:-[A-Za-z0-9]+)*)(?![A-Za-z0-9_-])/gi
+const REPO_NAME_TOKEN_RE =
+  /(?<![A-Za-z0-9_\\/.:-])((?:IHUI|Keycloak)(?:-[A-Za-z0-9]+)*)(?![A-Za-z0-9_-])/gi
 /** `$svc = 'IHUI-DEPLOYLOOP'` / `[string]$ServiceName='X'` / `$a = @("X","Y")` 这类"本文件的服务目标"声明。
  *  装具脚本一律用变量把名字喂给 nssm(`nssm install $svc …`)，只按字面量同行动就会把每一枚装服脚本读成"没建法"。 */
 const REPO_SVC_ASSIGN_RE = /\$\w*(?:svc|service)\w*\s*=/i
@@ -421,6 +431,9 @@ export function buildInventoryObject(liveFacts, filesMap, meta = {}) {
     $comment:
       '本机 Windows 服务运行配置的入库真相源(票 G-584 归口)。射程 = 注册表 HKLM:\\SYSTEM\\CurrentControlSet\\Services 下名字匹配 ^(IHUI|Keycloak)$ 的服务;四键 application/appParameters/appDirectory/appStdout 仅 nssmManaged=true 时有值。秘密只存脱敏形态(前6***后2 (len=N)),原始凭据永不入仓。services[].provisioning 是**仓内侧**读数(建服源/使用源/通道/盘符无关模板),回答"这服务是谁建的";repoNameRoster + reverseGaps 是**反向面**(仓里点名而本机未装)。重建方式:node scripts/check-service-inventory.mjs --snapshot 重定向覆写本文件;不得手改单条。声明性的"缺建法"债住 scripts/data/service-provisioning-gaps.json(带 reviewBy,会到期),不在本文件里手抄。',
     generatedAt: meta.generatedAt ?? new Date().toISOString(),
+    /** 刷新时刻(内部字段,判据只认它):与 generatedAt 同源但语义分离 —— 下游问"读数多旧"
+     *  只该读这一枚;不得回落到文件 mtime(复制/检出/备份都会改写 mtime,证不了采集时刻)。 */
+    refreshedAt: meta.refreshedAt ?? meta.generatedAt ?? new Date().toISOString(),
     host: meta.host ?? hostname(),
     nssmBinaryPresent: meta.nssmBinaryPresent ?? false,
     comparisonBasis: '脱敏后逐字节等值;两侧同基准归一化',
@@ -457,6 +470,49 @@ export function buildInventoryObject(liveFacts, filesMap, meta = {}) {
           }))
       : [],
   }
+}
+
+/**
+ * 是否需要重生成入库件(纯函数,时钟由调用方注入,不依赖真实时间)。
+ *
+ * 判据 = `drift > 0` **或** 距上次刷新 ≥ 阈值:
+ *  - drift>0:注册表与清单已不一致,旧读数不能再当真相源;
+ *  - 未超时且无 drift:不动盘,避免每次巡检都把入库件写脏;
+ *  - `refreshedAt` 缺失/不可解析:视为到期(fail-closed —— 不知道它多旧,就不能当成新鲜)。
+ * 上次刷新时刻只认快照内部 `refreshedAt`,**不读文件 mtime,也不拿 generatedAt 顶替**:
+ * mtime 会被复制/检出/备份改写,证明不了内容是什么时候采集的;老快照没有这枚字段 ⇒ 视为到期
+ * (一次性迁移:下一次判定通过后就把 refreshedAt 写进去,之后自洽)。
+ */
+export function shouldRefreshSnapshot({
+  drift = 0,
+  refreshedAt = null,
+  nowMs = Date.now(),
+  maxAgeMs = SNAPSHOT_REFRESH_MAX_AGE_MS,
+} = {}) {
+  if (Number(drift) > 0) return true
+  const last = typeof refreshedAt === 'string' ? Date.parse(refreshedAt) : NaN
+  if (!Number.isFinite(last) || !Number.isFinite(nowMs)) return true
+  return nowMs - last >= maxAgeMs
+}
+
+/** 由本轮现读派生入库件对象(`--snapshot` 与自动刷新共用,避免两处再拼一次 meta)。 */
+export function buildInventoryDocument({
+  liveFacts,
+  filesMap,
+  roster,
+  faceRows,
+  nowIso,
+  repoRoot = ROOT,
+  nssmBinaryPresent = existsSync('C:\\Windows\\System32\\nssm.exe'),
+}) {
+  return buildInventoryObject(liveFacts, filesMap, {
+    generatedAt: nowIso,
+    refreshedAt: nowIso,
+    repoRoot,
+    nssmBinaryPresent,
+    roster: roster && roster.status === 'ok' ? roster : null,
+    faceRows: faceRows && faceRows.length > 0 ? faceRows : null,
+  })
 }
 
 /** 盘符是 §0 七类现读机器事实之一:入库件里凡是"仓根绝对路径"都存成
@@ -521,7 +577,7 @@ export function classifyProvisioningChannel(imagePath) {
 
 /** 仓内侧 + 本机侧合起来的一格"这服务怎么来的"。 */
 export function provisioningFacts(fact, sources, repoRoot) {
-  const rewriteOnly = (sources.create.length === 0 ? detectRewriteOnlySources(sources) : [])
+  const rewriteOnly = sources.create.length === 0 ? detectRewriteOnlySources(sources) : []
   return {
     channel: classifyProvisioningChannel(fact.imagePath),
     imageTemplate: toRepoRootTemplate(fact.imagePath, repoRoot),
@@ -722,7 +778,6 @@ export function classifyServiceFaces({ liveNames, rosterNames, sourcesOf, gaps }
   return rows
 }
 
-
 /** §0.8 出路闸(g35-s13 立，票 G-584 第三格)：
  *  一枚文件对某台**在册服务**只做 `nssm set`(改写)却没有建法，那它就必须**在自己正文里**
  *  声明"本脚本不负责建服务"，并把出路指向本清单的 provisioning 段。否则文档/清单留着一条
@@ -792,7 +847,6 @@ export function auditRepoArtifacts() {
   }
   return out
 }
-
 
 export function compareInventory(inventory, liveFacts) {
   const verdicts = []
@@ -881,8 +935,7 @@ export function faceClassify({ liveFacts, filesMap, roster, gaps }) {
   if (rows.length === 0)
     unjudged.push({
       name: '(三面)',
-      reason:
-        '注册表实际面与结构化名册面同时枚举到 0 个服务——两面皆空即枚举失效，判死不记绿(§0.3)',
+      reason: '注册表实际面与结构化名册面同时枚举到 0 个服务——两面皆空即枚举失效，判死不记绿(§0.3)',
     })
   return { rows, unjudged }
 }
@@ -916,12 +969,9 @@ export function runOnce({ json = false, nowIso = new Date().toISOString(), repoR
   }
   const liveFacts = deriveLiveFacts(live)
   const filesMap = collectRepoScanFiles(repoRoot)
-  const faces = faceClassify({
-    liveFacts,
-    filesMap,
-    roster: collectRosterNames(repoRoot),
-    gaps: readDeclaredGaps(nowIso),
-  })
+  const roster = collectRosterNames(repoRoot)
+  const gaps = readDeclaredGaps(nowIso)
+  const faces = faceClassify({ liveFacts, filesMap, roster, gaps })
   const scopeReds = findUndeclaredRewriteScopes(filesMap, faces.rows)
   // 盘符维(§0 七类现读机器事实之三):服务命令行里钉死"当次仓根之下"的绝对路径枚数。
   // 只报数不判红——它是机器现状而非本次提交能改的东西(§12e);换盘符后必须重跑 --snapshot,
@@ -934,11 +984,43 @@ export function runOnce({ json = false, nowIso = new Date().toISOString(), repoR
   const credUnjudged = credAudits
     .filter((a) => a.unjudged)
     .map((a) => ({ name: `(${a.file})`, reason: a.unjudged }))
-  const credReds = credAudits.flatMap((a) => (a.violations ?? []).map((v) => ({ file: a.file, ...v })))
+  const credReds = credAudits.flatMap((a) =>
+    (a.violations ?? []).map((v) => ({ file: a.file, ...v })),
+  )
+  const verdicts = compareInventory(inventory, liveFacts)
+  const driftCount = verdicts.filter((v) => v.status === 'drift').length
+  const unjudgedAll = faces.unjudged.concat(credUnjudged)
+  // 入库件新鲜度:drift>0 或距上次刷新超过 SNAPSHOT_REFRESH_MAX_AGE_MS ⇒ 重生成落盘
+  // (2026-11-04:去掉"只有 drift>0 才刷新"—— 无漂移时快照会一直陈旧,下游读到旧读数)。
+  // **只在本轮所有面都判到位时落盘**:名册/债账/凭据面未判定时重建会把"没量到"写成"没有"(§0.3)。
+  if (
+    unjudgedAll.length === 0 &&
+    shouldRefreshSnapshot({
+      drift: driftCount,
+      refreshedAt: inventory.refreshedAt,
+      nowMs: Date.parse(nowIso),
+    })
+  ) {
+    try {
+      const doc = buildInventoryDocument({
+        liveFacts,
+        filesMap,
+        roster,
+        faceRows: faces.rows,
+        nowIso,
+        repoRoot,
+      })
+      const text = JSON.stringify(doc, null, 2)
+      // 与 --snapshot 同一条生产者硬闸:脱敏没做干净就不许落盘(只回显键名/长度)。
+      if (auditCredentialShapes(text).length === 0) atomicWriteFileSync(INVENTORY_PATH, text + '\n')
+    } catch {
+      /* 刷新失败只影响新鲜度,不改本轮判据(下一轮会再试) */
+    }
+  }
   return finish({
-    verdicts: compareInventory(inventory, liveFacts),
+    verdicts,
     faceRows: faces.rows,
-    unjudged: faces.unjudged.concat(credUnjudged),
+    unjudged: unjudgedAll,
     scopeReds,
     credReds,
     driveBaked,
@@ -1043,7 +1125,6 @@ function finish({
 
 const shorten = (s, max = 120) =>
   s === null ? 'null' : String(s).replace(/\s+/g, ' ').slice(0, max)
-
 
 // ---------------- self-test ----------------
 export function selfTest() {
@@ -1343,7 +1424,8 @@ export function selfTest() {
     'ST38 bakedRepoPathHits 只数落在当次仓根之下的路径(盘外路径不算、换盘符即读 0)',
     (() => {
       const root = 'G:\\IHUI-AI'
-      const s = 'cd /d G:\\IHUI-AI\\apps\\api && C:\\Users\\x\\node.exe --import file:///G:/IHUI-AI/n/mjs'
+      const s =
+        'cd /d G:\\IHUI-AI\\apps\\api && C:\\Users\\x\\node.exe --import file:///G:/IHUI-AI/n/mjs'
       return (
         bakedRepoPathHits(s, root) === 2 &&
         bakedRepoPathHits(s, 'D:\\IHUI-AI') === 0 &&
@@ -1373,7 +1455,14 @@ export function selfTest() {
           unreadable: [],
         },
         faceRows: [
-          { name: 'IHUI-API', installed: true, bucket: 'b', detail: 'd', createSources: [], useSources: [] },
+          {
+            name: 'IHUI-API',
+            installed: true,
+            bucket: 'b',
+            detail: 'd',
+            createSources: [],
+            useSources: [],
+          },
         ],
       })
       const api = inv.services.find((s) => s.name === 'IHUI-API')
@@ -1458,7 +1547,8 @@ export function selfTest() {
   // ---- ST44/ST45:§0.8 出路闸(改写-only 的那枚文件必须自述"不建服务") ----
   const intakeWithDecl =
     "$ServiceName = 'IHUI-API'\nnssm set $ServiceName AppEnvironmentExtra K=V\n# 本脚本不负责建服务\n"
-  const intakeWithoutDecl = "$ServiceName = 'IHUI-API'\nnssm set $ServiceName AppEnvironmentExtra K=V\n"
+  const intakeWithoutDecl =
+    "$ServiceName = 'IHUI-API'\nnssm set $ServiceName AppEnvironmentExtra K=V\n"
   const rowsForScope = [
     { name: 'IHUI-API', installed: true, createSources: [], useSources: ['a.ps1'] },
   ]
@@ -1470,14 +1560,12 @@ export function selfTest() {
   t(
     'ST45 反向对照:补上声明句即清(同数据同面，摘掉声明必回红);有建法的在册服务不走这一闸',
     findUndeclaredRewriteScopes({ 'a.ps1': intakeWithDecl }, rowsForScope).length === 0 &&
-      findUndeclaredRewriteScopes(
-        { 'a.ps1': intakeWithoutDecl },
-        [{ name: 'IHUI-API', installed: true, createSources: ['b.ps1'], useSources: ['a.ps1'] }],
-      ).length === 0 &&
-      findUndeclaredRewriteScopes(
-        { 'a.ps1': "$x = 'IHUI-WEB'\nGet-Service $x\n" },
-        [{ name: 'IHUI-WEB', installed: true, createSources: [], useSources: ['a.ps1'] }],
-      ).length === 0,
+      findUndeclaredRewriteScopes({ 'a.ps1': intakeWithoutDecl }, [
+        { name: 'IHUI-API', installed: true, createSources: ['b.ps1'], useSources: ['a.ps1'] },
+      ]).length === 0 &&
+      findUndeclaredRewriteScopes({ 'a.ps1': "$x = 'IHUI-WEB'\nGet-Service $x\n" }, [
+        { name: 'IHUI-WEB', installed: true, createSources: [], useSources: ['a.ps1'] },
+      ]).length === 0,
   )
   t(
     'ST46 装具脚本的变量喂名形态必须被认成建法($svc = 名 + nssm install $svc 分行)',
@@ -1491,7 +1579,7 @@ export function selfTest() {
     'ST47 凭据自审:KEY=裸值 与 URL userinfo 双双命中，且回显里不含值的任何片段',
     (() => {
       const v = auditCredentialShapes(
-        'IHUI_ADMIN_PASSWORD=Sup3rLongClearValue\nDATA_SOURCE_NAME=postgres://u:An0therClearPass@h:5432/db\n'
+        'IHUI_ADMIN_PASSWORD=Sup3rLongClearValue\nDATA_SOURCE_NAME=postgres://u:An0therClearPass@h:5432/db\n',
       )
       const echoed = JSON.stringify(v)
       return (
@@ -1507,14 +1595,14 @@ export function selfTest() {
     'ST48 反向对照:已按 前6***后2 (len=N) 打码的键(含 JSON 收尾引号/逗号)不得误判',
     (() => {
       const v = auditCredentialShapes(
-        '"appParameters": "IHUI_ADMIN_PASSWORD=Sup3rS***rd (len=40)",\n"dsn": "mysql://u:Ab1234***yz (len=30)@h/db"\n'
+        '"appParameters": "IHUI_ADMIN_PASSWORD=Sup3rS***rd (len=40)",\n"dsn": "mysql://u:Ab1234***yz (len=30)@h/db"\n',
       )
       return v.length === 0
     })(),
   )
   t(
     'ST49 空值/null 不算秘密(结构对账不需要值，也不许把空键报成泄漏)',
-    auditCredentialShapes('API_KEY=\nOTHER_TOKEN=null\n').length === 0
+    auditCredentialShapes('API_KEY=\nOTHER_TOKEN=null\n').length === 0,
   )
   return { fails, ran }
 }
@@ -1540,10 +1628,13 @@ function snapshotToStdout() {
   })
   for (const u of faces.unjudged)
     process.stderr.write(`未判定(不影响清单，只影响本次三面分类):${u.reason}\n`)
-  const obj = buildInventoryObject(liveFacts, filesMap, {
+  const obj = buildInventoryDocument({
+    liveFacts,
+    filesMap,
+    roster,
+    faceRows: faces.rows,
+    nowIso,
     nssmBinaryPresent: nssmPresent,
-    roster: roster.status === 'ok' ? roster : null,
-    faceRows: faces.rows.length > 0 ? faces.rows : null,
   })
   const json = JSON.stringify(obj, null, 2)
   // 生产者侧硬闸:脱敏没做干净就不许出货(只回显键名与长度，值本身绝不上屏)。

@@ -153,12 +153,36 @@ function bracesIn(line) {
 /**
  * 锚点所在分支的区域。三条收口路径,收不住就 `delimited:false` ⇒ 调用方落**未判定**而不是猜:
  *  ① 锚点行自带一整块**平衡**的花括号(`case 'initial': return { ...state }`)⇒ 区域 = 该行;
+ *  ①b 分支体写在同一行、无花括号(`if (mode === 'initial') setLoading(true)`)⇒ 区域 = 该行
+ *     (见 inlineBodyOf:不把后面的 `try {` 块整段吞成 initial 区域);
  *  ② 锚点行开启一个未闭合的块 ⇒ 向后收到深度归零;
  *  ③ 锚点行没有花括号 ⇒ 逐行带到第一个成句边界(空行 / `;` / `}` / 下一个块)。
  * 旧实现在这条上是错的:它对"整行写完的单行分支"一路扫到文件尾,把 `region-unbounded`
  * 判给本可干净收口的站点 —— 判据过窄的代价不是少报,而是把能判的格写成判不出。
  */
-function regionOf(faceLines, anchorLine) {
+/**
+ * 锚点分支的体是否**写在同一行**(`if (mode === 'initial') setLoading(true)` /
+ * `case 'initial': return …`)。旧实现的收口只看花括号:同行体不带花括号时会一路向后
+ * 带到下一个块(本仓 MoreCourseScreen 的 `try {` 块),把 append 三元里的 `...prev`
+ * 记成 initial 分支的站点 —— 判据没错,区域画错了。
+ * 判据:锚点标签之后紧跟 `)`(if 条件收口)或 `:`(case 冒号),且其后仍有非空代码,
+ * 且该行花括号自平衡 ⇒ 体就在本行。紧接 `?`/比较符的一律不算(那是表达式,不是分支头)。
+ */
+function inlineBodyOf(face, faceLines, anchor) {
+  const lineStart = face.lastIndexOf('\n', Math.max(0, anchor.offset - 1)) + 1
+  const line = faceLines[anchor.line - 1] ?? ''
+  const afterLabel = line.slice(anchor.offset - lineStart + anchor.label.length + 2) // 跳过两侧引号
+  const head = afterLabel.trimStart()
+  if (head === '' || head.startsWith('?') || /^(===|==|!==|!=)/.test(head)) return false
+  let body
+  if (head.startsWith(':')) body = head.slice(1)
+  else if (head.startsWith(')')) body = head.slice(1)
+  else return false
+  const b = bracesIn(line)
+  return body.trim() !== '' && b.open === b.close
+}
+
+function regionOf(faceLines, anchorLine, inlineBody = false) {
   const start = anchorLine - 1
   const cap = Math.min(faceLines.length - 1, start + REGION_LINE_CAP)
   const closeBlockFrom = (from, depth0) => {
@@ -176,6 +200,7 @@ function regionOf(faceLines, anchorLine) {
     if (first.open === first.close) return { start, end: start, delimited: true }
     return closeBlockFrom(start + 1, first.open - first.close)
   }
+  if (inlineBody) return { start, end: start, delimited: true }
   for (let i = start + 1; i <= cap; i++) {
     const b = bracesIn(faceLines[i])
     if (b.open > 0) {
@@ -218,7 +243,7 @@ export function analyzeSource(rel, src) {
   const face = maskCommentsStringsAndRegex(src)
   const faceLines = face.split('\n')
   for (const a of anchors) {
-    const region = regionOf(faceLines, a.line)
+    const region = regionOf(faceLines, a.line, inlineBodyOf(face, faceLines, a))
     if (!region.delimited) {
       findings.undetermined.push({ line: a.line, label: a.label, why: region.why })
       continue
@@ -396,6 +421,37 @@ export function selfTest() {
 `,
       )
       return f.hits.length === 0 && f.passed.length === 1
+    })(),
+  )
+  // 反向例①:同行体里**真**铺 ...prev(区收窄后不得漏报)
+  t(
+    'H3 全量帧同行分支体里铺 ...prev ⇒ 命中',
+    (() => {
+      const f = analyzeSource(
+        'a2.ts',
+        `if (mode === 'initial') setItems((prev) => ({ ...prev, list }))\n`,
+      )
+      return f.hits.length === 1 && f.hits[0].name === 'prev'
+    })(),
+  )
+  // 反向例②:append 三元守卫(MoreCourseScreen 形状)⇒ 放过
+  t(
+    'P3 全量帧分支体仅 setLoading,append 三元里才铺 ...prev ⇒ 放过',
+    (() => {
+      const f = analyzeSource(
+        'c2.ts',
+        `async function load(mode) {
+  if (mode === 'initial') setLoading(true)
+  try {
+    const list = await fetchList()
+    setItems((prev) => (mode === 'append' ? [...prev, ...list] : list))
+  } catch {
+    setLoading(false)
+  }
+}
+`,
+      )
+      return f.hits.length === 0 && f.undetermined.length === 0 && f.passed.length === 1
     })(),
   )
   // 放过:锚点在注释里(门不得把自己的解释文字判成站点)

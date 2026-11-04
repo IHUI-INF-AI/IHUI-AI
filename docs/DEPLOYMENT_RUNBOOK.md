@@ -12,6 +12,9 @@ IHUI-AI 生产环境的部署、运维、监控、回滚与故障排查。适用
 > Cloudflare Tunnel**的"**push → 自动拉取部署**"模式。原 Docker Compose 蓝绿方案
 > (`docker-compose.{blue,green}.yml` + Nginx upstream 切流)**已弃用**
 > (GitHub Actions 蓝绿流水线 2026-09-07 起未再成功运行,`docker-compose.yml` 仅保留用于本地开发)。
+>
+> **`blue-green-deploy.yml` 已于 2026-09-07 退役**:目标架构(Linux/Docker/Nginx 蓝绿)已不存在,
+> 工作流仅存档可追溯;保留 fail-fast 闸,未显式传 `confirm_retired=yes` 即退出,不会再跑一条长红。
 
 生产拓扑(实测 2026-09-21):
 
@@ -19,6 +22,23 @@ IHUI-AI 生产环境的部署、运维、监控、回滚与故障排查。适用
 - 运行时:Node(源码直跑,api=tsx / web=next / ai-service=uvicorn),无容器
 - 入口:`Cloudflared` 服务(Cloudflare Tunnel)把 `aizhs.top` / `api.aizhs.top` 流量转到本机 8801/8802
 - 部署:推送 `origin/main` 后,`IHUI-DEPLOYLOOP` 服务每 60s 轮询自动拉取 → 构建 → 重启 → 健康门禁 → 失败自动回滚
+
+## 0. 生产部署的唯一路径(2026-11-04 定稿)
+
+**GitHub Actions 不参与生产部署。** 生产部署的唯一路径是生产机上的 `IHUI-DEPLOYLOOP`:
+
+| 环节 | 事实 |
+|---|---|
+| 触发器 | 推送 `origin/main`(无需在 GitHub 点任何按钮) |
+| 轮询 | NSSM 服务 `IHUI-DEPLOYLOOP` 每 **60s** 执行 `deploy\win\ihui-deploy-loop.ps1 -Daemon -IntervalSeconds 60` |
+| 拉取 | `git fetch` → `git merge --ff-only FETCH_HEAD`(禁 force,不动未提交改动) |
+| 构建 | web `next build`;api/ai-service 源码直跑(tsx / uvicorn),不打包镜像 |
+| 健康门禁 | web 200 + `/api/health` ok + ai-service `8803/health` 可达,任一不过即中止切流 |
+| 回滚 | 门禁未过自动恢复 `.rollback` 构建并重启;代码级回滚 = revert 后 push,60s 内自动重部署 |
+| 日志 | `deploy\win\deploy-loop.log`(50MB 轮转保留 5 份) |
+
+已退役的 `blue-green-deploy.yml`(GitHub Actions + SSH + Docker 蓝绿)与此无关:
+它面向的 Linux/Docker/Nginx 架构自 **2026-09-07** 起已不存在,运行只会在 SSH 步骤失败。
 
 ---
 
@@ -323,6 +343,15 @@ deployloop 会**原样拉取 main**,推送残缺代码 = 生产直接 502。推�
 3. 迁移类提交单独先行,给 deployloop 留出拉取间隔,避免"代码已到迁移未跑"
 
 ---
+
+### 6.3 已退役通道:`blue-green-deploy.yml`(2026-09-07)
+
+该工作流面向 Linux + Docker Compose + Nginx upstream 的蓝绿架构,该架构已于 **2026-09-07** 退役
+(生产改为原生 Windows + NSSM + Cloudflare Tunnel)。文件保留仅为可追溯,不再承担任何部署:
+
+- 首个 step 是 fail-fast 闸:未显式传 `confirm_retired=yes` 即打印「真实部署走 deployloop」并退出;
+- 不要把它改成 `continue-on-error`、不要降级成假成功、不要删除;
+- 真正部署看本文 §0 与 §6,只认 `IHUI-DEPLOYLOOP`。
 
 ## 7. 回滚流程
 
