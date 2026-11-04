@@ -518,6 +518,7 @@ async function main() {
           .filter((d) => keptRulings.has(d.name))
           .reduce((s, d) => s + (d.driftTotal ?? 0), 0),
         mappedKeysTotal: par.deltas.reduce((s, d) => s + (d.mappedKeyCount ?? 0), 0),
+        equivalenceEntries: equivalenceEntryCount,
       },
     }
     for (const d of par.deltas)
