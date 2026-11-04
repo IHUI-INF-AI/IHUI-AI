@@ -776,7 +776,13 @@ function stagedFiles() {
     const out = execFileSync(
       'git',
       ['-c', 'safe.directory=*', 'diff', '--cached', '--name-only', '--diff-filter=ACMR', '--', SRC_REL],
-      { cwd: REPO, encoding: 'utf8', maxBuffer: 1 << 26, stdio: ['ignore', 'pipe', 'pipe'] },
+      {
+        cwd: REPO,
+        encoding: 'utf8',
+        maxBuffer: 1 << 26,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        windowsHide: true,
+      },
     )
     return out
       .split('\n')
