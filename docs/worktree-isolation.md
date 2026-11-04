@@ -89,6 +89,9 @@ node scripts/worktree-isolation-stress.mjs --rounds 20 --json
 | land 不带走未提交件 | 隔离树有 staged/unstaged/conflict 就拒;未跟踪只告警(不会被 land,drop 会因此拒删) |
 | land 串行化 | 锁 `<gitcommondir>/ihui-worktree-land.lock`,跨 worktree 互斥;宿主已死/超 60s 的残留锁才清 |
 | 非快进 | 隔离树内 **普通 merge 主线**(禁 rebase/cherry-pick),冲突则 `merge --abort` 回滚后拒 |
+| 零钩子拒建 | `core.hooksPath` 已配时,基线检出里没有 `<hooksPath>/pre-commit` ⇒ `new` 在**写入前**拒绝(不建零钩子树) |
+| 建后复核 | `worktree add` 后用**该树自己的** `--git-path hooks` 复核;缺失则非 force 回收刚建的树 + `branch -d`,不碰既有检出 |
+| 零钩子树可观测 | `list` 逐棵打印 `HOOKS=ok` / `⚠ZERO-HOOKS`,汇总行给出"零钩子 N 棵"与路径 |
 
 与 `agent-worktree.mjs` 的分工:`agent-worktree.mjs` 管**仓内** `.worktrees/`(AGENTS §12h、默认 dry-run、带 reap);本工具管**仓外**独立目录,面向"开一棵、干完就收"。不是第二套规范,是两种落点。
 
@@ -175,6 +178,32 @@ worktree 的 `.git` 是一个指针文件,指向 `<主 gitdir>/worktrees/<name>/
 - 该树 index **自动归位**,不需要 isolated-git 那种后置推进:commit 后
   `git status --porcelain -- a.txt` 为空、`git diff --cached` 为空。
 
+### 2.3.2 现有 3 棵树的钩子核查(2026-11-04 23:28 实测,逐棵执行级)
+
+仓库配置 `core.hooksPath=.husky`(相对路径,`.husky/` 在版本控制内)。逐棵读数
+(`git -C <树> config --get core.hooksPath` × `git -C <树> rev-parse --path-format=absolute
+--git-path hooks` × `Test-Path <hooks>/pre-commit` × 执行级探针):
+
+| 检出 | 解析出的钩子目录 | pre-commit 存在 | 执行级探针 | 结论 |
+|---|---|---|---|---|
+| `D:/IHUI-AI`(主树) | `D:/IHUI-AI/.husky` | true | rc=1(桩命中) | **有钩子** |
+| `D:/IHUI-AI-homefont-wt` | `D:/IHUI-AI-homefont-wt/.husky` | true | rc=1(桩命中) | **有钩子** |
+| `D:/IHUI-AI-mergefix-wt` | `D:/IHUI-AI-mergefix-wt/.husky` | true | rc=1(桩命中) | **有钩子** |
+
+- **执行级探针怎么做的(不改树内容)**:临时目录放一个会失败的 `wscript` 桩(sh 脚本,
+  打印 `IHUI_PROBE_STUB` 后 `exit 1`),把它 **prepend 到 PATH**,再逐棵跑
+  `git -C <树> hook run pre-commit`。该树解析出的**真** `.husky/pre-commit` 会被 git 执行,
+  只到它调用 `wscript` 这一步就撞桩失败 ⇒ rc=1;不下钻 node 守门链(不跑自愈门、不写文件)。
+  - 正控制(同形态夹具仓,钩子存在):`rc=1 out=IHUI_PROBE_STUB: hook dispatched, failing on purpose`;
+  - 负控制(同名钩子文件改名后):`rc=1 out=error: cannot find a hook named pre-commit` —— 探针能区分零钩子;
+  - 副作用核对(探针前后 `git -C <树> status --porcelain` 行数):主树 **151→151**、
+    `homefont-wt` **0→0**、`mergefix-wt` **2→2**;三棵脏面数量一字未变;
+- `node scripts/worktree-isolate.mjs list`:三行均 `HOOKS=ok`,汇总 **零钩子 0 棵**;
+- 另建 `wt/hookprobe` 树做过的整链探针(2026-11-04 23:23):`git hook run pre-commit`
+  **>30s 未返回**(30s 超时终止),树 `dirtyLines=0`;与上表同批证据,这里保留为"整链会跑"的旁证;
+- 结论:**今天 3 棵都不是零钩子树**;风险只在"以后建一棵 hooksPath 指向未纳入版本控制的目录",
+  已由 §1 的三条硬约束(写入前拒建 / 建后复核 / list 标红)堵住。
+
 ### 2.4 实测:在主树里用 isolated-git 会留下 AD 反向暂存残留
 
 本单第一次提交(`b621533`,走 `isolated-git` 私有索引)之后复查,共享索引把两件新文件记成
@@ -218,8 +247,12 @@ git reset -- <本单路径...>
 ✅ G2 land 后可干净回收 | exit=0 branchDeleted=true
 ✅ H 主线脏重叠拒 | exit=1 ❌ 拒绝 land:主线有 1 条路径未提交,而本次要更新它们… a.txt
 ✅ H2 清脏后 land 恢复 | exit=0 mode=ff
+✅ I 零钩子基线拒建 | exit=1 created=false ❌ 拒绝创建:基线 57d438ae 的检出里没有 hooks/pre-commit。
+✅ J 有钩子基线可建 | exit=0 hooksOk=true    钩子: …/wt-hooks/hooks/pre-commit(已核查存在)
+✅ J2 零钩子树被 list 标红 | hooksOk=false 零钩子汇总=… | 零钩子 1 棵:…/wt-hooks
+✅ J3 复原后可干净回收 | exit=0 branchDeleted=true
 ✅ F 零真实仓足迹 | 真实仓 worktree 数 3→3(本自检未新增真实检出)
-self-test: 全绿(13 组断言,全部落在 mkScratch 夹具内)
+self-test: 全绿(17 组断言,全部落在 mkScratch 夹具内)
 ```
 
 真实仓的"脏拒删 → 清干净再删"证据(同一棵 `D:/IHUI-AI-wt-proof-selftest`):

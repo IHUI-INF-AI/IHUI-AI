@@ -163,6 +163,44 @@ function resolveTargetPath(repoRoot, target) {
   return looksPath ? resolve(target) : defaultDest(repoRoot, String(target))
 }
 
+/**
+ * 该检出的钩子解析结果:走 git 自己的 `--git-path hooks`(会应用 core.hooksPath),
+ * 不靠猜路径。`ok=false` 即"零钩子"——该树所有提交都不会跑钩子。
+ */
+function hooksOf(treePath) {
+  const r = git(['rev-parse', '--path-format=absolute', '--git-path', 'hooks'], {
+    root: treePath,
+    allowFail: true,
+  })
+  if (!r.ok || !r.out) return { hooksPath: '', preCommit: '', ok: false, measured: false }
+  const preCommit = join(r.out, 'pre-commit')
+  return { hooksPath: r.out, preCommit, ok: existsSync(preCommit), measured: true }
+}
+
+/** 仓库是否显式配置了 core.hooksPath;未配置时钩子是 git 默认语义,不做强制。 */
+function hooksConfig(repoRoot) {
+  const r = git(['config', '--get', 'core.hooksPath'], { root: repoRoot, allowFail: true })
+  const raw = r.ok ? r.out.trim() : ''
+  return { raw, enforced: raw !== '' }
+}
+
+/** 新树在 `worktree add` 之后会不会有钩子:写入前先判,避免先建出零钩子树再补救。 */
+function baseWillHaveHooks(repoRoot, baseSha) {
+  const cfg = hooksConfig(repoRoot)
+  if (!cfg.enforced) return { ok: true, hooksPath: '', mode: 'unset' }
+  if (isAbsolute(cfg.raw)) {
+    const pre = join(cfg.raw, 'pre-commit')
+    return { ok: existsSync(pre), hooksPath: cfg.raw, mode: 'absolute' }
+  }
+  // 相对路径按树解析 ⇒ 新树里有这个文件,当且仅当基线树里有
+  const rel = cfg.raw.replace(/\\/g, '/').replace(/^\.\//, '').replace(/\/+$/, '')
+  const probe = git(['cat-file', '-e', `${baseSha}:${rel}/pre-commit`], {
+    root: repoRoot,
+    allowFail: true,
+  })
+  return { ok: probe.status === 0, hooksPath: rel, mode: 'relative' }
+}
+
 /** git 的逐行路径输出 ⇒ 集合(空输出是空集合,不是"未判定")。 */
 function pathSetOf(out) {
   return new Set(
@@ -321,6 +359,20 @@ export function newWorktree({
   if (!baseRef.ok || !baseRef.out) {
     return { exit: EXIT_REFUSED, out: [`❌ 拒绝创建:基线 ref 取不到(${base})`] }
   }
+  // 写入前判钩子:core.hooksPath 配了(相对/绝对)却没有 pre-commit ⇒ 建出来就是"静默零钩子"树,
+  // 直接拒绝(fail-closed),而不是先建再补救。
+  const preHooks = baseWillHaveHooks(repoRoot, baseRef.out)
+  if (!preHooks.ok) {
+    return {
+      exit: EXIT_REFUSED,
+      out: [
+        `❌ 拒绝创建:基线 ${baseRef.out.slice(0, 8)} 的检出里没有 ${preHooks.hooksPath}/pre-commit。`,
+        '   这棵树会「静默零钩子」:所有提交不跑任何门,而 git 仍返回 0。',
+        '   先把钩子纳入该基线(把 hooks 目录纳入版本控制,或把 core.hooksPath 指到存在的绝对路径)再建树。',
+        '   本工具不做现场补救:不复制钩子、不给缺钩子的树开口子。',
+      ],
+    }
+  }
   const add = git(['worktree', 'add', '-b', br, target, base], {
     root: repoRoot,
     allowFail: true,
@@ -342,6 +394,24 @@ export function newWorktree({
   }
   const real = git(['rev-parse', '--show-toplevel'], { root: target, allowFail: true })
   const realPath = real.ok && real.out ? real.out : target
+  // 建后复核(防线二):按新树自己的解析结果再量一次;写前判定若被绕过,这里收口。
+  if (hooksConfig(repoRoot).enforced) {
+    const audit = hooksOf(realPath)
+    if (!audit.ok) {
+      const rm = git(['worktree', 'remove', realPath], { root: repoRoot, allowFail: true })
+      git(['branch', '-d', br], { root: repoRoot, allowFail: true })
+      return {
+        exit: EXIT_REFUSED,
+        out: [
+          `❌ 创建后核查失败:${realPath} 解析出的钩子目录 ${audit.hooksPath || '(读不到)'} 里没有 pre-commit。`,
+          '   该树会是「静默零钩子」,已按非 force 方式回收这棵刚建的树(不碰任何既有检出)。',
+          rm.ok
+            ? '   回收结果: 已移除(分支也已用 -d 删除)'
+            : `   回收结果: 失败(${rm.err || '未知'})——请手工确认后 git worktree remove "${realPath}"`,
+        ],
+      }
+    }
+  }
   return {
     exit: EXIT_OK,
     path: realPath,
@@ -351,6 +421,9 @@ export function newWorktree({
       `   路径: ${realPath}`,
       `   分支: ${br}`,
       `   基线: ${base} (${baseRef.out.slice(0, 8)})`,
+      hooksConfig(repoRoot).enforced
+        ? `   钩子: ${hooksOf(realPath).preCommit}(已核查存在)`
+        : '   钩子: 仓库未配 core.hooksPath(按 git 默认语义,不做强制)',
       `   进入: cd "${realPath}"`,
       `         PowerShell: Set-Location -LiteralPath "${realPath}"`,
       '   在树内提交: git add -- <本席路径...>; git commit -m "<标题>" -- <本席路径...>',
@@ -693,14 +766,18 @@ function landUnderLock({ repoRoot, realPath, branch, warn, maxAttempts }) {
  */
 export function listWorktrees({ repoRoot = ROOT } = {}) {
   const rows = registeredRows(repoRoot)
+  const enforced = hooksConfig(repoRoot).enforced
   const trees = rows.map((row, i) => {
     const path = treePathOf(row, repoRoot)
     const st = git(['status', '--porcelain'], { root: path, allowFail: true })
+    const hooks = hooksOf(path)
     return {
       path,
       branch: row.detached ? '(detached)' : row.branch || '(unknown)',
       head: row.head ? row.head.slice(0, 8) : '',
       locked: row.locked,
+      hooksPath: hooks.hooksPath,
+      hooksOk: hooks.ok,
       isMain: i === 0,
       measured: st.ok,
       counts: st.ok
@@ -718,7 +795,8 @@ export function listWorktrees({ repoRoot = ROOT } = {}) {
           ? `staged=${c.staged} unstaged=${c.unstaged} untracked=${c.untracked}` +
             `${c.conflicts ? ` conflict=${c.conflicts}` : ''}`
           : '未判定(status 读不到)') +
-        ` | ${t.isMain ? '主树 ' : ''}${t.locked ? 'LOCKED ' : ''}${dirty ? 'DIRTY' : t.measured ? 'clean' : 'UNDETERMINED'}`,
+        ` | ${t.isMain ? '主树 ' : ''}${t.locked ? 'LOCKED ' : ''}${dirty ? 'DIRTY' : t.measured ? 'clean' : 'UNDETERMINED'}` +
+        ` | ${enforced ? (t.hooksOk ? 'HOOKS=ok' : '⚠ZERO-HOOKS') : 'HOOKS=unk(未配 hooksPath)'}`,
     )
   }
   const dirtyCount = trees.filter(
@@ -726,8 +804,12 @@ export function listWorktrees({ repoRoot = ROOT } = {}) {
       t.measured &&
       t.counts.staged + t.counts.unstaged + t.counts.untracked + t.counts.conflicts > 0,
   ).length
+  const zeroHooks = enforced ? trees.filter((t) => !t.hooksOk) : []
   out.push(
-    `总计 ${trees.length} 棵工作树 | 脏 ${dirtyCount} 棵 | 干净 ${trees.length - dirtyCount} 棵`,
+    `总计 ${trees.length} 棵工作树 | 脏 ${dirtyCount} 棵 | 干净 ${trees.length - dirtyCount} 棵` +
+      (enforced
+        ? ` | 零钩子 ${zeroHooks.length} 棵${zeroHooks.length ? ':' + zeroHooks.map((t) => t.path).join(',') : ''}`
+        : ' | 零钩子未判定(仓库未配 core.hooksPath)'),
   )
   // 列是"读现场"的动作,脏不脏不影响它成功与否;只有量不到 status 才是未判定(exit 2)。
   return { exit: trees.some((t) => !t.measured) ? EXIT_UNKNOWN : EXIT_OK, trees, out }
@@ -873,6 +955,63 @@ async function selfTest() {
       `exit=${h2.exit} mode=${h2.mode} out=${h2.out.join(' / ')}`,
     )
     dropWorktree({ repoRoot: repo, target: hDest })
+
+    // I 反向用例:core.hooksPath=hooks 但基线里没有 hooks/pre-commit ⇒ 拒建(静默零钩子)
+    const zRepo = join(dir, 'repo-zero')
+    mkdirSync(zRepo)
+    git(['init', '-q', '-b', 'main'], { root: zRepo })
+    git(['config', 'user.email', 'self-test@ihui.invalid'], { root: zRepo })
+    git(['config', 'user.name', 'ihui worktree self-test'], { root: zRepo })
+    git(['config', 'core.hooksPath', 'hooks'], { root: zRepo })
+    writeFileSync(join(zRepo, 'a.txt'), 'init\n', 'utf8')
+    git(['add', '--', 'a.txt'], { root: zRepo })
+    git(['commit', '-q', '-m', 'init'], { root: zRepo })
+    const zDest = join(dir, 'wt-zero')
+    const zi = newWorktree({ repoRoot: zRepo, slug: 'zero', dest: zDest })
+    ok(
+      'I 零钩子基线拒建',
+      zi.exit === EXIT_REFUSED &&
+        zi.out.some((l) => l.includes('静默零钩子')) &&
+        !existsSync(zDest),
+      `exit=${zi.exit} created=${existsSync(zDest)} ${zi.out[0]}`,
+    )
+
+    // J 正向 + 反向:钩子纳入基线 ⇒ 可建;把该树 hooks 删掉 ⇒ list 标红
+    const hRepo = join(dir, 'repo-hooks')
+    mkdirSync(hRepo)
+    git(['init', '-q', '-b', 'main'], { root: hRepo })
+    git(['config', 'user.email', 'self-test@ihui.invalid'], { root: hRepo })
+    git(['config', 'user.name', 'ihui worktree self-test'], { root: hRepo })
+    git(['config', 'core.hooksPath', 'hooks'], { root: hRepo })
+    mkdirSync(join(hRepo, 'hooks'))
+    writeFileSync(join(hRepo, 'hooks', 'pre-commit'), '#!/bin/sh\nexit 0\n', 'utf8')
+    writeFileSync(join(hRepo, 'a.txt'), 'init\n', 'utf8')
+    git(['add', '--', 'hooks/pre-commit', 'a.txt'], { root: hRepo })
+    git(['commit', '-q', '-m', 'init with hooks'], { root: hRepo })
+    const jDest = join(dir, 'wt-hooks')
+    const zj = newWorktree({ repoRoot: hRepo, slug: 'hooks', dest: jDest })
+    const hooksOkAfterNew = hooksOf(jDest).ok
+    ok(
+      'J 有钩子基线可建',
+      zj.exit === EXIT_OK && hooksOkAfterNew === true && zj.out.some((l) => l.includes('钩子:')),
+      `exit=${zj.exit} hooksOk=${hooksOkAfterNew} ${zj.out.find((l) => l.includes('钩子:'))}`,
+    )
+    unlinkSync(join(jDest, 'hooks', 'pre-commit'))
+    const listJ = listWorktrees({ repoRoot: hRepo })
+    const zeroRow = listJ.trees.find((t) => samePath(t.path, jDest))
+    ok(
+      'J2 零钩子树被 list 标红',
+      zeroRow && zeroRow.hooksOk === false && listJ.out.some((l) => l.includes('⚠ZERO-HOOKS')),
+      `hooksOk=${zeroRow && zeroRow.hooksOk} 零钩子汇总=${listJ.out[listJ.out.length - 1]}`,
+    )
+    // 复原(只碰自己刚建的夹具树),再干净回收
+    git(['checkout', '--', 'hooks/pre-commit'], { root: jDest })
+    const jd = dropWorktree({ repoRoot: hRepo, target: jDest })
+    ok(
+      'J3 复原后可干净回收',
+      jd.exit === EXIT_OK && jd.branchDeleted === true,
+      `exit=${jd.exit} branchDeleted=${jd.branchDeleted}`,
+    )
 
     const realRowsAfter = registeredRows(ROOT).length
     const leaked = registeredRows(ROOT).filter(
