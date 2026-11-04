@@ -12,7 +12,7 @@ SRC = r"G:/IHUI-AI/apps/miniapp-taro/src"
 FRAG = r"G:/IHUI-AI/tmp/i18n-batch/frag-codemod10.json"
 
 # (文件, 原文, 替换后的完整目标串(含 __K__/__V__ 占位), 词典中文)
-# 2026-11-04: 两枚组件(提现记录页占位 / 成员管理页占位)随壳化退役后,其历史规则行已一并移除 ——
+# 2026-11-04: 三枚组件(提现记录页占位 / 成员管理页占位 / RetryButton)随壳化退役后,其历史规则行已一并移除 ——
 # 本表是 pass10 的一次性迁移史快照,被改文件已不在树上,留着只会让"路径字面量仍在引用"的
 # 存续性对账(守门 99)持续判红;其余行按原样保留(脚本本就对缺失文件跳过)。
 RULES = [
@@ -22,7 +22,6 @@ RULES = [
     ("components/adapters/UserInfoCard.taro.tsx", "const FALLBACK_TOKEN_LABEL = '剩余智汇值:'", "const FALLBACK_TOKEN_LABEL = t('__K__')", "剩余智汇值:"),
     ("components/adapters/UserInfoCard.taro.tsx", "const FALLBACK_RECHARGE_TEXT = '充值'", "const FALLBACK_RECHARGE_TEXT = t('__K__')", "充值"),
     ("components/EmptyState.tsx", "text = '暂无数据'", "text = t('__K__')", "暂无数据"),
-    ("components/RetryButton.tsx", "text = '重试'", "text = t('__K__')", "重试"),
     ("components/PageLoading.tsx", "text = '加载中...'", "text = t('__K__')", "加载中..."),
     ("pages/ai-assistant/index.tsx", 'placeholder="请输入描述"', "placeholder={tt('__K__', '__V__')}", "请输入描述"),
     ("components/BottomActionBar.tsx", "已选模型: {modelName}", "{tt('__K__', '已选模型: __M__', { m: modelName })}", "已选模型: __M__"),

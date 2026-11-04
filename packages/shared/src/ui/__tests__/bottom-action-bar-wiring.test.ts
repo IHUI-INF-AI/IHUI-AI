@@ -486,7 +486,7 @@ describe('⑤ 该族只剩一份源(两端壳 import 同一枚核心)', () => {
  * 所以在这里补成可机器复核的三张账:
  *  · ⑥ spec 的每一枚 `_PX` 档只许落进三种归属之一 —— 两端直引 / 经 core 投影 / 仅小程序
  *    经 core;新档不登记 = 红(幻影档),RN 腿引用单端档 = 红(补引用凑平);
- *  · ⑦ 门 128 现读的 13 几何档 + 3 半径档逐条落成"值 + 归属端 + A/B/C + 出处锚点"的事实表,
+ *  · ⑦ 门 128 现读的 12 几何档 + 3 半径档逐条落成"值 + 归属端 + A/B/C + 出处锚点"的事实表,
  *    表长与台账 `counts` / `radiusCounts` **同批对账** —— 台账下调而事实表没同步 = 红;
  *  · ⑧ 对侧一旦出现该单端元素的身份(典型动机 = 让 diffCount 变小)⇒ 红;owner 侧出处改值
  *    ⇒ 红(事实表过期)。
@@ -549,8 +549,8 @@ const SPEC_TIER_SCOPES: ReadonlyArray<{ tier: string; scope: TierScope; why: str
   { tier: 'BOTTOM_ACTION_BAR_SEND_GLYPH_PX', scope: 'both-legs', why: '发送槽字形墨迹' },
   {
     tier: 'BOTTOM_ACTION_BAR_CHIP_ROW_GAP_PX',
-    scope: 'miniapp-via-core',
-    why: '行距:RN 直取,小程序经 core 的 InlineRow',
+    scope: 'miniapp-core-only',
+    why: 'B 条内行距 8:小程序经 core InlineRow 取;RN 的 toggle 钮行距走 rnSpacing.xs(4),是另一个元素而非同值档',
   },
   {
     tier: 'BOTTOM_ACTION_BAR_ICON_GLYPH_PX',
@@ -773,16 +773,6 @@ const ONE_SIDED_FACTS: ReadonlyArray<OneSidedFact> = [
     otherAnchor: /modelNameLabel/,
     why: 'C 模型名单行截断;小程序整行 flex 换行,无截断节点',
   },
-  {
-    value: 6,
-    dimension: 'geometry',
-    owner: 'miniapp-taro',
-    kind: 'C',
-    // 0ea20bbe01 把 rpx 字面量收编进 taroSpacing 档(weapp 像素零变化):出处形态变了、事实未变。
-    anchor: /padding:\s*`\$\{rpx\(taroSpacing\['xs-loose'\]\)\}(?: 0)?`/,
-    otherAnchor: /taroSpacing\['xs-loose'\]/,
-    why: 'C chip 纵向内衬 taroSpacing xs-loose(12rpx=6) vs RN 固定高 TOGGLE_CHIP_HEIGHT=32,两端落屏高都约 32',
-  },
   // ── 半径(RD 维 3 枚;RE 维 0 是"两侧无同名元素",不是"圆角已一致") ──
   {
     value: 8,
@@ -790,7 +780,7 @@ const ONE_SIDED_FACTS: ReadonlyArray<OneSidedFact> = [
     owner: 'miniapp-taro',
     kind: 'A',
     anchor: /borderRadius:\s*rnRadius\.lg,/,
-    otherAnchor: /rnRadius\.lg/,
+    otherAnchor: /BottomActionBarIconCardRow/,
     why: 'A 图标卡圆角:RN 同功能走共享 AddPanel(另一枚组件)',
   },
   {
@@ -902,7 +892,7 @@ describe('⑥ spec 档三分且逐档归属(两端直引 / 经 core 投影 / 仅
   })
 })
 
-describe('⑦ 差异档事实表与台账同批对账(13 几何 + 3 半径)', () => {
+describe('⑦ 差异档事实表与台账同批对账(12 几何 + 3 半径)', () => {
   it('现态:每条事实出处仍在 owner 侧、对侧无该元素、表长与台账 counts 一致', () => {
     expect(
       oneSidedFactProblems(ONE_SIDED_FACTS, {

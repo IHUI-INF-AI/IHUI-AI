@@ -193,7 +193,7 @@ function rnWiringProblems(src: string): string[] {
   out.push(...specReFetchedIn(code, 'RN'))
   const propsPatterns: Array<[RegExp, string]> = [
     [/onPress\?: \(\) => void/, 'onPress?: () => void'],
-    [/\blabel: string/, 'label: string'],
+    [/\blabel\?: string/, 'label?: string'],
     [/colorScheme: AppThemeMode/, 'colorScheme: AppThemeMode'],
     [/style\?: StyleProp<ViewStyle>/, 'style?: StyleProp<ViewStyle>'],
     [/testID\?: string/, 'testID?: string'],
