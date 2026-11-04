@@ -11325,9 +11325,16 @@ export function sweepMiniappStyleTiers(opts = {}) {
  * ⚠ 这条腿与另两条有一处必须显式带的差异(器物自己头注写明的实测反例):
  * 具名档是**三元组**(size / line-height / font-weight),Tailwind 默认档只给前两项 ⇒
  * "字号与行高相同"**不等于零视觉变化**:`text-xl → text-heading` 会把没有 `font-*` 伴随的
- * 元素从 400 顶到 700。所以本轮**恒带 `--only-weight-locked`**(只改"同一类名串里已有 font-*
- * 工具类钉住权重"的那些),这是"可证恒等"的唯一子集。不带这旗的 `--apply` 会静默改全站字重,
- * 因此这里把它写死成常量,而不是留一个可被环境变量调掉的口子。
+ * 元素从 400 顶到 700。所以本轮**恒带 `--only-weight-locked`**;不带这旗的 `--apply`
+ * 会静默改全站字重,因此写死成常量,而不是留一个可被环境变量调掉的口子。
+ *
+ * ⚠ 2026-11-04 追加:光有上一旗会让这条腿**永久空转** —— 现读 web 523 处可落档类名串
+ * 无一自带 `font-*`,每轮恒报 `files=0 changes=0`。故再恒带 `--pin-inherit-weight`:给无
+ * 权重串补 `font-[weight:inherit]`(本仓 Tailwind 4.3.3 编译取证产物为
+ * `--tw-font-weight: inherit; font-weight: inherit`)。它自身等价于"属性未设置时继承祖先",
+ * 又让具名档的 400/700 回落整体失效 ⇒ 仍是可证零变化,只是把可证子集从 0 扩到全部。
+ * **绝不可改用 `font-[inherit]`**:同一轮取证里它被解析成 `font-family: inherit`。
+ * `--limit 20` 小批落盘,配合落点账本 `skipLanded` 逐轮续跑,避免一轮写 86 个文件。
  *
  * 失效方向与另两条同形:器物不在位 ⇒ 跳过且不记为已探测;取不到结论行 ⇒ 未判定(不记绿);
  * `failed>0` ⇒ ok:false 并点名(那批文件没落,不是"已对齐");`truncated=1` 原样带出(有上限被触到)。
@@ -11372,14 +11379,18 @@ export function sweepWebStyleTiers(opts = {}) {
       ? runner
       : () => {
           try {
-            const out = execFileSync(process.execPath, [script, '--apply', '--only-weight-locked'], {
-              cwd: WORKTREE,
-              encoding: 'utf8',
-              windowsHide: true, // §5b 派生进程纪律
-              timeout: Number(process.env.IHUI_WEB_STYLE_TIERS_TIMEOUT_MS || 20 * 60 * 1000),
-              maxBuffer: 1 << 22,
-              stdio: ['ignore', 'pipe', 'pipe'], // §12g 派生 git/node 必须显式接管 stdio
-            })
+            const out = execFileSync(
+              process.execPath,
+              [script, '--apply', '--only-weight-locked', '--pin-inherit-weight', '--limit', '20'],
+              {
+                cwd: WORKTREE,
+                encoding: 'utf8',
+                windowsHide: true, // §5b 派生进程纪律
+                timeout: Number(process.env.IHUI_WEB_STYLE_TIERS_TIMEOUT_MS || 20 * 60 * 1000),
+                maxBuffer: 1 << 22,
+                stdio: ['ignore', 'pipe', 'pipe'], // §12g 派生 git/node 必须显式接管 stdio
+              },
+            )
             return { ok: true, out: String(out ?? ''), status: 0 }
           } catch (e) {
             return {
@@ -11419,10 +11430,20 @@ export function sweepWebStyleTiers(opts = {}) {
     return { ran: true, ok: false, state, files, changes, held, failed, truncated }
   }
   logger(
-    `ℹ️ web 落档自愈:${line.slice(0, 200)}(恒带 --only-weight-locked:只动权重已被 font-* 钉死的那批)` +
+    `ℹ️ web 落档自愈:${line.slice(0, 200)}(恒带 --only-weight-locked + --pin-inherit-weight:补 font-[weight:inherit] 后仍是可证零变化;pinned=${num('pinned')})` +
       `${truncated ? ' [truncated=1:本轮触到上限,余量下轮续]' : ''}`,
   )
-  return { ran: true, ok: true, state, files, changes, held, failed, truncated }
+  return {
+    ran: true,
+    ok: true,
+    state,
+    files,
+    changes,
+    pinned: num('pinned'),
+    held,
+    failed,
+    truncated,
+  }
 }
 
 export function sweepCrossEndShellPages(opts = {}) {
