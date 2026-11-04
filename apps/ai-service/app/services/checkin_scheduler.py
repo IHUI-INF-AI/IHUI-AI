@@ -1389,6 +1389,7 @@ class CheckinScheduler:
         ok_count = 0
         fail_count = 0
         skip_count = 0
+        na_count = 0
         for acc in accounts:
             cd_end = cooldowns.get(acc["id"])
             if cd_end is not None and cd_end > datetime.now(UTC):
@@ -1402,7 +1403,33 @@ class CheckinScheduler:
             try:
                 if acc.get("platform") == "qoder":
                     device_map = dict(acc.get("device_map") or {})
-                    result = await checkin_qoder.qoder_query_credits(acc["jwt"], device_map)
+                    # 2026-11-04:与签到主路同源 —— relay 号池是 Qoder 凭证唯一真源。
+                    # 快照此前直接用 acc["jwt"](本地副本可能已被其它入口分叉/过期)
+                    # ⇒ 08:15 必 401。先取号池权威票覆盖;取不到则记「未判定」,
+                    # 不拿未确认权威的本地票去判(既不无谓打鉴权点,也不把没判过
+                    # 的 401 写成真实失败)。
+                    qoder_cred = await checkin_store.load_qoder_cred(
+                        str(device_map.get("uid") or acc.get("uid") or "")
+                    )
+                    if not qoder_cred or not qoder_cred.get("token"):
+                        na_count += 1
+                        logger.warning(
+                            "[checkin_scheduler] 账号 %s 号池无权威票,积分快照未判定(不计失败)",
+                            acc.get("name"),
+                        )
+                        continue
+                    if qoder_cred.get("refresh_token"):
+                        device_map["refresh_token"] = qoder_cred["refresh_token"]
+                    if qoder_cred.get("expires_at"):
+                        device_map["expires_at"] = qoder_cred["expires_at"]
+                    _cosy = qoder_cred.get("cosy") or {}
+                    if _cosy:
+                        _merged = dict(device_map.get("cosy") or {})
+                        _merged.update({k: v for k, v in _cosy.items() if v})
+                        device_map["cosy"] = _merged
+                    result = await checkin_qoder.qoder_query_credits(
+                        qoder_cred["token"], device_map
+                    )
                     # 401→refresh 会写回 device_map(新 token),落库持久化
                     try:
                         await checkin_store.save_device_map(acc["id"], device_map)
@@ -1411,6 +1438,22 @@ class CheckinScheduler:
                 elif acc.get("platform") == "workbuddy":
                     wb_dm = dict(acc.get("device_map") or {})
                     result = await checkin_workbuddy.workbuddy_query_credits(acc["jwt"], wb_dm)
+                elif acc.get("platform") == "minimax":
+                    mm_dm = dict(acc.get("device_map") or {})
+                    result = await checkin_minimax.minimax_query_credits(acc["jwt"], mm_dm)
+                    # MiniMax 无公开余额端点(见 checkin_minimax.minimax_query_credits):
+                    # err=None 且 remaining=None 属「平台无该指标」⇒ 记未判定:
+                    # 不落快照(不伪装成成功),也不计失败(不是 401/网络故障)。
+                    # err 有值(401/403/Challenge/网络)仍走下方失败分支。
+                    if result.get("error") is None and not isinstance(
+                        result.get("remaining"), int
+                    ):
+                        na_count += 1
+                        logger.info(
+                            "[checkin_scheduler] 账号 %s 平台无余额指标,快照未判定(不计失败)",
+                            acc.get("name"),
+                        )
+                        continue
                 else:
                     result = await checkin_credits.query_remaining_credits(acc["jwt"])
                 if result.get("error") is not None or not isinstance(
@@ -1445,11 +1488,13 @@ class CheckinScheduler:
                     "[checkin_scheduler] 账号 %s 积分快照异常(继续下一个): %s", acc.get("name"), e
                 )
         logger.info(
-            "[checkin_scheduler] 本轮积分快照完成: 共 %d 个账号,成功 %d,失败 %d,冷却跳过 %d",
+            "[checkin_scheduler] 本轮积分快照完成: 共 %d 个账号,成功 %d,失败 %d,"
+            "冷却跳过 %d,无指标/未判定 %d",
             len(accounts),
             ok_count,
             fail_count,
             skip_count,
+            na_count,
         )
 
     # ===== 单账号执行 =====

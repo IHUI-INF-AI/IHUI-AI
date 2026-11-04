@@ -90,6 +90,63 @@ else
       done | grep -v '^$' | sort -u
     )"
   fi
+  # ─── 无文件面判据(2026-11-04 立,纯 ref 删除被两道门误拦的根因)────────────
+  # 现场(2026-11-04 实测):`git push origin --delete <branch>` 只删远端引用、零 blob 变更,
+  #   上一步算出的 PUSH_SCOPE_FILES 必然为空。下游两道门都把"空"读成"取不到面":
+  #     · 47p 水印门退回 HEAD 全量面(日志原文「未取到 PUSH_SCOPE_FILES ⇒ 退回 HEAD 全量面」),
+  #       于是别人的存量水印欠账被算到这次"删除"头上;
+  #     · T1 typecheck 退回暂存区/head-diff 兜底 ⇒ 跑全量 tsc,撞上他人暂存面与另一枚在飞
+  #       全量 typecheck 的串行锁(超时判红)——一次不携带任何文件的推送,两个红。
+  # 判据必须是**显式可证**的三值判定(不许静默 skip、不许把门设成 advisory、不许 if: false):
+  #   ① 空 scope 有两种来路:「真的零文件」与「派生失败」,必须逐条 ref 复核把二者分开;
+  #   ② 删除引用(local sha 全 0)不携带 blob,直接证成零文件;
+  #   ③ 非删除引用用只读 `git diff --quiet <旧树> <新树>` 复核:退出 0 = 树相同 = 零文件变更,
+  #      1 = 有差异(此时 PUSH_SCOPE_FILES 本来就非空,够不着本档),>1 = 派生失败;
+  #      新分支(remote sha 全 0)取 `git merge-base origin/main <lsha>` 作旧树,取不到 ⇒ 派生失败;
+  #   ④ 只有每条 ref 都被证成零文件才导出 PUSH_NO_FILE_FACE=1 与依据;
+  #      任一派生失败 ⇒ 维持原有「回退全量面 + 告警」路径,**绝不伪造"无文件"**。
+  PUSH_NO_FILE_FACE=0
+  PUSH_NO_FILE_FACE_BASIS=""
+  if [ -n "$PUSH_REFS" ] && [ -z "$PUSH_SCOPE_FILES" ]; then
+    _nf_ref_n="$(printf '%s\n' "$PUSH_REFS" | awk 'NF>=3' | wc -l | tr -d '[:space:]')"
+    _nf_del_n="$(printf '%s\n' "$PUSH_REFS" | awk 'NF>=3 && $2 ~ /^0+$/ {c++} END{print c+0}')"
+    _nf_zero_face=1
+    while IFS=' ' read -r _nf_lref _nf_lsha _nf_rref _nf_rsha; do
+      [ -z "$_nf_lsha" ] && continue
+      # 删除引用:local sha 全 0 ⇒ 本次推送不携带它的任何 blob
+      case "$_nf_lsha" in
+        *[!0]*) : ;;
+        *) continue ;;
+      esac
+      case "$_nf_rsha" in
+        *[!0]*)
+          git diff --quiet "$_nf_rsha" "$_nf_lsha" 2>/dev/null || _nf_zero_face=0
+          ;;
+        *)
+          _nf_base="$(git merge-base origin/main "$_nf_lsha" 2>/dev/null)" || _nf_zero_face=0
+          if [ -n "$_nf_base" ]; then
+            git diff --quiet "$_nf_base" "$_nf_lsha" 2>/dev/null || _nf_zero_face=0
+          else
+            _nf_zero_face=0
+          fi
+          ;;
+      esac
+    done <<EOF
+$PUSH_REFS
+EOF
+    if [ "$_nf_zero_face" -eq 1 ] && [ "$_nf_ref_n" -gt 0 ]; then
+      PUSH_NO_FILE_FACE=1
+      if [ "$_nf_del_n" -eq "$_nf_ref_n" ]; then
+        PUSH_NO_FILE_FACE_BASIS="push refs=${_nf_ref_n} 条全部为删除引用(local sha 全 0),不携带任何 blob ⇒ git 面零文件变更"
+      else
+        PUSH_NO_FILE_FACE_BASIS="push refs=${_nf_ref_n} 条(删除 ${_nf_del_n} 条);其余 $((_nf_ref_n - _nf_del_n)) 条经 git diff --quiet 复核树相同 ⇒ 零文件变更"
+      fi
+      printf '%s\n' "ℹ️  无文件面判定:${PUSH_NO_FILE_FACE_BASIS}" >&2
+    else
+      printf '%s\n' "⚠️  push scope 为空且逐条复核未证成零文件(派生失败)⇒ 维持「回退全量面 + 告警」,不伪造无文件面" >&2
+    fi
+  fi
+  export PUSH_NO_FILE_FACE PUSH_NO_FILE_FACE_BASIS
   # 安全阀:改动文件过多时清空 → 退回暂存区兜底。
   # 原因:env 有长度上限,截断会让「实际在推送范围内的报错文件」漏出列表,导致本该
   #       阻塞的错误被误判为他人噪音而放行 —— 宁可不降级,不可放过真实错误。

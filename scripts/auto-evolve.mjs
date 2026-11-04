@@ -52,6 +52,7 @@ import { parseArtifactManifest, sanitizeArtifactPaths, selectDirtyPaths, manifes
 export { parseArtifactManifest, sanitizeArtifactPaths, selectDirtyPaths, manifestPathOf }
 // 第 4 格·会话全文落盘腿:命名 / 脱敏 / 截断 / 轮转判据全在 lib(单一真相源,§0.6),本处只负责"读盘调用"。
 import { buildTranscript, capTranscript, transcriptRelPathOf, isTranscriptName, decideRetention } from './lib/session-transcript.mjs'
+import { attemptsSinceProgress, decideNonProgress, breakdownNonProgress, lastNonProgressHoldAt } from './lib/autonomy-nonprogress.mjs'
 
 export const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 /** 调度器接线的锚点(guardian 派发层 import 同一组路径,不另拼第二份 —— §0.6 单一真相源) */
@@ -135,6 +136,18 @@ export function loadGates(readFile = (p) => readFileSync(p, 'utf8')) {
     throw new GateShapeError(`闸门形状坏:humanValveMode 只能是 ${VALVE_MODES.join('|')} 之一(现值 ${JSON.stringify(g.humanValveMode)})`)
   }
   if (g.humanValveMode === undefined) g.humanValveMode = 'observe'
+  // 空转记忆档(2026-11-04 立):缺字段 = 用保守缺省,绝不因"没登记"就退回"无限重试同一枚"。
+  // 递增不变量交给判据器 decideNonProgress 复核(单源,本处不重抄判据),这里只补值。
+  if (g.rotateAfterAttempts === undefined) g.rotateAfterAttempts = 4
+  if (g.parkAfterAttempts === undefined) g.parkAfterAttempts = 8
+  if (g.parkHardLimit === undefined) g.parkHardLimit = 24
+  if (g.parkCooldownHours === undefined) g.parkCooldownHours = 24
+  for (const k of ['rotateAfterAttempts', 'parkAfterAttempts', 'parkHardLimit']) {
+    if (!Number.isInteger(g[k]) || g[k] <= 0) throw new GateShapeError(`闸门形状坏:${k} 必须是正整数(现值 ${String(g[k])})`)
+  }
+  if (!Number.isInteger(g.parkCooldownHours) || g.parkCooldownHours <= 0) {
+    throw new GateShapeError(`闸门形状坏:parkCooldownHours 必须是正整数(现值 ${String(g.parkCooldownHours)})`)
+  }
   return g
 }
 
@@ -1063,14 +1076,75 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
         }
       }
     }
+    // ---- 空转记忆闸(2026-11-04 立;判据单源 scripts/lib/autonomy-nonprogress.mjs,本层零复算 §0.6)----
+    // 立因:票 B53 三天吃掉 209 轮台账里的 127 行,session-failed 与 runner-unavailable 交替
+    // ⇒ failureStreakOf 的"遇其他 action 即断"每轮把连败清零 ⇒ 封票阈值 3 结构上永远够不着
+    // ⇒ 候选序又是固定的 ⇒ 每小时同一枚顶格票重新顶到队首,其余可排期候选零班次。
+    // 封票那条轴保留(它管"这张票坏不坏");本轴管"这枚票已经吞了多少班次",两条不互相替换。
+    const npHeld = []
+    const npLive = []
+    for (const ticket of rows) {
+      const npKey = ticketKeyOf(ticket.text)
+      const attempts = attemptsSinceProgress(ledger, npKey)
+      const np = decideNonProgress({
+        attempts,
+        rotateAt: gates.rotateAfterAttempts,
+        parkAt: gates.parkAfterAttempts,
+        hardAt: gates.parkHardLimit,
+        cooldownHours: gates.parkCooldownHours,
+        lastStoodAt: lastNonProgressHoldAt(ledger, npKey),
+      })
+      if (np.route === 'unjudged') {
+        record({ mode: dryRun ? 'dryrun' : 'dispatch', action: 'nonprogress-unjudged', ticketKey: npKey, why: np.why })
+        console.error(`❓ 空转记忆未判定(${np.why})⇒ 本轮把这枚挪到队尾,不冒充已判(§0.3)`)
+      }
+      if (np.route === 'cooldown' || np.route === 'park') npHeld.push({ ticket, key: npKey, np })
+      else npLive.push({ ticket, key: npKey, np })
+    }
+    // 让位 = 空转少的先派(稳定排序,同次数保持决策序);被扣住的整枚出本轮候选面。
+    npLive.sort((a, b) => a.np.attempts - b.np.attempts)
+    rows = npLive.map((x) => x.ticket)
+    for (const { ticket, key, np } of npHeld) {
+      const detail = breakdownNonProgress(ledger, key)
+        .map((d) => `${d.action}×${d.count}`)
+        .join(' ')
+      const lastHold = [...ledger].reverse().find((e) => e.ticketKey === key && (e.action === 'non-progress-hold' || e.action === 'non-progress-parked'))
+      const isNewEpisode = !lastHold || lastHold.attempts !== np.attempts || lastHold.route !== np.route
+      if (isNewEpisode) {
+        record({
+          mode: 'dispatch',
+          action: np.route === 'park' ? 'non-progress-parked' : 'non-progress-hold',
+          route: np.route,
+          ticketKey: key,
+          ticketLine: ticket.text.slice(0, 200),
+          attempts: np.attempts,
+          detail,
+          why: np.why,
+        })
+        console.log(`⛔ L${ticket.line} ${np.why} ｜ 空转明细:${detail || '(读不到)'}`)
+        if (!escapeThrottled()) {
+          markEscape()
+          sendEscapeMail(
+            gates,
+            `auto-evolve:nonprogress-${np.route}:${key.slice(0, 8)}`,
+            `[auto-evolve] 一枚票连续空转已${np.route === 'park' ? '终局停派' : '进冷却'}`,
+            `票:L${ticket.line} ${ticket.text.slice(0, 140)}\n${np.why}\n空转明细(按 action,不含成功):${detail || '(读不到)'}\n` +
+              `这不是"再试一轮"能救的:同一枚票已累计 ${np.attempts} 次占班次零推进。出路二选一 ——\n` +
+              `  ① 修发起/落账腿(近因见 ${LEDGER} 里该键最后一条 runner-*/session-*/artifact-* 的 why);\n` +
+              `  ② 这票本就该人做 ⇒ 把它摘出自动派单面(改标题使白名单不命中,或按「完成即删」结清摘行)。\n` +
+              `判据单源 = scripts/lib/autonomy-nonprogress.mjs;档位 = auto-evolve-gates.json 的 rotateAfterAttempts/parkAfterAttempts/parkHardLimit/parkCooldownHours。`,
+          )
+        }
+      }
+    }
     let dispatched = 0
     for (const e of ledger) {
       if (e.action === 'dispatched' && String(e.ts ?? '').startsWith(todayKey())) dispatched++
     }
-    const summary = `派单面现读 ${allRows.length} 行 / 判期 ${decisionReadout} / 本轮候选 ${rows.length} 行 / 今日已派 ${dispatched}/${gates.dailyDispatchBudget} 轮`
+    const summary = `派单面现读 ${allRows.length} 行 / 判期 ${decisionReadout} / 本轮候选 ${rows.length} 行(空转扣住 ${npHeld.length} 行)/ 今日已派 ${dispatched}/${gates.dailyDispatchBudget} 轮`
     if (rows.length === 0) {
-      record({ mode: dryRun ? 'dryrun' : 'dispatch', action: 'no-ticket', note: summary })
-      console.log(`✅ ${summary} ⇒ 无票可派,本轮结束`)
+      record({ mode: dryRun ? 'dryrun' : 'dispatch', action: npHeld.length ? 'all-held-nonprogress' : 'no-ticket', note: summary })
+      console.log(`✅ ${summary} ⇒ ${npHeld.length ? `候选全被空转记忆扣住(非"无票"),本轮结束` : '无票可派,本轮结束'}`)
       return
     }
     if (dispatched >= gates.dailyDispatchBudget) {

@@ -23,13 +23,15 @@
  *   `--worktree` 只给人工现场诊断;取不到 ⇒ exit 2 未判定,**不回落另一个面**。
  * 退出码:0=ok / 1=drift(点名可整改项)/ 2=unjudged(取不到输入,不记绿也不冒红)
  */
-import { readFileSync, existsSync } from 'node:fs'
+import { readFileSync, existsSync, readdirSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { spawnSync } from 'node:child_process'
 import { preflightSessionRunner, classifySessionFailure, resolveSessionCommand } from './lib/autonomy-runner.mjs'
 import { quarantinedUntilOf, LEDGER, DISPATCH_ARGS, parseTicketRows, PLAN_TASKS } from './auto-evolve.mjs'
 import { ticketKeyOf } from './lib/ticket-key.mjs'
+import { classifyLegs, actionableRows } from './lib/autonomy-leg-liveness.mjs'
+import { judgeCarrierParity } from './lib/guardian-carrier-parity.mjs'
 // 取材面纪律(§0.4 / 守门 118):闸门配置是**仓库内容**,一律按被审面取,不回落磁盘。
 // 共享工作树常年滞后 HEAD ⇒ 按磁盘读会在"恒红"与"假绿"之间来回跳,正是这一型。
 import { Undetermined, catBatch, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
@@ -182,7 +184,101 @@ export function judgeWhitelist(events, whitelist) {
   }
 }
 
-export function evaluateAll({ repoRoot = ROOT, gatesText, events, ticketRows, transit, valve, closure } = {}) {
+/**
+ * A8-leg-liveness —— 各自治腿"按不按自己的节律在动"(判据零复算,全 import
+ * `scripts/lib/autonomy-leg-liveness.mjs` 的 classifyLegs/actionableRows)。
+ *
+ * 这一维补的是 A1-A7 整族的口径缺口:那七条问的是"工序在不在位、有没有被走到",
+ * 没有一条问"这台机器多久没动了"。实测同一天两格都是这么漏掉的 ——
+ * 号池哨兵盲 146 轮(19h)与部署反馈腿静默 36h,A 面当时一律报 OK=7 DRIFT=0。
+ * @param {ReturnType<typeof classifyLegs>|null} res 取不到 ⇒ unjudged,不读成"没有黑腿"
+ */
+export function judgeLegLiveness(res) {
+  if (!res || typeof res.state !== 'string') {
+    return { dim: 'A8-leg-liveness', state: 'unjudged', readout: '派发戳/登记表取不到 ⇒ 静默时长没量', next: '先让量的人拿得到输入(§0.3)' }
+  }
+  const bad = actionableRows(res)
+  const names = bad.slice(0, 4).map((r) => `${r.id.replace(/-dispatch-last\.json$/, '')}(${r.state}${typeof r.silentMin === 'number' ? ` 静默${r.silentMin}min` : ''})`)
+  return {
+    dim: 'A8-leg-liveness',
+    state: res.state,
+    readout: `${res.summary}${names.length ? ` ｜ ${names.join(' / ')}${bad.length > 4 ? ` …共 ${bad.length} 枚` : ''}` : ''}`,
+    next:
+      res.state === 'drift'
+        ? `出路(逐条,不得整片放宽判据):① 归属函数还在否(${bad[0]?.owner || '见登记表 owner'})→ 它的 env 开关是否被机器级关掉、器物是否在位;② 守护这一趟是否根本没走到该派发点;③ 这条腿确实该退役 ⇒ 摘条目并摘器物,别把清单留着腐烂。登记表 = scripts/data/autonomy-leg-liveness.json`
+        : res.state === 'unjudged'
+          ? '有条目判不出:先把输入取到(戳可读/attemptAt 可解析/时钟不失步)再谈放量'
+          : '',
+  }
+}
+
+/**
+ * A8 的取料(两种来源必须分开,不能混成一个面):
+ *   · 登记表 = 仓内文件 ⇒ 按被审面取(§0.4 取材面纪律,与 gates/A6 的 auto-evolve.mjs 同规);
+ *     取不到 ⇒ 整维 unjudged,**绝不读成"登记表空 = 没有黑腿"**。
+ *   · 派发戳 = `.ihui-agent/state/` 运行态(gitignored)⇒ 只能读盘上真值,读它的工作树副本才是对的。
+ * 覆盖面自证在判据器里(classifyLegs 拿 disk 全集与登记表做双向对账),本层只搬运输入。
+ */
+export const LIVENESS_REGISTRY_REL = 'scripts/data/autonomy-leg-liveness.json'
+export const LIVENESS_STATE_DIR_REL = join('.ihui-agent', 'state')
+
+export function judgeLivenessFace({ face = FACE_SEL.face, root = ROOT, now = Date.now() } = {}) {
+  let legs
+  try {
+    const reg = JSON.parse(readFaceText(LIVENESS_REGISTRY_REL, face, root))
+    if (!Array.isArray(reg.legs)) throw new Error('登记表没有 legs 数组 ⇒ 形状坏')
+    legs = reg.legs
+  } catch (e) {
+    return judgeLegLiveness({ state: 'unjudged', rows: [], summary: `登记表取不到/形状坏(${String(e?.message ?? e).slice(0, 90)})⇒ 不判` })
+  }
+  const dir = join(root, LIVENESS_STATE_DIR_REL)
+  let onDisk = []
+  try {
+    onDisk = readdirSync(dir).filter((f) => f.endsWith('-dispatch-last.json'))
+  } catch (e) {
+    return judgeLegLiveness({ state: 'unjudged', rows: [], summary: `派发戳目录读不到(${String(e?.code ?? e).slice(0, 40)})⇒ 静默时长量不出` })
+  }
+  const stamps = {}
+  for (const f of onDisk) {
+    try {
+      const j = JSON.parse(readFileSync(join(dir, f), 'utf8'))
+      const at = Date.parse(String(j.attemptAt ?? '').trim())
+      stamps[f] = Number.isFinite(at) ? { readable: true, attemptAtMs: at } : { readable: false }
+    } catch {
+      stamps[f] = { readable: false }
+    }
+  }
+  return judgeLegLiveness(classifyLegs({ legs, stamps, stampFilesOnDisk: onDisk, now }))
+}
+
+/**
+ * A9-carrier-parity —— 有多少自治腿**根本不在常驻承载面上**(判据零复算,
+ * 全 import `scripts/lib/guardian-carrier-parity.mjs`)。
+ * 被审面 = 本次判定面的 git-guardian.mjs 源(§0.4:与 A6 取 auto-evolve.mjs 同规)。
+ */
+export function judgeCarrierParityFace({ face = FACE_SEL.face, root = ROOT } = {}) {
+  let src = null
+  try {
+    src = readFaceText('scripts/git-guardian.mjs', face, root)
+  } catch {
+    src = null
+  }
+  const r = judgeCarrierParity({ source: src ?? '' })
+  const names = r.dark.slice(0, 6).join(', ')
+  return {
+    dim: 'A9-carrier-parity',
+    state: r.state,
+    readout: r.state === 'unjudged' ? r.why : `${r.why}${r.dark.length ? ` ｜ 例:${names}${r.dark.length > 6 ? ` …共 ${r.dark.length} 条` : ''}` : ''}`,
+    next:
+      r.state === 'drift'
+        ? '这些腿只挂在一次性 main() 里,而常驻 daemon 全程持轮级锁 ⇒ main 每趟都让路,它们结构上跑不到。出路 = 逐条裁决:该上常驻面的把调用点补进 startDaemon 的 tick(每条都得自证有节流),确实只能一次性跑的进具名豁免清单带理由与到期。清单见 scripts/lib/guardian-carrier-parity.mjs 头注。'
+        : r.state === 'unjudged'
+          ? '先把被审面取到(HEAD/索引任一可读)再谈判定'
+          : '',
+  }
+}
+
+export function evaluateAll({ repoRoot = ROOT, gatesText, events, ticketRows, transit, valve, closure, liveness, parity } = {}) {
   const dims = []
   let gates
   try {
@@ -194,6 +290,8 @@ export function evaluateAll({ repoRoot = ROOT, gatesText, events, ticketRows, tr
   if (transit) dims.push(transit)
   if (valve) dims.push(valve)
   if (closure) dims.push(closure)
+  if (liveness) dims.push(liveness)
+  if (parity) dims.push(parity)
   if (!events.ok) { /* 台账缺失只影响 A2/A3/A4 */
     dims.push({ dim: 'A2-attribution', state: 'unjudged', readout: events.why, next: '台账取不到 ⇒ 不冒充"没失败过"' })
     dims.push({ dim: 'A3-range', state: 'unjudged', readout: '无台账输入 ⇒ 封票数判不出', next: '' })
@@ -640,7 +738,9 @@ async function main() {
     // 在册面 = 本次派单面(与 A3 同一份 parseTicketRows 取票口径);取不到(空)⇒ null 保持旧行为
     activeTicketKeys: ticketRows && ticketRows.length ? new Set(ticketRows.map((r) => ticketKeyOf(r.text))) : null,
   })
-  const result = evaluateAll({ repoRoot, gatesText, events, ticketRows: ticketRows ?? [], transit, valve, closure })
+  const liveness = judgeLivenessFace({ face: FACE_SEL.face, repoRoot, root: repoRoot })
+  const parity = judgeCarrierParityFace({ face: FACE_SEL.face, root: repoRoot })
+  const result = evaluateAll({ repoRoot, gatesText, events, ticketRows: ticketRows ?? [], transit, valve, closure, liveness, parity })
   if (asJson) {
     console.log(JSON.stringify({ verdict: result.state, face: FACE_SEL.face, ...result, identity: alertIdentity(result) }, null, 1))
   } else {

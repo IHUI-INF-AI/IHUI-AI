@@ -420,3 +420,49 @@ test('反向对照:内部路由若也置 trustInboundVerified=false,会复现 88
   assert.equal(out['x-ihui-edge-verified'], undefined, '断链复现:verified 被抹 => conn_guard 回落 127.0.0.1')
   assert.equal(out['x-ihui-client-ip'], '127.0.0.1', '断链复现:IP 退化成回环 => 全站共享一个限流桶')
 })
+
+// ── 本机直连内部跳不制造代理头(2026-11-04,O64 号池凭证回写 403 根因)───────────
+//
+// ai-service → 127.0.0.1:8802 是机机直连:入站一个代理头都没有。此前本函数照样为它
+// 硬造 `X-Forwarded-For: 127.0.0.1`,而 apps/api 的 denyProxied 只判"有没有代理头"
+// ⇒ 自家入口把自家内部回写打成 403(线上 2026-11-01 起实测)。
+//
+// 反向对照必须同时钉住:入站一旦出现**任何**代理足迹(哪怕只有本 router 自己的
+// x-ihui-client-ip),就不许豁免 —— 否则公网请求只要上游抹掉 XFF 就能骗过 denyProxied。
+
+test('本机直连内部跳(回环对端 + 零代理足迹):不制造 x-forwarded-for / x-ihui-client-ip', () => {
+  const out = buildForwardHeaders({
+    headers: { 'content-type': 'application/json', 'x-internal-secret': 'unit-test' },
+    remoteAddress: '127.0.0.1',
+    edgeMode: 'observe',
+    edgeReason: 'loopback',
+    trustInboundVerified: true,
+  })
+  assert.equal(out['x-forwarded-for'], undefined, '机机直连不该被伪装成"经代理转发"')
+  assert.equal(out['x-ihui-client-ip'], undefined, '没有客户端身份可归一 ⇒ 不注入')
+  assert.equal(out['content-type'], 'application/json', '业务头必须原样透传')
+})
+
+test('反向对照:回环对端但入站已带 x-ihui-client-ip ⇒ 仍归一出站 XFF(豁免口不得扩大)', () => {
+  const out = buildForwardHeaders({
+    // 模拟最坏情形:Next rewrite 把 XFF 抹掉、只透传本 router 自己的头
+    headers: { 'x-ihui-client-ip': '203.0.113.50' },
+    remoteAddress: '127.0.0.1',
+    edgeMode: 'observe',
+    edgeReason: 'loopback',
+    trustInboundVerified: true,
+  })
+  assert.equal(out['x-forwarded-for'], '127.0.0.1', '有足迹 ⇒ 照旧归一,denyProxied 照旧能拒')
+  assert.equal(out['x-ihui-client-ip'], '127.0.0.1')
+})
+
+test('反向对照:回环对端 + CF-Connecting-IP(cloudflared 隧道)⇒ 仍采信隧道真源', () => {
+  const out = buildForwardHeaders({
+    headers: { 'cf-connecting-ip': PUBLIC_IP },
+    remoteAddress: '127.0.0.1',
+    edgeMode: 'observe',
+    edgeReason: 'loopback',
+  })
+  assert.equal(out['x-forwarded-for'], PUBLIC_IP, '隧道形态照旧采信 CF 头')
+  assert.equal(out['cf-connecting-ip'], undefined, '可伪造头仍要删掉')
+})
