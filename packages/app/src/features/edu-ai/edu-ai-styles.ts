@@ -158,7 +158,7 @@ export function createEduAiStyles(tk: AppThemeTokens) {
       borderColor: tk.border.medium,
       paddingVertical: rnSpacing['2xl'],
     },
-    emptyText: { fontSize: 13, color: tk.text.tertiary },
+    emptyText: { fontSize: rnType.bodySm.size, color: tk.text.tertiary },
     errorBox: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -168,7 +168,7 @@ export function createEduAiStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing['sm-loose'],
       borderRadius: rnRadius.md,
     },
-    errorText: { flex: 1, fontSize: 13, color: tk.error.text },
+    errorText: { flex: 1, fontSize: rnType.bodySm.size, color: tk.error.text },
     skeletonTitle: {
       height: 20,
       width: 160,
@@ -188,7 +188,7 @@ export function createEduAiStyles(tk: AppThemeTokens) {
     sectionTitle: { fontSize: rnType.body.size, fontWeight: '700', color: tk.text.primary },
     sectionItem: { flexDirection: 'row', alignItems: 'flex-start', gap: rnSpacing['xs-loose'] },
     sectionItemText: { flex: 1, fontSize: 13, color: tk.text.secondary, lineHeight: 19 },
-    marker: { fontSize: 13, fontWeight: '700' },
+    marker: { fontSize: rnType.bodySm.size, fontWeight: '700' },
     fieldBox: {
       backgroundColor: tk.surface.muted,
       borderRadius: rnRadius.md,
@@ -281,7 +281,7 @@ export function createEduAiStyles(tk: AppThemeTokens) {
     },
     historyRowActive: { backgroundColor: tk.surface.muted },
     historyMain: { flex: 1, gap: rnSpacing['2xs'] },
-    historyPrompt: { fontSize: 13, color: tk.text.primary },
+    historyPrompt: { fontSize: rnType.bodySm.size, color: tk.text.primary },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -2514,7 +2514,7 @@ const styles = StyleSheet.create({
     gap: rpx(12),
   },
   editProfileLabel: {
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
     color: tokens.text.secondary,
   },
   editProfileInput: {

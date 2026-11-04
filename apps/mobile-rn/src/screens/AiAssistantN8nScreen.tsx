@@ -2188,7 +2188,7 @@ const styles = StyleSheet.create({
   },
   modelBarLabel: {
     flex: 1,
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
     color: tokens.text.secondary,
   },
   // 模型配置按钮(模型选择旁,对齐 Uniapp InputArea 配置入口)

@@ -559,7 +559,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.tertiary,
     },
     roomPreview: {
-      fontSize: 13, // rpx(26)
+      fontSize: rnType.bodySm.size, // rpx(26)
       color: tk.text.secondary,
       marginTop: rnSpacing.xs, // rpx(8)
     },

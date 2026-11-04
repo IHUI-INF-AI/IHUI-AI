@@ -393,8 +393,8 @@ function makeStyles() {
       gap: rnSpacing.sm,
       paddingVertical: rnSpacing['5xl'],
     },
-    errorText: { fontSize: 13, color: tokens.danger.DEFAULT },
-    retry: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
+    errorText: { fontSize: rnType.bodySm.size, color: tokens.danger.DEFAULT },
+    retry: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.text.primary },
     muted: { fontSize: rnType.label.size, color: tokens.text.secondary },
     rowTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     amount: {

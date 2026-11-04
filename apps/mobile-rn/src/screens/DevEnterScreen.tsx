@@ -451,11 +451,11 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.muted,
   } as ViewStyle,
   subTabText: {
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
     color: tokens.text.secondary,
   } as TextStyle,
   subTabTextActive: {
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
     color: tokens.brand.DEFAULT,
     fontWeight: '600',
   } as TextStyle,
@@ -524,7 +524,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   } as TextStyle,
   statusText: {
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
     color: tokens.text.secondary,
   } as TextStyle,
   offlineBtn: {
@@ -563,7 +563,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   } as ViewStyle,
   promptContent: {
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
     fontWeight: '500',
     // 强调文字取 brandAccent.deep(rn-tokens 注:deep=浅底上的文字/图标变体;同族先例 BottomPopup 提示文字)
     color: tokens.brandAccent.deep,

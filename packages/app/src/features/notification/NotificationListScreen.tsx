@@ -165,7 +165,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.card,
     },
     segmentText: {
-      fontSize: 13,
+      fontSize: rnType.bodySm.size,
       color: tk.text.secondary,
     },
     segmentTextActive: {

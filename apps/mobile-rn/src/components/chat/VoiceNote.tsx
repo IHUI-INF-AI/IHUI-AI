@@ -683,7 +683,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: rnSpacing.sm,
   },
-  panelTitle: { fontSize: 13, fontWeight: '500', color: tokens.text.primary },
+  panelTitle: { fontSize: rnType.bodySm.size, fontWeight: '500', color: tokens.text.primary },
   phaseBadge: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -342,7 +342,7 @@ function makeStyles() {
     muted: { fontSize: 13, color: tokens.text.secondary, lineHeight: 19 },
     hint: { fontSize: rnType.caption.size, color: tokens.text.tertiary, lineHeight: 16 },
     errorText: { fontSize: rnType.label.size, color: tokens.danger.DEFAULT },
-    retry: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
+    retry: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.text.primary },
     stateBox: {
       alignItems: 'center',
       justifyContent: 'center',
@@ -409,7 +409,7 @@ function makeStyles() {
       overflow: 'hidden',
     },
     agentMain: { flex: 1, gap: rnSpacing['2xs'] },
-    agentName: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
+    agentName: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.text.primary },
     price: { fontSize: rnType.label.size, fontWeight: '600', color: tokens.text.primary },
     free: { color: tokens.success.deep },
   })

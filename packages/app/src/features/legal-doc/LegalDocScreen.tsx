@@ -164,7 +164,7 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
       backgroundColor: tk.surface.inputBg,
     },
-    chipText: { fontSize: 13, color: tk.text.primary },
+    chipText: { fontSize: rnType.bodySm.size, color: tk.text.primary },
     chipDanger: {
       borderColor: tk.danger.DEFAULT,
       backgroundColor: tk.danger.light,
