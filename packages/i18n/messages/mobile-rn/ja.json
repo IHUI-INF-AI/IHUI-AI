@@ -384,7 +384,8 @@
     "empty": "ライブはありません",
     "lecturer": "講師",
     "startAt": "開始時間",
-    "loadFailed": "ライブの読み込みに失敗"
+    "loadFailed": "ライブの読み込みに失敗",
+    "startTime": "開始時間"
   },
   "liveDetail": {
     "title": "ライブ詳細",
@@ -633,7 +634,11 @@
     "runtimeEmpty": "実行履歴はまだありません",
     "runtimeInputPlaceholder": "エージェントに送信するメッセージを入力",
     "runtimeStop": "停止",
-    "runtimeSend": "送信"
+    "runtimeSend": "送信",
+    "fieldName": "名称",
+    "fieldCategory": "カテゴリ",
+    "fieldDescription": "説明",
+    "fieldPrice": "価格"
   },
   "chat": {
     "assetCatText": "文本",
@@ -1609,11 +1614,8 @@
   },
   "agentCreate": {
     "title": "エージェント作成",
-    "name": "名称",
     "namePlaceholder": "エージェントの名前を入力",
-    "category": "カテゴリ",
     "categoryPlaceholder": "例:オフィスアシスタント",
-    "description": "説明",
     "descPlaceholder": "このエージェントを紹介してください",
     "systemPrompt": "システムプロンプト",
     "promptPlaceholder": "エージェントの役割と動作を定義します",
@@ -1766,7 +1768,6 @@
     "instructor": "講師",
     "rating": "評価",
     "free": "無料",
-    "enrolled": "申込済み",
     "enroll": "今すぐ申し込む",
     "pay": "¥{amount} を支払う",
     "lessons": "コース目次",
@@ -1892,7 +1893,8 @@
     "treeLoadFailed": "ツリーの読み込みに失敗しました",
     "treeRetry": "再試行",
     "treeLevelLabel": "第 {level} 階層",
-    "treeCollapseHint": "ノードをタップして詳細を表示"
+    "treeCollapseHint": "ノードをタップして詳細を表示",
+    "teamTitle": "マイチーム"
   },
   "earnCommission": {
     "title": "コミッションプラン",
@@ -1907,9 +1909,7 @@
   "exam": {
     "subtitle": "試験で学び、学習成果を確認",
     "retry": "再試行",
-    "questions": "問題数",
     "end": "終了時間",
-    "startExam": "試験開始",
     "attempts": "受験回数",
     "duration": "所要時間",
     "empty": "試験がありません",
@@ -1920,14 +1920,13 @@
     "passScore": "合格点",
     "start": "試験を開始",
     "title": "試験",
-    "totalScore": "総得点"
+    "totalScore": "総得点",
+    "questionCountLabel": "問題数"
   },
   "examQuestion": {
     "loadFailed": "試験問題の読み込みに失敗しました",
     "single": "単一選択",
     "multi": "複数選択",
-    "prev": "前の問題",
-    "next": "次の問題",
     "submit": "提出",
     "submitFailed": "送信に失敗"
   },
@@ -2087,7 +2086,6 @@
     "saveFailed": "保存に失敗"
   },
   "notificationSettings": {
-    "title": "通知設定",
     "push": "プッシュ通知",
     "message": "サイト内メッセージ",
     "email": "メール通知",
@@ -2238,8 +2236,6 @@
     "unverifiedDesc": "実名認証を完了すると、より多くのサービスを利用できます",
     "name": "本名",
     "namePlaceholder": "本名を入力してください",
-    "idNumber": "身分証番号",
-    "idNumberPlaceholder": "身分証番号を入力してください",
     "submit": "認証を提出",
     "submitting": "送信中...",
     "failed": "認証に失敗",
@@ -2285,10 +2281,8 @@
   },
   "withdraw": {
     "availableBalance": "引き出し可能額(元)",
-    "amount": "出金額",
     "amountInvalid": "金額が無効です",
     "amountPlaceholder": "出金額を入力",
-    "bankCard": "銀行口座",
     "bankCardPlaceholder": "銀行口座を選択",
     "confirmMessage": "{amount}元の出金を行いますか?",
     "confirmTitle": "確認",
@@ -2639,7 +2633,6 @@
     "current": "現在のポイント",
     "totalEarned": "累計獲得",
     "totalSpent": "累計消費",
-    "level": "レベル",
     "nextLevel": "{name} まであと {points} ポイント",
     "maxLevel": "最高レベルに到達しました",
     "experience": "経験値",
@@ -2659,14 +2652,17 @@
       "historyLoadFailed": "チェックイン履歴の読み込みに失敗しました",
       "historyConsecutive": "{days} 日連続"
     },
-    "mallLink": "ポイントモール",
-    "taskCenterLink": "タスクセンター",
     "ruleLink": "ポイントルール",
     "txTitle": "ポイント履歴",
     "empty": "ポイント記録がありません",
     "loadFailed": "ポイントの読み込みに失敗しました",
     "balance": "残高",
-    "loadMore": "さらに読み込む"
+    "loadMore": "さらに読み込む",
+    "levelLabel": "レベル",
+    "mallTitle": "ポイントモール",
+    "tasks": {
+      "title": "タスクセンター"
+    }
   },
   "groups": {
     "title": "マイグループ",
@@ -2770,7 +2766,6 @@
     "submitFailed": "送信に失敗しました。後でもう一度お試しください",
     "amountLabel": "チャージ金額（元）",
     "amountRange": "チャージ金額は {min}〜{max} 元の範囲で指定してください",
-    "payMethod": "支払い方法",
     "wechat": "WeChat Pay",
     "alipay": "Alipay",
     "payNow": "支払う",
@@ -3375,7 +3370,6 @@
     "loadFailed": "学習進捗の読み込みに失敗しました",
     "courses": "コース(完了/合計)",
     "totalMinutes": "累計学習(分)",
-    "weekMinutes": "今週の学習(分)",
     "streak": "連続学習(日)",
     "courseProgress": "コース進捗"
   },
@@ -3418,7 +3412,6 @@
     "tab_newbie": "初心者"
   },
   "team": {
-    "title": "マイチーム",
     "subtitle": "チーム人数と業績を一覧表示",
     "retry": "再試行",
     "totalMembers": "チーム総人数",
@@ -3543,12 +3536,14 @@
     "rechargeFail": "チャージ",
     "rechargeSuccess": "チャージ",
     "contactSupport": "サポートに連絡",
-    "retryRecharge": "再チャージ"
+    "retryRecharge": "再チャージ",
+    "withdrawAmount": "出金金額",
+    "methodBank": "カード",
+    "rechargeMethod": "支払い方法"
   },
   "activity": {
     "empty": "アクティビティがありません",
     "endTime": "終了時間",
-    "joinNow": "今すぐ参加",
     "loadFailed": "読み込みに失敗しました",
     "participants": "参加人数",
     "startTime": "開始時間",
@@ -3559,7 +3554,6 @@
     "description": "紹介",
     "free": "無料",
     "loadFailed": "エージェント詳細の読み込みに失敗",
-    "price": "価格",
     "rating": "評価",
     "startChat": "チャットを開始",
     "uses": "利用回数"
@@ -3715,7 +3709,13 @@
       "issued": "有効",
       "revoked": "取り消されました"
     },
-    "title": "マイ証明書"
+    "title": "マイ証明書",
+    "download": {
+      "noCertificates": "証明書がありません"
+    },
+    "detail": {
+      "issueDate": "発行日"
+    }
   },
   "certDetail": {
     "certNo": "証明書番号",
@@ -3732,8 +3732,7 @@
     "empty": "証明書がありません",
     "issuedAt": "発行日",
     "issuer": "発行機関",
-    "loadFailed": "読み込みに失敗",
-    "title": "証明書一覧"
+    "loadFailed": "読み込みに失敗"
   },
   "certVerify": {
     "certNo": "証明書番号",
@@ -3804,7 +3803,6 @@
   },
   "courseQAList": {
     "answers": "回答",
-    "ask": "質問",
     "asker": "質問者",
     "empty": "質問がありません",
     "loadFailed": "読み込みに失敗",
@@ -3845,7 +3843,8 @@
     "type": "種類",
     "imagesLabel": "問題のスクリーンショットをアップロード(最大9枚)",
     "imagePickFailed": "画像の選択に失敗しました",
-    "pickImages": "画像を選択"
+    "pickImages": "画像を選択",
+    "field_contact": "連絡先"
   },
   "feedbackDetail": {
     "content": "内容",
@@ -7232,6 +7231,47 @@
   "user": {
     "security": {
       "sendCode": "コード取得"
+    },
+    "realname": {
+      "form": {
+        "idCard": "身分証番号",
+        "idCardPlaceholder": "身分証番号を入力してください"
+      }
     }
+  },
+  "chatSettingsPage": {
+    "model": "モデル"
+  },
+  "eduExamListPage": {
+    "start": "試験を開始"
+  },
+  "eduExamPage": {
+    "prevQuestion": "前の問題",
+    "nextQuestion": "次の問題"
+  },
+  "edu": {
+    "qa": {
+      "askBtn": "質問"
+    }
+  },
+  "eduProgressPage": {
+    "weeklyHours": "今週の学習時間"
+  },
+  "learn": {
+    "signedUp": "申込済み"
+  },
+  "learnPaymentConfirmPage": {
+    "fields": {
+      "payMethod": "支払い方法"
+    }
+  },
+  "memberSubscriptionPage": {
+    "cancelSubscription": "サブスクリプションをキャンセル"
+  },
+  "student": {
+    "myCertsTitle": "証明書一覧"
+  },
+  "activities": {
+    "join": "今すぐ参加"
   }
 }
