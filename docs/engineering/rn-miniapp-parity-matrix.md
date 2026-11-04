@@ -10,7 +10,7 @@
 > 生成命令:`node scripts/report-rn-miniapp-gaps.mjs --write docs/engineering/rn-miniapp-parity-matrix.md`。
 > 候选列只是名字 token 线索(不判定),落地时须按该屏实际字段/接口核实。
 
-- 判定面: **HEAD blob**
+- 判定面: **工作树(人工)**
 - 共享屏(真相源): **272**
 - 已被小程序显式镜像: **255**
 - 缺口合计: **17**(其中已判定 17 / 未判定 0)
