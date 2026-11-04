@@ -26,6 +26,8 @@
  *     tag 消失 = 30a 重新判红,等于这条腿自己失效;
  *  ③ **永不抛**:备份是善后,不能把落地器本身炸掉;但失败必须出声(log + 留痕),
  *     "没备份成功"绝不写成"已备份"(§0.3)。
+ *  ④ **同 tree 去重**:顶层树已在 `lost-commit/*` 或分支/远端可达面 ⇒ 只记台账、不打 tag
+ *     (与门 30a 的 tree 等价放行面一致;实测 22k tag 里大量是同一份内容被反复备份)。
  *
  * 留痕 `.ihui-agent/state/orphan-backup.jsonl` 是给 §29 那条"保留期 30 天、GC 由维护者人工触发"
  * 用的名单:守门不擅删 tag,但必须有人能一次列出"这台机器替谁留了债"。
@@ -72,9 +74,46 @@ function gitAt(root, args) {
 }
 
 /**
+ * 纯判据 + 一次 IO:候选提交的**顶层树**是否已存在于"已备份 / 已落地"面(同 tree 去重)。
+ *
+ * 两道面与门 30a 的放行面逐字对齐(改这里之前先读 check-commit-loss-guard.mjs 的 tree 等价档):
+ *  ① `refs/tags/lost-commit/*` 下任一已备份提交的顶层树 —— 即 30a 的 backedTrees;
+ *  ② `refs/heads` / `refs/remotes` 可达提交的顶层树 —— 即 30a 的 `git log --all --format=%T`
+ *     (:1997-2038 那条 tree 等价放行)。
+ * 只比**顶层树 OID**(顶层树相等 = 全仓内容逐字相等),不做子树包含 —— 30a 的 tree 等价本身就是
+ * 顶层树粒度,这里多推一步反而会让"同内容副本"的语义漂开(§0.6 同一件事只许一份判据)。
+ * 2026-11-04 实测:23,115 个 ref 下 `for-each-ref --format='%(refname)%09%(tree)'` ~0.85-1.0s,
+ * `git log --format=%T --branches --remotes` ~2.2-2.4s;只在最终弃落出口调用,不进热路径。
+ *
+ * 取不到(命令失败)⇒ 返回 null(不判定)。调用方按"没命中"处理、照常打 tag:
+ * 去重只能减少噪声,不能因为判据失灵反而漏备份(§0.3 未判定 ≠ 已备份)。
+ *
+ * @returns {{hit:'lost-commit-tag'|'reachable-history', detail:string}|null}
+ */
+export function findTreeAlreadyPresent(root, tree, runner = gitAt) {
+  const t = String(tree || '').trim()
+  if (!/^[0-9a-f]{40}$/.test(t)) return null
+  const tagOut = runner(root, ['for-each-ref', '--format=%(refname)%09%(tree)', 'refs/tags/lost-commit'])
+  if (tagOut !== null) {
+    for (const line of String(tagOut).split('\n')) {
+      const [refName, treeSha] = line.split('\t')
+      if (treeSha === t) return { hit: 'lost-commit-tag', detail: refName }
+    }
+  }
+  const histOut = runner(root, ['log', '--format=%T', '--branches', '--remotes'])
+  if (histOut !== null) {
+    if (String(histOut).split('\n').some((line) => line.trim() === t)) {
+      return { hit: 'reachable-history', detail: 'refs/heads|refs/remotes' }
+    }
+  }
+  return null
+}
+
+/**
  * 把一枚当场弃掉的提交按 §29 备份成 annotated tag 并 pack-refs,再追一行留痕。
  * 幂等:同名 ref 已在 ⇒ 只报 already,不重复打、不撞名。
- * @returns {{ok:boolean, ref:string|null, already?:boolean, why:string}}
+ * 同 tree 去重:顶层树已在 lost-commit tag / 分支远端可达面 ⇒ 只记台账、不打 tag(见上条判据)。
+ * @returns {{ok:boolean, ref:string|null, already?:boolean, dedup?:boolean, why:string}}
  */
 export function backupOrphanCommit({
   sha,
@@ -92,9 +131,39 @@ export function backupOrphanCommit({
     return { ok: false, ref: null, why: 'bad-sha-or-kind' }
   }
   const s = String(sha).trim()
+  const writeLedger = (fields) => {
+    try {
+      mkdirSync(dirname(ledgerFile), { recursive: true })
+      appendFileSync(
+        ledgerFile,
+        JSON.stringify({
+          at: now.toISOString(),
+          sha: s,
+          kind,
+          why: String(why).slice(0, 200),
+          ...fields,
+        }) + '\n',
+        'utf8',
+      )
+    } catch (e) {
+      // 留痕写不进不能反过来说没备份:tag 已是既成事实,这里只出声
+      logger(`⚠️ 孤儿备份留痕未写入 ${ledgerFile}:${String(e?.message ?? e).slice(0, 120)} —— 名单缺这一行`)
+    }
+  }
   try {
     if (runner(root, ['rev-parse', '--verify', '--quiet', `refs/tags/${ref}`]) !== null) {
       return { ok: true, ref, already: true, why: 'already-tagged' }
+    }
+    // 2026-11-04 治本(失败沉积单向增长):同 tree 去重。顶层树已在 lost-commit tag 或分支/远端可达面
+    // ⇒ 内容已有等价副本,30a 的 tree 等价档会放行,再打一枚 tag 只是纯噪声;只记台账留痕。
+    const tree = runner(root, ['rev-parse', '--verify', '--quiet', `${s}^{tree}`])
+    const dedup = tree ? findTreeAlreadyPresent(root, tree, runner) : null
+    if (dedup) {
+      writeLedger({ ref: null, dedup: dedup.hit, tree: String(tree).trim(), detail: dedup.detail })
+      logger(
+        `🛟 孤儿 ${s.slice(0, 7)} 的树 ${String(tree).trim().slice(0, 10)} 已在 ${dedup.detail} 的可达面 ⇒ 只记台账、不再加 tag(§29 同 tree 去重)`,
+      )
+      return { ok: true, ref: null, dedup: true, why: `tree-already-${dedup.hit}` }
     }
     const tagged = runner(root, [
       'tag',
@@ -109,23 +178,7 @@ export function backupOrphanCommit({
     }
     // 嵌套 ref 不 pack 就会被宿主清理层删掉(§5b),tag 消失 = 这条腿静默失效
     runner(root, ['pack-refs', '--all', '--prune'])
-    try {
-      mkdirSync(dirname(ledgerFile), { recursive: true })
-      appendFileSync(
-        ledgerFile,
-        JSON.stringify({
-          at: now.toISOString(),
-          sha: s,
-          ref,
-          kind,
-          why: String(why).slice(0, 200),
-        }) + '\n',
-        'utf8',
-      )
-    } catch (e) {
-      // 留痕写不进不能反过来说没备份:tag 已是既成事实,这里只出声
-      logger(`⚠️ 孤儿备份留痕未写入 ${ledgerFile}:${String(e?.message ?? e).slice(0, 120)} —— tag 已在,名单缺这一行`)
-    }
+    writeLedger({ ref })
     logger(`🛟 已备份孤儿提交为 ${ref}(否则守门 30a 会让每一次提交都被逼跳门)`)
     return { ok: true, ref, why: 'tagged' }
   } catch (e) {
@@ -135,5 +188,10 @@ export function backupOrphanCommit({
 }
 
 /** §22c:镜像测试直接吃这份判据,不在测试里复制。 */
-export const __test__ = { orphanBackupRefName, backupOrphanCommit, ORPHAN_TAG_PREFIX }
+export const __test__ = {
+  orphanBackupRefName,
+  backupOrphanCommit,
+  findTreeAlreadyPresent,
+  ORPHAN_TAG_PREFIX,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

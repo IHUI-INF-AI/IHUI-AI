@@ -14,7 +14,8 @@
  *  ② 成功落地路径零 tag(摘掉 landed 短路即翻红 —— 反向对照 2);
  *  ③ 同 sha 重跑幂等(不撞名、不重复打);
  *  ④ ref 已指向该 sha ⇒ why:'landed' 且一题 git 都不派(防 tag 噪声那一格;并验 trim/失联方向);
- *  ⑤ sha 形状不对 ⇒ 未备份且**出声**,绝不静默折成已备份(§0.3)。
+ *  ⑤ sha 形状不对 ⇒ 未备份且**出声**,绝不静默折成已备份(§0.3);
+ *  ⑥ 同 tree 去重 ⇒ 命中只记台账不打 tag,判据取不到时必须回到"照打"方向(§0.3)。
  * 另把 converge 旧镜像锁 T3 的"tag 之后必须 pack-refs"改锚到 lib 源文本上,覆盖面不许随重构蒸发。
  */
 import test from 'node:test'
@@ -35,12 +36,19 @@ const unionSrc = readFileSync(new URL('../union-converge.mjs', import.meta.url),
 const convSrc = readFileSync(new URL('../git-sync-converge.mjs', import.meta.url), 'utf8')
 const libSrc = readFileSync(new URL('../lib/orphan-backup.mjs', import.meta.url), 'utf8')
 
-/** 假 git 面:只记录 argv,不派任何真进程(rev-parse 按 state.tagExists 答"tag 在不在")。 */
+/** 假 git 面:只记录 argv,不派任何真进程(rev-parse 按 state 答"tag 在不在",tree / 两个可达面按 state 答)。 */
 function spyRunner(state = { tagExists: false }) {
   const calls = []
   const runner = (_root, args) => {
     calls.push(args)
-    if (args[0] === 'rev-parse') return state.tagExists ? SHA : null
+    const joined = args.join(' ')
+    if (args[0] === 'rev-parse') {
+      if (joined.includes('refs/tags/')) return state.tagExists ? SHA : null
+      if (joined.endsWith('^{tree}')) return state.tree === undefined ? null : state.tree
+      return state.tagExists ? SHA : null
+    }
+    if (args[0] === 'for-each-ref') return state.tagTrees === undefined ? '' : state.tagTrees
+    if (args[0] === 'log') return state.logTrees === undefined ? '' : state.logTrees
     return ''
   }
   runner.calls = calls
@@ -205,5 +213,50 @@ test('⑦ casUpdateRef 抛出一型:先备份、再原样 rethrow(不吞异常�
   assert.ok(calls >= 3, `backupIfAbandoned 直接调用数应 ≥3(定义 / CAS 抛出 / 末枚出口),实测 ${calls}`)
   // 反向对照:守卫自身绝不抛(契约上它必须"永不抛",否则备份失败会把落地器炸成另一种失效)
   assert.doesNotThrow(() => LAND.backupIfAbandoned(null, '测试:无 sha', '.', { backup: () => ({ ok: false }) }))
+})
+
+/**
+ * ⑧ 同 tree 去重锁(2026-11-04 失败沉积治本):顶层树已在 lost-commit tag / 分支远端可达面 ⇒
+ * 只记台账、不打 tag(门 30a 的 tree 等价档会放行);判据两端都取不到时必须回到"照打"方向
+ * (§0.3 未判定 ≠ 已备份,去重只能减噪、不能漏备)。
+ */
+test('⑧ 同 tree 去重:命中只记台账不打 tag;判据失灵必须照打(不许把未判定读成已备份)', () => {
+  const dir = mkScratch('orphan-backup-t8-')
+  try {
+    const ledgerFile = join(dir, 'ledger.jsonl')
+    const deps = { headOf: () => OTHER, ledgerFile, now: new Date('2026-11-04T00:00:00Z') }
+    // ① tag 面命中
+    const r1 = spyRunner({ tagExists: false, tree: OTHER, tagTrees: `refs/tags/lost-commit/wip-conv-0000000\t${OTHER}` })
+    const res1 = LAND.backupIfAbandoned(SHA, '同 tree 已在 lost-commit tag', dir, { ...deps, runner: r1 })
+    assert.equal(res1.ok, true)
+    assert.equal(res1.dedup, true, '同 tree 命中必须报 dedup,不能冒充 tagged')
+    assert.equal(res1.ref, null, '去重命中不得产生任何备份 ref')
+    assert.equal(res1.why, 'tree-already-lost-commit-tag')
+    assert.equal(r1.tagCalls().length, 0, '同 tree 命中绝不许再派 git tag')
+    // ② 分支/远端可达面命中(同一份内容已被另一路落地 —— 785ff8c54816 那一型)
+    const r2 = spyRunner({ tagExists: false, tree: OTHER, tagTrees: '', logTrees: `${OTHER}\n` })
+    const res2 = LAND.backupIfAbandoned(SHA, '同 tree 已在可达历史', dir, { ...deps, runner: r2 })
+    assert.equal(res2.dedup, true)
+    assert.equal(res2.why, 'tree-already-reachable-history')
+    assert.equal(r2.tagCalls().length, 0)
+    // ③ 判据失灵(两道面都取不到)⇒ 必须照打,未判定不得折成已备份
+    const r3 = spyRunner({ tagExists: false, tree: OTHER, tagTrees: null, logTrees: null })
+    const res3 = LAND.backupIfAbandoned(SHA, '判据取不到', dir, { ...deps, runner: r3 })
+    assert.equal(res3.ok, true)
+    assert.equal(res3.why, 'tagged')
+    assert.equal(r3.tagCalls().length, 1, '判据失灵时必须回到"照打"方向')
+    // ④ 台账:两行 dedup(ref:null)、一行 tagged;dedup 行必须带 tree 与命中来源
+    const rows = readFileSync(ledgerFile, 'utf8').trim().split('\n').map((l) => JSON.parse(l))
+    assert.deepEqual(rows.map((r) => r.dedup ?? 'tagged'), ['lost-commit-tag', 'reachable-history', 'tagged'])
+    for (const row of rows.slice(0, 2)) {
+      assert.equal(row.ref, null, '去重台账不得写 ref(ref 没被打)')
+      assert.equal(row.tree, OTHER)
+      assert.ok(row.detail, '去重台账必须写命中来源')
+    }
+    // ⑤ 判据本体:形状不对的 tree 不判定(返回 null)
+    assert.equal(lib.findTreeAlreadyPresent('.', 'zzz', () => ''), null)
+  } finally {
+    rmScratch(dir)
+  }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
