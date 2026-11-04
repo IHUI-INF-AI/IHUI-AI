@@ -338,12 +338,28 @@ const EXPECTED_DEVENV = existsSync(join(REPO_FROM_TEST, '.DevEnv'))
   ? join(REPO_FROM_TEST, '.DevEnv')
   : join(parse(REPO_FROM_TEST).root, 'DevEnv')
 
+/** 按件重算期望根(独立于被测实现:自己逐件问存在性,两边都没有时回仓内优先) */
+const expectedDeenvFor = (artifact) => {
+  const inRepo = join(REPO_FROM_TEST, '.DevEnv')
+  const atRoot = join(parse(REPO_FROM_TEST).root, 'DevEnv')
+  for (const base of [inRepo, atRoot]) if (existsSync(join(base, artifact))) return base
+  return inRepo
+}
+
 test('P-落点1 真值不变:共用出口真值与"双形态 oracle"在真仓逐字同值(优先级按文档独立重算)', () => {
   // 本用例的原断言(2026-09-28):盘根锚定 = 数层式。G-814433(2026-09-30)把 DevEnv 搬入仓内后,
   // 出口升级为双形态;oracle 相应改为按"env > 仓内 > 盘根"独立重算 —— 真值断言的强度不降:
   // 仍然要求 pgBinDir/backupPgDir 与 oracle 逐字同值,且 env 覆盖必须赢过任何推导。
-  assert.equal(D.pgBinDir(), join(EXPECTED_DEVENV, 'runtimes', 'pgsql', 'bin'))
-  assert.equal(D.backupPgDir(), join(EXPECTED_DEVENV, 'backups', 'pg'))
+  //
+  // 2026-11-04 再改一档,按**件**而不是按**根**(先例 = check-ops-patrol.mjs 的 P4b 早已用
+  // devEnvArtifactRoot('logs')):本机是半搬迁态 —— 仓内 .DevEnv 只搬了 Temp/backups 两层,
+  // `backups/pg` 与 `runtimes` 仍在盘根。按根选 ⇒ 拼出 `.DevEnv\backups\pg`(不存在),
+  // 于是 pg-backup-cadence-audit 天天报"备份目录不可读/未判定",而备份其实天天在落
+  // (现读 D:/DevEnv/backups/pg/ihui_dev_20261104_030003.dump)。oracle 独立重算同一条规则,
+  // 强度不降:仍逐字等值、env 覆盖仍优先、两边都没有时仍回仓库内优先(实测 devEnvArtifactRoot
+  // 对不存在的件返回 <repo>/.DevEnv)。
+  assert.equal(D.pgBinDir(), join(expectedDeenvFor('runtimes/pgsql/bin'), 'runtimes', 'pgsql', 'bin'))
+  assert.equal(D.backupPgDir(), join(expectedDeenvFor('backups/pg'), 'backups', 'pg'))
   // 显式 env 覆盖仍然优先(接线共用出口不得把那条逃生舱挤掉)
   const saved = process.env.IHUI_BACKUP_PG_DIR
   process.env.IHUI_BACKUP_PG_DIR = join(EXPECTED_DEVENV, 'somewhere', 'else')
