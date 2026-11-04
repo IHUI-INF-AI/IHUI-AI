@@ -36,7 +36,9 @@
 // CLI 解析与 help。执行语义逐字未动,镜像测试同票改取材面(见该 lib 头注)。
 // 2026-10-25(GOAL-合入票):第 5 轮合并 c8fee04806ea 的「人工归并回灌」把本文件的门注册段截断 —— checks 数组里 240-249 十门注册整体消失、bare-decode-uri/token-literal-debt/rn-readout-cell 三条只剩尾巴、pushGateChecks 追加 68 行缺头缺尾的残骸 ⇒ 本文件语法错误 ⇒ push 门编排器(.husky/pre-push → guardian-runner --push-gate)整个跑不起来,本地 ahead 的提交一律推不动。
 // 本次以 origin/main 当前面为基线逐字复原(§0.6 单一真相源下对侧的完整形态);判据面一字未改,只复原被截断的注册段。
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawn } from 'node:child_process'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { runGuardianBatch } from './lib/guardian-executor.mjs'
 import { resolveGateScope, isMetaGate } from './lib/gate-scope.mjs'
 
@@ -7313,10 +7315,186 @@ const pushGateChecks = [
 // === CLI 解析 ===
 
 const cliArgs = process.argv.slice(2)
+
+// ── 未知参数必须当场失败(2026-11-04 立) ────────────────────────────────────
+// 旧实现只认 --staged/--timing/--push-gate/--help,其余参数原样透传后被忽略:
+// `--self-test` 被静默当成"没写" ⇒ 实际跑全量 332 门(实测 41.2 分钟),调用者却以为在跑门自检。
+// 失效方向只能是"当场报错",不能是"照默认跑一遍还让人觉得跑的是别的东西"。
+const KNOWN_CLI_FLAGS = new Set([
+  '--staged',
+  '--timing',
+  '--push-gate',
+  '--no-cache',
+  '--self-test',
+  '--help',
+  '-h',
+])
+const unknownCliArgs = cliArgs.filter((a) => !KNOWN_CLI_FLAGS.has(a))
+if (unknownCliArgs.length) {
+  console.error(`❌ 未知参数:${unknownCliArgs.join(' ')}`)
+  console.error('   本器只认:--staged / --timing / --push-gate / --no-cache / --self-test / --help / -h')
+  console.error('   未知参数不再被忽略,也不会跑任何门(exit 2)。')
+  process.exit(2)
+}
+
 const passStaged = cliArgs.includes('--staged')
 const showTiming = cliArgs.includes('--timing')
 const showHelp = cliArgs.includes('--help') || cliArgs.includes('-h')
 const pushGate = cliArgs.includes('--push-gate')
+const selfTest = cliArgs.includes('--self-test')
+if (selfTest && (passStaged || pushGate)) {
+  console.error('❌ --self-test 不能与 --staged / --push-gate 组合(自检不读暂存面、不跑判据)')
+  process.exit(2)
+}
+
+// ── --self-test:只跑每门脚本自带的自检入口,不跑任何门的判据 ─────────────────
+// 没有自检入口的门逐条标"无自检档",绝不记成通过(§0.3:没判绝不写成判过)。
+// 覆盖率分母 = 注册条目;执行单位 = 去重后的脚本;超时/非零退出都记失败。
+const SELF_TEST_ARG = '--self-test'
+const SELF_TEST_ENTRY_RE =
+  /includes\('--self-test'\)|has\('--self-test'\)|=={1,2}\s*'--self-test'|'--self-test'\s*=={1,2}|case\s+'--self-test'|selfTest\s*[:=][^\n]*'--self-test'/
+const selfTestSourceCache = new Map()
+
+function scriptPathOf(script) {
+  return fileURLToPath(new URL(`./${script}`, import.meta.url))
+}
+
+/** 只认代码里的参数分支;注释与用法文案里的字样不算"有自检入口"。 */
+function declaresSelfTestEntry(script) {
+  if (selfTestSourceCache.has(script)) return selfTestSourceCache.get(script)
+  let ok = false
+  try {
+    ok = readFileSync(scriptPathOf(script), 'utf8')
+      .split(/\r?\n/)
+      .some((line) => {
+        const t = line.trim()
+        if (t.startsWith('//') || t.startsWith('*') || t.startsWith('/*')) return false
+        return line.includes("'--self-test'") && SELF_TEST_ENTRY_RE.test(line)
+      })
+  } catch {
+    ok = false
+  }
+  selfTestSourceCache.set(script, ok)
+  return ok
+}
+
+function groupChecksByScript(checkList) {
+  const byScript = new Map()
+  for (const c of checkList) {
+    if (!c?.script) continue
+    if (!byScript.has(c.script)) byScript.set(c.script, { script: c.script, ids: [] })
+    byScript.get(c.script).ids.push(c.id)
+  }
+  return [...byScript.values()]
+}
+
+function runOneSelfTest(group, timeoutMs) {
+  return new Promise((resolve) => {
+    const startedAt = Date.now()
+    let stdout = ''
+    let stderr = ''
+    let timedOut = false
+    let settled = false
+    const child = spawn(process.execPath, [scriptPathOf(group.script), SELF_TEST_ARG], {
+      cwd: process.cwd(),
+      env: process.env,
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    const timer = setTimeout(() => {
+      timedOut = true
+      child.kill()
+    }, timeoutMs)
+    const finish = (extra) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      resolve({ ...group, elapsedMs: Date.now() - startedAt, ...extra })
+    }
+    child.stdout?.on('data', (d) => {
+      stdout = (stdout + d).slice(-4000)
+    })
+    child.stderr?.on('data', (d) => {
+      stderr = (stderr + d).slice(-4000)
+    })
+    child.on('error', (e) => finish({ kind: 'fail', reason: `spawn 失败:${e.message}` }))
+    child.on('close', (code, signal) => {
+      if (timedOut) return finish({ kind: 'timeout', reason: `超时 ${timeoutMs}ms(已杀)` })
+      if (signal) return finish({ kind: 'fail', reason: `被信号 ${signal} 终止` })
+      if (code === 0) return finish({ kind: 'pass' })
+      const tail = (stderr.trim() || stdout.trim()).replace(/\s+/g, ' ').slice(0, 200)
+      finish({ kind: 'fail', reason: `exit ${code}${tail ? ` — ${tail}` : ''}` })
+    })
+  })
+}
+
+async function runGateSelfTests(checkList) {
+  const onlyRaw = String(process.env.GUARDIAN_SELFTEST_ONLY || '').trim()
+  const only = onlyRaw
+    ? new Set(
+        onlyRaw
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean),
+      )
+    : null
+  const selected = only ? checkList.filter((c) => only.has(String(c.id)) || only.has(c.script)) : checkList
+  if (!selected.length) {
+    console.error(`❌ --self-test:GUARDIAN_SELFTEST_ONLY=${onlyRaw} 没有命中任何已注册门(未判定,exit 2)`)
+    return 2
+  }
+
+  const groups = groupChecksByScript(selected)
+  const runnable = groups.filter((g) => declaresSelfTestEntry(g.script))
+  const missing = groups.filter((g) => !declaresSelfTestEntry(g.script))
+  const entryTotal = selected.length
+  const entryCovered = runnable.reduce((n, g) => n + g.ids.length, 0)
+  const entryMissing = entryTotal - entryCovered
+
+  console.log('🧪 门自检档 --self-test:只跑各门脚本自带的自检入口,不跑任何门的判据')
+  console.log(
+    `   覆盖:${entryCovered}/${entryTotal} 条注册有自检入口;${entryMissing} 条无自检档` +
+      `(不同脚本:${runnable.length} 有自检 / ${missing.length} 无自检)`,
+  )
+
+  if (!runnable.length) {
+    for (const m of missing) console.log(`⚪ [${m.ids.join(',')}] ${m.script}  无自检档`)
+    console.log('⚠️ 0 门有自检入口 ⇒ 本轮未判定(exit 2;"没有自检"不等于"通过",§0.3)')
+    return 2
+  }
+
+  const rawConcurrency = Number(process.env.GUARDIAN_SELFTEST_CONCURRENCY)
+  const concurrency = Number.isFinite(rawConcurrency) && rawConcurrency > 0 ? Math.floor(rawConcurrency) : 6
+  const rawTimeout = Number(process.env.GUARDIAN_SELFTEST_TIMEOUT_MS)
+  const timeoutMs = Number.isFinite(rawTimeout) && rawTimeout > 0 ? Math.floor(rawTimeout) : 300_000
+  console.log(`   并发:${concurrency} 单门超时:${timeoutMs}ms`)
+
+  const startedAt = Date.now()
+  const results = new Array(runnable.length)
+  let cursor = 0
+  const worker = async () => {
+    while (cursor < runnable.length) {
+      const i = cursor++
+      results[i] = await runOneSelfTest(runnable[i], timeoutMs)
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, runnable.length) }, worker))
+
+  for (const r of results) {
+    const icon = r.kind === 'pass' ? '✅' : r.kind === 'timeout' ? '⏱ ' : '❌'
+    console.log(`${icon} [${r.ids.join(',')}] ${r.script}  ${(r.elapsedMs / 1000).toFixed(1)}s${r.reason ? ` — ${r.reason}` : ''}`)
+  }
+  for (const m of missing) console.log(`⚪ [${m.ids.join(',')}] ${m.script}  无自检档`)
+
+  const passed = results.filter((r) => r.kind === 'pass').length
+  const failed = results.filter((r) => r.kind !== 'pass').length
+  const totalSec = ((Date.now() - startedAt) / 1000).toFixed(1)
+  console.log('\n🧪 自检档汇总')
+  console.log(`   通过: ${passed} / 失败: ${failed} / 无自检档: ${entryMissing} 条(${missing.length} 个脚本)`)
+  console.log(`   覆盖: ${entryCovered}/${entryTotal} 条注册有自检入口;其余未判定,不计通过(§0.3)`)
+  console.log(`   自检墙钟: ${totalSec}s`)
+  return failed ? 1 : 0
+}
 
 // --push-gate 模式:仅执行 push 门检查集(不跑 pre-commit 的全部检查)
 let effectiveChecks = pushGate ? pushGateChecks : checks
@@ -7385,13 +7563,28 @@ if (showHelp) {
 guardian-runner.mjs — 守门脚本批量执行器
 
 用法:
-  node scripts/guardian-runner.mjs [--staged] [--timing] [--push-gate] [--help]
+  node scripts/guardian-runner.mjs [模式] [选项]
+
+模式(不带模式 = 全量档,跑全部 ${checks.length} 门):
+  --staged      传 --staged 给所有门(按暂存面判定,pre-commit 用)
+  --push-gate   仅执行 push 门检查集(T1 全量 typecheck,staged-scope 降级)
+  --self-test   只跑各门脚本自带的自检入口(--self-test),不跑任何判据;
+                无自检入口的门逐条标"无自检档",不计通过(§0.3)
+                (不可与 --staged / --push-gate 组合)
 
 选项:
-  --staged      传递 --staged 给所有脚本(pre-commit 模式)
   --timing      打印每个检查的耗时
-  --push-gate   仅执行 push 门检查集(T1 全量 typecheck,staged-scope 降级)
-  --help        打印此帮助
+  --no-cache    仅 --push-gate:跳过 push 门结果缓存
+  --help, -h    打印此帮助(不跑任何门)
+  未知参数      当场 exit 2,不跑任何门(不再静默忽略)
+
+--self-test 专用环境变量:
+  GUARDIAN_SELFTEST_ONLY=<id或脚本名,逗号分隔>  只跑指定门(调试/抽样;不改变其余门的"无自检档"口径)
+  GUARDIAN_SELFTEST_CONCURRENCY=<n>             并发数,默认 6
+  GUARDIAN_SELFTEST_TIMEOUT_MS=<ms>             单门自检超时,默认 300000(与串行门 300s 兜底同口径)
+
+退出码:
+  0 全绿 / 1 有门失败 / 2 用法错误(未知参数等)或 --self-test 0 门可跑(未判定)
 
 检查清单(${effectiveChecks.length} 项):
   blocking (${blocking.length} 项): ${blocking.map((c) => c.id).join(', ')}
@@ -7408,6 +7601,10 @@ guardian-runner.mjs — 守门脚本批量执行器
   process.exit(0)
 }
 
+// --self-test:只跑门脚本自带的自检入口,绝不落到 runGuardianBatch(不跑任何判据)。
+if (selfTest) {
+  process.exit(await runGateSelfTests(checks))
+}
 
 await runGuardianBatch({ checks, pushGateChecks, effectiveChecks, passStaged, pushGate, showTiming, cliArgs })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
