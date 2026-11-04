@@ -16,7 +16,9 @@ import {
 import { cn } from '@/lib/utils'
 import { SlashCommandPalette } from '@/components/ai/slash-command-palette'
 import { VoiceToolbar } from './voice-toolbar'
+import { VoiceCompanion } from './voice-companion'
 import { VoiceNote } from './voice-note'
+import { useAgentProgressPaneStore } from '@/stores/agent-progress-pane'
 import { readHandsFree } from '@/components/chat/voice-stream-speaker'
 import { ModelSelector } from '@/components/chat/model-selector'
 import { AgentPicker } from '@/components/chat/agent-picker'
@@ -273,6 +275,9 @@ export function MessageInput({
   onFloatDragStart,
 }: MessageInputProps) {
   const t = useTranslations('chat')
+  // 语音栈实例 id(2026-11-04):常驻 Companion 与 + 菜单里的入口行按同一实例分桶,
+  // 侧栏浮窗 / 主聊天 / 工作台多输入区并存时录音与快捷键不串台。
+  const voiceCompanionId = React.useId()
   // 差距③配套(2026-10-30 立):「打断并发送」按钮文案复用既有 ai.pane.queueOps 词包
   // (与 QueueInteractionBar 的 interruptAndRun 动词同源,不新增 key)
   const tq = useTranslations(QUEUE_OPS_NAMESPACE)
@@ -1042,6 +1047,22 @@ export function MessageInput({
     }
   }, [isStreaming, value, handleScreenshot])
 
+  // Ctrl+Shift+J 任务进度面板(2026-11-04 补洞):监听必须挂在常驻宿主上。
+  // 此前监听住在 AgentProgressTrigger 内,而该触发器第三轮收进「+ → 更多工具」抽屉,
+  // 抽屉不开时监听根本不存在 —— 快捷键名义上还在、实际已全局失联。
+  const toggleAgentProgressPane = useAgentProgressPaneStore((s) => s.toggle)
+  React.useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.isComposing) return
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'j' || e.key === 'J')) {
+        e.preventDefault()
+        toggleAgentProgressPane()
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [toggleAgentProgressPane])
+
   // 手动压缩上下文(2026-09-02 立):点击触发 POST /api/chat/compact
   // D117(2026-09-27):实现抽到 use-chat/manual-compact.ts 的 runManualCompact 单一实现,
   // /compact 斜杠命令复用同一函数;此处只保留按钮 loading 态与流式守卫。
@@ -1364,6 +1385,13 @@ export function MessageInput({
               onRemoveLastAttachment={handleRemoveLastAttachment}
               onPaste={handlePasteWithReferencePreview}
             />
+            {/* 语音常驻宿主(2026-11-04):引擎 / Ctrl+Alt+V·B·H 监听 / 播报字幕条不能住在
+                「+ → 更多工具」抽屉里 —— 菜单条件挂载,关了菜单录音即断、字幕即失、快捷键即哑。 */}
+            <VoiceCompanion
+              voiceId={voiceCompanionId}
+              onTranscript={handleVoiceTranscript}
+              disabled={isStreaming}
+            />
             {/* 底部工具栏(2026-09-30 底栏单行化,深度对标 Trae/Qoder/Codex 输入卡):
                 单行两簇 —— 左簇"任务进度 + 添加",右簇"权限 + 模式 + 上下文 + 模型 + 语音 + 发送"。
                 相比旧版(顶部栏 5 控件 + 权限标题行 + 底栏 9 控件,三处堆叠):
@@ -1572,7 +1600,7 @@ export function MessageInput({
                       <AgentProgressTrigger leftIcon={ListTodo} variant="row" />
                       <ContextUsageRing model={model} isStreaming={isStreaming} variant="row" />
                       <VoiceToolbar
-                        onTranscript={handleVoiceTranscript}
+                        voiceId={voiceCompanionId}
                         disabled={isStreaming}
                         variant="row"
                       />

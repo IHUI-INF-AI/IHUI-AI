@@ -129,17 +129,15 @@ test.describe('AgentTaskProgressPane v11 交互流程', () => {
     await expect(pane).toBeVisible({ timeout: 5000 })
   })
 
-  test('Ctrl+Shift+J 快捷键切换 popover', async ({ authenticatedPage }) => {
+  test('Ctrl+Shift+J 快捷键切换 popover(无需打开 + 菜单)', async ({ authenticatedPage }) => {
     await authenticatedPage.goto('/chat')
     await authenticatedPage.waitForLoadState('domcontentloaded').catch(() => {})
 
     if (!authenticatedPage.url().includes('/chat')) return
 
-    // 初始状态:先展开「更多工具」抽屉 —— 2026-11-04 起 trigger(及其实例上的
-    // Ctrl+Shift+J window 监听)只在 + 菜单 tools 层挂载(无输入卡时沿用软断言返回)
-    if (!(await tryOpenComposerTools(authenticatedPage))) return
-    const trigger = authenticatedPage.locator('[data-testid="agent-progress-trigger"]')
-    if (!(await trigger.isVisible({ timeout: 5000 }).catch(() => false))) return
+    // 2026-11-04 补洞回归:监听已从 AgentProgressTrigger(抽屉条件挂载)迁到常驻的
+    // message-input —— 不打开 + 菜单,快捷键也必须生效。就绪锚点 = 可见的 `+`。
+    await expect(authenticatedPage.locator(ADD_MENU_TRIGGER)).toBeVisible({ timeout: 8000 })
 
     // Ctrl+Shift+J 打开
     await authenticatedPage.keyboard.press('Control+Shift+J')

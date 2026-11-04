@@ -678,6 +678,9 @@ export function ContextUsageRing({
             role="dialog"
             aria-label={t('title')}
             aria-modal="true"
+            // 2026-11-04:本面板从底栏收进「+ → 更多工具」抽屉后,点击面板内部不得被
+            // add-menu-popover 的 outside-click 判定为"点外面"(否则父菜单连同本面板一起卸载)。
+            data-composer-nested-panel=""
             tabIndex={-1}
           >
             {/* 标题 */}
