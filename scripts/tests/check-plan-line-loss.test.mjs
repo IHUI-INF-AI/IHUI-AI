@@ -940,6 +940,141 @@ test('端到端(回捞侧两种处置):编号整体消失才回插;同编号仍�
   }
 })
 
+// ── 点名器「缺 N 条」↔ multiSlot reportOnly 分流对齐(2026-11-04/w3 本票)───────────
+// 成对夹具,判据一律 import 源文件导出(§22c),不在此复制第二份 filter。
+// 现场:B31 是同号就地改写的旧形变体(multiSlot=true),不是丢行;照旧打进「缺 1 条」会诱使
+// 下一席补同号双行(触守门 203/130)。正向牙 = 真缺 1 条仍报「缺 1 条」且退出码不变。
+test('§22c 单源判据:splitByMultiSlot 真缺行 / 同号变体 / 未判定三态(摘掉过滤那行必翻红)', () => {
+  const rows = [
+    { marker: 'G-780 收口' },
+    { marker: 'B31 [auto-triage]', multiSlot: true },
+    { marker: 'D12 另一条真缺行' },
+  ]
+  const { real, variant } = G.splitByMultiSlot(rows)
+  assert.deepEqual(real.map((r) => r.marker), ['G-780 收口', 'D12 另一条真缺行'], '真缺行一条不减、不串档')
+  assert.deepEqual(variant.map((r) => r.marker), ['B31 [auto-triage]'], '同号变体必须进 variant')
+  assert.deepEqual(G.splitByMultiSlot([]), { real: [], variant: [] }, '枚举到 0 不写成"没问题"(§0.3)')
+  const und = G.splitByMultiSlot(null)
+  assert.equal(und.real, null, '取不到输入 ⇒ real 透传 null(未判定),绝不折成空数组')
+  assert.deepEqual(und.variant, [])
+})
+
+test('点名器成对(§0.10):真缺 1 条仍报「缺 1 条」;同号变体不进「缺 N」但必须单列点名', () => {
+  const mk = (marker, multiSlot) => ({ marker, multiSlot })
+  const legsOf = (head) => ({ disk: [], head, index: [], indexUndetermined: false })
+  // 正向:真缺 1 条(非 multiSlot)⇒ 分档总读数与点名行一字不改
+  const realRoster = G.healLegRoster(546, legsOf([mk('G-780 收口')]))
+  assert.match(realRoster[0], /HEAD 提交树缺 1 条/, '真缺行计数不得被消噪削减')
+  assert.ok(
+    realRoster.some((l) => l.includes('[点名/HEAD] 缺 1 条登记行') && l.includes('G-780 收口')),
+    '真缺行必须照旧逐条点名',
+  )
+  assert.ok(!realRoster.some((l) => l.includes('[同号变体/HEAD]')), '没有变体不得凭空打单列行')
+  // 反向:同号变体(B31 旧形)⇒ 不进「缺 N」,但必须单列一行点名到 marker
+  const varRoster = G.healLegRoster(546, legsOf([mk('B31 [auto-triage]', true)]))
+  assert.match(varRoster[0], /HEAD 提交树缺 0 条/, '同号变体必须从「缺 N 条」计数里剔除')
+  assert.ok(!varRoster.some((l) => l.includes('[点名/HEAD] 缺')), '变体不得再打进「缺 N 条」点名行')
+  const solo = varRoster.find((l) => l.includes('[同号变体/HEAD]'))
+  assert.ok(solo, '变体必须单列一行,不得静默省略(§0.10 "多要一次定向说明")')
+  assert.match(solo, /同号变体 1 条/)
+  assert.match(solo, /只报数不判缺/)
+  assert.match(solo, /B31 \[auto-triage\]/, '单列行必须逐条点名 marker')
+  assert.ok(!varRoster.some((l) => l.includes('无缺失')), '枚举到 0 不写成「没问题」(§0.3)')
+})
+
+test('端到端成对(点名器↔--heal 同形):真缺 1 条仍报「缺 1 条」且退出码 0 不变;同号变体只进单列行', () => {
+  const dirA = tempPlanRepo(V_MULTI)
+  const dirB = tempPlanRepo(V1)
+  try {
+    // 反向:工作树吞掉同编号第二处登记(O43_A 仍在 ⇒ multiSlot=true)
+    writeFileSync(join(dirA, 'PROJECT_PLAN.md'), STALE_MULTI, 'utf8')
+    const ra = runGate(dirA, ['--heal'])
+    assert.equal(ra.status, 0, `消噪不得改退出码,实得 ${ra.status}\n${ra.stdout}\n${ra.stderr}`)
+    assert.match(ra.stdout, /工作树副本缺 0 条/, '同号变体不得进「缺 N 条」')
+    assert.doesNotMatch(ra.stdout, /\[点名\/工作树\] 缺 \d+ 条/, '点名行不得再报变体缺行')
+    const solo = ra.stdout.split(/\r?\n/).find((l) => l.includes('[同号变体/工作树]'))
+    assert.ok(solo, '变体必须单列一行(不静默)')
+    assert.match(solo, /只报数不判缺/)
+    assert.match(solo, /O43/, '单列行必须点名 marker')
+    // 正向:整行真丢(标题被旧基线写回抹掉)⇒ 「缺 1 条」照旧,且回插成功
+    writeFileSync(join(dirB, 'PROJECT_PLAN.md'), STALE, 'utf8')
+    const rb = runGate(dirB, ['--heal'])
+    assert.equal(rb.status, 0, `真缺行退出码不得变,实得 ${rb.status}\n${rb.stdout}\n${rb.stderr}`)
+    assert.match(rb.stdout, /\[点名\/工作树\] 缺 1 条登记行/, '真缺 1 条仍必须报「缺 1 条」')
+    assert.match(rb.stdout, /工作树副本缺 1 条/, '分档总读数的真缺计数一字不改')
+    assert.ok(
+      readFileSync(join(dirB, 'PROJECT_PLAN.md'), 'utf8').includes(HEADING),
+      '真缺行照旧被回插(牙不放宽)',
+    )
+  } finally {
+    rmScratch(dirA)
+    rmScratch(dirB)
+  }
+})
+
+// ── 回捞侧两处 ⚠️「缺 N 条登记行」↔ splitByMultiSlot 分流对齐(2026-11-04/w8 补刀)────────
+// w3 本票只修了点名器(stdout [分档]/[点名/*]);heal() 回捞侧 stderr 三处 warn(工作区/HEAD/索引)
+// 仍拿原始 legs 直接计数,把 B31 那类同号变体打进「缺 1 条」。而 diskDoable/headDoable/indexMissing
+// 同时是回捞写盘/规模闸/早退/--commit/退出码的同源输入 ⇒ 不是纯渲染噪声,必须在源头按单源出口
+// splitByMultiSlot 分流(§0.6/§22c),不许在渲染层重写第二份 e.multiSlot 判据。
+// 摘掉分流(把 heal() 三档还原成 legs.X)下面两条 doesNotMatch 断言必翻红。
+test('回捞侧成对(§0.6/§22c/§0.10):真缺1条 stderr仍报「缺1条」且rc不变;同号变体不进「缺N」但可见', () => {
+  const dirVar = tempPlanRepo(V_MULTI) // disk 档吞掉同号第二处登记(O43_A 仍在 ⇒ multiSlot=true)
+  const dirReal = tempPlanRepo(V1) // 整行真丢(非 multiSlot)
+  try {
+    writeFileSync(join(dirVar, 'PROJECT_PLAN.md'), STALE_MULTI, 'utf8')
+    const rv = runGate(dirVar, ['--heal'])
+    assert.equal(rv.status, 0, `消噪不得改退出码,实得 ${rv.status}\n${rv.stdout}\n${rv.stderr}`)
+    assert.doesNotMatch(
+      rv.stderr,
+      /缺 \d+ 条登记行/,
+      '回捞侧 warn 不得再把同号变体打进「缺 N 条登记行」',
+    )
+    const solo = rv.stdout.split(/\r?\n/).find((l) => l.includes('[同号变体/工作树]'))
+    assert.ok(solo, '同号变体必须单列可见(§0.10 多要一次定向说明,不是静音)')
+    assert.match(solo, /O43/, '单列行必须逐条点名 marker')
+
+    writeFileSync(join(dirReal, 'PROJECT_PLAN.md'), STALE, 'utf8')
+    const rr = runGate(dirReal, ['--heal'])
+    assert.equal(rr.status, 0, `真缺行退出码不得变,实得 ${rr.status}\n${rr.stdout}\n${rr.stderr}`)
+    assert.match(rr.stderr, /工作区缺 1 条登记行/, '真缺 1 条回捞侧仍必须报「缺 1 条」')
+    assert.ok(
+      readFileSync(join(dirReal, 'PROJECT_PLAN.md'), 'utf8').includes(HEADING),
+      '真缺行照旧被回插(牙不放宽)',
+    )
+  } finally {
+    rmScratch(dirVar)
+    rmScratch(dirReal)
+  }
+})
+
+test('回捞侧 HEAD/索引两处(真仓 B31 同形):变体不进「缺 N」且 rc 0 不变,两档 stdout 单列可见', () => {
+  // 精确复现真仓现场:HEAD 与共享索引都只缺同号变体、工作区在位 ⇒ 改前 4257/4270 两处 warn
+  // 曾把 B31 打进「缺 1 条」。提交 V_MULTI(同号两处在)后,把 HEAD/索引一起推进到 STALE_MULTI
+  // (缺 O43_B),再把工作区写回 V_MULTI(只动工作区,不动 HEAD/索引)。
+  const dir = tempPlanRepo(V_MULTI)
+  try {
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), STALE_MULTI, 'utf8')
+    git(dir, 'add', 'PROJECT_PLAN.md')
+    git(dir, 'commit', '-m', 'drop O43_B (w8 夹具:HEAD/索引缺同号变体)')
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), V_MULTI, 'utf8')
+    const r = runGate(dir, ['--heal'])
+    assert.equal(r.status, 0, `消噪不得改退出码,实得 ${r.status}\n${r.stdout}\n${r.stderr}`)
+    assert.doesNotMatch(
+      r.stderr,
+      /缺 \d+ 条登记行/,
+      'HEAD/索引两处 warn 不得再把同号变体打进「缺 N 条登记行」',
+    )
+    for (const label of ['HEAD', '索引']) {
+      const solo = r.stdout.split(/\r?\n/).find((l) => l.includes(`[同号变体/${label}]`))
+      assert.ok(solo, `${label} 档同号变体必须单列可见(§0.10)`)
+      assert.match(solo, /O43/, `${label} 档单列行必须逐条点名 marker`)
+    }
+  } finally {
+    rmScratch(dir)
+  }
+})
+
 // ── 编号形态维(G-722):判据住 live-doc-edit,门只做按面接线的编排 ────────────────────
 const MAL_BASE = [
   '# 计划',

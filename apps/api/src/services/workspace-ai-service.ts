@@ -42,6 +42,10 @@ import {
 } from '../utils/workspace-roots.js'
 import { promisify } from 'node:util'
 import { hasNestedQuantifier } from './rules-service.js'
+// 规则级审批引擎(纯函数)+ 授权/历史记忆:静态导入,避免在 FS Bridge 热路径上
+// 每次判定都多一次动态 import 的模块加载延迟(既有用例按"一个 tick"断言 pending)。
+import { computeFacts, decideApproval } from '@ihui/shared/permission'
+import { listApprovalHistory, recordApprovalHistory } from './permission-grants.js'
 
 const execAsync = promisify(exec)
 
@@ -2442,6 +2446,80 @@ class PermissionManager {
     return true
   }
 
+  /**
+   * 规则级审批闸门(2026-11-04):把 `@ihui/shared/permission` 的规则引擎接进真实执行链路。
+   * 语义边界:
+   *  - 档位(decideByPermissionMode)仍是**上限**,这里固定以 tier.verdict='ask' 喂给引擎,
+   *    因此引擎的 allow 只可能来自**授权记忆**或**自动复核**,不会凭空放宽;
+   *  - deny 来自声明式风险规则(凭据读取/批量删除/高危命令/系统目录);
+   *  - ask 仍走既有人工审计,行为与改造前一致。
+   */
+  private async evaluateApprovalGate(params: {
+    userId: string
+    workspacePath: string
+    tool: string
+    args: Record<string, unknown>
+  }): Promise<{
+    decision: 'allow' | 'ask' | 'deny'
+    matchedRule: string
+    reason: string
+    scopeKey: string
+  }> {
+    const now = Date.now()
+    // 本闸门是 FS Bridge 的热路径(既有用例按"加一个 tick 就出 pending"来断言),因此这里
+    // **不读库**:持久授权记忆的消费面在 `/api/agent-control/execute`(computer-use 应用白名单)
+    // 与 `/permission/grants`;工具链这边只消费进程内近因历史做自动复核。若日后要让工具链
+    // 也吃持久授权,注入 `loadPermissionGrants` 即可,但需同步给这条热路径补测试桩。
+    const request = {
+      tool: params.tool,
+      args: params.args,
+      context: {
+        workspaceId: params.workspacePath,
+        agentId: null,
+        userId: params.userId,
+        now,
+        grants: [],
+        history: listApprovalHistory(params.userId),
+      },
+    }
+    const result = decideApproval(request)
+    // 档位是上限:规则集的 `allow.read-only` 属于"引擎自行判定",在 default/acceptEdits
+    // 档里不得成为放宽通道 —— 只有**人类既往决定的复用**(自动复核)才允许 allow。
+    // (plan 档的硬 deny 与本档 bypass 分支都在本方法之前返回,不经过这里。)
+    const decision: 'allow' | 'ask' | 'deny' =
+      result.decision === 'allow' && !result.autoReview ? 'ask' : result.decision
+    const facts = computeFacts(request)
+    return {
+      decision,
+      matchedRule: result.matchedRule,
+      reason:
+        decision === result.decision
+          ? result.reason
+          : `${result.reason};档位上限:引擎放行未获既往人工决定背书,转人工`,
+      scopeKey: facts.commandPrefix ?? facts.appName ?? facts.tool,
+    }
+  }
+
+  /** 人工结论落近因历史,供下一次自动复核比对(只记真实发生的人类决定)。 */
+  private async recordApprovalOutcome(params: {
+    userId: string
+    workspacePath: string
+    tool: string
+    ruleId: string
+    scopeKey: string
+    allowed: boolean
+  }): Promise<void> {
+    recordApprovalHistory(params.userId, {
+      tool: params.tool,
+      decision: params.allowed ? 'allow' : 'deny',
+      ruleId: params.ruleId,
+      workspaceId: params.workspacePath,
+      agentId: null,
+      scopeKey: params.scopeKey,
+      at: Date.now(),
+    })
+  }
+
   listWorkspacePending(userId: string): PermissionRequest[] {
     return Array.from(this.workspacePending.values())
       .filter((e) => e.req.userId === userId)
@@ -2580,12 +2658,64 @@ class PermissionManager {
           }
         }
       }
-      // 无匹配 → 走人工审计
+      // 无匹配 → 规则级闸门(2026-11-04):授权记忆/自动复核可放行,风险规则可拒绝,
+      // 其余仍走人工审计 —— 引擎不会凭空放宽(allow 只来自人类的既往决定)
+      const gate = await this.evaluateApprovalGate(params)
+      if (gate.decision === 'deny') {
+        await appendAuditLog({
+          userId: params.userId,
+          workspacePath: params.workspacePath,
+          toolName: params.tool,
+          args: JSON.stringify(params.args).slice(0, 1000),
+          decision: 'deny',
+          reason: `规则拒绝(${gate.matchedRule}): ${gate.reason}`,
+        })
+        return {
+          allowed: false,
+          mode: permModeWire,
+          configured: true,
+          reason: `规则拒绝: ${gate.reason}`,
+          matchedRule: gate.matchedRule,
+        }
+      }
+      if (gate.decision === 'allow') {
+        await this.recordApprovalOutcome({
+          userId: params.userId,
+          workspacePath: params.workspacePath,
+          tool: params.tool,
+          ruleId: gate.matchedRule,
+          scopeKey: gate.scopeKey,
+          allowed: true,
+        })
+        await appendAuditLog({
+          userId: params.userId,
+          workspacePath: params.workspacePath,
+          toolName: params.tool,
+          args: JSON.stringify(params.args).slice(0, 1000),
+          decision: 'allow',
+          reason: `规则放行(${gate.matchedRule}): ${gate.reason}`,
+        })
+        return {
+          allowed: true,
+          mode: permModeWire,
+          configured: true,
+          reason: gate.reason,
+          matchedRule: gate.matchedRule,
+        }
+      }
       const audit = await this.requestWorkspaceConfirmation({
         userId: params.userId,
         workspacePath: params.workspacePath,
         tool: params.tool,
         args: params.args,
+      })
+      await this.recordApprovalOutcome({
+        userId: params.userId,
+        workspacePath: params.workspacePath,
+        tool: params.tool,
+        ruleId: gate.matchedRule,
+        scopeKey: gate.scopeKey,
+        allowed: audit.allowed,
       })
       await appendAuditLog({
         userId: params.userId,
@@ -2593,22 +2723,75 @@ class PermissionManager {
         toolName: params.tool,
         args: JSON.stringify(params.args).slice(0, 1000),
         decision: audit.allowed ? 'allow' : 'deny',
-        reason: `accept-edits 无匹配规则,人工审计: ${audit.reason}`,
+        reason: `accept-edits 规则转人工(${gate.matchedRule}): ${audit.reason}`,
       })
       return {
         allowed: audit.allowed,
         mode: permModeWire,
         configured: true,
         reason: audit.reason,
+        matchedRule: gate.matchedRule,
       }
     }
 
-    // default → 全部人工审计
+    // default → 规则级闸门(2026-11-04):deny 规则直接拒绝;授权记忆/自动复核可放行;
+    // 其余仍走人工审计(与改造前一致,不新增放宽通道)
+    const gate = await this.evaluateApprovalGate(params)
+    if (gate.decision === 'deny') {
+      await appendAuditLog({
+        userId: params.userId,
+        workspacePath: params.workspacePath,
+        toolName: params.tool,
+        args: JSON.stringify(params.args).slice(0, 1000),
+        decision: 'deny',
+        reason: `规则拒绝(${gate.matchedRule}): ${gate.reason}`,
+      })
+      return {
+        allowed: false,
+        mode: permModeWire,
+        configured: true,
+        reason: `规则拒绝: ${gate.reason}`,
+        matchedRule: gate.matchedRule,
+      }
+    }
+    if (gate.decision === 'allow') {
+      await this.recordApprovalOutcome({
+        userId: params.userId,
+        workspacePath: params.workspacePath,
+        tool: params.tool,
+        ruleId: gate.matchedRule,
+        scopeKey: gate.scopeKey,
+        allowed: true,
+      })
+      await appendAuditLog({
+        userId: params.userId,
+        workspacePath: params.workspacePath,
+        toolName: params.tool,
+        args: JSON.stringify(params.args).slice(0, 1000),
+        decision: 'allow',
+        reason: `规则放行(${gate.matchedRule}): ${gate.reason}`,
+      })
+      return {
+        allowed: true,
+        mode: permModeWire,
+        configured: true,
+        reason: gate.reason,
+        matchedRule: gate.matchedRule,
+      }
+    }
     const audit = await this.requestWorkspaceConfirmation({
       userId: params.userId,
       workspacePath: params.workspacePath,
       tool: params.tool,
       args: params.args,
+    })
+    await this.recordApprovalOutcome({
+      userId: params.userId,
+      workspacePath: params.workspacePath,
+      tool: params.tool,
+      ruleId: gate.matchedRule,
+      scopeKey: gate.scopeKey,
+      allowed: audit.allowed,
     })
     await appendAuditLog({
       userId: params.userId,
@@ -2616,13 +2799,14 @@ class PermissionManager {
       toolName: params.tool,
       args: JSON.stringify(params.args).slice(0, 1000),
       decision: audit.allowed ? 'allow' : 'deny',
-      reason: `default 模式人工审计: ${audit.reason}`,
+      reason: `default 规则转人工(${gate.matchedRule}): ${audit.reason}`,
     })
     return {
       allowed: audit.allowed,
       mode: permModeWire,
       configured: true,
       reason: audit.reason,
+      matchedRule: gate.matchedRule,
     }
   }
 

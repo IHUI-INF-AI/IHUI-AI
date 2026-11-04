@@ -3,7 +3,11 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 结构锁:daemon 常驻 tick 链必须覆盖 30 个(2026-11-04 再补 1 面 sweepFormatParity)"曾只挂 main() 单轮链"的审计面(2026-11-03 立,同日先补 2 面、晚间再补 12 面)。
+ * 结构锁:daemon 常驻 tick 链必须覆盖 96 个"曾只挂 main() 单轮链"的审计面(2026-11-03 立,
+ * 同日先补 2 面、晚间再补 12 面;2026-11-04 再补 1 面 sweepFormatParity,与前两批共 30 面)。
+ * 本席 W2 按票 RP-74 收口:HEAD 里 A9「承载面补齐(2026-11-04)」已把这批面搬进 tick,却没同步
+ * 钉进本清单 ⇒ 按「该面读数谁在消费」分 3 批补齐 66 面(合计 96 面),每批带变异自证;
+ * B 档(单轮≥5min / 真换口令 / 重启服务那族)一律不进本清单,理由钉在 git-guardian.mjs 挂点旁。
  *
  * 失效形态(已实测 18 小时零派发):`startDaemon()` 是内存常驻的 setTimeout 链,**不重读本文件**;
  * 隧道腿 / 短信通道 / 自开发发起腿 / 隧道指标这 4 面原先只写在 `main()` 的单轮链上,而
@@ -14,6 +18,8 @@
  * 后者本该是发现前者停摆的那只眼,眼自己闭着 ⇒ 这类事故只会一直靠人事后翻台账才发现。
  *
  * 本文件只锁"调用出现在 tick 体内"这一件事,不复制任何判据(判据在 git-guardian.mjs)。
+ * 切片/非注释实调用判据一律 import `check-sweeper-liveness.mjs` 的 `__test__`(§0.6/§22c
+ * 单一真相源),与门体第三族 dispatch-parity 共用同一把尺,本文件不再自带副本。
  * 按**区段切片**断言:绝不用 `assert.match(整个文件)` —— 全文件匹配会被 main() 那几行命中,
  * 于是恒真,等于没锁。
  */
@@ -23,12 +29,15 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
+import { __test__ as P } from '../check-sweeper-liveness.mjs'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(HERE, '..', '..')
 const GUARDIAN_SRC = path.join(ROOT, 'scripts', 'git-guardian.mjs')
+// 判据只此一份(§0.6/§22c):与门体 dispatch-parity 第三族共用,别处零副本
+const { tickBodyOf, mainBodyOf, hasLiveCall, liveCallOffset } = P
 
-/** 这 30 面原先只挂 main() 单轮链;计划任务档禁用后 daemon 是唯一执行体 ⇒ 必须同挂 tick。 */
+/** 这 96 面原先只挂 main() 单轮链;计划任务档禁用后 daemon 是唯一执行体 ⇒ 必须同挂 tick。 */
 const TICK_REQUIRED = [
   'auditTunnelLegHealth',
   'auditSmsChannelHealth',
@@ -68,59 +77,101 @@ const TICK_REQUIRED = [
   'sweepHandMirrorUpgrades',
   // 格式对账尺(2026-11-04 立):只读一把尺、30 分钟自带节流戳、不写工作树、派生子进程 ≤5min。
   'sweepFormatParity',
+  // ── W2 收口 批 1/3(29 面):跨端对账 / 落点 / 自愈只读巡检面 —— 读数由巡检轮与镜像门消费 ──
+  'auditCrossEndParityDrift',
+  'auditEgressIpDrift',
+  'auditEnvDrift',
+  'auditFeedbackLoopClosure',
+  'auditGuardianCodeFreshness',
+  'auditI18nCrossEndWording',
+  'auditLandedReverts',
+  'auditLintStagedPins',
+  'auditOpsPatrol',
+  'auditProdForeignWork',
+  'auditPublicPathProbe',
+  'auditPushChannel',
+  'auditRootGuardManifestSync',
+  'auditServiceInventory',
+  'auditVerbatimResurrection',
+  'auditWebRnParity',
+  'checkConvergeAlignStall',
+  'convergeCrossEndPortalVerdicts',
+  'healCrossEndMirror',
+  'healHomeJunctions',
+  'healI18nBundleLeg',
+  'healRootSeal',
+  'healStaleDistLeg',
+  'healStaleMiniappDist',
+  'healStyleTokensLeg',
+  'healUiRoutesLeg',
+  'healUnresponsiveServices',
+  'healWorktreeTracked',
+  'reapWorktrees',
+  // ── W2 收口 批 2/3(27 面):清扫 / 轮换 / 风格档节流面 —— 读数由 .ihui-agent/state 节流戳消费 ──
+  'archiveGcDryRun',
+  'gcSessionTranscripts',
+  'scrubTempFixtures',
+  'sweepBannedBuckets',
+  'sweepCrossEndLandingLeg',
+  'sweepCrossEndShellPages',
+  'sweepCssTokensSourceLeg',
+  'sweepDanglingCommitAutotag',
+  'sweepDownloadsLiveHealth',
+  'sweepExposedCredentialRotation',
+  'sweepGitProbeHeadroom',
+  'sweepHeadRecallRows',
+  'sweepIosIpaRelay',
+  'sweepKeepAliveForever',
+  'sweepLessonApply',
+  'sweepLocalDevDbRotation',
+  'sweepMiniappStyleTiers',
+  'sweepParityCockpit',
+  'sweepPoolIsolation',
+  'sweepRnColorLiteralLeg',
+  'sweepRnCompatLeg',
+  'sweepRnHostShells',
+  'sweepRnStyleTiers',
+  'sweepStaleClaimMarks',
+  'sweepStaleClosedRows',
+  'sweepUiMirrorLeg',
+  'sweepWebStyleTiers',
+  // ── W2 收口 批 3/3(10 面):自进化调度 / 自陈述 / 机构派生面 —— 读数由派发链消费 ──
+  'autoRegisterRnTokenPairs',
+  'devenvMigratePatrol',
+  'dispatchAutoEvolve',
+  'dispatchAutoTriage',
+  'dispatchDepAdvisoryRadar',
+  'dispatchDeployFeedback',
+  'dispatchDeployOutcomeIntake',
+  'dispatchE2eAutofill',
+  'dispatchGateRot',
+  'dispatchRelayCapacity',
+  // B 档 7 条(auditMergeAdditionLoss / dispatchGuardMail / ensureGuardDaemonAlive / ensureS4u /
+  // refreshRecoverySource / reportBaselineFreshness / rotateRunLogs)按票面不搬,不进本清单;
+  // healRefs 只在 tick 面(T2 要求双在),也不进。理由逐条钉在 git-guardian.mjs:13576 挂点旁。
 ]
 
 const src = readFileSync(GUARDIAN_SRC, 'utf8')
 
-/**
- * 取 startDaemon 里 `const tick = () => {` 之后的正文(判不出 ⇒ 空串,由断言判红)。
- * 边界按**缩进**收口:配平花括号会被模板字符串/注释里的 `{` 带偏;遇到列 0 的非空行即视为
- * startDaemon 结束。失效方向是"提前收口 ⇒ 判不出 ⇒ 判红",绝不会把 main() 的调用读成 tick 接线。
- */
-function tickBodyOf(source) {
-  const i = source.indexOf('function startDaemon')
-  if (i < 0) return ''
-  const j = source.indexOf('const tick = () => {', i)
-  if (j < 0) return ''
-  const lines = source.slice(j).split(/\r?\n/)
-  const out = []
-  for (let k = 1; k < lines.length; k++) {
-    const l = lines[k]
-    if (l.trim() !== '' && !/^\s/.test(l)) break
-    out.push(l)
-  }
-  return out.join('\n')
-}
+// 切片/非注释判据已上移 import 门体 __test__(§0.6/§22c),本文件零副本。
+test('T0 判据单源:切片/非注释判据 import 门体 __test__,本文件零副本(§0.6/§22c)', () => {
+  const self = readFileSync(fileURLToPath(import.meta.url), 'utf8')
+  assert.equal(typeof P.tickBodyOf, 'function')
+  assert.equal(typeof P.mainBodyOf, 'function')
+  assert.equal(typeof P.hasLiveCall, 'function')
+  assert.equal(typeof P.liveCallOffset, 'function')
+  assert.ok(
+    !/function\s+(tickBodyOf|mainBodyOf|hasLiveCall|liveCallOffset)\s*\(/.test(self),
+    '不得自带切片/判据副本 ⇒ 第二份必然漂移(§0.6)',
+  )
+  assert.deepEqual(
+    [tickBodyOf, mainBodyOf, hasLiveCall, liveCallOffset],
+    [P.tickBodyOf, P.mainBodyOf, P.hasLiveCall, P.liveCallOffset],
+    '本文件用的必须是门体同一把尺',
+  )
+})
 
-/** 取 main() 正文:从 `async function main()` 到 `function startDaemon`(两段天然相邻)。 */
-function mainBodyOf(source) {
-  const i = source.indexOf('async function main()')
-  if (i < 0) return ''
-  const j = source.indexOf('function startDaemon', i)
-  if (j < 0) return ''
-  return source.slice(i, j)
-}
-
-/** 只看非注释行:注释里出现调用名不算接线。 */
-function hasLiveCall(body, name) {
-  return liveCallOffset(body, name) >= 0
-}
-
-/** 非注释行中首次出现 `${name}(` 的字符偏移;找不到 ⇒ -1。 */
-function liveCallOffset(body, name) {
-  const lines = String(body).split(/\r?\n/)
-  let off = 0
-  for (const raw of lines) {
-    const t = raw.trim()
-    if (!t.startsWith('//') && !t.startsWith('*') && !t.startsWith('/*') && t.includes(`${name}(`)) {
-      return off
-    }
-    off += raw.length + 1
-  }
-  return -1
-}
-
-test('T1 装车锁:daemon tick 链必须有 30 个非注释派发,缺哪个就点哪个名', () => {
+test('T1 装车锁:daemon tick 链必须有 96 个非注释派发,缺哪个就点哪个名', () => {
   const body = tickBodyOf(src)
   assert.notEqual(body, '', '判不出 tick 体(startDaemon/const tick 形态变了)⇒ 不得默认已接线')
   const missing = TICK_REQUIRED.filter((name) => !hasLiveCall(body, name))
@@ -131,7 +182,7 @@ test('T1 装车锁:daemon tick 链必须有 30 个非注释派发,缺哪个就�
   )
 })
 
-test('T2 回填锁:main() 单轮链里原有 30 个派发仍在(不得因人工归并回灌被删)', () => {
+test('T2 回填锁:main() 单轮链里原有 96 个派发仍在(不得因人工归并回灌被删)', () => {
   const main = mainBodyOf(src)
   assert.notEqual(main, '', '判不出 main 体 ⇒ 本锁失效,按判红处理')
   const missing = TICK_REQUIRED.filter((name) => !hasLiveCall(main, name))
@@ -169,7 +220,7 @@ test('T5 反证:只挂 main() 的形态必须判未接线(本次事故的原始�
     '}',
     'function startDaemon() {',
     '  const tick = () => {',
-    '    auditOpsPatrol()',
+    '    neutralAnchorOnlyInTick()', // 锚点不得是 TICK_REQUIRED 里的名字,否则反证被自家清单命中 ⇒ 恒真
     '  }',
     '}',
   ].join('\n')

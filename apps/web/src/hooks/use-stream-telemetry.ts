@@ -16,6 +16,7 @@ import {
   type StreamClock,
   type StreamTelemetrySnapshot,
 } from '@/lib/stream-telemetry'
+import { recordRumAiCompletion, startRumLongTaskWindow } from '@/lib/rum'
 
 /** 遥测节拍:500ms。只驱动读数,不参与消息渲染(消息渲染另有 16ms 节流)。 */
 const TELEMETRY_TICK_MS = 500
@@ -89,6 +90,7 @@ export function useStreamTelemetry(): StreamTelemetryView {
     const message = lastAssistantMessage(s)
     return message ? (s.usageByMessageId[message.id]?.durationMs ?? 0) : 0
   })
+  const messageId = chatStore((s) => lastAssistantMessage(s)?.id ?? null)
 
   const rateSamplesRef = React.useRef<number[]>([])
   const lastSampleTickRef = React.useRef(0)
@@ -185,6 +187,45 @@ export function useStreamTelemetry(): StreamTelemetryView {
     () => rateSamplesRef.current.slice(),
     // samplesVersion 是本次采样的版本闸;epoch 变了表示已在本次渲染清空采样环
     [samplesVersion, reduced.epoch],
+  )
+
+  // ── 客户端 RUM：AI 交互（真实接入点）──────────────────────────────────
+  // 复用既有 usageByMessageId 的权威口径：firstTokenMs = 下发→首 token，
+  // durationMs = 下发→完成；长任务数只统计流式窗口（开流沿挂 observer，收流沿取数）。
+  // 未同意时 recordRumAiCompletion 内部直接丢弃，不产生任何网络请求。
+  const longTaskWindowRef = React.useRef<{ stop(): number } | null>(null)
+  const pendingLongTasksRef = React.useRef(0)
+  const recordedMessageRef = React.useRef<string | null>(null)
+
+  React.useEffect(() => {
+    if (isStreaming) {
+      longTaskWindowRef.current?.stop()
+      longTaskWindowRef.current = startRumLongTaskWindow()
+      pendingLongTasksRef.current = 0
+      return
+    }
+    if (longTaskWindowRef.current) {
+      pendingLongTasksRef.current = longTaskWindowRef.current.stop()
+      longTaskWindowRef.current = null
+    }
+    if (!messageId || usageDurationMs <= 0) return
+    if (recordedMessageRef.current === messageId) return
+    recordedMessageRef.current = messageId
+    recordRumAiCompletion({
+      key: messageId,
+      firstTokenMs: usageTtftMs > 0 ? usageTtftMs : null,
+      durationMs: usageDurationMs,
+      longTasks: pendingLongTasksRef.current,
+    })
+    pendingLongTasksRef.current = 0
+  }, [isStreaming, messageId, usageTtftMs, usageDurationMs])
+
+  React.useEffect(
+    () => () => {
+      longTaskWindowRef.current?.stop()
+      longTaskWindowRef.current = null
+    },
+    [],
   )
 
   return {

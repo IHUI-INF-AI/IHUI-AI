@@ -308,6 +308,21 @@
       "import": "./src/share/*.ts",
       "default": "./src/share/*.ts"
     },
+    "./permission": {
+      "types": "./src/permission/index.ts",
+      "import": "./src/permission/index.ts",
+      "default": "./src/permission/index.ts"
+    },
+    "./permission/index": {
+      "types": "./src/permission/index.ts",
+      "import": "./src/permission/index.ts",
+      "default": "./src/permission/index.ts"
+    },
+    "./permission/*": {
+      "types": "./src/permission/*.ts",
+      "import": "./src/permission/*.ts",
+      "default": "./src/permission/*.ts"
+    },
     "./plugins-data": {
       "types": "./src/plugins-data.ts",
       "import": "./src/plugins-data.ts",

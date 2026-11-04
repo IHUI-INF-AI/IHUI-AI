@@ -56,6 +56,8 @@ import { authenticate, checkAuth, checkAuthOrInternalService } from '../plugins/
 import { isVerifiedAgentControlInternalCall } from '../utils/internal-principal.js'
 import { success, error } from '../utils/response.js'
 import { toUserFriendlyMessage } from '@ihui/shared'
+// 规则级审批引擎:computer-use 应用白名单走同一套规则/授权记忆/过期校验(纯函数)
+import { evaluateComputerUse } from '@ihui/shared/permission'
 
 // 内部服务密钥的校验住在唯一出口 utils/internal-principal.ts
 // (isVerifiedAgentControlInternalCall,#23):本路由与 CSRF 钩子(plugins/csrf.ts 的
@@ -335,6 +337,42 @@ export const agentControlRoutes: FastifyPluginAsync = async (server) => {
     }
     const req = result.data as AgentActionRequest
 
+    // computer-use 应用白名单(2026-11-04):
+    // 调用方声明了目标应用(req.params.appName)时,必须命中授权记忆才放行 ——
+    // 非白名单应用一律以 PERMISSION_DENIED 回执(语义等同"转人工"),绝不默认全放。
+    // 未声明应用名的旧调用不在此拦(它们仍受 desktop 端既有的 plan 级审批约束);
+    // 这条边界写在这里是为了不把"无法确认目标"误当成"已授权"。
+    if (req.category === 'computer') {
+      const rawApp = req.params?.appName
+      const appName = typeof rawApp === 'string' ? rawApp.trim() : ''
+      if (appName) {
+        const { loadPermissionGrants } = await import('../services/permission-grants.js')
+        const grants = req.userId ? await loadPermissionGrants(req.userId) : []
+        const decision = evaluateComputerUse({
+          tool: `computer_use.${String(req.action)}`,
+          args: { ...req.params, appName },
+          context: {
+            workspaceId: null,
+            agentId: req.sessionId ?? null,
+            userId: req.userId ?? null,
+            now: Date.now(),
+            grants,
+          },
+        })
+        if (decision.decision !== 'allow') {
+          const response: AgentActionResponse = {
+            requestId: req.requestId,
+            success: false,
+            error: `应用未授权: ${appName}(${decision.matchedRule})`,
+            errorCode: 'PERMISSION_DENIED',
+            durationMs: 0,
+            executedBy: 'unknown',
+          }
+          return reply.send(success(response))
+        }
+      }
+    }
+
     // 找到对应类型的端(带 userId 过滤,2026-08-16 多用户隔离)
     const ep = findEndpointByCategory(req.category, req.userId, req.targetInstanceId)
     if (!ep) {
@@ -464,6 +502,55 @@ export const agentControlRoutes: FastifyPluginAsync = async (server) => {
     pending.resolve(res)
 
     return reply.send(success({ accepted: true }))
+  })
+
+  // -------------------------------------------------------------------------
+  // 授权记忆:computer-use 应用白名单 / 工具级授权的创建、列举与撤销(2026-11-04)
+  // 持久化在 user_preferences(group='permission'),判定侧校验 scope + expiresAt
+  // -------------------------------------------------------------------------
+  const grantBodySchema = z.object({
+    tool: z.string().min(1).max(120),
+    matchPattern: z.string().min(1).max(200),
+    scope: z.enum(['workspace', 'agent', 'global']),
+    workspaceId: z.string().min(1).max(1000).optional(),
+    agentId: z.string().min(1).max(200).optional(),
+    ttlSeconds: z.number().int().positive().optional(),
+  })
+
+  server.get('/permission/grants', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    const userId = request.userId
+    if (!userId) return reply.status(401).send(error(401, '未授权'))
+    const { loadPermissionGrants } = await import('../services/permission-grants.js')
+    const grants = await loadPermissionGrants(userId)
+    return reply.send(success({ grants }))
+  })
+
+  server.post('/permission/grants', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    const userId = request.userId
+    if (!userId) return reply.status(401).send(error(401, '未授权'))
+    const parsed = grantBodySchema.safeParse(request.body)
+    if (!parsed.success) return reply.status(400).send(error(400, '授权参数无效'))
+    const { createPermissionGrant } = await import('../services/permission-grants.js')
+    try {
+      const grant = await createPermissionGrant(userId, parsed.data)
+      return reply.send(success({ grant }))
+    } catch (err) {
+      return reply.status(400).send(error(400, toUserFriendlyMessage(err)))
+    }
+  })
+
+  server.delete('/permission/grants/:id', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    const userId = request.userId
+    if (!userId) return reply.status(401).send(error(401, '未授权'))
+    const grantId = (request.params as { id?: string }).id
+    if (!grantId) return reply.status(400).send(error(400, '缺少授权 id'))
+    const { revokePermissionGrant } = await import('../services/permission-grants.js')
+    const removed = await revokePermissionGrant(userId, grantId)
+    if (!removed) return reply.status(404).send(error(404, '授权不存在或已失效'))
+    return reply.send(success({ revoked: grantId }))
   })
 
   // -------------------------------------------------------------------------

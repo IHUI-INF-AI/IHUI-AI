@@ -6,10 +6,13 @@
  * worktree **自动回收**的唯一调度器(判据与执行 = `scripts/agent-worktree.mjs --reap --apply`)。
  *
  * 立因(2026-10-30,机主"要彻底根治/杜绝"):原始症状是陈旧 linked worktree 只增不减,被编辑器
- * SCM 当成独立仓列出,变更数合计成 10K/20K 徽标。`agent-worktree.mjs --reap` 早就有六道安全闸
- * (批准落点 `.worktrees/` ∧ 分支 `wt/*` ∧ 非 locked ∧ 工作区干净 ∧ HEAD 已并入 main ∧ 空闲 ≥ 阈值),
+ * SCM 当成独立仓列出,变更数合计成 10K/20K 徽标。`agent-worktree.mjs --reap` 早就有安全闸
+ * (批准落点 `.worktrees/` ∧ 非 locked ∧ 工作区干净 ∧ HEAD 已并入 main ∧ 空闲 ≥ 阈值),
  * 但**没有任何调度器** —— 又一次"判据在、工具在、没人跑"(守门 64/70/81/115/138 同族)。
  * 本层把它挂进每 2 分钟的健康轮次,自带 24h 节流。
+ * 2026-11-04(s9 票)旧命名闸 `wt/*` 从回收射程摘除:实测 21 枚 linked 检出 0 枚 `wt/*`、
+ * 5 枚 detached ⇒ 候选恒 0、本调度器每 24h 派发的是一条结构性空转腿。命名闸本就不表达
+ * 安全属性,摘除后安全实质全部由上面那道道闸承担(判据单源仍在 agent-worktree.mjs)。
  *
  * 三条不可漂:
  *  ① 本层**不重抄**任何回收判据 —— 名字/落点/合并/脏/lock 全在 `agent-worktree.mjs` 那一份实现里;

@@ -12,6 +12,7 @@ import { useTheme } from 'next-themes'
 import { useTranslations } from 'next-intl'
 import type { ChatMode } from '@ihui/types'
 import { useRouteAnalytics } from '@/hooks/use-route-analytics'
+import { useRum } from '@/hooks/use-rum'
 import { useGlobalShortcuts } from '@/hooks/use-global-shortcuts'
 import { useGlobalNotification } from '@/hooks/use-global-notification'
 import { useAuthBootstrap } from '@/hooks/use-auth-bootstrap'
@@ -108,6 +109,7 @@ const SHORTCUT_DESC_KEYS: Record<string, string> = {
  * 全局 Hooks Provider：在根 Layout 挂载全局副作用 hooks。
  *
  * - useRouteAnalytics：路由变化自动埋点（page_view / page_time / route_change）
+ * - useRum：客户端 RUM（默认关闭；同意后采集首屏/错误，30s 或 20 条批量上报）
  * - useGlobalShortcuts：全局快捷键监听（Ctrl+K 命令面板 / Ctrl+P 搜索 / Ctrl+Shift+N 新对话 / Ctrl+/ 帮助 /
  *   Ctrl+Shift+P 视图切换命令面板 / Ctrl+, 打开设置）
  * - useGlobalNotification：登录后自动连接 WebSocket 通知,写入 notification store(各 UI 组件按需订阅)
@@ -121,6 +123,9 @@ export function GlobalHooksProvider({ children }: { children: React.ReactNode })
   // 性能修复(2026-07-25):useRouteAnalytics 现在是纯副作用 hook,不再返回 currentPath,
   // 避免本 Provider 因路由变化重渲染导致 <CommandPalette> + help panel 连锁重渲染。
   useRouteAnalytics()
+  // 客户端 RUM（默认关闭，显式同意后才采集/上报）：首屏 + 未捕获异常 + 页面隐藏时 flush。
+  // 接入说明见 apps/web/src/lib/rum/index.ts 与 hooks/use-rum.ts。
+  useRum()
   const { showHelpPanel, toggleHelpPanel, shortcuts } = useGlobalShortcuts()
   const tHelp = useTranslations('shortcutHelp')
   // 1-6:帮助面板 Esc 关闭(原先只能点击外部关闭)
