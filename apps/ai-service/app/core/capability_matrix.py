@@ -840,7 +840,7 @@ CAPABILITY_MATRIX: list[dict[str, str]] = [
         "category": "开关类",
         "owner_module": "app.services.checkin_scheduler",
         "doc_ref": "app/services/checkin_scheduler.py:80",
-        "reason_if_off": "每日 08:05 签到定时任务默认关闭:属会真实写库的副作用,须显式开启",
+        "reason_if_off": "每日 00:05/08:05 签到定时任务默认关闭:属会真实写库的副作用,须显式开启",
     },
     # ── settings 族(2026-10-31 seat-e2 落 J4 后登记;第四种读取形态,见本文件头注)──
     # 这类条目由 app/core/config.py 的 class Settings 布尔字段承载:大写 env 键经
