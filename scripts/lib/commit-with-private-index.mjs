@@ -17,7 +17,7 @@
 //   ③ 私有 index 全程零接触共享面 ⇒ 无论对方怎么写暂存区,都不影响本提交。
 //
 // 用法:node .ihui-agent/tmp/commit-with-private-index.mjs <msgFile> <file...>
-import { existsSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { batchExecFileSync, gitBinary } from './face-reader.mjs'
 import { advanceSharedIndexPaths, treeSignatures } from './shared-index-advance.mjs'
@@ -82,6 +82,37 @@ for (const stale of ['tmp-privindex-prev']) {
 
 const env = { ...process.env, GIT_INDEX_FILE: privIndex }
 
+/**
+ * 私有 GIT_DIR 叠层(2026-11-04 立,治共享 `.git/COMMIT_EDITMSG` 并发串号)。
+ *
+ * `-F <本席文件>` **不能**阻止串号:git 在 commit-msg 钩子之后会**再读一次**
+ * `$GIT_DIR/COMMIT_EDITMSG`,而这个文件在共用工作区里只有一份 —— 别席一提交,内容就换成他的,
+ * 本席这枚提交的 subject 于是变成别人的标题(26bc403762 / 67ed343 实测)。
+ * 这里给子 git 一份**只属于本席**的 GIT_DIR(`commondir` 指回真 gitdir,refs/objects/config
+ * 仍然共享,只隔离 per-worktree 元数据),COMMIT_EDITMSG 只落在本席目录里,别人够不到。
+ */
+const privGitDir = `${privIndex}.gitdir`
+rmSync(privGitDir, { recursive: true, force: true })
+mkdirSync(privGitDir, { recursive: true })
+writeFileSync(join(privGitDir, 'HEAD'), readFileSync(join(GITDIR, 'HEAD'), 'utf8'))
+writeFileSync(join(privGitDir, 'commondir'), `${GITDIR}\n`)
+const privCommitEnv = { ...env, GIT_DIR: privGitDir, GIT_WORK_TREE: REPO }
+
+/** `%s` 语义:第一段逐行 trim、跳过 `#` 注释行、以单空格连接(与 git format_subject 同形)。 */
+function subjectOf(text) {
+  const out = []
+  for (const line of String(text).replace(/\r\n/g, '\n').split('\n')) {
+    const t = line.trim()
+    if (!t) {
+      if (out.length) break
+      continue
+    }
+    if (t.startsWith('#')) continue
+    out.push(t)
+  }
+  return out.join(' ')
+}
+
 try {
   // ① 私有 index 从 HEAD 造 ⇒ 起点就是"什么都没改",不继承共享暂存区的任何东西
   const r0 = gitTry(['read-tree', 'HEAD'], env)
@@ -133,11 +164,27 @@ try {
   let out = ''
   let code = 0
   try {
-    out = git(['commit', '-F', msgFile], env)
+    out = git(['commit', '-F', msgFile], privCommitEnv)
     code = 0
   } catch (e) {
     out = ((e?.stdout ?? '') + (e?.stderr ?? '')).toString()
     code = e?.status ?? 1
+  }
+
+  // ⑤b 提交后自证:回读 `%s`,与**本席写进消息文件的那一行**逐字比对。
+  //     不一致 ⇒ 立即上报,绝不 amend(多席在途时改写会丢别人的工作)。
+  if (code === 0) {
+    const expectedSubject = subjectOf(readFileSync(msgFile, 'utf8'))
+    const gotSubject = git(['log', '-1', '--format=%s', 'HEAD'])
+    if (gotSubject !== expectedSubject) {
+      console.error('❗ 提交已落地,但 subject 与本席写入不一致(疑似 COMMIT_EDITMSG 并发串号):')
+      console.error(`  want=${JSON.stringify(expectedSubject)}`)
+      console.error(`  got =${JSON.stringify(gotSubject)}`)
+      console.error('  按硬线停止:不改写、不 amend;请登记勘误台账后上报。')
+      code = 1
+    } else {
+      console.log(`✅ subject 回读一致:${gotSubject}`)
+    }
   }
 
   const after = gitTry(['-c', 'core.quotePath=false', 'diff', '--cached', '--name-only', '--no-renames'])
@@ -173,8 +220,9 @@ try {
   console.log(`新 HEAD: ${git(['rev-parse', '--short', 'HEAD'])}`)
   process.exit(code)
 } finally {
-  // 私有 index 是我们自己的临时物,清掉;共享面一概不动
+  // 私有 index / 私有 gitdir 是我们自己的临时物,清掉;共享面一概不动
   if (existsSync(privIndex)) rmSync(privIndex, { force: true })
+  rmSync(privGitDir, { recursive: true, force: true })
   writeFileSync('.ihui-agent/tmp/last-private-index.txt', privIndex, 'utf8')
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
