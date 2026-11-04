@@ -5,8 +5,8 @@
 /**
  * API 接口定义 - 对接新架构后端 http://localhost:8801/api
  */
-import Taro from '@tarojs/taro'
 import { BASE_URL } from '../utils/api-config'
+import { getMiniappVersion } from '../utils/app-version'
 import { t } from '../i18n'
 import { type UserInfo, type LoginResult } from '../utils/auth'
 import type { SSEEvent } from '../utils/sse-parse'
@@ -1374,7 +1374,7 @@ export const getTeacherDetail = (id: string | number) => get<Teacher>(`/teacher/
 
 /**
  * 关于页 —— 打在册的 GET /api/about(docs 表 admin 已发布的 about-us 文档)。
- * 分工不造假：正文取服务端真实文档，App 版本号取端内 `Taro.getAccountInfoSync()`
+ * 分工不造假：正文取服务端真实文档，App 版本号取端内唯一出口 `utils/app-version`
  * (服务端版本号不是用户看到的 App 版本)，logo 缺省由页面用本地图 `/pkg-about/assets/images/logo.png`。
  * 未发布时后端如实 404 ⇒ 这里抛出，页面保留既有"加载失败"提示而不是显示编出来的文案。
  */
@@ -1391,7 +1391,7 @@ export const getAbout = async (): Promise<{
     .find((s) => s.length > 0)
   return {
     name: r?.doc?.title ?? '',
-    version: Taro.getAccountInfoSync?.()?.miniProgram?.version ?? '',
+    version: getMiniappVersion(),
     intro: (firstBlock ?? '').replace(/^#{1,6}\s*/, ''),
   }
 }

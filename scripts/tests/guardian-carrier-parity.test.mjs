@@ -83,17 +83,225 @@ test('P9 变异档:在前面插 7 行注释后,dark 集必须一模一样(证明
   assert.equal(b.state, a.state)
 })
 
-test('P8 现读 HEAD 的 git-guardian:这格是真的,且迁移一条计数就减一', () => {
+test('P8 现读 git-guardian:已迁移的腿不得再被判黑(回归锁,不钉会变的计数)', () => {
   const head = execSync('git show HEAD:scripts/git-guardian.mjs', { maxBuffer: 1 << 26, stdio: ['ignore', 'pipe', 'pipe'] }).toString()
   const r = cp.judgeCarrierParity({ source: head })
-  assert.equal(r.state, 'drift', `现读应为 drift,实为 ${r.state}:${r.why}`)
-  assert.ok(r.darkCount >= 10, `只在 main 里的腿应被量出来,现读 ${r.darkCount}`)
-  // 部署自学族是 A8 独立量到 dark 的那三条 ⇒ 这里必须同时出现在承载面缺口里
-  for (const n of ['dispatchDeployFeedback', 'dispatchDeployOutcomeIntake', 'dispatchE2eAutofill']) {
-    assert.ok(r.dark.includes(n), `${n} 应在黑腿清单里(两把尺子必须互证)`)
+  assert.notEqual(r.state, 'unjudged', `本维必须判得出,实为 unjudged:${r.why}`)
+  // 2026-11-04 承载面补齐那枚搬进 daemon tick 的,逐条抽查:搬了就不许再算黑腿
+  for (const n of [
+    'dispatchDeployFeedback',
+    'dispatchDeployOutcomeIntake',
+    'dispatchE2eAutofill',
+    'sweepStaleClosedRows',
+    'sweepExposedCredentialRotation',
+    'healCrossEndMirror',
+    'auditLandedReverts',
+    // 第二批(原先整条链无节流、靠调用点 legThrottle 才敢上常驻面的四条)
+    'auditMergeAdditionLoss',
+    'refreshRecoverySource',
+    'rotateRunLogs',
+    'reportBaselineFreshness',
+  ]) {
+    assert.ok(!r.dark.includes(n), `${n} 已挂常驻面,不得再被判黑腿`)
   }
-  // 反向对照:常驻面确实在跑的腿不得被误列
-  assert.ok(!r.dark.includes('dispatchRelayCapacity'), 'relay-capacity 在 daemon tick 里跑,不得算黑腿')
-  assert.ok(!r.dark.includes('auditOpsPatrol'), 'auditOpsPatrol 在 daemon tick 里跑,不得算黑腿')
+  // 反向对照:原本就在常驻面上的也不得被误列
+  assert.ok(!r.dark.includes('dispatchRelayCapacity'), 'relay-capacity 一直在 daemon tick 里')
+  assert.ok(!r.dark.includes('auditOpsPatrol'), 'auditOpsPatrol 一直在 daemon tick 里')
+  // 残余是"待逐条裁决"的债,必须是小额且可数的;不许回到几十条(那说明有人新挂了个只走 main 的腿)
+  assert.ok(r.darkCount <= 10, `残余黑腿应是个位数量级,现读 ${r.darkCount}:${r.dark.join(', ')}`)
 })
+
+test('P10 腿与助手的区分按定义签名,不按调用点写法(摘掉即漏计/误计)', () => {
+  const F = cp.isLegDefinition
+  const L = (n) => `sweep${n}` // 用合前缀的名字单测签名判定,名字维由 P12 单独管
+  // 腿:无形参 或 形参全带默认值 ⇒ 可以在调度位上裸调
+  assert.ok(F(`function ${L('A')}() {`), '无参 = 腿')
+  assert.ok(F(`export function ${L('B')}(opts = {}) {`), 'opts={} = 腿')
+  assert.ok(F(`function ${L('C')}({ logger = log } = {}) {`), '解构+整参带默认 = 腿(深度 0 的 = 才算)')
+  assert.ok(F(`function ${L('D')}(...args) {`), 'rest 形参天然可省 = 腿')
+  // 助手:必需的解构形参(调用方必须交值)⇒ 不是调度点
+  assert.ok(!F(`function ${L('E')}({ title, desp, severity, dryRun = false }) {`), '必需解构形参 = 助手')
+  assert.ok(!F(`function ${L('F')}(a, b) {`), '必需形参 = 助手')
+  // 名字不匹配腿前缀 ⇒ 不判为"前缀腿"(但可能是 unclassified,见 P12)
+  assert.ok(!F('function helperA(opts = {}) {'), '非腿前缀不进 legs 集')
+  assert.ok(!F('function broken(opts {'), '签名括号不配平 ⇒ 不认')
+})
+
+test('P15 §7 装车表对账:只在一次性 main 上的声称 ⇒ drift 点名;两面都有 ⇒ ok;两面都无 ⇒ absent', () => {
+  const doc = ['# 题', '## 7. 装车状态', '| 器物 | 载体 | 频率 |', '|---|---|---|', '| a.mjs | `dispatchBoth()` | 60min |', '| b.mjs | `dispatchMainOnly()` | 30min |', '| c.mjs | `dispatchNowhere()` | 1h |'].join('\n')
+  const src = [
+    'async function main() {',
+    '  dispatchBoth()',
+    '  dispatchMainOnly()',
+    '}',
+    'function startDaemon() {',
+    '  dispatchBoth()',
+    '  dispatchResidentOnly()',
+    '}',
+    'function dispatchBoth() {}',
+    'function dispatchMainOnly() {}',
+    'function dispatchResidentOnly() {}',
+  ].join('\n')
+  const r = cp.judgeRoadmapClaims({ guardianSource: src, roadmapText: doc })
+  assert.equal(r.state, 'drift', r.why)
+  assert.equal(r.darkCount, 2)
+  const byName = Object.fromEntries(r.rows.map((x) => [x.carrier, x.state]))
+  assert.equal(byName.dispatchBoth, 'ok', '两面都接 ⇒ 声明成立')
+  assert.equal(byName.dispatchMainOnly, 'dark', '声称已装车但只挂 main ⇒ 就是这次 46 条那一型')
+  assert.equal(byName.dispatchNowhere, 'absent', '挂点根本不存在 ⇒ 另一型假声明')
+  assert.match(r.why, /只在一次性 main/)
+})
+
+test('P16 对账取不到输入 ⇒ 未判定(不拿"读不到"冒充"无声明"或"全部已装车")', () => {
+  const doc = '## 7. 装车状态\n| a | `dispatchX()` |\n'
+  assert.equal(cp.judgeRoadmapClaims({ guardianSource: '', roadmapText: doc }).state, 'unjudged')
+  assert.equal(cp.judgeRoadmapClaims({ guardianSource: 'function main() {}', roadmapText: doc }).state, 'unjudged')
+  assert.equal(cp.judgeRoadmapClaims({ guardianSource: 'async function main() {}\nfunction startDaemon() {}\n', roadmapText: '' }).state, 'unjudged')
+  // 表里一条派发点都解析不到 ⇒ 不读成"无需对账"
+  const empty = cp.judgeRoadmapClaims({
+    guardianSource: 'async function main() {\n  dispatchX()\n}\nfunction startDaemon() {\n  dispatchX()\n}\nfunction dispatchX() {}',
+    roadmapText: '## 7. 装车状态\n| 器物 | 载体 |\n| a.mjs | 人工 CLI |',
+  })
+  assert.equal(empty.state, 'unjudged', empty.why)
+})
+
+test('P17 现读:§7 那张表此刻的每一条守护载体声称,都必须在常驻面上(回归锁)', () => {
+  const guardian = execSync('git show HEAD:scripts/git-guardian.mjs', { maxBuffer: 1 << 26, stdio: ['ignore', 'pipe', 'pipe'] }).toString()
+  const roadmap = execSync('git show HEAD:docs/self-evolution-roadmap.md', { maxBuffer: 1 << 26, stdio: ['ignore', 'pipe', 'pipe'] }).toString()
+  const r = cp.judgeRoadmapClaims({ guardianSource: guardian, roadmapText: roadmap })
+  assert.notEqual(r.state, 'unjudged', `本维必须判得出:${r.why}`)
+  assert.ok(r.rows.length >= 4, `§7 应至少对账 4 条守护载体声称,现读 ${r.rows.length}`)
+  const bad = r.rows.filter((x) => x.state !== 'ok')
+  assert.deepEqual(bad.map((x) => x.carrier), [], `装车表声称与常驻承载面不符:${JSON.stringify(bad)}`)
+})
+
+test('P13 具名豁免四档成对:有效摘掉 / 到期照判 / 形状坏视同没登记 / 不再命中=腐烂', () => {
+  const NOW = Date.parse('2026-11-04T00:00:00.000Z')
+  const good = { name: 'ensureGuardDaemonAlive', owner: 'main 路径', reason: '它负责把不在的 daemon 拉起,挂进 daemon 自己里等于监视自己', expires: '2027-02-01' }
+  const r1 = cp.applyCarrierExemptions(['ensureGuardDaemonAlive', 'rotateRunLogs'], [good], NOW)
+  assert.deepEqual(r1.waived, ['ensureGuardDaemonAlive'])
+  assert.deepEqual(r1.darkRemaining, ['rotateRunLogs'], '没被豁免的那条必须仍判黑')
+
+  // 到期 ⇒ 不摘,进 expired
+  const r2 = cp.applyCarrierExemptions(['X'], [{ ...good, name: 'X', expires: '2026-01-01' }], NOW)
+  assert.deepEqual(r2.expired, ['X'])
+  assert.deepEqual(r2.darkRemaining, ['X'], '到期必须照旧判黑,不许静默放行')
+
+  // 形状坏三型 ⇒ 视同没登记
+  for (const bad of [
+    { ...good, name: 'X', reason: '太短' },
+    { name: 'X', reason: good.reason, expires: '2027-02-01' },
+    { ...good, name: 'X', expires: '不是日期' },
+  ]) {
+    const r = cp.applyCarrierExemptions(['X'], [bad], NOW)
+    assert.deepEqual(r.malformed, ['X'], `形状坏应被点名:${JSON.stringify(bad).slice(0, 60)}`)
+    assert.deepEqual(r.darkRemaining, ['X'], '形状坏 ⇒ 照旧判黑')
+  }
+
+  // 登记的 name 当下面不再命中 ⇒ 清单腐烂
+  const r4 = cp.applyCarrierExemptions(['other'], [{ ...good, name: 'Gone' }], NOW)
+  assert.deepEqual(r4.rotting, ['Gone'], '豁免清单里躺着一条不再命中的 ⇒ 腐烂同红(§0.7)')
+})
+
+test('P14 豁免必须能整维清零(否则 A9 就是恒红门,§12e)', () => {
+  const src = [
+    'async function main() {',
+    '  ensureGuardDaemonAlive()',
+    '  rotateOnlyMain()',
+    '  auditShared(opts = 1)',
+    '}',
+    'function startDaemon() {',
+    '  auditShared(opts = 1)',
+    '}',
+    'function auditShared(opts = {}) {}',
+    'function ensureGuardDaemonAlive() {}',
+    'function rotateOnlyMain() {}',
+  ].join('\n')
+  const NOW = Date.parse('2026-11-04T00:00:00.000Z')
+  const base = cp.judgeCarrierParity({ source: src, exemptions: [], now: NOW })
+  assert.equal(base.state, 'drift')
+  assert.deepEqual(base.dark, ['ensureGuardDaemonAlive', 'rotateOnlyMain'])
+  const waived = cp.judgeCarrierParity({
+    source: src,
+    exemptions: [
+      { name: 'ensureGuardDaemonAlive', owner: 'o', reason: '它负责把不在的 daemon 拉起,挂进 daemon 自己里等于监视自己', expires: '2027-02-01' },
+      { name: 'rotateOnlyMain', owner: 'o', reason: '动的是 daemon 自己正在写的日志面,归一次性档', expires: '2027-02-01' },
+    ],
+    now: NOW,
+  })
+  assert.equal(waived.state, 'ok', waived.why)
+  assert.deepEqual(waived.dark, [])
+  assert.equal(waived.waived.length, 2, '摘掉的必须在读数里点名,不许静默')
+})
+
+test('P12 不合腿名前缀但是真腿的,必须走 unclassified 点名(假绿最贵)', () => {
+  const src = [
+    'async function main() {',
+    '  devenvMigratePatrol({ logger: log })',
+    '  auditResident(opts)',
+    '}',
+    'function startDaemon() {',
+    '  auditResident(opts)',
+    '}',
+    'function auditResident(opts = {}) {}',
+    'function devenvMigratePatrol({ logger = log } = {}) {}',
+  ].join('\n')
+  const r = cp.judgeCarrierParity({ source: src })
+  assert.deepEqual(r.unclassifiedDark, ['devenvMigratePatrol'], '名字不合规的真腿只挂 main ⇒ 必须被点名')
+  assert.ok(r.dark.includes('~devenvMigratePatrol'), 'dark 集里要带 ~ 前缀显式区分"未归类"')
+  assert.equal(r.state, 'drift')
+  // 反向成对:两面都挂 ⇒ 不许进 unclassifiedDark
+  const both = [
+    'async function main() {',
+    '  devenvMigratePatrol({ logger: log })',
+    '  auditResident(opts)',
+    '}',
+    'function startDaemon() {',
+    '  auditResident(opts)',
+    '  devenvMigratePatrol({ logger: log })',
+    '}',
+    'function auditResident(opts = {}) {}',
+    'function devenvMigratePatrol({ logger = log } = {}) {}',
+  ].join('\n')
+  const r2 = cp.judgeCarrierParity({ source: both })
+  assert.deepEqual(r2.unclassifiedDark, [], '两面都有 ⇒ 不该被列')
+  // 谓词位/取值位的调用不算排班(否则 if(!taskActionOk(c)) 这类会淹掉真信号)
+  const predicate = [
+    'async function main() {',
+    '  if (!taskActionOk(c)) return 1',
+    '  const s = statusFormatter(x)',
+    '  auditResident(opts)',
+    '}',
+    'function startDaemon() {',
+    '  auditResident(opts)',
+    '}',
+    'function auditResident(opts = {}) {}',
+    'function taskActionOk(c = 1) { return true }',
+    'function statusFormatter(x = 1) { return x }',
+  ].join('\n')
+  const r3 = cp.judgeCarrierParity({ source: predicate })
+  assert.deepEqual(r3.unclassifiedDark, [], '谓词位/赋值位的调用不得被当成腿')
+})
+
+test('P11 定义不在本文件的腿必须照算(宁可多报,绝不把真腿洗成不计)', () => {
+  // dispatchFromElsewhere 在本文件里没有定义 ⇒ 取不到签名,必须仍按腿算
+  const src = [
+    'async function main() {',
+    '  dispatchFromElsewhere()',
+    '  sweepLocal(opts)',
+    '  auditResident(opts = {})',
+    '}',
+    'function startDaemon() {',
+    '  auditResident(opts)',
+    '}',
+    'function auditResident(opts = {}) {}', // 整参带默认 ⇒ 是腿,且两面都调 ⇒ 不该进 dark
+    'function sweepLocal(a, b) {}', // 必需形参 ⇒ 判为助手
+  ].join('\n')
+  const r = cp.judgeCarrierParity({ source: src })
+  assert.equal(r.state, 'drift', r.why)
+  assert.ok(r.dark.includes('dispatchFromElsewhere'), '定义不在本文件 ⇒ 必须保守当腿')
+  assert.ok(!r.dark.includes('sweepLocal'), '本文件定义且形参必需 ⇒ 判为助手')
+  assert.ok(!r.dark.includes('auditResident'), '两面都调的真腿不得被列')
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
