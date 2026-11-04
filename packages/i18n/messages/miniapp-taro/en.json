@@ -4835,7 +4835,16 @@
     "multiClass": "Multiple classes in the list; only {classId} will be marked",
     "checkInAt": "Check-in time",
     "momentNow": "Now",
-    "backfillNeedsTime": "Backfilling a past date requires an explicit check-in time within that day"
+    "backfillNeedsTime": "Backfilling a past date requires an explicit check-in time within that day",
+    "statsTotalLabel": "Records",
+    "statsAttendanceRate": "Attendance rate",
+    "statusDistribution": "Status distribution",
+    "trendChartTitle": "Attendance trend",
+    "trendChartHint": "Attendance rate = present ÷ records logged in that period (students without a record are not in the denominator)",
+    "trendChartScope": "Scope: {scope}",
+    "trendWindow": "Last {days} days",
+    "emptyTrend": "No trend data yet",
+    "statusOther": "Other"
   },
   "eduMgmt": {
     "attendanceTitle": "Attendance",

@@ -11,7 +11,13 @@
  */
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { findVersionDrift, collectInputs, MOBILE_JUDGE_MESSAGES } from '../check-version-drift.mjs'
+import {
+  findVersionDrift,
+  collectInputs,
+  hasVersionLiteral,
+  protocolSkippedIdents,
+  MOBILE_JUDGE_MESSAGES,
+} from '../check-version-drift.mjs'
 
 /** 一份"全绿"的基线输入,各用例只改其中一项 */
 function baseline(over = {}) {
@@ -442,6 +448,102 @@ describe('G 的行注释维(2026-11-04 补,治 YAML 叙述行假红)', () => {
       workflows: { 'x.yml': 'run: |\n  # git push origin main 的旧写法已废弃\n  echo ok\n' },
     })
     assert.deepEqual(findVersionDrift(ok), [])
+  })
+})
+
+describe('K1 遮罩与"放过必须可见"(2026-11-04 复核补齐)', () => {
+  const texts = () => ({
+    'apps/demo/report.ts': 'const v = demoPkg.version',
+    'deploy/demo.json': '{ "version": "1.0.0" }',
+    'apps/demo/package.json': '{ "name": "demo", "version": "1.0.0" }',
+  })
+
+  it('.py 里整行 # 注释写成赋值形 ⇒ 不判(注释不是代码)', () => {
+    const ok = baseline({
+      versionLedger: {
+        files: [
+          {
+            path: 'apps/demo/x.py',
+            source: 'app.__version__',
+            why: 'Python 侧的上报脸',
+          },
+        ],
+        pairs: [],
+      },
+      versionFileTexts: {
+        ...texts(),
+        'apps/demo/x.py': '# 历史写法 SERVER_VERSION = "1.0.0" 已废弃\ncode = 1\n',
+      },
+    })
+    assert.deepEqual(findVersionDrift(ok), [])
+  })
+
+  it('.py 里真赋值 SERVER_VERSION = "1.0.0" ⇒ 照判(遮罩没把判据一起遮掉)', () => {
+    const v = findVersionDrift(
+      baseline({
+        versionLedger: {
+          files: [{ path: 'apps/demo/x.py', source: 'app.__version__', why: 'Python 侧的上报脸' }],
+          pairs: [],
+        },
+        versionFileTexts: { ...texts(), 'apps/demo/x.py': 'SERVER_VERSION = "1.0.0"\n' },
+      }),
+    )
+    assert.ok(
+      v.some((x) => /^K1 apps\/demo\/x\.py/.test(x)),
+      v.join('\n'),
+    )
+  })
+
+  it('因 protocol 放过的枚数必须被数出来(改名绕门时这行数会从 >0 变 0)', () => {
+    const ids = protocolSkippedIdents('PROTOCOL_VERSION = "2026.09.18"\n', 'apps/demo/x.py')
+    assert.deepEqual(ids, ['PROTOCOL_VERSION'])
+    assert.equal(hasVersionLiteral('PROTOCOL_VERSION = "2026.09.18"\n', 'apps/demo/x.py'), false)
+  })
+
+  it('K2 提取式必须容忍无引号写法(YAML 常这么写,不能因此假红)', () => {
+    const led = {
+      files: [{ path: 'apps/demo/report.ts', source: 'demoPkg.version', why: '演示' }],
+      pairs: [
+        {
+          path: 'deploy/demo.yaml',
+          sourcePkg: 'apps/demo/package.json',
+          extracts: ['^version:\\s*[\'"]?([^\'"\\s#]+)[\'"]?\\s*(?:#.*)?$'],
+          why: '演示安装器',
+        },
+      ],
+    }
+    const ok = baseline({
+      versionLedger: led,
+      versionFileTexts: {
+        'apps/demo/report.ts': 'const v = demoPkg.version',
+        'deploy/demo.yaml': 'version: 1.0.0\n',
+        'apps/demo/package.json': '{ "version": "1.0.0" }',
+      },
+    })
+    assert.deepEqual(findVersionDrift(ok), [])
+    const bad = baseline({
+      versionLedger: led,
+      versionFileTexts: {
+        'apps/demo/report.ts': 'const v = demoPkg.version',
+        'deploy/demo.yaml': 'version: 9.9.9\n',
+        'apps/demo/package.json': '{ "version": "1.0.0" }',
+      },
+    })
+    assert.ok(
+      findVersionDrift(bad).some((x) => /K2 deploy\/demo\.yaml 写着 9\.9\.9/.test(x)),
+      '无引号形态的值不一致必须照样被抓',
+    )
+  })
+
+  it('接线锁加强:真实台账每条 extracts 在真实文件里都必须取到值(取不到=尺子已瞎)', () => {
+    const inputs = collectInputs()
+    for (const e of inputs.versionLedger.pairs) {
+      const manifestText = inputs.versionFileTexts[e.path]
+      for (const pat of e.extracts) {
+        const hits = [...String(manifestText).matchAll(new RegExp(pat, 'gm'))]
+        assert.ok(hits.length > 0, `${e.path} 的提取式 ${pat} 在真实文件里枚举到 0 处`)
+      }
+    }
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

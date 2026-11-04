@@ -89,7 +89,11 @@ const MAGIC_FIXTURES: Record<string, Buffer> = {
   ]),
   aac: Buffer.from([0xff, 0xf1, 0x50, 0x80]),
   ogg: Buffer.from('OggS\x00\x02', 'latin1'),
+  // 2026-11-04(格式对账尺 ③ 桶收口):flac 正样本 = 首四字节 'fLaC' 流标记(RFC 8258 §10.1)
+  flac: Buffer.from('fLaC\x00\x00', 'latin1'),
   webm: Buffer.from([0x1a, 0x45, 0xdf, 0xa3, 0x01, 0x00]),
+  // 2026-11-04(同上):m4v 与 m4a/mp4 同 MP4 容器,brand 位为 'M4V '
+  m4v: ftypBox('M4V '),
 }
 
 /** 任意二进制垃圾:除豁免类型外,任何扩展名都不许让它通过魔数闸。 */

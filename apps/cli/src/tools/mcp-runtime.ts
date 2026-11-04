@@ -949,9 +949,10 @@ export function buildMcpChildEnv(serverEnv?: Record<string, string>): NodeJS.Pro
 /**
  * 本客户端自报身份:版本单一源头 = 本包 package.json(SEA 构建改由 IHUI_BUILD_VERSION 注入),
  * 与 apps/cli/src/index.ts:160 同一把尺。此前三处 transport 各写死 '1.0.0',发版后仍向对端报旧号。
+ * 读不到包信息时报 'unknown' 而不是 '0.0.0' —— 对端会把后者当成一个真实版本号做兼容判断。
  */
 function cliClientInfo(): { name: string; version: string } {
-  return { name: 'ihui-cli', version: readCliPackage(import.meta.url)?.version ?? '0.0.0' };
+  return { name: 'ihui-cli', version: readCliPackage(import.meta.url)?.version ?? 'unknown' };
 }
 
 /**

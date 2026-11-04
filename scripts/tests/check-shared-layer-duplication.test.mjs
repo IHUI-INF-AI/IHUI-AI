@@ -106,7 +106,11 @@ test('S03 剪枝:appOf 只认在射程端,测试文件/构建目录/非 ts 一�
   assert.equal(gate.isAppCandidate('apps/web/src/x.md'), false)
   assert.equal(gate.isSharedCandidate('packages/shared/src/x.tsx'), true)
   assert.equal(gate.isSharedCandidate('packages/shared/src/x.spec.ts'), false)
-  assert.equal(gate.isSharedCandidate('packages/shared/src/x.js'), false, 'shared 采集只认 .ts/.tsx')
+  assert.equal(
+    gate.isSharedCandidate('packages/shared/src/x.js'),
+    false,
+    'shared 采集只认 .ts/.tsx',
+  )
 })
 
 // ─── ③ 判定面纪律(§0.4,G-880 本票核心) ───
@@ -198,7 +202,11 @@ test('S06 形状锁:取材走共用层(face-reader 枚举 + face-scan 同面),im
   )
   assert.match(src, /export async function main\(/)
   assert.match(src, /export const __test__ = \{/)
-  assert.equal(/^process\.exit\(/m.test(src), false, '模块顶层出现裸 process.exit ⇒ 测试 import 会打死宿主')
+  assert.equal(
+    /^process\.exit\(/m.test(src),
+    false,
+    '模块顶层出现裸 process.exit ⇒ 测试 import 会打死宿主',
+  )
 
   const fileUrl = pathToFileURL(SCRIPT_PATH).href
   const r = spawnSync(
@@ -235,7 +243,10 @@ test('S08 collectUtilExports:shared 侧只认 function/const,类型同名不进�
   const m = gate.collectUtilExports([{ rel: 'packages/shared/src/a.ts', text }])
   assert.ok(m.has('formatDate'), 'function 导出必须进 util 比对集')
   assert.ok(m.has('redactUrl'), 'const 导出必须进 util 比对集')
-  assert.ok(!m.has('KanbanColumn'), 'interface 是类型撞车不是重实现(实测假阳:types 包 vs 端内同名组件)')
+  assert.ok(
+    !m.has('KanbanColumn'),
+    'interface 是类型撞车不是重实现(实测假阳:types 包 vs 端内同名组件)',
+  )
   assert.ok(!m.has('Cfg'), 'type 导出不得进 util 比对集')
   assert.ok(!m.has('forwarded'), 'export{} 转发名不得进 util 比对集')
   // 有牙对照:同一份文本走 collectExports(全 5 式样)⇒ 类型名照收 —— 两集确有分流,不是同一把尺
@@ -263,7 +274,11 @@ test('S09 util 维有牙 + 摘维即变锁:formatDate 三处重实现看得见,�
   const both = gate.judgeAppSource(APP_FMT, BOTH, shared, utilSet)
   assert.deepEqual(both.map((x) => x.dimension).sort(), ['hook', 'util'], '两维各自独立命中')
   const noHook = gate.judgeAppSource(APP_FMT, BOTH, new Map([['formatDate', 'x.ts']]), utilSet)
-  assert.deepEqual(noHook.map((x) => x.exportName), ['formatDate'], '摘掉 hook 维 ⇒ hook 命中立刻消失')
+  assert.deepEqual(
+    noHook.map((x) => x.exportName),
+    ['formatDate'],
+    '摘掉 hook 维 ⇒ hook 命中立刻消失',
+  )
   // 维度分流不重复计:use[A-Z] 名只归 hook 维(util 比对集即便含同名也不得二次命中)
   const dupHook = gate.judgeAppSource(
     APP_BAD_REL,
@@ -283,50 +298,119 @@ test('S10 白名单到期三态(now 注入):未到期豁免 / 到期照计违规
   assert.equal(gate.isWhitelisted(wl, 'web', 'useAuth', new Date(2026, 9, 23)), true)
   // 到期日当天仍豁免(reviewBy >= today),次日起不再豁免
   assert.equal(gate.isWhitelisted(wl, 'web', 'useAuth', new Date(2027, 2, 31)), true)
-  assert.equal(gate.isWhitelisted(wl, 'web', 'useAuth', new Date(2027, 3, 1)), false, '到期必须停止豁免')
+  assert.equal(
+    gate.isWhitelisted(wl, 'web', 'useAuth', new Date(2027, 3, 1)),
+    false,
+    '到期必须停止豁免',
+  )
   // ② 形态坏 ⇒ fail-closed(reason 空 / reviewBy 非 ISO / 缺字段)
-  assert.equal(gate.isWhitelisted([{ app: 'web', name: 'useAuth', reason: '', reviewBy: '2027-03-31' }], 'web', 'useAuth', new Date(2026, 9, 23)), false)
-  assert.equal(gate.isWhitelisted([{ app: 'web', name: 'useAuth', reason: 'r', reviewBy: '2027/03/31' }], 'web', 'useAuth', new Date(2026, 9, 23)), false)
-  assert.equal(gate.isWhitelisted([{ app: 'web', name: 'useAuth', reason: 'r' }], 'web', 'useAuth', new Date(2026, 9, 23)), false)
+  assert.equal(
+    gate.isWhitelisted(
+      [{ app: 'web', name: 'useAuth', reason: '', reviewBy: '2027-03-31' }],
+      'web',
+      'useAuth',
+      new Date(2026, 9, 23),
+    ),
+    false,
+  )
+  assert.equal(
+    gate.isWhitelisted(
+      [{ app: 'web', name: 'useAuth', reason: 'r', reviewBy: '2027/03/31' }],
+      'web',
+      'useAuth',
+      new Date(2026, 9, 23),
+    ),
+    false,
+  )
+  assert.equal(
+    gate.isWhitelisted(
+      [{ app: 'web', name: 'useAuth', reason: 'r' }],
+      'web',
+      'useAuth',
+      new Date(2026, 9, 23),
+    ),
+    false,
+  )
   // ③ 到期条目在判据里照计违规(不是只住在 isWhitelisted 导出口)
   const shared = new Map([['useAuth', 'packages/shared/src/use-auth.ts']])
   const expiredWl = [{ app: 'web', name: 'useAuth', reason: 'r', reviewBy: '2020-01-01' }]
   assert.equal(
-    gate.judgeAppSource('apps/web/src/use-auth.ts', 'export function useAuth() {}\n', shared, new Map(), expiredWl, new Date(2026, 9, 23)).length,
+    gate.judgeAppSource(
+      'apps/web/src/use-auth.ts',
+      'export function useAuth() {}\n',
+      shared,
+      new Map(),
+      expiredWl,
+      new Date(2026, 9, 23),
+    ).length,
     1,
     '白名单到期 ⇒ 照计违规',
   )
   assert.equal(
-    gate.judgeAppSource('apps/web/src/use-auth.ts', 'export function useAuth() {}\n', shared, new Map(), wl, new Date(2026, 9, 23)).length,
+    gate.judgeAppSource(
+      'apps/web/src/use-auth.ts',
+      'export function useAuth() {}\n',
+      shared,
+      new Map(),
+      wl,
+      new Date(2026, 9, 23),
+    ).length,
     0,
   )
   // ④ 台账形态锁:7 条全部 {app,name,reason 非空,reviewBy ISO} 且现档未到期(门不会因到期白名单恒红)
   assert.equal(gate.WHITELIST.length, 7, '白名单条数变了要同步本锁与票面口径')
   const today = new Date()
-  const todayIso = [today.getFullYear(), String(today.getMonth() + 1).padStart(2, '0'), String(today.getDate()).padStart(2, '0')].join('-')
+  const todayIso = [
+    today.getFullYear(),
+    String(today.getMonth() + 1).padStart(2, '0'),
+    String(today.getDate()).padStart(2, '0'),
+  ].join('-')
   for (const e of gate.WHITELIST) {
     assert.ok(e.app && e.name, `白名单条目缺 app/name: ${JSON.stringify(e)}`)
-    assert.ok(typeof e.reason === 'string' && e.reason.trim() !== '', `白名单 ${e.app}/${e.name} reason 为空(不可复核)`)
+    assert.ok(
+      typeof e.reason === 'string' && e.reason.trim() !== '',
+      `白名单 ${e.app}/${e.name} reason 为空(不可复核)`,
+    )
     assert.match(String(e.reviewBy), gate.ISO_DATE_RE, `白名单 ${e.app}/${e.name} reviewBy 非 ISO`)
-    assert.ok(String(e.reviewBy) >= todayIso, `白名单 ${e.app}/${e.name} 已到期(${e.reviewBy} < ${todayIso})⇒ 须续期或整改`)
+    assert.ok(
+      String(e.reviewBy) >= todayIso,
+      `白名单 ${e.app}/${e.name} 已到期(${e.reviewBy} < ${todayIso})⇒ 须续期或整改`,
+    )
   }
 })
 
 test('S11 analyze util 棘轮:HEAD 面 util 命中只报数不进阻断集,staged 档本次新增行进阻断集', () => {
   const dir = createRepo({
-    'packages/shared/src/date.ts': 'export function formatDate(d) { return 1 }\nexport function formatTime(t) { return 2 }\n',
+    'packages/shared/src/date.ts':
+      'export function formatDate(d) { return 1 }\nexport function formatTime(t) { return 2 }\n',
     'apps/web/src/fmt.ts': 'export function formatDate(d) { return 3 }\n',
   })
   try {
     const head = gate.analyze({ root: dir, face: 'head' })
-    assert.equal(head.violations.length, 0, 'util 加固维在全量面不得进阻断集(§0.5 棘轮:有存量的新判据不升 blocking)')
+    assert.equal(
+      head.violations.length,
+      0,
+      'util 加固维在全量面不得进阻断集(§0.5 棘轮:有存量的新判据不升 blocking)',
+    )
     assert.equal(head.utilStock.length, 1, 'util 存量没报数 = 静默少扫')
     assert.equal(head.utilStock[0].exportName, 'formatDate')
 
     // 工作树偷加一处 util 重复(不 add):HEAD 读数纹丝不动(证明没读盘),worktree 见 2
-    writeRepoFile(dir, 'apps/web/src/fmt.ts', 'export function formatDate(d) { return 3 }\nexport function formatTime(t) { return 4 }\n')
-    assert.equal(gate.analyze({ root: dir, face: 'head' }).utilStock.length, 1, '盘上偷改动到了 HEAD 面 ⇒ 混面取材')
-    assert.equal(gate.analyze({ root: dir, face: 'worktree' }).utilStock.length, 2, 'worktree 档应看见盘上的新值')
+    writeRepoFile(
+      dir,
+      'apps/web/src/fmt.ts',
+      'export function formatDate(d) { return 3 }\nexport function formatTime(t) { return 4 }\n',
+    )
+    assert.equal(
+      gate.analyze({ root: dir, face: 'head' }).utilStock.length,
+      1,
+      '盘上偷改动到了 HEAD 面 ⇒ 混面取材',
+    )
+    assert.equal(
+      gate.analyze({ root: dir, face: 'worktree' }).utilStock.length,
+      2,
+      'worktree 档应看见盘上的新值',
+    )
 
     // git add 后 staged 档:本次新增那一行进阻断集,存量行仍只报数
     assert.equal(git(dir, ['add', 'apps/web/src/fmt.ts']).status, 0)
@@ -343,7 +427,11 @@ test('S12 面纪律反向:HEAD 干净而盘上新增重复 ⇒ head 档仍判绿
   const dir = createRepo({ [SHARED_SRC]: SHARED_TEXT, [APP_BAD_REL]: 'export const webOnly = 1\n' })
   try {
     const head1 = gate.analyze({ root: dir, face: 'head' })
-    assert.equal(head1.violations.length, 0, `HEAD 面干净的基线都不绿 ⇒ 判据失准(${JSON.stringify(head1.violations)})`)
+    assert.equal(
+      head1.violations.length,
+      0,
+      `HEAD 面干净的基线都不绿 ⇒ 判据失准(${JSON.stringify(head1.violations)})`,
+    )
 
     // 只在盘上加重复(不 add、不 commit):HEAD 档必须照旧报 0,只有 worktree 档才看见
     writeRepoFile(dir, APP_BAD_REL, APP_BAD_TEXT)
@@ -352,7 +440,11 @@ test('S12 面纪律反向:HEAD 干净而盘上新增重复 ⇒ head 档仍判绿
       0,
       '未提交的脏改动进了 HEAD 面 ⇒ 门对已入库代码给出假红',
     )
-    assert.equal(gate.analyze({ root: dir, face: 'worktree' }).violations.length, 1, 'worktree 档没看见盘上的重复')
+    assert.equal(
+      gate.analyze({ root: dir, face: 'worktree' }).violations.length,
+      1,
+      'worktree 档没看见盘上的重复',
+    )
   } finally {
     rmScratch(dir)
   }
@@ -363,7 +455,11 @@ test('S13 三面一致(干净)⇒ 三档全 0(防恒红,W10 型);两面旗同给
   const dir = createRepo({ [SHARED_SRC]: SHARED_TEXT, [APP_BAD_REL]: 'export const webOnly = 1\n' })
   try {
     const head = gate.analyze({ root: dir, face: 'head' })
-    assert.equal(head.violations.length, 0, `head 档对干净三面报红 ⇒ 恒红门(${JSON.stringify(head.violations)})`)
+    assert.equal(
+      head.violations.length,
+      0,
+      `head 档对干净三面报红 ⇒ 恒红门(${JSON.stringify(head.violations)})`,
+    )
     const wt = gate.analyze({ root: dir, face: 'worktree' })
     assert.equal(wt.violations.length, 0, 'worktree 档对干净三面报红 ⇒ 恒红门')
     const st = gate.analyze({ root: dir, face: 'staged' })
@@ -373,7 +469,50 @@ test('S13 三面一致(干净)⇒ 三档全 0(防恒红,W10 型);两面旗同给
     rmScratch(dir)
   }
   // 两面旗同给 ⇒ 拒判返 2(不选边、不回落、不静默按其中一个面跑)
-  assert.equal(await gate.main(['--staged', '--worktree']), 2, '--staged 与 --worktree 同给必须返 2')
+  assert.equal(
+    await gate.main(['--staged', '--worktree']),
+    2,
+    '--staged 与 --worktree 同给必须返 2',
+  )
 })
 
+test('S14 §22c 保留标记名 `__test__` 不参与同名比对,但豁免不外溢(逐名精确命中)', () => {
+  // 构造:shared 侧同时导出 `__test__`(镜像标记)与 `formatDate`(真功能名)
+  const shared = new Map([
+    ['__test__', 'packages/shared/src/chat/stream-error-disposition.ts'],
+    ['formatDate', 'packages/shared/src/date.ts'],
+  ])
+  const utilSet = new Map(shared)
+  const APP = 'apps/miniapp-taro/src/pkg-user/edu-mgmt-attendance/stats.ts'
+  const TEXT =
+    'export function formatDate(d) { return String(d) }\nexport const __test__ = { formatDate }\n'
+  const hits = gate.judgeAppSource(APP, TEXT, shared, utilSet)
+  assert.equal(
+    hits.length,
+    1,
+    `只该剩 formatDate 那一击,实得 ${JSON.stringify(hits.map((h) => h.exportName))}`,
+  )
+  assert.equal(hits[0].exportName, 'formatDate', '端内真重实现照计(豁免没顺手把整族放掉)')
+  // 牙 1:豁免按名精确生效 —— 同族近似名(_test_/test__)不被豁免,证明这不是一刀切遮噪
+  for (const near of ['_test_', 'test__']) {
+    const nearShared = new Map([[near, 'packages/shared/src/x.ts']])
+    const nearHits = gate.judgeAppSource(
+      APP,
+      `export const ${near} = { a: 1 }\n`,
+      nearShared,
+      nearShared,
+    )
+    assert.equal(
+      nearHits.length,
+      1,
+      `${near} 不在保留集内,必须照计(摘掉保留集判定即变这一下就没了)`,
+    )
+  }
+  // 牙 2:保留集形状锁 —— 只许这一枚具名标记,谁往里加名字都要过这道锁
+  assert.deepEqual(
+    [...gate.RESERVED_MIRROR_MARKERS].sort(),
+    ['__test__'],
+    `保留标记集膨胀:${JSON.stringify([...gate.RESERVED_MIRROR_MARKERS])}`,
+  )
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
