@@ -69,7 +69,7 @@
 
 /* 金牌徽章(RN goldBadge: vip.gold 底 + text.primary 深字) */
 .tdetail-badge {
-  padding: var(--spacing-2xs) 12rpx;
+  padding: var(--spacing-2xs) var(--spacing-xs-loose);
   font-size: var(--text-caption);
   font-weight: 600;
   color: var(--color-foreground);
@@ -86,7 +86,7 @@
 /* 关注按钮(RN followBtn: brand 底;激活态 muted 底;圆角按角色档 control→sm) */
 .tdetail-follow-btn {
   flex-shrink: 0;
-  padding: var(--spacing-xs-loose) 28rpx;
+  padding: var(--spacing-xs-loose) var(--spacing-md-loose);
   font-size: var(--text-body-sm);
   font-weight: 600;
   color: var(--color-cta-foreground);
@@ -319,7 +319,7 @@
   display: flex;
   flex-direction: row;
   gap: var(--spacing-sm);
-  padding: var(--spacing-sm) 24rpx calc(16rpx + env(safe-area-inset-bottom, 0px));
+  padding: var(--spacing-sm) var(--spacing-md) calc(16rpx + env(safe-area-inset-bottom, 0px));
   background: var(--color-card);
 }
 

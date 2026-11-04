@@ -15,7 +15,7 @@
   padding-bottom: 120rpx;
 }
 .banner {
-  padding: var(--spacing-md) 20rpx;
+  padding: var(--spacing-md) var(--spacing-sm-loose);
 }
 .banner-title {
   font-size: var(--text-heading);
@@ -29,7 +29,7 @@
 }
 .plans {
   display: flex;
-  padding: var(--spacing-md) 20rpx;
+  padding: var(--spacing-md) var(--spacing-sm-loose);
   gap: var(--spacing-sm);
 }
 .plan {
@@ -53,7 +53,7 @@
   background: var(--color-danger);
   color: var(--color-danger-foreground);
   font-size: var(--text-badge);
-  padding: 2rpx 12rpx;
+  padding: 2rpx var(--spacing-xs-loose);
   border-radius: var(--radius-md);
 }
 .plan-name {
@@ -75,7 +75,7 @@
   text-decoration: line-through;
 }
 .rights {
-  margin: 0 20rpx;
+  margin: 0 var(--spacing-sm-loose);
   padding: var(--spacing-md-loose);
   background: var(--color-card);
   border: 1rpx solid var(--color-border);

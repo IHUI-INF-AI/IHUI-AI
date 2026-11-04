@@ -102,6 +102,36 @@ test('T2 无待收 ⇒ state:ok 且零日志(clean 常态不淹守护日志)', (
   assert.equal(logs.length, 0, 'collected=0 ∧ contested=0 ∧ incomplete=0 ⇒ 一声不出(T1 的阳性对照臂)')
 })
 
+test('T2b 被门整批拦下(collected=0 ∧ blocked>0)⇒ 必须出声并到人,不得落进 T2 的静默分支', () => {
+  // 立因:2026-11-05 起 `collected` 只算真入库的枚数,"挑了 35 枚被 check-capability-matrix 拦死"
+  // 这种轮次 collected=0 —— 若不把 blocked 加进"什么时候出声"的条件,唯一需要喊的那一刻就会变安静
+  // (§0.9:判据失效的表现永远是安静;现读实证:一整个下午账本 229 条申报带 landedSha 的 0 条)。
+  const { logs, logger } = logsOf()
+  const mails = []
+  const r = sweepCrossEndLandingLeg({
+    ...fixture(),
+    logger,
+    notify: (title, detail, opts) => mails.push({ title, dedup: opts?.dedupKey }),
+    runner: runnerOf(
+      collectLine({ held: 451, blocked: 35, blocker: 'check-capability-matrix' }),
+    ),
+  })
+  assert.equal(r.blocked, 35)
+  assert.equal(r.blocker, 'check-capability-matrix')
+  assert.equal(r.collected, 0, '被拦的枚数不得算进 collected')
+  assert.ok(
+    logs.some((l) => /❌ 跨端落库/.test(l) && /拦路者=check-capability-matrix/.test(l)),
+    `被拦必须点名拦路者:${logs.join(' | ')}`,
+  )
+  assert.equal(mails.length, 1, '被拦要到人(不是只写一行日志)')
+  assert.equal(mails[0].dedup, 'cross-end-collect-blocked:check-capability-matrix')
+  // 反向对照:同一行去掉 blocked ⇒ 回到 T2 的静默形态(证明这条响是由 blocked 触发的,不是恒响)
+  const q = logsOf()
+  const r2 = sweepCrossEndLandingLeg({ ...fixture(), logger: q.logger, runner: runnerOf(collectLine({ held: 451 })) })
+  assert.equal(r2.blocked, 0)
+  assert.equal(q.logs.length, 0, '无 blocked 的 held-only 轮仍须安静(held 会随他席提交自行回落)')
+})
+
 test('T3 无 COLLECT-RESULT ⇒ 未判定,绝不折成 clean', () => {
   const { logs, logger } = logsOf()
   const r = sweepCrossEndLandingLeg({ ...fixture(), logger, runner: runnerOf('一些没有结论行的输出\n') })

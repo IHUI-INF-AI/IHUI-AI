@@ -266,7 +266,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   actionBtnPressed: { opacity: 0.85 },
-  actionText: { color: tokens.brand.ctaForeground, fontSize: 13, fontWeight: '600' },
+  actionText: { color: tokens.brand.ctaForeground, fontSize: rnType.bodySm.size, fontWeight: '600' },
   // 重启遮罩:盖满窗口,中途不再出现"无内容的灰屏"
   applyingOverlay: {
     position: 'absolute',

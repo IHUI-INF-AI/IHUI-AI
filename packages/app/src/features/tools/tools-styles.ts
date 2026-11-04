@@ -33,7 +33,7 @@ export function createToolsStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing['2xl'],
       alignItems: 'center',
     },
-    emptyText: { fontSize: 13, color: tk.text.tertiary },
+    emptyText: { fontSize: rnType.bodySm.size, color: tk.text.tertiary },
     cardGrid: { gap: rnSpacing['sm-loose'] },
     card: {
       flexDirection: 'row',

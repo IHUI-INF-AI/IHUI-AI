@@ -331,7 +331,7 @@ const createStyles = (tk: RnThemeTokens) =>
       gap: rpx(16),
     },
     emptyText: {
-      fontSize: 13,
+      fontSize: rnType.bodySm.size,
       color: tk.text.tertiary,
     },
     footer: {
@@ -342,7 +342,7 @@ const createStyles = (tk: RnThemeTokens) =>
       paddingVertical: rpx(24),
     },
     footerText: {
-      fontSize: 13,
+      fontSize: rnType.bodySm.size,
       color: tk.text.tertiary,
     },
   } satisfies Record<string, ViewStyle | TextStyle>)

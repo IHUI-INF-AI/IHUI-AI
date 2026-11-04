@@ -462,7 +462,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
     },
     title: {
-      fontSize: 13,
+      fontSize: rnType.bodySm.size,
       color: tk.text.secondary,
     },
     followBtn: {
@@ -475,12 +475,12 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
     },
     followBtnText: {
-      fontSize: 13,
+      fontSize: rnType.bodySm.size,
       fontWeight: '600',
       color: tk.surface.light,
     },
     followBtnTextActive: {
-      fontSize: 13,
+      fontSize: rnType.bodySm.size,
       fontWeight: '600',
       color: tk.text.secondary,
     },
@@ -520,7 +520,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.secondary,
     },
     expandText: {
-      fontSize: 13,
+      fontSize: rnType.bodySm.size,
       color: tk.brandAccent.deep,
     },
     /* 主讲课程 */
@@ -590,7 +590,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     reviewNickname: {
       flex: 1,
-      fontSize: 13,
+      fontSize: rnType.bodySm.size,
       fontWeight: '600',
       color: tk.text.primary,
     },

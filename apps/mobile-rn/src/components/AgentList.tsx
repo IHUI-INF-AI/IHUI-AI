@@ -348,19 +348,19 @@ const styles = StyleSheet.create({
   loadingText: {
     textAlign: 'center',
     paddingVertical: rnSpacing['sm-loose'],
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
     color: tokens.text.secondary,
   },
   noMoreText: {
     textAlign: 'center',
     paddingVertical: rnSpacing['sm-loose'],
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
     color: tokens.text.tertiary,
   },
   emptyText: {
     textAlign: 'center',
     paddingVertical: rnSpacing['2xl'],
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
     color: tokens.text.tertiary,
   },
 })

@@ -743,7 +743,7 @@ const styles = StyleSheet.create({
     color: tokens.gray[900],
     marginBottom: rpx(8),
   } as TextStyle,
-  identitySubtext: { fontSize: 13, color: tokens.text.tertiary },
+  identitySubtext: { fontSize: rnType.bodySm.size, color: tokens.text.tertiary },
   identityButtons: { flexDirection: 'row', gap: rpx(24), width: '100%' },
   identityBtn: {
     flex: 1,
