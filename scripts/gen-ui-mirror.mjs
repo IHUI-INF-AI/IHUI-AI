@@ -73,7 +73,7 @@ import { appendLanding, isRowComplete, readLanding, ledgerPathFor } from './lib/
 import { gitRaw } from './lib/face-reader.mjs'
 // 旧档回写判据(2026-11-03 立,与守门 292 同一实现):派生文本若逐字等于该路径某个祖先 blob
 // 而 HEAD 已有更新档 ⇒ 拒绝写盘。立因见 lib/ancestor-downgrade.mjs 头注(4 组件旧 blob 回写)。
-import { ancestorBlobOf, describeMatch, gitBlobOidOfText } from './lib/ancestor-downgrade.mjs'
+import { ancestorBlobOf, describeMatch, gitBlobOidOfText, headBlobOf } from './lib/ancestor-downgrade.mjs'
 // 归属闸(2026-11-03 立,挂守护周期腿的**前置条件**):判据单源 = scripts/lib/git-paths.mjs
 // (三枚 lander 与 fix-rn-color-literals 共用同一份,§0.6 / 门 191 —— 本文件不得再写第二份)。
 // 多会话共享工作区里,自动腿写他席正在编辑的文件 = 覆盖别人的未提交工作(§12/§16 事故型)。
@@ -119,14 +119,12 @@ export function worktreeBlobOid(rel, root = ROOT) {
  */
 export function downgradeGuardOf(rel, text, root = ROOT) {
   const candOid = gitBlobOidOfText(text)
-  let headOid = null
-  try {
-    headOid = String(gitRaw(['rev-parse', '--verify', `HEAD:${rel}`], root)).trim().toLowerCase()
-  } catch {
-    headOid = null
-  }
-  if (!headOid) return { allow: true, why: 'HEAD 无该路径(新增文件,无祖先可比)' }
-  if (headOid === candOid) return { allow: true, why: '与 HEAD 同 blob(零改动)' }
+  // 三态取 HEAD(2026-11-04 复核补):"路径确实不在"与"git 取不到"不得折成同一条 allow,
+  // 否则一过性 git 失败会让祖先旧档静默写盘(§0.3:取不到 ⇒ 不写,不猜)。
+  const head = headBlobOf(rel, { root })
+  if (!head.judged) return { allow: false, undetermined: true, why: head.why }
+  if (head.missing) return { allow: true, why: 'HEAD 无该路径(新增文件,无祖先可比)' }
+  if (head.oid === candOid) return { allow: true, why: '与 HEAD 同 blob(零改动)' }
   const anc = ancestorBlobOf(rel, candOid, { root })
   if (!anc.judged) return { allow: false, undetermined: true, why: anc.why }
   if (anc.match) return { allow: false, match: anc.match, why: '派生结果逐字等于祖先版本' }
