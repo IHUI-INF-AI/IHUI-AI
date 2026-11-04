@@ -986,8 +986,14 @@ jobs:
 
   # ── 2026-11-03 复活:Gitee 为**国内主通道**(仓库浏览 + 发布包下载),GitHub 为境外/兜底 ──
   # 当日早些时候的"下线"判定已撤回,原因与处置:
-  #   ① 原判定的前提是 Gitee 空仓(无 main/tag/release)⇒ target_commitish=main 建不出 tag,
-  #      每次发版 400「创建标签失败」。该前提已由"仓库初始化 + 推 main 快照"消除;
+  #   ① 原判定的前提是 Gitee 空仓(无 main/tag/release)⇒ target_commitish=main 建不出 tag
+  #      (每次发版 400「创建标签失败」)。该前提已由「仓库初始化 + 推 main 快照」消除;
+  #      2026-11-04 补根因:即使已有 main,Gitee v5 也**没有建 tag 的 API**
+  #      (POST /git/tags=405、GET /git/refs*=404,当日匿名实测)⇒ POST /releases
+  #      内部那条建 tag 腿仍然必 400(desktop-v0.1.77 实锤「创建标签失败」)。
+  #      sync-gitee.py 已改为「先 git push refs/tags/<tag>(指向 Gitee 快照 main 提交),
+  #      再 POST /releases」;顺序不可颠倒,tag 已存在由复查按幂等继续。
+  #      ⚠️ 不要改成推 GitHub 的真实发版 tag:那会把整条历史带上 Gitee(1024MB 配额)。
   #   ② 新语义:本 job 默认执行、Gitee Release 首发;资产逐件上传并按字节+SHA256 与 GitHub 对账;
   #      下载面只在「Gitee 资产存在且字节与 GitHub 原件一致」时改写直链,否则回落 GitHub + 告警。
   #   ③ 显式关闭开关:仓库 Settings → Variables 设 `GITEE_SYNC_ENABLED=false` 即跳过本 job
