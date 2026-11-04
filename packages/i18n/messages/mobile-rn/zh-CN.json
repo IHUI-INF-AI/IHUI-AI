@@ -6051,7 +6051,17 @@
     "chooseClass": "选择要点名的班级",
     "noClass": "当前列表没有可选班级",
     "batchResult": "点名完成：新增 {created}、跳过 {skipped}、遗漏 {missed}",
-    "qrEntry": "出示签到码"
+    "qrEntry": "出示签到码",
+    "emptyTrend": "暂无趋势数据",
+    "statsAttendanceRate": "出勤率",
+    "statusDistribution": "状态分布",
+    "statusOther": "其他",
+    "trendChartHint": "出勤率 = 正常出勤人次 ÷ 该时段有考勤记录人次（未打卡的学生不在分母内）",
+    "trendChartTitle": "出勤趋势",
+    "statsTotalLabel": "考勤总人次",
+    "loadStatsFailed": "加载考勤统计失败，请稍后重试",
+    "trendChartScope": "统计范围：{scope}",
+    "trendWindow": "近 {days} 天"
   },
   "eduGrades": {
     "title": "成绩管理",

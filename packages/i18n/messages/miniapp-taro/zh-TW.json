@@ -4835,7 +4835,16 @@
     "multiClass": "清單含多個班級，本次僅點名 {classId}",
     "checkInAt": "簽到時刻",
     "momentNow": "此刻",
-    "backfillNeedsTime": "回填非當日考勤須給出該日內的打卡時刻"
+    "backfillNeedsTime": "回填非當日考勤須給出該日內的打卡時刻",
+    "statsTotalLabel": "考勤記錄",
+    "statsAttendanceRate": "出勤率",
+    "statusDistribution": "狀態分佈",
+    "trendChartTitle": "出勤趨勢",
+    "trendChartHint": "出勤率 = 正常出勤人次 ÷ 該時段有考勤記錄人次（未打卡的學生不在分母內）",
+    "trendChartScope": "統計範圍：{scope}",
+    "trendWindow": "近 {days} 天",
+    "emptyTrend": "暫無趨勢數據",
+    "statusOther": "其他"
   },
   "eduMgmt": {
     "attendanceTitle": "考勤管理",
