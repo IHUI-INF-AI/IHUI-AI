@@ -96,6 +96,11 @@ test('P8 现读 git-guardian:已迁移的腿不得再被判黑(回归锁,不钉�
     'sweepExposedCredentialRotation',
     'healCrossEndMirror',
     'auditLandedReverts',
+    // 第二批(原先整条链无节流、靠调用点 legThrottle 才敢上常驻面的四条)
+    'auditMergeAdditionLoss',
+    'refreshRecoverySource',
+    'rotateRunLogs',
+    'reportBaselineFreshness',
   ]) {
     assert.ok(!r.dark.includes(n), `${n} 已挂常驻面,不得再被判黑腿`)
   }
@@ -120,6 +125,65 @@ test('P10 腿与助手的区分按定义签名,不按调用点写法(摘掉即�
   // 名字不匹配腿前缀 ⇒ 不判为"前缀腿"(但可能是 unclassified,见 P12)
   assert.ok(!F('function helperA(opts = {}) {'), '非腿前缀不进 legs 集')
   assert.ok(!F('function broken(opts {'), '签名括号不配平 ⇒ 不认')
+})
+
+test('P13 具名豁免四档成对:有效摘掉 / 到期照判 / 形状坏视同没登记 / 不再命中=腐烂', () => {
+  const NOW = Date.parse('2026-11-04T00:00:00.000Z')
+  const good = { name: 'ensureGuardDaemonAlive', owner: 'main 路径', reason: '它负责把不在的 daemon 拉起,挂进 daemon 自己里等于监视自己', expires: '2027-02-01' }
+  const r1 = cp.applyCarrierExemptions(['ensureGuardDaemonAlive', 'rotateRunLogs'], [good], NOW)
+  assert.deepEqual(r1.waived, ['ensureGuardDaemonAlive'])
+  assert.deepEqual(r1.darkRemaining, ['rotateRunLogs'], '没被豁免的那条必须仍判黑')
+
+  // 到期 ⇒ 不摘,进 expired
+  const r2 = cp.applyCarrierExemptions(['X'], [{ ...good, name: 'X', expires: '2026-01-01' }], NOW)
+  assert.deepEqual(r2.expired, ['X'])
+  assert.deepEqual(r2.darkRemaining, ['X'], '到期必须照旧判黑,不许静默放行')
+
+  // 形状坏三型 ⇒ 视同没登记
+  for (const bad of [
+    { ...good, name: 'X', reason: '太短' },
+    { name: 'X', reason: good.reason, expires: '2027-02-01' },
+    { ...good, name: 'X', expires: '不是日期' },
+  ]) {
+    const r = cp.applyCarrierExemptions(['X'], [bad], NOW)
+    assert.deepEqual(r.malformed, ['X'], `形状坏应被点名:${JSON.stringify(bad).slice(0, 60)}`)
+    assert.deepEqual(r.darkRemaining, ['X'], '形状坏 ⇒ 照旧判黑')
+  }
+
+  // 登记的 name 当下面不再命中 ⇒ 清单腐烂
+  const r4 = cp.applyCarrierExemptions(['other'], [{ ...good, name: 'Gone' }], NOW)
+  assert.deepEqual(r4.rotting, ['Gone'], '豁免清单里躺着一条不再命中的 ⇒ 腐烂同红(§0.7)')
+})
+
+test('P14 豁免必须能整维清零(否则 A9 就是恒红门,§12e)', () => {
+  const src = [
+    'async function main() {',
+    '  ensureGuardDaemonAlive()',
+    '  rotateOnlyMain()',
+    '  auditShared(opts = 1)',
+    '}',
+    'function startDaemon() {',
+    '  auditShared(opts = 1)',
+    '}',
+    'function auditShared(opts = {}) {}',
+    'function ensureGuardDaemonAlive() {}',
+    'function rotateOnlyMain() {}',
+  ].join('\n')
+  const NOW = Date.parse('2026-11-04T00:00:00.000Z')
+  const base = cp.judgeCarrierParity({ source: src, exemptions: [], now: NOW })
+  assert.equal(base.state, 'drift')
+  assert.deepEqual(base.dark, ['ensureGuardDaemonAlive', 'rotateOnlyMain'])
+  const waived = cp.judgeCarrierParity({
+    source: src,
+    exemptions: [
+      { name: 'ensureGuardDaemonAlive', owner: 'o', reason: '它负责把不在的 daemon 拉起,挂进 daemon 自己里等于监视自己', expires: '2027-02-01' },
+      { name: 'rotateOnlyMain', owner: 'o', reason: '动的是 daemon 自己正在写的日志面,归一次性档', expires: '2027-02-01' },
+    ],
+    now: NOW,
+  })
+  assert.equal(waived.state, 'ok', waived.why)
+  assert.deepEqual(waived.dark, [])
+  assert.equal(waived.waived.length, 2, '摘掉的必须在读数里点名,不许静默')
 })
 
 test('P12 不合腿名前缀但是真腿的,必须走 unclassified 点名(假绿最贵)', () => {
