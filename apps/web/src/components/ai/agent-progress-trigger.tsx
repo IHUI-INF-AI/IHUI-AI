@@ -10,6 +10,7 @@ import {
   ChevronDown,
   FileText,
   Hammer,
+  ListTodo,
   MessageCircle,
   Search,
   Loader2,
@@ -74,8 +75,11 @@ export function AgentProgressTrigger({
   leftIcon?: React.ComponentType<{ className?: string }>
   leftIconText?: string
   iconOnly?: boolean
-  /** bar = 底栏按钮(默认);row = + 菜单内的统一设置行 */
-  variant?: 'bar' | 'row'
+  /**
+   * bar = 底栏按钮(默认);row = + 菜单内的统一设置行;
+   * status = 底栏常驻「实时状态」紧凑芯片(2026-11-04 第四轮,见下方注释)
+   */
+  variant?: 'bar' | 'row' | 'status'
 } = {}) {
   const t = useTranslations('chat')
 
@@ -128,9 +132,23 @@ export function AgentProgressTrigger({
     hydrateAgentProgressPaneFromStorage()
   }, [])
 
-  // 2026-11-04:Ctrl+Shift+J 监听已迁到常驻的 message-input —— 本触发器收进
+  // 2026-11-04 第四轮(用户规则:"任务进度实时状态不该降级到 2 击"):
+  // 底栏常驻「实时状态」芯片 —— 流式期间恒显示(当前任务名 + spinner + 步数);
+  // 流结束后仅当 Pane 仍打开时保留(芯片同时是 Pane 的开合锚点,它若消失,面板就失去
+  // 对位元素、用户也失去"再点一下收起"的落点)。空闲且 Pane 关闭 ⇒ 返回 null,
+  // 底栏回到极简三锚点(+ / 模型 / 发送·停止)。
+  // 独立 testid `agent-progress-status`:同一 testid 若在底栏与「+ → 更多工具」抽屉
+  // 各挂一处,Playwright strict mode 会因解析到多元素而报错(见 e2e 校准注释)。
+  const showStatusChip = isStreaming || paneOpen
+  if (variant === 'status' && !showStatusChip) return null
+
+  // 芯片只显示"在做什么",步数单独用等宽数字落在右侧 —— 避免与 liveStatusText
+  // 的 "构建 03/05" 形态重复拼成 "构建 03/05 03/05"。
+  const statusLabel = isStreaming && currentTask.label ? currentTask.label : modeLabel
+
+  // 2026-11-04:Ctrl+Shift+J 监听住在同文件的 AgentProgressShortcutHost —— 本触发器收进
   // 「+ → 更多工具」抽屉后只在菜单打开时挂载,监听留在这里会让快捷键随抽屉一起失效。
-  // (快捷键的实现与输入法组合态放行规则见 message-input.tsx 同名 useEffect。)
+  // (宿主由 message-input 常驻挂载;输入法组合态放行规则见该组件内的 onKeyDown。)
 
   // v10:trigger 永远渲染,Pane 由 ai-side-panel.tsx mount,trigger 只切换 store.open
   // 2026-08-12 修复:移除原生 title= 属性(浏览器默认 tooltip 样式,无 border/无动画/
@@ -143,6 +161,54 @@ export function AgentProgressTrigger({
   // e2e 又把混血串钉成了基线。现整串经 chat.taskProgressAria / chat.modeTaskAria
   // 五语言词包取形(ICU {status}/{mode}),zh-CN 形态逐字不变。锁定用例:
   // apps/web/tests/agent-progress-trigger-aria-i18n.test.tsx。
+  // 2026-11-04 第四轮:status 变体 = 底栏常驻紧凑芯片(与 bar/row 共用同一份 store 与
+  // useAgentProgress 订阅,只是形态不同;点击语义同样是 toggle Pane)。
+  if (variant === 'status') {
+    const StatusIcon = leftIcon ?? ListTodo
+    return (
+      <button
+        type="button"
+        onClick={() => {
+          togglePane()
+          onTriggerClick?.()
+        }}
+        aria-label={
+          hasLiveActivity
+            ? t('taskProgressAria', { status: liveStatusText })
+            : t('modeTaskAria', { mode: modeLabel })
+        }
+        aria-expanded={paneOpen}
+        aria-haspopup="dialog"
+        className={cn(
+          'flex h-8 max-w-[11rem] shrink-0 items-center gap-1.5 rounded-md border border-border/60 bg-muted/40 px-2 text-label text-muted-foreground transition-colors duration-150 ease-out hover:bg-accent hover:text-accent-foreground',
+          hasLiveActivity && 'border-primary/30 text-primary',
+          className,
+        )}
+        data-testid="agent-progress-status"
+        data-variant="status"
+        data-popover-open={paneOpen}
+        data-live-activity={hasLiveActivity}
+        data-mode={currentMode}
+      >
+        {hasLiveActivity ? (
+          <Loader2
+            className="h-3.5 w-3.5 shrink-0 animate-spin"
+            aria-hidden="true"
+            data-testid="agent-progress-status-spinner"
+          />
+        ) : (
+          <StatusIcon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+        )}
+        <span className="min-w-0 truncate">{statusLabel}</span>
+        {totalSteps > 0 && (
+          <span className="shrink-0 tabular-nums text-muted-foreground/70">
+            {String(currentStepNumber).padStart(2, '0')}/{String(totalSteps).padStart(2, '0')}
+          </span>
+        )}
+      </button>
+    )
+  }
+
   const RowIcon = leftIcon ?? ModeIcon
   const triggerButton = (
     <button
@@ -215,6 +281,31 @@ export function AgentProgressTrigger({
       {triggerButton}
     </Tooltip>
   )
+}
+
+/**
+ * AgentProgressShortcutHost — Ctrl+Shift+J 的**唯一**全局监听宿主(2026-11-04 立)。
+ *
+ * 为什么必须独立成宿主:AgentProgressTrigger 已收进「+ → 更多工具」抽屉,抽屉关闭
+ * 即卸载;监听若仍住在触发器里,快捷键会随抽屉一起消失(名义还在、实际失联)。
+ * 反过来,宿主**只能挂一处** —— 两处同时挂载会让一次按键 toggle 两次(开了又关)。
+ * 导出本组件的唯一目的是让单测能独立渲染它(见 tests/agent-task-progress-pane.test.tsx)。
+ */
+export function AgentProgressShortcutHost() {
+  const togglePane = useAgentProgressPaneStore((s) => s.toggle)
+  React.useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      // 输入法组合态放行:中文/日文候选框里的 Ctrl+Shift+J 不抢
+      if (e.isComposing) return
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'j' || e.key === 'J')) {
+        e.preventDefault()
+        togglePane()
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [togglePane])
+  return null
 }
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
