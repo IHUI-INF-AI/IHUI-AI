@@ -79,6 +79,7 @@ import {
   isCredentialRejected,
 } from '../src/lib/token'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import { APP_USER_AGENT } from '../src/lib/config'
 import { getItem, resetAsyncStorageMock } from './__mocks__/async-storage'
 import { _resetSecureStoreBackendForTest } from '../src/lib/auth/secure-store'
 import { REFRESH_TOKEN_STALE_ERROR_CODE } from '@ihui/shared/auth/auto-login-policy'
@@ -100,12 +101,17 @@ describe('lib/token', () => {
   // 首方 UA:RN 的 fetch 由 okhttp 实现,而后端 bot-detection 把 'okhttp' 列为
   // curl-like。不显式声明 UA,App 的每个请求都会被当成爬虫(429 要求无法完成的
   // CAPTCHA + 每请求拉低出口 IP 信誉)。这里钉住"发出去的不是 okhttp 默认串"。
+  // 版本段来自 config 的 APP_VERSION 单源:发布链(scripts/resolve-mobile-version.mjs,
+  // APK/IPA 构建同源)注入的是四段式 0.0.5.YYYYMMDD,不是三段 semver ——
+  // 旧断言钉死 \d+\.\d+\.\d+ 属于测试写旧契约。改为与 config 的 APP_USER_AGENT 全等,
+  // 并保留"首方前缀 + 版本段形状 + 反 okhttp"三重校验(比旧断言更严,不是放宽)。
   it('initApi 注入首方 User-Agent,且不含 okhttp / 空串', async () => {
     await initApi()
     expect(apiClientMocks.setUserAgent).toHaveBeenCalledTimes(1)
     const ua = apiClientMocks.setUserAgent.mock.calls[0]![0] as string
     expect(ua.length).toBeGreaterThanOrEqual(10)
-    expect(ua).toMatch(/^IHUIAI-App\/\d+\.\d+\.\d+ /)
+    expect(ua).toBe(APP_USER_AGENT)
+    expect(ua).toMatch(/^IHUIAI-App\/\d+(?:\.\d+)+ /)
     expect(ua.toLowerCase()).not.toContain('okhttp')
   })
 
@@ -204,9 +210,9 @@ describe('lib/token — initApi 的存储失效兜底(绝不卡启动页、绝�
   })
 
   it('凭据存储读不出时 initApi 仍然 resolve(不抛 = 不卡启动页)', async () => {
-    getItem.mockRejectedValueOnce(new Error('Keychain errSecAuthFailed')).mockRejectedValueOnce(
-      new Error('Keychain errSecAuthFailed'),
-    )
+    getItem
+      .mockRejectedValueOnce(new Error('Keychain errSecAuthFailed'))
+      .mockRejectedValueOnce(new Error('Keychain errSecAuthFailed'))
     await expect(initApi()).resolves.toBeUndefined()
     // 按「无凭据」分支继续:内存缓存是空,而不是残留别人的旧值
     expect(getToken()).toBeNull()
@@ -215,9 +221,9 @@ describe('lib/token — initApi 的存储失效兜底(绝不卡启动页、绝�
 
   it('读失败必须被喊出来(console.error 点名原因),不静默降级', async () => {
     const err = vi.spyOn(console, 'error').mockImplementation(() => {})
-    getItem.mockRejectedValueOnce(new Error('Keychain unavailable')).mockRejectedValueOnce(
-      new Error('Keychain unavailable'),
-    )
+    getItem
+      .mockRejectedValueOnce(new Error('Keychain unavailable'))
+      .mockRejectedValueOnce(new Error('Keychain unavailable'))
     await initApi()
     const line = err.mock.calls.map((c) => String(c[0])).join('\n')
     expect(line).toContain('credential storage is unreadable')
@@ -234,9 +240,9 @@ describe('lib/token — initApi 的存储失效兜底(绝不卡启动页、绝�
     // 记账从"本轮动作"开始数:上面那笔是我造的盘上现场,不是 initApi 写的
     removeSpy.mockClear()
     setSpy.mockClear()
-    getItem.mockRejectedValueOnce(new Error('read boom')).mockRejectedValueOnce(
-      new Error('read boom'),
-    )
+    getItem
+      .mockRejectedValueOnce(new Error('read boom'))
+      .mockRejectedValueOnce(new Error('read boom'))
     await initApi()
     // 读不出 ≠ 凭据失效:兜底只改内存,不代用户删任何东西(删了就把 30 天 refresh 一起废掉)
     expect(removeSpy).not.toHaveBeenCalled()
@@ -251,9 +257,9 @@ describe('lib/token — initApi 的存储失效兜底(绝不卡启动页、绝�
     })
     const err = vi.spyOn(console, 'error').mockImplementation(() => {})
     await expect(initApi()).resolves.toBeUndefined()
-    expect(
-      err.mock.calls.map((c) => String(c[0])).join('\n'),
-    ).toContain('api-client binding failed')
+    expect(err.mock.calls.map((c) => String(c[0])).join('\n')).toContain(
+      'api-client binding failed',
+    )
     err.mockRestore()
   })
 })
