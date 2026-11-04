@@ -301,19 +301,19 @@ test('T6 归属纪律端到端:索引==别人新暂存 ⇒ 落地成功但对齐
 test('T7 parseArgs 纯函数面:同一 env 两次调用结论一致(连跑不漂移的最小证明)', (t) => {
   const dir = makeRepo(t)
   writeFileSync(join(dir, 'b.txt'), 'nb\n')
-  const envA = { LAND_PATHS: ' a.txt ; b.txt ', LAND_MSG: 'm', LAND_ROOT: dir }
+  const envA = { LAND_PATHS: ' a.txt ; b.txt ', LAND_MSG: 'chore: fixture msg', LAND_ROOT: dir }
   const a1 = __test__.parseArgs(envA)
   const a2 = __test__.parseArgs(envA)
   assert.equal(a1.error, undefined, `应通过,实得:${a1.error}`)
   assert.deepEqual(a2.paths, ['a.txt', 'b.txt'])
   assert.equal(a1.paths.join(','), a2.paths.join(','))
-  const noPaths = __test__.parseArgs({ LAND_MSG: 'm', LAND_ROOT: dir })
+  const noPaths = __test__.parseArgs({ LAND_MSG: 'chore: fixture msg', LAND_ROOT: dir })
   assert.match(String(noPaths.error), /LAND_PATHS/)
   const noMsg = __test__.parseArgs({ LAND_PATHS: 'a.txt', LAND_ROOT: dir })
   assert.match(String(noMsg.error), /LAND_MSG/)
   const notRepo = __test__.parseArgs({
     LAND_PATHS: 'a.txt',
-    LAND_MSG: 'm',
+    LAND_MSG: 'chore: fixture msg',
     LAND_ROOT: mkScratch('osl-notrepo-'),
   })
   assert.match(String(notRepo.error), /不是可用仓库/)
@@ -829,7 +829,13 @@ test('T-BLOB-1 blob 模式未出具替代证明 ⇒ 直接拒落(少一道守卫
   const blob = hashText(dir, 'v2 本票新内容\n')
   const mf = join(dir, 'mf.json')
   writeFileSync(mf, JSON.stringify({ files: [{ path: 'a.txt', blob }] }))
-  const env = { ...process.env, LAND_ROOT: dir, LAND_PATHS: 'a.txt', LAND_MSG: 'm', LAND_BLOBS: mf }
+  const env = {
+    ...process.env,
+    LAND_ROOT: dir,
+    LAND_PATHS: 'a.txt',
+    LAND_MSG: 'chore: fixture msg',
+    LAND_BLOBS: mf,
+  }
   delete env.LAND_BLOB_PROOF
   // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   const r = spawnSync(process.execPath, [TOOL], {
@@ -1222,10 +1228,14 @@ test('T-WM-NEW-3b 反向例:既有路径 banner 完好但零宽载荷被剥 ⇒ 
   writeFileSync(mf, JSON.stringify({ files: [{ path: 'keep.ts', blob: bad }] }))
   const r = runLandBlob(dir, { paths: 'keep.ts', manifest: mf })
   assert.notEqual(r.status, 0, `坏载荷必须拒落,实得 ${r.status}:${r.stdout}|${r.stderr}`)
+  // 2026-11-05:这一格的拒收**前移了一层**。旧 `payloadIntactViaVerify` 拿 scratch/probe.txt 问
+  // `verify`,覆盖 0/0 仍按 0 退出 ⇒ 载荷复核恒真,这一型只能靠后面那道 CLI 预检抓;
+  // 现在载荷判据在 blob 层就判坏 ⇒ 出口变成"水印横幅未保持"。两个出口都算抓到,少一个都不行
+  // (判据没放宽,只是真话提前说了)。
   assert.match(
     r.stderr + r.stdout,
-    /水印预检不通过|水印校验派生失败/,
-    '必须报"预检不通过",不得静默落地',
+    /水印预检不通过|水印校验派生失败|水印横幅未保持/,
+    '必须报"预检不通过"或"横幅未保持",不得静默落地',
   )
   assert.match(r.stderr + r.stdout, /keep\.ts/, '必须点名那个既有文件(只报数不点名 = 责任不可归)')
   assert.equal(git(['rev-parse', 'HEAD'], { root: dir }), before, '被拒时 HEAD 不得前进')
@@ -1881,7 +1891,7 @@ test('T-BLOB-9 出口的两个判死臂:坏 JSON 与射程外声明都不得被�
       ...process.env,
       LAND_ROOT: dir,
       LAND_PATHS: 'a.txt',
-      LAND_MSG: 'm',
+      LAND_MSG: 'chore: fixture msg',
       LAND_BLOB_PROOF: 'p',
       LAND_BLOBS: mf,
       LAND_CLASH_SCOPE: bad,
@@ -1909,7 +1919,7 @@ test('T-BLOB-9 出口的两个判死臂:坏 JSON 与射程外声明都不得被�
       ...process.env,
       LAND_ROOT: dir,
       LAND_PATHS: 'a.txt',
-      LAND_MSG: 'm',
+      LAND_MSG: 'chore: fixture msg',
       LAND_BLOB_PROOF: 'p',
       LAND_BLOBS: mf,
       LAND_CLASH_SCOPE: unknown,
@@ -2599,7 +2609,7 @@ test('T-EMPTY1 成对①:0 字节 blob 落地一个基线非空的路径 ⇒ par
   const r = __test__.parseArgs({
     LAND_ROOT: dir,
     LAND_PATHS: 'a.txt',
-    LAND_MSG: 'm',
+    LAND_MSG: 'chore: fixture msg',
     LAND_BLOBS: blobs,
     LAND_BLOB_PROOF: '探针',
   })
@@ -2616,7 +2626,7 @@ test('T-EMPTY2 成对②(反证):同一条路径给非空 blob ⇒ 放行(证明
   const r = __test__.parseArgs({
     LAND_ROOT: dir,
     LAND_PATHS: 'a.txt',
-    LAND_MSG: 'm',
+    LAND_MSG: 'chore: fixture msg',
     LAND_BLOBS: blobs,
     LAND_BLOB_PROOF: '探针',
   })
@@ -2633,7 +2643,7 @@ test('T-EMPTY3 边界:基线没有该路径(新增文件)而内容是空 ⇒ 不
   const r = __test__.parseArgs({
     LAND_ROOT: dir,
     LAND_PATHS: 'brand-new.txt',
-    LAND_MSG: 'm',
+    LAND_MSG: 'chore: fixture msg',
     LAND_BLOBS: blobs,
     LAND_BLOB_PROOF: '探针',
   })
@@ -2658,7 +2668,7 @@ test('T-EMPTY4 未判定:清单里的 oid 在对象库取不到字节数 ⇒ 拒
   const r = __test__.parseArgs({
     LAND_ROOT: dir,
     LAND_PATHS: 'a.txt',
-    LAND_MSG: 'm',
+    LAND_MSG: 'chore: fixture msg',
     LAND_BLOBS: blobs,
     LAND_BLOB_PROOF: '探针',
   })
@@ -3415,5 +3425,4 @@ test('接线锁 2026-11-05:本器的 --self-test 由这一层真跑一次(否则
   )
   assert.equal(Number(m[1]), Number(m[2]), `自检未全绿:${m[1]}/${m[2]}`)
 })
-
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
