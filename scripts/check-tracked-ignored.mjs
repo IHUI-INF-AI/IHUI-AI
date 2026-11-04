@@ -39,11 +39,14 @@
  * 应急:`HUSKY_SKIP_TRACKED_IGNORED=1`(会进跳门留痕)。
  */
 
-import { existsSync, readFileSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { gitRaw } from './lib/face-reader.mjs'
+import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+import { makeRegistrar } from './lib/selftest-registrant.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const GIT_TIMEOUT = 120_000
@@ -273,7 +276,109 @@ export function evaluate(argv = [], { root = ROOT, ledger = null } = {}) {
   return { code: 0, face, added, bad, exempt, stock, stdout: [head, ...exemptLines], stderr: [] }
 }
 
+/** 夹具用 git:显式 stdio(§12g),非零一律抛。 */
+function fixtureGit(cwd, args) {
+  const r = spawnSync('git', args, {
+    cwd,
+    encoding: 'utf8',
+    windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  if (r.status !== 0)
+    throw new Error(
+      `git ${args.join(' ')} 失败:${String(r.stderr || r.stdout || '')
+        .trim()
+        .slice(0, 200)}`,
+    )
+  return r.stdout
+}
+
+/**
+ * `--self-test`:全部落在 mkScratch 的临时 git 仓里,不读仓库活面、不联网、不写生产路径。
+ * 正例证明"普通新增 ⇒ 绿"与"存量只报数不判红";反例证明"git add -f 把被忽略路径塞进索引
+ * ⇒ 红并点名"、"台账未覆盖 ⇒ 不放行"、"取不到面 ⇒ exit 2 未判定"。判据本体一行未改。
+ */
+export function runSelfTest() {
+  const { t, report } = makeRegistrar()
+  const dir = mkScratch('tracked-ignored-selftest-')
+  const plain = mkScratch('tracked-ignored-undet-')
+  try {
+    fixtureGit(dir, ['init', '-q', '-b', 'main'])
+    fixtureGit(dir, ['config', 'user.email', 'selftest@example.invalid'])
+    fixtureGit(dir, ['config', 'user.name', 'selftest'])
+    fixtureGit(dir, ['config', 'commit.gpgsign', 'false'])
+    writeFileSync(join(dir, '.gitignore'), 'ignored/\n', 'utf8')
+    writeFileSync(join(dir, 'keep.txt'), 'ok\n', 'utf8')
+    fixtureGit(dir, ['add', '.gitignore', 'keep.txt'])
+    fixtureGit(dir, ['commit', '-qm', 'base'])
+
+    // ①正例:索引里只多了一枚普通文件 ⇒ 0
+    writeFileSync(join(dir, 'new.txt'), 'n\n', 'utf8')
+    fixtureGit(dir, ['add', 'new.txt'])
+    const okRun = evaluate(['--staged'], { root: dir, ledger: [] })
+
+    // ②反例:git add -f 把 .gitignore 命中路径塞进索引 ⇒ 1 且逐条点名
+    mkdirSync(join(dir, 'ignored'), { recursive: true })
+    writeFileSync(join(dir, 'ignored', 'x.txt'), 'x\n', 'utf8')
+    fixtureGit(dir, ['add', '-f', 'ignored/x.txt'])
+    const redRun = evaluate(['--staged'], { root: dir, ledger: [] })
+
+    // ③正例:G-926 台账覆盖且未过期 ⇒ 点名放行(exempt=1),仍 0
+    const exemptRun = evaluate(['--staged'], {
+      root: dir,
+      ledger: [{ dir: 'ignored', until: '2099-12-31' }],
+    })
+
+    // ④正例:全量档有存量也只报数(不判红)
+    const stockRun = evaluate([], { root: dir })
+
+    // ⑤未判定:非 git 目录取不到面 ⇒ 2(独立 scratch,不能放夹具仓的子目录里 ——
+    // git 发现会向上逃到父仓,那是"另判了一个仓"而不是"取不到面")
+    const undetRun = evaluate([], { root: plain })
+
+    t(
+      '①正例:普通新增文件 ⇒ exit 0 且无命中',
+      () => okRun.code === 0 && okRun.bad.length === 0,
+      `code=${okRun.code} bad=${okRun.bad.join(',')}`,
+    )
+    t(
+      '②反例:git add -f 纳入被忽略路径 ⇒ exit 1 且点名',
+      () => redRun.code === 1 && redRun.bad.includes('ignored/x.txt'),
+      `code=${redRun.code} bad=${redRun.bad.join(',')}`,
+    )
+    t(
+      '③正例:台账覆盖未过期 ⇒ exit 0 且 exempt 逐条点名',
+      () => exemptRun.code === 0 && exemptRun.exempt.length === 1,
+      `code=${exemptRun.code} exempt=${exemptRun.exempt.length}`,
+    )
+    t(
+      '④正例:全量档存量 1 条只报数 ⇒ exit 0',
+      () => stockRun.code === 0 && stockRun.stock.length === 1,
+      `code=${stockRun.code} stock=${stockRun.stock.length}`,
+    )
+    t(
+      '⑤反例:非 git 目录取不到面 ⇒ exit 2 未判定(不记绿)',
+      () => undetRun.code === 2,
+      `code=${undetRun.code}`,
+    )
+
+    const { fail, cases } = report()
+    for (const c of cases)
+      console.log(`${c.pass ? '✅' : '❌'} ${c.name}${c.pass ? '' : ` —— 实得:${c.got}`}`)
+    console.log(
+      fail
+        ? `self-test: 未通过(${fail}/${cases.length} 组失败)`
+        : `self-test: 全绿(${cases.length} 组)`,
+    )
+    return fail ? 1 : 0
+  } finally {
+    rmScratch(dir)
+    rmScratch(plain)
+  }
+}
+
 export function main(argv = process.argv.slice(2), opts = {}) {
+  if (argv.includes('--self-test')) return runSelfTest()
   const r = evaluate(argv, opts)
   for (const line of r.stdout) console.log(line)
   for (const line of r.stderr) console.error(line)
