@@ -9,13 +9,10 @@
  * - 兼容旧 API:actions(简单按钮列表,LabelButton/IconButton 渲染)
  * - 新 API:聊天输入模式(prompt 提供),渲染完整 Uniapp 对齐 UI:
  *   + 模型信息条(onShowModelList / onShowModelConfig / onModelConfigChange)
- *   + ToggleButtonGroup(5 开关:onToggleSuperAgent/Agentfu/Mcp/KnowledgeBase/PermanentMemory)
  *   + 图片预览行(onRemoveImage(index))
- *   + InputArea(TextInput + 语音 + 发送:onPromptChange/onInputFocus/Blur/Click/onSend/onTextareaHeightChange)
+ *   + InputArea(TextInput + 语音 + 发送:onPromptChange/onInputFocus/Blur/Click/onSend)
  *   + 辅助按钮行(onFunctionHandle / onSourceHandle / onFangda)
  *   + IconButtonGroup(相机/相册/文件/微信文件:onIconClick(type))
- *   + 键盘监听(onKeyboardShow / onKeyboardHide)
- *   + 语音动画(onStartVoiceAnimation / onStopVoiceAnimation via voiceInputEnabled)
  *   + 长按手势(onStartLongPress / onEndLongPress on voice button)
  * - 固定底部 100% 屏宽,SafeArea padding
  * - 浅色优雅风,无霓虹 / 无渐变,系统字体
@@ -27,7 +24,6 @@ import {
   ActivityIndicator,
   Animated,
   Image,
-  Keyboard,
   Pressable,
   StyleSheet,
   Text,
@@ -64,8 +60,6 @@ import {
 
 import { rnGeometry, rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 import {
-  BOTTOM_ACTION_BAR_CHIP_FONT_PX,
-  BOTTOM_ACTION_BAR_CHIP_ROW_GAP_PX,
   BOTTOM_ACTION_BAR_MODEL_BAR_FONT_PX,
   BOTTOM_ACTION_BAR_MODEL_BADGE_PX,
   BOTTOM_ACTION_BAR_TEXT_FONT_PX,
@@ -144,11 +138,6 @@ export interface BottomActionBarProps {
   onSend?: () => void
 
   // ── 25+ 事件回调(全部可选,对齐 Uniapp BottomActionBar.vue emit) ──
-  onToggleSuperAgent?: () => void
-  onToggleSuperAgentfu?: () => void
-  onToggleMcp?: () => void
-  onToggleKnowledgeBase?: () => void
-  onTogglePermanentMemory?: () => void
   onToggleVoiceInput?: () => void
   onRemoveImage?: (index: number) => void
   onStartLongPress?: () => void
@@ -163,15 +152,12 @@ export interface BottomActionBarProps {
   onInputFocus?: () => void
   onInputBlur?: () => void
   onInputClick?: () => void
-  onStartVoiceAnimation?: () => void
-  onStopVoiceAnimation?: () => void
   onFunctionHandle?: () => void
   onSourceHandle?: () => void
   /** 添加附件回调(📁 按钮;不传时降级为占位提示 Alert) */
   onAddFile?: () => void
   onIconClick?: (type: BottomActionBarIconType) => void
   onShowModelConfig?: () => void
-  onTextareaHeightChange?: (height: number) => void
   onModelConfigChange?: (config: unknown) => void
   onFangda?: () => void
   /** 手动压缩上下文回调(✂ 图标按钮,渲染在辅助按钮行;未传时不渲染) */
@@ -183,22 +169,13 @@ export interface BottomActionBarProps {
   onPlusToggle?: () => void
   /** 「+」按钮激活态(与 isShowIcon 同源:滑出区展开时高亮 + 旋转 45°,对齐 Uniapp rotate-icon) */
   plusActive?: boolean
-  onKeyboardShow?: () => void
-  onKeyboardHide?: () => void
   onShowModelList?: () => void
   /** 「我的创作」入口回调(2026-10-18:原输入框上方模型类型行第 8 项「素材」移入「+」面板
    *  主入口行 heroItem;提供时 AddPanel 渲染主入口,未提供时面板与旧版完全一致) */
   onShowMyCreation?: () => void
 
   // ── 开关状态 ──
-  superAgentEnabled?: boolean
-  mcpEnabled?: boolean
-  knowledgeBaseEnabled?: boolean
-  permanentMemoryEnabled?: boolean
   voiceInputEnabled?: boolean
-  /** Toggle 开关行(智能体/MCP/知识库/记忆 chips)是否渲染。
-   *  对齐历史 uniapp ToggleButtonGroup.vue 根节点 v-if="false":默认隐藏,显式传 true 才渲染 */
-  showToggleChips?: boolean
 
   // ── UI 扩展(功能对齐所需) ──
   /** 图片预览列表(绑定 onRemoveImage)*/
@@ -240,12 +217,6 @@ const ICON_BUTTON_EMOJI_SIZE = 18
 const ICON_BUTTON_BORDER_RADIUS = ICON_BUTTON_SIZE / 2
 /** 字距不是尺寸(守门 128 因键名含 spacing 会把它计入读数),不进几何表,登记为读数噪音。 */
 const LABEL_LETTER_SPACING = 0.2
-
-const TOGGLE_CHIP_HEIGHT = 32
-/** chip 文字字号:两端同值档,取共享源(小程序端 chip 本就是 14,RN 原 13 就近吸附)。 */
-const TOGGLE_CHIP_FONT_SIZE = BOTTOM_ACTION_BAR_CHIP_FONT_PX
-// chip 行间距不在本文件取数 —— 唯一源是 @ihui/shared/ui/bottom-action-bar-spec(与小程序端同档)
-const TOGGLE_CHIP_LETTER_SPACING = 0.2
 
 const INPUT_MIN_HEIGHT = 44
 const INPUT_BORDER_RADIUS = rnRadius['2xl'] // 原 15,R1 吸附至 2xl(16)
@@ -449,24 +420,12 @@ function IconButton({ action }: BottomActionBarItemProps) {
 
 // ── 新模式:聊天输入栏(25+ 事件绑定) ──
 
-interface ToggleChipConfig {
-  key: string
-  label: string
-  active: boolean
-  onPress: (() => void) | undefined
-}
-
 function ChatInputBar(props: BottomActionBarProps) {
   const { t } = useI18n()
   const {
     prompt = '',
     onPromptChange,
     onSend,
-    onToggleSuperAgent,
-    onToggleSuperAgentfu,
-    onToggleMcp,
-    onToggleKnowledgeBase,
-    onTogglePermanentMemory,
     onToggleVoiceInput,
     onRemoveImage,
     onStartLongPress,
@@ -474,30 +433,20 @@ function ChatInputBar(props: BottomActionBarProps) {
     onInputFocus,
     onInputBlur,
     onInputClick,
-    onStartVoiceAnimation,
-    onStopVoiceAnimation,
     onFunctionHandle,
     onSourceHandle,
     onAddFile,
     onIconClick,
     onShowModelConfig,
-    onTextareaHeightChange,
     onModelConfigChange,
     onFangda,
     onCompactContext,
     compactContextLoading = false,
     onPlusToggle,
     plusActive = false,
-    onKeyboardShow,
-    onKeyboardHide,
     onShowModelList,
     onShowMyCreation,
-    superAgentEnabled = false,
-    mcpEnabled = false,
-    knowledgeBaseEnabled = false,
-    permanentMemoryEnabled = false,
     voiceInputEnabled = false,
-    showToggleChips = false,
     images,
     modelName,
     isLoading = false,
@@ -516,60 +465,6 @@ function ChatInputBar(props: BottomActionBarProps) {
   })
 
   const insets = useSafeAreaInsets()
-  const prevVoiceEnabled = useRef(false)
-
-  // 键盘监听:keyboardDidShow / keyboardDidHide
-  useEffect(() => {
-    if (onKeyboardShow === undefined && onKeyboardHide === undefined) return
-    const showSub = Keyboard.addListener('keyboardDidShow', () => onKeyboardShow?.())
-    const hideSub = Keyboard.addListener('keyboardDidHide', () => onKeyboardHide?.())
-    return () => {
-      showSub.remove()
-      hideSub.remove()
-    }
-  }, [onKeyboardShow, onKeyboardHide])
-
-  // 语音动画:start/stop(voiceInputEnabled 状态变化触发)
-  useEffect(() => {
-    if (voiceInputEnabled && !prevVoiceEnabled.current) {
-      onStartVoiceAnimation?.()
-    }
-    if (!voiceInputEnabled && prevVoiceEnabled.current) {
-      onStopVoiceAnimation?.()
-    }
-    prevVoiceEnabled.current = voiceInputEnabled
-  }, [voiceInputEnabled, onStartVoiceAnimation, onStopVoiceAnimation])
-
-  const allChips: ReadonlyArray<ToggleChipConfig> = [
-    {
-      key: 'super-agent',
-      label: t('nav.agents'),
-      active: superAgentEnabled,
-      onPress: onToggleSuperAgent,
-    },
-    {
-      key: 'super-agentfu',
-      label: t('bab.agentAssist'),
-      active: false,
-      onPress: onToggleSuperAgentfu,
-    },
-    { key: 'mcp', label: 'MCP', active: mcpEnabled, onPress: onToggleMcp },
-    {
-      key: 'knowledge-base',
-      label: t('bab.knowledge'),
-      active: knowledgeBaseEnabled,
-      onPress: onToggleKnowledgeBase,
-    },
-    {
-      key: 'permanent-memory',
-      label: t('bab.memory'),
-      active: permanentMemoryEnabled,
-      onPress: onTogglePermanentMemory,
-    },
-  ]
-  const visibleChips = allChips.filter(
-    (chip): chip is ToggleChipConfig & { onPress: () => void } => chip.onPress !== undefined,
-  )
 
   const showModelBar =
     modelName !== undefined || onShowModelList !== undefined || onShowModelConfig !== undefined
@@ -633,20 +528,6 @@ function ChatInputBar(props: BottomActionBarProps) {
         </View>
       ) : null}
 
-      {/* Toggle chips 行(对齐历史 uniapp ToggleButtonGroup v-if="false":默认隐藏,显式开启才渲染) */}
-      {showToggleChips && visibleChips.length > 0 ? (
-        <View style={styles.toggleRow}>
-          {visibleChips.map((chip) => (
-            <ToggleChip
-              key={chip.key}
-              label={chip.label}
-              active={chip.active}
-              onPress={chip.onPress}
-            />
-          ))}
-        </View>
-      ) : null}
-
       {/* 图片预览行 */}
       {images !== undefined && images.length > 0 ? (
         <View style={styles.imageRow}>
@@ -698,9 +579,6 @@ function ChatInputBar(props: BottomActionBarProps) {
           onFocus={onInputFocus}
           onBlur={onInputBlur}
           onTouchStart={() => onInputClick?.()}
-          onContentSizeChange={(e) => {
-            onTextareaHeightChange?.(e.nativeEvent.contentSize.height)
-          }}
           placeholder={placeholder ?? t('chat.inputPlaceholder')}
           placeholderTextColor={tokens.text.tertiary}
           multiline
@@ -861,46 +739,6 @@ function ChatInputBar(props: BottomActionBarProps) {
   )
 }
 
-// ── ToggleChip 子组件 ──
-
-interface ToggleChipProps {
-  label: string
-  active: boolean
-  onPress: () => void
-}
-
-function ToggleChip({ label, active, onPress }: ToggleChipProps) {
-  return (
-    // 按压态不得写成函数形态的 style:Pressable 被 cssInterop 注册过,函数声明会被展开成空对象
-    // 而整份内联样式静默消失(守门 131 立项那一型)。外层裸 Pressable 只承接点击与无障碍语义,
-    // 胶囊的尺寸/描边/底色/按压态全部落到子 View 的数组形态上;胶囊本就按标签收拢,故不需撑满档。
-    <Pressable
-      onPress={onPress}
-      hitSlop={4}
-      accessibilityRole="button"
-      accessibilityState={{ selected: active }}
-      accessibilityLabel={label}
-    >
-      {({ pressed }) => (
-        <View
-          style={[
-            styles.toggleChip,
-            active ? styles.toggleChipActive : null,
-            pressed ? styles.toggleChipPressed : null,
-          ]}
-        >
-          <Text
-            style={[styles.toggleChipLabel, active ? styles.toggleChipLabelActive : null]}
-            numberOfLines={1}
-          >
-            {label}
-          </Text>
-        </View>
-      )}
-    </Pressable>
-  )
-}
-
 // ── 样式 ──
 
 const styles = StyleSheet.create({
@@ -1020,39 +858,6 @@ const styles = StyleSheet.create({
   configEmoji: {
     fontSize: rnType.title.size,
     lineHeight: 20,
-  } as TextStyle,
-
-  // ── 新模式:Toggle chips ──
-  toggleRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: BOTTOM_ACTION_BAR_CHIP_ROW_GAP_PX,
-  } as ViewStyle,
-  toggleChip: {
-    height: TOGGLE_CHIP_HEIGHT,
-    paddingHorizontal: rnSpacing['sm-loose'],
-    borderRadius: rnRadius.md,
-    borderWidth: 1,
-    borderColor: tokens.border.light,
-    backgroundColor: tokens.surface.card,
-    alignItems: 'center',
-    justifyContent: 'center',
-  } as ViewStyle,
-  toggleChipActive: {
-    backgroundColor: tokens.brand.cta,
-    borderColor: tokens.brandAccent.deep,
-  } as ViewStyle,
-  toggleChipPressed: {
-    opacity: 0.8,
-  } as ViewStyle,
-  toggleChipLabel: {
-    fontSize: TOGGLE_CHIP_FONT_SIZE,
-    fontWeight: '500',
-    letterSpacing: TOGGLE_CHIP_LETTER_SPACING,
-    color: tokens.text.primary,
-  } as TextStyle,
-  toggleChipLabelActive: {
-    color: tokens.brand.ctaForeground,
   } as TextStyle,
 
   // ── 新模式:图片预览 ──

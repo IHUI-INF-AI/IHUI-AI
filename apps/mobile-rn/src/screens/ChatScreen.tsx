@@ -593,12 +593,6 @@ export function ChatScreen() {
   const previousModelRef = useRef(model)
   const [agents, setAgents] = useState<Agent[]>([])
 
-  // ── BottomActionBar 开关(对齐 Uniapp ToggleButtonGroup) ──
-  const [superAgentEnabled, setSuperAgentEnabled] = useState(false)
-  const [mcpEnabled, setMcpEnabled] = useState(false)
-  const [knowledgeBaseEnabled, setKnowledgeBaseEnabled] = useState(false)
-  const [permanentMemoryEnabled, setPermanentMemoryEnabled] = useState(false)
-  const [superAgentfuEnabled, setSuperAgentfuEnabled] = useState(false)
   const [fangdaVisible, setFangdaVisible] = useState(false)
   // 输入框键盘焦点状态(handleInputFocus/handleInputBlur 维护,供 SharedChatScreen isInputFocused 等 UI 调整)
   const [inputFocused, setInputFocused] = useState(false)
@@ -1468,31 +1462,6 @@ export function ChatScreen() {
     onInputVoiceToggle()
   }
 
-  /** toggle-super-agent:切换超级智能体 */
-  const toggleSuperAgent = (): void => {
-    setSuperAgentEnabled((prev) => !prev)
-  }
-
-  /** toggle-mcp:切换 MCP */
-  const toggleMCP = (): void => {
-    setMcpEnabled((prev) => !prev)
-  }
-
-  /** toggle-knowledge-base:切换知识库 */
-  const toggleKnowledgeBase = (): void => {
-    setKnowledgeBaseEnabled((prev) => !prev)
-  }
-
-  /** toggle-permanent-memory:切换永久记忆 */
-  const togglePermanentMemory = (): void => {
-    setPermanentMemoryEnabled((prev) => !prev)
-  }
-
-  /** toggle-super-agentfu:切换智能体辅(对齐 Uniapp ToggleChip '智能体辅') */
-  const toggleSuperAgentfu = (): void => {
-    setSuperAgentfuEnabled(!superAgentfuEnabled)
-  }
-
   /** showModelConfig:显示模型配置(对齐 Uniapp ai_index.vue 行 104 ModelConfigDialog) */
   const showModelConfig = (): void => {
     setModelConfigVisible(true)
@@ -1537,12 +1506,9 @@ export function ChatScreen() {
   }
 
   // ── BottomActionBar 其余事件 stub(对齐 Uniapp 30+ 事件,后续 H22 补全) ──
-  // 已挂载到 UI 的:handleInputFocus/handleInputBlur(TextInput)、textareaHeightChange(TextInput onContentSizeChange)
-  // H22 接线:handleInputFocus/handleInputBlur 记录键盘焦点状态 inputFocused(供 isInputFocused 等 UI 调整);
-  // textareaHeightChange 仅 BottomActionBar 接线(回调带 height 参数),Shared ChatScreen 未接线,保留空实现。
+  // H22 接线:handleInputFocus/handleInputBlur 记录键盘焦点状态 inputFocused(供 isInputFocused 等 UI 调整)。
   const handleInputFocus = (): void => setInputFocused(true)
   const handleInputBlur = (): void => setInputFocused(false)
-  const textareaHeightChange = (): void => {}
 
   /** function-handle:打开功能面板(对齐 Uniapp function-handle 子组件,6 项 AI 功能)。
    *  面板(BottomPops)与滑出区(isShowIcon)解耦:开一个面板时关另一个,互斥防叠加 */
@@ -2043,15 +2009,6 @@ export function ChatScreen() {
   const handleInputClick = (): void => {
     setInputFocused(true)
   }
-
-  /** start/stop-voice-animation:语音动画回调(BottomActionBar 内 voiceInputEnabled 变化触发)。
-      语音动画 UI 尚未建立,mic 高亮由 voiceInputEnabled prop 驱动,此处保留空实现。 */
-  const handleStartVoiceAnimation = (): void => {}
-  const handleStopVoiceAnimation = (): void => {}
-
-  /** keyboard-show / keyboard-hide:键盘监听回调(键盘避让由 KeyboardAvoidingView 处理,保留空实现) */
-  const handleKeyboardShow = (): void => {}
-  const handleKeyboardHide = (): void => {}
 
   /** model-config-change:模型名/配置按钮长按触发(对齐 Uniapp 长按进模型配置)→ 打开模型配置弹窗 */
   const handleModelConfigChange = (_config: unknown): void => {
@@ -3016,11 +2973,6 @@ export function ChatScreen() {
           modelName={models.find((m) => m.id === model)?.name}
           onShowModelList={showModelList}
           onShowModelConfig={showModelConfig}
-          onToggleSuperAgent={toggleSuperAgent}
-          onToggleSuperAgentfu={toggleSuperAgentfu}
-          onToggleMcp={toggleMCP}
-          onToggleKnowledgeBase={toggleKnowledgeBase}
-          onTogglePermanentMemory={togglePermanentMemory}
           onToggleVoiceInput={toggleVoiceInput}
           onRemoveImage={
             inputFiles.length > 0 ? () => onInputRemoveFile(inputFiles[0]!.id) : undefined
@@ -3074,21 +3026,12 @@ export function ChatScreen() {
           onFangda={handleFangda}
           onCompactContext={() => void handleCompactContext()}
           compactContextLoading={compacting}
-          onTextareaHeightChange={textareaHeightChange}
           onStartLongPress={handleStartLongPress}
           onEndLongPress={handleEndLongPress}
           recording={isRecording}
           recordingDuration={recordingDuration}
           onInputClick={handleInputClick}
-          onStartVoiceAnimation={handleStartVoiceAnimation}
-          onStopVoiceAnimation={handleStopVoiceAnimation}
-          onKeyboardShow={handleKeyboardShow}
-          onKeyboardHide={handleKeyboardHide}
           onModelConfigChange={handleModelConfigChange}
-          superAgentEnabled={superAgentEnabled}
-          mcpEnabled={mcpEnabled}
-          knowledgeBaseEnabled={knowledgeBaseEnabled}
-          permanentMemoryEnabled={permanentMemoryEnabled}
           voiceInputEnabled={isVoiceMode}
           images={inputFiles.filter((f) => f.type === 'image').map((f) => f.url)}
           isLoading={isStreaming}
