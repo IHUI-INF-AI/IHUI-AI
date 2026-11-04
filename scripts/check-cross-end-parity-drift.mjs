@@ -270,6 +270,14 @@ function judgeImpl({
       webParity?.json?.missingExpiryUndetermined,
     ),
     duplicateWebKeys: finiteOrNull(webParity?.json?.duplicateWebKeys),
+    /**
+     * web↔RN 功能裁决的两只队列(2026-11-05 接)。
+     * 立因:这台尺此前只看 aligned / unmapped ⇒ "配对证据不足,记 pending 放着"这条链变长
+     * 完全不在倒退维里 —— 与 T15 点名的"小程序侧有涨跌维而 web→RN 侧没有"是同一种半边瞎。
+     * pending 净增 = 又攒下无人判的活;judgedGap 净增 = 判过之后确认 RN 侧真缺这屏。
+     */
+    pendingWebPair: finiteOrNull(webParity?.json?.pending),
+    judgedGapWeb: finiteOrNull(webParity?.json?.judgedGap),
   }
   const reasons = []
   // 派生文档滞后档:点名、可追,但不算倒退(不进 state、不进退出码)。
@@ -446,6 +454,18 @@ function judgeImpl({
       '同一 web 键多行(aligned/portal 两个分母同时灌水)',
       'node scripts/check-web-rn-screen-parity.mjs 看「重复 web 键」那一段,按「更具体的判定赢」折成一行',
     ],
+    [
+      'pendingWebPair',
+      'web-pending-increase',
+      'web↔RN 配对里「证据不足、无人判成」的队列变长(每一枚都是"两端是否同一功能"没结论)',
+      '逐枚读两端取数端点与渲染方,判 aligned/excluded/gap 后走具名出口:node scripts/apply-cross-end-verdicts.mjs --proposals=<裁决件> --apply(本尺不认手改台账;按名推断的弱证据只能开队列,不得猜成 aligned)',
+    ],
+    [
+      'judgedGapWeb',
+      'web-judged-gap-increase',
+      '判过之后确认 RN 侧真缺这一屏(功能面缺口,不是文案/样式)',
+      'node scripts/check-web-rn-screen-parity.mjs 看 gap 行,能走门户承载的先登记 status:"portal"(零开发拿功能),确属要造屏的按 gap 行派单',
+    ],
   ]) {
     const a = finiteOrNull(prev?.[key])
     const b = finiteOrNull(extras[key])
@@ -560,6 +580,8 @@ function readPrev() {
       staleCountAssertions: o?.extras?.staleCountAssertions ?? null,
       missingExpiry: o?.extras?.missingExpiry ?? null,
       duplicateWebKeys: o?.extras?.duplicateWebKeys ?? null,
+      pendingWebPair: o?.extras?.pendingWebPair ?? null,
+      judgedGapWeb: o?.extras?.judgedGapWeb ?? null,
       unmapped: o?.cur?.unmapped ?? null,
       fidelityHosted: o?.cur?.fidelityHosted ?? null,
       fidelityMissing: o?.cur?.fidelityMissing ?? null,
@@ -575,7 +597,7 @@ function selfTestMain() {
   // 用例体在 push 的那一刻已经调过 judge ⇒ 这里把"当时那次判定"折进条目,不改 27 处调用点。
   const pushRaw = cases.push.bind(cases)
   cases.push = (c) => pushRaw({ ...c, observed: lastObserved })
-  const mk = (mirrored, reds, rot, aligned = 150, unmapped = 270) => ({
+  const mk = (mirrored, reds, rot, aligned = 150, unmapped = 270, pending = 0, judgedGap = 0) => ({
     ok: true,
     json: {
       stats: { mirroredShared: mirrored, registryEntries: 90, sharedTotal: 218 },
@@ -586,6 +608,9 @@ function selfTestMain() {
       // 夹具没跟上 ⇒ 该维在自检里结构上永不触发,坏例看着像"判过了"其实没判)。
       alignedUnique: aligned,
       unmapped,
+      // web↔RN 功能面两只队列(2026-11-05 接维):尺子发的是数字,不是数组 ⇒ 夹具同形给数字。
+      pending,
+      judgedGap,
     },
   })
   /** 还原度尺的结论夹具(字段名与 check-miniapp-mirror-fidelity --json 逐字同形) */
@@ -1055,6 +1080,60 @@ function selfTestMain() {
       )
     })(),
   })
+  cases.push({
+    name: 'T25 web↔RN 无人判成的队列变长 ⇒ web-pending-increase(攒活必须出声,出路给具名出口)',
+    pass: (() => {
+      const j = judge({
+        conversion: mkConv(),
+        fidelity: mkFid(),
+        coverage: mk(91, 0, 0),
+        webParity: mk(91, 0, 0, 150, 270, 12, 0),
+        doc: '',
+        prev: { mirrored: 91, alignedUnique: 150, pendingWebPair: 8 },
+      })
+      return (
+        j.state === 'regressed' &&
+        j.reasons.some(
+          (r) =>
+            r.dim === 'web-pending-increase' &&
+            /8 → 12/.test(r.detail) &&
+            /apply-cross-end-verdicts/.test(r.detail),
+        )
+      )
+    })(),
+  })
+  cases.push({
+    name: 'T26 判过之后确认 RN 缺这屏 ⇒ web-judged-gap-increase(功能缺口与文案缺口分开报)',
+    pass: (() => {
+      const j = judge({
+        conversion: mkConv(),
+        fidelity: mkFid(),
+        coverage: mk(91, 0, 0),
+        webParity: mk(91, 0, 0, 150, 270, 0, 3),
+        doc: '',
+        prev: { mirrored: 91, alignedUnique: 150, judgedGapWeb: 1 },
+      })
+      return j.reasons.some((r) => r.dim === 'web-judged-gap-increase' && /1 → 3/.test(r.detail))
+    })(),
+  })
+  cases.push({
+    name: 'T27 反向对照:上轮没有这两维的基线 ⇒ 本轮首次量到不得判成净增(没有基线≠基线是零)',
+    pass: (() => {
+      const j = judge({
+        conversion: mkConv(),
+        fidelity: mkFid(),
+        coverage: mk(91, 0, 0),
+        webParity: mk(91, 0, 0, 150, 270, 12, 5),
+        doc: '',
+        prev: { mirrored: 91, alignedUnique: 150 },
+      })
+      return (
+        !j.reasons.some((r) => r.dim === 'web-pending-increase') &&
+        !j.reasons.some((r) => r.dim === 'web-judged-gap-increase')
+      )
+    })(),
+  })
+
   let bad = 0
   for (const c of cases) {
     if (!c.pass) bad++
