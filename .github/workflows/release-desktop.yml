@@ -986,8 +986,14 @@ jobs:
 
   # ── 2026-11-03 复活:Gitee 为**国内主通道**(仓库浏览 + 发布包下载),GitHub 为境外/兜底 ──
   # 当日早些时候的"下线"判定已撤回,原因与处置:
-  #   ① 原判定的前提是 Gitee 空仓(无 main/tag/release)⇒ target_commitish=main 建不出 tag,
-  #      每次发版 400「创建标签失败」。该前提已由"仓库初始化 + 推 main 快照"消除;
+  #   ① 原判定的前提是 Gitee 空仓(无 main/tag/release)⇒ target_commitish=main 建不出 tag
+  #      (每次发版 400「创建标签失败」)。该前提已由「仓库初始化 + 推 main 快照」消除;
+  #      2026-11-04 补根因:即使已有 main,Gitee v5 也**没有建 tag 的 API**
+  #      (POST /git/tags=405、GET /git/refs*=404,当日匿名实测)⇒ POST /releases
+  #      内部那条建 tag 腿仍然必 400(desktop-v0.1.77 实锤「创建标签失败」)。
+  #      sync-gitee.py 已改为「先 git push refs/tags/<tag>(指向 Gitee 快照 main 提交),
+  #      再 POST /releases」;顺序不可颠倒,tag 已存在由复查按幂等继续。
+  #      ⚠️ 不要改成推 GitHub 的真实发版 tag:那会把整条历史带上 Gitee(1024MB 配额)。
   #   ② 新语义:本 job 默认执行、Gitee Release 首发;资产逐件上传并按字节+SHA256 与 GitHub 对账;
   #      下载面只在「Gitee 资产存在且字节与 GitHub 原件一致」时改写直链,否则回落 GitHub + 告警。
   #   ③ 显式关闭开关:仓库 Settings → Variables 设 `GITEE_SYNC_ENABLED=false` 即跳过本 job
@@ -1050,5 +1056,34 @@ jobs:
           echo "tag: ${{ inputs.tag || github.ref_name }}" >> $GITHUB_STEP_SUMMARY
           echo "安装包+签名已尽力镜像 Gitee release(超 Gitee 单文件 100MB 上限的资产,如 Windows exe,自动跳过)" >> $GITHUB_STEP_SUMMARY
           echo "注:Gitee 侧仅为附件存档,**不是**更新器端点;客户端只认 https://aizhs.top/desktop-feed.json" >> $GITHUB_STEP_SUMMARY
+
+  # ── 方案 c(2026-11-04):Gitee 源码只读快照,发版即刷新 ──
+  # 与 .github/workflows/snapshot-to-cn.yml(周更)共用 .github/scripts/gitee-snapshot.py:
+  # 只生成「当前 origin/main 的树 + 一个无父提交」并 force 到 Gitee refs/heads/main;
+  # 不携带历史/LFS、不碰 GitHub 历史、不碰任何 tag(1024MB 配额)。
+  snapshot-gitee:
+    name: Refresh Gitee source snapshot (国内只读快照)
+    needs: [sync-gitee]
+    # sync-gitee 失败也要刷新快照(源码通道与附件通道解耦);取消则不再跑
+    if: ${{ !cancelled() && vars.GITEE_SYNC_ENABLED != 'false' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 1
+
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+
+      - name: Snapshot + verify
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+          GITEE_OWNER: ${{ secrets.GITEE_OWNER }}
+          GITEE_REPO: IHUI-AI
+        run: python3 .github/scripts/gitee-snapshot.py
 
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

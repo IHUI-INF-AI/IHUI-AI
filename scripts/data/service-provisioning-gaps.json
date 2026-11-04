@@ -1,6 +1,6 @@
 {
   "$comment": "服务「建法/承载归属」债账(票 G-584 归口，消费者 = scripts/check-service-inventory.mjs 的 readDeclaredGaps)。它登记的是**仓侧事实**：某服务名在册(注册表或结构化名册)，但仓里没有任何一条『建』的动作(nssm install / New-Service / sc create)能把它造出来，或它本就不属于这台承载机。判据不在此文件内：桶的划法一律住 scripts/check-service-inventory.mjs 的 classifyServiceFaces，本文件只说『这一格是谁欠的、为什么、什么时候前回看』。四条不可漂的写法(§0.7)：①一条必须同时带 services(非空)/reason(≥10 字定向说明)/reviewBy(YYYY-MM-DD)，缺一即**不构成豁免**(按未登记处理，方向是多喊一次不是多静音一次)；②reviewBy 到期即失效并重新点名，不得改成远期日期续命，要续必须复核现状后改；③这里记的全是名字/通道/归属，**永不写凭据值、nssm 环境块、AppParameters 明文**(§5d/§5e)；④盘符/gitdir 形态/承载机身份属 §0 七类现读机器事实，本文件不得把任何一台机的现状写成判据，所以这里只写『当次实测的判定』并带判据出处，换机后由 --snapshot 重算。",
-  "generatedFrom": "2026-10-30 席位 g35-s13 三面现读：注册表 HKLM:\\SYSTEM\\CurrentControlSet\\Services(总 793 键，^(IHUI|Keycloak) 匹配 3 键，均无 Parameters 子键)、结构化名册三本台账(service-auto-restart.json / expected-stopped-services.json / service-definitions.json，共读出 24 个服务名)、仓内动作面(deploy/win + deploy/scripts/prod-bundle + monitoring/alertbridge 的 60 枚文件里逐行找建服/用服动词)。",
+  "generatedFrom": "2026-10-30 席位 g35-s13 三面现读：注册表 HKLM:\\SYSTEM\\CurrentControlSet\\Services(总 793 键，^(IHUI|Keycloak) 匹配 3 键，均无 Parameters 子键)、结构化名册三本台账(service-auto-restart.json / expected-stopped-services.json / service-definitions.json，共读出 24 个服务名)、仓内动作面(deploy/win + deploy/scripts/prod-bundle + monitoring/alertbridge 的 60 枚文件里逐行找建服/用服动词)。2026-11-04 席位收口：IHUI-OLLAMA 已于 55b31986e0 裁撤(僵尸服务，Application 指向的 ollama.exe 目录整个不存在)，三本结构化名册现读均不再点名该名(service-auto-restart.json 的 excluded 台账同批删除)，故从本文件 infra-host-only-named-in-roster-only 条目中移除该名，登记同步移除。",
   "gaps": [
     {
       "services": ["IHUI-AI-SERVICE", "IHUI-API", "IHUI-WEB"],
@@ -44,7 +44,6 @@
       "services": [
         "IHUI-PG",
         "IHUI-REDIS",
-        "IHUI-OLLAMA",
         "IHUI-RSSHUB",
         "Keycloak",
         "IHUI-GIT-GUARD",
@@ -70,6 +69,56 @@
       "hostScope": "本机(当前承载机)，瞬态",
       "reason": "瞬态无头 Chrome:注册表现读 ImagePath=C:\\windows\\system32\\nssm.exe，AppParameters 指 C:\\Users\\Administrator\\.agent-browser\\...\\chrome.exe --headless=new --remote-debugging-port=9333 --user-data-dir=D:\\tmp\\cdp\\profile，Manual 启动(Start=3)。它由上游 agent 浏览器工具按需拉起/释放，不是仓内产品件:仓内零建服动词、零使用点，expected-stopped-services.json 已按『停着是设计内』登记。判定为本机手工 nssm 包装的临时件，仓内不应有建服源。",
       "exitRoute": "无需补建服脚本;该瞬态件退役时删服务键，并把本条与 expected-stopped-services.json 的对应豁免同批移除。",
+      "reviewBy": "2026-12-31"
+    },
+    {
+      "services": [
+        "IHUI-DEPLOYLOOP",
+        "IHUI-Firewall-Watchdog",
+        "IHUI-GIT-GUARD",
+        "IHUI-MONITOR",
+        "IHUI-PG-BACKUP"
+      ],
+      "kind": "observability-no-probe-by-design",
+      "hostScope": "本机(当前承载机)",
+      "reason": "这 5 台是任务型/常驻脚本服务：门实测其服务 pid 与其全部后代都没有 TCP 监听端点 ⇒ 端口应答维未判定属于『这类服务没有设计探针』，不是探针没跑通。它们的读数是 STATE + 进程树 + 运行时代码新鲜度；按 §0.10 不把『没有探针』写成『量到的问题』。实测依据：check-service-binary-paths.mjs 的 observed 维 measured(endpoints=[]) 与 probe 维『该服务无监听端口(任务型)』。",
+      "exitRoute": "若持有人要求端口探针，需先给这些脚本加健康检查端点并登记端口；否则维持无探针设计，由 STATE/进程树/运行时新鲜度三维承担读数。",
+      "reviewBy": "2026-12-31"
+    },
+    {
+      "services": ["IHUI-API", "IHUI-TMP-CHROME", "IHUI-WEB"],
+      "kind": "observability-application-only-when-stopped",
+      "hostScope": "本机(当前承载机)",
+      "reason": "三台都停在设计内(STATE=STOPPED，已由 expected-stopped-services.json 豁免)，服务 pid=0 ⇒ 监听观察维与应答维在结构上取不到(不是跑不通)，只剩 Application 维可读。IHUI-API 与 IHUI-WEB 无端口声明，IHUI-TMP-CHROME 是瞬态无头 Chrome。实测依据：observed/probe 维 reason=『服务 pid=0 ≤ 4』。",
+      "exitRoute": "停态读数由 STATE 维负责，不另造探针；若要求停态也能观测，只能在其运行时补健康检查端点。",
+      "reviewBy": "2026-12-31"
+    },
+    {
+      "services": [
+        "IHUI-API",
+        "IHUI-API-GREEN",
+        "IHUI-DEPLOYLOOP",
+        "IHUI-Firewall-Watchdog",
+        "IHUI-GIT-GUARD",
+        "ihui-loki",
+        "IHUI-MONITOR",
+        "IHUI-PG",
+        "IHUI-PG-BACKUP",
+        "ihui-pg-exporter",
+        "ihui-prometheus",
+        "ihui-promtail",
+        "IHUI-REDIS",
+        "ihui-redis-exporter",
+        "IHUI-RSSHUB",
+        "IHUI-TMP-CHROME",
+        "IHUI-WEB",
+        "IHUI-WEB-GREEN",
+        "ihui-windows-exporter"
+      ],
+      "kind": "observability-reading-not-consumed",
+      "hostScope": "本机(当前承载机)",
+      "reason": "按票面『覆盖率 9/28』口径：28 台里只有服务自愈白名单(service-auto-restart.json，12 台)中的 9 台在本轮实测『应答』；其余 19 台不在自动读数消费面 —— 其中 11 台的 probe 维已量到(9 台应答正常、2 台明确声明端口无应答)但没有任何台账定期消费该读数，5 台是任务型无探针，3 台停在设计内只剩 Application 维。这不是把读数改绿：读数照旧，只把『没人消费』登记成债。",
+      "exitRoute": "要么把这些服务纳入 service-auto-restart.json 白名单(带 reason/owner/reviewBy)，要么在监控面另设消费者；不纳入前不得把 9/28 读成覆盖率健康。",
       "reviewBy": "2026-12-31"
     }
   ]
