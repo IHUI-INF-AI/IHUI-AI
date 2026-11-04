@@ -30,6 +30,45 @@ const TARGET = join(ROOT, 'apps', 'mobile-rn', 'android', 'app', 'build.gradle')
 
 const MARK = '2026-09-03 P2' // 注入标记(三段共用, 幂等检测锚点)
 
+/**
+ * 签名纪律文案(2026-11-04 立,机主令"不允许再出现签名不一致的情况 彻底根治杜绝")。
+ * 要堵的不是"debug 签名存在",而是"debug 签名静默可得":
+ * 缺凭据时旧配置直接回落 signingConfigs.debug,产物证书是 CN=Android Debug,
+ * 而 gradle 照样 BUILD SUCCESSFUL —— 装机当场 INSTALL_FAILED_UPDATE_INCOMPATIBLE,
+ * 唯一"能装上"的出路是 uninstall,而那会清掉用户登录态(本仓明令禁止)。
+ * 现在不显式给 -PallowDebugSigning 就在配置期失败;CI 要 dev 包必须自己声明。
+ */
+const SIGN_DISCIPLINE =
+  'IHUI AI 签名纪律(2026-11-04 立):缺 IHUI_RELEASE_* 凭据 ⇒ 拒绝产出 debug.keystore 签名的包。' +
+  ' 静默回落会让账面 BUILD SUCCESSFUL 而产物证书是 CN=Android Debug,装到正式签名机上' +
+  ' 当场 INSTALL_FAILED_UPDATE_INCOMPATIBLE,而唯一"能装上"的出路 uninstall 会清掉登录态。' +
+  ' 确需 dev 包(CI)请在 gradle 命令行显式加 -PallowDebugSigning=true,让签名身份由调用方声明而不是由缺件决定。'
+
+/**
+ * 取 buildTypes 段里某个 buildType 块的内容(不含大括号行)。
+ * 旧 detect 写的是「buildTypes 段里出现过 signingConfig signingConfigs.release」,
+ * 而 debug 块注入后同样含这一串 ⇒ 未注入的那一段会被已注入的兄弟段判成"已注入",
+ * 于是注入器报 [skip]、盘上仍是回落形态。判据必须按块定位,不能按段内出现算。
+ */
+function buildTypeBlock(s, name) {
+  const bt = s.indexOf('buildTypes {')
+  if (bt < 0) return ''
+  const open = new RegExp(`\\n {8}${name} \\{`)
+  const m = open.exec(s.slice(bt))
+  if (!m) return ''
+  const start = bt + m.index + m[0].length
+  const end = s.indexOf('\n        }', start)
+  return end < 0 ? '' : s.slice(start, end)
+}
+
+/** 依次试多组锚点,命中即替换:同一目标态对应"模板原文 / 旧手改态 / 旧注入态"三种前像。 */
+function replaceAny(src, pairs) {
+  for (const [from, to] of pairs) {
+    if (src.includes(from)) return src.replace(from, to)
+  }
+  return src
+}
+
 // ---------- 注入段定义(锚 = Expo prebuild 模板原文; 注入 = 目标态) ----------
 const SECTIONS = [
   {
@@ -128,29 +167,110 @@ const SECTIONS = [
       ),
   },
   {
-    label: 'buildTypes.release 条件签名 (有凭据→release, 无→debug)',
-    // 同上放宽:buildTypes.release 已无条件签 release 签名即视为已配置。
-    detect: (s) => /buildTypes \{[\s\S]{0,3000}?signingConfig signingConfigs\.release/.test(s),
+    label: 'buildTypes.release 签名 (有凭据→release; 无凭据且未显式授权→配置期失败)',
+    detect: (s) => buildTypeBlock(s, 'release').includes('allowDebugSigning'),
     apply: (s) =>
-      s.replace(
+      replaceAny(s, [
+        // 锚 1:Expo/RN prebuild 模板原文
         [
-          '        release {',
-          '            // Caution! In production, you need to generate your own keystore file.',
-          '            // see https://reactnative.dev/docs/signed-apk-android.',
-          '            signingConfig signingConfigs.debug',
-        ].join('\n'),
+          [
+            '        release {',
+            '            // Caution! In production, you need to generate your own keystore file.',
+            '            // see https://reactnative.dev/docs/signed-apk-android.',
+            '            signingConfig signingConfigs.debug',
+          ].join('\n'),
+          [
+            '        release {',
+            '            // Caution! In production, you need to generate your own keystore file.',
+            '            // see https://reactnative.dev/docs/signed-apk-android.',
+            "            if (project.hasProperty('IHUI_RELEASE_STORE_FILE')) {",
+            '                signingConfig signingConfigs.release',
+            "            } else if (!project.hasProperty('allowDebugSigning')) {",
+            `                throw new GradleException('${SIGN_DISCIPLINE}')`,
+            '            } else {',
+            '                // 显式授权档(CI dev 包):产物名带 dev- 前缀、禁发布到 Release',
+            '                signingConfig signingConfigs.debug',
+            '            }',
+          ].join('\n'),
+        ],
+        // 锚 2:2026-09-03 起的旧注入态(无凭据静默回落 debug,不报错)
         [
-          '        release {',
-          '            // Caution! In production, you need to generate your own keystore file.',
-          '            // see https://reactnative.dev/docs/signed-apk-android.',
-          "            if (project.hasProperty('IHUI_RELEASE_STORE_FILE')) {",
-          '                signingConfig signingConfigs.release',
-          '            } else {',
-          '                // 无签名凭据(CI/新机器): 回退 debug 签名保证可安装, 生产上架前必须配置',
-          '                signingConfig signingConfigs.debug',
-          '            }',
-        ].join('\n')
-      ),
+          [
+            "            if (project.hasProperty('IHUI_RELEASE_STORE_FILE')) {",
+            '                signingConfig signingConfigs.release',
+            '            } else {',
+            '                // 无签名凭据(CI/新机器): 回退 debug 签名保证可安装, 生产上架前必须配置',
+            '                signingConfig signingConfigs.debug',
+            '            }',
+          ].join('\n'),
+          [
+            "            if (project.hasProperty('IHUI_RELEASE_STORE_FILE')) {",
+            '                signingConfig signingConfigs.release',
+            "            } else if (!project.hasProperty('allowDebugSigning')) {",
+            `                throw new GradleException('${SIGN_DISCIPLINE}')`,
+            '            } else {',
+            '                // 显式授权档(CI dev 包):产物名带 dev- 前缀、禁发布到 Release',
+            '                signingConfig signingConfigs.debug',
+            '            }',
+          ].join('\n'),
+        ],
+      ]),
+  },
+  {
+    label: 'buildTypes.debug 签名 (signing-unify 收编进注入器; 无凭据且未显式授权→配置期失败)',
+    // 2026-11-04 新增这一段。此前 debug 块那行"debug 变体也用正式 keystore"是手改进
+    // apps/mobile-rn/android/app/build.gradle 的 —— 那是 Expo prebuild 生成物、gitignored,
+    // 仓里 grep 不到任何出处,也没有还原/检测条目;任何人跑一次 expo prebuild 它就静默消失,
+    // debug 变体当场回落 debug.keystore,而 gradle 仍是 BUILD SUCCESSFUL。
+    // 实测后果:2026-11-04 拿一枚回落形态的旧 app-debug.apk 当"debug 必是 debug 签名"的证据,
+    // 差点据此放弃热更通道并考虑 uninstall(会清登录态)。
+    detect: (s) => buildTypeBlock(s, 'debug').includes('allowDebugSigning'),
+    apply: (s) =>
+      replaceAny(s, [
+        // 锚 1:prebuild 模板原文
+        [
+          [
+            '        debug {',
+            '            signingConfig signingConfigs.debug',
+            '        }',
+          ].join('\n'),
+          [
+            '        debug {',
+            '            // [IHUI signing-unify] debug 变体同样使用正式 keystore(由 patch-rn-release-signing.mjs 注入)',
+            "            if (project.hasProperty('IHUI_RELEASE_STORE_FILE')) {",
+            '                signingConfig signingConfigs.release',
+            "            } else if (!project.hasProperty('allowDebugSigning')) {",
+            `                throw new GradleException('${SIGN_DISCIPLINE}')`,
+            '            } else {',
+            '                // 显式授权档(CI dev 包):产物名带 dev- 前缀、禁发布到 Release',
+            '                signingConfig signingConfigs.debug',
+            '            }',
+            '        }',
+          ].join('\n'),
+        ],
+        // 锚 2:此前手改进生成物的 signing-unify 旧态(三元回落,缺凭据即静默出 debug 签名)
+        [
+          [
+            '        debug {',
+            '            // [IHUI signing-unify] debug 变体同样使用正式 keystore(见本插件头注释)',
+            '            signingConfig(project.hasProperty(\'IHUI_RELEASE_STORE_FILE\') ? signingConfigs.release : signingConfigs.debug)',
+            '        }',
+          ].join('\n'),
+          [
+            '        debug {',
+            '            // [IHUI signing-unify] debug 变体同样使用正式 keystore(由 patch-rn-release-signing.mjs 注入)',
+            "            if (project.hasProperty('IHUI_RELEASE_STORE_FILE')) {",
+            '                signingConfig signingConfigs.release',
+            "            } else if (!project.hasProperty('allowDebugSigning')) {",
+            `                throw new GradleException('${SIGN_DISCIPLINE}')`,
+            '            } else {',
+            '                // 显式授权档(CI dev 包):产物名带 dev- 前缀、禁发布到 Release',
+            '                signingConfig signingConfigs.debug',
+            '            }',
+            '        }',
+          ].join('\n'),
+        ],
+      ]),
   },
 ]
 
@@ -205,7 +325,7 @@ function restoreTemplate(s) {
     '    }',
   ].join('\n')
   t = t.replace(rel, '    }')
-  const btr = [
+  const btrOld = [
     '        release {',
     '            // Caution! In production, you need to generate your own keystore file.',
     '            // see https://reactnative.dev/docs/signed-apk-android.',
@@ -216,12 +336,52 @@ function restoreTemplate(s) {
     '                signingConfig signingConfigs.debug',
     '            }',
   ].join('\n')
-  t = t.replace(btr, [
+  const btrNew = [
+    '        release {',
+    '            // Caution! In production, you need to generate your own keystore file.',
+    '            // see https://reactnative.dev/docs/signed-apk-android.',
+    "            if (project.hasProperty('IHUI_RELEASE_STORE_FILE')) {",
+    '                signingConfig signingConfigs.release',
+    "            } else if (!project.hasProperty('allowDebugSigning')) {",
+    `                throw new GradleException('${SIGN_DISCIPLINE}')`,
+    '            } else {',
+    '                // 显式授权档(CI dev 包):产物名带 dev- 前缀、禁发布到 Release',
+    '                signingConfig signingConfigs.debug',
+    '            }',
+  ].join('\n')
+  const btrTpl = [
     '        release {',
     '            // Caution! In production, you need to generate your own keystore file.',
     '            // see https://reactnative.dev/docs/signed-apk-android.',
     '            signingConfig signingConfigs.debug',
-  ].join('\n'))
+  ].join('\n')
+  t = t.includes(btrNew) ? t.replace(btrNew, btrTpl) : t.replace(btrOld, btrTpl)
+  // debug 段(2026-11-04 补):注入态与"此前手改进生成物"的旧 signing-unify 态都要还原回模板原文。
+  // 少这一半,-f 就还原不干净 ⇒ 重注入时 detect 仍报"已注入","验注入路径"那一档会假绿。
+  const dbgNew = [
+    '        debug {',
+    '            // [IHUI signing-unify] debug 变体同样使用正式 keystore(由 patch-rn-release-signing.mjs 注入)',
+    "            if (project.hasProperty('IHUI_RELEASE_STORE_FILE')) {",
+    '                signingConfig signingConfigs.release',
+    "            } else if (!project.hasProperty('allowDebugSigning')) {",
+    `                throw new GradleException('${SIGN_DISCIPLINE}')`,
+    '            } else {',
+    '                // 显式授权档(CI dev 包):产物名带 dev- 前缀、禁发布到 Release',
+    '                signingConfig signingConfigs.debug',
+    '            }',
+    '        }',
+  ].join('\n')
+  const dbgHandEdit = [
+    '        debug {',
+    '            // [IHUI signing-unify] debug 变体同样使用正式 keystore(见本插件头注释)',
+    "            signingConfig(project.hasProperty('IHUI_RELEASE_STORE_FILE') ? signingConfigs.release : signingConfigs.debug)",
+    '        }',
+  ].join('\n')
+  const dbgTpl = ['        debug {', '            signingConfig signingConfigs.debug', '        }'].join(
+    '\n'
+  )
+  if (t.includes(dbgNew)) t = t.replace(dbgNew, dbgTpl)
+  else if (t.includes(dbgHandEdit)) t = t.replace(dbgHandEdit, dbgTpl)
   return t
 }
 
