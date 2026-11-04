@@ -6278,6 +6278,33 @@ const checks = [
       '',
     ].join('\n'),
   },
+  // --- 工作流/部署脚本引用不存在的脚本(只读门,298)---
+  {
+    id: '298',
+    label: '🔗 工作流/部署脚本引用不存在的脚本(死引用)',
+    script: 'check-dead-script-refs.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_DEAD_SCRIPT_REFS',
+    stagedTriggers: [
+      'deploy/',
+      '.github/workflows/',
+      'scripts/data/',
+      'scripts/check-dead-script-refs.mjs',
+    ],
+    onFailHint: [
+      '',
+      '  💡 deploy/** 与 .github/workflows/** 里 `scripts/*.{ts,mjs}` 的引用必须能解析到真实文件。',
+      '     cwd 语义已内置:GitHub Actions working-directory(步骤级 > job 级 defaults)、',
+      '     pnpm --filter <pkg> exec、shell 的 cd、Dockerfile WORKDIR、相对路径。',
+      '     解析不出来时:能定 cwd 的判真死(exit 1);定不了 cwd 的记未判定(exit 2,不折绿)。',
+      '     回滚态(HEAD 有、工作树缺)只报数,不算真死引用。',
+      '     复验:node scripts/check-dead-script-refs.mjs --staged',
+      '     自检:node scripts/check-dead-script-refs.mjs --self-test',
+      '     跳过:HUSKY_SKIP_DEAD_SCRIPT_REFS=1',
+      '',
+    ].join('\n'),
+  },
   // --- info (1 项) ---
   {
     id: '23',
