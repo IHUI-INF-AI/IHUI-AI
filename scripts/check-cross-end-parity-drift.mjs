@@ -153,7 +153,21 @@ function countOrNull(items, undetermined) {
   return items.length
 }
 
-function judge({
+/**
+ * 最近一次判定的结论(只为自检的坏例归因而存在,不参与任何判定)。
+ * 立因:2026-11-05 现读这台尺的 --self-test 坏了 19/24,而 ✗ 行只有名字 ——
+ * 「整轮未判定」「该维没触发」「夹具与出口不同形」三种成因在屏幕上长得一模一样,
+ * 于是坏了几天没人能一眼定位(§0.9:判据失效的表现永远是安静)。
+ */
+let lastObserved = null
+
+function judge(arg) {
+  const r = judgeImpl(arg)
+  lastObserved = r
+  return r
+}
+
+function judgeImpl({
   coverage,
   webParity,
   fidelity,
@@ -558,6 +572,9 @@ function readPrev() {
 
 function selfTestMain() {
   const cases = []
+  // 用例体在 push 的那一刻已经调过 judge ⇒ 这里把"当时那次判定"折进条目,不改 27 处调用点。
+  const pushRaw = cases.push.bind(cases)
+  cases.push = (c) => pushRaw({ ...c, observed: lastObserved })
   const mk = (mirrored, reds, rot, aligned = 150, unmapped = 270) => ({
     ok: true,
     json: {
@@ -1042,6 +1059,14 @@ function selfTestMain() {
   for (const c of cases) {
     if (!c.pass) bad++
     console.log(`${c.pass ? '✓' : '✗'} ${c.name}`)
+    // 坏例必须自带实际结论:2026-11-05 实测这台尺的自检坏了 19/24 却连日无人发现,
+    // 半因是✗ 行只有名字 —— 判据取不到/整轮未判定/维没触发,三种成因在"✗ 名字"上长得一模一样。
+    if (!c.pass)
+      console.log(
+        `    ↳ 实际 state=${c.observed?.state ?? '(未取到)'}｜ 维=${
+          (c.observed?.reasons ?? []).map((r) => r.dim).join(',') || '(无)'
+        }｜ 缺输入=${(c.observed?.missing ?? []).join(',') || '(无)'}`,
+      )
   }
   console.log(
     bad === 0
