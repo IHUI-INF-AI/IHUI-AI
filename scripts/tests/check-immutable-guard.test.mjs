@@ -52,12 +52,17 @@ const ROOT = resolve(HERE, '..', '..')
 const SCRIPT = join(ROOT, 'scripts', 'check-immutable-guard.mjs')
 
 /** 显式 stdio（本机不写会 EBUSY，§12g 同型）—— CLI 端到端真跑。
- *  超时 240s：T16 跑完整 --self-test（现已含 52 例，单跑实测 ~115s），120s 在机器有并发负载时会被杀掉。 */
-const runGate = (args, cwd = ROOT, env = {}) =>
+ *  默认预算 240s：单门 CLI 实测远低于此。`--self-test` 那一档另给预算：
+ *  2026-11-05 实测 70 例空闲单跑 104.3 秒，而本镜像档整套并发跑时同一档在 240.0 秒
+ *  被杀 ⇒ T16 红（拿 HEAD 原样副本同测也红，属负载型误伤，不是判据红）。
+ *  被杀与判红必须分两档报：否则「没判出来」会被读成「判过且红」（§0.3）。 */
+const GATE_BUDGET_MS = 240_000
+const SELFTEST_BUDGET_MS = Number(process.env.IMM_GUARD_SELFTEST_BUDGET_MS || 600_000)
+const runGate = (args, cwd = ROOT, env = {}, timeoutMs = GATE_BUDGET_MS) =>
   spawnSync(process.execPath, [SCRIPT, ...args], {
     encoding: 'utf8',
     windowsHide: true,
-    timeout: 240000,
+    timeout: timeoutMs,
     cwd,
     env: { ...process.env, ...env },
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -458,7 +463,13 @@ test('T15 接线形状锁：源脚本不自称 runner 注册块；runner 已把�
 })
 
 test('T16 --self-test 真跑：通过数 ≥10 且全绿', () => {
-  const r = runGate(['--self-test'])
+  const r = runGate(['--self-test'], ROOT, {}, SELFTEST_BUDGET_MS)
+  if (r.signal)
+    assert.fail(
+      `未判定：自检子进程在 ${SELFTEST_BUDGET_MS}ms 预算处被杀(signal=${r.signal})，` +
+        '这既不是"自检红"也不是"自检绿"——空闲单跑实测 104.3s，命中本档说明机器正被并发负载压着，' +
+        '要么重跑要么用 IMM_GUARD_SELFTEST_BUDGET_MS 临时放宽，禁止借这一格跳门',
+    )
   assert.equal(r.status, 0, r.stdout + r.stderr)
   const m = /\[immutable-guard:self-test\] (\d+)\/(\d+) 通过/.exec(r.stdout)
   assert.ok(m, `自检末行必须可解析：${r.stdout.slice(-200)}`)

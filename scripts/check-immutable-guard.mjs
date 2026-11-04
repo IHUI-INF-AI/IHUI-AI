@@ -128,6 +128,7 @@ import {
   FACES,
   Undetermined,
   catBatch,
+  catBatchOids,
   gitRaw,
   readWorktreeFile,
   selectFace,
@@ -442,6 +443,91 @@ export function readFaceText(root, face, rel, rev = 'HEAD') {
 }
 
 /**
+ * 一批 spec 一次读完（2026-11-05 RP-92，纯削派生、不改判序）。
+ * 立因（当次实测，30 枚区间）：逐枚 `cat-file` 单读清单 3.632 秒，批量一次 0.299 秒。
+ * 失效方向：整批取不到 ⇒ 返回 `null` ⇒ 调用方**逐枚回落**原来的单读（变慢，但绝不判错）；
+ * 单项 missing ⇒ 该键 `null`，与 `readFaceText` 的"该面没有这份清单"逐字同义。
+ * @returns {Map<string,string|null>|null}
+ */
+export function batchFaceTexts(root, specs) {
+  const list = [...new Set((Array.isArray(specs) ? specs : []).filter(Boolean).map(String))]
+  if (list.length === 0) return new Map()
+  try {
+    const got = catBatch(root, list, { maxBuffer: 1 << 28 })
+    if (!(got instanceof Map)) return null
+    for (const s of list) if (!got.has(s)) got.set(s, null)
+    return got
+  } catch {
+    return null
+  }
+}
+
+const CHANGE_RECORD_SEP = '\x1e'
+/**
+ * 一批提交的 `rev^..rev` 差异集**一次读齐**（RP-92）。
+ * 立因（当次实测）：逐枚 `git diff --name-status -M -z rev^ rev` 60 枚 9.008 秒；
+ * 一次 `git log --no-walk=unsorted --name-status -M -z` 同样 60 枚 0.371 秒（≈24×）。
+ * 分帧按当次 od -c 实测：`\x1e` + 40 位 sha + `\x00\n` + (`STATUS\x00PATH\x00`…)；
+ * 任一片对不上"记录符后紧跟 40 位十六进制"⇒ **整批作废**返回空表 ⇒ 调用方逐枚回落。
+ * 已知不等价处（必须由调用方避开，不是本函数兜）：
+ *  · 根提交（0 父）：`git log` 无父可差不吐差异，而逐枚档的 `rev^` 会失败 ⇒ `face-missing`；
+ *  · 合并提交：本档不吐逐父差异 —— 但 `judgeBatch` 在调用判定前就按父数跳过了它们。
+ * @returns {Map<string,Array<{status:string,path:string,oldPath?:string}>>}
+ */
+export function batchFaceChanges(root, shas) {
+  const out = new Map()
+  const list = (Array.isArray(shas) ? shas : []).filter((s) => FULL_SHA_RE.test(String(s)))
+  if (list.length === 0) return out
+  let raw
+  try {
+    raw = String(
+      gitRaw(
+        [
+          'log',
+          '--no-walk=unsorted',
+          '-z',
+          `--format=${CHANGE_RECORD_SEP}%H`,
+          '--name-status',
+          '-M',
+          '-z',
+          ...list,
+        ],
+        root,
+        { maxBuffer: 1 << 28 },
+      ),
+    )
+  } catch {
+    return out
+  }
+  const pieces = raw.split(CHANGE_RECORD_SEP)
+  for (const piece of pieces.slice(1)) {
+    const m = /^([0-9a-f]{40})(?:\u0000\n|\n)?([\s\S]*)$/.exec(piece)
+    if (!m) return new Map()
+    out.set(m[1], parseNameStatusZ(m[2]))
+  }
+  return out
+}
+
+/**
+ * `origin/main` 的祖先集合（含其自身）—— 把逐枚 `merge-base --is-ancestor` 收成一次遍历。
+ * 立因（当次实测）：逐枚 30 次 32.534 秒（≈1.08 秒/枚，本文件最大单项成本），
+ * 一次 `git rev-list origin/main` 1.391 秒（45,327 枚）。两者对"是否祖先"答案等价：
+ * rev-list 吐的正是"该 ref 及其全部祖先"。
+ * 取不到（ref 不存在 / 派生失败 / 空集）⇒ `null` ⇒ 调用方逐枚回落 `isOnOriginMain`
+ * （那条今天的失效方向是 false，即 fail-closed，回落不改变判定）。
+ * @returns {Set<string>|null}
+ */
+export function originMainMembership(root, ref = 'origin/main') {
+  try {
+    const raw = String(gitRaw(['rev-list', String(ref)], root, { maxBuffer: 1 << 28 }))
+    const set = new Set(raw.split(/\r?\n/).filter(Boolean))
+    return set.size > 0 ? set : null
+  } catch {
+    return null
+  }
+}
+
+/**
  * 被审面的改动清单。统一 `--name-status -M -z`（NUL 分帧：中文/空格路径不被打断）。
  * `--worktree` 档把未跟踪文件按 A 计入 —— 新建一枚受保护面同样是"触及判据面"。
  * @returns {Array<{status:string,path:string,oldPath?:string}>}
@@ -496,9 +582,27 @@ export function stagedHitsAt(root, entries, base, today = todayStr()) {
  * 不会被当成某个真实 blob。
  */
 export function blobMapFor(root, face, rev, paths) {
+  const rels = [
+    ...new Set((Array.isArray(paths) ? paths : []).map((p) => normalizeRel(p)).filter(Boolean)),
+  ]
   const map = {}
-  for (const rel of new Set((Array.isArray(paths) ? paths : []).map((p) => normalizeRel(p)))) {
-    if (!rel) continue
+  if (rels.length === 0) return map
+  const specOf = (rel) => (face === 'staged' ? `:${rel}` : `${rev}:${rel}`)
+  if (face !== 'worktree') {
+    // 一次 `cat-file --batch-check` 解完整批命中路径（RP-92；逐枚 `rev-parse --verify` 每枚一次派生）。
+    // missing ⇒ null ⇒ 空串，与逐枚档"git 报错 ⇒ 空串"同义：空串本身就是"这一格没有内容号"。
+    let oids = null
+    try {
+      oids = catBatchOids(root, rels.map(specOf))
+    } catch {
+      oids = null
+    }
+    if (oids) {
+      for (const rel of rels) map[rel] = String(oids.get(specOf(rel)) ?? '').trim()
+      return map
+    }
+  }
+  for (const rel of rels) {
     try {
       const arg = face === 'staged' ? `:${rel}` : face === 'worktree' ? null : `${rev}:${rel}`
       const out =
@@ -551,6 +655,10 @@ export function runAudit(
     ackRows = [],
     keyRes = undefined,
     ackKeyRes = undefined,
+    listTextPre = undefined,
+    policyTextPre = undefined,
+    changesPre = undefined,
+    onOriginMainPre = undefined,
   } = {},
 ) {
   // 批档(judgeBatch)整批解析一次两把密钥再逐枚透传:密钥来源的**文字**必须与逐枚解析时一致,
@@ -575,7 +683,6 @@ export function runAudit(
               why: '独立追认密钥不存在（调用方显式置空 ⇒ 按 fail-closed 处理）',
             }
           : { key: String(ackKey), source: 'caller', why: '' }
-  const keySource = keyResFinal.source
   const baseOut = {
     face,
     rev,
@@ -595,14 +702,22 @@ export function runAudit(
     detail: '',
   }
   const useBasePolicy = Boolean(policyRev && policyRev !== rev)
+  // 批档预读（judgeBatch 一次读齐全批；`undefined` = 没给 ⇒ 逐枚自取，判定逐字不变。
+  // 这里必须区分"预读说这面没有清单"(null ⇒ 直接用)与"没预读"(undefined ⇒ 自己读)，
+  // 把前者当后者会白派生，把后者当前者会把判得出来的枚说成 list-missing。）
   let listText
   let policyText = null
   try {
     if (useBasePolicy) {
-      policyText = readFaceText(root, 'head', GUARD_DATA_REL, policyRev)
-      listText = readFaceText(root, 'head', GUARD_DATA_REL, rev)
+      policyText =
+        policyTextPre !== undefined
+          ? policyTextPre
+          : readFaceText(root, 'head', GUARD_DATA_REL, policyRev)
+      listText =
+        listTextPre !== undefined ? listTextPre : readFaceText(root, 'head', GUARD_DATA_REL, rev)
     } else {
-      listText = readFaceText(root, face, GUARD_DATA_REL, rev)
+      listText =
+        listTextPre !== undefined ? listTextPre : readFaceText(root, face, GUARD_DATA_REL, rev)
     }
   } catch (e) {
     if (e instanceof Undetermined) return { ...baseOut, detail: e.message, code: 'list-missing' }
@@ -636,17 +751,21 @@ export function runAudit(
   }
 
   let changes
-  try {
-    changes = listFaceChanges(root, face, rev)
-  } catch (e) {
-    if (e instanceof Undetermined)
-      return {
-        ...baseOut,
-        entryCount: parsed.entries.length,
-        code: 'face-missing',
-        detail: e.message,
-      }
-    throw e
+  if (changesPre !== undefined) {
+    changes = changesPre
+  } else {
+    try {
+      changes = listFaceChanges(root, face, rev)
+    } catch (e) {
+      if (e instanceof Undetermined)
+        return {
+          ...baseOut,
+          entryCount: parsed.entries.length,
+          code: 'face-missing',
+          detail: e.message,
+        }
+      throw e
+    }
   }
 
   let msg = message
@@ -691,7 +810,10 @@ export function runAudit(
   const ackSha = ackShaOf(root, face, rev)
   // a1 只对 origin/main 已入库枚保留：那些枚改不动历史、也不会再进推送区间；
   // 本地枚（区间里待推的那些）必须用 a2 独立追认，否则"作者拿提交钥自签一行"照样洗白。
-  const legacyA1 = Boolean(ackSha && isOnOriginMain(root, ackSha))
+  // `onOriginMainPre` = 批档一次 `rev-list origin/main` 的成员判定；`undefined` ⇒ 逐枚问（原路径）。
+  const onOriginMain =
+    onOriginMainPre === undefined ? isOnOriginMain(root, ackSha) : Boolean(onOriginMainPre)
+  const legacyA1 = Boolean(ackSha && onOriginMain)
   const out = decide({
     listProblems: parsed.problems,
     entries: parsed.entries,
@@ -1025,6 +1147,17 @@ function judgeBatch(root, batch, { today = todayStr(), record = false, policyRev
   const metas = batchCommitMeta(root, batch)
   const sharedKeyRes = resolveSigningKey(root)
   const sharedAckKeyRes = resolveAckKey(root)
+  // 三张批表(2026-11-05 RP-92):清单正文 / 差异集 / origin/main 成员集。
+  // 每一张都是"取不到 ⇒ 该枚逐枚回落原路径",不是"取不到 ⇒ 当成空"。
+  const policySpec = policyRev ? `${policyRev}:${GUARD_DATA_REL}` : null
+  const listBatch = batchFaceTexts(
+    root,
+    policySpec
+      ? [...new Set([...batch.map((sha) => `${sha}:${GUARD_DATA_REL}`), policySpec])]
+      : batch.map((sha) => `${sha}:${GUARD_DATA_REL}`),
+  )
+  const changesBatch = batchFaceChanges(root, batch)
+  const originSet = originMainMembership(root)
   for (const sha of batch) {
     const meta = metas.get(sha) ?? null
     const parents = meta ? meta.parentCount : parentCount(root, sha)
@@ -1033,6 +1166,11 @@ function judgeBatch(root, batch, { today = todayStr(), record = false, policyRev
       continue
     }
     judged += 1
+    // 根提交(0 父)不吃批表:`git log` 无父可差不吐差异,而逐枚档的 `rev^` 会失败 ⇒ `face-missing`。
+    // 宁可这一枚多派生一次,也不把"判不了"悄悄读成"没改判据面"(§0.3)。
+    const useBatchChanges = parents > 0 && changesBatch.has(sha)
+    const listTextPre = listBatch === null ? undefined : listBatch.get(`${sha}:${GUARD_DATA_REL}`)
+    const policyTextPre = listBatch === null || !policySpec ? undefined : listBatch.get(policySpec)
     let one
     try {
       one = runAudit(root, 'head', {
@@ -1044,6 +1182,10 @@ function judgeBatch(root, batch, { today = todayStr(), record = false, policyRev
         message: meta ? meta.message : undefined,
         keyRes: sharedKeyRes,
         ackKeyRes: sharedAckKeyRes,
+        listTextPre,
+        policyTextPre,
+        changesPre: useBatchChanges ? changesBatch.get(sha) : undefined,
+        onOriginMainPre: originSet ? originSet.has(sha) : undefined,
       })
     } catch (e) {
       one = {
@@ -2926,6 +3068,132 @@ export function selfTest() {
     )
   })
 
+  // ST57 RP-92 三张批表(清单正文 / 差异集 / origin/main 成员集)不得改变任何一次判定。
+  // 立因(当次实测):推送门判 origin/main..HEAD(现读 147 枚)要 400 秒级,而它挂在 300 秒
+  // 看门狗下面 ⇒ 那道"专抓未声明改判据面"的审计在推送时被悄悄砍掉(§0.9 没跑=没有)。
+  // 批档把每枚 3~5 次派生收成整批常数级;省的是派生,一枚判定都不许多省或少省。
+  run((root) => {
+    writeIn(root, 'scripts/lib/face-reader.mjs', '// r1\n')
+    commitAll(root, 'chore: 批表对照第一枚')
+    const shaRoot = String(gitRaw(['rev-parse', 'HEAD'], root)).trim()
+    writeIn(root, 'docs/中文路径.md', '# 中文名\n')
+    commitAll(root, 'docs: 中文路径')
+    const shaCjk = String(gitRaw(['rev-parse', 'HEAD'], root)).trim()
+    gitRaw(['mv', 'docs/中文路径.md', 'docs/renamed.md'], root)
+    commitAll(root, 'chore: 改名')
+    const shaRename = String(gitRaw(['rev-parse', 'HEAD'], root)).trim()
+    gitRaw(['rm', '-q', 'docs/x.md'], root)
+    commitAll(root, 'chore: 删除')
+    const shaDelete = String(gitRaw(['rev-parse', 'HEAD'], root)).trim()
+    // 零改动枚要显式 allow-empty:这一档正是"批表里空数组与缺席不可混"的那一格。
+    gitRaw(['commit', '--no-verify', '--allow-empty', '-F', '-'], root, {
+      input: 'chore: 空改动枚',
+    })
+    const shaEmpty = String(gitRaw(['rev-parse', 'HEAD'], root)).trim()
+    const shas = [shaRoot, shaCjk, shaRename, shaDelete, shaEmpty]
+    const table = batchFaceChanges(root, shas)
+    let diffCount = 0
+    for (const sha of shas) {
+      if (parentCount(root, sha) === 0) continue
+      const one = listFaceChanges(root, 'head', sha)
+      const got = table.get(sha)
+      if (!got || JSON.stringify(got) !== JSON.stringify(one)) diffCount += 1
+    }
+    ok(
+      'ST57a 批量差异集与逐枚 `diff rev^ rev` 逐字等值(新增/中文名/改名/删除/空改动各一枚)',
+      diffCount === 0 && table.size === shas.length,
+      JSON.stringify({
+        diffCount,
+        tableSize: table.size,
+        rename: table.get(shaRename),
+        empty: table.get(shaEmpty),
+      }),
+    )
+    ok(
+      'ST57b 分帧对不上 ⇒ 整批作废空表(调用处逐枚回落,不拿"读不到"当"没改动")',
+      batchFaceChanges(root, ['0000000000000000000000000000000000000000']).size === 0,
+      `size=${batchFaceChanges(root, ['0000000000000000000000000000000000000000']).size}`,
+    )
+    // 根提交是批表唯一已知不等价处:git log 无父可差 ⇒ 吐空;逐枚档 `rev^` 失败 ⇒ face-missing。
+    // 排除条挂在 parentCount==0 上,这里把"两条读数确实不同"钉住 —— 否则那格排除只是注释。
+    // 取真正的根提交:`rev-list --max-parents=0`(夹具基线提交之上还有 seedRepo 那一枚,
+    // 拿"本组第一枚"当根提交会测到 parentCount==1,那条排除就白测了)。
+    const trueRoot = String(gitRaw(['rev-list', '--max-parents=0', 'HEAD'], root))
+      .trim()
+      .split(/\r?\n/)[0]
+    const rootPc = parentCount(root, trueRoot)
+    const viaTable = runAudit(root, 'head', {
+      rev: trueRoot,
+      message: 'chore: 批表对照',
+      key: ST_KEY,
+      changesPre: [],
+    })
+    const viaSingle = runAudit(root, 'head', { rev: trueRoot, message: '', key: ST_KEY })
+    ok(
+      'ST57c 根提交不吃批表:parents==0 且批表读数(untouched)≠逐枚读数(face-missing) ⇒ 排除条有牙',
+      rootPc === 0 && viaSingle.code === 'face-missing' && viaTable.code !== 'face-missing',
+      JSON.stringify({ rootPc, viaTable: viaTable.code, viaSingle: viaSingle.code }),
+    )
+    const jbRoot = judgeBatch(root, [trueRoot, shaEmpty])
+    ok(
+      'ST57h 批表接线处真跳过根提交:judgeBatch 把根枚落 undetermined/face-missing,不读成"没改判据面"',
+      jbRoot.judged === 2 &&
+        jbRoot.undetermined.some((u) => u.sha === trueRoot && u.code === 'face-missing'),
+      JSON.stringify({
+        judged: jbRoot.judged,
+        undetermined: jbRoot.undetermined.map((u) => `${String(u.sha).slice(0, 8)}:${u.code}`),
+      }),
+    )
+    const texts = batchFaceTexts(
+      root,
+      shas
+        .map((s) => `${s}:${GUARD_DATA_REL}`)
+        .concat(['deadbeefdeadbeefdeadbeefdeadbeefdeadbeef:scripts/data/immutable-guard.json']),
+    )
+    let textMismatch = 0
+    for (const sha of shas) {
+      const got = texts?.get(`${sha}:${GUARD_DATA_REL}`)
+      if (got !== readFaceText(root, 'head', GUARD_DATA_REL, sha)) textMismatch += 1
+    }
+    ok(
+      'ST57d 批量清单正文与逐枚 readFaceText 逐字等值,missing 归 null 不归空串',
+      textMismatch === 0 &&
+        !!texts &&
+        texts.get('deadbeefdeadbeefdeadbeefdeadbeefdeadbeef:scripts/data/immutable-guard.json') ===
+          null,
+      JSON.stringify({ textMismatch, missing: texts && texts.get('x') }),
+    )
+    const blobsBatch = blobMapFor(root, 'head', shaCjk, ['docs/中文路径.md', 'docs/不存在.md'])
+    ok(
+      'ST57e 命中路径内容号一次批量解:在面 ⇒ 40 位,不在面 ⇒ 空串(与逐枚档同形)',
+      /^[0-9a-f]{40}$/.test(blobsBatch['docs/中文路径.md'] ?? '') &&
+        blobsBatch['docs/不存在.md'] === '',
+      JSON.stringify(blobsBatch),
+    )
+    // origin/main 成员集与逐枚 merge-base 必须同答;ref 取不到 ⇒ null ⇒ 逐枚回落(不折成"全是本地枚")。
+    try {
+      gitRaw(['fetch', '-q', '.', `+${shaCjk}:refs/remotes/origin/main`], root)
+      const set = originMainMembership(root)
+      const tipSha = String(gitRaw(['rev-parse', 'HEAD'], root)).trim()
+      ok(
+        'ST57f origin/main 成员集 == 逐枚 merge-base;区间外的枚不在集内',
+        !!set &&
+          set.has(shaRoot) === isOnOriginMain(root, shaRoot) &&
+          set.has(shaCjk) === isOnOriginMain(root, shaCjk) &&
+          set.has(tipSha) === false &&
+          isOnOriginMain(root, tipSha) === false,
+        JSON.stringify({ set: set && [...set].length, tipIn: set && set.has(tipSha) }),
+      )
+      ok(
+        'ST57g ref 取不到 ⇒ 成员集 null(不返回空集把已入库枚说成本地枚)',
+        originMainMembership(root, 'refs/remotes/origin/不存在') === null,
+        String(originMainMembership(root, 'refs/remotes/origin/不存在')),
+      )
+    } catch (e) {
+      ok('ST57f/g 夹具建 origin/main 失败 ⇒ 该组判不了(不记绿)', false, String(e?.message ?? e))
+    }
+  })
+
   const failed = cases.filter((c) => !c.ok)
   for (const c of cases) {
     console.log(`${c.ok ? 'ok  ' : 'FAIL'} ${c.name}${c.ok ? '' : ` —— ${c.detail}`}`)
@@ -3302,6 +3570,15 @@ export const __test__ = {
   isAncestor,
   auditNewCommits,
   auditRange,
+  // 批表通道(RP-92):镜像测试 import 这些本体,禁止复制判据(§22c)
+  judgeBatch,
+  batchCommitMeta,
+  batchFaceChanges,
+  batchFaceTexts,
+  originMainMembership,
+  blobMapFor,
+  parentCount,
+  isOnOriginMain,
   signStaged,
   ackCommit,
   readAckRows,
