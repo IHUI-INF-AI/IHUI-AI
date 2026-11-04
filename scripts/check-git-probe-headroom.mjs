@@ -43,6 +43,7 @@ import { readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { devEnvArtifactRoot } from './seal-c-root-stray.mjs'
+import { gitBinary } from './lib/face-reader.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
@@ -66,7 +67,7 @@ export function sampleStatusMs(repoRoot, n = DEFAULT_SAMPLES, opts = {}, spawn =
   const out = []
   for (let i = 0; i < n; i++) {
     const t = Date.now()
-    const r = spawn('git', args, {
+    const r = spawn(gitBinary(), args, {
       cwd: repoRoot,
       encoding: 'utf8',
       windowsHide: true,
@@ -92,7 +93,7 @@ export function statusFace(repoRoot, disableMonitor, spawn = spawnSync) {
   const pre = disableMonitor
     ? ['-c', 'core.fsmonitor=false', '-c', 'core.untrackedCache=false']
     : []
-  const r = spawn('git', [...pre, 'status', '--porcelain=v1', '-z'], {
+  const r = spawn(gitBinary(), [...pre, 'status', '--porcelain=v1', '-z'], {
     cwd: repoRoot,
     encoding: 'utf8',
     windowsHide: true,
@@ -113,7 +114,7 @@ export function statusFace(repoRoot, disableMonitor, spawn = spawnSync) {
  * 一律问 `git rev-parse --git-path index`,取不到就是未判定。
  */
 export function gitIndexPath(repoRoot, spawn = spawnSync) {
-  const r = spawn('git', ['rev-parse', '--git-path', 'index'], {
+  const r = spawn(gitBinary(), ['rev-parse', '--git-path', 'index'], {
     cwd: repoRoot,
     encoding: 'utf8',
     windowsHide: true,
@@ -126,7 +127,7 @@ export function gitIndexPath(repoRoot, spawn = spawnSync) {
 
 /** 布尔型 config 读取:未设置/取不到一律 false 或由调用方按 null 处理,不猜 */
 export function cfgFlag(name, repoRoot, spawn = spawnSync) {
-  const r = spawn('git', ['config', '--get', name], {
+  const r = spawn(gitBinary(), ['config', '--get', name], {
     cwd: repoRoot,
     encoding: 'utf8',
     windowsHide: true,
@@ -138,7 +139,7 @@ export function cfgFlag(name, repoRoot, spawn = spawnSync) {
 
 /** 配置读取:取不到一律按"未启用"处理,不当成错误(本维据此不判) */
 export function isMonitorEnabled(repoRoot, spawn = spawnSync) {
-  const r = spawn('git', ['config', '--get', 'core.fsmonitor'], {
+  const r = spawn(gitBinary(), ['config', '--get', 'core.fsmonitor'], {
     cwd: repoRoot,
     encoding: 'utf8',
     windowsHide: true,
@@ -262,7 +263,10 @@ export function judgeMonitorTrust({ enabled, monitorOut, fullOut, failed, why })
     dim: 'monitor-trust',
     state: 'drift',
     readout: `监控面比全量少 ${missing.length} 条 / 多 ${extra.length} 条 —— 缓存正对着一份已不成立的账面`,
-    next: '先关再查因:`git config --unset core.fsmonitor` + `git config --unset core.untrackedCache` + `git fsmonitor--daemon stop`;漏报的代价是面板与门 281 拿着假净账跑,不能等',
+    next:
+      '第一步做 token 重建(不是关档):`git fsmonitor--daemon stop` 后跑一次 `git status` —— 本机 2026-11-04 实测面等值当场恢复(少 1 条 `?? scripts/tests/check-dead-script-refs.test.mjs` → 少 0 多 0)。' +
+      '仍不一致才关回:`git config --unset core.fsmonitor` + `git config --unset core.untrackedCache`。' +
+      '**关之前先量**:本机三臂对照实测只关 fsmonitor 时 status 墙钟 5.7~6.2s,已超消费者 5000ms 预算 ⇒ 会复活「git 状态总是取不到」这一原始故障;漏报要治,但把加速整个关掉是把病换成死。',
     missing: missing.slice(0, 6),
     extra: extra.slice(0, 6),
   }
@@ -319,7 +323,7 @@ export function readIndexExtensions(indexPath) {
  * 它要拿 `index.lock`,本机多席位常态争用 ⇒ 拿不到锁 rc≠0 **不是**缓存坏了,一律记「取不到」不记「掉」(§0.3)。
  */
 export function untrackedCacheSelfTest(repoRoot, spawn = spawnSync) {
-  const r = spawn('git', ['update-index', '--test-untracked-cache'], {
+  const r = spawn(gitBinary(), ['update-index', '--test-untracked-cache'], {
     cwd: repoRoot,
     encoding: 'utf8',
     windowsHide: true,
@@ -729,6 +733,12 @@ async function selfTest() {
     })
     eq(d.missing.length, 2, '少报条数点名')
     eq(d.next.includes('core.fsmonitor'), true, '出路必须是能直接执行的关回命令')
+    eq(
+      d.next.includes('fsmonitor--daemon stop') && d.next.indexOf('token 重建') < d.next.indexOf('config --unset'),
+      true,
+      '第一步必须是 token 重建(stop + 跑一次 status),关回只能排在后面',
+    )
+    eq(d.next.includes('5000'), true, '必须写明关档会撞消费者预算(本机实测 5.7~6.2s)—— 不许劝人随手关掉加速')
     eq(
       judgeMonitorTrust({ enabled: true, monitorOut: 'A\x00', fullOut: 'A\x00', failed: false })
         .next,
