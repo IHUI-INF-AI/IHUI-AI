@@ -1,4 +1,54 @@
 {
+  "playBeta": {
+    "hero": {
+      "badge": "Google Play closed test recruitment",
+      "title": "Join the IHUI AI Android closed test",
+      "subtitle": "Google Play requires at least 12 testers to stay opted in for 14 consecutive days before we can apply for a production release. Every session and every piece of feedback helps us get there."
+    },
+    "why": {
+      "title": "Why join",
+      "items": [
+        "Try every Android feature early, including mobile AI chat, agents, and model switching",
+        "Report issues straight to the product team; your suggestions go into the release backlog",
+        "Get founding-tester perks and priority access once the app is publicly listed"
+      ]
+    },
+    "form": {
+      "email": "Google account email",
+      "emailPlaceholder": "you@example.com",
+      "submit": "Sign up for the closed test",
+      "submitting": "Submitting...",
+      "privacyPrefix": "I have read and agree to the",
+      "privacyLink": "Privacy Policy",
+      "privacyRequired": "Agreeing to the Privacy Policy is required to sign up"
+    },
+    "errors": {
+      "invalidEmail": "Please enter a valid email address",
+      "generic": "Submission failed. Please try again later"
+    },
+    "success": {
+      "title": "You're signed up. Thank you!",
+      "desc": "We've received your email. Follow these steps to get ready for testing:",
+      "step1": "Watch your inbox for the Google Play closed test invitation and opt-in link",
+      "step2": "Open the opt-in link with the Google account tied to your signup email and join the test",
+      "step3": "Install IHUI AI, keep using it over the next 14 days, and send feedback through our in-app feedback page anytime"
+    },
+    "join": {
+      "title": "Download after joining the test",
+      "desc": "Testers who already received the invitation can join the test and install the app from the link below.",
+      "button": "Open the Google Play test page",
+      "hint": "Make sure your device is signed in with the same Google account you used to sign up, or the download may not be available."
+    },
+    "faq": {
+      "title": "Frequently asked questions",
+      "q1": "What do I need to do as a tester?",
+      "a1": "Install the IHUI AI beta on an Android device, use the main features normally, and report any problems through the feedback page on our site.",
+      "q2": "Why 14 consecutive days?",
+      "a2": "Google Play requires at least 12 testers to stay opted in for 14 consecutive days before a production release can be requested. Dropping out early delays the whole process.",
+      "q3": "Do I need a Google account?",
+      "a3": "Yes. The opt-in link, download, and updates all go through Google Play, so use a Google account that can sign in to the Play Store."
+    }
+  },
   "ecosystem": {
     "packMembers": "Includes {count} markets",
     "skillsSection": "Skill Market",
@@ -78,6 +128,15 @@
     "connectError": "Connection error, please try again",
     "creditLowTitle": "Not enough credits",
     "creditLowDesc": "Your credit balance is below {min}, so models are unavailable. Please top up."
+  },
+  "wsChannel": {
+    "reconnecting": "Realtime connection dropped — reconnecting ({attempt}/{max})…",
+    "connectFailed": "Realtime connection failed, retrying",
+    "connectError": "Realtime connection error",
+    "reconnectExhausted": "Realtime connection ended after {max} retries; content streaming stopped. You can retry manually.",
+    "degradedNotice": "Realtime connection unavailable — automatically switched to the compatible channel to keep streaming content",
+    "fallbackUnavailable": "Realtime connection ended and the compatible channel is unavailable; content streaming stopped",
+    "fallbackFailed": "The compatible channel also dropped; content streaming stopped. Please retry manually later."
   },
   "treeSelect": {
     "placeholder": "Select an option",
@@ -465,7 +524,13 @@
     "noLogsHint": "(No logs yet — click on the page to see coordinate info)",
     "runJs": "Run JavaScript",
     "runJsPlaceholder": "document.title — enter JS then click Run (e.g. document.querySelector(\"button\").click())",
-    "run": "Run"
+    "run": "Run",
+    "browserTab": "Browser",
+    "home": "Go to home page",
+    "pickElement": "Pick element",
+    "picking": "Picking: click an element to select it; click the button again to cancel",
+    "devtools": "Developer tools",
+    "popout": "Open in a separate window"
   },
   "a11y": {
     "previewLoadFailed": "Preview failed to load.",
@@ -564,8 +629,8 @@
     "ctaTitle": "Start your AI journey in 30 minutes",
     "heroBadge": "About IHUI AI",
     "heroSubtitle": "IHUI AI is an open-source full-stack AI operating system that brings Agent design, knowledge base, multi-model dispatch, cross-platform collaboration and team operations into a single platform.",
-    "heroTitle": "One codebase, six clients, one AI",
-    "metaDescription": "IHUI AI (智汇 AI) is an all-in-one full-stack AI operating system: Agent marketplace, knowledge-base RAG, multi-model unified dispatch, MCP tool protocol, supports Web / Desktop / Mini Program / Browser Extension / React Native / CLI six clients from one codebase, Apache 2.0 open source.",
+    "heroTitle": "One codebase, nine clients, one AI",
+    "metaDescription": "IHUI AI (智汇 AI) is an all-in-one full-stack AI operating system: Agent marketplace, knowledge-base RAG, multi-model unified dispatch, MCP tool protocol, supports Web / Desktop / Mini Program / Browser Extension / React Native / Capacitor Native Shell / CLI, plus API and AI Service, nine clients from one codebase, Apache 2.0 open source.",
     "numbersTitle": "Numbers Speak",
     "platformAgentsDesc": "Visual drag-and-drop to build AI Agents, 200+ templates, plugin/MCP tools, one-click publish to any client.",
     "platformAgentsTitle": "Agent Marketplace & Orchestration",
@@ -592,11 +657,11 @@
     "storyP1": "In 2024, we discovered that companies adopting AI universally face a 'four-piece problem': choosing models is hard, integrating a knowledge base is hard, cross-platform distribution is hard, and team collaboration & billing is hard. Existing products either solve just one, are closed-source and locked-in, or cost too much to use.",
     "storyP2": "So we built IHUI AI: open-source, unified, cross-platform, self-hostable. We compressed what would take 12-18 months of in-house development into a 30-minute sign-up.",
     "storyTitle": "Why we built IHUI AI?",
-    "valueCrossDesc": "Web / Desktop / Mini Program / Browser Extension / React Native / CLI, one codebase, one publish, reach every platform.",
-    "valueCrossTitle": "Six Clients, One Codebase",
+    "valueCrossDesc": "Web / Desktop / Mini Program / Browser Extension / React Native / Capacitor Native Shell / CLI, one codebase, one publish, reach every platform.",
+    "valueCrossTitle": "Nine Clients, One Codebase",
     "valueEnterpriseDesc": "SSO/OAuth, audit logs, role-based access, self-hosting, serving multiple listed companies.",
     "valueEnterpriseTitle": "Enterprise-grade Security",
-    "valueFreeDesc": "1,000 credits monthly, all models, all six clients. Pro from ¥49/month, Enterprise supports self-hosting.",
+    "valueFreeDesc": "1,000 credits monthly, all models, all nine clients. Pro from ¥49/month, Enterprise supports self-hosting.",
     "valueFreeTitle": "Free for Personal Use",
     "valueOpenDesc": "Apache 2.0 license, core code public, commercial use allowed, zero self-host cost.",
     "valueOpenTitle": "Fully Open Source",
@@ -631,6 +696,526 @@
     }
   },
   "admin": {
+    "relayPoolPolicy": {
+      "title": "Relay pool selection policy (global defaults)",
+      "refresh": "Refresh",
+      "loading": "Loading policy…",
+      "loadFailed": "Failed to load",
+      "badgeAllDefault": "All defaults",
+      "badgeDeviated": "{n} deviated",
+      "badgeInvalid": "{n} fell back from invalid env",
+      "badgeRegistryBroken": "Registry incomplete",
+      "readOnlyHint": "Read-only: edit .env and restart apps/api",
+      "defaultIs": "default {v}",
+      "invalidFellBack": "invalid value fell back",
+      "registryDiff": "Unregistered knobs: {missing}; orphan entries: {orphan}"
+    },
+    "relayTasks": {
+      "wbTitle": "WorkBuddy task automation",
+      "wbAccount": "Account",
+      "wbAccountEmpty": "No WorkBuddy account",
+      "wbDryRun": "Preview (dry run)",
+      "wbRefresh": "Refresh",
+      "wbNoAccount": "Select an account first",
+      "wbLoading": "Loading tasks…",
+      "wbReadFailed": "Failed to load",
+      "wbUnjudged": "Unjudged",
+      "wbNoTasks": "No runnable tasks",
+      "wbColTask": "Task",
+      "wbColProgress": "Progress",
+      "wbColStatus": "Status",
+      "wbColReward": "Reward",
+      "wbKindGrowth": "Growth",
+      "wbKindTravel": "Travel",
+      "wbKindActivity": "Activity",
+      "wbKindBlackcat": "Night owl",
+      "wbRunOk": "Task executed",
+      "wbRunFailed": "Execution failed",
+      "wbAccepted": "Accepted",
+      "wbClaimed": "Claimed",
+      "wbCreditDelta": "Credits",
+      "wbEnergyDelta": "Energy",
+      "wbNeverRun": "Not run yet"
+    },
+    "smsOperations": {
+      "page": {
+        "title": "SMS Channel Operations",
+        "loadingStatus": "Loading channel status…",
+        "tabStatus": "Channel status",
+        "tabSend": "Send",
+        "tabLogs": "Send ledger",
+        "tabUnsubscribes": "Unsubscribe blocklist"
+      },
+      "category": {
+        "notice": "Notification",
+        "marketing": "Marketing"
+      },
+      "provider": {
+        "tencent": "Tencent Cloud",
+        "aliyun": "Alibaba Cloud",
+        "proxy": "Self-hosted proxy",
+        "none": "No channel available"
+      },
+      "review": {
+        "approved": "Active",
+        "pending": "Under review",
+        "rejected": "Rejected",
+        "unknown": "Status unknown"
+      },
+      "template": {
+        "bindingSuccess": "Phone number linked",
+        "newDevice": "New device sign-in",
+        "passwordChanged": "Password changed",
+        "maintenance": "System maintenance notice",
+        "accountCancel": "Account deletion confirmed",
+        "membershipExpiry": "Membership expiring",
+        "paymentSuccess": "Payment received",
+        "contentReject": "Content review rejected",
+        "securityLimit": "Security risk control limit",
+        "serviceRestore": "Service restored",
+        "newFeature": "New feature launched",
+        "promo": "Promotional offer"
+      },
+      "error": {
+        "rateLimited": "Per-number rate limit hit",
+        "suppressedUnsubscribed": "Unsubscribed / delivery refused",
+        "unsubscribeCheckUnavailable": "Unsubscribe blocklist lookup failed (marketing is fail-closed)",
+        "noChannel": "No channel available (missing configuration)",
+        "notConfigured": "Template or channel not configured",
+        "notInMarketingWindow": "Outside the marketing sending window (08:00–21:00)",
+        "globalDailyCapReached": "Global daily marketing cap reached",
+        "sdkUnavailable": "Cloud SDK unavailable",
+        "aliyunSdkUnavailable": "Alibaba Cloud SDK unavailable",
+        "aliyunResponseUnparsable": "Alibaba Cloud response could not be parsed",
+        "proxyCallFailed": "Self-hosted proxy call failed",
+        "invalidTemplate": "Invalid template key",
+        "marketingDisabled": "Marketing master switch is off (SMS_MARKETING_ENABLED=0)",
+        "duplicate": "This business event was already sent (idempotency guard)"
+      },
+      "field": {
+        "phone": "Phone number",
+        "number": "Number",
+        "reason": "Reason",
+        "usage": "Purpose",
+        "template": "Template",
+        "category": "Category",
+        "channel": "Channel",
+        "status": "Status",
+        "source": "Source",
+        "time": "Time",
+        "templateId": "Template ID",
+        "bizType": "Business type",
+        "bizId": "Business ID",
+        "rawReply": "Original reply",
+        "updateTime": "Updated at",
+        "fallbackContent": "Fallback content (optional)",
+        "phoneInvalid": "Invalid phone number format (accepts 13800000000 / +8613800000000)"
+      },
+      "pager": {
+        "loading": "Loading…",
+        "prev": "Previous",
+        "next": "Next"
+      },
+      "status": {
+        "cardCurrentChannel": "Current channel",
+        "available": "Available",
+        "missingCredentials": "Missing credentials",
+        "configured": "Configured",
+        "notConfigured": "Not configured",
+        "autoModeHint": "In auto mode a channel whose template is backfilled wins; otherwise it falls back to the Alibaba Cloud notification template.",
+        "signName": "Signature",
+        "signReview": "Signature review",
+        "signId": "Signature ID",
+        "signIdNotRegistered": "No signature ID registered",
+        "region": "Region",
+        "codeTemplate": "Verification code · {code}",
+        "codeTemplateColumn": "Verification code template",
+        "notifyTemplate": "Notification template",
+        "noNotifyTemplateHint": "Without ALI_SMS_NOTIFY_TEMPLATE_CODE, notification messages whose Tencent template was not approved have no fallback channel.",
+        "cardCallbackCompliance": "Callback and compliance",
+        "callbackToken": "Callback token",
+        "callbackIpAllowlist": "Callback IP allowlist",
+        "unsubscribeFailClosed": "Unsubscribe blocklist fail-closed",
+        "marketingSwitch": "Marketing master switch",
+        "callbackPath": "Callback path",
+        "marketingWindow": "Marketing window",
+        "cardRateLimit": "Rate limits and quotas",
+        "noticePerNumber": "Per number (notice)",
+        "marketingPerNumber": "Per number (marketing)",
+        "perHourPerDay": "{hourly} per hour · {daily} per day",
+        "perDayPerMonth": "{daily} per day · {monthly} per month",
+        "perDay": "{count} per day",
+        "countUnit": "{count} messages",
+        "marketingGlobalDailyCap": "Global daily marketing cap",
+        "broadcastLimit": "Per-broadcast limit",
+        "unsubscribeCount": "Unsubscribe blocklist size",
+        "cardTemplateMatrix": "Template matrix",
+        "reviewSource": "Review status comes from Tencent Cloud, checked at {time}",
+        "reviewUnavailable": "Review status lookup is unavailable; only local backfill is shown",
+        "reviewUnavailableWithCode": "Review status lookup is unavailable ({code}); only local backfill is shown",
+        "colEnvKey": "Environment variable",
+        "colTencentTemplateId": "Tencent template ID",
+        "colBackfilled": "Backfill",
+        "colReviewStatus": "Review status",
+        "colReviewReply": "Review comment",
+        "backfilled": "Backfilled",
+        "notBackfilled": "Not backfilled"
+      },
+      "log": {
+        "exportFileName": "SMS send ledger",
+        "exported": "Exported {count} rows",
+        "exportLimitHint": "Exports at most the latest {limit} rows",
+        "allStatuses": "All statuses",
+        "totalCount": "{count} rows in total",
+        "loadFailed": "Ledger failed to load. What follows is not \"no records\" — nothing was retrieved.",
+        "empty": "No send records yet",
+        "pagination": "Page {page} · {size} rows per page · {total} rows in total",
+        "colSendTime": "Sent at",
+        "statusAccepted": "Accepted",
+        "statusDelivered": "Delivered",
+        "statusDeliveryFailed": "Delivery failed",
+        "statusFailed": "Send failed",
+        "statusSuppressed": "Suppressed",
+        "rawCode": "{code}"
+      },
+      "unsub": {
+        "sourceReply": "Replied to unsubscribe",
+        "sourceAdmin": "Blocked by admin",
+        "sourceManual": "Added manually",
+        "addedToast": "Added to the unsubscribe blocklist",
+        "restoredToast": "Delivery restored",
+        "restore": "Restore delivery",
+        "restoreDesc": "Remove {phone} from the unsubscribe blocklist? Only do this after the user has clearly agreed to receive messages again, otherwise it becomes harassment.",
+        "restoreAction": "Restore",
+        "addToList": "Add to blocklist",
+        "listSummary": "{total} people · page {page}/{totalPages}",
+        "reasonPlaceholder": "For example: the user complained by phone",
+        "empty": "No unsubscribe records"
+      },
+      "send": {
+        "cardSingle": "Single send",
+        "cardSingleDesc": "For support compensation and integration testing. Dry run by default, so no quota is consumed.",
+        "cardBroadcast": "Broadcast",
+        "cardBroadcastDesc": "Targets all users, taking the first N that have a phone number in registration order. By default it skips users who already received the same template within the last {days} days, so later batches advance naturally. Limit: {limit} messages per run.",
+        "dryRunLabel": "Dry run (do not send)",
+        "skipRateLimitLabel": "Skip per-number rate limit",
+        "submitLabel": "Send",
+        "submitBroadcastLabel": "Run broadcast",
+        "suffixRejected": "review rejected",
+        "fallbackPlaceholder": "Used as the Alibaba Cloud notification fallback when the Tencent template was not approved; max 35 characters",
+        "fallbackShortPlaceholder": "max 35 characters",
+        "fallbackCounter": "{n}/35 · not used once the Tencent template is approved",
+        "fallbackTooLong": "The Alibaba Cloud fallback content must not exceed 35 characters (variable length limit)",
+        "marketingOffBanner": "The marketing master switch is off (SMS_MARKETING_ENABLED=0): marketing messages can only be dry-run, and a real send is blocked by the backend; notification messages are unaffected.",
+        "marketingOffToast": "Marketing master switch is off; marketing messages can only be dry-run",
+        "marketingConstraint": "Marketing is limited by the unsubscribe blocklist, 2 messages per number per day and 4 per month, the global daily cap of {cap} messages, and the {window} sending window.",
+        "templateNotBackfilled": "This template has no backfilled ID. To send for real, backfill it first or provide fallback content to route through Alibaba Cloud.",
+        "templateRejected": "This template was rejected by the Tencent review. Provide fallback content and try again.",
+        "confirmWordRequired": "A real send requires the confirmation phrase {word}",
+        "confirmLabel": "Confirmation phrase (a real send happens only after you type <code>{word}</code>)",
+        "fillConfirmWord": "Fill confirmation phrase",
+        "limitLabel": "Amount for this run",
+        "limitInvalid": "The amount must be a whole number between 1 and {max}",
+        "excludeLabel": "Skip users reached in the last N days",
+        "excludeDaysInvalid": "The skip window must be a whole number between 0 and 30",
+        "excludeZeroHint": "0 = skip nobody",
+        "zeroDaysTitle": "Skip window is 0 days",
+        "zeroDaysDesc": "This broadcast will not exclude users who recently received the same template, so people who just got it may be disturbed again. Continue?",
+        "zeroDaysConfirm": "Continue with real send",
+        "dryRunDoneToast": "Dry run complete: {count} numbers matched",
+        "broadcastDoneToast": "Broadcast complete: {sent} succeeded / {failed} failed",
+        "dryRunPassed": "Dry run passed: the channel resolved to <badge>{channel}</badge> and no quota was consumed.",
+        "sentSuccess": "Sent · channel {channel} · template {template}",
+        "sendFailed": "Send failed: {reason}",
+        "dryRunSummary": "Dry run: {total} numbers matched · channel {channel} · template {template}",
+        "scopeSummary": "{scopeTotal} in scope · {excluded} already reached in the last {days} days · {eligible} sendable",
+        "scopeOffset": "start offset {offset}",
+        "samplePhones": "Sample numbers: {phones}",
+        "broadcastSummary": "{total} in total · <ok>{sent}</ok> succeeded · <bad>{failed}</bad> failed · {suppressed} suppressed"
+      }
+    },
+    "wallboard": {
+      "firingRowsSplit": "{total} firing alerts aggregated into {names} names",
+      "pv5mNow": "{count} views in the last 5 min",
+      "edgeControlLeg": "Control run without acceleration",
+      "edgeHeadlineHit": "CN Acceleration Hit Rate",
+      "edgeHeadlineMs": "Homepage Open Time Now",
+      "edgeNoSeries": "No visitor probe samples yet",
+      "edgeSparkName": "Homepage Latency",
+      "edgeSparkTitle": "Recent visitor homepage latency (green = cache hit, amber = miss)",
+      "edgeStatP50": "P50 Time",
+      "edgeStatP95": "P95 Time",
+      "edgeStatSamples": "Samples",
+      "edgeStatWorst": "Worst Time",
+      "edgeUpdatedAgo": "Probed {ago}",
+      "panelEdge": "Visitor Latency · CN Acceleration",
+      "activeAlerts": "Active Alerts (Alertmanager)",
+      "agoDays": "{n} d ago",
+      "agoHours": "{n} h ago",
+      "agoMins": "{n} min ago",
+      "agoSecs": "{n} s ago",
+      "aiSessions": "AI Active Sessions",
+      "alertCount": "Alerts {count}",
+      "alertCountUnknown": "Alert count unknown",
+      "alertCountAtLeast": "Alerts ≥{count}",
+      "alertStateActive": "Active",
+      "alertStateSuppressed": "Suppressed",
+      "alertStateUnprocessed": "Unprocessed",
+      "alertmanagerDown": "Alertmanager data unavailable",
+      "alertsReceived": "Alerts Received",
+      "apiAvgLatency": "API Avg Latency",
+      "apiCallsToday": "API Calls Today",
+      "apiErrRateLabel": "API Error Rate",
+      "apiErrRateHint": "Scope: all of today's api_logs rows (complements the Prometheus 5xx rate in the header)",
+      "axisPctMs": "ms",
+      "axisReqPerSec": "req/s",
+      "bridgeMail": "Alert Bridge Mails",
+      "bufferHit": "Buffer Hit Ratio",
+      "cpuLegend": "CPU (%)",
+      "cpuMemTrendTitle": "CPU / Memory Trend (90 min)",
+      "dbSize": "DB Size",
+      "dedupSuppressed": "Deduped {count}",
+      "diskVolumes": "Disk Volumes",
+      "noDiskData": "No disk samples",
+      "durationDays": "{d} d {h} h",
+      "durationDaysOnly": "{d} d",
+      "durationHours": "{h} h {m} min",
+      "durationHoursOnly": "{h} h",
+      "durationMins": "{m} min",
+      "durationSecs": "{s}s",
+      "errRateWindow": "Last 5-minute window",
+      "eventsTitle": "System Events",
+      "footerSources": "Data sources · Prometheus {url} / Alertmanager / PostgreSQL / Redis · all collected live from production",
+      "footerDataAge": "Data age {duration}",
+      "footerUptime": "Uptime · {list}",
+      "gaugeCpu": "CPU",
+      "gaugeMem": "Memory",
+      "hostUptime": "Up {duration}",
+      "hourlyTitle": "Calls by Hour Today",
+      "kpiAiCalls": "AI Calls Today",
+      "kpiAiCallsSub": "Tokens {count}",
+      "kpiApiP95": "API P95 Latency",
+      "kpiApiP95Sub": "AI service P95 {value}ms",
+      "kpiErrRate": "5xx Error Rate",
+      "kpiQps": "Real-time QPS",
+      "kpiQpsSub": "Active connections {count}",
+      "kpiTurnover": "Today's Turnover",
+      "kpiTurnoverSub": "Paid orders: {count}",
+      "kpiUsers": "Total Users",
+      "kpiUsersSub": "New today {count}",
+      "legendErrRate": "5xx Error Rate (%)",
+      "legendP95": "P95 (ms)",
+      "legendQps": "QPS",
+      "llmBridge": "LLM Sessions · Alert Bridge",
+      "llmCallsToday": "LLM Calls Today",
+      "llmCost": "Billed Cost",
+      "llmErrRate": "LLM Error Rate",
+      "llmP95": "LLM P95",
+      "loadFailed": "Failed to load monitoring data. Check your connection and retry.",
+      "mailOk": "Mail channel OK",
+      "mailWarn": "Mail channel issue",
+      "memLegend": "Memory (%)",
+      "memPhysical": "Physical Memory",
+      "memUsage": "Memory",
+      "netThroughput": "Network Throughput",
+      "no5xxWindow": "No 5xx in the last {minutes} min",
+      "noActiveAlerts": "No active alerts",
+      "noCallsToday": "No calls today",
+      "noEvents": "No events",
+      "noHostTrendData": "Host trend unavailable",
+      "noModelCalls": "No model calls today",
+      "noRecentAlerts": "No alert history",
+      "noSignIn7d": "No sign-ins in the last 7 days",
+      "noStatusData": "No traffic distribution",
+      "noTrendData": "Trend data unavailable",
+      "ordersToday": "Orders Today",
+      "ordersYesterday": "Orders Yesterday",
+      "panelAlerts": "Alerts & Events",
+      "panelBusiness": "Business Deep-dive",
+      "panelDatastore": "Datastore",
+      "panelHost": "Host Resources",
+      "panelQuality": "Request Quality",
+      "panelServices": "Services",
+      "panelTraffic": "Traffic & Latency",
+      "pgConnections": "Connections {count}",
+      "pgLabel": "PostgreSQL",
+      "piePerSecSuffix": "/s",
+      "recentAlerts": "Recent Alerts (DB)",
+      "moreActiveAlerts": "{count} more active alerts",
+      "moreRecentAlerts": "{count} more records",
+      "redisClients": "Clients",
+      "redisEvicted": "Evicted Keys",
+      "redisHit": "Hit Ratio",
+      "redisKeys": "Keys",
+      "redisLabel": "Redis",
+      "redisOps": "Ops/s",
+      "redisUptime": "Uptime",
+      "refreshedAt": "Refreshed {time} · 5s polling",
+      "resolvedAgo": "Resolved {ago}",
+      "retry": "Retry",
+      "rowsFetchedPerSec": "Rows Fetched/s",
+      "rowsPerSec": "Rows/s",
+      "scrapeTargets": "Scrape Targets ({up}/{total} up)",
+      "noScrapeTargets": "No scrape targets",
+      "stateUp": "Up",
+      "stateDown": "Down",
+      "stateUnknown": "Unknown",
+      "sevCritical": "Critical",
+      "sevInfo": "Info",
+      "sevWarning": "Warning",
+      "signIn7d": "Sign-ins (7d)",
+      "signInReward": "Points earned today",
+      "signInStreak": "Longest streak",
+      "signInTitle": "Check-in",
+      "signInToday": "Checked in today",
+      "signInUnsigned": "Not checked in",
+      "userGrowth14d": "User Growth (14d)",
+      "sourceUnreachable": "Data source unreachable",
+      "srcAlertmanager": "Alertmanager",
+      "srcDatabase": "Database",
+      "srcPrometheus": "Prometheus",
+      "staleData": "Stale data",
+      "statusOk": "All Systems Normal",
+      "statusUnknown": "Status unknown",
+      "dutyMode": "Duty Mode",
+      "exitDutyMode": "Exit Duty Mode",
+      "statusWarn": "Needs Attention",
+      "subtitle": "Production Operations Wallboard · Live",
+      "svcRunning": "{running}/{total} running",
+      "svcStateOther": "Other",
+      "svcStateRetired": "Retired",
+      "svcStateRunning": "Running",
+      "svcStateStopped": "Stopped",
+      "title": "IHUI AI · Production Monitoring Wallboard",
+      "topEndpoints": "Top 5 Endpoints Today",
+      "topModels": "Top 5 Models Today",
+      "trendLoadFailed": "Failed to load trend data",
+      "trendWindow": "Last 90 min · 30s step",
+      "txnPerSec": "Txns/s",
+      "unitConn": "conn",
+      "unitDay": "days",
+      "unitMail": "mails",
+      "unitMs": "ms",
+      "unitOrder": "orders",
+      "unitPoint": "pts",
+      "unitSession": "sessions",
+      "unitUser": "users",
+      "unitYuan": "CNY",
+      "usersActive": "Active Users",
+      "usersNewToday": "New Today",
+      "usersRegistered": "Registered Users",
+      "usersVip": "VIP Users",
+      "usersTrader": "Traders",
+      "usersInvited": "Invited",
+      "usersInvited7d": "Invited (7d)",
+      "activeUsers7d": "Active (7d)",
+      "levelDistTitle": "Level mix",
+      "level0": "Normal",
+      "level1": "Silver",
+      "level2": "Gold",
+      "level3": "Diamond",
+      "panelTrafficRobot": "Visitors & bots",
+      "panelPageUsage": "Page usage",
+      "onlineNow": "Online {count}",
+      "panelPlatforms": "Usage by platform",
+      "platformWeb": "Web",
+      "platformRn": "Mobile app",
+      "platformMp": "Mini program",
+      "platformEx": "Browser extension",
+      "platformQuiet": "Quiet today",
+      "platformNever": "No reports in 90d",
+      "platformNoData": "No per-platform data in 24h",
+      "panelAudience": "Audience mix",
+      "audienceNew": "New visitors",
+      "audienceReturning": "Returning visitors",
+      "audienceRevisitRate": "Return rate",
+      "audienceTotal": "Visitors in window {count}",
+      "panelEngagement": "Engagement",
+      "engagementAvgStay": "Avg. time on page",
+      "engagementEvents": "Events (24h)",
+      "engagementClicks": "Top clicks (24h)",
+      "engagementNoData": "No behaviour events in 24h",
+      "pageUsageScope": "Area (24h)",
+      "scopePublic": "Public",
+      "scopeAdmin": "Admin",
+      "scopeAuth": "Sign-in",
+      "pageUsageTop": "Top pages (24h)",
+      "avgDwellSec": "stay {s}s",
+      "pageUsageNoData": "No page visits in 24h",
+      "panelHourlyVisits": "Visits by Hour",
+      "hourlyVisitWindow": "Last 24h · hourly",
+      "visitHourlyPv": "Page views",
+      "visitHourlyUv": "Visitors",
+      "panelRelayPool": "AI pool",
+      "pv24h": "Page views (24h)",
+      "uv24h": "Visitors (24h)",
+      "humanPv": "Human traffic",
+      "botPv": "Automated traffic",
+      "familyBreakdown": "Client families (24h)",
+      "moreFamilies": "{count} more client families",
+      "noTrafficData": "No traffic aggregate yet",
+      "trafficTruncated": "Family split truncated (values are lower bounds)",
+      "poolKeySchedulable": "Schedulable keys",
+      "poolHealthHealthy": "Healthy",
+      "poolHealthDegraded": "Degraded",
+      "poolHealthDown": "Down",
+      "poolHealthUnknown": "Unknown",
+      "poolBalanceLow": "Low balance",
+      "poolExpiring24h": "Expiring ≤24h",
+      "poolProviderKeyTitle": "Keys by provider",
+      "poolProviderAccountTitle": "Accounts by provider",
+      "noPoolRows": "No pool rows",
+      "poolKeyAbnormal": "Abnormal keys",
+      "poolKeyAbnormalHint": "{count} still selectable",
+      "poolAccountSchedulable": "Schedulable accounts",
+      "poolTokenExpiry": "Shortest token expiry",
+      "poolTokenExpiryScope": "schedulable accounts only",
+      "poolBlockedAccounts": "Blocked accounts",
+      "poolBlockedExpiredHint": "{count} expired",
+      "poolStale": "Snapshot age",
+      "expired": "expired",
+      "unitPv": "views",
+      "trafficAggAge": "aggregated {ago} ago",
+      "poolKey": "Key pool",
+      "poolAccount": "Accounts",
+      "wsConnections": "WS Connections",
+      "pv1h": "PV (1h)",
+      "uv1h": "UV (1h)",
+      "edgeLegHomepage": "Site homepage",
+      "edgeLegApex": "Apex redirect",
+      "edgeLegStatic": "Static assets",
+      "accountRefreshAge": "Longest without refresh",
+      "poolLatestRefreshHint": "latest {ago} ago",
+      "poolRefreshBudgetHint": "keepalive limit {days}d",
+      "poolRowsUnclassified": "Unclassified states (both pools)",
+      "srcEdge": "Edge probe",
+      "panelUptime": "Process uptime",
+      "panelSessionQuality": "Session quality",
+      "sessionQualitySessions": "{count} sessions / 24h",
+      "sessionQualityDepth": "Session depth",
+      "sessionDepth1": "1 screen",
+      "sessionDepth23": "2-3 screens",
+      "sessionDepth47": "4-7 screens",
+      "sessionDepth8Plus": "8+ screens",
+      "sessionQualitySinglePage": "Single-page sessions",
+      "sessionQualityAvgPv": "Pages per session",
+      "sessionQualityEntryTop": "Entry page (sessions/single)",
+      "sessionQualityExitTop": "Exit page (sessions/single)",
+      "sessionQualityNoData": "No sessions in 24h",
+      "panelVisitSource": "Visit sources",
+      "visitSourceTotal": "{count} visits / 24h",
+      "visitSourceBuckets": "Source mix (24h)",
+      "visitSourceHosts": "Source hosts (24h)",
+      "visitSourceDirect": "Direct",
+      "visitSourceLocal": "Local dev",
+      "visitSourceInternal": "Internal",
+      "visitSourceExternal": "External",
+      "visitSourceNoData": "No source data in 24h",
+      "panelVisitTransition": "Page transitions",
+      "visitTransitionMoves": "{count} moves / 24h",
+      "visitTransitionTop": "Most travelled paths (24h)",
+      "visitTransitionNoData": "No transitions in 24h"
+    },
     "aboutUs": {
       "add": "Add",
       "cancel": "Cancel",
@@ -1072,6 +1657,7 @@
     "announcements": {
       "colActions": "Actions",
       "colPinned": "Pinned",
+      "colPlatforms": "Platforms",
       "colPublished": "Published",
       "colPublishedAt": "Published At",
       "colTitle": "Title",
@@ -1087,6 +1673,7 @@
       "editTitle": "Edit Announcement",
       "fieldContent": "Content",
       "fieldPinned": "Pinned",
+      "fieldPlatforms": "Platforms",
       "fieldPublished": "Published",
       "fieldTitle": "Title",
       "fieldType": "Type",
@@ -1112,6 +1699,17 @@
       },
       "no": "No",
       "noData": "No announcements",
+      "platforms": {
+        "cli": "CLI",
+        "desktop": "Desktop",
+        "extension": "Extension",
+        "miniapp": "Mini App",
+        "mobile-cap": "Mobile Capture",
+        "rn": "Mobile App",
+        "web": "Web"
+      },
+      "platformsAll": "All Platforms",
+      "platformsHint": "Leave all unchecked to show on every platform; only checked platforms will see it",
       "published": "Published",
       "save": "Save",
       "subtitle": "Manage platform announcements",
@@ -1477,10 +2075,14 @@
     "developer": {
       "cancel": "Cancel",
       "colActions": "Actions",
+      "colAddress": "Address",
       "colCozeId": "Coze ID",
+      "colCreatedAt": "Created At",
+      "colCreator": "Creator",
       "colNickname": "Nickname",
       "colPlatform": "Platform",
       "colSignAccount": "Sign Account",
+      "colSignNickname": "Sign Nickname",
       "colStatus": "Status",
       "cozeCreate": "Add Account",
       "cozeCreateTitle": "Add Coze Account",
@@ -2477,11 +3079,15 @@
           "create": "Create",
           "createSuccess": "Created successfully",
           "createTitle": "Create Payment Log",
+          "dateLabel": "Payment Date",
           "delete": "Delete",
           "deleteSuccess": "Deleted successfully",
           "edit": "Edit",
           "editTitle": "Edit Payment Log",
           "empty": "No payment records",
+          "emptyRoster": "No enrollment records",
+          "enrollmentLabel": "Enrollment (Term)",
+          "enrollmentPlaceholder": "Select a student's enrollment",
           "export": "Export",
           "exportFailed": "Export failed",
           "exportSuccess": "Exported successfully",
@@ -2491,6 +3097,10 @@
           "filterUserUuid": "User UUID",
           "filterVideoId": "Video ID",
           "loading": "Loading...",
+          "methodAlipay": "Alipay",
+          "methodCash": "Cash",
+          "methodTransfer": "Transfer",
+          "methodWechat": "WeChat",
           "nextPage": "Next",
           "outBillOnLabel": "Bill Date *",
           "outBillOnRequired": "Bill date is required",
@@ -2498,7 +3108,11 @@
           "payWayLabel": "Payment Method",
           "prevPage": "Previous",
           "realAmountLabel": "Paid Amount",
+          "recordTitle": "Register Payment",
+          "remarkLabel": "Remark",
+          "remarkPlaceholder": "Optional",
           "reset": "Reset",
+          "rosterLine": "{name} · {cls} · Due {totalFee} · Paid {paidAmount} · Arrears {dueAmount}",
           "save": "Save",
           "subtitle": "Manage course payment records and bills",
           "title": "Course Payment Logs",
@@ -4826,14 +5440,14 @@
         "empty": "No monitorable tenants. Waiting for containers to start…",
         "envHint": "Hint: NEXT_PUBLIC_GRAFANA_BASE is not set; iframe uses default http://127.0.0.1:8816",
         "generatedAt": "Data generated at {time}",
-        "iframeTitle": "Live Metrics (Grafana)",
+        "iframeTitle": "Live Metrics (native panels)",
         "live": "Live",
         "loading": "Loading Grafana charts…",
         "memory": "Memory",
         "networkRx": "RX",
         "networkTx": "TX",
         "openNewWindow": "Open in new window",
-        "pageSubtitle": "Multi-tenant CPU / Memory / Network real-time comparison (Prometheus + Grafana)",
+        "pageSubtitle": "Multi-tenant CPU / Memory / Network real-time comparison (Prometheus native panels)",
         "pageTitle": "Resource Monitoring",
         "rankingTitle": "Tenant Ranking (by CPU desc)",
         "refresh": "Refresh",
@@ -6427,6 +7041,58 @@
     "total": "{total} records in total",
     "updateSuccess": "Updated successfully"
   },
+  "adminOrgGovernance": {
+    "agentBillings": "Agent platform billing (reference only)",
+    "allowlistHint": "One model ID per line. With Allow mode only listed models are permitted; with Block mode listed models are denied.",
+    "allowlistMode": "Mode",
+    "balance": "Balance change",
+    "byDay": "Daily breakdown",
+    "calls": "Calls",
+    "cost": "Cost",
+    "date": "Date",
+    "disabled": "Disabled",
+    "emptyMembers": "No member usage in this period",
+    "emptyModels": "No data",
+    "emptyTrail": "No policy records",
+    "enabled": "Enabled",
+    "flagsHint": "One flag=value per line (value must be true / false), e.g. betaSearch=true",
+    "flagsInvalid": "Some lines are malformed. Use flag=true|false per line.",
+    "forbidden": "Organization administrator permission required",
+    "forbiddenHint": "Only organization admins can view org billing and policies. Contact your organization owner for access.",
+    "loadFailed": "Failed to load. Please try again later.",
+    "loading": "Loading…",
+    "loginRequired": "Sign in to view the organization governance console",
+    "memberUser": "Member",
+    "members": "Member usage",
+    "modeAllow": "Allow",
+    "modeBlock": "Block",
+    "modelName": "Model",
+    "models": "Model usage",
+    "orgId": "Organization ID",
+    "overview": "Overview",
+    "periodFrom": "From date",
+    "periodTo": "To date",
+    "policies": "Policy editing",
+    "policyDataRetentionDays": "Data retention days",
+    "policyFeatureFlags": "Feature flags",
+    "policyKey": "Policy key",
+    "policyModelAllowlist": "Model allowlist",
+    "policySpendBudgetDaily": "Daily spend budget",
+    "policyTrail": "Policy trail",
+    "query": "Query",
+    "retentionHint": "Organization data retention in days (integer, minimum 1)",
+    "save": "Save",
+    "saveSuccess": "Policy saved",
+    "saving": "Saving…",
+    "spendBudgetHint": "Daily spend cap for organization members (credits, 0 means unlimited)",
+    "status": "Status",
+    "subtitle": "Org-level billing, member and model usage, policy editing and version trail",
+    "title": "Organization Governance Console",
+    "tokens": "Tokens",
+    "trailNote": "No dedicated audit stream on the backend; this table is derived from the policy rows themselves (version / status / updated time)",
+    "updatedAt": "Updated",
+    "version": "Version"
+  },
   "adminTool": {
     "usernamePlaceholder": "Username"
   },
@@ -6558,6 +7224,8 @@
       "namePlaceholder": "Enter name",
       "nameRequired": "Name is required",
       "noData": "No data",
+      "permissionHint": "Choose which API permissions this key can access",
+      "permissionLabel": "Permissions",
       "sdkDownloads": "SDK Downloads",
       "subtitle": "Manage API Keys and Webhooks",
       "title": "Developer Center",
@@ -7218,6 +7886,7 @@
       "total": "Total"
     },
     "backgroundAgents": {
+      "omittedChars": "{count} chars omitted",
       "calls": "{count} calls",
       "cancel": "Cancel",
       "cancelledCount": "Cancelled {count}",
@@ -7230,7 +7899,9 @@
       "notifyCompletedTitle": "Task completed: {name}",
       "notifyFailedTitle": "Task failed: {name}",
       "runningCount": "{count} Running",
+      "takeover": "Take over",
       "title": "Background Agents",
+      "tokens": "Tokens",
       "total": "Total {count}",
       "viewResult": "View Result"
     },
@@ -7246,6 +7917,9 @@
       "rollbackConfirmTitle": "Restore this checkpoint?",
       "rollbackConfirmLoading": "Computing impact…",
       "rollbackConfirmLoadFailed": "Failed to load impact",
+      "rollbackUnavailableTitle": "Cannot restore right now",
+      "rollbackUnavailableDesc": "The file checkpoint is unavailable; the workspace has not changed.",
+      "rollbackRetry": "Retry",
       "rollbackConfirmDesc": "Restoring will revert these files to the checkpoint state:",
       "rollbackConfirmAdded": "+{count} lines",
       "rollbackConfirmDeleted": "-{count} lines",
@@ -7258,6 +7932,44 @@
       "rollbackConfirmConfirm": "Restore"
     },
     "pane": {
+      "hookFailures": {
+        "title": "Hook execution failed",
+        "evidenceMissing": "Result not recorded: this execution is neither in the execution log nor the dead-letter queue, so its outcome cannot be confirmed.",
+        "state": {
+          "succeeded": "Succeeded",
+          "retryScheduled": "Retry scheduled",
+          "failed": "Failed",
+          "timedOut": "Timed out",
+          "skipped": "Skipped",
+          "resultNotRecorded": "Result not recorded"
+        },
+        "aria": {
+          "card": "Hook execution failure details",
+          "state": "Status: {state}",
+          "hookName": "Hook name",
+          "event": "Trigger event",
+          "evidence": "Evidence details",
+          "dismiss": "Dismiss this card"
+        },
+        "hint": {
+          "retryScheduled": "The system will retry automatically; no action needed.",
+          "failed": "This hook did not complete; dependent automation steps may not have taken effect.",
+          "timedOut": "Execution exceeded its time limit and was interrupted. Check the hook script or timeout setting.",
+          "resultNotRecorded": "This execution is neither in the execution log nor the dead-letter queue, so its outcome cannot be confirmed."
+        },
+        "field": {
+          "hookName": "Hook",
+          "event": "Event",
+          "exitCode": "Exit code",
+          "command": "Command",
+          "durationMs": "Duration",
+          "stderr": "Error output"
+        },
+        "action": {
+          "retry": "Retry",
+          "inspect": "Inspect in settings"
+        }
+      },
       "elementPack": {
         "backgroundTask": {
           "state": {
@@ -7425,7 +8137,10 @@
             "cause": {
               "streaming": "The reply is still generating, so the queue order is locked for now",
               "emptyQueue": "There are no queued messages left to undo",
-              "runtimeNoInterject": "This runtime has no interjection support; the message stays in the queue"
+              "runtimeNoInterject": "This runtime has no interjection support; the message stays in the queue",
+              "queueChanged": "The queue changed concurrently, so the current order is stale",
+              "controlCommand": "Control commands can't be injected into a running turn; the message stays queued",
+              "awaitingApproval": "A risky action is awaiting approval; interjection waits until you decide"
             }
           },
           "blocked": {
@@ -7437,8 +8152,9 @@
             "sourceMismatch": "Source mismatch: this action is only available for voice-delegated tasks"
           },
           "outcome": {
-            "deferred": "Message not sent; it is kept in the queue",
-            "failed": "Message failed to send; please retry"
+            "deferred": "Message not sent; it has been removed from the queue. Please send it again.",
+            "failed": "Message failed to send; please retry",
+            "sent": "Message sent"
           },
           "reorderAria": "Drag to reorder queued messages; use the up and down arrow keys while focused"
         }
@@ -7499,13 +8215,13 @@
         },
         "discount": {
           "active": "Off-peak discount in progress",
-          "upcoming": "Off-peak discount starts in {{time}}"
+          "upcoming": "Off-peak discount starts in {time}"
         },
         "duration": {
           "hour": "h",
           "minute": "m"
         },
-        "degradeHint": "Your free tier is still available. Switch to a free model to continue — no top-up needed",
+        "degradeHint": "Your free tier is still available. Switch to a free model to continue — no top-up needed. Usage details: <link>/models/usage</link>",
         "ariaLabel": "Quota ownership and suggested actions"
       },
       "moveToWorktree": {
@@ -7913,6 +8629,7 @@
       "injectionKindWorkspace": "Workspace memory / AGENTS.md injected",
       "injectionKindRepoWiki": "Repo Wiki project knowledge injected",
       "injectionKindAutoContext": "{count, plural, one {Injected {count} auto-retrieved code context block} other {Injected {count} auto-retrieved code context blocks}}",
+      "injectionKindIterationExtension": "Iteration budget extended",
       "thinkingCharCountTitle": "{n} characters",
       "thinkingChars": "chars",
       "thinkingElapsedTitle": "Thinking for {time}",
@@ -7948,12 +8665,15 @@
       "timelineSubagentToolResultSuccess": "Tool result: {tool} success",
       "timelineTabsAriaLabel": "Timeline tabs",
       "toolCallsCount": "{n} tool calls",
+      "toolSummaryDirectories": "Directories",
       "toolSummaryDuration": "Total Duration",
+      "toolSummaryEdits": "Edits",
       "toolSummaryFilesModified": "Files Modified",
       "toolSummaryFilesSearched": "Files Searched",
       "toolSummaryLinesAdded": "Lines Added",
       "toolSummaryLinesDeleted": "Lines Deleted",
       "toolSummaryStreaming": "Counting tool calls…",
+      "toolSummaryTerminalCommands": "Terminal Commands",
       "toolSummaryTitle": "Tool Call Summary",
       "toolSummaryTotalCalls": "Total Calls",
       "toolSummaryWebSearched": "Web Searched",
@@ -8142,6 +8862,14 @@
           "title": "Account is restricted",
           "action": "Contact the administrator"
         },
+        "PROVIDER_BUSY": {
+          "title": "Provider busy",
+          "action": "Please try again later"
+        },
+        "ALREADY_CLAIMED": {
+          "title": "This task has already been claimed",
+          "action": "Claim another task, or wait for the holder to release it"
+        },
         "API_BRIDGE_ERROR": {
           "title": "API bridge call failed",
           "action": "Retry later"
@@ -8149,6 +8877,10 @@
         "BAD_PARAMS": {
           "title": "Parameters are incomplete or invalid",
           "action": "Fix and retry"
+        },
+        "BOARD_FULL": {
+          "title": "Team task board is full",
+          "action": "Clear completed entries and try again"
         },
         "BUDGET_EXHAUSTED": {
           "title": "Quota exhausted",
@@ -8169,6 +8901,10 @@
         "CHAT_MODE_TOOL_BLOCKED": {
           "title": "This action is blocked in the current chat mode",
           "action": "Switch to Build Mode and retry"
+        },
+        "CONCURRENT_MODIFICATION": {
+          "title": "File modified concurrently",
+          "action": "Re-read before writing, or confirm to force overwrite"
         },
         "CONCURRENCY_LIMIT_EXCEEDED": {
           "title": "Too many requests",
@@ -8286,6 +9022,10 @@
           "title": "File is too large",
           "action": "Shrink the file and retry"
         },
+        "FORBIDDEN": {
+          "title": "You cannot update this task",
+          "action": "Claim the task first, or contact its current holder"
+        },
         "FORM_CHANNEL_UNAVAILABLE": {
           "title": "Business form requests are only available in the main chat flow",
           "action": "Do not retry this tool; ask the user directly in your reply instead"
@@ -8354,6 +9094,10 @@
           "title": "Parameters are incomplete or invalid",
           "action": "Fix and retry"
         },
+        "INVALID_STATUS": {
+          "title": "Invalid task status",
+          "action": "Use pending, claimed, done, or blocked"
+        },
         "INVALID_TRIGGER": {
           "title": "Schedule configuration is invalid",
           "action": "Fix the schedule and retry"
@@ -8373,6 +9117,30 @@
         "MEDIA_COUNT_EXCEEDED": {
           "title": "Too many media files",
           "action": "Reduce attachments and retry"
+        },
+        "MEMORY_DREAM_FAILED": {
+          "title": "Memory consolidation failed",
+          "action": "Try again later"
+        },
+        "MEMORY_FORGET_FAILED": {
+          "title": "Memory cleanup failed",
+          "action": "Try again later"
+        },
+        "MEMORY_PROCEDURAL_SAVE_FAILED": {
+          "title": "Failed to save tool-usage memory",
+          "action": "Try again later"
+        },
+        "MEMORY_RECALL_FAILED": {
+          "title": "Memory recall failed",
+          "action": "Try again later"
+        },
+        "MEMORY_SAVE_FAILED": {
+          "title": "Failed to save memory",
+          "action": "Try again later"
+        },
+        "MEMORY_TOPICS_FAILED": {
+          "title": "Failed to generate memory topics",
+          "action": "Try again later"
         },
         "MISSING_DATA": {
           "title": "Required parameters are missing",
@@ -8401,6 +9169,10 @@
         "MODEL_REFUSED": {
           "title": "The current model refused this request",
           "action": "Switch model"
+        },
+        "MODEL_RETIRED": {
+          "title": "This model has been permanently retired",
+          "action": "Switch to an available model in the list"
         },
         "MODEL_STREAM_IDLE": {
           "title": "Response timed out before completion",
@@ -8514,9 +9286,17 @@
           "title": "Subtask execution failed",
           "action": "Retry"
         },
+        "TASK_CLOSED": {
+          "title": "This task is already closed or blocked",
+          "action": "Choose another task"
+        },
         "TASK_FAILED": {
           "title": "Subtask execution failed",
           "action": "Retry"
+        },
+        "TASK_NOT_FOUND": {
+          "title": "Task not found",
+          "action": "Refresh the task list and retry"
         },
         "TEXT_TOO_LONG": {
           "title": "Context is too long",
@@ -8649,6 +9429,50 @@
         "invalid_arguments": {
           "title": "The submitted information is invalid",
           "action": "Check it and retry"
+        },
+        "ADVISOR_BUDGET_EXHAUSTED": {
+          "title": "This session has used up its advisor consultations",
+          "action": "Continue in a new session, or ask an admin to raise the advisor limit"
+        },
+        "ADVISOR_IDENTITY_REQUIRED": {
+          "title": "The advisor request has no owner or session identity",
+          "action": "Sign in again before consulting the advisor"
+        },
+        "ADVISOR_MODEL_UNAVAILABLE": {
+          "title": "The selected advisor model could not be called",
+          "action": "Pick another model or retry later"
+        },
+        "ADVISOR_PROMPT_EMPTY": {
+          "title": "The advisor prompt is empty",
+          "action": "Add the question you want advice on and retry"
+        },
+        "ADVISOR_PROMPT_TOO_LONG": {
+          "title": "The advisor prompt exceeds the length limit",
+          "action": "Shorten or split the question, then consult again"
+        },
+        "BAD_MAX_TOKENS": {
+          "title": "maxTokens is not an integer",
+          "action": "Set maxTokens to a positive integer and render the tree again"
+        },
+        "INSTANCE_NOT_VISIBLE": {
+          "title": "Workflow instance not found or not visible to you",
+          "action": "Check the instance ID, or switch to the account that owns it"
+        },
+        "PRINCIPAL_REQUIRED": {
+          "title": "Caller identity missing, so controlling another device was refused",
+          "action": "Sign in again and re-run the action from your own session"
+        },
+        "RENDER_FAILED": {
+          "title": "Rendering the directory tree failed",
+          "action": "Narrow the folder scope or lower maxTokens, then retry"
+        },
+        "SCHEDULER_ERROR": {
+          "title": "The scheduled task list could not be read",
+          "action": "Retry later; if it keeps failing, ask an admin to check the scheduler"
+        },
+        "WORKFLOW_NOT_TRIGGERABLE": {
+          "title": "This workflow cannot be triggered right now",
+          "action": "Confirm it exists, is enabled and has no running instance, then retry"
         }
       },
       "worktree": {
@@ -8776,7 +9600,8 @@
           "emptyDraft": "The draft is empty. Enter some text before polishing."
         },
         "restartHint": "Polishing takes effect after a restart. Your draft has been kept."
-      }
+      },
+      "injectionKindExpertPack": "Expert pack matched by intent"
     },
     "permissionConfirm": {
       "allow": "Allow",
@@ -8850,6 +9675,18 @@
       "imageLoadFailed": "Image load failed",
       "moreItems": "... {count} more",
       "openInNewWindow": "Open in new window",
+      "copyVideoLink": "Copy video link",
+      "videoLinkCopied": "Link copied",
+      "downloadVideo": "Download video",
+      "videoDownloading": "Downloading…",
+      "videoDownloaded": "Downloaded",
+      "shareVideo": "Share",
+      "copyImageLink": "Copy image link",
+      "imageLinkCopied": "Link copied",
+      "downloadImage": "Download image",
+      "imageDownloading": "Downloading…",
+      "imageDownloaded": "Downloaded",
+      "shareImage": "Share image",
       "pathCopied": "Copied",
       "plan": "Plan ({count})",
       "prompt": "Prompt",
@@ -8986,6 +9823,9 @@
     "title": "AI Career Guidance"
   },
   "aiChat": {
+    "favorite": "Add bookmark",
+    "unfavorite": "Remove bookmark",
+    "delete": "Delete",
     "bindIssue": "Bind issue",
     "actions": {
       "archive": "Archive",
@@ -8994,6 +9834,8 @@
       "delete": "Delete",
       "exportMd": "Export as Markdown",
       "exportTxt": "Export as TXT",
+      "exportSubmenu": "Export / Share",
+      "compressSubmenu": "Compress",
       "menu": "More actions",
       "rename": "Rename",
       "unarchive": "Unarchive",
@@ -9117,12 +9959,25 @@
     "envInfoButton": "Environment Info",
     "expandConversation": "Expand Conversation",
     "headerActions": {
+      "overflowMenu": "Panel menu",
+      "groupPanel": "Panel",
+      "groupTools": "Tools",
+      "groupSession": "Session",
       "panelGroupButtons": "Panel action buttons",
       "enterWorkspaceFullscreen": "Enter workspace fullscreen",
       "exitWorkspaceFullscreen": "Exit workspace fullscreen",
       "createDraftPullRequest": "Create Draft PR",
       "createDraftPullRequestOk": "Draft PR created",
       "createDraftPullRequestFailed": "Failed to create Draft PR"
+    },
+    "pictureInPicture": {
+      "sectionLabel": "Computer Use Picture-in-Picture",
+      "title": "Picture-in-Picture",
+      "hideInSession": "Hide picture-in-picture in this session",
+      "hideInAllSessions": "Hide picture-in-picture in all sessions",
+      "updateFailed": "Update failed",
+      "emptyState": "No watchable computer-use session yet",
+      "openWindow": "Open picture-in-picture window"
     },
     "floatMode": "Float Mode",
     "handleHint": "Click or drag right to open AI workspace",
@@ -9175,6 +10030,7 @@
       "title": "PowerShell Terminal"
     },
     "thisMonth": "This Month",
+    "earlier": "Earlier",
     "thisWeek": "This Week",
     "title": "AIChat",
     "toast": {
@@ -9400,8 +10256,6 @@
     "tabQwen": "Qwen",
     "tabSora2": "Sora2",
     "tabSuno": "Suno",
-    "tabX5m5x": "Turbo",
-    "tabX5m5xSubscribe": "Turbo Sub",
     "tabText": "Text",
     "taskId": "Task ID",
     "taskSubmitted": "Task submitted, generating...",
@@ -9415,12 +10269,6 @@
     "visionAnalysisSubtitle": "Upload an image and ask questions",
     "visionAnalysisTitle": "Vision Analysis",
     "voice": "Voice",
-    "x5m5xChatSubtitle": "Generate text with x5m5x pay-as-you-go models",
-    "x5m5xChatTitle": "x5m5x Chat",
-    "x5m5xImageSubtitle": "Generate images with x5m5x image models",
-    "x5m5xImageTitle": "x5m5x Image Generation",
-    "x5m5xSubscribeChatSubtitle": "Generate text with x5m5x subscription-channel models",
-    "x5m5xSubscribeChatTitle": "x5m5x Subscription Chat",
     "advancedParams": "Advanced Parameters",
     "temperature": "Temperature",
     "topP": "Top-P",
@@ -10042,7 +10890,7 @@
     }
   },
   "bestOfCompare": {
-    "empty": "No Best-of-N runs yet. Type /bestof <task> [#N] to start",
+    "empty": "No Best-of-N runs yet. Type /bestof '<task>' [#N] to start",
     "meta": "Best-of-N (N={n}, {evaluator}, total cost ${cost})",
     "evaluatorFallback": "fallback evaluator",
     "diffToggle": "Diff",
@@ -10056,7 +10904,22 @@
     "adopted": "Adopted",
     "adoptHint": "Write the selected candidate into the current conversation"
   },
+  "myQuests": {
+    "title": "My Quests",
+    "total": "{count} quests",
+    "currentWorkspace": "Current workspace",
+    "empty": "No quests registered yet (goals register automatically once set)",
+    "assessmentPlaceholder": "Record a self-assessment…",
+    "addAssessment": "Record",
+    "latestAssessment": "Latest assessment",
+    "noAssessment": "No assessments yet"
+  },
   "goalCard": {
+    "resumeServerOk": "Goal resumed",
+    "resumeAlreadyActive": "Goal is already active, nothing to resume",
+    "resumeTerminal": "Goal is completed and cannot be resumed",
+    "resumeNoGoal": "No resumable goal in this session",
+    "resumeFailed": "Resume failed: {message}",
     "editAriaLabel": "Edit goal",
     "editSave": "Save",
     "editCancel": "Cancel",
@@ -10064,7 +10927,7 @@
     "expand": "Expand",
     "achievedInTime": "Goal achieved in {totalTime}",
     "empty": "No conversation goal set yet",
-    "emptyHint": "Type /goal <goal> in the input box, or let the AI drive it",
+    "emptyHint": "Type /goal '<goal>' in the input box, or let the AI drive it",
     "progress": "Progress",
     "statusActive": "Active",
     "statusPaused": "Paused",
@@ -10381,8 +11244,12 @@
     "invalidPhone": "Please enter a valid phone number",
     "invalidUsername": "Please enter a valid username",
     "loginBtn": "Sign In",
+    "loggedInContinue": "You're already signed in, click the button below to continue",
+    "continueToSite": "Continue to Site",
     "loginFailed": "Login failed, please try again",
     "loginInBrowser": "Log in via browser",
+    "desktopSsoSuccess": "Signed in — synced to the desktop app",
+    "desktopSsoOpenFailed": "Could not open the browser — check your network and try again",
     "loginSubtitle": "Sign in to your account",
     "loginSuccess": "Login successful",
     "loginTitle": "Welcome Back",
@@ -10419,6 +11286,7 @@
     "resetPassword": "Reset Password",
     "resetSuccess": "Password reset successful, please sign in",
     "sendCode": "Send Code",
+    "sessionLoggedOutHint": "Your session has ended. Please sign in again to continue.",
     "showPassword": "Show password",
     "termsOfService": "Terms of Service",
     "thirdParty": {
@@ -10612,6 +11480,55 @@
     "expiryDate": "Expiry date"
   },
   "chat": {
+    "duplicatePendingTitle": "Previous identical request is still unconfirmed",
+    "duplicatePendingDesc": "It may already have run on the server; only the acknowledgement has not arrived. Sending it again may repeat the action.",
+    "emptyAnswerFallback": "This turn returned no content",
+    "favorite": "Add bookmark",
+    "unfavorite": "Remove bookmark",
+    "activityExpandMore": "Show {n} more",
+    "activityFoldCollapse": "Collapse summarized steps",
+    "activityFoldShowAll": "Show all steps",
+    "foldReadFiles": "Read {n} files",
+    "foldWriteFiles": "Wrote {n} files",
+    "foldModifyFiles": "Edited {n} files",
+    "foldDeleteFiles": "Deleted {n} files",
+    "foldSearchFiles": "{n} searches",
+    "foldCommands": "Ran {n} commands",
+    "foldPreviews": "Opened {n} previews",
+    "foldWebSearches": "{n} web searches",
+    "foldMcpCalls": "Called {n} MCP tools",
+    "foldSkillCalls": "Called {n} skills",
+    "foldTaskOps": "{n} task operations",
+    "foldThinking": "{n} analyses",
+    "foldUserInteractions": "Asked you {n} times",
+    "foldImages": "Generated {n} images",
+    "foldVideos": "Generated {n} videos",
+    "foldEnvInits": "Initialized environment {n} times",
+    "foldEnds": "Wrapped up {n} times",
+    "foldOthers": "Called {n} tools",
+    "processNarrationGroup": "Process narration",
+    "workbenchSessions": "Sessions",
+    "workbenchImmersiveEnter": "Enter big-screen mode",
+    "workbenchImmersiveExit": "Exit big-screen mode",
+    "telemetryWaiting": "Waiting",
+    "telemetryThinking": "Thinking",
+    "telemetryTool": "Running tools",
+    "telemetryWriting": "Generating",
+    "telemetryDone": "Completed",
+    "telemetryElapsed": "Elapsed",
+    "telemetryTtft": "First token",
+    "telemetryRate": "Rate",
+    "telemetryRateValue": "{n} chars/s",
+    "telemetryTokens": "Tokens",
+    "telemetryTools": "Tools",
+    "telemetryFailed": "Failed",
+    "feedbackLike": "Helpful",
+    "feedbackDislike": "Not helpful",
+    "workbenchHeroTitle": "AI Chat Workbench",
+    "workbenchHeroHint": "Type below to start a new conversation right here, or pick a session on the left to continue.",
+    "workbenchSplit": "Split panes",
+    "workbenchDropHere": "Drag a conversation here from the left",
+    "workbenchQuickStart": "Quick actions",
     "truncation": {
       "maxLengthNotice": "This reply was cut off at the maximum output length and is incomplete; send \"continue\" to keep generating."
     },
@@ -10642,6 +11559,8 @@
     },
     "bindIssue": "Bind issue",
     "unbindIssue": "Make standalone task",
+    "bindIssueHint": "Link this conversation to a GitHub or Linear issue — handy for chats that track a bug or feature. Search, pick an issue, and a clickable badge appears next to the conversation. Skipping it changes nothing else.",
+    "searchIssueAction": "Search",
     "issueBinding": "Linked issue",
     "searchIssues": "Search issues by ID, title, or project",
     "noIssues": "No issues to bind yet",
@@ -10653,12 +11572,12 @@
     "issueUnbindFailed": "Failed to unbind issue",
     "selectionAnnotations": {
       "hoverHint": "Hover to view annotations",
-      "selectedText": "{{index}}. Selected text",
+      "selectedText": "{index}. Selected text",
       "noComment": "No comment yet",
       "commentPlaceholder": "Add an optional comment…",
       "commentAriaLabel": "Selection annotation comment",
       "addComment": "Add comment",
-      "removeOne": "Remove annotation {{index}}",
+      "removeOne": "Remove annotation {index}",
       "removeAll": "Remove all selection annotations",
       "add": "Annotate"
     },
@@ -10677,6 +11596,7 @@
       "loadFailed": "Search failed",
       "noMatch": "No matches"
     },
+    "questionCancelledByStop": "Task stopped — the unanswered question was cancelled.",
     "modelSwitchStopped": "Switched to {model}. This response was stopped.",
     "filePreviewEmpty": "The file has no data rows to preview.",
     "filePreviewTypeMismatch": "File content does not match the {ext} format.",
@@ -10732,7 +11652,8 @@
         "saveFailed": "Could not save the recording",
         "recognitionFailed": "Speech recognition was interrupted",
         "emptyTranscript": "Nothing was recognized",
-        "sttPending": "Transcription is not available right now. Try again later, or save the audio only."
+        "sttPending": "Transcription is not available right now. Try again later, or save the audio only.",
+        "loadFailed": "Could not load your notes. Please try again."
       },
       "action": {
         "start": "Start recording",
@@ -10741,7 +11662,9 @@
         "saveAudioOnly": "Save audio only",
         "insertToInput": "Insert into message",
         "dismiss": "Close"
-      }
+      },
+      "searchPlaceholder": "Search notes",
+      "groupAll": "All"
     },
     "connectorAuth": {
       "title": "Connect to {connectorName}",
@@ -10760,7 +11683,9 @@
       "title": "Changes in this turn",
       "revert": "Revert this turn",
       "noCheckpoints": "No checkpoint available",
-      "revertConfirm": "This will restore the conversation and files to before this AI reply. All {count} file changes will be reverted. This cannot be undone.",
+      "expiredNote": "Checkpoints are kept on disk for {hours} hours and are cleaned up after that, so this turn can no longer be reverted. The change list is still shown above.",
+      "revertConfirmWithTurns": "This restores the conversation and files to before this AI reply: {count} file changes will be reverted, and {turns} turns from this point on will be undone as well. Task records are kept. This cannot be undone.",
+      "revertConfirm": "This restores the conversation and files to before this AI reply: {count} file changes will be reverted. Task records are kept. This cannot be undone.",
       "changedFile": "Modified file",
       "createdFile": "Created file",
       "deletedFile": "Deleted file"
@@ -10769,6 +11694,11 @@
     "addContextReference": "Add as Context Reference",
     "addMenuDesc": "Add menu (Templates / References / Skills / Attachments / Plugins / Compact)",
     "addMenuLabel": "Add",
+    "backToMenu": "Back to menu",
+    "quickSettings": "Session settings",
+    "composerSectionContent": "Content",
+    "composerSectionCapability": "Capabilities",
+    "moreTools": "More tools",
     "artifactCode": "Code",
     "artifactPreview": "Preview",
     "assistant": "AI Assistant",
@@ -10784,6 +11714,17 @@
     "canvasVersions": "Version History",
     "clearInputAriaLabel": "Clear input",
     "clearInputTitle": "Clear input content",
+    "predictiveEditHint": "Predictive edit suggestion",
+    "predictiveEditApply": "Apply",
+    "predictiveEditChanges": "{count} suggested changes",
+    "predictiveEditApplySelected": "Apply selected",
+    "predictiveEditInsert": "Insert",
+    "predictiveEditReplace": "Replace",
+    "predictiveEditDelete": "Delete",
+    "predictiveEditLine": "Line {line}",
+    "predictiveEditPreview": "Hover to preview the region this change affects",
+    "predictiveEditSetting": "Predictive edit",
+    "predictiveEditSettingDesc": "Predicts your next edit after a typing pause and shows selectable suggestions in the chat input and code editor; turn off to stop sending prediction requests.",
     "cmdCode": "Please implement the following feature with code and comments:",
     "cmdExplain": "Please explain the following concept in detail:",
     "cmdKouboScript": "Please help me generate 8 daily Douyin voice-over scripts. Requirements:\n1. Date: MMDD\n2. Topic direction:\n3. Dual-gate validation (ambiguity compression / cross-script vocabulary / full validation / grammar / hot-topic coverage)\nRun the koubo-workflow pipeline (constraint-first writing method).",
@@ -10913,6 +11854,7 @@
       "branch": "Branch from here"
     },
     "contextUsage": {
+      "rowLabel": "Context usage",
       "breakdownTitle": "Token breakdown",
       "budgetRow": "Daily quota",
       "categoryFiles": "Files",
@@ -10942,6 +11884,27 @@
       "noReferences": "No references yet",
       "uploading": "Uploading attachment",
       "uploadFailed": "Attachment upload failed",
+      "annotateImage": "Annotate image",
+      "annotator": {
+        "title": "Image annotation",
+        "hint": "Pick a tool and drag on the image. For text, type the text first, then click the image to place it.",
+        "rect": "Rectangle",
+        "arrow": "Arrow",
+        "pen": "Pen",
+        "text": "Text",
+        "undo": "Undo",
+        "redo": "Redo",
+        "color": "Color",
+        "lineWidth": "Line width",
+        "widthThin": "Thin",
+        "widthMedium": "Medium",
+        "widthThick": "Thick",
+        "textPlaceholder": "Enter annotation text",
+        "apply": "Apply annotation",
+        "cancel": "Cancel",
+        "loading": "Loading image",
+        "loadFailed": "Failed to load image"
+      },
       "cacheHit": "Cache hit {ratio} ({read} read back)",
       "cacheOccupancyNote": "Cached tokens still occupy {occupied} of the window; only the re-prefill is skipped",
       "cacheUnavailable": "This usage frame carried no cache counters, so the hit rate cannot be judged",
@@ -10991,10 +11954,13 @@
       "roleAssistant": "Assistant",
       "exportCard": "Share as image card",
       "shareCardUser": "User",
-      "exportPdf": "Export PDF"
+      "exportPdf": "Export PDF",
+      "compression": "Compress conversation"
     },
     "fallbackNotice": "Switched to backup model {backup} (primary model {primary} temporarily unavailable)",
     "fallbackNoticeQuota": "This answer was written by {backup}. The provider account behind {primary} ran out of quota, so the platform routed to an equivalent model in the same family.",
+    "interruptedNotice": "This response was interrupted and may be incomplete",
+    "interruptedNoticeUserCancelled": "You cancelled this response; it may be incomplete",
     "feedbackRecorded": "Feedback recorded",
     "foldPolicy": {
       "title": "Intermediate steps folding policy",
@@ -11028,6 +11994,7 @@
       "delete": "Delete",
       "downloadImages": "Download images",
       "edit": "Edit",
+      "editAiReply": "Edit this reply",
       "editAndRerun": "Save & Rerun",
       "editRollbackFiles": "Also rollback file changes",
       "hideContent": "Hide content",
@@ -11038,11 +12005,21 @@
       "readAloudTruncated": "Content too long, reading the first {max} characters only",
       "regenerate": "Regenerate",
       "reply": "Reply",
+      "saveAsNewVersion": "Save as new version",
       "share": "Share",
       "shareLinkCopied": "Content and link copied",
+      "shareTurn": "Share this turn",
+      "shareTurnCopied": "Turn link copied",
       "showContent": "Show content",
       "stopReadAloud": "Stop reading",
-      "toggleMetadata": "Toggle metadata"
+      "toggleMetadata": "Toggle metadata",
+      "metadataLoading": "Loading metadata…",
+      "metadataUnavailable": "Metadata is temporarily unavailable",
+      "pin": "Pin",
+      "unpin": "Unpin",
+      "bookmark": "Bookmark",
+      "unbookmark": "Remove bookmark",
+      "flagFailed": "Failed to save marker"
     },
     "messageDeleted": "Message deleted",
     "modeAlreadyActive": "Already in {mode} mode",
@@ -11060,7 +12037,10 @@
     "modeSpecDesc": "AI will reverse-generate spec docs from code",
     "modeSwitched": "Switched to {mode} mode",
     "modeSwitcherLabel": "Switch AI mode",
+    "modeTaskAria": "{mode} task",
+    "taskProgressAria": "Task progress {status}",
     "taskProgressOpen": "Task progress",
+    "taskProgressIdle": "Idle",
     "toolsPanelOpen": "Show tools panel",
     "toolsPanelClose": "Hide tools panel",
     "model": "Model",
@@ -11251,7 +12231,26 @@
       "setAsDefault": "Set as global default",
       "setDefaultHint": "Workspaces without explicit config will follow this",
       "setDefaultDone": "Set as global default",
-      "setDefaultFailed": "Failed to save, please retry"
+      "setDefaultFailed": "Failed to save, please retry",
+      "axesTitle": "Request-level axes",
+      "axesHint": "Sandbox × approval. An explicit choice overrides the mode above and takes precedence on the server; otherwise it follows the mode.",
+      "axesFollowMode": "Follow mode",
+      "axesOverride": "Overriding the single mode (this request uses both axes)",
+      "axesFollowHint": "Following mode: {sandbox} × {approval}",
+      "axesUnmapped": "The current mode has no equivalent axis pair, so no axes are sent",
+      "axesSandboxLabel": "Sandbox",
+      "axesApprovalLabel": "Approval",
+      "axesSandboxReadOnly": "Read only",
+      "axesSandboxWorkspaceWrite": "Workspace write",
+      "axesSandboxDangerFullAccess": "Full access",
+      "axesApprovalUntrusted": "Ask unless trusted",
+      "axesApprovalOnFailure": "Ask on failure",
+      "axesApprovalOnRequest": "Ask on request",
+      "axesApprovalNever": "Never ask",
+      "axesPresetReadOnly": "Read only",
+      "axesPresetAuto": "Auto",
+      "axesPresetFullAccess": "Full access",
+      "axesPersistHint": "Your choice is saved on this device and restored after refresh"
     },
     "permissionAlreadyActive": "Already in {mode} mode",
     "permissionLabelAsk": "Ask for approval",
@@ -11316,14 +12315,14 @@
     "goalSet": "Goal set",
     "goalDone": "Goal marked as done",
     "goalCleared": "Goal cleared",
-    "goalNone": "No goal set yet. Usage: /goal <goal>",
+    "goalNone": "No goal set yet. Usage: /goal '<goal>'",
     "goalCurrent": "Current goal: {goal} ({progress}%)",
-    "btwUsage": "Temporary side chat, not written to the main history. Usage: /btw <question>",
+    "btwUsage": "Temporary side chat, not written to the main history. Usage: /btw '<question>'",
     "btwBadge": "Side chat",
     "btwNoAnswer": "(no answer content)",
     "btwNotSaved": "Side chat answers are excluded from the main history",
     "btwFailed": "Side chat failed: {error}",
-    "sideUsage": "Quick side question, not written to the main history. Usage: /side <question>",
+    "sideUsage": "Quick side question, not written to the main history. Usage: /side '<question>'",
     "sideBadge": "Side Q&A",
     "sideEnqueued": "AI is generating; your side question is queued and will be answered when the current reply finishes",
     "sideNoConversation": "Conversation not persisted yet; cannot queue a side question. Send a message first",
@@ -11445,6 +12444,27 @@
       "noContent": "(no content)",
       "openGitHub": "Open GitHub",
       "promptPlaceholder": "Prompt template content",
+      "reloadSkills": "Reload skills",
+      "reloadSkillsHint": "Rescan SKILL.md on disk so changes take effect immediately",
+      "reloadSkillsRunning": "Reloading…",
+      "reloadSkillsSuccess": "Reload complete",
+      "reloadSkillsFailed": "Reload failed",
+      "reloadSkillsAdded": "Added",
+      "reloadSkillsRemoved": "Removed",
+      "reloadSkillsChanged": "Changed",
+      "reloadSkillsUnchanged": "Unchanged",
+      "reloadSkillsTotal": "{count} skills in total",
+      "reloadSkillsNoChange": "No content changes in this reload",
+      "reloadSkillsAuto": "{count} from auto sources",
+      "reloadPlugins": "Reload plugin surface",
+      "reloadPluginsHint": "Rescan the plugin surface and feed the latest command list back to the host",
+      "reloadPluginsRunning": "Reloading…",
+      "reloadPluginsSuccess": "Plugin surface reloaded",
+      "reloadPluginsFailed": "Plugin surface reload failed",
+      "reloadPluginsCommandCount": "{count} commands",
+      "reloadPluginsSkillCount": "{count} skills",
+      "reloadPluginsCommandList": "Latest command list",
+      "reloadPluginsNoCommand": "No commands available right now",
       "save": "Save",
       "saving": "Saving…",
       "scenario": "Scenario",
@@ -11459,6 +12479,8 @@
       "sectionCustom": "My custom",
       "statusAvailable": "Available",
       "statusComingSoon": "Coming soon",
+      "tabAiSkills": "AI Skills",
+      "tabAll": "All",
       "tabCustom": "Custom",
       "tabMcp": "MCP",
       "tabOpenclaw": "OpenClaw",
@@ -11515,10 +12537,10 @@
       "summary": "Summarize current conversation",
       "translate": "Translate selected text",
       "wechat-article": "Write WeChat article",
-      "bestof": "Run N parallel copies of the same task, LLM judge picks the best (/bestof <task> #N, N=1-5, default 3)",
+      "bestof": "Run N parallel copies of the same task, LLM judge picks the best (/bestof '<task>' #N, N=1-5, default 3)",
       "commit": "AI-generated commit message with automatic git add+commit (Smart Commit, usage: /commit [hint])",
       "commitArgTitle": "Extra hint (optional)",
-      "side": "Quick side question, not written to the main history; auto-queued while generating, answered when the reply finishes (usage: /side <question>)"
+      "side": "Quick side question, not written to the main history; auto-queued while generating, answered when the reply finishes (usage: /side '<question>')"
     },
     "slashCommand": "Invoke command/skill (/)",
     "stepAnswer": "Answer",
@@ -11529,6 +12551,19 @@
     "steerNoticeBar": {
       "title": "Steered {count} times",
       "moreItems": "{count} more"
+    },
+    "agentPicker": {
+      "label": "Agent",
+      "triggerAria": "Select in-conversation agent / expert",
+      "default": "Default assistant",
+      "defaultDesc": "No expert",
+      "groupTitle": "Experts",
+      "toolsSummary": "Tools: {tools}"
+    },
+    "agentNoticeBar": {
+      "title": "Switched to {agent} expert",
+      "body": "This turn is answered by the \"{agent}\" expert; its system prompt and tool allowlist are merged into this request.",
+      "reset": "Back to default"
     },
     "streamingIndicator": "AI is generating",
     "streamingIndicatorHint": "AI is generating, you can type the next message",
@@ -11543,6 +12578,7 @@
       "feedbackRecorded": "Feedback recorded, thank you",
       "feedbackSaved": "Feedback saved",
       "feedbackFailed": "Failed to submit feedback",
+      "dislikeThanks": "Thanks — you can add details from the survey card",
       "messageDeleted": "Message deleted",
       "operationFailed": "Operation failed",
       "regenerating": "Regenerating…",
@@ -11688,7 +12724,7 @@
       "errorNode": "Failed message"
     },
     "sampling": {
-      "clearParam": "Reset {{name}}",
+      "clearParam": "Reset {name}",
       "useModelDefault": "Use model default",
       "title": "Sampling parameters",
       "desc": "Adjust temperature, top_p and other inference parameters. Applies to the current conversation only.",
@@ -11710,7 +12746,7 @@
       "systemPromptHint": "Applies to this session only; not saved as default.",
       "resetAll": "Reset all",
       "done": "Done",
-      "triggerActive": "Sampling · {{count}} overrides",
+      "triggerActive": "Sampling · {count} overrides",
       "trigger": "Sampling parameters",
       "triggerAria": "Open sampling parameters",
       "personalityCustom": "Custom"
@@ -11809,9 +12845,27 @@
     "reasoningEffortLow": "Fast",
     "reasoningEffortMedium": "Balanced",
     "reasoningEffortHigh": "Deep",
+    "reasoningEffortXhigh": "Deeper",
+    "reasoningEffortMax": "Maximum",
     "reasoningEffortUnsupported": "This model does not allow choosing a reasoning depth",
     "reasoningEffortFallback": "Reasoning depth adjusted by the server: {requested} → {effective}",
-    "analysisOpen": "View Scenario Analysis"
+    "analysisOpen": "View Scenario Analysis",
+    "reviewTargetGroupLabel": "Review target selection",
+    "reviewTargetLabel": "Review target",
+    "reviewTargetUncommitted": "Uncommitted changes",
+    "reviewTargetBranch": "Branch",
+    "reviewTargetBranchLabel": "Branch to compare against",
+    "reviewTargetBranchPlaceholder": "e.g. main or feature/login",
+    "reviewTargetCommit": "Commit",
+    "reviewTargetCommitLabel": "Commit SHA to review",
+    "reviewTargetCommitPlaceholder": "e.g. 9cb7c5a",
+    "reviewTargetFile": "Specific file",
+    "reviewTargetFileLabel": "File path to review",
+    "reviewTargetFilePlaceholder": "Workspace-relative path, e.g. src/app.ts",
+    "reviewTargetSnippet": "Pasted snippet",
+    "reviewTargetSnippetLabel": "Code snippet to review",
+    "reviewTargetSnippetPlaceholder": "Paste the code to review…",
+    "reviewTargetClear": "Clear review target"
   },
   "chatHistory": {
     "moveToGroup": "Move to group",
@@ -12002,6 +13056,10 @@
     "selected": "Selected {count}/{total}",
     "sourceAider": "Aider",
     "sourceAiderHint": "Typical path: ~/.aider chat history (.md)",
+    "sourceChatgpt": "ChatGPT",
+    "sourceChatgptHint": "Single conversations.json from the web app (Settings → Data Export)",
+    "sourceClaudeAi": "Claude.ai",
+    "sourceClaudeAiHint": "conversation-*.json files from the unzipped export, upload one at a time",
     "sourceClaudeCode": "Claude Code",
     "sourceClaudeCodeHint": "Typical path: ~/.claude/projects/**/*.jsonl",
     "sourceCodex": "Codex CLI",
@@ -12065,151 +13123,273 @@
       "slashDiff": {
         "label": "Session changes",
         "description": "Review files the AI changed in this conversation",
-        "keywords": ["diff", "changes", "review"]
+        "keywords": [
+          "diff",
+          "changes",
+          "review"
+        ]
       },
       "slashStatus": {
         "label": "Session status",
         "description": "Show model, context usage, permission mode and spend",
-        "keywords": ["status", "context", "usage"]
+        "keywords": [
+          "status",
+          "context",
+          "usage"
+        ]
       },
       "slashModel": {
         "label": "Switch model",
         "description": "Open the model selector",
-        "keywords": ["model", "switch"]
+        "keywords": [
+          "model",
+          "switch"
+        ]
       },
       "slashMcp": {
         "label": "MCP marketplace",
         "description": "Open the MCP server marketplace",
-        "keywords": ["mcp", "marketplace"]
+        "keywords": [
+          "mcp",
+          "marketplace"
+        ]
       },
       "slashCompact": {
         "label": "Compact context",
         "description": "Compact this conversation's history to free context window",
-        "keywords": ["compact", "context"]
+        "keywords": [
+          "compact",
+          "context"
+        ]
       },
       "steerPrompt": {
         "label": "Steer prompt",
         "description": "Inject the current input as guidance into the running answer",
-        "keywords": ["steer", "guide", "redirect"]
+        "keywords": [
+          "steer",
+          "guide",
+          "redirect"
+        ]
       },
       "queuePrompt": {
         "label": "Queue prompt",
         "description": "Queue the current input; it sends automatically after the current answer finishes",
-        "keywords": ["queue", "pending", "send later"]
+        "keywords": [
+          "queue",
+          "pending",
+          "send later"
+        ]
       },
       "agent": {
         "description": "Manage and dispatch AI agents",
-        "keywords": ["agent", "bot", "dispatch"],
+        "keywords": [
+          "agent",
+          "bot",
+          "dispatch"
+        ],
         "label": "AI Agents"
       },
       "browser": {
         "description": "Browse the web inside the workspace",
-        "keywords": ["browser", "web", "preview"],
+        "keywords": [
+          "browser",
+          "web",
+          "preview"
+        ],
         "label": "Built-in Browser"
       },
       "capabilityMarket": {
         "description": "Discover and install capability packs",
-        "keywords": ["capability", "market", "pack", "install"],
+        "keywords": [
+          "capability",
+          "market",
+          "pack",
+          "install"
+        ],
         "label": "Capability Market"
       },
       "codeChanges": {
         "description": "Review workspace code changes",
-        "keywords": ["changes", "diff", "git", "code"],
+        "keywords": [
+          "changes",
+          "diff",
+          "git",
+          "code"
+        ],
         "label": "Code Changes"
       },
       "connectors": {
         "description": "Manage external service connections",
-        "keywords": ["connector", "integration", "service"],
+        "keywords": [
+          "connector",
+          "integration",
+          "service"
+        ],
         "label": "Connectors"
       },
       "document": {
         "description": "Edit workspace documents",
-        "keywords": ["document", "docs", "edit"],
+        "keywords": [
+          "document",
+          "docs",
+          "edit"
+        ],
         "label": "Documents"
       },
       "editor": {
         "description": "Open the code editor",
-        "keywords": ["editor", "code", "monaco"],
+        "keywords": [
+          "editor",
+          "code",
+          "monaco"
+        ],
         "label": "Editor"
       },
       "mcp": {
         "description": "Manage MCP servers and tools",
-        "keywords": ["mcp", "server", "tools"],
+        "keywords": [
+          "mcp",
+          "server",
+          "tools"
+        ],
         "label": "MCP Manager"
       },
       "mcpStore": {
         "description": "Browse and install MCP services",
-        "keywords": ["mcp", "store", "market", "install"],
+        "keywords": [
+          "mcp",
+          "store",
+          "market",
+          "install"
+        ],
         "label": "MCP Store"
       },
       "modeAsk": {
         "description": "Switch to Ask mode with tools disabled",
-        "keywords": ["ask", "question", "mode"],
+        "keywords": [
+          "ask",
+          "question",
+          "mode"
+        ],
         "label": "Ask mode"
       },
       "modeBuild": {
         "description": "Let the AI build and modify directly",
-        "keywords": ["build", "mode", "generate"],
+        "keywords": [
+          "build",
+          "mode",
+          "generate"
+        ],
         "label": "Build Mode"
       },
       "modePlan": {
         "description": "Plan first, then execute",
-        "keywords": ["plan", "mode", "todo"],
+        "keywords": [
+          "plan",
+          "mode",
+          "todo"
+        ],
         "label": "Plan Mode"
       },
       "modeReview": {
         "description": "Review and assess existing code",
-        "keywords": ["review", "mode", "audit"],
+        "keywords": [
+          "review",
+          "mode",
+          "audit"
+        ],
         "label": "Review Mode"
       },
       "modeSpec": {
         "description": "Generate implementations from specs",
-        "keywords": ["spec", "mode", "generate"],
+        "keywords": [
+          "spec",
+          "mode",
+          "generate"
+        ],
         "label": "Spec Mode"
       },
       "skill": {
         "description": "Manage and invoke AI skills",
-        "keywords": ["skill", "ability", "plugin"],
+        "keywords": [
+          "skill",
+          "ability",
+          "plugin"
+        ],
         "label": "Skills"
       },
       "terminal": {
         "description": "Open the integrated terminal",
-        "keywords": ["terminal", "shell", "console"],
+        "keywords": [
+          "terminal",
+          "shell",
+          "console"
+        ],
         "label": "Terminal"
       },
       "ai-world": {
         "description": "Explore the world of AI applications",
-        "keywords": ["AI", "world", "apps"],
+        "keywords": [
+          "AI",
+          "world",
+          "apps"
+        ],
         "label": "AI World"
       },
       "chat": {
         "description": "Start a conversation with AI assistant",
-        "keywords": ["chat", "talk", "AI", "conversation"],
+        "keywords": [
+          "chat",
+          "talk",
+          "AI",
+          "conversation"
+        ],
         "label": "AI Chat"
       },
       "drama": {
         "description": "AI-generated short dramas",
-        "keywords": ["drama", "video", "AI", "show"],
+        "keywords": [
+          "drama",
+          "video",
+          "AI",
+          "show"
+        ],
         "label": "AI Drama"
       },
       "profile": {
         "description": "Manage your profile and settings",
-        "keywords": ["profile", "user", "settings"],
+        "keywords": [
+          "profile",
+          "user",
+          "settings"
+        ],
         "label": "Profile"
       },
       "search": {
         "description": "Global content search",
-        "keywords": ["search", "find", "query"],
+        "keywords": [
+          "search",
+          "find",
+          "query"
+        ],
         "label": "Search"
       },
       "settings": {
         "description": "System preferences and configuration",
-        "keywords": ["settings", "preferences", "config"],
+        "keywords": [
+          "settings",
+          "preferences",
+          "config"
+        ],
         "label": "Settings"
       },
       "skillsMarket": {
         "description": "Browse and install self-evolving skills",
-        "keywords": ["skill", "market", "plugin"],
+        "keywords": [
+          "skill",
+          "market",
+          "plugin"
+        ],
         "label": "Skill Market"
       }
     },
@@ -12218,6 +13398,43 @@
     "resultCount": "{count} results",
     "searchPlaceholder": "Search commands...",
     "recentGroup": "Recent"
+  },
+  "collab": {
+    "collaboratorsEmpty": "No collaborators yet",
+    "collaboratorsTitle": "Collaborators",
+    "invitationAccept": "Accept invitation",
+    "invitationAcceptDone": "Invitation accepted",
+    "invitationAcceptFailed": "Failed to accept invitation",
+    "invitationAccepting": "Accepting…",
+    "invitationConversation": "Conversation",
+    "invitationInvitedBy": "Invited by",
+    "invitationTitle": "Pending collaboration invitations",
+    "lockAcquire": "Start speaking",
+    "lockAcquired": "You have the floor",
+    "lockFailed": "Floor lock action failed",
+    "lockFree": "No one is speaking",
+    "lockHeldBy": "{user} is speaking",
+    "lockRelease": "Give up the floor",
+    "lockReleased": "Floor released",
+    "lockTakeover": "Take the floor",
+    "lockTaken": "Floor taken over",
+    "lockTitle": "Floor lock",
+    "manageTitle": "Collaboration management",
+    "revoke": "Revoke",
+    "revokeConfirm": "Revoke this collaborator?",
+    "revokeDone": "Collaborator revoked",
+    "revokeFailed": "Revoke failed",
+    "statusAccepted": "Accepted",
+    "statusPending": "Pending",
+    "statusRevoked": "Revoked",
+    "tierAcceptEdits": "Accept edits (can speak)",
+    "tierBypassPermissions": "Bypass permissions (can speak)",
+    "tierDefault": "Default (can speak)",
+    "tierLabel": "Permission tier",
+    "tierPlan": "Read-only + comments",
+    "tierUpdated": "Tier updated",
+    "tierUpdateFailed": "Failed to update tier",
+    "you": "you"
   },
   "comments": {
     "adminReply": "Admin Reply",
@@ -12407,6 +13624,7 @@
     "errorTitle": "Something went wrong",
     "remark": "Remark",
     "unknownError": "Unknown error",
+    "deleteFailed": "Failed to delete, please try again later",
     "reply": "Reply",
     "orderNoLabel": "Order No.",
     "clear": "Clear",
@@ -12688,7 +13906,6 @@
     "description": "Description",
     "domain": "Domain",
     "domainHint": "Domain hint",
-    "duration": "Duration",
     "editInfo": "Edit Info",
     "estimatedHint": "Estimation hint",
     "highlight": "Highlight",
@@ -12696,7 +13913,6 @@
     "memory": "Memory",
     "name": "Name",
     "noInstances": "No instances",
-    "objectives": "Objectives",
     "question": "Question",
     "resources": "Resources",
     "resourcesHint": "Resource usage hint",
@@ -13002,15 +14218,15 @@
       "scopeModels": "Model List",
       "scopeEmbeddings": "Embeddings",
       "scopeImages": "Image Generation",
-    "recharge": "Top up",
-    "rechargeTitle": "Top up {name}",
-    "walletBalance": "Wallet balance",
-    "rechargeAmountLabel": "Amount (CNY)",
-    "rechargeAmountPlaceholder": "e.g. 10.00",
-    "rechargeHint": "Funds move from wallet to this API key balance.",
-    "rechargeOk": "Top-up successful",
-    "rechargeInvalid": "Enter a positive amount",
-    "rechargeConfirm": "Confirm",
+      "recharge": "Top up",
+      "rechargeTitle": "Top up {name}",
+      "walletBalance": "Wallet balance",
+      "rechargeAmountLabel": "Amount (CNY)",
+      "rechargeAmountPlaceholder": "e.g. 10.00",
+      "rechargeHint": "Funds move from wallet to this API key balance.",
+      "rechargeOk": "Top-up successful",
+      "rechargeInvalid": "Enter a positive amount",
+      "rechargeConfirm": "Confirm",
       "scopeAudio": "Audio",
       "scopeVideos": "Video Generation",
       "unlimitedQuota": "Unlimited",
@@ -13241,8 +14457,8 @@
     "cardDesc": "Model prices & billing rules",
     "cardLabel": "API Pricing",
     "codeCurl": "curl -X POST https://api.ihui-ai.com/v1/chat/completions \\\n  -H \"Authorization: Bearer YOUR_API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '''{'\n    \"model\": \"gpt-4o\",\n    \"messages\": [\n      '{' \"role\": \"user\", \"content\": \"Hello, please introduce yourself\" '}'\n    ],\n    \"temperature\": 0.7\n  '}'''",
-    "codeNode": "import OpenAI from 'openai'\n\nconst client = new OpenAI({\n  apiKey: process.env.IHUI_API_KEY,\n  baseURL: 'https://api.ihui-ai.com/v1',\n})\n\nconst completion = await client.chat.completions.create({\n  model: 'gpt-4o',\n  messages: [\n    { role: 'user', content: 'Hello, please introduce yourself' },\n  ],\n  temperature: 0.7,\n})\n\nconsole.log(completion.choices[0].message.content)\n\n// Track cost\nconst usage = completion.usage\nconsole.log(`Used ${usage.total_tokens} tokens`)",
-    "codePython": "import os\nimport openai\n\nclient = openai.OpenAI(\n    api_key=os.environ[\"IHUI_API_KEY\"],\n    base_url=\"https://api.ihui-ai.com/v1\",\n)\n\nresponse = client.chat.completions.create(\n    model=\"gpt-4o\",\n    messages=[\n        {\"role\": \"user\", \"content\": \"Hello, please introduce yourself\"},\n    ],\n    temperature=0.7,\n)\n\nprint(response.choices[0].message.content)\n\n# Track cost\nusage = response.usage\nprint(f\"Used {usage.total_tokens} tokens\")",
+    "codeNode": "import OpenAI from ''openai''\n\nconst client = new OpenAI('{'\n  apiKey: process.env.IHUI_API_KEY,\n  baseURL: ''https://api.ihui-ai.com/v1'',\n'}')\n\nconst completion = await client.chat.completions.create('{'\n  model: ''gpt-4o'',\n  messages: [\n    '{' role: ''user'', content: ''Hello, please introduce yourself'' '}',\n  ],\n  temperature: 0.7,\n'}')\n\nconsole.log(completion.choices[0].message.content)\n\n// Track cost\nconst usage = completion.usage\nconsole.log(`Used $'{'usage.total_tokens'}' tokens`)",
+    "codePython": "import os\nimport openai\n\nclient = openai.OpenAI(\n    api_key=os.environ[\"IHUI_API_KEY\"],\n    base_url=\"https://api.ihui-ai.com/v1\",\n)\n\nresponse = client.chat.completions.create(\n    model=\"gpt-4o\",\n    messages=[\n        '{'\"role\": \"user\", \"content\": \"Hello, please introduce yourself\"'}',\n    ],\n    temperature=0.7,\n)\n\nprint(response.choices[0].message.content)\n\n# Track cost\nusage = response.usage\nprint(f\"Used '{'usage.total_tokens'}' tokens\")",
     "colCurrency": "Currency",
     "colInput": "Input (CNY/1M tokens)",
     "colModel": "Model ID",
@@ -13255,7 +14471,7 @@
     "exampleStep2": "output cost = 1200 ÷ 1000 × 10 = 12 cents",
     "exampleTitle": "Billing Example",
     "examplesSubtitle": "Auth via HTTP Bearer Token, POST application/json",
-    "examplesTip": "Tip: replace YOUR_API_KEY with the key from /developer/keys, and adjust baseURL to your actual endpoint.",
+    "examplesTip": "Tip: replace YOUR_API_KEY with the key from <link>/developer/keys</link>, and adjust baseURL to your actual endpoint.",
     "examplesTitle": "Code Examples",
     "formula": "Cost formula",
     "formulaBody": "Total = (input_tokens ÷ 1000 × input_price) + (output_tokens ÷ 1000 × output_price)",
@@ -13640,6 +14856,86 @@
     "totalCount": "{count} total"
   },
   "docs": {
+    "common": {
+      "backToDocs": "Back to Docs",
+      "startReading": "Start Reading",
+      "firstChapter": "This is the first chapter",
+      "lastChapter": "This is the last chapter",
+      "chapterBadge": "Chapter {num} · User Manual"
+    },
+    "manual": {
+      "overview": {
+        "title": "User Manual",
+        "description": "No technical background needed — just follow the steps."
+      },
+      "getting-started": {
+        "title": "Getting Started"
+      },
+      "ai-chat": {
+        "title": "AI Chat"
+      },
+      "agent": {
+        "title": "Using Agents"
+      },
+      "knowledge-base": {
+        "title": "Knowledge Base"
+      },
+      "billing": {
+        "title": "Credits & Subscriptions"
+      },
+      "account": {
+        "title": "Account Settings"
+      },
+      "faq": {
+        "title": "FAQ"
+      }
+    },
+    "meta": {
+      "overview": {
+        "title": "IHUI AI Documentation",
+        "description": "From quickstart to advanced development — complete coverage of everything IHUI AI offers"
+      },
+      "quickstart": {
+        "title": "5-Minute Quickstart — IHUI AI",
+        "description": "Go from signup to publishing your first AI Agent in 5 minutes. Apache 2.0 open source, 100+ models, six platforms from one codebase."
+      },
+      "api": {
+        "title": "API Reference — IHUI AI",
+        "description": "REST API + Webhook + OpenAPI 3.1, with SDKs covering every major language."
+      },
+      "rag": {
+        "title": "Knowledge Base RAG — IHUI AI",
+        "description": "Document parsing, vector retrieval, BM25, and knowledge graphs"
+      },
+      "mcp": {
+        "title": "MCP Tool Integration — IHUI AI",
+        "description": "Native support for the Anthropic MCP protocol: 100+ preset servers plus custom development."
+      },
+      "agent": {
+        "title": "Agent Development — IHUI AI",
+        "description": "Visual orchestration, templates, and best practices, published to all six platforms."
+      },
+      "self-host": {
+        "title": "Self-hosting Deployment — IHUI AI",
+        "description": "Deployment guide for Docker Compose and Kubernetes Helm Chart"
+      },
+      "models": {
+        "title": "Multi-model Routing — IHUI AI",
+        "description": "Unified access to 100+ LLMs with automatic fallback and Combo chain calls."
+      },
+      "workflow": {
+        "title": "Workflow Orchestration — IHUI AI",
+        "description": "An n8n-style node canvas for visually orchestrating complex AI flows."
+      },
+      "team": {
+        "title": "Team Collaboration — IHUI AI",
+        "description": "RBAC, SSO, audit logs, and shared credits — enterprise-grade team AI collaboration."
+      },
+      "manual": {
+        "title": "User Manual — IHUI AI",
+        "description": "Illustrated tutorials for end users, covering every everyday feature in 7 chapters."
+      }
+    },
     "navAgent": "Agent Development",
     "navApi": "API Docs",
     "navDevelopers": "Developers",
@@ -14128,7 +15424,18 @@
       "toolFailures": "Tool Failures",
       "trigger": "Trigger",
       "triggerError": "Trigger failed",
-      "triggerSuccess": "Triggered successfully"
+      "triggerSuccess": "Triggered successfully",
+      "refresh": "Rescan memory source",
+      "refreshSuccess": "Memory source rescanned",
+      "refreshReadFailed": "Memory source read failed (previous memory kept)",
+      "refreshFailed": "Memory source rescan failed",
+      "refreshTotal": "{before} before → {after} after rescan",
+      "refreshLoadState": "Read state",
+      "refreshAdded": "Added",
+      "refreshRemoved": "Removed",
+      "refreshChanged": "Changed",
+      "refreshUnchanged": "Unchanged",
+      "refreshNoChange": "No content changes in this rescan"
     },
     "orch": {
       "dashboard": "Dashboard",
@@ -14395,7 +15702,7 @@
       "elapsed": "Elapsed",
       "error": "Compose failed",
       "materialResult": "Materials",
-      "modelPlaceholder": "Model (optional, default stepfun/step-3.7-flash)",
+      "modelPlaceholder": "Model (optional, default agnes/agnes-2.5-flash)",
       "noTasks": "No tasks yet. Start your first video compose now",
       "optional": "(optional)",
       "promptLabel": "Prompt",
@@ -14447,17 +15754,8 @@
     "sections": "Sections"
   },
   "eduCoursesPage": {
-    "empty": "No courses",
-    "loading": "Loading...",
-    "progress": "Progress {n}%",
-    "searchAriaLabel": "Search courses",
-    "searchPlaceholder": "Search courses...",
-    "statusCompleted": "Completed",
-    "statusInProgress": "In Progress",
-    "statusNotStarted": "Not Started",
     "subtitle": "Manage all enrolled courses",
-    "title": "My Courses",
-    "total": "{n} total"
+    "title": "My Courses"
   },
   "eduDashboardPage": {
     "coursesCard": {
@@ -14632,25 +15930,37 @@
       "quadrants": [
         {
           "description": "Simple decisions + simple execution, rapid deployment of high-frequency applications",
-          "examples": ["Knowledge Q&A", "Process automation"],
+          "examples": [
+            "Knowledge Q&A",
+            "Process automation"
+          ],
           "tag": "Q1",
           "title": "Efficient Assistant"
         },
         {
           "description": "Complex decisions + simple execution, providing in-depth analysis and recommendations",
-          "examples": ["Data analysis", "Decision support"],
+          "examples": [
+            "Data analysis",
+            "Decision support"
+          ],
           "tag": "Q2",
           "title": "Smart Advisor"
         },
         {
           "description": "Simple decisions + complex execution, handling cross-system complex tasks",
-          "examples": ["Meeting scheduling", "Approval workflows"],
+          "examples": [
+            "Meeting scheduling",
+            "Approval workflows"
+          ],
           "tag": "Q3",
           "title": "Execution Expert"
         },
         {
           "description": "Complex decisions + complex execution, autonomous planning and multi-agent collaboration",
-          "examples": ["Marketing automation", "Multi-agent collaboration"],
+          "examples": [
+            "Marketing automation",
+            "Multi-agent collaboration"
+          ],
           "tag": "Q4",
           "title": "All-round Expert"
         }
@@ -14784,19 +16094,31 @@
       "items": [
         {
           "description": "Offline courses, exploration activities, and a mutual-aid community, deeply connecting like-minded decision-makers",
-          "features": ["Systematic courses", "Hands-on exploration", "Community mutual aid"],
+          "features": [
+            "Systematic courses",
+            "Hands-on exploration",
+            "Community mutual aid"
+          ],
           "tag": "MODULE 01",
           "title": "Local Community"
         },
         {
           "description": "A convenient online communication platform, accessing information and support anytime, anywhere",
-          "features": ["Communication platform", "Experience sharing", "Resource matching"],
+          "features": [
+            "Communication platform",
+            "Experience sharing",
+            "Resource matching"
+          ],
           "tag": "MODULE 02",
           "title": "Online Community"
         },
         {
           "description": "Professional large models and agent services, providing in-depth AI transformation consulting and support",
-          "features": ["Professional LLMs", "Agent services", "Consulting services"],
+          "features": [
+            "Professional LLMs",
+            "Agent services",
+            "Consulting services"
+          ],
           "tag": "MODULE 03",
           "title": "AI Professional Services"
         }
@@ -15033,19 +16355,19 @@
     "q11Question": "Is my data secure?",
     "q12Answer": "Absolutely not. We neither train our own models nor use your data to train any third-party models. For data retention policies of OpenAI/Anthropic and other API providers, please refer to their official documentation (all default to no-training; in API mode, data is automatically deleted after 30 days).",
     "q12Question": "Will IHUI AI use my data to train your models?",
-    "q1Answer": "IHUI AI (Chinese: 智汇 AI) is an all-in-one full-stack AI operating system. It unifies Agent design, knowledge-base RAG, multi-model dispatch, cross-platform collaboration and team operations in a single platform, supporting six clients (Web, Desktop, Mini Program, Browser Extension, React Native, CLI) from one codebase, with Apache 2.0 open-source core and self-hosting support.",
+    "q1Answer": "IHUI AI (Chinese: 智汇 AI) is an all-in-one full-stack AI operating system. It unifies Agent design, knowledge-base RAG, multi-model dispatch, cross-platform collaboration and team operations in a single platform, supporting nine clients (Web, Desktop, Mini Program, Browser Extension, React Native, Capacitor Native Shell, CLI, plus API and AI Service) from one codebase, with Apache 2.0 open-source core and self-hosting support.",
     "q1Question": "What is IHUI AI?",
-    "q2Answer": "Dify focuses on LLM app development (web only); Coze is closed-source (no self-hosting); FastGPT focuses on knowledge-base Q&A. IHUI AI is an open-source platform that simultaneously covers Agent marketplace + knowledge base + six-client distribution + team collaboration + credit billing — one platform that replaces the Dify + Coze + FastGPT trio.",
+    "q2Answer": "Dify focuses on LLM app development (web only); Coze is closed-source (no self-hosting); FastGPT focuses on knowledge-base Q&A. IHUI AI is an open-source platform that simultaneously covers Agent marketplace + knowledge base + nine-client distribution + team collaboration + credit billing — one platform that replaces the Dify + Coze + FastGPT trio.",
     "q2Question": "How is IHUI AI different from Dify, Coze, and FastGPT?",
-    "q3Answer": "Three audiences benefit most: AI developers (rapidly build/distribute/monetize Agents, publish to all six clients in one click), enterprise IT (self-host for data sovereignty, unified AI capability hub), and team leaders (multi-user collaboration, unified knowledge base, unified billing).",
+    "q3Answer": "Three audiences benefit most: AI developers (rapidly build/distribute/monetize Agents, publish to all nine clients in one click), enterprise IT (self-host for data sovereignty, unified AI capability hub), and team leaders (multi-user collaboration, unified knowledge base, unified billing).",
     "q3Question": "Who is IHUI AI for?",
     "q4Answer": "OpenAI (GPT-4o/o1/GPT-4.1), Anthropic Claude (Opus 4 / Sonnet 4), Google Gemini, Alibaba Qwen (Qwen-Max/Plus), DeepSeek (V3/R1), Zhipu GLM-4, Baidu ERNIE, ByteDance Doubao, Moonshot Kimi, plus Ollama and any OpenAI-compatible endpoint. Unified billing, auto fallback, cost-based routing.",
     "q4Question": "Which AI models are supported?",
-    "q5Answer": "Web, Desktop (Tauri 2), WeChat/Alipay/Douyin Mini Programs (Taro 4), Browser Extension (WXT MV3), iOS/Android (React Native), and CLI (Node.js/Bun) — all six clients share the same React component library, the same API contracts, and the same business logic. Write once, publish to all six — no need to rewrite for each platform.",
-    "q5Question": "What does \"six clients, one codebase\" mean?",
+    "q5Answer": "Web, Desktop (Tauri 2), WeChat/Alipay/Douyin Mini Programs (Taro 4), Browser Extension (WXT MV3), iOS/Android (React Native), CLI (Node.js/Bun), and the Capacitor Native Shell (iOS/Android), plus API and AI Service — all nine clients share the same React component library, the same API contracts, and the same business logic. Write once, publish to all nine — no need to rewrite for each platform.",
+    "q5Question": "What does \"nine clients, one codebase\" mean?",
     "q6Answer": "Three ways: ① OpenAPI 3.1 REST API (SDKs for TypeScript / Python / Go); ② Webhook event subscriptions; ③ MCP tool protocol (your internal systems can be exposed as MCP Servers and called by IHUI AI Agents). Enterprise edition also supports SSO/SAML 2.0/OIDC single sign-on.",
     "q6Question": "How do I integrate with my existing systems?",
-    "q7Answer": "Yes, the Personal plan is free forever: 1,000 credits monthly, all models, all six clients, and API access are all included. Pro is ¥49/month (10,000 credits + priority queue), Team is ¥299/month/user (shared credit pool + audit logs), Enterprise is custom (self-host + SLA).",
+    "q7Answer": "Yes, the Personal plan is free forever: 1,000 credits monthly, all models, all nine clients, and API access are all included. Pro is ¥49/month (10,000 credits + priority queue), Team is ¥299/month/user (shared credit pool + audit logs), Enterprise is custom (self-host + SLA).",
     "q7Question": "Is the Personal plan free?",
     "q8Answer": "Credits are billed per model call, with different consumption rates per model (see pricing page). Recharged credits: full refund within 7 days if unused, pro-rata refund for used portion. Subscription plans: pro-rata refund for unused months. See refund policy for details.",
     "q8Question": "How are credits calculated? Can I get a refund?",
@@ -15411,7 +16733,7 @@
     "contactWechatHint": "Scan to add customer service WeChat, or search ID ok502319984",
     "copyFailed": "Copy failed, please copy manually",
     "copyRepoUrl": "Copy repository URL",
-    "copyright": "© 2025 Zhihui AI Group · China",
+    "copyright": "© 2026 Zhihui AI Group · China",
     "databases": {
       "mongodb": "Volcengine",
       "mysql": "Alibaba Cloud",
@@ -15437,8 +16759,6 @@
     "officialApp": "Official Account",
     "officialPromotion": "Official Promotion Platforms",
     "officialWechat": "My WeChat",
-    "openOnGitcode": "Open on GitCode",
-    "openOnGitee": "Open on Gitee",
     "openOnGithub": "Open on GitHub",
     "paymentPlatforms": "Payment Platforms",
     "payments": {
@@ -15647,7 +16967,7 @@
     "descriptionPlaceholder": "Optional, a short note on what this hook does",
     "fieldEvent": "Trigger event",
     "fieldCondition": "Condition expression (JSONLogic, optional)",
-    "conditionHint": "Example: {\"==\":[\"tool\",\"write_file\"]} matches when the tool field equals write_file",
+    "conditionHint": "Example: '{'\"==\":[\"tool\",\"write_file\"]'}' matches when the tool field equals write_file",
     "fieldActionType": "Action type",
     "testResultTitle": "Test result",
     "testTriggered": "Triggered",
@@ -15672,16 +16992,16 @@
     "fieldHttpMethod": "HTTP method",
     "fieldHeaders": "Request headers (JSON)",
     "fieldBodyTemplate": "Request body template",
-    "bodyTemplateHint": "Supports the {{event}} {{tool}} {{args}} {{result}} variables",
+    "bodyTemplateHint": "Supports the {event} {tool} {args} {result} variables",
     "fieldShellCommand": "Shell command",
     "shellCommandHint": "Runs inside the sandbox with a 10s timeout; the HOOK_EVENT / HOOK_CONTEXT environment variables are available",
     "fieldNotifyChannel": "Notification channel",
     "fieldNotifyMessage": "Message template",
-    "notifyMessageHint": "Supports the {{event}} {{tool}} {{args}} variables",
+    "notifyMessageHint": "Supports the {event} {tool} {args} variables",
     "notifyWebhookUrlHint": "The webhook channel POSTs the notification to this URL (same sender as the webhook action)",
-    "notifyMessagePlaceholder": "{{event}} triggered",
+    "notifyMessagePlaceholder": "{event} triggered",
     "fieldLogMessage": "Log message template",
-    "logMessageHint": "Supports the {{event}} {{tool}} {{args}} variables; written to logs/hooks.log",
+    "logMessageHint": "Supports the {event} {tool} {args} variables; written to logs/hooks.log",
     "channel": {
       "toast": "Toast (inline notice)",
       "notification": "System notification",
@@ -15696,7 +17016,34 @@
     "logSuccess": "Success",
     "logFailure": "Failed"
   },
+  "connectivity": {
+    "deviceOffline": "Device offline, some features unavailable",
+    "slow": "Network is slow, responses are taking longer than usual",
+    "unconfirmed": "Cannot reach the server, retrying automatically",
+    "hostLocalAvailable": "Local Git channel still available"
+  },
   "ide": {
+    "agentsMd": {
+      "title": "AGENTS.md",
+      "hint": "Scan the current workspace to draft collaboration conventions. Generating does not write to disk; you will be asked once more before writing.",
+      "generate": "Generate AGENTS.md draft",
+      "generateConfirmTitle": "Generate an AGENTS.md draft?",
+      "generateConfirmContent": "The current workspace will be scanned and a draft produced. The draft is shown here only; nothing is written to disk.",
+      "generating": "Scanning workspace…",
+      "generateFailed": "Failed to generate draft",
+      "draftTitle": "AGENTS.md draft (editable; written only after confirmation)",
+      "draftNotice": "Draft not yet written to disk",
+      "write": "Write AGENTS.md",
+      "writeConfirmTitle": "Write AGENTS.md?",
+      "writeConfirmContent": "This writes the content above to AGENTS.md in the workspace root; an existing file with the same name will be overwritten.",
+      "writing": "Writing…",
+      "writeFailed": "Write failed",
+      "written": "AGENTS.md written",
+      "discard": "Discard draft",
+      "errorEmptyWorkspace": "Workspace path is empty",
+      "errorRequestFailed": "AI service request failed",
+      "errorNoDraft": "The tool did not return a draft"
+    },
     "activityBar": {
       "applications": "Applications",
       "debug": "Debug",
@@ -15762,6 +17109,7 @@
     },
     "codeEditor": {
       "lspStatus": "LSP",
+      "attributionToggle": "Toggle AI line attribution",
       "zoomIn": "Zoom in",
       "zoomOut": "Zoom out"
     },
@@ -15919,8 +17267,18 @@
       "binaryMissing": "git binary not found",
       "clean": "Host workspace clean, no uncommitted changes",
       "commandFailed": "git command failed ({reason}), verdict: {verdict}",
+      "diffClean": "No uncommitted diff for this path",
+      "diffClose": "Close diff",
+      "diffCommandFailed": "git diff failed ({reason}), verdict: {verdict}",
+      "diffTitle": "Diff: {path}",
+      "diffUndetermined": "Diff unavailable: {reason}",
       "dirty": "{count} uncommitted change(s) on host",
       "hostRejected": "Host rejected: {reason}",
+      "indexDelta": "Indexed {total} items · +{added} / -{removed} / ~{changed} / ={unchanged}",
+      "indexFirst": "Indexed {total} items (first scan, no baseline)",
+      "indexScan": "Scan index",
+      "indexSkipped": "Skipped: link dirs {symlink} · non-UTF-8 {nonUtf8}",
+      "indexUndetermined": "Index unavailable: {reason}",
       "noVerdict": "No workspace verdict yet",
       "noWorkspace": "No host workspace connected",
       "refresh": "Refresh",
@@ -16345,8 +17703,6 @@
     "chapters": "Chapters",
     "detail": {
       "back": "Back to Learn",
-      "duration": "Duration",
-      "objectives": "Learning Objectives",
       "studentsLabel": "Students"
     },
     "empty": "No learning content available",
@@ -16991,7 +18347,7 @@
         "title": "Triple Stack · Relatively Rare"
       },
       "professional": {
-        "description": "17 pre-commit guardrails + 4 husky hooks + 122+ migrations + 12 shared packages, code quality beats 95% of peers",
+        "description": "275 machine-enforced gates + 8 git hooks + 340 migrations + 16 shared packages, code quality beats 95% of peers",
         "evidence": "Evidence: 17 guardrails > industry avg 3 / 122 migrations > avg 30 / 12 packages > avg 4 → 99.9% error-free",
         "title": "Engineering Rigor · Industry Benchmark"
       },
@@ -17015,12 +18371,12 @@
       "row1Claude": "CLI",
       "row1Cursor": "Desktop",
       "row1Feature": "Platform Coverage",
-      "row1Us": "8 platforms fully covered",
+      "row1Us": "9 platforms fully covered",
       "row2Chatgpt": "OpenAI models",
       "row2Claude": "Claude models",
       "row2Cursor": "Multi-model optional",
       "row2Feature": "LLM Count",
-      "row2Us": "100+ LLMs",
+      "row2Us": "101 Models",
       "row3Chatgpt": "None",
       "row3Claude": "MCP single stack",
       "row3Cursor": "MCP single stack",
@@ -17030,7 +18386,7 @@
       "row4Claude": "No",
       "row4Cursor": "No",
       "row4Feature": "API Endpoints",
-      "row4Us": "7 endpoints",
+      "row4Us": "4557+ endpoints",
       "row5Chatgpt": "No",
       "row5Claude": "No",
       "row5Cursor": "No",
@@ -17051,7 +18407,7 @@
       "row8Cursor": "No",
       "row8Feature": "Agent Marketplace",
       "row8Us": "5+ roles",
-      "subtitle": "Zhihui AI vs Claude Code vs Cursor vs ChatGPT · 8 platforms + 100+ LLMs + triple stack + Agent Square",
+      "subtitle": "Zhihui AI vs Claude Code vs Cursor vs ChatGPT · 9 platforms + 101 Models + triple stack + Agent Square",
       "title": "Competitive Comparison · Multi-Dimensional",
       "titleEn": "COMPETITIVE COMPARISON"
     },
@@ -17074,8 +18430,8 @@
       },
       "appStore": {
         "benefit": "Save ¥180K/year total · replaces Claude Pro + GPT Plus + Cursor + multi-model API",
-        "description": "International 30+ (OpenAI/Claude/Gemini/Llama) + Domestic 15+ (Tongyi/GLM/DeepSeek) + Cloud 40+, one key for all",
-        "title": "100+ LLMs"
+        "description": "OpenAI / Claude / Gemini / Llama + Tongyi / GLM / DeepSeek + full cloud-vendor coverage — 101 registered models, one key for all",
+        "title": "101 Models"
       },
       "contentCreation": {
         "benefit": "Save Claude Pro ¥17000/year · 10× dev efficiency · 6-source config one-click import",
@@ -17088,9 +18444,9 @@
         "title": "Full-Stack AI Education"
       },
       "modelIntegration": {
-        "benefit": "Save 8× redundant purchase cost · 1 account across 8 platforms · zero data migration",
-        "description": "Web/Desktop/Mobile/Mini-Program/CLI/Extension (6) + API/AI-Service (2), full-stack coverage, unified account seamless switching",
-        "title": "8-Platform Full-Stack Architecture"
+        "benefit": "Save 8× redundant purchase cost · 1 account across 9 platforms · zero data migration",
+        "description": "Web/Desktop/Mobile/Mini-Program/CLI/Extension/Capacitor (7) + API/AI-Service (2), full-stack coverage, unified account seamless switching",
+        "title": "9-Platform Full-Stack Architecture"
       },
       "multimodal": {
         "benefit": "Save ¥50K/year design cost · 5 modalities integrated · 10× content production",
@@ -17102,12 +18458,12 @@
         "description": "3 permission modes + 7 runtime interception endpoints + 60s timeout rejection + RBAC fine-grained access control + 99.9% SLA",
         "title": "Enterprise-Grade Workspace"
       },
-      "subtitle": "8-platform enterprise-grade AI · 100+ LLMs · self-developed CLI · industrial-grade rigor · all AI capabilities in one platform for decision-makers",
+      "subtitle": "9-platform enterprise-grade AI · 101 Models · self-developed CLI · industrial-grade rigor · all AI capabilities in one platform for decision-makers",
       "title": "8 Core Capabilities · Full-Stack Coverage",
       "titleEn": "POWERFUL FEATURES",
       "workflow": {
         "benefit": "Complex task automation · replaces 5+ SaaS tools · triple stack relatively rare",
-        "description": "2 LangGraph workflows + 11 MCP tools + 5 A2A endpoints + 6 ACP extensions, triple-stack integration rare in industry",
+        "description": "2 LangGraph workflows + 90+ MCP tools + 5 A2A endpoints + 6 ACP extensions, triple-stack integration rare in industry",
         "title": "LangGraph Workflow"
       }
     },
@@ -17136,7 +18492,7 @@
     "marquee": {
       "items": [
         "🎉 New AI Education module: courses, live classes, and exams in one",
-        "🚀 Model Market adds GPT-5, Claude 4.5, Gemini 2.5 Pro flagships",
+        "🚀 Model Market: 101 models incl. Gemini 3.8, Step 3.7, DeepSeek V4, GLM 4.7, Qwen Max, Kimi K2 flagships",
         "💎 VIP members: 30% off, unlimited access to 100+ agents",
         "🌍 Multi-language upgrade: real-time translation in 5 languages",
         "🎨 50+ themes in Theme Center, switch visual style with one click",
@@ -17197,7 +18553,7 @@
         "description": "For growing teams with priority support",
         "feature1": "50,000 credits per month",
         "feature2": "Advanced models (GPT-4o/Claude Opus)",
-        "feature3": "All 6 clients",
+        "feature3": "All 9 clients",
         "feature4": "Team collaboration (10 seats)",
         "feature5": "Email support",
         "name": "Professional"
@@ -17216,7 +18572,7 @@
         "value": "60% hit rate"
       },
       "cost": {
-        "calculation": "Claude Pro ¥17000 + GPT Plus ¥1600 + Cursor ¥1600 + API ¥500",
+        "calculation": "Claude Pro ¥17000 + GPT Plus ¥1600 + Cursor ¥1600 + API ¥50000 = Save ¥70,200/year",
         "description": "Replaces Claude Pro + GPT Plus + Cursor + multi-model API subscriptions",
         "title": "Comprehensive Savings",
         "value": "Save ¥18-30k/year"
@@ -17228,14 +18584,14 @@
         "value": "Save ¥10k/year"
       },
       "models": {
-        "calculation": "Intl 30+ domestic 15+ cloud 40+ = 100+ models one API Key access",
+        "calculation": "101 registered models · international + domestic + cloud vendors, one API Key for all",
         "description": "International + domestic + cloud providers fully covered, one API Key for unified access",
         "title": "LLM Coverage",
-        "value": "100+ LLMs"
+        "value": "101 Models"
       },
       "quality": {
-        "calculation": "17 guards + 4 hooks + 122 migrations = 99.9% error-free",
-        "description": "17 pre-commit guards + 4 husky hooks + 122+ migrations",
+        "calculation": "275 machine-enforced gates + 3180 test files + 340 migrations = 99.9% error-free",
+        "description": "275 engineering gates + 8 git hooks + 340 database migrations",
         "title": "Engineering Quality",
         "value": "99.9% error-free"
       },
@@ -17305,11 +18661,11 @@
     "title": "Title",
     "typewriter": {
       "brand": "Self-Developed CLI Comparable to Claude Code · ACP Embedded in Zed/VSCode/Cursor",
-      "connect": "LangGraph + MCP + A2A Triple Stack · 1029+ API Endpoints · Industrial-Grade",
-      "content": "8-Platform Coverage · Broad Full-Stack AI Platform",
+      "connect": "LangGraph + MCP + A2A Triple Stack · 4557+ API Routes · Industrial-Grade",
+      "content": "9-Platform Coverage · Broad Full-Stack AI Platform",
       "ctaPrimary": "Try Now",
       "ctaSecondary": "Learn More",
-      "explore": "100+ LLMs · One API Key for All · Save ¥180K/year",
+      "explore": "101 Models · One API Key for All · Save ¥180K/year",
       "miniappBtn": "WeChat Mini Program",
       "qrAlt": "Mini-program QR code",
       "scanTip": "Scan to experience the mini-program",
@@ -17329,13 +18685,13 @@
         "benefit5": "Priority access to AI assistant",
         "benefit6": "Full refund if not satisfied"
       },
-      "brandSubtitle": "8 Platforms · 100+ LLMs · 1029+ API · Save ¥180K/year",
-      "description": "Zhihui AI integrates Agent marketplace, knowledge base RAG, multi-model unified dispatch, MCP tool protocol. Supports Web / Desktop / Mini Program / Browser Extension / React Native / CLI — 6 platforms, Apache 2.0 open source, supports private deployment.",
+      "brandSubtitle": "9 Platforms · 101 Models · 4557+ API · Save ¥180K/year",
+      "description": "Zhihui AI integrates Agent marketplace, knowledge base RAG, multi-model unified dispatch, MCP tool protocol. Supports Web / Desktop / Mini Program / Browser Extension / React Native / Capacitor Native Shell / CLI, plus API and AI Service — 9 platforms, Apache 2.0 open source, supports private deployment.",
       "earlyBird": "Early-Bird ¥6000/year · 67% Off",
-      "multiEnd": "8-Platform Coverage · Industry's Only",
+      "multiEnd": "9-Platform Coverage · Industry's Only",
       "perYear": "/year",
       "seats": "Limited to 18 Seats · Decision-Makers Only",
-      "subtitle": "Full-stack AI Operating System · 8-Platform Coverage · One-Stop Agent Collaboration",
+      "subtitle": "Full-stack AI Operating System · 9-Platform Coverage · One-Stop Agent Collaboration",
       "title": "Welcome to the Zhihui AI Community"
     }
   },
@@ -17455,7 +18811,12 @@
     "dashboardSuccessRate": "Success rate",
     "dashboardAvgLatency": "Avg latency",
     "dashboardNoData": "No data",
-    "dashboardLatency": "{value}s"
+    "dashboardLatency": "{value}s",
+    "clearAuth": "Revoke authorization",
+    "clearAuthHint": "Revoke the OAuth credential you granted to this server (this one only)",
+    "clearAuthSuccess": "Authorization for {name} revoked",
+    "clearAuthNoOauth": "{name} does not use the OAuth channel, nothing to revoke",
+    "clearAuthFailed": "Failed to revoke authorization for {name}"
   },
   "member": {
     "feedback": {
@@ -17692,7 +19053,15 @@
       "title": "Top 5 Pages",
       "visitsHeader": "Visits"
     },
-    "weekdays": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    "weekdays": [
+      "Mon",
+      "Tue",
+      "Wed",
+      "Thu",
+      "Fri",
+      "Sat",
+      "Sun"
+    ]
   },
   "models": {
     "relay": {
@@ -17931,7 +19300,7 @@
           "datasetName": "Dataset",
           "datasetNamePlaceholder": "Select dataset name",
           "model": "Model",
-          "modelPlaceholder": "Enter model name (e.g. stepfun/step-3.7-flash)",
+          "modelPlaceholder": "Enter model name (e.g. agnes/agnes-2.5-flash)",
           "promptName": "Prompt",
           "promptNamePlaceholder": "Enter prompt name",
           "running": "Evaluating...",
@@ -18846,16 +20215,195 @@
     "activityTitle": "Activity feed",
     "none": "None"
   },
+  "workbuddyReset": {
+    "title": "WorkBuddy One-Click Reset",
+    "subtitle": "Maintenance cleanup · Logout reset · Factory reset (quarantine move, reversible). Targets the local state of WorkBuddy Desktop on this machine.",
+    "nonDesktop": "This tool is only available in the IHUI AI desktop app (requires local IPC).",
+    "probeTitle": "Local State Scan",
+    "probeScanning": "Scanning ~/.workbuddy (may take 1-2 minutes when large)…",
+    "probeRoot": "Target directory",
+    "probeRefresh": "Rescan",
+    "probeTotal": "Total size",
+    "probeReclaimable": "Safely reclaimable (no user data lost)",
+    "wbRunning": "WorkBuddy running",
+    "wbNotRunning": "WorkBuddy not running",
+    "tierMaintenance": "Regenerable cache",
+    "tierWebviewLogout": "Login state",
+    "tierDeviceIdentity": "Device identity",
+    "tierUserAsset": "User data",
+    "tierNever": "Untouchable",
+    "maintTitle": "1. Maintenance Cleanup",
+    "maintDesc": "Clears only regenerable caches and logs (logs/traces/tmp/webview caches/Crashpad, etc.). Login, memory, skills, connectors and workspace are fully preserved.",
+    "maintCta": "Start Maintenance Cleanup",
+    "logoutTitle": "2. Logout Reset",
+    "logoutDesc": "Removes the webview session profile; next launch returns to the login screen. Login and device state are fully reset.",
+    "logoutDeviceIdOpt": "Also clear device identity (device-id) — the app re-registers itself on next launch",
+    "logoutCta": "Start Logout Reset",
+    "factoryTitle": "3. Factory Reset",
+    "factoryDesc": "Moves every top-level entry of ~/.workbuddy into a same-volume quarantine directory (instant, lossless, reversible); the app rebuilds as a fresh install.",
+    "factoryCta": "Start Factory Reset",
+    "factoryConfirm": "⚠️ This moves ALL local WorkBuddy state (login, sessions, workspace indexes) into quarantine — moving entries back restores everything, but the app must be fully reconfigured. Continue?",
+    "factoryConfirmYes": "Confirm Factory Reset",
+    "factoryConfirmNo": "Cancel",
+    "killNote": "Running WorkBuddy processes will be closed first (including the host of this conversation) — the AI session in this app will end, so save your conversation first.",
+    "boundaryNote": "Boundary: this tool only cleans local state. Server-side device unbinding and account restrictions must go through official WorkBuddy channels (RepairApp / support). No fingerprint spoofing.",
+    "errPrefix": "Operation failed",
+    "resultTitle": "Execution Result",
+    "resultOk": "OK",
+    "resultFail": "Failed",
+    "restartHint": "After logout/factory reset: reopen WorkBuddy to start fresh. The factory quarantine path is shown in the factory_reset layer detail; moving entries back restores everything.",
+    "quarantineTitle": "Quarantine manager",
+    "quarantineDesc": "Everything moved by logout/factory reset lives here and can be restored exactly. Delete only when you are sure.",
+    "quarantineRefresh": "Refresh",
+    "quarantineEmpty": "No quarantine directories",
+    "qEntriesLabel": "entries",
+    "qRestore": "Restore",
+    "qDelete": "Delete",
+    "qDeleteConfirm": "Deleted data cannot be recovered. Confirm?",
+    "qRestored": "Restored. Probe and quarantine list refreshed.",
+    "qDeleted": "Quarantine deleted.",
+    "historyTitle": "Operation history",
+    "historyEmpty": "No operations recorded yet",
+    "progressLabel": "Progress",
+    "planPreview": "Preview plan",
+    "planTitle": "Plan preview (per-item progress is streamed at run time)",
+    "planActDeleteDir": "delete directory",
+    "planActDeleteFile": "delete file",
+    "planActQuarantine": "move to quarantine",
+    "planTruncated": "Showing the 8 largest items; see layer detail at run time for the rest.",
+    "planEmpty": "Nothing to do (nothing exists or already clean).",
+    "entriesShowAll": "Show all entries",
+    "entriesShowLess": "Show less"
+  },
+  "qoderReset": {
+    "title": "Qoder One-Click Reset",
+    "subtitle": "Maintenance cleanup · Logout reset · Factory reset (quarantine move, reversible). Targets the local state of Qoder Desktop on this machine.",
+    "nonDesktop": "This tool is only available in the IHUI AI desktop app (requires local IPC).",
+    "probeTitle": "Local State Scan",
+    "probeScanning": "Scanning ~/.workbuddy (may take 1-2 minutes when large)…",
+    "probeRoot": "Target directory",
+    "probeRefresh": "Rescan",
+    "probeTotal": "Total size",
+    "probeReclaimable": "Safely reclaimable (no user data lost)",
+    "wbRunning": "Qoder running",
+    "wbNotRunning": "Qoder not running",
+    "tierMaintenance": "Regenerable cache",
+    "tierWebviewLogout": "Login state",
+    "tierDeviceIdentity": "Device identity",
+    "tierUserAsset": "User data",
+    "tierNever": "Untouchable",
+    "maintTitle": "1. Maintenance Cleanup",
+    "maintDesc": "Clears only regenerable caches and logs (logs/traces/tmp/webview caches/Crashpad, etc.). Login, memory, skills, connectors and workspace are fully preserved.",
+    "maintCta": "Start Maintenance Cleanup",
+    "logoutTitle": "2. Logout Reset",
+    "logoutDesc": "Removes the webview session profile; next launch returns to the login screen. Login and device state are fully reset.",
+    "logoutDeviceIdOpt": "Also clear device identity (installation_id/umid-cache.json) — the app re-registers itself on next launch",
+    "logoutCta": "Start Logout Reset",
+    "factoryTitle": "3. Factory Reset",
+    "factoryDesc": "Moves every top-level entry of ~/.workbuddy into a same-volume quarantine directory (instant, lossless, reversible); the app rebuilds as a fresh install.",
+    "factoryCta": "Start Factory Reset",
+    "factoryConfirm": "⚠️ This moves ALL local Qoder state (login, sessions, workspace indexes) into quarantine — moving entries back restores everything, but the app must be fully reconfigured. Continue?",
+    "factoryConfirmYes": "Confirm Factory Reset",
+    "factoryConfirmNo": "Cancel",
+    "killNote": "Running Qoder processes will be closed first (including the host of this conversation) — the AI session in this app will end, so save your conversation first.",
+    "boundaryNote": "Boundary: this tool only cleans local state. Server-side device unbinding and account restrictions must go through official Qoder channels (RepairApp / support). No fingerprint spoofing.",
+    "errPrefix": "Operation failed",
+    "resultTitle": "Execution Result",
+    "resultOk": "OK",
+    "resultFail": "Failed",
+    "restartHint": "After logout/factory reset: reopen Qoder to start fresh. The factory quarantine path is shown in the factory_reset layer detail; moving entries back restores everything.",
+    "quarantineTitle": "Quarantine manager",
+    "quarantineDesc": "Everything moved by logout/factory reset lives here and can be restored exactly. Delete only when you are sure.",
+    "quarantineRefresh": "Refresh",
+    "quarantineEmpty": "No quarantine directories",
+    "qEntriesLabel": "entries",
+    "qRestore": "Restore",
+    "qDelete": "Delete",
+    "qDeleteConfirm": "Deleted data cannot be recovered. Confirm?",
+    "qRestored": "Restored. Probe and quarantine list refreshed.",
+    "qDeleted": "Quarantine deleted.",
+    "historyTitle": "Operation history",
+    "historyEmpty": "No operations recorded yet",
+    "progressLabel": "Progress",
+    "planPreview": "Preview plan",
+    "planTitle": "Plan preview (per-item progress is streamed at run time)",
+    "planActDeleteDir": "delete directory",
+    "planActDeleteFile": "delete file",
+    "planActQuarantine": "move to quarantine",
+    "planTruncated": "Showing the 8 largest items; see layer detail at run time for the rest.",
+    "planEmpty": "Nothing to do (nothing exists or already clean).",
+    "entriesShowAll": "Show all entries",
+    "entriesShowLess": "Show less",
+    "wizardTitle": "Qoder login blocked by risk control? One-click fix",
+    "wizardIntro": "Automatically completes a full 14-layer device identity reset (including MAC hardware fingerprint rewrite, old values auto-backed up; network blips for seconds), then walks you through changing your network exit step by step. Zero expertise required. ⚠️ Within 24 hours after reset, do NOT log into Qoder — every login attempt restarts the risk-control timer, wasting the reset. Just log in normally tomorrow at this time.",
+    "wizardCriticalFailNote": "⚠️ Some required layers failed (see details above). The result may be incomplete — retry, or run this app as administrator and try again.",
+    "wizardSkipIp": "Can't change network? Finish anyway (enter 24h cooldown, log in tomorrow)",
+    "wizardIpFailMany": "⚠️ Exit IP unchanged or fetch failed several times. If you truly can't change networks, tap \"Finish anyway\" above to skip verification.",
+    "wizardResidualReclean": "After quitting Qoder, force a re-run of the one-click reset (it ends Qoder first, then clears residue)",
+    "wizardStart": "One-click full reset (about 1 minute)",
+    "wizardResetDone": "✅ Reset complete: {ok}/{total} layers succeeded",
+    "wizardIpBefore": "Exit IP before reset: {ip} ({location})",
+    "wizardGuide": "Pick either way to change your network: ① Unplug the modem power, wait 1 minute, plug back in; ② Turn on phone hotspot and connect your PC. Then click the button below to verify.",
+    "wizardVerify": "I changed my network — detect new IP",
+    "wizardIpUnchanged": "❌ Exit IP unchanged — the modem may not have redialed yet. Wait 30 seconds and unplug again (at least 1 minute of downtime).",
+    "wizardIpChanged": "✅ New exit IP: {ip} — old IP fully detached!",
+    "wizardCooldown": "Step 3 (automatic): device + network are both fully renewed. ⚠️ Do NOT log into Qoder within 24 hours — every login attempt restarts the risk-control timer! Just log in normally tomorrow at this time.",
+    "wizardOptionalNote": "A few layers showing incomplete are optional (e.g. cookie cleanup skipped because the browser is open); they do not affect the main result.",
+    "wizardNoLoc": "(IP location unavailable this time; it does not affect the network-change verification)",
+    "wizardIpFetchFail": "⚠️ Failed to fetch exit IP (network hiccup). You can retry via the button below later.",
+    "wizardRefetch": "Baseline exit IP recorded: {ip} (the reset itself does not touch the network, so this is the pre-reset exit)",
+    "wizardRefetchHint": "Baseline IP not yet captured: click the button below to record the current exit IP as baseline, then change your network.",
+    "wizardIpBeforeNoLoc": "Exit IP before reset: {ip}",
+    "wizardCooldownActive": "⏳ Less than 24 hours since the last one-click reset — about {hours}h of cooldown left. Do not log into Qoder during this period.",
+    "wizardRestart": "Restart wizard",
+    "wizardAuditTitle": "🔍 Verify the reset was thorough (residual fingerprint audit)",
+    "wizardAuditClean": "✅ No old identity left: current Qoder sites no longer contain any pre-reset device/identity values.",
+    "wizardAuditResidual": "⚠️ {n} old identity values still present: the files listed below still carry pre-reset identity values. Quit Qoder completely and run the one-click reset again.",
+    "wizardAuditRerun": "Re-scan for residue",
+    "wizardAuditScanning": "Scanning Qoder sites for residue…",
+    "wizardAuditFail": "⚠️ Residual scan failed (the reset itself is unaffected). Retry later with \"Re-scan for residue\".",
+    "wizardSubtitle": "Reset your device identity in three steps: one-click reset → network-change verification → 24-hour cooldown.",
+    "wizardAuditEntries": "View full scan details",
+    "wizardAuditScope": "Scan scope: {cn} and {roaming}, {files} files in total."
+  },
   "checkin": {
+    "taskPanelTitle": "Auto-run tasks",
+    "taskPanelAutoTitle": "Auto sweep",
+    "taskPanelAutoLoading": "Loading…",
+    "taskPanelAutoUnknown": "Unknown (server did not return sweep status; check the backend version)",
+    "taskPanelAutoOn": "Enabled · sweeps every {minutes} min",
+    "taskPanelAutoNext": "next {time}",
+    "taskPanelAutoDry": "Enabled but in dry-run (read-only probes): no real claims. Set WORKBUDDY_TASKS_LIVE_RUN=true on the server to write.",
+    "taskPanelAutoCronBlocked": "Not running: task switch is on but the master switch CHECKIN_CRON_ENABLED is off.",
+    "taskPanelAutoOff": "Disabled: manual only. Set WORKBUDDY_TASKS_ENABLED=true on the server and restart.",
+    "taskPanelAutoNotStarted": "Configured as enabled but the scheduler is not running: restart ai-service after editing the server .env (start() short-circuits on _started, so there is no hot reload).",
+    "taskPanelAutoPaths": "Report/claim paths not configured: reports only, no claims.",
+    "taskPanelAutoLast": "Last sweep {time}",
+    "taskPanelAutoLastStats": "{families} families · {accepted} accepted · {claimed} claimed",
+    "taskPanelAutoLastNever": "No sweep yet in this process",
+    "taskPanelDesc": "One sweep of the WorkBuddy task center: accept tasks, claim rewards, redeem streak tiers, draw the lottery, cat travel, night-owl chat.",
+    "taskPanelPick": "Account",
+    "taskPanelList": "Load tasks",
+    "taskPanelDryRun": "Dry run (no writes)",
+    "taskPanelRun": "Run all task families",
+    "taskPanelRunning": "Running…",
+    "taskPanelEmpty": "No tasks yet, or not loaded",
+    "taskPanelResult": "Result",
+    "taskPanelNoAccount": "No WorkBuddy account yet — add one above first",
+    "taskPanelTaskCode": "Task",
+    "taskPanelStatus": "Status",
     "title": "Check-in Assistant",
     "addAccount": "Add Account",
     "addAccountTitle": "Add Check-in Account",
-    "addAccountDescription": "Paste the account JWT to enable daily automatic check-in. Credentials are stored encrypted on the server.",
+    "addAccountDescription": "Detects locally signed-in accounts for one-click import, or fill in manually. Credentials are stored encrypted.",
     "cancel": "Cancel",
     "checking": "Checking in…",
     "colAction": "Action",
     "colActions": "Actions",
-    "colCredits": "Total Credits",
+    "colCredits": "Official Credits",
+    "creditRefreshAll": "Refresh Credits",
+    "creditRefreshing": "Querying…",
+    "creditQueryFail": "Query failed",
     "colCreditsDelta": "Credits Delta",
     "colCurrentCredits": "Current Credits",
     "colEnabled": "Enabled",
@@ -18871,12 +20419,25 @@
     "deleteDescription": "This will delete account \"{name}\" and all of its check-in records. This cannot be undone.",
     "deviceMap": "Device Fingerprint",
     "deviceMapInvalid": "Device fingerprint is not a valid JSON object",
-    "deviceMapPlaceholder": "{\"ua\": \"...\", \"av\": \"...\"} (optional, auto-generated if empty)",
+    "deviceMapProxyHint": "Multi-account anti-risk: give each account its own proxy to bind a separate egress IP, e.g. \"proxy\": \"http://user:pass@host:port\" (http/socks5). Leave empty for direct local connection",
+    "deviceMapPlaceholder": "'{'\"ua\": \"...\", \"av\": \"...\"'}' (optional, auto-generated if empty)",
     "emptyAccounts": "No check-in accounts yet. Click Add to create one.",
     "emptyCredits": "No credit history yet",
     "emptyRecords": "No check-in records yet",
     "jwt": "JWT",
     "jwtPlaceholder": "Paste account JWT (eyJ...)",
+    "addSmartTitle": "Smart Import (Recommended)",
+    "addSmartScanning": "Scanning this machine for saved logins…",
+    "addSmartTraeFound": "Found {count} Trae account(s)",
+    "addSmartQoderFound": "Found {count} Qoder account(s)",
+    "addSmartMinimaxFound": "MiniMax Code local session ({count})",
+    "captureMinimaxNoToken": "No token found. Sign in to MiniMax Code and retry",
+    "addSmartImport": "Import Selected",
+    "addSmartImporting": "Importing…",
+    "addSmartNone": "No Trae / Qoder login found on this machine. Sign in to the client first, then click \"Rescan\".",
+    "addSmartRescan": "Rescan",
+    "addSmartDesktopOnly": "Smart Import is desktop-only. You can fill in manually below.",
+    "addManualAdvanced": "Manual input (advanced)",
     "loadFailed": "Failed to load",
     "loading": "Loading…",
     "manualCheckin": "Check in Now",
@@ -18913,9 +20474,112 @@
     "groupUngrouped": "Ungrouped",
     "skippedToday": "Skipped {count} account(s) already checked in today",
     "skippedExpired": "Skipped {count} accounts with expired JWT",
+    "skippedCooldown": "Skipped {count} accounts on cooldown",
+    "checkinRateLimited": "Platform rate limited, batch aborted, please retry later",
+    "checkinFailedCount": "Failed to check in {count} accounts",
     "checkinSelected": "Check selected ({count})",
     "selectAllVisible": "Select all visible",
     "selectAccount": "Select account {name}",
+    "captureTitle": "Capture from this machine",
+    "captureWebLogin": "Web sign-in",
+    "captureMethodWeb": "Web sign-in",
+    "captureMethodLocal": "Capture locally",
+    "platformAll": "All platforms",
+    "platformTrae": "TRAE",
+    "platformQoder": "Qoder",
+    "platformMinimax": "MiniMax",
+    "platformLabel": "Platform",
+    "captureQoderButton": "Capture Qoder",
+    "captureQoderTitle": "Capture from local Qoder client",
+    "captureQoderDescription": "Decrypt the session credentials (auth.v1.dat) of the logged-in Qoder client on this machine, with device fingerprints included; run this app as the same Windows user that logged into Qoder.",
+    "captureQoderScan": "Scan Qoder sessions",
+    "captureQoderEmpty": "No logged-in Qoder session found (make sure the client is signed in)",
+    "platformWorkbuddy": "WorkBuddy",
+    "captureWbButton": "Capture WorkBuddy",
+    "captureWbTitle": "Capture from local WorkBuddy desktop",
+    "captureWbDescription": "Reads the local logged-in WorkBuddy desktop credential store (workbuddy-desktop.info). Client 5.8+ encrypts the token: for such accounts paste the token inline before importing (a WorkBuddy task can read its own env to extract it).",
+    "captureWbScan": "Scan WorkBuddy login state",
+    "captureWbEmpty": "No logged-in WorkBuddy login state found (make sure the desktop app is signed in)",
+    "captureWbEncrypted": "Token required",
+    "captureWbTokenPlaceholder": "Paste WorkBuddy token (accessToken)",
+    "captureWbTokenRequired": "Token is empty: this account's login state is encrypted, paste the token inline before importing",
+    "captureWbWebTitle": "Web sign-in (automatic)",
+    "captureWbWebDescription": "Opens the WorkBuddy login page in the built-in browser; after signing in, authorization and account info (uid/nickname) are captured automatically and imported back here — no manual pasting.",
+    "captureWbWebOpen": "Open in system browser",
+    "captureWbWebEmbed": "Built-in browser (auto)",
+    "captureWbWebToolbar": "Sign in to WorkBuddy on web",
+    "captureWbWebWaiting": "The login page is open in the built-in browser. Please sign in (phone/QR); once the login state is detected, accounts are imported automatically and you return to the check-in page.",
+    "captureWbWebImporting": "Importing accounts…",
+    "captureWbWebDone": "Web login import complete ({count} account(s))",
+    "captureWbWebPastePlaceholder": "Paste the login Cookie (a full Cookie request header or k=v; k2=v2 both work)",
+    "captureWbWebPasteImport": "Import",
+    "captureWbWebPasteRequired": "Paste the login Cookie before importing",
+    "captureWbWebPasteInvalid": "The Cookie is invalid or expired. Please copy the login Cookie from the browser again.",
+    "captureWbPasteName": "WorkBuddy web sign-in",
+    "captureWbWebCancel": "Cancel",
+    "captureWbWebCancelled": "Web login cancelled. Click \"Web sign-in\" to try again.",
+    "captureWbWebSlowHint": "No sign-in detected yet: please make sure you have completed sign-in in the browser window (phone/QR). You can also click \"Cancel\" and retry.",
+    "captureWbWebOpenFailed": "Failed to open the system default browser. Please check the default browser settings and retry.",
+    "captureWbManualDivider": "Or capture the desktop login state manually",
+    "captureWbWebCheckinUncertain": "Note: the check-in API hasn't been confirmed to accept web login state. If check-in fails (401), switch to the token method and let us know.",
+    "captureWbWebAccountMissing": "Imported, but account info (uid/nickname) could not be retrieved. If check-in fails, use the automatic built-in browser sign-in.",
+    "captureDirFound": "Local TRAE data directory detected: {dir}",
+    "captureDirMissing": "Local TRAE data directory not found (set the IHUI_TRAE_DIR environment variable)",
+    "captureEmpty": "No usable JWT found in local data directory",
+    "captureOpaqueOnly": "Only account identity was detected locally; no usable JWT (newer Trae no longer stores credentials on disk). Use web login or paste a JWT manually",
+    "captureScan": "Scan this machine",
+    "captureImport": "Import selected accounts ({count})",
+    "captureImported": "Imported {count} accounts from this machine",
+    "maintTitle": "Local TRAE maintenance",
+    "maintDescription": "Device ID reset and snapshots only affect this machine; sign in to TRAE again after resetting. Deep reset additionally clears TRAE built-in cookies, the identity DB (telemetry/credential keys in state.vscdb) and logs cache — equivalent to reinstalling. Fully exit TRAE first. With browser cleanup enabled, TRAE-domain cookies in Chrome/Edge are also deleted (close the browser first; other sites are untouched)",
+    "maintUserIdLabel": "TRAE user ID (user_id)",
+    "maintUserIdRequired": "Please enter the TRAE user ID first",
+    "maintReset": "Reset device IDs",
+    "maintIncludeGuid": "Also reset registry MachineGuid (requires admin approval)",
+    "maintIncludeBrowser": "Also clear TRAE cookies in Chrome/Edge (close the browser first)",
+    "maintDeepReset": "Deep reset (auto-kill TRAE processes and wipe all site data, equivalent to reinstall)",
+    "maintIncludeMac": "Also rewrite physical NIC MAC addresses (hardware fingerprint layer, needs admin, network blips for seconds)",
+    "wizardTitle": "TRAE login blocked by risk control? One-click fix",
+    "wizardIntro": "Automatically completes a full 14-layer device identity reset (including MAC hardware fingerprint rewrite, old values auto-backed up; network blips for seconds), then walks you through changing your network exit step by step. Zero expertise required. ⚠️ Within 24 hours after reset, do NOT log into TRAE — every login attempt restarts the risk-control timer, wasting the reset. Just log in normally tomorrow at this time.",
+    "wizardCriticalFailNote": "⚠️ Some required layers failed (see details above). The result may be incomplete — retry, or run this app as administrator and try again.",
+    "wizardSkipIp": "Can't change network? Finish anyway (enter 24h cooldown, log in tomorrow)",
+    "wizardIpFailMany": "⚠️ Exit IP unchanged or fetch failed several times. If you truly can't change networks, tap \"Finish anyway\" above to skip verification.",
+    "wizardResidualReclean": "After quitting TRAE, force a re-run of the one-click reset (it ends TRAE first, then clears residue)",
+    "wizardStart": "One-click full reset (about 1 minute)",
+    "wizardResetDone": "✅ Reset complete: {ok}/{total} layers succeeded",
+    "wizardIpBefore": "Exit IP before reset: {ip} ({location})",
+    "wizardGuide": "Pick either way to change your network: ① Unplug the modem power, wait 1 minute, plug back in; ② Turn on phone hotspot and connect your PC. Then click the button below to verify.",
+    "wizardVerify": "I changed my network — detect new IP",
+    "wizardIpUnchanged": "❌ Exit IP unchanged — the modem may not have redialed yet. Wait 30 seconds and unplug again (at least 1 minute of downtime).",
+    "wizardIpChanged": "✅ New exit IP: {ip} — old IP fully detached!",
+    "wizardCooldown": "Step 3 (automatic): device + network are both fully renewed. ⚠️ Do NOT log into TRAE within 24 hours — every login attempt restarts the risk-control timer! Just log in normally tomorrow at this time.",
+    "wizardOptionalNote": "A few layers showing incomplete are optional (e.g. cookie cleanup skipped because the browser is open); they do not affect the main result.",
+    "wizardNoLoc": "(IP location unavailable this time; it does not affect the network-change verification)",
+    "wizardIpFetchFail": "⚠️ Failed to fetch exit IP (network hiccup). You can retry via the button below later.",
+    "wizardRefetch": "Baseline exit IP recorded: {ip} (the reset itself does not touch the network, so this is the pre-reset exit)",
+    "wizardRefetchHint": "Baseline IP not yet captured: click the button below to record the current exit IP as baseline, then change your network.",
+    "wizardIpBeforeNoLoc": "Exit IP before reset: {ip}",
+    "wizardCooldownActive": "⏳ Less than 24 hours since the last one-click reset — about {hours}h of cooldown left. Do not log into TRAE during this period.",
+    "wizardRestart": "Restart wizard",
+    "wizardAuditTitle": "🔍 Verify the reset was thorough (residual fingerprint audit)",
+    "wizardAuditClean": "✅ No old identity left: current TRAE sites no longer contain any pre-reset device/identity values.",
+    "wizardAuditResidual": "⚠️ {n} old identity values still present: the files listed below still carry pre-reset identity values. Quit TRAE completely and run the one-click reset again.",
+    "wizardAuditRerun": "Re-scan for residue",
+    "wizardAuditScanning": "Scanning TRAE sites for residue…",
+    "wizardAuditFail": "⚠️ Residual scan failed (the reset itself is unaffected). Retry later with \"Re-scan for residue\".",
+    "wizardAuditScope": "Scope: {files} files / {mb} MB / {sites} TRAE site directories",
+    "wizardAuditRegistry": "Registry entries",
+    "wizardAuditHardware": "Hardware fingerprints",
+    "wizardAuditSuspect": "Plus {n} suspect hits (may be unrelated values sharing the same name — kept for manual review).",
+    "wizardAuditNoHistory": "No pre-reset identity record for this run (blacklist is empty), so there is nothing to compare against. Run a one-click reset first, then scan again.",
+    "maintBackup": "Back up snapshot",
+    "maintBackupDone": "Backed up {count} files ({missing} missing)",
+    "maintRestore": "Restore",
+    "maintRestoreDone": "Restored {count} files ({missing} missing in backup)",
+    "maintDelete": "Delete",
+    "maintClose": "Close",
+    "snapshotsTitle": "Existing snapshots",
+    "snapshotsEmpty": "No snapshots yet",
     "checkinAll": "Check in All",
     "colMessage": "Message",
     "editJwt": "Update JWT",
@@ -18929,10 +20593,82 @@
     "loadMore": "Load more",
     "schedulerDisabled": "Auto check-in off",
     "schedulerEnabled": "Auto check-in on",
-    "schedulerNextRun": "Next {time}"
+    "deviceMapUpdated": "Device fingerprint updated",
+    "editDeviceMap": "Edit device fingerprint",
+    "editDeviceMapTitle": "Edit device fingerprint",
+    "editDeviceMapDescription": "Edit the device fingerprint for the {platform} account (JSON object; leave empty to auto-generate on save).",
+    "checkedInToday": "Checked in today",
+    "rename": "Rename",
+    "captureTraeWebWaiting": "The Trae sign-in page is open in the browser on the right work panel. Please sign in there (phone/QR); once the login state is detected, the account is imported automatically and you return to the check-in page.",
+    "captureTraeWebDone": "Trae web sign-in imported ({count} account(s))",
+    "captureTraeWebCancelled": "Trae web sign-in cancelled. Click \"Web sign-in\" to try again."
+  },
+  "accountPool": {
+    "title": "My Account Pool",
+    "subtitle": "Your own third-party AI account pool — the same accounts as Check-in Assistant, signed in daily, and used first for your own relay requests.",
+    "add": "Add account",
+    "provider": "Platform",
+    "name": "Name",
+    "namePlaceholder": "Name this account",
+    "token": "Token (access credential)",
+    "refreshToken": "Refresh token",
+    "optional": "Optional",
+    "save": "Save",
+    "cancel": "Cancel",
+    "loading": "Loading…",
+    "empty": "No accounts yet",
+    "emptyHint": "Accounts you add in Check-in Assistant will sync here automatically.",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "enable": "Enable",
+    "disable": "Disable",
+    "checkin": "Check in now",
+    "delete": "Delete",
+    "confirmDelete": "Confirm delete",
+    "syncPending": "Pending sync",
+    "uid": "Account ID",
+    "checkinSuccess": "Checked in",
+    "addSuccess": "Account added",
+    "actionFailed": "Action failed",
+    "loginRequired": "Sign in to manage your account pool"
+  },
+  "artifacts": {
+    "navEntry": "Artifacts",
+    "title": "Artifacts",
+    "desc": "Reports, slides, sheets and docs delivered by AI — download or preview them here.",
+    "loading": "Loading…",
+    "loadFailed": "Failed to load artifacts",
+    "empty": "No artifacts yet. Ask AI to generate a report, slides or sheet and it will appear here.",
+    "loginRequired": "Sign in to view your artifacts",
+    "colName": "Name",
+    "colKind": "Type",
+    "colVersion": "Version",
+    "colCreated": "Created",
+    "colSession": "Source chat",
+    "colActions": "Actions",
+    "download": "Download",
+    "preview": "Preview",
+    "previewFailed": "Failed to get the preview link, please try again later",
+    "viewSession": "View chat",
+    "kind_html_report": "HTML report",
+    "kind_slides": "Slides",
+    "kind_sheet": "Sheet",
+    "kind_doc": "Document",
+    "kind_video_ref": "Video ref",
+    "justNow": "just now",
+    "secondsAgo": "{n}s ago",
+    "minutesAgo": "{n}m ago",
+    "hoursAgo": "{n}h ago",
+    "daysAgo": "{n}d ago",
+    "loadMore": "Load more",
+    "refresh": "Refresh",
+    "countSummary": "Loaded {loaded} of {total} artifacts"
   },
   "nav": {
+    "pdfTools": "PDF Tools",
+    "accountPool": "My Account Pool",
     "checkin": "Check-in",
+    "monitorWallboard": "Ops Wallboard",
     "ecosystemHub": "Ecosystem Market",
     "adminRelayInsights": "Insights",
     "adminRelayEnterprise": "Enterprise Compliance",
@@ -18997,10 +20733,118 @@
     "adminWorkflows": "Workflows",
     "advancedAiTools": "Advanced AI Tools",
     "mediaTasks": "Media Tasks",
+    "saasCertificates": "SaaS Certificates",
+    "saasTenants": "SaaS Tenants",
+    "dashboard": "Admin Dashboard",
+    "users": "User Management",
+    "projects": "Project Management",
+    "refund": "Refund Management",
+    "point": "Points Management",
+    "certificate": "Certificate Management",
+    "agentSettlement": "Agent Settlement",
+    "agentRules": "Agent Rules",
+    "demandSquare": "Demand Square",
+    "aiCost": "AI Cost",
+    "monitoringDashboard": "Monitoring Dashboard",
+    "backendHealth": "Backend Health",
+    "performanceDashboard": "Performance Dashboard",
+    "errorDashboard": "Error Dashboard",
+    "eventBusMonitor": "Event Bus Monitor",
+    "grayRelease": "Gray Release",
+    "apiDebug": "API Debug",
+    "apiGroups": "API Groups",
+    "apiLogs": "API Logs",
+    "apiUsage": "API Call Usage",
+    "dict": "Data Dictionary",
+    "notificationChannels": "Notification Channels",
+    "notificationPreferences": "Notification Preferences",
+    "notificationLogs": "Notification Logs",
+    "recommendationConfig": "Recommendation Config",
+    "mobileAdapter": "Mobile Adapter",
+    "oauthAuditDashboard": "OAuth Audit Dashboard",
+    "roles": "Role Management",
+    "permissions": "Permission Management",
+    "workflows": "Workflows",
+    "integrations": "Integrations",
+    "deployDiagnosis": "Deployment Diagnosis",
+    "logs": "Operation Logs",
+    "events": "Event Management",
+    "apiPlatformApps": "API Apps",
+    "apiPlatformPackages": "API Packages",
+    "apiPlatformBilling": "API Billing",
+    "apiPlatformUsage": "API Usage",
+    "shopProducts": "Products",
+    "shopPayments": "Payments",
+    "shopWithdrawals": "Withdrawals",
+    "shopFunds": "Funds",
+    "oauthApps": "OAuth Apps",
+    "oauthAudit": "OAuth Audit",
+    "oauthTokens": "OAuth Tokens",
+    "monitorDashboard": "Monitoring Overview",
+    "monitorFunnel": "Monitoring Funnel",
+    "monitorAlerts": "Monitoring Alerts",
+    "memberUsers": "Member Users",
+    "memberRoles": "Member Roles",
+    "memberPermissions": "Member Permissions",
+    "memberLogs": "Member Logs",
+    "memberBlacklist": "Member Blacklist",
+    "systemMonitor": "System Monitor",
+    "systemTasks": "System Tasks",
+    "realnameAudit": "Real-Name Verification Audit",
+    "taskDeveloper": "Task Developer",
+    "agentTask": "Agent Task",
+    "advertise": "Ad Management",
+    "aiGc": "AI Recycle Bin",
+    "crew": "Agent Crew",
+    "developerLink": "Developer Links",
+    "identityProportion": "Identity Proportion",
+    "productIdentity": "Product Identity",
+    "userAgentAudio": "User Agent - Audio",
+    "userAgentContext": "User Agent - Context",
+    "userAgentImage": "User Agent - Image",
+    "zhsActivity": "ZHS Activities",
+    "zhsAgent": "ZHS Agents",
+    "zhsUser": "ZHS Users",
+    "authAccounts": "Auth Accounts",
+    "authDept": "Auth Departments",
+    "authFindInfo": "Auth Query Info",
+    "authRole": "Auth Roles",
+    "authUserVip": "Auth User VIP",
+    "authVeriCodes": "Auth Verification Codes",
+    "eduOrganization": "Education Organizations",
+    "eduPlatform": "Education Platforms",
+    "eduUserPlatform": "User Platform Relations",
+    "eduZhsIdentity": "ZHS Identity Verification",
+    "eduCourseAudit": "Course Audit Records",
+    "eduCoursePay": "Course Payment Records",
+    "eduCoursePlatformLog": "Course Platform Logs",
+    "systemLoginLogs": "System Login Logs",
+    "systemOperationLogs": "System Operation Logs",
+    "systemTasksLog": "System Task Logs",
+    "rolesAuthUser": "Role Authorized Users",
+    "rolesSelectUser": "Role Assigned Users",
+    "ossFiles": "Object Storage Files",
+    "notificationDispatch": "Notification Dispatch",
+    "aboutUs": "About Us",
+    "messageOverview": "Message Overview",
+    "visitTracking": "Visit Tracking",
+    "behaviorAnalytics": "Behavior Analytics",
+    "pluginsStats": "Plugin Stats",
+    "examMarking": "Paper Grading",
+    "feedbacks": "Feedback Management",
+    "configs": "System Settings",
+    "agentCategories": "AI Agent Categories",
+    "agentExamine": "Review Management",
+    "databaseOptimization": "Database Optimization",
+    "carousel": "Carousel Management",
+    "agentRule": "AI Agent Rules",
+    "loginLogs": "Login Logs",
+    "unknown": "Unnamed",
     "webTools": "Web Tools",
     "figmaImport": "Design to Code",
     "voices": "Voice Library",
     "agentGovernance": "Agent Token Governance",
+    "orgGovernance": "Org Governance",
     "agentWorkbench": "Agent Workbench",
     "agentCanvas": "Agent Canvas",
     "agents": "Agents",
@@ -19051,13 +20895,15 @@
     "downloadAndroidSysReq": "Android 8.0 (API 26) or later",
     "downloadAssets": "Download assets",
     "downloadAvailable": "Available",
+    "downloadAvailablePlatforms": "Available platforms",
     "downloadBack": "Back",
     "downloadCli": "CLI Tool",
     "downloadCliDesc": "One-click terminal, scriptable",
-    "downloadCliInstallGuide": "Install the @ihui/cli package globally via npm, then run the ihui command in your terminal to start the CLI tool.",
+    "downloadCliInstallGuide": "Install the ihui-cli package globally via npm, then run the ihui command in your terminal to start the CLI tool.",
     "downloadCliSysReq": "Node.js 20.10 or later",
     "downloadCliUsageHint": "After install, run",
     "downloadClient": "Download App",
+    "downloadCodeSigningNotice": "The Windows binaries are code-signed by SignPath.io, using a free code signing certificate provided by the SignPath Foundation.",
     "downloadComingSoon": "Coming soon",
     "downloadComingSoonHint": "The {platform} client is under active development. Please look forward to it. You can use the Web version to experience all features in the meantime.",
     "downloadComingSoonTitle": "{platform} coming soon",
@@ -19088,6 +20934,8 @@
     "downloadMobileDesc": "H5 mobile, scan to use",
     "downloadMobileInstallGuide": "The Mobile RN client is built from source. See the README in the apps/mobile-rn directory of the GitHub repo to compile it yourself.",
     "downloadMobileSysReq": "iOS 14+ / Android 8+, React Native 0.76+ runtime",
+    "downloadNotLaunchedHint": "IHUI AI does not offer a {platform} download yet. Pick one of the launched platforms below, or use the Web version to experience all features.",
+    "downloadNotLaunchedTitle": "{platform} is not available yet",
     "downloadNow": "Download now",
     "downloadSystemRequirements": "System requirements",
     "downloadTitle": "Download App",
@@ -19187,6 +21035,7 @@
     "messages": "Messages",
     "messagesComment": "Comments",
     "myPendingDecisions": "Pending my decisions",
+    "viewConversation": "Open conversation",
     "pendingDecisionsEmpty": "No pending decisions",
     "decisionTypeToolApproval": "Tool approval",
     "decisionTypePermissions": "Permission request",
@@ -19281,7 +21130,19 @@
     "adminDeployDiagnosis": "Deployment Diagnosis",
     "githubApp": "GitHub App",
     "smsReceive": "SMS Verification",
-    "sms": "SMS Templates"
+    "sms": "SMS Templates",
+    "customGroup": "Custom",
+    "customAddTitle": "Custom Shortcuts",
+    "customEmptyHint": "Add favorites",
+    "customSearchPlaceholder": "Search items",
+    "customAdd": "Add",
+    "customRemove": "Remove",
+    "customDragHint": "Drag to reorder",
+    "customNoResults": "No matching items",
+    "eduHubTitle": "Education",
+    "contentHubTitle": "Content",
+    "tradeHubTitle": "Trade",
+    "eduMyAttendance": "My Attendance"
   },
   "news": {
     "allCategories": "All Categories",
@@ -19751,7 +21612,7 @@
         "features": [
           "1,000 credits per month",
           "All AI models",
-          "All 6 clients",
+          "All 9 clients",
           "API access",
           "Community support"
         ],
@@ -19978,7 +21839,7 @@
     "comparison": {
       "agentMarket": "Agent Marketplace",
       "apache2": "Apache 2.0",
-      "eightEnds": "8-End Coverage",
+      "eightEnds": "9-End Coverage",
       "feature": "Feature",
       "llmCount": "176+ LLMs",
       "multiTenant": "Multi-tenant",
@@ -20546,6 +22407,31 @@
     "cooldownActive": "Cooling down",
     "cooldownRemaining": "Cooldown remaining",
     "countdownRemaining": "Time remaining",
+    "keepalive": {
+      "accountFallback": "Account #{id}",
+      "allHealthy": "All {total} accounts are healthy",
+      "disabledHint": "Set KEEPALIVE_ENABLED=true in apps/ai-service/.env and restart the service to enable it.",
+      "disabledTitle": "Account keep-alive is off",
+      "expiresAt": "Expires {time}",
+      "expiringSoon": "{count} expiring soon",
+      "failures": "{count} consecutive failures",
+      "healthCritical": "Expired",
+      "healthHealthy": "Healthy",
+      "healthUnknown": "Unchecked",
+      "healthWarning": "Attention",
+      "interval": "checks every {hours}h",
+      "loading": "Loading keep-alive status…",
+      "needsAttention": "{count} need attention",
+      "rate7d": "7-day success rate",
+      "rateUnknown": "No data",
+      "retry": "Retry",
+      "sourceCheckin": "Check-in credential",
+      "sourceCookie": "Platform session",
+      "sourceToken": "API credential",
+      "title": "Account keep-alive",
+      "triggerNow": "Check now",
+      "triggering": "Triggering…"
+    },
     "editor": {
       "autoSaved": "Auto saved",
       "bold": "Bold",
@@ -21202,7 +23088,7 @@
         "desc": "Deploy source code to your server",
         "features": [
           "PostgreSQL + Redis setup",
-          "8-end build",
+          "9-end build",
           "2-hour online training",
           "30-day email support",
           "3-5 business days delivery"
@@ -21339,6 +23225,126 @@
     "title": "Services"
   },
   "settings": {
+    "devices": {
+      "navTitle": "Devices",
+      "navDesc": "Pair, revoke and delegate tasks across your connected devices",
+      "title": "Device Management",
+      "desc": "Registered devices can claim tasks delegated from this account; a heartbeat within 90 seconds counts as online.",
+      "loading": "Loading…",
+      "loginRequired": "Sign in to manage devices",
+      "loadFailed": "Failed to load device list",
+      "empty": "No devices yet. Generate a pairing code below to add one.",
+      "colName": "Name",
+      "colOs": "OS",
+      "colCapabilities": "Capabilities",
+      "colOnline": "Status",
+      "colLastSeen": "Last seen",
+      "colActions": "Actions",
+      "online": "Online",
+      "offline": "Offline",
+      "revokedBadge": "Revoked",
+      "capabilitiesEmpty": "—",
+      "revoke": "Revoke",
+      "revokeConfirmTitle": "Revoke device",
+      "revokeConfirmContent": "Revoke \"{name}\"? Its device token stops working immediately.",
+      "revokeFailed": "Failed to revoke",
+      "cancel": "Cancel",
+      "pairTitle": "Add device (pairing code)",
+      "pairHint": "Generate a 6-digit pairing code below, then enter it on your desktop or mobile app to complete pairing.",
+      "pairGenerate": "Generate pairing code",
+      "pairRegenerate": "Regenerate",
+      "pairExpiresIn": "Expires in {time}",
+      "pairExpired": "Pairing code expired. Please regenerate.",
+      "pairRateLimited": "Too many pairing codes requested. Try again later.",
+      "pairFailed": "Failed to generate pairing code. Try again later.",
+      "delegateTitle": "Delegate session to device",
+      "delegateHint": "Pick a session and a target device; the task is queued for the device to claim (works even while offline).",
+      "delegateSessionLabel": "Session",
+      "delegateDeviceLabel": "Target device",
+      "delegateSessionPlaceholder": "Select a session…",
+      "delegateDevicePlaceholder": "Select a device…",
+      "delegateSubmit": "Delegate",
+      "delegateSuccess": "Queued. Task ID {taskId}",
+      "delegateFailed": "Delegation failed",
+      "delegateDisabled": "Cross-device delegation is not enabled",
+      "delegateForbidden": "Target device or session is unavailable (it may have been revoked)",
+      "tasksTitle": "Device tasks",
+      "tasksDevicePlaceholder": "Select a device to view tasks…",
+      "tasksRefresh": "Refresh",
+      "tasksEmpty": "No tasks for this device",
+      "tasksLoadFailed": "Failed to load tasks",
+      "taskColStatus": "Status",
+      "taskColCreated": "Created",
+      "taskColFinished": "Finished",
+      "taskColError": "Error",
+      "taskStatus_queued": "Queued",
+      "taskStatus_claimed": "Claimed",
+      "taskStatus_running": "Running",
+      "taskStatus_completed": "Completed",
+      "taskStatus_failed": "Failed",
+      "taskStatus_expired": "Expired",
+      "lastSeenJustNow": "just now",
+      "lastSeenSecondsAgo": "{n}s ago",
+      "lastSeenMinutesAgo": "{n}m ago",
+      "lastSeenHoursAgo": "{n}h ago",
+      "lastSeenDaysAgo": "{n}d ago"
+    },
+    "billing": {
+      "rulesTitle": "Pricing Rules",
+      "rulesDesc": "Active combined pricing rules and off-peak windows; every charge is computed from these rules",
+      "formula": "Each charge = base price × tier multiplier × off-peak multiplier",
+      "versionTrace": "Rules carry a version and an effective range; past charges can be traced to the rule version used at settlement",
+      "mode_token": "Per token",
+      "mode_per_call": "Per call",
+      "mode_per_image": "Per image",
+      "mode_per_video": "Per video",
+      "unit_token": "/ token",
+      "unit_per_call": "/ call",
+      "unit_per_image": "/ image",
+      "unit_per_video": "/ video",
+      "basePriceLabel": "Base price",
+      "tierTitle": "Tier multipliers",
+      "tierColName": "Tier",
+      "tierColFactor": "Multiplier",
+      "tierNone": "No tiers configured (multiplier is always ×1)",
+      "offPeakTitle": "Off-peak windows",
+      "offPeakNone": "No off-peak window (multiplier is always ×1)",
+      "versionLabel": "Version",
+      "effectiveLabel": "Effective range",
+      "effectiveTo": "until {date}",
+      "effectiveLong": "No end date",
+      "emptyTitle": "No custom pricing rules configured",
+      "emptyHint": "Charges follow the built-in default: base price × tier multiplier, no off-peak window",
+      "loadFailed": "Failed to load pricing rules",
+      "usageTitle": "My Usage",
+      "usageDesc": "Daily and per-model usage and cost over the last 30 days (credits)",
+      "dailyTitle": "Daily usage (last 30 days)",
+      "dailyColDate": "Date",
+      "dailyColCount": "Charges",
+      "dailyColPoints": "Credits spent",
+      "dailyTotal": "Total credits spent in the last 30 days: {points}",
+      "modelTitle": "Per-model usage (last 30 days)",
+      "modelColName": "Model",
+      "modelColTokens": "Tokens",
+      "modelColCalls": "Calls",
+      "modelColCost": "Cost",
+      "usageEmpty": "No usage in the last 30 days",
+      "usageLoadFailed": "Failed to load usage data"
+    },
+    "expertRoute": {
+      "title": "Expert pack auto-routing",
+      "desc": "Detect the matching expert pack from this turn's intent, and choose how matches are handled.",
+      "default": "Default",
+      "envLockedNotice": "The deployment has disabled this capability through an environment variable, so it can only be viewed here and cannot be changed.",
+      "hint": "Hint only",
+      "hintDesc": "When a pack matches, only show which one matched in the reply; tools and system prompt are unchanged",
+      "auto": "Apply automatically",
+      "autoDesc": "When a pack matches, merge its tool allowlist and system prompt into this request",
+      "off": "Off",
+      "offDesc": "No intent detection and no hint"
+    },
+    "event2faDisabled": "Two-factor authentication disabled",
+    "eventIpBlocked": "Login blocked by IP allowlist",
     "accountDeletionCancel": "Cancel Deletion",
     "accountDeletionCodeLabel": "Verification Code",
     "accountDeletionCodePlaceholder": "Enter verification code",
@@ -21349,6 +23355,8 @@
     "accountDeletionResend": "Resend in {seconds}s",
     "accountDeletionSendCode": "Send Code",
     "accountDeletionSubmit": "Confirm Deletion",
+    "accountDeletionConfirmLabel": "Confirm Deletion",
+    "accountDeletionConfirmTitle": "Confirm Deletion",
     "accountDeletionSuccess": "Account deleted, redirecting to login",
     "accountDeletionTitle": "Account Deletion",
     "accountDeletionWarning": "This action is irreversible. All data will be permanently lost.",
@@ -21378,7 +23386,7 @@
     "billingPageInfo": "Page {page}/{totalPages}",
     "billingPrev": "Previous",
     "billingStatus": "Status",
-    "billingTitle": "Billing Management",
+    "billingTitle": "Billing & Usage",
     "billingTotal": "{count} total",
     "cacheCleanButton": "Clear Cache",
     "cacheCleanDesc": "Clear WebView2 cache to free up disk space (restart recommended after cleanup)",
@@ -21404,7 +23412,7 @@
     "desktopCloseAsk": "Ask every time",
     "desktopCloseDisabledHint": "The tray icon is off, so \"Hide to tray\" can't be selected",
     "desktopLaunchMinTitle": "Start minimized to the tray",
-    "desktopLaunchMinDesc": "Don't open the main window when the app starts — it waits in the background, and you open it when you need it",
+    "desktopLaunchMinDesc": "Don't open the main window when the app starts at boot — it waits in the background. Double-clicking the desktop shortcut still opens it",
     "desktopTrayClickTitle": "Tray single click",
     "desktopTrayClickMenu": "Open the menu",
     "desktopTrayClickToggle": "Show / hide the main window",
@@ -21462,6 +23470,7 @@
     "dashboardDesc": "Quick access to all settings options",
     "dashboardTitle": "Dashboard",
     "dataExportTitle": "Data Export",
+    "dataRightsTitle": "Data Rights",
     "dataVisibility": "Data Visibility",
     "dataVisibilityDesc": "Control who can see your profile information",
     "desc": {
@@ -21600,16 +23609,22 @@
         "filter": {
           "all": "All",
           "configured": "Configured",
+          "invalidKey": "Invalid Key",
           "local": "Local",
-          "notConfigured": "Not Configured"
+          "notConfigured": "Not Configured",
+          "ok": "Available",
+          "unreachable": "Unreachable"
         },
         "models": "models",
         "refresh": "Refresh",
         "summary": {
           "configured": "Configured",
+          "invalidKey": "Invalid Key",
           "local": "Local",
           "notConfigured": "Not Configured",
-          "total": "Total"
+          "ok": "Available",
+          "total": "Total",
+          "unreachable": "Unreachable"
         }
       },
       "subtitle": "Provider health, Combo chain management, Token compaction demo",
@@ -21641,7 +23656,8 @@
       "exists": "This IP already exists",
       "invalid": "Please enter a valid IP address",
       "placeholder": "Enter IP address",
-      "title": "IP Whitelist"
+      "title": "IP Whitelist",
+      "hint": "Blocks new sign-ins only — active sessions are unaffected. The IP address that last edited this list can always sign in."
     },
     "labels": {
       "notificationSound": "Notice"
@@ -21875,12 +23891,28 @@
     "agentSecuritySaveFailed": "Failed to save security config",
     "analyticsEnabled": "Usage analytics",
     "analyticsEnabledDesc": "When on, the platform records anonymous feature-usage events (clicks, page visits, timings) to improve the product. It never records the content, code, or file paths you enter. Turning this off stops reporting immediately and affects no feature.",
+    "rumEnabled": "Performance & error diagnostics (optional)",
+    "rumEnabledDesc": "Off by default. When enabled, only anonymous startup timing, AI first-token latency, streaming long-task counts, and redacted error summaries are reported to improve performance. File paths, workspace names, email addresses, and device fingerprints are never sent. Turning it off stops collection immediately, clears pending data, and sends no further requests.",
     "llmRawRetentionOptOut": "Don't Retain LLM Conversation Text",
     "llmRawRetentionOptOutDesc": "Your prompts and AI replies are never written to the database",
     "codeIndexEgressOptOut": "Don't Build Code Semantic Index",
     "codeIndexEgressOptOutDesc": "Code snippets are never sent out for vector indexing",
     "autoMemoryOptOut": "Turn Off Auto Long-term Memory",
-    "autoMemoryOptOutDesc": "Conversations won't be distilled into cross-session preferences"
+    "autoMemoryOptOutDesc": "Conversations won't be distilled into cross-session preferences",
+    "navTiers": {
+      "title": "Simplified sidebar",
+      "desc": "Hides developer and operations entries from the sidebar by default. Turn on any group below when you need it.",
+      "simpleMode": "Simple mode",
+      "simpleModeDesc": "Hide all four groups below at once; turn it off to show everything",
+      "developer": "Developer tools",
+      "developerDesc": "API docs, webhooks, sandbox, relay keys and API subscriptions",
+      "relayOps": "Model relay backend",
+      "relayOpsDesc": "Channels, keys, call logs, billing and redemption codes — operations data",
+      "advancedAi": "Advanced AI tools",
+      "advancedAiDesc": "Memory, subagents, orchestration, context compaction and other agent framework features",
+      "experimental": "Experimental features",
+      "experimentalDesc": "Still in validation; these may change or be removed later"
+    }
   },
   "shareContentPage": {
     "aiGenerated": "Zhihui AI Generated",
@@ -22092,6 +24124,11 @@
     "authFailed": "Failed to start authorization",
     "authorizeAndRedirect": "Authorize & Redirect",
     "authorizing": "Authorizing for {clientId}…",
+    "desktopHandoffHint": "Handed back to the desktop app to finish signing in. You can close this page now.",
+    "miniappHandoffTitle": "Authorization complete",
+    "miniappHandoffHint": "Your credentials were handed back to the mini program. Tap the back button to return and finish signing in.",
+    "miniappHandoffFailed": "Failed to hand off to the mini program. Please retry or go back manually.",
+    "desktopHandoffTitle": "Authorization complete",
     "code": "Verification code",
     "codePlaceholder": "Enter verification code",
     "codeRequired": "Please enter the verification code",
@@ -22113,7 +24150,9 @@
     "redirect": {
       "notAllowed": "Redirect target is not allowed",
       "notAllowedDesc": "For security reasons, only whitelisted redirect targets are allowed.",
-      "title": "Unified Login Redirect"
+      "title": "Unified Login Redirect",
+      "unavailable": "Unable to complete the redirect right now",
+      "unavailableDesc": "The network or service is temporarily unavailable. Please try again later."
     },
     "redirecting": "Redirecting to authorization…",
     "redirectingDesc": "Opening {platform} authorization page",
@@ -22123,6 +24162,7 @@
     "registerTitle": "Unified Register",
     "sendCodeFailed": "Failed to send verification code",
     "sessionExpired": "Your session has expired. Please sign in again.",
+    "redirectBlockedByGuard": "The target page is blocked by the login guard and your login cookie is not in effect. This is usually because the accessed host does not match the cookie domain (COOKIE_DOMAIN) — e.g. opening via a LAN IP or localhost. Please visit via the site's official domain and retry.",
     "subtitle": "Authorize and redirect to {clientId} after login",
     "title": "Unified Login",
     "mobileAuth": {
@@ -22417,6 +24457,19 @@
     "title": "Task Receiver",
     "wsConnected": "WS Connected",
     "wsDisconnected": "WS Disconnected",
+    "approval": {
+      "title": "Awaiting your approval",
+      "origin": "Requested by",
+      "target": "Runs on",
+      "approve": "Approve",
+      "deny": "Deny",
+      "hint": "First answer wins — the other device cannot override it",
+      "approved": "Approved",
+      "denied": "Denied",
+      "expired": "Approval timed out, task cancelled",
+      "stopped": "Stopped",
+      "notEffective": "Not applied: {reason}"
+    },
     "status": {
       "cancelled": "Cancelled",
       "completed": "Completed",
@@ -22753,7 +24806,7 @@
     "courseWorkload": "Workload",
     "description": "Description",
     "endDate": "End Date",
-    "metaDescription": "Build AI Education Agent with IHUI AI full-stack AI OS: structured course authoring, smart Q&A, auto-grading, personalized learning paths, learning dashboard, 8-end sync distribution.",
+    "metaDescription": "Build AI Education Agent with IHUI AI full-stack AI OS: structured course authoring, smart Q&A, auto-grading, personalized learning paths, learning dashboard, 9-end sync distribution.",
     "metaTitle": "AI Education Agent Use Case — Course Authoring / Q&A / Learning Path | IHUI AI",
     "name": "Course Name",
     "provider": "Provider",
@@ -22871,7 +24924,20 @@
       "viewTimeline": "Timeline View",
       "unreadCount": "{count} unread",
       "loading": "Loading...",
-      "noData": "No messages"
+      "noData": "No messages",
+      "important": "Important",
+      "viewActive": "Active",
+      "archived": "Archived",
+      "hide": "Hide",
+      "hiding": "Hiding…",
+      "hideFailed": "This update couldn’t be hidden. Please try again.",
+      "restore": "Restore",
+      "restoring": "Restoring…",
+      "restoreFailed": "This update couldn’t be restored. Please try again.",
+      "markAllReadFailed": "Updates couldn’t be marked as read. Please try again.",
+      "emptyDescription": "Comments, mentions and subscription changes show up here.",
+      "emptyArchivedDescription": "Updates you hide are kept here and can be restored anytime.",
+      "unavailable": "Unavailable"
     },
     "profile": {
       "accountInfo": "Account Info",
@@ -23221,6 +25287,10 @@
     "withdraw": "Withdraw",
     "withdrawAmount": "Amount",
     "withdrawBtn": "Submit",
+    "withdrawAccount": "Payout account",
+    "errAmountMin": "Enter a withdrawal amount of at least 0.01",
+    "errAmountMax": "Amount exceeds your available balance",
+    "errAccountRequired": "Enter your payout account",
     "withdrawMethod": "Method",
     "withdrawRecords": "Withdrawal Records",
     "withdrawSuccess": "Withdrawal request submitted",
@@ -23512,7 +25582,7 @@
       "computer": "This PC",
       "description": "Click to select, double-click to enter; use ↑↓ to navigate, Enter to open, Backspace to go up",
       "filterPlaceholder": "Filter folders...",
-      "itemCount": "{count, plural, =0 {No folders} =1 {1 folder} other {{count} folders}}",
+      "itemCount": "{count, plural, =0 {No folders} =1 {1 folder} other {# folders}}",
       "itemCountFiltered": "Showing {filtered} / {total}",
       "loading": "Loading directory...",
       "manualPathPlaceholder": "e.g. G:\\Projects\\my-app or /home/user/projects",
@@ -23825,8 +25895,7 @@
     "empty": "No activities",
     "startTime": "Start time",
     "endTime": "End time",
-    "participants": "Participants",
-    "joinNow": "Join now"
+    "participants": "Participants"
   },
   "agentReviewDetail": {
     "title": "Review details",
@@ -23895,7 +25964,6 @@
     "actionReedit": "Re-edit",
     "title": "My agents",
     "searchPlaceholder": "Search agents",
-    "loading": "Loading…",
     "empty": "No agents"
   },
   "certDetail": {
@@ -23946,9 +26014,6 @@
     "empty": "No help content",
     "title": "Help details",
     "answer": "Answer"
-  },
-  "icpRecord": {
-    "licenseLabel": "ICP license/registration No."
   },
   "identityVerify": {
     "uploadFront": "Upload ID front",
@@ -24081,28 +26146,17 @@
     "unverifiedDesc": "Your identity is not yet verified. Please complete the information below.",
     "name": "Full name",
     "namePlaceholder": "Enter your full name",
-    "idNumber": "ID number",
-    "idNumberPlaceholder": "Enter your ID number",
     "submitting": "Submitting…",
     "submit": "Submit"
   },
   "recruitment": {
-    "title": "Recruitment",
-    "count": "{count} positions",
-    "empty": "No positions",
-    "applied": "Applied",
-    "close": "Close",
-    "description": "Job description",
-    "requirements": "Requirements",
-    "appliedWaiting": "Applied, pending review",
-    "applyNow": "Apply now"
+    "title": "Recruitment"
   },
   "studyProgress": {
     "loadFailed": "Failed to load",
     "title": "Study progress",
     "courses": "Courses",
     "totalMinutes": "Total study time",
-    "weekMinutes": "This week",
     "streak": "Streak",
     "courseProgress": "Course progress"
   },
@@ -24433,6 +26487,7 @@
     "invitedCount": "People invited",
     "rules": "Commission rules",
     "rateTitle": "Commission rate",
+    "rateEmpty": "No commission rates yet",
     "openVip": "Get VIP membership and join the commission plan"
   },
   "examQuestion": {
@@ -24751,7 +26806,7 @@
     },
     "seats": "18 seats only · Exclusively for decision makers",
     "earlyBird": "Early-bird ¥6000/yr · 33% off",
-    "multiEnd": "8-end coverage · Wide coverage"
+    "multiEnd": "9-end coverage · Wide coverage"
   },
   "typewriter": {
     "ctaPrimary": "Contact now",
@@ -24771,11 +26826,8 @@
   },
   "agentCreate": {
     "title": "Create Agent",
-    "name": "Name",
     "namePlaceholder": "Enter a name",
-    "category": "Category",
     "categoryPlaceholder": "Select a category",
-    "description": "Description",
     "descPlaceholder": "Enter a description",
     "systemPrompt": "System Prompt",
     "promptPlaceholder": "Enter the system prompt",
@@ -24842,7 +26894,6 @@
     "remove": "Remove"
   },
   "certList": {
-    "title": "My Certificates",
     "empty": "No certificates",
     "issuer": "Issuer",
     "issuedAt": "Issued at"
@@ -24894,7 +26945,6 @@
   },
   "courseQAList": {
     "title": "Course Q&A",
-    "ask": "Ask",
     "empty": "No Q&A",
     "asker": "Asker",
     "answers": "Answers"
@@ -24971,7 +27021,6 @@
     "actionEdit": "Edit"
   },
   "notificationSettings": {
-    "title": "Notification Settings",
     "push": "Push notifications",
     "message": "Message alerts",
     "email": "Email notifications",
@@ -25072,9 +27121,7 @@
   "withdraw": {
     "title": "Withdraw",
     "availableBalance": "Withdrawable balance",
-    "amount": "Amount",
     "amountPlaceholder": "Enter the withdrawal amount",
-    "bankCard": "Bank card",
     "bankCardPlaceholder": "Enter the bank card number",
     "submitting": "Withdrawing...",
     "submit": "Confirm withdrawal",
@@ -25217,7 +27264,6 @@
     "save": "Save"
   },
   "aigcCover": {
-    "loading": "Loading…",
     "title": "Cover Settings",
     "subtitle": "Generate a cover for \"{title}\"",
     "empty": "No covers yet",
@@ -25344,7 +27390,6 @@
     "rateLabel": "Share ratio",
     "withdrawModal": {
       "title": "Withdraw",
-      "close": "Close",
       "subtitle": "Withdrawable amount",
       "wechat": "WeChat",
       "moreMethods": "More withdrawal methods coming soon",
@@ -25471,7 +27516,6 @@
   },
   "team": {
     "retry": "Retry",
-    "title": "My Team",
     "subtitle": "Team Management",
     "totalMembers": "Total Members",
     "activeMembers": "Active Members",
@@ -25809,6 +27853,12 @@
     "pageSubtitle": "A user-editable rule set that is injected into the system prompt at agent runtime according to its match conditions"
   },
   "automations": {
+    "terminalReason": {
+      "manualPause": "Manually paused",
+      "failedPermanent": "Permanent failure",
+      "failedRetriesExhausted": "Retries exhausted",
+      "completed": "Completed"
+    },
     "delete": "Delete",
     "title": "Automations",
     "subtitle": "Run your agent tasks on schedule",
@@ -26254,7 +28304,9 @@
     "toastLoadFailed": "Failed to load snapshots",
     "toastPlanFailed": "Dry-run failed",
     "toastRunOk": "Rollback executed",
-    "toastRunFail": "Rollback failed"
+    "toastRunFail": "Rollback failed",
+    "availabilityAvailable": "Another device just created a checkpoint: {id}",
+    "availabilityUnavailable": "Checkpoint service is unavailable. Please try again later."
   },
   "traceReplay": {
     "title": "Trace replay",
@@ -27472,7 +29524,56 @@
     "days": "Days",
     "reason": "Reason",
     "daysWithUnit": "{count} days",
-    "approveAction": "Review"
+    "approveAction": "Review",
+    "classLabel": "Class",
+    "selectClass": "Select class",
+    "batchCheckIn": "Batch check-in",
+    "batchConfirm": "Start roll call",
+    "batchResultCreated": "Checked in",
+    "batchResultSkipped": "Skipped",
+    "batchResultMissed": "Not checked in",
+    "batchFailed": "Batch check-in failed",
+    "exportCsv": "Export CSV",
+    "exportFailed": "Export failed, please try again later",
+    "studentPageTitle": "My Attendance",
+    "studentPageSubtitle": "View your attendance records and check in yourself",
+    "selfCheckIn": "Self check-in",
+    "selfCheckInSuccess": "Checked in successfully",
+    "selfCheckInFailed": "Check-in failed, please try again later",
+    "notLoggedIn": "Sign in to view your attendance",
+    "rulePanelTitle": "Attendance rules",
+    "ruleClassHint": "Pick a class to load its rules",
+    "ruleNotConfigured": "Not configured",
+    "ruleLateAfter": "Late after",
+    "ruleEarlyBefore": "Early leave before",
+    "ruleAbsentAfter": "Absent after",
+    "ruleEnabledLabel": "Enable rules",
+    "ruleTimeHint": "Format HH:MM; blank keeps the current value",
+    "ruleSave": "Save rules",
+    "ruleSaved": "Rules saved",
+    "ruleQrSecretState": "QR signing key: ",
+    "ruleQrSecretOn": "Configured",
+    "ruleQrSecretOff": "Not configured",
+    "ruleQrSecretGuide": "Rotate the QR signing key below before using QR check-in",
+    "qrPanelTitle": "QR check-in",
+    "qrLoading": "Loading the QR code",
+    "qrExpiresIn": "Expires in {seconds}s",
+    "qrExpired": "QR code expired; reloading",
+    "qrRefresh": "Reload",
+    "qrRotateSecret": "Rotate key",
+    "qrRotated": "Key rotated (fingerprint {fingerprint})",
+    "qrSecretNote": "The secret itself is never shown; only its fingerprint is",
+    "qrNeedSetup": "Configure the rules above and rotate the key first",
+    "qrLoadFailed": "Failed to load the QR code",
+    "trendChartTitle": "Attendance trend",
+    "trendChartScope": "Scope: {scope}",
+    "trendChartHint": "Attendance rate = present ÷ records logged in that period (students without a record are not in the denominator)",
+    "trendCountAxisLabel": "Records",
+    "trendChartAria": "Daily attendance rate line with stacked status bars for {scope} in the selected period",
+    "statusOther": "Other",
+    "scopeAllClasses": "All classes",
+    "checkInAt": "Check-in time",
+    "backfillNeedsTime": "Backfilling a past date requires an explicit check-in time within that day"
   },
   "eduCertificates": {
     "certificateNo": "No.: {no}",
@@ -27599,6 +29700,7 @@
     "filesWrite": "Upload files",
     "audioRead": "Read voices",
     "audioWrite": "Speech synthesis and recognition",
+    "voiceStt": "Speech to text",
     "imagesWrite": "Generate and edit images",
     "videosWrite": "Generate and compose videos",
     "videosRead": "Query video tasks",
@@ -27906,7 +30008,49 @@
   },
   "statusPage": {
     "incidentsUnavailable": "Incident data for the last 30 days is temporarily unavailable"
+  },
+  "eduHub": {
+    "title": "Education",
+    "subtitle": "Courses, exams, study tools and academic management"
+  },
+  "contentHub": {
+    "title": "Content",
+    "subtitle": "Plaza, community, messages and multi-platform publishing"
+  },
+  "tradeHub": {
+    "title": "Trade",
+    "subtitle": "Wallet, orders, membership and points benefits"
+  },
+  "aiHub": {
+    "title": "Agents and Models",
+    "subtitle": "Chat history, memory, knowledge base, media tasks and workspace"
+  },
+  "personalHub": {
+    "title": "Account",
+    "subtitle": "My learning, account security, student center, feedback and help"
+  },
+  "appUpdate": {
+    "title": "New version available",
+    "body": "Refresh the page to get the latest version",
+    "action": "Update",
+    "close": "Close",
+    "ready": "Update ready",
+    "installing": "Restarting…",
+    "error": "Update failed",
+    "errorDesc": "Check your network and try again",
+    "gateTitle": "Update required",
+    "gateBody": "Version {version} is no longer supported. Please update to {latest} to continue.",
+    "gateForceBody": "A new version {latest} is available. This update is required.",
+    "gateReleaseNotes": "What's new",
+    "gateUpdateNow": "Update now",
+    "gateQuit": "Close page",
+    "gateQuitConfirm": "The update is not finished yet. Closing now will interrupt this session.",
+    "gateQuitFailed": "Could not close the page automatically. Please close this tab manually."
+  },
+  "pwaInstall": {
+    "title": "Install app",
+    "body": "Add to home screen for a better experience",
+    "action": "Install",
+    "close": "Close"
   }
 }
-
-

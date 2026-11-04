@@ -149,7 +149,20 @@
     "agentStallBudgetGovernance": "予算管理",
     "agentStallHookPipeline": "フックパイプライン",
     "agentStallDoomLoopGuard": "無限ループ防止",
-    "agentStallUndetermined": "未判定の段階"
+    "agentStallUndetermined": "未判定の段階",
+    "taskStatusLabels": {
+      "pending": "処理待ち",
+      "inProgress": "進行中",
+      "completed": "完了",
+      "cancelled": "キャンセル済み",
+      "blocked": "ブロック中"
+    },
+    "tasksHelpCancel": "/tasks cancel <id>       タスクをキャンセル",
+    "tasksHelpBlock": "/tasks block <id>         タスクをブロック",
+    "tasksUsageCancel": "usage: /tasks cancel <id>",
+    "tasksUsageBlock": "usage: /tasks block <id>",
+    "taskCancelledFeedback": "✓ タスク #{id} をキャンセルしました: {content}",
+    "taskBlockedFeedback": "✓ タスク #{id} をブロックしました: {content}"
   },
   "waiting": {
     "agent": {

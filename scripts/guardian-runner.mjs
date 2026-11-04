@@ -547,7 +547,9 @@ const checks = [
     id: '45',
     label: '🛡️  C 盘路径硬编码扫描(warn-only,AGENTS.md §26)',
     script: 'check-c-drive-paths.mjs',
-    args: [],
+    // 2026-11-04:此前无输入面直接返回空数组恒绿。现默认即真扫暂存区(--staged 为兼容别名);
+    // git 取面失败 / 文件读不到 = exit 2 未判定;空暂存区 = 0 不适用(对齐 check-file-size);warn 档不阻断。
+    args: ['--staged'],
     mode: 'warn',
     stagedTriggers: ["**/*"],
     onFailHint: [
@@ -6249,6 +6251,29 @@ const checks = [
       '     复验:node scripts/check-permission-lease-bounded.mjs --staged',
       '     自检:node scripts/check-permission-lease-bounded.mjs --self-test',
       '',
+    ].join('\n'),
+  },
+  // 编号 298:旧 blob 回写守门(本侧独有;上游 293-297 已被 R3 五枚判据占用,按现读最大 + 1 顺延)。
+  // 有意回滚须提交正文写 `intentional-revert: <依据>`(≥8 字符),留痕
+  // .ihui-agent/state/intentional-revert.jsonl;无声明一律红。
+  {
+    id: '298',
+    label:
+      '🧊 旧 blob 回写守门(blocking:暂存内容逐字等于该路径祖先 blob 而 HEAD 已有更新档 ⇒ 拦提交;有意回滚须写 intentional-revert: 依据)',
+    script: 'check-staged-downgrade.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: ['**/*'],
+    skipEnv: 'HUSKY_SKIP_STALE_DOWNGRADE',
+    onFailHint: [
+      '  💡 红 = 有人把旧检出档搬回暂存区(内容与某枚祖先提交的 blob 逐字相同,HEAD 已有新版本)。',
+      '     先看点名里的「祖先 sha」:git show <祖先sha> -- <路径> 对比 HEAD;改法是从 HEAD 形态重做本次编辑',
+      '     (git restore --source=HEAD -- <文件> 后重改),不要保留旧档。',
+      '  💡 确属有意回滚:提交正文写一行 `intentional-revert: <依据>`(≥8 字符),本门放行并留痕',
+      '     .ihui-agent/state/intentional-revert.jsonl。',
+      '     取证:node scripts/check-staged-downgrade.mjs --self-test(6 例:远/近祖先回写、合法回滚、新内容、无暂存、空口声明)',
+      '     镜像:node --test scripts/tests/check-staged-downgrade.test.mjs',
+      '     应急放行:HUSKY_SKIP_STALE_DOWNGRADE=1 git commit ...(不推荐;跳过会留痕)',
     ].join('\n'),
   },
   // --- info (1 项) ---

@@ -459,7 +459,7 @@ node scripts/release-mobile-rn.mjs --leg ota-preview --execute -m "<本次说明
 > ② 下载中心 8 个入口(web/desktop/ios/android-apk/mobile/wechat-miniapp/extension/cli)**不含任何国内商店**,且访问 `/download/harmony` 会被**静默 fallback 成 desktop**(`apps/web/app/(main)/download/[platform]/DownloadDetailContent.tsx:107`)——静默错配比 404 更坏:用户会以为鸿蒙版就是那个包。
 > **runtimeVersion 曾是 OTA 腿的隐性断点(2026-11-02 修)**:旧形态 `app.json` 里 `runtimeVersion.policy = "appVersion"`,读的是 `expo.version`,而 2026-10-17 起 `expo.version` 被 CI 每次构建注入成 `<base>.<UTC YYYYMMDD>` ⇒ 桶随构建漂移。实测后果:10-27 那条 OTA 落在 runtime `0.0.8`,而线上最新包是 `0.0.9` ⇒ **发出去的更新对任何已装用户永久不可达**,而账面 `eas update` 是成功的。现在桶锚在 `package.json` 基座版本(只在真正重打原生包时抬),判据与反例锁在 `scripts/tests/release-mobile-rn.test.mjs` M6。
 >
-> **签名一致性是 Play 腿未收口的一格**:官网包用 `ihui-release.keystore`(证书 SHA256 `62:B0:FF:0E…`),EAS 云端 10-19 那枚 production AAB 用 EAS 自动生成的 keystore(`62:0C:C9:58…`)—— 二者不同源,而 alpha 轨上那枚 `26101921` 正是 EAS 的号。Play 现网签名身份没能量到(`appSigningInfo` 对本应用回 HTML 404)⇒ **以本机 keystore 提交会不会被 Play 拒绝,属未判定,提交前必须先量一次**,不得凭"应该可以"下结论。
+> **Play 腿签名身份必须三分，不能互校（2026-11-03 取证）**：官网/自建包由 `ihui-release.keystore` 签发，证书 SHA-256 `62:B0:FF:0E…`，这是**官网安装身份**；Play 在启用 App Signing 时另有两层——EAS 10-19 那枚 AAB 携带的是**上传密钥证书** `62:0C:C9:58…`（EAS 只登记 8 位前缀，不是完整指纹），最终交付 APK 由 **Play 应用签名证书**签发，当前仓内无记录、公开 API 也读不到。`62:B0…` 与 `62:0C…` 分属安装身份层与上传层，**不可互校**：上传 key 本来就可以不同，只有应用签名证书决定 `zh.ai.sq` 能否跨渠道覆盖升级。`applications/{pkg}/appSigningInfo` 不是 Android Publisher v3 的方法（官方 `appsigning` 资源只有 `enrollApp` / `rotateAppSigningKey`），404 是路径错而非权限或应用状态；量取入口 = Play Console → 发布 → 设置 → 应用签名（读上传密钥证书与应用签名证书 SHA-256），或下载 Play 签名通用 APK 后 `apksigner verify --print-certs`。单源 `playUploadKeyCertSha256` / `playAppSigningCertSha256` 未实测前 `play-aab` 不得判 ready。
 >
 > **`eas.json` 的 `submit.production.android` 不得写 `packageName`**:eas-cli schema 回 `"submit.production.android.packageName" is not allowed`,而它一拒就顶掉**所有** eas 命令(连 `channel:list` 都退 1)。包名只从 `app.json` 的 `android.package` 读。回归锁 M4。
 
@@ -470,9 +470,11 @@ node scripts/release-mobile-rn.mjs --leg ota-preview --execute -m "<本次说明
 | 唯一真源 | `scripts/data/mobile-download-leg.json` 的 `downloadUrl`(站点 CDN 腿;本表不复制字面量,避免第二份地址) |
 | 页面取值 | `NEXT_PUBLIC_DOWNLOAD_APK_URL`,由 `deploy/scripts/prod-bundle/deploy.sh` 从单源写入;禁止各页面各写一份 URL |
 | 覆盖 | 部署机/联调可设 `IHUI_MOBILE_DOWNLOAD_URL`;不得写回仓库 |
-| 正式签名 | 只有持 `~/.android/ihui-release.keystore` 的机器能出;证书 SHA-256 基准 `62:B0:FF:0E…`(hex `62b0ff0e950125230683aacfb5d0b110d93d30a229ca5df1950a572255b82514`) |
+| 官网安装证书 | 只有持 `~/.android/ihui-release.keystore` 的机器能出;基准 `siteApkCertSha256` = `62:B0:FF:0E…`(hex `62b0ff0e950125230683aacfb5d0b110d93d30a229ca5df1950a572255b82514`);只校验官网 APK,不参与 Play 对账 |
 | CI | 私钥不进 GitHub Secrets ⇒ CI 永久只产 `ihui-ai-dev-<run>.apk/.aab`,不发布 Release 正式包 |
-| EAS | EAS 自动 keystore `62:0C:C9:58…` 与基准不同源;对齐前**禁止**其 AAB 对外分发 |
+| Play 上传证书 | `playUploadKeyCertSha256` 当前 `null`(未实测;EAS 10-19 AAB 只记录 `62:0C:C9:58…` 8 位前缀,不得冒充完整 hex);与官网 `62:B0…` 属上传层 vs 安装层,**不可互校** |
+| Play 应用签名证书 | `playAppSigningCertSha256` 当前 `null`(`playCertSource=unmeasured`);待 Play Console 量取,未登记前 `play-aab` 不得判 ready |
+| EAS | EAS AAB 携带的是上传 key 身份、不是官网安装身份;对齐前**禁止**其 AAB 对外分发 |
 | 发布 | `pwsh -File scripts/build-mobile-rn-release.ps1 ...`;第 5 步调 `publish-mobile-apk.mjs`,随后 `check-mobile-download-leg.mjs --apk` 复核 |
 | 门 | `node scripts/check-mobile-download-leg.mjs [--apk <APK>] [--download] [--json]`;退出码 0=ok / 1=fail / 2=skipped 或未判定(**skip 不是绿**) |
 | CI 门 | `.github/workflows/mobile-download-leg.yml`(`workflow_dispatch` + 每日定时;不跑 PR) |

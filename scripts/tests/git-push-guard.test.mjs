@@ -897,7 +897,7 @@ test('装车反向锁:push-state 新增的 diverged 必须被三处读取方各�
   // 向后兼容:三处都不得把"不认识的值"读成已推成功(fallthrough 一律是拦/未判定)
   assert.match(
     hits['check-push-sync.mjs'],
-    /return \{ pass: false, why: `push-state status=/,
+    /return \{ state: 'fail', why: `push-state status=/,
     '未知态必须回到阻塞,不得默认放行',
   )
 })
