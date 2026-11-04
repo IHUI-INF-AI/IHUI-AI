@@ -32,11 +32,14 @@ import {
   PATROL_INTERVAL_MS,
   SEAL_SCRIPT,
   SESSION_TMP,
+  SCAN_STATE_VERSION,
   TMP_PROBE,
   QUIET_MINUTES,
+  createScanStateStore,
+  loadDevenvMigrateKnownLimits,
 } from '../devenv-migrate.mjs'
 
-const { activityNotes, latestWrite, guardianTickAlive, probeQuietWindow, assessSteps, planSteps, applyMigration, parseProcessTable } = __test__
+const { activityNotes, latestWrite, guardianTickAlive, probeQuietWindow, assessSteps, planSteps, applyMigration, parseProcessTable, scanLegacyLocks } = __test__
 // 巡检派发臂三函数:判据住本体,本文件只 import(§22c 零复制)。
 const { devenvArmDue, loadDevenvMigrateArm, devenvMigratePatrol } = __test__
 
@@ -163,6 +166,118 @@ test('latestWrite:枚举截断与单条 lstat 失败都 ⇒ undetermined(§0.3,�
   assert.match(u.why, /EACCES/)
 })
 
+test('latestWrite:预算按片 ⇒ 部分进度可读、仍 undetermined;续扫从游标接着扫才看见后段新写入', () => {
+  const tree = {
+    [LEGACY_ROOT]: { dir: ['a', 'b', 'c', 'd'] },
+    [`${LEGACY_ROOT}\\a`]: ago(90),
+    [`${LEGACY_ROOT}\\b`]: ago(90),
+    [`${LEGACY_ROOT}\\c`]: ago(90),
+    [`${LEGACY_ROOT}\\d`]: ago(5),
+  }
+  const io = fakeIO(tree)
+  const saves = []
+  const save = (s) => saves.push(JSON.parse(JSON.stringify(s)))
+  const r1 = latestWrite(io, LEGACY_ROOT, NOW, { budget: 2, resume: { state: null, save } })
+  assert.equal(r1.kind, 'undetermined')
+  assert.equal(r1.truncated, true)
+  assert.equal(r1.entries, 2)
+  assert.equal(r1.progress.scannedThisRound, 2)
+  assert.ok(r1.progress.pendingDirs > 0)
+  assert.equal(r1.progress.estimatedRoundsRemaining, null, '无完整环基准时不得编造总轮数')
+  const r2 = latestWrite(io, LEGACY_ROOT, NOW, { budget: 2, resume: { state: saves[0], save } })
+  assert.equal(r2.kind, 'ok')
+  assert.equal(r2.entries, 4)
+  assert.equal(r2.rounds, 2)
+  assert.equal(r2.progress.scannedThisRound, 2)
+  assert.ok(r2.quietMinutes < QUIET_MINUTES, '后段的 5 分钟前写入必须在续扫后被看见')
+})
+
+test('latestWrite:续扫环跨 > 静默阈值 ⇒ undetermined(环内盲区不得当已判定)', () => {
+  let saved = null
+  const io = fakeIO({ [LEGACY_ROOT]: { dir: ['a', 'b'] }, [`${LEGACY_ROOT}\\a`]: ago(90), [`${LEGACY_ROOT}\\b`]: ago(90) })
+  latestWrite(io, LEGACY_ROOT, NOW, {
+    budget: 1,
+    resume: {
+      state: null,
+      save: (s) => {
+        saved = JSON.parse(JSON.stringify(s))
+      },
+    },
+  })
+  const r = latestWrite(io, LEGACY_ROOT, NOW + (QUIET_MINUTES + 30) * MIN, { budget: 5, resume: { state: saved, save: () => {} } })
+  assert.equal(r.kind, 'undetermined')
+  assert.match(r.why, /续扫环跨/)
+})
+
+test('scanLegacyLocks:单片扫不完 ⇒ undetermined;续扫第二片才看见后段活锁(不得因前片无锁就判 idle)', () => {
+  let saved = null
+  const io = fakeIO({
+    [LEGACY_ROOT]: { dir: ['a', 'b'] },
+    [`${LEGACY_ROOT}\\a`]: { dir: [] },
+    [`${LEGACY_ROOT}\\b`]: { dir: ['index.lock'] },
+    [`${LEGACY_ROOT}\\b\\index.lock`]: { text: '12345' },
+  })
+  const save = (s) => {
+    saved = JSON.parse(JSON.stringify(s))
+  }
+  const pidAlive = (pid) => pid === 12345
+  const r1 = scanLegacyLocks(io, LEGACY_ROOT, { entryBudget: 2, now: NOW, pidAlive, resume: { state: null, save } })
+  assert.equal(r1.kind, 'undetermined')
+  assert.equal(r1.truncated, true)
+  assert.equal(r1.live.length, 0)
+  assert.ok(saved.stack.length > 0, '游标必须落盘')
+  const r2 = scanLegacyLocks(io, LEGACY_ROOT, { entryBudget: 2, now: NOW, pidAlive, resume: { state: saved, save } })
+  assert.equal(r2.kind, 'ok')
+  assert.equal(r2.live.length, 1)
+  assert.equal(r2.locks, 1)
+  assert.equal(r2.scanned, 3)
+})
+
+test('createScanStateStore:落盘能读回;坏账 ⇒ invalid 且不猜着续', () => {
+  const mem = {}
+  const io = {
+    readFileSync: (p) => {
+      if (!(p in mem)) {
+        const e = new Error('ENOENT')
+        e.code = 'ENOENT'
+        throw e
+      }
+      return mem[p]
+    },
+    writeFileSync: (p, s) => {
+      mem[p] = s
+    },
+    mkdirSync: () => {},
+    renameSync: (a, b) => {
+      mem[b] = mem[a]
+      delete mem[a]
+    },
+  }
+  const store = createScanStateStore({ io, path: 'mem://scan' })
+  assert.equal(store.load('legacyTree').kind, 'absent')
+  const state = {
+    v: SCAN_STATE_VERSION,
+    key: 'legacyTree',
+    root: LEGACY_ROOT,
+    maxDepth: 1,
+    cycleStartedAt: NOW,
+    updatedAt: NOW,
+    rounds: 1,
+    scannedTotal: 7,
+    stack: [{ d: LEGACY_ROOT, i: 3, dep: 1 }],
+    acc: { maxMs: NOW, junctions: 0, unreadable: 0, firstUnreadableCode: '' },
+    lastComplete: null,
+  }
+  assert.equal(store.save('legacyTree', state), true)
+  const back = store.load('legacyTree')
+  assert.equal(back.kind, 'ok')
+  assert.equal(back.state.scannedTotal, 7)
+  assert.equal(back.state.stack[0].i, 3)
+  mem['mem://scan'] = '{not json'
+  assert.equal(store.load('legacyTree').kind, 'invalid')
+  assert.match(store.load('legacyTree').why, /不可解析/)
+})
+
 test('guardianTickAlive:新鲜 ⇒ alive;超 GUARDIAN_FRESH_MINUTES ⇒ undetermined;读不到/无戳 ⇒ undetermined', () => {
   const freshIso = new Date(NOW - 2 * MIN).toISOString()
   const alive = guardianTickAlive(fakeIO({ [GUARDIAN_LOG]: { text: `前导噪声\n[${freshIso}] 行\n` } }), NOW)
@@ -286,7 +401,7 @@ test('形状锁:判② 注入面三跳传导 + 空字段行 fail-closed(摘任�
   assert.match(patrolBody, /probeFn\(io, now, activity\)/, '臂必须把 activity 透传给 probeFn(第三参)')
   const probeBody = SRC.slice(SRC.indexOf('export function probeQuietWindow'), SRC.indexOf('function listDriveJunctions'))
   assert.ok(probeBody.length > 200, '切不到 probeQuietWindow 函数体(锚点漂了 ⇒ 本条恒真)')
-  assert.match(probeBody, /legacyActiveUse\(io, \{ \.\.\.activity, exemptions \}\)/, 'probe 必须把 activity 交给 legacyActiveUse')
+  assert.match(probeBody, /legacyActiveUse\(io, \{ \.\.\.activity, exemptions, now \}\)/, 'probe 必须把 activity 交给 legacyActiveUse')
   const useBody = SRC.slice(SRC.indexOf('export function legacyActiveUse'), SRC.indexOf('export function activityNotes'))
   assert.ok(useBody.length > 800, '切不到 legacyActiveUse 函数体(锚点漂了 ⇒ 本条恒真)')
   assert.match(useBody, /if \(!cmdline \|\| !exePath\)/, '空字段行必须单列判「读不出」')
@@ -300,11 +415,11 @@ test('形状锁:判② 注入面三跳传导 + 空字段行 fail-closed(摘任�
     /probeFn\(io, now, activity\)/,
     '摘掉第三参后锁仍匹配 ⇒ 该锁对旧形无感',
   )
-  const noForward = SRC.replace('legacyActiveUse(io, { ...activity, exemptions })', 'legacyActiveUse(io, {})')
+  const noForward = SRC.replace('legacyActiveUse(io, { ...activity, exemptions, now })', 'legacyActiveUse(io, {})')
   assert.notEqual(noForward, SRC, '锚点漂了:probe 已不再把 activity 透传给 legacyActiveUse')
   assert.doesNotMatch(
     noForward.slice(noForward.indexOf('export function probeQuietWindow'), noForward.indexOf('function listDriveJunctions')),
-    /legacyActiveUse\(io, \{ \.\.\.activity, exemptions \}\)|processes\.unreadableRows\.push/,
+    /legacyActiveUse\(io, \{ \.\.\.activity, exemptions, now \}\)|processes\.unreadableRows\.push/,
     '摘掉传导后锁仍匹配 ⇒ 该锁对丢注入面无感',
   )
 })
@@ -347,6 +462,79 @@ test('默认档(probe+assess+plan)零写盘:行为锁 —— 记录型 io 上 wr
   const lines = planSteps(assessed, probe)
   assert.equal(io.writes.length, 0, `出现写调用:${io.writes.join(',')}`)
   assert.ok(lines.length > 0)
+})
+
+test('probeQuietWindow:预算不足本轮 undetermined;续扫满环 + 复用在环 ⇒ 下一轮才 window', () => {
+  const io = fakeIO(probeTree({ locks: { 'a.lock': '42', 'b.lock': '43' } }))
+  const mem = {}
+  const store = {
+    path: 'mem://scan',
+    load: (n) => ({ kind: mem[n] ? 'ok' : 'absent', state: mem[n] || null, why: undefined }),
+    save: (n, s) => {
+      mem[n] = JSON.parse(JSON.stringify(s))
+      return true
+    },
+  }
+  const act = { ...IDLE, lockScan: { entryBudget: 2 } }
+  const r1 = probeQuietWindow(io, NOW, { ...act, scanStore: store })
+  const r2 = probeQuietWindow(io, NOW, { ...act, scanStore: store })
+  assert.equal(r1.state, 'undetermined')
+  assert.equal(r1.facts.legacyRoot.reused, false)
+  assert.equal(r2.state, 'window')
+  assert.equal(r2.facts.legacyRoot.reused, true)
+  const lp = r2.facts.activeUse.facts.locks.progress
+  assert.equal(lp.scannedInCycle, 3)
+  assert.equal(lp.rounds, 2)
+  assert.equal(lp.finished, true)
+  const notes = activityNotes(r2.facts)
+  assert.ok(notes.some((s) => s.startsWith('判① 旧根树面') && /复用在环/.test(s)))
+  assert.ok(!notes.some((s) => s.startsWith('判② 活进程面') && /复用在环/.test(s)))
+})
+
+test('latestWrite:已扫完的环在阈值内复用、超阈值重开(复用不等于又扫一遍)', () => {
+  const TREE = `${LEGACY_ROOT}\\zzq`
+  let saved = null
+  const io = fakeIO({ [TREE]: { dir: ['a'] }, [`${TREE}\\a`]: ago(200) })
+  const save = (s) => {
+    saved = JSON.parse(JSON.stringify(s))
+  }
+  const r1 = latestWrite(io, TREE, NOW, { budget: 1, resume: { state: null, save } })
+  const r2 = latestWrite(io, TREE, NOW + 5 * MIN, { budget: 1, resume: { state: saved, save } })
+  const afterReuse = saved
+  const r3 = latestWrite(io, TREE, NOW + 65 * MIN, { budget: 1, resume: { state: afterReuse, save } })
+  assert.equal(r1.kind, 'ok')
+  assert.equal(r2.reused, true)
+  assert.equal(r2.progress.scannedThisRound, 0)
+  assert.ok(Math.abs(r2.progress.reuseAgeMinutes - 5) < 0.01)
+  assert.equal(r3.reused, false)
+  assert.equal(r3.rounds, 1)
+  assert.match(r3.progress.resetWhy, /重开一环/)
+})
+
+test('loadDevenvMigrateKnownLimits:合法不抑制红;缺件/过期/坏 JSON 一律点名回红', () => {
+  const known = (entries) => loadDevenvMigrateKnownLimits({ readFile: () => JSON.stringify({ entries }), now: NOW })
+  const one = {
+    id: 'scan-span-vs-patrol-cadence',
+    subject: '续扫环跨 vs 巡检周期',
+    reason: '单片预算 × 自动巡检周期使整环跨度超过静默阈值',
+    owner: '搬迁判据维护席(会话)',
+    reviewBy: '2030-01-01',
+  }
+  const valid = known([one])
+  const win = probeQuietWindow(fakeIO(probeTree()), NOW, { ...IDLE, knownLimits: valid })
+  assert.equal(win.state, 'window')
+  assert.equal(valid.kind, 'ok')
+  assert.match(activityNotes(win.facts)[3], /结构性限制登记 1 条/)
+  const bad = known([{ ...one, owner: '' }, { ...one, id: 'x', reason: '太短' }])
+  const r = probeQuietWindow(fakeIO(probeTree()), NOW, { ...IDLE, knownLimits: bad })
+  assert.equal(bad.rejected.length, 2)
+  assert.equal(r.state, 'undetermined')
+  const expired = known([{ ...one, reviewBy: '2023-01-01' }])
+  const re = probeQuietWindow(fakeIO(probeTree()), NOW, { ...IDLE, knownLimits: expired })
+  assert.equal(re.state, 'undetermined')
+  assert.match(re.unjudged.join('\n'), /须复核/)
+  const broken = loadDevenvMigrateKnownLimits({ readFile: () => '{oops', now: NOW })
+  assert.equal(broken.kind, 'invalid')
 })
 
 test('apply 前置闸:pending / undetermined 一律 refused 且零写调用(本轮绝不真搬迁的机器保证)', () => {

@@ -6051,7 +6051,17 @@
     "chooseClass": "출석 체크할 반을 선택하세요",
     "noClass": "현재 목록에 선택할 반이 없습니다",
     "batchResult": "출석 완료: 신규 {created}, 건너뜀 {skipped}, 누락 {missed}",
-    "qrEntry": "체크인 QR 표시"
+    "qrEntry": "체크인 QR 표시",
+    "emptyTrend": "추이 데이터가 없습니다",
+    "statsAttendanceRate": "출석률",
+    "statusDistribution": "상태 분포",
+    "statusOther": "기타",
+    "trendChartHint": "출석률 = 정상 출석 ÷ 해당 시간대의 출석 기록 수(체크인하지 않은 학생은 분모에 포함되지 않음)",
+    "trendChartTitle": "출석 추이",
+    "statsTotalLabel": "총 체크인 수",
+    "loadStatsFailed": "출결 통계를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.",
+    "trendChartScope": "집계 범위: {scope}",
+    "trendWindow": "최근 {days}일"
   },
   "eduGrades": {
     "title": "성적 관리",
