@@ -41883,3 +41883,5 @@ A: Yes. ~14839+ tests / 4036 test files / 67 e2e spec / 4683 API 路由 / 619 �
 诚实边界:以上都只验到"静态判据 + 单元/组件用例"这一层。本机没有运行中的服务、
 没有数据库与浏览器会话,所以**到端渲染与真机行为未取证**,不写成"已实测"。
 自检 `node --test scripts/tests/check-version-drift.test.mjs`(13/13,每条判据都配了能被它抓住的反例)。
+- **教务考勤**:班级阈值规则(迟到/早退/缺勤)/ 每日缺勤自动补录 / 请假审批联动 / 整班批量点名 / CSV 导出 / 代签·自签·扫码三档签到 / 学生本人页三端同步 / 教师统计与出勤趋势三端同脸(小程序 pkg-user/edu-mgmt-attendance、RN EduAttendanceScreen + AttendanceStatsPanel、web edu/attendance)
+- **教务考勤**:班级阈值规则(迟到/早退/缺勤)/ 每日缺勤自动补录 / 请假审批联动 / 整班批量点名 / CSV 导出 / 代签·自签·扫码三档签到 / 学生本人页三端同步 / 教师统计与出勤趋势三端同脸(小程序 pkg-user/edu-mgmt-attendance、RN EduAttendanceScreen + AttendanceStatsPanel、web edu/attendance)
