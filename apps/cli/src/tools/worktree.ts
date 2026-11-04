@@ -30,6 +30,8 @@ import {
 } from '../subagents/worktree.js';
 // 工具契约只取类型(运行时无环:tools/index.ts 反向 re-export 本模块)
 import type { Tool } from './index.js';
+// 删除保护链的目录回收腿(goal-b49 W1-①):判据在 @ihui/shared/delete-guard,IO adapter 在工具层
+import { stashDirToTrash } from './file-batch-edit.js';
 
 /** agent 专属 worktree 分支前缀(唯一分支名 agent-wt-<uuid8>) */
 export const AGENT_BRANCH_PREFIX = 'agent-wt-';
@@ -224,13 +226,22 @@ export class WorktreeManager {
     if (opts?.force) args.push('--force');
     const r = runGit(args, this.sourcePath);
     if (!r.ok) {
-      // fallback:直接删目录(如 CoW 拷贝型 .git 或半损坏的 worktree 元数据)
+      // 兜底前先尝试整目录搬进回收站(同盘 rename 可逆 ⇒ 现场可恢复,goal-b49 W1-①);
+      // 搬不动(Windows 句柄占用,正是本兜底腿存在的理由)才退回直接 rmSync —— 该腿不得摘除。
+      let stashedPath: string | null = null;
       try {
-        fs.rmSync(wtPath, { recursive: true, force: true });
+        stashedPath = stashDirToTrash(this.sourcePath, wtPath, agentId);
       } catch {
-        throw new Error(`worktree 删除失败: ${r.stderr || r.stdout}`);
+        stashedPath = null;
       }
-      // 目录是手工删除的,补一次 prune 清掉 git 内部元数据
+      if (!stashedPath) {
+        try {
+          fs.rmSync(wtPath, { recursive: true, force: true });
+        } catch {
+          throw new Error(`worktree 删除失败: ${r.stderr || r.stdout}`);
+        }
+      }
+      // 目录是手工搬运/删除的,补一次 prune 清掉 git 内部元数据
       runGit(['worktree', 'prune'], this.sourcePath);
     }
 
@@ -319,7 +330,17 @@ export function cleanupWorktree(wtPath: string, sourcePath: string, force = true
     if (force) args.push('--force');
     const r = runGit(args, sourcePath);
     if (!r.ok) {
-      fs.rmSync(wtPath, { recursive: true, force: true });
+      // 与 WorktreeManager.remove 同一条纪律:先试回收站搬运,搬不动才 rmSync(兜底腿保留,Windows 句柄问题的既有解法)
+      let stashed = false;
+      try {
+        stashDirToTrash(sourcePath, wtPath, path.basename(wtPath));
+        stashed = true;
+      } catch {
+        stashed = false;
+      }
+      if (!stashed) {
+        fs.rmSync(wtPath, { recursive: true, force: true });
+      }
     }
     runGit(['worktree', 'prune'], sourcePath);
   } catch {

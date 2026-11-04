@@ -263,6 +263,16 @@
       "import": "./src/attribution/index.ts",
       "default": "./src/attribution/index.ts"
     },
+    "./delete-guard": {
+      "types": "./src/delete-guard/index.ts",
+      "import": "./src/delete-guard/index.ts",
+      "default": "./src/delete-guard/index.ts"
+    },
+    "./delete-guard/*": {
+      "types": "./src/delete-guard/*.ts",
+      "import": "./src/delete-guard/*.ts",
+      "default": "./src/delete-guard/*.ts"
+    },
     "./attribution/*": {
       "types": "./src/attribution/*.ts",
       "import": "./src/attribution/*.ts",

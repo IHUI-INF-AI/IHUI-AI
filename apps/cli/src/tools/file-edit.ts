@@ -29,7 +29,11 @@ import { type Tool, type ToolResult, type ToolContext, checkPathWritePermission 
 import { seekSequence, type MatchLevel } from './seek-sequence.js';
 import type { CheckpointManager } from '../checkpoints/index.js';
 import type { HunkTracker } from '../checkpoints/hunk-tracker.js';
-import { createBatchEditTools } from './file-batch-edit.js';
+import {
+  createBatchEditTools,
+  // 删除保护链端内腿(goal-b49 W1-①):单文件删除同样先过护栏判定、再进回收站
+  recycleDeleteSingleFile,
+} from './file-batch-edit.js';
 import {
   AtomicReplaceFailedError,
   captureWriteBaseline,
@@ -532,7 +536,16 @@ export function createDeleteFileTool(ctx: EditToolContext): Tool {
       const { startLine, endLine } = { startLine: 1, endLine: Math.max(1, original.split('\n').length) };
       warnConflictIfAny(ctx, abs, startLine, endLine);
       snapshotBeforeEdit(ctx, [abs], 'auto_pre_delete_file');
-      fs.unlinkSync(abs);
+      // 删除保护链(两阶段护栏判定 + 回收站搬运):非 clean 判定即抛错 ⇒ 原文件未被触碰
+      try {
+        recycleDeleteSingleFile(ctx.workspacePath, abs);
+      } catch (err) {
+        return {
+          success: false,
+          output: '',
+          error: `删除未执行(回收/护栏失败,原文件仍在):${err instanceof Error ? err.message : String(err)}`,
+        };
+      }
       recordHunk(ctx, abs, startLine, endLine, original);
       await runPostToolCall('delete_file', { path: filePath }, execCtx.signal);
       return { success: true, output: `已删除 ${filePath}` };
