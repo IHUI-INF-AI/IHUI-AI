@@ -1666,6 +1666,118 @@ test('parseBatchBuffers:与 parseBatch 同构(值=Buffer/missing=null/截断抛)
   assert.equal(parseBatch(ok, [oid]).get(oid), 'abc')
 })
 
+/* ── 2026-11-04:纯 oid 直达分支(`catBatchPureOids`)───────────────────────────────
+ * 立因:收口到本层后 oid 面每次多一次 `cat-file --batch-check`(尺寸探测),本机 192 条 /
+ * 5,004,711 字节的资产面 ~2×。这里守三件事,且都**不靠计时**:
+ *   ① 纯 oid 面与 `HEAD:<path>` 面在同一批内容上逐字节全等(含空 blob / 非法 UTF-8 / missing);
+ *   ② 混合输入(oid + 路径 + missing)与纯 oid 面的字节、尺寸元数据逐个全等 —— "换取法不换判定";
+ *   ③ 逃生舱 `IHUI_FACE_OID_DIRECT=0` 退回老路后仍是同一份字节(两条臂互相差分)。
+ * 功能面证明不了"分支真的在生效"(两条臂输出本来就该相同),所以另加一条结构判据留在下面
+ * `层自身` 那一组 —— 位置挪到预解析之后就静默失效,回退会原样复活。 */
+
+function seedOidFaceRepo() {
+  const root = mkScratch('face-oid-')
+  gitRaw(['init', '--quiet'], root)
+  // 非法 UTF-8 字节:直达臂若走 utf8 出口会被折成 U+FFFD,字节等立即暴露
+  writeFileSync(join(root, 'a.bin'), Buffer.from([0x00, 0xe4, 0xb8, 0x3f, 0x41, 0xff, 0x0a]))
+  writeFileSync(join(root, 'b.txt'), 'export const b = 2\n')
+  writeFileSync(join(root, 'empty.txt'), '')
+  gitRaw(['add', '-A'], root)
+  gitRaw(['-c', 'user.email=t@t.local', '-c', 'user.name=t', 'commit', '--quiet', '-m', 'seed'], root)
+  return root
+}
+
+test('catBatchBinary:纯 oid 面与 HEAD:<path> 面差分 —— 字节与尺寸元数据逐个全等(missing 同归 null)', () => {
+  const root = seedOidFaceRepo()
+  try {
+    const rels = ['a.bin', 'b.txt', 'empty.txt']
+    const rows = rels.map((rel) => ({ rel, oid: gitRaw(['rev-parse', `HEAD:${rel}`], root).trim() }))
+    const byOid = catBatchBinary(root, rows.map((r) => r.oid))
+    const byPath = catBatchBinary(root, rows.map((r) => `HEAD:${r.rel}`))
+    for (const r of rows) {
+      const a = byOid.get(r.oid)
+      const b = byPath.get(`HEAD:${r.rel}`)
+      assert.ok(Buffer.isBuffer(a), `${r.rel}:oid 面返回的不是 Buffer`)
+      assert.ok(Buffer.isBuffer(b), `${r.rel}:路径面返回的不是 Buffer`)
+      assert.equal(a.length, b.length, `${r.rel}:尺寸元数据不等`)
+      assert.ok(a.equals(b), `${r.rel}:两条取法字节不等`)
+    }
+    // 同一 oid 在清单里出现两次 ⇒ 只读一次、两条规格都拿到同一份字节
+    const dup = catBatchBinary(root, [rows[0].oid, rows[0].oid])
+    assert.ok(dup.get(rows[0].oid).equals(byOid.get(rows[0].oid)), '重复 oid 的正文漂了')
+  } finally {
+    rmScratch(root)
+  }
+})
+
+test('catBatchBinary:oid 面 + 路径面 + missing 混合输入 —— 与纯 oid 面字节/元数据逐个全等', () => {
+  const root = seedOidFaceRepo()
+  try {
+    const oidA = gitRaw(['rev-parse', 'HEAD:a.bin'], root).trim()
+    const oidB = gitRaw(['rev-parse', 'HEAD:b.txt'], root).trim()
+    const missing = 'f'.repeat(40)
+    const pure = catBatchBinary(root, [oidA, oidB, missing])
+    const mixed = catBatchBinary(root, ['HEAD:a.bin', oidB, 'HEAD:no-such.txt', missing])
+    for (const [spec, ref, label] of [
+      ['HEAD:a.bin', oidA, '路径规格 vs 同名 oid'],
+      [oidB, oidB, 'oid 规格(混合清单内)'],
+    ]) {
+      const m = mixed.get(spec)
+      const p = pure.get(ref)
+      assert.ok(Buffer.isBuffer(m) && Buffer.isBuffer(p), `${label}:取到的不是 Buffer`)
+      assert.equal(m.length, p.length, `${label}:尺寸元数据不等`)
+      assert.ok(m.equals(p), `${label}:混合输入与纯 oid 面字节不等`)
+    }
+    assert.equal(mixed.get('HEAD:no-such.txt'), null, '路径面 missing 未归 null')
+    assert.equal(mixed.get(missing), null, 'oid 面 missing 未归 null')
+  } finally {
+    rmScratch(root)
+  }
+})
+
+test('catBatchBinary:IHUI_FACE_OID_DIRECT=0 退回老路后仍是同一份字节(两臂差分)', () => {
+  const root = seedOidFaceRepo()
+  try {
+    const oids = ['a.bin', 'b.txt', 'empty.txt'].map((rel) =>
+      gitRaw(['rev-parse', `HEAD:${rel}`], root).trim(),
+    )
+    const direct = catBatchBinary(root, oids)
+    process.env.IHUI_FACE_OID_DIRECT = '0'
+    try {
+      const legacy = catBatchBinary(root, oids)
+      for (const oid of oids) {
+        const a = direct.get(oid)
+        const b = legacy.get(oid)
+        assert.ok(Buffer.isBuffer(a) && Buffer.isBuffer(b), '某一臂返回的不是 Buffer')
+        assert.equal(a.length, b.length, '两臂尺寸元数据不等')
+        assert.ok(a.equals(b), '两臂字节不等 —— 直达分支换了判定')
+      }
+    } finally {
+      delete process.env.IHUI_FACE_OID_DIRECT
+    }
+  } finally {
+    rmScratch(root)
+  }
+})
+
+test('层自身:纯 oid 直达分支必须在规格预解析之前,且自身不再问 --batch-check', () => {
+  const src = read('lib/face-reader.mjs')
+  const helperAt = src.indexOf('function catBatchPureOids')
+  assert.ok(helperAt > 0, '直达分支被删 ⇒ oid 面 2× 回退会原样复活')
+  const rawAt = src.indexOf('function catBatchRaw')
+  assert.ok(rawAt > 0, '找不到 catBatchRaw —— 派生主体改名了')
+  const rawBody = src.slice(rawAt, src.indexOf('function parseBatchBuffersWithOffset'))
+  const directAt = rawBody.indexOf('catBatchPureOids(')
+  const resolveAt = rawBody.indexOf('resolveSpecOids(')
+  assert.ok(
+    directAt > 0 && resolveAt > directAt,
+    '直达分支必须排在 resolveSpecOids 之前(放到后面 = 先折返再直取,回退原样还在)',
+  )
+  const helper = src.slice(helperAt, rawAt)
+  assert.ok(!/--batch-check/.test(helper), '直达分支里又冒出 --batch-check ⇒ 尺寸折返回来了')
+  assert.match(helper, /'cat-file',\s*'--batch'/, '直达分支没发 cat-file --batch')
+})
+
 /* ── 2026-10-23 G-880:listFaceFiles(按判定面枚举全部跟踪文件)──────────────────────
  * 这格守的是 AGENTS §0.4「清单与内容同面同轮」:清单取自哪个面,决定这一轮判的是哪个面。
  * 三档行为都被真 git 证明(HEAD 树 / 索引 / 跟踪工作区),另加三条构造:
