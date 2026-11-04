@@ -10,6 +10,7 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { executeAgentStream, cancelAgent } from '@ihui/api-client'
+import { parseStartEvent } from '@ihui/shared'
 import type { AgentExecuteRequest, AgentStreamEvent, AgentStreamCallbacks } from '@ihui/api-client'
 import type { AgentToolCall, AgentChange, TerminalTask, PlanStep } from '@/hooks/use-agent-progress'
 import { AgentInputArea } from './AgentInputArea'
@@ -59,7 +60,11 @@ export function pickToolServerDurationMs(
     if (detail.id === localToolId) {
       // id 命中优先于名字命中:同名并行工具按 id 取到的是本条而非首条同名
       if (isValidDurationMs(detail.duration_ms)) return detail.duration_ms
-    } else if (byName === null && detail.name === toolName && isValidDurationMs(detail.duration_ms)) {
+    } else if (
+      byName === null &&
+      detail.name === toolName &&
+      isValidDurationMs(detail.duration_ms)
+    ) {
       byName = detail.duration_ms
     }
   }
@@ -303,7 +308,11 @@ export function AgentPane() {
     }
 
     if (type === 'task_id' || type === 'start') {
-      if (event.task_id) setTaskId(event.task_id)
+      // 2026-11-04(sse-event-parity):start 帧契约声明 task_id/session_id/resume_from,
+      // 原实现只取 task_id;改走共享解析,三个字段都被真实读取(续跑凭 resumeFrom 判定)。
+      const parsed = parseStartEvent(event)
+      if (parsed?.taskId) setTaskId(parsed.taskId)
+      if (type === 'task_id' && event.task_id) setTaskId(event.task_id)
       return
     }
   }, [])
