@@ -333,11 +333,34 @@ const updatePlanItemSchema = createPlanItemSchema.partial().extend({
 // 8. 签到记录 (edu_attendance_record)
 // =============================================================================
 
+/**
+ * 考勤 status 筛选闸的合法值(2026-11-04 收口,本文件唯一一份取值表,§0.6)。
+ *
+ * 立因:`GET /attendance` 的 status 此前是 `z.string().max(20)` ⇒ 任意字符串都被当成一个
+ * 合法筛选值,后端按 `eq(status, 'all')` **精确匹配**,于是 web「全部状态」档直传
+ * `status=all` 时恒查空列表、且不报错(用户看到的是"今天没人考勤")。前端已于 41d5da91ec8
+ * 归一成"不传";本票补后端那一半 —— 非法枚举值必须是可整改的 400,不能静默放行。
+ *
+ * 值集来源(现读,不另立共享档位常量文件):`edu_attendance_record.status` 的词表
+ * = present/late/early/absent/leave,见 packages/database/src/schema/edu-ai-management.ts
+ * 的列注释;其中前四档由 services/edu-attendance-rule.ts 的 `judgeStatus` 现算,
+ * leave 由请假审批流写入(本文件 `eq(eduAttendanceRecord.status, 'leave')`)。
+ *
+ * 写法照同文件 `attendanceStatsQuerySchema.period` 的既有形态(就地写 z.enum);
+ * 一枚实例被两个考勤读端点共用,免得同一取值表在同文件抄两份必然漂移。
+ * 错误文案点名合法值,让"该改成什么"当场可知(§0.10:失效方向恒为多要一次定向说明)。
+ */
+const attendanceStatusFilter = z.enum(
+  ['present', 'late', 'early', 'absent', 'leave'],
+  'status 仅支持 present/late/early/absent/leave',
+)
+
 const attendanceListQuerySchema = z.object({
   studentId: z.transform(emptyToUndefined).pipe(z.string().uuid().optional()),
   classId: z.transform(emptyToUndefined).pipe(z.string().uuid().optional()),
   date: z.transform(emptyToUndefined).pipe(z.string().optional()),
-  status: z.transform(emptyToUndefined).pipe(z.string().max(20).optional()),
+  /** 空串经 emptyToUndefined 归一为"不筛选";非五档值 ⇒ 400(不再静默当合法筛选值)。 */
+  status: z.transform(emptyToUndefined).pipe(attendanceStatusFilter.optional()),
 })
 
 /**
@@ -524,7 +547,12 @@ const bindingListQuerySchema = z.object({
 // =============================================================================
 
 const childAttendanceQuerySchema = z.object({
-  status: z.transform(emptyToUndefined).pipe(z.string().max(20).optional()),
+  /**
+   * 家长侧「按状态筛选孩子的考勤」与 `GET /attendance` 同一张脸(2026-11-04 同批收口):
+   * 此前同样是 `z.string().max(20)`,非法值被静默当合法筛选条件 ⇒ 恒空且不报错。
+   * 共用同一枚 `attendanceStatusFilter` 实例,不在这里抄第二份取值表(§0.6)。
+   */
+  status: z.transform(emptyToUndefined).pipe(attendanceStatusFilter.optional()),
   startDate: z.transform(emptyToUndefined).pipe(z.string().optional()),
   endDate: z.transform(emptyToUndefined).pipe(z.string().optional()),
 })
@@ -6789,6 +6817,10 @@ export const __test__ = {
   generateFeeScheduleSchema,
   feeReminderStatsSchema,
   buildLegacySegment,
+  // 2026-11-04 考勤 status 枚举闸(§22c:镜像测试直接 import 源件实例,不在测试里抄取值表)
+  attendanceStatusFilter,
+  attendanceListQuerySchema,
+  childAttendanceQuerySchema,
 }
 
 export default eduAiManagementRoutes
