@@ -35,9 +35,9 @@
  *   - --help / -h: 打印帮助
  *
  * 退出码(三态,AGENTS.md §0.3):
- *   0 = 通过 (暂存区有在范围内的文件且无违规)
+ *   0 = 通过 (暂存区有在范围内的文件且无违规;暂存区为空 ⇒ 不适用,同样 0)
  *   1 = 失败 (检测到硬编码 C 盘路径)
- *   2 = 未判定 (未给 --staged / git 失败 / 暂存区为空 / 文件读不到)
+ *   2 = 未判定 (未给 --staged / git 取面失败 / 目标文件读不到)
  *
  * 集成位置:
  *   guardian-runner.mjs id 'check-c-drive-paths' (warn-only 起步,AGENTS.md §26)
@@ -268,13 +268,13 @@ function main() {
   }
 
   if (files.length === 0) {
-    // --staged 但暂存区为空:没有可判输入 ⇒ 未判定(不得报绿)
+    // --staged 且 git 取面成功但暂存区为空 ⇒ 不适用(对齐 A 级 check-file-size:暂存零新增 = exit 0)
     if (JSON_OUT) {
-      console.log(JSON.stringify({ ok: false, undetermined: true, filesScanned: 0, violations: [], message: 'staged area is empty' }, null, 2))
+      console.log(JSON.stringify({ ok: true, applicable: false, filesScanned: 0, violations: [], message: 'staged area is empty' }, null, 2))
     } else {
-      log('err', 'C 盘路径扫描未判定:暂存区为空,无可扫描输入 (exit 2)')
+      log('ok', 'C 盘路径扫描不适用:暂存区为空')
     }
-    process.exit(2)
+    process.exit(0)
   }
 
   // 过滤目标扩展名 + 排除路径

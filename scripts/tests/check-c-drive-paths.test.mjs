@@ -110,14 +110,14 @@ describe('check-c-drive-paths.mjs 集成测试 (AGENTS.md §26)', () => {
     }
   })
 
-  // ─── 测试 1c: --staged + git 仓库但暂存区为空 → exit 2 ─
-  test('--staged: 暂存区为空 → exit 2 (无可扫描输入)', () => {
+  // ─── 测试 1c: --staged + git 仓库但暂存区为空 → exit 0 (不适用) ─
+  test('--staged: 暂存区为空 → exit 0 (不适用,对齐 check-file-size)', () => {
     const root = createTempProject()
     try {
       initGitRepo(root)
       const r = runScript(['--staged'], { cwd: root })
-      assert_.equal(r.status, 2, `空暂存区应 exit 2, 实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`)
-      assert_.match(r.stdout + r.stderr, /未判定|暂存区为空/)
+      assert_.equal(r.status, 0, `空暂存区应 exit 0(不适用), 实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`)
+      assert_.match(r.stdout + r.stderr, /不适用|暂存区为空/)
     } finally {
       rmScratch(root)
     }
