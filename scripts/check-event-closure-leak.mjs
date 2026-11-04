@@ -38,8 +38,9 @@
  *   node scripts/check-event-closure-leak.mjs <file1> <file2>   # 扫指定文件
  *
  * 退出码:
- *   0 = 无命中
+ *   0 = 无命中(含取材成功但确认为空的"不适用")
  *   1 = 发现反模式(阻塞)
+ *   2 = 未判定(staged/all 面取不到 / 显式文件不存在或读不到 / 无源码可扫)
  */
 
 import { readFileSync, existsSync } from 'node:fs'
@@ -76,7 +77,7 @@ const FORBIDDEN_EVENT_ACCESS = [
 function getStagedFiles() {
   try {
     // 2026-10-26：裸 git 派生收编进 face-reader.gitRaw(绝对 git + safe.directory + quotepath
-    //   + stdio/EBUSY 兜底都在层内)。取不到面仍按原语义吞成空集(本门没有判定面,只做尽力取材)。
+    //   + stdio/EBUSY 兜底都在层内)。取不到面 ⇒ null(未判定),不得折成空集冒充"无文件需扫描"。
     const out = gitRaw(
       ['diff', '--cached', '--name-only', '--diff-filter=ACMR'],
       process.cwd(),
@@ -87,7 +88,7 @@ function getStagedFiles() {
       .filter(Boolean)
       .filter((f) => /\.(tsx?|jsx?)$/i.test(f))
   } catch {
-    return []
+    return null
   }
 }
 
@@ -100,7 +101,7 @@ function getAllWebFiles() {
       .filter(Boolean)
       .filter((f) => /\.(tsx?|jsx?)$/i.test(f))
   } catch {
-    return []
+    return null
   }
 }
 
@@ -304,26 +305,55 @@ function findViolations(source, filePath) {
 
 function main() {
   const args = process.argv.slice(2)
+  const mode = args.length === 0 || args[0] === '--staged'
+    ? 'staged'
+    : args[0] === '--all'
+      ? 'all'
+      : 'files'
   let files = []
-  if (args.length === 0 || args[0] === '--staged') {
+  if (mode === 'staged') {
     files = getStagedFiles()
-  } else if (args[0] === '--all') {
+  } else if (mode === 'all') {
     files = getAllWebFiles()
   } else {
     files = args.filter((f) => /\.(tsx?|jsx?)$/i.test(f))
   }
 
+  if (files === null) {
+    console.error(`❌ event-closure-leak: ${mode} 面取不到(git 命令失败)⇒ 未判定(exit 2)`)
+    return 2
+  }
+
   if (files.length === 0) {
-    console.log('✅ event-closure-leak: 无文件需扫描')
+    if (mode === 'files') {
+      console.error('❌ event-closure-leak: 显式参数中没有可扫描的 .ts/.tsx/.js/.jsx 文件 ⇒ 未判定(exit 2)')
+      return 2
+    }
+    console.log(`✅ event-closure-leak: 不适用(${mode} 面确认为空,无文件需扫描)`)
     return 0
+  }
+
+  const missing = []
+  for (const rel of files) {
+    if (!existsSync(resolve(process.cwd(), rel))) missing.push(rel)
+  }
+  if (missing.length > 0) {
+    console.error(`❌ event-closure-leak: ${missing.length} 个待扫文件不存在 ⇒ 未判定(exit 2)`)
+    for (const rel of missing) console.error(`  ${rel}`)
+    return 2
   }
 
   console.log(`🔍 event-closure-leak: 扫描 ${files.length} 个文件...`)
   const allViolations = []
   for (const rel of files) {
     const abs = resolve(process.cwd(), rel)
-    if (!existsSync(abs)) continue
-    const src = readFileSync(abs, 'utf8')
+    let src
+    try {
+      src = readFileSync(abs, 'utf8')
+    } catch (e) {
+      console.error(`❌ event-closure-leak: ${rel} 读不到(${e?.message ?? e})⇒ 未判定(exit 2)`)
+      return 2
+    }
     const violations = findViolations(src, rel)
     allViolations.push(...violations)
   }
