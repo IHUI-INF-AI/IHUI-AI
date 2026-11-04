@@ -62,12 +62,49 @@ sanitizeGitEnv(process.env)
 //     `.lock` 结尾的 activeIndexFile 会**额外**写默认索引(index.lock),实测把 8 个路径整份
 //     索引写进去、父 git 收尾后变成共享索引上的 MM 残留。换名后那条分支结构上不可达。
 //     钩子退出时再把副本回写原 .lock(仅当钩子整体成功),父 git 读到的仍是它自己那一份。
+// ─── 钩子开工期(索引上下文/定版基线)失败的机器可读留痕(2026-11-04 立)────────
+// 病灶(实测归因事故):下面三处 guard exit 都发生在 `process.on('exit', writeRoundRecord)` 注册
+// 之前,于是轮次记录里**没有这一轮**;而 pre-gate 的 lint-staged/派生腿失败又因为 ROUND 字段
+// 直到 L1213 才填,落成 `{"stagedFiles":[],"headBefore":"","gatesRan":false,"exitCode":1}`
+// —— 两种完全不同的失败长得一模一样,被别席读成"索引上下文被并发抢面"(2026-11-04 21:19:12)。
+// 修法:开工期 guard 失败也写一条同形状记录,用 `earlyExit` 字段标明是哪一格(ASCII-only),
+// 让"未判定/索引上下文/定版基线"三类失败从此可区分。
+function writeEarlyMarker(reason, exitCode) {
+  try {
+    const { appendFileSync, mkdirSync } = require('fs')
+    const path = require('path')
+    const file = path.join(process.cwd(), '.ihui-agent/state/hook-logs/pre-commit-rounds.jsonl')
+    mkdirSync(path.dirname(file), { recursive: true })
+    appendFileSync(
+      file,
+      JSON.stringify({
+        ts: new Date().toISOString(),
+        headBefore: '',
+        stagedFiles: [],
+        declaredFiles: [],
+        gatesRan: false,
+        gatesPassed: false,
+        failed: null,
+        total: null,
+        gatesTimedOut: false,
+        stagedMode: true,
+        exitCode,
+        earlyExit: reason,
+      }) + '\n',
+      'utf8',
+    )
+  } catch {
+    /* 记录写不出去 ≠ 提交该失败(同 writeRoundRecord 的失效方向) */
+  }
+}
+
 let INDEX_CTX
 try {
   INDEX_CTX = indexContext.prepareIndexContext(process.env)
 } catch (e) {
   console.error(`❌ ${e?.message ?? e}`)
   console.error('   提交已阻止:钩子拒绝在没有正确索引上下文的情况下继续(绝不落回共享索引)。')
+  writeEarlyMarker('index-context', 1)
   process.exit(1)
 }
 // 共享索引视图基线:只取本次声明路径(index + 若存在的 index.lock),用于 lint-staged 前后比对。
@@ -108,10 +145,12 @@ const PIN_SNAPSHOT = (() => {
         '   提交已阻止(exit 2):索引内容读不全 ⇒ 既不能记绿(等于假装没被回灌),' +
           '也不能按"内容被改"记红(没有证据);按 §0.3 只能是未判定。',
       )
+      writeEarlyMarker('pin-undetermined', 2)
       process.exit(2)
     }
     console.error(`❌ 定版索引基线读取失败:${e?.message ?? e}`)
     console.error('   提交已阻止:无法在钩子开工前留住调用方定版的索引内容,就不能保证它不被回灌。')
+    writeEarlyMarker('pin-baseline', 1)
     process.exit(1)
   }
 })()
@@ -418,6 +457,31 @@ function writeRoundRecord(exitCode) {
 // 记录缺失只意味着那一轮拿不到正证 —— 与"把没判写成判过了"相比,这是可接受的失效方向。
 process.on('exit', writeRoundRecord)
 
+// ─── 轮次记录的取证面提前填(2026-11-04 立)──────────────────────────────────
+// 病灶(实测归因事故):下面 `if (!runLintStaged()) process.exit(1)` 以及派生腿的失败出口都在
+// L1213(`ROUND.headBefore = ...`)之前 ⇒ 记录永远是 `stagedFiles:[],headBefore:""`,与
+// "索引上下文拒绝"无法区分;实测 21:19:12 一轮 lint-staged eslint 红被别席读成"并发抢索引"。
+// 修法:在**任何会失败的腿开跑之前**先把 HEAD 与暂存面填进记录(同一条命令、同一时刻的真相),
+// lint-staged 之后的 L1213 仍会覆盖成门看到的那一份 —— 失败留下的则是"开跑时"那一份。
+try {
+  const gitOutEarly = (cmd) =>
+    execSync(cmd, {
+      encoding: 'utf8',
+      cwd: process.cwd(),
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      timeout: 30_000,
+    }).trim()
+  ROUND.headBefore = ROUND.headBefore || gitOutEarly('git rev-parse HEAD')
+  ROUND.stagedFiles = ROUND.stagedFiles.length
+    ? ROUND.stagedFiles
+    : gitOutEarly('git diff --cached --name-only')
+        .split(/\r?\n/)
+        .map((s) => s.trim())
+        .filter(Boolean)
+} catch {
+  /* 取不到就保持空 —— 失效方向是"记录少",与写失败同向 */
+}
 // ─── staging area 入口快照(2026-07-26 立) ──────────────────
 // 背景:多 agent 并行时曾出现非本任务文件被 commit 的事故(IDE 自动 stage / 未察觉的
 //       git add / lint-staged 副作用)。本机制在 pre-commit 入口快照 staging area,
