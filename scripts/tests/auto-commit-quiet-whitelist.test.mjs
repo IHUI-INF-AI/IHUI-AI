@@ -150,6 +150,53 @@ test('白名单:tokens.css 条目只覆盖一枚确切文件,不是整目录(par
   assert.deepEqual(held, batch.filter((p) => p !== 'packages/design-tokens/src/styles/tokens.css'))
 })
 
+test('回归③:排除表覆盖 .next 全变体 ⇒ 收编器不收集 .next-e2e-perf/next-env.d.ts 这类路径', () => {
+  // 真阳性族:2026-11-04 现读 apps/web 下现存五枚(.next / .next-blue / .next-diag / .next-green /
+  // .next-nonce-verify)+ 实证事故里被收编过的 e2e/static/staging/bak 变体。
+  const variants = [
+    '.next',
+    '.next-e2e',
+    '.next-e2e-perf',
+    '.next-static',
+    '.next-blue',
+    '.next-green',
+    '.next-diag',
+    '.next-nonce-verify',
+    '.next.bak-20261022',
+    '.next-staging',
+  ]
+  for (const v of variants) {
+    for (const p of [`apps/web/${v}`, `apps/web/${v}/`, `apps/web/${v}/next-env.d.ts`]) {
+      assert.equal(auto.isExcluded(p), true, `${p} 必须被排除表拦下(旧口径只认 .next/ ⇒ 会被收编)`)
+    }
+  }
+
+  // 假阳性对照:正常源码段 / 配置 / 忽略文件本身 / 同前缀但非变体目录名,一律不许被排除。
+  for (const p of [
+    'apps/web/src/next/config.ts',
+    'apps/web/app/(main)/next/page.tsx',
+    'apps/web/next.config.ts',
+    'scripts/check-next-env-dist.mjs',
+    '.gitignore',
+    'apps/web/.gitignore',
+    'docs/next/guide.md',
+    'apps/web/.nextrc',
+    'apps/web/.nextwork/readme.md',
+  ]) {
+    assert.equal(auto.isExcluded(p), false, `${p} 被误伤进排除表`)
+  }
+
+  // 双闸:即便排除表日后又漏,白名单也不收这一族。
+  const target = 'apps/web/.next-e2e-perf/next-env.d.ts'
+  assert.equal(auto.isExcluded(target), true, '排除表必须拦')
+  assert.equal(auto.isCollectible(target), false, '白名单必须不收')
+  assert.deepEqual(auto.partitionCollectible([target, 'apps/web/next-env.d.ts']).collected, [], '这一批里不许有任何路径被收编')
+
+  // 装车锁:排除表真的接在候选过滤链上(造好没装车=没有)。
+  const src = readFileSync(join(ROOT, 'scripts', 'auto-commit-quiet.mjs'), 'utf8')
+  assert.match(src, /\.filter\(\(c\) => !isExcluded\(c\.path\)\)/, '主流程必须按排除表过滤候选')
+})
+
 test('装车锁:main() 真的用 isCollectible 过滤候选(造好没装车=没有)', () => {
   const src = readFileSync(join(ROOT, 'scripts', 'auto-commit-quiet.mjs'), 'utf8')
   assert.match(src, /rawChanges\.filter\(\(c\) => isCollectible\(c\.path\)\)/, '主流程必须按白名单过滤候选')
