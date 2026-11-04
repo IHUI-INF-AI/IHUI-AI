@@ -12,6 +12,7 @@ import {
   RefreshControl,
   StyleSheet,
 } from 'react-native'
+import { formatPrice } from '@ihui/shared/utils'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { WalletBalance, WalletFlowItem, WalletScreenProps } from '../../types'
 
@@ -37,9 +38,9 @@ const POSITIVE_OP_TYPES = new Set([1, 4, 5])
 /** onFlowsPageChange 契约别名换算页码时的回落页大小(与 web / RN 宿主 PAGE_SIZE 一致) */
 const FALLBACK_FLOWS_PAGE_SIZE = 20
 
-/** 分 → 元文本,保留 2 位小数 */
+/** 分 → 元文本,保留 2 位小数(展示格式化委托到唯一出口 @ihui/shared/utils 的 formatPrice,本处只兜非有限值) */
 function fenToYuan(fen: number): string {
-  return Number.isFinite(fen) ? (fen / 100).toFixed(2) : '—'
+  return Number.isFinite(fen) ? formatPrice(fen) : '—'
 }
 
 /**
