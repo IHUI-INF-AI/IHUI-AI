@@ -31,6 +31,10 @@
  *   node scripts/safe-commit.mjs -m "..." --files-from .ihui-agent/tmp/paths.txt
  *     (清单为 UTF-8、一行一个路径;`-` 表示从 stdin 读。超过 Windows argv 上限的大批量
  *      路径必须走它 —— 清单内路径逐条校验后仍进同一条五步法,没有任何旁路。)
+ *   node scripts/safe-commit.mjs --dry-run -m "..." -- <files>
+ *     (只读预演:打印真实运行**将要执行**的每条写命令 + 它此刻会影响的路径清单,
+ *      **绝不执行任何写**(不加锁 / 不 reset / 不 add / 不写 README / 不写台账 / 不 commit)。
+ *      退出码:0 计划可行 / 1 计划会被拒 / 2 无法判定。)
  *   node scripts/safe-commit.mjs --allow-skip-hooks="<原因>" -m "..." -- <files>
  *     (人工授权跳钩;**默认关闭**;正文会写入「人工授权跳钩」一行)
  *   AGENT_SCOPE="apps/web/" node scripts/safe-commit.mjs -m "..." -- apps/web/foo.tsx
@@ -62,6 +66,8 @@
  *      并发锁重试耗尽(索引锁争用,不是钩子判红)
  *   2  环境错误(非 git 仓库/无 origin 等);2026-10-29 起也用于归因**未判定**
  *      (commit-msg 阶段复跑取不到输入 ⇒ 拒绝按 not-ours 跳门,§0.3)
+ *   --dry-run 档:0 计划可行(真实运行会走完五步) / 1 计划会被拒(意外/缺失/scope/活文档判红)
+ *      / 2 无法只读判定(判据取不到输入 / README 回写被跳过);**任何一档都不执行写命令**。
  */
 import { execFileSync, execSync, spawn, spawnSync } from 'node:child_process'
 import {
@@ -203,6 +209,8 @@ const args = process.argv.slice(2)
 const messageParts = []
 const expectedFiles = []
 let dryRun = false
+// dry-run 的"无法判定"清单:只累积、不写盘。最终退出码 2 由此非空决定(可行 0 / 会被拒 1 / 无法判定 2)。
+const dryRunUndetermined = []
 // --files-from 清单入口(2026-11-02 立):argv 上限下 1747 条路径装不进命令行,
 // 这里只换**入口的运输方式**,不换五步法。`-` = stdin。
 let filesFrom = null
@@ -257,7 +265,7 @@ for (let i = 0; i < args.length; i++) {
     if (a === '--help' || a === '-h') {
       console.log('用法: node scripts/safe-commit.mjs -m "<msg>" -- <file1> [file2 ...]')
       console.log('      node scripts/safe-commit.mjs -m "<msg>" --files-from <path|->')
-      console.log('  --dry-run       只校验不 commit')
+      console.log('  --dry-run       只读预演:打印将执行的写命令与影响路径,绝不执行写(0 可行 / 1 会被拒 / 2 无法判定)')
       console.log('  --files-from    从 UTF-8 清单读路径(一行一个;`-` = stdin);与 `--` 后路径取并集')
       console.log('  --allow-skip-hooks=<原因>  人工授权跳钩(**默认关闭**;正文写入醒目说明)')
       console.log('  --scope <dir>   限定本 agent 范围(可用环境变量 AGENT_SCOPE)')
@@ -483,6 +491,14 @@ if (filesFrom !== null) {
 // 锁 unitId 通过环境变量 IHUI_GIT_LOCK_UNIT 传递给子进程(post-commit 检测到则不再加锁)。
 const LOCK_UNIT = `safe-commit-${process.pid}-${Date.now()}`
 process.env.IHUI_GIT_LOCK_UNIT = LOCK_UNIT
+// dry-run 不加锁:acquire 会在 .git/ihui-git-write.lock 下 mkdir + 写 meta.ts,并派生心跳子进程
+// —— 那是**实打实的写**。dry-run 只打印"真实运行会在这里加锁"。
+if (dryRun) {
+  log(
+    'info',
+    `[dry-run] Step 0/5 将执行: git-lock acquire --unit ${LOCK_UNIT}(会创建 .git/ihui-git-write.lock 并派生心跳)—— 未执行`,
+  )
+} else {
 log('info', `Step 0/5: 获取 git 写锁(unit=${LOCK_UNIT})`)
 // 2026-09-18 根治锁竞争三件套:
 //   ① acquire 超时提到 15 分钟 —— 覆盖最长 pre-commit 守门流程,等待方不再因 120s 超时报错;
@@ -520,6 +536,7 @@ process.on('exit', () => {
     /* 忽略释放失败 */
   }
 })
+}
 
 log('info', `safe-commit 启动 → 分支: ${C.bold}${currentBranch}${C.reset}`)
 log('info', `期望暂存 ${C.cyan}${expectedFiles.length}${C.reset} 个文件`)
@@ -793,6 +810,42 @@ function gitStep(args, label) {
   return last
 }
 
+/**
+ * dry-run 专用**只读预演**:算出 Step 2 之后索引里将会出现哪些路径。
+ *
+ * 为什么需要它:真实运行的 Step 3 只能比对**真实索引**,而 dry-run 不许写索引。等价事实是:
+ * reset 之后索引 == HEAD,`git add -A -- <声明路径>` 把工作树字节灌进来 ⇒ 计划后的暂存集
+ * = "声明路径里工作树与 HEAD 有差(含删除)的那些" ∪ "声明路径里未跟踪且未被忽略的新件"。
+ * 这两条都能用**只读** git 查询算出来(`git diff HEAD` + `git ls-files --others`)。
+ *
+ * 刻意用 `--no-renames`:默认 rename 探测会把"删 A + 加 B"折叠成一条 R 且不列 A,
+ * 那就重现了 D171 那个"删除类提交恒误报"的病灶。
+ *
+ * @returns {{ok:true, paths:string[]}|{ok:false, reason:string}}
+ *   `ok:false` 表示**判不出**,调用方必须按未判定(exit 2)走,绝不能折成空集。
+ */
+function plannedStagedPaths() {
+  const files = expectedFiles.map(normalize)
+  if (Buffer.byteLength(files.join('\0'), 'utf8') > PATHSPEC_ARGV_BUDGET) {
+    return { ok: false, reason: `声明路径总长超过只读预演预算 ${PATHSPEC_ARGV_BUDGET}B` }
+  }
+  const splitZ = (s) => String(s ?? '').split('\0').filter(Boolean)
+  try {
+    const tracked = splitZ(
+      gitRaw(['diff', '--name-only', '--no-renames', '-z', 'HEAD', '--', ...files], repoRoot),
+    )
+    const untracked = splitZ(
+      gitRaw(['ls-files', '--others', '--exclude-standard', '-z', '--', ...files], repoRoot),
+    )
+    return {
+      ok: true,
+      paths: [...new Set([...tracked, ...untracked].map(normalize))].sort(),
+    }
+  } catch (e) {
+    return { ok: false, reason: String(e?.message ?? e).slice(0, 160) }
+  }
+}
+
 // ─── 1. git reset HEAD (清空整个暂存区) ────────────────────
 // G-1018292(2026-10-04):本 Step 的 `git reset HEAD` 会把**整个共享索引**清空,
 // 于是"他人已暂存的删除"(`git status --porcelain` 的 `D ` 形态)那枚保护标记
@@ -819,6 +872,31 @@ if (!intentSnapshot.ok) {
   )
 }
 
+if (dryRun) {
+  // **不执行** `git reset HEAD`。改为打印真实运行会执行的那条命令 + 它此刻会清掉的路径清单。
+  log('info', '[dry-run] Step 1/5 将执行: git reset HEAD(清空共享暂存区)—— 未执行,索引零改动')
+  if (!intentSnapshot.ok) {
+    dryRunUndetermined.push('清空前索引面取不到 ⇒ 列不出 reset 会影响哪些暂存项')
+    log('warn', '[dry-run] 清空前索引面取不到 ⇒ "真实运行会清掉哪些暂存项"无法判定(exit 2)')
+  } else {
+    const norm = (f) => String(f).replace(/\\/g, '/').replace(/^\.\//, '')
+    const own = new Set(expectedFiles.map(norm))
+    const entries = intentSnapshot.before.map((e) => ({ status: e.status, path: norm(e.path) }))
+    const cleared = entries.filter((e) => !own.has(e.path))
+    const lostDeletes = cleared.filter((e) => e.status === 'D')
+    log('info', `真实运行会清空当前 ${entries.length} 项暂存;其中非本票声明 ${cleared.length} 项(标记会丢):`)
+    for (const e of cleared.slice(0, 20)) console.log(`     ${e.status === 'D' ? '!' : '-'} [${e.status}] ${e.path}`)
+    if (cleared.length > 20) console.log(`     …另 ${cleared.length - 20} 项`)
+    if (lostDeletes.length)
+      log(
+        'warn',
+        `其中 ${C.red}${lostDeletes.length}${C.reset} 项是**暂存删除** ⇒ 真实运行会丢失删除意图(G-1018292:本脚本只记录、不恢复)。` +
+          '这正是本票要修的那类副作用 —— dry-run 不会重演它。',
+      )
+    if (entries.length - cleared.length > 0)
+      log('info', `另 ${entries.length - cleared.length} 项属本票声明面,真实运行会由 Step 2 重新暂存`)
+  }
+} else {
 log('info', 'Step 1/5: git reset HEAD — 清空暂存区(无论谁 staged 的)')
 const resetResult = gitStep(['reset', 'HEAD'], 'git reset HEAD')
 if (resetResult.status !== 0) {
@@ -872,16 +950,39 @@ if (intentSnapshot.ok) {
     )
   }
 }
+}
 
 // ─── 2. git add -A <用户预期文件>(-A 支持已删除文件) ─────
 // 修复(2026-07-22): 原 `git add --` 对已删除文件报错 pathspec did not match。
 // `git add -A --` 同时暂存新增/修改/删除三种变更, 第 3 步校验仍保证精确匹配。
+// dry-run 的唯一"计划事实来源":Step 2 之后索引里**将会**有什么(纯只读)。Step 3 的
+// 意外/缺失/scope 校验与最终退出码都吃这一份,不另算一遍(§22c)。
+const planProbe = dryRun ? plannedStagedPaths() : null
+
+if (dryRun) {
+  // **不执行** `git add`。打印命令 + 计划后的暂存路径清单。
+  const pathspecNote =
+    Buffer.byteLength(expectedFiles.map(normalize).join('\0'), 'utf8') > PATHSPEC_ARGV_BUDGET ? '(将走临时 pathspec 文件)' : ''
+  log(
+    'info',
+    `[dry-run] Step 2/5 将执行: git add -A -- <${expectedFiles.length} files>${pathspecNote} —— 未执行`,
+  )
+  if (!planProbe.ok) {
+    dryRunUndetermined.push(`Step 2 后的索引面无法只读预演:${planProbe.reason}`)
+    log('warn', `[dry-run] 无法只读预演 Step 2 后的索引面:${planProbe.reason}(exit 2)`)
+  } else {
+    log('info', `计划暂存 ${planProbe.paths.length} 个路径(真实运行 git add -A 后会出现在索引里):`)
+    for (const p of planProbe.paths.slice(0, 30)) console.log(`     + ${p}`)
+    if (planProbe.paths.length > 30) console.log(`     …另 ${planProbe.paths.length - 30} 条`)
+  }
+} else {
 log('info', `Step 2/5: git add -A <${expectedFiles.length} files> — 只暂存自己声明的文件(含删除)`)
 const addResult = stageDeclared(expectedFiles, 'git add')
 if (addResult.status !== 0) {
   log('err', `git add 失败: ${addResult.stderr}`)
   log('warn', '可能原因: 路径错误/仓库锁定/权限问题')
   process.exit(1)
+}
 }
 
 // ─── 2b. README 生成数字发令前对齐(2026-10-22 立)──────────────────────────
@@ -895,6 +996,15 @@ const readmeDeclared = expectedFiles
   .map((f) => f.replace(/\\/g, '/'))
   .filter((f) => /^README(\.en|\.ko|\.ja)?\.md$/.test(f))
 if (readmeDeclared.length > 0 && process.env.IHUI_SKIP_README_NUMBERS_SYNC !== '1') {
+  if (dryRun) {
+    // sync-readme-numbers 的唯一出口就是 writeFileSync ⇒ dry-run 不能跑。它跑完后的门 173
+    // 结果因此判不出,按"无法判定"(exit 2)报,不冒充"计划可行"。
+    log(
+      'info',
+      `[dry-run] Step 2b/5 将执行: node scripts/sync-readme-numbers.mjs --files=${readmeDeclared.join(',')}(会改写工作树 README)—— 未执行`,
+    )
+    dryRunUndetermined.push('README 数字回写未执行 ⇒ 门 173 的最终结果无法只读判定')
+  } else {
   try {
     execFileSync(
       process.execPath,
@@ -920,18 +1030,24 @@ if (readmeDeclared.length > 0 && process.env.IHUI_SKIP_README_NUMBERS_SYNC !== '
         .join('\n')}`,
     )
   }
+  }
 }
 
 // ─── 3. 校验 staged 内容是否 == 预期 ───────────────────────
 log('info', 'Step 3/5: 校验 staged 内容与预期一致')
 // D171:清单走 lib 的 -z 形态(NUL 分帧、不经 core.quotePath 转写),声明侧与 git 侧
 // 比的都是真路径;比对严格度不变 —— 意外文件照旧中止,缺失文件照旧中止。
-const stagedFiles = gitStagedPaths({ root: repoRoot })
+const stagedFiles = dryRun ? (planProbe.ok ? planProbe.paths : []) : gitStagedPaths({ root: repoRoot })
 
 // 规范化函数在文件头只定义一份(normalize),声明侧/清单侧/校验侧共用。
 const stagedNorm = new Set(stagedFiles.map(normalize))
 const expectedNorm = new Set(expectedFiles.map(normalize))
 
+// dry-run 的①禁写约定:计划面判不出时不得拿空集去跑 3a/3b/3c(那会把"判不出"读成"全部缺失"
+// 或"无意外"),而是整段跳过并记入未判定。
+if (dryRun && !planProbe.ok) {
+  log('warn', '[dry-run] 计划索引面未判定 ⇒ 跳过 Step 3a/3b/3c 的只读预演(不拿空集硬判)')
+} else {
 // 3a. 意外文件(其他 agent 留下的)
 const unexpected = [...stagedNorm].filter((f) => !expectedNorm.has(f))
 if (unexpected.length > 0) {
@@ -981,8 +1097,17 @@ if (agentScope) {
     )
   }
 }
+}
 
+if (dryRun) {
+  log(
+    'info',
+    `[dry-run] Step 3/5 计划校验完成:计划暂存 ${stagedFiles.length} 个路径;意外/缺失/scope 均按只读预演判定 ` +
+      `(真实运行还会受并发会话窗口期暂存影响,那部分不在计划内)`,
+  )
+} else {
 log('ok', `暂存区精确匹配预期 ${C.cyan}${stagedFiles.length}${C.reset} 个文件`)
+}
 
 // ─── 3g. 索引面基线取样(G-920 前置护栏的 T1 端)────────────────────────────
 // 只取样、不裁决。裁决在 Step 4 发令前那一瞬做(4-pre),且只认 **相对本快照的新增量**。
@@ -1129,18 +1254,19 @@ const SHA_INTAKE_LINE_CAP = 5000
  * 纯取材 + 纯差集,不派生 git 探测(探测归调用方),这样每一条 unjudged 的成因都能被点名。
  * @returns {Array<{file:string, entries:Array, undetermined:string[], carried:number}>}
  */
-function liveDocIntakePlan({ root, files }) {
+function liveDocIntakePlan({ root, files, readStaged = null }) {
   const out = []
+  const stagedLabel = readStaged ? '工作树' : '暂存面'
   for (const f of files) {
     const rec = { file: f, entries: [], undetermined: [], carried: 0 }
     out.push(rec)
     let staged = null
     let head = null
     try {
-      staged = gitRaw(['show', `:${f}`], root)
+      staged = readStaged ? readStaged(f) : gitRaw(['show', `:${f}`], root)
     } catch (e) {
       rec.undetermined.push(
-        `${f}:暂存面正文取不到(该路径未入索引 / 已暂存删除 / git 不可问)⇒ 本步不判(${String(
+        `${f}:${stagedLabel}正文取不到(${readStaged ? '工作树文件读不到' : '该路径未入索引 / 已暂存删除 / git 不可问'})⇒ 本步不判(${String(
           e?.message ?? e,
         ).slice(0, 160)})`,
       )
@@ -1194,7 +1320,13 @@ function liveDocIntakePlan({ root, files }) {
 if (liveDocsStaged.length) {
   const shaProbe = makeShaProber({ root: repoRoot })
   const shaAllow = parseShaAllow(process.env.LIVE_SHA_ALLOW)
-  for (const rec of liveDocIntakePlan({ root: repoRoot, files: liveDocsStaged })) {
+  // dry-run 不许写索引 ⇒ 暂存面取不到。等价物是**工作树字节**:真实运行的 Step 2 就是把
+  // 工作树字节灌进索引,所以这里判的正是真实运行会落库的那份内容(不是另一套判据)。
+  const readStagedForIntake = dryRun
+    ? (f) => readFileSync(join(repoRoot, f), 'utf8')
+    : null
+  if (dryRun) log('info', '[dry-run] Step 3f/5 以**工作树字节**代替索引字节做只读取值(等价于 Step 2 后的索引)')
+  for (const rec of liveDocIntakePlan({ root: repoRoot, files: liveDocsStaged, readStaged: readStagedForIntake })) {
     for (const w of rec.undetermined)
       log('warn', `取值未判定 ⇒ **放行**:${w}(判不出 ≠ 坏;这一步挡的是全队提交)`)
     if (rec.carried > 0)
@@ -1248,9 +1380,19 @@ function reportUndeclaredStaged() {
 }
 
 if (dryRun) {
-  // O67:dry-run 也点名(票面验证:dry-run 输出含该行且纯净索引零误报)。
+  // O67:dry-run 也点名(票面验证:dry-run 输出含该行且纯净索引零误报)。此处读的是**真实索引**
+  // (只读),语义是"此刻索引里还有哪些别人的件";真实运行会被 Step 1 的 reset 清掉。
   reportUndeclaredStaged()
-  log('ok', `dry-run 通过,实际不会 commit`)
+  log('info', '[dry-run] Step 4/5 将执行: git commit(普通提交,含 pre-commit hook)—— 未执行')
+  log('info', '[dry-run] Step 5/5 不 push(post-commit hook 负责)—— dry-run 不触发')
+  if (dryRunUndetermined.length > 0) {
+    for (const w of dryRunUndetermined) log('warn', `dry-run 无法判定:${w}`)
+    log('warn', 'dry-run 结论:计划**未判定**(exit 2);已执行零条写命令,索引与工作树零改动')
+    process.exit(2)
+  }
+  if (planProbe && planProbe.ok)
+    log('ok', `dry-run 计划可行(exit 0):真实运行会按上方清单暂存并提交 ${planProbe.paths.length} 个路径`)
+  log('ok', 'dry-run 通过;已执行零条写命令,实际不会 commit')
   process.exit(0)
 }
 
