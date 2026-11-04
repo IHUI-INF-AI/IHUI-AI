@@ -52,7 +52,7 @@
 .nick-input {
   width: 100%;
   height: 100rpx;
-  padding: 0 24rpx;
+  padding: 0 var(--spacing-md);
   background: var(--color-muted);
   border: 1rpx solid var(--color-border);
   border-radius: var(--radius-sm);
@@ -70,7 +70,7 @@
   justify-content: flex-end;
 }
 .nick-random-text {
-  padding: var(--spacing-xs-loose) 24rpx;
+  padding: var(--spacing-xs-loose) var(--spacing-md);
   font-size: var(--text-body);
   color: var(--color-primary);
   background: var(--color-muted);

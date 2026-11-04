@@ -772,6 +772,23 @@ test('T23 拦路者认得出:喂真实 safe-commit 输出必须认出那道门,�
   assert.equal(f('❌ check-radius-single-source: 圆角漂移'), 'check-radius-single-source')
   assert.equal(f('随机一段崩溃栈,没有任何门名'), 'unidentified')
   assert.equal(f(''), 'unidentified')
+  // 另几类整轮拒(safe-commit 自身的出口,不是某道门判红)—— 现读都真发生过
+  assert.equal(
+    f('❌ 中止 commit —— 这是「有意删除被复活后又收编进提交」的回流,不是正常新增'),
+    'resurrected-deletion-refusal',
+  )
+  assert.equal(f('❌ Step 3: 暂存清单与本任务声明集不符'), 'safe-commit-scope-refusal')
+  assert.equal(f('❌ 并发锁争用耗尽 ⇒ 不落地'), 'safe-commit-lock-exhausted')
+  // hint:认不出精确门名时必须给一行可归因摘要(§5e-1),且去掉引号/反引号/美元符防注入形态
+  assert.match(
+    auto.blockerHint('前一行\n❌ 复活检测命中 scripts/data/x.json 与 87 枚暂存件'),
+    /复活检测命中/,
+  )
+  assert.ok(
+    !auto.blockerHint('❌ 坏掉的东西 "带引号" 与 `反引号` 和 $变量').includes('"'),
+    '摘要必须脱掉引号/反引号/美元符(不得把可执行形态带进日志与邮件)',
+  )
+  assert.equal(auto.blockerHint(''), '')
 })
 
 test('T20 两族合流的机读面:held 相加、reason 以 + 连接具体形态码(键集与前缀一字不改)', () => {
