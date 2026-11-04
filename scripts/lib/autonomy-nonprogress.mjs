@@ -41,6 +41,10 @@ export const NON_PROGRESS_ACTIONS = Object.freeze([
   'runner-undetermined',
   'artifact-manifest-missing',
   'artifact-commit-failed',
+  // 整批落在判据面上被落账腿拒收:会话确实跑了、清单也写了,但**零推进**(没有任何文件进仓)。
+  // 计入空转是有方向的收紧(不是放宽):不计,同一枚"非动判据面不可"的票会每小时白占一份日预算,
+  // 把 B53 那型饿死在另一个入口上重演。
+  'artifact-protected-face',
   'valve-observe-stop',
   'valve-unjudged-block',
 ])

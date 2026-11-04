@@ -111,14 +111,47 @@ test('L9 到人清单按静默时长降序,且不含 ok/未判定', () => {
   assert.deepEqual(act.map((r) => r.id), ['y-dispatch-last.json', 'x-dispatch-last.json'])
 })
 
+test('L12 新登记未首跑 = pending(不判腐烂);宽限一过仍无戳 ⇒ 照旧 rotting(成对,宽限不是永久盲区)', () => {
+  const now = Date.parse('2026-11-04T04:00:00.000Z')
+  const mk = (verifiedAt) =>
+    lv.classifyLegs({ legs: [leg('a-dispatch-last.json', 5, { verifiedAt })], stamps: {}, stampFilesOnDisk: [], now }).rows[0].state
+  assert.equal(mk('2026-11-04'), 'pending', '当天登记 ⇒ 宽限内,首跑未轮到不判腐烂')
+  assert.equal(mk('2026-11-01'), 'rotting', '登记已 3 天仍无戳 ⇒ 真腐烂,宽限会自己过期')
+  assert.ok(lv.FIRST_RUN_GRACE_MS <= 24 * 60 * 60 * 1000, '宽限上限就是 24h,不许无限期')
+})
+
+test('L13 pending 不得算进到人清单(但必须在读数里看得见)', () => {
+  const res = lv.classifyLegs({
+    legs: [leg('new-dispatch-last.json', 5, { verifiedAt: '2026-11-04' }), leg('old-dispatch-last.json', 5, { verifiedAt: '2026-11-01' })],
+    stamps: {},
+    stampFilesOnDisk: [],
+    now: Date.parse('2026-11-04T04:00:00.000Z'),
+  })
+  assert.equal(res.state, 'drift', '宽限外那条必须顶红')
+  assert.match(res.summary, /pending=1/)
+  assert.deepEqual(lv.actionableRows(res).map((r) => r.id), ['old-dispatch-last.json'])
+})
+
 test('L10 真登记表形状可被判定器吃下(现读仓内文件,防两边形状漂移)', async () => {
   const { readFileSync } = await import('node:fs')
   const { resolve } = await import('node:path')
   const reg = JSON.parse(readFileSync(resolve(import.meta.dirname, '..', 'data', 'autonomy-leg-liveness.json'), 'utf8'))
-  assert.ok(Array.isArray(reg.legs) && reg.legs.length >= 8, '登记表至少覆盖已登记的派发腿')
+  assert.ok(Array.isArray(reg.legs) && reg.legs.length >= 12, '登记表至少覆盖已登记的派发腿(现读 12 条)')
   const res = lv.classifyLegs({ legs: reg.legs, stamps: {}, stampFilesOnDisk: [], now: NOW })
-  // 没有 stamps 输入时,每条都应落 rotting(不在位)而不是静默消失
+  // 没有 stamps 输入时每条都得有一行读数:要么 rotting(登记已久仍无戳),要么 pending(当天新登记在宽限内);
+  // 绝不允许出现 ok/dark —— 那等于把"输入缺失"读成"这条腿健康"。
   assert.equal(res.rows.length, reg.legs.length, '每条登记都必须有一行读数')
-  assert.ok(res.rows.every((r) => r.state === 'rotting'))
+  const bad = res.rows.filter((r) => !['rotting', 'pending'].includes(r.state))
+  assert.deepEqual(bad.map((r) => [r.id, r.state]), [], `无 stamps 输入只允许 rotting/pending 两态:${JSON.stringify(bad)}`)
+  // 本表整张是 2026-11-04 新登记的 ⇒ 当刻全落 pending;宽限不是挡箭牌 —— 把钟推到 24h 之后,
+  // 同一条形必须整体转 rotting(反向档,钉死"pending 会自己过期")。
+  assert.ok(res.rows.every((r) => r.state === 'pending'), `登记当天应全部在宽限内,实为:${res.summary}`)
+  const later = lv.classifyLegs({
+    legs: reg.legs,
+    stamps: {},
+    stampFilesOnDisk: [],
+    now: NOW + lv.FIRST_RUN_GRACE_MS + 60 * 60 * 1000,
+  })
+  assert.ok(later.rows.every((r) => r.state === 'rotting'), `越过宽限必须整体转腐烂,实为:${later.summary}`)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -961,4 +961,78 @@ test('D7 接线形状锁:并进同一张违规表、覆盖面取全量 HEAD、ru
   assert.match(runner, /check-dangling-local-imports\.mjs/, '门 98 本体必须仍在 runner 里')
   assert.match(runner, /D7/, 'runner 的 label/onFailHint 必须点名 D7 —— 已接线而文档不点名是门 89 R4 的红')
 })
+
+/**
+ * D1 的 CJS 导出面(2026-11-04 新开射程;立项现场 = monitoring/alertbridge/mail-ledger-env.js
+ * 的三枚符号被旧判据报成"HEAD 上根本不存在")。
+ *
+ * 四类反向例成对钉死(与门体 --files 档真跑得到的 rc 一一对应):
+ *  ① CJS 真导出(`module.exports = {…}` + `module.exports.a =` + `exports.a =`)⇒ 放行;
+ *  ② ESM 真导出回归 ⇒ 放行;
+ *  ③ 既非 ESM 也非 CJS 导出 ⇒ D1 判红 1 处并点名;
+ *  ④ 动态写法(`module.exports = someVar` / `= require('./x')` 透传 / 对象含展开)⇒ **不判红**
+ *     也不静默,逐条落 blind —— 门侧 exit 2 自报「不可静态判定」。
+ * 另加一条「不许退化成词表匹配」的锁:`module.exports = someVar` 里恰好出现的 Alpha 不得记成导出。
+ */
+test('D1 CJS 导出面:CJS/ESM 静态导出放行、真悬空判红、动态写法落未判定(四类成对)', () => {
+  const files = {
+    'c/use-cjs.js': "import { Alpha, Beta, Gamma, Delta } from './mod-cjs.js'\nexport const u = Alpha + Beta + Gamma + Delta",
+    'c/mod-cjs.js':
+      'const Alpha = 1\nconst Beta = 2\nmodule.exports = { Alpha, Beta }\nmodule.exports.Gamma = 3\nexports.Delta = 4\n',
+    'c/use-cjs-fn.js': "import withWechat from './mod-cjs-fn.js'\nexport const u = withWechat",
+    'c/mod-cjs-fn.js': 'module.exports = function withWechat(config) { return config }',
+    'c/use-esm.js': "import { Alpha } from './mod-esm.js'\nexport const u = Alpha",
+    'c/mod-esm.js': 'export const Alpha = 1',
+    'c/use-ghost.js': "import { Ghost } from './mod-plain.js'\nexport const u = Ghost",
+    'c/mod-plain.js': 'const Alpha = 1',
+    'c/use-dyn.js': "import { Alpha } from './mod-dyn.js'\nexport const u = Alpha",
+    'c/mod-dyn.js': 'const someVar = { Alpha: 1 }\nmodule.exports = someVar',
+    'c/use-passthrough.js': "import { Alpha } from './mod-passthrough.js'\nexport const u = Alpha",
+    'c/mod-passthrough.js': "module.exports = require('./mod-esm.js')",
+    'c/use-spread.js': "import { Alpha } from './mod-spread.js'\nexport const u = Alpha",
+    'c/mod-spread.js': 'const base = { Alpha: 1 }\nmodule.exports = { ...base, Beta: 2 }',
+  }
+  const read = (p) => (Object.prototype.hasOwnProperty.call(files, p) ? files[p] : null)
+  const has = (p) => Object.prototype.hasOwnProperty.call(files, p)
+  const audit = (p) => {
+    const blind = []
+    const v = auditFile(p, read, has, new Map(), null, blind)
+    return { v, blind }
+  }
+  // ① CJS 静态导出(对象字面量 + 属性式 + exports.a)+ 函数整体赋值 ⇒ default
+  const cjs = audit('c/use-cjs.js')
+  assert.deepEqual(cjs.v, [], `CJS 静态导出必须放行,实得:${JSON.stringify(cjs.v)}`)
+  assert.deepEqual(cjs.blind, [], '静态可解析的 CJS 不得记未判定')
+  assert.deepEqual(audit('c/use-cjs-fn.js').v, [], 'module.exports = function 必须当作 default 放行')
+  // ② ESM 回归(同一把尺子的原有射程不得被 CJS 面挤坏)
+  assert.deepEqual(audit('c/use-esm.js').v, [], 'ESM 真导出必须仍放行(回归)')
+  // ③ 真悬空:两套导出面都没有 Ghost ⇒ D1 判红并点名
+  const ghost = audit('c/use-ghost.js')
+  assert.equal(ghost.v.length, 1, `真悬空必须判 1 处,实得:${JSON.stringify(ghost.v)}`)
+  assert.equal(ghost.v[0].rule, 'D1')
+  assert.match(ghost.v[0].raw, /Ghost ← \.\/mod-plain\.js/, '必须点名悬空的符号与说明符')
+  assert.deepEqual(ghost.blind, [], '真悬空是"判红",不是"未判定"(两个出口不许混)')
+  // ④ 动态写法:不判红、也不静默 —— 逐条落 blind(门侧 exit 2)
+  for (const [p, why] of [
+    ['c/use-dyn.js', 'module.exports 被赋值为非字面量'],
+    ['c/use-passthrough.js', 'require 透传'],
+    ['c/use-spread.js', '对象含展开'],
+  ]) {
+    const r = audit(p)
+    assert.deepEqual(r.v, [], `${p}:不可静态判定不得判红(判红=假阳,逼人绕钩子)`)
+    assert.equal(r.blind.length, 1, `${p}:必须落 1 条未判定,实得 ${JSON.stringify(r.blind)}`)
+    assert.match(r.blind[0].why, new RegExp(why), `${p}:未判定原因要点名`)
+  }
+  // 词表匹配禁令:`module.exports = someVar` 里局部变量 Alpha 不得被读成导出名
+  const dyn = parseExports(files['c/mod-dyn.js'])
+  assert.equal(dyn.cjsDynamic, true)
+  assert.ok(!dyn.names.has('Alpha'), 'module.exports = someVar 的值面不可猜,Alpha 不得记成已导出')
+  const passthrough = parseExports(files['c/mod-passthrough.js'])
+  assert.equal(passthrough.cjsDynamic, true, 'require 透传按"不可静态判定",不做跨文件递归猜测')
+  // 接线形状锁:CLI 必须同屏报数、逐条点名,并落 exit 2(定义了不挂 = 没有)
+  const src = readFileSync(GUARD, 'utf8')
+  assert.match(src, /D1 CJS 导出面:不可静态判定/, 'CLI 必须把这一维与"悬空 N 处"同屏报数')
+  assert.match(src, /D1 未判定 \$\{u\.file\}:\$\{u\.line\}/, '不可判定条目必须逐条点名(不许只报总数)')
+  assert.match(src, /cjsUnpending\.length\)\s*\{[\s\S]{0,240}process\.exit\(2\)/, '不可判定必须 exit 2(不记绿也不冒红)')
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

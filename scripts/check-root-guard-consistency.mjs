@@ -329,6 +329,7 @@ function fixtureFiles(overrides = {}) {
     [MANIFEST_REL]: manifestDoc([]),
     'scripts/guardian-runner.mjs': '// baseline runner\n',
     'scripts/lib/judgement-libs.json': '{"libs":["x"]}\n',
+    'scripts/git-guardian.mjs': '// baseline guardian\n',
     'AGENTS.md': MD_BASE,
     ...overrides,
   }
@@ -358,6 +359,20 @@ function baseManifestEntries() {
   ]
 }
 
+/**
+ * 必备目标 git-guardian 的夹具条目(2026-11-04 扩容:root-guard 把巡检本体纳入必备集)。
+ * `baseManifestEntries()` 仍是扩容前的原三枚(多处用例以它为基线);
+ * 需要完整四目标的用例用 `[..., gitGuardianFixtureEntry()]` 显式追加,不在基线里悄悄改口径。
+ */
+function gitGuardianFixtureEntry() {
+  return {
+    id: 'git-guardian',
+    path: 'scripts/git-guardian.mjs',
+    mode: 'file',
+    sha256: sha256Of('// baseline guardian\n'),
+  }
+}
+
 export function selfTest() {
   const cases = []
   const ok = (name, cond, detail = '') => cases.push({ name, ok: Boolean(cond), detail })
@@ -381,7 +396,9 @@ export function selfTest() {
     }
   }
 
-  const good = fixtureFiles({ [MANIFEST_REL]: manifestDoc(baseManifestEntries()) })
+  const good = fixtureFiles({
+    [MANIFEST_REL]: manifestDoc([...baseManifestEntries(), gitGuardianFixtureEntry()]),
+  })
 
   // ST1 清单与被审面逐条一致 ⇒ 绿
   run((root) => {
@@ -415,6 +432,7 @@ export function selfTest() {
         ...baseManifestEntries().map((t) =>
           t.id === 'guardian-runner' ? { ...t, sha256: sha256Of(newRunner) } : t,
         ),
+        gitGuardianFixtureEntry(),
       ]),
     })
     const out = judged(root)
@@ -543,11 +561,12 @@ export function selfTest() {
     writeIn(
       root,
       MANIFEST_REL,
-      manifestDoc(
-        baseManifestEntries().map((t) =>
+      manifestDoc([
+        ...baseManifestEntries().map((t) =>
           t.id === 'guardian-runner' ? { ...t, sha256: sha256Of(stagedRunner) } : t,
         ),
-      ),
+        gitGuardianFixtureEntry(),
+      ]),
     )
     gitRaw(['add', '-A'], root)
     const out = judged(root, 'staged')
@@ -592,6 +611,41 @@ export function selfTest() {
       out.exit === 2 &&
         out.rows.some((r) => r.state === 'fail') &&
         out.rows.some((r) => r.state === 'unknown'),
+      JSON.stringify({ exit: out.exit, code: out.code, rows: out.rows.map((r) => [r.id, r.state]) }),
+    )
+  }, good)
+
+  // ST17/ST18(2026-11-04):巡检本体 scripts/git-guardian.mjs 也已是 root-guard target,
+  // 门 267 的 stagedTriggers 补上了它 ⇒ 下面两格就是"提交口能不能拦住改它不重封"的成对牙。
+  // ST17 索引面:暂存了 git-guardian 的新内容、清单仍旧值 ⇒ 红且点名 git-guardian
+  run((root) => {
+    writeIn(root, 'scripts/git-guardian.mjs', '// baseline guardian\n// staged edit\n')
+    gitRaw(['add', '-A'], root)
+    const out = judged(root, 'staged')
+    ok(
+      'ST17 --staged 改 git-guardian 未重封 ⇒ exit 1 且点名 git-guardian',
+      out.exit === 1 && out.rows.some((r) => r.id === 'git-guardian' && r.state === 'fail'),
+      JSON.stringify({ exit: out.exit, code: out.code, rows: out.rows.map((r) => [r.id, r.state]) }),
+    )
+  }, good)
+
+  // ST18 反向对照:同一枚 git-guardian 改动 + 同批重封清单 ⇒ 绿(红的成因是清单落后,不是"文件被改")
+  run((root) => {
+    const stagedGuardian = '// baseline guardian\n// staged edit\n'
+    writeIn(root, 'scripts/git-guardian.mjs', stagedGuardian)
+    writeIn(
+      root,
+      MANIFEST_REL,
+      manifestDoc([
+        ...baseManifestEntries(),
+        { ...gitGuardianFixtureEntry(), sha256: sha256Of(stagedGuardian) },
+      ]),
+    )
+    gitRaw(['add', '-A'], root)
+    const out = judged(root, 'staged')
+    ok(
+      'ST18 --staged git-guardian 与重封清单同批 ⇒ exit 0(成对反向牙)',
+      out.exit === 0 && out.code === 'consistent',
       JSON.stringify({ exit: out.exit, code: out.code, rows: out.rows.map((r) => [r.id, r.state]) }),
     )
   }, good)
@@ -698,6 +752,7 @@ export const __test__ = {
   MD_BASE,
   manifestDoc,
   baseManifestEntries,
+  gitGuardianFixtureEntry,
   fixtureFiles,
   seedRepo,
   commitTree,

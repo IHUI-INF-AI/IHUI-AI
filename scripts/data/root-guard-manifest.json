@@ -1,15 +1,15 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-11-03T13:58:03.649Z",
+  "sealedAt": "2026-11-04T06:47:41.121Z",
   "sealedBy": "root-guard --seal",
-  "reason": "复核 6713541c20 对 guardian-runner 的净改动 +42/-7(号位让号 282/285/286/289 四组 + 随行两道 P2 门注册条目,零删除判据、零降档;文件现读 6968 行,门 103 C1 的 EX-C1-2 豁免在册至 2026-11-10;门 89 接线 R1/R2/R4/R5 现读 0)。本笔由**修好面口径后的 seal** 写出:封的是 HEAD blob 哈希,不再封滞后的工作树副本(那正是本清单与闸永远对不上的成因)",
+  "reason": "他席新增 sweepFormatParity 巡检腿(+138 行,纯新增)落地后未重封;本席复核其内容确为常规新增,按现 HEAD 重封以解部署环 fail-closed",
   "targets": [
     {
       "id": "guardian-runner",
       "path": "scripts/guardian-runner.mjs",
       "mode": "file",
-      "sha256": "a09208df939687cfc34babec5e86c520031e6a1b1d84fcbc02333c98ea3d2302"
+      "sha256": "767230350c7ca1ec3408cd5eeb2b0277557ba2b65a410dfaecd373300d4f84a1"
     },
     {
       "id": "judgement-libs",
@@ -23,6 +23,12 @@
       "mode": "section",
       "start": "## 0. 全局铁律",
       "sha256": "541f86a3f77632be00f3cdfd0564fa4405af25c9d130b136094b66286da35573"
+    },
+    {
+      "id": "git-guardian",
+      "path": "scripts/git-guardian.mjs",
+      "mode": "file",
+      "sha256": "fc6aee6da9ed9fbdbf49b24c3084589e833d981b0ae85380c8a681e6700b281b"
     }
   ]
 }

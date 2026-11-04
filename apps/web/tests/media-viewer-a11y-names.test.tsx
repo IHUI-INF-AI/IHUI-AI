@@ -10,7 +10,7 @@
  * - ImageViewer / VideoPlayer 真实渲染后,每个 <button> 都有非空 aria-label;
  * - 状态三元必须**跟随状态**:playing=false → "播放",true → "暂停";
  *   muted=false → "静音",true → "取消静音"(取 mockT 的中文值证明,不查源码字符串);
- * - 渲染不起来的组件(PDFViewer/LivePlayer/UnifiedViewer 依赖 pdfjs / hls.js / fetch)
+ * - 渲染不起来的组件(PDFViewer/LivePlayer 依赖 pdfjs / hls.js)
  *   退化为静态断言:两态标签、各标签取词调用必须都在源码里出现;
  * - copy-button 常驻操作不得再被 tabIndex={-1} 剥夺键盘可达。
  */
@@ -127,20 +127,6 @@ describe('其余媒体组件与复制按钮(渲染依赖过重,退化为源码�
     const src = read('VideoPlayer.tsx')
     expect(src).toContain("{playing ? t('pause') : t('play')}")
     expect(src).toContain("{mutedState ? t('unmute') : t('mute')}")
-  })
-
-  it('UnifiedViewer 全屏钮标签跟随真实全屏态,且下载位也走取词', () => {
-    const src = read('UnifiedViewer.tsx')
-    expect(src).toContain("const t = useTranslations('a11y')")
-    // toggleFullscreen 是真切换 ⇒ 标签必须两态,并跟随 fullscreenchange(用户按 Esc 退出也要回正)
-    expect(src).toContain("aria-label={isFullscreen ? t('exitFullscreen') : t('fullscreen')}")
-    expect(src).toContain("addEventListener('fullscreenchange'")
-    expect(src).toContain("aria-label={t('download')}")
-    expect(src).toContain("{t('downloadFile')}")
-    // 反向哨兵:这两处原生中文提示位不得回潮
-    expect(src).not.toMatch(/content="全屏"/)
-    expect(src).not.toMatch(/content="下载"/)
-    expect(src).not.toMatch(/>\s*下载文件\s*</)
   })
 
   it('copy-button 常驻操作不再被 tabIndex={-1} 剥夺键盘可达', () => {

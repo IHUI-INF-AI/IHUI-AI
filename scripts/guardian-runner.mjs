@@ -6137,6 +6137,120 @@ const checks = [
       '',
     ].join('\n'),
   },
+  // --- R3 should-wire 批:最低风险 5 枚(2026-11-04 接线) ---
+  // 挑选口径:无外部前置 / 不联网 / 不依赖时间窗 / 不写生产盘;且判据自身已支持 --staged 索引面。
+  // 面板四道里的 check-panel-datasource-wiring 因 --self-test S5b 在 HEAD 存量上就红(legacy
+  // */grafana/dashboards 树)而让位给 check-db-row-narrow-cas —— 不为了让门变绿改判据或放宽断言。
+  {
+    id: '293',
+    label: '📏 计划台账单行长度(delta ratchet:只判本次新增的超长行)',
+    script: 'check-plan-row-length.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_PLAN_ROW_LENGTH',
+    stagedTriggers: [
+      'PROJECT_PLAN.md',
+      'scripts/check-plan-row-length.mjs',
+      'scripts/lib/plan-task-index.mjs',
+    ],
+    onFailHint: [
+      '',
+      '  💡 PROJECT_PLAN.md 的表格/正文行必须保持单行原子性:一条任务一行。',
+      '     新增行超长 ⇒ 把长句拆成多行或缩短描述,不要改判据阈值。',
+      '     复验:node scripts/check-plan-row-length.mjs --staged',
+      '     自检:node scripts/check-plan-row-length.mjs --self-test',
+      '',
+    ].join('\n'),
+  },
+  {
+    id: '294',
+    label: '📊 大屏指标名对账(G1 差值棘轮:只拦本次把幽灵名加回来)',
+    script: 'check-panel-metric-exists.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_PANEL_METRIC_EXISTS',
+    stagedTriggers: [
+      'monitoring/panel-defs/panels/',
+      'deploy/observability/panel-defs/panels/',
+      'deploy/saas/panel-defs/panels/',
+      'apps/ai-service/app/',
+      'apps/api/src/',
+      'packages/',
+      'monitoring/alertbridge/',
+      'scripts/data/panel-external-metrics.json',
+      'scripts/check-panel-metric-exists.mjs',
+    ],
+    onFailHint: [
+      '',
+      '  💡 大屏 expr 引用的指标名必须在代码发射点 / 核心指标 / 带到期的第三方台账里找得到。',
+      '     存量幽灵名只报数;本次新增幽灵名 ⇒ 补发射点或登记台账(带 expires),不要删查询了事。',
+      '     复验:node scripts/check-panel-metric-exists.mjs --staged',
+      '     自检:node scripts/check-panel-metric-exists.mjs --self-test',
+      '     跳过:HUSKY_SKIP_PANEL_METRIC_EXISTS=1',
+      '',
+    ].join('\n'),
+  },
+  {
+    id: '295',
+    label: '➖ 分隔线单侧形态(禁止双边 hairline 拼线)',
+    script: 'check-hairline-separator.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_HAIRLINE_SEPARATOR',
+    stagedTriggers: ['apps/', 'packages/', 'scripts/check-hairline-separator.mjs'],
+    onFailHint: [
+      '',
+      '  💡 分隔线只允许单侧 hairline(border-t/border-b 择一),不得两边同时画。',
+      '     存量只报数、新增才拦;新代码按单侧写。',
+      '     复验:node scripts/check-hairline-separator.mjs --staged',
+      '     自检:node scripts/check-hairline-separator.mjs --self-test',
+      '',
+    ].join('\n'),
+  },
+  {
+    id: '296',
+    label: '🔁 重试回调别名(禁止 onBack/onRefresh/undefined 冒充 onRetry)',
+    script: 'check-retry-aliases.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_RETRY_ALIASES',
+    stagedTriggers: [
+      'packages/app/src/features/',
+      'apps/mobile-rn/src/screens/',
+      'scripts/check-retry-aliases.mjs',
+      'scripts/check-cross-end-screen-coverage.mjs',
+      'scripts/check-rn-host-shell-coverage.mjs',
+    ],
+    onFailHint: [
+      '',
+      '  💡 onRetry 必须绑定真重试回调;别名(onBack / onRefresh / onLoadMore / undefined / null)',
+      '     会把失败路径静默吞掉。共享屏与 RN 壳要同笔接上同一回调。',
+      '     复验:node scripts/check-retry-aliases.mjs --staged',
+      '',
+    ].join('\n'),
+  },
+  {
+    id: '297',
+    label: '🔐 权限放宽租约化(带到期 + 唯一放行出口)',
+    script: 'check-permission-lease-bounded.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_PERMISSION_LEASE_BOUNDED',
+    stagedTriggers: [
+      'apps/cli/src/',
+      'packages/',
+      'scripts/check-permission-lease-bounded.mjs',
+    ],
+    onFailHint: [
+      '',
+      '  💡 权限放宽必须租约化:grantPermissionLease 调用点同笔带 (expiresAt|ttlMs) 与',
+      '     (expiresAfterTurns|maxCalls);引用租约符号的文件不得自写 \'ask\' 比较式放行。',
+      '     唯一出口 = apps/cli/src/tools/permissions.ts 的 applyLeaseToDecision。',
+      '     复验:node scripts/check-permission-lease-bounded.mjs --staged',
+      '     自检:node scripts/check-permission-lease-bounded.mjs --self-test',
+      '',
+    ].join('\n'),
+  },
   // --- info (1 项) ---
   {
     id: '23',
@@ -6617,10 +6731,14 @@ const checks = [
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_ROOT_GUARD_CONSISTENCY',
     // 射程 = 清单本体 + 清单登记的每一个 target + 门体自身:漏一个就等于给那一路开后门。
+    // 2026-11-04 补 scripts/git-guardian.mjs:此前巡检本体不在射程里 ⇒ 改它(不重 seal)在本门
+    // 结构上永不触发,只能等部署侧 root-guard --check 红;它已是清单 target,补上即"改则必审封条",
+    // 不存在误伤面(正常改它本就该同笔重封,否则 --check 必红)。
     stagedTriggers: [
       'scripts/data/root-guard-manifest.json',
       'scripts/guardian-runner.mjs',
       'scripts/lib/judgement-libs.json',
+      'scripts/git-guardian.mjs',
       'AGENTS.md',
       'scripts/check-root-guard-consistency.mjs',
       'scripts/root-guard.mjs',
@@ -7109,6 +7227,30 @@ const pushGateChecks = [
       '     push 档只写工作区、不碰索引:inject 完仍红属正常(HEAD 面欠账只能由真正的提交销账)。',
       '     列出缺口:node scripts/watermark.mjs list-uncovered --files-from <清单>(清单即 PUSH_SCOPE_FILES)。',
       '     退出码 2 = 取不到判定面或 push scope 不可得时退回全量面,不是"没水印"。',
+      '',
+    ].join('\n'),
+  },
+  // 2026-11-04（中单：签名豁免）：判据面护栏此前只挂巡检游标档（auditImmutableGuardNewCommits），
+  // push 时一步都不判 ⇒ 未声明 / 仅文字理由的改动可以原样上 main（HEAD 1553af77 即实例）。
+  // 这里挂到 push 门：判**本次要推的每一枚**（origin/main..HEAD），红则整批不推。
+  // 不碰 .husky/pre-push 的 tag 分支（另一席在改）；只在本注册表里加一条 blocking。
+  {
+    id: 'IG',
+    label: '🧊  判据面不可变护栏(push 区间 origin/main..HEAD 逐枚判:未声明/签名缺失或验不过/清单到期 ⇒ 拦推)',
+    script: 'check-immutable-guard.mjs',
+    args: ['--range', 'origin/main..HEAD'],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_IMMUTABLE_GUARD',
+    onFailHint: [
+      '',
+      '  💡 判红三种形态:① 没有 immutable-exempt 理由;② 有理由但缺/验不过 immutable-exempt-sig;',
+      '     ③ 清单 reviewBy 到期。三种都不许"改判据让它变绿"。',
+      '  合法改法:先 `node scripts/check-immutable-guard.mjs --sign-staged --subject "<提交标题>"',
+      '     --reason "<与 immutable-exempt 同一句>" --paths <a,b,c>` 取签名行,再重写提交信息(会改 sha)。',
+      '  密钥来源(必须由 CI/机主注入,不在提交者可控范围):IHUI_IMMUTABLE_GUARD_KEY /',
+      '     IHUI_IMMUTABLE_GUARD_KEY_FILE / git config ihui.immutableGuardKeyPath。缺钥 ⇒ 一律判未豁免。',
+      '  迁移窗口:scripts/data/immutable-guard.json 的 signatureRequiredFrom(到期自动收紧,无静默放行)。',
+      '  单独复验:node scripts/check-immutable-guard.mjs --range origin/main..HEAD',
       '',
     ].join('\n'),
   },

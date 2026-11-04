@@ -34,26 +34,37 @@ import test from 'node:test'
 import { rmScratch } from '../lib/scratch-dir.mjs'
 import { gitRaw } from '../lib/face-reader.mjs'
 import { __test__ as gate } from '../check-immutable-guard.mjs'
+import { CODE_LABEL, ACK_LEDGER_REL, ACK_SIG_VERSION, SIG_VERSION, exemptPayload, ackPayload } from '../lib/immutable-guard.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(HERE, '..', '..')
 const SCRIPT = join(ROOT, 'scripts', 'check-immutable-guard.mjs')
 
 /** 显式 stdio（本机不写会 EBUSY，§12g 同型）—— CLI 端到端真跑。 */
-const runGate = (args, cwd = ROOT) =>
+const runGate = (args, cwd = ROOT, env = {}) =>
   spawnSync(process.execPath, [SCRIPT, ...args], {
     encoding: 'utf8',
     windowsHide: true,
     timeout: 120000,
     cwd,
+    env: { ...process.env, ...env },
     stdio: ['ignore', 'pipe', 'pipe'],
   })
+
+/** 镜像夹具密钥（≥ MIN_KEY_CHARS；只在临时仓里用，与机主真钥无关）。 */
+const T_KEY = 'mirror-test-immutable-guard-key-0123456789'
+const T_KEY_OTHER = 'mirror-test-other-immutable-guard-key-0123456789'
+const signed = (subject, reason, hits, key = T_KEY) =>
+  `${subject}\n\n${gate.EXEMPT_TRAILER} ${reason}\n${gate.SIG_TRAILER} ${gate.signExemption({ subject, hits, reason, key })}`
 
 const parseJsonOut = (stdout) => JSON.parse(stdout.slice(stdout.indexOf('{')))
 
 /** 真实清单（唯一真相源 = 仓内 JSON；测试不另抄一份）。 */
 const realText = () => readFileSync(join(ROOT, gate.GUARD_DATA_REL), 'utf8')
 const realEntries = () => gate.parseGuardList(realText())
+/** 迁移窗口后一天（从清单现读推导，不写死日期；清单没写开关 ⇒ 用当天，因"立即要求签名"）。 */
+const dayAfterWindow = (win = realEntries().signatureRequiredFrom) =>
+  win ? new Date(Date.parse(`${win}T00:00:00Z`) + 86400000).toISOString().slice(0, 10) : '2026-11-04'
 
 test('T1 真实清单形状合法且覆盖票面四类面', () => {
   const parsed = realEntries()
@@ -150,7 +161,17 @@ test('T5 decide 三态与优先级', () => {
   const hit = [{ status: 'M', path: 'scripts/lib/face-reader.mjs' }]
   assert.equal(gate.decide({ entries, changes: hit, message: null }).exit, 2, '拿不到消息 = 未判定，不是红也不是绿')
   assert.equal(gate.decide({ entries, changes: hit, message: '' }).exit, 1)
-  assert.equal(gate.decide({ entries, changes: hit, message: `${gate.EXEMPT_TRAILER} ${'理由'.repeat(6)}` }).exit, 0)
+  // 仅文字理由：迁移窗口内 = 绿但留痕；窗口到期 = 红（2026-11-04 起签名豁免）
+  const reasonOnly = `${gate.EXEMPT_TRAILER} ${'理由'.repeat(6)}`
+  const inWindow = gate.decide({ entries, changes: hit, message: reasonOnly, today: '2026-11-04', signatureRequiredFrom: '2099-12-31' })
+  assert.equal(inWindow.exit, 0)
+  assert.equal(inWindow.code, 'declared-unsigned')
+  const afterWindow = gate.decide({ entries, changes: hit, message: reasonOnly, today: dayAfterWindow(), signatureRequiredFrom: realEntries().signatureRequiredFrom ?? null })
+  assert.equal(afterWindow.exit, 1, '窗口到期后仅文字理由必须判红')
+  assert.equal(afterWindow.code, 'undeclared-unsigned')
+  const noSwitch = gate.decide({ entries, changes: hit, message: reasonOnly, today: '2026-11-04' })
+  assert.equal(noSwitch.exit, 0, '清单没写开关 = 旧语义（开关尚未引入），放行但留痕')
+  assert.equal(noSwitch.code, 'declared-unsigned')
   assert.equal(problems.length, 0)
 })
 
@@ -215,13 +236,26 @@ test('T11 真仓端到端：默认档 --json 结构自洽', () => {
     assert.equal(out.entryCount, 0)
     assert.equal(out.exit, 2)
   } else {
-    assert.equal(out.entryCount, realEntries().entries.length, 'JSON 里的受保护面条数必须与清单同值')
+    // 同面同轮（§0.4）：这一档的 out 判的是 **HEAD blob**，期望值也必须从 HEAD 取。
+    // 原先这里读工作树那份清单，于是"改了清单还没提交"这一格会拿 19 比 20 报假红——
+    // 判据自己混了取材面，正是本门要拦的形态。
+    let headText = null
+    try {
+      headText = gitRaw(['show', `HEAD:${gate.GUARD_DATA_REL}`], ROOT)
+    } catch {
+      headText = null
+    }
+    const headCount = headText === null ? 0 : gate.parseGuardList(headText).entries.length
+    assert.equal(out.entryCount, headCount, 'JSON 里的受保护面条数必须与**被审那一面**的清单同值')
     assert.ok(Array.isArray(out.hits))
-    assert.ok(r.status === 0 ? out.code === 'pass' || out.code === 'declared' : true, '绿档只能是 pass/declared')
+    assert.ok(
+      r.status === 0 ? ['pass', 'declared', 'declared-unsigned'].includes(out.code) : true,
+      '绿档只能是 pass/declared/declared-unsigned（后者是迁移窗口内的无签名豁免，必须已在台账里）',
+    )
   }
 })
 
-test('T12 临时仓 CLI：--staged 无消息 ⇒ exit 2；带合格消息 ⇒ exit 0', () => {
+test('T12 临时仓 CLI：--staged 无消息 ⇒ exit 2；带合格声明+签名 ⇒ exit 0', () => {
   const root = gate.seedRepo(realText())
   try {
     gate.writeIn(root, 'scripts/lib/face-reader.mjs', '// staged change\n')
@@ -229,15 +263,23 @@ test('T12 临时仓 CLI：--staged 无消息 ⇒ exit 2；带合格消息 ⇒ ex
     const miss = runGate(['--staged', '--root', root])
     assert.equal(miss.status, 2, `无消息必须未判定；stdout=${miss.stdout}`)
     assert.match(miss.stdout, /code=message-missing/)
-    const okRun = runGate([
-      '--staged',
-      '--root',
+    const reason = '已复核全部调用方与取值面'
+    const okRun = runGate(
+      ['--staged', '--root', root, '--message', signed('refactor: x', reason, ['scripts/lib/face-reader.mjs'])],
       root,
-      '--message',
-      `refactor: x\n\n${gate.EXEMPT_TRAILER} 已复核全部调用方与取值面`,
-    ])
-    assert.equal(okRun.status, 0, `带合格声明必须绿；stdout=${okRun.stdout}`)
+      { [gate.KEY_ENV]: T_KEY },
+    )
+    assert.equal(okRun.status, 0, `带合格声明+签名必须绿；stdout=${okRun.stdout}`)
     assert.match(okRun.stdout, /\[判定面=staged\]/)
+    // 只有文字理由、没有签名 ⇒ 迁移窗口内仍放行，但判定码必须是 declared-unsigned（不静默）
+    const legacy = runGate(
+      ['--staged', '--root', root, '--message', `refactor: x\n\n${gate.EXEMPT_TRAILER} ${reason}`],
+      root,
+      { [gate.KEY_ENV]: T_KEY },
+    )
+    assert.equal(legacy.status, 0)
+    assert.match(legacy.stdout, /code=declared-unsigned/)
+    assert.ok(existsSync(join(root, gate.UNSIGNED_LEDGER_REL)), '无签名豁免必须落台账')
   } finally {
     rmScratch(root)
   }
@@ -260,11 +302,12 @@ test('T14 形状锁：判据只在 lib 一份，源脚本不复制 trailer 字�
   assert.ok(lib.includes('export function decide'), '判定本体必须住 lib 并被导出')
 })
 
-test('T15 未接线形状锁：头注不得自称已接线，runner 现读无本门注册', () => {
+test('T15 接线形状锁：源脚本不自称 runner 注册块；runner 已把本门注册进 push 门', () => {
   const src = readFileSync(SCRIPT, 'utf8')
   assert.ok(!src.includes("id: '"), '源脚本里不得出现 runner 注册块形态')
   const runner = readFileSync(join(ROOT, 'scripts/guardian-runner.mjs'), 'utf8')
-  assert.ok(!runner.includes('check-immutable-guard.mjs'), 'runner 现读不得含本门（接线由主席另行决定；接线后本断言随之翻转）')
+  assert.ok(runner.includes("script: 'check-immutable-guard.mjs'"), 'runner 必须把本门注册进 push 门（2026-11-04 接线）')
+  assert.ok(runner.includes("'--range', 'origin/main..HEAD'"), 'push 门必须按显式区间判"本次要推的每一枚"')
 })
 
 test('T16 --self-test 真跑：通过数 ≥10 且全绿', () => {
@@ -276,4 +319,139 @@ test('T16 --self-test 真跑：通过数 ≥10 且全绿', () => {
   assert.ok(total >= 10, `自检用例数必须 ≥10，现读 ${total}`)
   assert.equal(passed, total, '自检必须全绿')
 })
+
+// ---------------------------------------------------------------------------
+// 签名豁免（2026-11-04）：票面点名的四条反向测试，全部走生产 decide（不复制判据）
+// ---------------------------------------------------------------------------
+
+const HIT = [{ status: 'M', path: 'scripts/lib/face-reader.mjs' }]
+const REASON = '本单即受审对象，签名绑定标题与命中面'
+const SUBJECT = 'refactor: signed'
+
+test('T17 带正确签名 ⇒ declared 放行', () => {
+  const { entries } = realEntries()
+  const out = gate.decide({ entries, changes: HIT, message: signed(SUBJECT, REASON, ['scripts/lib/face-reader.mjs']), key: T_KEY, today: '2026-11-04' })
+  assert.equal(out.exit, 0)
+  assert.equal(out.code, 'declared')
+  assert.equal(out.signature.code, 'sig-verified')
+})
+
+test('T18 仅文字理由 + 无签名（迁移窗口内）⇒ 放行 + declared-unsigned', () => {
+  const { entries } = realEntries()
+  const out = gate.decide({
+    entries,
+    changes: HIT,
+    message: `${SUBJECT}\n\n${gate.EXEMPT_TRAILER} ${REASON}`,
+    key: T_KEY,
+    today: '2026-11-04',
+    signatureRequiredFrom: '2026-11-11',
+  })
+  assert.equal(out.exit, 0, '窗口内仍按旧语义放行')
+  assert.equal(out.code, 'declared-unsigned', '但绝不静默：判定码必须可被巡检查出')
+  assert.equal(out.signature.code, 'sig-missing')
+})
+
+test('T19 仅文字理由 + 无签名（迁移窗口后）⇒ 不放行', () => {
+  const { entries } = realEntries()
+  const out = gate.decide({
+    entries,
+    changes: HIT,
+    message: `${SUBJECT}\n\n${gate.EXEMPT_TRAILER} ${REASON}`,
+    key: T_KEY,
+    today: '2026-11-12',
+    signatureRequiredFrom: '2026-11-11',
+  })
+  assert.equal(out.exit, 1, '到期后必须有验得过的签名')
+  assert.equal(out.code, 'undeclared-unsigned')
+})
+
+test('T20 签名形状正确但验签失败 ⇒ 不放行（窗口内也不放）', () => {
+  const { entries } = realEntries()
+  const msg = signed(SUBJECT, REASON, ['scripts/lib/face-reader.mjs'], T_KEY_OTHER)
+  const out = gate.decide({ entries, changes: HIT, message: msg, key: T_KEY, today: '2026-11-04', signatureRequiredFrom: '2026-11-11' })
+  assert.equal(out.exit, 1)
+  assert.equal(out.code, 'undeclared-unsigned')
+  assert.equal(out.signature.code, 'sig-invalid')
+})
+
+test('T21 密钥不存在 ⇒ fail-closed（有签名行但无从验 ⇒ 判未豁免）', () => {
+  const { entries } = realEntries()
+  const out = gate.decide({ entries, changes: HIT, message: signed(SUBJECT, REASON, ['scripts/lib/face-reader.mjs']), key: null, today: '2026-11-04' })
+  assert.equal(out.exit, 1, '没有钥匙绝不放行')
+  assert.equal(out.signature.code, 'key-unavailable')
+})
+
+test('T22 --range 端到端：区间内的未签名提交在窗口到期后判红', () => {
+  const root = gate.seedRepo(realText())
+  try {
+    gate.writeIn(root, 'scripts/lib/face-reader.mjs', '// changed\n')
+    gate.commitAll(root, `refactor: legacy\n\n${gate.EXEMPT_TRAILER} ${REASON}`)
+    const r = runGate(['--range', 'HEAD~1..HEAD', '--root', root, '--today', dayAfterWindow()])
+    assert.equal(r.status, 1, `区间档必须判红；stdout=${r.stdout}`)
+    assert.match(r.stdout, /undeclared-unsigned/)
+  } finally {
+    rmScratch(root)
+  }
+})
+
+// ---------------------------------------------------------------------------
+// 受保护面扩容（2026-11-04）：票面点名两处新增面必须当场判红
+// ---------------------------------------------------------------------------
+
+test('T23 扩容后：改 scripts/git-guardian.mjs 未声明 ⇒ 判红', () => {
+  const { entries } = realEntries()
+  const out = gate.decide({ entries, changes: [{ status: 'M', path: 'scripts/git-guardian.mjs' }], message: '' })
+  assert.equal(out.exit, 1, '巡检本体改了却没声明 ⇒ 必须判红')
+  assert.equal(out.hits[0]?.entry?.path, 'scripts/git-guardian.mjs')
+  // 反向牙：未登记的邻居路径不得被误吞（射程靠登记，不靠目录默认豁免）
+  assert.equal(
+    gate.decide({ entries, changes: [{ status: 'M', path: 'scripts/git-guardian.txt' }], message: '' }).exit,
+    0,
+  )
+})
+
+test('T24 扩容后：改 .husky/pre-commit ⇒ 判红；README/post-checkout/pre-rebase 仍在射程外', () => {
+  const { entries } = realEntries()
+  const out = gate.decide({ entries, changes: [{ status: 'M', path: '.husky/pre-commit' }], message: '' })
+  assert.equal(out.exit, 1, '提交链入口被改却没声明 ⇒ 必须判红')
+  assert.equal(out.hits[0]?.entry?.path, '.husky/pre-commit')
+  for (const p of ['.husky/README.md', '.husky/post-checkout', '.husky/pre-rebase'])
+    assert.equal(
+      gate.decide({ entries, changes: [{ status: 'M', path: p }], message: '' }).exit,
+      0,
+      `${p} 必须保持不在射程`,
+    )
+  // deploy/win/lib 的 glob 只覆盖顶层模块：__tests__ 显式不在射程
+  assert.equal(
+    gate.decide({ entries, changes: [{ status: 'M', path: 'deploy/win/lib/__tests__/x.mjs' }], message: '' }).exit,
+    0,
+    'deploy/win/lib/__tests__/ 必须保持不在射程',
+  )
+  assert.equal(
+    gate.decide({ entries, changes: [{ status: 'M', path: 'deploy/win/lib/edge-admission.mjs' }], message: '' }).exit,
+    1,
+    'deploy/win/lib 顶层模块必须在射程内',
+  )
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * T12/T13 追认台账的两条形状锁(2026-11-04 立)。
+ * 判据本体在 lib(自检 ST32–ST40 已逐档正反成对),这里只钉"覆盖面自证":
+ * 台账文件本身必须登记在受保护面里,否则"往台账塞一行"是一条无人看守的洗白通道;
+ * 结论码必须在唯一那张表里,否则输出层会拿到 undefined 并印成半句话。
+ */
+test('T12 追认台账自身登记在受保护面清单里(补一行=改判据面)', () => {
+  const { entries, problems } = realEntries()
+  assert.deepEqual(problems, [], '清单不得有坏行')
+  const hit = entries.some((e) => e.path === ACK_LEDGER_REL)
+  assert.ok(hit, `台账必须与清单同档受保护：现读 entries=${entries.map((e) => e.path).join(',')}`)
+})
+
+test('T13 retro-declared 有唯一结论码文案,且追认签名与提交签名版本不同形', () => {
+  assert.ok(CODE_LABEL['retro-declared'].includes('追认'), '文案必须点明这是事后追认,不得与 declared 同句')
+  assert.notEqual(SIG_VERSION, ACK_SIG_VERSION, '两种签名的版本前缀必须不同,否则可互相抄用')
+  const p1 = exemptPayload({ subject: 's', hits: [{ path: 'scripts/lib/' }], reason: 'r' })
+  const p2 = ackPayload({ sha: 'x', paths: ['scripts/lib/'], reason: 'r' })
+  assert.ok(!p1.includes('"a1"') && p2.includes('"a1"'), '载荷必须各带自己的版本键(交叉复用必然验不过)')
+})
