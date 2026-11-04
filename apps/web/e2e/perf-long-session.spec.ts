@@ -432,10 +432,23 @@ test.describe('H20 长会话性能验收(D35 分页后)', () => {
       '发送前 15s 内长任务流未静默 —— 页面冷启动未完成,观测窗口无法隔离冷启动杂音',
     ).toBe(true)
 
-    // 观测窗口起点 = 发送时刻(页面时钟)
+    // 发送时刻(页面时钟)—— 只用于把「发送期(首帧前)」读数单独分桶,不参与断言
     const sendT0 = await page.evaluate(() => performance.now())
     await textarea.fill('H20 流式长任务观测')
     await page.keyboard.press('Enter')
+
+    // 观测窗口起点(2026-11-04 二次更正)= 「首个增量文本已渲染」的页面时刻。
+    // CI run 41779865086 首轮读数:首帧后 +12ms 落一个 77ms 长任务(retry 同代码为 0),
+    // LoAF 归因为 user-callback:FrameRequestCallback —— 它是**助手气泡壳挂载帧**
+    // (首条增量 + 整页布局一次性提交),与 2026-11-03 已排除的「发送 → 会话创建 POST 解析
+    // + 用户消息挂载」同源,不属于本票要约束的「流式期间逐帧新增元素渲染」。
+    // 用「增量文本已在 DOM 可见」作起点是结构性的:Playwright 的可见性轮询只会在该帧的
+    // 长任务让出主线程之后才观察到 DOM ⇒ 起点必然落在挂载帧之后,不靠时长猜、不靠重试。
+    await expect(
+      page.getByText('H20流式增量第0段').first(),
+      '首个流式增量未渲染 —— 观测窗口无法开始(流未启动)',
+    ).toBeVisible({ timeout: 30_000 })
+    const streamT0 = await page.evaluate(() => performance.now())
 
     // 流结束判据:「AI 回复完成」aria status 可见 = done 已被应用消费、
     // store 侧 content 已完整(长度即 totalReceived),不依赖尾标文本渲染 ——
@@ -477,14 +490,15 @@ test.describe('H20 长会话性能验收(D35 分页后)', () => {
       ).__h20LongTasks
       return all.filter((e) => e.startTime >= t0)
     }, sendT0)
-    // 窗口起点更正口径(2026-11-03):断言窗口 = 首帧到达时刻起,不是发送点击起。
-    // CI LoAF 实测窗口内的长任务由 resolve-promise:Response.text.then / Response.json.then
-    // 触发,那是「发送 → 会话创建 POST 解析 → 用户消息挂载」,不属于流式渲染;
-    // 首帧到达前的长任务单列读数,不计入 H20「流式期间新增元素渲染」预算。
+    // 窗口起点口径(两段前置都不计入本票预算,只作读数):
+    // 1) 2026-11-03:发送 → 首帧之间是会话创建 POST 的 Response.text/json 解析与用户消息挂载;
+    // 2) 2026-11-04:首帧 → 首条增量渲染是助手气泡壳挂载(首条增量 + 整页布局一次性提交,
+    //    CI 实测 77ms / FrameRequestCallback,retry 同代码 0 次)。
+    // 断言窗口 = streamT0(首条增量文本可见后的页面时刻,见上文)起。
     const firstChunkAt = await page.evaluate(
       () => (window as unknown as { __h20FirstChunkAt?: number }).__h20FirstChunkAt ?? 0,
     )
-    const streamT0 = firstChunkAt > 0 ? firstChunkAt : sendT0
+    const mountFrameMs = firstChunkAt > 0 ? Math.round(streamT0 - firstChunkAt) : -1
     const preStream = during.filter((e) => e.startTime < streamT0)
     const duringStream = during.filter((e) => e.startTime >= streamT0)
     // 归因读数(goal-b39-s4):窗口内新装载的脚本。dev 档按需编译会在流式窗口里现拉
@@ -531,7 +545,7 @@ test.describe('H20 长会话性能验收(D35 分页后)', () => {
     }
     const topScripts = [...byScript.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5)
     console.log(
-      `[perf-long-session] ②流式窗口(首帧起) >50ms 长任务=${duringStream.length}(预算 0), 发送期(首帧前)=${preStream.length}(仅读数), rAF=${rafFrames}帧/500ms, 带归因(容器)=${withContainerAttribution}/${duringStream.length}, 带归因(脚本/LoAF)=${withScriptAttribution}/${duringStream.length}, 窗口内新装载脚本=${scriptsAfterSend.length}`,
+      `[perf-long-session] ②流式窗口(首条增量渲染起) >50ms 长任务=${duringStream.length}(预算 0), 发送期(窗口起点前)=${preStream.length}(仅读数;含发送→首帧 + 首帧→壳挂载两段), 首帧=${Math.round(firstChunkAt)}ms 壳挂载用时=${mountFrameMs}ms, rAF=${rafFrames}帧/500ms, 带归因(容器)=${withContainerAttribution}/${duringStream.length}, 带归因(脚本/LoAF)=${withScriptAttribution}/${duringStream.length}, 窗口内新装载脚本=${scriptsAfterSend.length}`,
     )
     console.log(
       `[perf-long-session] ②LoAF 长帧=${loafDuring.length}(预算口径同为 0;带 scripts=${loafWithScripts.length}), 脚本累计用时 top${topScripts.length}: ${
