@@ -34,6 +34,8 @@ import { chatSkillsRoutes } from './chat-skills.js'
 // 对话模板目录(2026-10-18 立服务端最小闭环):GET /api/chat/templates
 import { chatTemplateRoutes } from './chat-templates.js'
 import { teamRoutes } from './teams.js'
+// 多 Agent 协作:团队实体 / 持久收件箱 / 产物转交(2026-11-04 立,agent_ 前缀表)
+import { agentTeamRoutes } from './agent-team.js'
 import { rbacRoutes } from './rbac.js'
 import { workflowRoutes } from './workflows.js'
 import { commentRoutes } from './comments.js'
@@ -598,6 +600,8 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(searchRoutes, { prefix: '/api' })
   server.register(auditRoutes, { prefix: '/api/admin' })
   server.register(teamRoutes, { prefix: '/api/teams' })
+  // 独立前缀与人类工作区团队隔离,避免 /api/teams/:id 的既有语义被覆盖
+  server.register(agentTeamRoutes, { prefix: '/api' })
   server.register(chatRoutes, { prefix: '/api/chat' })
   // D179(2026-09-30 用户拍板立项):POST/DELETE /api/chat/conversations/:id/issue + POST /api/chat/issues/search
   server.register(chatIssueBindingRoutes, { prefix: '/api/chat' })
