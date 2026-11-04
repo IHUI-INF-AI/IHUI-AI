@@ -19,22 +19,22 @@ export default function ErrorView({
 }: ErrorViewProps) {
   const tt = useTt()
   return (
-    <View className="flex flex-col items-center justify-center py-12 px-4">
+    <View className="flex flex-col items-center justify-center py-5xl px-lg">
       <LineIcon
         name="triangle-alert"
         size={72}
         color="var(--color-muted-foreground)"
-        className="mb-3"
+        className="mb-md"
       />
-      <Text className="text-sm font-medium text-foreground mb-1">{title}</Text>
-      <Text className="text-xs text-muted-foreground mb-4 text-center">{desc}</Text>
+      <Text className="text-body font-medium text-foreground mb-xs">{title}</Text>
+      <Text className="text-label text-muted-foreground mb-lg text-center">{desc}</Text>
       {onRetry && (
         <View
-          className="px-4 py-2 rounded-md bg-primary/10"
+          className="px-lg py-sm rounded-md bg-primary/10"
           onClick={onRetry}
           hoverClass="opacity-60"
         >
-          <Text className="text-sm text-primary">{tt('common.retry', '重试')}</Text>
+          <Text className="text-body text-primary">{tt('common.retry', '重试')}</Text>
         </View>
       )}
     </View>

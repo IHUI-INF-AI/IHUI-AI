@@ -17,7 +17,7 @@
   display: flex;
   align-items: center;
   gap: var(--spacing-md);
-  padding: var(--spacing-md) 20rpx;
+  padding: var(--spacing-md) var(--spacing-sm-loose);
 }
 .income-title {
   font-size: var(--text-heading);
@@ -27,7 +27,7 @@
 
 /* 收入汇总卡 — 对齐 RN summaryCard(bg surface.muted/marginH 10/padding 12/radius 12) */
 .income-card-wrap {
-  margin: 0 20rpx;
+  margin: 0 var(--spacing-sm-loose);
   padding: 0;
   background: none;
 }
@@ -68,7 +68,7 @@
   font-weight: 600;
   color: var(--color-cta-foreground);
   background: var(--color-cta);
-  padding: var(--spacing-xs-loose) 20rpx;
+  padding: var(--spacing-xs-loose) var(--spacing-sm-loose);
   border-radius: var(--radius-sm);
 }
 
@@ -115,7 +115,7 @@
 
 /* 平台不收费提示行 — 对齐 RN tip(marginH 10/marginTop 10/fontSize 11/tertiary) */
 .income-fee-tip {
-  margin: var(--spacing-sm-loose) 20rpx 0;
+  margin: var(--spacing-sm-loose) var(--spacing-sm-loose) 0;
   display: block;
   font-size: var(--text-caption);
   color: var(--color-text-tertiary);
@@ -123,7 +123,7 @@
 
 /* 结算状态 tab — 对齐 RN tabRow(marginH 10/mt 12/padding 4/radius 12/bg card)+ tabItem(flex 1/h 32) */
 .income-tabs {
-  margin: var(--spacing-md) 20rpx 0;
+  margin: var(--spacing-md) var(--spacing-sm-loose) 0;
   padding: var(--spacing-xs);
   box-sizing: border-box;
   background: var(--color-card);
@@ -153,7 +153,7 @@
 
 /* 收入明细列表 — 对齐 RN card(padding 12/radius 12/border.light/白卡) */
 .income-list {
-  padding: var(--spacing-md) 20rpx 40rpx;
+  padding: var(--spacing-md) var(--spacing-sm-loose) var(--spacing-xl);
 }
 .income-list-item {
   display: flex;

@@ -62,7 +62,7 @@
   color: var(--color-vip-card);
   font-size: var(--text-label); /* RN 12 → 24rpx */
   font-weight: 600;
-  padding: var(--spacing-2xs) 16rpx;
+  padding: var(--spacing-2xs) var(--spacing-sm);
   border-radius: var(--radius-lg);
   margin-right: var(--spacing-xs-loose);
 }
@@ -77,7 +77,7 @@
 
 /* ===== 通用卡片(对齐 RN levelsSection/card:页面同底色 + 2rpx 描边 + radius 16rpx) ===== */
 .member-card {
-  margin: 0 20rpx 24rpx; /* RN levelsSection paddingH 10 → 20rpx;cardSpacing 12 → 24rpx */
+  margin: 0 var(--spacing-sm-loose) var(--spacing-md); /* RN levelsSection paddingH 10 → 20rpx;cardSpacing 12 → 24rpx */
   padding: var(--spacing-md-loose); /* RN card padding 14 → 28rpx */
   background: var(--color-background); /* RN card bg = tk.surface.bg */
   border: 2rpx solid var(--color-border); /* RN borderWidth 1 + tk.border.light */
@@ -226,7 +226,7 @@
 /* ===== VIP CTA 卡片(对齐 RN 卡片语言 + 金色 purchaseBtn) ===== */
 .member-vip-cta,
 .member-vip-section {
-  margin: 0 20rpx 24rpx;
+  margin: 0 var(--spacing-sm-loose) var(--spacing-md);
   padding: var(--spacing-md-loose);
   background: var(--color-background);
   border: 2rpx solid var(--color-border);
@@ -316,7 +316,7 @@
 
 /* ===== 快捷入口菜单(同卡片语言,行间用描边分隔) ===== */
 .member-menu {
-  margin: 0 20rpx 24rpx;
+  margin: 0 var(--spacing-sm-loose) var(--spacing-md);
   background: var(--color-background);
   border: 2rpx solid var(--color-border);
   border-radius: var(--radius-md);
@@ -326,7 +326,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: var(--spacing-md-loose) 32rpx;
+  padding: var(--spacing-md-loose) var(--spacing-lg);
   font-size: var(--text-body);
   color: var(--color-foreground);
 }
@@ -335,7 +335,7 @@
 }
 /* ===== 联系客服 ===== */
 .member-contact {
-  margin: 0 20rpx;
+  margin: 0 var(--spacing-sm-loose);
   padding: var(--spacing-md);
   text-align: center;
 }

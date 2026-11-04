@@ -14,7 +14,7 @@
 .rn-page {
   min-height: 100vh;
   background: var(--color-background);
-  padding: var(--spacing-md-loose) 28rpx 48rpx;
+  padding: var(--spacing-md-loose) var(--spacing-md-loose) var(--spacing-2xl);
   box-sizing: border-box;
 }
 /* ===== 认证说明 / 状态条 / 表单卡(RN card 统一形态) ===== */
@@ -48,7 +48,7 @@
 }
 /* ===== 状态条(RN statusValue:600 danger;verified 深绿) ===== */
 .rn-status {
-  padding: var(--spacing-md) 28rpx;
+  padding: var(--spacing-md) var(--spacing-md-loose);
 }
 .rn-status-reviewing .rn-status-text {
   color: var(--color-warning-amber);
@@ -85,7 +85,7 @@
 .rn-input {
   width: 100%;
   height: 100rpx;
-  padding: 0 24rpx;
+  padding: 0 var(--spacing-md);
   background: var(--color-muted);
   border: 1rpx solid var(--color-border);
   border-radius: var(--radius-sm);
@@ -99,7 +99,7 @@
 }
 /* ===== 照片上传(RN IdentityVerify uploadBtn 语义:muted 底 + 圆角 24rpx) ===== */
 .rn-photo-head {
-  padding: 0 0 16rpx;
+  padding: 0 0 var(--spacing-sm);
 }
 .rn-photo-row {
   display: flex;
@@ -177,7 +177,7 @@
 /* ===== 已认证结果 ===== */
 .rn-result-card {
   margin: var(--spacing-4xl) 0;
-  padding: var(--spacing-3xl) 28rpx;
+  padding: var(--spacing-3xl) var(--spacing-md-loose);
   display: flex;
   flex-direction: column;
   align-items: center;
