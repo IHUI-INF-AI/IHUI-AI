@@ -941,7 +941,9 @@
     "version": "バージョン",
     "language": "言語",
     "theme": "テーマ",
-    "logoutConfirmBody": "このアカウントからログアウトしますか？"
+    "logoutConfirmBody": "このアカウントからログアウトしますか？",
+    "accountDeletionConfirmLabel": "アカウント削除を確認",
+    "accountDeletionConfirmTitle": "アカウント削除を確認"
   },
   "menu": {
     "artifacts": "成果物センター",
@@ -3537,7 +3539,11 @@
     "opType4": "返金",
     "opType5": "コミッション",
     "loginRequiredHint": "ログインして資金履歴を表示",
-    "goLogin": "ログイン"
+    "goLogin": "ログイン",
+    "rechargeFail": "チャージ",
+    "rechargeSuccess": "チャージ",
+    "contactSupport": "サポートに連絡",
+    "retryRecharge": "再チャージ"
   },
   "activity": {
     "empty": "アクティビティがありません",
@@ -5763,6 +5769,7 @@
   },
   "ia": {
     "remainingPoints": "残りポイント",
+    "loginRequired": "先にログインしてお使いください",
     "recharge": "チャージ"
   },
   "uiCard": {
@@ -6038,9 +6045,9 @@
     "status": {
       "present": "出席",
       "late": "遅刻",
-      "early": "早退",
       "absent": "欠席",
-      "leave": "休み"
+      "leave": "休み",
+      "early": "早退"
     },
     "chooseAction": "操作を選択",
     "actionDone": "操作に成功しました",
@@ -7196,7 +7203,17 @@
     "bundleOta": "ホットアップデート",
     "readyBody": "更新のダウンロードが完了しました。「更新」をタップするとすぐに反映されます。",
     "installingHint": "アプリは自動的に再起動します（通常は数秒）。",
-    "restartNow": "今すぐ再起動"
+    "restartNow": "今すぐ再起動",
+    "apkTitle": "新しいバージョン {{version}} があります",
+    "apkBody": "現在 {{current}} → 最新 {{latest}}",
+    "apkAction": "ダウンロードしてインストール",
+    "apkActionBrowser": "ダウンロードへ",
+    "apkDownloading": "インストーラーをダウンロード中 {{progress}}%",
+    "apkEta": "残り約 {{eta}}",
+    "apkInstalling": "インストーラーを起動しています…",
+    "apkBrowserOpening": "ブラウザに引き継ぎました。案内に従ってインストールしてください",
+    "apkCancel": "キャンセル",
+    "apkHint": "パッケージが大きいため、Wi-Fi での更新を推奨します"
   },
   "cloudRuns": {
     "title": "クラウドエージェント実行",
@@ -7228,6 +7245,15 @@
     "empty": "コンテンツはまだありません。おしみに",
     "searchNoResult": "結果なし",
     "retry": "再試行"
+  },
+  "learnMapPage": {
+    "completed": "完了",
+    "empty": "学習パスがありません"
+  },
+  "user": {
+    "security": {
+      "sendCode": "コード取得"
+    }
   },
   "eduMyAttendance": {
     "title": "自分の出席",
