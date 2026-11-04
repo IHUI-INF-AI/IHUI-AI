@@ -1066,8 +1066,17 @@ function chunkPathspecs(paths) {
  *     实测夹具(两条分支同秒改同一路径,一条 D 一条 M):只改 ref 名,`git log --all --raw`
  *     的第一条就从 M 翻成 D —— 顺序由 ref 名而非拓扑决定(反例与读数见镜像用例
  *     「同秒并列……」)。此时"最新状态"不存在确定答案,记进 `ambiguousPaths`,由判定层
- *     落「未判定 → exit 2」,绝不拿先到者冒充最新。同秒且结论相同(两枚 A/M,或两枚删
- *     同一 old blob 的 D)仍按先到者:取谁都不改变判定。
+ *     落「未判定 → exit 2」,绝不拿先到者冒充最新。
+ *
+ *     **2026-11-05 裁决收窄**:原来连「两枚 D、old blob 不同」也一并算未判定。对 3b 遗留的
+ *     4 枚(00be643c0b / 28a4f7609705 / e6e2eecc9696 / f94de140264b,共 7 条路径)实测:
+ *     A 序(`git log --all` 现序)与 B 序(refname 反序入场)下「最新」落点与「已清偿/
+ *     未清偿」逐条完全一致(12 对判定全为"未清偿");再以 committerdate / creatordate
+ *     正反序、`--topo-order` / `--date-order` / `--author-date-order` 交叉复算,结论仍一致。
+ *     故 D/D 并列不再进未判定档,由先到者定,最终仍走 D 的 old blob 核对(匹配才清偿)。
+ *     真正会翻转的是**状态不同**(D vs A/M):取 D 则"最新即删除",取 A/M 则"最新仍是
+ *     存在",两端结论 ⇒ 只有这一档记 `ambiguousPaths`。同秒且结论相同(两枚 A/M、两枚
+ *     删同一 old blob 的 D、或两枚删不同 old blob 的 D)仍按先到者。
  *   - **跨面**(ref → reflog):只有 reflog 面的记录**严格更新**(ct 更大)才替换;ct 相同同样
  *     记为并列歧义(同一提交在两面重复不会触发:状态与 old blob 都一样才算同形)。
  */
@@ -1079,11 +1088,9 @@ function absorbRawCoverage(
   excludedCommits,
   ambiguousPaths,
 ) {
-  // 同秒并列 + (至少一枚是 D) + (状态不同 / 两枚 D 的 old blob 不同) ⇒ 取谁都会改变判定
-  const isAmbiguous = (a, b) =>
-    a.ct === b.ct &&
-    (a.status === 'D' || b.status === 'D') &&
-    (a.status !== b.status || (a.status === 'D' && a.oldBlob !== b.oldBlob))
+  // 同秒并列 + 状态不同(D vs A/M) ⇒ 取谁都会翻转 D 判定。
+  // D/D(含 old blob 不同)不在此档:2026-11-05 双序/多序实测结论稳定(见上方头注)。
+  const isAmbiguous = (a, b) => a.ct === b.ct && (a.status === 'D') !== (b.status === 'D')
   const remember = (e) => {
     const rec = {
       commit: e.commit,
@@ -2690,7 +2697,7 @@ async function main() {
   const issues = []
   // 逐路径覆盖的「未判定」档必须活到最外层出口:它决定 exit 2,且优先级高于判红档。
   // (下面的放行分档在 `if (unreachable.length > 0)` 块内,块内 const 到不了 2832 的出口。)
-  let undeterminedCoverage = new Map()
+  const undeterminedCoverage = new Map()
   // 3b 维的「同秒并列」与悬空档同语义:判不了 ⇒ exit 2,不折绿也不折红(§0.3)。
   for (const u of tagBackup.undetermined) undeterminedCoverage.set(u.hash, u)
 
@@ -2879,7 +2886,11 @@ async function main() {
         subjectByHash,
       }
     })()
-    undeterminedCoverage = pathCoverageUndetermined
+    // 2026-11-05 修复:原为整体赋值,会把 3b 播种的「未判定」项整个抹掉(实测修前
+    // 「已备份 121」而 3b 内部「未判定 4」从不出现在出口)。改为逐条并回,两档同账。
+    for (const [h, u] of pathCoverageUndetermined) {
+      if (!undeterminedCoverage.has(h)) undeterminedCoverage.set(h, u)
+    }
     if (whitelistedSameContent.length > 0) {
       console.log(
         `  ${C.dim}↳ 同内容副本放行 ${whitelistedSameContent.length} 个(树+题与可达历史逐字同:并发重写留下的旧对象,非丢失风险):${C.reset}`,
@@ -2936,8 +2947,9 @@ async function main() {
         pathCovered.length -
         unbacked.length -
         // 未判定档必须先扣掉:否则它会以余项形态被算进"已备份"(那是把它读成有出处 =
-        // 往绿折),而它真实的语义是"没判完"。
-        undeterminedCoverage.size
+        // 往绿折),而它真实的语义是"没判完"。这里只扣**悬空档**的未判定(它们来自
+        // `unreachable`);3b 的未判定项不在 `unreachable` 里,若一并扣会减成负数。
+        pathCoverageUndetermined.size
       // 只有真的出现逐路径覆盖档才加这一桶:老仓的存量账(0 枚)保持原有行形状,
       // 免得下游按行解析的消费者(以及镜像测试)因为多一个 0 而读不到。
       const coverageBucket = pathCovered.length > 0 ? ` / 逐路径覆盖 ${pathCovered.length}` : ''
@@ -3157,7 +3169,7 @@ async function main() {
   if (undeterminedCoverage.size > 0) {
     console.log(
       `\n${C.red}${C.bold}❌ UNDETERMINED: 同秒并列的删除判定不可判定(` +
-        `${undeterminedCoverage.size} 个悬空 commit)${C.reset}`,
+        `${undeterminedCoverage.size} 个提交)${C.reset}`,
     )
     for (const [h, u] of [...undeterminedCoverage].slice(0, 10)) {
       console.log(
