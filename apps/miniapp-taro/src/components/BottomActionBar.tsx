@@ -147,8 +147,8 @@ export interface BottomActionBarProps {
   onShowModelList?: () => void
   /** 「我的创作」入口回调;RN 端同名 */
   onShowMyCreation?: () => void
-  /** 来源处理回调(辅助按钮行 📎);RN 端同名 */
-  onSourceHandle?: () => void
+  // 2026-11-04 审计返工:onSourceHandle 小程序端无来源面板实现(仅声明无渲染=空 prop),删声明;
+  // RN 侧该能力真实存在,登记为平台档(功能缺口待接,审计值 implement/功能待办)
   /** 长按开始(语音按钮 onLongPress);RN 端同名 */
   onStartLongPress?: () => void
   // 2026-11-04 审计返工:onStartVoiceAnimation / onStopVoiceAnimation / onTextareaHeightChange 两端 0 调用方,删声明
@@ -160,10 +160,7 @@ export interface BottomActionBarProps {
   recording?: boolean
   /** 录音时长(秒);RN 端同名 */
   recordingDuration?: number
-  /** 显示开关芯片行;RN 端同名 */
-  showToggleChips?: boolean
-  /** 超级智能体开关态;RN 端同名 */
-  superAgentEnabled?: boolean
+  // 2026-11-04 审计返工:showToggleChips / superAgentEnabled 两端 0 调用方,删声明
   /** 语音输入能力开关态;RN 端同名(注意与小程序既有 isVoiceInput 模式标志区分) */
   voiceInputEnabled?: boolean
 }
@@ -482,7 +479,9 @@ export default function BottomActionBar(props: BottomActionBarProps) {
           boxPx={BOTTOM_ACTION_BAR_CONTROL_BOX_PX}
           glyphPx={BOTTOM_ACTION_BAR_SEND_GLYPH_PX}
           glyph="arrow-up"
-          glyphColor={value && !isLoading ? 'var(--color-cta-foreground)' : 'var(--color-muted-foreground)'}
+          glyphColor={
+            value && !isLoading ? 'var(--color-cta-foreground)' : 'var(--color-muted-foreground)'
+          }
           className={cn(
             'flex items-center justify-center ml-2 rounded-sm',
             value && !isLoading ? 'bg-cta text-cta-foreground' : 'bg-muted',

@@ -228,9 +228,10 @@ async function main() {
     try {
       // 2026-10-26 G-54:git 派生收口到 face-reader(绝对路径二进制 + safe.directory + stdio/windowsHide 统一)。
       staged = gitRaw(['diff', '--cached', '--name-only'], ROOT)
-    } catch {
-      // 非 git 环境或无暂存文件,跳过
-      return process.exit(0)
+    } catch (e) {
+      // 取不到 staged 面 ≠ 没有暂存改动;折成 0 会让门空转绿灯(2026-11-04 假绿专项)。
+      console.error(`[check:dedupe] ❌ staged 面取不到(git diff --cached 失败):${e?.message ?? e} ⇒ 未判定(exit 2)`)
+      return process.exit(2)
     }
     if (!staged.split('\n').some((f) => f.trim() === 'pnpm-lock.yaml')) {
       console.log('[check:dedupe] pnpm-lock.yaml 未变更,跳过碎片化检查。')
@@ -239,8 +240,9 @@ async function main() {
   }
 
   if (!existsSync(LOCKFILE)) {
-    console.log('[check:dedupe] 未找到 pnpm-lock.yaml,跳过检查。')
-    return process.exit(0)
+    // pnpm 工作区里锁文件缺席 = 判定面缺失,不是"合法不适用";不得折成绿灯。
+    console.error(`[check:dedupe] ❌ pnpm-lock.yaml 不存在或读不到(判定面缺失):${LOCKFILE} ⇒ 未判定(exit 2)`)
+    return process.exit(2)
   }
 
   let entries = []

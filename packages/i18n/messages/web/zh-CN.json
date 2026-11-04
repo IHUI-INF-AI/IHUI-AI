@@ -23346,6 +23346,8 @@
     "accountDeletionResend": "{seconds}s 后重新发送",
     "accountDeletionSendCode": "发送验证码",
     "accountDeletionSubmit": "确认注销",
+    "accountDeletionConfirmLabel": "确认注销",
+    "accountDeletionConfirmTitle": "确认注销",
     "accountDeletionSuccess": "账号已注销，正在跳转登录页",
     "accountDeletionTitle": "账号注销",
     "accountDeletionWarning": "此操作不可逆，所有数据将永久丢失。",
