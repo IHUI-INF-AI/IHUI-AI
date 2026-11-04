@@ -8,8 +8,8 @@
 
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/miniapp-taro/scripts/generate-ui-routes.mjs
-// sourceCommit: b39a8f5b5965e8c508e1623d84b80e5b9d47b060
-// inputsSha256: cbb1a73a1a38fd6f0728bb1a327c682b96264cd9e3f8c873cea7bed60b885d2e
+// sourceCommit: 659b4c9f3c75150cad4a61a6b6a95a5598f8d3f1
+// inputsSha256: eccf7045779bc1f30b1aa8f011dcb1cb02d3e95f66130a489ebe1964f65fa27c
 // input: apps/miniapp-taro/src/api/index.ts f696d56cd9512738a17342dfdae726623c3b9c501724941bfbe66e74c10164b7
 // input: apps/miniapp-taro/src/api/social.ts fd88850ce0063cb633cf6aec38b9b982a1f11406481a5032a36227a3ea87dec4
 // input: apps/miniapp-taro/src/app.config.ts 6f6d4de4d24a7055c04079ac1a999cf19666ed414bd22a471cac31770b0a47f1
@@ -606,7 +606,7 @@
 // input: apps/miniapp-taro/src/pkg-user/edu-mgmt-attendance/stats.ts 855075afde1ee43bf2ac572a3c9279ac93d6c6dce16a50596a46cbaa13bc3b61
 // input: apps/miniapp-taro/src/pkg-user/edu-mgmt-finance/index.tsx da71fae05b635dea4267674307659c37469b4ffc6a41461c9781ac73b4f4ab68
 // input: apps/miniapp-taro/src/pkg-user/edu-mgmt-grades/index.tsx 9dd6a7f3c5428b0724c732699f39f1cbc4f0ba9852b339acc0e8d35569c79677
-// input: apps/miniapp-taro/src/pkg-user/edu-my-attendance/index.tsx 2ff3cb6e9a169de0af87a889f5e211154716d2e9042b8b5f925808c580db2e70
+// input: apps/miniapp-taro/src/pkg-user/edu-my-attendance/index.tsx aff2e0890b99ea9e39b7a05d086c752238f6463d2e74c120a4b1830dcd1837d0
 // input: apps/miniapp-taro/src/pkg-user/edu-parent/index.tsx 2032c219bcac1ae4db40203713e9b2d090f9b9b02535f7aed22f7668ee1e26fc
 // input: apps/miniapp-taro/src/pkg-user/edu-teacher-study-plan/index.tsx 3a289cb7468fa811f2fde76e20907d548e7a33aabf7f73364050d985a20d6173
 // input: apps/miniapp-taro/src/pkg-user/fans/index.config.ts 7311b4e06c791b6d7f638bef538c6af67dbc89f22b967ebc96f5ce5e5ab75eaf
@@ -737,7 +737,7 @@
 // input: apps/miniapp-taro/src/utils/wechat-login.ts 08992a45fbbfb70b37f5a3518c5a82d2c55b9337f6ece0e0192b3c8d9c29470e
 // scanned: 601 source files(navigateTo url 参数探测,requiresParams 的依据)
 // skipped: pagesWithoutOwnConfig=206(标题回落 app window / tabBar 文案)
-// generatedAt: 2026-11-04T15:49:33.434Z
+// generatedAt: 2026-11-04T16:27:14.667Z
 // IHUI-GEN-PIN-END
 
 /** AI 可导航页面条目:path 为 Taro 导航全路径(含前导斜杠,分包已拼 root) */
