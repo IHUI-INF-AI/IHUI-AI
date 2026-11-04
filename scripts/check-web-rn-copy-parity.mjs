@@ -524,6 +524,7 @@ export function touchedFiles() {
       encoding: 'utf8',
       maxBuffer: 1 << 26,
       stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
     })
     return new Set(out.split('\n').map((s) => s.trim()).filter(Boolean).map((s) => s.replace(/\\/g, '/')))
   } catch {
