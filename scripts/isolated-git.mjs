@@ -666,7 +666,7 @@ function runRestoreIndex(gitCwd, args) {
     return 1
   }
   if (result.extras.length) {
-    stderrLine('❌ 私有索引内容护栏:钩子在声明集(含派生申报集)之外塞入了索引条目,拒绝提交:')
+    stderrLine('❌ 私有索引内容护栏:钩子在声明集之外塞入了索引条目,拒绝提交:')
     for (const p of result.extras) stderrLine(`  ${p}`)
     return 1
   }
