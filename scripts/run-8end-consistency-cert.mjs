@@ -47,7 +47,15 @@ const ENDS = ['web', 'api', 'ai-service', 'desktop', 'extension', 'mobile-rn', '
  */
 const DIMENSIONS = [
   { id: 'i18n-parity-web', script: 'check-i18n-keys.mjs', ends: ['web'], warnOnly: false },
-  { id: 'i18n-parity-mobile-rn', script: 'check-i18n-parity.mjs', ends: ['mobile-rn'], warnOnly: false },
+  // 本维度点名 mobile-rn,必须显式传 --target:此前裸调用而脚本又不解析 --target,
+  // 认证报告里的 PASS 实际来自"恒 exit 0";修好后裸调用会全量跑 7 端,与本维度标签不符(§0.4)。
+  {
+    id: 'i18n-parity-mobile-rn',
+    script: 'check-i18n-parity.mjs',
+    args: ['--target=mobile-rn'],
+    ends: ['mobile-rn'],
+    warnOnly: false,
+  },
   { id: 'i18n-parity-cli', script: 'check-cli-i18n-parity.mjs', ends: ['cli'], warnOnly: false },
   { id: 'i18n-broken-en', script: 'check-i18n-broken-en.mjs', ends: ['*'], warnOnly: false },
   { id: 'i18n-duplicate-ns', script: 'check-i18n-duplicate-namespaces.mjs', ends: ['*'], warnOnly: false },
