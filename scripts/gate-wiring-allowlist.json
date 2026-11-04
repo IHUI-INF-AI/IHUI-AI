@@ -234,7 +234,7 @@
       {
         "path": "scripts/check-agent-failure-vocabulary-parity.mjs",
         "state": "should-wire",
-        "reason": "头注 L48 写「注册为 blocking, stagedTriggers 收六枚被审文件」,但五处零命中 —— 设计目标已写明、装车未发生",
+        "reason": "头注 L48 写「注册为 blocking, stagedTriggers 收六枚被审文件」,但五处零命中 —— 设计目标已写明、装车未发生;2026-11-04 复验发现其 FILES 声明的 display/badge 两件在库内不存在而 web 腿按 note 跳过,接前须先修真值,暂不接线",
         "wireTo": "scripts/guardian-runner.mjs",
         "reviewBy": "2026-12-31"
       },
@@ -269,7 +269,7 @@
       {
         "path": "scripts/check-db-row-narrow-cas.mjs",
         "state": "should-wire",
-        "reason": "头注 L5「未装车;装车由主会话统一做」—— 设计目标就是装车",
+        "reason": "头注 L5「未装车;装车由主会话统一做」—— 设计目标就是装车;2026-11-04 实测全量 HEAD 面 exit 1(存量缺项未清),接线前先清存量或核对基线,不得靠改基线消红",
         "wireTo": "scripts/guardian-runner.mjs",
         "reviewBy": "2026-12-31"
       },
@@ -277,13 +277,6 @@
         "path": "scripts/check-duplicate-policy-literals.mjs",
         "state": "should-wire",
         "reason": "头注 L35「尚未接线……接线与定级由主会话单写者裁」",
-        "wireTo": "scripts/guardian-runner.mjs",
-        "reviewBy": "2026-12-31"
-      },
-      {
-        "path": "scripts/check-hairline-separator.mjs",
-        "state": "should-wire",
-        "reason": "用法 L89 标注 --staged 为「pre-commit(新增超基线则 exit 1)」,但未注册",
         "wireTo": "scripts/guardian-runner.mjs",
         "reviewBy": "2026-12-31"
       },
@@ -323,20 +316,6 @@
         "reviewBy": "2026-12-31"
       },
       {
-        "path": "scripts/check-panel-metric-exists.mjs",
-        "state": "should-wire",
-        "reason": "头注 L14 明写「本门把这一维补进提交链」,现读零命中",
-        "wireTo": "scripts/guardian-runner.mjs",
-        "reviewBy": "2026-12-31"
-      },
-      {
-        "path": "scripts/check-permission-lease-bounded.mjs",
-        "state": "should-wire",
-        "reason": "头注 L20「尚未进 guardian-runner 注册表」,当前仅手动/CI 面",
-        "wireTo": "scripts/guardian-runner.mjs",
-        "reviewBy": "2026-12-31"
-      },
-      {
         "path": "scripts/check-plan-claims-vs-head.mjs",
         "state": "should-wire",
         "reason": "头注 L53「尚未接线……不在提交链上」,前置=基线随建门枚落地",
@@ -344,23 +323,9 @@
         "reviewBy": "2026-12-31"
       },
       {
-        "path": "scripts/check-plan-row-length.mjs",
-        "state": "should-wire",
-        "reason": "头注 L6 以 runner 注册为门号来源、L29 标注「装车门」,但五处零命中",
-        "wireTo": "scripts/guardian-runner.mjs",
-        "reviewBy": "2026-12-31"
-      },
-      {
         "path": "scripts/check-redline-path-naming.mjs",
         "state": "should-wire",
         "reason": "头注 L66「不接提交链」只因 runner 当刻被冻结,注册归解冻后主会话",
-        "wireTo": "scripts/guardian-runner.mjs",
-        "reviewBy": "2026-12-31"
-      },
-      {
-        "path": "scripts/check-retry-aliases.mjs",
-        "state": "should-wire",
-        "reason": "用法 L25 提供 --gate/--staged 提交档,静态仓内输入,应接线",
         "wireTo": "scripts/guardian-runner.mjs",
         "reviewBy": "2026-12-31"
       },

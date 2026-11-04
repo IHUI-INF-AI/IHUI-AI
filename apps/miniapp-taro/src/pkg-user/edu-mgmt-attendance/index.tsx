@@ -23,9 +23,12 @@ import {
   buildBatchPayload,
   buildCheckInPayload,
   buildCheckOutPayload,
+  statusLabelOf,
   statusTally,
   statusToneOf,
 } from './contract'
+import StatsPanel from './stats-panel'
+import { attendanceStatsUrl, firstClassIdOf, type AttendanceStatsPayload } from './stats'
 
 interface Row {
   id: string
@@ -88,11 +91,48 @@ export default function Page() {
   /** 换日 = 换 token ⇒ 壳重取数;动作成功只进 tick 段 */
   const reloadToken = `${date}#${tick}`
 
-  const st = (s: string) => {
-    const k = `eduAttendance.status.${s}`
-    const v = t(k)
-    return v === k ? s : v
-  }
+  /**
+   * 统计区 + 趋势区的那一次 stats 取数(端点/参数见 ./stats.ts)。
+   * 刻意挂在壳的 load 回调里而不是独立 effect:壳在 useDidShow 与 reloadToken 变化两处重取,
+   * 同批触发才能保证「列表是新的、统计也是新的」—— 两处各自取数必然出现两个不同时刻的分母。
+   */
+  const statsSeq = useRef(0)
+  const [stats, setStats] = useState<AttendanceStatsPayload | null>(null)
+  const [statsLoading, setStatsLoading] = useState(false)
+  const [statsError, setStatsError] = useState('')
+
+  /** seq 吃掉换日竞态:回来的不是当前业务日 ⇒ 整批丢弃,不把旧日读数挂到新日页面上。 */
+  const loadStats = useCallback(
+    async (list: Row[]): Promise<void> => {
+      const day = dateRef.current
+      const seq = ++statsSeq.current
+      const settle = (next: AttendanceStatsPayload | null, err: string): void => {
+        if (statsSeq.current !== seq) return
+        setStats(next)
+        setStatsError(err)
+        setStatsLoading(false)
+      }
+      setStatsLoading(true)
+      setStatsError('')
+      // 窗口起点算不出来(日键形状不合契约)⇒ 连请求都不发,只落一条常驻回显
+      const url = attendanceStatsUrl({ date: day, classId: firstClassIdOf(list) })
+      if (!url) {
+        settle(null, t('common.loadFailed'))
+        return
+      }
+      try {
+        const res = await get<AttendanceStatsPayload>(url)
+        settle(res ?? null, '')
+      } catch (e) {
+        // 传输层已 toast 过一次;这里只落常驻回显,不拦列表渲染
+        settle(null, (e as Error)?.message || t('common.loadFailed'))
+      }
+    },
+    [t],
+  )
+
+  /** 状态取词单源 contract.statusLabelOf(与统计面板同一把尺;词表外的码原样回显) */
+  const st = (s: string) => statusLabelOf(s, t)
 
   /** 时刻按上海墙钟渲染(此前 slice(11,16) 取的是 ISO 里的 UTC 时段,早八点后一律少 8 小时) */
   const clock = (v: string | null) => (v ? formatDate(v, 'HH:mm') || '—' : '—')
@@ -237,6 +277,9 @@ export default function Page() {
         </View>
       ) : null}
       {notice ? <Text className="w-full text-xs text-foreground">{notice}</Text> : null}
+      {/* 统计区 + 趋势区:整块 w-full 换到标题行之下,与上面的当日 tally 同一档挂载形态。
+          口径不同不互相替代 —— tally 是「本页当前清单」的当日计数,面板是 stats 端点的窗口读数。 */}
+      <StatsPanel payload={stats} loading={statsLoading} error={statsError} />
     </>
   )
 
@@ -261,6 +304,9 @@ export default function Page() {
           )
           const list = (res as { list?: Row[] } | null)?.list ?? []
           setMeta(Object.fromEntries(list.map((r) => [r.id, r])))
+          // 统计/趋势与列表同批触发,但**不 await**:列表先上屏,stats 到货再补两个卡片。
+          // 串行只会让首屏多等一个往返;失败也只由面板自己常驻回显,不把整页拖成 loadFailed。
+          void loadStats(list)
           return list.map((r) => ({
             id: r.id,
             cells: {
