@@ -457,7 +457,7 @@ function createQrStyles(tk: ReturnType<typeof getTokens>) {
       marginRight: rnSpacing.sm,
       backgroundColor: tk.surface.card,
     },
-    classChipOn: { backgroundColor: tk.brand.cta, borderColor: tk.brand.cta },
+    classChipOn: { backgroundColor: tk.brand.cta, borderColor: tk.brandAccent.deep },
     classChipText: { color: tk.text.primary, fontSize: rnType.caption.size, maxWidth: 180 },
     classChipTextOn: { color: tk.brand.ctaForeground, fontWeight: '600' },
     qrArea: {
