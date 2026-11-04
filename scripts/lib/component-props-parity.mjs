@@ -4,7 +4,7 @@
 
  
 /**
- * component-props-parity.mjs —— 「两端同名组件 props/行为一致」判据单源(守门 285 的引擎)。
+ * component-props-parity.mjs —— 「两端同名组件 props/行为一致」判据单源(守门 288 的引擎)。
  *
  * 立因(2026-11-03 现读):跨端对账族里,观感维有门 128(几何/圆角/SL/IC/RS + web 两腿),
  * 契约接线有门 259(spec↔小程序集合相等),屏级必填有 lib/cross-end-screen-props;而
@@ -63,7 +63,7 @@ const programCache = new Map()
  * 工作区包 → 源码路径覆盖(2026-11-04 立,同面双读数实测):
  * `packages/types/package.json` 的 `types` 指 `./dist/index.d.ts`,本机没构建 dist 时,
  * `interface X extends 基类型` 里的基类型**静默解析不出** —— TS 不报 program 级错,只是
- * 把继承来的键丢掉:实测 UserInfoCard 一面读 12 键、一面读 18 键,门 285 于是同一枚内容
+ * 把继承来的键丢掉:实测 UserInfoCard 一面读 12 键、一面读 18 键,门 288 于是同一枚内容
  * 一面 rc=0(存差 266 键)、一面 rc=1(两条新增退化)。判据读数不得取决于"本机刚没刚构建过",
  * 凡 types 落点在 dist 的 @ihui/* 工作区包,一律把该包映到它自己的 src(源码是唯一真相面)。
  */

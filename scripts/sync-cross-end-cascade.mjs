@@ -283,7 +283,7 @@ const STAGES = [
   {
     name: 'verify-props-parity',
     kind: 'verify',
-    desc: '校验:两端同名组件 props 对账(门 285 同源器物)',
+    desc: '校验:两端同名组件 props 对账(门 288 同源器物)',
     script: 'check-cross-end-component-props-parity.mjs',
     base: ['--json'],
     redOnFail: true,
@@ -493,7 +493,7 @@ function clip(s) {
 
 /**
  * 判红理由的可读性(2026-11-04 立,实测型):
- * 有器物把结论写 **stderr**、stdout 留空(门 285 现读即此型)。旧式 `summarize(out) || errText`
+ * 有器物把结论写 **stderr**、stdout 留空(门 288 现读即此型)。旧式 `summarize(out) || errText`
  * 里 summarize 对空串返回的是字面量「无输出」——非空字符串,`||` 因此**永远短路**,
  * 真实红因被"无输出"顶掉。这不是措辞问题:级联的全部价值就是让人一眼看见哪一维真分叉,
  * 显示"无输出"等于把"没判"与"判红"折成同一行(§0.3 禁止的形态)。
@@ -593,7 +593,7 @@ async function selfTestRun() {
     }
   })
   await test('S10 判红理由:stdout 空时必须落到 stderr,"无输出"不得盖掉真红因', () => {
-    // 门 285 现读就是这型:结论打 stderr、stdout 空。旧式 `summarize(out) || errText` 恒短路。
+    // 门 288 现读就是这型:结论打 stderr、stdout 空。旧式 `summarize(out) || errText` 恒短路。
     assert.match(redReason('', '❌ 映射表体检失败 3 处:证据行漂移'), /映射表体检失败 3 处/)
     assert.match(redReason('   \n ', '❌ 真的红因'), /真的红因/)
     // stdout 有读数时仍优先读数,不被 stderr 噪声抢走
