@@ -197,6 +197,16 @@ const STAGES = [
     timeoutMs: 20 * 60 * 1000,
   },
   {
+    name: 'message-pack',
+    kind: 'pack',
+    desc: '小程序词包整块缺口:基准侧已有译文 ⇒ 逐字搬(不代拟)',
+    script: 'sync-miniapp-message-keys.mjs',
+    base: ['--json'],
+    apply: ['--apply'],
+    write: true,
+    timeoutMs: 10 * 60 * 1000,
+  },
+  {
     name: 'rebuild-dist',
     kind: 'rebuild',
     desc: 'workspace dist 落后重建(消费方读 dist 不读 src)',

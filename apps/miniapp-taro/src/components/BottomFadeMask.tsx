@@ -13,7 +13,7 @@ import { COLORS } from '@/constants/style'
  * 底部胶囊前平滑「溶解」,任何位置都不出现硬边。
  *
  * 层级:在内容之上、胶囊之下(`pointerEvents: 'none'`,不挡滚动与点击);
- * `zIndex: 40` < 胶囊 `50`,且遮罩底边 = 胶囊顶沿(`bottomOffsetCss`),故不覆盖胶囊。
+ * `zIndex: 40` < 胶囊 `50`,故本体虽自渐变段顶一路铺到屏幕底,仍不覆盖胶囊。
  *
  * 真实模糊由胶囊玻璃承接(内容滚到胶囊底下被真实模糊);本层只负责「无硬边过渡」。
  *
@@ -22,7 +22,7 @@ import { COLORS } from '@/constants/style'
  * tokens.css 的 surface.bg)经 hsl→rgba 手转,做带透明度的渐变停点,避免 `transparent`
  * 关键字在渐变里产生「透明黑」插值灰带(硬边同源病)。
  */
-const BOTTOM_FADE_HEIGHT_PX = 160
+const BOTTOM_FADE_HEIGHT_PX = 90
 
 /** `hsl(H S% L%)` → `rgba(r,g,b,a)`。微信内联 style 不解析 var(--color-*) 与斜杠 alpha,
  *  这里把 tokens 的 hsl 值手动转 rgba,以便渐变停点带正确透明度(同 hue/sat/light 保证无灰带)。 */
@@ -70,9 +70,9 @@ function hslToRgba(hsl: string, alpha: number): string {
 }
 
 export interface BottomFadeMaskProps {
-  /** 遮罩底边距屏幕底的距离(CSS 值):一般 = 胶囊顶沿(与 RN 的 capsuleTopOffset 等价) */
+  /** 渐变段底边距屏幕底的距离(CSS 值):一般 = 胶囊顶沿(与 RN 的 capsuleTopOffset 等价) */
   bottomOffsetCss: string
-  /** 遮罩高度(px),默认 120 */
+  /** 渐变段高度(px),默认 90 */
   height?: number
 }
 
@@ -85,17 +85,19 @@ export default function BottomFadeMask({
   const c0 = hslToRgba(bg, 0)
   const c70 = hslToRgba(bg, 0.7)
   const c100 = hslToRgba(bg, 1)
+  // 渐变段仍只占 `height`(停点用绝对 px,形态与延伸前逐字一致),但本体铺到屏幕底:
+  // 胶囊下方的悬浮间距此前没有任何覆盖层,滚动内容经过时会在胶囊底边形成硬切。
   return (
     <View
       style={{
         position: 'fixed',
         left: 0,
         right: 0,
-        bottom: bottomOffsetCss,
-        height: `${height}px`,
+        bottom: 0,
+        height: `calc(${bottomOffsetCss} + ${height}px)`,
         pointerEvents: 'none',
         zIndex: 40,
-        backgroundImage: `linear-gradient(to bottom, ${c0} 0%, ${c0} 22%, ${c70} 55%, ${c100} 100%)`,
+        backgroundImage: `linear-gradient(to bottom, ${c0} 0px, ${c0} ${height * 0.22}px, ${c70} ${height * 0.55}px, ${c100} ${height}px, ${c100} 100%)`,
       }}
     />
   )
