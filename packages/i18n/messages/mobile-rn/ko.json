@@ -384,7 +384,8 @@
     "empty": "라이브가 없습니다",
     "lecturer": "강사",
     "startAt": "시작 시간",
-    "loadFailed": "라이브 불러오기 실패"
+    "loadFailed": "라이브 불러오기 실패",
+    "startTime": "시작시간"
   },
   "liveDetail": {
     "title": "라이브 상세",
@@ -633,7 +634,11 @@
     "runtimeEmpty": "실행 기록이 없습니다",
     "runtimeInputPlaceholder": "에이전트에 보낼 메시지를 입력하세요",
     "runtimeStop": "중지",
-    "runtimeSend": "전송"
+    "runtimeSend": "전송",
+    "fieldName": "이름",
+    "fieldCategory": "카테고리",
+    "fieldDescription": "설명",
+    "fieldPrice": "가격"
   },
   "chat": {
     "assetCatText": "텍스트",
@@ -1609,11 +1614,8 @@
   },
   "agentCreate": {
     "title": "에이전트 생성",
-    "name": "이름",
     "namePlaceholder": "에이전트 이름을 지어주세요",
-    "category": "카테고리",
     "categoryPlaceholder": "예: 업무 어시스턴트",
-    "description": "설명",
     "descPlaceholder": "에이전트를 소개해 주세요",
     "systemPrompt": "시스템 프롬프트",
     "promptPlaceholder": "에이전트의 역할과 동작을 정의하세요",
@@ -1766,7 +1768,6 @@
     "instructor": "강사",
     "rating": "평점",
     "free": "무료",
-    "enrolled": "신청 완료",
     "enroll": "지금 신청",
     "pay": "¥{amount} 결제",
     "lessons": "강좌 목차",
@@ -1892,7 +1893,8 @@
     "treeLoadFailed": "트리를 불러오지 못했습니다",
     "treeRetry": "다시 시도",
     "treeLevelLabel": "{level} 단계",
-    "treeCollapseHint": "노드를 눌러 상세 보기"
+    "treeCollapseHint": "노드를 눌러 상세 보기",
+    "teamTitle": "내 팀"
   },
   "earnCommission": {
     "title": "커미션 플랜",
@@ -1907,9 +1909,7 @@
   "exam": {
     "subtitle": "시험을 통해 학습 성과를 확인하세요",
     "retry": "재시도",
-    "questions": "문제 수",
     "end": "종료 시간",
-    "startExam": "시험 시작",
     "attempts": "응시 횟수",
     "duration": "시험 시간",
     "empty": "시험이 없습니다",
@@ -1920,14 +1920,13 @@
     "passScore": "합격 점수",
     "start": "시험 시작",
     "title": "시험",
-    "totalScore": "총점"
+    "totalScore": "총점",
+    "questionCountLabel": "문제 수"
   },
   "examQuestion": {
     "loadFailed": "시험지 로드 실패",
     "single": "객관식",
     "multi": "복수 선택",
-    "prev": "이전 문제",
-    "next": "다음 문제",
     "submit": "제출",
     "submitFailed": "제출 실패"
   },
@@ -2087,7 +2086,6 @@
     "saveFailed": "저장 실패"
   },
   "notificationSettings": {
-    "title": "알림 설정",
     "push": "푸시 알림",
     "message": "사이트 메시지",
     "email": "이메일 알림",
@@ -2238,8 +2236,6 @@
     "unverifiedDesc": "실명 인증을 완료해 더 많은 서비스를 이용하세요",
     "name": "실명",
     "namePlaceholder": "실명을 입력하세요",
-    "idNumber": "주민등록번호",
-    "idNumberPlaceholder": "주민등록번호를 입력하세요",
     "submit": "인증 제출",
     "submitting": "제출 중...",
     "failed": "인증 실패",
@@ -2285,10 +2281,8 @@
   },
   "withdraw": {
     "availableBalance": "출금 가능 금액(원)",
-    "amount": "출금 금액",
     "amountInvalid": "잘못된 금액",
     "amountPlaceholder": "출금 금액 입력",
-    "bankCard": "은행 계좌",
     "bankCardPlaceholder": "은행 계좌 선택",
     "confirmMessage": "{amount}위안 출금하시겠습니까?",
     "confirmTitle": "확인",
@@ -2639,7 +2633,6 @@
     "current": "현재 포인트",
     "totalEarned": "누적 획득",
     "totalSpent": "누적 사용",
-    "level": "레벨",
     "nextLevel": "{name}까지 {points} 포인트 남음",
     "maxLevel": "최고 레벨에 도달했습니다",
     "experience": "경험치",
@@ -2659,14 +2652,17 @@
       "historyLoadFailed": "출석 내역을 불러오지 못했습니다",
       "historyConsecutive": "{days}일 연속"
     },
-    "mallLink": "포인트 몰",
-    "taskCenterLink": "작업 센터",
     "ruleLink": "포인트 규칙",
     "txTitle": "포인트 내역",
     "empty": "포인트 기록이 없습니다",
     "loadFailed": "포인트를 불러오지 못했습니다",
     "balance": "잔액",
-    "loadMore": "더 불러오기"
+    "loadMore": "더 불러오기",
+    "levelLabel": "레벨",
+    "mallTitle": "포인트 몰",
+    "tasks": {
+      "title": "작업 센터"
+    }
   },
   "groups": {
     "title": "내 그룹",
@@ -2770,7 +2766,6 @@
     "submitFailed": "제출에 실패했습니다. 잠시 후 다시 시도해 주세요",
     "amountLabel": "충전 금액(위안)",
     "amountRange": "충전 금액은 {min}~{max}위안이어야 합니다",
-    "payMethod": "결제 수단",
     "wechat": "위챗페이",
     "alipay": "알리페이",
     "payNow": "결제하기",
@@ -3375,7 +3370,6 @@
     "loadFailed": "학습 진도 로드 실패",
     "courses": "강좌(완료/전체)",
     "totalMinutes": "누적 학습(분)",
-    "weekMinutes": "이번 주 학습(분)",
     "streak": "연속 출석(일)",
     "courseProgress": "강좌 진도"
   },
@@ -3418,7 +3412,6 @@
     "tab_newbie": "신규"
   },
   "team": {
-    "title": "내 팀",
     "subtitle": "팀 인원과 실적 한눈에 보기",
     "retry": "재시도",
     "totalMembers": "팀 전체 인원",
@@ -3543,12 +3536,14 @@
     "rechargeFail": "충전실패",
     "rechargeSuccess": "충전성공",
     "contactSupport": "고객 지원",
-    "retryRecharge": "다시 충전"
+    "retryRecharge": "다시 충전",
+    "withdrawAmount": "금액",
+    "methodBank": "은행 카드",
+    "rechargeMethod": "결제 수단"
   },
   "activity": {
     "empty": "활동이 없습니다",
     "endTime": "종료 시간",
-    "joinNow": "지금 참여",
     "loadFailed": "불러오기 실패",
     "participants": "참여 인원",
     "startTime": "시작 시간",
@@ -3559,7 +3554,6 @@
     "description": "소개",
     "free": "무료",
     "loadFailed": "에이전트 상세 불러오기 실패",
-    "price": "가격",
     "rating": "평점",
     "startChat": "대화 시작",
     "uses": "사용 횟수"
@@ -3715,7 +3709,13 @@
       "issued": "유효",
       "revoked": "취소됨"
     },
-    "title": "내 자격증"
+    "title": "내 자격증",
+    "download": {
+      "noCertificates": "증명서 없음"
+    },
+    "detail": {
+      "issueDate": "발급일"
+    }
   },
   "certDetail": {
     "certNo": "자격증 번호",
@@ -3732,8 +3732,7 @@
     "empty": "자격증이 없습니다",
     "issuedAt": "발급일",
     "issuer": "발급 기관",
-    "loadFailed": "불러오기 실패",
-    "title": "자격증 목록"
+    "loadFailed": "불러오기 실패"
   },
   "certVerify": {
     "certNo": "자격증 번호",
@@ -3804,7 +3803,6 @@
   },
   "courseQAList": {
     "answers": "답변",
-    "ask": "질문",
     "asker": "질문자",
     "empty": "Q&A가 없습니다",
     "loadFailed": "불러오기 실패",
@@ -3845,7 +3843,8 @@
     "type": "유형",
     "imagesLabel": "문제 스크린샷 업로드(최대 9장)",
     "imagePickFailed": "이미지 선택 실패, 다시 시도해주세요",
-    "pickImages": "이미지 선택"
+    "pickImages": "이미지 선택",
+    "field_contact": "연락처"
   },
   "feedbackDetail": {
     "content": "내용",
@@ -7232,6 +7231,47 @@
   "user": {
     "security": {
       "sendCode": "전송인증 코드"
+    },
+    "realname": {
+      "form": {
+        "idCard": "신분증 번호",
+        "idCardPlaceholder": "신분증 번호 입력"
+      }
     }
+  },
+  "chatSettingsPage": {
+    "model": "모델"
+  },
+  "eduExamListPage": {
+    "start": "시험 시작"
+  },
+  "eduExamPage": {
+    "prevQuestion": "이전 문제",
+    "nextQuestion": "다음 문제"
+  },
+  "edu": {
+    "qa": {
+      "askBtn": "질문"
+    }
+  },
+  "eduProgressPage": {
+    "weeklyHours": "이번 주 학습 시간"
+  },
+  "learn": {
+    "signedUp": "신청 완료"
+  },
+  "learnPaymentConfirmPage": {
+    "fields": {
+      "payMethod": "결제 수단"
+    }
+  },
+  "memberSubscriptionPage": {
+    "cancelSubscription": "구독 취소"
+  },
+  "student": {
+    "myCertsTitle": "자격증 목록"
+  },
+  "activities": {
+    "join": "지금 참여"
   }
 }

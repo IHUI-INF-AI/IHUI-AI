@@ -5,11 +5,20 @@
     {
       "group": "E",
       "rule": "role-mismatch",
-      "count": 6,
+      "count": 8,
       "owner": "web-rn-copy",
       "expires": "2027-06-30",
-      "reason": "同字不同义:两端 UI 角色不同(弹窗标题/列头/字段标签/不同动作),按语义裁决豁免,已拆独立键或保留",
-      "evidence": "代表键: settings.accountDeletionConfirmLabel / settings.accountDeletionConfirmTitle / exam.retry / activityDetail.title / common.retry / common.error"
+      "reason": "同字不同义/同键不同形态:两端 UI 角色不同(弹窗标题/列头/字段标签/自由文本 vs Select/插值数值 vs 无插值标签),按语义裁决豁免,已拆独立键或保留",
+      "evidence": "代表键: settings.accountDeletionConfirmLabel / settings.accountDeletionConfirmTitle / exam.retry / activityDetail.title / common.retry / common.error / vip.duration / agentCreate.categoryPlaceholder"
+    },
+    {
+      "group": "E",
+      "rule": "web-route-dual-key",
+      "count": 8,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "reason": "结构性同名双键:同一 RN 文件被两条 web 路由映射(或 web 同屏并存两个同值键),web 两页各用一个同值键,RN 改用主键后另一键仍同值命中,无单键可同时满足两侧;非 RN 文案漂移,按 E 组裁决豁免",
+      "evidence": "代表键: exam.startExam↔eduExamListPage.start / payment.checkout.paymentMethod↔learnPaymentConfirmPage.fields.payMethod / subscriptions.cancel↔memberSubscriptionPage.cancelSubscription / purchase.payMethod↔wallet.rechargeMethod / points.level↔points.levelLabel / points.mallLink↔points.mallTitle / points.taskCenterLink↔points.tasks.title / learn.signUp↔learn.signedUp"
     },
     {
       "group": "A",
@@ -23,198 +32,14 @@
     {
       "group": "B",
       "rule": "prefix-convention",
-      "count": 33,
+      "count": 34,
       "owner": "web-rn-copy",
       "expires": "2027-06-30",
       "reason": "同尾段命名约定差:命名空间前缀不同、尾段同名(如 x.list ↔ y.list),属可接受约定,不算漂移",
-      "evidence": "代表键: coupon.title / coupon.empty / coupon.minSpend / follow.unfollow / exam.title / examResult.failed / courseQAList.empty / noteList.empty …等 33 键"
+      "evidence": "代表键: coupon.title / coupon.empty / coupon.minSpend / follow.unfollow / exam.title / examResult.failed / courseQAList.empty / noteList.empty …等 34 键"
     }
   ],
   "entries": [
-    {
-      "file": "activities",
-      "rule": "B2-key-diff",
-      "count": 1,
-      "owner": "web-rn-copy",
-      "expires": "2027-06-30",
-      "evidence": "packages/app/src/features/activity/ActivityScreen.tsx:110 t('activity.joinNow') ↔ web activities.join(「立即参与」) ; 族因:web 同名键未进入 RN 词包(shared/mobile-rn 均无),直接改调用点会渲染裸键;统一需跨端迁移键空间(会波及 shared 与 miniapp 生成物),故挂账而非本批改键"
-    },
-    {
-      "file": "agents/[id]",
-      "rule": "B2-key-diff",
-      "count": 1,
-      "owner": "web-rn-copy",
-      "expires": "2027-06-30",
-      "evidence": "packages/app/src/features/agent-detail/AgentDetailScreen.tsx:79 t('agentDetail.price') ↔ web agent.fieldPrice(「价格」) ; 族因:web 同名键未进入 RN 词包(shared/mobile-rn 均无),直接改调用点会渲染裸键;统一需跨端迁移键空间(会波及 shared 与 miniapp 生成物),故挂账而非本批改键"
-    },
-    {
-      "file": "agents/create",
-      "rule": "B2-key-diff",
-      "count": 4,
-      "owner": "web-rn-copy",
-      "expires": "2027-06-30",
-      "evidence": "packages/app/src/features/agent-create/AgentCreateScreen.tsx:59 t('agentCreate.name') ↔ web agent.fieldName(「名称」) ; packages/app/src/features/agent-create/AgentCreateScreen.tsx:68 t('agentCreate.category') ↔ web agent.fieldCategory(「分类」) ; packages/app/src/features/agent-create/AgentCreateScreen.tsx:74 t('agentCreate.categoryPlaceholder') ↔ web agent.fieldCategoryPlaceholder(「请选择分类」) ; packages/app/src/features/agent-create/AgentCreateScreen.tsx:77 t('agentCreate.description') ↔ web agent.fieldDescription(「描述」) ; 族因:web 同名键未进入 RN 词包(shared/mobile-rn 均无),直接改调用点会渲染裸键;统一需跨端迁移键空间(会波及 shared 与 miniapp 生成物),故挂账而非本批改键"
-    },
-    {
-      "file": "certificate",
-      "rule": "B2-key-diff",
-      "count": 2,
-      "owner": "web-rn-copy",
-      "expires": "2027-06-30",
-      "evidence": "packages/app/src/features/certificate/CertificateScreen.tsx:80 t('certificate.empty') ↔ web certificate.download.noCertificates(「暂无证书」) ; packages/app/src/features/certificate/CertificateScreen.tsx:101 t('certificate.issuedDate') ↔ web certificate.detail.issueDate(「颁发日期」) ; 族因:web 同名键未进入 RN 词包(shared/mobile-rn 均无),直接改调用点会渲染裸键;统一需跨端迁移键空间(会波及 shared 与 miniapp 生成物),故挂账而非本批改键"
-    },
-    {
-      "file": "chat",
-      "rule": "B2-key-diff",
-      "count": 1,
-      "owner": "web-rn-copy",
-      "expires": "2027-06-30",
-      "evidence": "packages/app/src/features/chat/ChatScreen.tsx:143 t('chat.modelLabel') ↔ web chatSettingsPage.model(「模型」) ; 族因:web 同名键未进入 RN 词包(shared/mobile-rn 均无),直接改调用点会渲染裸键;统一需跨端迁移键空间(会波及 shared 与 miniapp 生成物),故挂账而非本批改键"
-    },
-    {
-      "file": "distribution/team",
-      "rule": "B2-key-diff",
-      "count": 1,
-      "owner": "web-rn-copy",
-      "expires": "2027-06-30",
-      "evidence": "packages/app/src/features/team/TeamScreen.tsx:139 t('team.title') ↔ web distribution.teamTitle(「我的团队」) ; 族因:web 同名键未进入 RN 词包(shared/mobile-rn 均无),直接改调用点会渲染裸键;统一需跨端迁移键空间(会波及 shared 与 miniapp 生成物),故挂账而非本批改键"
-    },
-    {
-      "file": "edu/exam",
-      "rule": "B2-key-diff",
-      "count": 1,
-      "owner": "web-rn-copy",
-      "expires": "2027-06-30",
-      "evidence": "packages/app/src/features/exam/ExamScreen.tsx:156 t('exam.startExam') ↔ web eduExamListPage.start(「开始考试」) ; 族因:web 同名键未进入 RN 词包(shared/mobile-rn 均无),直接改调用点会渲染裸键;统一需跨端迁移键空间(会波及 shared 与 miniapp 生成物),故挂账而非本批改键"
-    },
-    {
-      "file": "edu/exam/[id]",
-      "rule": "B2-key-diff",
-      "count": 2,
-      "owner": "web-rn-copy",
-      "expires": "2027-06-30",
-      "evidence": "packages/app/src/features/exam-question/ExamQuestionScreen.tsx:189 t('examQuestion.prev') ↔ web eduExamPage.prevQuestion(「上一题」) ; packages/app/src/features/exam-question/ExamQuestionScreen.tsx:201 t('examQuestion.next') ↔ web eduExamPage.nextQuestion(「下一题」) ; 族因:web 同名键未进入 RN 词包(shared/mobile-rn 均无),直接改调用点会渲染裸键;统一需跨端迁移键空间(会波及 shared 与 miniapp 生成物),故挂账而非本批改键"
-    },
-    {
-      "file": "edu/progress",
-      "rule": "B2-key-diff",
-      "count": 1,
-      "owner": "web-rn-copy",
-      "expires": "2027-06-30",
-      "evidence": "packages/app/src/features/study-progress/StudyProgressScreen.tsx:61 t('studyProgress.weekMinutes') ↔ web eduProgressPage.weeklyHours(「本周学习时长」) ; 族因:web 同名键未进入 RN 词包(shared/mobile-rn 均无),直接改调用点会渲染裸键;统一需跨端迁移键空间(会波及 shared 与 miniapp 生成物),故挂账而非本批改键"
-    },
-    {
-      "file": "edu/qa",
-      "rule": "B2-key-diff",
-      "count": 1,
-      "owner": "web-rn-copy",
-      "expires": "2027-06-30",
-      "evidence": "packages/app/src/features/course-qa-list/CourseQAListScreen.tsx:46 t('courseQAList.ask') ↔ web edu.qa.askBtn(「提问」) ; 族因:web 同名键未进入 RN 词包(shared/mobile-rn 均无),直接改调用点会渲染裸键;统一需跨端迁移键空间(会波及 shared 与 miniapp 生成物),故挂账而非本批改键"
-    },
-    {
-      "file": "exam",
-      "rule": "B2-key-diff",
-      "count": 1,
-      "owner": "web-rn-copy",
-      "expires": "2027-06-30",
-      "evidence": "packages/app/src/features/exam/ExamScreen.tsx:133 t('exam.questions') ↔ web exam.questionCountLabel(「题目数」) ; 族因:web 同名键未进入 RN 词包(shared/mobile-rn 均无),直接改调用点会渲染裸键;统一需跨端迁移键空间(会波及 shared 与 miniapp 生成物),故挂账而非本批改键"
-    },
-    {
-      "file": "feedback",
-      "rule": "B2-key-diff",
-      "count": 1,
-      "owner": "web-rn-copy",
-      "expires": "2027-06-30",
-      "evidence": "packages/app/src/features/feedback/FeedbackScreen.tsx:139 t('feedback.contact') ↔ web feedback.field_contact(「联系方式」) ; 族因:web 同名键未进入 RN 词包(shared/mobile-rn 均无),直接改调用点会渲染裸键;统一需跨端迁移键空间(会波及 shared 与 miniapp 生成物),故挂账而非本批改键"
-    },
-    {
-      "file": "learn/[id]",
-      "rule": "B2-key-diff",
-      "count": 1,
-      "owner": "web-rn-copy",
-      "expires": "2027-06-30",
-      "evidence": "packages/app/src/features/course-detail/CourseDetailScreen.tsx:110 t('courseDetail.enrolled') ↔ web learn.signedUp(「已报名」) ; 族因:web 同名键未进入 RN 词包(shared/mobile-rn 均无),直接改调用点会渲染裸键;统一需跨端迁移键空间(会波及 shared 与 miniapp 生成物),故挂账而非本批改键"
-    },
-    {
-      "file": "learn/payment/confirm",
-      "rule": "B2-key-diff",
-      "count": 1,
-      "owner": "web-rn-copy",
-      "expires": "2027-06-30",
-      "evidence": "packages/app/src/features/payment/PaymentScreen.tsx:148 t('payment.method') ↔ web learnPaymentConfirmPage.fields.payMethod(「支付方式」) ; 族因:web 同名键未进入 RN 词包(shared/mobile-rn 均无),直接改调用点会渲染裸键;统一需跨端迁移键空间(会波及 shared 与 miniapp 生成物),故挂账而非本批改键"
-    },
-    {
-      "file": "live",
-      "rule": "B2-key-diff",
-      "count": 1,
-      "owner": "web-rn-copy",
-      "expires": "2027-06-30",
-      "evidence": "packages/app/src/features/live/LiveScreen.tsx:112 t('live.startAt') ↔ web live.startTime/eduAi.live.startTime(「开始时间」) ; 族因:web 同名键未进入 RN 词包(shared/mobile-rn 均无),直接改调用点会渲染裸键;统一需跨端迁移键空间(会波及 shared 与 miniapp 生成物),故挂账而非本批改键"
-    },
-    {
-      "file": "member/subscription",
-      "rule": "B2-key-diff",
-      "count": 1,
-      "owner": "web-rn-copy",
-      "expires": "2027-06-30",
-      "evidence": "packages/app/src/features/subscriptions/SubscriptionsScreen.tsx:80 t('subscriptions.cancel') ↔ web memberSubscriptionPage.cancelSubscription(「取消订阅」) ; 族因:web 同名键未进入 RN 词包(shared/mobile-rn 均无),直接改调用点会渲染裸键;统一需跨端迁移键空间(会波及 shared 与 miniapp 生成物),故挂账而非本批改键"
-    },
-    {
-      "file": "points",
-      "rule": "B2-key-diff",
-      "count": 3,
-      "owner": "web-rn-copy",
-      "expires": "2027-06-30",
-      "evidence": "packages/app/src/features/points/PointsScreen.tsx:170 t('points.level') ↔ web points.levelLabel(「等级」) ; packages/app/src/features/points/PointsScreen.tsx:308 t('points.mallLink') ↔ web points.mallTitle(「积分商城」) ; packages/app/src/features/points/PointsScreen.tsx:318 t('points.taskCenterLink') ↔ web points.tasks.title(「任务中心」) ; 族因:web 同名键未进入 RN 词包(shared/mobile-rn 均无),直接改调用点会渲染裸键;统一需跨端迁移键空间(会波及 shared 与 miniapp 生成物),故挂账而非本批改键"
-    },
-    {
-      "file": "settings/notifications",
-      "rule": "B2-key-diff",
-      "count": 1,
-      "owner": "web-rn-copy",
-      "expires": "2027-06-30",
-      "evidence": "packages/app/src/features/notification-settings/NotificationSettingsScreen.tsx:38 t('notificationSettings.title') ↔ web settings.notificationsTitle(「通知设置」) ; 族因:web 同名键未进入 RN 词包(shared/mobile-rn 均无),直接改调用点会渲染裸键;统一需跨端迁移键空间(会波及 shared 与 miniapp 生成物),故挂账而非本批改键"
-    },
-    {
-      "file": "student/certificates",
-      "rule": "B2-key-diff",
-      "count": 1,
-      "owner": "web-rn-copy",
-      "expires": "2027-06-30",
-      "evidence": "packages/app/src/features/cert-list/CertListScreen.tsx:35 t('certList.title') ↔ web student.myCertsTitle(「我的证书」) ; 族因:web 同名键未进入 RN 词包(shared/mobile-rn 均无),直接改调用点会渲染裸键;统一需跨端迁移键空间(会波及 shared 与 miniapp 生成物),故挂账而非本批改键"
-    },
-    {
-      "file": "user/realname",
-      "rule": "B2-key-diff",
-      "count": 2,
-      "owner": "web-rn-copy",
-      "expires": "2027-06-30",
-      "evidence": "packages/app/src/features/real-name-auth/RealNameAuthScreen.tsx:87 t('realNameAuth.idNumber') ↔ web user.realname.form.idCard(「身份证号」) ; packages/app/src/features/real-name-auth/RealNameAuthScreen.tsx:93 t('realNameAuth.idNumberPlaceholder') ↔ web user.realname.form.idCardPlaceholder(「请输入身份证号」) ; 族因:web 同名键未进入 RN 词包(shared/mobile-rn 均无),直接改调用点会渲染裸键;统一需跨端迁移键空间(会波及 shared 与 miniapp 生成物),故挂账而非本批改键"
-    },
-    {
-      "file": "vip",
-      "rule": "B2-key-diff",
-      "count": 1,
-      "owner": "web-rn-copy",
-      "expires": "2027-06-30",
-      "evidence": "packages/app/src/features/vip/VipScreen.tsx:0 t('vip.duration') ↔ web vip.durationDays(「{days} 天」) ; 族因:web 同名键未进入 RN 词包(shared/mobile-rn 均无),直接改调用点会渲染裸键;统一需跨端迁移键空间(会波及 shared 与 miniapp 生成物),故挂账而非本批改键"
-    },
-    {
-      "file": "wallet/recharge",
-      "rule": "B2-key-diff",
-      "count": 1,
-      "owner": "web-rn-copy",
-      "expires": "2027-06-30",
-      "evidence": "apps/mobile-rn/src/screens/PurchaseScreen.tsx:356 t('purchase.payMethod') ↔ web wallet.rechargeMethod(「支付方式」) ; 族因:web 同名键未进入 RN 词包(shared/mobile-rn 均无),直接改调用点会渲染裸键;统一需跨端迁移键空间(会波及 shared 与 miniapp 生成物),故挂账而非本批改键"
-    },
-    {
-      "file": "wallet/withdraw",
-      "rule": "B2-key-diff",
-      "count": 2,
-      "owner": "web-rn-copy",
-      "expires": "2027-06-30",
-      "evidence": "packages/app/src/features/withdraw/WithdrawScreen.tsx:56 t('withdraw.amount') ↔ web wallet.withdrawAmount(「提现金额」) ; packages/app/src/features/withdraw/WithdrawScreen.tsx:66 t('withdraw.bankCard') ↔ web wallet.methodBank(「银行卡」) ; 族因:web 同名键未进入 RN 词包(shared/mobile-rn 均无),直接改调用点会渲染裸键;统一需跨端迁移键空间(会波及 shared 与 miniapp 生成物),故挂账而非本批改键"
-    },
     {
       "file": "learn",
       "rule": "B1-web-no-key",

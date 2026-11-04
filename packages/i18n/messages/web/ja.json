@@ -25802,8 +25802,7 @@
     "empty": "イベントはありません",
     "startTime": "開始時間",
     "endTime": "終了時間",
-    "participants": "参加人数",
-    "joinNow": "今すぐ参加"
+    "participants": "参加人数"
   },
   "agentReviewDetail": {
     "title": "審査詳細",
@@ -26054,8 +26053,6 @@
     "unverifiedDesc": "実名認証は未完了です。以下の情報を入力して完了してください。",
     "name": "本名",
     "namePlaceholder": "本名を入力してください",
-    "idNumber": "身分証明書番号",
-    "idNumberPlaceholder": "身分証明書番号を入力してください",
     "submitting": "送信中…",
     "submit": "認証を送信"
   },
@@ -26067,7 +26064,6 @@
     "title": "学習進捗",
     "courses": "受講コース",
     "totalMinutes": "累計学習時間",
-    "weekMinutes": "今週の学習時間",
     "streak": "連続学習",
     "courseProgress": "コース進捗"
   },
@@ -26737,11 +26733,8 @@
   },
   "agentCreate": {
     "title": "エージェントを作成",
-    "name": "名前",
     "namePlaceholder": "名前を入力してください",
-    "category": "カテゴリ",
     "categoryPlaceholder": "カテゴリを選択してください",
-    "description": "説明",
     "descPlaceholder": "説明を入力してください",
     "systemPrompt": "システムプロンプト",
     "promptPlaceholder": "システムプロンプトを入力してください",
@@ -26808,7 +26801,6 @@
     "remove": "削除"
   },
   "certList": {
-    "title": "マイ証明書",
     "empty": "証明書はありません",
     "issuer": "発行機関",
     "issuedAt": "発行日時"
@@ -26860,7 +26852,6 @@
   },
   "courseQAList": {
     "title": "コース Q&A",
-    "ask": "質問する",
     "empty": "Q&A はありません",
     "asker": "質問者",
     "answers": "回答"
@@ -26937,7 +26928,6 @@
     "actionEdit": "編集"
   },
   "notificationSettings": {
-    "title": "通知設定",
     "push": "プッシュ通知",
     "message": "メッセージ通知",
     "email": "メール通知",
@@ -27038,9 +27028,7 @@
   "withdraw": {
     "title": "出金",
     "availableBalance": "出金可能残高",
-    "amount": "出金額",
     "amountPlaceholder": "出金額を入力してください",
-    "bankCard": "銀行カード",
     "bankCardPlaceholder": "銀行カード番号を入力してください",
     "submitting": "出金中...",
     "submit": "出金を確認",
@@ -27435,7 +27423,6 @@
   },
   "team": {
     "retry": "再試行",
-    "title": "マイチーム",
     "subtitle": "チーム管理",
     "totalMembers": "総メンバー",
     "activeMembers": "アクティブメンバー",
