@@ -29,14 +29,14 @@ export async function ManualNav({ prev, next }: ManualNavProps) {
           href={prev.href}
           className="group rounded-lg border bg-card p-3 transition-colors hover:bg-accent"
         >
-          <div className="text-xs font-mono text-muted-foreground">
+          <div className="font-[weight:inherit] text-label font-mono text-muted-foreground">
             ← {t('common.chapterBadge', { num: prev.num })}
           </div>
           <div className="mt-1 text-body font-medium">{t(titleKey(prev))}</div>
         </Link>
       ) : (
         <div className="rounded-lg border bg-muted/20 p-3 opacity-50">
-          <div className="text-xs font-mono text-muted-foreground">
+          <div className="font-[weight:inherit] text-label font-mono text-muted-foreground">
             ← {t('common.firstChapter')}
           </div>
           <div className="mt-1 text-body">无</div>
@@ -47,14 +47,14 @@ export async function ManualNav({ prev, next }: ManualNavProps) {
           href={next.href}
           className="group rounded-lg border bg-card p-3 text-right transition-colors hover:bg-accent"
         >
-          <div className="text-xs font-mono text-muted-foreground">
+          <div className="font-[weight:inherit] text-label font-mono text-muted-foreground">
             {t('common.chapterBadge', { num: next.num })} →
           </div>
           <div className="mt-1 text-body font-medium">{t(titleKey(next))}</div>
         </Link>
       ) : (
         <div className="rounded-lg border bg-muted/20 p-3 text-right opacity-50">
-          <div className="text-xs font-mono text-muted-foreground">{t('common.lastChapter')} →</div>
+          <div className="font-[weight:inherit] text-label font-mono text-muted-foreground">{t('common.lastChapter')} →</div>
           <div className="mt-1 text-body">无</div>
         </div>
       )}
