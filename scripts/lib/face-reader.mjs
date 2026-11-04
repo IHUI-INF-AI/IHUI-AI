@@ -1279,11 +1279,66 @@ export function catBatchBinary(root, revs, opts = {}) {
   return catBatchRaw(root, revs, opts)
 }
 
+/**
+ * **纯 oid 直达分支**(2026-11-04 立,治迁移带来的 oid 面 2× 回退)。
+ *
+ * 立因(同机实测,`check-installed-asset-catalog` 的 192 条 / 5,004,711 字节资产面):
+ * 收口到本层后每次多出一次 `cat-file --batch-check`(尺寸探测,只为按字节装箱),而本机
+ * 单次 git 派生 ≈ 400ms(28 个 node 守门进程并行)—— 同一批 192 条小样本 455ms → 638~893ms。
+ * 输入本身就是完整 oid 时,这一步**没换到任何判定**:`--batch` 的头行自带 `<oid> blob <size>`,
+ * 正文一次就能读回;`resolveSpecOids` 对 oid 也只是原样映射(零派生、零 rev-parse)。
+ * 于是这一支只发**一次** `cat-file --batch`,跳过预解析与尺寸折返。
+ *
+ * 语义逐字不变(硬门槛是等价性,见 face-reader.test.mjs 的 oid 面/路径面差分):
+ *  - missing / unmerged / 非 blob ⇒ null,与 `parseBatchBuffers` 老路同构;
+ *  - 同一 oid 出现多次 ⇒ 只读一次再回填每个规格;
+ *  - 输出截断 ⇒ 抛 `Undetermined`(绝不静默少扫)。
+ *
+ * 安全边界:本支按**条数**单块(`maxCount`),不再知道字节量 ⇒ 单块可能撑爆 maxBuffer。
+ * 那一刻只认 `ENOBUFS` 并**交回老路**(按尺寸装箱的主体),绝不把"缓冲不足"降级成"取不到";
+ * 超过条数护栏的清单同样交回老路。其它派生故障一律原样抛,不吞。
+ * @returns {Map<string,Buffer|null>|null} null = 本支不适用/缓冲不足,由调用方走老路
+ */
+function catBatchPureOids(root, list, opts, maxCount) {
+  for (const s of list) if (!OID_SPEC_RE.test(s)) return null
+  const uniq = [...new Set(list)]
+  if (uniq.length > maxCount) return null
+  let raw
+  try {
+    raw = batchExecFileSync(GIT, ['-c', 'safe.directory=*', '-C', root, 'cat-file', '--batch'], {
+      cwd: root,
+      input: Buffer.from(uniq.join('\n') + '\n', 'utf8'),
+      windowsHide: true,
+      maxBuffer: opts.maxBuffer ?? GIT_MAX_BUFFER,
+      timeout: opts.timeout ?? BATCH_TIMEOUT,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    })
+  } catch (e) {
+    if (e?.code === 'ENOBUFS' || e?.code === 'ERR_CHILD_PROCESS_STDOUT_MAXBUFFER') return null
+    throw new Undetermined(
+      `git cat-file --batch 失败,${root} 的判定面无法取材(纯 oid 直达,${list.length} 个 oid): ${spawnCauseText(e, opts.maxBuffer ?? GIT_MAX_BUFFER, '纯 oid 直达')}`,
+    )
+  }
+  const byOid = parseBatchBuffers(raw, uniq)
+  const out = new Map()
+  for (const s of list) out.set(s, byOid.get(s) ?? null)
+  return out
+}
+
 /** `catBatch` / `catBatchBinary` 共用的派生与装箱实现;返回字节面,解码交给出口。 */
 function catBatchRaw(root, revs, opts = {}) {
   const list = [...revs]
   if (list.length === 0) return new Map()
   const maxBuffer = opts.maxBuffer ?? GIT_MAX_BUFFER
+  const maxCount = opts.chunkSize ?? CAT_BATCH_CHUNK
+  // 纯 oid 输入直达(见 `catBatchPureOids` 头注):必须在 `resolveSpecOids` 之前 ——
+  // 放到后面就等于先折返再直取,回退原样还在。
+  // 逃生舱 `IHUI_FACE_OID_DIRECT=0` 强制走老路(与 `IHUI_FACE_SPEC_FASTPATH=0` 同口径,对照/排障用)。
+  const direct =
+    process.env.IHUI_FACE_OID_DIRECT === '0'
+      ? null
+      : catBatchPureOids(root, list, { ...opts, maxBuffer }, maxCount)
+  if (direct) return direct
   // 单块预算取 min(默认块上限, 调用方给的缓冲区) —— 调用方把 maxBuffer 调大只该让它
   // **更敢读**,不该反过来把块撑大到一个 blob 就能顶爆的量。
   const maxBytes = opts.maxBytes ?? Math.min(BATCH_BLOCK_BYTES, maxBuffer)
@@ -1294,10 +1349,7 @@ function catBatchRaw(root, revs, opts = {}) {
   if (query.length === 0) return new Map(list.map((s) => [s, null]))
   const sizes = query.length > 1 ? catBatchSizesByOid(root, query, opts, list.length) : new Map()
   const bytesOf = (o) => sizes.get(o) ?? 0
-  const blocks = packByBytes(query, bytesOf, {
-    maxBytes,
-    maxCount: opts.chunkSize ?? CAT_BATCH_CHUNK,
-  })
+  const blocks = packByBytes(query, bytesOf, { maxBytes, maxCount })
   const byOid = new Map()
   let seen = 0
   for (let c = 0; c < blocks.length; c++) {
