@@ -127,6 +127,54 @@ test('P10 腿与助手的区分按定义签名,不按调用点写法(摘掉即�
   assert.ok(!F('function broken(opts {'), '签名括号不配平 ⇒ 不认')
 })
 
+test('P15 §7 装车表对账:只在一次性 main 上的声称 ⇒ drift 点名;两面都有 ⇒ ok;两面都无 ⇒ absent', () => {
+  const doc = ['# 题', '## 7. 装车状态', '| 器物 | 载体 | 频率 |', '|---|---|---|', '| a.mjs | `dispatchBoth()` | 60min |', '| b.mjs | `dispatchMainOnly()` | 30min |', '| c.mjs | `dispatchNowhere()` | 1h |'].join('\n')
+  const src = [
+    'async function main() {',
+    '  dispatchBoth()',
+    '  dispatchMainOnly()',
+    '}',
+    'function startDaemon() {',
+    '  dispatchBoth()',
+    '  dispatchResidentOnly()',
+    '}',
+    'function dispatchBoth() {}',
+    'function dispatchMainOnly() {}',
+    'function dispatchResidentOnly() {}',
+  ].join('\n')
+  const r = cp.judgeRoadmapClaims({ guardianSource: src, roadmapText: doc })
+  assert.equal(r.state, 'drift', r.why)
+  assert.equal(r.darkCount, 2)
+  const byName = Object.fromEntries(r.rows.map((x) => [x.carrier, x.state]))
+  assert.equal(byName.dispatchBoth, 'ok', '两面都接 ⇒ 声明成立')
+  assert.equal(byName.dispatchMainOnly, 'dark', '声称已装车但只挂 main ⇒ 就是这次 46 条那一型')
+  assert.equal(byName.dispatchNowhere, 'absent', '挂点根本不存在 ⇒ 另一型假声明')
+  assert.match(r.why, /只在一次性 main/)
+})
+
+test('P16 对账取不到输入 ⇒ 未判定(不拿"读不到"冒充"无声明"或"全部已装车")', () => {
+  const doc = '## 7. 装车状态\n| a | `dispatchX()` |\n'
+  assert.equal(cp.judgeRoadmapClaims({ guardianSource: '', roadmapText: doc }).state, 'unjudged')
+  assert.equal(cp.judgeRoadmapClaims({ guardianSource: 'function main() {}', roadmapText: doc }).state, 'unjudged')
+  assert.equal(cp.judgeRoadmapClaims({ guardianSource: 'async function main() {}\nfunction startDaemon() {}\n', roadmapText: '' }).state, 'unjudged')
+  // 表里一条派发点都解析不到 ⇒ 不读成"无需对账"
+  const empty = cp.judgeRoadmapClaims({
+    guardianSource: 'async function main() {\n  dispatchX()\n}\nfunction startDaemon() {\n  dispatchX()\n}\nfunction dispatchX() {}',
+    roadmapText: '## 7. 装车状态\n| 器物 | 载体 |\n| a.mjs | 人工 CLI |',
+  })
+  assert.equal(empty.state, 'unjudged', empty.why)
+})
+
+test('P17 现读:§7 那张表此刻的每一条守护载体声称,都必须在常驻面上(回归锁)', () => {
+  const guardian = execSync('git show HEAD:scripts/git-guardian.mjs', { maxBuffer: 1 << 26, stdio: ['ignore', 'pipe', 'pipe'] }).toString()
+  const roadmap = execSync('git show HEAD:docs/self-evolution-roadmap.md', { maxBuffer: 1 << 26, stdio: ['ignore', 'pipe', 'pipe'] }).toString()
+  const r = cp.judgeRoadmapClaims({ guardianSource: guardian, roadmapText: roadmap })
+  assert.notEqual(r.state, 'unjudged', `本维必须判得出:${r.why}`)
+  assert.ok(r.rows.length >= 4, `§7 应至少对账 4 条守护载体声称,现读 ${r.rows.length}`)
+  const bad = r.rows.filter((x) => x.state !== 'ok')
+  assert.deepEqual(bad.map((x) => x.carrier), [], `装车表声称与常驻承载面不符:${JSON.stringify(bad)}`)
+})
+
 test('P13 具名豁免四档成对:有效摘掉 / 到期照判 / 形状坏视同没登记 / 不再命中=腐烂', () => {
   const NOW = Date.parse('2026-11-04T00:00:00.000Z')
   const good = { name: 'ensureGuardDaemonAlive', owner: 'main 路径', reason: '它负责把不在的 daemon 拉起,挂进 daemon 自己里等于监视自己', expires: '2027-02-01' }
