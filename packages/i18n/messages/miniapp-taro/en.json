@@ -7098,5 +7098,9 @@
     "exportingReport": "Exporting...",
     "exportEmptyHint": "Generate a report to export",
     "exportLoginRequired": "Sign in to export"
+  },
+  "learnMapPage": {
+    "completed": "Completed",
+    "empty": "No learning paths yet"
   }
 }
