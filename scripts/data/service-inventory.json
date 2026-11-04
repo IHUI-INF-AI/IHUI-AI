@@ -1,6 +1,7 @@
 {
   "$comment": "本机 Windows 服务运行配置的入库真相源(票 G-584 归口)。射程 = 注册表 HKLM:\\SYSTEM\\CurrentControlSet\\Services 下名字匹配 ^(IHUI|Keycloak)$ 的服务;四键 application/appParameters/appDirectory/appStdout 仅 nssmManaged=true 时有值。秘密只存脱敏形态(前6***后2 (len=N)),原始凭据永不入仓。services[].provisioning 是**仓内侧**读数(建服源/使用源/通道/盘符无关模板),回答\"这服务是谁建的\";repoNameRoster + reverseGaps 是**反向面**(仓里点名而本机未装)。重建方式:node scripts/check-service-inventory.mjs --snapshot 重定向覆写本文件;不得手改单条。声明性的\"缺建法\"债住 scripts/data/service-provisioning-gaps.json(带 reviewBy,会到期),不在本文件里手抄。",
-  "generatedAt": "2026-11-03T15:36:30.331Z",
+  "generatedAt": "2026-11-04T04:24:18.346Z",
+  "refreshedAt": "2026-11-04T04:24:18.346Z",
   "host": "服务器",
   "nssmBinaryPresent": true,
   "comparisonBasis": "脱敏后逐字节等值;两侧同基准归一化",
@@ -679,42 +680,48 @@
         "name": "IHUI-API-ROUTER",
         "in": [
           "scripts/data/service-auto-restart.json",
-          "scripts/data/expected-stopped-services.json"
+          "scripts/data/expected-stopped-services.json",
+          "scripts/data/service-definitions.json"
         ]
       },
       {
         "name": "IHUI-API-GREEN",
         "in": [
           "scripts/data/service-auto-restart.json",
-          "scripts/data/expected-stopped-services.json"
+          "scripts/data/expected-stopped-services.json",
+          "scripts/data/service-definitions.json"
         ]
       },
       {
         "name": "IHUI-API-BLUE",
         "in": [
           "scripts/data/service-auto-restart.json",
-          "scripts/data/expected-stopped-services.json"
+          "scripts/data/expected-stopped-services.json",
+          "scripts/data/service-definitions.json"
         ]
       },
       {
         "name": "IHUI-WEB-ROUTER",
         "in": [
           "scripts/data/service-auto-restart.json",
-          "scripts/data/expected-stopped-services.json"
+          "scripts/data/expected-stopped-services.json",
+          "scripts/data/service-definitions.json"
         ]
       },
       {
         "name": "IHUI-WEB-GREEN",
         "in": [
           "scripts/data/service-auto-restart.json",
-          "scripts/data/expected-stopped-services.json"
+          "scripts/data/expected-stopped-services.json",
+          "scripts/data/service-definitions.json"
         ]
       },
       {
         "name": "IHUI-WEB-BLUE",
         "in": [
           "scripts/data/service-auto-restart.json",
-          "scripts/data/expected-stopped-services.json"
+          "scripts/data/expected-stopped-services.json",
+          "scripts/data/service-definitions.json"
         ]
       },
       {
@@ -806,25 +813,16 @@
       },
       {
         "name": "IHUI-TMP-CHROME",
-        "in": ["scripts/data/expected-stopped-services.json"]
+        "in": [
+          "scripts/data/expected-stopped-services.json",
+          "scripts/data/service-definitions.json"
+        ]
       },
       {
-        "name": "IHUI-OLLAMA",
+        "name": "IHUI-Firewall-Watchdog",
         "in": ["scripts/data/service-definitions.json"]
       }
     ]
   },
-  "reverseGaps": [
-    {
-      "name": "IHUI-OLLAMA",
-      "bucket": "not-installed-declared-elsewhere",
-      "detail": "本机没装；债账登记为「数据/基建承载机(非本机)」(reviewBy=2027-01-31)",
-      "createSources": [],
-      "useSources": [],
-      "declaredGap": {
-        "reviewBy": "2027-01-31",
-        "lapsed": false
-      }
-    }
-  ]
+  "reverseGaps": []
 }

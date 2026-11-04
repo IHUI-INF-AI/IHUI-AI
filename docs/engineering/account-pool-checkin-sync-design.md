@@ -77,7 +77,7 @@
 
 签到账号落在固定系统 owner `system:relay-pool`(常量只在 ai-service 侧定义,Node 侧不需要知道):
 
-- 调度器 `list_enabled_accounts()` **全表遍历 enabled、不按 owner 过滤**(现成机制)→ 系统账号自动进入每日 06:00 探针 / 08:05 主窗口 / 10:05 Qoder / 08:10 积分快照;
+- 调度器 `list_enabled_accounts()` **全表遍历 enabled、不按 owner 过滤**(现成机制)→ 系统账号自动进入每日 06:00 探针 / 00:05 零点窗口 / 08:05 主窗口 / 10:05 Qoder / 08:10 积分快照;
 - 用户态 API 全部按 `require_request_user_id` 过滤(真实用户 id 不可能等于 `system:relay-pool`)→ 用户 UI 零感知;
 - admin 读取走 api 侧 internal 代理查询(§5 端点 4),不经用户态。
 
@@ -266,7 +266,7 @@ sweep worker 每轮顺带执行(现成 sweepAccountPool 之后,复用同分布�
 ## 14. 验收清单(怎么证明打通)
 
 1. 号池导入 1 个 trae 号 → `system:relay-pool` 下出现该账号,identity_key=号池 uid;
-2. 次日 06:00 探针/08:05 主窗口日志出现该账号(或已在平台签过 → skip_already 落记录);
+2. 次日 06:00 探针/00:05 零点窗口/08:05 主窗口日志出现该账号(或已在平台签过 → skip_already 落记录);
 3. admin 号池页该行显示「今日已签」与积分;
 4. 号池停用 → 签到侧 enabled=false,调度日志跳过; 恢复 → 重新纳入;
 5. 号池删除 → 签到侧停用且历史记录仍在;
