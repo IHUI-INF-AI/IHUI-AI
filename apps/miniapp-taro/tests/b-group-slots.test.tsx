@@ -71,12 +71,12 @@ describe('NavBar 数组槽位真消费', () => {
   it('leftActions / rightActions 的字符图标与文字真的进 DOM', () => {
     const html = render(NavBar, {
       title: '标题',
-      leftActions: [{ icon: '★', label: '收藏', onPress: () => {} }],
+      leftActions: [{ icon: '藏', label: '收藏', onPress: () => {} }],
       rightActions: [{ icon: '余', label: '更多', onPress: () => {} }],
     })
     expect(html).toContain('收藏')
     expect(html).toContain('更多')
-    expect(html).toContain('★')
+    expect(html).toContain('藏')
   })
 
   it('rightActions 的图片 URL 走 img,rightAction ReactNode 原样渲染', () => {
