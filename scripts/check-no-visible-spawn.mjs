@@ -39,7 +39,10 @@ import { Undetermined, catBatch, gitRaw, readWorktreeFile, selectFace } from './
 // (如 `/['"]--stdin['"]/`)会让引号配对失同步 ⇒ 其后**每一个**字符串字面量都可能被读成代码,
 // 于是别的门的自检夹具被当生产违规 → 干净 HEAD 恒红。逐字形说明见 maskInert 头注。
 // ⚠️ 只借"哪些区间是正则体"这一维;模板插值里是真实代码,本门仍要保持不掩(见下)。
-import { scanSpans } from './lib/code-mask.mjs'
+import { scanSpans, blankByMask } from './lib/code-mask.mjs'
+// 括号配平 + 顶层实参切分只有一个实现(§0.6):options 常被 prettier 折成多行,
+// 逐行正则在折行处必然失明,所以本门复用 193 那两份配平件,不自写第三份。
+import { splitArgs, objectLiteralFor } from './check-git-stdio-discipline.mjs'
 
 /** ROOT 由脚本自身位置推导(§15,不得写死盘符);此前依赖 process.cwd(),换 cwd 即静默扫不到文件。 */
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -349,10 +352,43 @@ export function isConsoleTarget(argText) {
   return CONSOLE_IDENT.test(argText)
 }
 
+/**
+ * options 收成变量再传 ⇒ 调用点字面里没有 `windowsHide`。回溯**同文件内**的声明。
+ *
+ * 立因(2026-11-04 实测,不是"再加一层保险"):判红的是
+ * `scripts/lib/guardian-executor.mjs:908` `spawnSync(process.execPath, [...], serialOpts)`,
+ * 而 `:897-903` 写着 `const serialOpts = { cwd: …, windowsHide: true, stdio: […] }` ——
+ * 代码本身没有缺陷,门只是看不见间接对象。因为本门是**绝对零容忍 + 触发面收在全仓通配**
+ * (`stagedTriggers` 指向所有路径),
+ * 这一处就把**全仓每个人的每一枚提交**定责成"你新引入的红"(§12e:恒红门唯一结局是逼人
+ * `--no-verify`,连带废掉全部守门)。修尺子而不是改被照的码,是本仓 §12e 的明文方向。
+ *
+ * 三条纪律,方向都是"宁可多报":
+ *  ① 只认**同文件唯一绑定** —— `const <id> = {` 出现 0 次或 >1 次一律不豁免
+ *    (同名重赋值时取第一处就是猜,而猜错的方向是放行为绿);
+ *  ② 匹配用**遮罩后的等长文本**(blankByMask)—— 注释/夹具串里的 `const o = { windowsHide: true }`
+ *    不得替真漏参免检(G-1059146 那型);
+ *  ③ `<id>.windowsHide = …` 的后置赋值同样算声明。
+ * 取不到定义 / 花括号未配平 ⇒ false ⇒ 保持原判。
+ */
+export function optionsVarDeclaresHide(blankSrc, callSpan) {
+  const args = splitArgs(callSpan)
+  const last = args.length ? String(args[args.length - 1]).trim() : ''
+  if (!/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(last)) return false
+  const esc = last.replace(/\$/g, '\\$')
+  const binds = String(blankSrc).match(new RegExp(`\\b(?:const|let|var)\\s+${esc}\\s*=\\s*\\{`, 'g'))
+  if (!binds || binds.length !== 1) return false
+  const lit = objectLiteralFor(blankSrc, last)
+  if (lit && /\bwindowsHide\b/.test(lit)) return true
+  return new RegExp(`\\b${esc}\\.windowsHide\\b`).test(String(blankSrc))
+}
+
 /** 扫描单个源文件,返回违规项数组。 */
 export function scanSource(src, file) {
   if (SELF_EXEMPT_FILE.test(file)) src = stripSelfTestRegions(src) // 仅本脚本 self-test 样例区豁免
   const inert = maskInert(src)
+  // 回溯"options 收进变量"的那一维要用等长遮罩文本(串内假声明不得免检,见函数头注 ②)
+  const blank = blankByMask(src, inert)
   const violations = []
   FN_RE.lastIndex = 0 // 模块级正则跨文件必须重置,否则漏扫/串档
   let m
@@ -363,6 +399,8 @@ export function scanSource(src, file) {
     if (inert[m.index]) continue // 字符串/模板字面量文本内的夹具:不是派生点(见 maskInert)
     const end = scanCallEnd(src, openParen)
     const callText = src.slice(m.index, end)
+    const callSpan = src.slice(openParen, end)
+    const declaresHide = /\bwindowsHide\b/.test(callText) || optionsVarDeclaresHide(blank, callSpan)
     const inner = callText.slice(openParen - m.index + 1, -1)
     const line = src.slice(0, m.index).split('\n').length
     // N1 按镜像名杀进程 —— 排在 windowsHide 短路之前(理由见 isNameBasedKillCall 注释)。
@@ -376,14 +414,14 @@ export function scanSource(src, file) {
         kind: 'name-kill',
         snippet: callText.replace(/\s+/g, ' ').slice(0, 100),
       })
-      if (/\bwindowsHide\b/.test(callText)) {
+      if (declaresHide) {
         FN_RE.lastIndex = m.index + m[0].length // 已声明隐藏窗口 → 继续扫内层
         continue
       }
       FN_RE.lastIndex = end
       continue
     }
-    if (/\bwindowsHide\b/.test(callText)) {
+    if (declaresHide) {
       // 外层已声明:不跳过整段,让内层嵌套调用继续被扫描(否则会漏报)
       FN_RE.lastIndex = m.index + m[0].length
       continue
@@ -546,6 +584,36 @@ function selfTest() {
     { name: 'GIT_BIN 标识符 → 违规', src: `spawnSync(GIT_BIN, args, { encoding: 'utf8' })`, want: 1 },
     { name: '非控制台程序 → 忽略', src: `spawnSync('open', ['http://x'])`, want: 0 },
     { name: '未知变量 → 忽略(宁漏不误报)', src: `spawnSync(someHelper, ['a'], { encoding: 'utf8' })`, want: 0 },
+    {
+      name: 'OPT1 options 变量指向带 windowsHide 的对象 → 不判(2026-11-04 恒红门根治)',
+      src: `const serialOpts = { cwd: '.', windowsHide: true, stdio: ['ignore','pipe','pipe'] }\nspawnSync(process.execPath, ['x.mjs'], serialOpts)`,
+      want: 0,
+    },
+    {
+      name: 'OPT2 反向锁:变量指向不带 windowsHide 的对象 → 仍判',
+      src: `const serialOpts = { cwd: '.', stdio: ['ignore','pipe','pipe'] }\nspawnSync('git', ['status'], serialOpts)`,
+      want: 1,
+    },
+    {
+      name: 'OPT3 反向锁:变量在同文件找不到定义 → 仍判(保守多报,不放行为绿)',
+      src: `spawnSync('git', ['status'], optsFromSomewhereElse)`,
+      want: 1,
+    },
+    {
+      name: 'OPT4 反向锁:同名多处绑定 → 不豁免(取第一处就是猜)',
+      src: `const o = { windowsHide: true }\nconst o = { encoding: 'utf8' }\nspawnSync('git', ['x'], o)`,
+      want: 1,
+    },
+    {
+      name: 'OPT5 反向锁:夹具串里写 const o = { windowsHide: true } 不得替真漏参免检',
+      src: `const note = 'const o = { windowsHide: true }'\nspawnSync('git', ['x'], o)`,
+      want: 1,
+    },
+    {
+      name: 'OPT6 后置赋值 <id>.windowsHide = true 同样算声明',
+      src: `const o = { stdio: 'pipe' }\no.windowsHide = true\nspawnSync('git', ['x'], o)`,
+      want: 0,
+    },
     { name: '注释行 → 忽略', src: `// execSync('git status', { encoding: 'utf8' })`, want: 0 },
     { name: '模板串 git push → 违规', src: 'execSync(`git push origin ${b}`, { stdio: "pipe" })', want: 1 },
     {
@@ -859,6 +927,7 @@ export const __test__ = {
   skipQuoted,
   firstArg,
   isConsoleTarget,
+  optionsVarDeclaresHide,
   listCandidates,
   readFaceContent,
   splitByFace,
