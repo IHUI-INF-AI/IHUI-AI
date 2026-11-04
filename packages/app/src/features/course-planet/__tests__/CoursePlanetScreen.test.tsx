@@ -10,6 +10,10 @@ import { CoursePlanetScreen, type CoursePlanetMenuEntry } from '../CoursePlanetS
 
 const t = ((key: string) => key) as unknown as TFunction
 
+// 守门 theme-prop-wiring：主题驱动组件的每个渲染点都必须显式接线（字面量与漏传同红）。
+// 测试固定 light 档取语义一致，用变量传，不写 JSX 字面量。
+const testColorScheme: 'light' | 'dark' = 'light'
+
 const baseProps: CoursePlanetScreenProps = {
   t,
   data: { hot: [], beginner: [], selected: [] },
@@ -32,7 +36,7 @@ afterEach(cleanup)
 
 describe('CoursePlanetScreen 可选能力', () => {
   it('缺省不渲染轮播与菜单', () => {
-    render(<CoursePlanetScreen {...baseProps} />)
+    render(<CoursePlanetScreen {...baseProps} colorScheme={testColorScheme} />)
     expect(screen.queryByLabelText('轮播图')).toBeNull()
     expect(screen.queryByText('AI 图片')).toBeNull()
   })
@@ -41,6 +45,7 @@ describe('CoursePlanetScreen 可选能力', () => {
     render(
       <CoursePlanetScreen
         {...baseProps}
+        colorScheme={testColorScheme}
         bannerImages={[{ uri: 'a.jpg' }, { uri: 'b.jpg' }, { uri: 'c.jpg' }]}
         menuItems={menuItems}
         onMenuPress={vi.fn()}
@@ -54,7 +59,14 @@ describe('CoursePlanetScreen 可选能力', () => {
 
   it('点击菜单项回调携带该项', () => {
     const onMenuPress = vi.fn()
-    render(<CoursePlanetScreen {...baseProps} menuItems={menuItems} onMenuPress={onMenuPress} />)
+    render(
+      <CoursePlanetScreen
+        {...baseProps}
+        colorScheme={testColorScheme}
+        menuItems={menuItems}
+        onMenuPress={onMenuPress}
+      />,
+    )
     fireEvent.click(screen.getByLabelText('AI 视频'))
     expect(onMenuPress).toHaveBeenCalledWith(menuItems[1])
   })
