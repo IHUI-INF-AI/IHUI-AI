@@ -150,7 +150,7 @@ export default function ModelsDocsPage() {
               国际厂商
             </p>
             <div className="mt-3 overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="font-[weight:inherit] w-full text-body">
                 <thead>
                   <tr className="bg-muted/60 text-left text-label font-semibold">
                     <th scope="col" className="p-3">
@@ -183,7 +183,7 @@ export default function ModelsDocsPage() {
                     <tr key={vendor} className={i % 2 === 0 ? 'bg-background' : 'bg-muted/40'}>
                       <td className="p-3 font-medium whitespace-nowrap">{vendor}</td>
                       <td className="p-3 text-muted-foreground">{models}</td>
-                      <td className="p-3 text-xs text-muted-foreground">{scene}</td>
+                      <td className="font-[weight:inherit] p-3 text-label text-muted-foreground">{scene}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -197,7 +197,7 @@ export default function ModelsDocsPage() {
               国产模型
             </p>
             <div className="mt-3 overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="font-[weight:inherit] w-full text-body">
                 <thead>
                   <tr className="bg-muted/60 text-left text-label font-semibold">
                     <th scope="col" className="p-3">
@@ -229,7 +229,7 @@ export default function ModelsDocsPage() {
                     <tr key={vendor} className={i % 2 === 0 ? 'bg-background' : 'bg-muted/40'}>
                       <td className="p-3 font-medium whitespace-nowrap">{vendor}</td>
                       <td className="p-3 text-muted-foreground">{models}</td>
-                      <td className="p-3 text-xs text-muted-foreground">{scene}</td>
+                      <td className="font-[weight:inherit] p-3 text-label text-muted-foreground">{scene}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -243,7 +243,7 @@ export default function ModelsDocsPage() {
               本地 / 开源
             </p>
             <div className="mt-3 overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="font-[weight:inherit] w-full text-body">
                 <thead>
                   <tr className="bg-muted/60 text-left text-label font-semibold">
                     <th scope="col" className="p-3">
@@ -267,7 +267,7 @@ export default function ModelsDocsPage() {
                     <tr key={vendor} className={i % 2 === 0 ? 'bg-background' : 'bg-muted/40'}>
                       <td className="p-3 font-medium whitespace-nowrap">{vendor}</td>
                       <td className="p-3 text-muted-foreground">{models}</td>
-                      <td className="p-3 text-xs text-muted-foreground">{scene}</td>
+                      <td className="font-[weight:inherit] p-3 text-label text-muted-foreground">{scene}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -281,12 +281,12 @@ export default function ModelsDocsPage() {
       <section id="provider-health" className="mt-16 space-y-6">
         <h2 className="text-display font-bold tracking-tight">Provider 健康检查(独家)</h2>
         <div className="rounded-lg border bg-card p-3 space-y-3">
-          <p className="text-sm text-muted-foreground">
+          <p className="font-[weight:inherit] text-body text-muted-foreground">
             智汇 AI 每 5 分钟探测所有 Provider,自动剔除"账户没钱 / Key 失效 / 接不通"的 Provider,
             终端用户只会看到真正可用的模型。Admin 端可查看每个 Provider 的状态、余额、错误详情。
           </p>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="font-[weight:inherit] w-full text-body">
               <thead>
                 <tr className="bg-muted/60 text-left text-label font-semibold">
                   <th scope="col" className="p-3">
@@ -303,7 +303,7 @@ export default function ModelsDocsPage() {
               <tbody>
                 {PROVIDER_HEALTH_ROWS.map(({ status, tone, label, desc }, i) => (
                   <tr key={status} className={i % 2 === 0 ? 'bg-background' : 'bg-muted/40'}>
-                    <td className="p-3 font-mono text-xs whitespace-nowrap">{status}</td>
+                    <td className="font-[weight:inherit] p-3 font-mono text-label whitespace-nowrap">{status}</td>
                     <td className="p-3 whitespace-nowrap">
                       <span
                         className={`inline-flex h-4 items-center justify-center rounded-md px-1 text-[10px] font-semibold leading-none ${STATUS_TONE_CLASS[tone]}`}
@@ -311,7 +311,7 @@ export default function ModelsDocsPage() {
                         {label}
                       </span>
                     </td>
-                    <td className="p-3 text-xs text-muted-foreground">{desc}</td>
+                    <td className="font-[weight:inherit] p-3 text-label text-muted-foreground">{desc}</td>
                   </tr>
                 ))}
               </tbody>
@@ -324,7 +324,7 @@ export default function ModelsDocsPage() {
       <section id="fallback" className="mt-16 space-y-6">
         <h2 className="text-display font-bold tracking-tight">自动 Fallback(高可用)</h2>
         <div className="rounded-lg border bg-card p-3 space-y-3">
-          <p className="text-sm text-muted-foreground">
+          <p className="font-[weight:inherit] text-body text-muted-foreground">
             配置 fallback 链,主模型失败时自动切换备用模型,用户无感知:
           </p>
           <CodeBlock
@@ -347,7 +347,7 @@ export default function ModelsDocsPage() {
 - 402 Payment Required → 切下一个并通知 Admin
 - 200 成功 → 不切`}
           />
-          <p className="text-xs text-muted-foreground">
+          <p className="font-[weight:inherit] text-label text-muted-foreground">
             <Lightbulb className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
             <strong>跨厂商 fallback</strong>:OpenAI 挂了切 Anthropic,Anthropic 挂了切通义,
             三大厂商同时挂的概率几乎为 0,服务可用性达 99.95%。
@@ -359,7 +359,7 @@ export default function ModelsDocsPage() {
       <section id="combo-chain" className="mt-16 space-y-6">
         <h2 className="text-display font-bold tracking-tight">Combo 链(组合调用)</h2>
         <div className="rounded-lg border bg-card p-3 space-y-3">
-          <p className="text-sm text-muted-foreground">
+          <p className="font-[weight:inherit] text-body text-muted-foreground">
             把多个模型串联 / 并联调用,实现单模型无法完成的能力:
           </p>
           <div className="space-y-3">
@@ -368,7 +368,7 @@ export default function ModelsDocsPage() {
                 <Pin className="mr-1.5 inline h-4 w-4" />
                 串联(Priority 策略)
               </p>
-              <p className="mt-1 text-xs text-muted-foreground">
+              <p className="font-[weight:inherit] mt-1 text-label text-muted-foreground">
                 按顺序尝试,前一个失败才用下一个 — <strong>等价于 fallback</strong>
               </p>
               <CodeBlock
@@ -381,7 +381,7 @@ export default function ModelsDocsPage() {
                 <Coins className="mr-1.5 inline h-4 w-4" />
                 串联(Cheapest 策略)
               </p>
-              <p className="mt-1 text-xs text-muted-foreground">
+              <p className="font-[weight:inherit] mt-1 text-label text-muted-foreground">
                 按价格从低到高尝试,优先用便宜模型,质量不够才升级
               </p>
               <CodeBlock
@@ -394,7 +394,7 @@ export default function ModelsDocsPage() {
                 <Shuffle className="mr-1.5 inline h-4 w-4" />
                 并联(Fusion 策略)
               </p>
-              <p className="mt-1 text-xs text-muted-foreground">
+              <p className="font-[weight:inherit] mt-1 text-label text-muted-foreground">
                 多模型同时回答,Judge 模型打分选最佳 — <strong>质量最高但贵</strong>
               </p>
               <CodeBlock
@@ -411,11 +411,11 @@ judge: "gpt-4o"   # 用 GPT-4o 评分选最佳答案`}
       <section id="token-compaction" className="mt-16 space-y-6">
         <h2 className="text-display font-bold tracking-tight">Token 压缩(降本利器)</h2>
         <div className="rounded-lg border bg-card p-3 space-y-3">
-          <p className="text-sm text-muted-foreground">
+          <p className="font-[weight:inherit] text-body text-muted-foreground">
             长对话自动压缩历史消息,降低 Token 消耗 60%+,质量损失 &lt; 5%:
           </p>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="font-[weight:inherit] w-full text-body">
               <thead>
                 <tr className="bg-muted/60 text-left text-label font-semibold">
                   <th scope="col" className="p-3">
@@ -436,9 +436,9 @@ judge: "gpt-4o"   # 用 GPT-4o 评分选最佳答案`}
                   ['RTK + Caveman', '混合策略', '先 RTK 再 Caveman,压缩率最高'],
                 ].map(([name, full, desc], i) => (
                   <tr key={name} className={i % 2 === 0 ? 'bg-background' : 'bg-muted/40'}>
-                    <td className="p-3 font-mono text-xs whitespace-nowrap">{name}</td>
+                    <td className="font-[weight:inherit] p-3 font-mono text-label whitespace-nowrap">{name}</td>
                     <td className="p-3 font-medium">{full}</td>
-                    <td className="p-3 text-xs text-muted-foreground">{desc}</td>
+                    <td className="font-[weight:inherit] p-3 text-label text-muted-foreground">{desc}</td>
                   </tr>
                 ))}
               </tbody>
@@ -460,10 +460,10 @@ judge: "gpt-4o"   # 用 GPT-4o 评分选最佳答案`}
       <section id="credits" className="mt-16 space-y-6">
         <h2 className="text-display font-bold tracking-tight">统一积分池</h2>
         <div className="rounded-lg border bg-card p-3 space-y-3">
-          <p className="text-sm text-muted-foreground">
+          <p className="font-[weight:inherit] text-body text-muted-foreground">
             不用每个厂商单独充值,智汇 AI 统一积分池,一套账单全模型通用:
           </p>
-          <ul className="ml-4 list-disc space-y-1 text-sm text-muted-foreground">
+          <ul className="font-[weight:inherit] ml-4 list-disc space-y-1 text-body text-muted-foreground">
             <li>1 积分 ≈ 1000 Token(标准模型)</li>
             <li>贵模型(GPT-4o / Claude Opus)消耗 2-5x 积分</li>
             <li>便宜模型(DeepSeek / Qwen-Turbo)消耗 0.1-0.5x 积分</li>
@@ -490,24 +490,24 @@ judge: "gpt-4o"   # 用 GPT-4o 评分选最佳答案`}
         <div className="mt-3 grid grid-cols-1 gap-3 min-[768px]:grid-cols-3">
           <Link
             href="/docs/agent"
-            className="rounded-lg border bg-card p-3 text-sm hover:bg-accent"
+            className="font-[weight:inherit] rounded-lg border bg-card p-3 text-body hover:bg-accent"
           >
             <Bot className="mr-1 inline h-4 w-4" aria-hidden />
             <span>Agent 开发 →</span>
             <br />
-            <span className="text-xs text-muted-foreground">为 Agent 选模型</span>
+            <span className="font-[weight:inherit] text-label text-muted-foreground">为 Agent 选模型</span>
           </Link>
-          <Link href="/docs/rag" className="rounded-lg border bg-card p-3 text-sm hover:bg-accent">
+          <Link href="/docs/rag" className="font-[weight:inherit] rounded-lg border bg-card p-3 text-body hover:bg-accent">
             <BookOpen className="mr-1 inline h-4 w-4" aria-hidden />
             <span>知识库 RAG →</span>
             <br />
-            <span className="text-xs text-muted-foreground">Embedding 模型选择</span>
+            <span className="font-[weight:inherit] text-label text-muted-foreground">Embedding 模型选择</span>
           </Link>
-          <Link href="/docs/api" className="rounded-lg border bg-card p-3 text-sm hover:bg-accent">
+          <Link href="/docs/api" className="font-[weight:inherit] rounded-lg border bg-card p-3 text-body hover:bg-accent">
             <Wrench className="mr-1 inline h-4 w-4" aria-hidden />
             <span>API 参考 →</span>
             <br />
-            <span className="text-xs text-muted-foreground">通过 API 调用模型</span>
+            <span className="font-[weight:inherit] text-label text-muted-foreground">通过 API 调用模型</span>
           </Link>
         </div>
       </section>
