@@ -16,7 +16,12 @@ import {
 import { InlineEditDialog } from '@/components/ai/inline-edit-dialog'
 import { useInlineEdit } from '@/hooks/use-inline-edit'
 import { useInlineEditStore, type InlineEditSelection } from '@/stores/inline-edit'
-import { ChevronRight, Plus, Minus } from 'lucide-react'
+import {
+  getLineAttributionSources,
+  getLineAttributionVersion,
+  subscribeLineAttribution,
+} from '@/lib/line-attribution-store'
+import { ChevronRight, Plus, Minus, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const LANG_LABELS: Record<string, string> = {
@@ -80,6 +85,18 @@ export function CodeEditorPane() {
   // tab 内容为空字符串表示正在异步加载
   const isLoadingContent = Boolean(activeTab && activeTab.content === '')
   const [fontSize, setFontSize] = React.useState(DEFAULT_FONT_SIZE)
+  // 行级归因:版本号订阅 localStorage 变更(每次落盘/AI 写入都会推高),开关可关闭标记
+  const attributionVersion = React.useSyncExternalStore(
+    subscribeLineAttribution,
+    getLineAttributionVersion,
+    getLineAttributionVersion,
+  )
+  const [attributionEnabled, setAttributionEnabled] = React.useState(true)
+  const attributionSources = React.useMemo(() => {
+    if (!attributionEnabled || !activeTab || !activeTab.content) return undefined
+    const lineCount = activeTab.content.split('\n').length
+    return getLineAttributionSources(workspacePath ?? '', activeTab.path, lineCount)
+  }, [attributionEnabled, activeTab, workspacePath, attributionVersion])
 
   // 最新选区 ref(供 'global-shortcut:inline-edit' 事件读取)
   const selectionRef = React.useRef<{
@@ -310,6 +327,8 @@ export function CodeEditorPane() {
                 onChange={(v) => updateTabContent(activeTab.id, v)}
                 onSelectionChange={handleSelectionChange}
                 onMount={handleEditorMount}
+                attributionSources={attributionSources}
+                attributionVisible={attributionEnabled}
                 showMinimap
                 className="flex-1"
               />
@@ -337,6 +356,23 @@ export function CodeEditorPane() {
                   aria-label={t('codeEditor.zoomIn')}
                 >
                   <Plus className="h-3 w-3" />
+                </button>
+                <span className="mx-0.5 h-3 w-px bg-border" aria-hidden />
+                {/* 行级归因开关:开启时 AI 行/改后行整行着色,关闭时清空 decoration */}
+                <button
+                  onClick={() => setAttributionEnabled((v) => !v)}
+                  className={cn(
+                    'flex items-center gap-0.5 rounded-sm px-1 py-0.5 text-label',
+                    attributionEnabled
+                      ? 'text-foreground hover:bg-muted'
+                      : 'text-muted-foreground hover:bg-muted',
+                  )}
+                  aria-pressed={attributionEnabled}
+                  aria-label={t('codeEditor.attributionToggle')}
+                  title={t('codeEditor.attributionToggle')}
+                >
+                  <Sparkles className="h-3 w-3" />
+                  AI
                 </button>
               </div>
             )}

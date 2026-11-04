@@ -240,7 +240,25 @@ test('NS4 正常过钩路径与 HEAD 版逐字对照(整段 stdout 剥变量后�
   assert.equal(fresh.status, 0, outputOf(fresh))
   assert.equal(old.status, 0, outputOf(old))
 
-  assert.equal(scrub(outputOf(fresh), newDir), scrub(outputOf(old), headDir), '正常路径不得有可观察差异')
+  // 2026-11-04(P0 路径作用域 reset):Step 1 由「清空整个共享索引」改成「只退回声明面」,
+  // 它那一行日志**必然**与 HEAD 版不同 —— 那是本票要改的那一行,不是漂移。
+  // 对照口径改成:Step 1 那一行按各自契约单独钉住,其余每一行仍必须逐字等值(别的漂移照旧红)。
+  const freshOut = scrub(outputOf(fresh), newDir)
+  const oldOut = scrub(outputOf(old), headDir)
+  const step1Of = (t) => t.split('\n').filter((l) => /Step 1\/5:/.test(l))
+  assert.equal(step1Of(freshOut).length, 1, '正常路径必须只有一行 Step 1 日志')
+  assert.match(
+    step1Of(freshOut)[0],
+    /git reset HEAD -- <1 条声明路径>/,
+    '新版 Step 1 必须是路径作用域形态(无 pathspec 的全局清空不得回来)',
+  )
+  assert.match(step1Of(oldOut)[0], /清空暂存区/, '基线版仍是全局清空 —— 证明这条对照钉的是真差异')
+  const dropStep1 = (t) =>
+    t
+      .split('\n')
+      .filter((l) => !/Step 1\/5:/.test(l))
+      .join('\n')
+  assert.equal(dropStep1(freshOut), dropStep1(oldOut), '除 Step 1 那一行外,正常路径不得有可观察差异')
   assert.equal(git(newDir, 'log', '-1', '--format=%B'), git(headDir, 'log', '-1', '--format=%B'))
   assert.equal(git(newDir, 'log', '-1', '--format=%s'), 'docs: ns4')
 })
