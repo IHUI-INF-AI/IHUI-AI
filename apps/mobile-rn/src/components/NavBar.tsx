@@ -460,7 +460,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     // 40rpx = 20 逻辑 px(小程序端同一档)
-    gap: 20,
+    gap: rnSpacing.xl,
   },
   titleSwitchText: {
     fontSize: NAVBAR_TITLE_FONT_PX,
