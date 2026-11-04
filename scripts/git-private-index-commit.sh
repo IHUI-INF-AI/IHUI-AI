@@ -57,6 +57,7 @@ for attempt in 1 2 3 4 5; do
     exit 1
   fi
   TREE=$(git write-tree) || { echo "write-tree 失败"; exit 1; }
+  # commit-tree 直接吃内存里的 -m,全程不写 `.git/COMMIT_EDITMSG` —— 并发提交拿不到别人的消息。
   NEW=$(git commit-tree "$TREE" -p "$OLD" -m "$SUBJ" -m "$BODY") || { echo "commit-tree 失败"; exit 1; }
   LAST_NEW="$NEW"
   if git update-ref refs/heads/main "$NEW" "$OLD" 2>/dev/null; then
@@ -69,6 +70,30 @@ for attempt in 1 2 3 4 5; do
   sleep 2
 done
 [ -n "$NEW" ] || { echo "❌ 5 轮都没抢到 CAS,停手"; exit 1; }
+
+# ── ③ 后置:把本次提交动过的路径在**共享索引**里推进到新提交树 ────────────────────────
+# 裸私有索引提交只推进 HEAD,不推进共享索引 ⇒ 这些路径在共享索引里停在父树(`MM`),
+# 谁下一条裸 `git commit` 就把旧 blob 带回去(本仓「已删件复活 / 半成品被夹带回滚」的同一个根)。
+# 唯一实现 = scripts/lib/shared-index-advance.mjs:它只写本席路径、拿不到 index.lock 就原样不动、
+# 共享索引与父树不一致的条目只报数不覆盖(红线 C)。路径表取自本枚提交本身,与上面
+# "暂存集 == 声明集"的校验结果逐字一致。
+# 失败只喊不阻断:提交已在 refs 上,后置推进失败由下一条 safe-commit 自愈(判据是提交,不是它)。
+ADV_PATHS=$(git -c core.quotePath=false diff-tree --no-commit-id --name-only -r --no-renames "$NEW" | tr '\n' ',' | sed 's/,$//')
+if [ -n "$ADV_PATHS" ]; then
+  node scripts/lib/shared-index-advance.mjs --sha "$NEW" --paths "$ADV_PATHS" \
+    || echo "⚠️ 共享索引后置推进失败($ADV_PATHS)—— 已落地的 $NEW 不受影响,下一条 safe-commit 会自愈"
+fi
+
+# 提交后自证:回读 %s 与本席写入的 SUBJ 逐字比对。不一致 ⇒ 立即上报,**不许 amend**
+# (多会话共享工作树,改写在途提交会丢别人的工作)。
+GOT_SUBJ=$(git log -1 --format=%s "$NEW")
+if [ "$GOT_SUBJ" != "$SUBJ" ]; then
+  echo "❌ subject 回读与本席写入不一致(疑似并发消息串号):"
+  printf '  want=%s\n  got =%s\n' "$SUBJ" "$GOT_SUBJ"
+  echo "  提交 $NEW 已落地;按硬线不改写,请登记勘误台账后上报。"
+  exit 1
+fi
+echo "✅ subject 回读一致: $GOT_SUBJ"
 
 # ⚠️ 2026-10-18 修两处会把结论带偏的缺陷(此前守门批的"红"不可信):
 #   缺陷 A(要命):原来在这里就 `unset GIT_INDEX_FILE` + `rm` 私有索引,然后才跑
