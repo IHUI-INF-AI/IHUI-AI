@@ -345,7 +345,7 @@ const styles = StyleSheet.create({
     gap: rnSpacing.sm,
     paddingVertical: rnSpacing['5xl'],
   },
-  muted: { fontSize: 13, color: tokens.text.secondary },
+  muted: { fontSize: rnType.bodySm.size, color: tokens.text.secondary },
   errorBox: {
     padding: rnSpacing.md,
     gap: rnSpacing.sm,
@@ -363,7 +363,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: tokens.border.medium,
   },
-  retryText: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
+  retryText: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.text.primary },
   statsCard: {
     flexDirection: 'row',
     padding: rnSpacing.md,
@@ -444,7 +444,7 @@ const styles = StyleSheet.create({
     color: tokens.text.tertiary,
     textAlign: 'center',
   },
-  resultCellValue: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
+  resultCellValue: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.text.primary },
   primaryBtn: {
     height: 42,
     borderRadius: rnRadius.sm,

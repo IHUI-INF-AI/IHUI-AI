@@ -141,7 +141,15 @@ describe('D113 接线自证(源码级):解析 / dispatch / 回调表 / 消费点
   it('ai-cards.css:预览块档位与 App 端逐档同值(11px/6dp/5dp/3dp ⇒ 22/12/10/6rpx)', () => {
     const block = cssSrc.slice(cssSrc.indexOf('.ai-card-tool-partial-diff {'))
     expect(block.slice(0, 300)).toMatch(/margin-top:\s*6rpx/)
-    expect(block.slice(0, 300)).toMatch(/padding:\s*10rpx 12rpx/)
+    // padding 两种合规形态:字面量 10rpx 12rpx,或 12rpx 落档为 var(--spacing-xs-loose)。
+    // 令牌形态必须能**现读回 12rpx**(令牌值漂了/换了别的档 ⇒ 照样红),口径同下方 font-size。
+    if (!/padding:\s*10rpx 12rpx/.test(block.slice(0, 300))) {
+      expect(block.slice(0, 300)).toMatch(/padding:\s*10rpx var\(--spacing-xs-loose\)/)
+      const appCss = readFileSync(join(END_ROOT, 'src/app.css'), 'utf8')
+      expect(appCss, '--spacing-xs-loose 必须仍是 12rpx(App 端 6dp 同值档)').toMatch(
+        /--spacing-xs-loose:\s*12rpx/,
+      )
+    }
     const text = cssSrc.slice(cssSrc.indexOf('.ai-card-tool-partial-diff-text {'))
     // font-size 两种合规形态:字面量 22rpx,或设计令牌 var(--text-caption)。
     // 令牌形态必须能**现读回 22rpx**(令牌值漂了/换了别的档 ⇒ 照样红),不许只看"用了令牌"就放行。

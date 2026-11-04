@@ -15,7 +15,7 @@
   align-items: center;
   box-sizing: border-box;
   width: 100%;
-  padding: 18rpx 20rpx 18rpx 10rpx;
+  padding: 18rpx var(--spacing-sm-loose) 18rpx 10rpx;
   overflow-x: auto;
 }
 
@@ -25,7 +25,7 @@
   align-items: center;
   justify-content: center;
   height: 44rpx;
-  padding: 0 8rpx;
+  padding: 0 var(--spacing-xs);
   margin-right: 6rpx;
   border-radius: var(--radius-sm);
   border: 1px solid var(--color-border);
@@ -107,7 +107,7 @@
   margin-bottom: 50rpx;
   font-size: var(--text-badge);
   color: var(--color-muted-foreground);
-  padding: 0 12rpx;
+  padding: 0 var(--spacing-xs-loose);
   box-sizing: border-box;
 }
 

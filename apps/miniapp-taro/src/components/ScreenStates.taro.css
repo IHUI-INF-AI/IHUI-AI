@@ -42,7 +42,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: var(--spacing-3xl) 64rpx;
+  padding: var(--spacing-3xl) var(--spacing-3xl);
   gap: var(--spacing-sm-loose);
 }
 

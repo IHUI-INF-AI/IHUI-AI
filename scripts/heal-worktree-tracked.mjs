@@ -93,6 +93,8 @@ import {
   readFileDeletionNotices,
 } from './lib/intentional-file-deletion.mjs'
 import { flagValue } from './lib/flag-value.mjs'
+// 2026-11-05 结构缺陷票③:第四层反向例外 —— HEAD 里仍被引用的路径,即使父树全在位也恢复。
+import { findReferencersInRev } from './lib/rev-reference-graph.mjs'
 
 export const SKIP_ENV = 'IHUI_SKIP_WORKTREE_HEAL'
 
@@ -2202,15 +2204,20 @@ function restoreBypassOrphansInner(g, repoRoot, dryRun) {
     }
   // ④ 父树签名:与"有意 git rm 并等待提交"分开
   const { proven, unproven } = splitByParentSignature(g, candidates)
-  if (!proven.length)
-    return {
-      ...base,
-      heldOnDisk,
-      heldUnproven: unproven.length,
-      unprovenPaths: unproven,
-      skippedNotBlob,
-      reason: '候选存在于 HEAD 的每个父树 ⇒ 与有意 git rm 分不清,只报数不修',
-    }
+  // ④′ 反向例外(2026-11-05 结构缺陷票):父树全在位**不再等于**"有意删除"。
+  // 旁路落地合进来的新文件本来就同时存在于两侧父树,旧判据把它与 `git rm` 归成同一格 ⇒
+  // 只报不修,`D ` 长期挂账,下一次不带 pathspec 的提交就固化成删除。这里补一句人话判据:
+  // **HEAD 里还有没有人引用它**——有引用 ⇒ 构建读工作树必挂,按旁路残留恢复;
+  // 零引用且无删除理由 ⇒ 才落"疑似 git rm"只报数桶。引用面取不到(未判定)同样不恢复(§0.3)。
+  let referenced = []
+  let refUndetermined = []
+  if (unproven.length) {
+    const ref = findReferencersInRev({ root: repoRoot, rev: 'HEAD', paths: unproven })
+    referenced = unproven.filter((p) => (ref.hits.get(p) || []).length > 0)
+    refUndetermined = ref.undetermined ?? []
+  }
+  const referencedSet = new Set(referenced)
+  const restorableCandidates = [...proven, ...referenced]
   // 通知书闸(2026-11-04):**四判据全成立之后、动手之前**。判据结论(`proven`)与动作清单
   // (`restorable`)在此分开 —— 前者一字不动,后者才是本层可以 checkout 的集合。
   //   · 有效通知书(`declared`)      ⇒ 这次缺失就是人主动删的,恢复它 = 抹掉别人的删除;
@@ -2218,31 +2225,48 @@ function restoreBypassOrphansInner(g, repoRoot, dryRun) {
   //   · `expired` / `not-declared` / 台账缺席 ⇒ 回到原判据(通知书到期即失效,见 lib 头注)。
   const heldDeclared = []
   const restorable = []
-  for (const p of proven) {
+  for (const p of restorableCandidates) {
     const decl = isDeletionDeclared(notices, p)
     if (decl.declared || decl.verdict === 'undetermined') heldDeclared.push(p)
     else restorable.push(p)
+  }
+  // 未进入可恢复候选集的 unproven:只有"零引用 ∧ 无删除理由"才落疑似 git rm 桶;
+  // 有有效通知书 ⇒ 归 heldDeclared(有人写了理由,不该混进"疑似 git rm")。
+  const suspects = []
+  for (const p of unproven) {
+    if (referencedSet.has(p)) continue
+    const decl = isDeletionDeclared(notices, p)
+    if (decl.declared) heldDeclared.push(p)
+    else suspects.push(p)
   }
   if (!restorable.length)
     return {
       ...base,
       heldOnDisk,
-      heldUnproven: unproven.length,
-      unprovenPaths: unproven,
+      heldUnproven: suspects.length,
+      unprovenPaths: suspects,
       heldDeclared: heldDeclared.length,
       heldDeclaredPaths: heldDeclared,
+      referencedRestorable: referenced.length,
+      referenceUndetermined: refUndetermined,
       skippedNotBlob,
-      reason: `四判据成立但 ${heldDeclared.length} 个持有删除通知书(或台账坏档判不出)⇒ 只报数不恢复`,
+      reason: heldDeclared.length
+        ? `四判据成立但 ${heldDeclared.length} 个持有删除通知书(或台账坏档判不出)⇒ 只报数不恢复`
+        : suspects.length
+          ? '候选在 HEAD 的每个父树里都在位且零引用 ⇒ 与有意 git rm 分不清,只报数不修'
+          : '候选全部有工作树副本 / 非 blob ⇒ 不判',
     }
   if (dryRun)
     return {
       ...base,
       paths: restorable,
       heldOnDisk,
-      heldUnproven: unproven.length,
-      unprovenPaths: unproven,
+      heldUnproven: suspects.length,
+      unprovenPaths: suspects,
       heldDeclared: heldDeclared.length,
       heldDeclaredPaths: heldDeclared,
+      referencedRestorable: referenced.length,
+      referenceUndetermined: refUndetermined,
       skippedNotBlob,
       dryRun: true,
       reason: '旁路提交孤儿路径,四判据成立,可恢复(未执行)',
@@ -2252,16 +2276,19 @@ function restoreBypassOrphansInner(g, repoRoot, dryRun) {
     restored: done.length,
     paths: done,
     heldOnDisk: heldOnDisk + appeared,
-    heldUnproven: unproven.length,
-    unprovenPaths: unproven,
+    heldUnproven: suspects.length,
+    unprovenPaths: suspects,
     heldDeclared: heldDeclared.length,
     heldDeclaredPaths: heldDeclared,
+    referencedRestorable: referenced.length,
+    referenceUndetermined: refUndetermined,
     skippedNotBlob,
     deferred,
     reason: deferred.length
       ? `已恢复 ${done.length} 个,${deferred.length} 个因 git 写锁竞争延到下一轮`
-      : `恢复 ${done.length} 个旁路提交孤儿路径(HEAD有blob/索引无/盘无/父树签名)` +
-        (heldDeclared.length ? `;${heldDeclared.length} 个因通知书在册(或台账坏档)不恢复` : ''),
+      : `恢复 ${done.length} 个旁路提交孤儿路径(HEAD有blob/索引无/盘无/父树签名或 HEAD 仍被引用)` +
+        (heldDeclared.length ? `;${heldDeclared.length} 个因通知书在册(或台账坏档)不恢复` : '') +
+        (suspects.length ? `;${suspects.length} 个零引用且无删除理由 ⇒ 疑似 git rm,只报数` : ''),
   }
 }
 

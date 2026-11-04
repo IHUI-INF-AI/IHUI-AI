@@ -11130,6 +11130,14 @@ const CROSS_END_SHELL_INTERVAL_MS = Number(
  *
  * 三态:器物不在位 ⇒ 跳过且不记为已探测;取不到结论行 ⇒ 未判定(不记绿);有改动/零改动各记一行。
  * held 是"工作树脏、归属未知不猜"的跳过面,不是失败 —— 它会自己随着他席提交而回落。
+ *
+ * 2026-11-05 补 `--include-font-size`(**造好没装车**那一格,§0.9):器物本有三条子腿
+ * (字号 / 字号成对 / 圆角),而本腿此前恒只传 `--apply` ⇒ 只有间距腿在自动跑,字号轴结构上永远不会
+ * 跟随 web。现读实测该旗的预演面:`--include-font-size` = 263 处改写 / 96 文件 / **verifyFailed=0**
+ * (器物自验:写成 token 后取值逐枚与原数字相等 ⇒ 零视觉变化),并把 75 处"带 lineHeight 的成对字号"
+ * 主动让给成对腿(`--include-font-size-pair` 预演实测 0 可落:75 处 pairMismatch + 293 处无行高 ⇒
+ * 那两条要等成对档表补齐才能动,不是把判据削窄);`--include-radius` 预演 0 处可落(圆角已单源收口)。
+ * 与 web 腿的 `--only-weight-locked --pin-inherit-weight` 同一条纪律:**只放行可证零变化的那一档**。
  */
 const RN_STYLE_TIERS_INTERVAL_MS = Number(
   process.env.IHUI_RN_STYLE_TIERS_INTERVAL_MS || 30 * 60 * 1000,
@@ -11166,7 +11174,7 @@ export function sweepRnStyleTiers(opts = {}) {
       ? runner
       : () => {
           try {
-            const out = execFileSync(process.execPath, [script, '--apply'], {
+            const out = execFileSync(process.execPath, [script, '--apply', '--include-font-size'], {
               cwd: WORKTREE,
               encoding: 'utf8',
               windowsHide: true, // §5b 派生进程纪律
@@ -11977,6 +11985,9 @@ export function sweepCrossEndLandingLeg(opts = {}) {
     tickFile = join(dirname(LOG), 'cross-end-landing-last.json'),
     logger = log,
     runner = null,
+    // 与其余跨端腿同一注入面(被别的 sweepXxx 用同名默认):漏了这一行就是运行期 ReferenceError,
+    // 而 node --check 查不出来(模块能加载 ≠ 能调用)。
+    notify = notifyGuardRed,
   } = opts
   const script = join(dirname(fileURLToPath(import.meta.url)), 'auto-commit-quiet.mjs')
   if (!existsSync(script)) {
@@ -12007,6 +12018,11 @@ export function sweepCrossEndLandingLeg(opts = {}) {
   const num = (k) => Number(new RegExp(`${k}=(\\d+)`).exec(line)?.[1]) || 0
   const ledger = /ledger=(\w+)/.exec(line)?.[1] ?? 'unknown'
   const landed = num('collected')
+  // 2026-11-05 与收编器同日改口径:`collected` 现在只算**真入库**的枚数,被门拦下的走 blocked/blocker。
+  // 必须同时改下面那条"什么时候出声"的条件 —— 否则"整批被无关红门拦死"的轮次 collected=0,
+  // 会落进原来的静默分支,把唯一需要喊的那一刻变成安静(§0.9 判据失效的表现永远是安静)。
+  const blocked = num('blocked')
+  const blocker = /blocker=(\S+)/.exec(line)?.[1] ?? null
   const out = {
     ran: true,
     ok: true,
@@ -12017,6 +12033,26 @@ export function sweepCrossEndLandingLeg(opts = {}) {
     contested: num('contested'),
     incomplete: num('incomplete'),
     held: num('held'),
+    blocked,
+    blocker,
+  }
+  if (blocked > 0) {
+    logger(
+      `❌ 跨端落库:本轮挑中 ${blocked} 枚但一枚未入库,拦路者=${blocker ?? 'unidentified'} ⇒ ` +
+        `账本申报仍在盘上,下一轮仍会重来(不是"没有待收").${line.slice(0, 200)}`,
+    )
+    try {
+      notify(
+        `跨端收编被拦:拦路者 ${blocker ?? 'unidentified'}`,
+        `COLLECT-RESULT 现读:${line.slice(0, 300)}\n\n` +
+          '这不是"没有待收编",是整批被一道与跨端无关的门拦死(它判的是索引/工作树全局面 ⇒ 全仓提交都被堵)。' +
+          '整改下一步:按上面点名的门修它自己的红(或等它红被消除),不要给收编器加跳门旗。',
+        { severity: 'warning', dedupKey: `cross-end-collect-blocked:${blocker ?? 'unidentified'}` },
+      )
+    } catch {
+      /* 到人通道异常不改本轮结论(与既有各腿同形) */
+    }
+    return out
   }
   if (landed === 0 && out.contested === 0 && out.incomplete === 0) return out
   logger(`📦 跨端落库:${line.slice(0, 220)}`)

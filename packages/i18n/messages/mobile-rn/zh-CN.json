@@ -7260,6 +7260,12 @@
       }
     }
   },
+  "NavBar": {
+    "text1": "每日资讯",
+    "z1": "加入社区群",
+    "feedback": "反馈",
+    "fenlei": "分类"
+  },
   "chatSettingsPage": {
     "model": "模型"
   },

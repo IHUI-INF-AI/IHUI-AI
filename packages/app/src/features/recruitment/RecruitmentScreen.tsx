@@ -214,7 +214,7 @@ function createStyles(tk: AppThemeTokens) {
     avatar: { width: 50, height: 50, borderRadius: rnRadius['2xl'] },
     founderText: { flex: 1, marginLeft: rnSpacing.md },
     founder: { fontSize: rnType.title.size, fontWeight: '700', color: tk.text.primary },
-    recommend: { marginTop: rnSpacing['2xs'], fontSize: 13, color: tk.text.secondary },
+    recommend: { marginTop: rnSpacing['2xs'], fontSize: rnType.bodySm.size, color: tk.text.secondary },
     intro: {
       fontSize: rnType.body.size,
       lineHeight: 20,

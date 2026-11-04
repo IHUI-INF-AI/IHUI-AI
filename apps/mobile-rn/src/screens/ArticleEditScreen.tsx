@@ -262,7 +262,7 @@ function makeStyles() {
       backgroundColor: tokens.surface.card,
     },
     chipActive: { backgroundColor: tokens.brand.cta, borderColor: tokens.brand.cta },
-    chipText: { fontSize: 13, color: tokens.text.primary },
+    chipText: { fontSize: rnType.bodySm.size, color: tokens.text.primary },
     chipActiveText: { color: tokens.brand.ctaForeground },
     switchRow: {
       flexDirection: 'row',

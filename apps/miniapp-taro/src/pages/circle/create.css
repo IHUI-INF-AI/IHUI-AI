@@ -21,7 +21,7 @@
 .cc-page {
   min-height: 100vh;
   background: var(--color-background);
-  padding: var(--spacing-md) 20rpx 200rpx;
+  padding: var(--spacing-md) var(--spacing-sm-loose) 200rpx;
   box-sizing: border-box;
 }
 
@@ -132,7 +132,7 @@
   display: inline-flex;
   align-items: center;
   height: 56rpx;
-  padding: 0 24rpx;
+  padding: 0 var(--spacing-md);
   margin-right: var(--spacing-sm);
   background: var(--color-card);
   border: 2rpx solid var(--color-border-medium);
@@ -170,7 +170,7 @@
   align-items: center;
   gap: var(--spacing-xs);
   height: 72rpx;
-  padding: 0 24rpx;
+  padding: 0 var(--spacing-md);
   background: var(--color-card);
   border-radius: var(--radius-md);
   font-size: var(--text-body-sm);
@@ -181,7 +181,7 @@
   align-items: center;
   justify-content: space-between;
   height: 72rpx;
-  padding: 0 24rpx;
+  padding: 0 var(--spacing-md);
   background: var(--color-card);
   border: 2rpx solid var(--color-border-medium);
   border-radius: var(--radius-md);
@@ -224,7 +224,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--spacing-md-loose) 32rpx;
+  padding: var(--spacing-md-loose) var(--spacing-lg);
 }
 .cc-sheet-title {
   font-size: var(--text-strong);
@@ -234,11 +234,11 @@
 .cc-sheet-close {
   font-size: var(--text-subtitle);
   color: var(--color-muted-foreground);
-  padding: 0 8rpx;
+  padding: 0 var(--spacing-xs);
 }
 .cc-sheet-list {
   max-height: 50vh;
-  padding: 0 32rpx 32rpx;
+  padding: 0 var(--spacing-lg) var(--spacing-lg);
 }
 .cc-aigc-option {
   display: flex;
@@ -296,7 +296,7 @@
   align-items: center;
   gap: 6rpx;
   height: 56rpx;
-  padding: 0 24rpx;
+  padding: 0 var(--spacing-md);
   background: var(--color-card);
   border: 2rpx solid var(--color-border-medium);
   border-radius: var(--radius-md);
@@ -321,7 +321,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  padding: var(--spacing-sm-loose) 20rpx;
+  padding: var(--spacing-sm-loose) var(--spacing-sm-loose);
   padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
   background: var(--color-card);
   box-shadow: 0 -4rpx 16rpx var(--color-black-6);

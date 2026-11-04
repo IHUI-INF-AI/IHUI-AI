@@ -32,21 +32,21 @@ export default function NoteEditor({
     <View className="fixed inset-0 z-[2000] flex items-end" onClick={onCancel}>
       <View className="absolute inset-0 bg-[var(--color-black-40)]" />
       <View
-        className="relative bg-card ui-card rounded-t-lg w-full px-4 pb-6 pt-4"
+        className="relative bg-card ui-card rounded-t-lg w-full px-lg pb-2xl pt-lg"
         onClick={(e) => e.stopPropagation()}
         hoverClass="opacity-60"
       >
-        <View className="flex items-center justify-between mb-3">
-          <Text className="text-sm font-medium text-foreground">
+        <View className="flex items-center justify-between mb-md">
+          <Text className="text-body font-medium text-foreground">
             {tt('study.noteTitle', title)}
           </Text>
-          <Text className="text-sm text-muted-foreground" onClick={onCancel}>
+          <Text className="text-body text-muted-foreground" onClick={onCancel}>
             {tt('study.noteClose', '关闭')}
           </Text>
         </View>
 
         <FocusTextarea
-          className="w-full px-3 py-2 text-sm bg-muted rounded-sm"
+          className="w-full px-md py-sm text-body bg-muted rounded-sm"
           style={{ minHeight: '180px' }}
           placeholder={tt('study.notePlaceholder', '记录你的学习心得...')}
           value={content}
@@ -54,24 +54,24 @@ export default function NoteEditor({
           maxlength={-1}
         />
 
-        <View className="flex justify-between items-center mt-3">
-          <Text className="text-xs text-muted-foreground">
+        <View className="flex justify-between items-center mt-md">
+          <Text className="text-label text-muted-foreground">
             {content.length} {tt('study.noteCountUnit', '字')}
           </Text>
-          <View className="flex space-x-2">
+          <View className="flex space-x-sm">
             <View
-              className="px-4 py-2 rounded-md bg-muted"
+              className="px-lg py-sm rounded-md bg-muted"
               onClick={onCancel}
               hoverClass="opacity-60"
             >
-              <Text className="text-sm text-foreground">{tt('common.cancel', '取消')}</Text>
+              <Text className="text-body text-foreground">{tt('common.cancel', '取消')}</Text>
             </View>
             <View
-              className="px-4 py-2 rounded-md bg-primary"
+              className="px-lg py-sm rounded-md bg-primary"
               onClick={() => onSave?.(content)}
               hoverClass="opacity-60"
             >
-              <Text className="text-sm text-primary-foreground">{tt('common.save', '保存')}</Text>
+              <Text className="text-body text-primary-foreground">{tt('common.save', '保存')}</Text>
             </View>
           </View>
         </View>

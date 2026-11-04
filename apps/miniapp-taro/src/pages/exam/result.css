@@ -38,7 +38,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: var(--spacing-2xl) 28rpx;
+  padding: var(--spacing-2xl) var(--spacing-md-loose);
   border-radius: var(--radius-xl);
   border: 2rpx solid var(--color-border);
   background: var(--color-card);
@@ -106,7 +106,7 @@
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
   border-radius: var(--radius-xl);
-  padding: var(--spacing-md-loose) 16rpx;
+  padding: var(--spacing-md-loose) var(--spacing-sm);
   margin-bottom: var(--spacing-sm-loose);
 }
 
@@ -186,7 +186,7 @@
 
 .exam-result-review-status {
   font-size: var(--text-caption);
-  padding: var(--spacing-2xs) 16rpx;
+  padding: var(--spacing-2xs) var(--spacing-sm);
   border-radius: var(--radius-sm);
 }
 
@@ -279,7 +279,7 @@
   right: 0;
   display: flex;
   gap: var(--spacing-sm);
-  padding: var(--spacing-sm-loose) 24rpx;
+  padding: var(--spacing-sm-loose) var(--spacing-md);
   padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
   background: var(--color-card);
   z-index: 10;
