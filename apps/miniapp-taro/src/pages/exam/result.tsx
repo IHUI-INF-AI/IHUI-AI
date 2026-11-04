@@ -85,7 +85,9 @@ export default function ExamResult() {
   }, [router.params, tt, waitUntilReady])
 
   useShareAppMessage(() => ({
-    title: tt('exam.result.shareTitle', '我的考试成绩: {n} 分', { n: info.score }),
+    title: info.score
+      ? tt('exam.result.shareTitle', '我的考试成绩: {n} 分', { n: info.score })
+      : tt('share.appTitle', '智汇 AI - 让学习更高效'),
     path: '/pages/exam/list',
   }))
 
