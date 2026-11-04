@@ -15,7 +15,7 @@
  * - Agent 模式选项(showAgentMode + agentModeSelected + onAgentModeClick,可选)
  * - 逐项 slideUp 入场动画(animateEntrance,默认开启,反向 stagger)
  * - 单选 / 多选:selectionMode = 'single' | 'multiple'
- * - 加载更多:onEndReached
+ * - 加载态占位
  * - 浅色优雅风,无霓虹 / 无渐变 / 无 ttf;颜色走 theme/active-tokens 的主题 token
  * - 类型零 any,精确标注
  *
@@ -113,7 +113,7 @@ export interface ModelListGroup {
 export type ModelListSelectionMode = 'single' | 'multiple'
 
 export interface ModelListProps {
-  groups: ModelListGroup[]
+  groups?: ModelListGroup[]
   selectionMode?: ModelListSelectionMode
   selectedIds?: string[]
   /** 单选便利入参(与小程序端同名同义):未给 selectedIds 时作为唯一选中项 */
@@ -123,7 +123,6 @@ export interface ModelListProps {
   onSelect?: (item: ModelListItem) => void
   /** 加载态(与小程序端同名同义):true 时只渲染加载占位,不铺列表 */
   loading?: boolean
-  onEndReached?: () => void
   /** Agent 模式选项(对齐 Uniapp showAgentMode,可选) */
   showAgentMode?: boolean
   /** Agent 模式选中态(对齐 Uniapp pitch === -1) */
@@ -295,7 +294,6 @@ export default function ModelList({
   onSelect,
   onSelectChange,
   loading = false,
-  onEndReached,
   showAgentMode = false,
   agentModeSelected = false,
   onAgentModeClick,
@@ -316,7 +314,7 @@ export default function ModelList({
   }
 
   /** 列表分组 section 数据(组内按 isTop 排序,RN SectionList 要求 data 字段为 ItemT[]) */
-  const sections: SectionListData<ModelListItem, { title: string }>[] = groups
+  const sections: SectionListData<ModelListItem, { title: string }>[] = (groups ?? [])
     .filter((g) => g.models.length > 0)
     .map((g) => {
       const models = [...g.models].sort((a, b) => (b.isTop ? 1 : 0) - (a.isTop ? 1 : 0))
@@ -383,8 +381,6 @@ export default function ModelList({
       // (rowSelected surface.card vs listBody surface.bg)承担 —— §4 允许的两条,不新增数值档。
       ListHeaderComponent={renderAgentHeader}
       stickySectionHeadersEnabled
-      onEndReached={onEndReached}
-      onEndReachedThreshold={0.4}
       ListEmptyComponent={EmptyState}
       contentContainerStyle={styles.listBody}
     />
