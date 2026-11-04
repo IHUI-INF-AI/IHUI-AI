@@ -39,20 +39,20 @@ export function TopupFailScreen({
       </View>
       <View style={styles.body}>
         <XCircle size={64} color={tk.danger.DEFAULT} />
-        <Text style={styles.titleText}>充值失败</Text>
+        <Text style={styles.titleText}>{t('wallet.rechargeFail')}</Text>
         <View style={styles.card}>
           <Text style={styles.reason}>{reason}</Text>
         </View>
         <View style={styles.actions}>
           <TouchableOpacity style={styles.primaryBtn} activeOpacity={0.7} onPress={onRetry}>
-            <Text style={styles.primaryText}>重试</Text>
+            <Text style={styles.primaryText}>{t('wallet.retryRecharge')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.secondaryBtn}
             activeOpacity={0.7}
             onPress={onContactService}
           >
-            <Text style={styles.secondaryText}>联系客服</Text>
+            <Text style={styles.secondaryText}>{t('wallet.contactSupport')}</Text>
           </TouchableOpacity>
         </View>
       </View>

@@ -82,28 +82,28 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 <!-- BEGIN GENERATED NUMBERS (node scripts/gen-doc-numbers.mjs --markdown) -->
 | 指标 | 现值 | 取数键 |
 | ---- | ---- | ------ |
-| 数据库表 | 618 | `dbTables` |
-| schema 文件 | 239 | `dbSchemaFiles` |
-| API 路由 | 4685 | `apiRoutes` |
-| 路由文件 | 661 | `apiRouteFiles` |
+| 数据库表 | 621 | `dbTables` |
+| schema 文件 | 240 | `dbSchemaFiles` |
+| API 路由 | 4696 | `apiRoutes` |
+| 路由文件 | 663 | `apiRouteFiles` |
 | AI 服务路由 | 628 | `aiServiceRoutes` |
 | WebSocket 端点 | 25 | `wsEndpoints` |
 | 入库模型清单 | 100 | `llmModels` |
 | 发布平台 | 38 | `publishPlatforms` |
 | 端应用包 | 9 | `appPackages` |
 | 共享包 | 16 | `sharedPackages` |
-| CLI 命令文件 | 69 | `cliCommandFiles` |
+| CLI 命令文件 | 70 | `cliCommandFiles` |
 | CLI 工具文件 | 73 | `cliToolFiles` |
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 4045 | `testFiles` |
+| 测试文件 | 4073 | `testFiles` |
 | CI 工作流 | 53 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
-| 工程守门 | 332 | `guardianGates` |
-| — blocking | 302 | `guardianBlocking` |
+| 工程守门 | 333 | `guardianGates` |
+| — blocking | 303 | `guardianBlocking` |
 | — warn | 32 | `guardianWarn` |
-| 跟踪文件 | 18969 | `trackedFiles` |
+| 跟踪文件 | 19062 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-04。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -5450,6 +5450,180 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - **所属端**:后端 `apps/api`;消费端见上表"所属端 / 消费方"一列(web / mobile-rn / 小程序)。
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-04**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (dde2283d8c)
+- 🐞 修复:恢复下载详情页被误删的三个展示组件,修复主干编译中断 (a7fc6138d3)
+- 🐞 修复:门291 C组32条挂账清零,RN改取web真源键并摘除旧键 (0605ec255d)
+- 🐞 修复:门 288 证据定位改为按符号名解析，消除加注释即报证据行漂移的误红 (842c0f0b9a)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (4fd158208d)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (61d4502095)
+- 🐞 修复:分片腿加首片看门狗,任何失败都退回原生单流 (61bf95afe2)
+
+**2026-11-04**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (61d4502095)
+- 🐞 修复:分片腿加首片看门狗,任何失败都退回原生单流 (61bf95afe2)
+
+**2026-11-04**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (decbaf9b4c)
+- 🐞 修复:B 组收尾补漏（showClear 两端删除、mini robotImage 真渲染） (dcd22d3ccc)
+- 🐞 修复:平台裁决清零(46→0),A组18条真实现/删除,门128两红收口;补 pnpm-lock 记账(解门101 存量红) (2cf8856fd1)
+- 🐞 修复:整包下载改 8 连接分片 + 诚实的速率读数 (7242b9cc3d)
+
+**2026-11-04**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (6dcc3be9c8)
+
+**2026-11-04**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (8e04ad552e)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (4cde28b4d4)
+
+**2026-11-04**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (dcd5d46c43)
+- 🐞 修复:c-drive 默认即扫暂存区，无输入面不再空转报绿 (ce21ce2967)
+- 📚 文档:门45 注释同步空暂存区=0 不适用 (d03d3421ab)
+- 🐞 修复:c-drive 空暂存区按 A 级 check-file-size 口径 = 0 不适用（更正） (15ab31909f)
+- ♻️ 重构:屏级默认档等值落具名档·carte/edu-parent 10 处 (31b1682c69)
+- 🐞 修复:B 级 6 门三态化，取不到输入即 exit 2 (12c11a928f)
+- 🚀 新功能/改进:跨端写盘腿 tick 落 downgrade/undetermined 两态并接告警面 (682441757b)
+- 🐞 修复:登录页 welcome SVG 按 </svg> 截断,消除裸文本子节点触发的 Text 组件告警 (2892132dbf)
+- 🚀 新功能/改进:新增真机热更预览通道 rn-live-preview(8809, 自检12/12) (80a4925cb6)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (cd055b78af)
+- 🐞 修复:BottomActionBar 来源面板空声明回退 (cf4c76ff1e)
+- 🐞 修复:LoginPopUp/BackChevron 必选性对齐 (f11df86f5f)
+- 🐞 修复:ModelConfigDialog 死变体删除 (923044485c)
+- 🐞 修复:InputArea/ModelList 死腿删除 (804ee7142a)
+- 🐞 修复:BottomActionBar 手工压缩入口接线与死腿删除 (a7e4a73d7a)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (cbe4ddd32c)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (5ffc1c5120)
+- 🐞 修复:NavBar/VideoPlayer 证据换真 (2ef7755dc4)
+- 🐞 修复:VoiceInput 图片死腿删除 (633b4a018a)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (9795a8effe)
+- 🐞 修复:UserInfoCard onOpenVip 真实现与死字段删除 (67afef48b0)
+- 🐞 修复:LoginPopUp 协议真实现与同槽收敛 (db8e6679cb)
+- 🐞 修复:capability-catalog 门取不到暂存面时改判 exit 2 未判定 (d551e17bc3)
+- 🔧 工程/其他:dedupe 夹具超时放宽到 600s(规避 pnpm 并发持有夹具) (552b8cfc5d)
+- 🐞 修复:底部淡出遮罩渐变段 120→90 —— 机主复看仍点名「顶部有点高」 (f989956df1)
+- 🐞 修复:根治「签名不一致」—— debug 签名不再静默可得,装机前强制证书对账 (45506184a7)
+- 🐞 修复:底部淡出遮罩渐变段 160→120 —— 机主点名「还是高」,同步「我的」页让位量 104→72 (2c32f411d7)
+- 🐞 修复:overlay-zindex 门扫描面为空/文件读不到时改判 exit 2 (c26b9a983a)
+- 🐞 修复:基线落账补记等价映射条数,棘轮字段不再随重落丢失 (beb3a3e6e9)
+- 🐞 修复:event-closure-leak 门取材失败/文件缺失时改判 exit 2 (31cede2149)
+- 🔧 工程/其他:门288 基线重落(存量存差 177→0,judged 166,裁决不适用 2 对) (f92c386395)
+- 🐞 修复:VoiceInput 3 键逐键裁决登记(RN 预留未接线腿) (5538025fff)
+- 🐞 修复:VideoPlayer 3 键逐键裁决登记(原生 Video vs 注入组件/页面标题) (a728994def)
+- 🐞 修复:NavBar 23 键逐键裁决登记(固定槽位 vs RN 泛型动作数组) (d7d23a6822)
+- 🐞 修复:file-size 门取材失败/读不到文件时改判 exit 2 (361b4678f8)
+- 🐞 修复:ModelList 5 键逐键裁决登记(分组 groups vs 平铺 models+currentType) (362de27391)
+- 🐞 修复:ModelConfigDialog 23 键逐键裁决登记(indexa 媒体链路未接/选型拆到 ModelList) (45fe8f9a40)
+- 🐞 修复:LoginPopUp 20 键逐键裁决登记(登录三回调 vs RN 受控弹窗+扁平资料) (91d15877ab)
+- 🐞 修复:IntelligentAssistant robotImage 归矢量字形媒介裁决 (3280b88e47)
+- 🐞 修复:BackChevron 2 键逐键裁决登记(label 端内 i18n 兜底/color 走 token) (c4154d3c81)
+- 🐞 修复:dedupe 门取不到 staged 面/锁文件时改判 exit 2 (137263b6ac)
+- 🐞 修复:BottomActionBar 44 键逐键裁决登记(开关聚合/图标卡入参与 RN 受控腿) (0fe3ce7009)
+- 🐞 修复:InputArea 31 键逐键裁决登记(折叠/模型/语音腿归平台载体) (dfd42f5393)
+- 🐞 修复:Carousel banner↔items 映射登记(3 键转裁决) (d7ab5acac8)
+- 🐞 修复:UserInfoCard 扁平字段真接线 + 报销空 prop 半成品(6 键转裁决) (784d8dfdbb)
+- 🐞 修复:commit-scope 门取不到输入时改判 exit 2 未判定 (9ffeb094b2)
+- 🐞 修复:push-sync 四类折绿分支收口 —— 窗口只降文案不降退出码,祖先/HEAD/清单读数失败一律 exit 2 (e0f8c0e451)
+- 🐞 修复:底部淡出遮罩延伸到屏幕底 —— 胶囊下方那段悬浮间距此前无人覆盖 (3c2e132bf5)
+
+**2026-11-04**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (43f56aa425)
+- 🐞 修复:首页 AI 输入框不再被底部淡出遮罩压住 —— 补小程序已有的那一层 (12b69b48aa)
+- 🐞 修复:校正 push-sync 注释的 rev-list 失败实测读数(本机 bad object exit 1,非 128) (15915596b8)
+
+**2026-11-04**
+- 🔧 工程/其他:收编守护落档产出(5 件,凭落点账本) (cd17b5992d)
+- 🐞 修复:push-sync 读数改三态 —— rev-list 失败/取不到对象不再折算成 ahead=0 假绿,5 例钉三态 (03f58d1a29)
+- 🐞 修复:两处 git 派生补 windowsHide —— 门52 生产面两处判红清零,消除控制台闪窗;staged 面 3 文件 0 违规 (3f5a439b05)
+- 🐞 修复:git 派生调用显式接管 stdio —— 门193 三处判红清零(两枚测试文件),解除 pre-push 阻塞;两测试 14/14 通过 (38f420f6cb)
+- 🐞 修复:写盘闸 HEAD 三态 —— git 取不到不再折成「新增文件」放行 (860fc3e087)
+
+**2026-11-03**
+- 🔧 工程/其他:288 judged 自检改临时夹具 —— 不再钉死真仓行号 (414db88c6b)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (6f77b0a629)
+- 📚 文档:288/289/290/291/292 语义与三条纪律入档 + 逃生变量并入 §6.3 (53cbd16b34)
+- 🚀 新功能/改进:门288 引入逐键 judged 桶 —— 存差=未实现+未映射+未裁决 (0013f61827)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (1759854c49)
+- 🐞 修复:门290 判据纠偏 + A3 可挂账 + 修真缺陷 (9e6d7fedeb)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (eb67922536)
+- 🔧 工程/其他:账本收敛为 C 组挂账与 A/B/E 裁决,统一 3 处可改调用点并登记 LearnScreen 4 处 web 无键文案 (7337b633c3)
+- 🐞 修复:证书基准拆为官网/Play 上传/Play 应用签名三值并互不校验 (c7274b7f66)
+- 🔧 工程/其他:登记 9 对跨端 props 提案(等价 21 + 平台 141 + FloatBox 整对不适用) (582088f7cd)
+- 🐞 修复:新增 B3 同义键异值判据、common.* 白名单/同字不同义裁决与唯一键去重 (fcb2cc8570)
+- 🐞 修复:门291 P0 将 10 处 RN 硬编码文案改为 web 同源键并补齐 5 语言词包 (dc74afd1bb)
+- 🔧 工程/其他:登记 9 对跨端 props 提案(等价 21 + 平台 141 + FloatBox 整对不适用) (8c63a3b963)
+- 🐞 修复:LoginPopUp 24→20 键 —— RN 补 visible 可选、userInfo 适配、defaultAvatar、onNicknameChange (c5b7f31ae9)
+- 🐞 修复:NavBar 25→23 键 —— 小程序补 subtitle/sticky 真实现，menuIcon 接渲染分支 (db8b3c8c06)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (ffbc1e83bd)
+- 🐞 修复:BottomActionBar 59→56 键 —— RN 真接 placeholder/disabled,小程序真接 isLoading (3356abdcd5)
+- 🐞 修复:VideoPlayer 补齐 autoplay/poster/loading/onPlay/onPause/startPosition (4c44c59a30)
+- 🐞 修复:ModelList 两端补齐选择/加载/动效/样式契约 (29f6d7e7d1)
+- 🐞 修复:ModelConfigDialog 对齐必填漂移 visible/config/onChange/modelType (46b2a8cf4a)
+- 🐞 修复:InputArea 补齐 RN 输入契约 autoFocus/onFocus/onBlur/onKeyboardHeightChange (60fa2ebbea)
+- 🔧 工程/其他:摘除 ColorfulLoader 死副本并重算 ui-routes inputs —— 全仓静态/动态引用为 0,删除后经生成器重算(inputs 611→610、自述钉自洽);门105 保持绿、门288 258 键不变 (72eea3c5d5)
+- 📚 文档:派生块按生成器重算 —— 守门/跟踪文件读数对齐现算,最近更新补齐 48540f6..HEAD (4576ffade7)
+
+**2026-11-03**
+- 🔧 工程/其他:ui-routes 派生件按 HEAD 面重生成(model-edit/apis 两枚输入补钉) (c6c90050fb)
+- 🐞 修复:小程序 model-edit 接上 RN 同一份只读清单,并补派生进程 windowsHide (5133f2817d)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (7755f73e27)
+- 🚀 新功能/改进:词包搬运器补键级射程(整块之外的单键缺口此前无人判) (0f42f52703)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (29e3c26cc0)
+- 🔧 工程/其他:收编守护落档产出(5 件,凭落点账本) (335d63c7e8)
+- 🐞 修复:门288 将 ScreenStates 判为 not-applicable —— 文件级四组件族容器,非单组件对 (ec90d7b58b)
+- 🚀 新功能/改进:小程序词包整块缺口首次有器物并挂上自动链 (3c19ced5cd)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (57c6228ab4)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (8548571866)
+- 🐞 修复:SectionHeader 两端同源收口 —— 小程序适配层真接 leading/style/titleStyle/subtitleStyle/accessibilityLabel(容器与文字样式覆盖、ariaLabel 落地),非空 prop;门288 270→265,该对归零;intentional-delete: 该对五键已由实现消除 (b80032e3b9)
+- 🐞 修复:IntelligentAssistant 两端同源收口 —— RN 补 isLoggedIn(登录态文案+隐藏充值,默认 true 零观感变化)与 5 语 loginRequired,tokenQuantity↔tokenBalance 入映射表;门288 273→270;intentional-delete: 该对 tokenQuantity/tokenBalance/isLoggedIn 三键已由映射+实现消除 (9436bdf042)
+- 🚀 新功能/改进:新增小程序交互卫生门(290)与 web↔RN 措辞一致性门(291) (f664fb52e9)
+- 🚀 新功能/改进:落语义等价映射表 + 门288 mapped 分类与棘轮 —— 3 条命名等价(onPress↔onTap×2、label↔labelKey)归 mapped 4 键,漂移 277→273;表扩容须同轮收敛 (2ccede4e8e)
+- 🔧 工程/其他:补齐 gen-rn-shell-scaffold 与 rn-shell-target 两枚溯源水印欠账 (e343c19714)
+- 🐞 修复:门 289 补射程声明 stagedTriggers ['**/*'] —— check-gate-triggers 新增缺 1→0(到期与暂存面无关,必须每提交跑) (75768f75a5)
+- 🚀 新功能/改进:deferred@ 到期判据常驻(门 289,blocking) (fec71850ab)
+- 🚀 新功能/改进:覆盖门增补「新屏无壳且无判决」造壳命令队列(既有读数不变) (5f258fd86a)
+- 🚀 新功能/改进:新增 gen-rn-shell-scaffold 预演式造壳器(默认 dry-run/--force 先备份/6 例自检) (9eaf14ef2f)
+- 🐞 修复:结清 P84/P85/P86 + 摘 RP-91 重复副本 + 结清 docs-207 (848e4a4f46)
+- 🐞 修复:收口被整块重复的登记(F6 块级判据的修复出口) (e61c494fc5)
+- 🔧 工程/其他:登记 B72/D04/D05 处置 (a1ee9465bf)
+- 🔧 工程/其他:登记 B72/D04/D05 处置 (d9ed3e722f)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (0af18824e2)
+- 🔧 工程/其他:RP-79 dedupe theirs (plan-union-merge input) (c3a32de7d7)
+- 🐞 修复:ColorfulLoader 两端同源收口 —— RN 补 visible(不渲染即 null)、小程序适配层补 duration(默认共享档),门288 消 2 键 (657b9ed59f)
+- 🔧 工程/其他:store-migration-end-factory 冷启动移出用例窗口——全量超时 flake 的确定化收口 (3b72141949)
+- 🐞 修复:门 30a 悬空 commit 分档——等价残留(仅树逐字同)不判红,四档逐次报数 (18a0179a49)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (55c2cb04cd)
+- ♻️ 重构:共享屏间距 26 处落档 + 2 处 Platform 锁 web 值,销账 18 条 decision (73dfd3f56c)
+- 🐞 修复:B02② 会话切换时 chatSync 判据面与 resyncPending 一起换人(同 id 重设不动,补 1 条判据测试) (03b1cec6db)
+- 🐞 修复:PayPopup 回退误带入的他会话间距中间态，仅保留 ¥ 档位落档 (2ea19b406b)
+- 🐞 修复:RP-1 号域族注册表(RP 多字母族在册,单字母逐字不变)+ O01 空对照面收口为「挂账+到期」; immutable-exempt: 族注册表为新增只读取表,挂账判定只在空对照面改判,既有判红档与退出码语义不动 (73eac1c22b)
+- 🐞 修复:RP-47×2 staged 面双测试(有暂存必须取索引 blob/暂存为空判未判定不回落工作树) (1952b604cd)
+- ♻️ 重构:钱包/课程/排行等 92 处间距默认档落具名档 (7afdef0638)
+- 🐞 修复:runGate 的 node 分支显式 windowsHide(守门 no-visible-spawn 73 行按面转绿;超时与错误文案不变) (f4e33958fc)
+- 🐞 修复:出包链 windowsHide 接线回归锁(静态扫描全部 spawn/exec 调用点+门体形态锁,2 项) (f04f0b8ab7)
+- 🔧 工程/其他:D171 形状锁五→六处，点名 O67 发令前只读点名 (fd1fe89c72)
+- ♻️ 重构:门128 几何名额回退 3 处(4/8 档恢复 numeric) (b295cede8c)
+- 🐞 修复:18 处人工档位判定·落 8 保 10·不动几何额度 (ec9802df54)
+- 📚 文档:守门 207 体积清偿归零(96,790→95,910) (8e09798d32)
+- ♻️ 重构:支付/分销/课程头/简介/VIP/课时 87 处间距默认档落具名档 (9772113c78)
+- ♻️ 重构:共享屏 17/28/32/36 字号落 title/displayLg 档·10 处 (7a241e4d3e)
+- ♻️ 重构:模型配置/运行时/评论 92 处间距默认档落具名档 (d32e043698)
+- ♻️ 重构:共享屏 22px 标题/数值落 heading 20 档·71 处 (d2f150f983)
+- 🐞 修复:默认永不跳钩,锁重试收窄为 3 次/指数退避/60s,新增 --allow-skip-hooks (c3898fdb14)
+- 🔧 工程/其他:提交后格式化回流 2 文件 (1eac95dcd6)
+- ♻️ 重构:默认档等值落具名档·课程批 73 处 (904cb347c2)
+- ♻️ 重构:默认档等值落具名档·屏级批 58 处 (511fcc7b95)
+- ♻️ 重构:默认档等值落具名档·组件批 68 处 (766687c346)
+- 🐞 修复:--next-id 拒发池外号,池满点名改走 next-plan-id(G-44/G-54) (42f6d6414f)
+- ♻️ 重构:销账 6 条已全清 decision、补细 19 条挂账证据 (903c6cee1a)
+- ♻️ 重构:22px 上边距落 xl 20 档、30px 内边距落 3xl 32 档 (d5a54b93f4)
+- ♻️ 重构:18px 间距落 lg 16 档、30px 落 3xl 32 档 (83617072bc)
+- 📚 文档:门 287 号位现读回灌两枚残留 —— hover 门入库时与同批 props 对账门撞 288,落地腿已把 runner 注册块与门体头注顺延为 287(HEAD 面在位);本枚对齐其余两处字面:README 点名条 runner id 与 UI/样式尾注、镜像⑦形状锁号位 regex+文案(prettier 归位后水印已复验完整)。README 盘上派生块(跟踪文件 18947/收编行,可重算件)随本枚带落;props 门自身与其 285 条目未触碰。盘面 scripts/guardian-runner.mjs 为已落地历史拷贝的幻影漂移(§5b 形态,P1 对账尺当轮点名),已按 30c 出路②单文件 checkout HEAD 对齐——零丢失(盘 blob 系上一枚落地态,本票文字全部已入 HEAD)。 (1c9cdb39c2)
+- ♻️ 重构:17/32/40/12.5 字号落 title/displayLg/label 档 (4e11292057)
+- 🔧 工程/其他:结清 B67/B70/B71、G-1222560/59/56 与 Z-1 两条(证据见行内) (85f1c08855)
+- ♻️ 重构:22px 金额/标题落 heading 20 档 (2be9294d5f)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (14cdb641cc)
+
 **2026-11-03**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (434987ae32)
 - 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (a69c95034d)
@@ -5489,6 +5663,26 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 **2026-11-03**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (bf71375c7f)
 - 🐞 修复:修掉门 282 自带的 2 条类型错误(该腿本地不红、CI 会红) (9d98965011)
+- 🚀 新功能/改进:支付出口移入导航层 + Follow/VideoPlayer 语义登记 + 九屏端口自证测试 (830eb717a3)
+- 🚀 新功能/改进:校正 AigcList 薄壳对共享屏承接行号的引用 (b569c10672)
+- 🔧 工程/其他:重算四语 README 数字块并刷新最近更新 (e647bf8ab5)
+- ♻️ 重构:间距 rpx 字面量等值落档（CSS var / taroSpacing，weapp 像素零变化） (0ea20bbe01)
+
+**2026-11-03**
+- 🔧 工程/其他:扫码凭证用例确定化 2500ms 轮询触发,消除首轮计时抖动 (ad65d2b05f)
+- 🐞 修复:修掉 runner 两处撞号并重封根护栏 (73e64fd2e2)
+- ♻️ 重构:常量/条件字面量与手工收尾字号落档 (89831e5034)
+- 🚀 新功能/改进:Vip 支付链成功落 PayResult(replace),失败/取消留守;等级横幅入口走 VipUpgrade (2c37223cfd)
+- ♻️ 重构:发布/巡检脚本接入 mobile-download-leg 单源并补一致性断言 (5a9fcadb2e)
+- 🚀 新功能/改进:ConversationImport 选文件取消/失败经 onToast 明确反馈 (f778f2a752)
+- ♻️ 重构:字号任意值等值落具名档（className 字面量批，零视觉变化） (0fdda86798)
+- 🚀 新功能/改进:AigcList 切薄壳并给 AigcPublish 接真实上传进度 (ea9e0f60f7)
+- 🚀 新功能/改进:补 ExamDetail/VipUpgrade 路由并收口 Exam 两屏推送 (a514deeecc)
+- 🔧 工程/其他:refactor(web)!: 容器 hover 浮起回归 --lift-* 单源并立守门 287 防回潮 (13a919a708)
+- ♻️ 重构:发布/巡检脚本接入 mobile-download-leg 单源并补一致性断言 (4078b4afcd)
+- 🐞 修复:给 @ihui/rn-app 替身补出 AgentReview 列表/详情两屏与 props 捕获出口(与真身 154/278 行同步) (7ffcf16a68)
+- 🐞 修复:补录 ai-service memory.py 六个 MEMORY_* 兜底码到错误目录并补齐五语词包 (575a1bd2b7)
+- 🔧 工程/其他:分叉收敛后按 HEAD 面重生成 web/miniapp 两枚 ui-routes 产物(合并提交承诺的落地后重生成;门 105 stale→matched) (35bddefbd9)
 <!-- END RECENT UPDATES -->
 同轮收口(2026-10-21 下午，五枚已入库)：把上一段里"只存不拦"的部分接成实链，并把跨端剩下的三处半截补齐。① **IP 白名单生效链**：判定唯一出口 `apps/api/src/routes/user/ip-whitelist-guard.ts`，挂在 18 条新登录腿的"凭据已验证之后、签发之前"；空表 = 未启用（不另开开关），已在线会话不受影响（换网不掉线），最后一次修改白名单的来源 IP 恒被放行（自救出口，否则清错一次就永久锁死）；被拒回 403 并落 `security_logs` 事件 `login_blocked_by_ip_allowlist`（登录前无主体，故 `recordSecurityEvent` 新增由承载层显式传主体的口子）。覆盖率由 `tests/ip-whitelist-issuance-coverage.test.ts` 机器守：全仓 6 个签发原语的每个调用点要么挂闸门、要么在具名豁免清单里带理由登记，将来新腿漏挂当场响。② **RN 安全中心接上这张卡**（`src/components/IpWhitelistPanel.tsx`，端内不复制 IP 文法校验，400 只翻本地化提示）。③ **五项 agent 护栏开关改为按登录主体生效**：`apps/ai-service/app/services/agent_security_prefs.py` 直连同库读 `user_preferences`（进程默认 ⊕ 该用户显式表态，缺省与改动前逐字一致），危险命令硬门与全局 kill switch 不受用户档影响。④ **小程序关于页补齐**为与 web/RN 同构的六段 + 保留 10 条合规入口（三端同脸，§4）。⑤ 删掉 PDF `print` / `sign` 两条零消费方的假 pending 端点（改成 404 断言留在原地），`openapi.json` 同步摘除两条 path。
 - **2026-10-21 公网提速批次的四件器物(点名义务在此,判据细节住器物头注;`§0.9` 的口径是"已接线而文档不点名 ⇒ 红")**:
@@ -16778,7 +16972,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 - 守门 251 `check-ps1-bom.mjs`(runner id 251,**blocking**,跳过变量 `HUSKY_SKIP_PS1_BOM=1`):判 `.ps1` / `.psm1` 必须以 **UTF-8 with BOM**(`EF BB BF`)写入。立因是实证不是假想——`AGENTS.md` §27 早规定这条,但全仓曾没有任何尺子校验它,76 个 `.ps1` 里 40 个没 BOM 而无人知;真害在 Windows 自带的 5.1 引擎按系统代码页(zh-CN=GBK)解码满篇中文的无 BOM 脚本,当场报「表达式或语句中包含意外的标记」并连累整模块「缺少右 }」,而受害模块被 `alert-dedup.ps1` 与 `ihui-monitor.ps1` dot-source ⇒ 生产上只要走一次 5.1,部署窗口控制与告警去重整条功能就是坏的(同批自带的 harness T2 专门断言「5.1 也要能加载」,因此在 main 上恒红)。取证:`node scripts/check-ps1-bom.mjs --self-test` 末行「自检通过(判据六例 + 端到端三例,正反两向都真跑)」;`deploy/**` 的 `.ps1` 不吃 `#requires` pragma 那条口径见 `check-pwsh-version.mjs`。
 | AI 服务路由 | 597 | `aiServiceRoutes` |
 | 测试文件 | 3359 | `testFiles` |
-| 工程守门 | 285 | `guardianGates` |
+| 工程守门 | 288 | `guardianGates` |
 | — blocking | 260 | `guardianBlocking` |
 | 跟踪文件 | 16670 | `trackedFiles` |
 > ⚠️ 未判定 1 项:`aiServiceRoutes`(apps/ai-service/app 有 1 个 .py 取不到内容)
@@ -41166,7 +41360,7 @@ A: Yes. ~14839+ tests / 3993 test files / 67 e2e spec / 4673 API 路由 / 618 �
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (3f04652720)
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (bd75e36dab)
 - 指标存在性对账(2026-11-03 立,接线面=根 `package.json` 脚本位 `check:metric-existence`,非提交链): `check-metric-existence.mjs` — 判 alerts 规则引用的指标名在 Prometheus 是否真实存在且近期有样本;T1 拼错(编辑距离 ≤2 并打印最近名字)/T2 不存在/T3 无样本 三态不并桶,任一命中 exit 1。立因:把指标名改错后 promtool 仍 SUCCESS、reload 200、health=ok,规则从此刻起静默永不触发,而既有各门(Metric 存在性只查大屏 expr、P6 只查 alerts.yml 且把无样本算 live)一条都不响。
-- 文档中心 / 公开面健康(2026-11-03 装车,blocking,runner id '285';**原登记为 282,与 `check-web-rn-gap-ratchet.mjs` 撞号后被后来者让号**): `check-docs-public-health.mjs`(D1 docs 页 `metadata.alternates.languages` 声明的 hreflang 必须有真实路由文件 / D2 `app/sitemap.ts` 收录的 `/docs*` 路径必须有路由 / D3 docs 页 `icon:` 字段禁 emoji 当图标,须 lucide 矢量组件;三档各自成对夹具 + `--self-test` 10 例,镜像 `scripts/tests/check-docs-public-health.test.mjs`;应急 `HUSKY_SKIP_DOCS_PUBLIC_HEALTH=1`)
+- 文档中心 / 公开面健康(2026-11-03 装车,blocking,runner id '288';**原登记为 282,与 `check-web-rn-gap-ratchet.mjs` 撞号后被后来者让号**): `check-docs-public-health.mjs`(D1 docs 页 `metadata.alternates.languages` 声明的 hreflang 必须有真实路由文件 / D2 `app/sitemap.ts` 收录的 `/docs*` 路径必须有路由 / D3 docs 页 `icon:` 字段禁 emoji 当图标,须 lucide 矢量组件;三档各自成对夹具 + `--self-test` 10 例,镜像 `scripts/tests/check-docs-public-health.test.mjs`;应急 `HUSKY_SKIP_DOCS_PUBLIC_HEALTH=1`)
 - 发布线 / 安卓对外下载腿(2026-11-03 立,CI 档,runner id 以现值为准): `check-mobile-download-leg.mjs`(三问各允许「未判定」而不猜绿:① 配置里的下载 URL 跟随 302 后必须 200/206;② `Content-Length` 须 ≥ `--min-bytes`(默认 50MiB);③ 手里的 APK 证书 SHA-256 须等于正式基准。**退出码 2 = skipped/未判定,不是绿** —— 判据读的是公网与签名,提交者结构上改不了那一格,故按 §12e 不挂提交门;取证 `--self-test`,口径见门体头注)
 - 跨端 / web↔RN 覆盖缺口棘轮(2026-11-03 装车,blocking,runner id '282'): `check-web-rn-gap-ratchet.mjs`(把只读对账尺 `check-web-rn-screen-parity.mjs` 的读数包成提交链判据,**不重算第二份口径**——判据 import 其 `__test__` 出口,§0.6;四维 unmapped=0 ∧ judgedGap=0 ∧ prefixHits≤基线容量 ∧ prefixExpired=0,外加每条 aligned 必须带完整 `data.kind`(direct/indirect/static/missing);基线件 `scripts/data/web-rn-gap-baseline.json` 由本器 `--baseline` 现读生成,容量取 min(常量,基线) ⇒ **只收紧不抬闸**;现读 HEAD 面 total 423 · 容量 423 · 全维在闸内 ⇒ 判绿;单次耗时约 4.2s;应急放行 `HUSKY_SKIP_WEB_RN_GAP_RATCHET=1`;镜像 `check-web-rn-gap-ratchet.test.mjs`)
 - 跨端 / 声明承载 vs 真承载(2026-11-03 立,blocking,runner id '284'): `check-declared-carriage.mjs`(registry 声明"某小程序页承载某共享屏"时,必须能在该页 HEAD blob 里读到 **`@rn-shells/<屏名>` 的值 import**——注释与 `import type` 都不算(这两型过报本仓都踩过);三桶 carried/假声明/页面查无之和必须等于声明数,漏桶即判死。档位是**差值棘轮**:锚点 = HEAD 面同一判据读数,只拦"本次新增的假声明",现读存量 69 枚(declared 256 / carried 187)逐条报数不拦(§12e:存量未归零前升绝对零 = 恒红门)。整面只起 3 次 git(ls-tree + git grep + show),实测 0.85s——第一版逐页 `git show` 要 21.5s,慢门本身就是逼人跳门的成因。取不到 registry / 坏 JSON / 枚举 0 条 / 阳性对照读到 0 ⇒ 一律未判定或判死,绝不把"尺子读不到"写成"没有缺陷"。镜像 `check-declared-carriage.test.mjs`(7 例,含真仓存活证明);应急放行 `HUSKY_SKIP_DECLARED_CARRIAGE=1`)
@@ -41304,7 +41498,7 @@ A: Yes. ~14839+ tests / 4034 test files / 67 e2e spec / 4683 API 路由 / 619 �
 - ♻️ 重构:销账 6 条已全清 decision、补细 19 条挂账证据 (903c6cee1a)
 - ♻️ 重构:22px 上边距落 xl 20 档、30px 内边距落 3xl 32 档 (d5a54b93f4)
 - ♻️ 重构:18px 间距落 lg 16 档、30px 落 3xl 32 档 (83617072bc)
-- 📚 文档:门 287 号位现读回灌两枚残留 —— hover 门入库时与同批 props 对账门撞 285,落地腿已把 runner 注册块与门体头注顺延为 287(HEAD 面在位);本枚对齐其余两处字面:README 点名条 runner id 与 UI/样式尾注、镜像⑦形状锁号位 regex+文案(prettier 归位后水印已复验完整)。README 盘上派生块(跟踪文件 18947/收编行,可重算件)随本枚带落;props 门自身与其 285 条目未触碰。盘面 scripts/guardian-runner.mjs 为已落地历史拷贝的幻影漂移(§5b 形态,P1 对账尺当轮点名),已按 30c 出路②单文件 checkout HEAD 对齐——零丢失(盘 blob 系上一枚落地态,本票文字全部已入 HEAD)。 (1c9cdb39c2)
+- 📚 文档:门 287 号位现读回灌两枚残留 —— hover 门入库时与同批 props 对账门撞 288,落地腿已把 runner 注册块与门体头注顺延为 287(HEAD 面在位);本枚对齐其余两处字面:README 点名条 runner id 与 UI/样式尾注、镜像⑦形状锁号位 regex+文案(prettier 归位后水印已复验完整)。README 盘上派生块(跟踪文件 18947/收编行,可重算件)随本枚带落;props 门自身与其 285 条目未触碰。盘面 scripts/guardian-runner.mjs 为已落地历史拷贝的幻影漂移(§5b 形态,P1 对账尺当轮点名),已按 30c 出路②单文件 checkout HEAD 对齐——零丢失(盘 blob 系上一枚落地态,本票文字全部已入 HEAD)。 (1c9cdb39c2)
 - ♻️ 重构:17/32/40/12.5 字号落 title/displayLg/label 档 (4e11292057)
 - 🔧 工程/其他:结清 B67/B70/B71、G-1222560/59/56 与 Z-1 两条(证据见行内) (85f1c08855)
 - 🚀 新功能/改进:指标存在性门让号 282→286 装车,根护栏巡检补上「远端 tip」那张脸 (8b56f8a460)
@@ -41803,7 +41997,7 @@ A: Yes. ~14839+ tests / 4036 test files / 67 e2e spec / 4683 API 路由 / 619 �
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (4070d7a682)
 - 📚 文档:认领文档中心格式层与排版收口票(7 簇并行,主席统一落地) (89b014b18a)
 - 🚀 新功能/改进:新增小程序交互卫生门(290)与 web↔RN 措辞一致性门(291) (f664fb52e9)
-- 🚀 新功能/改进:落语义等价映射表 + 门285 mapped 分类与棘轮 —— 3 条命名等价(onPress↔onTap×2、label↔labelKey)归 mapped 4 键,漂移 277→273;表扩容须同轮收敛 (2ccede4e8e)
+- 🚀 新功能/改进:落语义等价映射表 + 门288 mapped 分类与棘轮 —— 3 条命名等价(onPress↔onTap×2、label↔labelKey)归 mapped 4 键,漂移 277→273;表扩容须同轮收敛 (2ccede4e8e)
 - 🔧 工程/其他:补齐 gen-rn-shell-scaffold 与 rn-shell-target 两枚溯源水印欠账 (e343c19714)
 - 🐞 修复:门 289 补射程声明 stagedTriggers ['**/*'] —— check-gate-triggers 新增缺 1→0(到期与暂存面无关,必须每提交跑) (75768f75a5)
 - 🚀 新功能/改进:deferred@ 到期判据常驻(门 289,blocking) (fec71850ab)
@@ -41815,7 +42009,7 @@ A: Yes. ~14839+ tests / 4036 test files / 67 e2e spec / 4683 API 路由 / 619 �
 - 🔧 工程/其他:登记 B72/D04/D05 处置 (d9ed3e722f)
 - 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (0af18824e2)
 - 🔧 工程/其他:RP-79 dedupe theirs (plan-union-merge input) (c3a32de7d7)
-- 🐞 修复:ColorfulLoader 两端同源收口 —— RN 补 visible(不渲染即 null)、小程序适配层补 duration(默认共享档),门285 消 2 键 (657b9ed59f)
+- 🐞 修复:ColorfulLoader 两端同源收口 —— RN 补 visible(不渲染即 null)、小程序适配层补 duration(默认共享档),门288 消 2 键 (657b9ed59f)
 - 🔧 工程/其他:store-migration-end-factory 冷启动移出用例窗口——全量超时 flake 的确定化收口 (3b72141949)
 - 🐞 修复:门 30a 悬空 commit 分档——等价残留(仅树逐字同)不判红,四档逐次报数 (18a0179a49)
 100 入库模型 · 38 平台自动发布 · 4036 测试文件 · 326 道工程守门 · 52 CI workflows ·
