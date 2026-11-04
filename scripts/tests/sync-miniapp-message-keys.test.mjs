@@ -201,6 +201,117 @@ ok('插入点只认顶层命名空间:同名嵌套块(devEnter.modelEdit)不得�
   assert.equal(p.modelEdit.headerTitle, '模型编辑')
 })
 
+ok('noop 裁决:盘上已含 ∧ 账本相符申报 ⇒ awaiting-landing(缺的是收编那一跳,不是"取不到")', () => {
+  const needs = ['activities']
+  const present = X.LANGS.map((l) => `activities@${l}`)
+  const declared = [...X.LANGS]
+  const v = X.classifyNoop({ needs, present, declared })
+  assert.equal(v.state, 'awaiting-landing')
+  assert.equal(v.exit, 0)
+  assert.equal(v.pending, 5)
+  assert.deepEqual(v.named, [])
+})
+
+ok('noop 裁决反向对照:同一盘上内容而账本无相符申报 ⇒ 不得折成 awaiting-landing(不替别人认领)', () => {
+  const needs = ['activities']
+  const present = X.LANGS.map((l) => `activities@${l}`)
+  const v = X.classifyNoop({ needs, present, declared: ['zh-CN'] })
+  assert.equal(v.state, 'undetermined')
+  assert.equal(v.exit, 2)
+  assert.ok(v.named.some((s) => s.includes('本端副本已含而本腿账本无相符申报:ko')))
+})
+
+ok('noop 裁决:账本读不出 ⇒ 未判定并点名,绝不回落"没申报"也不冒绿(§0.3)', () => {
+  const v = X.classifyNoop({ needs: ['edu'], present: [], declared: [], ledgerError: 'not-found:x' })
+  assert.equal(v.state, 'undetermined')
+  assert.equal(v.exit, 2)
+  assert.ok(v.named[0].startsWith('账本取不到:'))
+})
+
+ok('noop 裁决:盘上没有而计划=0 且基准侧未点名 ⇒ 判不出,逐枚点名到 ns@lang(不数成 0 枚就当过)', () => {
+  const v = X.classifyNoop({ needs: ['edu', 'learn'], present: ['learn@zh-CN'], declared: [...X.LANGS] })
+  assert.equal(v.state, 'undetermined')
+  assert.ok(v.named.includes('edu@ko'))
+  assert.ok(!v.named.includes('learn@zh-CN'))
+})
+
+ok('presentFaces 只认顶层命名空间对象(字符串残根不算在位)', () => {
+  const read = (pack, lang) =>
+    pack === 'miniapp-taro' && lang === 'zh-CN'
+      ? { activities: { a: 'x' }, student: '不是对象' }
+      : pack === 'miniapp-taro'
+        ? {}
+        : null
+  assert.deepEqual(X.presentFaces(['activities', 'student'], read), ['activities@zh-CN'])
+})
+
+ok('declaredLangsFromLedger 按 leg+path+blobOid 三键逐字相符才认(他腿同路径不算)', () => {
+  const rows = [
+    { leg: 'miniapp-message-keys', path: 'packages/i18n/messages/miniapp-taro/zh-CN.json', blobOid: 'aaa' },
+    { leg: 'ui-mirror', path: 'packages/i18n/messages/miniapp-taro/zh-TW.json', blobOid: 'bbb' },
+    { leg: 'miniapp-message-keys', path: 'packages/i18n/messages/miniapp-taro/ja.json', blobOid: 'zzz' },
+  ]
+  const out = X.declaredLangsFromLedger({
+    rows,
+    oidByLang: { 'zh-CN': 'aaa', 'zh-TW': 'bbb', ja: 'yyy', en: null, ko: '' },
+  })
+  assert.deepEqual(out, ['zh-CN'], 'oid 不符/他腿申报/oid 取不到都不该被认成"我写的等收编"')
+})
+
+ok('嵌套命名空间整块搬:基准侧只有子对象时也必须有计划(edu 型旧形态恒 0 枚 ⇒ 红永不消)', () => {
+  const rn = () => ({ edu: { qa: { askBtn: '提问' } } })
+  const mini = () => ({})
+  const { moves, unresolvable } = X.planMoves(['edu'], (p) =>
+    p === 'mobile-rn' ? rn() : p === 'miniapp-taro' ? mini() : {},
+  )
+  assert.equal(unresolvable.length, 0)
+  assert.equal(moves.length, X.LANGS.length, '五语言各一枚(缺一语 = 搬出半套)')
+  assert.equal(moves[0].ns, 'edu')
+  assert.equal(moves[0].key, 'qa')
+  assert.deepEqual(moves[0].value, { askBtn: '提问' })
+})
+
+ok('嵌套子树零覆盖:本端该键已有子对象 ⇒ 整片不动,不拿基准侧盖掉本端已有内容', () => {
+  const rn = () => ({ edu: { qa: { askBtn: '提问', extra: '多余' } } })
+  const mini = () => ({ edu: { qa: { askBtn: '本端自己的说法' } } })
+  const { moves } = X.planMoves(['edu'], (p) =>
+    p === 'mobile-rn' ? rn() : p === 'miniapp-taro' ? mini() : {},
+  )
+  assert.deepEqual(moves, [], '已有子树被覆盖 = 破本端文案')
+})
+
+ok('整块子对象插入按词包既有 2 空格阶梯落行(prettier 不再展开 ⇒ 不造无谓格式红),回读逐字节相等', () => {
+  const text = `{
+  "existing": {
+    "a": "1"
+  }
+}
+`
+  const out = X.insertIntoJson(text, 'learnPaymentConfirmPage', [
+    ['fields', { payMethod: '支付方式', deep: { x: 'y' } }],
+    ['plain', '扁平键'],
+  ])
+  assert.ok(out)
+  assert.match(out, /\n    "fields": \{\n      "payMethod": "支付方式"/)
+  assert.match(out, /\n      "deep": \{\n        "x": "y"\n      \}/)
+  const indents = out
+    .split('\n')
+    .filter((l) => l.trim() !== '')
+    .map((l) => l.match(/^[ \t]*/)[0].length)
+  assert.ok(
+    indents.every((w) => w % 2 === 0),
+    `缩进必须落在 2 的倍数上(prettier JSON 阶梯):${indents.join(',')}`,
+  )
+  assert.ok(
+    !/"\s*\{\s*"[^{}]*\}\s*,?\s*$/.test(out),
+    '对象不得内联在同一行 ⇒ prettier 一改就造出与正确性无关的 diff',
+  )
+  const p = JSON.parse(out)
+  assert.deepEqual(p.learnPaymentConfirmPage.fields, { payMethod: '支付方式', deep: { x: 'y' } })
+  assert.equal(p.learnPaymentConfirmPage.plain, '扁平键')
+  assert.equal(p.existing.a, '1')
+})
+
 console.log(`\n✅ sync-miniapp-message-keys 镜像测试 ${n} 例通过`)
 export const runSelfTest = () => 0
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

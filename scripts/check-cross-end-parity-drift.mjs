@@ -334,7 +334,10 @@ function judge({
       dim: 'mirror-pack-namespace-missing',
       detail:
         `${cur.fidelityPackAbsent} 屏要的命名空间在本端词包里整块不存在(本端包 ∪ shared 都查无)⇒ ${impact}` +
-        ` ⇒ 出路:node scripts/check-miniapp-mirror-fidelity.mjs 看 ❌ 点名行,再从 messages/mobile-rn(基准侧)或 messages/shared 逐字搬该命名空间(勿代拟译文)${hit.length ? ` ⇒ 点名:${hit.join(' ｜ ')}` : ''}`,
+        ` ⇒ 出路(已由守护 30 分钟一轮自动派发,零人工):node scripts/sync-miniapp-message-keys.mjs --apply` +
+        ` —— 它把"计划=0"分三档自报:状态=awaiting-landing(已写盘,缺的是收编那一跳,交 auto-commit-quiet)/` +
+        ` undetermined(逐枚点名 ns@lang)/ 基准侧查无(逐字无源可搬 ⇒ 才需要人工定文案,勿代拟译文)` +
+        `${hit.length ? ` ⇒ 点名:${hit.join(' ｜ ')}` : ''}`,
     })
   }
   // 撤除台账自身出问题必须出声,否则"有出处的撤除"会退化成一条没人看的免检通道:
@@ -562,6 +565,9 @@ function selfTestMain() {
       red: new Array(reds).fill({ rule: 'R1' }),
       rot: new Array(rot).fill({ line: 1, why: 'x' }),
       aligned,
+      // 尺子出口本就同发去重后的承载面计数(2026-10-30 那格把 web 承载维挪进 extras 时,
+      // 夹具没跟上 ⇒ 该维在自检里结构上永不触发,坏例看着像"判过了"其实没判)。
+      alignedUnique: aligned,
       unmapped,
     },
   })
@@ -575,6 +581,14 @@ function selfTestMain() {
     rows = [],
     packAbsentRows = 0,
     packUndetermined = false,
+    // 撤除台账四维(2026-10-30 立尺时漏补夹具 ⇒ cur 的 null 扫描把整轮拖成未判定,自检 24→19/24,
+    // 且 19 例✗ 一行理由都不出。夹具必须与尺子出口同形:尺子恒发这四键,夹具不给就是假输入。)
+    totalRetracted = 0,
+    retractionTotal = 0,
+    retractionRefused = [],
+    retractionBad = [],
+    retractionRot = [],
+    omitRetractionDims = false,
   } = {}) => ({
     ok: true,
     json: {
@@ -586,6 +600,9 @@ function selfTestMain() {
       rows,
       packAbsentRows,
       packUndetermined,
+      ...(omitRetractionDims
+        ? {}
+        : { totalRetracted, retractionTotal, retractionRefused, retractionBad, retractionRot }),
     },
   })
   /** 转换机会预演夹具(与 upgrade-miniapp-shell-pages 的机读档同形;默认"没机会"= 现读真实状态) */
@@ -993,7 +1010,9 @@ function selfTestMain() {
         coverage: mk(91, 0, 0),
         webParity: mk(91, 0, 0, 150, 270),
         doc: '',
-        prev: { mirrored: 91, aligned: 160, unmapped: 270 },
+        // 上一轮快照真发的键是去重后的承载面计数(现读 .ihui-agent/state/cross-end-parity-last.json
+        // 里就是 alignedUnique)⇒ 夹具按同一形态给,否则这一维在自检里从未被走到。
+        prev: { mirrored: 91, aligned: 160, alignedUnique: 160, unmapped: 270 },
       })
       return (
         j.state === 'regressed' &&

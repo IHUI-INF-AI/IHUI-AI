@@ -103,11 +103,9 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 工程守门 | 333 | `guardianGates` |
 | — blocking | 303 | `guardianBlocking` |
 | — warn | 32 | `guardianWarn` |
-| 跟踪文件 | 19088 | `trackedFiles` |
-
+| 跟踪文件 | 19098 | `trackedFiles` |
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-04。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
-
 <!-- END GENERATED NUMBERS -->
 **一句话口径**:数字一律现读,文档里不写「约 N 个」——那种写法必然腐烂。
 ---
@@ -5983,7 +5981,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
 - **50 CI workflows**:CI / Build Docker / e2e / Visual Regression / Release SDK / Release Desktop / Release CLI / Lighthouse CI / Knip / i18n Check / weekly-security-audit / WebSocket Load Test 等
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
   **两台机器状态探测器现在有名字了(warn 档:已注册进提交链但不阻塞 —— 它判的是机器状态,升 blocking 就是每台每次逼人跳门)**:`scripts/check-service-binary-paths.mjs`(`pnpm check:service-paths`)按 STATE / `nssm Application` 路径存在性 / 声明端口应答 三件事判一个 Windows 服务是不是"真的活着",并把"取不到值"与"值为空"以退出码分岔(nssm stdout 实测 UTF-16LE)—— 立因是 `IHUI-RSSHUB` 被 `.ihui-agent/state` 自升级换掉 node 目录后**静默停了 3 天**,183 道门禁与告警全都看不见。`scripts/check-public-path-probe.mjs`(`pnpm check:public-path`,并由 `git-guardian` 每 30 分钟跑一次)把**换流窗口的不可用时长**与**常态公网的失败率/延迟**分成两条互不顶账的序列各自量,取证经 `scripts/run-evidence.mjs` 封缄 —— "没跑完"的 0 不算合格证。两者刻意保持 warn:判的是机器运行时状态,挂 blocking 只会逼人跳门、连带废掉全部守门。
   | 5-post | sync-lost-commit-tags.mjs(post-commit) | commit 后增量 push 本地缺失于 origin 的 tag(2026-10-14 起覆盖**全部命名空间**;`--check` 另比名字 + SHA,AGENTS.md §22) |
@@ -6139,7 +6137,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失     | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 **两台机器状态探测器现在有名字了(warn 档:已注册进提交链但不阻塞 —— 它判的是机器状态,升 blocking 就是每台每次逼人跳门)**:`scripts/check-service-binary-paths.mjs`(`pnpm check:service-paths`)按 STATE / `nssm Application` 路径存在性 / 声明端口应答 三件事判一个 Windows 服务是不是"真的活着",并把"取不到值"与"值为空"以退出码分岔(nssm stdout 实测 UTF-16LE)—— 立因是 `IHUI-RSSHUB` 被 `.ihui-agent/state` 自升级换掉 node 目录后**静默停了 3 天**,183 道门禁与告警全都看不见。`scripts/check-public-path-probe.mjs`(`pnpm check:public-path`,并由 `git-guardian` 每 30 分钟跑一次)把**换流窗口的不可用时长**与**常态公网的失败率/延迟**分成两条互不顶账的序列各自量,取证经 `scripts/run-evidence.mjs` 封缄 —— "没跑完"的 0 不算合格证。两者刻意保持 warn:判的是机器运行时状态,挂 blocking 只会逼人跳门、连带废掉全部守门。
 **11 个 i18n 工具链脚本**(`scripts/`): apply-brand-glossary.mjs / apply-i18n-translations.mjs / apply-translation-fallback.mjs / deep-i18n-audit.mjs / export-untranslated-i18n.mjs / fix-i18n-deep.mjs / scan-hardcoded-zh.mjs / scan-i18n-zh-residue.mjs / translate-i18n-batch.mjs / analyze-unique-i18n-values.mjs / verify-i18n.mjs
@@ -7195,7 +7193,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 - 618 数据库表 + drizzle-kit push + 16 共享包 + pgvector + 知识图谱 + Knip + Lighthouse + Locust 压测
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -7232,7 +7230,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 - 618 数据库表 + drizzle-kit push + 16 共享包 + pgvector + 知识图谱 + Knip + Lighthouse + Locust 压测
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -7314,7 +7312,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | **代码规模** | 8 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
 |                   | API                 | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -7340,7 +7338,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
   | **代码规模** | 8 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity |
   | | API | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -7669,7 +7667,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
 - **50 CI workflows**:CI / Build Docker / e2e / Visual Regression / Release SDK / Release Desktop / Release CLI / Lighthouse CI / Knip / i18n Check / weekly-security-audit / WebSocket Load Test 等
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 | 200        | check-provider-health-vocabulary.mjs                                   | **provider 健康四档单一真相源对账(blocking,2026-10-08 立 · 2026-10-10 接线)**:钉住 2026-10-07「并表」决策不许再分叉 —— canonical 在 `apps/web/app/(main)/settings/llm/types-v2.ts` 的 `PROVIDER_HEALTH_STATUSES`(as const,unknown/healthy/degraded/down),`ProviderHealthStatus` 由它派生,`apps/web/app/(main)/models/channels/channels-api.ts` 的 `RelayKeyPoolHealthStatus` 是同来源别名。**PV1** canonical 形态与派生 / **PV2** 全仓第二份**同值**声明(接线当轮 HEAD 面 409 候选 · 同值 0 ⇒ 直挂 blocking 不新增恒红面;两处真子集只报名,补齐即翻红)/ **PV3** 别名被换回字面量即红。同名不同域按值不判(web 另一张 `ProviderHealthStatus` = ok/invalid_key/unreachable/not_configured、api-client 7 档、`unhealthy` 族、`.py` 侧机主已裁决不扩)。**无行内豁免通道**,只有具名覆盖边界台账;注册条目带 `--strict`(默认档只报数,不带它的 blocking 就是永不红的尺子,守门 117 同型)。口径同 77/83/151(HEAD blob / 索引 blob / `--worktree` 仅人工 / 两旗同给 exit 2 / 枚举 0 判死);取证 `--self-test` + 镜像(T5/T15 接线方向锁双向臂、T13 两旗同给、T14 唯一真相源被摘线必 exit 2);紧急跳过 `HUSKY_SKIP_PROVIDER_HEALTH_VOCAB=1`。台账 G-814416 / G-1058634 |
 | 221        | check-mjs-syntax.mjs                                                    | **.mjs 语法对账(blocking,2026-10-17 立)**:被审面全量 `scripts/check-mjs-syntax.mjs` 逐一纯解析(只 compile 不 evaluate,绝不执行被检文件);定级走差值棘轮:存量只报数,只拦本次带进来的;自检 `node scripts/check-mjs-syntax.mjs --self-test`;应急跳过 `HUSKY_SKIP_MJS_SYNTAX=1`(须在提交信息写明理由) |
@@ -7780,7 +7778,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
 - **50 CI workflows**:CI / Build Docker / e2e / Visual Regression / Release SDK / Release Desktop / Release CLI / Lighthouse CI / Knip / i18n Check / weekly-security-audit / WebSocket Load Test 等
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -7859,7 +7857,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 |                   | API                 | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 |                   | 工程守门            | **260 守门/验证脚本**(59 check + 11 verify + 6 guard + 2 sync + 9 scan)+ **pre-commit 56+10 项**(40 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段 + **50 CI workflows** + post-commit 自动 push + lost-commit tag 自动同步                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -7889,7 +7887,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
   | | API | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI |
   | | 工程守门 | **260 守门/验证脚本**(59 check + 11 verify + 6 guard + 2 sync + 9 scan)+ **pre-commit 56+10 项**(40 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段 + **50 CI workflows** + post-commit 自动 push + lost-commit tag 自动同步 |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -8090,7 +8088,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失 | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式 |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -8125,7 +8123,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失     | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -8196,7 +8194,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | **代码规模** | 8 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
 |                   | API                 | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -8222,7 +8220,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
   | **代码规模** | 8 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity |
   | | API | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -8904,8 +8902,8 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 - self-hosted chatgpt alternative with 100 llms
 - self-hosted chatgpt alternative with 100 llms
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
 **2026-10-24**
 - 🚀 新功能/改进:守门 71 补归并名额维 —— 同题副本两行 marker 逐字相同,丢失维把删掉带进展那一份读成没删(真仓成对实测零报);新维要求当次逐号定向声明 IHUI_PLAN_MERGE_FOLD,与本次改动不同轮或给出空声明同样判红,归档豁免沿用丢失维同一把尺子先行放行,刻意只挂提交链以绝恒红门;镜像测试十例(归档豁免/丢失维/空声明三支变异各有承重)+门体自检七十例全绿 (a331c34b6e)
 - 🐞 修复:注入交代列表改走 @ihui/shared 叶子路径,修 8801 全站 500 (a49c5520f2)
@@ -9273,7 +9271,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
 - **50 CI workflows**:CI / Build Docker / e2e / Visual Regression / Release SDK / Release Desktop / Release CLI / Lighthouse CI / Knip / i18n Check / weekly-security-audit / WebSocket Load Test 等
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -9315,7 +9313,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失     | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -9621,7 +9619,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 - 618 数据库表 + drizzle-kit push + 16 共享包 + pgvector + 知识图谱 + Knip + Lighthouse + Locust 压测
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -9658,7 +9656,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 - 618 数据库表 + drizzle-kit push + 16 共享包 + pgvector + 知识图谱 + Knip + Lighthouse + Locust 压测
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -9731,7 +9729,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | **代码规模** | 8 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
 |                   | API                 | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -9757,7 +9755,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
   | **代码规模** | 8 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity |
   | | API | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -9971,7 +9969,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
 - **50 CI workflows**:CI / Build Docker / e2e / Visual Regression / Release SDK / Release Desktop / Release CLI / Lighthouse CI / Knip / i18n Check / weekly-security-audit / WebSocket Load Test 等
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -10044,7 +10042,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 - 618 数据库表 + drizzle-kit push + 16 共享包 + pgvector + 知识图谱 + Knip + Lighthouse + Locust 压测
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -10114,7 +10112,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | **代码规模** | 8 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
 |                   | API                 | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~15039+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -10140,7 +10138,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
   | **代码规模** | 8 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity |
   | | API | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~15039+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -10330,7 +10328,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失 | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式 |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -10365,7 +10363,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失     | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -10435,7 +10433,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | **代码规模** | 8 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
 |                   | API                 | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~15039+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -10461,7 +10459,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
   | **代码规模** | 8 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity |
   | | API | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~15039+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -11329,8 +11327,8 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 77 | check-radius-single-source.mjs | **全 9 端圆角单一源头对账(blocking,2026-09-23 立)**:档位表唯一真相源 `packages/design-tokens/src/radius.js`(xs2/sm4/md6/lg8/xl12/2xl16)。判据 A:radius.js ↔ tokens.css `--radius-*` ↔ miniapp-taro app.css ↔ tailwind-preset 四处逐档同值(preset 必须引用 `RADIUS_REM`,不得重新内联)——历史上 v3 preset 的 `rounded-sm`=2px 与 web v4 的 4px 同名不同值,是"手机上所有容器圆角与全局设定不一致"的根因。判据 B:端内取用必须引用档位(RN `rnRadius.lg` / CSS `var(--radius-lg)` / 类名 `rounded-lg`),数字字面量、`rpx()` 算圆角、每文件 `*_RADIUS` 常量、`rounded-[任意值]` 一律红;CSS 声明**逐值判**(2026-09-27 补:旧写法是"值里出现 `var(` 就整条放行",于是 `border-radius: var(--radius-xl) 24rpx 0 0` 这类多值混写整型隐身,HEAD 实存 4 处而门一路报绿),任意属性形态 `[border-radius:6rpx]`(小程序 className)同时纳入 —— 值前导字符类原不含左方括号,那一型也隐身 1 处;真圆/胶囊(头像/装饰点/半高胶囊)不得方档化,须 `size/2` 几何表达式并由盒形量证(正方盒+半边=几何真圆出射程,非正方盒+半边=胶囊判红且不吃任何声明);**圆角豁免标记一族已于 2026-09-29 O81 票㊵ 整体废除**,新增判据 **B8** 把"写下一行标记"这个动作本身判红(只拆出口不拦回写,通道就会被悄悄接回来);B6 还要求引用 `rnRadius` / `RADIUS_CSS_PX` 的文件必须自己 import(本门判 HEAD,`pnpm typecheck` 只跑 worktree —— 悬空标识符两边都不红)。**棘轮锚点 = 该文件 HEAD 版本自身的违规数**(2026-09-24 换锚:并行会话的索引层重建曾把 309 个路径整文件回写成迁移前的旧基线、HEAD 积累 1179 处,而静态清单对此完全绿灯;`radius-single-source-baseline.json` 降为人工兜底且现须为空),全量审计改判 **HEAD blob 而非工作树**(滞后的旧草稿不该记成本仓债务 —— 一道与真实改动无关的红门只会逼人 `--no-verify`)。另有判据 C 覆盖面对账:含圆角的跟踪文件要么落在 SCAN_DIRS,要么在 `OUT_OF_SCOPE` 写明原因。判据不锚定行首(`width:16px; border-radius:50%` 这类同行多声明、以及 cli 分享页/设计模板/扩展 content script 里 **TS 模板字面量生成的 CSS** 同样可见,后者须用 `${RADIUS_CSS_PX.md}` 插值而非写死)。`--self-test` 例数以命令末行现读为准(本文不钉数字,钉死的下一枚提交就把它变成假账)(含真实表端到端对账、NaN 防回归、HEAD 锚点四方向正反例、多行 import 不误伤、CSS 多值逐值判与任意属性形态的正反成对锁),镜像测试 `node --test scripts/tests/check-radius-single-source.test.mjs`(例数以 `node --test` 末行现读为准,含"锚点必须是 HEAD 而非静态清单"装车证明、夹具端到端逐条点名多值混写与 `[border-radius:…]`、两条源码形状反向锁) |
 | 77 | check-radius-single-source.mjs | **全 9 端圆角单一源头对账(blocking,2026-09-23 立)**:档位表唯一真相源 `packages/design-tokens/src/radius.js`(xs2/sm4/md6/lg8/xl12/2xl16)。判据 A:radius.js ↔ tokens.css `--radius-*` ↔ miniapp-taro app.css ↔ tailwind-preset 四处逐档同值(preset 必须引用 `RADIUS_REM`,不得重新内联)——历史上 v3 preset 的 `rounded-sm`=2px 与 web v4 的 4px 同名不同值,是"手机上所有容器圆角与全局设定不一致"的根因。判据 B:端内取用必须引用档位(RN `rnRadius.lg` / CSS `var(--radius-lg)` / 类名 `rounded-lg`),数字字面量、`rpx()` 算圆角、每文件 `*_RADIUS` 常量、`rounded-[任意值]` 一律红;CSS 声明**逐值判**(2026-09-27 补:旧写法是"值里出现 `var(` 就整条放行",于是 `border-radius: var(--radius-xl) 24rpx 0 0` 这类多值混写整型隐身,HEAD 实存 4 处而门一路报绿),任意属性形态 `[border-radius:6rpx]`(小程序 className)同时纳入 —— 值前导字符类原不含左方括号,那一型也隐身 1 处;真圆/胶囊(头像/装饰点/半高胶囊)不得方档化,须 `size/2` 几何表达式并由盒形量证(正方盒+半边=几何真圆出射程,非正方盒+半边=胶囊判红且不吃任何声明);**圆角豁免标记一族已于 2026-09-29 O81 票㊵ 整体废除**,新增判据 **B8** 把"写下一行标记"这个动作本身判红(只拆出口不拦回写,通道就会被悄悄接回来);B6 还要求引用 `rnRadius` / `RADIUS_CSS_PX` 的文件必须自己 import(本门判 HEAD,`pnpm typecheck` 只跑 worktree —— 悬空标识符两边都不红)。**棘轮锚点 = 该文件 HEAD 版本自身的违规数**(2026-09-24 换锚:并行会话的索引层重建曾把 309 个路径整文件回写成迁移前的旧基线、HEAD 积累 1179 处,而静态清单对此完全绿灯;`radius-single-source-baseline.json` 降为人工兜底且现须为空),全量审计改判 **HEAD blob 而非工作树**(滞后的旧草稿不该记成本仓债务 —— 一道与真实改动无关的红门只会逼人 `--no-verify`)。另有判据 C 覆盖面对账:含圆角的跟踪文件要么落在 SCAN_DIRS,要么在 `OUT_OF_SCOPE` 写明原因。判据不锚定行首(`width:16px; border-radius:50%` 这类同行多声明、以及 cli 分享页/设计模板/扩展 content script 里 **TS 模板字面量生成的 CSS** 同样可见,后者须用 `${RADIUS_CSS_PX.md}` 插值而非写死)。`--self-test` 例数以命令末行现读为准(本文不钉数字,钉死的下一枚提交就把它变成假账)(含真实表端到端对账、NaN 防回归、HEAD 锚点四方向正反例、多行 import 不误伤、CSS 多值逐值判与任意属性形态的正反成对锁),镜像测试 `node --test scripts/tests/check-radius-single-source.test.mjs`(例数以 `node --test` 末行现读为准,含"锚点必须是 HEAD 而非静态清单"装车证明、夹具端到端逐条点名多值混写与 `[border-radius:…]`、两条源码形状反向锁;**B8** 拦已废除的圆角豁免标记回写、**B9** 判「写死的数值半径不得超过最大档 2xl」(2026-09-29 用户定档:半径一律 ≤16px,圆形头像不豁免;全圆写法的等效半径归守门 11 的 C7,两门共用 lib/box-geometry.mjs 的 ownShortSidePx 那一份盒形尺)) |
   九端共用一份订阅出口;小程序与 App 端的管理入口在别处,所以状态行附一句去哪配的提示。
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 **2026-10-25**
 - 🐞 修复:修 F3 自检恒红 —— 落点判据跟上 G-158 仓内 .DevEnv (1f9deae5c65)
 - ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (58111ebfb00)
@@ -11553,7 +11551,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失 | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式 |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
   | 入库模型清单                                                                        | 101            | `llmModels`                                                                                                                                                           |
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
@@ -11591,7 +11589,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失     | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -11915,7 +11913,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失 | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式 |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -11950,7 +11948,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失     | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -12020,7 +12018,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | **代码规模** | 9 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
 |                   | API                 | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -12046,7 +12044,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
   | **代码规模** | 9 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity |
   | | API | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -12245,7 +12243,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失 | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式 |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -12314,7 +12312,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失     | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -12385,7 +12383,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | **代码规模** | 9 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
 |                   | API                 | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~15039+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -12411,7 +12409,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
   | **代码规模** | 9 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity |
   | | API | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~15039+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -12601,7 +12599,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失 | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式 |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -12636,7 +12634,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失     | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -12706,7 +12704,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | **代码规模** | 9 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
 |                   | API                 | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~15039+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -12732,7 +12730,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
   | **代码规模** | 9 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity |
   | | API | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~15039+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -13386,8 +13384,8 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
   <strong>9 端全覆盖</strong> · <strong>100 大模型</strong> · <strong>LangGraph + MCP + A2A 三栈</strong> · <strong>38 平台自动发布</strong> · <strong>AI 教育全栈</strong> · <strong>完整商业闭环</strong> · <strong>P3 AI 工程深度层</strong> · <strong>5 语言 i18n(7 端 35 JSON)</strong>
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -13426,7 +13424,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失 | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式 |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -13461,7 +13459,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失     | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -13745,7 +13743,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失 | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式 |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -13780,7 +13778,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失     | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -13850,7 +13848,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | **代码规模** | 9 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
 |                   | API                 | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -13876,7 +13874,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
   | **代码规模** | 9 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity |
   | | API | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -14072,7 +14070,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失 | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式 |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -14141,7 +14139,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失     | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -14211,7 +14209,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | **代码规模** | 9 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
 |                   | API                 | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -14237,7 +14235,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
   | **代码规模** | 9 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity |
   | | API | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -14427,7 +14425,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失 | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式 |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -14462,7 +14460,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失     | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -14532,7 +14530,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | **代码规模** | 9 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
 |                   | API                 | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -14558,7 +14556,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
   | **代码规模** | 9 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity |
   | | API | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -15226,7 +15224,7 @@ node scripts/check-db-migration-gaps.mjs  # DB 迁移账本「中间缺口」审
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
 > **9 端代码 · 608 张数据库表 · 4557 个 API 路由。**<!-- doc-num-exempt: 引文中的历史体量,非当前账实 -->
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 | **代码规模** | 9 端代码 / 205 schema 文件 / **618 数据库表**(实测 pgTable)/ drizzle-kit push 模式 / **4672 API 路由 + 25 WebSocket 通道**(实测 grep)/ 250+ Web 页面 / 200+ 组件 / 104 hooks / 16 共享包 / 5 语言 i18n parity(35 JSON 文件 7 端 × 5 语言) |
 | **测试覆盖** | **3985 测试文件 / ~14839+ 测试用例**(490 .test.ts + 67 .spec.ts + 162 test_*.py;TS ~10176 用例 + Python 4663 用例)+ Locust 压测 + Lighthouse 性能 + Visual Regression                                                                      |
 → **IHUI-AI(智汇 AI)**。Apache 2.0 开源,101 大模型统一调度,PostgreSQL 行级安全多租户,完整商业闭环(10 支付网关 + VIP + 积分 + 钱包 + 订阅 + 退款),9 端同源 Monorepo(Web/API/AI-Service/Desktop/Extension/Mobile/Miniapp/CLI),542 张表 / 4672 API 路由 / 3985 测试文件 / ~14839+ 测试用例。5 分钟 Fork 到上线。**GitHub**:https://github.com/IHUI-INF-AI/IHUI-AI
@@ -15320,7 +15318,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | **API 规模**        | 4561 路由 + 12 WebSocket + 627 路由文件                                                                | 通常 5-8 个后端工程师           |
 - API 路由从 0 涨到 4561
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
-> **9 端代码 · 622 张数据库表 · 4561 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4561 个 API 路由。**
 **2026-10-25**
 - 🐞 修复:[207] AGENTS.md 二次清偿 97851→95760 余量 240 —— ①主战收尾合并把我上轮删的两行同题旧副本再插回(活文档 union 认不出清偿副本型删行的同型回潮,R14 已录),再删留指针;②旧 §24「须用户确认」死文本(标题+206B 正文,已由 2026-10-23 机主令作废、现行口径=「24. 新增功能决策口径」)整段逐字移 .ihui-agent/archive/AGENTS_trim-2026-10-25.md 留短指针;③两条点名指针注释精简。IHUI_SKIP_LIVE_DOC_CHECK=1 定向说明:唯一豁免对象=上述同题旧副本与已作废死文本的有意清偿(§1 重复登记/死文本零容忍;逐字留档在案;先例 5e1f901d2f5/72a52b17509 同型),主战在飞新增行(等条件条目同型禁止/端侧读数)一枚未动 (53094555fa9)
 - 🐞 修复:i18n 死键门识别模板字面量键 t(`${m}Desc`) 等 (ae95b30a45d)
@@ -16847,8 +16845,8 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 - self-hosted chatgpt alternative with 100 llms
 - self-hosted chatgpt alternative with 100 llms
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
 **2026-10-29**
 - 🐞 修复:复洁器补"未勾形态被加表头改写后回潮"这一维 —— 四道维此前结构上全够不着 (37de95181b5)
 - 🔧 工程/其他:同步本地未提交改动——新增 keepalive REST router 与 Python SDK，收紧键盘快捷键类型，清理 G-44 监控腿冗余，README 数据更新 (b41b9fdce8c)
@@ -16957,7 +16955,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
 - **50 CI workflows**:CI / Build Docker / e2e / Visual Regression / Release SDK / Release Desktop / Release CLI / Lighthouse CI / Knip / i18n Check / weekly-security-audit / WebSocket Load Test 等
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -16999,7 +16997,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失     | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -17305,7 +17303,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 - 618 数据库表 + drizzle-kit push + 16 共享包 + pgvector + 知识图谱 + Knip + Lighthouse + Locust 压测
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -17342,7 +17340,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 - 618 数据库表 + drizzle-kit push + 16 共享包 + pgvector + 知识图谱 + Knip + Lighthouse + Locust 压测
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -17415,7 +17413,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | **代码规模** | 8 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
 |                   | API                 | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -17441,7 +17439,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
   | **代码规模** | 8 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity |
   | | API | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -17655,7 +17653,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
 - **50 CI workflows**:CI / Build Docker / e2e / Visual Regression / Release SDK / Release Desktop / Release CLI / Lighthouse CI / Knip / i18n Check / weekly-security-audit / WebSocket Load Test 等
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -17728,7 +17726,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 - 618 数据库表 + drizzle-kit push + 16 共享包 + pgvector + 知识图谱 + Knip + Lighthouse + Locust 压测
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -17798,7 +17796,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | **代码规模** | 8 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
 |                   | API                 | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -17824,7 +17822,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
   | **代码规模** | 8 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity |
   | | API | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -18014,7 +18012,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失 | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式 |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -18049,7 +18047,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失     | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -18119,7 +18117,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | **代码规模** | 8 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
 |                   | API                 | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -18145,7 +18143,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
   | **代码规模** | 8 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity |
   | | API | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -18804,8 +18802,8 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 - self-hosted chatgpt alternative with 100 llms
 - self-hosted chatgpt alternative with 100 llms
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
   <strong>8 端全覆盖</strong> · <strong>100 大模型</strong> · <strong>LangGraph + MCP + A2A 三栈</strong> · <strong>38 平台自动发布</strong> · <strong>AI 教育全栈</strong> · <strong>完整商业闭环</strong> · <strong>P3 AI 工程深度层</strong> · <strong>5 语言 i18n(7 端 35 JSON)</strong>
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -18849,7 +18847,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 - 618 数据库表 + drizzle-kit push + 16 共享包 + pgvector + 知识图谱 + Knip + Lighthouse + Locust 压测
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -18885,7 +18883,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失     | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -19177,7 +19175,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 - 618 数据库表 + drizzle-kit push + 16 共享包 + pgvector + 知识图谱 + Knip + Lighthouse + Locust 压测
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -19214,7 +19212,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 - 618 数据库表 + drizzle-kit push + 16 共享包 + pgvector + 知识图谱 + Knip + Lighthouse + Locust 压测
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -19287,7 +19285,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | **代码规模** | 8 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
 |                   | API                 | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -19313,7 +19311,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
   | **代码规模** | 8 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity |
   | | API | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -19513,7 +19511,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 - 618 数据库表 + drizzle-kit push + 16 共享包 + pgvector + 知识图谱 + Knip + Lighthouse + Locust 压测
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -19586,7 +19584,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 - 618 数据库表 + drizzle-kit push + 16 共享包 + pgvector + 知识图谱 + Knip + Lighthouse + Locust 压测
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -19656,7 +19654,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | **代码规模** | 8 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
 |                   | API                 | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~15039+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -19682,7 +19680,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
   | **代码规模** | 8 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity |
   | | API | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~15039+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -19872,7 +19870,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失 | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式 |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -19907,7 +19905,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失     | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -19977,7 +19975,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | **代码规模** | 8 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
 |                   | API                 | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~15039+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -20003,7 +20001,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
   | **代码规模** | 8 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity |
   | | API | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~15039+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -20696,8 +20694,8 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
   <strong>9 端全覆盖</strong> · <strong>100 大模型</strong> · <strong>LangGraph + MCP + A2A 三栈</strong> · <strong>38 平台自动发布</strong> · <strong>AI 教育全栈</strong> · <strong>完整商业闭环</strong> · <strong>P3 AI 工程深度层</strong> · <strong>5 语言 i18n(7 端 35 JSON)</strong>
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -20736,7 +20734,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失 | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式 |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -20771,7 +20769,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失     | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -21055,7 +21053,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失 | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式 |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -21090,7 +21088,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失     | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -21160,7 +21158,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | **代码规模** | 9 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
 |                   | API                 | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -21186,7 +21184,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
   | **代码规模** | 9 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity |
   | | API | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -21382,7 +21380,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失 | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式 |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -21451,7 +21449,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失     | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -21521,7 +21519,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | **代码规模** | 9 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
 |                   | API                 | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~15039+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -21547,7 +21545,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
   | **代码规模** | 9 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity |
   | | API | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~15039+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -21737,7 +21735,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失 | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式 |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -21772,7 +21770,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失     | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -21842,7 +21840,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | **代码规模** | 9 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
 |                   | API                 | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~15039+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -21868,7 +21866,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
   | **代码规模** | 9 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity |
   | | API | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~15039+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -22522,8 +22520,8 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
   <strong>9 端全覆盖</strong> · <strong>100 大模型</strong> · <strong>LangGraph + MCP + A2A 三栈</strong> · <strong>38 平台自动发布</strong> · <strong>AI 教育全栈</strong> · <strong>完整商业闭环</strong> · <strong>P3 AI 工程深度层</strong> · <strong>5 语言 i18n(7 端 35 JSON)</strong>
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -22562,7 +22560,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失 | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式 |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -22597,7 +22595,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失     | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -22881,7 +22879,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失 | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式 |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -22916,7 +22914,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失     | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -22986,7 +22984,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | **代码规模** | 9 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
 |                   | API                 | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -23012,7 +23010,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
   | **代码规模** | 9 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity |
   | | API | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -23208,7 +23206,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失 | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式 |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -23277,7 +23275,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失     | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -23347,7 +23345,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | **代码规模** | 9 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
 |                   | API                 | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -23373,7 +23371,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
   | **代码规模** | 9 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity |
   | | API | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -23563,7 +23561,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失 | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式 |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -23598,7 +23596,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失     | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -23668,7 +23666,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | **代码规模** | 9 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
 |                   | API                 | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -23694,7 +23692,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
   | **代码规模** | 9 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity |
   | | API | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -24346,7 +24344,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 | **代码规模** | 9 端代码 / 205 schema 文件 / **618 数据库表**(实测 pgTable)/ drizzle-kit push 模式 / **4672 API 路由 + 25 WebSocket 通道**(实测 grep)/ 250+ Web 页面 / 200+ 组件 / 104 hooks / 16 共享包 / 5 语言 i18n parity(35 JSON 文件 7 端 × 5 语言) |
 | **测试覆盖** | **3985 测试文件 / ~14839+ 测试用例**(490 .test.ts + 67 .spec.ts + 162 test_*.py;TS ~10176 用例 + Python 4663 用例)+ Locust 压测 + Lighthouse 性能 + Visual Regression                                                                      |
 → **IHUI-AI(智汇 AI)**。Apache 2.0 开源,101 大模型统一调度,PostgreSQL 行级安全多租户,完整商业闭环(10 支付网关 + VIP + 积分 + 钱包 + 订阅 + 退款),9 端同源 Monorepo(Web/API/AI-Service/Desktop/Extension/Mobile/Miniapp/CLI),542 张表 / 4672 API 路由 / 3985 测试文件 / ~14839+ 测试用例。5 分钟 Fork 到上线。**GitHub**:https://github.com/IHUI-INF-AI/IHUI-AI
@@ -24383,7 +24381,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 - **API(Fastify 5)**:4672 API 路由跨 627 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
-> **9 端代码 · 622 张数据库表 · 4561 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4561 个 API 路由。**
 - 🐞 修复:文档数字门屏蔽 RECENT UPDATES 块 —— 自动抄来的「176 llms → 101 llms」是历史陈述,不是当前总量声明 (be12ee7a531) <!-- doc-num-exempt: 自动判定为历史叙述（口径迁移叙述(数字→数字:"176 llms → 101")、changelog 列表项(项目符行带提交号括注)），非当前总量声明 -->
 - 📚 文档:补齐对外 SEO/roadmap 漏网口径(176 llms → 101 llms、roadmap 8 端 → 9 端) (333fd912418) <!-- doc-num-exempt: 自动判定为历史叙述（口径迁移叙述(数字→数字:"176 llms → 101")、回顾词(漏网口径)、changelog 列表项(项目符行带提交号括注)），非当前总量声明 -->
 - UI/样式: `check-miniapp-taro-design-tokens.mjs` `check-adapter-style-parity.mjs` `check-percent-clamp-single-source.mjs` `check-line-split-parity.mjs` `check-input-focus-feedback.mjs` `check-button-height.mjs` `check-glyph-arrow-icon.mjs` `check-no-divider.mjs` `check-no-mask-image.mjs` `check-no-native-dialog.mjs` `check-no-emoji-icons.mjs` `check-radius-single-source.mjs` `check-radius-role-conformance.mjs` `check-rounded-full.mjs` `check-statusbar-single-source.mjs` `check-cross-end-ui-parity.mjs` `check-cross-end-screen-coverage.mjs` `check-miniapp-tokens-sync.mjs` `check-miniapp-taro-style-parity.mjs` `check-cross-end-tokens.mjs` `check-miniapp-css-landing.mjs` `check-style-key-consumption.mjs`
@@ -24429,9 +24427,9 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 - self-hosted chatgpt alternative with 100 llms
 - self-hosted chatgpt alternative with 100 llms
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
 **工具目录 seed(2026-10-30 立,补 `/tools` 页的数据面):**`GET /api/tools` 与 `tools` 表、web `/tools` 页三向都齐,但此前**全仓无 seed、也无运营建工具的页面** ⇒ 新库这张表恒空,页面三个分类各显示「暂无工具」。`packages/database/seed/tools-seed.ts` 落 9 条基线,每条对应一个本仓真实存在、点得动的 web 路由(`tools/pdf/{merge,split,watermark,convert}`、`tools/voice-stt`、`models`、`knowledge-base`、`mcp-store`、`web-tools`),按 name 幂等、已注册进 seed 主流程。因三端工具页(web `/tools`、RN `ToolsScreen`、小程序 `pkg-user/tools`)同取这一个端点,一份 seed 三端同时有内容。
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
 **2026-10-27**
 - 🐞 修复:Trae 落点候选加跨 profile 兜底扫描——非登录用户 shell 下裸跑 --from trae 即命中本机真会话(2026-10-26 实测首跑栽于沙箱 %APPDATA%,靠手工 IHUI_TRAE_DIR 救回);候选次序=显式覆盖>当前用户>他人 profile,IHUI_TRAE_SCAN_USERS=0 可关;镜像测试 13 例全绿+裸跑 dry-run 打穿为证 (cba1c89415)
 - 📚 文档:README.en 生成块与散文六处数字按现算重钉 —— 门 173 见我改过它,从此对它全判 (0dbf4375a6)
@@ -24662,7 +24660,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 - 618 数据库表 + drizzle-kit push + 16 共享包 + pgvector + 知识图谱 + Knip + Lighthouse + Locust 压测
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -24698,7 +24696,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失     | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -24990,7 +24988,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 - 618 数据库表 + drizzle-kit push + 16 共享包 + pgvector + 知识图谱 + Knip + Lighthouse + Locust 压测
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -25027,7 +25025,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 - 618 数据库表 + drizzle-kit push + 16 共享包 + pgvector + 知识图谱 + Knip + Lighthouse + Locust 压测
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -25100,7 +25098,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | **代码规模** | 8 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
 |                   | API                 | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -25126,7 +25124,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
   | **代码规模** | 8 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity |
   | | API | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -25340,7 +25338,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
 - **50 CI workflows**:CI / Build Docker / e2e / Visual Regression / Release SDK / Release Desktop / Release CLI / Lighthouse CI / Knip / i18n Check / weekly-security-audit / WebSocket Load Test 等
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -25439,7 +25437,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
 - **50 CI workflows**:CI / Build Docker / e2e / Visual Regression / Release SDK / Release Desktop / Release CLI / Lighthouse CI / Knip / i18n Check / weekly-security-audit / WebSocket Load Test 等
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -25513,7 +25511,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 |                   | API                 | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 |                   | 工程守门            | **260 守门/验证脚本**(59 check + 11 verify + 6 guard + 2 sync + 9 scan)+ **pre-commit 56+10 项**(40 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段 + **50 CI workflows** + post-commit 自动 push + lost-commit tag 自动同步                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -25543,7 +25541,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
   | | API | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI |
   | | 工程守门 | **260 守门/验证脚本**(59 check + 11 verify + 6 guard + 2 sync + 9 scan)+ **pre-commit 56+10 项**(40 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段 + **50 CI workflows** + post-commit 自动 push + lost-commit tag 自动同步 |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -25739,7 +25737,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失 | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式 |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -25774,7 +25772,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失     | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -25844,7 +25842,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | **代码规模** | 8 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
 |                   | API                 | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -25870,7 +25868,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
   | **代码规模** | 8 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity |
   | | API | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -26529,8 +26527,8 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 - self-hosted chatgpt alternative with 100 llms
 - self-hosted chatgpt alternative with 100 llms
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
   <strong>8 端全覆盖</strong> · <strong>100 大模型</strong> · <strong>LangGraph + MCP + A2A 三栈</strong> · <strong>38 平台自动发布</strong> · <strong>AI 教育全栈</strong> · <strong>完整商业闭环</strong> · <strong>P3 AI 工程深度层</strong> · <strong>5 语言 i18n(7 端 35 JSON)</strong>
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -26574,7 +26572,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 - 618 数据库表 + drizzle-kit push + 16 共享包 + pgvector + 知识图谱 + Knip + Lighthouse + Locust 压测
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -26610,7 +26608,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失     | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -26902,7 +26900,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 - 618 数据库表 + drizzle-kit push + 16 共享包 + pgvector + 知识图谱 + Knip + Lighthouse + Locust 压测
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -26939,7 +26937,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 - 618 数据库表 + drizzle-kit push + 16 共享包 + pgvector + 知识图谱 + Knip + Lighthouse + Locust 压测
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -27012,7 +27010,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | **代码规模** | 8 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
 |                   | API                 | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -27038,7 +27036,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
   | **代码规模** | 8 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity |
   | | API | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -27239,7 +27237,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 - 618 数据库表 + drizzle-kit push + 16 共享包 + pgvector + 知识图谱 + Knip + Lighthouse + Locust 压测
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -27312,7 +27310,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 - 618 数据库表 + drizzle-kit push + 16 共享包 + pgvector + 知识图谱 + Knip + Lighthouse + Locust 压测
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -27382,7 +27380,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | **代码规模** | 8 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
 |                   | API                 | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~15039+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -27408,7 +27406,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
   | **代码规模** | 8 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity |
   | | API | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~15039+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -27598,7 +27596,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失 | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式 |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -27633,7 +27631,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失     | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -27703,7 +27701,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | **代码规模** | 8 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
 |                   | API                 | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~15039+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -27729,7 +27727,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
   | **代码规模** | 8 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity |
   | | API | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~15039+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -28422,8 +28420,8 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
   <strong>9 端全覆盖</strong> · <strong>100 大模型</strong> · <strong>LangGraph + MCP + A2A 三栈</strong> · <strong>38 平台自动发布</strong> · <strong>AI 教育全栈</strong> · <strong>完整商业闭环</strong> · <strong>P3 AI 工程深度层</strong> · <strong>5 语言 i18n(7 端 35 JSON)</strong>
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -28462,7 +28460,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失 | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式 |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -28497,7 +28495,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失     | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -28781,7 +28779,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失 | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式 |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -28816,7 +28814,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失     | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -28886,7 +28884,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | **代码规模** | 9 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
 |                   | API                 | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -28912,7 +28910,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
   | **代码规模** | 9 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity |
   | | API | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -29108,7 +29106,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失 | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式 |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -29177,7 +29175,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失     | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -29247,7 +29245,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | **代码规模** | 9 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
 |                   | API                 | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~15039+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -29273,7 +29271,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
   | **代码规模** | 9 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity |
   | | API | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~15039+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -29463,7 +29461,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失 | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式 |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -29498,7 +29496,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失     | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -29568,7 +29566,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | **代码规模** | 9 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
 |                   | API                 | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~15039+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -29594,7 +29592,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
   | **代码规模** | 9 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity |
   | | API | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~15039+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -30248,8 +30246,8 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
   <strong>9 端全覆盖</strong> · <strong>100 大模型</strong> · <strong>LangGraph + MCP + A2A 三栈</strong> · <strong>38 平台自动发布</strong> · <strong>AI 教育全栈</strong> · <strong>完整商业闭环</strong> · <strong>P3 AI 工程深度层</strong> · <strong>5 语言 i18n(7 端 35 JSON)</strong>
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -30288,7 +30286,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失 | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式 |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -30323,7 +30321,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失     | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -30607,7 +30605,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失 | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式 |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -30642,7 +30640,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失     | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -30712,7 +30710,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | **代码规模** | 9 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
 |                   | API                 | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -30738,7 +30736,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
   | **代码规模** | 9 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity |
   | | API | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -30934,7 +30932,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失 | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式 |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -31003,7 +31001,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失     | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -31073,7 +31071,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | **代码规模** | 9 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
 |                   | API                 | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -31099,7 +31097,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
   | **代码规模** | 9 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity |
   | | API | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -31289,7 +31287,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失 | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式 |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -31324,7 +31322,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失     | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -31394,7 +31392,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | **代码规模** | 9 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
 |                   | API                 | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -31420,7 +31418,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
   | **代码规模** | 9 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity |
   | | API | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -32072,7 +32070,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 | **代码规模** | 9 端代码 / 205 schema 文件 / **618 数据库表**(实测 pgTable)/ drizzle-kit push 模式 / **4672 API 路由 + 25 WebSocket 通道**(实测 grep)/ 250+ Web 页面 / 200+ 组件 / 104 hooks / 16 共享包 / 5 语言 i18n parity(35 JSON 文件 7 端 × 5 语言) |
 | **测试覆盖** | **3985 测试文件 / ~14839+ 测试用例**(490 .test.ts + 67 .spec.ts + 162 test_*.py;TS ~10176 用例 + Python 4663 用例)+ Locust 压测 + Lighthouse 性能 + Visual Regression                                                                      |
 → **IHUI-AI(智汇 AI)**。Apache 2.0 开源,101 大模型统一调度,PostgreSQL 行级安全多租户,完整商业闭环(10 支付网关 + VIP + 积分 + 钱包 + 订阅 + 退款),9 端同源 Monorepo(Web/API/AI-Service/Desktop/Extension/Mobile/Miniapp/CLI),542 张表 / 4672 API 路由 / 3985 测试文件 / ~14839+ 测试用例。5 分钟 Fork 到上线。**GitHub**:https://github.com/IHUI-INF-AI/IHUI-AI
@@ -32111,7 +32109,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 - **API(Fastify 5)**:4672 API 路由跨 627 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
-> **9 端代码 · 622 张数据库表 · 4561 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4561 个 API 路由。**
 - 🐞 修复:文档数字门屏蔽 RECENT UPDATES 块 —— 自动抄来的「176 llms → 101 llms」是历史陈述,不是当前总量声明 (be12ee7a531) <!-- doc-num-exempt: 自动判定为历史叙述（口径迁移叙述(数字→数字:"176 llms → 101")、changelog 列表项(项目符行带提交号括注)），非当前总量声明 -->
 - 📚 文档:补齐对外 SEO/roadmap 漏网口径(176 llms → 101 llms、roadmap 8 端 → 9 端) (333fd912418) <!-- doc-num-exempt: 自动判定为历史叙述（口径迁移叙述(数字→数字:"176 llms → 101")、回顾词(漏网口径)、changelog 列表项(项目符行带提交号括注)），非当前总量声明 -->
   <strong>8 端全覆盖</strong> · <strong>100 大模型</strong> · <strong>LangGraph + MCP + A2A 三栈</strong> · <strong>38 平台自动发布</strong> · <strong>AI 教育全栈</strong> · <strong>完整商业闭环</strong> · <strong>P3 AI 工程深度层</strong> · <strong>5 语言 i18n(7 端 35 JSON)</strong>
@@ -32143,8 +32141,8 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 - self-hosted chatgpt alternative with 100 llms
 - self-hosted chatgpt alternative with 100 llms
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
   <strong>8 端全覆盖</strong> · <strong>100 大模型</strong> · <strong>LangGraph + MCP + A2A 三栈</strong> · <strong>38 平台自动发布</strong> · <strong>AI 教育全栈</strong> · <strong>完整商业闭环</strong> · <strong>P3 AI 工程深度层</strong> · <strong>5 语言 i18n(7 端 35 JSON)</strong>
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -32188,7 +32186,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 - 618 数据库表 + drizzle-kit push + 16 共享包 + pgvector + 知识图谱 + Knip + Lighthouse + Locust 压测
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -32224,7 +32222,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失     | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -32516,7 +32514,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 - 618 数据库表 + drizzle-kit push + 16 共享包 + pgvector + 知识图谱 + Knip + Lighthouse + Locust 压测
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -32553,7 +32551,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 - 618 数据库表 + drizzle-kit push + 16 共享包 + pgvector + 知识图谱 + Knip + Lighthouse + Locust 压测
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -32626,7 +32624,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | **代码规模** | 8 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
 |                   | API                 | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -32652,7 +32650,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
   | **代码规模** | 8 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity |
   | | API | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -32853,7 +32851,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 - 618 数据库表 + drizzle-kit push + 16 共享包 + pgvector + 知识图谱 + Knip + Lighthouse + Locust 压测
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -32926,7 +32924,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 - 618 数据库表 + drizzle-kit push + 16 共享包 + pgvector + 知识图谱 + Knip + Lighthouse + Locust 压测
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -32996,7 +32994,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | **代码规模** | 8 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
 |                   | API                 | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -33022,7 +33020,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
   | **代码规模** | 8 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity |
   | | API | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -33212,7 +33210,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失 | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式 |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -33247,7 +33245,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失     | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -33317,7 +33315,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | **代码规模** | 8 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
 |                   | API                 | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -33343,7 +33341,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
   | **代码规模** | 8 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity |
   | | API | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -34002,8 +34000,8 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 - self-hosted chatgpt alternative with 100 llms
 - self-hosted chatgpt alternative with 100 llms
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
   <strong>8 端全覆盖</strong> · <strong>100 大模型</strong> · <strong>LangGraph + MCP + A2A 三栈</strong> · <strong>38 平台自动发布</strong> · <strong>AI 教育全栈</strong> · <strong>完整商业闭环</strong> · <strong>P3 AI 工程深度层</strong> · <strong>5 语言 i18n(7 端 35 JSON)</strong>
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -34047,7 +34045,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 - 618 数据库表 + drizzle-kit push + 16 共享包 + pgvector + 知识图谱 + Knip + Lighthouse + Locust 压测
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -34083,7 +34081,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失     | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -34375,7 +34373,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 - 618 数据库表 + drizzle-kit push + 16 共享包 + pgvector + 知识图谱 + Knip + Lighthouse + Locust 压测
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -34412,7 +34410,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 - 618 数据库表 + drizzle-kit push + 16 共享包 + pgvector + 知识图谱 + Knip + Lighthouse + Locust 压测
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -34485,7 +34483,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | **代码规模** | 8 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
 |                   | API                 | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -34511,7 +34509,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
   | **代码规模** | 8 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity |
   | | API | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -34711,7 +34709,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 - 618 数据库表 + drizzle-kit push + 16 共享包 + pgvector + 知识图谱 + Knip + Lighthouse + Locust 压测
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -34784,7 +34782,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 - 618 数据库表 + drizzle-kit push + 16 共享包 + pgvector + 知识图谱 + Knip + Lighthouse + Locust 压测
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -34854,7 +34852,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | **代码规模** | 8 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
 |                   | API                 | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~15039+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -34880,7 +34878,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
   | **代码规模** | 8 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity |
   | | API | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~15039+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -35070,7 +35068,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失 | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式 |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -35105,7 +35103,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失     | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -35175,7 +35173,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | **代码规模** | 8 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
 |                   | API                 | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~15039+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -35201,7 +35199,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
   | **代码规模** | 8 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity |
   | | API | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4551 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~15039+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -35894,8 +35892,8 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
   <strong>9 端全覆盖</strong> · <strong>100 大模型</strong> · <strong>LangGraph + MCP + A2A 三栈</strong> · <strong>38 平台自动发布</strong> · <strong>AI 教育全栈</strong> · <strong>完整商业闭环</strong> · <strong>P3 AI 工程深度层</strong> · <strong>5 语言 i18n(7 端 35 JSON)</strong>
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -35934,7 +35932,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失 | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式 |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -35969,7 +35967,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失     | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -36253,7 +36251,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失 | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式 |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -36288,7 +36286,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失     | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -36358,7 +36356,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | **代码规模** | 9 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
 |                   | API                 | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -36384,7 +36382,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
   | **代码规模** | 9 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity |
   | | API | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -36580,7 +36578,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失 | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式 |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -36649,7 +36647,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失     | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -36719,7 +36717,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | **代码规模** | 9 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
 |                   | API                 | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~15039+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -36745,7 +36743,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
   | **代码规模** | 9 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity |
   | | API | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~15039+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -36935,7 +36933,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失 | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式 |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -36970,7 +36968,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失     | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -37040,7 +37038,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | **代码规模** | 9 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
 |                   | API                 | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~15039+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -37066,7 +37064,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
   | **代码规模** | 9 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity |
   | | API | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~15039+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -37720,8 +37718,8 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
   <strong>9 端全覆盖</strong> · <strong>100 大模型</strong> · <strong>LangGraph + MCP + A2A 三栈</strong> · <strong>38 平台自动发布</strong> · <strong>AI 教育全栈</strong> · <strong>完整商业闭环</strong> · <strong>P3 AI 工程深度层</strong> · <strong>5 语言 i18n(7 端 35 JSON)</strong>
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -37760,7 +37758,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失 | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式 |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -37795,7 +37793,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失     | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -38079,7 +38077,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失 | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式 |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -38114,7 +38112,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失     | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -38184,7 +38182,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | **代码规模** | 9 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
 |                   | API                 | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -38210,7 +38208,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
   | **代码规模** | 9 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity |
   | | API | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -38406,7 +38404,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失 | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式 |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -38475,7 +38473,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失     | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -38545,7 +38543,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | **代码规模** | 9 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
 |                   | API                 | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -38571,7 +38569,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
   | **代码规模** | 9 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity |
   | | API | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -38761,7 +38759,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失 | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式 |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -38796,7 +38794,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | 边界条件缺失     | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
 100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
@@ -38866,7 +38864,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 | **代码规模** | 9 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
 |                   | API                 | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -38892,7 +38890,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
   | **代码规模** | 9 端代码 / 231 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 315 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity |
   | | API | Fastify 5 / **4672 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI |
 - **API(Fastify 5)**:4672 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 315 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -39544,7 +39542,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 - **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
-> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4557 个 API 路由。**
 | **代码规模** | 9 端代码 / 205 schema 文件 / **618 数据库表**(实测 pgTable)/ drizzle-kit push 模式 / **4672 API 路由 + 25 WebSocket 通道**(实测 grep)/ 250+ Web 页面 / 200+ 组件 / 104 hooks / 16 共享包 / 5 语言 i18n parity(35 JSON 文件 7 端 × 5 语言) |
 | **测试覆盖** | **3985 测试文件 / ~14839+ 测试用例**(490 .test.ts + 67 .spec.ts + 162 test_*.py;TS ~10176 用例 + Python 4663 用例)+ Locust 压测 + Lighthouse 性能 + Visual Regression                                                                      |
 → **IHUI-AI(智汇 AI)**。Apache 2.0 开源,101 大模型统一调度,PostgreSQL 行级安全多租户,完整商业闭环(10 支付网关 + VIP + 积分 + 钱包 + 订阅 + 退款),9 端同源 Monorepo(Web/API/AI-Service/Desktop/Extension/Mobile/Miniapp/CLI),542 张表 / 4672 API 路由 / 3985 测试文件 / ~14839+ 测试用例。5 分钟 Fork 到上线。**GitHub**:https://github.com/IHUI-INF-AI/IHUI-AI
@@ -39581,7 +39579,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 - **API(Fastify 5)**:4672 API 路由跨 627 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
-> **9 端代码 · 622 张数据库表 · 4561 个 API 路由。**
+> **9 端代码 · 618 张数据库表 · 4561 个 API 路由。**
 |                   | AI 服务             | FastAPI + LangGraph + LiteLLM + MCP + A2A / **200+ services**(Glob 实测)/ **23 routers** / **18 LLM Providers**(openai/anthropic/gemini/qwen/dashscope/doubao/volcengine/zhipu/hunyuan/stepfun/kling/jimeng/ollama/lmstudio/llama_cpp/openrouter/luyala/xai)/ **24 MCP 工具** / **38 发布适配器** / 215+ 端点 / 31+ provider 适配(含 22 免费 provider 内化)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 - `check-root-guard-consistency.mjs`(守门 267,**warn 档起步**)—— 根护栏清单 ↔ 被审面内容对账:
   判「清单里登记的判据面文件对不上内容」⇒ 合并后 root-guard --check 必红、部署环在所有签出 fail-closed;
@@ -40356,8 +40354,8 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 - **50 CI workflows**:CI / Build Docker / e2e / Visual Regression / Release SDK / Release Desktop / Release CLI / Lighthouse CI / Knip / i18n Check / weekly-security-audit / WebSocket Load Test 等
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
 | API 路由 | 4616 | `apiRoutes` |
 | 路由文件 | 651 | `apiRouteFiles` |
 | AI 服务路由 | 613 | `aiServiceRoutes` |
@@ -40499,7 +40497,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 |                   | API                 | Fastify 5 / **4672 API 路由跨 288 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **288 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 |                   | 工程守门            | **87 守门/验证脚本**(59 check + 11 verify + 6 guard + 2 sync + 9 scan)+ **pre-commit 56+10 项**(40 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段 + **50 CI workflows** + post-commit 自动 push + lost-commit tag 自动同步                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 |                   | 测试覆盖            | **3985 测试文件 / ~14839+ 测试用例**(490 .test.ts + 67 .spec.ts + 162 test_*.py;TS ~10176 + Python 4663)+ Vitest + Playwright + pytest + Locust 压测 + Lighthouse 性能 + Visual Regression                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
 - **规模**:618 张表 · 4672 API 路由 · 3985 测试文件 · ~14839 测试用例
 - **质量**:315 道工程守门（244 blocking）· 50 CI workflows · 删水印即 CI 失败
 ├── .github/workflows/       # 50 个 CI workflows
@@ -40511,9 +40509,9 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 - **50 CI workflows**:CI / Build Docker / e2e / Visual Regression / Release SDK / Release Desktop / Release CLI / Lighthouse CI / Knip / i18n Check / weekly-security-audit / WebSocket Load Test 等
 - **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
 A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
 核心数字: 8 端 / 176 模型 / 542 表 / 4393 API / 105 MCP 工具 / **38 发布平台** / **反风控五层防线 37+ 检测点** / **AI 对话可视化 inline 到消息气泡** / 88 守门脚本 / 3985 测试文件 / ~14839+ 测试用例 / 5 语言 i18n(7 端 35 JSON)/ 109 万行代码
-> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
 **2026-11-01**
 - 🚀 新功能/改进:把人工阀从"打印出来的装饰"接成派发路径上的真闸(observe 起步),并加 A6 维量它哑不哑 (65443d4d53)
 - 🐞 修复:root-guard 用例派生 git 补 stdio 接管（门 193 存量红入库） (246a39e64a)
@@ -42343,3 +42341,271 @@ A: Yes. ~14839+ tests / 4078 test files / 67 e2e spec / 4699 API 路由 / 622 �
 - git/提交链: `check-commit-scope-consistency.mjs` `check-push-sync.mjs` `check-head-typecheck.mjs` `check-typecheck.mjs` `check-git-read-timeout.mjs` `check-spawn-stdio.mjs` `check-registry-worktree-superset.mjs` `check-no-nested-git.mjs` `check-commit-loss-guard.mjs` `check-merge-addition-loss.mjs` `check-merge-deletion-resurrection.mjs` `check-staged-resurrection.mjs`(pre-commit 复活闸,与 `safe-commit.mjs` Step 3b-2 同一判据 `lib/intentional-file-deletion.mjs#judgeResurrection`;已登记删除件出现在索引新增面 ⇒ exit 1,台账判不开 ⇒ 只报不拦) `check-single-branch.mjs` `check-stale-stashes.mjs` `check-bypass-landing-scope.mjs` `check-live-doc-references.mjs` `check-mjs-syntax.mjs`(纯语法 compile 不 evaluate;判红臂 = 索引新引入不可解析;镜像 `check-mjs-syntax.test.mjs`) `check-format-changed.mjs` `check-husky-hook-form.mjs`(H1 钩子必须是 sh 薄壳;H2 包装与 node 正文同面在位;正文即 `post-commit-hook.js` 一族;镜像 `check-husky-hook-form.test.mjs`) `check-no-nested-git-sites-durability.mjs`(门 208 豁免台账耐久性)
 - 发布线 / 安卓对外下载腿(2026-11-03 立,CI 档,runner id 以现值为准): `check-mobile-download-leg.mjs`(三问各允许「未判定」而不猜绿:① 配置里的下载 URL 跟随 302 后必须 200/206;② `Content-Length` 须 ≥ `--min-bytes`(默认 50MiB);③ 手里的 APK 证书 SHA-256 须等于正式基准。**退出码 2 = skipped/未判定,不是绿** —— 判据读的是公网与签名,提交者结构上改不了那一格,故按 §12e 不挂提交门;取证 `--self-test`,口径见门体头注) · 配套国内腿运行态门 `check-mobile-download-leg-cn.mjs`(Gitee 国内腿,2026-11-04 立:两条腿 `Range: bytes=0-0` 真探,Content-Range 总长必须同为够大的同一枚包;任一腿量不到 ⇒ exit 2 未判定,绝不折算成绿)
 | 跟踪文件 | 19097 | `trackedFiles` |
+| 跟踪文件 | 19088 | `trackedFiles` |
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4561 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4561 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4561 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4551 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 622 张数据库表 · 4561 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
