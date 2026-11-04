@@ -13152,6 +13152,55 @@ function startDaemon(bootGuard = null) {
         dispatchAutoTriage()
         dispatchDepAdvisoryRadar()
         dispatchAutoEvolve()
+        // ---- 承载面补齐(2026-11-04;A9 `guardian-carrier-parity` 量出这批只挂在一次性 main 里)----
+        // 常驻 daemon 从启动起一直持轮级锁(见本函数开头注释)⇒ main() 每趟起来都让路,
+        // 只挂 main() 的腿等于"装了个没有车跑的车站"(§0.9;本文件里同一成因已被逐条修过多次,
+        // 这一批是把剩下的整族收口,不再一格一格撞见)。
+        // 下面每一条都自带节流戳(与 main() 共用同一 tick 文件)⇒ 双执行体并存只有先到那个真跑,
+        // 未到期时一次调用只是读一个小 JSON 后早退。验收尺 = A9 的 darkCount 递减、A8 dark=3 转 ok。
+        // 刻意不搬的 7 条(auditMergeAdditionLoss / dispatchGuardMail / ensureGuardDaemonAlive /
+        // ensureS4u / refreshRecoverySource / reportBaselineFreshness / rotateRunLogs)尚无节流戳,
+        // 每 10s 真跑一次是不可接受的;其中 ensureGuardDaemonAlive 是"重启 daemon"本身,
+        // 挂进 daemon 里属自指,必须留在一次性面。逐条裁决见 A9 的 next 文案。
+        auditCrossEndParityDrift()
+        auditI18nCrossEndWording()
+        auditLandedReverts()
+        auditPushChannel()
+        auditVerbatimResurrection()
+        auditWebRnParity()
+        autoRegisterRnTokenPairs()
+        convergeCrossEndPortalVerdicts()
+        dispatchDeployFeedback()
+        dispatchDeployOutcomeIntake()
+        dispatchE2eAutofill()
+        healCrossEndMirror()
+        healI18nBundleLeg()
+        healStaleDistLeg()
+        healStaleMiniappDist()
+        healStyleTokensLeg()
+        healUiRoutesLeg()
+        sweepBannedBuckets()
+        sweepCrossEndLandingLeg()
+        sweepCrossEndShellPages()
+        sweepCssTokensSourceLeg()
+        sweepDanglingCommitAutotag()
+        sweepExposedCredentialRotation()
+        sweepHeadRecallRows()
+        sweepIosIpaRelay()
+        sweepKeepAliveForever()
+        sweepLessonApply()
+        sweepLocalDevDbRotation()
+        sweepMiniappStyleTiers()
+        sweepParityCockpit()
+        sweepPoolIsolation()
+        sweepRnColorLiteralLeg()
+        sweepRnCompatLeg()
+        sweepRnHostShells()
+        sweepRnStyleTiers()
+        sweepStaleClaimMarks()
+        sweepStaleClosedRows()
+        sweepUiMirrorLeg()
+        sweepWebStyleTiers()
       }
     } catch (e) {
       log('巡检异常(忽略): ' + String(e.message || e))
