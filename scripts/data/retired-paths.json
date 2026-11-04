@@ -150,6 +150,61 @@
       "path": "scripts/tests/check-grafana-datasource-wiring.test.mjs",
       "reason": "grafana-* 旧族之接线门镜像测试:a7ced7411c 改名为 check-panel-datasource-wiring.test.mjs,0932d2e0af 原样带回。新件是旧件的严格超集(+36/−5:覆盖锁换址、saas 树换址,并新增 D13 退役锁),旧件零独有夹具。",
       "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/desktop/src-tauri/icons/Square30x30Logo.png",
+      "reason": "死副本:与 apps/desktop/store-assets/Square30x30Logo.png 逐字节相同(blob b6bb73a29074d672394b806565b47db857b57195);迁入 store-assets 后被 26975a4bfdd814aeb4069a426f2da72925277633 的索引层重建原样带回;现读 tauri.conf.json 的 bundle.icon 不含该件,全仓零引用。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/desktop/src-tauri/icons/Square44x44Logo.png",
+      "reason": "死副本:与 apps/desktop/store-assets/Square44x44Logo.png 逐字节相同(blob d4b148477ad7911215508ae7618e56154428c38a);迁入 store-assets 后被 26975a4bfdd814aeb4069a426f2da72925277633 的索引层重建原样带回;现读 tauri.conf.json 的 bundle.icon 不含该件,全仓零引用。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/desktop/src-tauri/icons/Square71x71Logo.png",
+      "reason": "死副本:与 apps/desktop/store-assets/Square71x71Logo.png 逐字节相同(blob 842500649079a72f72efcb44be77785d0547ee73);迁入 store-assets 后被 26975a4bfdd814aeb4069a426f2da72925277633 的索引层重建原样带回;现读 tauri.conf.json 的 bundle.icon 不含该件,全仓零引用。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/desktop/src-tauri/icons/Square89x89Logo.png",
+      "reason": "死副本:与 apps/desktop/store-assets/Square89x89Logo.png 逐字节相同(blob 29f3630602378f381f7f9d07d31cc1d24ec7d347);迁入 store-assets 后被 26975a4bfdd814aeb4069a426f2da72925277633 的索引层重建原样带回;现读 tauri.conf.json 的 bundle.icon 不含该件,全仓零引用。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/desktop/src-tauri/icons/Square107x107Logo.png",
+      "reason": "死副本:与 apps/desktop/store-assets/Square107x107Logo.png 逐字节相同(blob 1b4e5128160a7d52e5c654574167e65a1cbc74e4);迁入 store-assets 后被 26975a4bfdd814aeb4069a426f2da72925277633 的索引层重建原样带回;现读 tauri.conf.json 的 bundle.icon 不含该件,全仓零引用。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/desktop/src-tauri/icons/Square142x142Logo.png",
+      "reason": "死副本:与 apps/desktop/store-assets/Square142x142Logo.png 逐字节相同(blob 8ecdac7a308ba8e94b9fe02fd41c3399925ab9d8);迁入 store-assets 后被 26975a4bfdd814aeb4069a426f2da72925277633 的索引层重建原样带回;现读 tauri.conf.json 的 bundle.icon 不含该件,全仓零引用。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/desktop/src-tauri/icons/Square150x150Logo.png",
+      "reason": "死副本:与 apps/desktop/store-assets/Square150x150Logo.png 逐字节相同(blob 512d6224d612017184a84700749de0bf61cf656b);迁入 store-assets 后被 26975a4bfdd814aeb4069a426f2da72925277633 的索引层重建原样带回;现读 tauri.conf.json 的 bundle.icon 不含该件,全仓零引用。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/desktop/src-tauri/icons/Square284x284Logo.png",
+      "reason": "死副本:与 apps/desktop/store-assets/Square284x284Logo.png 逐字节相同(blob 4afb0178600a2c994e50f0bf60b79a42e3a26140);迁入 store-assets 后被 26975a4bfdd814aeb4069a426f2da72925277633 的索引层重建原样带回;现读 tauri.conf.json 的 bundle.icon 不含该件,全仓零引用。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/desktop/src-tauri/icons/Square310x310Logo.png",
+      "reason": "死副本:与 apps/desktop/store-assets/Square310x310Logo.png 逐字节相同(blob e3a69e8dc59be60e274282d612f346f9ae749952);迁入 store-assets 后被 26975a4bfdd814aeb4069a426f2da72925277633 的索引层重建原样带回;现读 tauri.conf.json 的 bundle.icon 不含该件,全仓零引用。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/desktop/src-tauri/icons/StoreLogo.png",
+      "reason": "死副本:与 apps/desktop/store-assets/StoreLogo.png 逐字节相同(blob 73dbaefffa08218333c7b96a7cd7e34a458f2ee8);291a0d15c15ed9f98c3ec49b5b257d753bcb16a7 以 R100 迁入 store-assets,又被 26975a4bfdd814aeb4069a426f2da72925277633 的索引层重建带回;bundle.icon 不含它,全仓零引用。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "packages/shared/src/share/share-intent.tsx",
+      "reason": "死副本:与 packages/shared/src/share/share-intent.ts 逐字节相同(SHA256 99d684dc697f6dbc92789810acba91403b0797ec2cded3e4a7fa1d8d8f49f95b);8eebef0d1f78042d876f90e0d6558aee624b43f6 已把零 JSX 模块改回 .ts,该 .tsx 又被索引层重建带回;全仓唯一引用是 README.md 历史链接,已改址到 .ts。",
+      "reviewBy": "2027-06-30"
     }
   ]
 }
