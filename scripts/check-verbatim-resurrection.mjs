@@ -59,6 +59,13 @@
  *   LAND_REMOVE_PATHS,或在 deletion-survival-allowlist.json 逐条登记 path+reason+reviewBy;
  *   命中若来自**退役清单**而该件确已被重新采纳(有真消费者),出路是删掉清单里那一条,不是改判据措辞。
  *
+ * **退役登记(2026-11-04,plugins-data 死副本族)**:`apps/web/app/(main)/plugins/plugins-data/**` 14 枚
+ * 经三次判死(`06e0461dbc50455e3701c341dd9fc959a7ed9d9c` / `718f74180db9ce7f979cb1cd1819abf23bf00e1d`
+ * / `f2402b15035871544ee25cee9a67c7c77ba22970`),又被 `9fdbc207ba2ea5536812f8b965d7a9218bb28785` 的收编通道
+ * 原样带回;本轮再摘并逐条登记进 ② 退役清单。判死依据是现读事实:该族与 `packages/shared/src/plugins-data`
+ * 逐字节同值(blob 同号)且全仓零本地导入(唯一消费面 = `@ihui/shared/plugins-data`)。再出现于跟踪面,
+ * 本器 ② 维即判红,不靠下一次人工对视。
+ *
  * 调度器:本器不在提交链注册表里;唯一常驻班次 = `scripts/git-guardian.mjs` 的巡检腿
  * `auditVerbatimResurrection()`(节流现值见该函数;命中经 `notifyGuardRed()` 走 §5e 邮件单通道,
  * 未判定只写日志不喊人)。头注刻意不写"已接 pre-commit / CI / 第 N 项"——那种声称会被守门 89 判红。

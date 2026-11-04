@@ -50,6 +50,76 @@
       "path": "scripts/heal-generated-artifact-union.mjs",
       "reason": "立因是「append-only 归档型生成物」的合并丢失偿还,而那份生成物 archive-completed-tasks.mjs 已于 2026-10-16 整体退役(AGENTS §1 归档机制退役,现读 git ls-files 匹配数为 0 才算合规);裁决枚 295487496e2731c3dad2885dac5abdbc3786c511 与 eee93b075b71af725ef75270a99c9a195fdbaf0c 两次摘除,被 bcc72af873eadd87f59e50236045f0545cdd8f62 一类「收编本机在飞件」通道逐字带回。全仓剩三条 2026-10-15 的探查留痕提到它,而同批留痕里的 archive-completed-tasks.mjs 本身已是明令不得再跑的旧命令 —— 那不构成活出路(§0.8)。",
       "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/web/app/(main)/plugins/plugins-data/market-plugins-parts/part-1.ts",
+      "reason": "死副本:与 packages/shared/src/plugins-data/market-plugins-parts/part-1.ts 逐字节相同(同一 blob);判死枚 06e0461dbc50455e3701c341dd9fc959a7ed9d9c、718f74180db9ce7f979cb1cd1819abf23bf00e1d、f2402b15035871544ee25cee9a67c7c77ba22970 三次摘除,又被 9fdbc207ba2ea5536812f8b965d7a9218bb28785 收编通道原样带回;全仓零本地导入,唯一消费面 = @ihui/shared/plugins-data。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/web/app/(main)/plugins/plugins-data/market-plugins-parts/part-2.ts",
+      "reason": "死副本:与 packages/shared/src/plugins-data/market-plugins-parts/part-2.ts 逐字节相同(同一 blob);判死枚 06e0461dbc50455e3701c341dd9fc959a7ed9d9c、718f74180db9ce7f979cb1cd1819abf23bf00e1d、f2402b15035871544ee25cee9a67c7c77ba22970 三次摘除,又被 9fdbc207ba2ea5536812f8b965d7a9218bb28785 收编通道原样带回;全仓零本地导入。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/web/app/(main)/plugins/plugins-data/market-plugins-parts/part-3.ts",
+      "reason": "死副本:与 packages/shared/src/plugins-data/market-plugins-parts/part-3.ts 逐字节相同(同一 blob);判死枚 06e0461dbc50455e3701c341dd9fc959a7ed9d9c、718f74180db9ce7f979cb1cd1819abf23bf00e1d、f2402b15035871544ee25cee9a67c7c77ba22970 三次摘除,又被 9fdbc207ba2ea5536812f8b965d7a9218bb28785 收编通道原样带回;全仓零本地导入。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/web/app/(main)/plugins/plugins-data/market-plugins-parts/part-4.ts",
+      "reason": "死副本:与 packages/shared/src/plugins-data/market-plugins-parts/part-4.ts 逐字节相同(同一 blob);判死枚 06e0461dbc50455e3701c341dd9fc959a7ed9d9c、718f74180db9ce7f979cb1cd1819abf23bf00e1d、f2402b15035871544ee25cee9a67c7c77ba22970 三次摘除,又被 9fdbc207ba2ea5536812f8b965d7a9218bb28785 收编通道原样带回;全仓零本地导入。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/web/app/(main)/plugins/plugins-data/market-plugins-parts/part-5.ts",
+      "reason": "死副本:与 packages/shared/src/plugins-data/market-plugins-parts/part-5.ts 逐字节相同(同一 blob);判死枚 06e0461dbc50455e3701c341dd9fc959a7ed9d9c、718f74180db9ce7f979cb1cd1819abf23bf00e1d、f2402b15035871544ee25cee9a67c7c77ba22970 三次摘除,又被 9fdbc207ba2ea5536812f8b965d7a9218bb28785 收编通道原样带回;全仓零本地导入。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/web/app/(main)/plugins/plugins-data/market-plugins-parts/part-6.ts",
+      "reason": "死副本:与 packages/shared/src/plugins-data/market-plugins-parts/part-6.ts 逐字节相同(同一 blob);判死枚 06e0461dbc50455e3701c341dd9fc959a7ed9d9c、718f74180db9ce7f979cb1cd1819abf23bf00e1d、f2402b15035871544ee25cee9a67c7c77ba22970 三次摘除,又被 9fdbc207ba2ea5536812f8b965d7a9218bb28785 收编通道原样带回;全仓零本地导入。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/web/app/(main)/plugins/plugins-data/market-plugins-parts/part-7.ts",
+      "reason": "死副本:与 packages/shared/src/plugins-data/market-plugins-parts/part-7.ts 逐字节相同(同一 blob);判死枚 06e0461dbc50455e3701c341dd9fc959a7ed9d9c、718f74180db9ce7f979cb1cd1819abf23bf00e1d、f2402b15035871544ee25cee9a67c7c77ba22970 三次摘除,又被 9fdbc207ba2ea5536812f8b965d7a9218bb28785 收编通道原样带回;全仓零本地导入。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/web/app/(main)/plugins/plugins-data/market-plugins-parts/part-8.ts",
+      "reason": "死副本:与 packages/shared/src/plugins-data/market-plugins-parts/part-8.ts 逐字节相同(同一 blob);判死枚 06e0461dbc50455e3701c341dd9fc959a7ed9d9c、718f74180db9ce7f979cb1cd1819abf23bf00e1d、f2402b15035871544ee25cee9a67c7c77ba22970 三次摘除,又被 9fdbc207ba2ea5536812f8b965d7a9218bb28785 收编通道原样带回;全仓零本地导入。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/web/app/(main)/plugins/plugins-data/market-plugins-parts/part-9.ts",
+      "reason": "死副本:与 packages/shared/src/plugins-data/market-plugins-parts/part-9.ts 逐字节相同(同一 blob);判死枚 06e0461dbc50455e3701c341dd9fc959a7ed9d9c、718f74180db9ce7f979cb1cd1819abf23bf00e1d、f2402b15035871544ee25cee9a67c7c77ba22970 三次摘除,又被 9fdbc207ba2ea5536812f8b965d7a9218bb28785 收编通道原样带回;全仓零本地导入。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/web/app/(main)/plugins/plugins-data/market-plugins-parts/part-10.ts",
+      "reason": "死副本:与 packages/shared/src/plugins-data/market-plugins-parts/part-10.ts 逐字节相同(同一 blob);判死枚 06e0461dbc50455e3701c341dd9fc959a7ed9d9c、718f74180db9ce7f979cb1cd1819abf23bf00e1d、f2402b15035871544ee25cee9a67c7c77ba22970 三次摘除,又被 9fdbc207ba2ea5536812f8b965d7a9218bb28785 收编通道原样带回;全仓零本地导入。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/web/app/(main)/plugins/plugins-data/market-plugins-parts/part-11.ts",
+      "reason": "死副本:与 packages/shared/src/plugins-data/market-plugins-parts/part-11.ts 逐字节相同(同一 blob);判死枚 06e0461dbc50455e3701c341dd9fc959a7ed9d9c、718f74180db9ce7f979cb1cd1819abf23bf00e1d、f2402b15035871544ee25cee9a67c7c77ba22970 三次摘除,又被 9fdbc207ba2ea5536812f8b965d7a9218bb28785 收编通道原样带回;全仓零本地导入。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/web/app/(main)/plugins/plugins-data/market-plugins.ts",
+      "reason": "死副本:与 packages/shared/src/plugins-data/market-plugins.ts 逐字节相同(同一 blob);判死枚 3570d3d29cf51b3bf43f4f376f236a0fb5a5c8cb、718f74180db9ce7f979cb1cd1819abf23bf00e1d、f2402b15035871544ee25cee9a67c7c77ba22970,又被 9fdbc207ba2ea5536812f8b965d7a9218bb28785 收编通道原样带回;全仓零本地导入。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/web/app/(main)/plugins/plugins-data/project-plugins.ts",
+      "reason": "死副本:与 packages/shared/src/plugins-data/project-plugins.ts 逐字节相同(同一 blob);判死枚 06e0461dbc50455e3701c341dd9fc959a7ed9d9c、718f74180db9ce7f979cb1cd1819abf23bf00e1d、f2402b15035871544ee25cee9a67c7c77ba22970 三次摘除,又被 9fdbc207ba2ea5536812f8b965d7a9218bb28785 收编通道原样带回;全仓零本地导入。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/web/app/(main)/plugins/plugins-data/types.ts",
+      "reason": "死副本:与 packages/shared/src/plugins-data/types.ts 逐字节相同(同一 blob);判死枚 3570d3d29cf51b3bf43f4f376f236a0fb5a5c8cb、718f74180db9ce7f979cb1cd1819abf23bf00e1d、f2402b15035871544ee25cee9a67c7c77ba22970,又被 9fdbc207ba2ea5536812f8b965d7a9218bb28785 收编通道原样带回;全仓零本地导入。",
+      "reviewBy": "2027-06-30"
     }
   ]
 }
