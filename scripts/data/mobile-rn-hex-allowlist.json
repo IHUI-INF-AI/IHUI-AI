@@ -20,15 +20,6 @@
       "evidence": "PersonalInformationCard.tsx:74 MEDIA_TEXT"
     },
     {
-      "component": "use-push",
-      "value": "#ff231f7c",
-      "file": "apps/mobile-rn/src/hooks/use-push.ts",
-      "owner": "rn-platform",
-      "expires": "2027-03-27",
-      "reason": "Android 通知 LED lightColor 的平台参数,8 位带 alpha 的红色;主题 token 不承载通知通道参数,无对应语义",
-      "evidence": "use-push.ts:63 lightColor"
-    },
-    {
       "component": "ChatScreen",
       "value": "#9cdcfe",
       "file": "apps/mobile-rn/src/screens/ChatScreen.tsx",

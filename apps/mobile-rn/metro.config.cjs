@@ -715,8 +715,17 @@ config.server.enhanceMiddleware = (middleware) => {
   }
 }
 
+// 2026-11-04:CSS 入口与 tailwind 配置一律走**绝对路径**。
+// 立因(实测,不是预防):nativewind 4.2.7 的 withNativeWind 对 configPath 的默认值是
+// **相对字符串** 'tailwind.config',内部以 path.resolve(configPath) 解析 —— 基准是
+// process.cwd(),不是本文件所在目录。于是从 monorepo 根跑任何"加载 metro 配置"的工具
+// (knip 的 @knip/react-native 插件、bundler 分析器)必然拿到
+// "Cannot find module '<repo>/tailwind.config'" 而整体加载失败,进而让 .web.ts/.web.tsx
+// 平台后缀解析整条失效(knip 侧表现为那几个变体文件被误报未引用)。从 apps/mobile-rn
+// 下跑 Metro 一切正常,这才是这个坑长期没被发现的原因。
 module.exports = withNativeWind(config, {
-  input: './global.css',
+  input: require('path').resolve(__dirname, 'global.css'),
+  configPath: require('path').resolve(__dirname, 'tailwind.config.js'),
   ...(isWatchMode ? { forceWriteFileSystem: true } : {}),
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
