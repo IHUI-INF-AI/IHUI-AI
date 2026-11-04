@@ -13,7 +13,7 @@ import assert from 'node:assert/strict'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
-import { __test__ as rg, REQUIRED_TARGET_IDS } from '../root-guard.mjs'
+import { __test__ as rg, REQUIRED_TARGET_IDS, ADVISORY_TARGET_IDS } from '../root-guard.mjs'
 
 const MD = '# t\n\n## 0. 全局铁律(先读,跨节通用)\nA\nB\n\n## 1. 其它\nC\n'
 
@@ -502,8 +502,15 @@ test('⑦ 任一 REQUIRED 目标哈希不符 ⇒ fail/exit=1', () => {
   const allGood = rg.checkAll({ manifest, readFile: readerFor(null), root: '/r' })
   assert.equal(allGood.verdict, 'pass', '全对必须 pass')
   assert.equal(rg.exitCodeOf(allGood.verdict), 0)
+  // advisory 档(文档面 agents-ironlaw)按既有决策只告警、不参与 verdict —— 见 ADVISORY_TARGET_IDS 头注;
+  // 硬判据目标才要求 fail/exit=1。两档都用同一份清单逐枚验证，避免把"文档面不卡部署"误判成漏判。
   for (const badId of REQUIRED_TARGET_IDS) {
     const r = rg.checkAll({ manifest, readFile: readerFor(badId), root: '/r' })
+    if (ADVISORY_TARGET_IDS.has(badId)) {
+      assert.equal(r.verdict, 'pass', `${badId} 是 advisory:不一致只告警、不得拉低 verdict`)
+      assert.equal(r.targets.find((t) => t.id === badId)?.state, 'warn')
+      continue
+    }
     assert.equal(r.verdict, 'fail', `${badId} 哈希不符却读出 ${r.verdict}`)
     assert.equal(rg.exitCodeOf(r.verdict), 1, `${badId} 不符必须 exit=1`)
     assert.equal(r.targets.find((t) => t.id === badId)?.state, 'fail')
