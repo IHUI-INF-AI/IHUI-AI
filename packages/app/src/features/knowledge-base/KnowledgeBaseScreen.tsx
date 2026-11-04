@@ -126,7 +126,7 @@ export function KnowledgeBaseScreen({
               accessibilityState={{ checked: selected }}
               accessibilityLabel={item.title}
             >
-              {selected ? <Check size={14} color={tk.brand.ctaForeground} strokeWidth={3} /> : null}
+              {selected ? <Check size={14} color={styles.checkBoxOnText.color} strokeWidth={3} /> : null}
             </TouchableOpacity>
           ) : null}
           <TouchableOpacity style={styles.cardBody} onPress={onPress}>
@@ -321,6 +321,8 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: rnSpacing['2xs'],
     },
     checkBoxOn: { borderColor: tk.brandAccent.deep, backgroundColor: tk.brand.cta },
+    // 选中态品牌底的配对前景(§4 底字同档):Check 图标取它,名字与 checkBoxOn 成 R4 兄弟。
+    checkBoxOnText: { color: tk.brand.ctaForeground },
     card: {
       marginBottom: rnSpacing.md,
       borderRadius: rnRadius.lg,
