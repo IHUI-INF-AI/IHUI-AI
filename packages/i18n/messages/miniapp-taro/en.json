@@ -2112,7 +2112,8 @@
       "selectAigc": "Select AI work (optional)",
       "noAigc": "No AI works available to link",
       "allowComments": "Allow comments",
-      "visibility": "Visibility"
+      "visibility": "Visibility",
+      "publishFailed": "Publish failed. Please try again"
     },
     "index": {
       "goPublish": "Publish",
@@ -2693,7 +2694,8 @@
     "payFailed": "Payment failed. Please try again",
     "paying": "Paying...",
     "purchaseContent": "Purchase Content",
-    "userAgreement": "User Agreement"
+    "userAgreement": "User Agreement",
+    "activateDelayed": "Benefit activation is delayed. Please contact support"
   },
   "study": {
     "todayMinutes": "{n} min today",
@@ -6988,7 +6990,8 @@
     "labelFreeDur": "Free duration",
     "labelSaleType": "Sale type",
     "submit": "Save",
-    "submitting": "Submitting..."
+    "submitting": "Submitting...",
+    "readOnlyHint": "Not editable yet"
   },
   "modelIncome": {
     "accumulated": "Total earnings",
