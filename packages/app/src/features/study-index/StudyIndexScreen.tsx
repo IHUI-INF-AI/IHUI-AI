@@ -397,7 +397,7 @@ export function StudyIndexScreen({
           accessibilityRole="button"
           accessibilityLabel="发布视频"
         >
-          <Plus size={24} color={tk.surface.light} />
+          <Plus size={24} color={tk.brand.ctaForeground} />
         </Pressable>
       ) : null}
     </View>
