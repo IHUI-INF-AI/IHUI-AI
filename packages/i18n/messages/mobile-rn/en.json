@@ -6045,8 +6045,29 @@
       "present": "Present",
       "late": "Late",
       "absent": "Absent",
-      "leave": "Leave"
-    }
+      "leave": "Leave",
+      "early": "Left early"
+    },
+    "actionDone": "Action succeeded",
+    "actionFailed": "Action failed",
+    "batchResult": "Done: created {created}, skipped {skipped}, missed {missed}",
+    "batchTitle": "Whole-class check",
+    "chooseAction": "Choose action",
+    "chooseClass": "Choose a class to check",
+    "emptyTrend": "No trend data yet",
+    "loadStatsFailed": "Failed to load attendance statistics. Please try again later.",
+    "needClassId": "Missing class info; proxy check-in/out unavailable",
+    "noClass": "No selectable class in the current list",
+    "onlyTodayCheckIn": "Proxy check-in covers today only: backdating needs a time inside that day, not offered here",
+    "qrEntry": "Show check-in QR",
+    "statsAttendanceRate": "Attendance rate",
+    "statsTotalLabel": "Total check-ins",
+    "statusDistribution": "Status distribution",
+    "statusOther": "Other",
+    "trendChartHint": "Attendance rate = present ÷ records logged in that period (students without a record are not in the denominator)",
+    "trendChartScope": "Scope: {scope}",
+    "trendChartTitle": "Attendance trend",
+    "trendWindow": "Last {days} days"
   },
   "eduGrades": {
     "title": "Grades",
@@ -7273,5 +7294,31 @@
   },
   "activities": {
     "join": "Join Now"
+  },
+  "eduAttendanceQr": {
+    "chooseClass": "Select class",
+    "classLoadFailed": "Failed to load class list",
+    "expiresIn": "Expires in {s}s",
+    "needLogin": "Sign in before scanning",
+    "nextStepHint": "Enable an attendance rule and set the scan secret (qrSecret) for this class, then regenerate",
+    "noClass": "No class available",
+    "pickClassFirst": "Select a class first",
+    "qrTip": "Students scan this code with Scan to check in",
+    "refresh": "Regenerate code",
+    "scanDone": "Checked in",
+    "scanFailed": "Check-in failed",
+    "scanHint": "Put the teacher check-in QR code inside the frame",
+    "scanInvalidCode": "Not a check-in QR code of this system",
+    "scanSubmitting": "Checking in...",
+    "scanTitle": "Scan to check in",
+    "title": "Check-in QR code"
+  },
+  "eduMyAttendance": {
+    "classByBackendHint": "Class is resolved automatically from your enrollment",
+    "date": "Date",
+    "notLoggedIn": "Not signed in; unavailable",
+    "scanCheckIn": "Scan to check in",
+    "selfCheckIn": "Check in",
+    "title": "My Attendance"
   }
 }
