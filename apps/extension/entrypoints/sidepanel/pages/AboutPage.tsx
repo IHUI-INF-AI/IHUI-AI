@@ -4,17 +4,16 @@
 
 /**
  * AboutPage — 关于我们(/settings/about,2026-08-21 立)。
- * 展示产品简介、版本号与版权信息。版本号与 apps/extension/package.json 保持一致。
+ * 展示产品简介、版本号与版权信息。版本号取自运行时 manifest(源头是 apps/extension/package.json)。
  */
 import { Card, CardContent } from '@ihui/ui-react'
 import { Bot } from 'lucide-react'
 import { useI18n } from '../../../src/i18n'
 
-const VERSION = '1.0.0'
-
 export default function AboutPage() {
   const { t } = useI18n()
   const year = new Date().getFullYear()
+  const version = chrome.runtime.getManifest().version
   return (
     <div className="p-3 md:p-4 flex flex-col gap-2.5">
       <div className="flex items-center justify-between pb-2">
@@ -27,7 +26,7 @@ export default function AboutPage() {
             <div>
               <div className="font-semibold text-sm">IHUI AI</div>
               <div className="text-xs text-muted-foreground">
-                {t('page.about.version')} {VERSION}
+                {t('page.about.version')} {version}
               </div>
             </div>
           </div>

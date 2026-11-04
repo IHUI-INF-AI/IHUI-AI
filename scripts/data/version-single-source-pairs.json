@@ -1,0 +1,23 @@
+{
+  "$comment": "K2 台账:安装器清单里每一处版本号(含 release tag 段)必须逐字等于它打包的那个包的 version(2026-11-04 立)。这三份清单此前手写 1.0.0,而全仓零作业读它们 —— scoop/winget/snap 都按 docs/RELEASE.md 由人手工提交,没有构建期派生点可挂,所以只能由本判据当尺子。extracts 每条都必须含 1 个捕获组并按全局匹配取**全部**命中:命中 0 处 ⇒ 判未判定并点名(不用 0 冒充通过);任一命中值 ≠ 源值 ⇒ 红。",
+  "pairs": [
+    {
+      "path": "deploy/scoop/ihui.json",
+      "sourcePkg": "apps/cli/package.json",
+      "extracts": ["\"version\"\\s*:\\s*\"([^\"]+)\"", "cli-v(\\d+\\.\\d+\\.\\d+)"],
+      "why": "Scoop 清单装的是 ihui CLI:version 字段与两条 release 资产 URL 里的 tag 段"
+    },
+    {
+      "path": "deploy/winget/IHUI.IHUI.yaml",
+      "sourcePkg": "apps/cli/package.json",
+      "extracts": ["DisplayVersion:\\s*(\\d+\\.\\d+\\.\\d+)", "cli-v(\\d+\\.\\d+\\.\\d+)"],
+      "why": "WinGet 清单装的是 ihui CLI:两个 installer 的 DisplayVersion 与 URL/tag 里的 cli-v 段"
+    },
+    {
+      "path": "deploy/snap/snapcraft.yaml",
+      "sourcePkg": "apps/cli/package.json",
+      "extracts": ["^version:\\s*'([^']+)'"],
+      "why": "Snap 清单装的是 ihui CLI"
+    }
+  ]
+}

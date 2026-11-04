@@ -62,6 +62,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from ..core.sse_frames import with_frame_trace_id
+from app import __version__
 from ..services.capability_gate import (
     Principal,
     PrincipalAuthError,
@@ -91,7 +92,9 @@ router = APIRouter()
 SUPPORTED_PROTOCOL_VERSIONS: Final[tuple[str, ...]] = ("2025-03-26", "2025-06-18")
 MCP_PROTOCOL_VERSION: Final = SUPPORTED_PROTOCOL_VERSIONS[-1]
 SERVER_NAME: Final = "ihui-ai-ai-service"
-SERVER_VERSION: Final = "1.0.0"
+# 版本单一源头 = app/__init__.py 的 __version__(app/services/mcp_export.py 早已这么取);
+# 本腿此前写死 1.0.0,同一个服务的两条 MCP 通道向客户端各报一套号。
+SERVER_VERSION: Final = __version__
 SERVER_INSTRUCTIONS: Final = (
     "IHUI AI 工具面。所有方法均需凭据(IHUI JWT 或内网 X-IHUI-Principal);"
     "工具可见集与可调用集同源,由能力目录逐工具裁决。"
@@ -634,3 +637,4 @@ async def mcp_official_endpoint(request: Request) -> JSONResponse | StreamingRes
     if body is None:  # 通知:不回业务体
         return JSONResponse({}, status_code=200)
     return JSONResponse(body, status_code=status)
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

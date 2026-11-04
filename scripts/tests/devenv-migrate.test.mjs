@@ -36,7 +36,7 @@ import {
   QUIET_MINUTES,
 } from '../devenv-migrate.mjs'
 
-const { activityNotes, latestWrite, guardianTickAlive, probeQuietWindow, assessSteps, planSteps, applyMigration } = __test__
+const { activityNotes, latestWrite, guardianTickAlive, probeQuietWindow, assessSteps, planSteps, applyMigration, parseProcessTable } = __test__
 // 巡检派发臂三函数:判据住本体,本文件只 import(§22c 零复制)。
 const { devenvArmDue, loadDevenvMigrateArm, devenvMigratePatrol } = __test__
 
@@ -232,6 +232,80 @@ test('probeQuietWindow:依赖清单 *.lock 不计占用;空锁/未知无 pid 文
   assert.equal(empty.state, 'pending')
   const unknown = probeQuietWindow(fakeIO(probeTree({ locks: { 'weird.lock': '不是 pid 也不是清单\n' } })), NOW, IDLE)
   assert.equal(unknown.state, 'pending')
+})
+
+/** 单行读不出:PS 对受保护进程返回 CommandLine/ExecutablePath = null,parseProcessTable 归一为空串;
+ *  空串绝不能被 legacyActiveUse 读成「这一行没在用旧根」——必须进 unjudged(fail-closed)。 */
+const psRows = (arr) => parseProcessTable(JSON.stringify(arr))
+
+test('probeQuietWindow:单行 CommandLine/ExecutablePath 为 null ⇒ 不得判 window,该行计入 unjudged', () => {
+  const rows = psRows([{ ProcessId: 4, CommandLine: null, ExecutablePath: null }])
+  const r = probeQuietWindow(fakeIO(probeTree()), NOW, { listProcesses: () => rows, pidAlive: () => false })
+  assert.notEqual(r.state, 'window')
+  assert.equal(r.state, 'undetermined')
+  assert.ok(r.unjudged.some((s) => s.includes('读不出')), r.unjudged.join(';'))
+})
+
+test('probeQuietWindow:空字段行 + 其余行已判无占用 ⇒ 仍 undetermined(unjudged 带条数,不被读成静默)', () => {
+  const rows = psRows([
+    { ProcessId: 4, CommandLine: null, ExecutablePath: null },
+    { ProcessId: 88, CommandLine: 'notepad.exe', ExecutablePath: 'C:\\Windows\\System32\\notepad.exe' },
+  ])
+  const r = probeQuietWindow(fakeIO(probeTree()), NOW, { listProcesses: () => rows, pidAlive: () => false })
+  assert.equal(r.state, 'undetermined')
+  assert.equal(r.reasons.length, 0)
+  const note = r.unjudged.find((s) => s.includes('读不出'))
+  assert.ok(note && /1 个进程/.test(note) && note.includes('4'), r.unjudged.join(';'))
+  // 可读字段命中旧根仍是可判定否定 ⇒ pending(读不出不掩盖真占用)
+  const busyRows = psRows([
+    { ProcessId: 4, CommandLine: null, ExecutablePath: null },
+    { ProcessId: 4242, CommandLine: `node "${join(LEGACY_ROOT, 'Temp', 'job.mjs')}"`, ExecutablePath: null },
+  ])
+  const busy = probeQuietWindow(fakeIO(probeTree()), NOW, { listProcesses: () => busyRows, pidAlive: () => false })
+  assert.equal(busy.state, 'pending')
+  assert.ok(busy.reasons.some((s) => s.includes('4242')), busy.reasons.join(';'))
+})
+
+test('probeQuietWindow:全部字段可读且无占用 ⇒ 仍判 window(修过头即翻红)', () => {
+  const rows = psRows([
+    { ProcessId: 88, CommandLine: 'notepad.exe', ExecutablePath: 'C:\\Windows\\System32\\notepad.exe' },
+  ])
+  const r = probeQuietWindow(fakeIO(probeTree()), NOW, { listProcesses: () => rows, pidAlive: () => false })
+  assert.equal(r.state, 'window')
+  assert.equal(r.unjudged.length, 0)
+})
+
+/**
+ * 形状锁(进程面空字段的行为锁之静态半边):注入面三跳必须逐跳在位 ——
+ * 臂把 activity 交给 probeFn(第三参)、probe 把 activity 交给 legacyActiveUse、
+ * 空字段行进 processes.unreadable。任一跳被摘掉,上面「空字段行 ⇒ undetermined」的
+ * 行为锁会失去注入路径(变异副本随之翻红),故此处逐跳钉住,并附摘除自证。
+ */
+test('形状锁:判② 注入面三跳传导 + 空字段行 fail-closed(摘任一跳即翻红)', () => {
+  const patrolBody = SRC.slice(SRC.indexOf('export function devenvMigratePatrol'), SRC.indexOf('function selfTest'))
+  assert.match(patrolBody, /probeFn\(io, now, activity\)/, '臂必须把 activity 透传给 probeFn(第三参)')
+  const probeBody = SRC.slice(SRC.indexOf('export function probeQuietWindow'), SRC.indexOf('function listDriveJunctions'))
+  assert.ok(probeBody.length > 200, '切不到 probeQuietWindow 函数体(锚点漂了 ⇒ 本条恒真)')
+  assert.match(probeBody, /legacyActiveUse\(io, activity\)/, 'probe 必须把 activity 交给 legacyActiveUse')
+  const useBody = SRC.slice(SRC.indexOf('export function legacyActiveUse'), SRC.indexOf('export function activityNotes'))
+  assert.ok(useBody.length > 800, '切不到 legacyActiveUse 函数体(锚点漂了 ⇒ 本条恒真)')
+  assert.match(useBody, /if \(!cmdline \|\| !exePath\)/, '空字段行必须单列判「读不出」')
+  assert.match(useBody, /processes\.unreadable\+\+/, '空字段行必须计入 unreadable(fail-closed)')
+  // 摘除自证:同一把尺子对旧形必须无感 —— 否则上面三条恒真。
+  const noArg = SRC.replace('probeFn(io, now, activity)', 'probeFn(io, now)')
+  assert.notEqual(noArg, SRC, '锚点漂了:实现已不再以 probeFn(io, now, activity) 调用')
+  assert.doesNotMatch(
+    noArg.slice(noArg.indexOf('export function devenvMigratePatrol'), noArg.indexOf('function selfTest')),
+    /probeFn\(io, now, activity\)/,
+    '摘掉第三参后锁仍匹配 ⇒ 该锁对旧形无感',
+  )
+  const noForward = SRC.replace('legacyActiveUse(io, activity)', 'legacyActiveUse(io, {})')
+  assert.notEqual(noForward, SRC, '锚点漂了:probe 已不再把 activity 透传给 legacyActiveUse')
+  assert.doesNotMatch(
+    noForward.slice(noForward.indexOf('export function probeQuietWindow'), noForward.indexOf('function listDriveJunctions')),
+    /legacyActiveUse\(io, activity\)/,
+    '摘掉传导后锁仍匹配 ⇒ 该锁对丢注入面无感',
+  )
 })
 
 test('assessSteps:S3 活代码命中 ⇒ todo,纯注释命中 ⇒ done(证据保留口径)', () => {
