@@ -17101,6 +17101,7 @@
     },
     "codeEditor": {
       "lspStatus": "LSP",
+      "attributionToggle": "AI 行归属标记",
       "zoomIn": "放大字号",
       "zoomOut": "缩小字号"
     },

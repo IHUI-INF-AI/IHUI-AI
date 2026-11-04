@@ -16,7 +16,10 @@
 // 用法:
 //   node scripts/report-rn-miniapp-gaps.mjs                 # 打印账本(不写盘)
 //   node scripts/report-rn-miniapp-gaps.mjs --write <file>  # 写入 markdown
-//   node scripts/report-rn-miniapp-gaps.mjs --json
+//   node scripts/report-rn-miniapp-gaps.mjs --json           # 含 hooks 三桶(closed/blocked/pending)
+//
+// 2026-11-04:文末「已造页」单按台账 evidence 已显式写出的裁决分桶,不再把全部 generated
+// 一律当成「每条都要补齐取数/交互/跳转」。规则与失效方向见 pendingHooks 上方注释。
 import { dirname, resolve } from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { writeFileSync } from 'node:fs'
@@ -108,6 +111,32 @@ const rows = gaps.map((s) => {
   }
 })
 
+/** 已造页(verdict=generated)的全量工作单:不在缺口集里,单列成一张单 */
+const pendingHooks = verdictRows.rows.filter((r) => r.verdict === 'generated')
+
+/**
+ * 2026-11-04 修「97 条假账」(只读报告器,不进提交链):
+ * 台账 verdict 词表只有 missing / not-applicable / generated 三档(单源
+ * scripts/lib/cross-end-verdicts.mjs 的 VERDICT_KINDS),但逐条 evidence 早已写下裁决结论 ——
+ * 现读 97 条里含 `定档 aligned` 的 50 条、`复核后已修复` 的 31 条,另有 `[mobile-only]` /
+ * `[blocked-structure]` / `[blocked-api]` 等明确标签。旧实现把**全部** generated 一律列成
+ * 「每条都要补齐取数/交互/跳转」⇒ 报告器与自己的台账互相打架:人说功能已对齐,机器天天派单。
+ *
+ * 这里**不新增判据、不改台账词表、不替人裁决**:只把 evidence 里已显式写出的结论读出来分桶。
+ * 任何一条没命中显式标记 ⇒ 一律留在 pending(失效方向是「多报一次」,绝不静默丢缺口)。
+ * 分类规则与每桶条数都写进输出,下一席可逐条复核;证据过期应改台账 evidence,不是改这里。
+ */
+const CLOSED_RE = /定档 aligned[:：]|复核后已修复[:：]|不构成缺口|\[no-change-needed\]/
+const BLOCKED_RE = /\[(?:blocked-structure|blocked-api|mobile-only)\]|端内已尽可修|需产品决策/
+const hooksBucketOf = (r) => {
+  const e = String(r.evidence || '')
+  if (CLOSED_RE.test(e)) return 'closed'
+  if (BLOCKED_RE.test(e)) return 'blocked'
+  return 'pending'
+}
+const hooks = { closed: [], blocked: [], pending: [] }
+for (const r of pendingHooks) hooks[hooksBucketOf(r)].push(r)
+
 const stats = {
   face,
   sharedTotal: shared.length,
@@ -127,13 +156,15 @@ const stats = {
   ledgerMissing: verdictRows.rows.filter((r) => r.verdict === 'missing').length,
   ledgerGenerated: verdictRows.rows.filter((r) => r.verdict === 'generated').length,
   ledgerNotApplicable: verdictRows.rows.filter((r) => r.verdict === 'not-applicable').length,
+  // 已造页按台账 evidence 已写明的结论分桶(规则见上方注释);三桶之和恒等于 ledgerGenerated。
+  hooksGenerated: pendingHooks.length,
+  hooksClosed: hooks.closed.length,
+  hooksBlocked: hooks.blocked.length,
+  hooksPending: hooks.pending.length,
 }
 
-/** 待补数据钩子的工作单:已造页但功能未跟上的屏(不在缺口集里,单列成一张单) */
-const pendingHooks = verdictRows.rows.filter((r) => r.verdict === 'generated')
-
 if (jsonMode) {
-  console.log(JSON.stringify({ stats, rows, pendingHooks }, null, 1))
+  console.log(JSON.stringify({ stats, rows, pendingHooks, hooks }, null, 1))
   process.exit(0)
 }
 
@@ -154,12 +185,20 @@ lines.push(
     ` — 路径与口径单源 \`scripts/lib/cross-end-verdicts.mjs\``,
 )
 lines.push(
-  `- 台账三档: **缺页待造 ${stats.ledgerMissing}** / **已造页待补数据钩子 ${stats.ledgerGenerated}** / **不承载 ${stats.ledgerNotApplicable}**`,
+  `- 台账三档: **缺页待造 ${stats.ledgerMissing}** / **已造页 ${stats.ledgerGenerated}** / **不承载 ${stats.ledgerNotApplicable}**` +
+    ` — 已造页按台账 evidence 分桶:**已闭环 ${stats.hooksClosed}** / **需裁决 ${stats.hooksBlocked}** / **真待补 ${stats.hooksPending}**`,
 )
 if (stats.ledgerGenerated > 0) {
   lines.push(
-    `> ⚠ 已造页 ${stats.ledgerGenerated} 条**已计入上面的覆盖率**,但数据钩子/交互尚未按共享屏补齐 ⇒ ` +
-      `覆盖率不等于功能对齐(§0.3「造好没装车 = 没有」);待补清单见文末「已造页·待补数据钩子」单。`,
+    `> ⚠ 已造页 ${stats.ledgerGenerated} 条**已计入上面的覆盖率**。按台账 evidence 的显式裁决:` +
+      `已闭环 ${stats.hooksClosed} 条(aligned / 已修复 / 不构成缺口)、` +
+      `**需产品/端侧裁决 ${stats.hooksBlocked} 条**、无显式标记的「真待补」${stats.hooksPending} 条(见文末分桶单)。`,
+  )
+  lines.push(
+    `> 「真待补 ${stats.hooksPending}」只说明台账里没有未裁决条目,**不等于三端功能 100% 对齐**:` +
+      `${stats.hooksBlocked} 条 blocked 是真实存在的结构/端点缺口,需产品决策后才动得;` +
+      `覆盖率本身也不等于功能对齐(§0.3「造好没装车 = 没有」)。` +
+      `旧版把全部 ${stats.ledgerGenerated} 条一律派单,是另一种失真,故本单只按台账已写明的结论分桶。`,
   )
 }
 lines.push('')
@@ -189,15 +228,31 @@ lines.push(
 )
 if (pendingHooks.length > 0) {
   lines.push('')
-  lines.push('## 已造页 · 待补数据钩子(已计入覆盖率,功能尚未跟上)')
+  lines.push('## 已造页 · 功能对齐分桶(已计入覆盖率)')
   lines.push('')
-  lines.push('| # | 共享屏 | 判定依据 |')
-  lines.push('|---|---|---|')
-  pendingHooks.forEach((r, i) => {
-    lines.push(`| ${i + 1} | \`${r.shared}\` | ${r.evidence || '—'} |`)
-  })
+  lines.push(
+    '> 分类依据:台账 `evidence` 里**已显式写出**的裁决前缀(`定档 aligned` / `复核后已修复` / `不构成缺口` / `[no-change-needed]` ⇒ 已闭环;' +
+      '`[blocked-*]` / `[mobile-only]` / `端内已尽可修` ⇒ 需裁决)。**未命中任何标记一律留「真待补」**;' +
+      '不新增判据、不改 `VERDICT_KINDS`,证据过期请改台账 evidence。',
+  )
+  const renderBucket = (title, list) => {
+    if (!list.length) return
+    lines.push('')
+    lines.push(`### ${title}(${list.length})`)
+    lines.push('')
+    lines.push('| # | 共享屏 | 判定依据 |')
+    lines.push('|---|---|---|')
+    list.forEach((r, i) => {
+      lines.push(`| ${i + 1} | \`${r.shared}\` | ${r.evidence || '—'} |`)
+    })
+  }
+  renderBucket('🔴 真待补', hooks.pending)
+  renderBucket('🟡 需人工/产品裁决', hooks.blocked)
   lines.push('')
-  lines.push(`> 共 ${pendingHooks.length} 条;每条都要按对应共享屏补齐取数/交互/跳转,才算功能真对齐。`)
+  lines.push(
+    `> 合计:已造页 ${pendingHooks.length} 条 = 已闭环 ${hooks.closed.length} + 需裁决 ${hooks.blocked.length} + 真待补 ${hooks.pending.length}。` +
+      `只有「真待补」需要按对应共享屏补齐取数/交互/跳转;「已闭环」是台账自己写明的结论,不是本器新判的。`,
+  )
 }
 const md = lines.join('\n') + '\n'
 if (writePath) {

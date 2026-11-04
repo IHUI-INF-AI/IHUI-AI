@@ -587,11 +587,13 @@ function TerminalBlockView({
     <div
       className="px-2 py-1.5 rounded-md border border-border bg-card text-xs"
       role="group"
-      aria-label={`${t('chat.terminal')} · ${block.command}`}
+      aria-label={`${t('chat.terminal.title')} · ${block.command}`}
     >
       <div className="flex items-center gap-1.5 flex-wrap">
         <Terminal className={`h-3.5 w-3.5 shrink-0 text-muted-foreground`} aria-hidden />
-        <span className="shrink-0 text-[10px] text-muted-foreground">{t('chat.terminal')}</span>
+        <span className="shrink-0 text-[10px] text-muted-foreground">
+          {t('chat.terminal.title')}
+        </span>
         <code className="font-mono min-w-0 flex-1 break-all">{block.command}</code>
         {typeof block.exitCode === 'number' ? (
           <span className="shrink-0 tabular-nums text-muted-foreground">
