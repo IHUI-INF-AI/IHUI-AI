@@ -376,3 +376,38 @@ test('⑪g 空转计数成套:新档进 NON_PROGRESS 且绝不进 PROGRESS(否�
   assert.ok(np, '判据面拒收必须计入空转')
   assert.ok(!pr, '它不是推进;进了 PROGRESS 就等于每拒一次都把计数器清零')
 })
+
+/**
+ * ⑫ 会话终态理由与取材纪律(2026-11-04 立)。
+ * 立因:白名单扩档后第一次真派发(P85)实测 `exit=3 + stopReason=no_progress +
+ * promptTokens≈126196 / completionTokens=22` —— 会话把预算吃在"读整份台账/规则"上,
+ * 一个班次白烧。而当时台账里只有 `session-failed`,分不出该改提示词还是该改运行器。
+ */
+test('⑫a parseSessionUsage 取到终态理由;没有 complete 行时为 null(不猜)', () => {
+  const withReason = ae.parseSessionUsage('{"type":"start"}\n{"type":"complete","stopReason":"no_progress","usage":{"totalTokens":10,"estimatedCostUsd":0.1}}\n')
+  assert.equal(withReason.stopReason, 'no_progress')
+  assert.equal(withReason.measured, true)
+  const noComplete = ae.parseSessionUsage('{"type":"start"}\n')
+  assert.equal(noComplete.stopReason, null, '取不到终态理由 ⇒ null,不许回落成某个具体值')
+  const badShape = ae.parseSessionUsage('{"type":"complete","usage":{"totalTokens":-1}}\n')
+  assert.equal(badShape.measured, false)
+  assert.equal(badShape.stopReason, null)
+})
+
+test('⑫b 派发票必须带取材纪律,且点名两份大文件(摘掉这段=本锁翻红)', () => {
+  const src = readFileSync(new URL('../auto-evolve.mjs', import.meta.url), 'utf8')
+  const block = src.slice(src.indexOf('const promptText = ['), src.indexOf('writeFileSync(promptFile'))
+  assert.ok(block.includes('取材纪律'), '派发票里必须有取材纪律这一节')
+  assert.ok(block.includes('PROJECT_PLAN.md') && block.includes('AGENTS.md'), '必须点名两份会被整份读掉的大文件')
+  assert.ok(block.includes('no_progress'), '纪律要带着实测终态理由一起给,否则只是空喊"别浪费"')
+})
+
+test('⑫c 记账行把 stopReason 带进台账(只留 exit 码就永远分不出成因)', () => {
+  const src = readFileSync(new URL('../auto-evolve.mjs', import.meta.url), 'utf8')
+  const at = src.indexOf("record({ mode: dryRun ? 'dryrun' : 'dispatch', action: res.action")
+  assert.ok(at > 0, '派发结果那一行 record 必须还在(搬家了就要同步本锁,不许让切片悄悄落到别处的 record 上)')
+  const rec = src.slice(at)
+  assert.ok(rec.slice(0, 600).includes('stopReason: res.stopReason ?? null'), '派发记账行必须显式带 stopReason')
+  const ret = src.slice(src.indexOf('  return {\n    action,'), src.indexOf('/**\n * 代提交消息前缀'))
+  assert.ok(ret.includes('stopReason: meter.stopReason ?? null'), 'dispatchSession 的返回必须透出终态理由')
+})
