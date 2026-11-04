@@ -90,6 +90,9 @@ export function AgentProgressTrigger({
   // Phase 16: 从按窗格寻址的 chat store 取 conversationId 用于推导连接状态(票60 长尾)
   const chatStore = usePaneChatStore()
   const conversationId = chatStore((s) => s.conversationId)
+  // 2026-11-04 第四轮:普通对话的真流式状态与 plan_updated 都住在 chat store 上
+  const chatStreaming = chatStore((s) => s.isStreaming)
+  const chatMessages = chatStore((s) => s.messages)
 
   // 当前 ChatMode(从 current-mode-badge 整合);票60 普查批:按窗格寻址
   const modeStore = usePaneModeStore()
@@ -102,30 +105,45 @@ export function AgentProgressTrigger({
   // v10:订阅 progress 状态(实时显示当前任务)
   // 与 Pane 同源,共享 SSE 流;useAgentProgress 内部已 useMemo 缓存,无副作用。
   const progress = useAgentProgress(conversationId)
-  const { planSteps, currentTask, isStreaming, overview } = progress
+  const { planSteps, currentTask, isStreaming } = progress
+
+  // 2026-11-04 第四轮:普通对话的 plan_updated 由 send-answer 写进**那一条 assistant
+  // 消息**(见 task-status-bar.tsx 同源注释),useAgentProgress 在普通对话里恒为空。
+  // 所以"步数"与"是否在流式"都必须双源取真值:
+  //   ① LangGraph 线程:agentProgress.planSteps / agentProgress.isStreaming;
+  //   ② 普通对话:最后一条带 planSteps 的 assistant 消息 + chat store.isStreaming。
+  const latestPlanSteps = React.useMemo<{ status: string }[]>(() => {
+    for (let i = chatMessages.length - 1; i >= 0; i -= 1) {
+      const row = chatMessages[i] as { role?: string; planSteps?: { status: string }[] } | undefined
+      if (row?.role === 'assistant' && (row.planSteps?.length ?? 0) > 0) return row.planSteps ?? []
+    }
+    return []
+  }, [chatMessages])
+  const effectivePlanSteps: { status: string }[] =
+    planSteps.length > 0 ? planSteps : latestPlanSteps
 
   // 当前步骤(用于"构建 X/Y"格式显示)
-  const completedSteps = overview.completedSteps
-  const totalSteps = planSteps.length
-  const inProgressIdx = planSteps.findIndex((s) => s.status === 'in_progress')
+  const completedSteps = effectivePlanSteps.filter((s) => s.status === 'completed').length
+  const totalSteps = effectivePlanSteps.length
+  const inProgressIdx = effectivePlanSteps.findIndex((s) => s.status === 'in_progress')
   const currentStepNumber = inProgressIdx >= 0 ? inProgressIdx + 1 : completedSteps
+
+  // 是否有"实时状态"(流式任务时显示 spinner + 扫光,即使还没有具体任务名也显示"执行中")
+  const hasLiveActivity = isStreaming || chatStreaming
 
   // 实时状态文字优先级(用户规则):
   // 1) 流式且有 currentTask → currentTask.label
   // 2) 有 plan 步骤且有进度 → "构建 X/Y"(保留 v8 风格)
   // 3) 空闲 → mode label("构建" / "计划" / "审查" / "规格")
   const liveStatusText = React.useMemo<string>(() => {
-    if (isStreaming && currentTask.label) {
+    if (hasLiveActivity && currentTask.label) {
       return currentTask.label
     }
     if (totalSteps > 0) {
       return `${modeLabel} ${String(currentStepNumber).padStart(2, '0')}/${String(totalSteps).padStart(2, '0')}`
     }
     return modeLabel
-  }, [isStreaming, currentTask, totalSteps, currentStepNumber, modeLabel])
-
-  // 是否有"实时状态"(流式任务时显示 spinner + 扫光,即使还没有具体任务名也显示"执行中")
-  const hasLiveActivity = isStreaming
+  }, [hasLiveActivity, currentTask, totalSteps, currentStepNumber, modeLabel])
 
   // Phase 24(2026-07-29):客户端 mount 后同步 localStorage 中的 open/pinned
   React.useEffect(() => {
@@ -139,12 +157,12 @@ export function AgentProgressTrigger({
   // 底栏回到极简三锚点(+ / 模型 / 发送·停止)。
   // 独立 testid `agent-progress-status`:同一 testid 若在底栏与「+ → 更多工具」抽屉
   // 各挂一处,Playwright strict mode 会因解析到多元素而报错(见 e2e 校准注释)。
-  const showStatusChip = isStreaming || paneOpen
+  const showStatusChip = hasLiveActivity || paneOpen
   if (variant === 'status' && !showStatusChip) return null
 
   // 芯片只显示"在做什么",步数单独用等宽数字落在右侧 —— 避免与 liveStatusText
   // 的 "构建 03/05" 形态重复拼成 "构建 03/05 03/05"。
-  const statusLabel = isStreaming && currentTask.label ? currentTask.label : modeLabel
+  const statusLabel = hasLiveActivity && currentTask.label ? currentTask.label : modeLabel
 
   // 2026-11-04:Ctrl+Shift+J 监听住在同文件的 AgentProgressShortcutHost —— 本触发器收进
   // 「+ → 更多工具」抽屉后只在菜单打开时挂载,监听留在这里会让快捷键随抽屉一起失效。
