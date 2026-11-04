@@ -100,7 +100,7 @@ export default function ContextUsageStrip({
   }
 
   return (
-    <View className="ctx-usage" onClick={() => setExpanded((v) => !v)}>
+    <View className="ctx-usage" hoverClass="opacity-60" onClick={() => setExpanded((v) => !v)}>
       <Text className="ctx-usage-summary">
         {percent}% · {usedTokens.toLocaleString()} /{' '}
         {maxTokens > 0 ? maxTokens.toLocaleString() : '—'}
@@ -130,6 +130,7 @@ export default function ContextUsageStrip({
               <View key={seg.key}>
                 <View
                   className="ctx-usage-row"
+                  hoverClass="opacity-60"
                   onClick={(e) => {
                     if (!expandable) return
                     e.stopPropagation()
