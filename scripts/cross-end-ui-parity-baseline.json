@@ -226,22 +226,6 @@
           "until": "2027-03-27"
         },
         {
-          "tier": "INPUT_AREA_CONTROL_HIT_SLOP_PX",
-          "side": "rn",
-          "kind": "element-absent",
-          "element": "贴容器边控件的 hitSlop 6",
-          "reason": "RN 的命中扩张通道(小程序无该属性,命中区由原生控件自证)。",
-          "until": "2027-03-27"
-        },
-        {
-          "tier": "INPUT_AREA_PARAM_FIELD_PADDING_V_PX",
-          "side": "rn",
-          "kind": "element-absent",
-          "element": "参数变量输入行竖向内边距 6",
-          "reason": "小程序端参数变量走 Selecter 弹层,根本没有这一行。",
-          "until": "2027-03-27"
-        },
-        {
           "tier": "INPUT_AREA_INPUT_PADDING_TOP_PX",
           "side": "rn",
           "kind": "cross-file-consumption",
@@ -322,14 +306,6 @@
           "until": "2027-03-27"
         },
         {
-          "tier": "INPUT_AREA_VOICE_BTN_WIDTH_PX",
-          "side": "rn",
-          "kind": "mechanism-variant",
-          "element": "语音/键盘切换钮盒宽 32",
-          "reason": "小程序同处是 25×22 的紧凑条,扩到 32 会撑破那一行(取大会破版,不是取小贴边)。",
-          "until": "2027-03-27"
-        },
-        {
           "tier": "INPUT_AREA_INPUT_MIN_HEIGHT_PX",
           "side": "rn",
           "kind": "mechanism-variant",
@@ -367,14 +343,6 @@
           "kind": "element-absent",
           "element": "缩略图删除角标 hitSlop 8",
           "reason": "RN 命中扩张通道;小程序侧无该属性,补一个 8 无处生效。",
-          "until": "2027-03-27"
-        },
-        {
-          "tier": "INPUT_AREA_PARAM_FIELD_MIN_HEIGHT_PX",
-          "side": "rn",
-          "kind": "element-absent",
-          "element": "参数变量行最小高 32",
-          "reason": "小程序参数变量走 Selecter 弹层,没有这一行(与 PARAM_FIELD_PADDING_V 同因)。",
           "until": "2027-03-27"
         },
         {
@@ -434,11 +402,27 @@
           "until": "2027-03-27"
         },
         {
-          "tier": "INPUT_AREA_IN_SHELL_EXPAND_RIGHT_PX",
-          "side": "rn",
+          "tier": "INPUT_AREA_EXPAND_BTN_BOX_PX",
+          "side": "miniapp",
           "kind": "element-absent",
-          "element": "框内放大钮右偏移(派生式 32+4+8)",
-          "reason": "小程序放大钮固定贴 right:0,是另一套位置机制;这一档是 RN 为让开计数浮层才需要的派生式。",
+          "element": "框内放大/切换钮盒 40",
+          "reason": "RN 的框内放大变体已随 2026-11-04 props-parity 批删除(当前文件零引用);小程序 search-right / search-suo 仍在。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "INPUT_AREA_FANGDA_TOP_PX",
+          "side": "miniapp",
+          "kind": "element-absent",
+          "element": "放大钮内缩 6",
+          "reason": "RN 已删放大钮变体;小程序放大钮内缩仍取本档。",
+          "until": "2027-03-27"
+        },
+        {
+          "tier": "INPUT_AREA_VOICE_BTN_GAP_PX",
+          "side": "miniapp",
+          "kind": "element-absent",
+          "element": "语音/键盘切换钮间距 6",
+          "reason": "RN 已删语音/键盘切换钮变体;小程序切换钮间距仍取本档。",
           "until": "2027-03-27"
         }
       ],
@@ -748,27 +732,27 @@
           "until": "2027-03-27"
         },
         {
-          "tier": "MODEL_CONFIG_UPLOAD_MARK_PX",
-          "side": "rn",
+          "tier": "MODEL_CONFIG_MENU_PAD_PX",
+          "side": "miniapp",
           "kind": "element-absent",
-          "element": "上传按钮字形内盒 25",
-          "reason": "RN UploadButton 仍用一层 25 内盒;小程序端位图退役后同槽直接按 BLOCK_GLYPH 落字形,不再内套盒 —— 一端有盒一端没盒,不是取值分叉。",
+          "element": "菜单卡片内边距 20",
+          "reason": "RN ModelConfigDialog 在 2026-11-04 平台裁决批删除了自绘菜单变体(当前文件零 menu 引用),小程序端同元素仍在;在 RN 补 20 等于画一个不存在的菜单卡。",
           "until": "2027-03-27"
         },
         {
-          "tier": "MODEL_CONFIG_RECORD_BUTTON_PX",
-          "side": "rn",
+          "tier": "MODEL_CONFIG_MENU_ROW_PAD_Y_PX",
+          "side": "miniapp",
           "kind": "element-absent",
-          "element": "录音按钮方块 64",
-          "reason": "小程序端没有录音界面(克隆音色走 Taro.chooseMessageFile),这个节点在另一端不存在;补 64 等于画一个不存在的按钮。",
+          "element": "菜单行竖向内边距 12",
+          "reason": "同 MODEL_CONFIG_MENU_PAD_PX:自绘菜单行只存在于小程序端。",
           "until": "2027-03-27"
         },
         {
-          "tier": "MODEL_CONFIG_RECORD_GLYPH_PX",
-          "side": "rn",
+          "tier": "MODEL_CONFIG_BLOCK_GLYPH_PX",
+          "side": "miniapp",
           "kind": "element-absent",
-          "element": "录音按钮内字形 24",
-          "reason": "同 MODEL_CONFIG_RECORD_BUTTON_PX:宿主节点只存在于 RN。",
+          "element": "菜单块字形 18",
+          "reason": "同族的块字形节点只在小程序菜单里渲染;RN 已删该变体。",
           "until": "2027-03-27"
         }
       ],
