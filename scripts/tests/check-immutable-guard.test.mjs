@@ -49,12 +49,13 @@ const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(HERE, '..', '..')
 const SCRIPT = join(ROOT, 'scripts', 'check-immutable-guard.mjs')
 
-/** 显式 stdio（本机不写会 EBUSY，§12g 同型）—— CLI 端到端真跑。 */
+/** 显式 stdio（本机不写会 EBUSY，§12g 同型）—— CLI 端到端真跑。
+ *  超时 240s：T16 跑完整 --self-test（现已含 52 例，单跑实测 ~115s），120s 在机器有并发负载时会被杀掉。 */
 const runGate = (args, cwd = ROOT, env = {}) =>
   spawnSync(process.execPath, [SCRIPT, ...args], {
     encoding: 'utf8',
     windowsHide: true,
-    timeout: 120000,
+    timeout: 240000,
     cwd,
     env: { ...process.env, ...env },
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -655,6 +656,8 @@ test('T25 并发夹具：HEAD 被别席推进时 v2 合法提交仍过 / v1 旧�
     sample: records.slice(0, 3),
   })
   assert.equal(records.length, ROUNDS, '轮次必须跑满')
+  // 读数必须落进 TAP（不是只在失败时打印）：这一型是"并发毁签"的核心夹具，空口说"全绿"不算读数。
+  console.log(`[T25] ${detail}`)
   assert.ok(movedRounds.length >= 15, `HEAD 前移的轮次太少（${movedRounds.length}/${ROUNDS}），夹具没压到并发窗口：${detail}`)
   assert.equal(v2Pass, movedRounds.length, `v2 在 HEAD 前移后仍必须全绿：${detail}`)
   assert.equal(v1Pass, 0, `v1 旧语义在 HEAD 前移后必须全红（对照基线）：${detail}`)
