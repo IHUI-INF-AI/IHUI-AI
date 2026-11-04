@@ -1705,6 +1705,305 @@
       ]
     },
     {
+      "pair": "NavBar",
+      "key": "leftActions",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "RN 用泛型动作数组注入左侧按钮;小程序端左侧是固定菜单槽位 + onMenuClick 具名回调,无数组腿。",
+      "evidence": [
+        "apps/mobile-rn/src/components/NavBar.tsx:62",
+        "apps/miniapp-taro/src/components/NavBar.tsx:99",
+        "apps/mobile-rn/src/components/NavBar.tsx:57"
+      ]
+    },
+    {
+      "pair": "NavBar",
+      "key": "rightAction",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "RN 兼容旧 API 接受单个 ReactNode;小程序端右侧固定为文字/通知槽位,无节点注入腿。",
+      "evidence": [
+        "apps/mobile-rn/src/components/NavBar.tsx:66",
+        "apps/miniapp-taro/src/components/NavBar.tsx:93",
+        "apps/mobile-rn/src/components/NavBar.tsx:57"
+      ]
+    },
+    {
+      "pair": "NavBar",
+      "key": "rightActions",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "RN 用泛型动作数组注入右侧按钮;小程序端右侧是固定槽位(分类/搜索/反馈/加入/通知)各配具名回调,无数组腿。",
+      "evidence": [
+        "apps/mobile-rn/src/components/NavBar.tsx:64",
+        "apps/miniapp-taro/src/components/NavBar.tsx:109",
+        "apps/mobile-rn/src/components/NavBar.tsx:57"
+      ]
+    },
+    {
+      "pair": "NavBar",
+      "key": "activeTitleIndex",
+      "side": "mini",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "小程序端首页标题切换(每日资讯/排行榜)由本组件自持;RN 页头无标题切换,无同名索引腿。",
+      "evidence": [
+        "apps/miniapp-taro/src/components/NavBar.tsx:121",
+        "apps/mobile-rn/src/components/NavBar.tsx:58",
+        "apps/miniapp-taro/src/components/NavBar.tsx:83"
+      ]
+    },
+    {
+      "pair": "NavBar",
+      "key": "bgColor",
+      "side": "mini",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "小程序端底色以 prop 传入;RN 端底色由主题 token 内建,无同名腿。",
+      "evidence": [
+        "apps/miniapp-taro/src/components/NavBar.tsx:90",
+        "apps/mobile-rn/src/components/NavBar.tsx:68",
+        "apps/miniapp-taro/src/components/NavBar.tsx:83"
+      ]
+    },
+    {
+      "pair": "NavBar",
+      "key": "joinText",
+      "side": "mini",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "小程序端「加入社区群」固定按钮文案;RN 端由 rightActions 项承载。",
+      "evidence": [
+        "apps/miniapp-taro/src/components/NavBar.tsx:105",
+        "apps/mobile-rn/src/components/NavBar.tsx:11",
+        "apps/miniapp-taro/src/components/NavBar.tsx:83"
+      ]
+    },
+    {
+      "pair": "NavBar",
+      "key": "menuIcon",
+      "side": "mini",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "小程序端菜单按钮字形可配;RN 端图标由 leftActions 的 item.icon 承载。",
+      "evidence": [
+        "apps/miniapp-taro/src/components/NavBar.tsx:103",
+        "apps/mobile-rn/src/components/NavBar.tsx:9",
+        "apps/miniapp-taro/src/components/NavBar.tsx:83"
+      ]
+    },
+    {
+      "pair": "NavBar",
+      "key": "notification",
+      "side": "mini",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "小程序端顶栏通知条(文本+关闭)是组件内固定槽位;RN 端通知由页面自渲染,无同名腿。",
+      "evidence": [
+        "apps/miniapp-taro/src/components/NavBar.tsx:95",
+        "apps/mobile-rn/src/components/NavBar.tsx:9",
+        "apps/miniapp-taro/src/components/NavBar.tsx:83"
+      ]
+    },
+    {
+      "pair": "NavBar",
+      "key": "onActiveNav",
+      "side": "mini",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "小程序端标题切换回调由本组件自持;RN 页头无标题切换,无同名回调腿。",
+      "evidence": [
+        "apps/miniapp-taro/src/components/NavBar.tsx:123",
+        "apps/mobile-rn/src/components/NavBar.tsx:58",
+        "apps/miniapp-taro/src/components/NavBar.tsx:83"
+      ]
+    },
+    {
+      "pair": "NavBar",
+      "key": "onFeedbackClick",
+      "side": "mini",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "小程序端反馈点击;RN 端由 rightActions 项动作承载。",
+      "evidence": [
+        "apps/miniapp-taro/src/components/NavBar.tsx:117",
+        "apps/mobile-rn/src/components/NavBar.tsx:11",
+        "apps/miniapp-taro/src/components/NavBar.tsx:83"
+      ]
+    },
+    {
+      "pair": "NavBar",
+      "key": "onFenLeiClick",
+      "side": "mini",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "小程序端分类点击;RN 端由 rightActions 项动作承载。",
+      "evidence": [
+        "apps/miniapp-taro/src/components/NavBar.tsx:109",
+        "apps/mobile-rn/src/components/NavBar.tsx:11",
+        "apps/miniapp-taro/src/components/NavBar.tsx:83"
+      ]
+    },
+    {
+      "pair": "NavBar",
+      "key": "onJoinClick",
+      "side": "mini",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "小程序端「加入社区群」点击;RN 端由 rightActions 项的动作承载。",
+      "evidence": [
+        "apps/miniapp-taro/src/components/NavBar.tsx:101",
+        "apps/mobile-rn/src/components/NavBar.tsx:11",
+        "apps/miniapp-taro/src/components/NavBar.tsx:83"
+      ]
+    },
+    {
+      "pair": "NavBar",
+      "key": "onMenuClick",
+      "side": "mini",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "小程序端 ai-home 菜单按钮具名回调;RN 端由 leftActions 项的 onPress 承载,无同名回调腿。",
+      "evidence": [
+        "apps/miniapp-taro/src/components/NavBar.tsx:99",
+        "apps/mobile-rn/src/components/NavBar.tsx:9",
+        "apps/miniapp-taro/src/components/NavBar.tsx:83"
+      ]
+    },
+    {
+      "pair": "NavBar",
+      "key": "onPack",
+      "side": "mini",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "小程序端 @pack 返回首页语义;RN 端由 leftActions 项直接给动作,无专腿。",
+      "evidence": [
+        "apps/miniapp-taro/src/components/NavBar.tsx:119",
+        "apps/mobile-rn/src/components/NavBar.tsx:9",
+        "apps/miniapp-taro/src/components/NavBar.tsx:83"
+      ]
+    },
+    {
+      "pair": "NavBar",
+      "key": "onRightClick",
+      "side": "mini",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "小程序端右侧文字点击回调;RN 端把动作绑在 rightAction/rightActions 的节点上。",
+      "evidence": [
+        "apps/miniapp-taro/src/components/NavBar.tsx:94",
+        "apps/mobile-rn/src/components/NavBar.tsx:66",
+        "apps/miniapp-taro/src/components/NavBar.tsx:83"
+      ]
+    },
+    {
+      "pair": "NavBar",
+      "key": "onSearchClick",
+      "side": "mini",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "小程序端搜索点击;RN 端由 rightActions 项动作承载。",
+      "evidence": [
+        "apps/miniapp-taro/src/components/NavBar.tsx:113",
+        "apps/mobile-rn/src/components/NavBar.tsx:11",
+        "apps/miniapp-taro/src/components/NavBar.tsx:83"
+      ]
+    },
+    {
+      "pair": "NavBar",
+      "key": "rightText",
+      "side": "mini",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "小程序端右侧文字槽;RN 端用 rightAction/rightActions 的节点承载。",
+      "evidence": [
+        "apps/miniapp-taro/src/components/NavBar.tsx:93",
+        "apps/mobile-rn/src/components/NavBar.tsx:66",
+        "apps/miniapp-taro/src/components/NavBar.tsx:83"
+      ]
+    },
+    {
+      "pair": "NavBar",
+      "key": "showBack",
+      "side": "mini",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "小程序端可显式隐藏返回键;RN 端返回键由 leftActions/onBack 组合控制,无显式布尔腿。",
+      "evidence": [
+        "apps/miniapp-taro/src/components/NavBar.tsx:89",
+        "apps/mobile-rn/src/components/NavBar.tsx:60",
+        "apps/miniapp-taro/src/components/NavBar.tsx:83"
+      ]
+    },
+    {
+      "pair": "NavBar",
+      "key": "showFeedback",
+      "side": "mini",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "小程序端反馈槽位开关;RN 端由 rightActions 数组项承载。",
+      "evidence": [
+        "apps/miniapp-taro/src/components/NavBar.tsx:115",
+        "apps/mobile-rn/src/components/NavBar.tsx:11",
+        "apps/miniapp-taro/src/components/NavBar.tsx:83"
+      ]
+    },
+    {
+      "pair": "NavBar",
+      "key": "showFenLei",
+      "side": "mini",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "小程序端分类槽位开关;RN 端由 rightActions 数组项承载。",
+      "evidence": [
+        "apps/miniapp-taro/src/components/NavBar.tsx:107",
+        "apps/mobile-rn/src/components/NavBar.tsx:11",
+        "apps/miniapp-taro/src/components/NavBar.tsx:83"
+      ]
+    },
+    {
+      "pair": "NavBar",
+      "key": "showSearch",
+      "side": "mini",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "小程序端搜索槽位开关;RN 端由 rightActions 数组项承载。",
+      "evidence": [
+        "apps/miniapp-taro/src/components/NavBar.tsx:111",
+        "apps/mobile-rn/src/components/NavBar.tsx:11",
+        "apps/miniapp-taro/src/components/NavBar.tsx:83"
+      ]
+    },
+    {
+      "pair": "NavBar",
+      "key": "textColor",
+      "side": "mini",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "小程序端字色以 prop 传入;RN 端字色由主题 token 内建,无同名腿。",
+      "evidence": [
+        "apps/miniapp-taro/src/components/NavBar.tsx:91",
+        "apps/mobile-rn/src/components/NavBar.tsx:68",
+        "apps/miniapp-taro/src/components/NavBar.tsx:83"
+      ]
+    },
+    {
+      "pair": "NavBar",
+      "key": "variant",
+      "side": "mini",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "小程序端有 ai-home/default 两种版式;RN 端用 leftActions/rightActions 拼装,无版式开关腿。",
+      "evidence": [
+        "apps/miniapp-taro/src/components/NavBar.tsx:97",
+        "apps/mobile-rn/src/components/NavBar.tsx:64",
+        "apps/miniapp-taro/src/components/NavBar.tsx:83"
+      ]
+    },
+    {
       "pair": "UserInfoCard",
       "key": "onCopyInviteCode",
       "side": "rn",
