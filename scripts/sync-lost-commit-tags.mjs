@@ -235,16 +235,20 @@ function printHelp() {
  */
 function listLocalTagMap() {
   const map = new Map()
+  // 2026-11-04 性能票:`%(refname:short)` 的短名消歧是 O(n²)(912 ref 315ms / 23,115 ref 28,591ms),
+  // 命名空间写死在参数里、前缀剥离零成本 ⇒ 取全名后本地剥 `refs/tags/`。
+  const TAG_REF_PREFIX = 'refs/tags/'
   try {
     const out = gitRaw(
-      ['for-each-ref', '--format=%(refname:short)%09%(objectname)%09%(*objectname)', 'refs/tags'],
+      ['for-each-ref', '--format=%(refname)%09%(objectname)%09%(*objectname)', 'refs/tags'],
       process.cwd(),
       { maxBuffer: 64 * 1024 * 1024 },
     )
     for (const line of out.split('\n')) {
       if (!line) continue
-      const [name, obj, peeled] = line.split('\t')
-      if (!name) continue
+      const [fullName, obj, peeled] = line.split('\t')
+      if (!fullName) continue
+      const name = fullName.startsWith(TAG_REF_PREFIX) ? fullName.slice(TAG_REF_PREFIX.length) : fullName
       map.set(name, peeled || obj)
     }
   } catch {

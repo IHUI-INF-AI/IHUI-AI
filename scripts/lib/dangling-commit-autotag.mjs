@@ -256,10 +256,13 @@ export function defaultRunGuard({ root, timeoutMs = GUARD_TIMEOUT_MS, listOutOfW
 
 /** 默认:现读 lost-commit/<name> 的 tag 名集(判据 import 门 30a 的 for-each-ref 解析,零复算)。 */
 export function defaultTagFace({ root = ROOT } = {}) {
+  // 2026-11-04 性能票:`%(refname:short)` 要为每枚 ref 求"最短无歧义名"(与全体 ref 比对),
+  // 实测 912 ref 315ms → 23,115 ref 28,591ms(超线性);`%(refname)` 同一面 118ms。
+  // 前缀剥离不必交给 git:parseForEachRefTagInfo(:1563-1565)本来就按 `refs/tags/` 前缀本地剥。
   const out = gitRaw(
     [
       'for-each-ref',
-      '--format=%(refname:short)%09%(objectname)%09%(*objectname)',
+      '--format=%(refname)%09%(objectname)%09%(*objectname)',
       'refs/tags/lost-commit',
     ],
     root,
