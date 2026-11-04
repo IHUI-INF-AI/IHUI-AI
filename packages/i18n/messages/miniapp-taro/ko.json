@@ -2193,8 +2193,7 @@
       "submit": "에이전트 생성",
       "fileSizeExceeded": "파일은 10MB를 초과할 수 없습니다",
       "n8nFilePlaceholder": "n8n 백업 JSON 파일을 클릭하여 업로드",
-      "typeJson": "JSON",
-      "mockSuccess": "API가 아직 열리지 않았습니다. 모의 생성 완료"
+      "typeJson": "JSON"
     },
     "modelEdit": {
       "title": "모델 편집",
@@ -4085,8 +4084,7 @@
     "q3": "운영부",
     "q4": "마케팅부",
     "q5": "영업부",
-    "q6": "에이전트 로드",
-    "q7": "유료 설정 제출"
+    "q6": "에이전트 로드"
   },
   "StudyStats": {
     "y1": "h, 완료"
