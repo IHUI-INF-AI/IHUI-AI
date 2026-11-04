@@ -72,7 +72,27 @@ const STATIC_EXCLUDED_TOP_FILES = ['proxy.ts']
  * **真实** slug 清单(例如发布侧生成 manifest),再把本行从移出面移除;不要用假 slug
  * 骗过 generateStaticParams 的空数组断言。
  */
-const STATIC_EXCLUDED_ROUTE_FILES = ['app/(main)/docs/[slug]/page.tsx']
+const STATIC_EXCLUDED_ROUTE_FILES = [
+  'app/(main)/docs/[slug]/page.tsx',
+  /**
+   * `app/dl/desktop/route.ts`:桌面安装包按访客地域 302 分流(国内且字节等值 ⇒ Gitee,
+   * 其余 ⇒ GitHub 权威腿,2026-11-03 的下载分腿提交 95fa57a78f 引入)。
+   *
+   * 为什么必须移出(2026-11-04):它是**请求期**路由 —— 判据读 `request.headers` 的地域头、
+   * 按国家分腿、显式 `private, no-store`(不按国家缓存)。`output: 'export'` 下路由处理器
+   * 没有请求期,Next 在 Collecting page data 阶段硬报错:
+   *   'Error: export const dynamic = "force-static"/export const revalidate not configured
+   *    on route "/dl/desktop" with "output: export"'
+   * 这是 GitHub Pages 自 run 41716831563(2026-11-03 20:54Z)起连续失败的直接原因;
+   * 上一次绿(1b26c00f6,17:33Z)不含该提交。
+   *
+   * 静态产物没有"访客地域"这一维,该分流器在静态面上结构上不成立 —— 不要用
+   * `force-static` 假装能算(那会退化成"所有人都没有地域"的固定落点,且构建期要现打
+   * GitHub API)。权威站 aizhs.top 走 next build + next start,该分流器那边照常生效。
+   * 静态面沿用既有"构建期移出、finally 恢复"机制,不新增机制。
+   */
+  'app/dl/desktop/route.ts',
+]
 /**
  * proxy.ts 的**反向依赖闭包**(直接/间接 import 它的源码,相对 apps/web/),静态导出期与 proxy 同批移出。
  *
