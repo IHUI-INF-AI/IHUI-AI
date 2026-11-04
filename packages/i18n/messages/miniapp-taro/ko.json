@@ -408,8 +408,7 @@
     "totalRecharge": "누적 충전",
     "totalWithdraw": "누적 출금",
     "withdraw": "출금",
-    "points": "포인트",
-    "rechargeSuccess": "충전성공"
+    "points": "포인트"
   },
   "community": {
     "posts": "게시물",
@@ -691,8 +690,6 @@
       "agentTipTitle": "에이전트 사용 안내"
     },
     "chatDrawers": {
-      "emptyMaterial": "자료가 없습니다",
-      "materialLibrary": "자료실",
       "promptLabel": "프롬프트",
       "selectModel": "모델 선택",
       "skillDetail": "스킬 상세"
@@ -1292,7 +1289,6 @@
     "questions": "{n}문제",
     "passScore": "합격 점수",
     "totalScore": "총점",
-    "passed": "합격",
     "result": {
       "scoreValue": "{n}점",
       "rankValue": "{total}명 중 {n}위",
@@ -1486,7 +1482,6 @@
     "withdrawable": "출금 가능",
     "pendingSettle": "정산 대기",
     "withdrawn": "출금 완료",
-    "myTeam": "내 팀",
     "columnTitle": "유통 주문",
     "retry": "재시도",
     "empty": "데이터 없음",
@@ -2558,7 +2553,6 @@
     "startConversation": "대화를 시작하세요",
     "inputPlaceholder": "메시지를 입력하세요...",
     "sendBtn": "전송",
-    "noInteraction": "알림 없음",
     "noPrivate": "쪽지 없음",
     "noSystem": "시스템 알림 없음",
     "pin": "대화 고정",
@@ -2848,10 +2842,7 @@
   },
   "token": {
     "balance": {
-      "title": "내 토큰",
-      "agentConsume": "에이전트 소비",
-      "ordersConsume": "대형 모델 소비",
-      "costTime": "소비 시간:"
+      "title": "내 토큰"
     }
   },
   "user": {
@@ -2942,8 +2933,6 @@
       "phoneInvalid": "잘못된 전화번호",
       "codeSendFailed": "코드 발송 실패",
       "bindSuccess": "전화번호 연결 성공",
-      "codePlaceholder": "코드 입력",
-      "getCode": "코드 받기",
       "bind": "연결",
       "currentLabel": "현재 전화번호",
       "codeSent": "인증코드 발송됨",
@@ -3291,7 +3280,6 @@
     "noCover": "표지 없음",
     "watched": "시청함",
     "playing": "재생중",
-    "courseCatalog": "강의 목차",
     "empty": "챕터가 아직 없습니다"
   },
   "video": {
@@ -3318,20 +3306,13 @@
     "signNow": "지금 체크인 +5 포인트",
     "signedToday": "오늘 체크인 완료"
   },
-  "withdrawal": {
-    "records": "출금 기록"
-  },
   "intro": {
     "empty": "소개 없음",
     "relatedAI": "관련 AI 앱"
   },
   "invite": {
     "title": "친구 초대",
-    "qrcode": "QR 코드",
-    "code": "초대 코드:",
     "saveImage": "이미지 저장",
-    "shareNow": "지금 공유",
-    "inviteSuffix": "님을 초대합니다",
     "inviteCode": "초대 코드",
     "totalInvited": "누적 초대",
     "totalReward": "누적 보상",
@@ -3436,28 +3417,6 @@
     "resendCode": "재전송",
     "termsOfService": "이용약관",
     "loginFailed": "로그인 실패, 재시도"
-  },
-  "level": {
-    "0": "초보자",
-    "1": "브론즈",
-    "2": "실버",
-    "3": "골드",
-    "4": "플래티넘",
-    "5": "다이아몬드",
-    "6": "킹",
-    "distance": "남은"
-  },
-  "interaction": {
-    "collect": "나를 즐겨찾기함",
-    "comment": "나에게 댓글을 남김",
-    "follow": "나를 팔로우함",
-    "like": "나의 게시물에 좋아요"
-  },
-  "planet": {
-    "empty": "플래닛이 아직 없습니다",
-    "join": "플래닛 가입",
-    "joined": "가입됨",
-    "members": "멤버"
   },
   "chat": {
     "approvalExpiredNotice": "연결이 끊겨 {toolName} 도구의 승인이 만료되었습니다. 해당 작업은 실행되지 않았습니다. 계속하려면 다시 요청하세요.",
@@ -3876,21 +3835,8 @@
     "d2": "올라운드",
     "text1": "에이전트 모드"
   },
-  "TitleSwitchScrollPicker": {
-    "d1": "트랙 1",
-    "d2": "트랙 2",
-    "d3": "트랙 3",
-    "d4": "트랙 4",
-    "d5": "트랙 5",
-    "d6": "트랙 6",
-    "d7": "트랙 7",
-    "d8": "트랙 8"
-  },
   "PhoneAreaCodePicker": {
     "d1": "중국"
-  },
-  "WithdrawalRecords": {
-    "d1": "반려됨"
   },
   "askCreate": {
     "d1": "기술",
@@ -3931,13 +3877,6 @@
     "d2": "월 이용료",
     "d3": "구매 완료"
   },
-  "TitleSwitchOverlap": {
-    "d1": "트랙 1",
-    "d2": "트랙 2",
-    "d3": "트랙 3",
-    "d4": "트랙 4",
-    "d5": "트랙 5"
-  },
   "TitleSwitchScrollTitle": {
     "d1": "트랙 1",
     "d2": "서브트랙 1-1",
@@ -3962,11 +3901,6 @@
     "rank": "순위",
     "studyHours": "학습 시간",
     "levelDesc": "레벨"
-  },
-  "EmptyIllustration": {
-    "d1": "관련 콘텐츠를 찾을 수 없음",
-    "d2": "네트워크 오류",
-    "d3": "권한 없음"
   },
   "SystemNotice": {
     "d1": "업그레이드"
@@ -4007,10 +3941,6 @@
     "d4": "에이전트는 어떻게 등록되나요?",
     "d5": "n8n 에이전트"
   },
-  "tokenBalance": {
-    "d1": "1개월",
-    "d2": "최근 1년"
-  },
   "LessonListItem": {
     "text1": "VIP 전용",
     "text2": "VIP 전용",
@@ -4023,12 +3953,6 @@
   "UserInfoCard": {
     "login1": "원탭 로그인",
     "text2": "해지"
-  },
-  "TitleSwitchTypeBar": {
-    "text1": "사용자 정의",
-    "settings2": "사용자 정의 종류를 설정해 주세요",
-    "confirm": "확인",
-    "m1": "종류 입력"
   },
   "adaptersSelectertaro": {
     "text1": "SD 480p",
@@ -4093,12 +4017,8 @@
   },
   "tail": {
     "6": "데이터 없음",
-    "7": "다시 시도",
     "8": "불러오는 중...",
-    "10": "출금 기록 없음",
     "11": "선택 모델: {m}",
-    "12": "인증 코드를 {m}(으)로 전송했습니다",
-    "13": "{m}에 가입",
     "14": "관심 있는 트랙을 선택하여 맞춤 추천 받기",
     "15": "기본 모델",
     "17": "유료 ¥{m}",
@@ -4128,12 +4048,6 @@
   "ErrorView": {
     "p1": "나중에 다시 시도해 주세요"
   },
-  "FilterDropdown": {
-    "p1": "필터"
-  },
-  "InvitePoster": {
-    "p1": "친구를 초대하고 현금 보상 받기"
-  },
   "ModelTypeButtonGroup": {
     "m1": "스킬",
     "m2": "음성",
@@ -4142,13 +4056,6 @@
   "QrCodeShare": {
     "p1": "포스터 공유",
     "p2": "스캔하여 보기"
-  },
-  "TagInput": {
-    "p1": "Enter 키로 추가",
-    "p2": "한도에 도달했습니다"
-  },
-  "VipUpgradeToast": {
-    "p1": "회원 업그레이드로 더 많은 기능 해제"
   },
   "aicareer": {
     "q1": "면접",
@@ -4201,9 +4108,6 @@
     "q2": "위챗 미니 프로그램에서 위챗 로그인을 사용해 주세요",
     "q3": "위챗 로그인 코드가 비어 있습니다",
     "q4": "위챗 사용자"
-  },
-  "TeamManager": {
-    "p1": "비활성"
   },
   "VideoInfo": {
     "p1": "영상 상세"
@@ -4381,18 +4285,6 @@
     "n8nShareFail": "공유 실패",
     "n8nGenBadge": "AI 생성 · 포인트 사용:",
     "n8nHoldToTalk": "길게 눌러 질문 말하기"
-  },
-  "verify": {
-    "phoneEmpty": "휴대폰 번호가 비어 있습니다",
-    "phoneInvalid": "올바른 휴대폰 번호를 입력하세요",
-    "codeSent": "인증 코드를 전송했습니다",
-    "codeIncomplete": "인증 코드를 모두 입력하세요",
-    "verifySuccess": "인증에 성공했습니다",
-    "getCode": "인증 코드를 입력하세요"
-  },
-  "VerifyCodeModal": {
-    "p2": "재전송",
-    "p3": "인증 중..."
   },
   "VoiceInput": {
     "p1": "녹음을 시작하지 못했습니다"
@@ -5218,9 +5110,7 @@
     "empty": "강좌가 없습니다",
     "free": "무료",
     "studentCount": "{count}명 학습",
-    "nextPage": "다음 페이지",
-    "popular": "인기 강좌",
-    "unknownInstructor": "알 수 없는 강사"
+    "nextPage": "다음 페이지"
   },
   "customerService": {
     "title": "고객 지원 문의",
@@ -7100,16 +6990,7 @@
     "receiveFreeBody": "링크가 클립보드에 복사되었습니다. 브라우저에서 붙여넣어 여세요"
   },
   "career": {
-    "fillField": "입력: {name}",
-    "submitFail": "제출 실패, 잠시 후 재시도",
-    "doneTitle": "제출 완료",
-    "doneBody": "설문 제출 완료. AI 학습 제안은 이 페이지에서 확인 가능",
     "exportingReport": "내보내는 중...",
-    "exportEmptyHint": "리포트를 생성한 후 내보낼 수 있습니다",
-    "exportLoginRequired": "내보내려면 로그인하세요"
-  },
-  "learnMapPage": {
-    "completed": "완료됨",
-    "empty": "학습 경로가 없습니다"
+    "exportEmptyHint": "리포트를 생성한 후 내보낼 수 있습니다"
   }
 }
