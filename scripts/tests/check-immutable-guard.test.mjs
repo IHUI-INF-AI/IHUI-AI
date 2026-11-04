@@ -169,7 +169,8 @@ test('T5 decide 三态与优先级', () => {
   assert.equal(afterWindow.exit, 1, '窗口到期后仅文字理由必须判红')
   assert.equal(afterWindow.code, 'undeclared-unsigned')
   const noSwitch = gate.decide({ entries, changes: hit, message: reasonOnly, today: '2026-11-04' })
-  assert.equal(noSwitch.exit, 1, '清单没写开关 ⇒ 立即要求签名（fail-closed）')
+  assert.equal(noSwitch.exit, 0, '清单没写开关 = 旧语义（开关尚未引入），放行但留痕')
+  assert.equal(noSwitch.code, 'declared-unsigned')
   assert.equal(problems.length, 0)
 })
 

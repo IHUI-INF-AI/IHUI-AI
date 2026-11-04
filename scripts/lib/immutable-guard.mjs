@@ -422,8 +422,10 @@ export function judgeChanges({ changes, entries, message = '', today = todayStr(
  *   触及有理由 ∧ **没有签名行** ∧ 迁移窗口内 ⇒ 0（declared-unsigned，**必须留痕**）；
  *   触及有理由 ∧ **没有签名行** ∧ 迁移窗口已到 ⇒ 1（undeclared-unsigned）。
  *
- * `signatureRequiredFrom === null`（清单里没写开关 / 旧形态清单）= **立即**要求签名，
- * 这是 fail-closed 的默认；只有显式给了一个未来日期才存在迁移窗口。
+ * `signatureRequiredFrom === null`（清单里没写开关 / 旧形态清单）= **旧语义**（开关尚未引入）：
+ *   无签名按旧语义放行并留痕。这不是"没写开关就默认放行"的漏洞 —— 开关一旦随策略落在
+ *   origin/main，push 门按**区间基点**取策略，被审者在自己提交里删掉/推后开关也放不了行；
+ *   而"密钥不存在"永远按 `key-unavailable` fail-closed，与开关有无无关。
  * `key === null`（密钥不存在）⇒ 需要验签时按 `key-unavailable` 处理，绝不默认放行。
  * `message === null` 表示"结构上拿不到消息"（pre-commit 阶段的索引面），与"消息为空"不同。
  */
@@ -457,8 +459,9 @@ export function decide({
   // 有签名行却验不过（含密钥取不到）⇒ 一律判红：它是对"已签名"的**正向声明**，
   // 不能因为窗口还开着就当成"没签名"放行（否则伪造签名 = 比不签更划算）。
   if (signature.present) return { ...out, exit: 1, code: 'undeclared-unsigned' }
-  // 开关缺失/形状坏 ⇒ windowOpen=false ⇒ 立即判红（fail-closed，绝不当成"窗口无限长"）。
-  const windowOpen = isValidDateStr(String(signatureRequiredFrom ?? '')) && today < signatureRequiredFrom
+  // 开关缺席 = 旧语义（窗未引入/历史提交）⇒ 窗口视为开；非法日期在 parseGuardList 已按 list-bad 拦下。
+  // 开关一旦存在，日期到期即 windowOpen=false ⇒ 判红（到期自动收紧，无需再改代码）。
+  const windowOpen = signatureRequiredFrom === null || (isValidDateStr(String(signatureRequiredFrom)) && today < signatureRequiredFrom)
   if (!windowOpen) return { ...out, exit: 1, code: 'undeclared-unsigned' }
   return { ...out, exit: 0, code: 'declared-unsigned' }
 }
