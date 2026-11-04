@@ -2214,7 +2214,8 @@
       "targetGroupEnterprise": "企業",
       "discountNone": "不参加",
       "discountPartial": "一部参加",
-      "discountFull": "全て参加"
+      "discountFull": "全て参加",
+      "saveSuccess": "保存しました"
     }
   },
   "devSpace": {
