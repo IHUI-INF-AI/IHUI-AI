@@ -37,6 +37,10 @@ import {
   type TrashManifest,
   type TrashManifestEntry,
 } from '@ihui/shared/delete-guard';
+// 按操作分维的文件访问裁决(delete 轴)。注意射程只到"用户请求的删除"(回收站搬运腿),
+// 不含原子回滚里的 unlinkSync —— 回滚是把当前版本删掉再落回备份,那是**撤销**动作,
+// 拦它反而会把半应用状态留在盘上(比删一个受保护文件更坏)。
+import { evaluateFileAccess, toAclPath } from '../sandbox/file-access-policy.js';
 
 // ==================== Checkpoint 机制 ====================
 
@@ -136,6 +140,20 @@ function stashFileToTrash(
   seq: number,
 ): TrashManifestEntry {
   const rel = path.relative(workspacePath, abs) || path.basename(abs);
+  // 文件访问裁决的 delete 轴(goal-b49 主席续集,判据单源在 sandbox/file-access-policy.ts):
+  // 排在 copy 之前 —— 拒绝时既不复制也不 unlink,回收站里不留半件、原文件原样在位。
+  // 与两阶段护栏**不同职**:护栏管"这一批要不要删"(量),本层管"这个路径准不准删"(身份)。
+  const aclDelete = evaluateFileAccess('delete', toAclPath(workspacePath, rel), workspacePath);
+  if (aclDelete.blocked) {
+    throw new Error(aclDelete.note ?? `按文件访问裁决禁止删除 ${rel}`);
+  }
+  if (aclDelete.note) {
+    try {
+      process.stderr.write(`${aclDelete.note}\n`);
+    } catch {
+      // 报名通道不可用不改判据结论
+    }
+  }
   const flat = flattenTrashName(rel, seq);
   const trashDir = path.join(getDeleteTrashDir(workspacePath), trashId);
   fs.mkdirSync(trashDir, { recursive: true });
@@ -340,7 +358,8 @@ function validateOp(op: BatchEditOperation, ctx: EditToolContext): ValidatedOp {
   if (!isPathWithinWorkspace(abs, ctx.workspacePath)) {
     return { op, abs, exists: false, error: `路径越界(工作区外): ${op.filePath}` };
   }
-  const perm = checkPathWritePermission(op.filePath, ctx);
+  // 删除操作由 delete 轴定论,create/update 由 write 轴定论(两轴语义不同,不能一律折成写)
+  const perm = checkPathWritePermission(op.filePath, ctx, op.type === 'delete' ? 'delete' : 'write');
   if (!perm.allowed) {
     return { op, abs, exists: false, error: perm.reason };
   }
