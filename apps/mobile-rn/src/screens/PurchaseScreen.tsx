@@ -353,7 +353,7 @@ export default function PurchaseScreen() {
               ))}
             </View>
 
-            <Text style={styles.label}>{t('purchase.payMethod')}</Text>
+            <Text style={styles.label}>{t('wallet.rechargeMethod')}</Text>
             <View style={styles.methodRow}>
               {(['wechat', 'alipay'] as const).map((m) => (
                 <TouchableOpacity

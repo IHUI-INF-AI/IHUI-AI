@@ -48,6 +48,13 @@ class StreamingRecognizer {
   private onFinalResult: ResultCallback | null = null
   private onError: ErrorCallback | null = null
 
+  /** 只合并配置、不重挂录音回调(init 会重复注册 onStop/onError,不能拿来做改配置入口) */
+  configure(config?: RecognizerConfig): void {
+    if (!config) return
+    const next = Object.fromEntries(Object.entries(config).filter(([, v]) => v !== undefined)) as RecognizerConfig
+    if (Object.keys(next).length) this.config = { ...this.config, ...next }
+  }
+
   init(config?: RecognizerConfig): void {
     if (config) this.config = { ...this.config, ...config }
     this.recorderManager = Taro.getRecorderManager()

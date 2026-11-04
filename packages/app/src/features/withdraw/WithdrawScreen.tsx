@@ -53,7 +53,7 @@ export function WithdrawScreen({
           <Text style={styles.balanceValue}>{(balance ?? 0).toFixed(2)}</Text>
         </View>
         <View style={styles.card}>
-          <Text style={styles.label}>{t('withdraw.amount')}</Text>
+          <Text style={styles.label}>{t('wallet.withdrawAmount')}</Text>
           <TextField
             colorScheme={colorScheme}
             style={styles.input}
@@ -63,7 +63,7 @@ export function WithdrawScreen({
             placeholderTextColor={tk.text.tertiary}
             keyboardType="decimal-pad"
           />
-          <Text style={styles.label}>{t('withdraw.bankCard')}</Text>
+          <Text style={styles.label}>{t('wallet.methodBank')}</Text>
           <TextField
             colorScheme={colorScheme}
             style={styles.input}
