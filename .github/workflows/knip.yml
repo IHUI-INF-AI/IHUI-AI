@@ -48,6 +48,19 @@ permissions:
 env:
   NODE_VERSION: '22'
   PNPM_VERSION: '9'
+  # 2026-11-04:三处插件配置在缺值时**故意 fail-closed 抛错**(判据正确,不改弱) —— 缺环境
+  # 就等于 knip 静默少算一整块面,而它 exit 0、棘轮只看到"数字变少"。故在此显式供值。
+  # 口径单源 = scripts/check-knip-ratchet.mjs 的 STATIC_ANALYSIS_ENV(本地跑由该脚本自己补),
+  # 本段是给下面两条 knip 命令用的镜像;两边值必须逐字相同,改一处即改两处。
+  #   · DATABASE_URL —— packages/database/drizzle.config.ts 缺它拒绝加载(旧默认指向 8810 生产隧道口)
+  #   · WX_* / EXPO_PUBLIC_WECHAT_UNIVERSAL_LINK —— apps/mobile-rn/app.config.js 的微信支付守卫:
+  #     knip 的 expo 插件用 dummy config context 调用它(staticConfigPath=null、config={plugins:[]}),
+  #     里面结构上没有 android.package ⇒ 必须由 WX_ANDROID_PACKAGE 显式供值。
+  # 供给值与真实值刻意不同形(库名 _knip_static、域名 .invalid),免得被误当可用配置。
+  DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ihui_knip_static
+  WX_ANDROID_PACKAGE: zh.ai.sq
+  WX_APP_APPID: wx0123456789abcdef
+  EXPO_PUBLIC_WECHAT_UNIVERSAL_LINK: https://static-analysis.invalid/app/
 
 jobs:
   knip:
@@ -99,6 +112,19 @@ jobs:
         id: install
         run: pnpm install --frozen-lockfile --store-dir="${{ runner.temp }}/pnpm-store"
 
+      # 2026-11-04:apps/extension 的 wxt.config.ts 与 vitest.config.ts 都读 .wxt/tsconfig.json,
+      # 而 .wxt/ 是 wxt 的生成物、在 .gitignore 里 ⇒ 干净检出上这两个配置**必然加载失败**,
+      # knip 于是静默丢掉 extension 这一整块面(实测:补上后 duplicates −7)。该包的
+      # typecheck/test 脚本本来就以 `wxt prepare &&` 打头,本步骤只是把这条前置提到 knip 之前。
+      # 判据落在**产物**上而不是退出码:`wxt prepare` 在本机会因 vite 的 watch 枚举告败(exit 1)
+      # 却照样写出 tsconfig —— knip 需要的是产物,故 `|| warning` + `test -f` 两段。
+      - name: Prepare wxt generated types (knip 的 extension 面前置)
+        id: wxt-prepare
+        run: |
+          pnpm --filter @ihui/extension exec wxt prepare \
+            || echo "::warning title=wxt prepare 非零退出::产物仍需自证,见下一步 test -f"
+          test -f apps/extension/.wxt/tsconfig.json
+
       # 2026-09-10 根因修复:此前直接 `pnpm knip`(发现问题即 exit 1),本仓库恒红——
       #   历史死代码债约 4000 项(未引用文件/导出/类型/重复导出),其中框架装载型依赖
       #   (Taro plugin-*、@capacitor/*、expo-*、pino-pretty、tailwindcss-*、babel preset)
@@ -122,12 +148,13 @@ jobs:
         if: failure()
         env:
           TRIAGE_WORKFLOW_FILE: .github/workflows/knip.yml
-          TRIAGE_IDS: checkout setup-pnpm setup-node store-cache install knip knip-full-report
+          TRIAGE_IDS: checkout setup-pnpm setup-node store-cache install wxt-prepare knip knip-full-report
           O_CHECKOUT: ${{ steps.checkout.outcome }}
           O_SETUP_PNPM: ${{ steps.setup-pnpm.outcome }}
           O_SETUP_NODE: ${{ steps.setup-node.outcome }}
           O_STORE_CACHE: ${{ steps.store-cache.outcome }}
           O_INSTALL: ${{ steps.install.outcome }}
+          O_WXT_PREPARE: ${{ steps.wxt-prepare.outcome }}
           O_KNIP: ${{ steps.knip.outcome }}
           O_KNIP_FULL_REPORT: ${{ steps.knip-full-report.outcome }}
         run: bash scripts/ci-failure-triage.sh
