@@ -1440,6 +1440,7 @@ cd IHUI-AI && docker compose up -d
 **核心能力**:
 - **PLATFORM_META 单一事实源**:8 端下载元数据(id/name/version/size/assetHref/systemRequirements/installGuide/availability)集中定义在 web 端,详情页 `/download/[platform]` 消费,5 语言 i18n 自动跟随
 - **下载量统计 API**:`POST /api/downloads/track`(记录下载事件,前端 sidebar Popover + 详情页下载按钮均接入)+ `GET /api/downloads/stats`(管理员聚合查询,按平台/来源/时间维度)
+- **桌面安装包地域分流入口** `GET /dl/desktop?file=<资产文件名>`(所属端:web):同源解析器按访客地域临时重定向 —— 确认在海外走 GitHub 权威腿,国内或地域信号取不到走 Gitee(仍须过字节等值),响应 `no-store` 故地域决策不进 CDN 缓存;口径与判据见 [docs/RELEASE.md](docs/RELEASE.md)
 - **`download_events` 数据库表**:`packages/database` 新增表(uuid + userId + platform + assetHref + source + ip + userAgent + createdAt + 3 索引),Drizzle migration 幂等落地
 - **共享层跨端复用**:`packages/types/src/download.ts`(类型)+ `packages/api-client/src/endpoints/downloads.ts`(SDK)+ `packages/shared/src/hooks/use-download-track.ts`(hook),8 端统计调用统一契约
 - **自动化构建同步**:`scripts/sync-downloads.mjs` 一键构建 8 端产物 + 复制下载包到 `apps/web/public/downloads/` + 生成 `manifest.json`(版本 + 大小 + sha256)
