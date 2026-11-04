@@ -226,11 +226,16 @@ def main(argv=None):
     base = f"/repos/{cfg['cnLegOwner']}/{cfg['cnLegRepo']}"
     rel = g.api(f"{base}/releases/tags/{cfg['cnLegTag']}")
     if not rel:
+        # 实证:新建 tag 的 release 必须带 target_commitish,否则 Gitee 返回 400
+        # `{"messages":["target_commitish is missing"]}`(2026-11-04 首次上传踩到)。
+        repo_info = g.api(base) or {}
+        target = repo_info.get("default_branch") or "main"
         rel = g.api(
             f"{base}/releases",
             "POST",
             {
                 "tag_name": cfg["cnLegTag"],
+                "target_commitish": target,
                 "name": "Android APK 国内分发腿",
                 "body": "官网签名 APK 的固定国内直链;每次发版替换同名附件。",
                 "prerelease": False,

@@ -32,16 +32,25 @@ const baseProps = {
 
 afterEach(cleanup)
 
+// 守门 theme-prop-wiring：主题驱动组件的渲染点必须显式接线（字面量与漏传同红）。
+const testColorScheme: 'light' | 'dark' = 'light'
+
 describe('AgentReviewListScreen 条目点击', () => {
   it('缺省保持纯 View（没有可点 affordance）', () => {
-    render(<AgentReviewListScreen {...baseProps} />)
+    render(<AgentReviewListScreen {...baseProps} colorScheme={testColorScheme} />)
     expect(screen.getByText('写作助手')).toBeTruthy()
     expect(screen.queryByLabelText('写作助手')).toBeNull()
   })
 
   it('注入 onItemPress 后点击回调携带该项', () => {
     const onItemPress = vi.fn()
-    render(<AgentReviewListScreen {...baseProps} onItemPress={onItemPress} />)
+    render(
+      <AgentReviewListScreen
+        {...baseProps}
+        colorScheme={testColorScheme}
+        onItemPress={onItemPress}
+      />,
+    )
     fireEvent.click(screen.getByLabelText('写作助手'))
     expect(onItemPress).toHaveBeenCalledWith(items[0])
   })
