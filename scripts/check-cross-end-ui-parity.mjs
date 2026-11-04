@@ -3959,11 +3959,12 @@ const ALLOWED_DIFF_KEYS = ['geometry', 'radius', 'elementRadius', 'webRnGeometry
 const ALLOWED_DIFF_PLATFORMS = new Set(['miniapp', 'rn', 'web', 'both'])
 const ALLOWED_PLATFORM_KEY_RE = /^platform:[a-z0-9]+(?:-[a-z0-9]+)*$/
 /**
- * 逐键 props 差异族(`platform:props:<mini|rn|web|both>:<Prop>`,2026-11-04 立):
- * 消费方是门 285 的 judged 台账,本门只核形状与到期。缺这条正则会把门 285 自己落的
- * 台账整批读成"条目坏",把两本账的正确分工折成互相指控。
+ * 跨端 props 提案的登记键(`platform:props:<side>:<prop>`,2026-11-03 由 props 对账腿登记)。
+ * 本门不吃 props 维,但这些条目与平台能力差异同住在 `cross-end-allowed-diffs.json`,
+ * 只管记账(不带 count;核销在门 285)。2026-11-04 复核补:原正则只认 `platform:<capability>`,
+ * 141 条 `platform:props:*` 被当"key 非法"整表判红 ⇒ 同一本账两把尺子对不上。
  */
-const PROPS_PLATFORM_KEY_RE = /^platform:props:(?:mini|rn|web|both):[A-Za-z][A-Za-z0-9]*$/
+const ALLOWED_PROPS_PLATFORM_KEY_RE = /^platform:props:(?:mini|rn):[A-Za-z][A-Za-z0-9]*$/
 /**
  * 非色档允许差异(`styleTier:<kind>:<prop>:<value>`,2026-11-02 Phase 4 立)。
  * 本门只核**到期**(消费方是 `check-web-rn-style-tiers.mjs` 的分叉桶);样式档分叉不是本门
@@ -3992,7 +3993,7 @@ export function allowedDiffProblem(e) {
     !(
       ALLOWED_DIFF_KEYS.includes(e.key) ||
       ALLOWED_PLATFORM_KEY_RE.test(e.key) ||
-      PROPS_PLATFORM_KEY_RE.test(e.key) ||
+      ALLOWED_PROPS_PLATFORM_KEY_RE.test(e.key) ||
       STYLE_TIER_KEY_RE.test(e.key)
     )
   )

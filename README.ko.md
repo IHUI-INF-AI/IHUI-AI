@@ -374,7 +374,6 @@ IHUI-AI는 어떤 단일 프로젝트를 대체하려는 것이 아니라, 다�
 |                          | 비즈니스 명함                  | 명함 생성 / 편집 / 즐겨찾기 / 공유 / business-cards                                                                                            |
 | **AI 교육 풀스택**       | 강의 학습                      | 강의 / 챕터 / 학습 경로 / 학습 맵 / 진행 추적 / 노트 / zhs-course                                                                              |
 |                          | 문제은행 및 시험               | 다양한 문제 유형 / 자동 채점 / 챕터 연습 / 오답 노트 / 시험지 업로드 / exam-marking                                                            |
-|                          | **교무 및 출결**               | 학급 출결 규칙(지각/조퇴/결석)/ 결석 자동 보완 / 휴가 승인 트랜잭션 연동 / 일괄 호명 / CSV 내보내기 / 대리·본인·QR 3종 / attendance-rule       |
 |                          | SRS 간격 반복                  | 에빙하우스 망각 곡선 / 스마트 복습 스케줄링                                                                                                    |
 |                          | 라이브 강의                    | 출석 체크 / 인터랙션 / 다시보기 / AI 보조 / live-chat                                                                                          |
 |                          | 학습 리포트                    | 행동 분석 / 개인화 제안 / 수료증 발급                                                                                                          |
@@ -852,7 +851,6 @@ LiteLLM 게이트웨이로 통합 연동, 스마트 라우팅 + 60% 캐시 적�
 | ---------------------- | ---------------------------------------------------------------------------------------------------------- |
 | **강의 학습**          | 강의 / 챕터 / 학습 경로 / 학습 맵 / 진행 추적 / 노트 / 질문답변 / zhs-course + zhs-organization            |
 | **문제은행 및 시험**   | 다양한 문제 유형 enum 양방향 매핑 / 자동 채점 / 챕터 연습 / 오답 노트 / 시험지 업로드 / exam-marking       |
-| **교무 및 출결**       | 임계값 규칙(지각/조퇴/결석)/ 결석 자동 보완 / 휴가 승인 연동 / 일괄 호명 / CSV 내보내기 / attendance-rule  |
 | **SRS 간격 반복**      | 에빙하우스 망각 곡선 기반 스마트 복습 스케줄링 / srs.ts + srs.py                                           |
 | **라이브 강의**        | 라이브 / 출석 체크 / 인터랙션 / 다시보기 / AI 보조 / live-chat + live-extended + live-supplement           |
 | **학습 리포트**        | 학습 행동 분석 + 개인화 제안 / analytics-events + behavior                                                 |
@@ -2221,46 +2219,11 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-04**
-- 🐞 수정:LoginPopUp/BackChevron 必选性对齐 (f11df86f5f)
-- 🐞 수정:ModelConfigDialog 死变体删除 (923044485c)
-- 🐞 수정:InputArea/ModelList 死腿删除 (804ee7142a)
-- 🐞 수정:BottomActionBar 手工压缩入口接线与死腿删除 (a7e4a73d7a)
-- 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (cbe4ddd32c)
-- 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (5ffc1c5120)
-- 🐞 수정:NavBar/VideoPlayer 证据换真 (2ef7755dc4)
-- 🐞 수정:VoiceInput 图片死腿删除 (633b4a018a)
-- 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (9795a8effe)
-- 🐞 수정:UserInfoCard onOpenVip 真实现与死字段删除 (67afef48b0)
-- 🐞 수정:LoginPopUp 协议真实现与同槽收敛 (db8e6679cb)
-- 🐞 수정:capability-catalog 门取不到暂存面时改判 exit 2 未判定 (d551e17bc3)
-- 🔧 기타:dedupe 夹具超时放宽到 600s(规避 pnpm 并发持有夹具) (552b8cfc5d)
-- 🐞 수정:底部淡出遮罩渐变段 120→90 —— 机主复看仍点名「顶部有点高」 (f989956df1)
-- 🐞 수정:根治「签名不一致」—— debug 签名不再静默可得,装机前强制证书对账 (45506184a7)
-- 🐞 수정:底部淡出遮罩渐变段 160→120 —— 机主点名「还是高」,同步「我的」页让位量 104→72 (2c32f411d7)
-- 🐞 수정:overlay-zindex 门扫描面为空/文件读不到时改判 exit 2 (c26b9a983a)
-- 🐞 수정:基线落账补记等价映射条数,棘轮字段不再随重落丢失 (beb3a3e6e9)
-- 🐞 수정:event-closure-leak 门取材失败/文件缺失时改判 exit 2 (31cede2149)
-- 🔧 기타:门285 基线重落(存量存差 177→0,judged 166,裁决不适用 2 对) (f92c386395)
-- 🐞 수정:VoiceInput 3 键逐键裁决登记(RN 预留未接线腿) (5538025fff)
-- 🐞 수정:VideoPlayer 3 键逐键裁决登记(原生 Video vs 注入组件/页面标题) (a728994def)
-- 🐞 수정:NavBar 23 键逐键裁决登记(固定槽位 vs RN 泛型动作数组) (d7d23a6822)
-- 🐞 수정:file-size 门取材失败/读不到文件时改判 exit 2 (361b4678f8)
-- 🐞 수정:ModelList 5 键逐键裁决登记(分组 groups vs 平铺 models+currentType) (362de27391)
-- 🐞 수정:ModelConfigDialog 23 键逐键裁决登记(indexa 媒体链路未接/选型拆到 ModelList) (45fe8f9a40)
-- 🐞 수정:LoginPopUp 20 键逐键裁决登记(登录三回调 vs RN 受控弹窗+扁平资料) (91d15877ab)
-- 🐞 수정:IntelligentAssistant robotImage 归矢量字形媒介裁决 (3280b88e47)
-- 🐞 수정:BackChevron 2 键逐键裁决登记(label 端内 i18n 兜底/color 走 token) (c4154d3c81)
-- 🐞 수정:dedupe 门取不到 staged 面/锁文件时改判 exit 2 (137263b6ac)
-- 🐞 수정:BottomActionBar 44 键逐键裁决登记(开关聚合/图标卡入参与 RN 受控腿) (0fe3ce7009)
-- 🐞 수정:InputArea 31 键逐键裁决登记(折叠/模型/语音腿归平台载体) (dfd42f5393)
-- 🐞 수정:Carousel banner↔items 映射登记(3 键转裁决) (d7ab5acac8)
-- 🐞 수정:UserInfoCard 扁平字段真接线 + 报销空 prop 半成品(6 键转裁决) (784d8dfdbb)
-- 🐞 수정:commit-scope 门取不到输入时改判 exit 2 未判定 (9ffeb094b2)
-- 🐞 수정:push-sync 四类折绿分支收口 —— 窗口只降文案不降退出码,祖先/HEAD/清单读数失败一律 exit 2 (e0f8c0e451)
-- 🐞 수정:底部淡出遮罩延伸到屏幕底 —— 胶囊下方那段悬浮间距此前无人覆盖 (3c2e132bf5)
 - 🔧 기타:收编停留≥3分钟的未提交改动 (43f56aa425)
 - 🐞 수정:首页 AI 输入框不再被底部淡出遮罩压住 —— 补小程序已有的那一层 (12b69b48aa)
 - 🐞 수정:校正 push-sync 注释的 rev-list 失败实测读数(本机 bad object exit 1,非 128) (15915596b8)
+
+**2026-11-04**
 - 🔧 기타:收编守护落档产出(5 件,凭落点账本) (cd17b5992d)
 - 🐞 수정:push-sync 读数改三态 —— rev-list 失败/取不到对象不再折算成 ahead=0 假绿,5 例钉三态 (03f58d1a29)
 - 🐞 수정:两处 git 派生补 windowsHide —— 门52 生产面两处判红清零,消除控制台闪窗;staged 面 3 文件 0 违规 (3f5a439b05)
@@ -2291,6 +2254,8 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 - 🐞 수정:InputArea 补齐 RN 输入契约 autoFocus/onFocus/onBlur/onKeyboardHeightChange (60fa2ebbea)
 - 🔧 기타:摘除 ColorfulLoader 死副本并重算 ui-routes inputs —— 全仓静态/动态引用为 0,删除后经生成器重算(inputs 611→610、自述钉自洽);门105 保持绿、门285 258 键不变 (72eea3c5d5)
 - 📚 문서:派生块按生成器重算 —— 守门/跟踪文件读数对齐现算,最近更新补齐 48540f6..HEAD (4576ffade7)
+
+**2026-11-03**
 - 🔧 기타:ui-routes 派生件按 HEAD 面重生成(model-edit/apis 两枚输入补钉) (c6c90050fb)
 - 🐞 수정:小程序 model-edit 接上 RN 同一份只读清单,并补派生进程 windowsHide (5133f2817d)
 - 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (7755f73e27)
@@ -2303,104 +2268,6 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 - 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (8548571866)
 - 🐞 수정:SectionHeader 两端同源收口 —— 小程序适配层真接 leading/style/titleStyle/subtitleStyle/accessibilityLabel(容器与文字样式覆盖、ariaLabel 落地),非空 prop;门285 270→265,该对归零;intentional-delete: 该对五键已由实现消除 (b80032e3b9)
 - 🐞 수정:IntelligentAssistant 两端同源收口 —— RN 补 isLoggedIn(登录态文案+隐藏充值,默认 true 零观感变化)与 5 语 loginRequired,tokenQuantity↔tokenBalance 入映射表;门285 273→270;intentional-delete: 该对 tokenQuantity/tokenBalance/isLoggedIn 三键已由映射+实现消除 (9436bdf042)
-
-**2026-11-04**
-- 🔧 기타:收编停留≥3分钟的未提交改动 (aa24fda62b)
-- 🚀 기능/개선:考勤统计与出勤趋势补齐小程序/手机端,后端补上写端点与复数家长端点的契约闸 (86aa75fd30)
-- 🐞 수정:补 worktree-reclaim-guard 的 HEAD 面溯源水印(守门 47 现点名的 HEAD 欠账) (458b75822e)
-- 🐞 수정:共享层重复门不再把 §22c 强制镜像标记 __test__ 当同名重实现 (11c3475743)
-
-**2026-11-04**
-- 🔧 기타:收编停留≥3分钟的未提交改动 (9ee2b0ae61)
-
-**2026-11-04**
-- 🔧 기타:收编停留≥3分钟的未提交改动 (3bb1c36f58)
-- 🚀 기능/개선:Gitee 源码只读快照(方案 c)—— 无父单提交 + 周更/发版刷新,force 仅 Gitee main (20919f3d4c)
-- 📚 문서:Gitee main 为发版时点只读快照 —— 明示可能落后 origin/main,最新代码以 GitHub 为准 (8cb42bdffe)
-- 🐞 수정:Gitee tag 改用 git push 推 ref —— 先推 tag 再建 release,tag 已存在按幂等复查(0.1.77「创建标签失败」根因) (96fc64d382)
-
-**2026-11-04**
-- 🔧 기타:收编停留≥3分钟的未提交改动 (c88be8f8a2)
-- 🐞 수정:考勤状态筛选由后端拒收非枚举值——静默查空改成可整改的 400 (1b2a7cda5a)
-
-**2026-11-04**
-- 🔧 기타:收编停留≥3分钟的未提交改动 (1e14489b39)
-- 🚀 기능/개선:新增 worktree-reclaim-guard，四条磁盘约束落成硬判据 (bef468b336)
-- 🔧 기타:结清并摘除考勤四票 B67 B70 B71 B72——逐行按其自写判据当场复跑 (3cbf9e50f8)
-- 📚 문서:auto-triage 自动登记(api-logs;第 1 期感知层产线动作,O65) (2a08aade77)
-
-**2026-11-04**
-- 🔧 기타:收编停留≥3分钟的未提交改动 (8aeb9b1863)
-- 🔧 기타:退役 blue-green-deploy 通道并换零依赖失败通知 (f6e8bf5381)
-
-**2026-11-04**
-- 🔧 기타:收编停留≥3分钟的未提交改动 (5ce91983b6)
-- 🚀 기능/개선:web 端考勤跟随后端新契约——不再自报状态,回填非当日必须给该日内时刻 (41d5da91ec)
-- ⚡ 성능:流式平滑批处理改帧预算切批，消除积压放大单帧渲染 (2f518eda51)
-- 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (e7ea265dee)
-- 🐞 수정:npm-bootstrap publish 腿补 .npmrc 鉴权落点并升 setup-node v7 (26671cebb6)
-- 🐞 수정:摘掉小程序直开表里 rar 这条假承诺,并装上钉住它的跨端对账牙(票 S4 收尾) (17e305d180)
-
-**2026-11-04**
-- 🔧 기타:收编停留≥3分钟的未提交改动 (26c6df8881)
-- 🐞 수정:给 /docs 真 404 的状态码闸补镜像契约锁,并把它的静态段清单交出去(票 D53 收尾) (596d484d0b)
-- 🐞 수정:折叠漂开副本族(N→1,认领合并到保留行 + 逐字留痕;--fold-drifted-families) (1cf03a4cc9)
-- 🐞 수정:缺勤补录加排课门控——无课的日子不再被写成缺勤 (36649152af)
-- 🐞 수정:画中画设置节移入滚动内容 —— 结构性分离队列条命中区域,并加命中自证断言 (e56c07106e)
-- 📚 문서:auto-triage 自动登记(api-logs;第 1 期感知层产线动作,O65) (84118d88a6)
-- 📚 문서:auto-triage 自动登记(api-logs;第 1 期感知层产线动作,O65) (8a25535ea4)
-- 📚 문서:登记「tick 现覆盖 29 面、main 链约 37 面长腿待分批搬 + 存活性尺需 dispatch-parity 第三族」——带现读数、分批判据与自证要求,可派单 (75f903f3c3)
-
-**2026-11-03**
-- 🔧 기타:回补 B68(自陈旧快照,保住 503 签名聚类票) (2f68ac9ea8)
-- 🐞 수정:[build-err] 只留末 8 行会挤掉报错 message 行 —— 加"[build-err-head]"取头部错误行,让红能被归因 (6f6a5b395b)
-- 🚀 기능/개선:服务清单快照补常驻派发点(此前零调度,快照烂成别机读数无人发现) (7d56de2e78)
-- 🐞 수정:第二批 11 面轻哨兵同挂 daemon tick —— 同一把尺复量后仍有一批面自 11-02 16:05Z 零派发 (70863561c1)
-- 🐞 수정:快照原为另一台机读数(host=lichunchuan/G:) => 按本机重生成 (62de8cd6b9)
-- 🐞 수정:七条长红收口 —— max-w-none 宽度归零、画中画越界拦截、登录区化夹具、locale 预种、tooltip 锚点漂移、菜单 toggle 反关、D75 队列语义与 H20 窗口口径 (dbcac0fb6d)
-- 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (647c0d3bbf)
-- 🐞 수정:--status 改只读路径,不再抢轮级锁 (bebcdb84b9)
-- 🔧 기타:占口改 listen(0) 临时端口,消除对 8801 的本机依赖 (01c9aacb4e)
-- 🐞 수정:未知旗标必须当场判用法错 —— 本会话被 `--rev`(真名 --against-rev)喂过一口假绿 (60d69f7a76)
-- 🐞 수정:autonomy-leg-health 的 readGatesFace 默认值改取 FACE_SEL.face,并补自测钉住 (744c704c0d)
-- 🔧 기타:T10 夹具恢复「结构性缺失」路径,不再依赖本机是否建过 npm-dist (e3fd116eb2)
-- 🐞 수정:三处 netstat 派生改绝对路径并补区段结构锁 (e4ca89d29d)
-- 🐞 수정:服务自愈把「重启后仍不应答」从静音档捞回旧那封信 (2e6e324170)
-- 🐞 수정:隐藏启动包装器恢复等待子进程 —— Run(...,True) 让 IgnoreNew 真正串行化 tick (374c1dc6b6)
-- 📚 문서:人工阀注释改成与现行派发路由一致 —— observe-stop 已不再照派 (53c4fe31ac)
-- 🐞 수정:autonomy-leg-health H4/H5 封票夹具改用相对时间 (1b348f4c38)
-- 🐞 수정:model-edit 常量补 isModelEditFieldReadOnly 判定并补齐溯源水印 —— 收口小程序 dev-enter typecheck 的 TS2305 (9150215d50)
-- 🐞 수정:两道新落地的门体补 windowsHide —— 它们一入库就把门 52 变成所有人的恒红 (400c8b355e)
-- 🔧 기타:烘焙 0.1.77 四平台 Gitee 直链(逐资产字节对账一致) (f0611d7179)
-- 🚀 기능/개선:下载链路切 Gitee 国内优先(全平台字节对账 + bake --all-platforms) (286b903b55)
-- 🚀 기능/개선:Gitee 复活为国内主通道(默认上传+凭据探活+文档改口径) (2066f25c0b)
-- 🐞 수정:280 宽再收起头部环境信息/终端,关闭键不再出界 (c51c1d14c6)
-- 🐞 수정:补 MODEL_EDIT_READ_ONLY_FIELDS 共享常量模块 —— 收口 e4af5b16f9 上收遗留的 TS2307(shared/app 六 job 同根因) (8785c76141)
-- 🐞 수정:A 档 12 面周期巡检腿同挂 daemon tick —— 它们已 20+ 小时零派发(节流戳冻结现读) (b510de2c2b)
-- 🐞 수정:--seal/--unlock 原绑工作树哈希而闸量 HEAD blob ⇒ "重封"结构上永远追不上闸(部署环冻 47 轮的真根因) (c8ba44dcfa)
-- 📚 문서:补登门 290/291 的 README 点名,check-gate-wiring R4 由 2 红归零 (9442d73920)
-- 🔧 기타:actions/setup-node v4→v7(52 处/39 文件;npm-bootstrap 发布作业保留 v4) (df32218aa8)
-- 🐞 수정:收口 gate-analyse 与 gate-test(3)(4) 的五类红 —— PublishCalendar 补 useLocale 替身、nav 快照补 /account-pool、图片 src 跟随媒体代理、review 挂载补 brand-icon 替身、BottomActionBar 事实表锚点跟随 taroSpacing 档、edu 删未用变量 (5ac65bcdd8)
-- 🔧 기타:按现面重封清单 —— 解掉部署环 47 轮 fail-closed(复核 6713541c20 对 runner 的 +42/-7) (4f8267f220)
-- 🐞 수정:按 F9 唯一出口让号 —— 本侧 Y-3「文档中心格式层与排版收口」让给 Y-40079,解掉收敛挡点 (1e3a427dc6)
-- 🚀 기능/개선:小程序 model-edit 提交真对齐 RN(计费逻辑上收 shared,复用 api-client updateAgentBilling) (e4af5b16f9)
-- 🔧 기타:actions/checkout v4→v7(84 处/48 文件;mobile-rn 裸引用一并钉 SHA) (ae0a087f2c)
-- 📚 문서:B53 标已完成并注明重复留档,活票为 B69(摘出派单面) (46f997655f)
-- 🐞 수정:派单面整行输出,不再把票面截成半句 (54fa1db97f)
-- 🐞 수정:observe 档命中人工阀改为停机不派 (0bee76d424)
-- 🐞 수정:gate-test 七红收口 —— error-dashboard 复用中文词表/sidebar 恢复 earlier 分桶(实现回归),media/voice/reasoning/nav/SSE 契约测试跟随现实现 (6b89420ba5)
-- 🐞 수정:/docs/<不存在 slug> 回硬 404、后端故障仍 500(Proxy 状态码闸 + docs 读面放行) (0a6b5eb92c)
-- 🐞 수정:手机全屏 AI 面板头部按钮出界,关闭键点击区不可用 (dc1ae08bbd)
-- 🚀 기능/개선:打通代码签名链路至只差凭据(Windows SignPath + macOS Developer ID 公证 + 独立签名门禁) (f62dcc22ed)
-- 🔧 기타:a1029c579c 并入后派生件重算 —— ui-routes 329 页 / README 近期块×4 / last-sha (c95120eb2a)
-- 🐞 수정:按父提交 ae1affb5ea5 补回 merge ad9d5bf8c8 丢失的两处代码 (112bcd2811)
-- 🐞 수정:采集器 netstat/netsh 改 SystemRoot 绝对路径,修受限 PATH 下 ENOENT (05ff7bfadc)
-- 🐞 수정:硬 process.exit 撞 libuv 断言(实测 rc=127)并可能截断 --json 载荷 ⇒ 改 exitCode (6fb8879ad1)
-- 🔧 기타:合并后派生件重算 —— ui-routes 329 页 / README 近期块×4 / last-sha (f3a4ce5649)
-- 📚 문서:把"main-only 还有 61 面周期腿 parked"的读数与不做大爆炸迁移的两条理由写进 tick 挂点旁 (7bf246b5f9)
-- 🐞 수정:计划任务档禁用把 main 单轮链 74 条巡检腿整体停摆 27h —— 恢复任务档 + 游标类两枚同挂 tick (a1029c579c)
-- 🔧 기타:Revert "Merge pull request #100 from IHUI-INF-AI/dependabot/npm_and_yarn/knip-6.43.0" (8f0b1c53c7)
-- 🐞 수정:for-each-ref 顶穿默认 1MiB 缓冲 ⇒ 22,298 条"假缺失"的失明根因 (5625a4b4ee)
 - 🚀 기능/개선:新增小程序交互卫生门(290)与 web↔RN 措辞一致性门(291) (f664fb52e9)
 - 🚀 기능/개선:落语义等价映射表 + 门285 mapped 分类与棘轮 —— 3 条命名等价(onPress↔onTap×2、label↔labelKey)归 mapped 4 键,漂移 277→273;表扩容须同轮收敛 (2ccede4e8e)
 - 🔧 기타:补齐 gen-rn-shell-scaffold 与 rn-shell-target 两枚溯源水印欠账 (e343c19714)
@@ -2412,115 +2279,61 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 - 🐞 수정:收口被整块重复的登记(F6 块级判据的修复出口) (e61c494fc5)
 - 🔧 기타:登记 B72/D04/D05 处置 (a1ee9465bf)
 - 🔧 기타:登记 B72/D04/D05 处置 (d9ed3e722f)
-- 🔧 기타:actions/upload-artifact v4→v7 与 download-artifact v4→v8 配对升级(31 上传+1 下载同批落地,跨版本互通不能拆) (e808dec485)
 - 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (0af18824e2)
 - 🔧 기타:RP-79 dedupe theirs (plan-union-merge input) (c3a32de7d7)
 - 🐞 수정:ColorfulLoader 两端同源收口 —— RN 补 visible(不渲染即 null)、小程序适配层补 duration(默认共享档),门285 消 2 键 (657b9ed59f)
 - 🔧 기타:store-migration-end-factory 冷启动移出用例窗口——全量超时 flake 的确定化收口 (3b72141949)
 - 🐞 수정:门 30a 悬空 commit 分档——等价残留(仅树逐字同)不判红,四档逐次报数 (18a0179a49)
-
-**2026-11-03**
-- 🔧 기타:收编停留≥3分钟的未提交改动 (dcb1a82113)
-
-**2026-11-03**
-- 🔧 기타:收编守护落档产出(5 件,凭落点账本) (e1770d06e0)
-- 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (ae99cf8d89)
-- 🚀 기능/개선:考勤趋势图的 web 五语言键按 HEAD 面重构后入库(不带走别人已入库的键) (2b53f979d7)
-- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (cd02912f6e)
-- 🐞 수정:daemon tick 补齐隧道腿/短信通道/发起腿/隧道指标 4 个审计派发 (84bdfb5b7f)
-- 🚀 기능/개선:教师端考勤统计补真趋势图——同板块成绩页早有图表而考勤页停在进度条 (c76c79dffb)
-- 🚀 기능/개선:下载栏八端运行期真值哨兵装车(guardian 30min 轮) (63b4f77013)
-- 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (d4a120413d)
-- 🔧 기타:bump nativewind from 4.2.6 to 4.2.7 (774e4e53b0)
-- 🐞 수정:添加按钮桌面点击区补足 32px (3855f738d5)
-- 🐞 수정:文档上传再收四档 tsv/json/ods/odp,并把收了却解析不了的那条腿一起补齐(票 D53 第十批,③桶 6 到 1) (405e2a5b46)
-- 🐞 수정:小程序端考勤改口服务端判定,状态档与点名时刻走单一契约文件 (ebc76ae16c)
-- 🐞 수정:补 marketing-fonts.css 溯源水印 (3498fbedec)
-- ⚡ 성능:营销首页落地窄字体子集(三字重 1,082,248→213,768 B,−80.2%) (e43d3fb049)
-- 🔧 기타:bump knip from 6.32.2 to 6.44.0 (5ee98040e2)
-- 🐞 수정:手机端考勤改口服务端判定——不再自报状态、"早退"有色档、代签限当日 (291f063740)
-- 🔧 기타:考勤扫码屏替身 Tappable 扁平 style 再下发,修 react-dom 数组 style 抛错导致的 2 红 (68da14a59e)
-- 🐞 수정:O21b create 版本正向用例声明 text/markdown —— md 纳入上传白名单后,octet-stream 会被 MIME 一致性闸判 400 (5d30f42942)
-- 🔧 기타:四语 README 数字块与最近更新按生成器重算(跟踪文件 18997),last-sha 随生成器更新 (5794de40d7)
-- 🐞 수정:小程序 Platform.OS 类型轴补 web 修共享层 TS2367;两处 git 派生测试补显式 stdio (bed67d45fd)
-- 🔧 기타:root-guard 清单按现盘复核重封(guardian-runner 号位顺延后) (189decba97)
-- 🐞 수정:并行入库撞号收口——props 对账 285→288、web↔RN 缺口棘轮 286→289,重复 id 归零 (5e50ac8f86)
-- 🔧 기타:README 活区 testFiles/guardianGates 按生成器现算对齐(4034/323),历史快照区不动 (6ac880c8fc)
-- 🔧 기타:react-native 桩补 Platform/Dimensions,承接共享屏 web/原生间距锁 (defe3f0994)
-- 🔧 기타:合并 origin/main(7afc9413) 后按合并面重算生成件(README×4/ui-routes×3/i18n/root-guard),并清 RP-35 滞留已勾行 (1a89df8894)
-- 🐞 수정:底栏加载态收起 spinner,默认 480 面板恢复单行 (bbceebe19c)
-- 🐞 수정:清 gate-test 存量红（桌面快照翻页、鉴权门桩、横线选择器、历史写入侧取样）并让 scan-hardcoded-zh 自建输出目录 (842954d8bc)
-- 🐞 수정:两格 quic 下 unjudged 的 reason 改归因——点名"quic 结构盲区",不再误写腿断/腿数不足 (523e3bdd37)
-- 🔧 기타:补 scripts/tests/data-json-shape.test.mjs 的溯源水印(门 47 HEAD 面点名) (5d007afdb9)
-- 🐞 수정:工作区自愈两层派生补 timeout —— 一次 --align-drift 挂死能让整轮守护静默 3 小时 (386a71182a)
-- 🐞 수정:考勤屏测试替身过 lint（HostElement 具名、去未用 style），清 gate-analyse 的 [lint] 红 (6e9aaf553b)
 - 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (55c2cb04cd)
-- 📚 문서:清理 Gitee 下线后残留的过时注释,避免宣称已不存在的直链 (228e23dce4)
-- 🐞 수정:AI 输入卡底栏按钮重叠:禁止压缩、按优先级收文字并在窄档换行 (2d1939b981)
-- 🐞 수정:Gitee 下线后不再输出常驻 warn,避免用一种噪音换另一种 (8c928e3283)
-- 🔧 기타:四轮合并后按生成器重算四语 README 数字块与最近更新 (05afa46b95)
 - ♻️ 리팩터:共享屏间距 26 处落档 + 2 处 Platform 锁 web 值,销账 18 条 decision (73dfd3f56c)
 - 🐞 수정:B02② 会话切换时 chatSync 判据面与 resyncPending 一起换人(同 id 重设不动,补 1 条判据测试) (03b1cec6db)
-- 🐞 수정:下线空仓 Gitee 发布目标,消除创建标签失败红噪音 (e0869bea5a)
 - 🐞 수정:PayPopup 回退误带入的他会话间距中间态，仅保留 ¥ 档位落档 (2ea19b406b)
 - 🐞 수정:RP-1 号域族注册表(RP 多字母族在册,单字母逐字不变)+ O01 空对照面收口为「挂账+到期」; immutable-exempt: 族注册表为新增只读取表,挂账判定只在空对照面改判,既有判红档与退出码语义不动 (73eac1c22b)
-- 🔧 기타:三轮合并后按生成器重建三端 ui-routes 与小程序 i18n,重算四语 README 数字与最近更新 (aab5de8927)
-- ⚡ 성능:36px 图片变体替换两处固定尺寸引用(logo/reddit) (cc40e6b3d0)
-- 📚 문서:F9 撞号让号(正牌取号器发 Y-3,原 D53 行留痕归档)并摘除滞留已勾行 RP-35 (72ec4879aa)
 - 🐞 수정:RP-47×2 staged 面双测试(有暂存必须取索引 blob/暂存为空判未判定不回落工作树) (1952b604cd)
 - ♻️ 리팩터:钱包/课程/排行等 92 处间距默认档落具名档 (7afdef0638)
 - 🐞 수정:runGate 的 node 分支显式 windowsHide(守门 no-visible-spawn 73 行按面转绿;超时与错误文案不变) (f4e33958fc)
-- 🐞 수정:页脚备案号合规——显示网站号并外链工信部 beian.miit.gov.cn(补实际改动) (4aea31e9a9)
-- 🐞 수정:repair-eo-origin 验证靶改直打源站(修假绿回滚判据) (902e9ed65b)
 - 🐞 수정:出包链 windowsHide 接线回归锁(静态扫描全部 spawn/exec 调用点+门体形态锁,2 项) (f04f0b8ab7)
 - 🔧 기타:D171 形状锁五→六处，点名 O67 发令前只读点名 (fd1fe89c72)
 - ♻️ 리팩터:门128 几何名额回退 3 处(4/8 档恢复 numeric) (b295cede8c)
-- 🚀 기능/개선:proxy 增加 HTTP→HTTPS 301 应用层兜底(判据只认 CDN 正向证据) (374aecc15c)
 - 🐞 수정:18 处人工档位判定·落 8 保 10·不动几何额度 (ec9802df54)
 - 📚 문서:守门 207 体积清偿归零(96,790→95,910) (8e09798d32)
-- 🐞 수정:页脚备案号合规——显示网站号并外链工信部 beian.miit.gov.cn (7fac191097)
 - ♻️ 리팩터:支付/分销/课程头/简介/VIP/课时 87 处间距默认档落具名档 (9772113c78)
-- ⚡ 성능:36px 图片变体替换两处固定尺寸引用(logo/reddit) (81372b1e93)
-- 🔧 기타:删除死文件 public/wwLogin-1.0.0.js(全仓零引用) (0fa810fa6c)
-- ⚡ 성능:PDF worker 长缓存——/pdfjs/* 由 max-age=0 提至 7 天 (f82e28158b)
 - ♻️ 리팩터:共享屏 17/28/32/36 字号落 title/displayLg 档·10 处 (7a241e4d3e)
-- 🐞 수정:摘除合并回灌造成的 DOWNLOAD_PLATFORMS/isDownloadPlatform 重复定义,修 T1 双声明 typecheck 红 (baab5bfadb)
 - ♻️ 리팩터:模型配置/运行时/评论 92 处间距默认档落具名档 (d32e043698)
-- 🔧 기타:bump tsx from 4.23.12 to 4.23.15 (d94078250f)
-- 🔧 기타:bump @tauri-apps/api from 2.12.1 to 2.12.4 (59f73f26e8)
 - ♻️ 리팩터:共享屏 22px 标题/数值落 heading 20 档·71 处 (d2f150f983)
-- 🔧 기타:告警投递判据表加防误删闸 + scripts/data/*.json 通用形态闸 (755a07df12)
-- 🔧 기타:二次合并后按生成器重算四语 README 数字块与最近更新(619 表/4683 路由/4034 测试/322 守门/52 CI) (e857b3fa9e)
 - 🐞 수정:默认永不跳钩,锁重试收窄为 3 次/指数退避/60s,新增 --allow-skip-hooks (c3898fdb14)
-- 🐞 수정:修掉 zh-TW 下载文案里两处简体「平台」残留(门 2b 落地后复跑点名) (10ad69e61c)
-- 🔧 기타:合并 origin/main 后重算四语 README 数字与最近更新、重建三端生成件并重封根护栏 (c497ced6bf)
 - 🔧 기타:提交后格式化回流 2 文件 (1eac95dcd6)
-- 🔧 기타:重封根护栏清单 + 摘 AGENTS 合并残留并压回预算 + 补两处 windowsHide 字面量 (b4faab6d55)
 - ♻️ 리팩터:默认档等值落具名档·课程批 73 处 (904cb347c2)
 - ♻️ 리팩터:默认档等值落具名档·屏级批 58 处 (511fcc7b95)
 - ♻️ 리팩터:默认档等值落具名档·组件批 68 处 (766687c346)
 - 🐞 수정:--next-id 拒发池外号,池满点名改走 next-plan-id(G-44/G-54) (42f6d6414f)
-- 🔧 기타:补齐 9 枚随合并入仓却无载荷的文件,并同批重封根护栏清单 (e1ada60b68)
 - ♻️ 리팩터:销账 6 条已全清 decision、补细 19 条挂账证据 (903c6cee1a)
 - ♻️ 리팩터:22px 上边距落 xl 20 档、30px 内边距落 3xl 32 档 (d5a54b93f4)
 - ♻️ 리팩터:18px 间距落 lg 16 档、30px 落 3xl 32 档 (83617072bc)
 - 📚 문서:门 287 号位现读回灌两枚残留 —— hover 门入库时与同批 props 对账门撞 285,落地腿已把 runner 注册块与门体头注顺延为 287(HEAD 面在位);本枚对齐其余两处字面:README 点名条 runner id 与 UI/样式尾注、镜像⑦形状锁号位 regex+文案(prettier 归位后水印已复验完整)。README 盘上派生块(跟踪文件 18947/收编行,可重算件)随本枚带落;props 门自身与其 285 条目未触碰。盘面 scripts/guardian-runner.mjs 为已落地历史拷贝的幻影漂移(§5b 形态,P1 对账尺当轮点名),已按 30c 出路②单文件 checkout HEAD 对齐——零丢失(盘 blob 系上一枚落地态,本票文字全部已入 HEAD)。 (1c9cdb39c2)
 - ♻️ 리팩터:17/32/40/12.5 字号落 title/displayLg/label 档 (4e11292057)
 - 🔧 기타:结清 B67/B70/B71、G-1222560/59/56 与 Z-1 两条(证据见行内) (85f1c08855)
-- 🚀 기능/개선:指标存在性门让号 282→286 装车,根护栏巡检补上「远端 tip」那张脸 (8b56f8a460)
 - ♻️ 리팩터:22px 金额/标题落 heading 20 档 (2be9294d5f)
 - 🔧 기타:收编停留≥3分钟的未提交改动 (14cdb641cc)
+
+**2026-11-03**
 - 🔧 기타:收编停留≥3分钟的未提交改动 (48540f650b)
+
+**2026-11-03**
 - 🐞 수정:重生成离线语言包载荷，去除合并回灌引入的尾部换行 (f5968144d6)
 - 🔧 기타:收编停留≥3分钟的未提交改动 (d7d35fb2cc)
 - ♻️ 리팩터:Drawer 复合间距保持字面量（跨端门 128 静态解值回退） (137d4dcec4)
 - 🔧 기타:活性散文数字对齐生成器实际读数(c9b69e6758 面) (dccd868650)
 - 🐞 수정:从 COLORS_MAPPING 删除已废弃 tertiary 常量并重算 ui-routes 钉 (c9b69e6758)
 - 🔧 기타:数字块重算到 830eb717 + FAQ/头条断言对齐实际 (319213f532)
+
+**2026-11-03**
 - 🚀 기능/개선:支付出口移入导航层 + Follow/VideoPlayer 语义登记 + 九屏端口自证测试 (830eb717a3)
 - 🚀 기능/개선:校正 AigcList 薄壳对共享屏承接行号的引用 (b569c10672)
 - 🔧 기타:重算四语 README 数字块并刷新最近更新 (e647bf8ab5)
 - ♻️ 리팩터:间距 rpx 字面量等值落档（CSS var / taroSpacing，weapp 像素零变化） (0ea20bbe01)
+
+**2026-11-03**
 - 🔧 기타:扫码凭证用例确定化 2500ms 轮询触发,消除首轮计时抖动 (ad65d2b05f)
 - 🐞 수정:修掉 runner 两处撞号并重封根护栏 (73e64fd2e2)
 - ♻️ 리팩터:常量/条件字面量与手工收尾字号落档 (89831e5034)
@@ -2534,16 +2347,47 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 - ♻️ 리팩터:发布/巡检脚本接入 mobile-download-leg 单源并补一致性断言 (4078b4afcd)
 - 🐞 수정:给 @ihui/rn-app 替身补出 AgentReview 列表/详情两屏与 props 捕获出口(与真身 154/278 行同步) (7ffcf16a68)
 - 🐞 수정:补录 ai-service memory.py 六个 MEMORY_* 兜底码到错误目录并补齐五语词包 (575a1bd2b7)
+- 🔧 기타:分叉收敛后按 HEAD 面重生成 web/miniapp 两枚 ui-routes 产物(合并提交承诺的落地后重生成;门 105 stale→matched) (35bddefbd9)
 
 **2026-11-03**
-- 🐞 수정:缺勤补录加回溯窗——absent_after 晚于跑批时刻的班级不再永远漏判 (8a9fd219e6)
+- ♻️ 리팩터:容器 hover 浮起按 2026-11-03 机主二次定档减淡 —— 数值源 --lift-* 单点收敛(位移-4px→-2px,缩放1.015→1.008,两层阴影 6px/12%+30px/25%→3px/6%+18px/12%,暗档同比例),端内不散改 (03d1c4d32e)
 
 **2026-11-03**
-- 🐞 수정:教师代签与批量点名不再认客户端自报状态，签退重判让"早退"真有写入路径 (f1f098635e)
-- 🐞 수정:知识库上传框收了 md 而后端白名单不收,用户选中必吃 400 —— 白名单补 md、UI 摘掉后端故意拒收的 html/htm(票 D53 第九批) (c52250f555)
-- 🐞 수정:静态导出移出 docs/[slug]，空 generateStaticParams 不再阻断构建 (7fd9a596ac)
-- 🐞 수정:清掉 downloads.config 重复的 DOWNLOAD_PLATFORMS/isDownloadPlatform 声明（TS2451/TS2456，gate-analyse 与 gate-build 同根因） (dceb324bf1)
-- 🐞 수정:两条长期红的修因 —— 假远端页改同源独立文档(生产 CSP 无 unsafe-eval 时 srcdoc 继承策略拦 eval);登录首屏协议弹窗按真实用户路径处理,并消除共享 LoginForm 与 web 扫码面板的双重协议窗 (ffdd903b73)
+- 🔧 기타:补全 10 个文件的 L2 零宽载荷与水印尾标(scripts/watermark.mjs inject 生成物) (0223f5e987)
+- ♻️ 리팩터:BannerCarousel 的 50% 白改走设计令牌 rnCssLight.white50 (3d0d31a294)
+- ⚡ 성능:下载栏的站点腿探测改「本机源站优先」,并给安卓版补上真实体积 (6a324ae21d)
+- 🔧 기타:烘焙 0.1.77 更新源与下载页快照 — Gitee 镜像仓为空仓无 main/tag/release,字节对账未判定故保留 GitHub 直链 (694810b9dc)
+
+**2026-11-03**
+- 🔧 기타:收编停留≥3分钟的未提交改动 (1fb2f45d04)
+- 🔧 기타:补三枚 RN 屏溯源水印(合并后 push 门 47p 修复) (9d91dd8bf4)
+- 🐞 수정:对账尺子加传输层重试与总预算闸,别再天天量不出结论 (e2e718a6db)
+- 🔧 기타:对账尺子按端档案跑 iOS,派发腿拆成两层 (c8ca880f5f)
+- 🔧 기타:补 knip alias 自检脚本的溯源水印 (d92f6a957f)
+- 🔧 기타:knip 棘轮面收紧 —— rn-compat 构建别名与 Taro 约定入口纳入生成器，清理 209 条死导出并合并重复符号，exports/duplicates/devDeps 三项回绿 (795d606084)
+- 🐞 수정:补 Ruff I001 + 分诊重跑尊重 working-directory + 守卫用例移出仓库根 (784ec4d642)
+- 🔧 기타:F4 反向例补齐「两组真实重复并行计组」 (70c3d516e8)
+- 🐞 수정:两处单行文本断言改多行结构解析 + 重生成 openapi 产物 (a730538dc6)
+- 🚀 기능/개선:下载栏最后一格改由实物码说话,并给生码链加"文件名与字节同形"闸 (7a468f1ad8)
+- 🔧 기타:按 origin/main 源面重生成三端 ui-routes 产物,消 G5 自述钉陈旧 (0b3c68bda9)
+- 🐞 수정:F4 组数口径最小豁免——已归并副本行退出 dupOpenGroups 分母(1→0) (8e8788ef50)
+- 🚀 기능/개선:下载栏最后一格改由实物码说话,并给生码链加"文件名与字节同形"闸 (1d81b430e7)
+**2026-11-02**
+- 🔧 기타:收编停留≥3分钟的未提交改动 (9065d9cba8)
+- 🚀 기능/개선:补齐跨端自愈链的最后一节「落库」,写盘件从此有凭据可入库 (4bbb261050)
+- 🔧 기타:合并前置：还原被并发写坏的计划档并重登记确认行 (f958623743)
+
+**2026-11-03**
+- 🔧 기타:收编停留≥3分钟的未提交改动 (30d2f7ca16)
+
+**2026-11-03**
+- 🔧 기타:收编停留≥3分钟的未提交改动 (3c9a00be72)
+
+**2026-11-03**
+- 🔧 기타:收编停留≥3分钟的未提交改动 (f6d68d470b)
+
+**2026-11-03**
+- 🔧 기타:收编停留≥3分钟的未提交改动 (415b1414a3)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
