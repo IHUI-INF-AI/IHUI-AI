@@ -623,6 +623,45 @@ export function readLedger(path = join(REPO, LEDGER_REL)) {
   }
 }
 
+/**
+ * 可判据规则:B1/B2/B3 三条判据能由 judgeLedger 归因到现读读数。
+ * 不在集合里的 rule(如历史的 `B1-web-no-key`)= 把「web 侧缺键而 RN 有消费」的真缺口挂账
+ * —— 那是真缺口,必须当场修(补 web 词条或改 RN 取键),不许挂账。
+ */
+export const JUDGED_RULES = new Set(['B1-hardcoded-cjk', 'B2-key-diff', 'B3-synonym-drift'])
+
+/**
+ * 账本形状判据(取代「entries 非空」这条宽松阈值):
+ *  ① 每条 entry 的 rule 必须在 JUDGED_RULES 内;否则 = 把真缺口挂账 ⇒ 红。
+ *  ② entries 为空数组合法,但顶层必须带非空 emptyReason(写明清零依据),否则 ⇒ 红。
+ * @returns {string[]} 红项(空数组 = 形状合法)
+ */
+export function validateLedgerShape(entries, emptyReason) {
+  const red = []
+  const list = Array.isArray(entries) ? entries : []
+  for (const e of list) {
+    const rule = e?.rule
+    if (typeof rule === 'string' && JUDGED_RULES.has(rule)) continue
+    red.push(
+      `台账条目 ${e?.file || '?'} [${rule || '?'}] 不是可判据规则:web 侧缺键而 RN 有消费属真缺口,必须当场修(补 web 词条或改 RN 取键),不得挂账`,
+    )
+  }
+  if (list.length === 0 && (typeof emptyReason !== 'string' || !emptyReason.trim()))
+    red.push('台账 entries 为空但缺 emptyReason:空账必须写明已清零的判定依据')
+  return red
+}
+
+/** 账本顶层 emptyReason(空账清零依据);取不到 ⇒ null。 */
+export function readLedgerEmptyReason(path = join(REPO, LEDGER_REL)) {
+  if (!existsSync(path)) return null
+  try {
+    const raw = JSON.parse(readFileSync(path, 'utf8'))
+    return typeof raw.emptyReason === 'string' ? raw.emptyReason : null
+  } catch {
+    return null
+  }
+}
+
 /** 账本里的已裁决清单(A/B/E 键空间决策),只用于读数展示,不参与配额判序。 */
 export function readLedgerDecisions(path = join(REPO, LEDGER_REL)) {
   if (!existsSync(path)) return []
@@ -830,6 +869,21 @@ export function runSelfTest() {
     expect(same === other, `单位归一失效:${same} vs ${other}`)
   })
 
+  ok('⑯ 真缺口挂账 ⇒ 红:非可判据规则(B1-web-no-key,web 缺键而 RN 有消费)不许进账', () => {
+    const red = validateLedgerShape(
+      [{ file: 'learn', rule: 'B1-web-no-key', count: 4, owner: 'o', expires: '2027-06-30', evidence: 'e' }],
+      undefined,
+    )
+    expect(red.length === 1, '真缺口挂账未判红')
+    expect(red[0].includes('web 侧缺键而 RN 有消费'), '红项未点明真缺口性质')
+  })
+  ok('⑰ 空账合法:entries=[] 且有 emptyReason ⇒ 不红;缺 emptyReason ⇒ 红', () => {
+    const withReason = validateLedgerShape([], 'B1/B2/B3 均已清零,依据见 decisions 与 emptyReason')
+    expect(withReason.length === 0, '空账带 emptyReason 被误判红')
+    const noReason = validateLedgerShape([], undefined)
+    expect(noReason.length === 1, '空账缺 emptyReason 未判红')
+  })
+
   console.log('🧪 web↔RN 措辞一致性门自检')
   for (const line of cases) console.log(line)
   console.log(`\n✅ ${cases.length}/${cases.length} 例通过`)
@@ -947,7 +1001,10 @@ export async function run({ mode = 'full', json = false } = {}) {
   })
   // B1/B3 新增未挂账 ⇒ 红;B2 新增未记账仍只是 advisory(措辞建议不拦提交),但**过期/缺字段照样红**
   // —— 那是账本纪律,不是判据强度。
+  // 账本形状先行:非可判据规则(= 把「web 缺键 + RN 有消费」的真缺口挂账)与「空账无 emptyReason」直接红。
+  const ledgerShape = validateLedgerShape(entries, readLedgerEmptyReason())
   const blockingRed = [
+    ...ledgerShape,
     ...b1.red,
     ...b1.expired,
     ...b1.malformed,
@@ -987,6 +1044,8 @@ export async function run({ mode = 'full', json = false } = {}) {
           duplicates: { b2: b2Unique.dup, b3: b3Unique.dup, accepted: acceptedUnique.dup },
           ledger: {
             entries: entries.length,
+            emptyReason: readLedgerEmptyReason(),
+            shapeRed: ledgerShape,
             decisions: readLedgerDecisions(),
             b1Red: b1.red,
             b2Red: b2.red,
@@ -1007,7 +1066,7 @@ export async function run({ mode = 'full', json = false } = {}) {
       `  B1 blocking:${blocked.length}  · B2 advisory:${advisoriesDeduped.length}(去重 ${b2Unique.dup} 条)  · B3 同义异值:${b3Deduped.length}  · 已裁决/豁免:${acceptedUnique.out.length}  · 未判定:${undetermined.length}  · 未解析键:${unresolvedKeys}`,
     )
     console.log(
-      `  台账:${entries.length} 条;到期 ${b1.expired.length + b2.expired.length + b3.expired.length} / B1 认领差额 ${b1.red.length} / B3 认领差额 ${b3.red.length} / 缺字段 ${b1.malformed.length + b2.malformed.length + b3.malformed.length}`,
+      `  台账:${entries.length} 条;到期 ${b1.expired.length + b2.expired.length + b3.expired.length} / B1 认领差额 ${b1.red.length} / B3 认领差额 ${b3.red.length} / 缺字段 ${b1.malformed.length + b2.malformed.length + b3.malformed.length} / 形状 ${ledgerShape.length}`,
     )
     for (const v of blocked.slice(0, 25))
       console.log(`   ✗ ${v.file} ↔ ${v.rn}:${v.line} 「${v.value}」→ web 键 ${v.webKeys.slice(0, 3).join('/')}`)
@@ -1052,6 +1111,9 @@ export const __test__ = {
   listScreenFiles,
   touchedFiles,
   readLedger,
+  readLedgerEmptyReason,
+  JUDGED_RULES,
+  validateLedgerShape,
   runSelfTest,
   normalizeCopy,
   MAP_REL,
