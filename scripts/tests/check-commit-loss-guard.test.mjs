@@ -522,6 +522,99 @@ test('逐路径覆盖判定: 全覆盖放行 / 任一未覆盖点名 / 同内容
   assert.equal(delEvidence.commit, 'c3', 'D 证据必须指向那条最新删除记录')
 })
 
+test('逐路径覆盖判定: 同秒并列(D vs M)⇒ 未判定档,既不判绿也不判红;另有真缺口时仍判红', () => {
+  const A = 'a'.repeat(40)
+  const B = 'b'.repeat(40)
+  const Z = '0'.repeat(40)
+  const entriesByCommit = new Map([
+    ['c-tie', [{ status: 'D', path: 'gone.txt', blob: Z, oldBlob: A }]],
+    [
+      'c-tie-plus-gap',
+      [
+        { status: 'D', path: 'gone.txt', blob: Z, oldBlob: A },
+        { status: 'A', path: 'new.txt', blob: B, oldBlob: '' },
+      ],
+    ],
+  ])
+  const split = __test__.splitByPathCoverage({
+    candidates: [...entriesByCommit.keys()],
+    entriesByCommit,
+    coverage: new Map(),
+    // 即便 latestByPath 里有一条"最新是删 A"的记录,它的来源是 same-ct 并列的先到者 ⇒ 不可信。
+    latestByPath: new Map([
+      ['gone.txt', { commit: 'c1', surface: 'ref', status: 'D', oldBlob: A, blob: Z, ct: 7 }],
+    ]),
+    ambiguousPaths: new Set(['gone.txt']),
+  })
+  assert.deepEqual(split.covered, [], '并列歧义的 D 路径不得判绿(先到者不是拓扑结论)')
+  assert.deepEqual(
+    split.undetermined.map((u) => u.hash),
+    ['c-tie'],
+    '只有并列歧义、没有别的真缺口 ⇒ 落未判定档(→ exit 2),不得折成判红或放行',
+  )
+  assert.deepEqual(split.undetermined[0].paths, ['gone.txt'], '未判定必须点名是哪条路径并列')
+  assert.deepEqual(
+    split.uncovered.map((u) => u.hash),
+    ['c-tie-plus-gap'],
+    '另有确定的未覆盖路径 ⇒ 仍是判红(判红比未判定更确定,不得被未判定吞掉)',
+  )
+})
+
+test('逐路径覆盖·端到端: 两条可达分支同秒改同一路径(一枚 D 一枚 M)⇒ exit 2 未判定', () => {
+  const dir = createTempRepo()
+  const git = (cmd, extraEnv) =>
+    execSync(cmd, {
+      cwd: dir,
+      stdio: 'ignore',
+      env: { ...process.env, ...(extraEnv || {}) },
+    })
+  // 两台并列改动必须落在 30 天窗内(窗档只报数不拦,而本用例要走到 exit 2 那一档);
+  // 同时它们必须比 base 更新 —— 否则侧支的提交时刻比主线还旧,latestByPath 会选到 base。
+  const T = new Date().toISOString()
+  try {
+    // base:{README, f=v1, k=k1};main 先让 k=v2 的 blob 可达,再删掉 k(让"删 k"有出处)。
+    writeFileSync(join(dir, 'f.txt'), 'v1\n')
+    writeFileSync(join(dir, 'k.txt'), 'k1\n')
+    git('git add f.txt k.txt')
+    git('git commit -m "base"')
+    writeFileSync(join(dir, 'k.txt'), 'k2\n')
+    git('git add k.txt')
+    git('git commit -m "k-v2"')
+    git('git rm -q k.txt')
+    git('git commit -m "del-k"')
+    // 两条**可达**分支同秒改同一路径:一枚 D(side-del)、一枚 M(side-mod)。
+    git('git checkout -b side-del')
+    git('git rm -q f.txt')
+    git('git commit -m "side-del"', { GIT_AUTHOR_DATE: T, GIT_COMMITTER_DATE: T })
+    git('git checkout main')
+    git('git checkout -b side-mod')
+    writeFileSync(join(dir, 'f.txt'), 'v2\n')
+    git('git add f.txt')
+    git('git commit -m "side-mod"', { GIT_AUTHOR_DATE: T, GIT_COMMITTER_DATE: T })
+    git('git checkout main')
+    // 悬空候选:从 base 删 f、把 k 改成可达的 k2(避免整树等价档把它提前放行)。
+    git('git checkout -b tmp-dangling')
+    git('git rm -q f.txt')
+    writeFileSync(join(dir, 'k.txt'), 'k2\n')
+    git('git add k.txt')
+    git('git commit -m "dangling-del-f"', { GIT_AUTHOR_DATE: T, GIT_COMMITTER_DATE: T })
+    git('git checkout main')
+    git('git branch -D tmp-dangling')
+    const r = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    assert.equal(
+      r.status,
+      2,
+      `同秒并列的删除判定不可判定 ⇒ 必须 exit 2,实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
+    )
+    assert.match(r.stdout, /UNDETERMINED/, '未判定必须显式报出,不得静默')
+    assert.match(r.stdout, /同秒并列/, '必须点名原因')
+    assert.match(r.stdout, /f\.txt/, '必须点名是哪条路径并列')
+    assert.doesNotMatch(r.stdout, /无 commit 丢失风险/, '未判定绝不许打印通过句')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
 test('逐路径覆盖·端到端: 树与任何可达提交都不同,但每条改动路径同路径同 blob ⇒ 放行并逐条给证据', () => {
   const dir = createTempRepo()
   const git = (cmd) => execSync(cmd, { cwd: dir, stdio: 'ignore' })
@@ -671,7 +764,19 @@ test('逐路径覆盖·端到端: 删除路径的意图未在可达面生效 ⇒
 
 test('D 类收紧①: 删 → 重建 → 再删 ⇒ 判红(旧删除记录不得为新的删除意图作证)', () => {
   const dir = createTempRepo()
-  const git = (cmd) => execSync(cmd, { cwd: dir, stdio: 'ignore' })
+  // 夹具时钟:每次 git 调用推进 1 秒 ⇒ 同一路径的连续改动不会落在同一秒。
+  // (2026-11-04 起「同秒并列且状态不同」判未判定 → exit 2;夹具必须把"谁更新"钉死,
+  //  否则测到的是并列歧义,而不是本用例要证的 D 收紧判据。)
+  let clock = Date.now() - 3_600_000
+  const git = (cmd) => {
+    clock += 1000
+    const d = new Date(clock).toISOString()
+    return execSync(cmd, {
+      cwd: dir,
+      stdio: 'ignore',
+      env: { ...process.env, GIT_AUTHOR_DATE: d, GIT_COMMITTER_DATE: d },
+    })
+  }
   try {
     // 旁支提供 q.txt 的同路径同 blob 覆盖,并让悬空枚的树不等于任何可达树(否则会先落等价残留)
     git('git checkout -b side')
@@ -716,7 +821,17 @@ test('D 类收紧①: 删 → 重建 → 再删 ⇒ 判红(旧删除记录不得
 
 test('D 类收紧②: 可达面最新改动就是删掉同一 old blob ⇒ 放行并给出该删除记录', () => {
   const dir = createTempRepo()
-  const git = (cmd) => execSync(cmd, { cwd: dir, stdio: 'ignore' })
+  // 夹具时钟:每次 git 调用推进 1 秒(否则同一秒的 D/M 并列会被判未判定)。
+  let clock = Date.now() - 3_600_000
+  const git = (cmd) => {
+    clock += 1000
+    const d = new Date(clock).toISOString()
+    return execSync(cmd, {
+      cwd: dir,
+      stdio: 'ignore',
+      env: { ...process.env, GIT_AUTHOR_DATE: d, GIT_COMMITTER_DATE: d },
+    })
+  }
   const rev = () =>
     execSync('git rev-parse HEAD', { cwd: dir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
   try {
@@ -764,7 +879,17 @@ test('D 类收紧②: 可达面最新改动就是删掉同一 old blob ⇒ 放�
 
 test('D 类收紧③: 最新删除记录删的 old blob 不同 ⇒ 判红(删的不是同一内容)', () => {
   const dir = createTempRepo()
-  const git = (cmd) => execSync(cmd, { cwd: dir, stdio: 'ignore' })
+  // 夹具时钟:每次 git 调用推进 1 秒(否则同一秒的 D/M 并列会被判未判定)。
+  let clock = Date.now() - 3_600_000
+  const git = (cmd) => {
+    clock += 1000
+    const d = new Date(clock).toISOString()
+    return execSync(cmd, {
+      cwd: dir,
+      stdio: 'ignore',
+      env: { ...process.env, GIT_AUTHOR_DATE: d, GIT_COMMITTER_DATE: d },
+    })
+  }
   try {
     git('git checkout -b side')
     writeFileSync(join(dir, 'q.txt'), 'q-content\n')
@@ -812,7 +937,17 @@ test('D 类收紧③: 最新删除记录删的 old blob 不同 ⇒ 判红(删的
 
 test('D 类收紧④: 多次删除中只有最后一次同 old blob ⇒ 放行,且证据只指向最后一次', () => {
   const dir = createTempRepo()
-  const git = (cmd) => execSync(cmd, { cwd: dir, stdio: 'ignore' })
+  // 夹具时钟:每次 git 调用推进 1 秒(否则同一秒的 D/M 并列会被判未判定)。
+  let clock = Date.now() - 3_600_000
+  const git = (cmd) => {
+    clock += 1000
+    const d = new Date(clock).toISOString()
+    return execSync(cmd, {
+      cwd: dir,
+      stdio: 'ignore',
+      env: { ...process.env, GIT_AUTHOR_DATE: d, GIT_COMMITTER_DATE: d },
+    })
+  }
   const rev = () =>
     execSync('git rev-parse HEAD', { cwd: dir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
   try {
@@ -1403,7 +1538,7 @@ test('装车证明: 超窗清单旗标必须①在 FLAGS 唯一源头里②被 a
   assert.ok(/if \(isListOutOfWindow\)/.test(src), '读取点之后必须有真判定点')
   assert.ok(/for \(const o of win\.outOfWeek\) console\.log\(o\.hash\)/.test(src), '判定必须落到逐枚打印')
   // 顺序锁:清单打印必须排在 if/else 分桶链**之后**,否则窗内有债时超窗名单会被 else 吞掉
-  const chain = src.lastIndexOf('} else if (unreachable.length > 0) {')
+  const chain = src.lastIndexOf('} else if (unreachable.length > 0')
   const print = src.indexOf('if (isListOutOfWindow)')
   assert.ok(chain >= 0 && print > chain, `清单打印必须在分桶链之后(chain=${chain}, print=${print})`)
   assert.ok(
