@@ -84,7 +84,15 @@ const MAX_PATHS = Number(process.env.IHUI_AUTO_COMMIT_MAX_PATHS || 100)
 const EXCLUDE = [
   /(^|\/)\.env(\.|$)/,
   /(^|\/)node_modules\//,
-  /(^|\/)\.next\//,
+  // 2026-11-04 补(机制级缺口):原写法 `/(^|\/)\.next\//` 只按 `.next/` 精确匹配,
+  // `.next-e2e-*`、`.next-static/`、`.next-blue`、`.next-green`、`.next-diag`、`.next-nonce-verify`、
+  // `.next.bak-*` 等全部漏网 —— 实证 apps/web/next-env.d.ts 的 `.next-e2e-perf` 变体被本腿收编进
+  // HEAD 共 8 次(74d85e2f21 起)。白名单(COLLECT_WHITELIST)已挡 apps/**,但本表是第二道闸:
+  // 收编面若日后扩到别处,旧口径会把同类 tracked 派生物重新带走。
+  // 归一规则:段名以 `.next` 开头,后接 `.` 或 `-` 加任意后缀、或直接结束 —— 段边界用 `/` 或串尾。
+  // 不误伤: `/next/` 正常源码段(无前导点)、`next.config.ts`(无前导点)、`.gitignore` 本身是该文件
+  // 的路径(内容行不参与本判据)。
+  /(^|\/)\.next(?:[.-][^/]*)?(\/|$)/,
   /(^|\/)\.ihui-agent\/tmp\//,
   /(^|\/)\.ihui-agent\/state\/hook-logs\//,
   /\.log$/,
