@@ -36,6 +36,102 @@
         "mini": "apps/miniapp-taro/src/components/ScrollJumpButton.tsx:64"
       },
       "rationale": "同一无障碍名称槽位:RN 由调用方给本地化字面量(屏幕阅读器只会念这一个字符串),小程序给 i18n 键由端内取词;两端都只喂 ariaLabel/accessibilityLabel,不参与可见渲染。"
+    },
+    {
+      "pair": "UserInfoCard",
+      "ours": "userInfo",
+      "theirs": "avatar",
+      "kind": "content",
+      "owner": "cross-end-props-parity",
+      "evidence": {
+        "rn": "apps/mobile-rn/src/components/UserInfoCard.tsx:98",
+        "mini": "packages/types/src/ui-native-components.ts:196"
+      },
+      "rationale": "同一头像数据槽位:RN 从聚合对象 userInfo 的 avatarUrl 取、小程序吃扁平 avatar(无值时 RN 走 initials 兜底、小程序走默认头像);两端都渲染头像,仅数据载体形态不同。"
+    },
+    {
+      "pair": "UserInfoCard",
+      "ours": "userInfo",
+      "theirs": "nickname",
+      "kind": "content",
+      "owner": "cross-end-props-parity",
+      "evidence": {
+        "rn": "apps/mobile-rn/src/components/UserInfoCard.tsx:98",
+        "mini": "packages/types/src/ui-native-components.ts:198"
+      },
+      "rationale": "同一昵称数据槽位:RN 从 userInfo.username 取、小程序吃扁平 nickname;两端都渲染昵称行并用它判定未登录态。"
+    },
+    {
+      "pair": "UserInfoCard",
+      "ours": "userInfo",
+      "theirs": "isVip",
+      "kind": "content",
+      "owner": "cross-end-props-parity",
+      "evidence": {
+        "rn": "apps/mobile-rn/src/components/UserInfoCard.tsx:98",
+        "mini": "packages/types/src/ui-native-components.ts:200"
+      },
+      "rationale": "同一会员态槽位:RN 把 userInfo.isVip(0/1)换算成布尔、小程序直接吃扁平 boolean;两端据同一布尔决定 VIP 徽章与退订/开通入口。"
+    },
+    {
+      "pair": "UserInfoCard",
+      "ours": "userInfo",
+      "theirs": "vipTitle",
+      "kind": "content",
+      "owner": "cross-end-props-parity",
+      "evidence": {
+        "rn": "apps/mobile-rn/src/components/UserInfoCard.tsx:98",
+        "mini": "packages/types/src/ui-native-components.ts:202"
+      },
+      "rationale": "同一 VIP 等级标题槽位:RN 从 userInfo.vipLevel 取、小程序吃扁平 vipTitle;两端都显示在 VIP 徽章位(缺省回落固定文案)。"
+    },
+    {
+      "pair": "UserInfoCard",
+      "ours": "userInfo",
+      "theirs": "desc",
+      "kind": "content",
+      "owner": "cross-end-props-parity",
+      "evidence": {
+        "rn": "apps/mobile-rn/src/components/UserInfoCard.tsx:98",
+        "mini": "packages/types/src/ui-native-components.ts:204"
+      },
+      "rationale": "同一卡片说明/智汇值文案槽位:RN 从 userInfo.tokenQuantity 取并格式化、小程序在 tokenValue 缺省时回落 desc;两端都是卡片第二行的展示文案。"
+    },
+    {
+      "pair": "UserInfoCard",
+      "ours": "onEdit",
+      "theirs": "onClick",
+      "kind": "event",
+      "owner": "cross-end-props-parity",
+      "evidence": {
+        "rn": "apps/mobile-rn/src/components/UserInfoCard.tsx:100",
+        "mini": "packages/types/src/ui-native-components.ts:206"
+      },
+      "rationale": "同一资料编辑激活槽位:RN 在头像与昵称两个 Touchable 上各绑 onEdit,小程序在头部容器绑 onClick(同位置显示铅笔图标);两端都是点击头像/昵称区进入资料编辑。"
+    },
+    {
+      "pair": "VideoPlayer",
+      "ours": "onProgress",
+      "theirs": "onTimeUpdate",
+      "kind": "event",
+      "owner": "cross-end-props-parity",
+      "evidence": {
+        "rn": "packages/types/src/ui-native-components.ts:230",
+        "mini": "apps/miniapp-taro/src/components/VideoPlayer.tsx:30"
+      },
+      "rationale": "同一播放进度回调槽位:RN 用 react-native-video 的 onProgress、小程序用原生 Video 的 onTimeUpdate;共享类型已显式登记该字段名映射,两端都回传 (currentTime, duration)。"
+    },
+    {
+      "pair": "VideoPlayer",
+      "ours": "onComplete",
+      "theirs": "onEnded",
+      "kind": "event",
+      "owner": "cross-end-props-parity",
+      "evidence": {
+        "rn": "packages/types/src/ui-native-components.ts:232",
+        "mini": "apps/miniapp-taro/src/components/VideoPlayer.tsx:31"
+      },
+      "rationale": "同一播放结束回调槽位:RN onComplete ↔ 小程序 onEnded(共享类型显式登记映射);两端都在播放结束时无参回调上层,供标记课时完成。"
     }
   ]
 }

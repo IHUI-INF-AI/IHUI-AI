@@ -123,6 +123,26 @@ describe('285 语义等价映射(生产判据直用)', () => {
     assert.deepEqual(r.onlyRn, [])
     assert.deepEqual(r.onlyMini, [])
   })
+  it('VideoPlayer 命名对命中映射 ⇒ 不再判红;同形键未进表仍判红', () => {
+    const rnV = { state: 'ok', props: [mk('url'), mk('onProgress'), mk('onComplete')] }
+    const miniV = { state: 'ok', props: [mk('src'), mk('onTimeUpdate'), mk('onEnded')] }
+    const booked = {
+      pairs: { VideoPlayer: { state: 'ok', onlyRn: ['url'], onlyMini: ['src'], reqDrift: [] } },
+      counts: { equivalenceEntries: 3, driftKeysTotal: 12 },
+    }
+    const eqV = [
+      { pair: 'VideoPlayer', ours: 'onProgress', theirs: 'onTimeUpdate', kind: 'event', owner: 'o', rationale: 'r', evidence: { rn: 'a:1', mini: 'b:1' } },
+      { pair: 'VideoPlayer', ours: 'onComplete', theirs: 'onEnded', kind: 'event', owner: 'o', rationale: 'r', evidence: { rn: 'a:2', mini: 'b:2' } },
+    ]
+    const red = verifyAgainstBaseline([pairDelta('VideoPlayer', rnV, miniV)], booked, { equivalenceEntryCount: 3 })
+    assert.equal(red.bad.length, 1)
+    const r = pairDelta('VideoPlayer', rnV, miniV, eqV)
+    assert.equal(r.mapped.length, 2)
+    assert.equal(r.mappedStale.length, 0)
+    assert.deepEqual(r.onlyRn, ['url'])
+    assert.deepEqual(r.onlyMini, ['src'])
+    assert.equal(verifyAgainstBaseline([r], booked, { equivalenceEntryCount: 5 }).bad.length, 0)
+  })
   it('未在表内的命名差异仍按漂移判定(不得静默)', () => {
     const r = pairDelta('X', rn, { state: 'ok', props: [mk('title'), mk('weird')] }, eq)
     assert.ok(r.onlyMini.includes('weird'))
