@@ -60,7 +60,9 @@
 | 技能目录缓存的廉价判脏 + 自描述 scope | **已落地** `79597fd9fc`(B4 席产物) | 未竟两条:`readSkillCatalog` 尚未挂 `/skills` 命令;watch 失效受 `fsWatcher.enabled=false` 那一端限制 | B4-impl.md |
 | 分享页去 CDN 外链(离线可读) | **已落地** `2beafada173`(B3 席产物) | 渲染器为受控子集(标题/列表/代码块/链接/粗斜体/表格),不声称全 CommonMark;阳性对照已插回旧 CDN 验证会被抓 | B3-impl.md |
 | 摘掉"我方 git 可用性取决于别人装没装 WorkBuddy" | **已落地** `420e3c3c7a`(主席件,cargo 27 passed 实跑) | 兜底位改指我方 `.ihui` 目录 + 新增 `IHUI_PORTABLE_GIT` 显式登记(与 `gitdir.mjs` 同键名) | W1 §3 第⑩行 |
-| 子进程网络出口(DNS + TCP 代理双引擎) | 下一执行席 | 同上 | W1 §3-③ |
+| 自包含诊断报告(KPI + 阶段瀑布 + findings) | **已落地** `68d68a2cc450e83a8d469ac0e122f16277f17d4f` | 执行席在传输层断掉(83 步 / 81 分钟),状态件只剩首行 ⇒ 主席按其落盘产物收口:补五语言词典(原只有 zh-CN/en)、补 25 例测试、修两处实现与声明相反的缺陷(阈值 0 档本应关判据,实现写成 `count >= 0` ⇒ 干净轨迹也报)|
+| 子进程网络出口(DNS / 域名裁决那一半引擎) | **已落地** `923546ffec8e145a90c551f8c9c035eca9bc42f4`(B6) | TCP 代理腿需常驻载体(盲写未接线抽象按 §0.9 不落地)、真 DNS 解析适配器、裸域名取词、desktop 同源腿 = 未竟 |
+| 文件 ACL 的 delete 轴消费点 | **已落地** `14e02e57f52337bef3a932d2b23571a84d3c6e1f` | 同一枚还修了两处:①裁决层此前挂在 `folder_trust` 缺省的提前 return 之后 ⇒ 结构性无人问(装了等于没装);②规则表 16 族漏 delete 维(读不到却能删),并加"每条 read deny 必须同管 delete"的穷尽性判据 |
 | Job Object 随父而终(TS 侧) | 下一执行席 | 需 Win32 作业对象封装,与 `os_sandbox.py` 那半不同栈 | W2 §3 末条 + W1 §3-④ |
 | 文件 ACL 的 delete 轴消费点 | 下一执行席 | 写侧已接,delete 散在 `fs.rmSync`/`unlinkSync` 多处,需逐点接线并带回归 | 本枚落地件的自然续集 |
 | 守护面 advisory 升 blocking | 机主/下一批 | 升档前置 = 并行席改动工作流先有「带理由声明」的出口(§12e) | 存量归零后升 |
@@ -69,7 +71,25 @@
 | 两道**机器状态门**常年红(门 25 项目外路径违规 / 门 26 父目录污染) | 主席下一轮(不在本目标射程,但会堵 `safe-commit`) | 现读定位:门 25 命中的是别席留在 `.ihui-agent/tmp/gate-audit-1104/deps-web-nm/` 里**第三方压缩 JS 内部的一条字符串**(该目录 mtime 是刚刚 ⇒ 可能仍被使用,不删陌生活现场);门 26 命中的是仓库父目录里他人 scratch。两者与提交内容无关却 `stagedTriggers` 极宽,属 §12e 恒红门型。旁路落地通道不受它拦,故本轮不修不拖 | 出路二选一:①确认 `gate-audit-1104` 无主后按 §15 清理;②把该尺的射程收窄到"我方源码文件",对 vendored 压缩件不判(带反证用例) |
 | **推送未落地** | 主席(下一轮) | 本地与 `origin/main` 分叉,`git-sync-converge.mjs`(含 `--take-theirs-doc`)拒推进:自证把本侧继承的 README 派生数字行与已退役归档注释算成「被吞」;远端 5 分钟内推进三次 | 按 §16b 收敛一轮:fetch → converge → `gen-doc-numbers --markdown` 重生成派生件 → 再 push |
 
-## 5. 复验命令
+## 5. Trae 面复取(第三靶,同批 T1 席)与三条环境事实
+
+**版本漂移是真的**:Trae CN 旧册记 1.107.1 内核 / 本批现读 3.4.15,`ai_agent.dll` / `harness.dll` / `toolhost.dll`
+三枚的字节数与 sha256 全变 ⇒ **旧册里按字节偏移钉的那级结论本轮起失效**(VSCode 内核 1.107.1 与 `traeVersionCode` 未变)。
+旧册 T12 §7 的 `a.bin`/`b.bin`、`deny`/`ask`、argv 分发键三格属 Qoder 靶,不在 Trae 席射程,未被"重开"。
+动了 1 格:权限枚举 16 锚点在新构建逐条仍 HIT,且 `enterprise_command_blacklist` / `sandbox_model_escape`
+从"仅 harness"扩散进 ai_agent 面;穷尽性(是否还有第 17 个锚点)**仍未判定**。
+净新增取证 10 条能力,前 3 落地建议:①AI 代码归属追踪(git-ai,零对位)②企业命令黑名单 + 命令级三段决策(零对位)
+③MCP/提示/历史分维配额(`tool_budget_governor`,半格)。巨型 DLL 反编译仍在时间盒外,不冒绿(见 `T1-impl.md`)。
+
+三条环境事实(下批不必重新踩):
+1. `apps/cli` 全局入口本轮**无法冒烟**:他席把 `apps/cli/src/skills/packaging/index.ts` 暂存删除而
+   `commands/skill-package.ts` 仍 import 它 ⇒ 任何子命令 `ERR_MODULE_NOT_FOUND`。端到端验证一律改走 vitest 直调模块。
+2. 门 7(`check-dedupe.mjs`)报 lockfile 依赖碎片化(semver/webpack 族),与本批各枚无关(本批零新增依赖);
+   出路 `pnpm dedupe` 会重写 lockfile,影响所有并行席,故本批不动。
+3. 门 25 / 26(项目外路径 / 父目录污染)与门 30c(陈旧副本)常年红,点名的都是**别席在飞或已遗留的现场**;
+   旁路落地通道不受其拦,本批按 §12e 不代裁决、不为消红削判据。
+
+## 6. 复验命令
 
 ```bash
 node scripts/watermark.mjs verify docs/benchmark-evidence/2026-11/qoder-trae-workbuddy-rea-20261105/README.md
