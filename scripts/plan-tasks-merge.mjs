@@ -142,6 +142,7 @@ import { git as bypassGit } from './lib/bypass-git.mjs'
 // G-800(承 G-725):旁路留痕的**唯一出口**。键名与落点都住在 lib,本器不得另拼一份 JSON、
 // 不得另写 schema、不得再拼一次台账路径 —— 那是"两处算同一件事必漂移"的本家形态。
 import { recordBypassLanding } from './lib/commit-attestation.mjs'
+import { backupOrphanCommit } from './lib/orphan-backup.mjs'
 // 〈原 9 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#plan-merge-l148(门 103 C1 收口)〉首意: 次序判据要在**代码面**上找"哪一段代码真的正向落了地"(见 landingAttestationStructure:
 import { maskCommentsStringsAndRegex } from './lib/code-mask.mjs'
 // 〈原 3 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#plan-merge-l158(门 103 C1 收口)〉首意: 漂开族折叠档的**分族键**与门 203 同源(§0.6):同一段"什么算同题"的归一化只许一份实现。
@@ -1431,6 +1432,23 @@ export function verifyRestoreTerminals(srcText, outText, edits) {
  * 默认档只出报告 —— 恢复是活文档上"把一行交回派单"的动作,必须人看过名单再落。
  */
 export function restoreTerminalsAndLand(maxAttempts = 8) {
+  // 2026-11-04 门 30a 根因票(会话 10b5dcce 实测):本文件此前**一枚孤儿都不备份**,
+  // 每轮 CAS 失败重算重提交就把上一枚 commit-tree 对象丢成无引用(悬空枚 785ff8c54816 即此形态:
+  // 19:55:25 基于 f39a65a 造出,19:56:16 由另一路把同内容落成 1d17fa01d0)。
+  // 与 object-space-land 同一条判据:中间轮次被下一轮结构上取代(每轮按**当时 HEAD** 重取重算、
+  // 声明面同一份台账),内容不丢,丢的只是 commit 对象 ⇒ 中间轮次不打 tag;
+  // **最终失败的那一枚必须照打**,否则 30a 恒红会逼全仓跳门(§12e)。
+  let lastMadeCommit = ''
+  const backupUnlanded = (sha, why) => {
+    if (!sha) return { ok: false, ref: null, why: 'no-sha' }
+    return backupOrphanCommit({
+      sha,
+      why,
+      kind: 'merge',
+      root: ROOT,
+      logger: (m) => (String(m).startsWith('⚠️') ? console.error(m) : console.log(m)),
+    })
+  }
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     const spec = `HEAD:${PLAN_REL}`
     const src = catBatch(ROOT, [spec], { maxBuffer: 1 << 28 }).get(spec)
@@ -1477,6 +1495,7 @@ export function restoreTerminalsAndLand(maxAttempts = 8) {
         message: msg,
         entries: [{ path: PLAN_REL, text: r.text }],
       })
+      lastMadeCommit = landed.commit
     } catch (e) {
       console.log(`❌ 恢复档停手 —— 候选树建不出来:${String(e?.message ?? e).slice(0, 160)}`)
       return 1
@@ -1490,12 +1509,14 @@ export function restoreTerminalsAndLand(maxAttempts = 8) {
     if (landedText === null || landedText === undefined) {
       console.log(`❌ 落地后回读不到 ${landed.commit.slice(0, 11)} 的台账 ⇒ 不记为已修,回退`)
       casUpdateRef(parent, landed.commit, { root: ROOT, allowNonFastForward: 'rollback:回退本器刚落地且复验不过的那枚(G-939 守卫显式档)' })
+      backupUnlanded(landed.commit, 'plan-tasks-merge 恢复档:落地后回读不到台账已回退(该枚现无引用)')
       return 1
     }
     const recheck = verifyRestoreTerminals(src, landedText, r.edits)
     if (recheck.problems.length) {
       console.log(`❌ 落地后复验不过(${recheck.problems[0]}),回退到 ${parent.slice(0, 11)}`)
       casUpdateRef(parent, landed.commit, { root: ROOT, allowNonFastForward: 'rollback:回退本器刚落地且复验不过的那枚(G-939 守卫显式档)' })
+      backupUnlanded(landed.commit, 'plan-tasks-merge 恢复档:落地后复验不过已回退(该枚现无引用)')
       return 1
     }
     // G-800 留痕:复验通过之后、共享索引对齐之前(次序判据见 BYPASS_LANDING_SITES)。
@@ -1518,6 +1539,8 @@ export function restoreTerminalsAndLand(maxAttempts = 8) {
     return 0
   }
   console.log(`❌ ${maxAttempts} 轮都没抢到 CAS,放弃`)
+  // 末枚 = 最后造出、不会再有下一轮覆盖的那一枚 ⇒ 必须照打(中间轮次被下一轮取代,见函数头注)。
+  backupUnlanded(lastMadeCommit, `plan-tasks-merge 恢复档 ${maxAttempts} 轮均未抢到 CAS(末枚兜底)`)
   return 1
 }
 
