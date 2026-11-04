@@ -31,6 +31,7 @@ import { preflightSessionRunner, classifySessionFailure, resolveSessionCommand }
 import { quarantinedUntilOf, LEDGER, DISPATCH_ARGS, parseTicketRows, PLAN_TASKS } from './auto-evolve.mjs'
 import { ticketKeyOf } from './lib/ticket-key.mjs'
 import { classifyLegs, actionableRows } from './lib/autonomy-leg-liveness.mjs'
+import { UNKNOWN_RULE_ID } from './lib/human-valve.mjs'
 import { judgeCarrierParity, judgeRoadmapClaims } from './lib/guardian-carrier-parity.mjs'
 // 取材面纪律(§0.4 / 守门 118):闸门配置是**仓库内容**,一律按被审面取,不回落磁盘。
 // 共享工作树常年滞后 HEAD ⇒ 按磁盘读会在"恒红"与"假绿"之间来回跳,正是这一型。
@@ -432,12 +433,28 @@ export function judgeValveGate(events, { mode, headSource } = {}) {
   const byRule = {}
   for (const r of stopRows) byRule[r.ruleId ?? '(无 id)'] = (byRule[r.ruleId ?? '(无 id)'] ?? 0) + 1
   const dist = Object.entries(byRule).map(([k, v]) => `${k}×${v}`).join(' ') || '(尚无命中)'
+  // "拦对了"与"没规则可判"必须分开报:两者的出路完全相反。
+  // 具名命中 = 这一类本就归人(如回滚生产、换 key)⇒ 正确出口是**把该类票摘出自动派单面**;
+  // unknown-fail-closed = 分类器缺匹配器 ⇒ 正确出口是**补匹配器**(2026-11-04 那一枚就把
+  // 12 枚候选里 11 枚的 unknown 降到 5,靠的是给名词形态工程票与两条漏判的危险语序补规则)。
+  // 混在一个数里报,就会既有人拿"阀在拦"当成绩、也有人拿"unknown 很多"去拆 fail-closed 默认。
+  const unknownStops = byRule[UNKNOWN_RULE_ID] ?? 0
+  const namedStops = stopRows.length - unknownStops
   if (mode === 'observe') {
     return {
       dim: 'A6-human-valve-gate',
       state: unjudged.length > 0 ? 'drift' : 'ok',
-      readout: `observe 档:派发尝试 ${attempted} 轮 / 闸留痕 ${valveRows.length} 条 / 记为"会拦" ${stopRows.length} 条(${dist})/ 未判定 ${unjudged.length} 条`,
-      next: unjudged.length > 0 ? `未判定 ${unjudged.length} 条必须先归零(清单坏/取不到),否则切 enforce 就是把票无限期停派;切 enforce 的前置:observe 覆盖完整流量周期 ∧ 未判定=0` : '放量到 enforce 前,先确认 observe 覆盖了一个完整流量周期',
+      readout:
+        `observe 档:派发尝试 ${attempted} 轮 / 闸留痕 ${valveRows.length} 条 / 记为"会拦" ${stopRows.length} 条` +
+        `【具名 ${namedStops} + 无规则可判 ${unknownStops}】(${dist})/ 未判定 ${unjudged.length} 条`,
+      next:
+        unjudged.length > 0
+          ? `未判定 ${unjudged.length} 条必须先归零(清单坏/取不到),否则切 enforce 就是把票无限期停派;切 enforce 的前置:observe 覆盖完整流量周期 ∧ 未判定=0`
+          : unknownStops > 0
+            ? `注意区分两种"拦":具名 ${namedStops} 条是这一类本就归人(出路=把该类票摘出自动派单面,不是修阀);` +
+              `unknown ${unknownStops} 条是分类器缺匹配器(出路=给 lib/human-valve.mjs 的 MATCHERS 补形态)。` +
+              `拿 unknown 当"阀在起作用"会把天花板藏起来,反过来为了数字好看把 unknown 翻成 self-serve 则是拆 fail-closed 默认,两向都不许。`
+            : '放量到 enforce 前,先确认 observe 覆盖了一个完整流量周期',
     }
   }
   return {
@@ -636,6 +653,40 @@ async function selfTest() {
   })())
   ok('H25 变异:observe 期出现未判定 ⇒ drift(enforce 前置未满足,不能放量)', judgeValveGate([{ action: 'session-failed', ticketKey: 'k' }, { action: 'valve-unjudged', ticketKey: 'k' }], { mode: 'observe', headSource: wiredSrc }).state === 'drift')
   ok('H26 档位取值非法 ⇒ drift(不猜档)', judgeValveGate([], { mode: 'yolo', headSource: wiredSrc }).state === 'drift')
+  // H27-H28:"拦对了"与"没规则可判"必须分开报(2026-11-04 实测 12 枚候选里 11 枚落 unknown,
+  // 混在一个数里报就会有人拿"阀在拦"当成绩、也有人拿"unknown 多"去拆 fail-closed 默认)。
+  ok(
+    'H27 unknown 与具名停机分档读数,且出路文案各指一边',
+    (() => {
+      const ev = [
+        { action: 'session-failed', ticketKey: 'k' },
+        { action: 'valve-observe-stop', ticketKey: 'k', ruleId: 'unknown-fail-closed' },
+        { action: 'valve-observe-stop', ticketKey: 'k', ruleId: 'unknown-fail-closed' },
+        { action: 'valve-observe-stop', ticketKey: 'k', ruleId: 'production-deploy' },
+      ]
+      const r = judgeValveGate(ev, { mode: 'observe', headSource: wiredSrc })
+      return (
+        r.state === 'ok' &&
+        r.readout.includes('具名 1') &&
+        r.readout.includes('无规则可判 2') &&
+        r.next.includes('摘出自动派单面') &&
+        r.next.includes('MATCHERS')
+      )
+    })(),
+  )
+  ok(
+    'H28 全部具名命中时不得再喊"补匹配器"(反向档:文案不能常驻吓人)',
+    (() => {
+      const r = judgeValveGate(
+        [
+          { action: 'session-failed', ticketKey: 'k' },
+          { action: 'valve-observe-stop', ticketKey: 'k', ruleId: 'api-key-change' },
+        ],
+        { mode: 'observe', headSource: wiredSrc },
+      )
+      return r.state === 'ok' && r.next.includes('完整流量周期') && !r.next.includes('MATCHERS')
+    })(),
+  )
   ok('H27 A6 的 drift 必须顶起整尺(闸哑了尺子不能报绿)', (() => {
     const g = JSON.stringify({ sessionCommandTemplate: `node \${REPO_ROOT}/apps/cli/dist/index.js`, ticketWhitelist: ['a'], humanValveMode: 'observe' })
     const r = evaluateAll({ repoRoot: root, gatesText: g, events: { ok: true, events: [{ action: 'session-ok', ticketKey: 'k' }] }, ticketRows: [{ text: 'a', line: 1 }], valve: judgeValveGate([{ action: 'session-ok', ticketKey: 'k' }], { mode: 'observe', headSource: wiredSrc }) })

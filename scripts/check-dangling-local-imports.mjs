@@ -307,7 +307,8 @@ export function auditOneFace(rev, shadowCtx = loadShadowExemptionLedger()) {
   const alias = buildAliasIndex((p) => read(p) ?? null, tsPaths)
   const jsSites = []
   const d5Unjudged = []
-  const byFile = auditTree(read, files, hasPath, alias.index, jsSites, d5Unjudged)
+  const cjsUnjudged = []
+  const byFile = auditTree(read, files, hasPath, alias.index, jsSites, d5Unjudged, null, cjsUnjudged)
   const shadow = auditShadowJs(read, jsSites, new Set(files))
   mergeShadow(byFile, shadow)
   const wrongName = auditWrongNameShadow(
@@ -326,6 +327,7 @@ export function auditOneFace(rev, shadowCtx = loadShadowExemptionLedger()) {
     shadow,
     wrongName,
     d5Unjudged,
+    cjsUnjudged,
     shadowCtx,
   }
 }
@@ -552,9 +554,135 @@ function listNames(body) {
     .map((s) => (s.includes(' as ') ? s.split(/\s+as\s+/)[1] : s))
 }
 
+/** 取从 openIdx(`{`)开始的对象字面量正文;括号不闭合 ⇒ null(不可静态判定,不猜) */
+function matchedBraceBody(text, openIdx) {
+  let depth = 0
+  let quote = ''
+  for (let i = openIdx; i < text.length; i++) {
+    const c = text[i]
+    if (quote) {
+      if (c === '\\') {
+        i++
+        continue
+      }
+      if (c === quote) quote = ''
+      continue
+    }
+    if (c === '"' || c === "'" || c === '`') {
+      quote = c
+      continue
+    }
+    if (c === '{') depth++
+    else if (c === '}') {
+      depth--
+      if (depth === 0) return text.slice(openIdx + 1, i)
+    }
+  }
+  return null
+}
+
+/** `module.exports = { … }` 的键面:简写 `{ a, b }`、`{ k: v }`、方法与 `get/set` 都认;
+ *  展开 `...x` 与计算键 `[k]` 读不出全集 ⇒ 记 dynamic(不判红也不记绿,CLS 见 parseExports 头注)。
+ *  调用时传的是**遮噪面**:字符串已被抹成空格 ⇒ 带引号的键读不出,按 dynamic 处理(宁可未判定)。 */
+function cjsObjectKeys(body) {
+  const names = []
+  let dynamic = false
+  for (const raw of splitTopLevelCommas(body)) {
+    const s = raw.trim()
+    if (!s) continue
+    if (s.startsWith('...')) {
+      dynamic = true
+      continue
+    }
+    if (/^[A-Za-z_$][\w$]*$/.test(s)) {
+      names.push(s)
+      continue
+    }
+    if (s.startsWith('[')) {
+      dynamic = true
+      continue
+    }
+    const method = /^(?:async\s+)?(?:get\s+|set\s+)?\*\s*([A-Za-z_$][\w$]*)\s*\(|^(?:async\s+)?(?:get|set)\s+([A-Za-z_$][\w$]*)\s*\(|^([A-Za-z_$][\w$]*)\s*\(/.exec(s)
+    if (method) {
+      names.push(method[1] || method[2] || method[3])
+      continue
+    }
+    const key = /^(?:([A-Za-z_$][\w$]*)|['"]([^'"]+)['"])\s*:/.exec(s)
+    if (key) {
+      const k = key[1] || key[2]
+      if (/^[A-Za-z_$][\w$]*$/.test(k)) names.push(k)
+      continue
+    }
+    dynamic = true // 认不出的条目:不猜它导出了什么
+  }
+  return { names, dynamic }
+}
+
+/**
+ * CJS 导出面(2026-11-04,票面「门必须认 CJS 导出面」)。
+ *
+ * 判据盲区现场:`monitoring/alertbridge/mail-ledger-env.js` 是 CJS,导出写的是
+ * `module.exports = { DEFAULT_STATE_FILE, resolveMailSendLedgerEnv, maskMailRecipient }`,
+ * 而本门旧判据只认 ESM 的 `export` 关键字 ⇒ 把真实存在的三枚符号报成"HEAD 上根本不存在"。
+ *
+ * 只认**静态可解析**的四种写法(逐条都与 ESM 面同一张名单、同一套 D1 对账):
+ *   ① `module.exports = { a, b: …, fn() {} }`;
+ *   ② `module.exports.a = …` / `exports.a = …` / `module.exports['a'] = …`;
+ *   ③ `module.exports = function/class/箭头函数` ⇒ 视作 `default`;
+ *   ④ `module.exports.default = …`(由 ② 吃掉)。
+ * 明确**不认**、登记成「不可静态判定」(cjsDynamic=true)的三型:
+ *   · `module.exports = <标识符/调用表达式>`(值可能是任何东西 ⇒ 名面不可枚举);
+ *   · `module.exports = require('./x')` 透传(要跨文件递归解析;本门刻意不猜,如实报不可判定);
+ *   · 对象字面量里出现展开 `...x` / 计算键 `[k]`(全集读不出)。
+ * **不许**退化成"文件里有这个词就过":那会让 `module.exports = someVar` 里恰好出现的名字
+ * 被当成已导出,与本门历次假绿是同一型;所以值一侧只认字面量,认不出就报未判定。
+ */
+function cjsExportFace(src) {
+  const names = []
+  let dynamic = false
+  // ② 属性式导出
+  for (const m of src.matchAll(
+    /(?:module\.exports|exports)(?:\.([A-Za-z_$][\w$]*)|\[\s*['"]([^'"]+)['"]\s*\])\s*=/g,
+  )) {
+    const n = m[1] || m[2]
+    if (n && /^[A-Za-z_$][\w$]*$/.test(n)) names.push(n)
+    else dynamic = true
+  }
+  // ①③ 整体赋值
+  for (const m of src.matchAll(/module\.exports\s*=\s*/g)) {
+    const rest = src.slice(m.index + m[0].length)
+    if (rest.startsWith('{')) {
+      const body = matchedBraceBody(rest, 0)
+      if (body === null) {
+        dynamic = true
+        continue
+      }
+      const got = cjsObjectKeys(body)
+      names.push(...got.names)
+      if (got.dynamic) dynamic = true
+      continue
+    }
+    if (/^(?:async\s+)?function\b|^class\b/.test(rest)) {
+      names.push('default')
+      continue
+    }
+    if (/^\(|^[A-Za-z_$][\w$]*\s*=>/.test(rest)) {
+      names.push('default')
+      continue
+    }
+    if (/^require\s*\(/.test(rest)) {
+      dynamic = true // 透传:不解
+      continue
+    }
+    dynamic = true // module.exports = someVar / 任意调用
+  }
+  return { names, dynamic }
+}
+
 export function parseExports(text) {
   const names = new Set()
   let opaque = false
+  let cjsDynamic = false
   // **只剥行注释,不剥块注释**:本仓大量正则字面量里含 `/*`、`['"`]` 这类片段,
   //   `/\*[\s\S]*?\*/` 会从字面量中间一路吞到下一条 `*/`,把真实导出整段抹掉
   //   (首版把 40KB 的 _i18n-scan-helpers.mjs 剥成 18KB ⇒ 6 处假红)。
@@ -576,7 +704,13 @@ export function parseExports(text) {
     for (const n of listNames(m[1])) names.add(n)
   for (const m of src.matchAll(/export\s*\{([^}]*)\}(?:\s*from\s*['"][^'"]*['"])?\s*;?/g))
     for (const n of listNames(m[1])) names.add(n)
-  return { names, opaque }
+  // CJS 面走**字符串/注释/正则全遮**的等长遮噪面:门读自己的说明文字(注释或夹具字符串里的
+  // `module.exports = …`)是这一族最高频的失效型。代价是带引号的键读不出 ⇒ 落 dynamic(未判定),
+  // 方向是"宁可未判定也不假红"。
+  const cjs = cjsExportFace(maskCommentsStringsAndRegex(src))
+  for (const n of cjs.names) names.add(n)
+  if (cjs.dynamic) cjsDynamic = true
+  return { names, opaque, cjsDynamic }
 }
 
 /** tsconfig 的 `compilerOptions.paths` ⇒ 前缀映射表。
@@ -694,7 +828,7 @@ export function resolveAliasSpec(relPath, rawSpec, aliasIndex) {
  *  `aliasIndex`(Map<pkgDir, entries[]>)为 null/空 ⇒ 别名导入一律不参与(与旧行为逐字相同)。
  *  `jsSink`(可选)非空时顺手递出本文件的 `.js` 字面说明符落点,供 D4 在同一次解析里配对使用 ——
  *  刻意不另开一遍全树解析(两遍解析必给两个"谁 import 了谁"的口径,而 D1/D4 判的是同一批语句)。 */
-export function auditFile(relPath, readFile, hasPath, aliasIndex, jsSink) {
+export function auditFile(relPath, readFile, hasPath, aliasIndex, jsSink, cjsBlindSink) {
   const exists = hasPath || ((p) => readFile(p) !== null && readFile(p) !== undefined)
   const text = readFile(relPath)
   if (text === null || text === undefined) return []
@@ -743,8 +877,25 @@ export function auditFile(relPath, readFile, hasPath, aliasIndex, jsSink) {
       continue
     }
     if (NON_CODE_EXT.test(target)) continue // 资源模块:只核存在性,没有导出名单可对
-    const { names, opaque } = parseExports(readFile(target) ?? '')
+    const { names, opaque, cjsDynamic } = parseExports(readFile(target) ?? '')
     if (opaque) continue
+    /**
+     * CJS 导出面静态不可判定(`module.exports = someVar` / require 透传 / 对象含展开或计算键):
+     * **不判红也不记绿** —— 逐条递进 blind sink,由 CLI 点名并 exit 2(§0.3:「没判」不得写成
+     * 「判过」,静默放过正是本门记过最多次的失效型)。这里刻意不沿用 ESM `opaque` 的静默 continue:
+     * 那一档的盲区早已在头注里写明,而 CJS 这一档是本次新开的射程,必须自报。
+     */
+    if (cjsDynamic) {
+      if (cjsBlindSink)
+        cjsBlindSink.push({
+          file: relPath,
+          line: imp.line,
+          target,
+          spec: imp.spec,
+          why: '目标 CJS 导出面静态不可判定(module.exports 被赋值为非字面量 / require 透传 / 对象含展开或计算键)',
+        })
+      continue
+    }
     for (const n of imp.named) {
       if (n.imported === 'default') {
         if (!names.has('default'))
@@ -1611,10 +1762,10 @@ export function buildAliasIndex(readFile, paths) {
 
 /** 按文件聚合(`jsSink` 见 auditFile:同一遍解析顺手收 D4 的落点;`d5Sink` 收 D5 的"在射程但
  *  内容取不到"文件名 —— 未判定必须点名,不得被"没进违规表"洗成通过)。 */
-export function auditTree(readFile, files, hasPath, aliasIndex, jsSink, d5Sink, d7Sink) {
+export function auditTree(readFile, files, hasPath, aliasIndex, jsSink, d5Sink, d7Sink, cjsBlindSink) {
   const byFile = new Map()
   for (const f of files) {
-    const v = auditFile(f, readFile, hasPath, aliasIndex, jsSink)
+    const v = auditFile(f, readFile, hasPath, aliasIndex, jsSink, cjsBlindSink)
     const d5 = auditDuplicateBarrelExports(f, readFile(f))
     if (d5 === null) {
       if (d5Sink) d5Sink.push(f)
@@ -1743,6 +1894,18 @@ async function revMain(rev, anchorOpt, conflicts) {
     `[dangling-imports] 扫描 ${face.files.length} 文件 | 悬空 ${total} 处(锚点容忍 ${tolerated} / 新增 ${freshNonLedger.length} 文件)`,
   )
   console.log(`[dangling-imports] D5 barrel 同名导出重复:在射程 ${d5Scope} 枚 | 判红候选 ${d5n} 处`)
+  // D1 的 CJS 盲区在 --rev 面同语义:不可静态判定 ⇒ 点名并 exit 2,不判红也不记绿(§0.3)。
+  console.log(
+    `[dangling-imports] D1 CJS 导出面:不可静态判定 ${face.cjsUnjudged.length} 处(--rev 面同样不判红也不记绿)`,
+  )
+  for (const u of face.cjsUnjudged)
+    console.log(`   ⚠️ D1 未判定 ${u.file}:${u.line} ${u.spec} → ${u.target} —— ${u.why}`)
+  if (face.cjsUnjudged.length) {
+    console.log(
+      '❌ 无法判定:D1 有 CJS 目标的导出面读不出(module.exports 非字面量 / require 透传 / 对象含展开或计算键)',
+    )
+    process.exit(2)
+  }
   for (const { file, list, tol } of fresh) {
     console.log(`   ${file}(锚点 ${tol} 处 → 本次 ${list.length} 处)`)
     for (const v of list) console.log(`      :${v.line} [${v.rule}] ${v.raw}  → ${v.hint}`)
@@ -1859,10 +2022,12 @@ async function main() {
   const jsSitesHead = []
   const d5Unhead = []
   const d7HeadSink = []
+  /** D1 的 CJS 盲区逐枚登记(<文件, 目标> 级):「不可静态判定」必须点名,不得被"悬空 0 处"洗成通过。 */
+  const cjsUnHead = []
   /** D6-c 的豁免台账:**配置面**,一次加载、HEAD/索引/工作区三面共用同一份(两处各读一遍必漂,§0.6)。
    *  取不到或形状坏 ⇒ 那一维整档未判定(见下面与 D5/D7 同一条 exit 2 通道),不回落成"没有豁免"。 */
   const SHADOW_LEDGER = loadShadowExemptionLedger()
-  const byHead = auditTree(readHead, headFiles, hasPath, aliasHead.index, jsSitesHead, d5Unhead, d7HeadSink)
+  const byHead = auditTree(readHead, headFiles, hasPath, aliasHead.index, jsSitesHead, d5Unhead, d7HeadSink, cjsUnHead)
   const shadowHead = auditShadowJs(readHead, jsSitesHead, new Set(headFiles))
   mergeShadow(byHead, shadowHead)
   const wnHead = auditWrongNameShadow(
@@ -1879,6 +2044,7 @@ async function main() {
   let shadowPending = shadowHead
   let wnPending = wnHead
   let d5Unpending = d5Unhead
+  let cjsUnpending = cjsUnHead
   let stagedCount = 0
   let contentMode = 'HEAD 内容'
   if (isStaged) {
@@ -1899,8 +2065,10 @@ async function main() {
     const readPending = (p) => (staged.includes(p) ? readIdx(p) : readHead(p))
     const jsSitesStaged = []
     const d5Unstaged = []
-    byPending = auditTree(readPending, staged, hasPath, aliasStaged.index, jsSitesStaged, d5Unstaged)
+    const cjsUnStaged = []
+    byPending = auditTree(readPending, staged, hasPath, aliasStaged.index, jsSitesStaged, d5Unstaged, null, cjsUnStaged)
     d5Unpending = [...d5Unhead, ...d5Unstaged]
+    cjsUnpending = [...cjsUnHead, ...cjsUnStaged]
     // D4 在暂存档上要跑**整面**(索引内容 ⊕ 其余 HEAD 内容)而不是只跑暂存清单:新加的
     // 影子 `.js` 常常不在这枚提交里被 import,而"它被 import"这一事实本身就来自未改动的那些消费方。
     // D6 与 D4 同一条通道,共用同一批落点与同一个索引跟踪集(两处各取一遍必漂,§22c)。
@@ -1927,6 +2095,7 @@ async function main() {
     }
     const jsSitesFiles = []
     const d5Unfiles = []
+    const cjsUnfiles = []
     byPending = auditTree(
       wread,
       FILES_MODE,
@@ -1934,8 +2103,11 @@ async function main() {
       aliasHead.index,
       jsSitesFiles,
       d5Unfiles,
+      null,
+      cjsUnfiles,
     )
     d5Unpending = [...d5Unhead, ...d5Unfiles]
+    cjsUnpending = [...cjsUnfiles]
     const filesSites = mergeSites(jsSitesHead, jsSitesFiles, new Set(FILES_MODE))
     const filesTrackedSrc = new Set([...trackedSourceFiles(''), ...headFiles, ...FILES_MODE])
     shadowPending = auditShadowJs(wread, filesSites, filesTrackedSrc)
@@ -1968,6 +2140,23 @@ async function main() {
   console.log(
     `[dangling-imports] 扫描 ${isStaged ? `${stagedCount} 个暂存源文件(锚点面 ${scanSet.length})` : `${scanSet.length} 文件`} | 悬空 ${total} 处(HEAD 存量容忍 ${tolerated} / 新增 ${fresh.length} 文件)`,
   )
+  /**
+   * D1 的 CJS 导出面(2026-11-04 新开射程)必须与"悬空 N 处"同屏:被判「不可静态判定」的
+   * 条目单独报数并逐条点名 —— 否则 `module.exports = someVar` 这一型会让 D1 静默失明,
+   * 而输出照样写"悬空 0 处"(本门头注与别名表两段记的都是这条教训)。
+   * 处置按 §0.3:不判红、也不记绿 ⇒ exit 2,先由人把它改成静态写法或确认导出面。
+   */
+  console.log(
+    `[dangling-imports] D1 CJS 导出面:不可静态判定 ${cjsUnpending.length} 处(不判红也不记绿,逐条点名)`,
+  )
+  for (const u of cjsUnpending)
+    console.log(`   ⚠️ D1 未判定 ${u.file}:${u.line} ${u.spec} → ${u.target} —— ${u.why}`)
+  if (cjsUnpending.length) {
+    console.log(
+      '❌ 无法判定:D1 有 CJS 目标的导出面读不出(module.exports 非字面量 / require 透传 / 对象含展开或计算键)—— 不记绿也不冒红(§0.3)',
+    )
+    process.exit(2)
+  }
   /** D4 的三个计数与上面那行同屏:"影子 0 处"和"这一遍根本没扫到任何 `.js` 说明符"在只印总
    *  行数的报告里长得一模一样 —— 上面别名表那段注释记的就是这条教训,新维度不得重犯。 */
   console.log(
