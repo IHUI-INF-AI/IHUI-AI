@@ -255,8 +255,8 @@
       "platform": "miniapp",
       "owner": "cross-end-platform",
       "expires": "2027-03-27",
-      "reason": "小程序码/截屏/微信授权属微信宿主产物;RN 无 wxacode 能力,截屏走 react-native-view-shot。",
-      "evidence": "apps/miniapp-taro/src/rn-compat/native-wechat.ts:27-34:unsupported; apps/miniapp-taro/src/pages/distribution/index.tsx:72:getWxCode; apps/mobile-rn/src/hooks/use-screenshot.ts:7:captureRef"
+      "reason": "小程序码/截屏/微信授权属微信宿主产物;RN 无 wxacode 能力,截屏在各屏内直调 react-native-view-shot(无共享入口,2026-11-05 起 use-screenshot 已删)。",
+      "evidence": "apps/miniapp-taro/src/rn-compat/native-wechat.ts:27-34:unsupported; apps/miniapp-taro/src/pages/distribution/index.tsx:72:getWxCode; apps/mobile-rn/src/screens/ChatScreen.tsx:59:captureRef; apps/mobile-rn/src/screens/DistributionScreen.tsx:10:captureRef"
     },
     {
       "component": "font",
@@ -442,16 +442,6 @@
       "count": 1,
       "reason": "圆形按钮/圆点按「尺寸的一半」写 borderRadius,web 侧用 rounded-full;RN 无百分比圆角档,该值是渲染必需而非散档;零观感改动。",
       "evidence": "check-web-rn-style-tiers --json: apps/mobile-rn/src/components/VoiceInput.tsx 的 clearBtn 为 borderRadius=24(1 处);台账 scripts/data/cross-end-fork-decisions.json"
-    },
-    {
-      "component": "Default.emoji",
-      "key": "styleTier:fontSize:fontSize:56",
-      "platform": "rn",
-      "owner": "cross-end-ui",
-      "expires": "2027-03-27",
-      "count": 1,
-      "reason": "RN 用 fontSize 作图标/emoji/首字母的字形盒,web 侧同类元素由 SVG/图标组件承载,没有可对齐的排版档;登记为 RN 单侧展示元素,零观感改动。",
-      "evidence": "check-web-rn-style-tiers --json: apps/mobile-rn/src/components/common/Default.tsx 的 emoji 为 fontSize=56(1 处);台账 scripts/data/cross-end-fork-decisions.json"
     },
     {
       "component": "Empty.emoji",

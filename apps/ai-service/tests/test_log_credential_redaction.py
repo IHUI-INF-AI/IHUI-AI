@@ -15,6 +15,7 @@
 
 from __future__ import annotations
 
+import ast
 import logging
 import re
 from pathlib import Path
@@ -185,11 +186,22 @@ def test_structlog_processor_can_see_the_rendered_exception() -> None:
     assert "Sup3rS3cretEtherscanKey" not in out["exception"]
 
 
+def _dotted_name(node: ast.AST) -> str | None:
+    """把 `name` / `a.b.c` 形态还原成点号字符串;其他形态返回 None。"""
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        base = _dotted_name(node.value)
+        return f"{base}.{node.attr}" if base is not None else None
+    return None
+
+
 def test_wiring_is_actually_present() -> None:
     """接线锁:两条链各自真调了闸,而不是只有模块躺着。
 
-    刻意用"源码里存在这处调用"这种正向断言(不判注释/不判措辞),避免把解释文字
-    本身当判据 —— 那是本仓判据面反复踩过的自伤形。
+    取 structlog.configure(...) 的 processors 实参;**名字引用会解析到模块内的显式列表
+    字面量**,按 AST 元素次序判定 —— 注释/字符串里的同名文本不参与,比源码子串
+    index() 更严格(后者会把解释文字当判据,是本仓反复踩过的自伤形)。
     """
     core = Path(__file__).resolve().parents[1] / "app" / "core" / "logging.py"
     main = Path(__file__).resolve().parents[1] / "app" / "main.py"
@@ -202,10 +214,37 @@ def test_wiring_is_actually_present() -> None:
     assert main_src.count("install_stdlib_secret_redaction(") >= 2, (
         "还缺启动钩子那第二次(uvicorn 的 handler 在应用 import 之后才建)"
     )
-    # 只在 processors=[...] 那一段里比次序:整文件 index() 会先命中 import 行,
-    # 拿"引用位置"当"接线位置"是假绿(本仓注释里出现处理器名是常态)。
-    start = logging_src.index("processors=[")
-    chain = logging_src[start : logging_src.index("]", start)]
+
+    tree = ast.parse(logging_src)
+    configure_calls = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call) and _dotted_name(node.func) == "structlog.configure"
+    ]
+    assert configure_calls, "logging.py 必须真的调用 structlog.configure"
+    processors_kw = next(
+        (kw for kw in configure_calls[0].keywords if kw.arg == "processors"), None
+    )
+    assert processors_kw is not None, "configure 必须显式传 processors"
+
+    chain_node = processors_kw.value
+    if isinstance(chain_node, ast.Name):
+        assigned_lists = {
+            target.id: node.value
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Assign) and isinstance(node.value, (ast.List, ast.Tuple))
+            for target in node.targets
+            if isinstance(target, ast.Name)
+        }
+        chain_node = assigned_lists.get(chain_node.id)
+    assert isinstance(chain_node, (ast.List, ast.Tuple)), (
+        "processors 实参必须是显式列表链(名字引用需能解析到列表字面量)"
+    )
+
+    chain = [
+        _dotted_name(element.func) if isinstance(element, ast.Call) else _dotted_name(element)
+        for element in chain_node.elts
+    ]
     proc = chain.index("structlog_redaction_processor")
     exc = chain.index("structlog.processors.format_exc_info")
     rend = chain.index("structlog.dev.ConsoleRenderer")
