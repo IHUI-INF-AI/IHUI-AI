@@ -104,7 +104,8 @@ test('自检本体真跑通(交付前置):--self-test 全过且点名例数', ()
 // ② 暂存为空:索引一枚 .mjs 都没有 ⇒ 未判定 exit 2 语义,绝不回落工作树/HEAD 记绿。
 function newRepo(prefix) {
   const dir = mkScratch(prefix)
-  const git = (args) => execFileSync('git', args, { cwd: dir, encoding: 'utf8', windowsHide: true })
+  const git = (args) =>
+    execFileSync('git', args, { cwd: dir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true })
   git(['init', '-q'])
   return { dir, git }
 }
