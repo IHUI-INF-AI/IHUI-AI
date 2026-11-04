@@ -11,7 +11,7 @@
  *   + 模型信息条(onShowModelList / onShowModelConfig / onModelConfigChange)
  *   + 图片预览行(onRemoveImage(index))
  *   + InputArea(TextInput + 语音 + 发送:onPromptChange/onInputFocus/Blur/Click/onSend)
- *   + 辅助按钮行(onFunctionHandle / onSourceHandle / onFangda)
+ *   + 辅助按钮行(onFunctionHandle / onFangda)
  *   + IconButtonGroup(相机/相册/文件/微信文件:onIconClick(type))
  *   + 长按手势(onStartLongPress / onEndLongPress on voice button)
  * - 固定底部 100% 屏宽,SafeArea padding
@@ -40,6 +40,7 @@ import { formatShortDuration } from '@ihui/shared/utils'
 import { TextField } from '@ihui/rn-app'
 import { useUiTextField } from '../lib/use-ui-text-field'
 import { AddPanel, PlusButton } from './AddPanel'
+import type { InputAreaProps } from './InputArea'
 import {
   ArrowUp,
   Camera,
@@ -50,7 +51,6 @@ import {
   Maximize,
   MessageCircle,
   Mic,
-  Paperclip,
   Scissors,
   Settings,
   Square,
@@ -153,7 +153,6 @@ export interface BottomActionBarProps {
   onInputBlur?: () => void
   onInputClick?: () => void
   onFunctionHandle?: () => void
-  onSourceHandle?: () => void
   /** 添加附件回调(📁 按钮;不传时降级为占位提示 Alert) */
   onAddFile?: () => void
   onIconClick?: (type: BottomActionBarIconType) => void
@@ -190,6 +189,24 @@ export interface BottomActionBarProps {
   placeholder?: string
   /** 纯禁用态(禁输入 + 禁发送,不切发送中字形;与 isLoading 相互独立) */
   disabled?: boolean
+
+  // ── 与小程序端同名的布局/扩展项(2026-11-04 门285 收口:两端同键同义) ──
+  /** 样式变体:'default'(单行按钮组)/ 'ai-home'(首页专用聊天输入布局,对齐小程序端同名 prop) */
+  variant?: 'default' | 'ai-home'
+  /** 功能切换组(深度思考/联网/知识库/永久记忆),渲染在输入行上方 */
+  toggleButtons?: ReadonlyArray<ToggleButtonItem>
+  /** 功能切换组点击回调(与 item.onToggle 同时触发) */
+  onToggle?: (item: ToggleButtonItem) => void
+  /** 输入框透传覆盖项(对齐小程序端同名 prop):value/onInput/disabled/placeholder/onSend */
+  inputAreaProps?: Partial<InputAreaProps>
+}
+
+/** 功能切换组单项(字形与小程序端 ToggleButtonItem 同构) */
+export interface ToggleButtonItem {
+  key: string
+  label: string
+  active?: boolean
+  onToggle?: () => void
 }
 
 // ── 常量 ──
@@ -295,8 +312,13 @@ const MODEL_BAR_FONT_SIZE = BOTTOM_ACTION_BAR_MODEL_BAR_FONT_PX
 const EMPTY_ACTIONS: ReadonlyArray<BottomActionBarAction> = []
 
 export function BottomActionBar(props: BottomActionBarProps) {
-  // 新模式:聊天输入(prompt 提供,含空串)
-  if (props.prompt !== undefined) {
+  // 新模式:聊天输入(prompt 提供,含空串;variant='ai-home' 或传 inputAreaProps 同样进入聊天布局,
+  // 与小程序端 variant='ai-home' 的选型同义)
+  if (
+    props.prompt !== undefined ||
+    props.variant === 'ai-home' ||
+    props.inputAreaProps !== undefined
+  ) {
     return <ChatInputBar {...props} />
   }
   // 旧模式:简单按钮列表(actions)
@@ -434,7 +456,6 @@ function ChatInputBar(props: BottomActionBarProps) {
     onInputBlur,
     onInputClick,
     onFunctionHandle,
-    onSourceHandle,
     onAddFile,
     onIconClick,
     onShowModelConfig,
@@ -455,13 +476,29 @@ function ChatInputBar(props: BottomActionBarProps) {
     disabled = false,
     recording = false,
     recordingDuration = 0,
+    variant = 'default',
+    toggleButtons,
+    onToggle,
+    inputAreaProps,
   } = props
+  // 输入槽覆盖:inputAreaProps 优先(与小程序端 {...inputAreaProps} 展开顺序同义),未传时回落到同名扁平项
+  const inputValue = inputAreaProps?.value ?? prompt
+  const inputPlaceholder = inputAreaProps?.placeholder ?? placeholder
+  const inputDisabled = inputAreaProps?.disabled ?? disabled
+  const commitInput = inputAreaProps?.onChangeText ?? onPromptChange
+  const hasSend = inputAreaProps?.onSubmit !== undefined || onSend !== undefined
+  // RN 端 onSubmit 收 text:参数(InputAreaProps 契约),这里按当前输入回传;未传 inputAreaProps.onSubmit 时走扁平 onSend
+  const triggerSend = (): void => {
+    if (inputAreaProps?.onSubmit) inputAreaProps.onSubmit(inputValue ?? '')
+    else onSend?.()
+  }
+  const aiHome = variant === 'ai-home'
   useUiTextField({
-    label: placeholder ?? t('chat.inputPlaceholder'),
-    value: prompt,
-    setValue: onPromptChange,
+    label: inputPlaceholder ?? t('chat.inputPlaceholder'),
+    value: inputValue,
+    setValue: commitInput,
     multiline: true,
-    disabled: isLoading || disabled,
+    disabled: isLoading || inputDisabled,
   })
 
   const insets = useSafeAreaInsets()
@@ -472,10 +509,10 @@ function ChatInputBar(props: BottomActionBarProps) {
   const showSecondaryRow =
     isShowIcon &&
     (onFunctionHandle !== undefined ||
-      onSourceHandle !== undefined ||
       onFangda !== undefined ||
       onCompactContext !== undefined ||
       onAddFile !== undefined)
+  const hasToggles = (toggleButtons?.length ?? 0) > 0
   // 2026-10-18:面板可见条件纳入 onShowMyCreation(仅传「我的创作」不传图标组的调用方也能开面板)
   const showIconGroup = isShowIcon && (onIconClick !== undefined || onShowMyCreation !== undefined)
 
@@ -484,9 +521,35 @@ function ChatInputBar(props: BottomActionBarProps) {
       style={[
         styles.container,
         styles.columnMode,
+        aiHome ? styles.aiHomeContainer : null,
         { paddingBottom: CONTAINER_PADDING_VERTICAL + insets.bottom },
       ]}
     >
+      {/* 功能切换组(对齐小程序端 ai-home ToggleButtonGroup):active 只切高亮,点击回调走 item.onToggle + onToggle */}
+      {hasToggles ? (
+        <View style={styles.toggleRow}>
+          {toggleButtons?.map((btn) => (
+            <Tappable
+              key={btn.key}
+              style={[styles.toggleChip, btn.active ? styles.toggleChipActive : null]}
+              onPress={() => {
+                btn.onToggle?.()
+                onToggle?.(btn)
+              }}
+              hitSlop={4}
+              accessibilityRole="button"
+              accessibilityState={{ selected: btn.active === true }}
+              accessibilityLabel={btn.label}
+            >
+              <Text
+                style={[styles.toggleChipText, btn.active ? styles.toggleChipTextActive : null]}
+              >
+                {btn.label}
+              </Text>
+            </Tappable>
+          ))}
+        </View>
+      ) : null}
       {/* 模型信息条 */}
       {showModelBar ? (
         <View style={styles.modelBar}>
@@ -574,15 +637,15 @@ function ChatInputBar(props: BottomActionBarProps) {
         <TextField
           colorScheme={currentRnTheme()}
           style={styles.input}
-          value={prompt}
-          onChangeText={onPromptChange}
+          value={inputValue}
+          onChangeText={commitInput}
           onFocus={onInputFocus}
           onBlur={onInputBlur}
           onTouchStart={() => onInputClick?.()}
-          placeholder={placeholder ?? t('chat.inputPlaceholder')}
+          placeholder={inputPlaceholder ?? t('chat.inputPlaceholder')}
           placeholderTextColor={tokens.text.tertiary}
           multiline
-          editable={!isLoading && !recording && !disabled}
+          editable={!isLoading && !recording && !inputDisabled}
         />
 
         {/* 2026-10-16 录音态覆盖层(微信式按住说话):黑白波形 + 时长 + 松开结束。
@@ -602,7 +665,7 @@ function ChatInputBar(props: BottomActionBarProps) {
           <PlusButton active={plusActive} onPress={onPlusToggle} />
         ) : null}
 
-        {onSend !== undefined ? (
+        {hasSend ? (
           /* O02 票④(2026-10-31):发送方块走共享核心 BottomActionBarControl —— 方块边长(boxPx)
              由核心供出,字形切换(发送中=Square 实心停止语义 / 平时=ArrowUp,与 web 发送簇同形)
              由 glyph name 表达;本壳只供视觉(sendBtnTone:底色/圆角/禁用透明度)。 */
@@ -612,8 +675,8 @@ function ChatInputBar(props: BottomActionBarProps) {
             glyphPx={BOTTOM_ACTION_BAR_SEND_GLYPH_PX}
             glyph={isLoading ? 'square' : 'arrow-up'}
             glyphColor={tokens.brand.ctaForeground}
-            onActivate={onSend}
-            disabled={isLoading || disabled}
+            onActivate={triggerSend}
+            disabled={isLoading || inputDisabled}
             label={t('chat.send')}
             style={styles.sendBtn}
             disabledStyle={styles.sendBtnDisabled}
@@ -658,17 +721,7 @@ function ChatInputBar(props: BottomActionBarProps) {
               />
             </Tappable>
           ) : null}
-          {onSourceHandle !== undefined ? (
-            <Tappable
-              style={styles.secondaryBtn}
-              onPress={onSourceHandle}
-              hitSlop={4}
-              accessibilityRole="button"
-              accessibilityLabel={t('bab.source')}
-            >
-              <Paperclip size={rnGeometry.glyphMd} color={tokens.text.secondary} />
-            </Tappable>
-          ) : null}
+
           {onFangda !== undefined ? (
             <Tappable
               style={styles.secondaryBtn}
@@ -762,6 +815,31 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     gap: COLUMN_GAP,
   } as ViewStyle,
+  /** ai-home 变体:顶部加安全留白(与小程序端 .input-area 的 20rpx 上内距同义) */
+  aiHomeContainer: {
+    paddingTop: rnSpacing['sm-loose'],
+  } as ViewStyle,
+  toggleRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: rnSpacing.xs,
+  } as ViewStyle,
+  toggleChip: {
+    borderRadius: rnRadius.lg,
+    backgroundColor: tokens.surface.muted,
+    paddingHorizontal: rnSpacing.sm,
+    paddingVertical: rnSpacing.xs,
+  } as ViewStyle,
+  toggleChipActive: {
+    backgroundColor: tokens.brand.cta,
+  } as ViewStyle,
+  toggleChipText: {
+    fontSize: BOTTOM_ACTION_BAR_TEXT_FONT_PX,
+    color: tokens.text.secondary,
+  } as TextStyle,
+  toggleChipTextActive: {
+    color: tokens.brand.ctaForeground,
+  } as TextStyle,
 
   // ── 旧模式:按钮样式 ──
   primaryButton: {

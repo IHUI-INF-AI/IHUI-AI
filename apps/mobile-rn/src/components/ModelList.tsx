@@ -114,6 +114,12 @@ export type ModelListSelectionMode = 'single' | 'multiple'
 
 export interface ModelListProps {
   groups?: ModelListGroup[]
+  /** 扁平模型目录(与小程序端同名同义):未给 groups 时由本端归档为单组渲染 */
+  models?: ModelListItem[]
+  /** 当前类型(与小程序端同名同义):数字按 type 过滤,字符串按 category 过滤 */
+  currentType?: string | number
+  /** 外观变体(与小程序端同名同义):'list' 普通 / 'popup' 弹出分类(card 底色) */
+  variant?: 'list' | 'popup'
   selectionMode?: ModelListSelectionMode
   selectedIds?: string[]
   /** 单选便利入参(与小程序端同名同义):未给 selectedIds 时作为唯一选中项 */
@@ -288,6 +294,9 @@ function AgentModeRow({
 
 export default function ModelList({
   groups,
+  models,
+  currentType,
+  variant = 'list',
   selectionMode = 'single',
   selectedIds,
   selectedId,
@@ -313,8 +322,20 @@ export default function ModelList({
     )
   }
 
+  /** 扁平目录归档(currentType 数字→按 type、字符串→按 category 过滤;无 models 时两者都不参与) */
+  const flatModels: ModelListItem[] =
+    models === undefined
+      ? []
+      : currentType === undefined || currentType === ''
+        ? models
+        : models.filter((m) =>
+            typeof currentType === 'number' ? m.type === currentType : m.category === currentType,
+          )
+  const effectiveGroups: ModelListGroup[] =
+    groups && groups.length > 0 ? groups : flatModels.length > 0 ? [{ models: flatModels }] : []
+
   /** 列表分组 section 数据(组内按 isTop 排序,RN SectionList 要求 data 字段为 ItemT[]) */
-  const sections: SectionListData<ModelListItem, { title: string }>[] = (groups ?? [])
+  const sections: SectionListData<ModelListItem, { title: string }>[] = effectiveGroups
     .filter((g) => g.models.length > 0)
     .map((g) => {
       const models = [...g.models].sort((a, b) => (b.isTop ? 1 : 0) - (a.isTop ? 1 : 0))
@@ -382,12 +403,18 @@ export default function ModelList({
       ListHeaderComponent={renderAgentHeader}
       stickySectionHeadersEnabled
       ListEmptyComponent={EmptyState}
-      contentContainerStyle={styles.listBody}
+      contentContainerStyle={
+        variant === 'popup' ? [styles.listBody, styles.popupBody] : styles.listBody
+      }
     />
   )
 }
 
 const styles = StyleSheet.create({
+  /** popup 变体:弹层卡片底色(与小程序端 .model-list-popup 同义) */
+  popupBody: {
+    backgroundColor: tokens.surface.card,
+  },
   listBody: {
     backgroundColor: tokens.surface.bg,
     // 底部留白唯一源在 spec(小程序端同档补在 popup 容器上,规则 3)

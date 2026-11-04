@@ -165,6 +165,8 @@ export interface InputAreaProps {
   /** 显示框内麦克风按钮(长按录音,松开转写)。传入后输入区渲染为「一个大输入框」:
    *  [🎤 长按] [TextInput/录音波形] [发送] 同处一个圆角边框内,发送按钮移入框内 */
   showVoiceMic?: boolean
+  /** 样式变体:default(独立语音钮 + 文本框)/ ai-home(大输入框,对齐小程序端同名 prop) */
+  variant?: 'default' | 'ai-home'
   /** 录音中(showVoiceMic=true 时生效):输入区显示波形 + 时长「松开结束」 */
   voiceRecording?: boolean
   /** 转写中(showVoiceMic=true 时生效):输入区显示「转写中…」 */
@@ -305,6 +307,7 @@ export function InputArea({
   onImageRemove,
   onImageAdd,
   showVoiceMic = false,
+  variant = 'default',
   voiceRecording = false,
   voiceTranscribing = false,
   voiceDuration = 0,
@@ -487,9 +490,9 @@ export function InputArea({
           </ScrollView>
         ) : null}
 
-        {/* 输入行:showVoiceMic 时为一个「大输入框」(麦克风+文本/语音+发送同框);
+        {/* 输入行:variant='ai-home'(或 showVoiceMic)时为一个「大输入框」(麦克风+文本/语音+发送同框);
             否则原布局(独立语音按钮 + 文本框 + 框外发送按钮) */}
-        {showVoiceMic ? (
+        {variant === 'ai-home' || showVoiceMic ? (
           <View
             style={[
               styles.fieldShell,
