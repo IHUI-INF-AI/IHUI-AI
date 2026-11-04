@@ -44,6 +44,9 @@ vi.mock('@ihui/api-client', () => ({
   },
 }))
 
+/** 版本哨兵:mock 工厂被 hoist,只能用 vi.hoisted 取常量 */
+const APP_VERSION_SENTINEL = vi.hoisted(() => '9.9.9-test-sentinel')
+
 const registry = vi.hoisted(() => ({
   configure: vi.fn(),
   reset: vi.fn(),
@@ -60,6 +63,9 @@ vi.mock('../src/lib/config', () => ({
   // 两臂刻意取不同值:桥接若错用 REST 基址建 WS,分域断言当场失败
   API_BASE_URL: 'https://www.aizhs.top',
   WS_BASE_URL: 'https://api.aizhs.top',
+  // 能力上报的 version 自 1632ce0603 起改走 APP_VERSION 单源(此前写死 '1.0.0'),
+  // 哨兵值用来区分"读了配置单源"与"又写死一个版本号"
+  APP_VERSION: APP_VERSION_SENTINEL,
 }))
 
 import {
@@ -127,7 +133,7 @@ afterEach(() => {
 })
 
 describe('能力上报信封', () => {
-  it('endpoint=rn + appUiActions 四项 + reportedAt 为 ISO', () => {
+  it('endpoint=rn + appUiActions 七项 + version 单源 + reportedAt 为 ISO', () => {
     const cap = buildCapability()
     expect(cap.endpoint).toBe('rn')
     expect(cap.appUiActions).toEqual([
@@ -141,6 +147,8 @@ describe('能力上报信封', () => {
     ])
     expect(cap.uiActions).toBeUndefined()
     expect(cap.instanceId).toBe(getRnInstanceId())
+    // 版本必须来自 config 的 APP_VERSION 单源(1632ce0603 之前这里写死 '1.0.0')
+    expect(cap.version).toBe(APP_VERSION_SENTINEL)
     expect(new Date(cap.reportedAt).toISOString()).toBe(cap.reportedAt)
   })
 
@@ -161,6 +169,8 @@ describe('startUiControlBridge 连接生命周期', () => {
     startUiControlBridge('tok-1')
     expect(h.posts[0]?.url).toBe('/api/agent-control/capability')
     expect(h.posts[0]?.body.endpoint).toBe('rn')
+    // 上报信封里的 version 同样走单源(不是 buildCapability 自己另编一份)
+    expect(h.posts[0]?.body.version).toBe(APP_VERSION_SENTINEL)
     // WS 分域回归锁:桥接的 WS 用慢臂,能力上报(REST)仍走快臂(见上一条 h.posts 的相对路径)
     expect(h.configs[0]?.baseUrl).toBe('https://api.aizhs.top')
     expect(h.configs[0]?.tokenProvider()).toBe('tok-1')
