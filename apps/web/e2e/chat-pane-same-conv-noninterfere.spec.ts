@@ -525,12 +525,20 @@ async function sendInPane(page: Page, pane: string, text: string): Promise<void>
   await page.locator(`[data-pane-leaf="${pane}"] [data-testid="send-button"]`).first().click()
 }
 
-/** 在某格的 mode-switcher 里点「工具面板」(菜单经 portal 渲染,打开态下全页唯一) */
+/** 在某格开合工具面板(2026-11-04 信息架构重构后的取法):
+ *  mode-switcher 已随输入区收敛进本格 `+` 菜单(portal 到 body、不在 `[data-pane-leaf]`
+ *  DOM 内),所以先点本格可见的 `add-menu-trigger`,再对门户菜单里唯一打开的
+ *  mode-switcher 操作;选完「工具面板」后 Esc 收起菜单,避免下一步点另一格的 `+`
+ * 时先被"点外部关闭"吃掉一次。 */
 async function toggleToolsPanelIn(page: Page, pane: string): Promise<void> {
-  await page.locator(`[data-pane-leaf="${pane}"] [data-testid="mode-switcher"]`).first().click()
+  await page.locator(`[data-pane-leaf="${pane}"] [data-testid="add-menu-trigger"]`).first().click()
+  const modeSwitcher = page.locator('[data-testid="mode-switcher"]')
+  await expect(modeSwitcher).toBeVisible({ timeout: 10_000 })
+  await modeSwitcher.first().click()
   const item = page.locator('[data-testid="menu-tools-panel"]')
   await expect(item).toHaveCount(1, { timeout: 10_000 })
   await item.click()
+  await page.keyboard.press('Escape')
 }
 
 function toolsPanelBody(page: Page, pane: string) {

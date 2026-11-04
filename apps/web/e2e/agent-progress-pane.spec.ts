@@ -40,7 +40,8 @@ const TOOLS_PANEL = '[data-testid="composer-tools-panel"]'
 async function openComposerMenu(page: Page) {
   const trigger = page.locator(ADD_MENU_TRIGGER)
   await expect(trigger).toBeVisible()
-  if ((await trigger.getAttribute('aria-expanded').catch(() => null)) !== 'true') {
+  // 2026-11-04 校准:aria-expanded 在自写 popover 上呈现空串,判开合改用显式 data-state。
+  if ((await trigger.getAttribute('data-state').catch(() => null)) !== 'open') {
     await trigger.click()
   }
   await expect(page.locator(ADD_MENU_OPEN_MARK).first()).toBeVisible()
@@ -59,16 +60,16 @@ async function openComposerTools(page: Page) {
  *  触发外部 mousedown 兜底)。 */
 async function closeComposerMenu(page: Page) {
   const trigger = page.locator(ADD_MENU_TRIGGER)
-  if ((await trigger.getAttribute('aria-expanded').catch(() => null)) !== 'true') return
+  if ((await trigger.getAttribute('data-state').catch(() => null)) !== 'open') return
   await page.keyboard.press('Escape')
-  if ((await trigger.getAttribute('aria-expanded').catch(() => null)) === 'true') {
+  if ((await trigger.getAttribute('data-state').catch(() => null)) === 'open') {
     await page
       .locator('textarea')
       .first()
       .click({ position: { x: 8, y: 8 } })
       .catch(() => {})
   }
-  await expect(trigger).toHaveAttribute('aria-expanded', 'false', { timeout: 5000 })
+  await expect(trigger).toHaveAttribute('data-state', 'closed', { timeout: 5000 })
 }
 
 /** 软断言版展开抽屉:未登录 / 无输入卡时返回 false,沿用本文件"找不到则 skip"风格 */

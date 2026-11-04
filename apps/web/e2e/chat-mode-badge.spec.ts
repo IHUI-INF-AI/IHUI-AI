@@ -114,7 +114,9 @@ const PROGRESS_TRIGGER = '[data-testid="agent-progress-trigger"]'
 async function openComposerMenu(page: Page) {
   const trigger = page.locator(ADD_MENU_TRIGGER)
   await expect(trigger).toBeVisible()
-  if ((await trigger.getAttribute('aria-expanded').catch(() => null)) !== 'true') {
+  // 2026-11-04 校准:aria-expanded 在自写 popover 上会呈现空串(React 布尔 ARIA 序列化),
+  // 判开合改用组件显式写的 data-state=open|closed(与 mode-switch.spec 的判据同源)。
+  if ((await trigger.getAttribute('data-state').catch(() => null)) !== 'open') {
     await trigger.click()
   }
   await expect(page.locator(ADD_MENU_OPEN_MARK).first()).toBeVisible()
@@ -134,16 +136,16 @@ async function openComposerTools(page: Page) {
  *  退回"点 textarea 左上角空白"触发外部 mousedown 的兜底路径。 */
 async function closeComposerMenu(page: Page) {
   const trigger = page.locator(ADD_MENU_TRIGGER)
-  if ((await trigger.getAttribute('aria-expanded').catch(() => null)) !== 'true') return
+  if ((await trigger.getAttribute('data-state').catch(() => null)) !== 'open') return
   await page.keyboard.press('Escape')
-  if ((await trigger.getAttribute('aria-expanded').catch(() => null)) === 'true') {
+  if ((await trigger.getAttribute('data-state').catch(() => null)) === 'open') {
     await page
       .locator('textarea')
       .first()
       .click({ position: { x: 8, y: 8 } })
       .catch(() => {})
   }
-  await expect(trigger).toHaveAttribute('aria-expanded', 'false', { timeout: 5000 })
+  await expect(trigger).toHaveAttribute('data-state', 'closed', { timeout: 5000 })
 }
 
 /** 设置 zustand persist 的 mode store(让页面加载时直接进入目标 mode)
@@ -371,9 +373,10 @@ test.describe('ChatModeBadge + 3 通道模式切换', () => {
     expect(result).not.toBeNull()
     expect(result?.dataMode).toBe('build')
     expect(result?.hasIcon).toBe(true)
-    expect(result?.ariaHidden).toBe('true')
-    // iconOnly 紧凑工具条:无文本 span,文案在 aria-label
-    expect(result?.spanCount).toBe(0)
+    // 2026-11-04 信息架构重构:徽标由 iconOnly 紧凑工具条变为「更多工具」抽屉行,
+    // 行内必然有一枚可见文案 span(模式名),aria-label 仍为整串「{mode}任务」。
+    // iconOnly 时期的 spanCount=0 / svg aria-hidden 前提随结构失效,改断言文案在场。
+    expect(result?.spanCount).toBeGreaterThan(0)
     expect(result?.ariaLabel).toBe('构建任务')
   })
 

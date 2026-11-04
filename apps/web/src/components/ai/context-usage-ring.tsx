@@ -489,6 +489,7 @@ export function ContextUsageRing({ model, isStreaming = false }: ContextUsageRin
     const gap = 8
     const pad = 8
     const VW = window.innerWidth
+    const VH = window.innerHeight
 
     let top = r.top - gap - panelRect.height
     let left = r.left
@@ -501,6 +502,10 @@ export function ContextUsageRing({ model, isStreaming = false }: ContextUsageRin
     if (top < pad) {
       top = r.bottom + gap
     }
+    // 2026-11-04:触发器随输入区收敛进「+ → 更多工具」抽屉后可能落在视口下半区,
+    // 上面的"放不下就翻到下方"兜底会把 600+px 的面板顶出视口底。
+    // 补一条底边夹紧(VH - pad - 面板高),任何情况下都留在视口内。
+    top = Math.min(top, VH - pad - panelRect.height)
     top = Math.max(pad, top)
 
     setCoords({ top, left })
@@ -617,7 +622,11 @@ export function ContextUsageRing({ model, isStreaming = false }: ContextUsageRin
             // 无障碍遍历、后续改样式的人)检查,类名上看不出它是浮层 —— 而"忘了写定位"
             // 正是弹层跟着页面滚走那一类事故的成因。top/left 仍由 inline 给(坐标是动态的)。
             className="fixed z-popover w-72 ui-popover rounded-md border bg-popover p-3 text-popover-foreground shadow-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            style={coords ? { top: coords.top, left: coords.left } : { top: -9999, left: -9999 }}
+            style={
+              coords
+                ? { top: coords.top, left: coords.left, maxHeight: 'calc(100vh - 16px)' }
+                : { top: -9999, left: -9999 }
+            }
             role="dialog"
             aria-label={t('title')}
             aria-modal="true"
