@@ -158,6 +158,12 @@ module.exports = ({ config }) => {
       // 危险权限摘除:SYSTEM_ALERT_WINDOW 在 manifest 里而全仓零引用(2026-11-03 实测),
       // 国内商店与工信部通报都按"声明即需说明"处理 ⇒ 摘掉,并以 tools:node=remove 防依赖库再带回
       './plugins/withPermissionPruning.cjs',
+      // 应用内整包更新:补 android.permission.REQUEST_INSTALL_PACKAGES(Android 8+ 请求安装
+      // 的调用方必须持有,缺了症状是"点了更新什么也不发生")。FileProvider 由 expo-file-system
+      // 自带,原生意图由 expo-intent-launcher 提供,只有这条权限需要我们自己声明。
+      // 刻意排在 withPermissionPruning 之后:那条只管摘除,本条的"增"要落在最后一步,
+      // 万一将来有人误把 REQUEST_INSTALL_PACKAGES 加进摘除集,插件会显式告警而不是静默失效。
+      './plugins/withApkInstaller.cjs',
       // 全局统一字体:对齐历史 Uniapp 项目 AlimamaFangYuanTi(2026-08-13 立,H19)
       // 字体文件:assets/fonts/AlimamaFangYuanTiVF-Thin.ttf
       // build-time linking,font-family 名称取字体内部 PostScript name
