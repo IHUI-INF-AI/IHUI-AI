@@ -44,29 +44,29 @@ export default function VipUpgradeToast({
   if (!show) return null
 
   return (
-    <View className="fixed top-4 left-0 right-0 z-40 flex justify-center px-4">
+    <View className="fixed top-4 left-0 right-0 z-40 flex justify-center px-lg">
       <View
-        className="flex items-center px-4 py-[20rpx] rounded-md shadow-lg"
+        className="flex items-center px-lg py-[20rpx] rounded-md shadow-lg"
         style={{
           background:
             'linear-gradient(90deg, var(--color-warning-tint), var(--color-warning-tint))',
         }}
       >
-        <LineIcon className="mr-2" name="gem" size={32} color="var(--color-warning)" />
-        <Text className="text-xs text-[var(--color-warning-amber-text)] mr-3">{desc}</Text>
+        <LineIcon className="mr-sm" name="gem" size={32} color="var(--color-warning)" />
+        <Text className="text-label text-[var(--color-warning-amber-text)] mr-md">{desc}</Text>
 
         <View
-          className="px-3 py-1 rounded-md"
+          className="px-md py-xs rounded-md"
           style={{ background: 'var(--color-warning)' }}
           onClick={onUpgrade}
           hoverClass="opacity-60"
         >
-          <Text className="text-xs text-warning-foreground font-medium">
+          <Text className="text-label text-warning-foreground font-medium">
             {tt('vip.upgradeNow', '升级')}
           </Text>
         </View>
         <Text
-          className="text-xs text-warning ml-2"
+          className="text-label text-warning ml-sm"
           onClick={() => {
             setShow(false)
             onClose?.()

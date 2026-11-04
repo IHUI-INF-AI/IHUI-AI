@@ -41,7 +41,7 @@
 .content {
   position: relative;
   z-index: 2;
-  padding: 60rpx 40rpx;
+  padding: 60rpx var(--spacing-xl);
   color: var(--color-white-98);
 }
 .title {
@@ -72,7 +72,7 @@
    深灰 var(--color-vip-card) / marginH 16dp→32rpx / mt 16dp→32rpx /
    padding 14dp→28rpx / 圆角 12dp→24rpx,白字层级) ===== */
 .status-bar {
-  margin: var(--spacing-lg) 32rpx 0;
+  margin: var(--spacing-lg) var(--spacing-lg) 0;
   padding: var(--spacing-md-loose);
   background: var(--color-vip-card);
   border-radius: var(--radius-xl);
@@ -92,7 +92,7 @@
   /* 对齐 RN membershipLabel:14dp→28rpx / white 80% */
   font-size: var(--text-body);
   color: var(--color-white-80);
-  padding: var(--spacing-xs) 20rpx;
+  padding: var(--spacing-xs) var(--spacing-sm-loose);
   border: 1px solid var(--color-white-30);
   border-radius: var(--radius-lg);
 }
@@ -161,7 +161,7 @@
 }
 .feature-tag {
   /* 对齐 RN SharedVipScreen currentBadge:金底 + gray.800 深字(var(--color-vip-card)) */
-  padding: var(--spacing-2xs) 16rpx;
+  padding: var(--spacing-2xs) var(--spacing-sm);
   background: var(--vip-gold);
   border-radius: var(--radius-md);
   font-size: var(--text-badge);
@@ -182,7 +182,7 @@
 
 /* ===== 套餐卡 + 自动续费 + 会员说明(对齐 RN planCard:mt 20rpx / marginH 32rpx / padding 28rpx) ===== */
 .plans-card {
-  margin: var(--spacing-sm-loose) 32rpx 24rpx;
+  margin: var(--spacing-sm-loose) var(--spacing-lg) var(--spacing-md);
   padding: var(--spacing-md-loose);
   background: var(--vip-card-bg);
   border: 1px solid var(--vip-border);
@@ -260,7 +260,7 @@
   bottom: 0;
   left: 0;
   right: 0;
-  padding: var(--spacing-md) 40rpx;
+  padding: var(--spacing-md) var(--spacing-xl);
   padding-bottom: calc(24rpx + env(safe-area-inset-bottom));
   background: var(--vip-buy-bg);
   backdrop-filter: blur(20px);
@@ -295,7 +295,7 @@
   flex: 1;
   height: 72rpx;
   line-height: 72rpx;
-  padding: 0 48rpx;
+  padding: 0 var(--spacing-2xl);
   background: var(--color-brand-accent);
   border-radius: var(--radius-sm);
   font-size: var(--text-body-sm);
@@ -472,7 +472,7 @@
   height: var(--spacing-5xl);
   line-height: 96rpx;
   text-align: center;
-  margin: 0 auto 24rpx;
+  margin: 0 auto var(--spacing-md);
   background: var(--color-success);
   border-radius: var(--radius-lg);
   color: var(--color-success-foreground);

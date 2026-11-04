@@ -39,15 +39,15 @@ export default function MessageActions({
         onClick={() => setExpanded(!expanded)}
         hoverClass="opacity-60"
       >
-        <Text className="text-muted-foreground text-sm">⋯</Text>
+        <Text className="text-muted-foreground text-body">⋯</Text>
       </View>
 
       {expanded && (
-        <View className="absolute right-0 top-9 z-10 bg-card rounded-lg shadow-lg py-1 min-w-[240rpx]">
+        <View className="absolute right-0 top-9 z-10 bg-card rounded-lg shadow-lg py-xs min-w-[240rpx]">
           {/* 与共享屏 spec 同口径:操作位只在给了处理函数时渲染,不挂"点了没反应"的假按钮 */}
           {onMarkRead ? (
             <View
-              className="flex items-center px-3 py-2 "
+              className="flex items-center px-md py-sm "
               aria-role="button"
               aria-label={markReadLabel ?? tt('messageCenter.markRead', '标记已读')}
               onClick={() => {
@@ -56,14 +56,14 @@ export default function MessageActions({
               }}
               hoverClass="opacity-60"
             >
-              <Text className="text-sm text-foreground">
+              <Text className="text-body text-foreground">
                 {markReadLabel ?? tt('messageCenter.markRead', '标记已读')}
               </Text>
             </View>
           ) : null}
           {onPin ? (
             <View
-              className="flex items-center px-3 py-2 "
+              className="flex items-center px-md py-sm "
               aria-role="button"
               aria-label={
                 pinLabel ??
@@ -75,14 +75,14 @@ export default function MessageActions({
               }}
               hoverClass="opacity-60"
             >
-              <Text className="text-sm text-foreground">
+              <Text className="text-body text-foreground">
                 {pinned ? tt('message.unpin', '取消置顶') : tt('message.pin', '置顶会话')}
               </Text>
             </View>
           ) : null}
           {onDelete ? (
             <View
-              className="flex items-center px-3 py-2 "
+              className="flex items-center px-md py-sm "
               aria-role="button"
               aria-label={deleteLabel ?? tt('messageCenter.deleteConv', '删除会话')}
               onClick={() => {
@@ -91,7 +91,7 @@ export default function MessageActions({
               }}
               hoverClass="opacity-60"
             >
-              <Text className="text-sm text-destructive">
+              <Text className="text-body text-destructive">
                 {deleteLabel ?? tt('messageCenter.deleteConv', '删除会话')}
               </Text>
             </View>

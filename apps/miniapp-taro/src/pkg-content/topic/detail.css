@@ -62,7 +62,7 @@
 .topic-detail-follow-btn {
   flex-shrink: 0;
   margin: 0;
-  padding: var(--spacing-xs-loose) 32rpx;
+  padding: var(--spacing-xs-loose) var(--spacing-lg);
   font-size: var(--text-body-sm);
   font-weight: 600;
   line-height: 1.4;
@@ -91,7 +91,7 @@
   flex-direction: row;
   align-items: center;
   gap: var(--spacing-sm);
-  padding: var(--spacing-sm-loose) 24rpx;
+  padding: var(--spacing-sm-loose) var(--spacing-md);
   background: var(--color-card);
 }
 
@@ -118,7 +118,7 @@
 
 /* ===== 帖子列表(RN listContent: padding24/pb40/gap16) ===== */
 .topic-detail-list {
-  padding: var(--spacing-md) 24rpx 40rpx;
+  padding: var(--spacing-md) var(--spacing-md) var(--spacing-xl);
 }
 
 /* 帖子卡(RN post: gap12/padding24/radius16 白底) */
