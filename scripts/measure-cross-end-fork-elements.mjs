@@ -25,6 +25,15 @@
  *   node scripts/measure-cross-end-fork-elements.mjs            # 核对(默认;台账过期/有未归类/额度不足 ⇒ exit 1)
  *   node scripts/measure-cross-end-fork-elements.mjs --write     # 重生成台账(不碰允许差异表)
  *   node scripts/measure-cross-end-fork-elements.mjs --json      # 机器可读
+ *
+ * 台账新鲜度(2026-11-05 补;上面那句"台账过期 ⇒ exit 1"此前**只有声明没有实现**):
+ *   默认核对会把 `scripts/data/cross-end-fork-decisions.json` 与本次读数逐字段比 —— summary 各计数、
+ *   三类行集(fontSizeElements / forkRows / missingTierDecisions)、额度覆盖、面,任何一处不同都算
+ *   "过期"并计入判红面。`--write` 是唯一出口。
+ *   面的归一:`--staged` 与 `head` 在提交落地后是同一棵树(索引即待提交树)⇒ 比对时 staged 归一成
+ *   head;`worktree` **不归一** —— 逃生舱读的是并行会话的半编辑态,它的产物写进台账必须当场判红。
+ *   接线:本器由 `scripts/run-8end-consistency-cert.mjs` 的 `cross-end-fork-elements` 维调用
+ *   (`.github/workflows/8end-consistency-cert.yml`,周回归 + 相关路径 push)。
  */
 import { writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
@@ -116,6 +125,68 @@ export function scanElements(files, readOne) {
 
 const ALLOWED_CLASSES = new Set(['rn-only-display', 'rn-only-shape', 'rn-only-hairline'])
 const fileBase = (p) => p.split(/[\\/]/).pop().replace(/\.(tsx?|jsx?)$/, '')
+
+/** 行标识:元素行按 `文件:样式键@值`,分叉/缺位行按 `prop=值`(=同表内唯一键)。 */
+export function rowId(r) {
+  if (!r || typeof r !== 'object') return String(r)
+  return typeof r.file === 'string' ? `${r.file}:${r.styleKey}@${r.size}` : `${r.prop}=${r.value}`
+}
+
+/** staged 归一成 head(索引即待提交树);worktree 保留 —— 逃生舱产物不得冒充 HEAD。 */
+export function canonicalFace(face) {
+  return face === 'staged' ? 'head' : face
+}
+
+/**
+ * 台账新鲜度判据(2026-11-05 立)。
+ *
+ * 立因:本器头注写着「台账过期 ⇒ exit 1」,实现里却**从来没有比对过**落盘台账与本次读数 ——
+ * 于是 2026-11-02 生成的台账在两天高频改动后仍写着 316 处(实测 183 处),而命令照常 exit 0。
+ * 一份自称"元素级归类"的台账,谁都不知道它描述的已不是当前代码;这与 knip 配置加载失败被静默
+ * 降级同型(少算一整块面、照常报绿),故把比对做进判据本身,不靠人记得重生成。
+ *
+ * 逐字段比而不是比整串:JSON 的缩进/换行是排版,不是结论;比整串会让 Prettier 一跑就误报过期。
+ * 反过来,行集必须逐条比 —— 只比条数会让"删一条又加一条"读起来没变。
+ */
+export function ledgerFreshness(committedText, ledger) {
+  if (typeof committedText !== 'string') return { status: 'missing', problems: ['台账取不到(本面不存在该路径)'] }
+  let prev
+  try {
+    prev = JSON.parse(committedText)
+  } catch (e) {
+    return { status: 'malformed', problems: [`台账不是合法 JSON:${e.message}`] }
+  }
+  const problems = []
+  if (canonicalFace(prev?.face) !== canonicalFace(ledger.face)) {
+    problems.push(`面不同:台账记 ${prev?.face},本次是 ${ledger.face}`)
+  }
+  const ps = prev?.summary ?? {}
+  const ns = ledger.summary ?? {}
+  for (const k of ['elements', 'fontSize', 'forkRows', 'forkOccurrences', 'missingTierRows', 'missingTierOccurrences']) {
+    if (ps[k] !== ns[k]) problems.push(`summary.${k} ${ps[k]} → ${ns[k]}`)
+  }
+  const pc = ps.classes ?? {}
+  const nc = ns.classes ?? {}
+  for (const k of [...new Set([...Object.keys(pc), ...Object.keys(nc)])].sort()) {
+    if ((pc[k] ?? 0) !== (nc[k] ?? 0)) problems.push(`summary.classes.${k} ${pc[k] ?? 0} → ${nc[k] ?? 0}`)
+  }
+  for (const key of ['fontSizeElements', 'forkRows', 'missingTierDecisions']) {
+    const a = Array.isArray(prev?.[key]) ? prev[key] : []
+    const b = Array.isArray(ledger[key]) ? ledger[key] : []
+    if (a.length !== b.length) problems.push(`${key} ${a.length} → ${b.length} 条`)
+    const ai = new Set(a.map(rowId))
+    const bi = new Set(b.map(rowId))
+    const gone = a.map(rowId).filter((id) => !bi.has(id))
+    const added = b.map(rowId).filter((id) => !ai.has(id))
+    const brief = (xs) => `${xs.slice(0, 3).join(' ; ')}${xs.length > 3 ? ` ; …(+${xs.length - 3})` : ''}`
+    if (gone.length) problems.push(`${key} 少 ${gone.length} 条:${brief(gone)}`)
+    if (added.length) problems.push(`${key} 多 ${added.length} 条:${brief(added)}`)
+  }
+  for (const k of ['version', 'note', 'allowanceCoverage', 'undetermined']) {
+    if (JSON.stringify(prev?.[k]) !== JSON.stringify(ledger[k])) problems.push(`${k} 与本次读数不同`)
+  }
+  return { status: problems.length ? 'stale' : 'fresh', problems }
+}
 
 /** 元素级 component:字形/圆形按 `<文件基名>.<样式键>`,细线按 `RN:<kind>:<prop>`(整值语义)。 */
 function componentOf(o) {
@@ -262,8 +333,14 @@ export function buildLedger({ face, elements, tierRows, allowedEntries, today = 
  */
 function missingTierDecisions(tierRows) {
   const VALUES = {
+    // 准入线(见 packages/design-tokens/src/spacing.ts 头注):两端各自 ≥100 处同值才进表。
+    // 1/7/9 是 2026-11-03 档位尺补全 web 工具类前缀(gap-x/gap-y/mt/mb/ml/mr/pl/pr)后才显形的
+    // 同族值:此前 web 那 2 处任意值写法读不到 ⇒ RN 侧被误判成 fork;现在读到了,但它们仍在准入线外。
+    1: '1px 是 RN 逻辑像素的细线/贴边值(RN 30 处,其中 paddingVertical:1 25 处;web 侧仅 mt-[1px] 2 处),不是间距刻度;两端都远低于准入线,且 1 < 最小档 2 ⇒ 补表会造出 web 无规模取用的档。',
     3: '半步档规模未过 Phase 3 准入线(RN 20 处),且 spacing.ts 头注已把 3 留给决策表;补表会扩张公开档而无派生收益。',
     5: '半步档规模未过 Phase 3 准入线(RN 25+ 处,web 同值在用),spacing.ts 头注已明写"不得借本表顺手补入"。',
+    7: '7px 落在档 6/8 之间(Δ=1px):RN 11 处 / web 2 处(ml-[7px]),两端都在准入线外 ⇒ 不补表;落最近档要逐处裁量(改 1px 观感),不批量落。',
+    9: '9px 落在档 8/10 之间(Δ=1px):RN 8 处 / web 2 处(pl-[9px]),同上 —— 规模不到准入线,补表只会造出无派生消费方的散档。',
     26: '字号 26 无对应 TYPE_STEPS 档;本阶段硬约束"不新增类型档",最近档 24/30 的 Δ=2px > 1px ⇒ 落档会改观感。',
     28: '布局专用值(marginTop/padding 各 1-2 处),非间距刻度;未过准入线,补表会把局部布局值升成公共档。',
     80: '屏级留白(paddingBottom 1 处),远离现有档表上界 64,不具备跨端复用规模。',
@@ -276,9 +353,15 @@ function missingTierDecisions(tierRows) {
       prop: r.prop,
       value: r.val,
       occurrences: r.n,
-      verdict: 'decision-table',
+      // 判据(2026-11-05 立):决策表里**人写过理由的行**才算已定语义。
+      // 早先未命中的取值拿一句通用理由"必须由人先定归属"直接入账,而 main() 只数 undetermined
+      // 与额度缺口 ⇒ 那句"必须"根本没有出口:10 行(1/7/9)就这样以 verdict=decision-table 静默躺在
+      // 台账里,读起来像"已决策"。现在未命中即 undecided,由 main() 计入判红面。
+      verdict: Object.prototype.hasOwnProperty.call(VALUES, r.val) ? 'decision-table' : 'undecided',
       reject: ['补表', '落最近档'],
-      reason: VALUES[r.val] ?? '未归类取值:必须由人先定归属,不得默认补表或默认放行。',
+      reason:
+        VALUES[r.val] ??
+        '未归类取值:必须由人先定归属(补 VALUES 写清理由,或补档);verdict=undecided 已计入本器判红面。',
       evidence: `档位尺 --json: ${r.prop}=${r.val}px×${r.n}(missingTier:对端同值在用但不在档表)`,
     }))
 }
@@ -302,6 +385,7 @@ function main() {
   const { entries, problem } = loadAllowed()
   const ledger = buildLedger({ face: FACE, elements, tierRows: judge.rn.rows, allowedEntries: entries })
   const ledgerText = JSON.stringify(ledger, null, 2) + '\n'
+  const fresh = ledgerFreshness(fetchTexts([LEDGER_REL]).get(LEDGER_REL), ledger)
   if (writeMode) {
     writeFileSync(resolve(ROOT, LEDGER_REL), ledgerText)
     console.log(`✅ 已写入 ${LEDGER_REL}:元素 ${ledger.summary.elements} 处 / 分叉 ${ledger.summary.forkRows} 行 / 缺位 ${ledger.summary.missingTierRows} 行`)
@@ -319,15 +403,42 @@ function main() {
       `登记覆盖:缺 ${cov.missing.length} / 额度不足 ${cov.short.length} / 到期 ${cov.expired.length}` +
         `${problem ? ` · ⚠ ${problem}` : ''}`,
     )
+    const FRESH_LABEL = {
+      fresh: '✅ 与本次读数同源',
+      stale: '❌ 过期(与本次读数不同源)',
+      malformed: '❌ 不是合法 JSON',
+      missing: '❌ 取不到',
+    }
+    console.log(`台账新鲜度(${LEDGER_REL}):${FRESH_LABEL[fresh.status] ?? fresh.status}`)
   }
-  // 判红:未归类 / 额度缺口 / 到期 —— 台账坏了就是坏了,不得当成"都登记过"。
-  const bad = ledger.undetermined.length + ledger.allowanceCoverage.missing.length + ledger.allowanceCoverage.short.length + ledger.allowanceCoverage.expired.length + (problem ? 1 : 0)
+  // 判红:未归类 / 额度缺口 / 到期 / 缺位未定语义 / 台账过期。
+  // 台账坏了就是坏了,不得当成"都登记过";台账过期尤其不得默许 —— 它描述的已不是这份代码。
+  const undecided = ledger.missingTierDecisions.filter((r) => r.verdict !== 'decision-table')
+  const stale = !writeMode && fresh.status !== 'fresh'
+  const bad =
+    ledger.undetermined.length +
+    ledger.allowanceCoverage.missing.length +
+    ledger.allowanceCoverage.short.length +
+    ledger.allowanceCoverage.expired.length +
+    undecided.length +
+    (problem ? 1 : 0) +
+    (stale ? 1 : 0)
   if (bad) {
-    console.error(`❌ 元素级归类未收口:${bad} 处(未归类/额度缺失/到期/登记表取不到)⇒ 先定语义或补登记,不得放行`)
+    console.error(
+      `❌ 元素级归类未收口:${bad} 处(未归类/额度缺失/到期/缺位未定/台账过期/登记表取不到)⇒ 先定语义或补登记,不得放行`,
+    )
     for (const u of ledger.undetermined.slice(0, 8))
       console.error(`   ? ${u.file}: ${u.prop}=${u.val}(${u.styleKey})`)
     for (const m of ledger.allowanceCoverage.missing.slice(0, 8))
       console.error(`   + ${m.component}|${m.key} 需登记 ${m.count} 处(${m.file}:${m.styleKey})`)
+    for (const u of undecided.slice(0, 8))
+      console.error(`   ~ missingTier ${u.prop}=${u.value} ×${u.occurrences} 未定语义(决策表 VALUES 里没有该取值)`)
+    if (stale) {
+      console.error(
+        `   ⟳ ${LEDGER_REL} 与本次读数不同源(${fresh.status})⇒ node scripts/measure-cross-end-fork-elements.mjs --write && git add ${LEDGER_REL}`,
+      )
+      for (const p of fresh.problems.slice(0, 12)) console.error(`      · ${p}`)
+    }
     process.exitCode = 1
   }
 }
@@ -341,5 +452,8 @@ export const __test__ = {
   allowanceIndex,
   buildLedger,
   componentOf,
+  ledgerFreshness,
+  rowId,
+  canonicalFace,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

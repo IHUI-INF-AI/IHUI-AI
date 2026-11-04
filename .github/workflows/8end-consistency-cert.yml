@@ -41,6 +41,30 @@ on:
       - 'scripts/check-cross-store-parity.mjs'
       - 'scripts/check-adapter-style-parity.mjs'
       - 'scripts/check-multi-end-sync.mjs'
+      # 2026-11-05:fork 元素级台账的新鲜度判据。触发面必须含**被量的数据面**,
+      # 否则"改了东西但不触发量它的门"(与 i18n 那组同型:只列门脚本自己)。
+      # 源目录(apps/mobile-rn、packages/app、apps/web)刻意不进 push 触发面 —— 本认证是周回归档,
+      # 跟随每次 UI 提交会逼每个改动方在同一枚提交里重生成台账;真要做每推必判,那要单起一道
+      # 轻量作业而不是让 15 分钟档的认证矩阵挡住每次提交。源目录漂移由周回归兜住。
+      - 'scripts/measure-cross-end-fork-elements.mjs'
+      - 'scripts/check-web-rn-style-tiers.mjs'
+      - 'scripts/data/cross-end-fork-decisions.json'
+      - 'scripts/data/cross-end-allowed-diffs.json'
+      - 'packages/design-tokens/src/spacing.ts'
+      - 'packages/design-tokens/src/typography.ts'
+      - 'packages/design-tokens/src/radius.js'
+      # 2026-11-05:fork 元素级台账的新鲜度判据。触发面必须含**被量的数据面**,
+      # 否则"改了东西但不触发量它的门"(与 i18n 那组同型:只列门脚本自己)。
+      # 源目录(apps/mobile-rn、packages/app、apps/web)刻意不进 push 触发面 —— 本认证是周回归档,
+      # 跟随每次 UI 提交会逼每个改动方在同一枚提交里重生成台账;真要做每推必判,那要单起一道
+      # 轻量作业而不是让 15 分钟档的认证矩阵挡住每次提交。源目录漂移由周回归兜住。
+      - 'scripts/measure-cross-end-fork-elements.mjs'
+      - 'scripts/check-web-rn-style-tiers.mjs'
+      - 'scripts/data/cross-end-fork-decisions.json'
+      - 'scripts/data/cross-end-allowed-diffs.json'
+      - 'packages/design-tokens/src/spacing.ts'
+      - 'packages/design-tokens/src/typography.ts'
+      - 'packages/design-tokens/src/radius.js'
       #2026-10-04 fail-open 修复:本门唯一被扫的数据面是 i18n 文案本身
       # (check-i18n-broken-en.mjs 读 packages/i18n/messages/web/en.json,
       #  check-i18n-keys.mjs / scan-dead-i18n-keys.mjs 读 packages/i18n/messages/**)。

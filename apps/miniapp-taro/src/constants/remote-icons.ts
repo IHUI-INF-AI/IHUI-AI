@@ -27,10 +27,6 @@ const erweimaIcon = aizhsUrl('remote-images/erweima.png')
 const emptyIcon = aizhsUrl('remote-images/empty.png')
 const tishiIconIcon = aizhsUrl('remote-images/tishi_icon.png')
 const searchIcon = aizhsUrl('remote-images/search.svg')
-const sqb20250816161049a277Icon = aizhsUrl('remote-images/sqb_20250816161049A277.png')
-const qqb20250816161046a276Icon = aizhsUrl('remote-images/qqb_20250816161046A276.png')
-const szdy20250816161421a290Icon = aizhsUrl('remote-images/szdy_20250816161421A290.png')
-const qzdy20250816161419a289Icon = aizhsUrl('remote-images/qzdy_20250816161419A289.png')
 const shoucangIcon = aizhsUrl('remote-images/shoucang.png')
 const hotIcon = aizhsUrl('remote-images/hot.png')
 const defaultMingpian2Icon = aizhsUrl('remote-images/default/mingpian.png')
@@ -74,10 +70,6 @@ export const REMOTE_ICONS: Record<string, string> = {
   search: searchIcon,
   imageOr: aizhsUrl('sys-mini/xtk/image_or.png'),
   plazaIcon01: aizhsUrl('sys-mini/xtk/plaza_icon01.png'),
-  sqb20250816161049a277: sqb20250816161049a277Icon,
-  qqb20250816161046a276: qqb20250816161046a276Icon,
-  szdy20250816161421a290: szdy20250816161421a290Icon,
-  qzdy20250816161419a289: qzdy20250816161419a289Icon,
   shoucang: shoucangIcon,
   hot: hotIcon,
   gold: aizhsUrl('sys-mini/default/gold.png'),
