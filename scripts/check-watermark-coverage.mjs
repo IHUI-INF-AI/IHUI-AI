@@ -90,6 +90,26 @@ const PUSH_SCOPE_RAW = process.env.PUSH_SCOPE_FILES
 const MAX_AUTOFIX = 200
 
 /**
+ * 无文件面档的判据(2026-11-04 立,纯 ref 删除被误拦的根因修复)。
+ *
+ * `.husky/pre-push` 逐条复核本次推送的 ref 后,在「零 blob 变更」(纯删除远端分支 /
+ * 把分支推进到同一棵树)时导出 `PUSH_NO_FILE_FACE=1` + `PUSH_NO_FILE_FACE_BASIS`。
+ * 此时水印判定面是**真的空集**,不是「取不到面」—— 原实现把两者混为一谈,空 scope 一律
+ * 退回 HEAD 全量面,于是与本次推送毫无关系的存量欠账算成了这次的红。
+ *
+ * 本档只认**带依据**的那一对值:值不是 1 或缺依据 ⇒ 不启用,回到原路径(未取到 push scope
+ * ⇒ 退回 HEAD 全量面 + 告警)。这一条是防"残留 env 把门变成静默 skip"的结构性闸门;
+ * 因此它必须可被 --self-test 直接喂构造面,不能写成 main() 里的内联 if。
+ * @returns {{ok:boolean, basis:string, reason?:string} | null} null = 本档未启用(走原路径)
+ */
+export function noFileFaceVerdict(env = process.env) {
+  if (env.PUSH_NO_FILE_FACE !== '1') return null
+  const basis = String(env.PUSH_NO_FILE_FACE_BASIS || '').trim()
+  if (!basis) return { ok: false, basis: '', reason: 'PUSH_NO_FILE_FACE=1 但缺判定依据' }
+  return { ok: true, basis }
+}
+
+/**
  * 逻辑自检(零git 调用、零副作用、零文件写入)。
  *
  * 覆盖的那一格(2026-10-03 补):**派生层失败时必须 fail-closed 判"不可判定",不得读成通过。**
@@ -302,6 +322,25 @@ function selfTest() {
       carried: [],
     })
     return r.verdict === 'pass' && r.untouchedGaps.join() === 'a.ts'
+  })
+
+  // ── 组 5:无文件面档(2026-11-04)—— 显式判据;缺依据不得启用;判定内核不得被放宽 ──
+  t('N1 无文件面档:flag=1 且带依据 ⇒ 启用并原样带回依据', () => {
+    const r = noFileFaceVerdict({
+      PUSH_NO_FILE_FACE: '1',
+      PUSH_NO_FILE_FACE_BASIS: 'push refs=1 条全部为删除引用(local sha 全 0),不携带任何 blob',
+    })
+    return r.ok === true && r.basis.includes('删除引用')
+  })
+  t('N2 flag=1 但缺依据 ⇒ 不启用(防残留 env 把门变成静默 skip)', () => {
+    const r = noFileFaceVerdict({ PUSH_NO_FILE_FACE: '1' })
+    return r !== null && r.ok === false && /缺判定依据/.test(r.reason || '')
+  })
+  t('N3 flag 不是 1 ⇒ 本档未启用(原路径:回退全量面/告警)', () => noFileFaceVerdict({}) === null)
+  t('N4 反向对照:本档不放宽判红内核 —— 同一份欠账在有文件面时仍判红', () => {
+    // 无文件面档只影响 main() 的早退分支;decideCoverage 对它一无所知。
+    const r = decideCoverage({ scope: OK_SCOPE, uncovered: ['a.ts'], isExcluded: noExclusion })
+    return r.verdict === 'gap' && r.missing.join() === 'a.ts'
   })
 
   let bad = 0
@@ -575,6 +614,25 @@ async function main() {
   if (PUSH_SCOPE && (STAGED || WORKTREE)) {
     console.error('[watermark-coverage] ❌ 无法判定:--push-scope 只能判 HEAD 面,不得与 --staged/--worktree 同用')
     return 2
+  }
+
+  // 无文件面档(2026-11-04):本次推送只增删 ref、零 blob 变更 ⇒ 水印判定面是**空集**,
+  // 不是「取不到面」。按通过并**打印 hook 的推导依据**,不发红也不算静默 skip;
+  // 有文件变更时 PUSH_SCOPE_FILES 非空,走下面的 push scope 逐级推导,判据一字未改。
+  if (PUSH_SCOPE) {
+    const noFile = noFileFaceVerdict()
+    if (noFile && noFile.ok) {
+      console.log(`[watermark-coverage] ✅ 无文件面,按通过 —— 判定依据: ${noFile.basis}`)
+      console.log(
+        '[watermark-coverage] 判据:本次推送 ref 清单已逐条复核为 0 blob 变更 ⇒ 无 HEAD 面文件可判;有文件变更时仍走 push scope 逐级推导(未放宽)。',
+      )
+      return 0
+    }
+    if (noFile && !noFile.ok) {
+      console.warn(
+        `[watermark-coverage] ⚠️ ${noFile.reason} ⇒ 不启用无文件面档,按原路径判定(空 scope 仍退回 HEAD 全量面 + 告警)。`,
+      )
+    }
   }
 
   // 面选择:全量档判 HEAD、--staged 判索引、--worktree 读磁盘(仅人工);两面旗同给 ⇒ 未判定 exit 2。

@@ -85,13 +85,16 @@
  *   本尺收紧的是**输出面**(任何档都不落口令);要连命令行面一起收,得整族改成 PGPASSFILE/
  *   PG* 分项环境变量,那是另一张票,不在本尺射程内。
  *
- * 关于"取证不得连生产库"这一条的**刻意分歧**(必须写清,否则读者会以为本尺写错了):
- *   `scripts/lib/db-probe-client.mjs` 的 `guardDbDsn` 拒绝非回环与 8810,那是**提交链取证探针**
- *   的纪律(每道 dev 机都要跑,不能天天去戳生产)。本尺的**唯一用途**就是量现网:若照抄那把闸,
- *   M2~M5 在任何非生产机上永远 unjudged —— 尺子就成了"恒未判定"的空器,正是它要消的那格
- *   (§0.3 的失效型)。故本尺只**复用** `FORBIDDEN_PROD_PORT` 这个事实把目标分类成
- *   `prod-tunnel / loopback / remote-other` 并如实写进输出,不据此拒绝连接;
- *   拒绝写动作由红线①与②承担,而不是由"连谁"承担。
+ * 关于"取证不得连生产库"(2026-11-04 补闸,口径变了,旧文如实留档在上一条 diff 里):
+ *   本尺**默认档**现在与提交链取证探针同一纪律 —— 库侧连接前先过 `lib/db-probe-client.mjs`
+ *   的 `guardDbDsn`(非回环 host / 有效端口 = 8810 一律拒绝),**不 spawn 任何 psql**,
+ *   把 M2~M5 判 unjudged 并点名理由。理由:默认取材第一命中是 `apps/api/.env` 的
+ *   `DATABASE_URL`(本机实测 `localhost:8810/ihui_dev`),旧版默认档一跑就真连 8810 ——
+ *   "只分类不拒绝"从来不是"不需要闸"的理由。
+ *   确需量现网/8810 时,**只认 CLI 旗标** `--allow-prod-dsn`(绝不从 env/.env/PGPORT 推断:
+ *   环境继承会静默放行,等于没闸);命中旗标时 stderr 固定打一行留痕(脱敏目标 + klass + 2 条只读 SELECT)。
+ *   拒绝**写动作**仍由红线①与②承担,与"连谁"是两层,不是替代关系。
+ *   `classifyDsnTarget` 只做展示分类,**不构成任何闸**;闸在 `collect()` 的库侧入口。
  *
  * 用法(每条都实测跑得通,§0.8):
  *   node scripts/check-learn-video-mount.mjs
@@ -99,6 +102,7 @@
  *   node scripts/check-learn-video-mount.mjs --dsn '<postgres://…>'          # 指到别的库
  *   node scripts/check-learn-video-mount.mjs --base-url https://www.aizhs.top # 换公开入口
  *   node scripts/check-learn-video-mount.mjs --skip-http                     # 只量库侧
+ *   node scripts/check-learn-video-mount.mjs --allow-prod-dsn                 # 显式放行 8810/远端(默认拒绝)
  *   node scripts/check-learn-video-mount.mjs --self-test
  *   镜像测试:node --test scripts/tests/check-learn-video-mount.test.mjs
  *
@@ -118,7 +122,7 @@ import { requireFlagValue } from './lib/flag-value.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 import { makeRegistrar } from './lib/selftest-registrant.mjs'
 import { locatePsqlClient, psqlLocateMissText } from './lib/psql-client-locate.mjs'
-import { FORBIDDEN_PROD_PORT, sanitizeDsn } from './lib/db-probe-client.mjs'
+import { FORBIDDEN_PROD_PORT, guardDbDsn, sanitizeDsn } from './lib/db-probe-client.mjs'
 import { redactChildOutput } from './lib/secret-shape-redact.mjs'
 // .env 解析复用现役唯一实现(该脚本有 §22d isDirectRun 守卫,被 import 时不触发 CLI 副作用)
 import { parseEnvText } from './check-env-drift.mjs'
@@ -358,7 +362,10 @@ export function aggregate(dimensions) {
   return { overall: 'ok', exitCode: 0, counts }
 }
 
-/** 目标分类(只分类不拒绝,理由见头注「刻意分歧」一段)。 */
+/**
+ * 目标分类(只做展示分类,**不构成任何闸** —— 闸在 collect() 的库侧入口:
+ * `guardDbDsn` + CLI `--allow-prod-dsn`;本函数只把 classify 结果写进输出,拿它当闸是分层错位)。
+ */
 export function classifyDsnTarget(dsn) {
   const m = /^postgres(?:ql)?:\/\/(?:[^/@:]+)?(?::[^@/]*)?@([^/:?]+)(?::(\d+))?\/[^\s?]*/.exec(String(dsn || ''))
   if (!m) return { shape: 'malformed', host: null, port: null, klass: 'unjudged' }
@@ -515,6 +522,11 @@ export async function collect({
   argvDsn = null,
   baseUrl = DEFAULT_PUBLIC_BASE,
   skipHttp = false,
+  /**
+   * 库侧取证闸的显式放行开关。**只认 CLI `--allow-prod-dsn`**(main 传 argv.includes(...)),
+   * 绝不从 env/.env/PGPORT 推断 —— 环境继承会静默放行,等于没闸。
+   */
+  allowProdDsn = false,
   fsImpl = { existsSync, readFileSync },
   psqlRunner = null,
   httpFetcher = defaultHttpFetcher,
@@ -552,6 +564,9 @@ export async function collect({
   const target = dsnRes.ok
     ? { klass: classifyDsnTarget(dsnRes.dsn).klass, dsnShape: sanitizeDsn(dsnRes.dsn), source: dsnRes.source }
     : { klass: 'unjudged', dsnShape: null, source: null }
+  // 库侧取证闸:唯一闸位就在这里。归一逻辑复用 lib/db-probe-client 的 guardDbDsn(§0.6 不抄第二套口径);
+  // classifyDsnTarget 只做展示分类,**不是闸**。
+  const guarded = dsnRes.ok ? guardDbDsn(dsnRes.dsn, env) : { ok: false, why: 'DSN 未解析' }
 
   if (!located.psql) {
     dims.push(judgeDbTarget({ psqlFound: false, dsn: null, spawnError: null, tableCount: null }))
@@ -572,7 +587,19 @@ export async function collect({
     dims.push(unjudged('M3-db-rows', dbWhy))
     dims.push(unjudged('M4-db-publish', dbWhy))
     dims.push(unjudged('M5-db-feed-total', dbWhy))
+  } else if (!guarded.ok && !allowProdDsn) {
+    // 默认档拒绝:不 spawn 任何 psql(8810 是生产隧道口 / 非回环 host 一律不连)。
+    const dbWhy = `库侧取证闸拒绝:${guarded.why};确需量 ${FORBIDDEN_PROD_PORT}/远端请显式 --allow-prod-dsn(不传即不连库)`
+    dims.push(unjudged('M2-db-target', dbWhy))
+    dims.push(unjudged('M3-db-rows', dbWhy))
+    dims.push(unjudged('M4-db-publish', dbWhy))
+    dims.push(unjudged('M5-db-feed-total', dbWhy))
   } else {
+    // 命中 CLI 旗标 ⇒ stderr 固定一行留痕(脱敏目标 + klass + 本轮只读 SELECT 条数)。
+    // 只认旗标,不从 env/.env/PGPORT 推断:环境继承会静默放行,等于没闸。
+    if (allowProdDsn) {
+      console.error(`⚠ 取证闸放行(--allow-prod-dsn):目标 ${sanitizeDsn(dsnRes.dsn)} · klass=${target.klass} · 本轮只读 SELECT 2 条`)
+    }
     const run = psqlRunner || makePsqlRunner()
     const presence = run(located.psql, dsnRes.dsn, sqlTablePresence())
     let tableCount = null
@@ -712,10 +739,10 @@ async function main() {
     process.exitCode = 2
     return
   }
-  const known = new Set(['--json', '--self-test', '--skip-http', '--dsn', '--base-url'])
+  const known = new Set(['--json', '--self-test', '--skip-http', '--dsn', '--base-url', '--allow-prod-dsn'])
   const bad = argv.filter((a) => (a.startsWith('--') ? !known.has(a) : false))
   if (bad.length) {
-    console.error(`✗ 未判定:未知选项 ${bad.join(' ')} —— 本尺只接受 --json / --skip-http / --dsn / --base-url / --self-test`)
+    console.error(`✗ 未判定:未知选项 ${bad.join(' ')} —— 本尺只接受 --json / --skip-http / --dsn / --base-url / --allow-prod-dsn / --self-test`)
     process.exitCode = 2
     return
   }
@@ -723,6 +750,8 @@ async function main() {
     argvDsn: dsnFlag.value,
     baseUrl: baseFlag.value || process.env.IHUI_LEARN_FEED_BASE_URL || DEFAULT_PUBLIC_BASE,
     skipHttp: argv.includes('--skip-http'),
+    // 放行开关只认 CLI 旗标(绝不从 env/.env/PGPORT 推断)
+    allowProdDsn: argv.includes('--allow-prod-dsn'),
   })
   console.log(argv.includes('--json') ? JSON.stringify(report, null, 2) : render(report))
   process.exitCode = report.exitCode

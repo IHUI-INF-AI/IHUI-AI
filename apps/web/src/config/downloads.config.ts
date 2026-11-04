@@ -494,7 +494,7 @@ export function getPlatformMetaMap(): Record<DownloadPlatform, PlatformMeta> {
       // 运行期由 downloads-live 枚举实物填真实字节与版本;取不到时 UI 显示 '-'。
       assets: [
         {
-          href: '/downloads/extension/IHUI-AI-Extension-chrome-v1.0.0.zip',
+          href: `/downloads/extension/IHUI-AI-Extension-chrome-v${extensionPkg.version}.zip`,
           sizeBytes: 0,
           format: 'Chrome MV3 ZIP',
         },

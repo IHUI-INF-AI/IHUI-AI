@@ -200,6 +200,30 @@ const IP_HEADERS_TO_DROP = Object.freeze([
   'forwarded',
 ])
 
+/**
+ * 入站「代理足迹」判据(2026-11-04,O64 号池凭证回写 403 立据)。
+ *
+ * 出站 IP 归一的前提是**入站确有代理足迹**。一个本机直连的机机请求
+ * (ai-service → 127.0.0.1:8802)入站一个代理头都没有,就没有可归一的对象;
+ * 此时仍硬造 `X-Forwarded-For: 127.0.0.1`,等于把本 router 自己这一跳伪装成
+ * "经代理转发"。而 apps/api 的 `/api/internal/*` 挂 denyProxied(见 apps/api
+ * src/plugins/network-segment.ts:**出现任意一枚代理头即 403**)守内部面 ——
+ * 于是 ai-service 的内部机机调用被自家入口挡死(2026-11-01 起线上实测 403)。
+ *
+ * 公网路径不在此列:公网路由 8801 恒注入 `x-forwarded-for` + `x-ihui-client-ip`,
+ * Next 的 rewrite 原样透传请求头,抵达 8802 时入站必有足迹 ⇒ 照旧归一出站、
+ * 照旧被 denyProxied 拒。故本判据只放行「本来就没有客户端身份可归一」的本机跳。
+ */
+const INBOUND_PROXY_FOOTPRINT = Object.freeze([
+  ...IP_HEADERS_TO_DROP,
+  'x-forwarded-for',
+  'x-forwarded-host',
+  'x-forwarded-proto',
+  'x-forwarded-port',
+  'x-ihui-client-ip',
+  'x-ihui-edge-verified',
+])
+
 /** 把 `1.2.3.4:5678` / `[::1]:443` / `1.2.3.4` 归一成裸 IP 字面量;认不出返回空串。 */
 export function normalizeIpLiteral(raw) {
   let v = String(raw ?? '').trim()
@@ -236,6 +260,8 @@ export function resolveEdgeClientIp(headers) {
  *   · 回源鉴权匹配    ⇒ 采信 EdgeOne 写进 XFF 的最近一跳;
  *   · 对端为本机回环  ⇒ 采信 cloudflared 注入的 CF-Connecting-IP(隧道形态的唯一真源);
  *   · 其余(直连源站) ⇒ 只认 TCP 对端。
+ * 唯一例外:对端回环且入站零代理足迹(本机机机直连)⇒ 不注入 XFF/client-ip,见
+ * INBOUND_PROXY_FOOTPRINT。
  * 注:off 档此前"原样返回"以维持"零行为变化",但原样透传等于让上游采信客户端自带的
  * XFF(限流键与内网判据可被随意指定),故改为同样归一;off 档仍不做回源验证。
  *
@@ -285,10 +311,19 @@ export function buildForwardHeaders({
     edgeMode !== 'off' && (edgeReason === 'match' || (trustInboundVerified && inboundVerified))
   const clientIp = (trusted && resolveEdgeClientIp(headers)) || tunnelClientIp || socketIp
 
+  // 本机直连内部跳:对端回环 ∧ 入站零代理足迹 ⇒ 没有客户端身份可归一,不制造转发头
+  // (理由与反向对照见 INBOUND_PROXY_FOOTPRINT 头注;否则 denyProxied 会把自家机机调用 403)。
+  const hasInboundFootprint = INBOUND_PROXY_FOOTPRINT.some(
+    (name) => headers?.[name] !== undefined,
+  )
+  const directLocalHop = loopbackPeer && !hasInboundFootprint
+
   for (const name of IP_HEADERS_TO_DROP) delete out[name]
-  // 单段而不是链:上游要的是"这个请求的客户端是谁",不是"谁转发过它"。
-  out['x-forwarded-for'] = clientIp
-  out['x-ihui-client-ip'] = clientIp
+  if (!directLocalHop) {
+    // 单段而不是链:上游要的是"这个请求的客户端是谁",不是"谁转发过它"。
+    out['x-forwarded-for'] = clientIp
+    out['x-ihui-client-ip'] = clientIp
+  }
   if (trusted) out['x-ihui-edge-verified'] = '1'
   else delete out['x-ihui-edge-verified']
   // off 档同样做 IP 归一(不再原样返回):归一不是"闸",是身份语义修正 —— off 档下原样

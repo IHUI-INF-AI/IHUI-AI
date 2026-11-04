@@ -26,7 +26,7 @@ process.env.EXPORT_STATIC = 'true'
 process.env.NEXT_TELEMETRY_DISABLED = '1'
 
 import { spawnSync } from 'node:child_process'
-import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 
@@ -259,6 +259,115 @@ function moveDir(src, dest) {
   rmSync(src, { recursive: true, force: true })
 }
 
+/**
+ * 静态镜像的 `/dl/desktop` 落地页(2026-11-04 立)。
+ *
+ * 为什么要有:权威站(aizhs.top,next start)的 `/dl/desktop` 是**请求期** 302 分流器
+ * (读地域头分腿),`output: 'export'` 没有请求期 ⇒ 该路由在静态面被整体移出
+ * (见 STATIC_EXCLUDED_ROUTE_FILES);而下载卡片(`DownloadAssetCard.tsx`)仍指向
+ * `/dl/desktop?file=...`,不在静态产物里补这一页就是死链。
+ *
+ * 三条刻意的约束:
+ *  ① URL 一律取自**构建期已烘焙**的 `src/config/desktop-feed.generated.ts`
+ *     (`DESKTOP_FEED.assets`,发版后由 CI 刷新),本脚本不写任何 URL —— 换版本不用改这里。
+ *  ② 纯静态、零外链脚本、零第三方:OS 判定全在客户端(`navigator.userAgent` +
+ *     `navigator.platform`)。静态页拿不到地域,所以**不做地域分腿**,只按 OS 直连
+ *     GitHub 权威腿(与 route.ts 的"取不到地域 ⇒ 保持 GitHub 腿"同向)。
+ *  ③ 判不出来(未知 OS / 移动端 / 该 OS 无烘焙资产)一律落站内静态页
+ *     `/download/desktop`,不落死链、不猜 URL。
+ *
+ * 直接 import 那份 generated 模块(Node 24 原生 TS 类型剥离,该文件只有 type-only import):
+ * 不复制资产表,避免"资产表两份、发版只更新一份"的失效型。
+ */
+async function writeDesktopLegLandingPage(outDir) {
+  // 用 import.meta.url 相对解析(跨平台;Windows 绝对路径直接 import 会被 ESM loader 拒)
+  const feedModule = await import(new URL('../src/config/desktop-feed.generated.ts', import.meta.url).href)
+  const feed = feedModule.DESKTOP_FEED
+  const assets = Array.isArray(feed?.assets) ? feed.assets : []
+  // 按 format/href 判定,不按数组下标(资产顺序由发版侧生成,不是契约)
+  const pick = (re) => assets.find((a) => re.test(`${a.format} ${a.href}`))?.href ?? ''
+  const legs = {
+    windows: pick(/windows|\.exe\b/i),
+    macos: pick(/macos|\.dmg\b/i),
+    linuxAppImage: pick(/appimage\b/i),
+    linuxDeb: pick(/\.deb\b/i),
+  }
+  const missing = Object.entries(legs).filter(([, href]) => !href).map(([k]) => k)
+  if (missing.length) {
+    console.warn(`[build-static] 桌面资产缺失: ${missing.join(', ')} —— 对应 OS 将落 /download/desktop`)
+  }
+  // basePath 与 next.config.ts 的 `repoName` 同口径(GH Pages 以仓库名为前缀);
+  // CI 里 GITHUB_REPOSITORY 一定在,取不到才回落到仓名字面量。
+  const repoName = (process.env.GITHUB_REPOSITORY || '').split('/')[1] || 'IHUI-AI'
+  const basePath = process.env.GITHUB_PAGES === 'true' ? `/${repoName}` : ''
+  const dir = path.join(outDir, 'dl', 'desktop')
+  mkdirSync(dir, { recursive: true })
+  writeFileSync(
+    path.join(dir, 'index.html'),
+    renderDesktopLegHtml({ legs, basePath, version: String(feed?.version ?? '') }),
+    'utf8',
+  )
+  console.log(
+    `[build-static] 已生成 /dl/desktop 静态落地页(${Object.values(legs).filter(Boolean).length} 条烘焙直链)`,
+  )
+}
+
+/** 落地页 HTML:无外链资源;判定逻辑见 `decide()`(纯同步,不依赖任何网络)。 */
+function renderDesktopLegHtml({ legs, basePath, version }) {
+  const fallback = `${basePath}/download/desktop/`
+  return `<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>正在为你选择安装包…</title>
+</head>
+<body>
+<p>正在按你的操作系统选择安装包…</p>
+<p>若没有自动开始下载,<a href="${fallback}">请手动选择下载</a>。当前桌面端版本 ${version || ''}。</p>
+<script>
+(function () {
+  var LEGS = ${JSON.stringify(legs)};
+  var FALLBACK = ${JSON.stringify(fallback)};
+  function baseName(href) { var q = href.split('/'); return q[q.length - 1] || ''; }
+  function go(href) { if (!href) return false; location.replace(href); return true; }
+  function done() { location.replace(FALLBACK); }
+  // ?file= 语义与 route.ts 一致:只认"已烘焙资产的文件名",命中才跳,不猜不拼
+  var wanted = (location.search.match(/[?&]file=([^&]*)/) || [])[1];
+  if (wanted) {
+    wanted = decodeURIComponent(wanted.replace(/\\+/g, ' '));
+    for (var key in LEGS) {
+      if (LEGS[key] && baseName(LEGS[key]) === wanted && go(LEGS[key])) return;
+    }
+    return done();
+  }
+  var ua = navigator.userAgent || '';
+  var plat = navigator.platform || '';
+  var uad = navigator.userAgentData ? (navigator.userAgentData.platform || '') : '';
+  var sig = ' ' + ua + ' ' + plat + ' ' + uad + ' ';
+  // 移动端一律不猜:静态页没有"这是桌面端下载页"之外的上下文
+  if (/android|iphone|ipad|ipod|mobile/i.test(ua)) return done();
+  if (/windows|win32|win64|win16|win9x|winnt/i.test(sig)) {
+    // Windows 只烘焙 x64 安装包:ARM64 Windows 不装 x64 包,交回下载页
+    if (/arm/i.test(sig)) return done();
+    if (go(LEGS.windows)) return;
+  } else if (/macintosh|mac os x|macintel|macarm|macppc/i.test(sig)) {
+    // 只有 universal dmg ⇒ Intel/ARM 共用一份,不做架构分支(有分架构资产再加)
+    if (go(LEGS.macos)) return;
+  } else if (!/android/i.test(ua) && /linux|x11/i.test(sig)) {
+    // Linux 只烘焙 amd64:ARM Linux 落下载页
+    if (/aarch64|arm64|armv/i.test(sig)) return done();
+    if (go(LEGS.linuxAppImage || LEGS.linuxDeb)) return;
+  }
+  done();
+})();
+</script>
+</body>
+</html>
+`
+}
+
 let exitCode = 1
 excludeRuntimeRoutes()
 try {
@@ -301,6 +410,16 @@ try {
       '[build-static] 错误: 构建成功但 .next-static/index.html 缺失(导出目录异常),拒绝放行以防陈旧 out/ 被打包',
     )
     exitCode = 1
+  }
+  // 静态面补 `/dl/desktop` 落地页(见 writeDesktopLegLandingPage 头注);失败即判构建失败,
+  // 不许"产物里悄悄少一条下载入口"。
+  if (exitCode === 0) {
+    try {
+      await writeDesktopLegLandingPage(outDir)
+    } catch (e) {
+      console.error('[build-static] 生成 /dl/desktop 落地页失败:', e?.message ?? e)
+      exitCode = 1
+    }
   }
 } finally {
   restoreRuntimeRoutes()
