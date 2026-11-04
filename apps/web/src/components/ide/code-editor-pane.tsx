@@ -95,7 +95,13 @@ export function CodeEditorPane() {
   const attributionSources = React.useMemo(() => {
     if (!attributionEnabled || !activeTab || !activeTab.content) return undefined
     const lineCount = activeTab.content.split('\n').length
-    return getLineAttributionSources(workspacePath ?? '', activeTab.path, lineCount)
+    // 版本号是 store 快照的失效键(每次落盘/AI 写入推高),传给子函数后才真正参与计算
+    return getLineAttributionSources(
+      workspacePath ?? '',
+      activeTab.path,
+      lineCount,
+      attributionVersion,
+    )
   }, [attributionEnabled, activeTab, workspacePath, attributionVersion])
 
   // 最新选区 ref(供 'global-shortcut:inline-edit' 事件读取)
