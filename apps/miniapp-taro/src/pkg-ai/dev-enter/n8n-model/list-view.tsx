@@ -45,9 +45,9 @@ export default function N8nListView({
     <>
       <View className="nm-header">
         <Text className="nm-title">{t('n8nModel.title')}</Text>
-        <Text className="nm-create-btn" onClick={onCreate}>
-          {tt('devEnter.n8nModel.create', '新建')}
-        </Text>
+        <View className="nm-create-btn" hoverClass="opacity-60" onClick={onCreate}>
+          <Text>{tt('devEnter.n8nModel.create', '新建')}</Text>
+        </View>
       </View>
       <View className="px-[20rpx]">
         <FocusInput

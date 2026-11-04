@@ -192,7 +192,9 @@
     "toolStatusSuccess": "Succeeded",
     "toolStatusError": "Failed",
     "toolDetail": "Call details",
-    "terminal": "Terminal",
+    "terminal": {
+      "title": "Terminal"
+    },
     "terminalStatusRunning": "Running",
     "terminalStatusCompleted": "Completed",
     "terminalStatusFailed": "Failed",

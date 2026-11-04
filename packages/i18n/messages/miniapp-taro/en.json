@@ -408,8 +408,7 @@
     "totalRecharge": "Total recharge",
     "totalWithdraw": "Total withdrawal",
     "withdraw": "Withdraw",
-    "points": "Points",
-    "rechargeSuccess": "Recharge Successful"
+    "points": "Points"
   },
   "community": {
     "posts": "Posts",
@@ -691,8 +690,6 @@
       "agentTipTitle": "Agent Guide"
     },
     "chatDrawers": {
-      "emptyMaterial": "No materials",
-      "materialLibrary": "Material Library",
       "promptLabel": "Prompt",
       "selectModel": "Select Model",
       "skillDetail": "Skill Details"
@@ -1292,7 +1289,6 @@
     "questions": "{n} questions",
     "passScore": "Pass score",
     "totalScore": "Total score",
-    "passed": "Passed",
     "result": {
       "scoreValue": "{n} points",
       "rankValue": "#{n} of {total}",
@@ -1486,7 +1482,6 @@
     "withdrawable": "Withdrawable",
     "pendingSettle": "Pending Settlement",
     "withdrawn": "Withdrawn",
-    "myTeam": "My Team",
     "columnTitle": "Distribution Orders",
     "retry": "Retry",
     "empty": "No data",
@@ -2556,7 +2551,6 @@
     "startConversation": "Start your conversation",
     "inputPlaceholder": "Type a message...",
     "sendBtn": "Send",
-    "noInteraction": "No Messages",
     "noPrivate": "No Private Messages",
     "noSystem": "No System Notices",
     "pin": "Pin Chat",
@@ -2846,10 +2840,7 @@
   },
   "token": {
     "balance": {
-      "title": "My tokens",
-      "agentConsume": "Agent consumption",
-      "ordersConsume": "Model consumption",
-      "costTime": "Time spent:"
+      "title": "My tokens"
     }
   },
   "user": {
@@ -2940,8 +2931,6 @@
       "phoneInvalid": "Invalid phone number",
       "codeSendFailed": "Code send failed",
       "bindSuccess": "Phone bound",
-      "codePlaceholder": "Enter the code",
-      "getCode": "Get code",
       "bind": "Bind",
       "currentLabel": "Current phone",
       "codeSent": "Code sent",
@@ -3289,7 +3278,6 @@
     "noCover": "No Cover",
     "watched": "Watched",
     "playing": "Playing",
-    "courseCatalog": "Course Catalog",
     "empty": "No chapters yet"
   },
   "video": {
@@ -3316,20 +3304,13 @@
     "signNow": "Check in now +5 points",
     "signedToday": "Checked in today"
   },
-  "withdrawal": {
-    "records": "Withdrawal Records"
-  },
   "intro": {
     "empty": "No Introduction",
     "relatedAI": "Related AI Apps"
   },
   "invite": {
     "title": "Invite Friends",
-    "qrcode": "QR Code",
-    "code": "Invite Code:",
     "saveImage": "Save Image",
-    "shareNow": "Share Now",
-    "inviteSuffix": "invites you to join",
     "inviteCode": "Invite Code",
     "totalInvited": "Total Invited",
     "totalReward": "Total Rewards",
@@ -3434,28 +3415,6 @@
     "resendCode": "Resend",
     "termsOfService": "Terms of Service",
     "loginFailed": "Login failed. Please try again."
-  },
-  "level": {
-    "0": "Beginner",
-    "1": "Bronze",
-    "2": "Silver",
-    "3": "Gold",
-    "4": "Platinum",
-    "5": "Diamond",
-    "6": "King",
-    "distance": "To"
-  },
-  "interaction": {
-    "collect": "Favorited me",
-    "comment": "Commented on me",
-    "follow": "Followed me",
-    "like": "Liked me"
-  },
-  "planet": {
-    "empty": "No planets yet",
-    "join": "Join Planet",
-    "joined": "Joined",
-    "members": "Members"
   },
   "chat": {
     "approvalExpiredNotice": "Approval for {toolName} expired after the connection dropped; the action was not executed. Send the request again if you still need it.",
@@ -3874,21 +3833,8 @@
     "d2": "All-round",
     "text1": "Agent Mode"
   },
-  "TitleSwitchScrollPicker": {
-    "d1": "Track 1",
-    "d2": "Track 2",
-    "d3": "Track 3",
-    "d4": "Track 4",
-    "d5": "Track 5",
-    "d6": "Track 6",
-    "d7": "Track 7",
-    "d8": "Track 8"
-  },
   "PhoneAreaCodePicker": {
     "d1": "China"
-  },
-  "WithdrawalRecords": {
-    "d1": "Rejected"
   },
   "askCreate": {
     "d1": "Tech",
@@ -3929,13 +3875,6 @@
     "d2": "/month",
     "d3": "Purchased"
   },
-  "TitleSwitchOverlap": {
-    "d1": "Track 1",
-    "d2": "Track 2",
-    "d3": "Track 3",
-    "d4": "Track 4",
-    "d5": "Track 5"
-  },
   "TitleSwitchScrollTitle": {
     "d1": "Track 1",
     "d2": "Sub-track 1-1",
@@ -3960,11 +3899,6 @@
     "rank": "Rank",
     "studyHours": "Study Hours",
     "levelDesc": "Level"
-  },
-  "EmptyIllustration": {
-    "d1": "No matching content found",
-    "d2": "Network error",
-    "d3": "No permission"
   },
   "SystemNotice": {
     "d1": "Upgrade"
@@ -4005,10 +3939,6 @@
     "d4": "How are agents listed?",
     "d5": "n8n Agents"
   },
-  "tokenBalance": {
-    "d1": "One month",
-    "d2": "Past year"
-  },
   "LessonListItem": {
     "text1": "VIP only",
     "text2": "VIP only",
@@ -4021,12 +3951,6 @@
   "UserInfoCard": {
     "login1": "One-tap login",
     "text2": "Unsubscribe"
-  },
-  "TitleSwitchTypeBar": {
-    "text1": "Custom",
-    "settings2": "Please set custom types",
-    "confirm": "Confirm",
-    "m1": "Enter a type"
   },
   "adaptersSelectertaro": {
     "text1": "SD 480p",
@@ -4090,12 +4014,8 @@
   },
   "tail": {
     "6": "No data",
-    "7": "Retry",
     "8": "Loading...",
-    "10": "No withdrawal records",
     "11": "Selected model: {m}",
-    "12": "Verification code sent to {m}",
-    "13": "Joined on {m}",
     "14": "Select tracks you are interested in for personalized recommendations",
     "15": "Default model",
     "17": "Paid, ¥{m}",
@@ -4125,12 +4045,6 @@
   "ErrorView": {
     "p1": "Please try again later"
   },
-  "FilterDropdown": {
-    "p1": "Filter"
-  },
-  "InvitePoster": {
-    "p1": "Invite friends to earn cash rewards"
-  },
   "ModelTypeButtonGroup": {
     "m1": "Skills",
     "m2": "Voice",
@@ -4139,13 +4053,6 @@
   "QrCodeShare": {
     "p1": "Share poster",
     "p2": "Scan to view"
-  },
-  "TagInput": {
-    "p1": "Press Enter to add",
-    "p2": "Limit reached"
-  },
-  "VipUpgradeToast": {
-    "p1": "Upgrade to unlock more features"
   },
   "aicareer": {
     "q1": "Interview",
@@ -4198,9 +4105,6 @@
     "q2": "Please use WeChat login in the WeChat mini program",
     "q3": "WeChat login code is empty",
     "q4": "WeChat user"
-  },
-  "TeamManager": {
-    "p1": "Inactive"
   },
   "VideoInfo": {
     "p1": "Video details"
@@ -4378,18 +4282,6 @@
     "n8nShareFail": "Share failed",
     "n8nGenBadge": "Generated by IHUI AI · points used:",
     "n8nHoldToTalk": "Hold to speak your question"
-  },
-  "verify": {
-    "phoneEmpty": "Phone number is empty",
-    "phoneInvalid": "Please enter a valid phone number",
-    "codeSent": "Verification code sent",
-    "codeIncomplete": "Please enter the full verification code",
-    "verifySuccess": "Verification succeeded",
-    "getCode": "Enter verification code"
-  },
-  "VerifyCodeModal": {
-    "p2": "Resend",
-    "p3": "Verifying..."
   },
   "VoiceInput": {
     "p1": "Failed to start recording"
@@ -5215,9 +5107,7 @@
     "empty": "No courses yet",
     "free": "Free",
     "studentCount": "{count} learners",
-    "nextPage": "Next",
-    "popular": "Popular Courses",
-    "unknownInstructor": "Unknown instructor"
+    "nextPage": "Next"
   },
   "customerService": {
     "title": "Customer Service",
@@ -7097,16 +6987,7 @@
     "receiveFreeBody": "Link copied; paste it in a browser to open"
   },
   "career": {
-    "fillField": "Please fill: {name}",
-    "submitFail": "Submit failed. Retry later.",
-    "doneTitle": "Submitted",
-    "doneBody": "Survey submitted. Your AI study plan will appear here.",
     "exportingReport": "Exporting...",
-    "exportEmptyHint": "Generate a report to export",
-    "exportLoginRequired": "Sign in to export"
-  },
-  "learnMapPage": {
-    "completed": "Completed",
-    "empty": "No learning paths yet"
+    "exportEmptyHint": "Generate a report to export"
   }
 }

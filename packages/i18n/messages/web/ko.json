@@ -17100,6 +17100,7 @@
     },
     "codeEditor": {
       "lspStatus": "LSP",
+      "attributionToggle": "AI 줄 귀속 표시",
       "zoomIn": "확대",
       "zoomOut": "축소"
     },
@@ -23345,6 +23346,8 @@
     "accountDeletionResend": "{seconds}초 후 다시 보내기",
     "accountDeletionSendCode": "코드 전송",
     "accountDeletionSubmit": "삭제 확인",
+    "accountDeletionConfirmLabel": "삭제 확인",
+    "accountDeletionConfirmTitle": "삭제 확인",
     "accountDeletionSuccess": "계정이 삭제되었습니다. 로그인 페이지로 이동합니다",
     "accountDeletionTitle": "계정 삭제",
     "accountDeletionWarning": "이 작업은 되돌릴 수 없으며 모든 데이터가 영구적으로 손실됩니다.",
@@ -23879,6 +23882,8 @@
     "agentSecuritySaveFailed": "보안 설정 저장에 실패했습니다",
     "analyticsEnabled": "이용 통계",
     "analyticsEnabledDesc": "켜면 클릭·페이지 방문·소요 시간 등 익명 기능 사용 이벤트를 기록해 제품을 개선합니다. 입력한 내용·코드·파일 경로는 기록하지 않습니다. 끄면 즉시 전송을 중단하며 기능에는 영향이 없습니다.",
+    "rumEnabled": "성능 및 오류 진단(선택)",
+    "rumEnabledDesc": "기본값은 꺼짐입니다. 켜면 익명 시작 시간, AI 첫 토큰 지연, 스트리밍 중 긴 작업 수, 비식별화된 오류 요약만 성능 개선 목적으로 전송합니다. 파일 경로, 워크스페이스 이름, 이메일, 기기 지문은 전송하지 않습니다. 끄면 즉시 수집을 중단하고 대기 데이터를 지우며 이후 요청을 전혀 보내지 않습니다.",
     "llmRawRetentionOptOut": "LLM 원문 보관 안 함",
     "llmRawRetentionOptOutDesc": "질문과 AI 답변 본문은 데이터베이스에 저장되지 않습니다",
     "codeIndexEgressOptOut": "코드 의미 인덱스 생성 안 함",
@@ -25881,8 +25886,7 @@
     "empty": "이벤트 없음",
     "startTime": "시작 시간",
     "endTime": "종료 시간",
-    "participants": "참가자",
-    "joinNow": "지금 참여"
+    "participants": "참가자"
   },
   "agentReviewDetail": {
     "title": "검토 상세",
@@ -26133,8 +26137,6 @@
     "unverifiedDesc": "실명 인증이 완료되지 않았습니다. 아래 정보를 입력해 주세요.",
     "name": "실명",
     "namePlaceholder": "실명을 입력하세요",
-    "idNumber": "주민등록번호",
-    "idNumberPlaceholder": "주민등록번호를 입력하세요",
     "submitting": "제출 중…",
     "submit": "인증 제출"
   },
@@ -26146,7 +26148,6 @@
     "title": "학습 진행률",
     "courses": "수강 강의",
     "totalMinutes": "누적 학습 시간",
-    "weekMinutes": "이번 주 학습 시간",
     "streak": "연속 학습",
     "courseProgress": "강의 진행률"
   },
@@ -26816,11 +26817,8 @@
   },
   "agentCreate": {
     "title": "에이전트 생성",
-    "name": "이름",
     "namePlaceholder": "이름을 입력하세요",
-    "category": "카테고리",
     "categoryPlaceholder": "카테고리를 선택하세요",
-    "description": "설명",
     "descPlaceholder": "설명을 입력하세요",
     "systemPrompt": "시스템 프롬프트",
     "promptPlaceholder": "시스템 프롬프트를 입력하세요",
@@ -26887,7 +26885,6 @@
     "remove": "제거"
   },
   "certList": {
-    "title": "내 자격증",
     "empty": "자격증 없음",
     "issuer": "발급 기관",
     "issuedAt": "발급 시각"
@@ -26939,7 +26936,6 @@
   },
   "courseQAList": {
     "title": "강의 Q&A",
-    "ask": "질문하기",
     "empty": "Q&A 없음",
     "asker": "질문자",
     "answers": "답변"
@@ -27016,7 +27012,6 @@
     "actionEdit": "편집"
   },
   "notificationSettings": {
-    "title": "알림 설정",
     "push": "푸시 알림",
     "message": "메시지 알림",
     "email": "이메일 알림",
@@ -27117,9 +27112,7 @@
   "withdraw": {
     "title": "출금",
     "availableBalance": "출금 가능 잔액",
-    "amount": "출금 금액",
     "amountPlaceholder": "출금 금액을 입력하세요",
-    "bankCard": "은행 카드",
     "bankCardPlaceholder": "은행 카드 번호를 입력하세요",
     "submitting": "출금 중...",
     "submit": "출금 확인",
@@ -27514,7 +27507,6 @@
   },
   "team": {
     "retry": "다시 시도",
-    "title": "내 팀",
     "subtitle": "팀 관리",
     "totalMembers": "총 멤버",
     "activeMembers": "활성 멤버",

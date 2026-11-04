@@ -1,5 +1,420 @@
 {
   "version": 1,
-  "note": "scripts/check-miniapp-interaction-hygiene.mjs(守门 290)的具名豁免账本。每条必须有 file / rule / count / owner / expires(YYYY-MM-DD,当天仍在期) / evidence(可复核的文件:行号或读数)。到期即红;count 少于现读 = 新增未挂账红;count 多于现读 = 清单腐烂 advisory。本账本只给人认领用,脚本只读不写。",
-  "entries": []
+  "note": "scripts/check-miniapp-interaction-hygiene.mjs(守门 290)的具名豁免账本。每条必须有 file / rule / count / owner / expires(YYYY-MM-DD,当天仍在期) / evidence(可复核的文件:行号或读数) / rationale(为什么今日不能修或为什么不是缺陷)。A3(advisory 档)同样挂账:count 少于现读 = 未挂账 advisory(逐条点名,不折退出码);count 多于现读 = 清单腐烂 advisory。到期 / 缺字段 / A3 挂账期 < 2027-01-31 = 红。本账本只给人认领用,脚本只读不写。",
+  "entries": [
+    {
+      "file": "apps/miniapp-taro/src/components/Carousel.tsx",
+      "rule": "A3-undetermined",
+      "count": 1,
+      "owner": "@miniapp-ui",
+      "expires": "2027-06-30",
+      "evidence": "apps/miniapp-taro/src/components/Carousel.tsx:257",
+      "rationale": "className 为变量/表达式(cn(...) / 透传 className),静态判据无法证明有无反馈;有反馈时由调用方实际 className 决定,留待人工复核而非按缺陷记"
+    },
+    {
+      "file": "apps/miniapp-taro/src/components/Comment.tsx",
+      "rule": "A3-no-feedback",
+      "count": 1,
+      "owner": "@miniapp-ui",
+      "expires": "2027-06-30",
+      "evidence": "apps/miniapp-taro/src/components/Comment.tsx:77",
+      "rationale": "weapp Text 不支持 hoverClass(Taro 4.2.1 类型与 pkg-ai/ai/history.tsx:760/783 注释可证),今日不能给 Text 补按压态;可执行改法是外层 View 承接点击 + hoverClass,范式见 pkg-user/user/password.tsx:96、pkg-ai/ai/queue-interaction-bar.tsx:216、pkg-ai/ai/ChatMessageItem.tsx:382/759(本次已按此法改造)"
+    },
+    {
+      "file": "apps/miniapp-taro/src/components/LineIcon/index.tsx",
+      "rule": "A3-undetermined",
+      "count": 1,
+      "owner": "@miniapp-ui",
+      "expires": "2027-06-30",
+      "evidence": "apps/miniapp-taro/src/components/LineIcon/index.tsx:61",
+      "rationale": "className 为变量/表达式(cn(...) / 透传 className),静态判据无法证明有无反馈;有反馈时由调用方实际 className 决定,留待人工复核而非按缺陷记"
+    },
+    {
+      "file": "apps/miniapp-taro/src/components/SearchBar.tsx",
+      "rule": "A3-no-feedback",
+      "count": 1,
+      "owner": "@miniapp-ui",
+      "expires": "2027-06-30",
+      "evidence": "apps/miniapp-taro/src/components/SearchBar.tsx:74",
+      "rationale": "weapp Text 不支持 hoverClass(Taro 4.2.1 类型与 pkg-ai/ai/history.tsx:760/783 注释可证),今日不能给 Text 补按压态;可执行改法是外层 View 承接点击 + hoverClass,范式见 pkg-user/user/password.tsx:96、pkg-ai/ai/queue-interaction-bar.tsx:216、pkg-ai/ai/ChatMessageItem.tsx:382/759(本次已按此法改造)"
+    },
+    {
+      "file": "apps/miniapp-taro/src/components/Switch.tsx",
+      "rule": "A3-undetermined",
+      "count": 1,
+      "owner": "@miniapp-ui",
+      "expires": "2027-06-30",
+      "evidence": "apps/miniapp-taro/src/components/Switch.tsx:73",
+      "rationale": "className 为变量/表达式(cn(...) / 透传 className),静态判据无法证明有无反馈;有反馈时由调用方实际 className 决定,留待人工复核而非按缺陷记"
+    },
+    {
+      "file": "apps/miniapp-taro/src/components/TagInput.tsx",
+      "rule": "A3-no-feedback",
+      "count": 1,
+      "owner": "@miniapp-ui",
+      "expires": "2027-06-30",
+      "evidence": "apps/miniapp-taro/src/components/TagInput.tsx:46",
+      "rationale": "weapp Text 不支持 hoverClass(Taro 4.2.1 类型与 pkg-ai/ai/history.tsx:760/783 注释可证),今日不能给 Text 补按压态;可执行改法是外层 View 承接点击 + hoverClass,范式见 pkg-user/user/password.tsx:96、pkg-ai/ai/queue-interaction-bar.tsx:216、pkg-ai/ai/ChatMessageItem.tsx:382/759(本次已按此法改造)"
+    },
+    {
+      "file": "apps/miniapp-taro/src/components/TitleSwitchScrollPicker.tsx",
+      "rule": "A3-no-feedback",
+      "count": 2,
+      "owner": "@miniapp-ui",
+      "expires": "2027-06-30",
+      "evidence": "apps/miniapp-taro/src/components/TitleSwitchScrollPicker.tsx:120,121",
+      "rationale": "隐形上下切换命中条(40rpx 覆盖 PickerView 顶部/底部),这是可点热区而非按钮;扩到 88rpx 会遮挡 PickerView 的滚动手势,故保留现状,待产品改交互再收口"
+    },
+    {
+      "file": "apps/miniapp-taro/src/components/VipUpgradeToast.tsx",
+      "rule": "A3-no-feedback",
+      "count": 1,
+      "owner": "@miniapp-ui",
+      "expires": "2027-06-30",
+      "evidence": "apps/miniapp-taro/src/components/VipUpgradeToast.tsx:68",
+      "rationale": "weapp Text 不支持 hoverClass(Taro 4.2.1 类型与 pkg-ai/ai/history.tsx:760/783 注释可证),今日不能给 Text 补按压态;可执行改法是外层 View 承接点击 + hoverClass,范式见 pkg-user/user/password.tsx:96、pkg-ai/ai/queue-interaction-bar.tsx:216、pkg-ai/ai/ChatMessageItem.tsx:382/759(本次已按此法改造)"
+    },
+    {
+      "file": "apps/miniapp-taro/src/pages/circle/create.tsx",
+      "rule": "A3-no-feedback",
+      "count": 1,
+      "owner": "@miniapp-ui",
+      "expires": "2027-06-30",
+      "evidence": "apps/miniapp-taro/src/pages/circle/create.tsx:329",
+      "rationale": "weapp Text 不支持 hoverClass(Taro 4.2.1 类型与 pkg-ai/ai/history.tsx:760/783 注释可证),今日不能给 Text 补按压态;可执行改法是外层 View 承接点击 + hoverClass,范式见 pkg-user/user/password.tsx:96、pkg-ai/ai/queue-interaction-bar.tsx:216、pkg-ai/ai/ChatMessageItem.tsx:382/759(本次已按此法改造)"
+    },
+    {
+      "file": "apps/miniapp-taro/src/pages/distribution/index.tsx",
+      "rule": "A3-no-feedback",
+      "count": 1,
+      "owner": "@miniapp-ui",
+      "expires": "2027-06-30",
+      "evidence": "apps/miniapp-taro/src/pages/distribution/index.tsx:418",
+      "rationale": "weapp Text 不支持 hoverClass(Taro 4.2.1 类型与 pkg-ai/ai/history.tsx:760/783 注释可证),今日不能给 Text 补按压态;可执行改法是外层 View 承接点击 + hoverClass,范式见 pkg-user/user/password.tsx:96、pkg-ai/ai/queue-interaction-bar.tsx:216、pkg-ai/ai/ChatMessageItem.tsx:382/759(本次已按此法改造)"
+    },
+    {
+      "file": "apps/miniapp-taro/src/pages/forgot-password/index.tsx",
+      "rule": "A3-no-feedback",
+      "count": 2,
+      "owner": "@miniapp-ui",
+      "expires": "2027-06-30",
+      "evidence": "apps/miniapp-taro/src/pages/forgot-password/index.tsx:251,255",
+      "rationale": "weapp Text 不支持 hoverClass(Taro 4.2.1 类型与 pkg-ai/ai/history.tsx:760/783 注释可证),今日不能给 Text 补按压态;可执行改法是外层 View 承接点击 + hoverClass,范式见 pkg-user/user/password.tsx:96、pkg-ai/ai/queue-interaction-bar.tsx:216、pkg-ai/ai/ChatMessageItem.tsx:382/759(本次已按此法改造)"
+    },
+    {
+      "file": "apps/miniapp-taro/src/pages/member/coupon-list.tsx",
+      "rule": "A3-no-feedback",
+      "count": 1,
+      "owner": "@miniapp-ui",
+      "expires": "2027-06-30",
+      "evidence": "apps/miniapp-taro/src/pages/member/coupon-list.tsx:85",
+      "rationale": "weapp Text 不支持 hoverClass(Taro 4.2.1 类型与 pkg-ai/ai/history.tsx:760/783 注释可证),今日不能给 Text 补按压态;可执行改法是外层 View 承接点击 + hoverClass,范式见 pkg-user/user/password.tsx:96、pkg-ai/ai/queue-interaction-bar.tsx:216、pkg-ai/ai/ChatMessageItem.tsx:382/759(本次已按此法改造)"
+    },
+    {
+      "file": "apps/miniapp-taro/src/pages/member/index.tsx",
+      "rule": "A3-no-feedback",
+      "count": 1,
+      "owner": "@miniapp-ui",
+      "expires": "2027-06-30",
+      "evidence": "apps/miniapp-taro/src/pages/member/index.tsx:288",
+      "rationale": "weapp Text 不支持 hoverClass(Taro 4.2.1 类型与 pkg-ai/ai/history.tsx:760/783 注释可证),今日不能给 Text 补按压态;可执行改法是外层 View 承接点击 + hoverClass,范式见 pkg-user/user/password.tsx:96、pkg-ai/ai/queue-interaction-bar.tsx:216、pkg-ai/ai/ChatMessageItem.tsx:382/759(本次已按此法改造)"
+    },
+    {
+      "file": "apps/miniapp-taro/src/pages/member/vip-levels.tsx",
+      "rule": "A3-no-feedback",
+      "count": 1,
+      "owner": "@miniapp-ui",
+      "expires": "2027-06-30",
+      "evidence": "apps/miniapp-taro/src/pages/member/vip-levels.tsx:60",
+      "rationale": "weapp Text 不支持 hoverClass(Taro 4.2.1 类型与 pkg-ai/ai/history.tsx:760/783 注释可证),今日不能给 Text 补按压态;可执行改法是外层 View 承接点击 + hoverClass,范式见 pkg-user/user/password.tsx:96、pkg-ai/ai/queue-interaction-bar.tsx:216、pkg-ai/ai/ChatMessageItem.tsx:382/759(本次已按此法改造)"
+    },
+    {
+      "file": "apps/miniapp-taro/src/pages/plaza/index/index.tsx",
+      "rule": "A3-no-feedback",
+      "count": 3,
+      "owner": "@miniapp-ui",
+      "expires": "2027-06-30",
+      "evidence": "apps/miniapp-taro/src/pages/plaza/index/index.tsx:269,272,275",
+      "rationale": "weapp Text 不支持 hoverClass(Taro 4.2.1 类型与 pkg-ai/ai/history.tsx:760/783 注释可证),今日不能给 Text 补按压态;可执行改法是外层 View 承接点击 + hoverClass,范式见 pkg-user/user/password.tsx:96、pkg-ai/ai/queue-interaction-bar.tsx:216、pkg-ai/ai/ChatMessageItem.tsx:382/759(本次已按此法改造)"
+    },
+    {
+      "file": "apps/miniapp-taro/src/pages/register/agreement-row.tsx",
+      "rule": "A3-no-feedback",
+      "count": 2,
+      "owner": "@miniapp-ui",
+      "expires": "2027-06-30",
+      "evidence": "apps/miniapp-taro/src/pages/register/agreement-row.tsx:43,47",
+      "rationale": "weapp Text 不支持 hoverClass(Taro 4.2.1 类型与 pkg-ai/ai/history.tsx:760/783 注释可证),今日不能给 Text 补按压态;可执行改法是外层 View 承接点击 + hoverClass,范式见 pkg-user/user/password.tsx:96、pkg-ai/ai/queue-interaction-bar.tsx:216、pkg-ai/ai/ChatMessageItem.tsx:382/759(本次已按此法改造)"
+    },
+    {
+      "file": "apps/miniapp-taro/src/pages/setting/privacy.tsx",
+      "rule": "A3-no-feedback",
+      "count": 1,
+      "owner": "@miniapp-ui",
+      "expires": "2027-06-30",
+      "evidence": "apps/miniapp-taro/src/pages/setting/privacy.tsx:216",
+      "rationale": "weapp Text 不支持 hoverClass(Taro 4.2.1 类型与 pkg-ai/ai/history.tsx:760/783 注释可证),今日不能给 Text 补按压态;可执行改法是外层 View 承接点击 + hoverClass,范式见 pkg-user/user/password.tsx:96、pkg-ai/ai/queue-interaction-bar.tsx:216、pkg-ai/ai/ChatMessageItem.tsx:382/759(本次已按此法改造)"
+    },
+    {
+      "file": "apps/miniapp-taro/src/pkg-ai/agent-dialogue/index.tsx",
+      "rule": "A3-no-feedback",
+      "count": 2,
+      "owner": "@miniapp-ui",
+      "expires": "2027-06-30",
+      "evidence": "apps/miniapp-taro/src/pkg-ai/agent-dialogue/index.tsx:550,574",
+      "rationale": "weapp Text 不支持 hoverClass(Taro 4.2.1 类型与 pkg-ai/ai/history.tsx:760/783 注释可证),今日不能给 Text 补按压态;可执行改法是外层 View 承接点击 + hoverClass,范式见 pkg-user/user/password.tsx:96、pkg-ai/ai/queue-interaction-bar.tsx:216、pkg-ai/ai/ChatMessageItem.tsx:382/759(本次已按此法改造)"
+    },
+    {
+      "file": "apps/miniapp-taro/src/pkg-ai/ai/agent-detail.tsx",
+      "rule": "A3-no-feedback",
+      "count": 1,
+      "owner": "@miniapp-ui",
+      "expires": "2027-06-30",
+      "evidence": "apps/miniapp-taro/src/pkg-ai/ai/agent-detail.tsx:433",
+      "rationale": "weapp Text 不支持 hoverClass(Taro 4.2.1 类型与 pkg-ai/ai/history.tsx:760/783 注释可证),今日不能给 Text 补按压态;可执行改法是外层 View 承接点击 + hoverClass,范式见 pkg-user/user/password.tsx:96、pkg-ai/ai/queue-interaction-bar.tsx:216、pkg-ai/ai/ChatMessageItem.tsx:382/759(本次已按此法改造)"
+    },
+    {
+      "file": "apps/miniapp-taro/src/pkg-ai/ai/cards/ai-cards.tsx",
+      "rule": "A3-no-feedback",
+      "count": 1,
+      "owner": "@miniapp-ui",
+      "expires": "2027-06-30",
+      "evidence": "apps/miniapp-taro/src/pkg-ai/ai/cards/ai-cards.tsx:348",
+      "rationale": "weapp Text 不支持 hoverClass(Taro 4.2.1 类型与 pkg-ai/ai/history.tsx:760/783 注释可证),今日不能给 Text 补按压态;可执行改法是外层 View 承接点击 + hoverClass,范式见 pkg-user/user/password.tsx:96、pkg-ai/ai/queue-interaction-bar.tsx:216、pkg-ai/ai/ChatMessageItem.tsx:382/759(本次已按此法改造)"
+    },
+    {
+      "file": "apps/miniapp-taro/src/pkg-ai/ai/chat.tsx",
+      "rule": "A3-no-feedback",
+      "count": 4,
+      "owner": "@miniapp-ui",
+      "expires": "2027-06-30",
+      "evidence": "apps/miniapp-taro/src/pkg-ai/ai/chat.tsx:1859,1863,1877,2103",
+      "rationale": "weapp Text 不支持 hoverClass(Taro 4.2.1 类型与 pkg-ai/ai/history.tsx:760/783 注释可证),今日不能给 Text 补按压态;可执行改法是外层 View 承接点击 + hoverClass,范式见 pkg-user/user/password.tsx:96、pkg-ai/ai/queue-interaction-bar.tsx:216、pkg-ai/ai/ChatMessageItem.tsx:382/759(本次已按此法改造)"
+    },
+    {
+      "file": "apps/miniapp-taro/src/pkg-ai/ai/ChatMessageItem.tsx",
+      "rule": "A3-no-feedback",
+      "count": 1,
+      "owner": "@miniapp-ui",
+      "expires": "2027-06-30",
+      "evidence": "apps/miniapp-taro/src/pkg-ai/ai/ChatMessageItem.tsx:439",
+      "rationale": "weapp Text 不支持 hoverClass(Taro 4.2.1 类型与 pkg-ai/ai/history.tsx:760/783 注释可证),今日不能给 Text 补按压态;可执行改法是外层 View 承接点击 + hoverClass,范式见 pkg-user/user/password.tsx:96、pkg-ai/ai/queue-interaction-bar.tsx:216、pkg-ai/ai/ChatMessageItem.tsx:382/759(本次已按此法改造)"
+    },
+    {
+      "file": "apps/miniapp-taro/src/pkg-ai/ai/history.tsx",
+      "rule": "A3-no-feedback",
+      "count": 1,
+      "owner": "@miniapp-ui",
+      "expires": "2027-06-30",
+      "evidence": "apps/miniapp-taro/src/pkg-ai/ai/history.tsx:750",
+      "rationale": "weapp Text 不支持 hoverClass(Taro 4.2.1 类型与 pkg-ai/ai/history.tsx:760/783 注释可证),今日不能给 Text 补按压态;可执行改法是外层 View 承接点击 + hoverClass,范式见 pkg-user/user/password.tsx:96、pkg-ai/ai/queue-interaction-bar.tsx:216、pkg-ai/ai/ChatMessageItem.tsx:382/759(本次已按此法改造)"
+    },
+    {
+      "file": "apps/miniapp-taro/src/pkg-ai/ai/image.tsx",
+      "rule": "A3-no-feedback",
+      "count": 3,
+      "owner": "@miniapp-ui",
+      "expires": "2027-06-30",
+      "evidence": "apps/miniapp-taro/src/pkg-ai/ai/image.tsx:204,226,243",
+      "rationale": "weapp Text 不支持 hoverClass(Taro 4.2.1 类型与 pkg-ai/ai/history.tsx:760/783 注释可证),今日不能给 Text 补按压态;可执行改法是外层 View 承接点击 + hoverClass,范式见 pkg-user/user/password.tsx:96、pkg-ai/ai/queue-interaction-bar.tsx:216、pkg-ai/ai/ChatMessageItem.tsx:382/759(本次已按此法改造)"
+    },
+    {
+      "file": "apps/miniapp-taro/src/pkg-ai/ai/video.tsx",
+      "rule": "A3-no-feedback",
+      "count": 1,
+      "owner": "@miniapp-ui",
+      "expires": "2027-06-30",
+      "evidence": "apps/miniapp-taro/src/pkg-ai/ai/video.tsx:272",
+      "rationale": "weapp Text 不支持 hoverClass(Taro 4.2.1 类型与 pkg-ai/ai/history.tsx:760/783 注释可证),今日不能给 Text 补按压态;可执行改法是外层 View 承接点击 + hoverClass,范式见 pkg-user/user/password.tsx:96、pkg-ai/ai/queue-interaction-bar.tsx:216、pkg-ai/ai/ChatMessageItem.tsx:382/759(本次已按此法改造)"
+    },
+    {
+      "file": "apps/miniapp-taro/src/pkg-ai/ai/voice.tsx",
+      "rule": "A3-no-feedback",
+      "count": 3,
+      "owner": "@miniapp-ui",
+      "expires": "2027-06-30",
+      "evidence": "apps/miniapp-taro/src/pkg-ai/ai/voice.tsx:211,286,300",
+      "rationale": "weapp Text 不支持 hoverClass(Taro 4.2.1 类型与 pkg-ai/ai/history.tsx:760/783 注释可证),今日不能给 Text 补按压态;可执行改法是外层 View 承接点击 + hoverClass,范式见 pkg-user/user/password.tsx:96、pkg-ai/ai/queue-interaction-bar.tsx:216、pkg-ai/ai/ChatMessageItem.tsx:382/759(本次已按此法改造)"
+    },
+    {
+      "file": "apps/miniapp-taro/src/pkg-ai/dev-enter/n8n-model/index.tsx",
+      "rule": "A3-no-feedback",
+      "count": 2,
+      "owner": "@miniapp-ui",
+      "expires": "2027-06-30",
+      "evidence": "apps/miniapp-taro/src/pkg-ai/dev-enter/n8n-model/index.tsx:354,494",
+      "rationale": "weapp Text 不支持 hoverClass(Taro 4.2.1 类型与 pkg-ai/ai/history.tsx:760/783 注释可证),今日不能给 Text 补按压态;可执行改法是外层 View 承接点击 + hoverClass,范式见 pkg-user/user/password.tsx:96、pkg-ai/ai/queue-interaction-bar.tsx:216、pkg-ai/ai/ChatMessageItem.tsx:382/759(本次已按此法改造)"
+    },
+    {
+      "file": "apps/miniapp-taro/src/pkg-ai/developer/income.tsx",
+      "rule": "A3-no-feedback",
+      "count": 2,
+      "owner": "@miniapp-ui",
+      "expires": "2027-06-30",
+      "evidence": "apps/miniapp-taro/src/pkg-ai/developer/income.tsx:302,318",
+      "rationale": "weapp Text 不支持 hoverClass(Taro 4.2.1 类型与 pkg-ai/ai/history.tsx:760/783 注释可证),今日不能给 Text 补按压态;可执行改法是外层 View 承接点击 + hoverClass,范式见 pkg-user/user/password.tsx:96、pkg-ai/ai/queue-interaction-bar.tsx:216、pkg-ai/ai/ChatMessageItem.tsx:382/759(本次已按此法改造)"
+    },
+    {
+      "file": "apps/miniapp-taro/src/pkg-ai/developer/index.tsx",
+      "rule": "A3-no-feedback",
+      "count": 2,
+      "owner": "@miniapp-ui",
+      "expires": "2027-06-30",
+      "evidence": "apps/miniapp-taro/src/pkg-ai/developer/index.tsx:366,375",
+      "rationale": "weapp Text 不支持 hoverClass(Taro 4.2.1 类型与 pkg-ai/ai/history.tsx:760/783 注释可证),今日不能给 Text 补按压态;可执行改法是外层 View 承接点击 + hoverClass,范式见 pkg-user/user/password.tsx:96、pkg-ai/ai/queue-interaction-bar.tsx:216、pkg-ai/ai/ChatMessageItem.tsx:382/759(本次已按此法改造)"
+    },
+    {
+      "file": "apps/miniapp-taro/src/pkg-ai/developer/subscribe.tsx",
+      "rule": "A3-no-feedback",
+      "count": 1,
+      "owner": "@miniapp-ui",
+      "expires": "2027-06-30",
+      "evidence": "apps/miniapp-taro/src/pkg-ai/developer/subscribe.tsx:265",
+      "rationale": "weapp Text 不支持 hoverClass(Taro 4.2.1 类型与 pkg-ai/ai/history.tsx:760/783 注释可证),今日不能给 Text 补按压态;可执行改法是外层 View 承接点击 + hoverClass,范式见 pkg-user/user/password.tsx:96、pkg-ai/ai/queue-interaction-bar.tsx:216、pkg-ai/ai/ChatMessageItem.tsx:382/759(本次已按此法改造)"
+    },
+    {
+      "file": "apps/miniapp-taro/src/pkg-content/plaza/cover/index.tsx",
+      "rule": "A3-no-feedback",
+      "count": 4,
+      "owner": "@miniapp-ui",
+      "expires": "2027-06-30",
+      "evidence": "apps/miniapp-taro/src/pkg-content/plaza/cover/index.tsx:281,295,309,324",
+      "rationale": "weapp Text 不支持 hoverClass(Taro 4.2.1 类型与 pkg-ai/ai/history.tsx:760/783 注释可证),今日不能给 Text 补按压态;可执行改法是外层 View 承接点击 + hoverClass,范式见 pkg-user/user/password.tsx:96、pkg-ai/ai/queue-interaction-bar.tsx:216、pkg-ai/ai/ChatMessageItem.tsx:382/759(本次已按此法改造)"
+    },
+    {
+      "file": "apps/miniapp-taro/src/pkg-learn/live/calendar.tsx",
+      "rule": "A3-no-feedback",
+      "count": 2,
+      "owner": "@miniapp-ui",
+      "expires": "2027-06-30",
+      "evidence": "apps/miniapp-taro/src/pkg-learn/live/calendar.tsx:180,239",
+      "rationale": "weapp Text 不支持 hoverClass(Taro 4.2.1 类型与 pkg-ai/ai/history.tsx:760/783 注释可证),今日不能给 Text 补按压态;可执行改法是外层 View 承接点击 + hoverClass,范式见 pkg-user/user/password.tsx:96、pkg-ai/ai/queue-interaction-bar.tsx:216、pkg-ai/ai/ChatMessageItem.tsx:382/759(本次已按此法改造)"
+    },
+    {
+      "file": "apps/miniapp-taro/src/pkg-learn/live/subscribe.tsx",
+      "rule": "A3-no-feedback",
+      "count": 1,
+      "owner": "@miniapp-ui",
+      "expires": "2027-06-30",
+      "evidence": "apps/miniapp-taro/src/pkg-learn/live/subscribe.tsx:178",
+      "rationale": "weapp Text 不支持 hoverClass(Taro 4.2.1 类型与 pkg-ai/ai/history.tsx:760/783 注释可证),今日不能给 Text 补按压态;可执行改法是外层 View 承接点击 + hoverClass,范式见 pkg-user/user/password.tsx:96、pkg-ai/ai/queue-interaction-bar.tsx:216、pkg-ai/ai/ChatMessageItem.tsx:382/759(本次已按此法改造)"
+    },
+    {
+      "file": "apps/miniapp-taro/src/pkg-learn/subscription/contracts/index.tsx",
+      "rule": "A3-no-feedback",
+      "count": 1,
+      "owner": "@miniapp-ui",
+      "expires": "2027-06-30",
+      "evidence": "apps/miniapp-taro/src/pkg-learn/subscription/contracts/index.tsx:166",
+      "rationale": "weapp Text 不支持 hoverClass(Taro 4.2.1 类型与 pkg-ai/ai/history.tsx:760/783 注释可证),今日不能给 Text 补按压态;可执行改法是外层 View 承接点击 + hoverClass,范式见 pkg-user/user/password.tsx:96、pkg-ai/ai/queue-interaction-bar.tsx:216、pkg-ai/ai/ChatMessageItem.tsx:382/759(本次已按此法改造)"
+    },
+    {
+      "file": "apps/miniapp-taro/src/pkg-learn/teacher/detail.tsx",
+      "rule": "A3-no-feedback",
+      "count": 4,
+      "owner": "@miniapp-ui",
+      "expires": "2027-06-30",
+      "evidence": "apps/miniapp-taro/src/pkg-learn/teacher/detail.tsx:190,223,333,336",
+      "rationale": "weapp Text 不支持 hoverClass(Taro 4.2.1 类型与 pkg-ai/ai/history.tsx:760/783 注释可证),今日不能给 Text 补按压态;可执行改法是外层 View 承接点击 + hoverClass,范式见 pkg-user/user/password.tsx:96、pkg-ai/ai/queue-interaction-bar.tsx:216、pkg-ai/ai/ChatMessageItem.tsx:382/759(本次已按此法改造)"
+    },
+    {
+      "file": "apps/miniapp-taro/src/pkg-shop/vip/index.tsx",
+      "rule": "A3-no-feedback",
+      "count": 2,
+      "owner": "@miniapp-ui",
+      "expires": "2027-06-30",
+      "evidence": "apps/miniapp-taro/src/pkg-shop/vip/index.tsx:385,403",
+      "rationale": "weapp Text 不支持 hoverClass(Taro 4.2.1 类型与 pkg-ai/ai/history.tsx:760/783 注释可证),今日不能给 Text 补按压态;可执行改法是外层 View 承接点击 + hoverClass,范式见 pkg-user/user/password.tsx:96、pkg-ai/ai/queue-interaction-bar.tsx:216、pkg-ai/ai/ChatMessageItem.tsx:382/759(本次已按此法改造)"
+    },
+    {
+      "file": "apps/miniapp-taro/src/pkg-shop/wallet/withdrawal/index.tsx",
+      "rule": "A3-no-feedback",
+      "count": 1,
+      "owner": "@miniapp-ui",
+      "expires": "2027-06-30",
+      "evidence": "apps/miniapp-taro/src/pkg-shop/wallet/withdrawal/index.tsx:116",
+      "rationale": "weapp Text 不支持 hoverClass(Taro 4.2.1 类型与 pkg-ai/ai/history.tsx:760/783 注释可证),今日不能给 Text 补按压态;可执行改法是外层 View 承接点击 + hoverClass,范式见 pkg-user/user/password.tsx:96、pkg-ai/ai/queue-interaction-bar.tsx:216、pkg-ai/ai/ChatMessageItem.tsx:382/759(本次已按此法改造)"
+    },
+    {
+      "file": "apps/miniapp-taro/src/pkg-user/account-cancel/index.tsx",
+      "rule": "A3-no-feedback",
+      "count": 1,
+      "owner": "@miniapp-ui",
+      "expires": "2027-06-30",
+      "evidence": "apps/miniapp-taro/src/pkg-user/account-cancel/index.tsx:304",
+      "rationale": "weapp Text 不支持 hoverClass(Taro 4.2.1 类型与 pkg-ai/ai/history.tsx:760/783 注释可证),今日不能给 Text 补按压态;可执行改法是外层 View 承接点击 + hoverClass,范式见 pkg-user/user/password.tsx:96、pkg-ai/ai/queue-interaction-bar.tsx:216、pkg-ai/ai/ChatMessageItem.tsx:382/759(本次已按此法改造)"
+    },
+    {
+      "file": "apps/miniapp-taro/src/pkg-user/account-pool/add-form.tsx",
+      "rule": "A3-no-feedback",
+      "count": 2,
+      "owner": "@miniapp-ui",
+      "expires": "2027-06-30",
+      "evidence": "apps/miniapp-taro/src/pkg-user/account-pool/add-form.tsx:43,83",
+      "rationale": "weapp Text 不支持 hoverClass(Taro 4.2.1 类型与 pkg-ai/ai/history.tsx:760/783 注释可证),今日不能给 Text 补按压态;可执行改法是外层 View 承接点击 + hoverClass,范式见 pkg-user/user/password.tsx:96、pkg-ai/ai/queue-interaction-bar.tsx:216、pkg-ai/ai/ChatMessageItem.tsx:382/759(本次已按此法改造)"
+    },
+    {
+      "file": "apps/miniapp-taro/src/pkg-user/account-pool/pool-row.tsx",
+      "rule": "A3-no-feedback",
+      "count": 3,
+      "owner": "@miniapp-ui",
+      "expires": "2027-06-30",
+      "evidence": "apps/miniapp-taro/src/pkg-user/account-pool/pool-row.tsx:66,72,78",
+      "rationale": "weapp Text 不支持 hoverClass(Taro 4.2.1 类型与 pkg-ai/ai/history.tsx:760/783 注释可证),今日不能给 Text 补按压态;可执行改法是外层 View 承接点击 + hoverClass,范式见 pkg-user/user/password.tsx:96、pkg-ai/ai/queue-interaction-bar.tsx:216、pkg-ai/ai/ChatMessageItem.tsx:382/759(本次已按此法改造)"
+    },
+    {
+      "file": "apps/miniapp-taro/src/pkg-user/checkin-assistant/index.tsx",
+      "rule": "A3-no-feedback",
+      "count": 4,
+      "owner": "@miniapp-ui",
+      "expires": "2027-06-30",
+      "evidence": "apps/miniapp-taro/src/pkg-user/checkin-assistant/index.tsx:190,196,202,221",
+      "rationale": "weapp Text 不支持 hoverClass(Taro 4.2.1 类型与 pkg-ai/ai/history.tsx:760/783 注释可证),今日不能给 Text 补按压态;可执行改法是外层 View 承接点击 + hoverClass,范式见 pkg-user/user/password.tsx:96、pkg-ai/ai/queue-interaction-bar.tsx:216、pkg-ai/ai/ChatMessageItem.tsx:382/759(本次已按此法改造)"
+    },
+    {
+      "file": "apps/miniapp-taro/src/pkg-user/checkin-assistant/WorkbuddyTaskSection.tsx",
+      "rule": "A3-no-feedback",
+      "count": 4,
+      "owner": "@miniapp-ui",
+      "expires": "2027-06-30",
+      "evidence": "apps/miniapp-taro/src/pkg-user/checkin-assistant/WorkbuddyTaskSection.tsx:335,357,368,377",
+      "rationale": "weapp Text 不支持 hoverClass(Taro 4.2.1 类型与 pkg-ai/ai/history.tsx:760/783 注释可证),今日不能给 Text 补按压态;可执行改法是外层 View 承接点击 + hoverClass,范式见 pkg-user/user/password.tsx:96、pkg-ai/ai/queue-interaction-bar.tsx:216、pkg-ai/ai/ChatMessageItem.tsx:382/759(本次已按此法改造)"
+    },
+    {
+      "file": "apps/miniapp-taro/src/pkg-user/following/index.tsx",
+      "rule": "A3-no-feedback",
+      "count": 1,
+      "owner": "@miniapp-ui",
+      "expires": "2027-06-30",
+      "evidence": "apps/miniapp-taro/src/pkg-user/following/index.tsx:219",
+      "rationale": "weapp Text 不支持 hoverClass(Taro 4.2.1 类型与 pkg-ai/ai/history.tsx:760/783 注释可证),今日不能给 Text 补按压态;可执行改法是外层 View 承接点击 + hoverClass,范式见 pkg-user/user/password.tsx:96、pkg-ai/ai/queue-interaction-bar.tsx:216、pkg-ai/ai/ChatMessageItem.tsx:382/759(本次已按此法改造)"
+    },
+    {
+      "file": "apps/miniapp-taro/src/pkg-user/message/in-site-messages.tsx",
+      "rule": "A3-no-feedback",
+      "count": 1,
+      "owner": "@miniapp-ui",
+      "expires": "2027-06-30",
+      "evidence": "apps/miniapp-taro/src/pkg-user/message/in-site-messages.tsx:152",
+      "rationale": "weapp Text 不支持 hoverClass(Taro 4.2.1 类型与 pkg-ai/ai/history.tsx:760/783 注释可证),今日不能给 Text 补按压态;可执行改法是外层 View 承接点击 + hoverClass,范式见 pkg-user/user/password.tsx:96、pkg-ai/ai/queue-interaction-bar.tsx:216、pkg-ai/ai/ChatMessageItem.tsx:382/759(本次已按此法改造)"
+    },
+    {
+      "file": "apps/miniapp-taro/src/pkg-user/user/email.tsx",
+      "rule": "A3-no-feedback",
+      "count": 1,
+      "owner": "@miniapp-ui",
+      "expires": "2027-06-30",
+      "evidence": "apps/miniapp-taro/src/pkg-user/user/email.tsx:182",
+      "rationale": "weapp Text 不支持 hoverClass(Taro 4.2.1 类型与 pkg-ai/ai/history.tsx:760/783 注释可证),今日不能给 Text 补按压态;可执行改法是外层 View 承接点击 + hoverClass,范式见 pkg-user/user/password.tsx:96、pkg-ai/ai/queue-interaction-bar.tsx:216、pkg-ai/ai/ChatMessageItem.tsx:382/759(本次已按此法改造)"
+    },
+    {
+      "file": "apps/miniapp-taro/src/pkg-user/user/phone.tsx",
+      "rule": "A3-no-feedback",
+      "count": 2,
+      "owner": "@miniapp-ui",
+      "expires": "2027-06-30",
+      "evidence": "apps/miniapp-taro/src/pkg-user/user/phone.tsx:210,276",
+      "rationale": "weapp Text 不支持 hoverClass(Taro 4.2.1 类型与 pkg-ai/ai/history.tsx:760/783 注释可证),今日不能给 Text 补按压态;可执行改法是外层 View 承接点击 + hoverClass,范式见 pkg-user/user/password.tsx:96、pkg-ai/ai/queue-interaction-bar.tsx:216、pkg-ai/ai/ChatMessageItem.tsx:382/759(本次已按此法改造)"
+    }
+  ]
 }
