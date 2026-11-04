@@ -10,7 +10,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -107,6 +107,43 @@ test('③b 主树有未暂存:--gate 阻断 exit 1', (t) => {
   assert.equal(r.json.trees[0].unstaged, 1)
   assert.equal(r.json.mainResidualDirty, true)
   assert.equal(r.json.ok, false)
+})
+
+test('④b 主树是分离 gitdir(指针式 .git):在附加树里调用不把调用树冒充主树', (t) => {
+  const base = mkdtempSync(join(tmpdir(), 'ihui-wt-sep-'))
+  const gitDir = join(base, 'gitdir')
+  const dir = join(base, 'main')
+  mkdirSync(dir)
+  const init = spawnSync('git', ['init', '-b', 'main', `--separate-git-dir=${gitDir}`, dir], {
+    encoding: 'utf8',
+    windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  assert.equal(init.status, 0, `git init --separate-git-dir 失败: ${init.stderr || init.stdout}`)
+  git(dir, ['config', 'user.email', 'test@ihui.local'])
+  git(dir, ['config', 'user.name', 'ihui-test'])
+  writeFileSync(join(dir, 'a.txt'), 'one\n')
+  git(dir, ['add', 'a.txt'])
+  git(dir, ['commit', '-m', 'init'])
+  const wtRoot = mkdtempSync(join(tmpdir(), 'ihui-wt-linked-'))
+  const wt = join(wtRoot, 'wt')
+  git(dir, ['worktree', 'add', wt, '-b', 'wt-clean'])
+  t.after(() => {
+    rmSync(wtRoot, { recursive: true, force: true })
+    rmSync(base, { recursive: true, force: true })
+  })
+  // 从附加树里调用:主树行只印 gitdir,不可解析 ⇒ 必须标未判定,不能回落成这棵附加树。
+  const r = run(wt, ['--json', '--gate'])
+  assert.equal(r.status, 0)
+  assert.equal(r.json.trees.length, 2)
+  assert.equal(r.json.mainMeasured, false)
+  assert.equal(r.json.mainDirty, null)
+  assert.equal(r.json.unmeasured, 1)
+  assert.equal(new Set(r.json.trees.map((x) => x.path)).size, 2, '工作树路径不得重复(同一棵树被列两次)')
+  assert.equal(r.json.trees[0].unmeasured, true)
+  assert.equal(r.json.trees[1].unmeasured, false)
+  assert.equal(r.json.subjectPath, r.json.trees[1].path)
+  assert.equal(r.json.subjectIsMain, false)
 })
 
 test('④ 主树合并冲突:conflict=1,strict exit 1', (t) => {
