@@ -113,6 +113,16 @@
       "import": "./src/artifact/*.ts",
       "default": "./src/artifact/*.ts"
     },
+    "./reports": {
+      "types": "./src/reports/index.ts",
+      "import": "./src/reports/index.ts",
+      "default": "./src/reports/index.ts"
+    },
+    "./reports/*": {
+      "types": "./src/reports/*.ts",
+      "import": "./src/reports/*.ts",
+      "default": "./src/reports/*.ts"
+    },
     "./chat": {
       "types": "./src/chat/index.ts",
       "import": "./src/chat/index.ts",
