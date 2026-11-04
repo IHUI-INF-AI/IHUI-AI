@@ -323,7 +323,7 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
       alignItems: 'center',
       paddingVertical: rnSpacing.sm,
-      borderRadius: rnRadius.lg,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.muted,
       borderWidth: 1,
       borderColor: tk.border.light,
