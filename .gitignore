@@ -8,6 +8,12 @@ browser_test_output/
 # 同一族的另一个落点:自动化会话在仓库根就地建的截图暂存目录(2026-10-26 现读:并发席位 16:33 在用,
 # 内仅 .tmp;登记进忽略层 = 守门 44 从"归属无从判定(exit 2)"落到只告警层,不删他人现场)
 .screenshots/
+# 2026-11-04 同一族的忽略层收口:qoder-chat-bridge 的运行期 cwd,代码默认落点
+# apps/api/src/services/qoder-bridge-client.ts:38(REPO_ROOT/.runtime/qoder-bridge-cwd,
+# 可用 QODER_BRIDGE_CWD 覆盖)。设计上是空目录,但桥一旦落文件就会以未跟踪形态被
+# 「收编未提交改动」的自动 git add 收进历史。与上面 .screenshots/ 同型:既已在守门 44
+# 白名单登记(scripts/check-root-dir-clean.mjs:335),也进忽略层,不搬不删。
+.runtime/
 # curl 导出的 Netscape cookie 文件(临时)
 cookies.txt
 apps/web/out/

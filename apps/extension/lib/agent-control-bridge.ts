@@ -45,7 +45,18 @@ import { EXT_UI_CONTROL_TOOLS } from './ui-control-tools'
 const CAPABILITY_ALARM_NAME = 'ihui-agent-capability'
 const CAPABILITY_INTERVAL_MIN = 1
 const TOKEN_RETRY_MS = 5000
-const VERSION = '1.0.0'
+/**
+ * 版本一律取自运行时 manifest —— 它的源头就是 apps/extension/package.json(与下载文件名、
+ * 下载页版本号同一把尺)。写死字面量等于向服务端上报一个不存在的版本。
+ */
+function extensionVersion(): string {
+  try {
+    return chrome.runtime.getManifest().version
+  } catch {
+    // 非扩展宿主(vitest 直引本模块时 chrome 只是半个桩)拿不到 manifest ⇒ 明说 unknown,不编号
+    return 'unknown'
+  }
+}
 
 /**
  * 浏览器选择器族能力上报清单(刻意手抄,不照下方 BROWSER_PAGE_ACTIONS 那样从运行时源派生;
@@ -170,7 +181,7 @@ function buildCapability(): AgentControlCapability {
     browserPageActions: BROWSER_PAGE_ACTIONS,
     computerActions: [],
     extUiActions: [...EXT_UI_VERBS],
-    version: VERSION,
+    version: extensionVersion(),
     reportedAt: new Date().toISOString(),
   }
 }

@@ -1,0 +1,102 @@
+{
+  "note": "自治腿「黑腿探测器」登记表(2026-11-04 立)。候选集 = 盘上所有 *-dispatch-last.json;每条 = 一枚守护派发戳。nominalIntervalMs 一律现读自 scripts/git-guardian.mjs 里该派发器的默认值(envVar 覆盖它),归属见 owner。容忍窗不在这里存:由 scripts/lib/autonomy-leg-liveness.mjs 按 ×SILENCE_MULTIPLIER 与 MIN_SILENCE_MS 下限现算,免得同一件事两处各存一份必然漂移。verifiedAt 超 ROTATE_DAYS 即要求复确认。盘上有而本表没有的戳 ⇒ unregistered 点名(覆盖面自证,不靠人记得登记)。",
+  "legs": [
+    {
+      "stamp": "relay-capacity-dispatch-last.json",
+      "owner": "dispatchRelayCapacity",
+      "envVar": "IHUI_RELAY_CAPACITY_INTERVAL_MS",
+      "nominalIntervalMs": 300000,
+      "verifiedAt": "2026-11-04",
+      "ruler": "scripts/check-relay-capacity-zero.mjs"
+    },
+    {
+      "stamp": "auto-evolve-dispatch-last.json",
+      "owner": "dispatchAutoEvolve",
+      "envVar": "IHUI_AUTO_EVOLVE_INTERVAL_MS",
+      "nominalIntervalMs": 3600000,
+      "verifiedAt": "2026-11-04",
+      "ruler": "scripts/auto-evolve.mjs"
+    },
+    {
+      "stamp": "auto-triage-dispatch-last.json",
+      "owner": "dispatchAutoTriage",
+      "envVar": "IHUI_AUTO_TRIAGE_INTERVAL_MS",
+      "nominalIntervalMs": 1800000,
+      "verifiedAt": "2026-11-04",
+      "ruler": "scripts/auto-triage.mjs"
+    },
+    {
+      "stamp": "deploy-feedback-dispatch-last.json",
+      "owner": "dispatchDeployFeedback",
+      "envVar": "IHUI_DEPLOY_FEEDBACK_INTERVAL_MS",
+      "nominalIntervalMs": 1200000,
+      "verifiedAt": "2026-11-04",
+      "ruler": "scripts/deploy-feedback.mjs",
+      "knownBlocker": "机器级 IHUI_GUARDIAN_DISABLE_DEPLOY_FEEDBACK=1 会把它整条短路(仓内无任何地方登记谁关的/为何/何时恢复)⇒ 静默属预期,本探测器正是要把这种静默量出来"
+    },
+    {
+      "stamp": "deploy-outcome-intake-dispatch-last.json",
+      "owner": "dispatchDeployOutcomeIntake",
+      "envVar": "IHUI_DEPLOY_OUTCOME_INTERVAL_MS",
+      "nominalIntervalMs": 1200000,
+      "verifiedAt": "2026-11-04",
+      "ruler": "scripts/deploy-outcome-intake.mjs"
+    },
+    {
+      "stamp": "e2e-autofill-dispatch-last.json",
+      "owner": "dispatchE2eAutofill",
+      "envVar": "IHUI_E2E_AUTOFILL_INTERVAL_MS",
+      "nominalIntervalMs": 1800000,
+      "verifiedAt": "2026-11-04",
+      "ruler": "scripts/e2e-autofill.mjs"
+    },
+    {
+      "stamp": "gate-rot-dispatch-last.json",
+      "owner": "dispatchGateRot",
+      "envVar": "IHUI_GATE_ROT_INTERVAL_MS",
+      "nominalIntervalMs": 21600000,
+      "verifiedAt": "2026-11-04",
+      "ruler": "scripts/check-gate-rot.mjs"
+    },
+    {
+      "stamp": "dep-radar-dispatch-last.json",
+      "owner": "dispatchDepAdvisoryRadar",
+      "envVar": "IHUI_DEP_RADAR_INTERVAL_MS",
+      "nominalIntervalMs": 86400000,
+      "verifiedAt": "2026-11-04",
+      "ruler": "scripts/dep-radar.mjs"
+    },
+    {
+      "stamp": "merge-addition-loss-dispatch-last.json",
+      "owner": "startDaemon tick 的 legThrottle 调用点(2026-11-04 承载面第二批)",
+      "envVar": "(无独立 env;间隔写死在调用点)",
+      "nominalIntervalMs": 1800000,
+      "verifiedAt": "2026-11-04",
+      "ruler": "scripts/check-merge-addition-loss.mjs"
+    },
+    {
+      "stamp": "recovery-source-dispatch-last.json",
+      "owner": "startDaemon tick 的 legThrottle 调用点(2026-11-04 承载面第二批)",
+      "envVar": "(无独立 env;间隔写死在调用点)",
+      "nominalIntervalMs": 1800000,
+      "verifiedAt": "2026-11-04",
+      "ruler": "scripts/git-backup-refresh.mjs"
+    },
+    {
+      "stamp": "run-log-rotate-dispatch-last.json",
+      "owner": "startDaemon tick 的 legThrottle 调用点(2026-11-04 承载面第二批)",
+      "envVar": "(无独立 env;间隔写死在调用点)",
+      "nominalIntervalMs": 1800000,
+      "verifiedAt": "2026-11-04",
+      "ruler": "本文件 rotateRunLogs"
+    },
+    {
+      "stamp": "baseline-freshness-dispatch-last.json",
+      "owner": "startDaemon tick 的 legThrottle 调用点(2026-11-04 承载面第二批)",
+      "envVar": "(无独立 env;间隔写死在调用点)",
+      "nominalIntervalMs": 3600000,
+      "verifiedAt": "2026-11-04",
+      "ruler": "本文件 reportBaselineFreshness"
+    }
+  ]
+}
