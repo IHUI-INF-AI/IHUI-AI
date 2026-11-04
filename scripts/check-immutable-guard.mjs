@@ -86,14 +86,25 @@ import {
   MIN_REASON_CHARS,
   CODE_LABEL,
   GUARD_DATA_REL,
+  MIN_KEY_CHARS,
+  SIGNATURE_REQUIRED_KEY,
+  SIG_TRAILER,
+  SIG_VERSION,
+  UNSIGNED_LEDGER_REL,
   decide,
   parseGuardList,
   parseNameStatusZ,
   parseExemptTrailer,
+  parseSigTrailer,
   probeEntry,
   matchProtected,
   globToRegExp,
+  signExemption,
+  subjectOf,
   todayStr,
+  verifyExemption,
+  judgeChanges,
+  exemptPayload,
 } from './lib/immutable-guard.mjs'
 import { FACES, Undetermined, catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
@@ -106,6 +117,57 @@ export const SELF_SKIP = 'HUSKY_SKIP_IMMUTABLE_GUARD'
 
 /** 豁免留痕（§0.7）：`--record` 时逐条追加，落在 gitignored 的 state 目录。 */
 export const RECORD_REL = '.ihui-agent/state/immutable-guard-exemptions.jsonl'
+
+/**
+ * 验签密钥的三个来源（优先级从高到低），全部**在提交者可控范围之外**才有意义：
+ *   `IHUI_IMMUTABLE_GUARD_KEY`       CI / 机主直接注入的密钥串（最高优先，CI 的唯一推荐形态）；
+ *   `IHUI_IMMUTABLE_GUARD_KEY_FILE`  CI / 机主注入的密钥文件路径；
+ *   `git config ihui.immutableGuardKeyPath`
+ *                                    机主在仓外（`~/.gitconfig` 或本机配置）登记的密钥文件路径。
+ * **三个都取不到 ⇒ 密钥不存在 ⇒ 需要验签的一律按 `key-unavailable` 判 unverified（fail-closed）**，
+ * 绝不允许"没有钥匙就默认放行"。密钥长度 < MIN_KEY_CHARS 同样按无效处理（短密钥可被暴力猜）。
+ */
+export const KEY_ENV = 'IHUI_IMMUTABLE_GUARD_KEY'
+export const KEY_FILE_ENV = 'IHUI_IMMUTABLE_GUARD_KEY_FILE'
+export const KEY_CONFIG = 'ihui.immutableGuardKeyPath'
+
+/**
+ * 解析验签密钥。返回 `{key, source, why}`；`key === null` 表示"取不到可用密钥"。
+ * 只回传来源**标签**，绝不把密钥本身写进任何输出（台账/JSON/告警都不带它）。
+ */
+export function resolveSigningKey(root, env = process.env) {
+  const accept = (raw, source) => {
+    const k = String(raw ?? '').trim()
+    if (k.length < MIN_KEY_CHARS) {
+      return { key: null, source, why: `${source} 提供的密钥长度 ${k.length} < ${MIN_KEY_CHARS}（按无效密钥处理）` }
+    }
+    return { key: k, source, why: '' }
+  }
+  const direct = String(env[KEY_ENV] ?? '').trim()
+  if (direct) return accept(direct, KEY_ENV)
+  const fromFile = (file, source) => {
+    try {
+      const abs = path.isAbsolute(file) ? file : path.join(root, file)
+      return accept(readFileSync(abs, 'utf8'), `${source}:${file}`)
+    } catch (e) {
+      return { key: null, source, why: `${source} 指向的密钥文件读不到（${file}）：${e?.message ?? e}` }
+    }
+  }
+  const envFile = String(env[KEY_FILE_ENV] ?? '').trim()
+  if (envFile) return fromFile(envFile, KEY_FILE_ENV)
+  let configured = ''
+  try {
+    configured = String(gitRaw(['config', '--get', KEY_CONFIG], root)).trim()
+  } catch {
+    configured = ''
+  }
+  if (configured) return fromFile(configured, `git config ${KEY_CONFIG}`)
+  return {
+    key: null,
+    source: '',
+    why: `密钥不存在（${KEY_ENV} / ${KEY_FILE_ENV} / git config ${KEY_CONFIG} 均未提供 ⇒ 按无签名 fail-closed 处理）`,
+  }
+}
 
 /**
  * 增量巡检游标（`--audit-new`）：记"判到哪儿了"，与 `check-merge-addition-loss.mjs --all-new`
@@ -172,8 +234,18 @@ function readHeadMessage(root, rev = 'HEAD') {
  *   `null`      ⇒ 显式"没有消息"。
  * `rev` 只作用于 head 档：`--audit-new` 用它把判定面钉在**被审的那枚提交**上
  *   （清单、改动、提交信息三样都取 `${rev}` 那一轮，§0.4 同面同轮）。
+ * `key` 只给自检/测试注入用；`undefined` ⇒ 走 `resolveSigningKey` 的正式三源。
+ * `policyRev`（2026-11-04 立，push 门专用）：**策略取自哪里**。默认空 = 与 `rev` 同轮（巡检语义）。
+ *   push 门给区间基点（origin/main）：被审者无法在自己提交里删掉/推后 `signatureRequiredFrom`
+ *   来给自己放行；命中面 entries 仍取被审提交自己的清单（新增登记对当枚即生效）。
  */
-export function runAudit(root, face, { message = undefined, today = todayStr(), record = false, rev = 'HEAD' } = {}) {
+export function runAudit(root, face, { message = undefined, today = todayStr(), record = false, rev = 'HEAD', policyRev = null, key = undefined } = {}) {
+  const keyRes =
+    key === undefined
+      ? resolveSigningKey(root)
+      : key === null
+        ? { key: null, source: '', why: '密钥不存在（调用方显式置空 ⇒ 按 fail-closed 处理）' }
+        : { key: String(key), source: 'caller', why: '' }
   const baseOut = {
     face,
     rev,
@@ -184,13 +256,24 @@ export function runAudit(root, face, { message = undefined, today = todayStr(), 
     hits: [],
     untouched: [],
     exempt: { present: false, reasons: [], problems: [] },
+    signature: { present: false, ok: false, code: 'sig-missing', reasons: [], problems: [] },
+    signatureRequiredFrom: null,
+    keySource: keyRes.source,
+    keyWhy: keyRes.key ? '' : keyRes.why,
     expired: [],
     listProblems: [],
     detail: '',
   }
+  const useBasePolicy = Boolean(policyRev && policyRev !== rev)
   let listText
+  let policyText = null
   try {
-    listText = readFaceText(root, face, GUARD_DATA_REL, rev)
+    if (useBasePolicy) {
+      policyText = readFaceText(root, 'head', GUARD_DATA_REL, policyRev)
+      listText = readFaceText(root, 'head', GUARD_DATA_REL, rev)
+    } else {
+      listText = readFaceText(root, face, GUARD_DATA_REL, rev)
+    }
   } catch (e) {
     if (e instanceof Undetermined) return { ...baseOut, detail: e.message, code: 'list-missing' }
     throw e
@@ -198,14 +281,19 @@ export function runAudit(root, face, { message = undefined, today = todayStr(), 
   if (listText === null) {
     return { ...baseOut, code: 'list-missing', detail: `受保护面清单在 ${rev} 面不存在：${GUARD_DATA_REL}` }
   }
+  if (policyText === null && useBasePolicy) {
+    return { ...baseOut, code: 'list-missing', detail: `策略清单在 ${policyRev} 面不存在：${GUARD_DATA_REL}` }
+  }
   const parsed = parseGuardList(listText, { today })
-  if (parsed.problems.length) {
+  const policyParsed = policyText === null ? parsed : parseGuardList(policyText, { today })
+  const listProblems = [...parsed.problems, ...policyParsed.problems]
+  if (listProblems.length) {
     return {
       ...baseOut,
       exit: 2,
       code: 'list-bad',
       entryCount: parsed.entries.length,
-      listProblems: parsed.problems,
+      listProblems,
     }
   }
 
@@ -231,7 +319,15 @@ export function runAudit(root, face, { message = undefined, today = todayStr(), 
     }
   }
 
-  const out = decide({ listProblems: parsed.problems, entries: parsed.entries, changes, message: msg, today })
+  const out = decide({
+    listProblems: parsed.problems,
+    entries: parsed.entries,
+    changes,
+    message: msg,
+    today,
+    key: keyRes.key,
+    signatureRequiredFrom: policyParsed.signatureRequiredFrom,
+  })
   const result = {
     ...baseOut,
     ...out,
@@ -243,6 +339,11 @@ export function runAudit(root, face, { message = undefined, today = todayStr(), 
   }
   if (record && out.code === 'declared') {
     result.recorded = recordExemption(root, result)
+  }
+  // 「无签名豁免」台账**无条件**写（不依赖 --record）：迁移窗口内的旧语义通过必须留下可审计的痕迹，
+  // 否则它和现状一样是完全静默的。写失败只回传原因，不改判定（漏记一条 ≠ 改动没发生，但必须可见）。
+  if (out.code === 'declared-unsigned') {
+    result.unsignedRecorded = recordUnsignedExemption(root, result)
   }
   return result
 }
@@ -269,6 +370,36 @@ export function recordExemption(root, result) {
   }
 }
 
+/**
+ * 「无签名豁免」绕过台账：迁移窗口内"仅文字理由"的每一次放行都必须留痕（现状是完全静默）。
+ * 不存提交信息正文、不存密钥；只记"哪一面/哪枚提交/命中哪些面/理由/签名状态/窗口到期日"。
+ */
+export function recordUnsignedExemption(root, result) {
+  try {
+    const abs = path.join(root, UNSIGNED_LEDGER_REL)
+    mkdirSync(path.dirname(abs), { recursive: true })
+    appendFileSync(
+      abs,
+      `${JSON.stringify({
+        at: new Date().toISOString(),
+        kind: 'unsigned-exempt',
+        face: result.face,
+        rev: result.rev,
+        code: result.code,
+        windowUntil: result.signatureRequiredFrom,
+        signatureCode: result.signature?.code ?? '',
+        keySource: result.keySource ?? '',
+        hits: (result.hits ?? []).map((h) => ({ path: h.path, kind: h.entry.kind, status: h.status })),
+        reasons: (result.exempt?.reasons ?? []).map((r) => r.reason),
+      })}\n`,
+      'utf8',
+    )
+    return UNSIGNED_LEDGER_REL
+  } catch {
+    return null
+  }
+}
+
 /** 人读输出。判红时逐条点名"哪一面 / 为什么受保护 / 怎么合法改"（票面要求）。 */
 export function formatReport(out) {
   const lines = []
@@ -278,6 +409,15 @@ export function formatReport(out) {
     if (out.code === 'declared') {
       for (const r of out.exempt.reasons) lines.push(`   声明：${EXEMPT_TRAILER} ${r.reason}`)
       for (const h of out.hits) lines.push(`   - 已声明改动：${h.path}（${h.entry.kind} / ${h.status}）`)
+    }
+    if (out.code === 'declared-unsigned') {
+      lines.push(`   ⚠️ 无签名豁免（迁移窗口内，签名要求自 ${out.signatureRequiredFrom} 起生效）：`)
+      for (const r of out.exempt.reasons) lines.push(`      理由：${r.reason}`)
+      for (const h of out.hits) lines.push(`      - ${h.path}（${h.entry.kind} / ${h.status}）`)
+      lines.push(`      签名状态：${out.signature.code}；密钥来源：${out.keySource || '(无)'}`)
+      if (out.keyWhy) lines.push(`      密钥：${out.keyWhy}`)
+      lines.push(`      已记台账：${out.unsignedRecorded || UNSIGNED_LEDGER_REL}`)
+      lines.push(`      补签：${SIG_TRAILER} ${SIG_VERSION}:<hex>（签发命令见 --help 的 --sign-staged）`)
     }
   } else if (out.exit === 1) {
     lines.push(`❌ ${head} ${CODE_LABEL[out.code]}`)
@@ -289,6 +429,21 @@ export function formatReport(out) {
       for (const p of out.exempt.problems) lines.push(`   ⚠️ ${p.message}`)
       lines.push(
         `   怎么合法改：在本次提交信息里写一行 \`${EXEMPT_TRAILER} <≥${MIN_REASON_CHARS} 字理由>\`（逐行生效、只对本次提交有效）；受保护面不得静默删除。`,
+      )
+    }
+    if (out.code === 'undeclared-unsigned') {
+      for (const h of out.hits) {
+        lines.push(`   - ${h.path}（${h.entry.kind} / ${h.status}）`)
+        lines.push(`     为什么受保护：${h.entry.why}`)
+      }
+      for (const p of out.signature.problems) lines.push(`   ⚠️ ${p.message}`)
+      lines.push(`   签名状态：${out.signature.code}${out.keySource ? `；密钥来源：${out.keySource}` : ''}`)
+      if (out.keyWhy) lines.push(`   密钥：${out.keyWhy}`)
+      lines.push(
+        `   为什么判红：迁移窗口已于 ${out.signatureRequiredFrom ?? '(未设置)'} 到期 —— 仅文字理由不再放行，必须补 ${SIG_TRAILER} ${SIG_VERSION}:<hex> 签名。`,
+      )
+      lines.push(
+        `   怎么合法改：先 \`node scripts/check-immutable-guard.mjs --sign-staged --subject "<提交标题>" --reason "<与 immutable-exempt 同一句理由>" [--paths <a,b,c>]\` 生成签名行，再提交；密钥须由 CI/机主注入（${KEY_ENV} 或 git config ${KEY_CONFIG}）。`,
       )
     }
     if (out.code === 'expired') {
@@ -308,7 +463,7 @@ export function formatReport(out) {
     if (out.detail) lines.push(`   - ${out.detail}`)
   }
   lines.push(
-    `[判定面=${out.face}] code=${out.code} 受保护面 ${out.entryCount} 条 / 改动 ${out.changeCount} 条 / 命中 ${out.hits.length} 条 / 到期 ${out.expired.length} 条 / 未判定 ${out.exit === 2 ? 1 : 0}`,
+    `[判定面=${out.face}] code=${out.code} 受保护面 ${out.entryCount} 条 / 改动 ${out.changeCount} 条 / 命中 ${out.hits.length} 条 / 到期 ${out.expired.length} 条 / 未判定 ${out.exit === 2 ? 1 : 0} / 签名要求自 ${out.signatureRequiredFrom ?? '(未设置⇒立即)'}`,
   )
   return lines.join('\n')
 }
@@ -370,11 +525,57 @@ const AUDIT_BASE = {
   pending: 0,
   breaches: [],
   undetermined: [],
+  unsigned: [],
   cursorBefore: '',
   cursorAfter: '',
   head: '',
   detached: false,
   detail: '',
+}
+
+/**
+ * 判一批提交并归桶（`--audit-new` 与 `--range` 共用同一份，判据不分叉）。
+ * 归桶顺序：exit 1 ⇒ breach；exit 2 ⇒ undetermined；exit 0 ⇒ declared（签名验过）
+ * 或 unsigned（迁移窗口内仅文字理由）。合并提交跳过并计数（理由见调用处注释）。
+ */
+function judgeBatch(root, batch, { today = todayStr(), record = false, policyRev = null } = {}) {
+  const breaches = []
+  const undetermined = []
+  const unsigned = []
+  let declared = 0
+  let skippedMerges = 0
+  let judged = 0
+  for (const sha of batch) {
+    if (parentCount(root, sha) > 1) {
+      skippedMerges += 1
+      continue
+    }
+    judged += 1
+    let one
+    try {
+      one = runAudit(root, 'head', { today, record, rev: sha, policyRev })
+    } catch (e) {
+      one = { exit: 2, code: 'threw', detail: String(e?.message ?? e), hits: [], entryCount: 0, expired: [] }
+    }
+    const brief = {
+      sha,
+      code: one.code,
+      subject: safeSubject(root, sha),
+      hits: (one.hits ?? []).map((h) => ({ path: h.path, kind: h.entry?.kind ?? '', status: h.status ?? '' })),
+      reasons: (one.exempt?.reasons ?? []).map((r) => r.reason),
+      problems: (one.exempt?.problems ?? []).map((p) => p.message),
+      signatureCode: one.signature?.code ?? '',
+      keySource: one.keySource ?? '',
+      windowUntil: one.signatureRequiredFrom ?? null,
+      expired: (one.expired ?? []).map((x) => `${x.path}@${x.reviewBy}`),
+      detail: one.detail ?? '',
+    }
+    if (one.exit === 1) breaches.push(brief)
+    else if (one.exit === 2) undetermined.push(brief)
+    else if (one.code === 'declared') declared += 1
+    else if (one.code === 'declared-unsigned') unsigned.push(brief)
+  }
+  return { breaches, undetermined, unsigned, declared, skippedMerges, judged }
 }
 
 /**
@@ -447,39 +648,7 @@ export function auditNewCommits(root, { limit = AUDIT_BATCH_DEFAULT, today = tod
     return { ...AUDIT_BASE, state: 'undetermined', head, cursorBefore: cursor, cursorAfter: cursor, detail: `游标之后枚举到 0 枚提交（cursor=${cursor.slice(0, 12)}）⇒ 未判定，不记绿` }
   }
 
-  const breaches = []
-  const undetermined = []
-  let declared = 0
-  let skippedMerges = 0
-  for (const sha of batch) {
-    // 合并提交按**第一父**比diff ⇒ 它的命中是"父辈内容的并集"，那些枚自己已被判过；
-    // 再判一遍就是把同一件事记两回（噪音会把巡检读成"天天在响"，§5e-1 的可整改性就没了）。
-    // 残余缺口 = 恶意的 merge 本身改判据面（两父都没有的形态）：那一格归 `root-guard --check`
-    // 的哈希封条（部署环 fail-closed），不归本巡检，本档如实不覆盖它。
-    if (parentCount(root, sha) > 1) {
-      skippedMerges += 1
-      continue
-    }
-    let one
-    try {
-      one = runAudit(root, 'head', { today, record, rev: sha })
-    } catch (e) {
-      one = { exit: 2, code: 'threw', detail: String(e?.message ?? e), hits: [], entryCount: 0, expired: [] }
-    }
-    const brief = {
-      sha,
-      code: one.code,
-      subject: safeSubject(root, sha),
-      hits: (one.hits ?? []).map((h) => ({ path: h.path, kind: h.entry?.kind ?? '', status: h.status ?? '' })),
-      reasons: (one.exempt?.reasons ?? []).map((r) => r.reason),
-      problems: (one.exempt?.problems ?? []).map((p) => p.message),
-      expired: (one.expired ?? []).map((x) => `${x.path}@${x.reviewBy}`),
-      detail: one.detail ?? '',
-    }
-    if (one.exit === 1) breaches.push(brief)
-    else if (one.exit === 2) undetermined.push(brief)
-    else if (one.code === 'declared') declared += 1
-  }
+  const { breaches, undetermined, unsigned, declared, skippedMerges, judged } = judgeBatch(root, batch, { today, record })
 
   const lastAudited = batch[batch.length - 1]
   // 判完 ⇒ 推进到本轮 HEAD；没判完 ⇒ 游标**原地不动**、本批已判 sha 进 `judged` 底账。
@@ -502,9 +671,10 @@ export function auditNewCommits(root, { limit = AUDIT_BATCH_DEFAULT, today = tod
     state,
     head,
     audited: batch.length,
-    judged: batch.length - skippedMerges,
+    judged,
     skippedMerges,
     declared,
+    unsigned,
     pending,
     breaches,
     undetermined,
@@ -513,6 +683,77 @@ export function auditNewCommits(root, { limit = AUDIT_BATCH_DEFAULT, today = tod
     detached,
     detail: notes.join('；'),
   }
+}
+
+/**
+ * 显式区间档（`--range a..b`，2026-11-04 立）。push 门用它判"本次要推的每一枚"：
+ * 与 `--audit-new` 共用同一份 `judgeBatch`（判据不分叉），区别只有两点 ——
+ *   ① 输入是**调用方点名的区间**，不是游标（游标可能已被巡检推到这些提交之前，
+ *      那会让 push 门看到 `no-new-head` 而瞎绿）；
+ *   ② 不写游标、不计 pending（区间由 rev-list 一次算全，判不完就不是 push 门该管的形态）。
+ * 区间解析失败（`origin/main` 未 fetch / 拼错）⇒ exit 2 **未判定**，不判红也不记绿。
+ * 区间为空 ⇒ exit 0 / `empty-range`（真的零输入，明确不冒充"判过且干净"）。
+ */
+export function auditRange(root, { range = 'origin/main..HEAD', today = todayStr(), record = false } = {}) {
+  const base = { ...AUDIT_BASE, range }
+  let shas
+  try {
+    shas = String(gitRaw(['rev-list', '--reverse', range], root))
+      .split(/\r?\n/)
+      .filter(Boolean)
+  } catch (e) {
+    return {
+      ...base,
+      state: 'undetermined',
+      range,
+      detail: `区间 ${range} 解析失败（origin/main 未 fetch 或区间拼错）：${e?.message ?? e} ⇒ 未判定，不记绿`,
+    }
+  }
+  if (shas.length === 0) {
+    return { ...base, exit: 0, state: 'empty-range', range, detail: `区间 ${range} 为空 ⇒ 本轮零输入（不等于"判过且干净"）` }
+  }
+  // 策略基点：区间左端（三点区间取 merge-base）。签名要求日取**基点**的清单 ——
+  // 被审者在自己提交里删掉/推后开关也给自己放不了行；命中面仍取被审提交自己的清单。
+  let baseRev
+  try {
+    baseRev = rangeBaseRev(root, range)
+  } catch (e) {
+    return { ...base, state: 'undetermined', range, detail: `区间 ${range} 的基点解析失败：${e?.message ?? e} ⇒ 未判定，不记绿` }
+  }
+  const { breaches, undetermined, unsigned, declared, skippedMerges, judged } = judgeBatch(root, shas, {
+    today,
+    record,
+    policyRev: baseRev,
+  })
+  return {
+    ...base,
+    exit: breaches.length > 0 ? 1 : undetermined.length > 0 ? 2 : 0,
+    state: breaches.length > 0 ? 'breach' : undetermined.length > 0 ? 'undetermined' : 'clean',
+    range,
+    head: shas[shas.length - 1],
+    audited: shas.length,
+    judged,
+    skippedMerges,
+    declared,
+    unsigned,
+    pending: 0,
+    breaches,
+    undetermined,
+    cursorBefore: '',
+    cursorAfter: '',
+    detail: '',
+  }
+}
+
+/** 区间基点：`a..b` ⇒ a；`a...b` ⇒ merge-base(a,b)。解析失败抛错（调用方折 exit 2）。 */
+function rangeBaseRev(root, range) {
+  const three = String(range).includes('...')
+  const [left, right] = String(range).split(three ? '...' : '..')
+  if (!left || !right) throw new Error(`区间必须形如 a..b 或 a...b，收到：${range}`)
+  const args = three ? ['merge-base', left, right] : ['rev-parse', '--verify', `${left}^{commit}`]
+  const out = String(gitRaw(args, root)).trim()
+  if (!out) throw new Error(`无法解析区间左端：${left}`)
+  return out
 }
 
 /** 父数（>1 = 合并提交）。取不到按 1 处理 ⇒ 宁可多判一枚，不放过一枚。 */
@@ -537,21 +778,32 @@ function safeSubject(root, sha) {
 export function formatAuditReport(out) {
   const lines = []
   const head = `[immutable-guard:audit] state=${out.state}`
-  if (out.exit === 0 && (out.state === 'clean' || out.state === 'no-new-head')) lines.push(`✅ ${head}`)
+  const unsigned = Array.isArray(out.unsigned) ? out.unsigned : []
+  if (out.exit === 0 && unsigned.length > 0) {
+    lines.push(`⚠️ ${head} 无签名豁免 ${unsigned.length} 枚（迁移窗口内，已记台账 ${UNSIGNED_LEDGER_REL}）`)
+  } else if (out.exit === 0 && (out.state === 'clean' || out.state === 'no-new-head' || out.state === 'empty-range'))
+    lines.push(`✅ ${head}`)
   else if (out.exit === 0 && out.state === 'bootstrapped') lines.push(`ℹ️ ${head}`)
-  else if (out.exit === 1) lines.push(`❌ ${head} 判据面被静默改动（未声明 / 声明过短 / 清单到期）`)
+  else if (out.exit === 1) lines.push(`❌ ${head} 判据面被静默改动（未声明 / 声明过短 / 签名缺失或验不过 / 清单到期）`)
   else lines.push(`❌ 未判定 ${head}`)
+  if (out.range) lines.push(`   区间：${out.range}`)
   for (const b of out.breaches) {
     lines.push(`   - ${b.sha}「${b.subject}」code=${b.code}`)
     for (const h of b.hits) lines.push(`     · ${h.path}（${h.kind} / ${h.status}）`)
     for (const x of b.expired) lines.push(`     · 清单到期：${x}`)
     for (const p of b.problems) lines.push(`     ⚠️ ${p}`)
+    if (b.signatureCode) lines.push(`     · 签名状态：${b.signatureCode}${b.keySource ? `（密钥来源 ${b.keySource}）` : ''}`)
+  }
+  for (const u of unsigned) {
+    lines.push(`   ⚠️ ${u.sha}「${u.subject}」无签名豁免（${u.signatureCode}；窗口至 ${u.windowUntil}）`)
+    for (const h of u.hits) lines.push(`     · ${h.path}（${h.kind} / ${h.status}）`)
+    for (const r of u.reasons) lines.push(`     · 理由：${r}`)
   }
   for (const u of out.undetermined) lines.push(`   · 未判定 ${u.sha}「${u.subject}」code=${u.code} —— ${u.detail}`)
-  if (out.declared) lines.push(`   已声明（--record 已留痕）：${out.declared} 枚`)
+  if (out.declared) lines.push(`   已声明且验签通过（--record 已留痕）：${out.declared} 枚`)
   if (out.detail) lines.push(`   注：${out.detail}`)
   lines.push(
-    `[immutable-guard:audit] 判 ${out.audited} 枚(其中合并跳过 ${out.skippedMerges ?? 0} 枚) / 红 ${out.breaches.length} / 未判定 ${out.undetermined.length} / 待判 ${out.pending} / 游标 ${out.cursorBefore.slice(0, 12) || '(无)'} → ${out.cursorAfter.slice(0, 12) || '(无)'}`,
+    `[immutable-guard:audit] 判 ${out.audited} 枚(其中合并跳过 ${out.skippedMerges ?? 0} 枚) / 红 ${out.breaches.length} / 未判定 ${out.undetermined.length} / 无签名 ${unsigned.length} / 待判 ${out.pending} / 游标 ${String(out.cursorBefore || '').slice(0, 12) || '(无)'} → ${String(out.cursorAfter || '').slice(0, 12) || '(无)'}`,
   )
   return lines.join('\n')
 }
@@ -595,6 +847,29 @@ function seedRepo(guardJson) {
   return root
 }
 
+/** 自检夹具密钥（≥ MIN_KEY_CHARS；只在 scratch 仓里用，与机主真钥无关）。 */
+const ST_KEY = 'immutable-guard-self-test-key-0123456789abcdef'
+const ST_KEY_OTHER = 'immutable-guard-self-test-other-key-0123456789'
+
+/** 造一条"理由 + 正确签名"的提交信息（签名绑定标题/命中路径/理由，与验签侧同一 payload）。 */
+function signedMessage(subject, reason, hits, key = ST_KEY) {
+  return `${subject}\n\n${EXEMPT_TRAILER} ${reason}\n${SIG_TRAILER} ${signExemption({ subject, hits, reason, key })}`
+}
+
+/** 清单正文 → entries（自检里改写清单形状时用；不复制判据常量）。 */
+function guardEntriesOf(text) {
+  const parsed = JSON.parse(text)
+  return Array.isArray(parsed) ? parsed : parsed.entries
+}
+
+/** 原地改写清单 entries 并写回同形正文（旧数组形态 / 新对象形态都不丢顶层开关）。 */
+function mutateGuardDoc(root, mutate) {
+  const doc = JSON.parse(realGuardJson())
+  const entries = Array.isArray(doc) ? doc : doc.entries
+  mutate(entries)
+  writeIn(root, GUARD_DATA_REL, JSON.stringify(Array.isArray(doc) ? entries : { ...doc, entries }, null, 2))
+}
+
 function realGuardJson() {
   return readFileSync(path.join(ROOT, GUARD_DATA_REL), 'utf8')
 }
@@ -606,6 +881,11 @@ export function selfTest() {
     cases.push({ name, ok: Boolean(cond), detail })
   }
   const guardJson = realGuardJson()
+  const auditWin = parseGuardList(guardJson).signatureRequiredFrom
+  // 「窗口后」的今天：窗口日期 + 1 天（窗口未配置 = 立即要求签名 ⇒ 用当天即可）；不写死日期，开关改了测试跟着走。
+  const dayAfterWindow = auditWin
+    ? new Date(Date.parse(`${auditWin}T00:00:00Z`) + 86400000).toISOString().slice(0, 10)
+    : todayStr()
   const run = (fn) => {
     const root = seedRepo(guardJson)
     try {
@@ -642,15 +922,17 @@ export function selfTest() {
     )
   })
 
-  // ST3 同改动带有效 trailer ⇒ 绿（声明生效）
+  // ST3 同改动带有效 trailer + 正确签名 ⇒ 绿（签名豁免生效）
   run((root) => {
+    const reason = '修复批量读取的内存上限，已复核全部调用方'
+    const subject = 'refactor: tweak reader'
     writeIn(root, 'scripts/lib/face-reader.mjs', '// changed\n')
-    commitAll(root, 'refactor: tweak reader\n\nimmutable-exempt: 修复批量读取的内存上限，已复核全部调用方')
-    const out = audit(root)
+    commitAll(root, signedMessage(subject, reason, ['scripts/lib/face-reader.mjs']))
+    const out = audit(root, 'head', { key: ST_KEY })
     ok(
-      'ST3 同一改动带 immutable-exempt: ⇒ exit 0 / declared',
-      out.exit === 0 && out.code === 'declared' && out.exempt.reasons.length === 1,
-      JSON.stringify({ exit: out.exit, code: out.code, reasons: out.exempt.reasons }),
+      'ST3 同一改动带 immutable-exempt: + 正确签名 ⇒ exit 0 / declared',
+      out.exit === 0 && out.code === 'declared' && out.exempt.reasons.length === 1 && out.signature.code === 'sig-verified',
+      JSON.stringify({ exit: out.exit, code: out.code, sig: out.signature.code }),
     )
   })
 
@@ -735,12 +1017,14 @@ export function selfTest() {
     ok('ST12 --staged 触及但无消息来源 ⇒ exit 2 / message-missing', out.exit === 2 && out.code === 'message-missing', JSON.stringify({ exit: out.exit, code: out.code }))
   })
 
-  // ST13 staged 面 + 显式消息带 trailer ⇒ 绿
+  // ST13 staged 面 + 显式消息带 trailer + 签名 ⇒ 绿
   run((root) => {
+    const reason = '复核过全部三个调用方的取值面'
+    const subject = 'refactor: x'
     writeIn(root, 'scripts/lib/face-reader.mjs', '// staged change\n')
     gitRaw(['add', '-A'], root)
-    const out = audit(root, 'staged', { message: 'refactor: x\n\nimmutable-exempt: 复核过全部三个调用方的取值面' })
-    ok('ST13 --staged + --message 合格声明 ⇒ exit 0 / declared', out.exit === 0 && out.code === 'declared', JSON.stringify({ exit: out.exit, code: out.code }))
+    const out = audit(root, 'staged', { message: signedMessage(subject, reason, ['scripts/lib/face-reader.mjs']), key: ST_KEY })
+    ok('ST13 --staged + --message 合格声明与签名 ⇒ exit 0 / declared', out.exit === 0 && out.code === 'declared', JSON.stringify({ exit: out.exit, code: out.code }))
   })
 
   // ST14 worktree 未跟踪新增受保护面 ⇒ 红
@@ -756,9 +1040,9 @@ export function selfTest() {
 
   // ST15 清单坏行 ⇒ 未判定（形状坏不猜）
   run((root) => {
-    const bad = JSON.parse(guardJson)
-    bad[0].kind = 'no-such-kind'
-    writeIn(root, GUARD_DATA_REL, JSON.stringify(bad, null, 2))
+    mutateGuardDoc(root, (entries) => {
+      entries[0].kind = 'no-such-kind'
+    })
     gitRaw(['add', '-A'], root)
     commitAll(root, 'chore: break guard list')
     const out = audit(root)
@@ -767,13 +1051,14 @@ export function selfTest() {
 
   // ST16 清单 reviewBy 到期 ⇒ 红（清单腐烂，§0.7）
   run((root) => {
-    const old = JSON.parse(guardJson).map((e) => ({ ...e, reviewBy: '2020-01-01' }))
-    writeIn(root, GUARD_DATA_REL, JSON.stringify(old, null, 2))
+    mutateGuardDoc(root, (entries) => {
+      for (const e of entries) e.reviewBy = '2020-01-01'
+    })
     commitAll(root, 'chore: old reviewBy')
     const out = audit(root)
     ok(
       'ST16 reviewBy 到期 ⇒ exit 1 / expired',
-      out.exit === 1 && out.code === 'expired' && out.expired.length === old.length,
+      out.exit === 1 && out.code === 'expired' && out.expired.length === guardEntriesOf(guardJson).length,
       JSON.stringify({ exit: out.exit, code: out.code, expired: out.expired.length }),
     )
   })
@@ -788,8 +1073,9 @@ export function selfTest() {
 
   // ST18 未触及但有到期项 ⇒ 红（存量腐烂不因"本次没改"而无视）
   run((root) => {
-    const old = JSON.parse(guardJson).map((e) => ({ ...e, reviewBy: '2020-01-01' }))
-    writeIn(root, GUARD_DATA_REL, JSON.stringify(old, null, 2))
+    mutateGuardDoc(root, (entries) => {
+      for (const e of entries) e.reviewBy = '2020-01-01'
+    })
     commitAll(root, 'chore: old reviewBy')
     writeIn(root, 'docs/w.md', '# w\n')
     commitAll(root, 'docs: add w')
@@ -822,11 +1108,13 @@ export function selfTest() {
     )
   }
 
-  // ST21 --record 留痕：声明合格时逐条落 jsonl（§0.7 豁免留痕；取不到不判红，但结果里 recorded=null）
+  // ST21 --record 留痕：声明合格且签名验过时逐条落 jsonl（§0.7 豁免留痕）
   run((root) => {
+    const reason = '已复核全部调用方并补齐镜像测试'
+    const subject = 'refactor: x'
     writeIn(root, 'scripts/lib/face-reader.mjs', '// changed\n')
-    commitAll(root, 'refactor: x\n\nimmutable-exempt: 已复核全部调用方并补齐镜像测试')
-    const out = audit(root, 'head', { record: true })
+    commitAll(root, signedMessage(subject, reason, ['scripts/lib/face-reader.mjs']))
+    const out = audit(root, 'head', { record: true, key: ST_KEY })
     const file = path.join(root, RECORD_REL)
     let rec = null
     try {
@@ -919,6 +1207,84 @@ export function selfTest() {
     )
   })
 
+  // ---------------------------------------------------------------------
+  // 签名豁免（2026-11-04）：反向测试四条 + 密钥缺失 fail-closed 一条
+  // ---------------------------------------------------------------------
+
+  // ST27 正确签名 ⇒ declared 放行（正向对照）
+  run((root) => {
+    const reason = '签名绑定标题与命中面，本单即受审对象'
+    const subject = 'refactor: signed exemption'
+    writeIn(root, 'scripts/lib/face-reader.mjs', '// changed\n')
+    commitAll(root, signedMessage(subject, reason, ['scripts/lib/face-reader.mjs']))
+    const out = audit(root, 'head', { key: ST_KEY })
+    ok(
+      'ST27 文字理由 + 正确签名 ⇒ exit 0 / declared',
+      out.exit === 0 && out.code === 'declared' && out.signature.code === 'sig-verified',
+      JSON.stringify({ exit: out.exit, code: out.code, sig: out.signature.code }),
+    )
+  })
+
+  // ST28 迁移窗口内：仅文字理由（无签名行）⇒ 放行 + 「无签名豁免」台账落地
+  run((root) => {
+    writeIn(root, 'scripts/lib/face-reader.mjs', '// changed\n')
+    commitAll(root, 'refactor: legacy\n\nimmutable-exempt: 迁移窗口内的旧写法，复核过全部调用方')
+    const out = audit(root, 'head', { today: '2000-01-01', key: null })
+    let rows = []
+    try {
+      rows = readFileSync(path.join(root, UNSIGNED_LEDGER_REL), 'utf8').trim().split(/\r?\n/).filter(Boolean)
+    } catch {
+      rows = []
+    }
+    const rec = rows.length ? JSON.parse(rows[rows.length - 1]) : null
+    ok(
+      'ST28 窗口内仅文字理由 ⇒ exit 0 / declared-unsigned 且落「无签名豁免」台账',
+      out.exit === 0 && out.code === 'declared-unsigned' && out.unsignedRecorded === UNSIGNED_LEDGER_REL && rec && rec.kind === 'unsigned-exempt' && rec.signatureCode === 'sig-missing',
+      JSON.stringify({ exit: out.exit, code: out.code, recorded: out.unsignedRecorded, rec }),
+    )
+  })
+
+  // ST29 迁移窗口后：仅文字理由 ⇒ 不放行
+  run((root) => {
+    writeIn(root, 'scripts/lib/face-reader.mjs', '// changed\n')
+    commitAll(root, 'refactor: legacy\n\nimmutable-exempt: 迁移窗口后的旧写法，复核过全部调用方')
+    const out = audit(root, 'head', { today: dayAfterWindow, key: null })
+    ok(
+      'ST29 窗口后仅文字理由 ⇒ exit 1 / undeclared-unsigned（不放行）',
+      out.exit === 1 && out.code === 'undeclared-unsigned',
+      JSON.stringify({ exit: out.exit, code: out.code, sig: out.signature.code }),
+    )
+  })
+
+  // ST30 签名形状正确但验签失败 ⇒ 不放行（窗口内也不放：伪造签名不能比不签更划算）
+  run((root) => {
+    const reason = '签名绑定标题与命中面，本单即受审对象'
+    const subject = 'refactor: forged signature'
+    writeIn(root, 'scripts/lib/face-reader.mjs', '// changed\n')
+    const forged = signExemption({ subject, hits: ['scripts/lib/face-reader.mjs'], reason, key: ST_KEY_OTHER })
+    commitAll(root, `${subject}\n\n${EXEMPT_TRAILER} ${reason}\n${SIG_TRAILER} ${forged}`)
+    const out = audit(root, 'head', { today: '2000-01-01', key: ST_KEY })
+    ok(
+      'ST30 签名形状正确但验签失败 ⇒ exit 1 / undeclared-unsigned（窗口内也不放行）',
+      out.exit === 1 && out.code === 'undeclared-unsigned' && out.signature.code === 'sig-invalid',
+      JSON.stringify({ exit: out.exit, code: out.code, sig: out.signature.code }),
+    )
+  })
+
+  // ST31 密钥不存在 + 有签名行 ⇒ fail-closed（绝不"没钥匙就默认放行"）
+  run((root) => {
+    const reason = '签名绑定标题与命中面，本单即受审对象'
+    const subject = 'refactor: missing key'
+    writeIn(root, 'scripts/lib/face-reader.mjs', '// changed\n')
+    commitAll(root, signedMessage(subject, reason, ['scripts/lib/face-reader.mjs']))
+    const out = audit(root, 'head', { today: '2000-01-01', key: null })
+    ok(
+      'ST31 密钥不存在但有签名行 ⇒ exit 1（key-unavailable，fail-closed）',
+      out.exit === 1 && out.code === 'undeclared-unsigned' && out.signature.code === 'key-unavailable' && out.keyWhy.length > 0,
+      JSON.stringify({ exit: out.exit, code: out.code, sig: out.signature.code, keyWhy: out.keyWhy }),
+    )
+  })
+
   const failed = cases.filter((c) => !c.ok)
   for (const c of cases) {
     console.log(`${c.ok ? 'ok  ' : 'FAIL'} ${c.name}${c.ok ? '' : ` —— ${c.detail}`}`)
@@ -936,6 +1302,11 @@ function parseArgv(argv) {
     staged: false,
     worktree: false,
     auditNew: false,
+    signStaged: false,
+    range: null,
+    subject: null,
+    reason: null,
+    paths: [],
     limit: AUDIT_BATCH_DEFAULT,
     message: undefined,
     messageFile: null,
@@ -950,7 +1321,14 @@ function parseArgv(argv) {
     if (a === '--staged') opts.staged = true
     else if (a === '--worktree') opts.worktree = true
     else if (a === '--audit-new') opts.auditNew = true
-    else if (a === '--limit') {
+    else if (a === '--sign-staged') opts.signStaged = true
+    else if (a === '--range') opts.range = argv[++i]
+    else if (a === '--subject') opts.subject = argv[++i]
+    else if (a === '--reason') opts.reason = argv[++i]
+    else if (a === '--paths') {
+      const raw = String(argv[++i] ?? '')
+      opts.paths = raw.split(',').map((s) => s.trim()).filter(Boolean)
+    } else if (a === '--limit') {
       const n = Number.parseInt(String(argv[++i]), 10)
       if (!Number.isFinite(n) || n <= 0) throw new Error(`--limit 必须是正整数，收到：${argv[i]}`)
       opts.limit = n
@@ -968,13 +1346,40 @@ function parseArgv(argv) {
 }
 
 const USAGE = [
-  '用法: node scripts/check-immutable-guard.mjs [--staged|--worktree|--audit-new] [--message-file <f>|--message <s>] [--json] [--record] [--root <仓根>] [--today <YYYY-MM-DD>]',
+  '用法: node scripts/check-immutable-guard.mjs [--staged|--worktree|--audit-new|--range <a..b>] [--message-file <f>|--message <s>] [--json] [--record] [--root <仓根>] [--today <YYYY-MM-DD>]',
   '      node scripts/check-immutable-guard.mjs --audit-new [--limit 50] [--record]   # 巡检轮档（游标之后每枚判一次）',
+  '      node scripts/check-immutable-guard.mjs --range origin/main..HEAD            # push 门档（逐枚判"本次要推的"）',
+  '      node scripts/check-immutable-guard.mjs --sign-staged --subject "<提交标题>" --reason "<理由>" [--paths <a,b,c>]  # 生成签名行（stdout 可直接贴进提交信息）',
   '      node scripts/check-immutable-guard.mjs --self-test',
   '',
-  `受保护面清单: ${GUARD_DATA_REL}；合法改法: 提交信息里一行 \`${EXEMPT_TRAILER} <≥${MIN_REASON_CHARS} 字理由>\``,
+  `受保护面清单: ${GUARD_DATA_REL}；合法改法: 提交信息里两行 —— \`${EXEMPT_TRAILER} <≥${MIN_REASON_CHARS} 字理由>\` + \`${SIG_TRAILER} ${SIG_VERSION}:<hex>\``,
+  `签名密钥来源（按优先级）: ${KEY_ENV} / ${KEY_FILE_ENV} / git config ${KEY_CONFIG}（密钥不存在 ⇒ 需要验签的一律 fail-closed 判未豁免）`,
+  `迁移窗口: ${GUARD_DATA_REL} 的 ${SIGNATURE_REQUIRED_KEY}；窗口内仅文字理由 ⇒ 放行并记 ${UNSIGNED_LEDGER_REL}，到期后必须有验得过的签名`,
   `巡检游标: ${CURSOR_REL}（派发点 = scripts/git-guardian.mjs 的 auditImmutableGuardNewCommits）`,
 ].join('\n')
+
+/**
+ * 签发助手（`--sign-staged`）：只对**点名的 staged 路径**算命中面，避免把别席暂存条目
+ * 一起签进 payload（那样审计侧按提交 diff 重算会验不过）。密钥走同一套 `resolveSigningKey`。
+ */
+export function signStaged(root, { subject, reason, paths = [], today = todayStr() } = {}) {
+  if (!subject || !String(subject).trim()) throw new Error('--subject 必填（必须与最终提交标题一字不差）')
+  if (!reason || String(reason).trim() === '') throw new Error('--reason 必填')
+  const args = ['diff', '--cached', '--name-status', '-M', '-z']
+  if (paths.length) args.push('--', ...paths)
+  const changes = parseNameStatusZ(gitRaw(args, root))
+  const parsed = parseGuardList(readFileSync(path.join(root, GUARD_DATA_REL), 'utf8'), { today })
+  if (parsed.problems.length) throw new Error(`清单形状坏，先修清单：${parsed.problems.map((p) => p.message).join('；')}`)
+  const judged = judgeChanges({ changes, entries: parsed.entries, message: '', today })
+  if (!judged.hits.length) throw new Error('指定路径里没有命中受保护面 ⇒ 无需签名（不签空集）')
+  const keyRes = resolveSigningKey(root)
+  if (!keyRes.key) throw new Error(keyRes.why)
+  return {
+    sig: signExemption({ subject, hits: judged.hits, reason, key: keyRes.key }),
+    hits: judged.hits.map((h) => `${h.path}（${h.entry.kind} / ${h.status}）`),
+    keySource: keyRes.source,
+  }
+}
 
 export function main(argv = process.argv.slice(2)) {
   let opts
@@ -995,6 +1400,50 @@ export function main(argv = process.argv.slice(2)) {
   if (process.env[SELF_SKIP] === '1') {
     console.log(`⚠️ [immutable-guard] 应急跳过：${SELF_SKIP}=1（本次不判定；跳门留痕由 safe-commit attestation 负责）`)
     return 0
+  }
+  if (opts.signStaged && (opts.staged || opts.worktree || opts.auditNew || opts.range)) {
+    console.error('❌ --sign-staged 只对 staged 面签发，不得与 --staged/--worktree/--audit-new/--range 同用')
+    return 2
+  }
+  if (opts.range && (opts.staged || opts.worktree || opts.auditNew)) {
+    console.error('❌ --range 走显式区间（push 门专用），不得与 --staged/--worktree/--audit-new 同用')
+    return 2
+  }
+  if (opts.signStaged) {
+    let r
+    try {
+      r = signStaged(opts.root, {
+        subject: opts.subject,
+        reason: opts.reason,
+        paths: opts.paths,
+        ...(opts.today ? { today: opts.today } : {}),
+      })
+    } catch (e) {
+      console.error(`❌ 签发失败：${e?.message ?? e}`)
+      return 2
+    }
+    // 说明走 stderr，stdout 只留可直接贴进提交信息的两行。
+    console.error(`# 已签 ${r.hits.length} 条命中面，密钥来源：${r.keySource}`)
+    for (const h of r.hits) console.error(`# 命中：${h}`)
+    console.log(`${EXEMPT_TRAILER} ${String(opts.reason).trim()}`)
+    console.log(`${SIG_TRAILER} ${r.sig}`)
+    return 0
+  }
+  if (opts.range) {
+    let out
+    try {
+      out = auditRange(opts.root, {
+        range: opts.range,
+        record: opts.record,
+        ...(opts.today ? { today: opts.today } : {}),
+      })
+    } catch (e) {
+      console.error(`❌ 未判定：${e?.message ?? e}`)
+      return 2
+    }
+    if (opts.json) console.log(JSON.stringify(out, null, 2))
+    else console.log(formatAuditReport(out))
+    return out.exit
   }
   if (opts.staged && opts.worktree) {
     console.error('❌ --staged 与 --worktree 不得同用（两个判定面互斥）')
@@ -1073,6 +1522,9 @@ export const __test__ = {
   writeCursor,
   isAncestor,
   auditNewCommits,
+  auditRange,
+  signStaged,
+  resolveSigningKey,
   formatAuditReport,
   selfTest,
   parseArgv,
@@ -1091,5 +1543,19 @@ export const __test__ = {
   matchProtected,
   globToRegExp,
   decide,
+  // 签名豁免（2026-11-04 立）
+  SIG_TRAILER,
+  SIG_VERSION,
+  MIN_KEY_CHARS,
+  SIGNATURE_REQUIRED_KEY,
+  UNSIGNED_LEDGER_REL,
+  KEY_ENV,
+  KEY_FILE_ENV,
+  KEY_CONFIG,
+  signExemption,
+  verifyExemption,
+  subjectOf,
+  parseSigTrailer,
+  exemptPayload,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
