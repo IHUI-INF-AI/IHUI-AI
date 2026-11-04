@@ -41884,3 +41884,5 @@ J 扩展端版本单一源头 —— `apps/extension/wxt.config.ts` 不得写死
 但本轮取证没有浏览器会话,所以**到端渲染与真机行为未取证**,不写成"已实测"。
 J 扩展端版本单一源头 —— `apps/extension/wxt.config.ts` 不得写死 `manifest.version`(缺省时 WXT 回落 `apps/extension/package.json`,与 `sync-downloads` 的文件名同源),下载页 extension 资产 href 必须由 `extensionPkg.version` 拼出,扩展源码里也不许留手搓版本常量(运行期取 `chrome.runtime.getManifest().version`)。
 自检 `node --test scripts/tests/check-version-drift.test.mjs`(每条判据都配了能被它抓住的反例;这里不写用例总数 —— 数字比代码先腐)。
+- **教务考勤**:班级阈值规则(迟到/早退/缺勤)/ 每日缺勤自动补录 / 请假审批联动 / 整班批量点名 / CSV 导出 / 代签·自签·扫码三档签到 / 学生本人页三端同步
+- **教务考勤**:班级阈值规则(迟到/早退/缺勤)/ 每日缺勤自动补录 / 请假审批联动 / 整班批量点名 / CSV 导出 / 代签·自签·扫码三档签到 / 学生本人页三端同步

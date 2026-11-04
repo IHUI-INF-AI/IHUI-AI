@@ -34,6 +34,7 @@ import test from 'node:test'
 import { rmScratch } from '../lib/scratch-dir.mjs'
 import { gitRaw } from '../lib/face-reader.mjs'
 import { __test__ as gate } from '../check-immutable-guard.mjs'
+import { CODE_LABEL, ACK_LEDGER_REL, ACK_SIG_VERSION, SIG_VERSION, exemptPayload, ackPayload } from '../lib/immutable-guard.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(HERE, '..', '..')
@@ -235,7 +236,17 @@ test('T11 真仓端到端：默认档 --json 结构自洽', () => {
     assert.equal(out.entryCount, 0)
     assert.equal(out.exit, 2)
   } else {
-    assert.equal(out.entryCount, realEntries().entries.length, 'JSON 里的受保护面条数必须与清单同值')
+    // 同面同轮（§0.4）：这一档的 out 判的是 **HEAD blob**，期望值也必须从 HEAD 取。
+    // 原先这里读工作树那份清单，于是"改了清单还没提交"这一格会拿 19 比 20 报假红——
+    // 判据自己混了取材面，正是本门要拦的形态。
+    let headText = null
+    try {
+      headText = gitRaw(['show', `HEAD:${gate.GUARD_DATA_REL}`], ROOT)
+    } catch {
+      headText = null
+    }
+    const headCount = headText === null ? 0 : gate.parseGuardList(headText).entries.length
+    assert.equal(out.entryCount, headCount, 'JSON 里的受保护面条数必须与**被审那一面**的清单同值')
     assert.ok(Array.isArray(out.hits))
     assert.ok(
       r.status === 0 ? ['pass', 'declared', 'declared-unsigned'].includes(out.code) : true,
@@ -423,3 +434,24 @@ test('T24 扩容后：改 .husky/pre-commit ⇒ 判红；README/post-checkout/pr
   )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * T12/T13 追认台账的两条形状锁(2026-11-04 立)。
+ * 判据本体在 lib(自检 ST32–ST40 已逐档正反成对),这里只钉"覆盖面自证":
+ * 台账文件本身必须登记在受保护面里,否则"往台账塞一行"是一条无人看守的洗白通道;
+ * 结论码必须在唯一那张表里,否则输出层会拿到 undefined 并印成半句话。
+ */
+test('T12 追认台账自身登记在受保护面清单里(补一行=改判据面)', () => {
+  const { entries, problems } = realEntries()
+  assert.deepEqual(problems, [], '清单不得有坏行')
+  const hit = entries.some((e) => e.path === ACK_LEDGER_REL)
+  assert.ok(hit, `台账必须与清单同档受保护：现读 entries=${entries.map((e) => e.path).join(',')}`)
+})
+
+test('T13 retro-declared 有唯一结论码文案,且追认签名与提交签名版本不同形', () => {
+  assert.ok(CODE_LABEL['retro-declared'].includes('追认'), '文案必须点明这是事后追认,不得与 declared 同句')
+  assert.notEqual(SIG_VERSION, ACK_SIG_VERSION, '两种签名的版本前缀必须不同,否则可互相抄用')
+  const p1 = exemptPayload({ subject: 's', hits: [{ path: 'scripts/lib/' }], reason: 'r' })
+  const p2 = ackPayload({ sha: 'x', paths: ['scripts/lib/'], reason: 'r' })
+  assert.ok(!p1.includes('"a1"') && p2.includes('"a1"'), '载荷必须各带自己的版本键(交叉复用必然验不过)')
+})
