@@ -29,15 +29,24 @@
  *   2. 读取本地 HEAD
  *   3. 读取 origin/<branch> HEAD —— **唯一出口 `scripts/lib/face-reader.mjs` 的 resolveRemoteHead()**:
  *      ① ls-remote(当次服务器真值)→ ② 本轮 fetch 成功时的 FETCH_HEAD → ③ 只剩跟踪 ref 残值
- *      ⇒ **不参与落槌**,本门如实报「未判定」并放行(2026-10-18 收口:过去 ③ 档回退本地 ref 照常判定,
+ *      ⇒ **不参与落槌**,三档都取不到当次真值时本门以 exit 2「未判定」收口并点名依据
+ *      (2026-10-18 收口:过去 ③ 档回退本地 ref 照常判定,
  *      既造出"已推送却被判未推送 ⇒ 阻塞 commit"的假红,也造出"残值恰好等于本地 ⇒ 报已同步"的假绿;
- *      本机宿主清理层删除嵌套 ref 后 packed-refs 读回旧值即此型,AGENTS §5b 已记)
- *   4. git rev-list --count origin/<branch>..HEAD
+ *      本机宿主清理层删除嵌套 ref 后 packed-refs 读回旧值即此型,AGENTS §5b 已记。
+ *      2026-11-04 再收口:那一版在无法判定时 exit 0 放行 —— 没冒红,但仍把"读不到"记成了绿,
+ *      §0.3 要求未判定不记绿也不冒红。)
+ *   4. git rev-list --count <远端 sha>..HEAD —— **三态读数**:只有真读到整数才落判定;
+ *      rev-list 失败 / 取不到对象 / 被信号打断一律「未判定」(exit 2)并点名原因。
+ *      2026-11-04 实测:远端推进而本地未 fetch 时,该命令报
+ *      `fatal: ambiguous argument '<sha>..HEAD': unknown revision ...`(exit 128);
+ *      旧写法 `allowFail ⇒ null ⇒ ahead=0 ⇒ 打印"无 ahead commit(可能 behind,跳过)" exit 0`,
+ *      把"远端存在本地没有的对象(过期引用 / 浅克隆 / 取不到对象)"这一整族报成了通过。
  *   5. 如果 > 0 → 有未 push 的 commit → 阻塞
  *
- * 退出码:
- *   0 — 本地与 origin 同步(无未 push commit,或非 git 环境/无 origin 跳过)
+ * 退出码(§0.3):
+ *   0 — 本地与 origin 同步(无未 push commit,或非 git 环境/无 origin/detached HEAD/空仓库等不适用)
  *   1 — 有未 push commit,阻塞本次 commit
+ *   2 — 未判定:取不到 origin 当次位置,或 rev-list 读不出数(远端对象缺失 / 失败 / 被信号打断)
  *
  * 豁免:
  *   - HUSKY_SKIP_PUSH_SYNC=1: 跳过本检查(紧急场景,不推荐)
@@ -82,6 +91,65 @@ function run(cmd, opts = {}) {
     if (opts.allowFail) return null
     throw e
   }
+}
+
+// ─── ahead 计数:三态读数(§0.3) ───────────────────────────────
+/**
+ * `git rev-list --count <远端 sha>..<本地 sha>` 的**唯一读数口**。
+ *   判过   : { judged:true, ahead:N } —— 真读到整数
+ *   未判定 : { judged:false, why }     —— 失败 / 取不到对象 / 被信号打断
+ * 立因(2026-11-04 实测):远端推进而本地未 fetch 时该命令 exit 128(ambiguous argument),
+ * 旧写法 `allowFail ⇒ null ⇒ ahead=0` 把"读不到"写成了"读到 0",于是走"跳过"分支 exit 0。
+ * 折算成 0 是本门最贵的失效方向:真分叉 / 真落后被报成通过,提交堆在本地还被当成完成(§20)。
+ */
+function readAheadCount(remoteSha, localSha) {
+  let out
+  try {
+    out = execSync(`git rev-list --count ${remoteSha}..${localSha}`, {
+      encoding: 'utf8',
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    }).trim()
+  } catch (e) {
+    return { judged: false, why: explainCountFailure(e, remoteSha) }
+  }
+  if (!/^\d+$/.test(out)) {
+    return { judged: false, why: `git rev-list 输出不是整数(${JSON.stringify(out.slice(0, 60))})⇒ 未读到数` }
+  }
+  return { judged: true, ahead: Number.parseInt(out, 10) }
+}
+
+/**
+ * 远端 sha 在本地对象库里是否存在。三态:true / false(确定缺失) / null(探不出 ⇒ 不冒充缺失)。
+ * `cat-file -e` 对"对象不存在"是 exit 1;其它非零(信号 / 参数坏)不是"缺失"这一型。
+ */
+function objectPresent(sha) {
+  try {
+    execSync(`git cat-file -e ${sha}`, {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    })
+    return true
+  } catch (e) {
+    return typeof e?.status === 'number' && e.status === 1 ? false : null
+  }
+}
+
+/** 把"数不出来"点名到可处置的类别:取不到对象 ≠ 被信号打断 ≠ 其它 git 失败。 */
+function explainCountFailure(e, remoteSha) {
+  const sig = e?.signal
+  const status = e?.status
+  if (sig) return `git rev-list 被信号 ${sig} 打断(exit ${status ?? '无'})⇒ 未读到数`
+  if (objectPresent(remoteSha) === false) {
+    return (
+      `远端对象 ${String(remoteSha).slice(0, 11)} 在本地不存在` +
+      '(未 fetch / 浅克隆 / 过期引用)⇒ 无法计算 ahead/behind'
+    )
+  }
+  const line = String(e?.stderr ?? '').split(/\r?\n/).find((l) => l.trim())
+  return `git rev-list 失败(exit ${status ?? '无'}):${line ? line.trim() : '无回显'}`
 }
 
 // ─── 豁免检查 ───────────────────────────────────────────────
@@ -135,21 +203,22 @@ if (!localHead) {
 //     ① 残值落后 ⇒ 把已推送的 commit 判成"未 push"并阻塞本次 commit(实测:本地=远端=bc3b29c1f,
 //        却报「远端 HEAD: 81a5869」);诱导出的 `pull --rebase` 本机禁用且曾两次删库(§5b);
 //     ② 残值恰好等于本地 ⇒ 报"已同步"放行,而远端其实在别处 ⇒ 提交堆在本地被当成完成(§20)。
-//   lib 的三档依次退让里第 ③ 档(只剩跟踪 ref 残值)**不参与落槌**,只随"无法判定"报出供诊断。
-//   本门据此在无法判定时**如实报未判定并放行**:判机器状态的门在网络不可达时造红,
-//   唯一实际结局是逼人 `--no-verify`,连带废掉全部守门(§12e)。
+//   lib 的三档依次退让里第 ③ 档(只剩跟踪 ref 残值)**不参与落槌**,只随"未判定"报出供诊断。
+//   2026-10-18 那一版在无法判定时 exit 0 放行(理由:判机器状态的门在网络不可达时造红,
+//   唯一实际结局是逼人 --no-verify)。2026-11-04 再收口:放行等于把"读不到"记成绿(§0.3),
+//   现在改为 exit 2「未判定」——既不冒红(不进判红名单),也绝不记绿;急事走 HUSKY_SKIP_PUSH_SYNC=1。
 const remoteResolution = resolveRemoteHead(currentBranch, { root: repoRoot })
 const remoteHead = remoteResolution.sha
 if (!remoteHead) {
-  console.log(
-    `⏭  无法判定 origin/${currentBranch} 的当次位置 ⇒ 本次不参与判定(不阻塞 commit)\n     依据:${remoteResolution.reason}`,
-  )
+  console.error(`?  未判定:无法取到 origin/${currentBranch} 的当次位置 ⇒ 本次不参与判定(§0.3,exit 2)`)
+  console.error(`   依据:${remoteResolution.reason}`)
   if (remoteResolution.stale) {
-    console.log(
-      `     仅有跟踪 ref 残值 ${String(remoteResolution.stale).slice(0, 11)} —— §5b 规定它不足以判定收敛,不拿它算"未 push"数量`,
+    console.error(
+      `   仅有跟踪 ref 残值 ${String(remoteResolution.stale).slice(0, 11)} —— §5b 规定它不足以判定收敛,不拿它算"未 push"数量`,
     )
   }
-  process.exit(0)
+  console.error('   出路:恢复 origin 可达后重跑 node scripts/check-push-sync.mjs;确需跳过本次检查用 HUSKY_SKIP_PUSH_SYNC=1(不推荐)')
+  process.exit(2)
 }
 
 // ─── 4. 对比 + 计算 ahead ──────────────────────────────────
@@ -159,13 +228,20 @@ if (localHead === remoteHead) {
   process.exit(0)
 }
 
-// 计算本地领先多少个 commit
-const revList = run(`git rev-list --count ${remoteHead}..${localHead}`, { allowFail: true })
-const ahead = revList ? parseInt(revList, 10) : 0
+// 计算本地领先多少个 commit —— 三态:读不到数一律未判定,绝不折算成 0(见 readAheadCount 头注)
+const count = readAheadCount(remoteHead, localHead)
+if (!count.judged) {
+  console.error(`?  未判定:${count.why}`)
+  console.error('   ⇒ 不折算成 ahead=0,本次不给「通过 / 阻塞」结论(§0.3,exit 2)')
+  console.error(`   取证:git rev-list --count ${remoteHead}..${localHead}`)
+  console.error('   出路:先 git fetch origin 补齐远端对象后重跑本门;确需跳过本次检查用 HUSKY_SKIP_PUSH_SYNC=1(不推荐)')
+  process.exit(2)
+}
+const ahead = count.ahead
 
 if (ahead === 0) {
-  // HEAD 不同但无 ahead commit(可能是 behind 或 分叉),不阻塞(让 post-commit 处理)
-  console.log(`⏭  本地与 origin/${currentBranch} HEAD 不同但无 ahead commit(可能 behind,跳过)`)
+  // 真读到 0:HEAD 不同但本地不含任何远端没有的 commit ⇒ behind(不阻塞,让 post-commit 处理)
+  console.log(`⏭  本地与 origin/${currentBranch} HEAD 不同,但读到的 ahead=0(behind,不阻塞)`)
   process.exit(0)
 }
 
