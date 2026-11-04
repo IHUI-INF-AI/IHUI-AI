@@ -86,7 +86,7 @@ export function createAiWorldDetailStyles(tk: AppThemeTokens) {
     metaItem: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.xs },
     metaText: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     content: { fontSize: 14, lineHeight: 22, color: tk.text.medium },
-    contentEmpty: { fontSize: 13, color: tk.text.tertiary },
+    contentEmpty: { fontSize: rnType.bodySm.size, color: tk.text.tertiary },
     updatedText: { fontSize: rnType.caption.size, color: tk.text.tertiary },
   })
 }

@@ -179,12 +179,12 @@ function makeStyles() {
     },
     cardHead: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing['xs-loose'] },
     cardTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tokens.text.primary },
-    windowHint: { fontSize: 13, color: tokens.text.secondary },
+    windowHint: { fontSize: rnType.bodySm.size, color: tokens.text.secondary },
     statRow: { flexDirection: 'row', gap: rnSpacing.md, marginTop: rnSpacing['xs-loose'] },
     statCell: { flex: 1, gap: rnSpacing['2xs'] },
     statValue: { fontSize: rnType.display.size, fontWeight: '700', color: tokens.brand.DEFAULT },
     statLabel: { fontSize: rnType.label.size, color: tokens.text.tertiary },
-    muted: { fontSize: 13, color: tokens.text.secondary },
+    muted: { fontSize: rnType.bodySm.size, color: tokens.text.secondary },
     row: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -192,7 +192,7 @@ function makeStyles() {
       paddingVertical: rnSpacing['sm-loose'],
     },
     rowText: { flex: 1, fontSize: rnType.body.size, color: tokens.text.primary },
-    rowCount: { fontSize: 13, color: tokens.text.secondary, fontWeight: '600' },
+    rowCount: { fontSize: rnType.bodySm.size, color: tokens.text.secondary, fontWeight: '600' },
     linkRow: {
       paddingVertical: rnSpacing['md-loose'],
       paddingHorizontal: rnSpacing.lg,

@@ -7260,6 +7260,12 @@
       }
     }
   },
+  "NavBar": {
+    "text1": "每日資訊",
+    "z1": "加入社群群組",
+    "feedback": "意見回饋",
+    "fenlei": "分類"
+  },
   "chatSettingsPage": {
     "model": "模型"
   },

@@ -7260,6 +7260,12 @@
       }
     }
   },
+  "NavBar": {
+    "text1": "デイリーニュース",
+    "z1": "コミュニティに参加",
+    "feedback": "フィードバック",
+    "fenlei": "カテゴリ"
+  },
   "chatSettingsPage": {
     "model": "モデル"
   },

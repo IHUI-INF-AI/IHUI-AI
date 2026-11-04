@@ -364,7 +364,7 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
       borderColor: tk.border.medium,
       backgroundColor: tk.surface.inputBg,
     },
-    secondaryBtnText: { fontSize: 13, color: tk.text.medium },
+    secondaryBtnText: { fontSize: rnType.bodySm.size, color: tk.text.medium },
     skeletonRow: { height: 44, borderRadius: rnRadius.lg, backgroundColor: tk.border.light },
     sectionHead: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing['xs-loose'] },
     sectionTitle: { fontSize: rnType.body.size, fontWeight: '700', color: tk.text.primary },
@@ -383,7 +383,7 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
       paddingVertical: 9,
     },
     taskStep: { fontSize: rnType.caption.size, color: tk.text.tertiary, width: 28 },
-    taskName: { flex: 1, fontSize: 13, fontWeight: '600', color: tk.text.primary },
+    taskName: { flex: 1, fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.text.primary },
     typeTag: {
       paddingHorizontal: rnSpacing['xs-loose'],
       paddingVertical: rnSpacing['2xs'],

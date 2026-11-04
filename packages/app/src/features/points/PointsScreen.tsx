@@ -411,8 +411,8 @@ function createStyles(tk: AppThemeTokens) {
     },
     body: { padding: rnSpacing.md, gap: rnSpacing['sm-loose'], paddingBottom: rnSpacing['3xl'] },
     subtitle: { fontSize: rnType.label.size, color: tk.text.tertiary },
-    errorText: { fontSize: 13, color: tk.danger.DEFAULT },
-    retry: { fontSize: 13, fontWeight: '600', color: tk.text.primary },
+    errorText: { fontSize: rnType.bodySm.size, color: tk.danger.DEFAULT },
+    retry: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.text.primary },
     textButton: { paddingVertical: rnSpacing.xs, paddingHorizontal: rnSpacing.sm },
     statGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing.sm },
     statCard: {
@@ -470,7 +470,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing.sm,
     },
     txMain: { flex: 1, gap: rnSpacing['2xs'] },
-    txSource: { fontSize: 13, color: tk.text.primary },
+    txSource: { fontSize: rnType.bodySm.size, color: tk.text.primary },
     txRight: { alignItems: 'flex-end', gap: rnSpacing['2xs'] },
     txAmount: { fontSize: rnType.body.size, fontWeight: '700' },
     txIn: { color: tk.success.DEFAULT },
@@ -483,7 +483,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    moreText: { fontSize: 13, color: tk.text.primary },
+    moreText: { fontSize: rnType.bodySm.size, color: tk.text.primary },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
