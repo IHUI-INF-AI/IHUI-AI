@@ -23,7 +23,7 @@
  * 三屏(教师/本人/孩子)共用的 attendanceBizDay / attendanceStatusTone / attendanceStatusLabel
  * 单源在 ../components/attendance-status(本文件 re-export 保持既有 import 路径不变)。
  */
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ScrollView, StyleSheet, Text, View } from 'react-native'
 import { QrCode } from 'lucide-react-native'
 import { useNavigation, type NavigationProp } from '@react-navigation/native'
@@ -107,7 +107,10 @@ function EduAttendanceScreen() {
       setStatsLoading(true)
       setStatsError('')
       // 窗口起点算不出来(日键形状不合契约)⇒ 连请求都不发,只落一条常驻回显(§0.10)
-      const url = attendanceStatsUrl({ date: attendanceBizDay(), classId: firstAttendanceClassId(list) })
+      const url = attendanceStatsUrl({
+        date: attendanceBizDay(),
+        classId: firstAttendanceClassId(list),
+      })
       if (!url) {
         settle(null, t('eduAttendance.loadStatsFailed'))
         return
@@ -171,11 +174,18 @@ function EduAttendanceScreen() {
     void load()
   }, [load])
 
-  /** 行 id → 原始记录(发起写操作时取 studentId/classId/date,不复算、不本地造) */
-  const recordById = new Map(records.map((r) => [r.id, r]))
+  /**
+   * 行 id → 原始记录(发起写操作时取 studentId/classId/date,不复算、不本地造)。
+   * useMemo 是必需而非性能优化:它是下面 useCallback(依赖 recordById)的引用稳定前提,
+   * 每次渲染新建 Map 会让该回调的依赖逐渲染变化(exhaustive-deps 实测告警,且破坏 memo 语义)。
+   */
+  const recordById = useMemo(() => new Map(records.map((r) => [r.id, r])), [records])
 
-  /** 整班点名候选班级 = 当日列表里去重后的 classId(不新增取数端点) */
-  const classIds = [...new Set(records.map((r) => r.classId).filter((c): c is string => !!c))]
+  /** 整班点名候选班级 = 当日列表里去重后的 classId(不新增取数端点);用 useMemo 的理由同上(依赖 classIds)。 */
+  const classIds = useMemo(
+    () => [...new Set(records.map((r) => r.classId).filter((c): c is string => !!c))],
+    [records],
+  )
 
   /**
    * 教师代签/签退:成功后重新 GET 列表,以服务端回读为准(不做本地乐观更新)。
