@@ -102,7 +102,10 @@ function makeReader(face) {
   const listFiles = (paths) => {
     // 只做**枚举**(哪些文件 import 了这两个包),正文一律走下面的 readMany() —— 枚举用 git grep,
     // 取正文用取材层:两者混在同一把尺里,就会出现"清单一个面、内容另一个面"的悬空判据(§0.4)。
-    const args = ['grep', '-l', '-E', "from '(react-native|lucide-react-native)'"]
+    // 选项必须排在 pattern 之前:`git grep -l -E <pat> --cached` 里 git 解析到的位置参数
+    // 已是 pattern ⇒ `--cached` 被当成 revision,直接 `fatal: unable to resolve revision: --cached`
+    // (实测 rc=128,staged 面恒落「未判定」)。pattern 另用 `-e` 显式传,免得以 `-` 开头时被当选项。
+    const args = ['grep', '-l', '-E', '-e', "from '(react-native|lucide-react-native)'"]
     if (face === 'staged') args.push('--cached')
     else if (face !== 'worktree') args.push('HEAD')
     args.push('--', ...paths)
