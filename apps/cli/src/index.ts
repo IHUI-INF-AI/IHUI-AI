@@ -116,6 +116,15 @@ import { notifyUpdates } from './updater.js';
 import { installCrashHandler } from './crash-handler.js';
 import { registerSkillPackageCommands } from './commands/skill-package.js';
 import { needsFirstRunSetup, runFirstRunSetup } from './commands/first-run.js';
+// G-B49 C2(REA 对齐 WorkBuddy startup-profile.cjs / cbc-prewarm,取证见 W1-workbuddy-main.md 缺口⑪):
+// 启动画像(纯判据) + 预热命中读数(可断言) —— 接线仅在下文 direct-run 块,opt-in,零改动命令注册。
+import { createStartupTracker, renderStartupLine } from './startup/profile.js';
+import {
+  buildProcessFingerprint,
+  defaultIsPidAlive,
+  readPrewarmStatus,
+  renderPrewarmLine,
+} from './startup/prewarm.js';
 
 // P1-16 在所有模块加载后立即安装 crash handler(全局兜底未捕获异常)
 installCrashHandler();
@@ -1374,6 +1383,31 @@ auditCmd
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
   // G-18:每次 CLI 进程启动落一份 run manifest(argv/ppid/env/cwd/项目身份),写失败静默。
   writeRunManifest();
+  // G-B49 C2 启动画像登记 + 预热命中读数(opt-in 零副作用,对标对方"未开启不产生任何 I/O"):
+  // IHUI_STARTUP_PROFILE≠1 ⇒ 只内存打点、零 I/O;开启 ⇒ stderr 两行 ASCII 读数(守门 70 惯例,
+  // 与 background-drain 播报同一形态)。三态诚实:缺里程碑落 unjudged 点名,绝不以 0ms 冒充量到。
+  const startupTracker = createStartupTracker(() => performance.now());
+  startupTracker.mark('entry');
+  const startupProfileOn = process.env.IHUI_STARTUP_PROFILE === '1';
+  const prewarmReading = startupProfileOn
+    ? readPrewarmStatus({
+        currentFingerprint: buildProcessFingerprint({
+          platform: process.platform,
+          arch: process.arch,
+          nodeVersion: process.version,
+          cliVersion: pkg.version,
+        }),
+        nowMs: Date.now(),
+        isPidAlive: defaultIsPidAlive,
+      })
+    : null;
+  process.on('exit', () => {
+    startupTracker.mark('exit');
+    if (!startupProfileOn) return;
+    console.error(renderStartupLine(startupTracker.reading()));
+    if (prewarmReading) console.error(renderPrewarmLine(prewarmReading));
+  });
   program.parse();
+  startupTracker.mark('commandParsed');
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
