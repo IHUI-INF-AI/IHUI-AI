@@ -23,18 +23,27 @@
  *   刻意不再限定 `AGENTS*` 族:2026-10-16 存档机制退役后该目录里没有 AGENTS 族归档件,
  *   而真出过的回灌事故(枚 01bcde1141e)其正文来源是台账侧归档件 ⇒ 限定族名等于对本型全盲。
  *   反向风险(拿一本的正文给另一本发通行证)在这里不成立:本门的判定方向是"命中即报",
- *   面越宽只会多报不会漏报,而误报由"连续 RUN_MIN 行 + 逐行有信息量 + 逐字等值"三条件挡住。
+ *   而误报由"本次新增 + 连续 RUN_MIN 行 + 逐行有信息量 + 逐字等值"四条件合取挡住。
  * 命中判据 = 从被审面取**连续行段**,段内每一行都同时满足:
  *   ① 有信息量(剥空白后 ≥ MIN_SUBSTANTIVE_CHARS 字符,且含字母/数字);
  *   ② 逐字等值于对照面某一行的归一形态(trimEnd + 去 CRLF,刻意**不**做大小写/空白模糊 ——
  *      归一化一放宽就把"引用归档件的那一行"和"整段抄回正文"混成一桶);
  *   ③ 不是水印行(`IHUI-AI-PROVENANCE` 横幅与纯零宽隐写行在两处逐字相同,是天然假阳源);
  *   ④ 不是归档指针注记(`<!-- 已归档(…完整内容在 … -->` 是 §1 第②步**要求的**形态,
- *      把它判成回灌等于锁死正当出路 —— 反证档,自检专门钉它)。
+ *      把它判成回灌等于锁死正当出路 —— 反证档,自检专门钉它);
+ *   ⑤ 是该判面相对**前像**(head 档 = `HEAD^`,staged/worktree 档 = `HEAD`)的**新增行**。
+ *      ⑤ 是 2026-11-04 补的一维,立因是实测的**结构性假阳**:对照面里含整份活文档的快照
+ *      (`AGENTS_full-pre-compact-2026-10-14.md` 等),这些快照按定义逐字保有当时的全部正文;
+ *      于是"从那天起一字未动、一直留在活文档里的旧条文"与"搬进归档后又抄回活文档"在内容上
+ *      完全同形 —— 只按内容比对,前者会被永久判红(main 上实测两段:AGENTS.md §21/§29,
+ *      两段自 2026-10-13 起在每枚提交里都连续在位,从未离场)。本门要抓的是**回灌这个动作**:
+ *      一个提交把归档正文新增进活文档 ⇒ 只有"新增行"才可能是回灌。前像取不到(根提交)时
+ *      退化为"全部行都算新增"(fail-closed,不放宽)。
  * 段长门槛 = `RUN_MIN = 12`(两侧都钉在自检里:11 行必须放过,12 行必须判红)。
  *
  * ── 三面取材(§0.4 同面同轮)────────────────────────────────────────────
- * 缺省 = HEAD blob;`--staged` = 索引 blob;`--worktree` = 仅人工逃生舱。
+ * 缺省 = HEAD blob(前像 = `HEAD^`);`--staged` = 索引 blob(前像 = HEAD);`--worktree` = 仅人工逃生舱
+ * (前像 = HEAD)。前像与判面同轮取,取不到(根提交/该面首次引入该文件)⇒ 按空前像处理。
  * 清单与内容同面同轮:对照面枚举也走同一个面(索引档就用 `git ls-files`,绝不回落到磁盘 readdir)。
  * 两面旗同给 ⇒ exit 2。取不到任何一份被审文档、或对照面**枚举到 0 个文件** ⇒ exit 2 判死,
  * 不记绿也不冒红(§0.3;拿不到归档面就说"没回灌"是最高频的假绿那一型)。
@@ -86,11 +95,28 @@ export function substantive(l) {
 }
 
 /**
+ * 本次判面相对前像的**新增行**掩码(逐行一一对应)。
+ *
+ * 前像为 null(根提交 / 该面首次引入该文件)⇒ 每一行都算新增(fail-closed:宁可多报)。
+ * 判"新增"只看这一行在前像里**出现过没有**(不做位置/顺序推断):回灌是"把归档正文抄进来",
+ * 只要这一行本来就在活文档里,它就属于"留着"而不是"抄回"。前像若被整段重排,重排后的行
+ * 仍按"出现过"判旧 —— 这是刻意选的方向,因为本门不是行级 diff,顺序变化不该被读成回灌。
+ */
+export function collectAddedLines(docText, baseText) {
+  const lines = String(docText).split('\n')
+  if (baseText === null || baseText === undefined) return lines.map(() => true)
+  const baseSet = new Set(String(baseText).split('\n').map(normalizeLine))
+  return lines.map((l) => !baseSet.has(normalizeLine(l)))
+}
+
+/**
  * 核心判据(纯函数,自检与镜像测试都直接调它,§22c)。
  * 返回每个被审文档里最长的回灌段;段长 >= RUN_MIN 才算违规。
+ * baseText 缺省 = null ⇒ 全部行按新增(向后兼容旧调用方);真仓审计一律带前像。
  */
-export function findReinflation(docName, docText, archiveSet) {
+export function findReinflation(docName, docText, archiveSet, baseText = null) {
   const lines = docText.split('\n')
+  const added = collectAddedLines(docText, baseText)
   const runs = []
   let start = -1
   let len = 0
@@ -103,7 +129,7 @@ export function findReinflation(docName, docText, archiveSet) {
   }
   for (let i = 0; i < lines.length; i++) {
     const l = lines[i]
-    const hit = substantive(l) && archiveSet.has(normalizeLine(l))
+    const hit = added[i] && substantive(l) && archiveSet.has(normalizeLine(l))
     if (hit) {
       if (start < 0) start = i
       len++
@@ -172,6 +198,25 @@ export function buildArchiveSet(root, face, files) {
   return set
 }
 
+/** 前像规格:head 档比 `HEAD^`(第一父),staged/worktree 档比 `HEAD`(提交前的基线)。 */
+export function preImageSpec(face, p) {
+  return (face === 'head' ? 'HEAD^:' : 'HEAD:') + p
+}
+
+/**
+ * 取前像正文;取不到(根提交 / 前像里没有这份文件)⇒ null,由 collectAddedLines 退化为"全量判"。
+ * 与判面同轮同源:仍走 catBatch 的 rev 规格,不读磁盘、不换面。
+ */
+export function readPreImage(root, face, p) {
+  try {
+    const spec = preImageSpec(face, p)
+    const v = catBatch(root, new Set([spec])).get(spec)
+    return v === null || v === undefined ? null : String(v)
+  } catch {
+    return null
+  }
+}
+
 export function audit(root, face) {
   const files = listArchiveFace(root, face)
   if (files.length === 0) return { state: 'undetermined', why: `对照面(${ARCHIVE_DIR}/*.md)在该面枚举到 0 个文件 ⇒ 不判(§0.3)` }
@@ -180,6 +225,7 @@ export function audit(root, face) {
   const read = (p) => readAtFace(root, face, p)
   const runs = []
   const missing = []
+  const noBaseline = []
   let scanned = 0
   for (const p of DOC_PATHS) {
     let txt
@@ -190,10 +236,21 @@ export function audit(root, face) {
       continue
     }
     scanned++
-    runs.push(...findReinflation(p, txt, archiveSet))
+    const base = readPreImage(root, face, p)
+    if (base === null) noBaseline.push(p)
+    runs.push(...findReinflation(p, txt, archiveSet, base))
   }
   if (scanned === 0) return { state: 'undetermined', why: `被审文档全部取不到(${missing.join(', ')})⇒ 不判` }
-  return { state: runs.length ? 'violation' : 'pass', runs, archiveFiles: files.length, archiveLines: archiveSet.size, scanned, missing }
+  return {
+    state: runs.length ? 'violation' : 'pass',
+    runs,
+    archiveFiles: files.length,
+    archiveLines: archiveSet.size,
+    scanned,
+    missing,
+    baseline: face === 'head' ? 'HEAD^' : 'HEAD',
+    noBaseline,
+  }
 }
 
 function selfTest() {
@@ -215,6 +272,12 @@ function selfTest() {
   t('⑧ CRLF 与行尾空格归一后仍逐字命中', findReinflation('AGENTS.md', archiveLines.map((l) => l + '  \r').join('\n'), set).length === 1, '归一只剥换行与行尾空白,不做模糊')
   t('⑨ 一行之差(键名被改)不再命中 ⇒ 刻意不放宽', findReinflation('AGENTS.md', archiveLines.map((l) => l.replace('第 ', '第')).join('\n'), set).length === 0, '归一化一旦模糊,引用与抄回就分不开')
   t('⑩ 段长常量与两侧用例一致', RUN_MIN === 12, '门槛改动必须同步改 ①② 两格,否则两侧反证失效')
+  // ⑤ 新增行维度(2026-11-04):整份快照型对照面带来的结构性假阳,以及"换判据不得放过真回灌"的反证。
+  const b12 = body(12, 'A')
+  t('⑪ 同文段在前像里整段已在位 ⇒ 不是本次抄回,放过', findReinflation('AGENTS.md', b12, set, b12).length === 0, '旧条文与"抄回"内容同形;只有新增行才可能是回灌')
+  t('⑫ 前像里没有、本次新增 12 行同文 ⇒ 仍判回灌', findReinflation('AGENTS.md', b12, set, body(5, 'B')).length === 1, '换判据不得把真回灌一并放过')
+  t('⑬ 前像只覆盖半段:本次补齐另半段若不足 RUN_MIN ⇒ 不判', findReinflation('AGENTS.md', b12, set, body(6, 'A')).length === 0, '新增行段长按连续计数,不按"整段命中"计数')
+  t('⑭ 前像取不到(根提交)⇒ 全量按新增,fail-closed 不造假绿', findReinflation('AGENTS.md', b12, set, null).length === 1, '拿不到前像时只许更严,不许更松')
   // 消费点:求值只发生在这里(共用出口的报告函数)。
   const { fail, cases } = report()
   for (const c of cases) {
@@ -248,17 +311,17 @@ export function main(argv = process.argv.slice(2)) {
     console.log(JSON.stringify({ face, ...r }))
     return r.state === 'violation' ? 1 : 0
   }
-  console.log(`[live-doc-archive-reinflation] 判定面=${face} 对照面=${r.archiveFiles} 份归档件 / ${r.archiveLines} 行有信息量正文,被审 ${r.scanned} 份活文档(缺 ${r.missing.length})`)
+  console.log(`[live-doc-archive-reinflation] 判定面=${face} 对照面=${r.archiveFiles} 份归档件 / ${r.archiveLines} 行有信息量正文,被审 ${r.scanned} 份活文档(缺 ${r.missing.length});前像=${r.baseline}${r.noBaseline.length ? `(取不到 ⇒ 该文档按全量判:${r.noBaseline.join(', ')})` : ''}`)
   if (r.state === 'violation') {
     for (const run of r.runs) console.log(`  ✗ 回灌 ${run.length} 行 @ ${run.doc}:${run.startLine} —— ${run.sample}`)
-    console.log(`结论:判红(连续 ≥${RUN_MIN} 行逐字命中归档面 ⇒ §1 第②步没做,正文被抄回活文档)`)
+    console.log(`结论:判红(本次新增行里连续 ≥${RUN_MIN} 行逐字命中归档面 ⇒ §1 第②步没做,正文被抄回活文档)`)
     return 1
   }
-  console.log(`结论:通过(无连续 ≥${RUN_MIN} 行的同文段;水印与指针注记各按其反证不计)`)
+  console.log(`结论:通过(本次新增行里无连续 ≥${RUN_MIN} 行的同文段;水印与指针注记各按其反证不计,前像里已在位的旧条文不算抄回)`)
   return 0
 }
 
-export const __test__ = { readAtFace, RUN_MIN, MIN_SUBSTANTIVE_CHARS, DOC_PATHS, ARCHIVE_FILE_RE, substantive, normalizeLine, findReinflation, audit, listArchiveFace, buildArchiveSet }
+export const __test__ = { readAtFace, RUN_MIN, MIN_SUBSTANTIVE_CHARS, DOC_PATHS, ARCHIVE_FILE_RE, substantive, normalizeLine, collectAddedLines, findReinflation, audit, listArchiveFace, buildArchiveSet, preImageSpec, readPreImage }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 
