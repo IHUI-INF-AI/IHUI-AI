@@ -386,8 +386,7 @@ export default function ChatPage() {
   const [inputValue, setInputValue] = useState('')
   // 附件列表(受控模式由父组件管理,对标原项目 imgs_list)
   const [imgsList, setImgsList] = useState<InputFileItem[]>([])
-  // 全屏放大态(隐藏导航栏,对标原项目 InputArea.vue fangda)
-  const [navBarHidden, setNavBarHidden] = useState(false)
+
   // 收藏消息(对标原 ai_assistant.vue 收藏 AI 回复,用消息 timestamp 作为 id)
   const [favoritedMsgs, setFavoritedMsgs] = useState<Set<string>>(new Set())
   // 历史对话(对标原 ai_assistant.vue 历史抽屉)
@@ -1527,6 +1526,27 @@ export default function ChatPage() {
     [t],
   )
 
+  /** 选图/选文件(2026-11-04 门285 收口:从 InputArea 内部上移到调用方,与 RN 端 onImageAdd 同契约) */
+  const handleImageAdd = useCallback(async () => {
+    try {
+      const imgRes = await Taro.chooseImage({
+        count: 9,
+        sizeType: ['compressed'],
+        sourceType: ['album', 'camera'],
+      })
+      const files = Array.isArray(imgRes.tempFilePaths) ? imgRes.tempFilePaths : []
+      if (files.length) handleUpload(files)
+    } catch {
+      try {
+        const fileRes = await Taro.chooseMessageFile({ count: 9, type: 'file' })
+        const files = (fileRes.tempFiles || []).map((f: { path: string }) => f.path)
+        if (files.length) handleUpload(files)
+      } catch {
+        /* 用户取消 */
+      }
+    }
+  }, [handleUpload])
+
   const handleRemoveImage = useCallback((index: number) => {
     setImgsList((prev) => prev.filter((_, i) => i !== index))
   }, [])
@@ -1825,10 +1845,7 @@ export default function ChatPage() {
 
   return (
     <ThemeRoot className="page">
-      <View
-        className="nav-bar safe-area-bottom"
-        style={{ background: 'transparent', display: navBarHidden ? 'none' : 'flex' }}
-      >
+      <View className="nav-bar safe-area-bottom" style={{ background: 'transparent' }}>
         <View className="nav-left" onClick={openModelDrawer} hoverClass="opacity-60">
           {/* 对齐 RN ChatScreen modelBar 的「{模型}: {当前模型}」:选择器此前没有字段名,只有值 */}
           <Text
@@ -2302,11 +2319,10 @@ export default function ChatPage() {
           placeholder={t('ai.inputPlaceholder')}
           imgsList={imgsList}
           onSend={(text) => sendMessage(text)}
-          onUpload={handleUpload}
+          onImageAdd={handleImageAdd}
           onRemoveImage={handleRemoveImage}
           onVoicePress={handleVoicePress}
           onVoiceRelease={handleVoiceRelease}
-          onFangdaChange={(active) => setNavBarHidden(active)}
           onKeyboardHeightChange={(h) => {
             if (h > 0) {
               // 键盘弹起时滚动到底部

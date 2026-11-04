@@ -65,8 +65,14 @@ import {
   resolveUtilityLength,
 } from './web-utility-classes.mjs'
 
-// 装车锁的被读对象:上一级的主文件本体。
+// 装车锁的被读对象:上一级的主文件本体(门面) + 它拆出去的几何/尺寸判据族(lib 件)。
+// C1 拆分后判据源码分布在两件里,装车锁必须合读两份,否则"门内第二份实现"这型洞会因搬件而漏判。
 const MAIN_SOURCE_PATH = fileURLToPath(new URL('../check-cross-end-ui-parity.mjs', import.meta.url))
+const GEOMETRY_SOURCE_PATH = fileURLToPath(
+  new URL('./cross-end-ui-parity-geometry.mjs', import.meta.url),
+)
+const gateSource = () =>
+  readFileSync(MAIN_SOURCE_PATH, 'utf8') + '\n' + readFileSync(GEOMETRY_SOURCE_PATH, 'utf8')
 /**
  * 可达性判据的成对夹具:一座最小**真** git 仓(判据全程按 git 面取数,夹具不入库就测不到)。
  * 两端各一枚同名 `Foo`;RN 那枚**只被桶文件再导出** —— `packages/app/src/components/index.ts`
@@ -2332,10 +2338,10 @@ export function runSelfTest() {
   t(
     'KN 装车锁(单位只有一份):门内不得再留第二份折算表,折算必须走 lib/length-units',
     (() => {
-      const src = readFileSync(MAIN_SOURCE_PATH, 'utf8')
+      const src = gateSource()
       return (
         !/\bTO_PX\b/.test(src) &&
-        /from '\.\/lib\/length-units\.mjs'/.test(src) &&
+        /from '\.\/(?:lib\/)?length-units\.mjs'/.test(src) &&
         /facePx\(/.test(src) &&
         !/\/\s*RPX_PER_PX|RPX_PER_PX\s*\*/.test(src)
       )
@@ -2448,7 +2454,7 @@ export function runSelfTest() {
       const a = rootSlotRadiiOf(carouselShape, tbl)
       // 同名但从业务文件 import ⇒ 根由子组件代渲染,仍必须是"读不出"。
       const b = rootSlotRadiiOf(
-        "import { View } from './view'\nexport default function Foo() {\n  return <View className=\"rounded-2xl\" />\n}\n",
+        'import { View } from \'./view\'\nexport default function Foo() {\n  return <View className="rounded-2xl" />\n}\n',
         tbl,
       )
       // 注释夹在 `return (` 与根标签之间:等长遮罩使取材下标不左移(删注释会切到隔壁材料)。
@@ -2476,19 +2482,25 @@ export function runSelfTest() {
       '③ 真不同档仍必须报分叉(不是把裸档当万能 8)、④ 已认形态一律不得双计、⑤ 注释里逐字写的不计',
     (() => {
       const tbl = { DEFAULT: 8, xs: 2, sm: 4, md: 6, lg: 8, xl: 12, '2xl': 16 }
-      const bare = radiusSetOf('export function Foo() {\n  return <View className="rounded" />\n}\n', tbl)
+      const bare = radiusSetOf(
+        'export function Foo() {\n  return <View className="rounded" />\n}\n',
+        tbl,
+      )
       // ① 识别式被摘掉时这一格读成 [] ⇒ 用例翻红(这就是本票要的"摘掉即红"那半边)。
       if (JSON.stringify(bare) !== '[8]') return `① 裸档未进档集合:${JSON.stringify(bare)}`
       // ② mp 写裸档 / rn 写具名档:两端同一个 8,不得报分叉(改前正是这一型被读成"mp 没写档")。
-      const same = diffValues(new Set(bare), new Set(radiusSetOf('<View className="rounded-lg" />', tbl)))
+      const same = diffValues(
+        new Set(bare),
+        new Set(radiusSetOf('<View className="rounded-lg" />', tbl)),
+      )
       if (same.onlyMiniapp.length || same.onlyRn.length)
         return `② 同值裸档被报成分叉:${JSON.stringify(same)}`
       // ③ 反证:另一端是 12 时必须照样报分叉 —— 补认裸档不是把它折成"永远相等"。
-      const real = diffValues(new Set(bare), new Set(radiusSetOf('<View className="rounded-xl" />', tbl)))
-      if (
-        JSON.stringify(real.onlyMiniapp) !== '[8]' ||
-        JSON.stringify(real.onlyRn) !== '[12]'
+      const real = diffValues(
+        new Set(bare),
+        new Set(radiusSetOf('<View className="rounded-xl" />', tbl)),
       )
+      if (JSON.stringify(real.onlyMiniapp) !== '[8]' || JSON.stringify(real.onlyRn) !== '[12]')
         return `③ 真分叉没报出来:${JSON.stringify(real)}`
       // ④ 收尾边界:带档位/带方括号/full 的字形都归各自判据,裸档支不得再补一个 8(数条目而不是数集合,
       //    集合会把双计折成一个元素、看不出漂移)。
@@ -2501,15 +2513,24 @@ export function runSelfTest() {
         items('.a { border-radius: var(--radius-lg); }') !== 1 ||
         items('.a { border-radius: var(--radius); }') !== 1
       )
-        return `④ 已认形态与裸档双计:${items('<View className="rounded-md" />')}/` +
+        return (
+          `④ 已认形态与裸档双计:${items('<View className="rounded-md" />')}/` +
           `${items('<View className="rounded-full" />')}/${items('<View className="rounded-[12px]" />')}`
+        )
       // ⑤ 遮噪与报名同口径:注释里逐字写出的 rounded 必不计(写进注释必不计,写进代码必计)。
-      if (radiusSetOf('// <View className="rounded" />\nexport default function B() { return <View /> }', tbl).length)
+      if (
+        radiusSetOf(
+          '// <View className="rounded" />\nexport default function B() { return <View /> }',
+          tbl,
+        ).length
+      )
         return '⑤ 注释里的裸档被计进了档集合'
       // ⑥ CSS 侧同一把尺子:var(--radius) 与 rounded 同值同判。
       if (
         JSON.stringify(radiusSetOf('.a {\n  border-radius: var(--radius);\n}', tbl)) !== '[8]' ||
-        JSON.stringify(radiusEntriesOf('.card {\n  border-radius: var(--radius);\n}', tbl).entries.card) !== '[8]'
+        JSON.stringify(
+          radiusEntriesOf('.card {\n  border-radius: var(--radius);\n}', tbl).entries.card,
+        ) !== '[8]'
       )
         return '⑥ CSS 侧 var(--radius) 未并进集合/元素名归属'
       return true
@@ -2524,7 +2545,10 @@ export function runSelfTest() {
       const mp = 'apps/miniapp-taro/src/components/Foo.tsx'
       const rn = 'packages/app/src/components/Foo.tsx'
       const src = 'export function Foo() {\n  return <View className="rounded" />\n}\n'
-      const text = { [mp]: src, [rn]: 'export function Foo() {\n  return <View className="rounded-lg" />\n}\n' }
+      const text = {
+        [mp]: src,
+        [rn]: 'export function Foo() {\n  return <View className="rounded-lg" />\n}\n',
+      }
       const pairs = [{ name: 'Foo', miniapp: mp, rn }]
       // ① 报名与判据两侧同形:名单点数 == 整源报名 == 档集合里那枚 8。
       const aud = bareRoundedAudit(pairs, text, tbl, 'main')
@@ -2543,11 +2567,15 @@ export function runSelfTest() {
         return '② 门内报名未如实写 defaultResolved:false(值未判定)'
       // ③ 装车锁:裸档识别式只准住在 lib/radius-tokens.mjs,门体再抄一份就是第二把尺子。
       const mainSrc = readFileSync(MAIN_SOURCE_PATH, 'utf8')
-      const libSrc = readFileSync(fileURLToPath(new URL('./radius-tokens.mjs', import.meta.url)), 'utf8')
+      const libSrc = readFileSync(
+        fileURLToPath(new URL('./radius-tokens.mjs', import.meta.url)),
+        'utf8',
+      )
       const re = /\(\?<!\[\\w\$-\]\)rounded/g
       const inMain = (mainSrc.match(re) || []).length
       const inLib = (libSrc.match(re) || []).length
-      if (inMain !== 0 || inLib !== 1) return `③ 裸档正则出现第二份:门内 ${inMain} 处、lib ${inLib} 处`
+      if (inMain !== 0 || inLib !== 1)
+        return `③ 裸档正则出现第二份:门内 ${inMain} 处、lib ${inLib} 处`
       return true
     })(),
   )
@@ -2567,7 +2595,9 @@ export function runSelfTest() {
       const same = readGeometry('.a {\n  gap: var(--spacing-xs);\n}\n', 'miniapp', {}, table)
       const other = readGeometry('export const S = { a: { gap: 4 } }', 'rn', {}, table)
       if (!same.values.has(4)) return '① var 解值没进几何集'
-      if (JSON.stringify(diffValues(same.values, other.values)) !== '{"onlyMiniapp":[],"onlyRn":[]}')
+      if (
+        JSON.stringify(diffValues(same.values, other.values)) !== '{"onlyMiniapp":[],"onlyRn":[]}'
+      )
         return `① 同值被读成分叉:${JSON.stringify(diffValues(same.values, other.values))}`
       // ② 编出来的档名 ⇒ 逐枚点名
       const unknown = readGeometry('.a {\n  gap: var(--spacing-nope);\n}\n', 'miniapp', {}, table)
@@ -2592,7 +2622,8 @@ export function runSelfTest() {
       if (!g5.unreadable.length) return '⑤ 互证不等的档被静默当成"该侧无档"'
       // ⑥ 表为空 ⇒ 一条不采
       const noTable = readGeometry('.a {\n  gap: var(--spacing-xs);\n}\n', 'miniapp', {}, null)
-      if (noTable.values.size !== 0 || noTable.cssVar.resolved !== 0) return '⑥ 没有解值表却有了入账'
+      if (noTable.values.size !== 0 || noTable.cssVar.resolved !== 0)
+        return '⑥ 没有解值表却有了入账'
       // ⑦ 真差异仍必须判红(成对:锚点 0 红 / 锚点覆盖存量绿)
       const mp = 'apps/miniapp-taro/src/components/LA.tsx'
       const rn = 'packages/app/src/components/LA.tsx'
@@ -2614,11 +2645,12 @@ export function runSelfTest() {
       if (verdictOf([f], { counts: { LA: 0 } }).red.length !== 1) return '⑦ 真分叉没被锚点问责'
       if (verdictOf([f], { counts: { LA: 4 } }).red.length !== 0) return '⑦ 存量被判成新增'
       // ⑧ 装车锁:解值表只有一个生产者,且"源取不到"必须能喊死
-      const mainSrc = readFileSync(MAIN_SOURCE_PATH, 'utf8')
+      const mainSrc = gateSource()
       if ((mainSrc.match(/cssVarTiers\(/g) || []).length !== 2)
         return '⑧ 解值表的生产者不唯一(两张表必然漂开)'
       if (!mainSrc.includes('几何维判据失明')) return '⑧ 源取不到时的失明判据被摘'
-      if (!mainSrc.includes('cssVarCopyRead')) return '⑧ "互证没做"这一格被摘 ⇒ 副本读不到会被读成已核对'
+      if (!mainSrc.includes('cssVarCopyRead'))
+        return '⑧ "互证没做"这一格被摘 ⇒ 副本读不到会被读成已核对'
       return true
     })(),
   )

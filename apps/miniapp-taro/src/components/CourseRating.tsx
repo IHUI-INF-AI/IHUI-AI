@@ -65,6 +65,7 @@ export default function CourseRating({
             <View
               key={star}
               className="mx-xs"
+              hoverClass="opacity-60"
               onClick={() => setRating(star)}
               onTouchStart={() => setHoverRating(star)}
               onTouchEnd={() => setHoverRating(0)}

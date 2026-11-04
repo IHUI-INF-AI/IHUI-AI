@@ -177,7 +177,8 @@ export default function QueueInteractionBar({
             {/* 重排把手:小程序无 HTML5 拖拽 ⇒ 退化为 ↑/↓(与 RN 同法);命中区包在 View 上 */}
             <View
               data-testid={`queue-op-reorder-up-${index}`}
-              className="mr-[8rpx] flex flex-row items-center"
+              className="mr-[8rpx] flex min-h-[88rpx] min-w-[88rpx] flex-row items-center justify-center"
+              hoverClass="opacity-60"
               onClick={() => {
                 if (!reorderVerdict.allowed) {
                   setDeniedHint({ action: 'reorder', reason: 'streaming' })
@@ -191,7 +192,8 @@ export default function QueueInteractionBar({
             </View>
             <View
               data-testid={`queue-op-reorder-down-${index}`}
-              className="mr-[8rpx] flex flex-row items-center"
+              className="mr-[8rpx] flex min-h-[88rpx] min-w-[88rpx] flex-row items-center justify-center"
+              hoverClass="opacity-60"
               onClick={() => {
                 if (!reorderVerdict.allowed) {
                   setDeniedHint({ action: 'reorder', reason: 'streaming' })
@@ -211,20 +213,22 @@ export default function QueueInteractionBar({
                   data-testid={`queue-op-edit-input-${item.id}`}
                   onInput={(e) => setEditDraft(e.detail.value)}
                 />
-                <Text
+                <View
                   data-testid={`queue-op-edit-confirm-${item.id}`}
-                  className="ml-[12rpx] text-caption text-primary"
+                  className="ml-[12rpx] flex min-h-[72rpx] items-center px-[8rpx]"
+                  hoverClass="opacity-60"
                   onClick={confirmEdit}
                 >
-                  {t(qk('editConfirm'))}
-                </Text>
-                <Text
+                  <Text className="text-caption text-primary">{t(qk('editConfirm'))}</Text>
+                </View>
+                <View
                   data-testid={`queue-op-edit-cancel-${item.id}`}
-                  className="ml-[12rpx] text-caption text-muted-foreground"
+                  className="ml-[12rpx] flex min-h-[72rpx] items-center px-[8rpx]"
+                  hoverClass="opacity-60"
                   onClick={cancelEdit}
                 >
-                  {t(qk('editCancel'))}
-                </Text>
+                  <Text className="text-caption text-muted-foreground">{t(qk('editCancel'))}</Text>
+                </View>
               </>
             ) : (
               <>
@@ -234,9 +238,10 @@ export default function QueueInteractionBar({
                 >
                   {item.text}
                 </Text>
-                <Text
+                <View
                   data-testid={`queue-op-undo-${item.id}`}
-                  className="ml-[12rpx] text-caption text-muted-foreground"
+                  className="ml-[12rpx] flex min-h-[72rpx] items-center px-[8rpx]"
+                  hoverClass="opacity-60"
                   onClick={() => {
                     if (!undoVerdict.allowed) {
                       setDeniedHint({ action: 'undo', reason: 'emptyQueue' })
@@ -245,15 +250,16 @@ export default function QueueInteractionBar({
                     onUndo?.(item.id)
                   }}
                 >
-                  {t(qk('undo'))}
-                </Text>
-                <Text
+                  <Text className="text-caption text-muted-foreground">{t(qk('undo'))}</Text>
+                </View>
+                <View
                   data-testid={`queue-op-edit-${item.id}`}
-                  className="ml-[12rpx] text-caption text-muted-foreground"
+                  className="ml-[12rpx] flex min-h-[72rpx] items-center px-[8rpx]"
+                  hoverClass="opacity-60"
                   onClick={() => startEdit(item.id, item.text)}
                 >
-                  {t(qk('edit'))}
-                </Text>
+                  <Text className="text-caption text-muted-foreground">{t(qk('edit'))}</Text>
+                </View>
               </>
             )}
           </View>
@@ -261,26 +267,30 @@ export default function QueueInteractionBar({
       })}
 
       <View className="mt-[4rpx] flex flex-row items-center">
-        <Text
+        <View
           data-testid="queue-op-interrupt-and-run"
-          className="text-caption text-primary"
+          className="flex min-h-[72rpx] items-center pr-[8rpx]"
+          hoverClass="opacity-60"
           onClick={handleInterrupt}
         >
-          {t(qk('interruptAndRun'))}
-        </Text>
-        <Text className="ml-[16rpx] text-badge text-muted-foreground">
-          {t(qk('mode.label'))}
-        </Text>
+          <Text className="text-caption text-primary">{t(qk('interruptAndRun'))}</Text>
+        </View>
+        <Text className="ml-[16rpx] text-badge text-muted-foreground">{t(qk('mode.label'))}</Text>
         {(['steer', 'queue'] as const).map((m) => (
-          <Text
+          <View
             key={m}
             data-testid={`queue-op-mode-${m}`}
             data-mode={m}
-            className={`ml-[12rpx] text-caption ${mode === m ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}
+            className="ml-[12rpx] flex min-h-[72rpx] items-center px-[8rpx]"
+            hoverClass="opacity-60"
             onClick={() => onModeChange?.(m)}
           >
-            {t(qk(`mode.${m}`))}
-          </Text>
+            <Text
+              className={`text-caption ${mode === m ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}
+            >
+              {t(qk(`mode.${m}`))}
+            </Text>
+          </View>
         ))}
       </View>
 

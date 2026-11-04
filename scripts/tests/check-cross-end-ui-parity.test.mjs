@@ -2211,6 +2211,31 @@ test('T55 允许差异:未登记即报红;登记在期内且不超额度才放�
   assert.equal(bad.red.length, 1, '条目坏必须判红,不得当成"没登记"悄悄跳过')
 })
 
+test('T55b props 提案键只记账:platform:props:<side>:<prop> 不得被形状判据当非法', () => {
+  const base = {
+    component: 'NavBar',
+    key: 'platform:props:mini:onPack',
+    platform: 'both',
+    owner: 'ihui-mobile-props',
+    expires: '2027-06-30',
+    reason: '小程序回首页走页面栈组合,RN 个人页为 tab 屏无需回首页键;是导航承载差异,不是漏实现。',
+    evidence: 'apps/miniapp-taro/src/components/NavBar.tsx:185-200',
+  }
+  assert.equal(src.allowedDiffProblem(base), null, 'props 键是台账的合法形态,不得整表判非法')
+  const v = src.allowedDiffVerdict([], [base], { today: '2026-11-02' })
+  assert.equal(v.invalid.length, 0, '合法 props 条目不得进 invalid(否则 141 条整表红)')
+  assert.equal(v.red.length, 0, '在期内且无超量不得红')
+  assert.equal(v.platform.length, 1, 'props 条目应与平台账同格记账,不得静默吞掉')
+  for (const key of [
+    'platform:props:web:x', // side 只有 mini|rn
+    'platform:props:mini', // 缺 prop
+    'platform:props:mini:1x', // prop 必须字母起头
+    'platform:props:mini:on-pack', // prop 不得带连字符
+  ])
+    assert.ok(src.allowedDiffProblem({ ...base, key }), `非法 props 键必须判坏:${key}`)
+  assert.ok(src.allowedDiffProblem({ ...base, count: 1 }), 'props 是平台账,不得带逐档 count')
+})
+
 test('T56 允许差异:到期项必须重新报红(白名单不得自动续期)', () => {
   const finding = allowedFinding('Foo', ['4'])
   const expired = src.allowedDiffVerdict([finding], [allowedEntry({ expires: '2026-01-01' })], {

@@ -70,22 +70,22 @@ export interface ModelConfig {
 
 // 共享类型 ModelConfigType 已下沉到 packages/types,两端复用(替代原内联字面量)
 export interface ModelConfigDialogProps {
-  visible?: boolean
+  /** 可见性(必填,对齐 RN 端契约) */
+  visible: boolean
   /** 'default' = 简化版;'aigc' = 对齐原项目 ModelConfigDialog/indexa.vue */
   variant?: 'default' | 'aigc'
   /** default variant 用 */
   modelType?: ModelConfigType
-  /** default variant 用 */
-  config?: ModelConfig
-  onChange?: (config: ModelConfig | Record<string, unknown>) => void
+  /** default variant 用(必填,对齐 RN 端契约) */
+  config: ModelConfig
+  /** 配置变化(必填,对齐 RN 端契约) */
+  onChange: (config: ModelConfig | Record<string, unknown>) => void
   onClose?: () => void
   // ===== aigc variant 专用 =====
   /** aigc variant:动态配置项(来自后端 modelInfo.variables) */
   variables?: AigcVariable[]
   /** aigc variant:当前模型名(用于判断视频模型) */
   modelName?: string
-  /** aigc variant:是否 VIP(水印禁用判定) */
-  isVip?: number
   /** aigc variant:系统音色列表(默认使用内置 SYSTEM_VOICES) */
   systemVoices?: Array<string | SelecterOptionObj>
 }
@@ -162,7 +162,6 @@ export default function ModelConfigDialog({
   onClose,
   variables = [],
   modelName = '',
-  isVip = 0,
   systemVoices = SYSTEM_VOICES,
 }: ModelConfigDialogProps) {
   const tt = useTt()
@@ -793,7 +792,6 @@ export default function ModelConfigDialog({
                       item.value as Array<string | SelecterOptionObj | Record<string, unknown>>
                     }
                     desc={item.desc}
-                    isVip={isVip}
                     onChange={(val) => setConfigValue(item.name, val)}
                   />
                 </View>

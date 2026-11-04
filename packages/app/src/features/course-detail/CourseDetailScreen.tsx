@@ -38,7 +38,7 @@ export function CourseDetailScreen({
   onEnroll,
   onPlayLesson,
   onRetry,
-  colorScheme = 'light',  
+  colorScheme = 'light',
   onNavigate,
   onToast,
 }: CourseDetailScreenProps & { onRetry?: () => void }) {
@@ -107,7 +107,7 @@ export function CourseDetailScreen({
             </Text>
             {item.isEnrolled ? (
               <View style={styles.enrolledBadge}>
-                <Text style={styles.enrolledText}>{t('courseDetail.enrolled')}</Text>
+                <Text style={styles.enrolledText}>{t('learn.signedUp')}</Text>
               </View>
             ) : (
               <TouchableOpacity
