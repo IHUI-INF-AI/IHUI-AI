@@ -970,4 +970,80 @@ test('T21 已声明删除:有通知书 ⇒ 不恢复并单列 intentDeclared;CLI
   }
 })
 
+/**
+ * T22 —— 第四层的**通知书闸**(2026-11-04)。
+ *
+ * 判据面:四判据(HEAD 有 blob / 索引无 / 盘无 / 缺席于至少一个父树)证明的只是"这枚缺失
+ * **可以由**旁路提交解释",不是"它一定是旁路遗留"。`git rm` 一枚上一枚提交刚加进来的文件、
+ * 或 converge 刚合进来的新文件被有意删掉 —— 四判据**同样全成立**,而当轮 `git checkout HEAD --`
+ * 会同时回写索引与工作树,把人的删除意图连同暂存一起撤销。故通知书(与第一层同一个判据源
+ * `lib/intentional-file-deletion.mjs`)必须先判。
+ *
+ * 断的是行为,不是源码文本:
+ *   ① 阳性对照:同一现场**无**通知书 ⇒ 四判据成立且可恢复(夹具自证,不是靠"零恢复"混过去);
+ *   ② 有通知书 ⇒ `heldDeclared` 点名、`paths` 为空、盘上没有、**索引也没被回写**;
+ *   ③ 台账坏档(`undetermined`)同样不恢复(§0.3:判不出不是恢复的许可证);
+ *   ④ 输出面:alignDrifts 与 heal(`--check` 走的那条)都必须透出这一档的数量与路径(不得静默)。
+ */
+test('T22 第四层通知书闸:四判据成立但通知书在册 ⇒ 进 heldDeclared,盘上/索引都不回写', () => {
+  const { dir } = makeBypassDrill()
+  try {
+    // ① 阳性对照:无通知书时这一现场确实可恢复(否则下面的"不恢复"证明不了什么)
+    const before = restoreBypassOrphans(dir, { dryRun: true })
+    assert.ok(before.paths.includes('born.ts'), '夹具自证:无通知书时四判据成立、born.ts 应进可恢复集')
+    assert.deepEqual(before.heldDeclaredPaths, [], '无通知书时不得凭空有已声明挡下的路径')
+
+    const cli = copyCliInto(dir)
+    const declared = runCli(
+      cli,
+      ['--declare-deletion', 'born.ts', '--reason', '旁路提交带入的孤儿副本,确认整文件删除', '--until', '2099-12-31'],
+      dir,
+    )
+    assert.equal(declared.status, 0, `声明应 exit 0,stderr=${String(declared.stderr).slice(0, 300)}`)
+    assert.equal(existsSync(join(dir, 'born.ts')), false, '声明只写台账,不得顺手恢复工作树')
+
+    // ② dryRun 判据面
+    const dry = restoreBypassOrphans(dir, { dryRun: true })
+    assert.equal(dry.heldDeclared, 1, '持通知书必须单列进 heldDeclared')
+    assert.deepEqual(dry.heldDeclaredPaths, ['born.ts'], '必须逐条点名')
+    assert.deepEqual(dry.paths, [], '持通知书不得再出现在可恢复清单里')
+
+    // ② 真跑:一个字节都不许回写(工作树 + 索引两边都要查 —— checkout 是两边一起写的)
+    const res = restoreBypassOrphans(dir)
+    assert.equal(res.restored, 0, '持通知书仍被恢复 = 替人撤销一次有意删除')
+    assert.equal(existsSync(join(dir, 'born.ts')), false, '不恢复 = 磁盘保持原样')
+    assert.equal(
+      gitRaw(['ls-files', '-s', '--', 'born.ts'], dir).trim(),
+      '',
+      '恢复动作会同时写索引;这一步必须连索引都不动',
+    )
+
+    // ④ 输出面:--align-drift 那条(alignDrifts)与 --check 那条(heal)都要透出
+    const al = alignDrifts(dir, { dryRun: true })
+    assert.equal(al.bypassHeldDeclared, 1, 'alignDrifts 必须透出这一档(不得静默)')
+    assert.deepEqual(al.bypassHeldDeclaredPaths, ['born.ts'])
+    const h = heal(dir, { dryRun: true })
+    assert.equal(h.bypassHeldDeclared, 1, 'heal/--check 面必须同样透出这一档')
+    assert.deepEqual(h.bypassHeldDeclaredPaths, ['born.ts'])
+    assert.equal(existsSync(join(dir, 'born.ts')), false, '默认恢复档也不得把它写回')
+
+    // ④ CLI 人类档:--align-drift 真跑(非 dryRun)也必须点名并保持盘上/索引双空
+    const cliRun = runCli(cli, ['--align-drift'], dir)
+    assert.equal(cliRun.status, 0, `--align-drift 应 exit 0,stderr=${String(cliRun.stderr).slice(0, 300)}`)
+    assert.match(cliRun.stdout, /持有删除通知书/, '人类档必须点名这一档(报数不点名 = 静默)')
+    assert.equal(existsSync(join(dir, 'born.ts')), false, 'CLI 真跑档也不得回写工作树')
+    assert.equal(gitRaw(['ls-files', '-s', '--', 'born.ts'], dir).trim(), '', 'CLI 真跑档也不得回写索引')
+
+    // ③ 台账坏档 ⇒ 判不出 ⇒ 同样进 heldDeclared,绝不读成"没声明"而恢复
+    const ledger = join(dir, 'scripts/data/intentional-file-deletions.jsonl')
+    writeFileSync(ledger, '{这不是 JSON}\n', 'utf8')
+    const broken = restoreBypassOrphans(dir, { dryRun: true })
+    assert.equal(broken.heldDeclared, 1, '台账坏档必须落 heldDeclared(判不出不等于可恢复)')
+    assert.deepEqual(broken.heldDeclaredPaths, ['born.ts'])
+    assert.deepEqual(broken.paths, [])
+  } finally {
+    rmScratch(dir)
+  }
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
