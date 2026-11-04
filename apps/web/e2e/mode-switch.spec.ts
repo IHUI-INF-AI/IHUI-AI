@@ -94,6 +94,27 @@ test.describe('同会话模式切换(ModeSwitcher + 契约透传)', () => {
       await route.continue()
     })
 
+    // P3 #43 成本预检(send-message.ts:596):在 addMessage 之前**阻塞式**调用
+    // `/api/chat/cost-estimate`。本 spec 若不 mock,这条会打到真实后端;后端慢/挂起时
+    // 第二次发送会停在 addMessage 之前(表现为 15s 内无第二条 chat/stream、草稿仍在框内)。
+    // 预检是静默放行路径(priced=false + 金额 0 ⇒ 不触发成本协商确认条),不影响用例语义。
+    await authenticatedPage.route('**/api/chat/cost-estimate', async (route) => {
+      await route.fulfill({
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code: 0,
+          message: 'ok',
+          data: {
+            estimatedTokensIn: 120,
+            estimatedTokensOut: 240,
+            estimatedCostUsd: 0,
+            priced: false,
+          },
+        }),
+      })
+    })
+
     await authenticatedPage.goto('/chat')
     await authenticatedPage.waitForLoadState('domcontentloaded')
     if (!authenticatedPage.url().includes('/chat')) return
@@ -130,6 +151,12 @@ test.describe('同会话模式切换(ModeSwitcher + 契约透传)', () => {
     await expect(authenticatedPage.getByText('已收到,当前模式已生效').first()).toBeVisible({
       timeout: 10000,
     })
+    // 首流收尾的**真判据**(不是睡眠):发送/停止按钮由同一个 isStreaming 驱动,而
+    // send-message.ts 的收尾块里 setStreaming(false) 与 sendInFlightRef 释放是同一段
+    // 同步代码(1767 → 1837,中间无 await)。因此「stop-button 消失且 send-button 就位」
+    // ⇒ 首流已收尾且在途锁已释放。等它再发第二条,避免第二条被 :276/:297 静默吞掉。
+    await expect(authenticatedPage.getByTestId('stop-button')).toHaveCount(0, { timeout: 15000 })
+    await expect(authenticatedPage.getByTestId('send-button')).toBeVisible()
 
     // ---- ③ 同会话切回 build → 再次发送 body.mode === 'build' ----
     // 菜单关闭期间 ModeSwitcher 卸载,重新展开 + 菜单后才能断言其恢复可用并再次切换
@@ -158,6 +185,7 @@ test.describe('同会话模式切换(ModeSwitcher + 契约透传)', () => {
 
     await authenticatedPage.unroute('**/api/ai/chat/stream')
     await authenticatedPage.unroute(conversationRouteMatcher)
+    await authenticatedPage.unroute('**/api/chat/cost-estimate')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
