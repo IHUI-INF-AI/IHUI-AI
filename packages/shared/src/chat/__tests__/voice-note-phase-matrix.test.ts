@@ -311,7 +311,6 @@ describe('结构锁② 转换表只有一份 · 消费点同源', () => {
    */
   const NOT_YET_WIRED = [
     'apps/miniapp-taro/src/pkg-ai/ai/chat.tsx',
-    'apps/web/src/components/ai/voice-input.tsx',
     'apps/mobile-rn/src/hooks/use-voice-recorder.ts',
   ]
   /** 抄表必写成的形状:事件名 → 相名字面量(检测器,不是表) */

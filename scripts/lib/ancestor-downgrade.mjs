@@ -24,7 +24,7 @@
  * `face-reader` 的 `gitRaw` / `catBatchOids`(stdio、timeout、batch 三件统一在层内)。
  */
 import { createHash } from 'node:crypto'
-import { catBatchOids, gitRaw } from './face-reader.mjs'
+import { catBatch, catBatchOids, catBatchSizes, gitRaw } from './face-reader.mjs'
 
 /** 祖先窗口:每路径回看多少枚"改过该路径"的提交。现读最深命中 = 19 枚前,80 留余量。 */
 export const ANCESTOR_WINDOW_DEFAULT = 80
@@ -102,15 +102,10 @@ export function headBlobOf(rel, { root } = {}) {
 }
 
 /**
- * 该 blobOid 是不是 rel 在 HEAD 某个**祖先提交**里的原样?
- * 返回三态(§0.3,调用方不得把 judged:false 折成"没命中"):
- *   { judged:true, match:null, scanned:N }            —— 判过,不是祖先回写
- *   { judged:true, match:{commit,blobOid}, scanned:N } —— 命中(commit = 最近的命中祖先)
- *   { judged:false, why }                              —— 该跑没跑成
+ * 该路径在 HEAD 之前的祖先提交清单(逐字档与归一化档共用,不再各取一遍)。
+ * 三态:HEAD 取不到 / rev-list 取不到 ⇒ judged:false(§0.3,不折成"没有祖先")。
  */
-export function ancestorBlobOf(rel, blobOid, { root, windowSize = ANCESTOR_WINDOW_DEFAULT } = {}) {
-  const oid = String(blobOid ?? '').trim().toLowerCase()
-  if (!/^[0-9a-f]{40}$/.test(oid)) return { judged: false, why: `blob oid 非法:${blobOid}` }
+export function ancestorCommitList(rel, { root, windowSize = ANCESTOR_WINDOW_DEFAULT } = {}) {
   try {
     const head = String(gitRaw(['rev-parse', 'HEAD'], root)).trim()
     const list = String(
@@ -121,24 +116,206 @@ export function ancestorBlobOf(rel, blobOid, { root, windowSize = ANCESTOR_WINDO
       .filter(Boolean)
       // HEAD 自身不是祖先:HEAD 触及该路径时 rev-list 会把它排在首位,那一条要摘掉。
       .filter((c) => c !== head)
-    if (list.length === 0) return { judged: true, match: null, scanned: 0 }
-    const specs = list.map((c) => `${c}:${rel}`)
+    return { judged: true, list, scanned: list.length, why: null }
+  } catch (e) {
+    return { judged: false, list: [], scanned: 0, why: `祖先面取不到:${String(e?.message ?? e).split('\n')[0]}` }
+  }
+}
+
+/**
+ * 该 blobOid 是不是 rel 在 HEAD 某个**祖先提交**里的原样?
+ * 返回三态(§0.3,调用方不得把 judged:false 折成"没命中"):
+ *   { judged:true, match:null, scanned:N }            —— 判过,不是祖先回写
+ *   { judged:true, match:{commit,blobOid}, scanned:N } —— 命中(commit = 最近的命中祖先)
+ *   { judged:false, why }                              —— 该跑没跑成
+ */
+export function ancestorBlobOf(rel, blobOid, { root, windowSize = ANCESTOR_WINDOW_DEFAULT } = {}) {
+  const oid = String(blobOid ?? '').trim().toLowerCase()
+  if (!/^[0-9a-f]{40}$/.test(oid)) return { judged: false, why: `blob oid 非法:${blobOid}` }
+  const q = ancestorCommitList(rel, { root, windowSize })
+  if (!q.judged) return { judged: false, why: q.why }
+  if (q.list.length === 0) return { judged: true, match: null, scanned: 0 }
+  try {
+    const specs = q.list.map((c) => `${c}:${rel}`)
     const map = catBatchOids(root, specs)
-    for (const c of list) {
+    for (const c of q.list) {
       const got = map.get(`${c}:${rel}`)
+      // 该祖先里这条路径可能已被删掉(cat-file 报 null)—— 与原逐字档口径一致:跳过,不折成"取不到"
       if (got && got.toLowerCase() === oid) {
-        return { judged: true, match: { commit: c, blobOid: got.toLowerCase() }, scanned: list.length }
+        return { judged: true, match: { commit: c, blobOid: got.toLowerCase() }, scanned: q.scanned }
       }
     }
-    return { judged: true, match: null, scanned: list.length }
+    return { judged: true, match: null, scanned: q.scanned }
   } catch (e) {
     return { judged: false, why: `祖先面取不到:${String(e?.message ?? e).split('\n')[0]}` }
   }
 }
 
+/**
+ * 去空白归一化(§12i 第二臂的等值尺):**只**抹掉空白类字符,不折叠大小写、不剥注释、不动字符串体。
+ * 为什么是这个口径:实测回写件的形态是"旧内容 + prettier/编辑器重排",逐字 oid 因此错开;
+ * 而归一化流相等 ⇔ 两份内容在非空白字符层面逐字同形,不需要相似度阈值,也不引入新的判断面。
+ */
+export function normalizeContentStream(text) {
+  return String(text ?? '').replace(/\s+/g, '')
+}
+
+/** 原始字节与去空白流的比例容差:重排只动空白,体积差应远小于这个带;超带宽直接不进比较 */
+export const NORMALIZED_SIZE_TOLERANCE = 0.25
+
+/**
+ * 标识符集等值档的最小缺口:本档要求"本面比 HEAD 至少少这么多标识符"才算回退。
+ * 立因:只看集合等值会误伤正当改动(换一个字符串字面量/删一个未用符号都可能让集合与某祖先相同);
+ * 当天实测两件旧档相对 HEAD 分别缺 30 / 13 个 ⇒ 3 是既不误伤又抓得住的下限。
+ */
+export const MIN_HEAD_IDENTIFIER_GAP = 3
+
+/** 标识符尺(全仓一条正则,镜像测试 import 它,不再各写一份) */
+export const IDENTIFIER_RE = /[A-Za-z_$][A-Za-z0-9_$]{2,}/g
+
+export function identifierSetOf(text) {
+  return new Set(String(text ?? '').match(IDENTIFIER_RE) || [])
+}
+
+function setsEqual(a, b) {
+  if (a.size !== b.size) return false
+  for (const x of a) if (!b.has(x)) return false
+  return true
+}
+
+/** a 是否 b 的真子集,且 b 至少多出 minGap 个 */
+function isStrictSubset(a, b, minGap = 1) {
+  if (b.size - a.size < minGap) return false
+  for (const x of a) if (!b.has(x)) return false
+  return true
+}
+
+/**
+ * **内容级**祖先等值(2026-11-05 立,补逐字 oid 档的实测盲区),一次走祖先、按两档命中:
+ *   · `kind:'normalized'` —— 去掉全部空白后与某祖先逐字等值(纯空白重排);
+ *   · `kind:'identifier-set'` —— 标识符**集合**与某祖先相等,而相对 HEAD 少 ≥MIN_HEAD_IDENTIFIER_GAP 个。
+ *     这一档是实测逼出来的:prettier 不只动空白,它还增删分号/逗号/括号 —— 当天 guardian-runner 那枚
+ *     11-03 旧档把 80 枚祖先逐个比完,逐字档与归一化档**都不命中**,只有集合档抓到(缺 30 个标识符)。
+ * 判序:先按原始体积(±25%)筛候选再读正文,不逐祖先读全档;与 HEAD 归一化等值 ⇒ 纯格式噪声不算回退。
+ * 返回三态(§0.3):任何一档取不到 ⇒ `judged:false`,绝不折成"没命中"。
+ */
+export function ancestorContentMatch(
+  rel,
+  faceText,
+  {
+    root,
+    windowSize = ANCESTOR_WINDOW_DEFAULT,
+    tolerance = NORMALIZED_SIZE_TOLERANCE,
+    minGap = MIN_HEAD_IDENTIFIER_GAP,
+  } = {},
+) {
+  if (typeof faceText !== 'string' || faceText === '')
+    return { judged: false, match: null, why: '正文取不到(空文本不判,§0.3)' }
+  const q = ancestorCommitList(rel, { root, windowSize })
+  if (!q.judged) return { judged: false, match: null, why: q.why }
+  try {
+    const faceNorm = normalizeContentStream(faceText)
+    const faceLen = Buffer.byteLength(faceText, 'utf8')
+    const faceIds = identifierSetOf(faceText)
+    // 与 HEAD 归一化等值 ⇒ 纯格式差异,不是回写;这一步不依赖祖先清单,排在扫祖先之前。
+    // HEAD 正文取不到 ⇒ 未判定(不折成"不等值⇒可判")。
+    const headText = catBatch(root, [`HEAD:${rel}`]).get(`HEAD:${rel}`)
+    if (headText === undefined)
+      return { judged: false, match: null, why: `HEAD:${rel} 取不到(键缺失,不折成"没有")` }
+    if (headText === null)
+      return {
+        judged: true,
+        match: null,
+        scanned: q.scanned,
+        compared: 0,
+        notApplicable: 'HEAD 面无该路径 ⇒ 不构成"HEAD 已有更新档"这一格',
+      }
+    if (normalizeContentStream(headText) === faceNorm)
+      return { judged: true, match: null, scanned: q.scanned, compared: 0, normalizedEqualHead: true }
+    const headIds = identifierSetOf(headText)
+    // 顺带把疑退形态量出来(同一份正文,不再二次取面):门用它只报数、不判红
+    const deficit = identifierDeficit(headText, faceText)
+    // 集合档前置:本面必须是 HEAD 的真子集(与 HEAD 等集或超集都不算"更旧")
+    const subsetOfHead = isStrictSubset(faceIds, headIds, minGap)
+    if (q.list.length === 0) return { judged: true, match: null, scanned: 0, compared: 0, deficit }
+    const specs = q.list.map((c) => `${c}:${rel}`)
+    const sizes = catBatchSizes(root, specs)
+    const lo = faceLen * (1 - tolerance)
+    const hi = faceLen * (1 + tolerance)
+    const candidates = []
+    for (const c of q.list) {
+      const sz = sizes.get(`${c}:${rel}`)
+      if (sz === undefined)
+        return { judged: false, match: null, why: `祖先体积读数键缺失 ${c.slice(0, 10)}:${rel}` }
+      if (sz === null || sz === 0) continue // null = 该祖先里没有这条路径;0 = 空档,不可能等于非空正文
+      if (sz >= lo && sz <= hi) candidates.push(c)
+    }
+    if (candidates.length === 0) return { judged: true, match: null, scanned: q.scanned, compared: 0, deficit }
+    const bodies = catBatch(root, candidates.map((c) => `${c}:${rel}`))
+    const hit = (c, kind) => {
+      const oids = catBatchOids(root, [`${c}:${rel}`])
+      return {
+        judged: true,
+        match: {
+          commit: c,
+          blobOid: String(oids.get(`${c}:${rel}`) ?? '').toLowerCase(),
+          kind,
+          normalized: kind === 'normalized',
+        },
+        scanned: q.scanned,
+        compared: candidates.length,
+      }
+    }
+    let setHit = null
+    for (const c of candidates) {
+      const body = bodies.get(`${c}:${rel}`)
+      if (body === undefined)
+        return { judged: false, match: null, why: `祖先正文键缺失 ${c.slice(0, 10)}:${rel}` }
+      if (body === null) continue // 装箱后仍取不到具体档:该祖先无此路径(与 sizes 的 null 同义)
+      if (normalizeContentStream(body) === faceNorm) return hit(c, 'normalized') // 强档先出声
+      if (!setHit && subsetOfHead && setsEqual(identifierSetOf(body), faceIds)) setHit = c
+    }
+    if (setHit) return hit(setHit, 'identifier-set')
+    return { judged: true, match: null, scanned: q.scanned, compared: candidates.length, deficit }
+  } catch (e) {
+    return { judged: false, match: null, why: `内容档取不到:${String(e?.message ?? e).split('\n')[0]}` }
+  }
+}
+
+/**
+ * 疑退(advisory)两档阈值(单源,门与报表共用):
+ *   `missing ≥ STALE_SUSPECT_MIN` 且 `missing ≥ STALE_SUSPECT_RATIO × extra` 且 `extra ≥ 1`。
+ * 立因(2026-11-05 实测):当天 guardian-runner 那枚旧档相对 HEAD **缺 30 个**标识符、却又带
+ * **9 个** HEAD 已退役的 —— 三档 blob 等值判据都抓不住它(它既不是任何 80 枚祖先的等值形态,
+ * 又不是 HEAD 的真子集)。而这个形态与"正当清死代码"(knip 一次摘 18 件)在 blob 层面**不可分辨**
+ * ⇒ 只能报数不能判红(§12e:拿不准的判据升 blocking = 逼人跳门,废掉全部守门)。
+ * 要求 `extra ≥ 1` 就是把"纯删码"排除出去:纯删无新增符号,不构成疑退形态。
+ */
+export const STALE_SUSPECT_MIN = 10
+export const STALE_SUSPECT_RATIO = 2
+
+/** 本面相对 HEAD 的标识符缺口(只量数,不下红判);取不到正文的一侧按空集,由调用方判未判定。 */
+export function identifierDeficit(headText, faceText) {
+  const a = identifierSetOf(faceText)
+  const b = identifierSetOf(headText)
+  let missing = 0
+  for (const x of b) if (!a.has(x)) missing += 1
+  let extra = 0
+  for (const x of a) if (!b.has(x)) extra += 1
+  const suspect =
+    extra >= 1 && missing >= STALE_SUSPECT_MIN && missing >= STALE_SUSPECT_RATIO * extra
+  return { missing, extra, suspect }
+}
+
 /** 一处命中 → 一行可读点位(门与写盘器共用文案,不各写一份)。 */
 export function describeMatch(rel, match) {
   const sha = String(match?.commit ?? '').slice(0, 10)
-  return `${rel}(=祖先 ${sha})`
+  const kindTxt =
+    match?.kind === 'identifier-set'
+      ? ' 标识符集合等值(旧内容+改标点)'
+      : match?.kind === 'normalized' || match?.normalized
+        ? ' 归一化等值(旧内容+改格式)'
+        : ''
+  return `${rel}(=祖先 ${sha}${kindTxt})`
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
