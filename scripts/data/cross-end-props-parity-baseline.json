@@ -301,24 +301,22 @@
     "VoiceInput": {
       "state": "ok",
       "onlyRn": [],
-      "onlyMini": [
-        "showClear"
-      ],
+      "onlyMini": [],
       "reqDrift": [],
       "mapped": [],
-      "driftTotal": 1
+      "driftTotal": 0
     }
   },
   "counts": {
     "pairs": 18,
-    "drifted": 1,
-    "aligned": 15,
+    "drifted": 0,
+    "aligned": 16,
     "undetermined": 0,
     "notApplicable": 2,
-    "maxKeyDrift": 1,
-    "driftKeysTotal": 1,
+    "maxKeyDrift": 0,
+    "driftKeysTotal": 0,
     "judgedKeysTotal": 0,
-    "rawDriftKeysTotal": 1,
+    "rawDriftKeysTotal": 0,
     "adjudicatedDriftKeys": 7,
     "mappedKeysTotal": 49,
     "equivalenceEntries": 27
