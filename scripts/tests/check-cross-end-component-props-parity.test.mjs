@@ -337,4 +337,47 @@ describe('285 形状锁(注册条目与文件在场)', () => {
       assert.ok(blk.includes(needle), `stagedTriggers 缺:${needle}`)
   })
 })
+
+describe('285 审计返工接线锁(B 组真实现/死腿删除)', () => {
+  const read = (p) => readFileSync(join(ROOT, p), 'utf8')
+  it('LoginPopUp agreeChecked/onAgreeChange 两端声明,小程序宿主持有并回传', () => {
+    const rn = read('apps/mobile-rn/src/components/LoginPopUp.tsx')
+    const mini = read('apps/miniapp-taro/src/components/LoginPopUp.tsx')
+    const page = read('apps/miniapp-taro/src/pages/user/index.tsx')
+    assert.ok(rn.includes('agreeChecked?: boolean'), 'RN 缺 agreeChecked 声明')
+    assert.ok(rn.includes('onAgreeChange?:'), 'RN 缺 onAgreeChange 声明')
+    assert.ok(mini.includes('agreeChecked?: boolean'), '小程序缺 agreeChecked 声明')
+    assert.ok(
+      mini.includes('onAgreeChange?: (checked: boolean) => void'),
+      '小程序缺 onAgreeChange 声明',
+    )
+    assert.ok(mini.includes('onAgreeChange(!agreeChecked)'), '小程序协议行未回传新勾选态')
+    assert.ok(page.includes('agreeChecked={agreeChecked}'), '小程序宿主未持有 agreeChecked')
+    assert.ok(page.includes('onAgreeChange={setAgreeChecked}'), '小程序宿主未回传 onAgreeChange')
+  })
+  it('UserInfoCard onOpenVip 两端声明且 RN 宿主真接线', () => {
+    const rn = read('apps/mobile-rn/src/components/UserInfoCard.tsx')
+    const mini = read('apps/miniapp-taro/src/components/UserInfoCard.tsx')
+    const page = read('apps/mobile-rn/src/screens/ProfileScreen.tsx')
+    assert.ok(rn.includes('onOpenVip?: () => void'), 'RN 缺 onOpenVip 声明')
+    assert.ok(rn.includes('onPress={onOpenVip}'), 'RN 未消费 onOpenVip')
+    assert.ok(mini.includes('onOpenVip?: () => void'), '小程序缺 onOpenVip 声明')
+    assert.ok(
+      page.includes("onOpenVip={() => rootNav?.navigate('VipTrader')}"),
+      'RN 宿主未接线 onOpenVip',
+    )
+  })
+  it('VoiceInput 图片死腿已从声明与渲染删除', () => {
+    const rn = read('apps/mobile-rn/src/components/VoiceInput.tsx')
+    assert.ok(!rn.includes('onImageSelected?:'), 'onImageSelected 死腿仍在')
+    assert.ok(!rn.includes('showImagePicker?:'), 'showImagePicker 死腿仍在')
+    assert.ok(!rn.includes('showImagePopup'), '图片弹出层 UI 仍在')
+  })
+  it('UserInfoCard level/levelTitle 死字段已从声明删除', () => {
+    const mini = read('apps/miniapp-taro/src/components/UserInfoCard.tsx')
+    assert.ok(!mini.includes('levelTitle?:'), 'levelTitle 死字段仍在')
+    assert.ok(!mini.includes('level?: number'), 'level 死字段仍在')
+    assert.ok(!mini.includes('displayLevel'), 'level 派生展示仍在')
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
