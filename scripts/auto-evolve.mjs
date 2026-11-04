@@ -45,7 +45,7 @@ export { ticketKeyOf }
 // 本层零复算判据(§0.6),只做接线。
 import { preflightSessionRunner, resolveSessionCommand, classifySessionFailure, isNonTicketFailure } from './lib/autonomy-runner.mjs'
 export { preflightSessionRunner, resolveSessionCommand, classifySessionFailure, isNonTicketFailure }
-import { gateTicketByHumanValve, VALVE_MODES } from './lib/autonomy-runner.mjs'
+import { gateTicketByHumanValve, VALVE_MODES, VALVE_ACTIONS } from './lib/autonomy-runner.mjs'
 export { gateTicketByHumanValve }
 // 会话后落账腿的判据单源(2026-11-01 立):清单解析/路径安全/真有改动三问都住 lib,本器只做 IO 与编排。
 import { parseArtifactManifest, sanitizeArtifactPaths, selectDirtyPaths, manifestPathOf } from './lib/ticket-artifacts.mjs'
@@ -716,7 +716,9 @@ export function excerptBothEnds(stderr, stdout, max = 150) {
  */
 export function decideValveDispatch(valve, mode, { ticketKey = '', ticketLine = '' } = {}) {
   const ledger = {
-    action: `valve-${valve?.action}`,
+    // 结构上不许发出 `valve-undefined`:调用方没给判定结果时那本身就是"没判",归 unjudged 档
+    // (它已在阶梯的豁免表里带理由登记),而不是造一枚没人分档的新串把覆盖锁绕过去。
+    action: `valve-${VALVE_ACTIONS.includes(valve?.action) ? valve.action : 'unjudged'}`,
     ticketKey,
     ticketLine,
     ruleId: valve?.ruleId,
@@ -1360,6 +1362,9 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
         return
       }
       dispatched++
+      // 日预算的**跨轮**计数读的就是这一行(2026-11-04 实测:调度器重构后再没人发射过 `dispatched`,而
+      // 两处计数器仍按 action==='dispatched' 数 ⇒ 每轮都读成"今日已派 0/6",日预算只剩轮内那一半)。
+      record({ mode: 'dispatch', action: 'dispatched', ticketKey: key, ticketLine: ticket.text.slice(0, 200), why: `真派第 ${dispatched} 次(预算 ${gates.dailyDispatchBudget}/日)` })
       // ---- 故障分型(2026-11-01 立):发起腿级失败 ≠ 票面失败 ----
       // 环境级(ERR_MODULE_NOT_FOUND/ENOENT/路径不存在)是调度器自己的腿断了:
       // 计进票连败 = 每换一次机就把整张派单面逐枚封禁 48h,而真因一行也没被点名。

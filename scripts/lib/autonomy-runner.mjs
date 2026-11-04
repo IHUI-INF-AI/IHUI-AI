@@ -35,7 +35,9 @@ export function repoRootVariants(repoRoot) {
 export function expandRepoRootTemplate(text, repoRoot) {
   const variants = repoRootVariants(repoRoot)
   if (variants.length === 0) return null
-  return String(text ?? '').split(REPO_ROOT_TOKEN).join(variants[0])
+  return String(text ?? '')
+    .split(REPO_ROOT_TOKEN)
+    .join(variants[0])
 }
 
 /**
@@ -82,14 +84,26 @@ export function extractAbsPathTokens(command) {
  */
 export function preflightSessionRunner(template, repoRoot) {
   const tpl = String(template ?? '')
-  if (!tpl.trim()) return { state: 'template-empty', checked: [], missing: [], why: '模板空 = dry-run 档' }
+  if (!tpl.trim())
+    return { state: 'template-empty', checked: [], missing: [], why: '模板空 = dry-run 档' }
   const command = resolveSessionCommand(tpl, repoRoot)
   if (command === null) {
-    return { state: 'undetermined', checked: [], missing: [], why: '当次仓根取不到 ⇒ 无法核验执行体在位(§0.3 不回落)' }
+    return {
+      state: 'undetermined',
+      checked: [],
+      missing: [],
+      why: '当次仓根取不到 ⇒ 无法核验执行体在位(§0.3 不回落)',
+    }
   }
   const tokens = extractAbsPathTokens(command)
   if (tokens.length === 0) {
-    return { state: 'undetermined', checked: [], missing: [], command, why: '命令行里没有可核验的带盘符路径 ⇒ 执行体存续判不出' }
+    return {
+      state: 'undetermined',
+      checked: [],
+      missing: [],
+      command,
+      why: '命令行里没有可核验的带盘符路径 ⇒ 执行体存续判不出',
+    }
   }
   const checked = []
   const missing = []
@@ -110,7 +124,10 @@ export function preflightSessionRunner(template, repoRoot) {
     checked,
     missing,
     command,
-    why: missing.length > 0 ? `${missing.length}/${checked.length} 枚路径不在位` : `${checked.length} 枚路径全部在位`,
+    why:
+      missing.length > 0
+        ? `${missing.length}/${checked.length} 枚路径不在位`
+        : `${checked.length} 枚路径全部在位`,
   }
 }
 
@@ -150,10 +167,21 @@ export const TRANSPORT_FAILURE_SIGNS = [
 export function classifySessionFailure({ status, stderr, error }) {
   const blob = `${String(stderr ?? '')}\n${String(error ?? '')}`
   const env = ENV_FAILURE_SIGNS.find((s) => blob.includes(s))
-  if (env) return { kind: 'environment', sign: env, why: `执行体/模块级失败(${env})⇒ 属调度器自身故障,不计票连败` }
+  if (env)
+    return {
+      kind: 'environment',
+      sign: env,
+      why: `执行体/模块级失败(${env})⇒ 属调度器自身故障,不计票连败`,
+    }
   const transport = TRANSPORT_FAILURE_SIGNS.find((s) => blob.includes(s))
-  if (transport) return { kind: 'transport', sign: transport, why: `通路级失败(${transport})⇒ 服务面/上游依赖,不计票连败` }
-  if (status === null || status === undefined) return { kind: 'undetermined', sign: null, why: '退出码取不到 ⇒ 不判成功也不记票失败' }
+  if (transport)
+    return {
+      kind: 'transport',
+      sign: transport,
+      why: `通路级失败(${transport})⇒ 服务面/上游依赖,不计票连败`,
+    }
+  if (status === null || status === undefined)
+    return { kind: 'undetermined', sign: null, why: '退出码取不到 ⇒ 不判成功也不记票失败' }
   if (status === 0) return { kind: 'ok', sign: null, why: '' }
   return { kind: 'session', sign: null, why: `会话自身失败(exit=${status})` }
 }
@@ -192,21 +220,51 @@ export const VALVE_MODES = ['observe', 'enforce']
  *                    分类器拒判 ⇒ 不猜。enforce 档由调用方 fail-closed 整轮停;
  *                    非 enforce 档沿用既有行为照派。
  */
+/**
+ * `gateTicketByHumanValve` 的 action 值并集(唯一一份)。`auto-evolve.mjs` 拿它拼
+ * `valve-${action}` 动作串,空转阶梯的覆盖锁按这一份展开对账 —— 新增一个 action 而忘了
+ * 在阶梯里分档,锁当场判红。
+ */
+export const VALVE_ACTIONS = Object.freeze(['allow', 'block', 'observe-stop', 'unjudged'])
+
+/**
+ * `preflightSessionRunner` 的 state 值并集(唯一一份)。`auto-evolve.mjs` 用它拼
+ * `runner-preflight-${state}` 轮级留痕串,覆盖锁按这一份展开对账。
+ */
+export const PREFLIGHT_STATES = Object.freeze([
+  'ready',
+  'template-empty',
+  'missing',
+  'undetermined',
+])
+
 export function gateTicketByHumanValve({ ticketText, mode, valveListText, now = new Date() } = {}) {
   if (!VALVE_MODES.includes(mode)) {
-    return { action: 'unjudged', ruleId: null, reason: `humanValveMode 取值非法(${JSON.stringify(mode)})⇒ 不猜档(合法值 ${VALVE_MODES.join('|')})` }
+    return {
+      action: 'unjudged',
+      ruleId: null,
+      reason: `humanValveMode 取值非法(${JSON.stringify(mode)})⇒ 不猜档(合法值 ${VALVE_MODES.join('|')})`,
+    }
   }
   let rules
   try {
     rules = parseValveList(valveListText).rules
   } catch (e) {
-    return { action: 'unjudged', ruleId: null, reason: `人工阀清单取不到或形状坏(${e instanceof HumanValveDataError ? e.message : String(e?.message ?? e)})⇒ 未判定` }
+    return {
+      action: 'unjudged',
+      ruleId: null,
+      reason: `人工阀清单取不到或形状坏(${e instanceof HumanValveDataError ? e.message : String(e?.message ?? e)})⇒ 未判定`,
+    }
   }
   let verdict
   try {
     verdict = classifyAction(String(ticketText ?? ''), { rules, now })
   } catch (e) {
-    return { action: 'unjudged', ruleId: null, reason: `分类器拒绝判定(${e?.message ?? e})⇒ 未判定` }
+    return {
+      action: 'unjudged',
+      ruleId: null,
+      reason: `分类器拒绝判定(${e?.message ?? e})⇒ 未判定`,
+    }
   }
   const stop = verdict.bucket === BUCKETS.STOP_FOR_HUMAN
   if (!stop) return { action: 'allow', ruleId: verdict.ruleId, reason: verdict.reason }
