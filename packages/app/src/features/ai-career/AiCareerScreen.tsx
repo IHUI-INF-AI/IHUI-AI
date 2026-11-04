@@ -237,7 +237,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.medium,
       lineHeight: 22,
     },
-    optionTextActive: { color: tk.surface.light },
+    optionTextActive: { color: tk.brand.ctaForeground },
     scoreRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
@@ -289,7 +289,11 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    submitBtnText: { fontSize: rnType.title.size, fontWeight: '700', color: tk.surface.light },
+    submitBtnText: {
+      fontSize: rnType.title.size,
+      fontWeight: '700',
+      color: tk.brand.ctaForeground,
+    },
     reportCard: {
       padding: rnSpacing.lg,
       borderRadius: rnRadius.lg,
@@ -312,7 +316,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brand.cta,
     },
     exportBtnDisabled: { opacity: 0.5 },
-    exportBtnText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.surface.light },
+    exportBtnText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.brand.ctaForeground },
     exportBtnTextDisabled: { color: tk.text.tertiary },
     formatRow: {
       flexDirection: 'row',
@@ -330,7 +334,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     formatChipActive: { backgroundColor: tk.brand.cta, borderColor: tk.brandAccent.deep },
     formatText: { fontSize: rnType.body.size, color: tk.text.medium },
-    formatTextActive: { color: tk.surface.light, fontWeight: '600' },
+    formatTextActive: { color: tk.brand.ctaForeground, fontWeight: '600' },
     reportBody: {
       fontSize: rnType.body.size,
       color: tk.text.secondary,
