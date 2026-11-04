@@ -279,6 +279,41 @@ ok(
   })(),
 )
 
+// L6/L7 —— 分型改向(2026-11-05 把"终态先于文本签名"落进 lib/autonomy-runner)之后,
+// 冤封尺 A2 必须照旧有牙:同一句诊断文本,终态不同则判果不同(成对,缺一即等于判据没牙)。
+const { judgeMisattribution } = HEALTH
+const future = new Date(Date.now() + 3600_000).toISOString()
+ok(
+  'L6 rc=3 的 no_progress(哪怕 stderr 里全是诊断)不算环境级失败 ⇒ 不产生冤封',
+  (() => {
+    const r = judgeMisattribution([
+      {
+        action: 'session-no-progress',
+        ticketKey: 'k1',
+        exitCode: 3,
+        why: 'exit=3 status=undetermined untracked-files-over-cap',
+      },
+      { action: 'quarantined', ticketKey: 'k1', until: future },
+    ])
+    return r.dim === 'A2-attribution' && r.state !== 'drift'
+  })(),
+)
+ok(
+  'L7 成对反向:rc=1 + 模块级失败(真环境级)而被封 ⇒ A2 必须点名冤封',
+  (() => {
+    const r = judgeMisattribution([
+      {
+        action: 'session-failed',
+        ticketKey: 'k2',
+        exitCode: 1,
+        why: "Error [ERR_MODULE_NOT_FOUND]: Cannot find module 'tsx'",
+      },
+      { action: 'quarantined', ticketKey: 'k2', until: future },
+    ])
+    return r.state === 'drift' && String(r.readout).includes('冤封')
+  })(),
+)
+
 console.log(
   fail === 0
     ? `autonomy-leg dispatch lock: ${pass} 例全绿`
