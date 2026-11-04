@@ -16,6 +16,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import ts from 'typescript'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 // Windows 下绝对路径必须走 file:// URL(d:\… 会被当成协议 'd:');§22d 同款坑
@@ -52,6 +53,49 @@ describe('288 pairDelta(生产判据直用)', () => {
     const r = pairDelta('X', { state: 'zero-props', reason: '', props: [] }, { state: 'ok', props: [mk('a'), mk('b')] })
     assert.equal(r.driftTotal, 2)
     assert.deepEqual(r.onlyMini, ['a', 'b'])
+  })
+})
+
+describe('288 props 类型解析:导入未解析不得读成"零 props"(§0.3)', () => {
+  const root = mkdtempSync(join(tmpdir(), 'gate288-props-unresolved-'))
+  const dir = join(root, 'apps/mobile-rn/src/components')
+  mkdirSync(dir, { recursive: true })
+  const relUnresolved = 'apps/mobile-rn/src/components/UnresolvedPanel.ts'
+  writeFileSync(
+    join(root, relUnresolved),
+    [
+      "import type { Props } from '@nope/unresolvable'",
+      'export function UnresolvedPanel(props: Props) { return props }',
+      'export default UnresolvedPanel',
+    ].join('\n'),
+  )
+  const relLocal = 'apps/mobile-rn/src/components/LocalPanel.ts'
+  writeFileSync(
+    join(root, relLocal),
+    [
+      'export interface LocalPanelProps {',
+      '  title?: string',
+      '}',
+      'export function LocalPanel(props: LocalPanelProps) { return props }',
+      'export default LocalPanel',
+    ].join('\n'),
+  )
+  // 只喂这一个文件做编译面:导入模块故意不存在(复刻"缺 per-package node_modules"现场)
+  const build = (rel) =>
+    ts.createProgram({ rootNames: [join(root, rel)], options: { noEmit: true, skipLibCheck: true } })
+  it('props 的导入模块解析不到 ⇒ undetermined 点名,不产出"空键集 ok"', () => {
+    const r = lib.componentPropsOf(root, relUnresolved, 'rn', build(relUnresolved))
+    assert.equal(r.state, 'undetermined')
+    assert.ok(/不可解析/.test(r.reason))
+    assert.equal(r.props.length, 0)
+  })
+  it('同形态但类型本地可解析 ⇒ ok 且键集完整(反例:不是一律转未判定)', () => {
+    const r = lib.componentPropsOf(root, relLocal, 'rn', build(relLocal))
+    assert.equal(r.state, 'ok')
+    assert.deepEqual(
+      r.props.map((p) => p.name),
+      ['title'],
+    )
   })
 })
 
