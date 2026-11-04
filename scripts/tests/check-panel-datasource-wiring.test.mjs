@@ -232,4 +232,16 @@ test('D13 退役锁:legacy */grafana 树不得复活,也不得改道登记/豁�
     assert.ok(tracked.some((p) => p.startsWith(`${t.dashboards}/`)), `现行树 ${t.dashboards} 不得因退役被误删(假绿反证)`)
   }
 })
+
+// ── 2026-11-04 最后两枚 grafana 旧件退役:head→HEAD 归一迁进本件 ──────────────
+// 旧件 check-grafana-datasource-wiring.mjs 的 listFacePaths 有一层 face→rev 归一
+// (`face === 'head' ? 'HEAD' : face`);本件曾把它丢掉,Linux 大小写敏感环境下
+// `git ls-tree head` 会 `fatal: Not a valid object name`,而 Windows 上 `head` 也能解析
+// —— 本机恒绿、CI 恒红。D14 钉住这层归一:归一再被摘掉时,Linux 上这里必红。
+test('D14 面名归一:face=head 必须归一为 HEAD(git rev 大小写敏感,裸 head 在 Linux 会 fatal)', () => {
+  const paths = GATE.listFacePaths('head')
+  assert.ok(paths.length > 0, 'head 面必须取到路径清单(取空 = 归一/取材失效)')
+  assert.ok(paths.includes('scripts/check-panel-datasource-wiring.mjs'), 'head 面必须含本门自身(正面前提)')
+  assert.ok(GATE.listFacePaths('staged').length > 0, 'staged 面走 ls-files,另一条取材腿也必须能跑完')
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
