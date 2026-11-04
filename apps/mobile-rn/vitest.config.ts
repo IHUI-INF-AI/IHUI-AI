@@ -81,7 +81,7 @@ const SHARED_CHAT_ALIASES = Object.fromEntries(
 const SHARED_TASKS_DIR = resolve(__dirname, '../../packages/shared/src/tasks')
 /**
  * 第五处应用(2026-10-29 实测):`tasks` 族此前只有 `tasks/dispatch` 一条手写替身条目,
- * `tasks/delegation-approval`(src/hooks/useTaskReceiver.ts、src/components/TaskApprovalCard.tsx 取用)
+ * `tasks/delegation-approval`(src/hooks/useTaskReceiver.ts 取用)
  * 没有任何条目,也没有派生表覆盖 ⇒ 被 `@ihui/shared` 兜底替身按前缀吞成 `<ihui-shared.ts>/tasks/…`,
  * 收集期 resolve 失败。派生表按目录补齐真源码;替身条目(若有)写在展开**之后**,
  * 靠对象键覆盖保住"替身优先于真身",展开在前只补键位不夺语义。
