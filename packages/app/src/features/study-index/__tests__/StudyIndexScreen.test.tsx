@@ -36,15 +36,18 @@ const baseProps: StudyIndexScreenProps = {
 
 afterEach(cleanup)
 
+// 守门 theme-prop-wiring：主题驱动组件的渲染点必须显式接线（字面量与漏传同红）。
+const testColorScheme: 'light' | 'dark' = 'light'
+
 describe('StudyIndexScreen 发布 FAB', () => {
   it('缺省不渲染 FAB', () => {
-    render(<StudyIndexScreen {...baseProps} />)
+    render(<StudyIndexScreen {...baseProps} colorScheme={testColorScheme} />)
     expect(screen.queryByLabelText('发布视频')).toBeNull()
   })
 
   it('注入 onPublish 后渲染 FAB 并触发', () => {
     const onPublish = vi.fn()
-    render(<StudyIndexScreen {...baseProps} onPublish={onPublish} />)
+    render(<StudyIndexScreen {...baseProps} colorScheme={testColorScheme} onPublish={onPublish} />)
     fireEvent.click(screen.getByLabelText('发布视频'))
     expect(onPublish).toHaveBeenCalledTimes(1)
   })
