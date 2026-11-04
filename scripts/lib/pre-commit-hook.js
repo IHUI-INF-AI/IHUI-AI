@@ -102,6 +102,14 @@ const PIN_SNAPSHOT = (() => {
   try {
     return indexPinGuard.capturePinnedIndex({ gitCwd: INDEX_CTX.cwd, env: process.env })
   } catch (e) {
+    if (e?.code === indexPinGuard.UNDETERMINED_CODE) {
+      console.error(`❓ 定版索引基线未判定:${e.message}`)
+      console.error(
+        '   提交已阻止(exit 2):索引内容读不全 ⇒ 既不能记绿(等于假装没被回灌),' +
+          '也不能按"内容被改"记红(没有证据);按 §0.3 只能是未判定。',
+      )
+      process.exit(2)
+    }
     console.error(`❌ 定版索引基线读取失败:${e?.message ?? e}`)
     console.error('   提交已阻止:无法在钩子开工前留住调用方定版的索引内容,就不能保证它不被回灌。')
     process.exit(1)
@@ -435,6 +443,18 @@ if (PIN_SNAPSHOT) {
       env: process.env,
       snapshot: PIN_SNAPSHOT,
     })
+    if (pin.undetermined) {
+      try {
+        require('node:fs').writeSync(
+          2,
+          `❓ 定版索引保护未判定:${pin.detail}\n   提交已阻止(exit 2):索引内容读不全。\n`,
+        )
+      } catch {
+        console.error(`❓ 定版索引保护未判定:${pin.detail}`)
+      }
+      process.exitCode = 2
+      return
+    }
     if (!pin.ok) {
       try {
         require('node:fs').writeSync(
@@ -670,6 +690,14 @@ function runLintStaged() {
         env: process.env,
         snapshot: PIN_SNAPSHOT,
       })
+      if (pin.undetermined) {
+        console.error(`❓ 定版索引保护未判定:${pin.detail}`)
+        console.error(
+          '   提交已阻止(exit 2):无法确认索引全貌 ⇒ 不折绿(不假装没回灌),' +
+            '也不按"内容被改"记红(没有证据)。',
+        )
+        process.exit(2)
+      }
       if (!pin.ok) {
         console.error(`❌ 定版索引保护失败:${pin.detail}`)
         console.error(
