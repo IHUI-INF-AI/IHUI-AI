@@ -49,6 +49,17 @@ import {
   probeFaceSpec,
   describeProbe,
 } from '../lib/face-reader.mjs'
+import * as faceLayer from '../lib/face-reader.mjs'
+import {
+  HELP_EXPORTS,
+  HELP_IMPORT,
+  HELP_MODULE,
+  countPathBoundGit,
+  detectSelfBatchSites,
+  detectSites,
+  explainDerivationRed,
+  readFaceBlobs,
+} from '../lib/derivation-ratchet-help.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const scriptsDir = join(here, '..')
@@ -925,15 +936,10 @@ export function judgeBareGitDebt(hits, counts, debt, todayIso) {
  * 而 `lib/gitdir.mjs` 真有这么一行(第一版尺子就被它骗过,把基线从 9 报成 10)。所以加第二道锚:
  * 该标识符必须在文件里被当过**派生首参**(`X(git, [`)。宁可用两条同时成立换零误报。
  */
-const PATH_BOUND_GIT_DECL_RE =
-  /(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=[^;\n]*['"]git(?:\.exe)?['"]\s*[;,)]?\s*$/gm
 function pathBoundGitCountOf(text) {
-  let n = 0
-  for (const m of text.matchAll(PATH_BOUND_GIT_DECL_RE)) {
-    const usedAsProgram = new RegExp(`\\(\\s*${m[1]}\\s*,\\s*\\[`).test(text)
-    if (usedAsProgram) n++
-  }
-  return n
+  // 单一真相源:计数实现与「判红即教改」的命中定位共用 derivation-ratchet-help 的同一条正则,
+  // 否则文案说的行号与尺子量的数量迟早各自漂移。
+  return countPathBoundGit(text)
 }
 
 /**
@@ -944,7 +950,7 @@ function pathBoundGitCountOf(text) {
  * 而这类误报的最终出路一定是有人去削判据。`--batch-check` 同族照样命中(前缀相同)。
  * 只此一份定义:下面的 `headDerivationScan` 与本文件的反例夹具都调它,免得两处各自漂移。
  */
-const hasBatchCall = (s) => /['"]cat-file['"]\s*,\s*['"]--batch/.test(s)
+const hasBatchCall = (s) => detectSelfBatchSites(s).length > 0
 
 /**
  * ⚠️ 上面那把尺子量的是**工作树**,而并行会话未提交的改动会直接进分母 ——
@@ -986,6 +992,11 @@ export function headDerivationScan(root) {
   return {
     total: files.length,
     unreadable: files.filter((f) => typeof f.text !== 'string').length,
+    // 判红即教改要用命中行原文定位 file:line;这里存的是**判据面原文**(HEAD blob),
+    // 与上面各把尺子同面同轮。工作树改动不会混进来。
+    texts: Object.fromEntries(
+      files.filter((f) => typeof f.text === 'string').map((f) => [`scripts/${f.rel}`, f.text]),
+    ),
     bareGit: hitsOf((t) => bareGitCountOf(t) > 0),
     // 逐文件**出现次数**:文件数棘轮看不见"清单内文件偷偷加码"这一型(实测发生过两例),
     // 具名债务清单按次数判"只减不增"才堵得住。与 bareGit 同面同轮、同一把 hideComments。
@@ -1092,7 +1103,7 @@ test('棘尺本身不恒真:三个计数函数都能真抓到注入的样本(含
    * 报出来的红会把"已收口"的人逼去削判据。
    * 只用一份正则(下面 headDerivationScan 与本文件的反例夹具共用它),避免两处各自漂移。
    */
-  const hasBatchCall = (s) => /['"]cat-file['"]\s*,\s*['"]--batch/.test(s)
+  const hasBatchCall = (s) => detectSelfBatchSites(s).length > 0
   assert.equal(hasBatchCall("x = execFileSync(G, ['cat-file', '--batch'])"), true)
   // `--batch-check` 同族(同样一次问一批对象的存在性/sha,同样有 stdio/maxBuffer 陷阱),必须计入
   assert.equal(hasBatchCall("spawnSync('git', ['cat-file', '--batch-check'])"), true)
@@ -1182,17 +1193,86 @@ test('棘尺本身不恒真:三个计数函数都能真抓到注入的样本(含
     true,
     '字符串里的 /* 不得把后续代码吞成注释',
   )
+
+  // ── 判红即教改:红必须能指到人(命中行 + 当前写法 + 可抄骨架),而不是只报总数 ──
+  for (const name of HELP_EXPORTS) {
+    assert.equal(
+      typeof faceLayer[name],
+      'function',
+      `教改文案点名的 ${name} 在 ${HELP_MODULE} 里不是函数 —— 文案会变成谎话`,
+    )
+  }
+  const perFile = [
+    "const rels = ['a.mjs', 'b.mjs']",
+    'for (const rel of rels) {',
+    "  const t = execFileSync('git', ['show', `HEAD:${rel}`], { encoding: 'utf8' })",
+    '}',
+  ].join('\n')
+  const perFileSites = detectSites('bareGit', perFile)
+  assert.equal(perFileSites.length, 1, '构造面必须只数到 1 处逐文件派生')
+  assert.equal(perFileSites[0].line, 3, '命中行号必须指到第 3 行')
+  assert.equal(perFileSites[0].inLoop, true, '循环体内的逐文件派生必须被识别出来')
+  const perFileRecipe = explainDerivationRed('bareGit', [
+    { file: 'scripts/probe-per-file.mjs', text: perFile },
+  ])
+  for (const needle of ['scripts/probe-per-file.mjs:3', '当前写法', '为什么红', '应改成', '骨架']) {
+    assert.match(perFileRecipe, new RegExp(needle), `教改文案缺「${needle}」`)
+  }
+  assert.match(perFileRecipe, /listFaceFiles/, '骨架必须给「一次枚举」入口')
+  assert.match(perFileRecipe, /catBatch/, '骨架必须给「一次批取」入口')
+  assert.match(
+    perFileRecipe,
+    new RegExp(HELP_MODULE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+    '文案必须指名真实承载层,不得凭记忆编路径',
+  )
+  assert.match(
+    perFileRecipe,
+    new RegExp(HELP_IMPORT.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+    '必须给 scripts/*.mjs 下可直接抄的 import 写法',
+  )
+  assert.equal(
+    explainDerivationRed('bareGit', [
+      { file: 'scripts/probe-ok.mjs', text: "gitRaw(['ls-files'], root)\n" },
+    ]),
+    '',
+    '已收口的正确写法不得被教改文案误报',
+  )
+  // 型 B:必须同时指出声明行与被当派生首参的使用行
+  const pathBoundText = "const GIT = process.env.GIT_BIN || 'git'\nexecFileSync(GIT, ['status'], { cwd })\n"
+  const pathBoundSites = detectSites('pathBound', pathBoundText)
+  assert.equal(pathBoundSites.length, 1)
+  assert.equal(pathBoundSites[0].useLine, 2, '型 B 必须指出被当派生首参的那一行')
+  const pathBoundRecipe = explainDerivationRed('pathBound', [
+    { file: 'scripts/probe-b.mjs', text: pathBoundText },
+  ])
+  assert.match(pathBoundRecipe, /scripts\/probe-b\.mjs:1/)
+  assert.match(pathBoundRecipe, /scripts\/probe-b\.mjs:2/)
+  assert.match(pathBoundRecipe, /gitBinary/)
+  // 型 C:必须指向层里的 batch 出口
+  const selfBatchText = "execFileSync(LAYER_GIT, ['cat-file', '--batch'], { input })\n"
+  assert.equal(detectSites('selfBatch', selfBatchText).length, 1)
+  const selfBatchRecipe = explainDerivationRed('selfBatch', [
+    { file: 'scripts/probe-c.mjs', text: selfBatchText },
+  ])
+  assert.match(selfBatchRecipe, /catBatch/)
+  assert.match(selfBatchRecipe, /scripts\/probe-c\.mjs:1/)
 })
 
 test('型 B:常量绑到裸 git 的生产文件数只减不增(型 A 的尺子看不见这一型)', () => {
   const root = join(here, '..', '..')
   // 本层自己那处 `resolveGitBin() || 'git'` 是**刻意保留的最后一档兜底**(绝对路径解析失败时
   // 退回 PATH,好过直接抛"找不到 git"),不排除它就把唯一正解也计成债。
-  const hits = headDerivationScan(root).pathBoundGit
+  const scan = headDerivationScan(root)
+  const hits = scan.pathBoundGit
+  const recipe = explainDerivationRed(
+    'pathBound',
+    hits.map((file) => ({ file, text: scan.texts[file] })),
+  )
   assert.ok(
     hits.length <= PATH_BOUND_GIT_BASELINE,
     `常量绑裸 git 的生产文件从基线 ${PATH_BOUND_GIT_BASELINE} 涨到 ${hits.length}: ${hits.join(', ')} —— ` +
-      '新增者请改用 scripts/lib/face-reader.mjs 的 gitRaw(内部 gitBinary() 走绝对路径)。',
+      '新增者请改用 scripts/lib/face-reader.mjs 的 gitRaw(内部 gitBinary() 走绝对路径)。' +
+      (recipe ? `\n${recipe}` : ''),
   )
   if (hits.length < PATH_BOUND_GIT_BASELINE) {
     console.log(
@@ -1213,18 +1293,28 @@ test('裸 git 派生的生产文件数只减不增(存量逐枚记在具名债�
     today,
   )
   // ① 新增文件:一句话点名,不再让人对着"存量前 8 个"猜是谁带的(旧提示的误读教训)
+  const recipeOf = (list) =>
+    explainDerivationRed(
+      'bareGit',
+      list.map((p) => ({ file: p, text: scan.texts[p] })).filter((f) => typeof f.text === 'string'),
+    )
+  const recipeNew = recipeOf(unlisted)
   assert.deepEqual(
     unlisted,
     [],
     `新增 ${unlisted.length} 处裸 git 派生(不在具名债务清单里):${unlisted.join(', ')}\n` +
       '  新增者请改用 scripts/lib/face-reader.mjs 的 gitRaw(绝对路径 git + quotepath + timeout + stdio 两态)。\n' +
-      '  存量逐枚归因见 BARE_GIT_DEBT 与 .ihui-agent/tmp/g39/s10/sites.json。',
+      '  存量逐枚归因见 BARE_GIT_DEBT 与 .ihui-agent/tmp/g39/s10/sites.json。' +
+      (recipeNew ? `\n${recipeNew}` : ''),
   )
   // ② 已登记文件内部加码:文件数棘轮的历史盲区(feedback-loop-status 1→2、safe-commit 8→9 都发生过)
+  const grewFiles = countGrew.map((p) => p.replace(/\(.*$/, ''))
+  const recipeGrew = recipeOf(grewFiles)
   assert.deepEqual(
     countGrew,
     [],
-    `已登记文件内的裸 git 派生变多(只减不增):${countGrew.join(', ')} —— 同样改用 gitRaw。`,
+    `已登记文件内的裸 git 派生变多(只减不增):${countGrew.join(', ')} —— 同样改用 gitRaw。` +
+      (recipeGrew ? `\n${recipeGrew}` : ''),
   )
   // ③ 到期未结清:债务不是豁免,`due` 一过仍在即红(§0.7 豁免必须"验过才免"且会到期)
   assert.deepEqual(
@@ -1273,13 +1363,33 @@ test('构造面反例:同一判据对"新文件裸派生"与"已登记文件加�
       [[], [], [], []],
       '基线态本该干净 —— 这一条不成立,下面两条"判红"就没有意义',
     )
-    // ② 别人再加一处裸派生(新文件)⇒ 必须点名到那一枚
-    writeFileSync(join(dir, 'scripts', 'fresh.mjs'), "spawnSync('git', ['ls-files'])\n", 'utf8')
+    // ② 别人再加一处裸派生(新文件,**逐文件起一个子进程**)⇒ 必须点名到那一枚,且文案带改法
+    const freshSrc = [
+      "const rels = ['a.mjs', 'b.mjs']",
+      'for (const rel of rels) {',
+      "  spawnSync('git', ['show', `HEAD:${rel}`])",
+      '}',
+    ].join('\n')
+    writeFileSync(join(dir, 'scripts', 'fresh.mjs'), `${freshSrc}\n`, 'utf8')
     g('add', '-A')
-    g('commit', '-qm', 'add one bare derivation')
+    g('commit', '-qm', 'add one per-file bare derivation')
     scan = headDerivationScan(dir)
     r = judgeBareGitDebt(scan.bareGit, scan.bareGitCounts, debt, '2026-10-30')
     assert.deepEqual(r.unlisted, ['scripts/fresh.mjs'], '新文件裸派生怕是没有被判红')
+    const freshRecipe = explainDerivationRed('bareGit', [
+      { file: 'scripts/fresh.mjs', text: scan.texts['scripts/fresh.mjs'] },
+    ])
+    assert.match(freshRecipe, /scripts\/fresh\.mjs:3/, '探针必须被指到行,不能只报文件名')
+    assert.match(freshRecipe, /catBatch/, '探针的红必须带批取骨架')
+    assert.match(freshRecipe, /一次.*枚举|listFaceFiles/, '探针的红必须带「一次枚举」改法')
+    // 可复用入口在同一临时仓真跑一次:一次枚举 + 一次 batch 取回两枚正文(常数次派生,不随文件数线性增长)
+    const readBack = readFaceBlobs(dir, { paths: ['scripts'] })
+    assert.deepEqual(readBack.rels.slice().sort(), ['scripts/fresh.mjs', 'scripts/known.mjs'])
+    assert.match(
+      readBack.blobs.get(readBack.specOf('scripts/fresh.mjs')) ?? '',
+      /for \(const rel of rels\)/,
+      'readFaceBlobs 没取回探针正文',
+    )
     // ③ 已登记文件内部再加一处 ⇒ 文件数不变,也必须判红(旧尺的盲区)
     writeFileSync(
       join(dir, 'scripts', 'known.mjs'),
@@ -1380,10 +1490,15 @@ test('自拼 cat-file --batch 却不走本层的门,数量只减不增', () => {
   const root = join(here, '..', '..')
   const s = headDerivationScan(root)
   const hits = s.selfBatch
+  const recipe = explainDerivationRed(
+    'selfBatch',
+    hits.map((file) => ({ file, text: s.texts[file] })),
+  )
   assert.ok(
     hits.length <= SELF_BATCH_BASELINE,
     `自拼 batch 取材的门从基线 ${SELF_BATCH_BASELINE} 涨到 ${hits.length}: ${hits.join(', ')} —— ` +
-      '每条 batch 都要重写一遍 stdio[0]=pipe / maxBuffer / 头解析,而这三处本仓都真踩过',
+      '每条 batch 都要重写一遍 stdio[0]=pipe / maxBuffer / 头解析,而这三处本仓都真踩过' +
+      (recipe ? `\n${recipe}` : ''),
   )
   // 换面这件事本身也要有牙:HEAD 面读不出内容的文件必须为 0,否则"少了几枚分母"会伪装成"收口有效"
   assert.equal(
