@@ -6947,6 +6947,118 @@ export function sweepAutonomyLegHealth(opts = {}) {
 }
 
 /**
+ * git status 余量哨兵的**常驻**派发点(尺子 = `scripts/check-git-probe-headroom.mjs`,2026-11-04 立)。
+ *
+ * 立因 = Qoder 的 GitRepository 探测以 5000ms 硬超时跑 `git status`,本机被上游顶到 5104~6467ms
+ * (promtail 给 2.6 万个轮转日志副本各挂一个常驻 tailer ≈ 4/20 核)⇒ 一天内 12 次 timeout;
+ * 超时后强杀子进程的清理又失败(cleanupBlockedScope=cwd),此后该工作区每次 git 读都以
+ * durationMs=0 直接失败,用户侧读作"git 状态总是获取不到"且重启应用后 20 分钟内重新长回。
+ * 安静失效型:改前没有任何尺子在量"余量"这件事本身。
+ *
+ * 节流取"有结论才写满窗口"档:judged ⇒ 30min,未判定 ⇒ 10min 后即重试。先写戳后判定会把
+ * "整轮没跑成"记成"刚跑过",哨兵自己就变成静默源(§0.3;护栏③ 同型教训)。
+ * drift ⇒ 到人邮件(dedupKey 用尺子的稳定身份,不掺时刻/明细,§5e-3);unjudged ⇒ 只写日志。
+ */
+const GIT_PROBE_TICK = join(WORKTREE, '.ihui-agent', 'state', 'git-probe-headroom-tick.json')
+const GIT_PROBE_LAST = join(WORKTREE, '.ihui-agent', 'state', 'git-probe-headroom-last.json')
+const GIT_PROBE_INTERVAL_MS = Number(process.env.IHUI_GIT_PROBE_INTERVAL_MS || 30 * 60 * 1000)
+const GIT_PROBE_RETRY_MS = Number(process.env.IHUI_GIT_PROBE_RETRY_MS || 10 * 60 * 1000)
+const GIT_PROBE_TIMEOUT_MS = Number(process.env.IHUI_GIT_PROBE_TIMEOUT_MS || 240_000)
+
+export function sweepGitProbeHeadroom(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = GIT_PROBE_INTERVAL_MS,
+    retryMs = GIT_PROBE_RETRY_MS,
+    tickFile = GIT_PROBE_TICK,
+    lastFile = GIT_PROBE_LAST,
+    logger = log,
+    notify = notifyGuardRed,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'check-git-probe-headroom.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ git status 余量:尺子脚本不在位(scripts/check-git-probe-headroom.mjs)⇒ 本轮跳过,不记为已探测')
+    return { ran: false, why: '尺子脚本不在位' }
+  }
+  let stamp = null
+  try {
+    stamp = JSON.parse(String(readFileSync(tickFile, 'utf8')))
+  } catch {
+    /* 没跑过 ⇒ 立即可跑 */
+  }
+  const gap = stamp && Number.isFinite(Number(stamp.attemptAt)) ? now - Number(stamp.attemptAt) : Infinity
+  const window = stamp && stamp.judged === true ? intervalMs : retryMs
+  if (gap < window) return { ran: false, why: '未到节流窗口' }
+  try {
+    const call =
+      typeof runner === 'function'
+        ? runner()
+        : (() => {
+            try {
+              const out = execFileSync(process.execPath, [script, '--json'], {
+                cwd: WORKTREE,
+                encoding: 'utf8',
+                windowsHide: true, // §5b:漏此参数在守护/计划任务下必弹控制台窗
+                timeout: GIT_PROBE_TIMEOUT_MS, // 守门 80:热路径派生一律带上限
+                maxBuffer: 1 << 20,
+                stdio: ['ignore', 'pipe', 'pipe'], // §12g:派生必须显式接管 stdio
+              })
+              return { status: 0, stdout: String(out || ''), stderr: '' }
+            } catch (e) {
+              return {
+                status: typeof e.status === 'number' ? e.status : 2,
+                stdout: String(e.stdout || ''),
+                stderr: String(e.stderr || e.message || ''),
+              }
+            }
+          })()
+    let parsed = null
+    try {
+      parsed = JSON.parse(String(call.stdout || ''))
+    } catch {
+      /* 落到未判定 */
+    }
+    if (!parsed || !['ok', 'drift', 'unjudged'].includes(parsed.verdict)) {
+      mkdirSync(dirname(tickFile), { recursive: true })
+      writeFileSync(tickFile, JSON.stringify({ attemptAt: now, judged: false, reason: '结论不可解析' }), 'utf8')
+      logger(
+        `⚠️ git status 余量未产出结论(未判定,不记为已探测):rc=${call.status} verdict=${String((parsed && parsed.verdict) ?? '(无)').slice(0, 24)} ${([call.stderr, call.stdout].filter(Boolean).join(' ⊕ ') || '(无输出)').split(/\r?\n/)[0].slice(0, 140)}`,
+      )
+      return { ran: true, judged: false, why: '结论不可解析' }
+    }
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, JSON.stringify({ attemptAt: now, judged: parsed.verdict !== 'unjudged', state: parsed.verdict }), 'utf8')
+    try {
+      mkdirSync(dirname(lastFile), { recursive: true })
+      writeFileSync(lastFile, JSON.stringify(parsed, null, 1), 'utf8')
+    } catch {
+      /* 状态件写不掉只影响可见性,不影响发信 */
+    }
+    if (parsed.verdict === 'drift') {
+      const bad = (parsed.dims || []).filter((d) => d.state === 'drift')
+      const rep = (parsed.dims || []).filter((d) => d.state === 'report')
+      notify(
+        'git 状态探测余量即将耗尽(源码管理面板会开始"获取不到")',
+        `读数:${parsed.summary || ''}\n逐维:${bad.map((d) => `${d.dim}=${d.readout}`).join(' ｜ ') || '(无点名)'}\n归因参考:${rep.map((d) => d.readout).join(' ｜ ') || '(未采到)'}\n出路:${bad.map((d) => d.next).filter(Boolean).join('\n') || '见尺子点名'}\n尺子:scripts/check-git-probe-headroom.mjs(报警线 ${parsed.warnMs}ms / 消费者预算 ${parsed.budgetMs}ms,两者出处都写在头注)\n取证:node scripts/check-git-probe-headroom.mjs --json,或读 .ihui-agent/state/git-probe-headroom-last.json`,
+        { severity: 'warning', dedupKey: parsed.identity || `verdict=drift;count=${bad.length}` }
+      )
+      logger(`❌ git status 余量 drift:${bad.map((d) => d.dim).join('+')} —— 已按稳定身份去重发信`)
+      return { ran: true, judged: true, breaches: bad.length, unjudged: 0 }
+    }
+    if (parsed.verdict === 'unjudged') {
+      logger(`ℹ️ git status 余量:未判定 —— ${(parsed.summary || '无原因').slice(0, 200)}`)
+      return { ran: true, judged: false, why: '未判定' }
+    }
+    logger(`✅ git status 余量:${(parsed.summary || '').slice(0, 160)}`)
+    return { ran: true, judged: true, breaches: 0, unjudged: 0 }
+  } catch (e) {
+    logger('⚠️ git status 余量派发失败(不阻断其余守护): ' + String((e && e.message) || e).slice(0, 160))
+    return { ran: false, why: '派发异常' }
+  }
+}
+
+/**
  * 服务清单快照 ↔ 注册表现读的**常驻**派发点(尺子 = `scripts/check-service-inventory.mjs`,2026-11-03 立)。
  *
  * 立因:这把尺子此前**零自动派发点**(guardian-runner 0 命中、未进提交链/CI),入库快照烂在另一台
@@ -12657,6 +12769,11 @@ async function main() {
     // 立因 = auto-evolve 这条腿在本机断了 6 天(48 轮仅 1 成功),期间零判据在跑 —— 失败被记成
     // "票失败"并封票,真因(执行体路径钉死别机盘符)一行也没被点名。判机器状态 ⇒ 不进提交链(§12e)。
     if (!CHECK_ONLY) sweepAutonomyLegHealth()
+    // git status 余量(2026-11-04 立,尺子 = scripts/check-git-probe-headroom.mjs):
+    // 立因 = Qoder 以 5000ms 硬超时探测 git 状态,本机被采集面顶到 5.1~6.5s ⇒ 12 次 timeout,
+    // 之后清理失败令整个工作区 git 读恒返 durationMs=0(用户读作"git 状态总是获取不到")。
+    // 判机器状态 ⇒ 不进提交链(§12e);报警线 3500ms 与病害读数都标在尺子头注。
+    if (!CHECK_ONLY) sweepGitProbeHeadroom()
     // 服务清单快照 ↔ 注册表现读(2026-11-03 立,尺子 = scripts/check-service-inventory.mjs):
     // 立因 = 该闸门此前零自动派发点,快照烂在另一台机读数(host=lichunchuan/G:)无人发现。
     // 判机器状态 ⇒ 不进提交链(§12e);只有 drift 才发信,unjudged/取数失败只写日志。
@@ -12934,6 +13051,9 @@ function startDaemon(bootGuard = null) {
         auditTunnelLegHealth()
         auditSmsChannelHealth()
         sweepAutonomyLegHealth()
+        // git status 余量:与 main() 单轮同一挂点语义、共用节流戳 ⇒ 双执行体并存只有先到那个
+        // 真派生,不翻倍发信;计划任务档禁用后 daemon 是唯一执行体 ⇒ 必须同挂此处。
+        sweepGitProbeHeadroom()
         // 服务清单快照 ↔ 注册表现读:与 main() 单轮路径同一挂点语义,共用节流戳
         // ⇒ 双执行体并存时只有先到那个真派生,不会翻倍发信。
         auditServiceInventory()
