@@ -15,6 +15,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { __test__ as ae, gateTicketByHumanValve, VALVE_LIST_JSON } from '../auto-evolve.mjs'
+import { NON_PROGRESS_ACTIONS, PROGRESS_ACTIONS } from '../lib/autonomy-nonprogress.mjs'
 
 const GOOD_GATES = {
   enabled: false,
@@ -268,3 +269,110 @@ test('⑩f 接线锁:skip-observe-stop 的 continue 必须早于 dispatchSession
   assert.ok(src.includes('gateTicketByHumanValve({'), 'A6 依赖的阀调用点不许搬走')
 })
 
+
+/**
+ * ⑪ 判据面闸(2026-11-04 立):自治环落账腿必须整批拒收命中受保护面的产物,
+ * 因为会话侧没有豁免签名权 —— 替它补一行 immutable-exempt 等于自己给自己发豁免。
+ * 匹配判据一律走 lib/immutable-guard.mjs(本文件零复算),这里只钉"接线与方向"。
+ */
+const GUARD_LIST_TEXT = readFileSync(new URL('../data/immutable-guard.json', import.meta.url), 'utf8')
+const MANIFEST_KEY = 'pface1'
+const manifestOfFiles = (files) => JSON.stringify({ ticketKey: MANIFEST_KEY, files })
+const statusAllDirty = () => ' M x'
+function spyCommit() {
+  const calls = []
+  return { calls, fn: (arg) => (calls.push(arg), { ok: true, status: 0 }) }
+}
+const land = (files, extra = {}) =>
+  ae.landTicketArtifacts({
+    ticketKey: MANIFEST_KEY,
+    ticketText: '某票',
+    manifestText: manifestOfFiles(files),
+    statusFn: statusAllDirty,
+    dryRun: false,
+    ...extra,
+  })
+
+test('⑪a 成对·正:全部不在判据面上 ⇒ clean 并照常代提交', () => {
+  const s = ae.partitionProtectedFaces(['README.ja.md', 'apps/web/src/a.tsx'], GUARD_LIST_TEXT)
+  assert.equal(s.state, 'clean')
+  assert.deepEqual(s.landable, ['README.ja.md', 'apps/web/src/a.tsx'])
+  const spy = spyCommit()
+  const r = land(['README.ja.md'], { commitFn: spy.fn, protectedFaceOf: () => s })
+  assert.equal(r.action, 'artifact-committed')
+  assert.equal(spy.calls.length, 1, 'clean 档必须真把代提交走到(闸不能顺手把绿档也堵死)')
+})
+
+test('⑪b 成对·反:glob / 目录前缀 / 精确三种清单形态各命中一枚 ⇒ blocked 且一次提交都不发', () => {
+  for (const f of ['scripts/check-demo.mjs', 'scripts/lib/demo.mjs', 'scripts/guardian-runner.mjs', 'scripts/data/demo-exemptions.json']) {
+    const s = ae.partitionProtectedFaces([f], GUARD_LIST_TEXT)
+    assert.equal(s.state, 'blocked', `${f} 应命中判据面`)
+    assert.equal(s.protectedHits.length, 1)
+    const spy = spyCommit()
+    const r = land([f], { commitFn: spy.fn, protectedFaceOf: () => s })
+    assert.equal(r.action, 'artifact-protected-face')
+    assert.equal(spy.calls.length, 0, '拒收档结构上不许碰代提交(摘掉闸这一条就翻绿)')
+    assert.match(r.why, /整批不落/)
+  }
+})
+
+test('⑪c 混合批不部分提交:一枚命中 ⇒ 整批不落,并把命中的那枚点名', () => {
+  const spy = spyCommit()
+  const r = land(['README.md', 'scripts/lib/demo.mjs'], {
+    commitFn: spy.fn,
+    protectedFaceOf: (files) => ae.partitionProtectedFaces(files, GUARD_LIST_TEXT),
+  })
+  assert.equal(r.action, 'artifact-protected-face')
+  assert.equal(spy.calls.length, 0)
+  assert.equal(r.protectedHits.length, 1)
+  assert.match(r.why, /scripts\/lib\/demo\.mjs/, '点名要能直接拿去派人工,不能只报个数')
+})
+
+test('⑪d 清单取不到/形状坏/entries 空 ⇒ 未判定,同向拒落(不读成"没有尺子拦我")', () => {
+  for (const [name, text] of [
+    ['null', null],
+    ['坏 JSON', '{'],
+    ['entries 空', JSON.stringify({ entries: [] })],
+  ]) {
+    const s = ae.partitionProtectedFaces(['README.md'], text)
+    assert.equal(s.state, 'undetermined', `${name} 必须落未判定`)
+    const spy = spyCommit()
+    const r = land(['README.md'], {
+      commitFn: spy.fn,
+      protectedFaceOf: () => ae.partitionProtectedFaces(['README.md'], text),
+    })
+    assert.equal(r.action, 'artifact-protected-face', `${name} 档拒落`)
+    assert.equal(spy.calls.length, 0)
+    assert.match(r.why, /无法证明/)
+  }
+})
+
+test('⑪e dry-run 演的是真跑那一支:命中判据面时预演也报拒收,不报"会提交"', () => {
+  const spy = spyCommit()
+  const r = ae.landTicketArtifacts({
+    ticketKey: MANIFEST_KEY,
+    ticketText: '某票',
+    manifestText: manifestOfFiles(['scripts/lib/demo.mjs']),
+    statusFn: statusAllDirty,
+    commitFn: spy.fn,
+    dryRun: true,
+    protectedFaceOf: (files) => ae.partitionProtectedFaces(files, GUARD_LIST_TEXT),
+  })
+  assert.equal(r.action, 'artifact-protected-face')
+})
+
+test('⑪f 默认出口走的是真清单(接线不是死的):现读仓内清单,README 档 clean、门体档 blocked', () => {
+  const spy = spyCommit()
+  const ok = land(['README.md'], { commitFn: spy.fn })
+  assert.equal(ok.action, 'artifact-committed', '默认 protectedFaceOf 必须真读到清单并放行普通文件')
+  const spy2 = spyCommit()
+  const bad = land(['scripts/check-demo.mjs'], { commitFn: spy2.fn })
+  assert.equal(bad.action, 'artifact-protected-face')
+})
+
+test('⑪g 空转计数成套:新档进 NON_PROGRESS 且绝不进 PROGRESS(否则日预算被同一枚票白吃)', () => {
+  const np = NON_PROGRESS_ACTIONS.includes('artifact-protected-face')
+  const pr = PROGRESS_ACTIONS.includes('artifact-protected-face')
+  assert.ok(np, '判据面拒收必须计入空转')
+  assert.ok(!pr, '它不是推进;进了 PROGRESS 就等于每拒一次都把计数器清零')
+})

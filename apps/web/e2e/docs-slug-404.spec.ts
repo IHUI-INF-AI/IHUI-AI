@@ -9,13 +9,26 @@
  *    与内容页自己的 hero <h1> 撞成两个。修法是把容器标题降级为非标题元素,hero H1 保留。
  * ② 不存在的 slug 必须回**真 404**,不得 200 还把 slug 字符串当标题显示(软 404)。
  *
- * 跑法(复用外部已起的 8801 dev server,免得再起一个抢端口):
+ * 跑法(一条命令,2026-11-04 现跑实测;复用外部已起的 8801 dev server,免得再起一个抢端口):
  *   cd apps/web && PLAYWRIGHT_BROWSERS_PATH='D:\caches\playwright' \
  *   IHUI_E2E_EXTERNAL_SERVER=1 PLAYWRIGHT_BASE_URL=http://localhost:8801 \
- *   pnpm exec playwright test e2e/docs-slug-404.spec.ts
+ *   IHUI_E2E_EXPECT_HARD_404=1 \
+ *   pnpm exec playwright test e2e/docs-slug-404.spec.ts --project=chromium --no-deps --workers=1
+ * 三个旗标各管一件事,少一个这条命令就跑不通(旧头注写的 IHUI_E2E_EXTERNAL_SERVER=1
+ * 当时 playwright.config.ts 通篇不读它,是条跑不通的出路,现已在 config 里实现并被下面那条
+ * 「旗↔出路」用例钉住):
+ * - IHUI_E2E_EXTERNAL_SERVER=1 ⇒ config 不挂 webServer(不自启、不探活,不碰他席的 8801);
+ * - --project=chromium --no-deps ⇒ 跳过 setup project(auth.setup.ts 要 E2E_USER_PASSWORD /
+ *   E2E_ADMIN_PASSWORD,仓内有意不提供默认值,本机供给面见 `node scripts/e2e-local-supply.mjs --check`;
+ *   本 spec 全条游客态,不需要登录夹具,所以不该被那两枚口令卡住);
+ * - IHUI_E2E_EXPECT_HARD_404=1 ⇒ 启用状态码 404 那条(前提是被测 API 后端在场,否则探针返回
+ *   unknown 按 500 处理)。
  * 全条游客态:不依赖登录夹具(登录态由别的 spec 的 setup 供,这里不用它)。
  */
 import { expect, test } from '@playwright/test'
+
+// 旗↔出路等价性的被审面:配置文件本身(与 spec 同 worker 求值,读的是同一枚 process.env)
+import playwrightConfig from '../playwright.config'
 
 const GUEST_STATE = { cookies: [], origins: [] }
 
@@ -69,5 +82,21 @@ test.describe('不存在的文档 slug', () => {
     const res = await page.goto(`/docs/${MISSING_SLUG}`, { waitUntil: 'domcontentloaded' })
     expect(res!.status(), '不存在的 slug 回了非 404 ⇒ 软 404/500 回潮').toBe(404)
   })
+})
+
+/**
+ * 旗↔出路等价性(先例:守门 172 check-skip-env-promise —— 文档承诺的旗标必须在代码里真读)。
+ * 头注那条命令写了 IHUI_E2E_EXTERNAL_SERVER=1,配置面若不理它,文档就是条跑不通的出路
+ * (AGENTS §0.8),这条用例当场翻红:置旗 ⇒ config 不挂 webServer;不置 ⇒ 必须照旧挂。
+ */
+test('IHUI_E2E_EXTERNAL_SERVER 旗标必须真被 playwright.config.ts 消费', () => {
+  const flagOn = Boolean(process.env.IHUI_E2E_EXTERNAL_SERVER)
+  const hasWebServer = Boolean(playwrightConfig.webServer)
+  expect(
+    hasWebServer,
+    flagOn
+      ? '置了 IHUI_E2E_EXTERNAL_SERVER=1 而 config 仍挂 webServer ⇒ 旗标没人读,头注那条命令是假出路'
+      : '未置 IHUI_E2E_EXTERNAL_SERVER 时 config 必须照旧自启 webServer(既有行为不许被改掉)',
+  ).toBe(!flagOn)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
