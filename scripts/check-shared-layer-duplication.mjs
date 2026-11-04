@@ -177,7 +177,7 @@ function isWhitelisted(whitelist, appName, exportName, now = new Date()) {
 const RE_EXPORT_INDICATORS = [
   "from '@ihui/shared",
   'from "@ihui/shared',
-  "export * from",
+  'export * from',
   'createUse', // 工厂模式
   'createAuth',
   'createTheme',
@@ -199,6 +199,14 @@ const APP_EXPORT_PATTERNS = [
  * 全量档只报数,--staged 只拦本次提交新增行,绝不因存量恒红)。
  */
 const HOOK_NAME_RE = /^use[A-Z]/
+/**
+ * 保留标记名:AGENTS §22c/§22d **强制**每个判据源脚本/纯 lib 都 `export const __test__`,
+ * 镜像测试靠它 import 源判据(禁复制)。它因此是全仓同名的机械标记,不承载功能语义 ——
+ * 按"导出名同名"比对时若不摘掉它,任何新增端内 lib 只要守规约导出 `__test__` 就必被这条
+ * util 维命中(实测 2026-11-04:小程序/RN 考勤两枚新 lib 因此判红,而"修法"是叫测试复制判据)。
+ * 只豁免这一枚具名标记,其余同名照计(镜像测试 S11 带正向对照,豁免不外溢)。
+ */
+const RESERVED_MIRROR_MARKERS = new Set(['__test__'])
 const APP_UTIL_EXPORT_PATTERNS = [
   /export\s+function\s+([A-Za-z_$][\w$]*)/g,
   /export\s+const\s+([A-Za-z_$][\w$]*)\s*[:=]/g,
@@ -227,12 +235,20 @@ function isAppCandidate(rel) {
  * 单文件判定(判据本体):
  *   ① re-export wrapper(命中 indicator 且 < 50 行)⇒ 放过;
  *   ② export 名不在 shared 比对集里 ⇒ 放过(hook 维对全量 sharedExports,util 维只对 function/const);
+ *   ②' 保留标记名(RESERVED_MIRROR_MARKERS,现只有 §22c 强制的 `__test__`)⇒ 放过,不参与同名比对;
  *   ③ 白名单登记**且未过期** ⇒ 放过(到期/形态坏不再豁免,照计违规);
  *   ④ export 那一行自带 `from ` ⇒ 是 re-export,放过;
  *   ⑤ 其余 ⇒ 违规,带 dimension('hook' 旧阻断档 / 'util' 加固棘轮档)。
  * @returns {{appName:string,file:string,exportName:string,sharedLocation:string,line:number,dimension:'hook'|'util'}[]}
  */
-function judgeAppSource(rel, content, sharedExports, sharedUtilExports, whitelist = WHITELIST, now = new Date()) {
+function judgeAppSource(
+  rel,
+  content,
+  sharedExports,
+  sharedUtilExports,
+  whitelist = WHITELIST,
+  now = new Date(),
+) {
   const appName = appOf(rel)
   if (!appName) return []
   const violations = []
@@ -252,6 +268,8 @@ function judgeAppSource(rel, content, sharedExports, sharedUtilExports, whitelis
       let match
       while ((match = pattern.exec(content)) !== null) {
         const exportName = match[1]
+        // 保留标记名不参与"同名重实现"比对(§22c 强制导出,全仓同名是构造性事实,不是重复实现)
+        if (RESERVED_MIRROR_MARKERS.has(exportName)) continue
         // 维度分流:use[A-Z] 名归 hook 维,util 维不重复计同一命中
         if (dimension === 'util' && HOOK_NAME_RE.test(exportName)) continue
         if (!set.has(exportName)) continue
@@ -292,11 +310,7 @@ function analyze({ root = ROOT, face = 'head' } = {}) {
   const sharedExports = collectExports(sharedSources)
   const sharedUtilExports = collectUtilExports(sharedSources)
 
-  const appFiles = listFaceFiles(
-    root,
-    face,
-    { paths: APPS.map((a) => `apps/${a}/src`) },
-  )
+  const appFiles = listFaceFiles(root, face, { paths: APPS.map((a) => `apps/${a}/src`) })
     .filter((rel) => appOf(rel) !== null)
     .filter(isAppCandidate)
   if (appFiles.length === 0) {
@@ -363,9 +377,12 @@ export async function main(argv = process.argv.slice(2)) {
       `🔎 加固维度(非 hook 同名 util)存量 ${utilStock.length} 处 — 棘轮档:全量面只报数不阻断,--staged 只拦本次提交新增行`,
     )
     for (const v of utilStock.slice(0, 10)) {
-      console.log(`  ${v.appName}/${v.file}:${v.line} — export ${v.exportName}() 与 shared/${v.sharedLocation} 同名`)
+      console.log(
+        `  ${v.appName}/${v.file}:${v.line} — export ${v.exportName}() 与 shared/${v.sharedLocation} 同名`,
+      )
     }
-    if (utilStock.length > 10) console.log(`  …另 ${utilStock.length - 10} 处从略(全量清单见 --worktree 人工档)`)
+    if (utilStock.length > 10)
+      console.log(`  …另 ${utilStock.length - 10} 处从略(全量清单见 --worktree 人工档)`)
     console.log('')
   }
   if (violations.length === 0) {
@@ -374,9 +391,13 @@ export async function main(argv = process.argv.slice(2)) {
   }
   console.error(`❌ 发现 ${violations.length} 处端内重复实现 shared hook/util:`)
   for (const v of violations) {
-    console.error(`  ${v.appName}/${v.file}:${v.line} — export ${v.exportName}() 与 shared/${v.sharedLocation} 重复`)
+    console.error(
+      `  ${v.appName}/${v.file}:${v.line} — export ${v.exportName}() 与 shared/${v.sharedLocation} 重复`,
+    )
   }
-  console.error('\n修复:删除端内实现,改为 import { ' + violations[0].exportName + ' } from "@ihui/shared"')
+  console.error(
+    '\n修复:删除端内实现,改为 import { ' + violations[0].exportName + ' } from "@ihui/shared"',
+  )
   return 1
 }
 
@@ -407,6 +428,7 @@ export const __test__ = {
   APP_EXPORT_PATTERNS,
   APP_UTIL_EXPORT_PATTERNS,
   HOOK_NAME_RE,
+  RESERVED_MIRROR_MARKERS,
   ISO_DATE_RE,
   APPS,
   APP_EXCLUDED_DIRS,

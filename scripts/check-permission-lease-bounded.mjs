@@ -17,11 +17,12 @@
  * `--worktree` 仅人工逃生舱、两面旗同给 exit 2、清单与内容**同面同轮**、取不到判
  * "无法判定"(**不记绿**)。staged/worktree 档棘轮锚点 = 该文件 HEAD blob 自身的违规数。
  *
- * 接线现状(如实登记、不夸大):本门**尚未**进 `scripts/guardian-runner.mjs` 注册表 ——
- * 该文件当日被他人在飞改动持有,并行改注册表会互相覆盖注册块(门 93 记过同型事故)。
- * 当前问责入口 = 直接跑本脚本(手动 / CI)。刻意**不**登记进根 package.json:守门 89 R4
- * 会把它算作已接线并要文档点名,而登记一条跑不通的出路比不登记更贵。接进提交链时必须同时
- * 补 `blocking` + `skipEnv`,由镜像测试 T1 钉住"未注册 ⇒ 不得声称已装车"。
+ * 接线现状(2026-11-04 已接线,如实登记):本门**已注册**进 `scripts/guardian-runner.mjs`
+ * (blocking + `skipEnv=HUSKY_SKIP_PERMISSION_LEASE_BOUNDED`,编号 297)。历史备注:2026-11-04
+ * 之前该文件曾被在飞改动持有,并行改注册表会互相覆盖注册块(门 93 记过同型事故)。当前问责
+ * 入口 = runner 提交链 + 直接跑本脚本(手动 / CI)。刻意**不**登记进根 package.json:守门 89 R4
+ * 已按 runner 注册面点名(见 AGENTS.md),不重复登记一条跑不通的出路。镜像测试 T1 钉住
+ * "注册表与头注不得分叉"。
  *
  * 用法:node scripts/check-permission-lease-bounded.mjs [--staged|--worktree|--self-test]
  */
