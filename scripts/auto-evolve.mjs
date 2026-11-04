@@ -53,6 +53,8 @@ export { parseArtifactManifest, sanitizeArtifactPaths, selectDirtyPaths, manifes
 // 第 4 格·会话全文落盘腿:命名 / 脱敏 / 截断 / 轮转判据全在 lib(单一真相源,§0.6),本处只负责"读盘调用"。
 import { buildTranscript, capTranscript, transcriptRelPathOf, isTranscriptName, decideRetention } from './lib/session-transcript.mjs'
 import { attemptsSinceProgress, decideNonProgress, breakdownNonProgress, lastNonProgressHoldAt } from './lib/autonomy-nonprogress.mjs'
+// 判据面(受保护面)的匹配判据单源在护栏纯函数层;本器只调用,不重抄任何匹配规则(§0.6)。
+import { parseGuardList, matchProtected } from './lib/immutable-guard.mjs'
 
 export const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 /** 调度器接线的锚点(guardian 派发层 import 同一组路径,不另拼第二份 —— §0.6 单一真相源) */
@@ -84,6 +86,12 @@ const API_ENV = join(ROOT, 'apps', 'api', '.env')
 export const ARTIFACT_MANIFEST_DIR = join(ROOT, '.ihui-agent', 'state', 'ticket-artifacts')
 /** 代提交唯一出口:safe-commit 五步法(本器不自己拼 git add/commit —— 那会把共享索引里别人的改动打包) */
 const SAFE_COMMIT = join(ROOT, 'scripts', 'safe-commit.mjs')
+/**
+ * 判据面(受保护面)清单的相对路径 —— 只是**指针**,匹配规则一律走 lib/immutable-guard.mjs。
+ * 这里写成字面正斜杠而不是 join('scripts','data',…):Windows 下 join 出反斜杠,而护栏与 git 认的都是
+ * 正斜杠相对路径,拿反斜杠去比会把每一枚判据面都读成"不在清单上"(同一格 A10 曾踩过的形态)。
+ */
+const GUARD_LIST_REL = 'scripts/data/immutable-guard.json'
 /** ihui-cli 登录态(settings.json 的 apiKey 字段;login 同源存放处,同信任级) */
 const CLI_SETTINGS = join(process.env.USERPROFILE ?? '', '.ihui', 'settings.json')
 /** JWT secret 探测序(机器事实按当次实测取值:运行面部署副本优先,回落仓内副本) */
@@ -743,6 +751,9 @@ function dispatchSession(gates, ticket, dryRun) {
     `- 台账行:L${ticket.line}(PROJECT_PLAN.md,行号会漂移,以题面定位)`,
     ``,
     `按 AGENTS.md 全部强制条款执行本票;只改本任务文件。`,
+    `**判据面(受保护面)不许动**:清单 = \`scripts/data/immutable-guard.json\` 的 \`path\` 字段(现读,勿凭记忆),`,
+    `命中即落账腿整批拒收(自治会话没有豁免签名权,补理由放行=替自己发豁免)。本票若非动那些面不可,`,
+    `**不要动**:保持票未勾,走 live-doc-edit 在票行追加进展注记,写明「本票需先动判据面 <路径> <为什么必须动>」后正常退出(这是合法完成)。`,
     `提交不在你的权限内:自动会话对 dangerous 档一律不放宽(permissions.ts),git_commit 与`,
     `run_command 都过不去 —— 不要试,也不要绕。改完把产物写进下面的清单,由调度器会话后代提交。`,
     `验证齐绿(typecheck/test/守门末行现读)后才可声明完成;完成即翻勾。`,
@@ -868,7 +879,57 @@ export function buildArtifactCommitMessage({ ticketKey, ticketText }) {
  *
  * IO 全部注入:自检要在不碰真 git / 真索引的前提下反向验证每一档。
  */
-export function landTicketArtifacts({ ticketKey, ticketText, manifestText, statusFn, commitFn, dryRun = false }) {
+/**
+ * 把一批待落账文件按「是否落在判据面(受保护面)上」分成两堆,并对清单本身的可读性负责。
+ *
+ * 三态绝不并桶(§0.3):
+ *  - clean        一枚都不在判据面上 ⇒ 允许代提交;
+ *  - blocked      至少一枚命中 ⇒ 整批不落,逐条点名(不做部分提交,与路径安全那一档同判序);
+ *  - undetermined 清单读不到 / JSON 坏 / entries 空 ⇒ **同样整批不落**。"拿不到尺子"不能读成"没有尺子拦我"。
+ * 到期条目(reviewBy 已过)仍算判据面:护栏对到期是"把动它的那枚提交判红",不是"把该面解禁"。
+ *
+ * @param {string[]} files 相对仓根路径
+ * @param {string|null} guardListText 清单原文(null ⇒ undetermined)
+ */
+export function partitionProtectedFaces(files, guardListText) {
+  let parsed
+  try {
+    parsed = parseGuardList(guardListText)
+  } catch (e) {
+    return { state: 'undetermined', landable: [], protectedHits: [], problems: [{ code: 'parse-throw', message: String(e?.message ?? e) }] }
+  }
+  const problems = parsed.problems ?? []
+  if (problems.length > 0 || !Array.isArray(parsed.entries) || parsed.entries.length === 0) {
+    return { state: 'undetermined', landable: [], protectedHits: [], problems }
+  }
+  const landable = []
+  const protectedHits = []
+  for (const f of files) {
+    const hit = matchProtected(f, parsed.entries)
+    if (hit) protectedHits.push({ file: f, path: hit.path, kind: hit.kind ?? '' })
+    else landable.push(f)
+  }
+  return { state: protectedHits.length > 0 ? 'blocked' : 'clean', landable, protectedHits, problems: [] }
+}
+
+/** 真出口:清单按当次仓根现读(§0 盘符是现读机器事实)。读失败 ⇒ null ⇒ 上层判未判定。 */
+function readGuardListText() {
+  try {
+    return readFileSync(join(ROOT, GUARD_LIST_REL), 'utf8')
+  } catch {
+    return null
+  }
+}
+
+export function landTicketArtifacts({
+  ticketKey,
+  ticketText,
+  manifestText,
+  statusFn,
+  commitFn,
+  dryRun = false,
+  protectedFaceOf = (files) => partitionProtectedFaces(files, readGuardListText()),
+}) {
   const parsed = parseArtifactManifest(manifestText, ticketKey)
   if (parsed.state !== 'ok') {
     return { action: `artifact-manifest-${parsed.state}`, files: [], dropped: [], why: parsed.why }
@@ -893,12 +954,29 @@ export function landTicketArtifacts({ ticketKey, ticketText, manifestText, statu
       why: `清单里的文件在本工作区都没有改动,不提交:${stale.map((s) => `${s.path}(${s.why})`).join('; ')}`,
     }
   }
-  if (dryRun) {
+  // 判据面闸排在 dry-run **之前**:预演档报的必须就是真跑会走的那一支 —— 否则 dry-run 说"会提交"
+  // 而真跑拒落,读数自相矛盾(§0.9 判据要在真跑它的那一刻成立,预演也不许演一支假的)。
+  const faces = protectedFaceOf(dirty)
+  if (dryRun && faces.state === 'clean') {
     return {
       action: 'artifact-preview',
       files: dirty,
       dropped,
       why: `dry-run 不提交;真跑会调 safe-commit 提交 ${dirty.length} 枚(票键 ${ticketKey}${dropped.length ? `,剔除 ${dropped.length} 枚无改动` : ''})`,
+    }
+  }
+  if (faces.state !== 'clean') {
+    // 方向恒定:自治会话手里没有豁免签名权(清单现读 signatureRequiredFrom),替它自己补一行
+    // immutable-exempt 理由 = 自己给自己发豁免 ⇒ 唯一合法出路是拦下来点名交人工,绝不是放行。
+    return {
+      action: 'artifact-protected-face',
+      files: dirty,
+      dropped,
+      protectedHits: faces.protectedHits,
+      why:
+        faces.state === 'undetermined'
+          ? `判据面清单取不到或形状坏(${(faces.problems ?? []).map((p) => p.code).join(',') || 'empty'})⇒ 无法证明本批不碰判据面,整批不落(§0.3)`
+          : `本批 ${faces.protectedHits.length} 枚落在判据面上,自治环没有豁免签名权 ⇒ 整批不落,逐条交人工:${faces.protectedHits.map((h) => `${h.file}〔${h.path}〕`).join('; ')}`,
     }
   }
   const env = {
@@ -1877,6 +1955,7 @@ export const __test__ = {
   LEDGER,
   todayKey,
   landTicketArtifacts,
+  partitionProtectedFaces,
   buildArtifactCommitMessage,
   commitPrefixOf,
   ARTIFACT_MANIFEST_DIR,
