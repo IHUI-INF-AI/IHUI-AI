@@ -129,8 +129,7 @@ function markdownToHtml(md: string): string {
   })
   s = s.replace(
     /!\[\]\(([^)]+)\)/g,
-    (_m, src: string) =>
-      '<img src="' + toMediaImageUrl(src).replace(/"/g, '%22') + '" alt="" />',
+    (_m, src: string) => '<img src="' + toMediaImageUrl(src).replace(/"/g, '%22') + '" alt="" />',
   )
   s = s.replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>')
   s = s.replace(/^---$/gm, '<hr/>')
@@ -472,7 +471,7 @@ export function RichTextEditor({
               type="button"
               variant={mode === m ? 'default' : 'ghost'}
               size="xs"
-              className="px-2 text-xs"
+              className="font-[weight:inherit] px-2 text-label"
               onClick={() => setMode(m)}
             >
               {t(m === 'markdown' ? 'editor.markdown' : 'editor.richText')}
@@ -536,7 +535,7 @@ export function RichTextEditor({
           rows={12}
           maxLength={maxLength}
           placeholder={placeholder}
-          className="block w-full resize-y bg-transparent px-3 py-2.5 text-sm leading-relaxed focus-visible:outline-none"
+          className="font-[weight:inherit] block w-full resize-y bg-transparent px-3 py-2.5 text-body leading-relaxed focus-visible:outline-none"
         />
       ) : (
         <div
@@ -547,10 +546,10 @@ export function RichTextEditor({
           onPaste={handleRichPaste}
           data-placeholder={placeholder}
           className={cn(
-            'min-h-[260px] w-full px-3 py-2.5 text-sm leading-relaxed focus-visible:outline-none',
+            'min-h-[260px] w-full px-3 py-2.5 text-body leading-relaxed focus-visible:outline-none',
             '[&_.h1]:text-lg [&_.h1]:font-bold [&_.h2]:text-base [&_.h2]:font-semibold [&_.h3]:text-body [&_.h3]:font-semibold',
             '[&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground',
-            '[&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-2 [&_pre]:text-xs',
+            '[&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-2 [&_pre]:text-label',
             '[&_img]:max-w-full [&_img]:rounded-md',
           )}
         />

@@ -46,7 +46,7 @@ export function CookieAutoRefreshChip() {
 
   return (
     <p
-      className="flex items-center gap-1 text-xs text-muted-foreground"
+      className="font-[weight:inherit] flex items-center gap-1 text-label text-muted-foreground"
       data-testid="cookie-auto-refresh-chip"
     >
       <RefreshCw className="h-3 w-3" aria-hidden />

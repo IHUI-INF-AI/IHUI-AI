@@ -195,7 +195,7 @@ export function CookieHealthIndicator({
       )}
 
       {hovered && detail && (
-        <div className="absolute bottom-full left-0 z-50 mb-1 w-48 rounded-md border border-border bg-popover p-3 text-xs shadow-md">
+        <div className="font-[weight:inherit] absolute bottom-full left-0 z-50 mb-1 w-48 rounded-md border border-border bg-popover p-3 text-label shadow-md">
           <div className="space-y-1">
             <div className="flex justify-between gap-2">
               <span className="text-muted-foreground">{t('cookieHealth.lastVerified')}</span>

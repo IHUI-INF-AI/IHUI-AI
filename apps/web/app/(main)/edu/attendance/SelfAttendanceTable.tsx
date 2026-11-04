@@ -43,7 +43,7 @@ export function SelfAttendanceTable({
     <Card>
       <CardContent className="p-0">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="font-[weight:inherit] w-full text-body">
             <thead>
               <tr className="bg-muted/40">
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">
@@ -63,8 +63,8 @@ export function SelfAttendanceTable({
             <tbody>
               {records.map((r) => (
                 <tr key={r.id} className="hover:bg-muted/30">
-                  <td className="px-4 py-3 text-xs font-mono">{r.date}</td>
-                  <td className="px-4 py-3 text-xs">
+                  <td className="font-[weight:inherit] px-4 py-3 text-label font-mono">{r.date}</td>
+                  <td className="font-[weight:inherit] px-4 py-3 text-label">
                     {r.checkInTime ? (
                       <span className="inline-flex items-center gap-1">
                         <CheckCircle2 className="h-3 w-3 text-green-500" />
@@ -88,7 +88,7 @@ export function SelfAttendanceTable({
                       {statusLabel(r.status)}
                     </Badge>
                   </td>
-                  <td className="max-w-[160px] truncate px-4 py-3 text-xs text-muted-foreground">
+                  <td className="font-[weight:inherit] max-w-[160px] truncate px-4 py-3 text-label text-muted-foreground">
                     {r.remark ?? '-'}
                   </td>
                 </tr>
