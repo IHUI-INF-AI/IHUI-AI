@@ -14,7 +14,14 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { __test__ as ae, gateTicketByHumanValve, VALVE_LIST_JSON } from '../auto-evolve.mjs'
+import {
+  __test__ as ae,
+  gateTicketByHumanValve,
+  VALVE_LIST_JSON,
+  classifySessionWrites,
+  judgeLandingProof,
+  WRITE_TOOL_NAMES,
+} from '../auto-evolve.mjs'
 import { NON_PROGRESS_ACTIONS, PROGRESS_ACTIONS } from '../lib/autonomy-nonprogress.mjs'
 
 const GOOD_GATES = {
@@ -149,7 +156,6 @@ test('⑧ token 计量:只认终态 complete 行的 usage,缺失/形状坏判未
   // complete 行不是 JSON 行(人读排版)⇒ 未计量
   assert.equal(ae.parseSessionUsage('📊 tokens: 1000 (prompt 900 + completion 100)').measured, false)
 })
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 test('⑦ 会话 JWT 形状:HS256 三段 / sub 必在(实测缺口)/ iss/aud/exp 同 auth 包', async () => {
   const { createHmac } = await import('node:crypto')
@@ -411,3 +417,134 @@ test('⑫c 记账行把 stopReason 带进台账(只留 exit 码就永远分不�
   const ret = src.slice(src.indexOf('  return {\n    action,'), src.indexOf('/**\n * 代提交消息前缀'))
   assert.ok(ret.includes('stopReason: meter.stopReason ?? null'), 'dispatchSession 的返回必须透出终态理由')
 })
+
+/**
+ * ⑬ 「退出码 0 但整班没动手」分档(2026-11-04 立)。
+ * 立因是实测:9 次 session-ok 的 transcript 里写类工具命中为 0,而 `artifact-committed` 至今为 0
+ * —— 尺子把"会话结束了"读成"这轮干成了"。成对夹具直接取当天真跑的两份 stdout 形态:
+ * 探针那一次 write_file 成功(正例),生产票那一次全程只读(反例)。
+ */
+test('⑬a 真实形态:成功写一次 ⇒ known 且 writeOk=1(不许把有产出读成没产出)', () => {
+  const probe = [
+    '{"type":"tool_call","name":"write_file","arguments":{"path":"a.txt","content":"x"}}',
+    '{"type":"tool_delta","name":"write_file","toolCallId":"t1","seq":1,"partialText":"x"}',
+    '{"type":"tool_delta_clear","name":"write_file","toolCallId":"t1"}',
+    '{"type":"tool_result","name":"write_file","success":true,"output":"已写入 a.txt (1 行, 20 字节)"}',
+    '{"type":"iteration","count":2,"max":8}',
+    '{"type":"complete","stopReason":"end_turn","usage":{"totalTokens":48205}}',
+  ].join('\n')
+  const w = classifySessionWrites(probe)
+  assert.equal(w.known, true, 'complete 行在 ⇒ 输出形状认识')
+  assert.equal(w.writeOk, 1, 'tool_result.success=true 的写类调用必须被记上')
+})
+
+test('⑬b 真实形态:只读到底 ⇒ known 而 writeOk=0(这正是 9/9 那一格)', () => {
+  const readOnly = [
+    '{"type":"tool_call","name":"read_file","arguments":{"path":"a"}}',
+    '{"type":"tool_result","name":"read_file","success":true,"output":"…"}',
+    '{"type":"tool_call","name":"grep","arguments":{"pattern":"x"}}',
+    '{"type":"tool_result","name":"grep","success":true,"output":"…"}',
+    '{"type":"complete","stopReason":"end_turn","usage":{"totalTokens":1000}}',
+  ].join('\n')
+  const w = classifySessionWrites(readOnly)
+  assert.equal(w.known, true)
+  assert.equal(w.writeOk, 0, '只读会话不得被读成"写过"')
+  assert.equal(w.writeTried, 0)
+})
+
+test('⑬c 反向锁:写了但没成功 ⇒ writeOk 仍为 0(成败认 tool_result,不认 tool_call)', () => {
+  const failedWrite = [
+    '{"type":"tool_call","name":"write_file","arguments":{"path":"a"}}',
+    '{"type":"tool_result","name":"write_file","success":false,"output":"权限被拒"}',
+    '{"type":"complete","stopReason":"end_turn","usage":{"totalTokens":10}}',
+  ].join('\n')
+  const w = classifySessionWrites(failedWrite)
+  assert.equal(w.writeOk, 0, 'success:false 的写不算产出')
+  assert.equal(w.writeTried, 1, '但"试过"要留数,归因才有两个方向')
+})
+
+test('⑬d 取不到形状 ⇒ known=false ⇒ 上层不得据此改判(未判定不冒红)', () => {
+  const junk = 'not json at all\n{"type":"start","prompt":"x"}\n'
+  const w = classifySessionWrites(junk)
+  assert.equal(w.known, false, '既无 complete 也无工具事件 ⇒ 不认识,不许当成"没写"')
+  assert.equal(w.writeOk, 0)
+})
+
+test('⑬e 发射端接线:known∧零写 ⇒ action 必须是 session-no-write(§0.9 有档名没发射=没有)', () => {
+  const src = readFileSync(new URL('../auto-evolve.mjs', import.meta.url), 'utf8')
+  const at = src.indexOf("    action = 'session-ok'")
+  assert.ok(at > 0, "exit 0 那一支必须还在 `action = 'session-ok'` 处")
+  const branch = src.slice(at, at + 700)
+  assert.ok(branch.includes("action = 'session-no-write'"), '该支里必须紧跟零写改判')
+  assert.ok(branch.includes('w.known && w.writeOk === 0'), '改判判据必须是 known∧零写双条件')
+})
+
+test('⑬f 写类工具名清单不得腐烂:每个名字必须在 CLI 源码里真注册', () => {
+  // 只验存在性(改名/下架即翻红)。dangerLevel 档位本身分散在各工具文件里声明,本锁不重抄档位判据。
+  const hits = new Set()
+  for (const rel of ['../../apps/cli/src/tools/file-edit.ts', '../../apps/cli/src/tools/file-batch-edit.ts']) {
+    const text = readFileSync(new URL(rel, import.meta.url), 'utf8')
+    for (const name of WRITE_TOOL_NAMES) {
+      if (new RegExp(`name:\\s*'${name}'`).test(text)) {
+        hits.add(name)
+      }
+    }
+  }
+  for (const name of WRITE_TOOL_NAMES) {
+    assert.ok(hits.has(name), `清单里的 ${name} 在 CLI 工具源码里找不到注册点 ⇒ 清单腐烂,零写判据会恒真`)
+  }
+})
+
+/**
+ * ⑭ 落地自证五问(2026-11-04,与私有索引通道同批)。
+ * 为什么换通道:`safe-commit.mjs` 的 Step 1 是 `git reset HEAD`(自述"无论谁 staged 的"),
+ * 而多会话共树下当次实测共享索引里有 12 枚他人暂存(含 2 枚他人暂存删除的保护标记)。
+ * 自主环一旦能落账就是按小时清别人现场 —— 所以换 §12i 的 isolated-git,并补五问自证:
+ * 退出码 0 不等于"这枚是我的、且带了声明集"。
+ */
+test('⑭a 五问全过 ⇒ ok 并透出 landedSha', () => {
+  const r = judgeLandingProof({
+    beforeSha: 'a'.repeat(40),
+    afterSha: 'b'.repeat(40),
+    advanced: 1,
+    declaredPaths: ['scripts/x.mjs'],
+    committedPaths: new Set(['scripts/x.mjs']),
+  })
+  assert.equal(r.ok, true)
+  assert.equal(r.landedSha, 'b'.repeat(40))
+})
+
+test('⑭b 逐问成对:每一问单独破坏都必须不记已落地', () => {
+  const good = {
+    beforeSha: 'a'.repeat(40),
+    afterSha: 'b'.repeat(40),
+    advanced: 1,
+    declaredPaths: ['scripts/x.mjs'],
+    committedPaths: new Set(['scripts/x.mjs']),
+  }
+  const cases = [
+    ['afterSha 取不到', { afterSha: null }],
+    ['beforeSha 取不到', { beforeSha: null }],
+    ['HEAD 原地未动', { afterSha: 'a'.repeat(40) }],
+    ['推进枚数取不到', { advanced: null }],
+    ['一次推进多枚(顶上可能不是本票)', { advanced: 3 }],
+    ['改动集取不到', { committedPaths: null }],
+    ['声明集没全进这枚提交', { committedPaths: new Set() }],
+  ]
+  for (const [label, patch] of cases) {
+    const r = judgeLandingProof({ ...good, ...patch })
+    assert.equal(r.ok, false, `${label} ⇒ 必须不记已落地`)
+    assert.ok(String(r.why).length > 6, `${label} 必须点名原因`)
+  }
+})
+
+test('⑭c 落账腿真的走私有索引通道,且不再指 safe-commit(反向锁:改回去即翻红)', () => {
+  const src = readFileSync(new URL('../auto-evolve.mjs', import.meta.url), 'utf8')
+  assert.ok(src.includes("'isolated-git.mjs'"), 'LAND_COMMIT 必须指向 isolated-git')
+  assert.ok(!src.includes('[SAFE_COMMIT,'), '代提交不得再拼 safe-commit(它 Step1 清共享索引)')
+  assert.ok(/spawnSync\(process\.execPath, \[LAND_COMMIT, 'commit'/.test(src), '必须以 commit 子命令形态调用')
+  const fn = src.slice(src.indexOf('export function runLandCommit'), src.indexOf('async function runOnce('))
+  assert.ok(fn.length > 400, 'runLandCommit 函数体切片取到了(锚点漂了就要同步本锁)')
+  assert.ok(fn.includes('recordGatesThenCommit({') && fn.includes('recordForCommit({'), '提交后两腿必须接上(否则每枚自主提交都被读成没跑门/无归属)')
+})
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

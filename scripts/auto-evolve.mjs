@@ -49,6 +49,10 @@ import { gateTicketByHumanValve, VALVE_MODES, VALVE_ACTIONS } from './lib/autono
 export { gateTicketByHumanValve }
 // 会话后落账腿的判据单源(2026-11-01 立):清单解析/路径安全/真有改动三问都住 lib,本器只做 IO 与编排。
 import { parseArtifactManifest, sanitizeArtifactPaths, selectDirtyPaths, manifestPathOf } from './lib/ticket-artifacts.mjs'
+// 提交后两腿与 safe-commit 用**同一份实现**(§0.6):正证留痕 + AI 归属 notes。换私有索引通道
+// 不等于放弃这两张证 —— 少了它们,读侧尺子会把每一枚自主提交都读成"没人跑过门/无归属"。
+import { recordGatesThenCommit } from './lib/commit-attestation.mjs'
+import { recordForCommit, normalizeRepoPath } from './lib/ai-authorship-notes.mjs'
 export { parseArtifactManifest, sanitizeArtifactPaths, selectDirtyPaths, manifestPathOf }
 // 第 4 格·会话全文落盘腿:命名 / 脱敏 / 截断 / 轮转判据全在 lib(单一真相源,§0.6),本处只负责"读盘调用"。
 import { buildTranscript, capTranscript, transcriptRelPathOf, isTranscriptName, decideRetention } from './lib/session-transcript.mjs'
@@ -84,8 +88,18 @@ const TSX_ENTRY = join(ROOT, 'apps', 'api', 'node_modules', 'tsx', 'dist', 'cli.
 const API_ENV = join(ROOT, 'apps', 'api', '.env')
 /** 会话产物清单目录(会话写、本器读):路径口径住 lib/ticket-artifacts.mjs,这里只补仓根 */
 export const ARTIFACT_MANIFEST_DIR = join(ROOT, '.ihui-agent', 'state', 'ticket-artifacts')
-/** 代提交唯一出口:safe-commit 五步法(本器不自己拼 git add/commit —— 那会把共享索引里别人的改动打包) */
-const SAFE_COMMIT = join(ROOT, 'scripts', 'safe-commit.mjs')
+/**
+ * 代提交唯一出口 = **私有索引提交通道** `scripts/isolated-git.mjs`(§12i,2026-11-04 换)。
+ * 为什么不是 safe-commit:它的 Step 1 是 `git reset HEAD`(自述"清空暂存区(无论谁 staged 的)"),
+ * 而本仓是多会话共树 —— 实测当次共享索引里就有 12 枚他人暂存(含 2 枚他人**暂存删除**,
+ * 那个 `D ` 标记本身就是"这行是我摘的"的保护凭据)。自主环每小时都可能落一次账 ⇒
+ * 用 safe-commit 等于把"清别人现场"这个实害按小时放大;safe-commit 自己也把这型写成两次实害
+ * (c8f2750a5c / 56227f8b33)。isolated-git 用私有 GIT_INDEX_FILE、禁 --no-verify、
+ * 且钩子若往声明集之外塞条目就当场拒收 —— 既跑门也不动别人。
+ * 代价是它的提交后两腿(正证留痕 + AI 归属 notes)原本只住在 safe-commit 里,所以本函数
+ * import **同一份** lib 把两腿接上(§0.6 不复算判据);接不上就如实出声,不静默少一张证。
+ */
+const LAND_COMMIT = join(ROOT, 'scripts', 'isolated-git.mjs')
 /**
  * 判据面(受保护面)清单的相对路径 —— 只是**指针**,匹配规则一律走 lib/immutable-guard.mjs。
  * 这里写成字面正斜杠而不是 join('scripts','data',…):Windows 下 join 出反斜杠,而护栏与 git 认的都是
@@ -308,6 +322,58 @@ export function parseSessionUsage(stdout) {
     }
   }
   return { tokens: 0, costUsd: 0, measured: false, stopReason: null }
+}
+
+/**
+ * 会往工作树写文件的工具名(按 CLI 各 Tool 声明的 `dangerLevel:'write'` 取,不是按名字猜)。
+ * `delete_file`/`batch_undo` 虽也改盘,但属 dangerous 档 ⇒ acceptEdits 下结构上不可用,不列。
+ * 形状锁在 scripts/tests/auto-evolve.test.mjs:每个名字必须在 CLI 源码里注册且档位为 'write'
+ * (清单腐烂与改名都会当场翻红,不用第二份散文说明)。
+ */
+export const WRITE_TOOL_NAMES = Object.freeze(['write_file', 'edit_file', 'batch_edit'])
+
+/**
+ * 会话到底有没有动过盘(2026-11-04 立)。
+ * 立因(回源实测):台账 220 轮里 9 次 `session-ok`,而 `artifact-committed` = 0、
+ * `artifact-manifest-missing` = 9;逐份 transcript 数写类工具命中 = 0 —— 会话把整班预算花在
+ * read/grep 上就 `end_turn`,而调度器把"退出码 0"记成"成功" ⇒ 尺子在这一格是说谎的。
+ * 为什么它不动手(不是偷懒):`--permission-mode acceptEdits` 只放宽 `dangerLevel:'write'`,
+ * `run_command` 属 dangerous ⇒ 会话没有执行能力(apps/cli/src/tools/danger-gate.ts 无 prompt ⇒ denied);
+ * 而旧 prompt 一边写"run_command 过不去",一边又硬要求"验证齐绿后才可声明完成"、
+ * "走 live-doc-edit 追加注记"(那也是命令)—— 两条指令互斥,会话的合理反应就是继续检索到耗尽。
+ * 所以这一档必须量"有没有写",并且把"没动手"与"动了手但没交清单"分成两档:
+ * 前者的出路是改指令与权限,后者的出路才是催清单 —— 混在一个 `artifact-manifest-missing` 里,
+ * 两边都修不动。
+ *
+ * 计数口径:`tool_call` 行只有 name+arguments,成败在配对的 `tool_result.success`
+ * (apps/cli/src/headless-format.ts 的 HeadlessEvent 联合)⇒ 按 tool_result 认成功写。
+ * `known=false` ⇒ 输出形状不认识(非 json 通路/被杀/事件格式变了),一律沿用原判定,
+ * 绝不用"取不到"冒充"没写"(§0.3)。
+ */
+export function classifySessionWrites(stdout) {
+  const lines = String(stdout ?? '').split(/\r?\n/)
+  let known = false
+  let writeOk = 0
+  let writeTried = 0
+  let toolResults = 0
+  for (const raw of lines) {
+    const t = raw.trim()
+    if (!t.startsWith('{')) continue
+    let e
+    try {
+      e = JSON.parse(t)
+    } catch {
+      continue
+    }
+    if (!e || typeof e.type !== 'string') continue
+    if (e.type === 'complete' || e.type === 'tool_result' || e.type === 'tool_call') known = true
+    if (e.type === 'tool_call' && WRITE_TOOL_NAMES.includes(e.name)) writeTried++
+    if (e.type === 'tool_result') {
+      toolResults++
+      if (e.success === true && WRITE_TOOL_NAMES.includes(e.name)) writeOk++
+    }
+  }
+  return { known, writeOk, writeTried, toolResults }
 }
 
 export function todayKey(now = new Date()) {
@@ -633,12 +699,19 @@ function releaseLock() {
  * line-gone(票早已摘行 = 真推进了),而 48h 窗口让它连被问一次的机会都没有。
  * 窗口参数保留(测试与调用方仍可显式收窄),只是不再是默认值。
  */
+/**
+ * 会话结果档(2026-11-04 立):这些 action 的每一行都欠着一个答案 —— "这张票到底推进了没有"。
+ * `session-no-write` 必须一起扫:它是 exit 0 的另一支,漏进扫描集就等于给它开了"永不结算"的悬档
+ * (尺子 A7 的"超窗未结算"会因此恒红 = §12e 恒红门)。
+ */
+export const SESSION_RESULT_ACTIONS = Object.freeze(['session-ok', 'session-no-write'])
+
 export function settlePriorDispatches({ ledger = [], currentRows = null, windowHours = Infinity, now = Date.now(), recordedPrefix = 200, sameRowPrefix = 60 } = {}) {
   const cutoff = now - windowHours * 3600_000
   const settledOf = new Set(ledger.filter((e) => e.action === 'dispatch-settled').map((e) => String(e.sourceTs ?? '')))
   const outs = []
   for (const e of ledger) {
-    if (e.action !== 'session-ok' || !e.ticketKey) continue
+    if (!SESSION_RESULT_ACTIONS.includes(e.action) || !e.ticketKey) continue
     const at = Date.parse(String(e.ts ?? ''))
     if (!Number.isFinite(at) || at < cutoff) continue
     if (settledOf.has(String(e.ts))) continue
@@ -652,7 +725,7 @@ export function settlePriorDispatches({ ledger = [], currentRows = null, windowH
       const nowPrefix = String(faceRow.text ?? '').slice(0, recordedPrefix)
       outs.push(
         nowPrefix === thenPrefix
-          ? { ticketKey: e.ticketKey, ticketLine: thenPrefix, sourceTs: e.ts, state: 'no-progress', why: `会话报成功但票行逐字未变(L${faceRow.line})` }
+          ? { ticketKey: e.ticketKey, ticketLine: thenPrefix, sourceTs: e.ts, state: 'no-progress', why: `${e.action === 'session-no-write' ? '会话零写入且' : '会话报成功但'}票行逐字未变(L${faceRow.line})` }
           : { ticketKey: e.ticketKey, ticketLine: thenPrefix, sourceTs: e.ts, state: 'line-changed', why: `票行已改写(L${faceRow.line})` }
       )
       continue
@@ -764,10 +837,30 @@ function dispatchSession(gates, ticket, dryRun) {
     `票面里已有的信息不要再回台账找一遍。动手前先读**目标文件本身**,不是读它的登记行。`,
     `**判据面(受保护面)不许动**:清单 = \`scripts/data/immutable-guard.json\` 的 \`path\` 字段(现读,勿凭记忆),`,
     `命中即落账腿整批拒收(自治会话没有豁免签名权,补理由放行=替自己发豁免)。本票若非动那些面不可,`,
-    `**不要动**:保持票未勾,走 live-doc-edit 在票行追加进展注记,写明「本票需先动判据面 <路径> <为什么必须动>」后正常退出(这是合法完成)。`,
-    `提交不在你的权限内:自动会话对 dangerous 档一律不放宽(permissions.ts),git_commit 与`,
-    `run_command 都过不去 —— 不要试,也不要绕。改完把产物写进下面的清单,由调度器会话后代提交。`,
-    `验证齐绿(typecheck/test/守门末行现读)后才可声明完成;完成即翻勾。`,
+    `**不要动**:保持票未勾,正常退出并在回答里写明「本票需先动判据面 <路径> <为什么必须动>」—— 票行的推进由调度侧做(见下"你的交付边界")。`,
+    ``,
+    `## 你的权限是硬的(2026-11-04 定,照它规划、别试别绕)`,
+    `本会话跑在 \`--permission-mode acceptEdits\`:只有 \`dangerLevel:'write'\` 的工具放行`,
+    `(\`write_file\` / \`edit_file\` / \`batch_edit\`),读类(\`read_file\`/\`grep\`/\`glob\`/\`list_dir\`/\`lsp_*\`/\`get_diagnostics\`)放行,`,
+    `而 dangerous 档一律被拒(实现 = \`apps/cli/src/tools/danger-gate.ts\`:无头会话没有审批人 ⇒ denied)。`,
+    `因此以下动作你**做不成**,试了只白烧一次往返:\`run_command\`、\`run_tests\`、\`git_commit\`、\`delete_file\`、\`batch_undo\`,`,
+    `以及任何"跑一条命令看看"的念头。`,
+    `为什么这一格必须写清:实测 9 次"退出码 0"的会话没有一次写过文件 —— 它们想先把"验证齐绿"做到而没有执行手段。`,
+    `验证与提交是调度器的活,不是你的。`,
+    ``,
+    `## 你的交付边界`,
+    `- 你交付的只有两样:**改过的文件** + **下面那份落账清单**。提交、跑测试、跑守门、翻勾、写台账都由调度侧在你之后做。`,
+    `- 因此**禁止**给出"已跑 typecheck / 已跑测试 / 守门全绿"这类你不可能持有的证据;`,
+    `  自检只用只读手段(\`get_diagnostics\` 看本文件、\`read_file\` 回读改动),并如实写"仅静态自检,未执行验证"。`,
+    `- \`PROJECT_PLAN.md\` 既不在你能力内(live-doc-edit 是命令)也不在落账允许集内(活文档):**不要碰它、不要写进清单**。`,
+    ``,
+    `## 工序(硬性顺序,治"整班只读")`,
+    `1. 只读与本品直接相关的目标文件(带行区间/grep 取段,禁止整份读大文件)。`,
+    `2. **读完目标文件后,下一次工具调用就必须是 \`write_file\`/\`edit_file\` 动笔** —— 不是继续检索。`,
+    `   实测到的失效形态:19 轮 grep/read/list_dir 零写入,班次白烧到 end_turn。`,
+    `   还需要上下文时,先把已经能确定的一部分改动写下去,再针对那一处补读。`,
+    `3. 收尾前最后一步写落账清单(见下)。整票做不完就保持未改并如实说明(账面会如实记为没动手,`,
+    `   下一轮还会再来),禁止"写完了你看下"式半成品。`,
     ``,
     `## 落账清单(硬性,调度器只认这一份)`,
     `- 路径:${manifestPathOf(key)}(相对仓根,不存在就创建目录)`,
@@ -778,8 +871,9 @@ function dispatchSession(gates, ticket, dryRun) {
     `- 整批里有一条不合规 ⇒ 整批不提交(不做部分提交)。`,
     ``,
     `完成判定(硬性,防半成品):`,
-    `- 要么完成整票(验证齐绿 + 翻勾 + 写清单,提交由调度器代劳),要么保持未勾并走 live-doc-edit 在票行追加进展注记,禁止"写完了你看下"式半成品提交。`,
-    `- 若判定本票工作量超出单会话预算(maxSessionMinutes=${gates.maxSessionMinutes} 分钟),立即停下:不写任何代码,只在票行追加工作量评估注记后正常退出(这是合法完成,不算失败)。`,
+    `- 完成整票 = 文件已改 + 清单已写(验证与提交由调度器代劳)。做不到就保持未改并如实说明,禁止半成品。`,
+    `- 若判定本票工作量超出单会话预算(maxSessionMinutes=${gates.maxSessionMinutes} 分钟),立即停下:不写任何代码,`,
+    `  在回答里给出工作量评估后正常退出(这是合法退出,但账面仍记为本轮未动手 —— 不会冒充成功)。`,
   ].join('\n')
   writeFileSync(promptFile, promptText, 'utf8')
   const cmd = fillTemplate(resolved, { promptFile, ticketLine: ticket.text, ticketKey: key })
@@ -809,7 +903,7 @@ function dispatchSession(gates, ticket, dryRun) {
   const signal = r.signal ?? null
   // 第 4 格·会话全文落盘:成败都落盘(否则 A7 的每一条 drift 只能靠猜,§0.3)。
   // 先算 action,再一次性落盘 + 返回,避免四条分支各写一遍(分支越多越容易漏 transcript)。
-  let action, failureKind = 'ok', exitCode = 0, why = '', timedOut = false
+  let action, failureKind = 'ok', exitCode = 0, why = '', timedOut = false, writes = null
   if (r.error?.killed || (signal === 'SIGTERM' && durationMs >= gates.maxSessionMinutes * 60_000 - 5_000)) {
     action = 'session-timeout'
     exitCode = null
@@ -832,6 +926,16 @@ function dispatchSession(gates, ticket, dryRun) {
     why = `exit=${r.status} ${errText}`
   } else {
     action = 'session-ok'
+    const w = classifySessionWrites(stdout)
+    writes = w
+    if (w.known && w.writeOk === 0) {
+      // "结束了"不等于"干成了",而"干成了却没交清单"与"整班没动手"是该往两个方向修的两件事。
+      action = 'session-no-write'
+      why =
+        w.writeTried > 0
+          ? `exit=0 但 ${w.writeTried} 次写类工具调用无一成功(成功写 0 / 工具结果 ${w.toolResults} 条)⇒ 本轮工作树零改动`
+          : `exit=0 但全程只读未写(写类 0 次 / 工具结果 ${w.toolResults} 条)⇒ 结构上产不出落账清单,别把这一档当"成功"`
+    }
   }
   const transcript = persistTranscript({
     mode: 'dispatch',
@@ -862,6 +966,10 @@ function dispatchSession(gates, ticket, dryRun) {
     // 本次实测到的形状是 exit=3 + `stopReason=no_progress` + 12.6 万 prompt token 而 completion 只有 22 token
     // ⇒ 会话把预算花在读台账/规则全文上、没力气动手。只记 exit 就永远分不出"该改提示词"还是"该改运行器"。
     stopReason: meter.stopReason ?? null,
+    // 写盘读数(仅 exit 0 那支持有值):台账里 `session-ok` 与 `session-no-write` 的分界就是它,
+    // 也是"清单缺失该催会话还是该改指令"的取数口。未取到 ⇒ null,不用 0 冒充"没写"。
+    writeOk: writes ? writes.writeOk : null,
+    writeTried: writes ? writes.writeTried : null,
   }
 }
 
@@ -899,7 +1007,7 @@ export function buildArtifactCommitMessage({ ticketKey, ticketText }) {
  *  - artifact-manifest-missing  会话没写清单 ⇒ 不提交(合法结果:会话可能只写了注记)
  *  - artifact-manifest-invalid  清单坏/票键不符/空清单/路径不过安全校验 ⇒ 不提交
  *  - artifact-manifest-stale    清单里没有一个文件真有改动 ⇒ 不提交
- *  - artifact-committed         至少一枚真有改动 ⇒ 调 safe-commit 代提交(带票键与席位)
+ *  - artifact-committed         至少一枚真有改动 ⇒ 调私有索引通道(isolated-git)代提交并自证落地
  * dry-run 只出预览(`artifact-preview`),绝不冒充已提交。
  *
  * IO 全部注入:自检要在不碰真 git / 真索引的前提下反向验证每一档。
@@ -987,7 +1095,7 @@ export function landTicketArtifacts({
       action: 'artifact-preview',
       files: dirty,
       dropped,
-      why: `dry-run 不提交;真跑会调 safe-commit 提交 ${dirty.length} 枚(票键 ${ticketKey}${dropped.length ? `,剔除 ${dropped.length} 枚无改动` : ''})`,
+      why: `dry-run 不提交;真跑会调 isolated-git 提交 ${dirty.length} 枚(票键 ${ticketKey}${dropped.length ? `,剔除 ${dropped.length} 枚无改动` : ''})`,
     }
   }
   if (faces.state !== 'clean') {
@@ -1007,7 +1115,7 @@ export function landTicketArtifacts({
   const env = {
     IHUI_TICKET_KEY: String(ticketKey),
     IHUI_TICKET_LINE: String(ticketText ?? '').slice(0, 120),
-    // 席位短名进 AI 归属 notes;缺它 safe-commit 会把本枚判成"无归属",审计链断在这里。
+    // 席位短名进 AI 归属 notes;缺它 notes 那一腿只能记未判定,审计链断在这里。
     IHUI_AGENT_SESSION_ID: 'auto-evolve',
   }
   let r
@@ -1022,10 +1130,10 @@ export function landTicketArtifacts({
       action: 'artifact-commit-failed',
       files: dirty,
       dropped,
-      why: `safe-commit 未落地(status=${r?.status ?? '?'}):${String(r?.stderr ?? '').slice(-300) || '(无输出)'}`,
+      why: `代提交未落地或未自证通过(status=${r?.status ?? '?'}):${String(r?.stderr ?? '').slice(-300) || '(无输出)'}`,
     }
   }
-  return { action: 'artifact-committed', files: dirty, dropped, why: `safe-commit 已落地(status=0,票键 ${ticketKey})` }
+  return { action: 'artifact-committed', files: dirty, dropped, why: `isolated-git 已落地并自证通过(票键 ${ticketKey},sha ${(r?.landedSha ?? '').slice(0, 12)})` }
 }
 
 /** 清单现读:读不到(不存在/读失败)一律 null ⇒ 上层落 missing,不猜内容。 */
@@ -1037,7 +1145,14 @@ function readArtifactManifest(ticketKey) {
   }
 }
 
-/** 单文件改动现读。抛错上抛给 selectDirtyPaths 判 stale —— 取不到不许读成"有改动"。 */
+/**
+ * 单文件改动现读。抛错上抛给 selectDirtyPaths 判 stale —— 取不到不许读成"有改动"。
+ * maxBuffer 必给(2026-11-04 立):默认 1MiB,而本仓工作树面实测会让 `git status` 输出超阈值 ⇒
+ * `spawnSync git ENOBUFS`。这条不是假设:同一天 CLI 侧 security-scan 已因同型问题永久未判定
+ * (`missing=untracked-files-over-cap…;git-diff-HEAD-unavailable: spawnSync git ENOBUFS`)。
+ * 更要紧的是归因:这里抛出的串直接进 stale 的 why,而 why 的措辞是"没有一个文件真有改动"——
+ * 缓冲区不足被那样说出来,会把"我量不动"写成"它没改"(§0.3 的反面),所以把 ENOBUFS 点名出来。
+ */
 function gitPorcelainOf(file) {
   const r = spawnSync('git', ['status', '--porcelain', '--', file], {
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -1045,23 +1160,137 @@ function gitPorcelainOf(file) {
     windowsHide: true,
     timeout: 60_000,
     encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
   })
-  if (r.error) throw new Error(r.error.message)
+  const failMsg = !r.error ? null : r.error.code === 'ENOBUFS' ? 'ENOBUFS(输出超缓冲区,不是"没有改动")' : r.error.message
+  if (failMsg) throw new Error(String(failMsg))
   if (r.status !== 0) throw new Error(`git status 退出码 ${r.status}:${String(r.stderr ?? '').slice(-160)}`)
   return String(r.stdout ?? '')
 }
 
-/** 真出口:safe-commit 五步法。环境变量只叠加不覆盖,票键/席位显式传入。 */
-function runSafeCommit({ files, message, env }) {
-  const r = spawnSync(process.execPath, [SAFE_COMMIT, '-m', message, '--', ...files], {
+/** 仓内 git 只读取数:显式 stdio(§12g)+ 大 maxBuffer(ENOBUFS 实测会吞掉整段输出),取不到一律 null 不猜。 */
+function gitRead(args) {
+  const r = spawnSync('git', args, {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    cwd: ROOT,
+    windowsHide: true,
+    timeout: 60_000,
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+  })
+  if (r.error || r.status !== 0) return null
+  return String(r.stdout ?? '').trim()
+}
+
+function headShaOf() {
+  return gitRead(['rev-parse', 'HEAD']) || null
+}
+
+function commitsBetween(fromSha, toSha) {
+  const n = gitRead(['rev-list', '--count', `${fromSha}..${toSha}`])
+  if (n === null || !/^\d+$/.test(n)) return null
+  return Number(n)
+}
+
+/** 一枚提交实际带进来的路径集(取不到 ⇒ null;rename 双路径只会让集合变大,不影响"声明集⊆提交集"这一问)。 */
+function committedPathsOf(sha) {
+  const out = gitRead(['show', '--name-only', '--format=', sha])
+  if (out === null) return null
+  const list = out.split(/\r?\n/).map((s) => s.trim()).filter(Boolean)
+  return new Set(list.map((p) => normalizeRepoPath(p)))
+}
+
+/**
+ * 落地自证(纯判据,零 IO):私有索引通道退出码 0 **不足以**记 `artifact-committed`。
+ * 五问缺一律 ok:false —— 失效方向恒为"少记一次成功,下一轮重来",绝不是"先把成功记上"。
+ *  1 提交后 HEAD 取不到 / 2 提交前取不到(无从比推进)/ 3 HEAD 原地未动 /
+ *  4 一次推进 >1 枚(顶上那枚可能是别人的 —— 多会话共树的日常形态)/
+ *  5 声明集里有路径不在该提交的改动集内(钩子拒收、部分落地、路径口径漂移都落这一格)。
+ * @param {{beforeSha?:string|null, afterSha?:string|null, advanced?:number|null,
+ *          declaredPaths?:string[], committedPaths?:Set<string>|null}} p
+ */
+export function judgeLandingProof({ beforeSha = null, afterSha = null, advanced = null, declaredPaths = [], committedPaths = null } = {}) {
+  const short = (s) => String(s ?? '').slice(0, 12)
+  if (!afterSha) return { ok: false, why: '提交后 HEAD 取不到 ⇒ 不记已落地(未判定不冒绿)' }
+  if (!beforeSha) return { ok: false, why: `提交前 HEAD 取不到 ⇒ 无法证明 ${short(afterSha)} 确由本轮推进` }
+  if (afterSha === beforeSha) return { ok: false, why: `HEAD 未推进(${short(afterSha)} 原地)⇒ 这枚没落地` }
+  if (advanced === null) return { ok: false, why: `HEAD 推进枚数取不到(${short(beforeSha)}→${short(afterSha)})⇒ 未判定,不记已落地` }
+  if (!Number.isFinite(advanced) || advanced < 1) return { ok: false, why: `推进枚数读数非法(${advanced})⇒ 未判定,不记已落地` }
+  if (advanced > 1) return { ok: false, why: `HEAD 一次推进 ${advanced} 枚 ⇒ 顶上那枚无法确认是本票的(并发日常态,下一轮重来)` }
+  if (!committedPaths) return { ok: false, why: `提交 ${short(afterSha)} 的改动集取不到 ⇒ 未判定,不记已落地` }
+  const absent = declaredPaths.filter((p) => !committedPaths.has(p))
+  if (absent.length) return { ok: false, why: `提交 ${short(afterSha)} 里缺声明集 ${absent.length} 枚:${absent.slice(0, 4).join(', ')} ⇒ 不记已落地` }
+  return { ok: true, landedSha: afterSha, why: `已落地并五问自证通过(${short(afterSha)})` }
+}
+
+/**
+ * 真出口:私有索引提交 + **落地自证** + 提交后两腿(§12i / §10)。
+ * 每一格"没确认"都返回 ok:false 并点名原因 ⇒ 上层记 artifact-commit-failed 下一轮重来;
+ * 宁可少落一枚,也不许把"顶上那枚可能是别人的"记成 artifact-committed(§0.3 + §10 交付一致)。
+ * 两腿 fail-open:写不进证不推翻已落地事实,但必须出声(静默少一张证 = 读侧尺子把它算成 unknown)。
+ */
+export function runLandCommit({ files, message, env = {} }) {
+  const beforeSha = headShaOf()
+  const r = spawnSync(process.execPath, [LAND_COMMIT, 'commit', '-m', message, '--', ...files], {
     stdio: ['ignore', 'pipe', 'pipe'],
     cwd: ROOT,
     windowsHide: true,
     timeout: 15 * 60_000,
     encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
     env: { ...process.env, ...env },
   })
-  return { ok: r.status === 0, status: r.status ?? null, stderr: `${String(r.stderr ?? '')}\n${String(r.stdout ?? '')}` }
+  const tail = excerptBothEnds(String(r.stderr ?? ''), String(r.stdout ?? ''))
+  if (r.status !== 0) return { ok: false, status: r.status ?? null, stderr: `isolated-git 退出码 ${r.status}｜${tail}` }
+  const afterSha = headShaOf()
+  const declared = files.map((f) => normalizeRepoPath(f))
+  const committed = afterSha ? committedPathsOf(afterSha) : null
+  const proof = judgeLandingProof({
+    beforeSha,
+    afterSha,
+    advanced: beforeSha && afterSha && afterSha !== beforeSha ? commitsBetween(beforeSha, afterSha) : null,
+    declaredPaths: declared,
+    committedPaths: committed,
+  })
+  if (!proof.ok) return { ok: false, status: r.status, stderr: `${proof.why}｜${tail}` }
+  const landedSha = proof.landedSha
+  try {
+    const w = recordGatesThenCommit({
+      root: ROOT,
+      landedSha,
+      headBefore: beforeSha,
+      commitFiles: committed ? [...committed] : declared,
+      declaredFiles: declared,
+      // isolated-git 禁 --no-verify 与一切关钩参数,且钩子往声明集之外塞条目即当场拒 ⇒ gatesRan 恒真
+      gatesRan: true,
+      hookSkipped: false,
+      hookSkipReason: '',
+      ticketKey: String(env.IHUI_TICKET_KEY ?? ''),
+      ticketLine: String(env.IHUI_TICKET_LINE ?? ''),
+    })
+    if (!w.ok) console.error(`⚠ 正证留痕未写入(不影响本枚落地):${w.why}`)
+  } catch (e) {
+    console.error(`⚠ 正证留痕未写入(不影响本枚落地):${String(e?.message ?? e).slice(0, 160)}`)
+  }
+  const session = String(env.IHUI_AGENT_SESSION_ID ?? '')
+  if (session) {
+    try {
+      const note = recordForCommit({
+        repoDir: ROOT,
+        commit: landedSha,
+        session,
+        declaredPaths: declared,
+        model: String(env.IHUI_AI_MODEL ?? ''),
+        tool: 'auto-evolve',
+      })
+      if (note && note.state !== 'recorded') console.error(`⚠ AI 归属 notes 未判定:${(note?.reasons ?? []).join(',')}`)
+    } catch (e) {
+      console.error(`⚠ AI 归属 notes 未写入(不影响本枚落地):${String(e?.message ?? e).slice(0, 160)}`)
+    }
+  } else {
+    console.error('⚠ AI 归属 notes 未落笔:env.IHUI_AGENT_SESSION_ID 缺失 ⇒ 本枚无归属记录,读侧尺子会记 unjudged,不得读成"人类写的"')
+  }
+  return { ok: true, status: 0, stderr: proof.why, landedSha }
 }
 
 async function runOnce({ dryRun = false, noDecide = false } = {}) {
@@ -1317,7 +1546,7 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
         }
       }
       const res = dispatchSession(gates, ticket, dryRun)
-      record({ mode: dryRun ? 'dryrun' : 'dispatch', action: res.action, ticketKey: key, ticketLine: ticket.text.slice(0, 200), exitCode: res.exitCode ?? null, stopReason: res.stopReason ?? null, durationMs: res.durationMs ?? null, tokens: res.tokens ?? null, tokensMeasured: res.tokensMeasured === true, costUsd: res.costUsd ?? null, transcript: res.transcript ?? null, why: res.why ?? '' })
+      record({ mode: dryRun ? 'dryrun' : 'dispatch', action: res.action, ticketKey: key, ticketLine: ticket.text.slice(0, 200), exitCode: res.exitCode ?? null, stopReason: res.stopReason ?? null, durationMs: res.durationMs ?? null, tokens: res.tokens ?? null, tokensMeasured: res.tokensMeasured === true, costUsd: res.costUsd ?? null, transcript: res.transcript ?? null, writeOk: res.writeOk ?? null, writeTried: res.writeTried ?? null, why: res.why ?? '' })
       // O6502 记账腿:只有真派(非 dry-run)且拿到墙钟才进账;记不进去就如实告警,不冒充"额度还够"。
       // 第 3 期④:量到 token 就一并记账(单会话闸 + 24 小时闸的取数口);量不到只记墙钟并留响声。
       if (!dryRun && Number.isFinite(res.durationMs) && res.durationMs > 0) {
@@ -1352,7 +1581,7 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
           ticketText: ticket.text,
           manifestText: readArtifactManifest(key),
           statusFn: gitPorcelainOf,
-          commitFn: runSafeCommit,
+          commitFn: runLandCommit,
           dryRun: true,
         })
         record({ mode: 'dryrun', action: preview.action, ticketKey: key, files: preview.files, dropped: preview.dropped, why: preview.why })
@@ -1391,6 +1620,12 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
         }
         return
       }
+      // 整班没动手 ⇒ 落账腿必然只能报 manifest-missing,而那是同一件事的第二行账(阶梯会双倍计数)。
+      // 所以这里就地收口:一行 `session-no-write` 说清"零改动",残留清单交给每轮的 dry-run 预览腿看见。
+      if (res.action === 'session-no-write') {
+        console.log(`⚠ ${res.why}(票键 ${key};已跳过落账腿,避免同轮双记非推进)`)
+        return
+      }
       console.log(`✅ 派发完成(action=${res.action},耗时 ${(res.durationMs / 1000).toFixed(1)}s)`)
       // ---- 会话后落账腿(2026-11-01 立)----
       // 会话退出码 0 只说明"它结束了";能不能落账要看它自己写的清单。这一步失败不许把整轮打崩:
@@ -1400,7 +1635,7 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
         ticketText: ticket.text,
         manifestText: readArtifactManifest(key),
         statusFn: gitPorcelainOf,
-        commitFn: runSafeCommit,
+        commitFn: runLandCommit,
         dryRun: false,
       })
       record({ mode: 'dispatch', action: landed.action, ticketKey: key, ticketLine: ticket.text.slice(0, 200), files: landed.files, dropped: landed.dropped, why: landed.why })
