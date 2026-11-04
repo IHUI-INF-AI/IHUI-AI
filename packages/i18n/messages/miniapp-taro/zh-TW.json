@@ -408,7 +408,8 @@
     "totalRecharge": "累計儲值",
     "totalWithdraw": "累計提現",
     "withdraw": "提現",
-    "points": "智匯值"
+    "points": "智匯值",
+    "rechargeSuccess": "充值成功"
   },
   "community": {
     "posts": "貼文",
@@ -2989,6 +2990,10 @@
     "text6": "等級介紹頁未設定",
     "menu": {
       "subscriptions": "我的訂閱"
+    },
+    "security": {
+      "code": "驗證碼",
+      "sendCode": "發送驗證碼"
     }
   },
   "vipScreen": {
@@ -3244,7 +3249,8 @@
     "contactPlaceholder": "請輸入聯絡方式(選填)",
     "contentPlaceholder": "請輸入回饋詳情",
     "submit": "提交回饋",
-    "type": "類型"
+    "type": "類型",
+    "success": "提交成功"
   },
   "comment": {
     "loading": "載入中...",

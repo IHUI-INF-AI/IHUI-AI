@@ -62,20 +62,55 @@
    被 v4 一并 layer 化未经验证,此处取确定性;extension 端同一段逐条一致(那边也内联)。
    小程序端形态不同(rpx + 自补 --container-*),兜底写在 apps/miniapp-taro/src/app.css。 */
 
-.max-w-3xs { max-width: 16rem; }
-.max-w-2xs { max-width: 18rem; }
-.max-w-xs { max-width: 20rem; }
-.max-w-sm { max-width: 24rem; }
-.max-w-md { max-width: 28rem; }
-.max-w-lg { max-width: 32rem; }
-.max-w-xl { max-width: 36rem; }
-.max-w-2xl { max-width: 42rem; }
-.max-w-3xl { max-width: 48rem; }
-.max-w-4xl { max-width: 56rem; }
-.max-w-5xl { max-width: 64rem; }
-.max-w-6xl { max-width: 72rem; }
-.max-w-7xl { max-width: 80rem; }
-.max-h-none { max-height: none; }
+.max-w-3xs {
+  max-width: 16rem;
+}
+.max-w-2xs {
+  max-width: 18rem;
+}
+.max-w-xs {
+  max-width: 20rem;
+}
+.max-w-sm {
+  max-width: 24rem;
+}
+.max-w-md {
+  max-width: 28rem;
+}
+.max-w-lg {
+  max-width: 32rem;
+}
+.max-w-xl {
+  max-width: 36rem;
+}
+.max-w-2xl {
+  max-width: 42rem;
+}
+.max-w-3xl {
+  max-width: 48rem;
+}
+.max-w-4xl {
+  max-width: 56rem;
+}
+.max-w-5xl {
+  max-width: 64rem;
+}
+.max-w-6xl {
+  max-width: 72rem;
+}
+.max-w-7xl {
+  max-width: 80rem;
+}
+/* 2026-11-03:补上同块漏掉的 max-w-none —— v4 的 max-w-none 同样挂 --spacing-none(=0px),
+   于是带 max-w-none 的元素宽度被压到 0(实测移动端 login-dialog / AgreementDialog:
+   rect width=0px、computed max-width:0px ⇒ 元素在 a11y 树里却 Playwright 判 hidden,
+   见 e2e/dialog-position-regression)。Tailwind 默认语义是 none,按 .max-h-none 同法钉回。 */
+.max-w-none {
+  max-width: none;
+}
+.max-h-none {
+  max-height: none;
+}
 
 /* 2026-10-31 续:上面只钉了基础类,而 web 端 max-w 的**主要用法是响应式变体**(实测 77 处:
    sm: 与 min-[640px]: 两族同义,加上 min-[1024px]: 共 14 种组合)。变体规则同样被
@@ -889,7 +924,7 @@ iframe::-webkit-scrollbar {
      (肉眼无感但严格不绝对 0);改 6px 后 box 25 (整数),text 严格 6/6 对称,delta = 0。
      padding 仍对称保留视觉呼吸空间,无功能差异。 */
   padding: 8px 6px;
-  font-size: 11px;
+  font-size: var(--text-caption);
   line-height: 1.4;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   pointer-events: none;
@@ -1008,7 +1043,7 @@ html[data-workbench-immersive='true'] aside[data-main-sidebar] {
   /* 对称 padding(8/6/8/6)与关闭态 tooltip 一致,box 物理宽 25 整数,text 居中 delta = 0。
      关闭态注释:padding 4 时 box 渲染 25.39 sub-pixel 致 0.195px 偏心,改 6 整数化。 */
   padding: 8px 6px;
-  font-size: 11px;
+  font-size: var(--text-caption);
   line-height: 1.4;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   pointer-events: none;
@@ -1201,33 +1236,69 @@ html[data-workbench-immersive='true'] aside[data-main-sidebar] {
 .ai-input-toolbar {
   container-type: inline-size;
 }
-@container (max-width: 367px) {
+/* 结构性护栏(2026-11-03 重叠修复,用户报"底栏按钮重叠"):
+ * 旧版右簇 min-w-0 + 子项默认可收缩 ⇒ 容器一窄,子 wrapper 先被压窄,而内部按钮
+ * 宽度固定(部分还带 shrink-0)⇒ 按钮溢出 wrapper 与邻居重叠。
+ * 实测默认 480 面板(C=430)时权限模式压到构建按钮上 21.7px(中文)/23.6px(英文)。
+ * 现在只允许"换行",不允许"压缩"——压缩在这个方向必然以重叠收场。
+ * 发/停组不在本规则内(flex-shrink:0 由结构类独占),见 .ai-input-toolbar-send。 */
+.ai-input-toolbar-left > *,
+.ai-input-toolbar-actions > *,
+.ai-input-toolbar-send > * {
+  flex-shrink: 0;
+}
+/* 次要控件组内部换行:发送键在组外(.ai-input-toolbar-send),换行不会把主操作挤走。
+ * max-width 预留主操作一列(移动端 40 + gap 4 = 44;桌面端 send 32,44 也够),
+ * 否则 actions 会吃满整行、把发送挤到下一行 —— 手机 390 实测会多出 40px 高。 */
+.ai-input-toolbar-actions {
+  flex-wrap: wrap;
+  row-gap: 2px;
+  max-width: calc(100% - 44px);
+}
+/* 添加按钮文字(2026-11-03):自然宽 64px。「图标+文字」在 C=430 时左簇 100px,
+ * 加上右簇 346px 仍需换行;收起文字后左簇 68px ⇒ 418px,默认 480 面板保持单行。
+ * 触发按钮已有 aria-label="添加",icon-only 不降级。 */
+@container (max-width: 439px) {
   .ai-input-toolbar .add-menu-text {
     display: none;
   }
 }
-@container (max-width: 421px) {
-  .ai-input-toolbar .model-selector-text {
+/* 语音笔记 + Agent 标签收起(2026-11-03):右簇最宽的两枚纯文字项(语音笔记 96px,
+ * Agent 选中态最多再 +96px)在默认 480 面板里装不下。收文字留图标,
+ * 无障碍名称不降级:两处都已把 aria-label/title 提到触发按钮上。 */
+@container (max-width: 551px) {
+  .ai-input-toolbar .voice-note-label,
+  .ai-input-toolbar .agent-picker-label,
+  /* 加载态用 spinner 替位标签,若不一起收起,同一控件会比加载完成态宽 18px,
+     默认 480 面板会因这一瞬态多出一行(实测 C=430 高 80)。按钮本身已 disabled 置灰。 */
+  .ai-input-toolbar .agent-picker-loading {
     display: none;
   }
 }
+/* 默认 480 面板(C=430)实测:全部文字项的自然宽合计 538px,装不进 430。
+ * 三档文字按优先级收起(语音笔记/Agent 551 → 模型/模式 465 → 添加 439),
+ * C≥388 保持单行;再窄由 .ai-input-toolbar-actions 内部换行,不压缩、不重叠。
+ * 模型阈值由 421 上调到 465:原先 430 档靠"压缩到 30.7px"挤进单行,沉默地把
+ * 模型名截没了;现在改成显式 icon-only,同一观感但不再产生重叠。 */
 @container (max-width: 465px) {
-  .ai-input-toolbar .mode-switcher-text {
+  .ai-input-toolbar .model-selector-text,
+  .ai-input-toolbar .mode-switcher-text,
+  .ai-input-toolbar .model-selector-loading {
     display: none;
   }
 }
-
-/* 缺口C(2026-10-22 立):降级阶梯到"全 icon-only"为止仍有 336 基线宽,
- * 窗格拆分后 C 可低至 ~186(1280 视口两格,实测),右簇内容左溢越出窗格边界,
- * mode-switcher 触发器中心点落在相邻窗格的 send-button 上,鼠标点击被拦截
- * (Playwright hit-target 3 分钟不通过,键盘 Enter 可绕)。
- * 最低档改为右簇内部换行避让:控件全部保持可见,命中区留在本窗格内,
- * 输入卡由 2 行变 3 行(仅窄档触发,C≥336 单格/宽面板形态逐字不变)。 */
-@container (max-width: 335px) {
-  .ai-input-toolbar .ai-input-toolbar-right {
-    flex-wrap: wrap;
-    justify-content: flex-end;
-    row-gap: 2px;
+/* 移动端(<640)点击区不小于 40px(用户规则;桌面端沿用全项目 32px 图标档)。
+ * 只作用于底栏自身的触发器:VoiceNote/权限弹层内部的小按钮不受影响,
+ * 否则 28px 的弹层行内操作会被一并撑高。 */
+@media (max-width: 639px) {
+  .ai-input-toolbar-left > button,
+  .ai-input-toolbar-left > * > button,
+  .ai-input-toolbar-actions > button,
+  .ai-input-toolbar-actions > * > button,
+  .ai-input-toolbar-send > button,
+  .ai-input-toolbar-send > * > button {
+    min-width: 40px;
+    min-height: 40px;
   }
 }
 
@@ -1749,6 +1820,18 @@ button[data-state='closed']:focus-visible {
  * 用 brandAccent.light 档,不取墨档(§4 描边不得取墨档)。 */
 .ihui-edit-intent-preview {
   background: color-mix(in oklab, var(--color-brand-accent, hsl(212 92% 52%)) 16%, transparent);
+}
+/* ==========================================================
+ * 行级归因(Line Attribution,2026-11-04)
+ * AI 行 = 品牌蓝淡底;AI 写过但已被人工改动 = 琥珀淡底。
+ * 只动背景色,不碰字号/行高,避免影响原有内容布局与测量口径。
+ * 关闭开关时不产生 decoration,本节样式自然不生效。
+ * ========================================================== */
+.ihui-attr-ai-line {
+  background: color-mix(in oklab, hsl(212 92% 52%) 9%, transparent);
+}
+.ihui-attr-ai-then-human-line {
+  background: color-mix(in oklab, hsl(38 92% 50%) 12%, transparent);
 }
 /* glyph margin 空槽位 hover 提示可点击 */
 .monaco-editor .margin-view-overlays .cgmr {

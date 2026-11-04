@@ -4,14 +4,23 @@
 
 name: Lighthouse CI
 
+# 2026-11-03(排队治理):最近 12 次运行 = 12 failure、0 success;单次执行中位 395s,
+#   而它只挂在 PR 上(apps/web/** 或 packages/** 的每个 PR 都会起)。即"每次都跑、每次都红、
+#   无人修"的纯损耗项。按本轮口径从 PR 触发面撤下,改为**每周一次定时 + 手动触发**;
+#   job / 判据 / lighthouserc 一行未删。
+# 恢复方式:把下面 `on:` 换回原触发面(pull_request, branches [main],
+#   paths = apps/web/**、packages/**、apps/web/lighthouserc.json)。
+# 它不承载 required check(分支保护现读只有 `CI / lint-typecheck-test (push)`)。
 on:
-  pull_request:
-    branches: [main]
-    paths:
-      - 'apps/web/**'
-      - 'packages/**'
-      - 'apps/web/lighthouserc.json'
+  schedule:
+    # 每周一 20:00 UTC = 北京时间周二 04:00
+    - cron: '0 20 * * 1'
   workflow_dispatch:
+
+# 定时与手动重跑共用一组:同一时刻只留最新一枚(手动重跑会挤掉尚未开始的旧跑)。
+concurrency:
+  group: lighthouse-ci-${{ github.ref }}
+  cancel-in-progress: true
 
 # Security: least-privilege GITHUB_TOKEN (CWE-250). Third-party actions use @v tags — pin to commit SHA for stricter supply-chain security.
 permissions:
@@ -22,11 +31,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - uses: pnpm/action-setup@a3252b78c470c02df07e9d59298aecedc3ccdd6d # v3
 
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: 22
           cache: pnpm
@@ -60,7 +69,7 @@ jobs:
 
       - name: Upload artifacts
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: lighthouse-report
           path: |

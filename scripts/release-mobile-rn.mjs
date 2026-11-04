@@ -32,7 +32,7 @@
  * 退出码:0 全部 ready / 1 存在 blocked(已知缺前置,点名)/ 2 存在 unjudged 或本脚本自身取不到输入
  */
 import { execFileSync } from 'node:child_process'
-import { copyFileSync, mkdirSync, readFileSync, readdirSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync } from 'node:fs'
 import http from 'node:http'
 import { createRequire } from 'node:module'
 import Module from 'node:module'
@@ -172,13 +172,19 @@ export function firstMeaningfulLine(text) {
     .filter((l) => l && !/^[-—»]*$/.test(l))[0] ?? ''
 }
 
+// netstat 必须是绝对路径(§5b 同型):受限 PATH 下裸名派生只会得到 `spawn netstat ENOENT`。
+// 推导优先 + 硬编码兜底 + 按当次存在性选在位者,与 check-tunnel-leg-health.mjs 的 NETSTAT_BIN 同一范式。
+const SYSTEM_ROOT = (process.env.SystemRoot || process.env.windir || 'C:\\Windows').replace(/[\\/]+$/, '')
+const pickBin = (candidates) => candidates.find((p) => existsSync(p)) ?? candidates[candidates.length - 1]
+const NETSTAT_BIN = pickBin([SYSTEM_ROOT + '\\System32\\netstat.exe', 'C:\\Windows\\System32\\netstat.exe'])
+
 /** 本地 HTTP CONNECT 代理探测:Google 域本机直连不通(实测 oauth2 timeout),口不写死、逐个现试。 */
 export async function probeLocalProxy({ host = 'www.googleapis.com:443', timeoutMs = 1500, ports } = {}) {
   let list = ports
   if (!list) {
     let raw = ''
     try {
-      raw = execFileSync('netstat', ['-ano', '-p', 'tcp'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 30000, windowsHide: true })
+      raw = execFileSync(NETSTAT_BIN, ['-ano', '-p', 'tcp'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 30000, windowsHide: true })
     } catch {
       return { status: STATUS.UNJUDGED, detail: 'netstat 取不到 ⇒ 代理腿无法判定', port: null }
     }

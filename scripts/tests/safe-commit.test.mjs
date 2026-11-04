@@ -339,6 +339,20 @@ test('SC9 既有行为未被改写:5 步法、活文档对账措辞、归因链�
   for (const s of ['Step 0/5', 'Step 1/5', 'Step 2/5', 'Step 3/5', 'Step 4/5', 'Step 5/5'])
     assert.ok(src.includes(s), `既有档位 ${s} 的日志锚点被改掉了`)
   assert.match(src, /git reset HEAD/, '5 步法第 1 步不许动')
+  // 2026-11-04 P0(加法修):第 1 步的内容可以变(全局清空 → 路径作用域),但**不许**退回去。
+  // 旧断言只要求出现 `git reset HEAD` 这串字;那串字在"带 pathspec"与"清空整索引"两种形态里
+  // 都会出现 ⇒ 单独用它挡不住回退。两条新断言各钉一头:带 pathspec 的调用必须在,
+  // 无 pathspec 的调用必须不在。
+  assert.match(
+    src,
+    /gitStep\(\s*\['reset',\s*'-q',\s*'HEAD',\s*\.\.\.pathspecArgs\(/,
+    'reset 必须带 pathspec(路径作用域)—— 无 pathspec 的 reset 就是整索引清空',
+  )
+  assert.doesNotMatch(
+    src,
+    /gitStep\(\s*\['reset',\s*'HEAD'\s*\]/,
+    '无 pathspec 的 `git reset HEAD` 不得回到 Step 1(它由 auto-commit-quiet 每 3 分钟调一次)',
+  )
   assert.match(src, /gitStagedPaths/, '第 3 步的校验口径不许动')
   assert.match(src, /classifyHookFailure/, '归因链那条铰链不许被顺手摘')
   assert.match(src, /decideWithSelfRunBatch/, '归因链的自跑分支不许被顺手摘')
@@ -460,4 +474,290 @@ test('SCA2 给了会话主体 ⇒ notes 真落到 refs/notes/ 且报告口径记
     /^[0-9a-f]{40}/,
     'notes 必须挂在本枚 commit 上可按对象名读出',
   )
+})
+
+// ── HRS1–HRS5:堵掉 not-ours 静默追加 --no-verify 的兜底(2026-11-02,事故 5c8aec3653) ──
+// 立因(一手现场):那枚提交 32/32 守门自跑全绿、blockingFailed=0,但钩子路径**从未跑过**,
+// safe-commit 自己补了 `--no-verify`,台账记 gatesRan:false/hookSkipped:true —— 历史里只留下
+// 一枚看不出异常的提交。新策略:not-ours ⇒ 退避重试**带钩子**的普通提交;耗尽 ⇒ 非零退出。
+//
+// 判据纪律:断言必须抓"命令行里到底有没有 --no-verify"。这里用 `GIT_TRACE2_EVENT`:
+// git 每个进程的 trace2 `start` 事件都把**顶层 argv 原文**写进文件(实测含 `--no-verify`),
+// 所以不是靠退出码/日志猜,而是逐条读真实发令。`HRS4` 是正控:逃生口那一枚**必须**读到
+// `--no-verify`,否则 HRS1–HRS3 的"没读到"可能只是探针本身不灵。
+
+/**
+ * 在夹具仓装一枚可**按次数失败**的 pre-commit(输出一轮完整的守门汇总 + 批外步骤)。
+ * `failText` 覆盖失败正文的形态(用于"钩子判 mine"那一臂:没有汇总块、内容错点名本次文件)。
+ */
+function installFixturePreCommit(dir, { files, failTimes, lockAfterFail = false, failText = null }) {
+  mkdirSync(join(dir, '.husky'), { recursive: true })
+  const echo = [`staged 文件清单(${files.length} 个):`, ...files.map((f) => `- ${f}`)]
+  const failLines = failText
+    ? String(failText).split(/\r?\n/)
+    : [
+        ...echo,
+        '🛡️  守门脚本批量检查汇总',
+        '  总检查数: 32(已执行 32)',
+        '🚫 0 道 blocking 门失败 —— 本轮已跑完全部 32 项:',
+        '❌ Pre-commit 守门失败,提交已阻止',
+        "fatal: Unable to create '.git/index.lock': File exists. Another git process seems to be running",
+      ]
+  const body = [
+    '#!/bin/sh',
+    'n=0',
+    '[ -f .ihui-hook-calls ] && n=$(cat .ihui-hook-calls)',
+    'n=$((n + 1))',
+    "printf '%s\\n' \"$n\" > .ihui-hook-calls",
+    failText ? 'if true; then' : `if [ "$n" -le ${failTimes} ]; then`,
+    "  cat >&2 <<'EOF'",
+    ...failLines,
+    'EOF',
+    ...(lockAfterFail ? ['  : > "$(git rev-parse --git-dir)/index.lock"'] : []),
+    '  exit 1',
+    'fi',
+    'exit 0',
+    '',
+  ].join('\n')
+  writeFileSync(join(dir, '.husky', 'pre-commit'), body)
+}
+
+const hookCallCount = (dir) => {
+  const p = join(dir, '.ihui-hook-calls')
+  return existsSync(p) ? Number(readFileSync(p, 'utf8').trim() || 0) : 0
+}
+
+/** 逐条读 `git commit` 的**真实 argv**(trace2 start 事件);失败/读不到一律返回 []。 */
+function commitArgvs(traceFile) {
+  if (!existsSync(traceFile)) return []
+  const rows = []
+  for (const line of readFileSync(traceFile, 'utf8').split(/\r?\n/)) {
+    if (!line.trim()) continue
+    let o
+    try {
+      o = JSON.parse(line)
+    } catch {
+      continue
+    }
+    if (o?.event !== 'start' || !Array.isArray(o.argv) || !o.argv.includes('commit')) continue
+    rows.push(o.argv.join(' '))
+  }
+  return rows
+}
+
+/** 读夹具仓的台账(没有文件 ⇒ 空数组;坏行跳过 —— 判据只关心有值的那些)。 */
+function ledgerRecords(dir) {
+  const p = join(dir, '.ihui-agent', 'state', 'safe-commit-attestation.jsonl')
+  if (!existsSync(p)) return []
+  const out = []
+  for (const line of readFileSync(p, 'utf8').split(/\r?\n/)) {
+    if (!line.trim()) continue
+    try {
+      out.push(JSON.parse(line))
+    } catch {
+      /* 坏行不影响本判据 */
+    }
+  }
+  return out
+}
+
+const landedRecords = (dir) => ledgerRecords(dir).filter((r) => r.kind === 'gates-then-commit')
+
+test('HRS1 正常路径:钩子真跑、提交落地,且真实发令里没有任何 --no-verify', (t) => {
+  const { dir } = makeRepo(t)
+  seed(dir, HEAD1)
+  const trace = join(dir, 'trace-hrs1.json')
+  installFixturePreCommit(dir, { files: ['notes.txt'], failTimes: 0 })
+  writeFileSync(join(dir, 'notes.txt'), 'fixture\n')
+  const r = runSafe(dir, { files: ['notes.txt'], env: { GIT_TRACE2_EVENT: trace } })
+  const out = outputOf(r)
+  assert.equal(r.status, 0, `正常路径必须放行,实得 ${r.status}:\n${out}`)
+  assert.equal(hookCallCount(dir), 1, '钩子必须真跑且只跑一次(没跑 = 探针失败;多跑 = 进了重试)')
+  const argvs = commitArgvs(trace)
+  assert.ok(argvs.length >= 1, `trace2 里没读到 commit 发令,探针失效:\n${readFileSync(trace, 'utf8').slice(0, 400)}`)
+  assert.deepEqual(
+    argvs.filter((a) => a.includes('--no-verify')),
+    [],
+    `正常路径不许出现 --no-verify,实得发令:\n${argvs.join('\n')}`,
+  )
+  assert.doesNotMatch(out, /退避重试/, '正常路径不该进 not-ours 退避段')
+  const landed = landedRecords(dir).at(-1)
+  assert.ok(landed, '正常落地必须留一条 gates-then-commit')
+  assert.equal(landed.gatesRan, true)
+  assert.equal(landed.hookSkipped, false)
+})
+
+test('HRS2 not-ours 退避重试后拿到钩子:第二次真跑钩子并落地,全程无 --no-verify', (t) => {
+  const { dir } = makeRepo(t)
+  seed(dir, HEAD1)
+  const trace = join(dir, 'trace-hrs2.json')
+  installFixturePreCommit(dir, { files: ['notes.txt'], failTimes: 1 })
+  writeFileSync(join(dir, 'notes.txt'), 'fixture v2\n')
+  const r = runSafe(dir, {
+    files: ['notes.txt'],
+    env: { GIT_TRACE2_EVENT: trace, IHUI_SAFE_COMMIT_HOOK_RETRIES: '2', IHUI_SAFE_COMMIT_HOOK_RETRY_BASE_MS: '80' },
+  })
+  const out = outputOf(r)
+  assert.equal(r.status, 0, `重试后应拿到钩子并落地,实得 ${r.status}:\n${out}`)
+  assert.match(out, /钩子退避重试 1\/2 拿到了钩子/, '必须点名"第几次重试拿到了钩子"')
+  assert.equal(hookCallCount(dir), 2, '第一次失败 + 第二次成功 ⇒ 钩子实跑 2 次')
+  const argvs = commitArgvs(trace)
+  assert.ok(argvs.length >= 2, `应至少 2 次 commit 发令(实测 ${argvs.length})`)
+  assert.deepEqual(
+    argvs.filter((a) => a.includes('--no-verify')),
+    [],
+    `not-ours 重试路径不许追加 --no-verify:\n${argvs.join('\n')}`,
+  )
+  const landed = landedRecords(dir).at(-1)
+  assert.ok(landed, '重试成功后必须留一条 gates-then-commit')
+  assert.equal(landed.gatesRan, true, '钩子真跑过 ⇒ gatesRan 必须是 true')
+  assert.equal(landed.hookSkipped, false)
+})
+
+test('HRS3 重试耗尽:非零退出、点名锁与持锁方,且真实发令里没有 --no-verify', (t) => {
+  const { dir } = makeRepo(t)
+  const before = seed(dir, HEAD1)
+  const trace = join(dir, 'trace-hrs3.json')
+  // 第一次提交:钩子跑起来并就红(归因 not-ours),同时留下一把持久的 index.lock
+  // ⇒ 后续重试在"重新暂存"这一步就撞真锁,拿不到钩子,直到耗尽。
+  installFixturePreCommit(dir, { files: ['notes.txt'], failTimes: 1, lockAfterFail: true })
+  writeFileSync(join(dir, 'notes.txt'), 'fixture v3\n')
+  const r = runSafe(dir, {
+    files: ['notes.txt'],
+    env: {
+      GIT_TRACE2_EVENT: trace,
+      // 耗尽用例要的是"外层重试预算",不是 stageDeclared 内部那 10×3s 的锁等待 ⇒ 关掉内层等待。
+      IHUI_SAFE_COMMIT_LOCK_RETRIES: '0',
+      IHUI_SAFE_COMMIT_HOOK_RETRIES: '2',
+      IHUI_SAFE_COMMIT_HOOK_RETRY_BASE_MS: '60',
+    },
+  })
+  const out = outputOf(r)
+  assert.notEqual(r.status, 0, `耗尽必须非零退出:\n${out}`)
+  assert.match(out, /退避重试 2 次仍未拿到钩子/, '必须点名"重试耗尽仍拿不到钩子"')
+  assert.match(out, /拒绝追加 --no-verify/, '必须写明拒绝跳门')
+  assert.match(out, /index\.lock/, '必须点名是哪把锁')
+  assert.match(out, /git-lock\.mjs check/, '必须给出"谁持锁"的现读命令')
+  assert.equal(hookCallCount(dir), 1, '重试一次钩子都没跑到(拿不到钩子才是耗尽的前提)')
+  assert.equal(git(dir, 'rev-parse', 'HEAD'), before, '耗尽不许留下提交')
+  const argvs = commitArgvs(trace)
+  assert.ok(argvs.length >= 1, '至少读到第一次 commit 发令')
+  assert.deepEqual(
+    argvs.filter((a) => a.includes('--no-verify')),
+    [],
+    `耗尽路径绝不许追加 --no-verify,实得发令:\n${argvs.join('\n')}`,
+  )
+  assert.doesNotMatch(out, /已用 --no-verify 落地/, '耗尽路径不许出现跳门落地的日志')
+  assert.equal(landedRecords(dir).length, 0, '没有落地就不该有 gates-then-commit')
+})
+
+test('HRS4 显式逃生口 IHUI_SAFE_COMMIT_ALLOW_SKIP_HOOKS=1:仅在显式设置时生效,且台账带原因', (t) => {
+  const { dir } = makeRepo(t)
+  seed(dir, HEAD1)
+  const trace = join(dir, 'trace-hrs4.json')
+  installFixturePreCommit(dir, { files: ['notes.txt'], failTimes: 99 })
+  writeFileSync(join(dir, 'notes.txt'), 'fixture v4\n')
+  const r = runSafe(dir, {
+    files: ['notes.txt'],
+    env: { GIT_TRACE2_EVENT: trace, IHUI_SAFE_COMMIT_ALLOW_SKIP_HOOKS: '1' },
+  })
+  const out = outputOf(r)
+  assert.equal(r.status, 0, `显式逃生口应放行,实得 ${r.status}:\n${out}`)
+  assert.match(out, /IHUI_SAFE_COMMIT_ALLOW_SKIP_HOOKS=1/, '必须点名是哪个 env 放行的')
+  assert.equal(hookCallCount(dir), 1, '逃生口不重试 ⇒ 钩子只被尝试 1 次')
+  // 正控:这一枚**必须**读到 --no-verify —— 否则上面几条"没读到"可能只是探针坏了。
+  const argvs = commitArgvs(trace)
+  assert.ok(
+    argvs.some((a) => a.includes('--no-verify')),
+    `逃生口应显式带 --no-verify,实得发令:\n${argvs.join('\n')}`,
+  )
+  const landed = landedRecords(dir).at(-1)
+  assert.ok(landed, '逃生口落地也必须留一条 gates-then-commit')
+  assert.equal(landed.hookSkipped, true)
+  assert.equal(landed.gatesRan, false)
+  assert.match(String(landed.hookSkipReason || ''), /IHUI_SAFE_COMMIT_ALLOW_SKIP_HOOKS=1/, '台账必须记原因')
+})
+
+test('HRS5 正常提交不被误归因:钩子判 mine 时当场拒绝,不进 not-ours 退避段,也不许 --no-verify', (t) => {
+  // 立因(2026-11-02 机主要求):not-ours 是按并发特征判的,改动只该影响"真 not-ours"。
+  // 这一臂是**误伤方向的端到端对照**:钩子没有汇总块、内容错点名了本次声明的文件 ⇒ 判据给
+  // mine ⇒ 立刻 exit 1。若改动把 mine 也送进退避重试,本条的"钩子只跑 1 次 / 无退避日志"必红。
+  const { dir } = makeRepo(t)
+  const before = seed(dir, HEAD1)
+  const trace = join(dir, 'trace-hrs5.json')
+  installFixturePreCommit(dir, {
+    files: ['notes.txt'],
+    failTimes: 99,
+    failText: [
+      'node scripts/check-eslint.mjs',
+      'notes.txt',
+      "  1:1  error  'x' is not defined  no-undef",
+      '❌ Pre-commit 守门失败,提交已阻止',
+    ].join('\n'),
+  })
+  writeFileSync(join(dir, 'notes.txt'), 'fixture v5\n')
+  const r = runSafe(dir, {
+    files: ['notes.txt'],
+    env: {
+      GIT_TRACE2_EVENT: trace,
+      // 万一判据误判成 not-ours,这两个值让退避段立刻跑完并让断言先撞上 —— 不许靠长等待掩盖。
+      IHUI_SAFE_COMMIT_HOOK_RETRIES: '1',
+      IHUI_SAFE_COMMIT_HOOK_RETRY_BASE_MS: '40',
+      IHUI_SAFE_COMMIT_LOCK_RETRIES: '0',
+    },
+  })
+  const out = outputOf(r)
+  assert.notEqual(r.status, 0, `mine 必须非零退出:\n${out}`)
+  assert.match(out, /拒绝 --no-verify/, 'mine 的出口措辞必须保留')
+  assert.equal(hookCallCount(dir), 1, 'mine 不进退避重试 ⇒ 钩子只被尝试 1 次')
+  assert.doesNotMatch(out, /退避重试/, 'mine 不得进 not-ours 退避段(那会把本任务自己的红拖成等待)')
+  const argvs = commitArgvs(trace)
+  assert.deepEqual(
+    argvs.filter((a) => a.includes('--no-verify')),
+    [],
+    `mine 路径绝不许出现 --no-verify,实得发令:\n${argvs.join('\n')}`,
+  )
+  assert.equal(git(dir, 'rev-parse', 'HEAD'), before, 'mine 不许留下提交')
+  assert.equal(landedRecords(dir).length, 0, '没有落地就不该有 gates-then-commit')
+})
+
+// ── SC13(2026-11-04 P0):Step 1 的 reset 从「清空整个共享索引」改成「只退回声明面」 ──
+// 病灶:auto-commit-quiet 每 3 分钟(含失败重试)调本器,而 Step 1 曾是无 pathspec 的
+// `git reset HEAD` ⇒ 并发会话刚 `git add` 的暂存被无条件冲掉,且清空之后无痕可查。
+// 本条同时钉两个方向,缺一条都能被"退回全局 reset"蒙混过去:
+//   ① 声明集外那条**仍在索引里**且工作树字节未变(不再被冲掉);
+//   ② 本枚提交的**载荷只有声明集**(不许以"保留"为名把别人的在途件打包进去)。
+test('SC13 路径作用域 reset:声明集外他人暂存原样保留、工作树不变,且不进本枚提交', (t) => {
+  const { dir } = makeRepo(t)
+  seed(dir, HEAD1)
+  writeFileSync(join(dir, 'mine.txt'), 'mine v2\n')
+  writeFileSync(join(dir, 'foreign.txt'), 'foreign v1\n')
+  git(dir, 'add', '--', 'foreign.txt') // 另一会话的暂存(A 形态),本票不声明它
+  assert.equal(
+    git(dir, 'diff', '--cached', '--name-only'),
+    'foreign.txt',
+    '夹具自证:外来件确已暂存',
+  )
+
+  const r = runSafe(dir, { files: ['mine.txt'], message: 'test: scoped reset' })
+  const out = outputOf(r)
+  assert.equal(r.status, 0, `声明集外的外来暂存不该让提交失败:\n${out}`)
+
+  // ① 载荷 = 声明集,一个外来件都不许夹带
+  assert.deepEqual(
+    git(dir, 'show', '--name-only', '--format=', 'HEAD').split(/\r?\n/).filter(Boolean),
+    ['mine.txt'],
+    '本枚提交的载荷只许含声明集(普通提交读整份索引,必须靠私有索引隔离)',
+  )
+  // ② 外来暂存仍在索引里(没有被 Step 1 冲掉)
+  assert.deepEqual(
+    git(dir, 'diff', '--cached', '--name-only').split(/\r?\n/).filter(Boolean),
+    ['foreign.txt'],
+    '外来暂存必须原样留在索引里(改前这一条必红:整索引被 reset 清空)',
+  )
+  // ③ 工作树字节未变
+  assert.equal(readFileSync(join(dir, 'foreign.txt'), 'utf8'), 'foreign v1\n', '外来件工作树内容不得被改动')
+  // ④ 留痕必须点名具体路径(只报数量等于没报)
+  assert.match(out, /foreign\.txt/, '外来暂存必须逐条点名')
+  assert.match(out, /非本票声明|按设计保留/, '必须说清留在索引里的是"外来暂存"')
 })

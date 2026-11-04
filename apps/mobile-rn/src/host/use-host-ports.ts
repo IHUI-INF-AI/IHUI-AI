@@ -12,7 +12,7 @@
 import { useCallback } from 'react'
 import { useNavigation } from '@react-navigation/native'
 import type { HostNavigateOptions, OnNavigate, OnToast } from '@ihui/types'
-import { showHostToast } from './host-toast'
+import { showHostToast } from '@ihui/shared/utils/host-toast'
 
 /**
  * `useNavigation()` 的静态类型绑定到 RootParamList 的某个具体导航器,

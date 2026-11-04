@@ -111,6 +111,8 @@ export function loadConfig(readFile = (p) => readFileSync(p, 'utf8')) {
   if (!Array.isArray(g.sources) || g.sources.length === 0) {
     throw new TriageShapeError('形状坏:sources 必须是非空数组(第一期只吃白名单源)')
   }
+  // user-feedback 于 2026-11-04 从活动 sources 退役(8810 恒被 guardDbDsn 拒 + 本地 feedbacks 空表);
+  // 白名单保留该名字,便于改端口/换库后按同一份形状锁重新接线,不等于当前在跑。
   const KNOWN = ['mail-failure', 'index-unmerged', 'api-logs', 'grafana-alerts', 'user-feedback']
   for (const s of g.sources) {
     if (!KNOWN.includes(s))
@@ -530,6 +532,15 @@ export function readUserFeedback({
   try {
     rows = readJsonlRows(jsonlPath, readFile)
   } catch (e) {
+    // 缺件是**导出器的合法态**(`export-user-feedback.mjs` 未判定档明确不落盘),不是坏读:
+    // 这里显式判「不存在 ⇒ 无数据/未判定」,不把底层 ENOENT 当成错误文案刷进守护日志;
+    // 但状态仍是 undetermined —— 缺件不得读成"0 条 = 无发现"(§0.3)。
+    if (e?.code === 'ENOENT') {
+      return {
+        status: 'undetermined',
+        why: `用户反馈导出件不存在(${jsonlPath})—— 生产者本轮未判定/未落盘,无数据可读,判未判定`,
+      }
+    }
     return { status: 'undetermined', why: `用户反馈导出件读不到(${jsonlPath}):${e?.message ?? e}` }
   }
   const actionable = new Set(['bug', 'feature', 'improvement', 'other'])
@@ -1200,7 +1211,7 @@ async function runOnce({ dryRun = false } = {}) {
       }
     }
   }
-  // 来源五:用户反馈导出件(scripts 层无既有消费面 ⇒ 只吃既有导出 JSONL)
+  // 来源五:用户反馈导出件(2026-11-04 已从活动 sources 退役;分支保留供改端口/换库后复用)
   if (cfg.sources.includes('user-feedback')) {
     const u = readUserFeedback({ jsonlPath: String(cfg.userFeedback?.jsonl ?? '') })
     if (u.status === 'undetermined') {
@@ -1535,6 +1546,15 @@ async function selfTest() {
       const und = readUserFeedback({
         query: () => ({ status: 'undetermined', why: 'psql 不可用(自检夹具)' }),
       })
+      // 配了导出路径但文件不存在:导出器的合法未判定态 ⇒ 显式「不存在/无数据」,不甩底层 ENOENT 文案
+      const missing = readUserFeedback({
+        jsonlPath: '/__never__/user-feedback-export.jsonl',
+        readFile: () => {
+          const e = new Error('ENOENT: no such file or directory')
+          e.code = 'ENOENT'
+          throw e
+        },
+      })
       const got = readUserFeedback({
         query: () => ({
           status: 'ok',
@@ -1551,6 +1571,9 @@ async function selfTest() {
       return (
         und.status === 'undetermined' &&
         /psql 不可用/.test(und.why) &&
+        missing.status === 'undetermined' &&
+        /不存在/.test(missing.why) &&
+        !/ENOENT/.test(missing.why) &&
         got.status === 'ok' &&
         got.records.length === 1
       )

@@ -11,6 +11,112 @@ else
   printf '%s\n' "$PUSH_REFS" | git lfs pre-push "$@"
 fi
 
+# ─── tag-only 推送不跑代码质量门(2026-09-24 立,lost-commit 备份被拦死多天)─────
+# 判据:git 传入的每一行,其**存在的那一侧**都在 refs/tags/ 下(新建/推进 tag 看 local_ref,删除 tag
+# 时 local 侧是 `(nil)`,看 remote 侧)⇒ 本次推送**不新增也不推进任何分支**,
+#       被推的代码内容一个字节都没变(全在远端已有的 HEAD 及祖先里),推的只是 §22 要求的
+#       "丢失 commit 备份引用"。而本门跑的是**工作区**全量 tsc —— 别人一条未提交的半编辑
+#       就能把它钉红:实测 2026-09-24 另一会话把 packages/ui-react/src/components/Upload.tsx
+#       的 `export interface UploadLabels` 删掉未提交 ⇒ src/index.ts 报 TS2614 ⇒ 第 13 块
+#       tag 推送被拦,206 枚 lost-commit tag 因此没有远端备份(正是 §22 立备份要防的状态)。
+# 只在**纯 tag 推送**上豁免:混合推送(同时推分支)照跑全部门;PUSH_REFS 为空(无 ref 可推、
+# 或 git 未传清单)按原行为跑门 —— 宁多跑一次,绝不把"拿不到清单"当成"只推了 tag"。
+#
+# 2026-11-04 解耦:本块原先住在下面 `HUSKY_SKIP_TYPECHECK` 的 else 分支里 ⇒ export 该变量
+# 即可整段跳过,把"任意 tag 直通放行"的释放面重新打开。现将判据整体上移到 env 判断**之前**:
+# 无论有没有 HUSKY_SKIP_TYPECHECK,tag 判据都执行;纯 tag 推送在此 exit(0 放行 / 1 拦下),
+# 根本走不到 typecheck 分支;非纯 tag 推送(分支、混合、PUSH_REFS 为空)不进入本块,
+# 继续按原顺序落到下面 typecheck 门 ⇒ 分支/混合推送行为一字未变。
+# >>> tag-ancestor-gate (begin; scripts/tests/pre-push-tag-ancestor-gate.test.mjs 逐字抽取)
+_ref_n="$(printf '%s\n' "$PUSH_REFS" | awk 'NF>=3' | wc -l | tr -d '[:space:]')"
+# 判据必须同时认两种形制:①新建/推进 tag ⇒ local_ref 也在 refs/tags/ 下;②**删除 tag** ⇒ git 传的是
+# `(nil) <全0> refs/tags/<名> <旧sha>`,tag 名只住在**远端侧 $3**。原写法只看 $1 ⇒ 删除类推送一条都
+# 不计入,豁免结构上够不着:实测 2026-10-30 纯删 8093 枚冗余 tag,每批仍照跑全量门,3~4 分钟/批、
+# 外推 5 小时。删除 tag 与被拦的"新建 tag"是同一件事的两个方向(都不推任何分支、不携带新对象),
+# 没有理由只豁免一个。混合推送(同时有 refs/heads/ 那行)照跑全部门 —— $3 落在 heads/ 即不计数。
+_tag_n="$(printf '%s\n' "$PUSH_REFS" | awk 'NF>=3 && $3 ~ /^refs\/tags\// && ($1 ~ /^refs\/tags\// || $1 == "(nil)")' | wc -l | tr -d '[:space:]')"
+if [ "$_ref_n" -gt 0 ] && [ "$_ref_n" -eq "$_tag_n" ]; then
+  # ─── tag 推送祖先判据(2026-11-04 立,关掉「任意 tag 直通放行」的释放面)──────────
+  # 病灶(只读审计实测):原分支对纯 tag 推送无条件 exit 0,而 release-desktop.yml / release-cli.yml
+  #   由 desktop-v* / cli-v* tag 触发,构建/签名/发布/更新 latest.json 全在 CI 发生 ⇒
+  #   `git tag desktop-v9.9.9 <某笔 --no-verify 提交> && git push origin refs/tags/desktop-v9.9.9`
+  #   可带着未过任何本地门的提交走完整条发版链(tag 指向非祖先提交时,推送本身还会把那批对象送上远端)。
+  # 新判据(逐条 ref 判定,任一条拦下即 exit 1;不再有"无条件放行"):
+  #   ① 解引用:`git rev-parse --verify "refs/tags/<名>^{commit}"` —— annotated tag 在 ref 行里的
+  #      sha 是 tag 对象自身,不解引用直接比祖先关系会恒判否,故必须先取 commit 侧(lightweight
+  #      tag 的 `^{commit}` 解引用为其自身);解不出 commit ⇒ 拦(指向非提交对象不构成发版来源)。
+  #   ② 祖先判据:`git merge-base --is-ancestor <commit> origin/main`(退出 0 = 在该链上,
+  #      含相等;非 0 一律按拦下处理,fail-closed);origin/main 解析不到 ⇒ 判据不可证成 ⇒ 拦。
+  #   ③ 发布 tag(desktop-v* / cli-v*):除 ① ② 外追加工作树必须干净 —— `git status --porcelain`
+  #      非空即拦,避免用 tag 把未提交草稿一起推走。
+  # 唯一豁免 = §22 备份命名空间 `lost-commit/*`、`backup/*`、`backup-*`:实测本机 22137 枚
+  #   lost-commit + 200 枚 backup,sample(40/20 枚)里各有 23/11 枚**不是** origin/main 的祖先
+  #   —— 它们按定义就是"丢了但被备份"的提交,严格祖先判据会把唯一不能破的既有流程拦死;
+  #   该命名空间不匹配任何 release 工作流的 tag 触发式,不含发版面。
+  # 删除 tag(local sha 全 0)不推送任何对象 ⇒ 直接放行(零释放面,与既有删除豁免同向)。
+  _tg_bad=0
+  _tg_checked=0
+  _tg_main="$(git rev-parse --verify --quiet origin/main 2>/dev/null)"
+  if [ -z "$_tg_main" ]; then
+    printf '%s\n' "⚠️ tag 推送祖先判据:origin/main 解析不到 ⇒ 非备份 tag 一律拦(fail-closed)" >&2
+  fi
+  while IFS=' ' read -r _tg_lref _tg_lsha _tg_rref _tg_rsha; do
+    [ -z "$_tg_rref" ] && continue
+    case "$_tg_rref" in refs/tags/*) : ;; *) continue ;; esac
+    # tag 名:新建/推进 tag 看 local 侧;删除 tag(local 侧 `(nil)`)看远端侧
+    case "$_tg_lref" in
+      refs/tags/*) _tg_name="${_tg_lref#refs/tags/}" ;;
+      *) _tg_name="${_tg_rref#refs/tags/}" ;;
+    esac
+    # 删除 tag:local sha 全 0 ⇒ 本次推送不携带它的任何对象
+    case "$_tg_lsha" in
+      *[!0]*) : ;;
+      *) continue ;;
+    esac
+    _tg_checked=$((_tg_checked + 1))
+    case "$_tg_name" in
+      desktop-v*|cli-v*) _tg_is_release=1 ;;
+      *) _tg_is_release=0 ;;
+    esac
+    case "$_tg_name" in
+      lost-commit/*|backup/*|backup-*) _tg_is_backup=1 ;;
+      *) _tg_is_backup=0 ;;
+    esac
+    _tg_commit="$(git rev-parse --verify --quiet "refs/tags/${_tg_name}^{commit}" 2>/dev/null)"
+    if [ -z "$_tg_commit" ]; then
+      printf '%s\n' "❌ tag ${_tg_name} 解引用不到 commit 对象 ⇒ 拒绝推送" >&2
+      _tg_bad=1
+      continue
+    fi
+    # §22 备份命名空间:不判祖先(见上注),其余 tag 一律要过祖先判据
+    [ "$_tg_is_backup" -eq 1 ] && continue
+    if [ -n "$_tg_main" ] && git merge-base --is-ancestor "$_tg_commit" origin/main 2>/dev/null; then
+      :
+    else
+      printf '%s\n' "❌ tag ${_tg_name} 指向的提交 ${_tg_commit} 不在 origin/main 的祖先链上 ⇒ 拒绝推送" >&2
+      printf '%s\n' "   规则:tag 只允许指向 origin/main 或其祖先的提交(§22 备份 tag lost-commit/*、backup/* 除外),防止用 tag 把未进 main 的提交(含 --no-verify 提交)推上远端。" >&2
+      _tg_bad=1
+      continue
+    fi
+    if [ "$_tg_is_release" -eq 1 ]; then
+      if [ -n "$(git status --porcelain 2>/dev/null)" ]; then
+        printf '%s\n' "❌ 发布 tag ${_tg_name} 推送时工作树不干净(git status --porcelain 非空)⇒ 拒绝推送" >&2
+        printf '%s\n' "   规则:发布 tag 必须打在与 origin/main 相同或为其祖先的提交上,且工作树干净(避免把未提交草稿随 tag 送走)。" >&2
+        _tg_bad=1
+      fi
+    fi
+  done <<EOF
+$PUSH_REFS
+EOF
+  if [ "$_tg_bad" -ne 0 ]; then
+    printf '%s\n' "❌ tag 推送校验未通过,推送已阻止(共检查 ${_tg_checked} 个新建/推进 tag)" >&2
+    exit 1
+  fi
+  printf '%s\n' "ℹ️ 本次只推 tag(${_tag_n} 个引用,无分支推进;祖先/备份判据逐条通过)⇒ 不跑代码质量门(§22 tag 备份通道)" >&2
+  exit 0
+fi
+# <<< tag-ancestor-gate (end)
+
 # ─── 全量 typecheck 强制门 ────────────────────────────────────────────
 # 背景:第 11-12 轮发现 subagent 报告"全绿"靠 .tsbuildinfo 缓存假象
 #      pre-push 强制清缓存 + 串行全量 typecheck 修复该问题
@@ -90,6 +196,63 @@ else
       done | grep -v '^$' | sort -u
     )"
   fi
+  # ─── 无文件面判据(2026-11-04 立,纯 ref 删除被两道门误拦的根因)────────────
+  # 现场(2026-11-04 实测):`git push origin --delete <branch>` 只删远端引用、零 blob 变更,
+  #   上一步算出的 PUSH_SCOPE_FILES 必然为空。下游两道门都把"空"读成"取不到面":
+  #     · 47p 水印门退回 HEAD 全量面(日志原文「未取到 PUSH_SCOPE_FILES ⇒ 退回 HEAD 全量面」),
+  #       于是别人的存量水印欠账被算到这次"删除"头上;
+  #     · T1 typecheck 退回暂存区/head-diff 兜底 ⇒ 跑全量 tsc,撞上他人暂存面与另一枚在飞
+  #       全量 typecheck 的串行锁(超时判红)——一次不携带任何文件的推送,两个红。
+  # 判据必须是**显式可证**的三值判定(不许静默 skip、不许把门设成 advisory、不许 if: false):
+  #   ① 空 scope 有两种来路:「真的零文件」与「派生失败」,必须逐条 ref 复核把二者分开;
+  #   ② 删除引用(local sha 全 0)不携带 blob,直接证成零文件;
+  #   ③ 非删除引用用只读 `git diff --quiet <旧树> <新树>` 复核:退出 0 = 树相同 = 零文件变更,
+  #      1 = 有差异(此时 PUSH_SCOPE_FILES 本来就非空,够不着本档),>1 = 派生失败;
+  #      新分支(remote sha 全 0)取 `git merge-base origin/main <lsha>` 作旧树,取不到 ⇒ 派生失败;
+  #   ④ 只有每条 ref 都被证成零文件才导出 PUSH_NO_FILE_FACE=1 与依据;
+  #      任一派生失败 ⇒ 维持原有「回退全量面 + 告警」路径,**绝不伪造"无文件"**。
+  PUSH_NO_FILE_FACE=0
+  PUSH_NO_FILE_FACE_BASIS=""
+  if [ -n "$PUSH_REFS" ] && [ -z "$PUSH_SCOPE_FILES" ]; then
+    _nf_ref_n="$(printf '%s\n' "$PUSH_REFS" | awk 'NF>=3' | wc -l | tr -d '[:space:]')"
+    _nf_del_n="$(printf '%s\n' "$PUSH_REFS" | awk 'NF>=3 && $2 ~ /^0+$/ {c++} END{print c+0}')"
+    _nf_zero_face=1
+    while IFS=' ' read -r _nf_lref _nf_lsha _nf_rref _nf_rsha; do
+      [ -z "$_nf_lsha" ] && continue
+      # 删除引用:local sha 全 0 ⇒ 本次推送不携带它的任何 blob
+      case "$_nf_lsha" in
+        *[!0]*) : ;;
+        *) continue ;;
+      esac
+      case "$_nf_rsha" in
+        *[!0]*)
+          git diff --quiet "$_nf_rsha" "$_nf_lsha" 2>/dev/null || _nf_zero_face=0
+          ;;
+        *)
+          _nf_base="$(git merge-base origin/main "$_nf_lsha" 2>/dev/null)" || _nf_zero_face=0
+          if [ -n "$_nf_base" ]; then
+            git diff --quiet "$_nf_base" "$_nf_lsha" 2>/dev/null || _nf_zero_face=0
+          else
+            _nf_zero_face=0
+          fi
+          ;;
+      esac
+    done <<EOF
+$PUSH_REFS
+EOF
+    if [ "$_nf_zero_face" -eq 1 ] && [ "$_nf_ref_n" -gt 0 ]; then
+      PUSH_NO_FILE_FACE=1
+      if [ "$_nf_del_n" -eq "$_nf_ref_n" ]; then
+        PUSH_NO_FILE_FACE_BASIS="push refs=${_nf_ref_n} 条全部为删除引用(local sha 全 0),不携带任何 blob ⇒ git 面零文件变更"
+      else
+        PUSH_NO_FILE_FACE_BASIS="push refs=${_nf_ref_n} 条(删除 ${_nf_del_n} 条);其余 $((_nf_ref_n - _nf_del_n)) 条经 git diff --quiet 复核树相同 ⇒ 零文件变更"
+      fi
+      printf '%s\n' "ℹ️  无文件面判定:${PUSH_NO_FILE_FACE_BASIS}" >&2
+    else
+      printf '%s\n' "⚠️  push scope 为空且逐条复核未证成零文件(派生失败)⇒ 维持「回退全量面 + 告警」,不伪造无文件面" >&2
+    fi
+  fi
+  export PUSH_NO_FILE_FACE PUSH_NO_FILE_FACE_BASIS
   # 安全阀:改动文件过多时清空 → 退回暂存区兜底。
   # 原因:env 有长度上限,截断会让「实际在推送范围内的报错文件」漏出列表,导致本该
   #       阻塞的错误被误判为他人噪音而放行 —— 宁可不降级,不可放过真实错误。
@@ -101,28 +264,6 @@ else
     fi
   fi
   export PUSH_SCOPE_FILES
-
-  # ─── tag-only 推送不跑代码质量门(2026-09-24 立,lost-commit 备份被拦死多天)─────
-  # 判据:git 传入的每一行,其**存在的那一侧**都在 refs/tags/ 下(新建/推进 tag 看 local_ref,删除 tag
-  # 时 local 侧是 `(nil)`,看 remote 侧)⇒ 本次推送**不新增也不推进任何分支**,
-  #       被推的代码内容一个字节都没变(全在远端已有的 HEAD 及祖先里),推的只是 §22 要求的
-  #       "丢失 commit 备份引用"。而本门跑的是**工作区**全量 tsc —— 别人一条未提交的半编辑
-  #       就能把它钉红:实测 2026-09-24 另一会话把 packages/ui-react/src/components/Upload.tsx
-  #       的 `export interface UploadLabels` 删掉未提交 ⇒ src/index.ts 报 TS2614 ⇒ 第 13 块
-  #       tag 推送被拦,206 枚 lost-commit tag 因此没有远端备份(正是 §22 立备份要防的状态)。
-  # 只在**纯 tag 推送**上豁免:混合推送(同时推分支)照跑全部门;PUSH_REFS 为空(无 ref 可推、
-  # 或 git 未传清单)按原行为跑门 —— 宁多跑一次,绝不把"拿不到清单"当成"只推了 tag"。
-  _ref_n="$(printf '%s\n' "$PUSH_REFS" | awk 'NF>=3' | wc -l | tr -d '[:space:]')"
-  # 判据必须同时认两种形制:①新建/推进 tag ⇒ local_ref 也在 refs/tags/ 下;②**删除 tag** ⇒ git 传的是
-  # `(nil) <全0> refs/tags/<名> <旧sha>`,tag 名只住在**远端侧 $3**。原写法只看 $1 ⇒ 删除类推送一条都
-  # 不计入,豁免结构上够不着:实测 2026-10-30 纯删 8093 枚冗余 tag,每批仍照跑全量门,3~4 分钟/批、
-  # 外推 5 小时。删除 tag 与被拦的"新建 tag"是同一件事的两个方向(都不推任何分支、不携带新对象),
-  # 没有理由只豁免一个。混合推送(同时有 refs/heads/ 那行)照跑全部门 —— $3 落在 heads/ 即不计数。
-  _tag_n="$(printf '%s\n' "$PUSH_REFS" | awk 'NF>=3 && $3 ~ /^refs\/tags\// && ($1 ~ /^refs\/tags\// || $1 == "(nil)")' | wc -l | tr -d '[:space:]')"
-  if [ "$_ref_n" -gt 0 ] && [ "$_ref_n" -eq "$_tag_n" ]; then
-    printf '%s\n' "ℹ️ 本次只推 tag(${_tag_n} 个引用,无分支推进)⇒ 不跑代码质量门(§22 tag 备份通道)" >&2
-    exit 0
-  fi
 
   # ─── 弹窗根治(2026-09-22,详见 scripts/hook-run-hidden.vbs 头注释) ────
   # 原 3 处裸 node 在无 console 上下文(GUI git 面板/WMI 链/IDE 隐藏 shell)触发

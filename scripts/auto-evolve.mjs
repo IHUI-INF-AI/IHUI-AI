@@ -45,15 +45,23 @@ export { ticketKeyOf }
 // 本层零复算判据(§0.6),只做接线。
 import { preflightSessionRunner, resolveSessionCommand, classifySessionFailure, isNonTicketFailure } from './lib/autonomy-runner.mjs'
 export { preflightSessionRunner, resolveSessionCommand, classifySessionFailure, isNonTicketFailure }
+import { gateTicketByHumanValve, VALVE_MODES } from './lib/autonomy-runner.mjs'
+export { gateTicketByHumanValve }
 // 会话后落账腿的判据单源(2026-11-01 立):清单解析/路径安全/真有改动三问都住 lib,本器只做 IO 与编排。
 import { parseArtifactManifest, sanitizeArtifactPaths, selectDirtyPaths, manifestPathOf } from './lib/ticket-artifacts.mjs'
 export { parseArtifactManifest, sanitizeArtifactPaths, selectDirtyPaths, manifestPathOf }
 // 第 4 格·会话全文落盘腿:命名 / 脱敏 / 截断 / 轮转判据全在 lib(单一真相源,§0.6),本处只负责"读盘调用"。
 import { buildTranscript, capTranscript, transcriptRelPathOf, isTranscriptName, decideRetention } from './lib/session-transcript.mjs'
+import { attemptsSinceProgress, decideNonProgress, breakdownNonProgress, lastNonProgressHoldAt } from './lib/autonomy-nonprogress.mjs'
+// 判据面(受保护面)的匹配判据单源在护栏纯函数层;本器只调用,不重抄任何匹配规则(§0.6)。
+import { parseGuardList, matchProtected } from './lib/immutable-guard.mjs'
 
 export const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 /** 调度器接线的锚点(guardian 派发层 import 同一组路径,不另拼第二份 —— §0.6 单一真相源) */
 export const GATES_JSON = join(ROOT, 'scripts', 'data', 'auto-evolve-gates.json')
+/** 人工阀分类语料(判据实现住在 lib/human-valve.mjs,这里只取它的语料文件)。
+ *  必须排在 ROOT 之后:const 声明有 TDZ,放在上面会让本器一被 import 就 ReferenceError。 */
+export const VALVE_LIST_JSON = join(ROOT, 'scripts', 'data', 'human-valve-list.json')
 /** O6504 人工阀清单 / O6502 成本熔断(调度层读同一份真源,不另写第二份判据) */
 const HUMAN_GATES_JSON = join(ROOT, 'scripts', 'data', 'human-gates.json')
 const COST_CAPS_JSON = join(ROOT, 'scripts', 'data', 'cost-caps.json')
@@ -78,6 +86,12 @@ const API_ENV = join(ROOT, 'apps', 'api', '.env')
 export const ARTIFACT_MANIFEST_DIR = join(ROOT, '.ihui-agent', 'state', 'ticket-artifacts')
 /** 代提交唯一出口:safe-commit 五步法(本器不自己拼 git add/commit —— 那会把共享索引里别人的改动打包) */
 const SAFE_COMMIT = join(ROOT, 'scripts', 'safe-commit.mjs')
+/**
+ * 判据面(受保护面)清单的相对路径 —— 只是**指针**,匹配规则一律走 lib/immutable-guard.mjs。
+ * 这里写成字面正斜杠而不是 join('scripts','data',…):Windows 下 join 出反斜杠,而护栏与 git 认的都是
+ * 正斜杠相对路径,拿反斜杠去比会把每一枚判据面都读成"不在清单上"(同一格 A10 曾踩过的形态)。
+ */
+const GUARD_LIST_REL = 'scripts/data/immutable-guard.json'
 /** ihui-cli 登录态(settings.json 的 apiKey 字段;login 同源存放处,同信任级) */
 const CLI_SETTINGS = join(process.env.USERPROFILE ?? '', '.ihui', 'settings.json')
 /** JWT secret 探测序(机器事实按当次实测取值:运行面部署副本优先,回落仓内副本) */
@@ -123,6 +137,24 @@ export function loadGates(readFile = (p) => readFileSync(p, 'utf8')) {
   }
   if (typeof g.sessionCommandTemplate !== 'string') {
     throw new GateShapeError('闸门形状坏:sessionCommandTemplate 必须是字符串(空串 = dry-run 档)')
+  }
+  // 人工阀档:缺字段 = observe(记账不拦)。缺省绝不等于放开 —— 但也绝不因为"没登记"就
+  // 一刀切停派,那是把刚修活的发起腿再锁死。enforce 的前置条件由尺子 A6 维量(见 check-autonomy-leg-health)。
+  if (g.humanValveMode !== undefined && !VALVE_MODES.includes(g.humanValveMode)) {
+    throw new GateShapeError(`闸门形状坏:humanValveMode 只能是 ${VALVE_MODES.join('|')} 之一(现值 ${JSON.stringify(g.humanValveMode)})`)
+  }
+  if (g.humanValveMode === undefined) g.humanValveMode = 'observe'
+  // 空转记忆档(2026-11-04 立):缺字段 = 用保守缺省,绝不因"没登记"就退回"无限重试同一枚"。
+  // 递增不变量交给判据器 decideNonProgress 复核(单源,本处不重抄判据),这里只补值。
+  if (g.rotateAfterAttempts === undefined) g.rotateAfterAttempts = 4
+  if (g.parkAfterAttempts === undefined) g.parkAfterAttempts = 8
+  if (g.parkHardLimit === undefined) g.parkHardLimit = 24
+  if (g.parkCooldownHours === undefined) g.parkCooldownHours = 24
+  for (const k of ['rotateAfterAttempts', 'parkAfterAttempts', 'parkHardLimit']) {
+    if (!Number.isInteger(g[k]) || g[k] <= 0) throw new GateShapeError(`闸门形状坏:${k} 必须是正整数(现值 ${String(g[k])})`)
+  }
+  if (!Number.isInteger(g.parkCooldownHours) || g.parkCooldownHours <= 0) {
+    throw new GateShapeError(`闸门形状坏:parkCooldownHours 必须是正整数(现值 ${String(g.parkCooldownHours)})`)
   }
   return g
 }
@@ -662,6 +694,39 @@ export function excerptBothEnds(stderr, stdout, max = 150) {
   return parts.length ? parts.join(' | ') : '(两流皆空)'
 }
 
+/**
+ * 阀结论 → 派发路由(2026-11-03 改档,用户授权)。
+ *
+ * 改什么:observe 档命中停机类(`observe-stop`)原先只记台账就**照派**,台账里 20 条
+ * 阀判"停机等人"的票仍然被派出去白烧会话额度。现在 observe-stop = 单票停机不派,
+ * 台账动作名仍保留 `valve-observe-stop`(既有统计不失效)+ 新字段 `dispatched:false`。
+ *
+ * 不改什么:阀判据本体(lib/human-valve.mjs / lib/autonomy-runner.mjs)、档位取值、
+ * enforce 的 block 单票跳 / unjudged 整轮停、allow 照派、unjudged+observe 照派。
+ *
+ * 返回 { route, ledger },route 四档:
+ *   `block`            单票不派(enforce 命中停机类)
+ *   `stop-round`       整轮停(enforce 档 unjudged,fail-closed)
+ *   `skip-observe-stop` 单票不派(observe 命中停机类;本条即本次语义变更)
+ *   `dispatch`         照派(allow,以及 unjudged 在非 enforce 档的既有行为)
+ */
+export function decideValveDispatch(valve, mode, { ticketKey = '', ticketLine = '' } = {}) {
+  const ledger = {
+    action: `valve-${valve?.action}`,
+    ticketKey,
+    ticketLine,
+    ruleId: valve?.ruleId,
+    why: valve?.reason,
+  }
+  if (valve?.action === 'observe-stop') {
+    // 只在这一档加"未派"标记:修订不动 block / unjudged / allow 行既有的字段形状。
+    return { route: 'skip-observe-stop', ledger: { ...ledger, dispatched: false } }
+  }
+  if (valve?.action === 'block') return { route: 'block', ledger }
+  if (valve?.action === 'unjudged' && mode === 'enforce') return { route: 'stop-round', ledger }
+  return { route: 'dispatch', ledger }
+}
+
 function dispatchSession(gates, ticket, dryRun) {
   const key = ticketKeyOf(ticket.text)
   if (!gates.sessionCommandTemplate.trim()) {
@@ -686,6 +751,9 @@ function dispatchSession(gates, ticket, dryRun) {
     `- 台账行:L${ticket.line}(PROJECT_PLAN.md,行号会漂移,以题面定位)`,
     ``,
     `按 AGENTS.md 全部强制条款执行本票;只改本任务文件。`,
+    `**判据面(受保护面)不许动**:清单 = \`scripts/data/immutable-guard.json\` 的 \`path\` 字段(现读,勿凭记忆),`,
+    `命中即落账腿整批拒收(自治会话没有豁免签名权,补理由放行=替自己发豁免)。本票若非动那些面不可,`,
+    `**不要动**:保持票未勾,走 live-doc-edit 在票行追加进展注记,写明「本票需先动判据面 <路径> <为什么必须动>」后正常退出(这是合法完成)。`,
     `提交不在你的权限内:自动会话对 dangerous 档一律不放宽(permissions.ts),git_commit 与`,
     `run_command 都过不去 —— 不要试,也不要绕。改完把产物写进下面的清单,由调度器会话后代提交。`,
     `验证齐绿(typecheck/test/守门末行现读)后才可声明完成;完成即翻勾。`,
@@ -811,7 +879,57 @@ export function buildArtifactCommitMessage({ ticketKey, ticketText }) {
  *
  * IO 全部注入:自检要在不碰真 git / 真索引的前提下反向验证每一档。
  */
-export function landTicketArtifacts({ ticketKey, ticketText, manifestText, statusFn, commitFn, dryRun = false }) {
+/**
+ * 把一批待落账文件按「是否落在判据面(受保护面)上」分成两堆,并对清单本身的可读性负责。
+ *
+ * 三态绝不并桶(§0.3):
+ *  - clean        一枚都不在判据面上 ⇒ 允许代提交;
+ *  - blocked      至少一枚命中 ⇒ 整批不落,逐条点名(不做部分提交,与路径安全那一档同判序);
+ *  - undetermined 清单读不到 / JSON 坏 / entries 空 ⇒ **同样整批不落**。"拿不到尺子"不能读成"没有尺子拦我"。
+ * 到期条目(reviewBy 已过)仍算判据面:护栏对到期是"把动它的那枚提交判红",不是"把该面解禁"。
+ *
+ * @param {string[]} files 相对仓根路径
+ * @param {string|null} guardListText 清单原文(null ⇒ undetermined)
+ */
+export function partitionProtectedFaces(files, guardListText) {
+  let parsed
+  try {
+    parsed = parseGuardList(guardListText)
+  } catch (e) {
+    return { state: 'undetermined', landable: [], protectedHits: [], problems: [{ code: 'parse-throw', message: String(e?.message ?? e) }] }
+  }
+  const problems = parsed.problems ?? []
+  if (problems.length > 0 || !Array.isArray(parsed.entries) || parsed.entries.length === 0) {
+    return { state: 'undetermined', landable: [], protectedHits: [], problems }
+  }
+  const landable = []
+  const protectedHits = []
+  for (const f of files) {
+    const hit = matchProtected(f, parsed.entries)
+    if (hit) protectedHits.push({ file: f, path: hit.path, kind: hit.kind ?? '' })
+    else landable.push(f)
+  }
+  return { state: protectedHits.length > 0 ? 'blocked' : 'clean', landable, protectedHits, problems: [] }
+}
+
+/** 真出口:清单按当次仓根现读(§0 盘符是现读机器事实)。读失败 ⇒ null ⇒ 上层判未判定。 */
+function readGuardListText() {
+  try {
+    return readFileSync(join(ROOT, GUARD_LIST_REL), 'utf8')
+  } catch {
+    return null
+  }
+}
+
+export function landTicketArtifacts({
+  ticketKey,
+  ticketText,
+  manifestText,
+  statusFn,
+  commitFn,
+  dryRun = false,
+  protectedFaceOf = (files) => partitionProtectedFaces(files, readGuardListText()),
+}) {
   const parsed = parseArtifactManifest(manifestText, ticketKey)
   if (parsed.state !== 'ok') {
     return { action: `artifact-manifest-${parsed.state}`, files: [], dropped: [], why: parsed.why }
@@ -836,12 +954,29 @@ export function landTicketArtifacts({ ticketKey, ticketText, manifestText, statu
       why: `清单里的文件在本工作区都没有改动,不提交:${stale.map((s) => `${s.path}(${s.why})`).join('; ')}`,
     }
   }
-  if (dryRun) {
+  // 判据面闸排在 dry-run **之前**:预演档报的必须就是真跑会走的那一支 —— 否则 dry-run 说"会提交"
+  // 而真跑拒落,读数自相矛盾(§0.9 判据要在真跑它的那一刻成立,预演也不许演一支假的)。
+  const faces = protectedFaceOf(dirty)
+  if (dryRun && faces.state === 'clean') {
     return {
       action: 'artifact-preview',
       files: dirty,
       dropped,
       why: `dry-run 不提交;真跑会调 safe-commit 提交 ${dirty.length} 枚(票键 ${ticketKey}${dropped.length ? `,剔除 ${dropped.length} 枚无改动` : ''})`,
+    }
+  }
+  if (faces.state !== 'clean') {
+    // 方向恒定:自治会话手里没有豁免签名权(清单现读 signatureRequiredFrom),替它自己补一行
+    // immutable-exempt 理由 = 自己给自己发豁免 ⇒ 唯一合法出路是拦下来点名交人工,绝不是放行。
+    return {
+      action: 'artifact-protected-face',
+      files: dirty,
+      dropped,
+      protectedHits: faces.protectedHits,
+      why:
+        faces.state === 'undetermined'
+          ? `判据面清单取不到或形状坏(${(faces.problems ?? []).map((p) => p.code).join(',') || 'empty'})⇒ 无法证明本批不碰判据面,整批不落(§0.3)`
+          : `本批 ${faces.protectedHits.length} 枚落在判据面上,自治环没有豁免签名权 ⇒ 整批不落,逐条交人工:${faces.protectedHits.map((h) => `${h.file}〔${h.path}〕`).join('; ')}`,
     }
   }
   const env = {
@@ -1019,14 +1154,75 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
         }
       }
     }
+    // ---- 空转记忆闸(2026-11-04 立;判据单源 scripts/lib/autonomy-nonprogress.mjs,本层零复算 §0.6)----
+    // 立因:票 B53 三天吃掉 209 轮台账里的 127 行,session-failed 与 runner-unavailable 交替
+    // ⇒ failureStreakOf 的"遇其他 action 即断"每轮把连败清零 ⇒ 封票阈值 3 结构上永远够不着
+    // ⇒ 候选序又是固定的 ⇒ 每小时同一枚顶格票重新顶到队首,其余可排期候选零班次。
+    // 封票那条轴保留(它管"这张票坏不坏");本轴管"这枚票已经吞了多少班次",两条不互相替换。
+    const npHeld = []
+    const npLive = []
+    for (const ticket of rows) {
+      const npKey = ticketKeyOf(ticket.text)
+      const attempts = attemptsSinceProgress(ledger, npKey)
+      const np = decideNonProgress({
+        attempts,
+        rotateAt: gates.rotateAfterAttempts,
+        parkAt: gates.parkAfterAttempts,
+        hardAt: gates.parkHardLimit,
+        cooldownHours: gates.parkCooldownHours,
+        lastStoodAt: lastNonProgressHoldAt(ledger, npKey),
+      })
+      if (np.route === 'unjudged') {
+        record({ mode: dryRun ? 'dryrun' : 'dispatch', action: 'nonprogress-unjudged', ticketKey: npKey, why: np.why })
+        console.error(`❓ 空转记忆未判定(${np.why})⇒ 本轮把这枚挪到队尾,不冒充已判(§0.3)`)
+      }
+      if (np.route === 'cooldown' || np.route === 'park') npHeld.push({ ticket, key: npKey, np })
+      else npLive.push({ ticket, key: npKey, np })
+    }
+    // 让位 = 空转少的先派(稳定排序,同次数保持决策序);被扣住的整枚出本轮候选面。
+    npLive.sort((a, b) => a.np.attempts - b.np.attempts)
+    rows = npLive.map((x) => x.ticket)
+    for (const { ticket, key, np } of npHeld) {
+      const detail = breakdownNonProgress(ledger, key)
+        .map((d) => `${d.action}×${d.count}`)
+        .join(' ')
+      const lastHold = [...ledger].reverse().find((e) => e.ticketKey === key && (e.action === 'non-progress-hold' || e.action === 'non-progress-parked'))
+      const isNewEpisode = !lastHold || lastHold.attempts !== np.attempts || lastHold.route !== np.route
+      if (isNewEpisode) {
+        record({
+          mode: 'dispatch',
+          action: np.route === 'park' ? 'non-progress-parked' : 'non-progress-hold',
+          route: np.route,
+          ticketKey: key,
+          ticketLine: ticket.text.slice(0, 200),
+          attempts: np.attempts,
+          detail,
+          why: np.why,
+        })
+        console.log(`⛔ L${ticket.line} ${np.why} ｜ 空转明细:${detail || '(读不到)'}`)
+        if (!escapeThrottled()) {
+          markEscape()
+          sendEscapeMail(
+            gates,
+            `auto-evolve:nonprogress-${np.route}:${key.slice(0, 8)}`,
+            `[auto-evolve] 一枚票连续空转已${np.route === 'park' ? '终局停派' : '进冷却'}`,
+            `票:L${ticket.line} ${ticket.text.slice(0, 140)}\n${np.why}\n空转明细(按 action,不含成功):${detail || '(读不到)'}\n` +
+              `这不是"再试一轮"能救的:同一枚票已累计 ${np.attempts} 次占班次零推进。出路二选一 ——\n` +
+              `  ① 修发起/落账腿(近因见 ${LEDGER} 里该键最后一条 runner-*/session-*/artifact-* 的 why);\n` +
+              `  ② 这票本就该人做 ⇒ 把它摘出自动派单面(改标题使白名单不命中,或按「完成即删」结清摘行)。\n` +
+              `判据单源 = scripts/lib/autonomy-nonprogress.mjs;档位 = auto-evolve-gates.json 的 rotateAfterAttempts/parkAfterAttempts/parkHardLimit/parkCooldownHours。`,
+          )
+        }
+      }
+    }
     let dispatched = 0
     for (const e of ledger) {
       if (e.action === 'dispatched' && String(e.ts ?? '').startsWith(todayKey())) dispatched++
     }
-    const summary = `派单面现读 ${allRows.length} 行 / 判期 ${decisionReadout} / 本轮候选 ${rows.length} 行 / 今日已派 ${dispatched}/${gates.dailyDispatchBudget} 轮`
+    const summary = `派单面现读 ${allRows.length} 行 / 判期 ${decisionReadout} / 本轮候选 ${rows.length} 行(空转扣住 ${npHeld.length} 行)/ 今日已派 ${dispatched}/${gates.dailyDispatchBudget} 轮`
     if (rows.length === 0) {
-      record({ mode: dryRun ? 'dryrun' : 'dispatch', action: 'no-ticket', note: summary })
-      console.log(`✅ ${summary} ⇒ 无票可派,本轮结束`)
+      record({ mode: dryRun ? 'dryrun' : 'dispatch', action: npHeld.length ? 'all-held-nonprogress' : 'no-ticket', note: summary })
+      console.log(`✅ ${summary} ⇒ ${npHeld.length ? `候选全被空转记忆扣住(非"无票"),本轮结束` : '无票可派,本轮结束'}`)
       return
     }
     if (dispatched >= gates.dailyDispatchBudget) {
@@ -1047,6 +1243,38 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
       }
       if (!matchWhitelist(ticket.text, gates.ticketWhitelist)) {
         console.log(`⏭ L${ticket.line} 未命中票类白名单 ⇒ 跳过(第一期保守起步)`)
+        continue
+      }
+      // 人工阀前置闸(2026-11-01 接线)。白名单回答的是"这类票允许自动派吗",
+      // 阀清单回答的是"这张票要做的动作需不需要人"。此前第二问结构上不存在 ——
+      // classifyAction 在派发路径上零调用,7 条"停机等人"全靠被派起的会话自觉。
+      let valveText = ''
+      try {
+        valveText = readFileSync(VALVE_LIST_JSON, 'utf8')
+      } catch {
+        valveText = ''
+      }
+      const valve = gateTicketByHumanValve({ ticketText: ticket.text, mode: gates.humanValveMode, valveListText: valveText })
+      const valveRoute = decideValveDispatch(valve, gates.humanValveMode, { ticketKey: key, ticketLine: ticket.text.slice(0, 160) })
+      record({ mode: dryRun ? 'dryrun' : 'dispatch', ...valveRoute.ledger })
+      if (valveRoute.route === 'block') {
+        console.log(`⛔ L${ticket.line} 命中人工阀「${valve.ruleId}」⇒ enforce 档不派(不重试、不绕行)`)
+        if (!escapeThrottled()) {
+          markEscape()
+          sendEscapeMail(gates, `auto-evolve:valve:${valve.ruleId}`, '[auto-evolve] 有票命中人工阀,已停派等人', `票:L${ticket.line} ${ticket.text.slice(0, 140)}\n命中规则:${valve.ruleId}\n判据:${valve.reason}\n出路:这一条按清单归机主面(scripts/data/human-valve-list.json),由人执行;或由人把它摘出自动派单面。`)
+        }
+        continue
+      }
+      if (valveRoute.route === 'stop-round') {
+        record({ mode: 'dispatch', action: 'valve-unjudged-block', ticketKey: key, why: valve.reason })
+        console.error(`❌ 未判定:${valve.reason} ⇒ enforce 档 fail-closed,本轮停派`)
+        process.exitCode = 2
+        return
+      }
+      if (valveRoute.route === 'skip-observe-stop') {
+        // 2026-11-03 改档(用户授权):这条原先是"只记账、仍照派",现在停机不派。
+        // 台账动作名保持 valve-observe-stop,并带 dispatched:false 区分"阀判停机但其实派出去了"的旧行。
+        console.log(`👁 L${ticket.line} valve-observe-stop(skip) 命中停机类「${valve.ruleId}」⇒ observe 档停机不派(不再照派白烧会话额度)`)
         continue
       }
       if (dispatched >= gates.dailyDispatchBudget) {
@@ -1720,12 +1948,14 @@ export const __test__ = {
   quarantinedUntilOf,
   isPidAlive,
   signSessionJwt,
+  decideValveDispatch,
   DISPATCH_ARGS,
   PLAN_TASKS,
   GATES_JSON,
   LEDGER,
   todayKey,
   landTicketArtifacts,
+  partitionProtectedFaces,
   buildArtifactCommitMessage,
   commitPrefixOf,
   ARTIFACT_MANIFEST_DIR,

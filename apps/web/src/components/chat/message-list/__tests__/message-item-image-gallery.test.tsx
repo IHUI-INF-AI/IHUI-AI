@@ -142,8 +142,9 @@ describe('D64② MessageItem 图片画廊接线', () => {
     expand('tc-3')
     // 画廊 = [a, b],当前图 c 不在其中 ⇒ 不挂 FilePreview,渲染裸 img
     expect(document.querySelector('[data-image-preview-total]')).toBeNull()
+    // 图片与视频同走媒体代理(CSP img-src 收窄后裸外链不再直出),这里钉的是代理后的 src。
     expect(document.querySelector('img[alt="prompt-tc-3"]')?.getAttribute('src')).toBe(
-      'https://cdn.test/c.png',
+      `/api/media/image?url=${encodeURIComponent('https://cdn.test/c.png')}`,
     )
     // 同一消息里展开画廊内的那张,仍然正常升级(守卫只影响不在画廊内的成员)
     cleanup()

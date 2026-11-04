@@ -41,9 +41,16 @@ function run(out, opts = {}) {
   return { res, logs }
 }
 
-/** 形状判据:本函数体内必须存在 `[script, '--apply', '--only-weight-locked']` 这一枚 argv 字面量。 */
-const hasWeightLockedArgv = (s) =>
-  /\[\s*script,\s*'--apply',\s*'--only-weight-locked'\s*\]/.test(s)
+/**
+ * 形状判据:本函数体内必须存在以 `[script, '--apply', '--only-weight-locked'` 开头的 argv 字面量。
+ * 数组后面还恒带 `--pin-inherit-weight` / `--limit 20`(见生产头注),故只锁前缀不锁右括号。
+ */
+const hasWeightLockedArgv = (s) => /\[\s*script,\s*'--apply',\s*'--only-weight-locked'/.test(s)
+
+/** 取出 spawn 的 argv 数组字面量本身,用来核「钉档旗」与「小批落盘旗」是否恒带。 */
+const spawnArgvOf = (s) => s.match(/\[\s*script,\s*'--apply'[^\]]*\]/)?.[0] ?? ''
+const hasPinInheritArgv = (s) => /'--pin-inherit-weight'/.test(spawnArgvOf(s))
+const hasBatchLimitArgv = (s) => /'--limit',\s*'20'/.test(spawnArgvOf(s))
 
 test('① 有改动 ⇒ ok,并把 files/changes/held/failed 现读出来', () => {
   const { res } = run('结论:LAND-WEB-TIERS state=applied files=3 changes=9 held=2 failed=0 groups[a]\n')
@@ -82,7 +89,7 @@ test('⑤ 孩子被信号掐死 ⇒ 未判定并点名信号', () => {
   assert.match(logs.join('\n'), /SIGTERM/)
 })
 
-test('⑥ argv 形状锁:必须恒带 --only-weight-locked,且不接受 env 调口子', () => {
+test('⑥ argv 形状锁:恒带 --only-weight-locked + --pin-inherit-weight + --limit 20,且不留 env 口子', () => {
   const iStart = GUARDIAN_SRC.indexOf('export function sweepWebStyleTiers')
   assert.ok(iStart > 0, '本腿函数体读不到')
   const iEnd = GUARDIAN_SRC.indexOf('\nexport function', iStart + 10)
@@ -95,9 +102,21 @@ test('⑥ argv 形状锁:必须恒带 --only-weight-locked,且不接受 env 调�
   )
   // 也不能把它降级成可调项(§0.10:失效方向必须是"多要一次说明",不能是"多放一次")。
   assert.ok(!/process\.env\.IHUI_WEB_STYLE_TIERS_ARGS/.test(body), '不得留 argv 环境变量口子')
+  // 2026-11-04 追加:光有锁档旗会永久空转(现读 523 处无一自带 font-*),必须同时恒带钉档旗。
+  assert.ok(spawnArgvOf(body), '函数体内读不到 spawn 的 argv 数组字面量')
+  assert.ok(
+    hasPinInheritArgv(body),
+    'spawn 少了 --pin-inherit-weight ⇒ 守护每轮 files=0 changes=0,等于没装这条腿',
+  )
+  assert.ok(
+    !hasPinInheritArgv(body.replace("'--pin-inherit-weight'", "''")),
+    '钉档形状锁没有牙:缺旗仍被判成通过',
+  )
+  assert.ok(hasBatchLimitArgv(body), '共享工作区必须小批落盘(--limit 20),不得一轮改写 86 个文件')
   // 阳性对照:器物与旗都在器物自己的用法行里(拼错旗名同样会静默失效)。
   const lander = readFileSync(resolve(ROOT, 'scripts/land-web-style-tiers.mjs'), 'utf8')
   assert.match(lander, /'--only-weight-locked'/, "落档器侧不认识这枚旗 ⇒ 传了也等于没传")
+  assert.match(lander, /'--pin-inherit-weight'/, "落档器侧不认识钉档旗 ⇒ 传了也等于没传")
 })
 
 test('⑦ 接线锁:三端落档腿按 web → RN → 小程序 → 汇总驾驶舱挂在健康轮上', () => {

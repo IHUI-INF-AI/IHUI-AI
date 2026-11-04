@@ -40,14 +40,14 @@ import { expect, test as base } from './fixtures'
  * 浏览器现在是在真实 CSP 下执行页面,断言面一字未减。
  */
 const test = base.extend<{ panelPage: Page }>({
-  panelPage: async ({ browser }: { browser: Browser }, use: (p: Page) => Promise<void>) => {
+  panelPage: async ({ browser }: { browser: Browser }, providePage: (p: Page) => Promise<void>) => {
     const context = await browser.newContext({
       viewport: { width: 1280, height: 720 },
       locale: 'zh-CN',
       extraHTTPHeaders: { 'CF-IPCountry': 'US' },
     })
     const page = await context.newPage()
-    await use(page)
+    await providePage(page)
     await context.close()
   },
 })
@@ -476,11 +476,15 @@ test.describe('签到页 · 自动做任务面板(全桩,零第三方出站)', (
       ),
     })
     const status = page.getByTestId(STATUS_TESTID)
+    // 2026-11-04 CI flaky 根因(workbuddy-task-panel:483):原实现先 innerText 取快照
+    // 再断言,CI 上快照落在「自动巡检：读取中…」过渡态,而 482 的断言随后才通过。
+    // 收口:先等两条正向文案都到齐(web-first 自动重试,窗口与 482 默认一致),
+    // 再取快照做否定断言;不改阈值、不加 retry、不加宽超时。
+    await expect(status).toContainText('调度器未启动')
+    await expect(status).toContainText('重启')
     const text = (await status.innerText()).replace(/\s+/g, '')
     // eslint-disable-next-line no-console
     console.log('[tier-not-registered] text=' + text)
-    await expect(status).toContainText('调度器未启动')
-    expect(text).toContain('重启')
     // 反假绿:既不能说在跑,也不能混进「状态未知」桶
     expect(text).not.toContain('已启用')
     expect(text).not.toContain('状态未知')

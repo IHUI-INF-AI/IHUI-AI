@@ -30,10 +30,14 @@ permissions:
 #   "被取消",既证不了修复、也警不了回归(§0.9 判据必须在真跑它的那一刻才成立)。
 #   false 的 GitHub 语义(镜像头注已实测记载):在跑的 run 不被挤掉 ⇒ 跑完出结论;
 #   排队中未开跑的旧 run 仍只保留最新一个 ⇒ 不烧历史 sha、不堆并发。
+# 2026-11-03 实测修正:false 并不能保住 main 的终态 —— GitHub 会取消同组里更早的 **pending**
+# run(与 cancel-in-progress 无关),实测 run 41576145991 / 41579145214 两枚 main 提交被判
+# cancelled。故 main 档 group 换成 run 级唯一值(= 不分组、不排队),非 main 档仍按 ref 收敛。
 concurrency:
-  group: ci-monorepo-${{ github.ref }}
-  # ⚠️ 勿改回 true:多会话每 3-5min 推一次 main,改回即整条 main 验证链再次"永远没结论"。
-  cancel-in-progress: false
+  group: "ci-monorepo-${{ github.ref == 'refs/heads/main' && github.run_id || github.ref }}"
+  # main 上不加组:多会话每 3-5min 推一次,任何排队形态都会让旧 SHA 判 cancelled。
+  # 非 main(PR / 特性分支)才允许砍:它们的 run 不承载 main 的分支保护结论。
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 env:
   NODE_VERSION: '22'
@@ -47,9 +51,9 @@ jobs:
     outputs:
       cache-hit: ${{ steps.pnpm-cache.outputs.cache-hit }}
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
@@ -62,12 +66,12 @@ jobs:
     steps:
       # Format check 只判本次改动(scripts/check-format-changed.mjs 差值棘轮):
       # 需要上一枚提交作为 diff 基线,故取 2 层历史;取不到 FORMAT_BASE_REF 时脚本内回落 HEAD^。
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         id: checkout
         with:
           fetch-depth: 2
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
@@ -100,10 +104,10 @@ jobs:
     needs: setup
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         id: checkout
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
@@ -165,7 +169,7 @@ jobs:
   source-check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         id: checkout
       - name: Check for .js/.jsx/.vue files in apps/*/src/
         id: source-check
@@ -193,7 +197,7 @@ jobs:
   port-registry-check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         id: checkout
       - name: Check port registry
         id: port-registry
@@ -215,7 +219,7 @@ jobs:
   sheet-flex-contract:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         id: checkout
       - name: sheet/弹窗 flex 弹性契约(bounded 容器内列表必须唯一弹性块)
         id: sheet-flex
@@ -236,7 +240,7 @@ jobs:
   spec-coverage-ratchet:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         id: checkout
       - name: 跨端视觉原子 spec 覆盖率棘轮(退化才拦)
         id: spec-coverage-ratchet
@@ -255,11 +259,16 @@ jobs:
   test:
     needs: setup
     runs-on: ubuntu-latest
+    # 2026-11-03 实测改判(勿重开):本 workflow 曾按 4 分片跑同一套 scripts/ci-test-shards.mjs,
+    # 真实 run 41567631844 的分片 job 墙钟 8m23/8m47/10m25/10m47,而分片前 Unit tests 步 =
+    # 671s → 收益 3.5%(<10%),同时多占 3 个 runner 槽(该 run 里 setup/typecheck/lint 的排队
+    # 从 2min 涨到 15min+)。按"只保留实测 >10% 的项"的口径**已回退**为单 job 全量。
+    # ci.yml 那侧保留 4 分片:那里旧 Test 步 925s → 最慢分片 549s(≈41%),收益成立。
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         id: checkout
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
@@ -294,14 +303,14 @@ jobs:
       matrix:
         app: [web, api, miniapp-taro]
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         id: checkout
         with:
           # 还原度棘轮要一枚基线提交:push 用 HEAD^1。默认 depth=1 时 HEAD^1 不存在,
           # 门体会因基线不可解析 exit 2(未判定)——比"安静地算成没倒退"正确,但 CI 会红。
           fetch-depth: 2
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
@@ -340,7 +349,7 @@ jobs:
         id: mirror-fidelity
         if: matrix.app == 'miniapp-taro'
         run: node scripts/check-miniapp-mirror-fidelity.mjs --base="$FIDELITY_BASE"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         id: upload
         with:
           name: build-${{ matrix.app }}
@@ -370,10 +379,10 @@ jobs:
     needs: setup
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         id: checkout
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
@@ -427,7 +436,7 @@ jobs:
   test-python:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         id: checkout
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         id: setup-python
@@ -507,7 +516,7 @@ jobs:
             context: apps/ai-service
             file: apps/ai-service/Dockerfile
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
       - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
