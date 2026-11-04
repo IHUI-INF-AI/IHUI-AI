@@ -70,7 +70,7 @@ Headline claims (same source as the table below, all live-computed): **618 table
 | 数据库表 | 618 | `dbTables` |
 | schema 文件 | 239 | `dbSchemaFiles` |
 | API 路由 | 4685 | `apiRoutes` |
-| 路由文件 | 658 | `apiRouteFiles` |
+| 路由文件 | 661 | `apiRouteFiles` |
 | AI 服务路由 | 628 | `aiServiceRoutes` |
 | WebSocket 端点 | 25 | `wsEndpoints` |
 | 入库模型清单 | 100 | `llmModels` |
@@ -88,7 +88,7 @@ Headline claims (same source as the table below, all live-computed): **618 table
 | 工程守门 | 332 | `guardianGates` |
 | — blocking | 302 | `guardianBlocking` |
 | — warn | 32 | `guardianWarn` |
-| 跟踪文件 | 18989 | `trackedFiles` |
+| 跟踪文件 | 18969 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-04。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
