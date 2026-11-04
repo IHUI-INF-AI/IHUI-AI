@@ -61,16 +61,20 @@ import {
 } from 'node:fs'
 import { dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { gitBinary } from './lib/face-reader.mjs'
+import derivedArtifacts from './lib/derived-artifacts.js'
 
 /** 仓根由脚本自身位置推导,禁 `process.cwd()` 定根(AGENTS §15)。 */
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 export const INDEX_DIR_NAME = 'ihui-isolated-index'
 /** 内容快照后缀:与索引同名前缀,随 `disposeIndex`/sweep 一起清掉。 */
 export const SNAPSHOT_SUFFIX = '.snap'
+/** 派生腿产物申报文件后缀(2026-11-04 立,见 scripts/lib/derived-artifacts.js)。 */
+export const DERIVED_SUFFIX = '.derived.json'
 export const MAX_ATTEMPTS = 5
 /** 残留判定:pid 已死,或存活但文件超过 24h(防 pid 复用把旧文件永久留下)。 */
 export const STALE_AGE_MS = 24 * 60 * 60 * 1000
-const INDEX_NAME_RE = /^(\d+)-(\d+)-([0-9a-f]{8})\.idx(\.lock|\.snap)?$/
+const INDEX_NAME_RE = /^(\d+)-(\d+)-([0-9a-f]{8})\.idx(\.lock|\.snap|\.derived\.json)?$/
 const LOCK_BUSY_RE = /cannot lock ref|Unable to create|index\.lock|Another git process/i
 const FORBIDDEN_COMMIT_ARGS = [
   '--no-verify',
@@ -88,7 +92,7 @@ const ACTIVE_INDEXES = new Set()
 
 /** 所有 git 子进程显式接管 stdio(AGENTS §12g:不写稳定 EBUSY)。 */
 function rawGit(args, { gitCwd, env, allowFail = false } = {}) {
-  const res = spawnSync('git', args, {
+  const res = spawnSync(gitBinary(), args, {
     cwd: gitCwd,
     env,
     encoding: 'utf8',
@@ -174,10 +178,15 @@ export function sweepStale(indexDir, { isAlive = isPidAlive, now = Date.now() } 
   return removed
 }
 
-/** 删掉本进程的索引、它自己的 `.lock` 与内容快照;目录空了就顺手收掉(不递归、不碰别的东西)。 */
+/** 删掉本进程的索引、它自己的 `.lock`/内容快照/派生申报;目录空了就顺手收掉(不递归、不碰别的东西)。 */
 export function disposeIndex(indexFile) {
   ACTIVE_INDEXES.delete(indexFile)
-  for (const f of [indexFile, `${indexFile}.lock`, `${indexFile}${SNAPSHOT_SUFFIX}`]) {
+  for (const f of [
+    indexFile,
+    `${indexFile}.lock`,
+    `${indexFile}${SNAPSHOT_SUFFIX}`,
+    `${indexFile}${DERIVED_SUFFIX}`,
+  ]) {
     try {
       rmSync(f, { force: true })
     } catch {
@@ -309,18 +318,23 @@ function nameOnlyZ(ctx) {
  * 钩子跑完后的内容级护栏(由 pre-commit 钩子在 exit 阶段调起,见
  * `scripts/lib/pre-commit-hook.js` 的 `IHUI_ISOLATED_INDEX_SNAPSHOT` 段):
  *
- *   ① 声明集之外出现任何条目 ⇒ 记入 `extras`(调用方据此拒绝提交,不替钩子"擦屁股");
- *   ② 声明路径的 (mode, blob, stage) 与快照不等 ⇒ 用 `git update-index --cacheinfo`
+ *   ① 声明集 ∪ **派生申报集**之外出现任何条目 ⇒ 记入 `extras`(调用方据此拒绝提交,
+ *      不替钩子"擦屁股");申报只放行**逐条列名且带 blob 内容钉**的产物,不是"什么都放行";
+ *   ② 申报的产物必须真的在索引里、且 blob/mode 与申报一致 ⇒ 否则记入 `derivedViolations`;
+ *   ③ 声明路径的 (mode, blob, stage) 与快照不等 ⇒ 用 `git update-index --cacheinfo`
  *      逐条精确复原(不 `checkout`/`reset`/`restore`,一个字节都不碰工作树);
- *   ③ 复原后再读一次索引复核,仍不等 ⇒ 记入 `still`,调用方 exit 非 0。
+ *   ④ 复原后再读一次索引复核,仍不等 ⇒ 记入 `still`,调用方 exit 非 0。
  *
- * 正常情况(钩子没动内容)零写入:不满足 ② 时一条 `update-index` 都不发。
+ * 正常情况(钩子没动内容)零写入:不满足 ③ 时一条 `update-index` 都不发。
  */
-export function restoreIndexFromSnapshot({ gitCwd, env, snapshot, log = console }) {
+export function restoreIndexFromSnapshot({ gitCwd, env, snapshot, derived = [], log = console }) {
   const ctx = { gitCwd, env }
   const declared = new Set(snapshot.paths)
+  // 作者已声明的路径以快照为准(复原语义优先),派生申报只补声明集之外的产物。
+  const derivedEntries = derived.filter((d) => d && d.path && !declared.has(d.path))
+  const allowed = new Set([...declared, ...derivedEntries.map((d) => d.path)])
   const expected = new Map(snapshot.entries.map((e) => [e.path, e]))
-  const extras = nameOnlyZ(ctx).filter((p) => !declared.has(p))
+  const extras = nameOnlyZ(ctx).filter((p) => !allowed.has(p))
 
   const before = new Map(lsEntries(ctx, snapshot.paths).map((e) => [e.path, e]))
   const drift = []
@@ -364,9 +378,41 @@ export function restoreIndexFromSnapshot({ gitCwd, env, snapshot, log = console 
   for (const [p, cur] of after) {
     if (!expected.has(p)) still.push({ path: p, expected: null, actual: cur })
   }
-  const extrasAfter = nameOnlyZ(ctx).filter((p) => !declared.has(p))
+  const extrasAfter = nameOnlyZ(ctx).filter((p) => !allowed.has(p))
 
-  return { restored: drift.length, extras: [...new Set([...extras, ...extrasAfter])], still }
+  // 申报产物的内容钉核验:索引里必须真有这一条,且 mode/stage/blob 与申报一致。
+  const afterDerived = new Map(
+    lsEntries(
+      ctx,
+      derivedEntries.map((d) => d.path),
+    ).map((e) => [e.path, e]),
+  )
+  const derivedViolations = []
+  for (const d of derivedEntries) {
+    const cur = afterDerived.get(d.path)
+    if (!cur) {
+      derivedViolations.push(`${d.path}:申报了但索引里没有该条目`)
+      continue
+    }
+    if (cur.stage !== 0) {
+      derivedViolations.push(`${d.path}:索引 stage=${cur.stage}(非 0)`)
+      continue
+    }
+    if (!/^100(644|755)$/.test(cur.mode)) {
+      derivedViolations.push(`${d.path}:索引 mode=${cur.mode}(非普通文件)`)
+      continue
+    }
+    if (!d.blob || cur.blob !== d.blob) {
+      derivedViolations.push(`${d.path}:索引 blob ${cur.blob} ≠ 申报 blob ${d.blob ?? '(缺失)'}`)
+    }
+  }
+
+  return {
+    restored: drift.length,
+    extras: [...new Set([...extras, ...extrasAfter])],
+    still,
+    derivedViolations,
+  }
 }
 
 /**

@@ -94,6 +94,7 @@ import { foldTwins } from './plan-tasks-merge.mjs'
 //  ② **取名基准必须含远端那一份** = 与 `live-doc-edit.mjs` 号段基准(G-313 出路②)同一条纪律,
 //     只是那里量的是"号",这里量的是"归档件名"。
 import { machineIdentity } from './lib/plan-id-lease.mjs'
+import { gitBinary } from './lib/face-reader.mjs'
 import { baseNameOf, parseZList } from './lib/plan-id-face.mjs'
 // 判据同源:门 203(台账同题多号差值棘轮)的标题指纹就是它。本脚本分族若另抄一份归一化,
 // 剥注记后必然出现"门 203 看见同题、我这边没看见"的撞车 —— 首版正是这么红的。
@@ -175,7 +176,7 @@ function ledgerWithWatermark(ledgerRel, text) {
 // 门 168 拦一次;同一晚实测两轮。现改为**只写盘**、entries 只留 PROJECT_PLAN.md。
 // 消费侧本来就在盘上读(门 71 faceArchiveFiles:"它们永不入版本控制"),故本改动不改任何判据面。
 const LEDGER_REL = '.ihui-agent/tmp/plan-pointer-purge-2026-10-14.md'
-const GIT = process.env.GIT_BIN || 'git'
+const GIT = process.env.GIT_BIN || gitBinary()
 /** 归档台账所在目录 —— 由 LEDGER_REL 自身推出,不另写第二份路径常量。 */
 const LEDGER_DIR_REL = LEDGER_REL.slice(0, LEDGER_REL.lastIndexOf('/'))
 const LS_TREE_TIMEOUT_MS = 60_000

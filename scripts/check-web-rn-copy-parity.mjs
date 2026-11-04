@@ -53,7 +53,7 @@ import { dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { maskComments } from './lib/code-mask.mjs'
-import { catBatch, readWorktreeFile } from './lib/face-reader.mjs'
+import { catBatch, gitBinary, readWorktreeFile } from './lib/face-reader.mjs'
 import { __test__ as parity } from './check-web-rn-screen-parity.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -309,7 +309,7 @@ export function listScreenFiles(webPageRel) {
 /** 暂存区文件清单(staged 档只判本次动到的屏);git 不可用 ⇒ null(调用方未判定)。 */
 export function touchedFiles() {
   try {
-    const out = execFileSync('git', ['-c', 'safe.directory=*', 'diff', '--cached', '--name-only', '--diff-filter=ACMR'], {
+    const out = execFileSync(gitBinary(), ['-c', 'safe.directory=*', 'diff', '--cached', '--name-only', '--diff-filter=ACMR'], {
       cwd: REPO,
       encoding: 'utf8',
       maxBuffer: 1 << 26,
