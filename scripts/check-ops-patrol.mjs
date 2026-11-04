@@ -176,6 +176,14 @@ const DEBT_CONDITION_READERS = [
   { alert: 'Qoder 号池保活腿失效(本机会话不再回灌)', kind: 'qoder' },
   { alert: 'WorkBuddy 号池保活腿失效(本机会话不再回灌)', kind: 'workbuddy' },
 ]
+/**
+ * 读数件的命名式**只此一份**(2026-11-04 立)。`readDebtCondition` 与"登记覆盖"判据
+ * (`checkDebtConditionRegistry`)必须由同一个函数推导文件名 —— 两处各拼一遍必漂开,
+ * 而漂开的表现不是报错,是登记覆盖判据去扫一个**不是清偿实际读取的那个**目录/文件。
+ */
+const DEBT_CONDITION_FILE_SUFFIX = '-sync-task-last.json'
+/** 登记项的 `kind` 会进路径,先锁形状:非法字符(尤其 `..` 与路径分隔符)一律按登记失效判。 */
+const DEBT_CONDITION_KIND_RE = /^[a-z0-9][a-z0-9-]*$/i
 const CLIENT_SYNC_RULER = 'scripts/check-qoder-session-sync-task.mjs'
 
 function sha(buf) {
@@ -912,14 +920,15 @@ export function readDebtCondition({ name, repoRoot = REPO, debtTs }) {
   const reader = DEBT_CONDITION_READERS.find((r) => String(name ?? '').trim() === r.alert)
   if (!reader)
     return { state: 'unknown', basis: '没有登记这条告警的"条件是否已恢复"读数件(不据此清偿)' }
-  const file = join(repoRoot, '.ihui-agent', 'state', `${reader.kind}-sync-task-last.json`)
+  const fileName = debtConditionFileName(reader.kind)
+  const file = join(repoRoot, '.ihui-agent', 'state', fileName)
   let parsed
   try {
     parsed = JSON.parse(readFileSync(file, 'utf8'))
   } catch (e) {
     return {
       state: 'unknown',
-      basis: `读数件 ${reader.kind}-sync-task-last.json 取不到(${e?.code || e?.message || '未知'})`,
+      basis: `读数件 ${fileName} 取不到(${e?.code || e?.message || '未知'})`,
     }
   }
   const overall = String(parsed?.overall ?? '')
@@ -942,6 +951,200 @@ export function readDebtCondition({ name, repoRoot = REPO, debtTs }) {
     }
   return { state: 'green', basis: `判据 ${CLIENT_SYNC_RULER} ${dims.length} 维全绿 @ ${checkedAt}` }
 }
+
+/**
+ * 读数件文件名(登记表与"登记覆盖"判据共用这一份推导,见 DEBT_CONDITION_FILE_SUFFIX 处的立因)。
+ */
+export function debtConditionFileName(kind) {
+  return `${String(kind ?? '')}${DEBT_CONDITION_FILE_SUFFIX}`
+}
+
+/** 读数件是否**可被清偿判据消费**:能解析、有 overall、有 checkedAt、dims 非空。 */
+function debtConditionShape(parsed) {
+  const overall = String(parsed?.overall ?? '')
+  const checkedAt = String(parsed?.checkedAt ?? '')
+  const dims =
+    parsed?.dims && typeof parsed.dims === 'object' && !Array.isArray(parsed.dims) ? Object.keys(parsed.dims) : []
+  return { overall, checkedAt, dims, usable: Number.isFinite(Date.parse(checkedAt)) && overall !== '' && dims.length > 0 }
+}
+
+/**
+ * "登记表覆盖率"的取材面(2026-11-04 立)。
+ *
+ * 立因:P10 的清偿只对**登记表里确有读数件**的告警身份开放。于是登记表自己成了新的单点 ——
+ * 生产者新增一条读数件(落盘 `${kind}-sync-task-last.json`)而没人补登记时,它产生的告警
+ * 永远走 `unknown`:既不会被清偿、也不会在 P10 里变红,**没有任何判据会喊**。
+ *
+ * 这个判据只判**消费侧**(登记承诺的读数路径是否成立),不判采集及时性:
+ *   · 磁盘上每个读数件都必须被登记(否则该源告警永久 unknown)⇒ 未登记判红;
+ *   · 每条登记都必须指向一个**真实可解析**的读数件(否则那条登记等于没写)⇒ 失效判红;
+ *   · `最近产出时刻` 只报名不判红:读数是旧的只让它判不出恢复(fail-safe),不会造成假清偿。
+ * 读数件目录整个取不到 / 一个读数产出都没有 ⇒ 未判定(不在别的机器上冒充"已全部登记")。
+ */
+export function inspectDebtConditionRegistry({ repoRoot = REPO, registry = DEBT_CONDITION_READERS } = {}) {
+  const dir = join(repoRoot, '.ihui-agent', 'state')
+  const artifacts = []
+  const registrations = []
+  const findings = []
+  if (!existsSync(dir)) return { dir, dirExists: false, readError: null, artifacts, registrations, findings }
+  let names
+  try {
+    names = readdirSync(dir)
+  } catch (e) {
+    return {
+      dir,
+      dirExists: true,
+      readError: `读数件目录读不到:${e?.code || e?.message || '未知'}`,
+      artifacts,
+      registrations,
+      findings,
+    }
+  }
+  const parsedByFile = new Map()
+  const readArtifact = (name) => {
+    if (parsedByFile.has(name)) return parsedByFile.get(name)
+    const row = { file: join(dir, name), relPath: ['.ihui-agent', 'state', name].join('/'), parsed: null, broken: null }
+    try {
+      row.parsed = JSON.parse(readFileSync(row.file, 'utf8'))
+    } catch (e) {
+      row.broken = `读数件解析不出(${e?.code || e?.message || '未知'})`
+    }
+    parsedByFile.set(name, row)
+    return row
+  }
+  const producedAt = (file) => {
+    try {
+      return statSync(file).mtimeMs
+    } catch {
+      return null
+    }
+  }
+  // ── 不看登记表先扫磁盘:读数件清单是"产出事实",登记表只能被它审 ──────────────
+  const artifactKinds = new Set()
+  for (const name of names) {
+    if (!name.endsWith(DEBT_CONDITION_FILE_SUFFIX)) continue
+    const kind = name.slice(0, -DEBT_CONDITION_FILE_SUFFIX.length)
+    if (!kind) continue
+    artifactKinds.add(kind)
+    const r = readArtifact(name)
+    artifacts.push({
+      kind,
+      name,
+      relPath: r.relPath,
+      producedAtMs: producedAt(r.file),
+      ...debtConditionShape(r.parsed),
+      broken: r.broken,
+    })
+  }
+  artifacts.sort((a, b) => a.name.localeCompare(b.name))
+  const kindOf = new Map()
+  const seenAlerts = new Map()
+  for (const entry of registry) {
+    const alert = String(entry?.alert ?? '').trim()
+    const kind = String(entry?.kind ?? '').trim()
+    const name = debtConditionFileName(kind)
+    const row = { alert, kind, name, relPath: ['.ihui-agent', 'state', name].join('/'), ...debtConditionShape(null) }
+    registrations.push(row)
+    if (!alert || !kind) {
+      findings.push(`登记项形状坏(alert/kind 有空值):${JSON.stringify(entry)}`)
+      continue
+    }
+    if (!DEBT_CONDITION_KIND_RE.test(kind)) {
+      findings.push(`登记项 ${alert} 的 kind「${kind}」不合命名式(会拼出非法读数件路径)⇒ 该告警永远 unknown`)
+      continue
+    }
+    if (seenAlerts.has(alert) && seenAlerts.get(alert) !== kind) {
+      findings.push(`同一告警身份 ${alert} 被登记到两个读数件(${seenAlerts.get(alert)} / ${kind})⇒ 后一条永远不生效`)
+    }
+    seenAlerts.set(alert, kind)
+    if (!kindOf.has(kind)) kindOf.set(kind, [])
+    kindOf.get(kind).push(alert)
+  }
+  // ── 登记承诺的读数件是否真实可消费 ────────────────────────────────────────────
+  for (const a of artifacts) {
+    const alerts = kindOf.get(a.kind)
+    a.registered = Array.isArray(alerts) && alerts.length > 0
+    a.registeredFor = a.registered ? alerts : []
+    if (!a.registered) {
+      findings.push(
+        `读数件 ${a.name}(${a.relPath})未登记 ⇒ 它产生的告警在 P10 里永远 unknown、永不清偿`,
+      )
+      continue
+    }
+    if (a.broken || !a.usable) {
+      findings.push(
+        `登记失效:读数件 ${a.name}(${a.relPath})${a.broken || `内容不构成可判结论(overall=${a.overall || '空'},dims=${a.dims.length})`} ⇒ 该登记救不出告警,仍会永远 unknown`,
+      )
+    }
+  }
+  for (const row of registrations) {
+    if (!row.alert || !row.kind || !DEBT_CONDITION_KIND_RE.test(row.kind)) continue
+    if (artifactKinds.has(row.kind)) {
+      Object.assign(row, { exists: true, ...debtConditionShape((parsedByFile.get(row.name) || {}).parsed) })
+      continue
+    }
+    row.exists = false
+    // 一个读数件都没产出时上层判未判定(无从对账);有产出就说明这台机在跑,缺席的那条登记已失效。
+    if (artifacts.length > 0)
+      findings.push(`登记失效:${row.alert} 指向的读数件 ${row.name} 不在位 ⇒ 该告警永远走 unknown(登记等于没写)`)
+  }
+  return { dir, dirExists: true, readError: null, artifacts, registrations, findings }
+}
+
+/**
+ * P10 的登记覆盖率尺子(判据本体)。红=有读数产出没人登记,或登记指向的读数件不可消费;
+ * 未判定=目录取不到/一个产出都没有。**只有这行能回答"漏登记会不会被抓住"**。
+ */
+export function checkDebtConditionRegistry({ repoRoot = REPO, registry = DEBT_CONDITION_READERS } = {}) {
+  const id = 'P10·登记覆盖'
+  const r = inspectDebtConditionRegistry({ repoRoot, registry })
+  const listing = r.artifacts.length
+    ? r.artifacts
+        .map(
+          (a) =>
+            `${a.kind}(${a.registered ? '已登记' : '未登记'},${a.relPath},最近产出=${a.producedAtMs ? ISO(a.producedAtMs) : '量不到'},最近读数=${a.checkedAt || '无'},overall=${a.overall || '无'})`,
+        )
+        .join(' ; ')
+    : '(无)'
+  // 红档措辞必须**逐轮稳定**:守护发信指纹吃 detail,读数件 mtime 每产出一次就变,
+  // 写进红档 = 同一处未登记每轮一封新信(本文件 P10 头注与 AGENTS §5e 同一条禁令)。
+  // 因此红档只点名"叫什么/在哪/有没有登记",最近产出时刻由本行的 artifacts 字段供机器枚举。
+  const listingStable = r.artifacts.length
+    ? r.artifacts
+        .map((a) => `${a.kind}(${a.registered ? '已登记' : '未登记'},${a.relPath}${a.broken ? ',读数件解析不出' : ''})`)
+        .join(' ; ')
+    : '(无)'
+  const dangling = r.registrations
+    .filter((x) => !x.alert || !x.kind || !DEBT_CONDITION_KIND_RE.test(x.kind) || !x.exists)
+    .map((x) => (x.alert ? `${x.alert} → ${x.name || '(kind 坏)'}` : '(空值登记项)'))
+  const tail = `${listing}${dangling.length ? ` | 登记未成立 ${dangling.length} 条:${dangling.join(' ; ')}` : ''}`
+  if (!r.dirExists)
+    return { id, state: 'undetermined', detail: `取不到读数件目录:${r.dir}(非本机 / 尚未产出 ⇒ 未判定,不读成"登记齐全")` }
+  if (r.readError) return { id, state: 'undetermined', detail: `${r.readError} ⇒ 未判定` }
+  if (r.artifacts.length === 0)
+    return {
+      id,
+      state: 'undetermined',
+      detail: `没有任何 *${DEBT_CONDITION_FILE_SUFFIX} 读数产出 ⇒ 登记是否有效无从对账(未判定,不读成已登记);登记表 ${r.registrations.length} 条,${tail}`,
+      artifacts: r.artifacts,
+      registrations: r.registrations,
+    }
+  const machine = { artifacts: r.artifacts, registrations: r.registrations }
+  if (r.findings.length)
+    return {
+      id,
+      state: 'finding',
+      detail: `读数件有 ${r.findings.length} 处登记缺口/失效:${r.findings.join(' ;; ')} | 读数件清单(不含逐轮变动的产出时刻,时刻见本行 artifacts 字段):${listingStable}`,
+      ...machine,
+    }
+  return {
+    id,
+    state: 'ok',
+    detail: `读数件 ${r.artifacts.length} 个全部已登记且可解析,登记表 ${r.registrations.length} 条全部指向在位的读数件 | 读数件清单:${tail}`,
+    ...machine,
+  }
+}
+
 
 /**
  * P10 未送达欠账(2026-10-01 立)。它问的不是"现在有没有挂账标记",而是
@@ -2554,6 +2757,11 @@ export async function patrol({ now = Date.now(), apply = false, strict = false, 
     if (debtRow.state === 'ok') debtRow.state = 'undetermined'
   }
   add(debtRow)
+  // P10 登记覆盖(2026-11-04 立):P10 的清偿只对"登记表里确有读数件"的身份开放,于是登记表
+  // 自己成了新的单点 —— 漏登记一个读数件 = 该源告警永远 unknown、永不清偿,且**没有任何判据会喊**。
+  // 这一行按磁盘上的读数件产出反查登记表,把"没登记/登记失效"判红。放在 P10 之后:先判欠账,
+  // 再判"欠账清偿能力的覆盖面",两问不同、不得合并(合并后任一侧变绿都会替另一侧作证)。
+  add(checkDebtConditionRegistry({ repoRoot: REPO }))
 
   /**
    * 裁决台账:把"机主已裁、且只有他能解除"的那条红挪出红档(照旧逐轮打印,只是不再触发发信),
@@ -3245,6 +3453,61 @@ async function p7BackupFixture() {
   }
 }
 
+/**
+ * P10 登记覆盖夹具(2026-11-04):五臂成对 —— 已登记 ⇒ 绿 / 新增未登记读数件 ⇒ 红 /
+ * 读数件坏掉 ⇒ 登记失效红 / 读数件缺席 ⇒ 登记失效红 / 一个产出都没有 ⇒ 未判定。
+ * 只用构造面(临时仓 + 临时读数件),不碰本机真实台账。
+ */
+function debtRegistryFixture() {
+  const base = mkdtempSync(join(scratchRoot(), 'ops-p10-reg-'))
+  const repo = join(base, 'repo')
+  const wb = join(repo, '.ihui-agent', 'state')
+  const pathOf = (kind) => join(wb, debtConditionFileName(kind))
+  const good = () => ({
+    overall: 'ok',
+    dims: { task_registered: { verdict: 'ok' } },
+    checkedAt: '2026-11-04T05:18:41.929Z',
+  })
+  const writeArtifact = (kind, obj) => writeFileSync(pathOf(kind), JSON.stringify(obj), 'utf8')
+  try {
+    mkdirSync(wb, { recursive: true })
+    // ① 已登记 ⇒ 不红。清单必须可枚举:名字 / 路径 / 有没有登记 / 最近产出时间四件都在。
+    writeArtifact('qoder', good())
+    writeArtifact('workbuddy', good())
+    const green = checkDebtConditionRegistry({ repoRoot: repo })
+    if (green.state !== 'ok') return { ok: false, why: `已登记齐全却判 ${green.state}:${green.detail}` }
+    for (const needle of ['qoder(', '.ihui-agent/state/qoder-sync-task-last.json', '已登记', '最近产出=']) {
+      if (!green.detail.includes(needle)) return { ok: false, why: `清单缺「${needle}」:${green.detail}` }
+    }
+    // ② 新增一个未登记读数件 ⇒ 判红并点名(这就是"漏登记永远静默"被抓住的那一臂)。
+    writeArtifact('thirdleg', good())
+    const red = checkDebtConditionRegistry({ repoRoot: repo })
+    if (red.state !== 'finding' || !red.detail.includes('thirdleg-sync-task-last.json') || !red.detail.includes('未登记'))
+      return { ok: false, why: `未登记读数件没被抓:${red.state}:${red.detail}` }
+    rmSync(pathOf('thirdleg'), { force: true })
+    // ③ 已登记读数件坏掉 ⇒ 登记失效判红(登记还在,但救不出告警)。
+    writeFileSync(pathOf('workbuddy'), '{坏了', 'utf8')
+    const broken = checkDebtConditionRegistry({ repoRoot: repo })
+    if (broken.state !== 'finding' || !broken.detail.includes('登记失效'))
+      return { ok: false, why: `坏读数件未被判登记失效:${broken.detail}` }
+    writeArtifact('workbuddy', good())
+    // ④ 登记指向的读数件不在位 ⇒ 判红(有其它产出说明这台机在跑,缺席即失效)。
+    rmSync(pathOf('qoder'), { force: true })
+    const missing = checkDebtConditionRegistry({ repoRoot: repo })
+    if (missing.state !== 'finding' || !missing.detail.includes('不在位'))
+      return { ok: false, why: `读数件缺席未被判失效:${missing.detail}` }
+    // ⑤ 一个读数产出都没有 ⇒ 未判定(不冒充"已全部登记");目录取不到同理。
+    for (const n of readdirSync(wb)) rmSync(join(wb, n), { force: true })
+    if (checkDebtConditionRegistry({ repoRoot: repo }).state !== 'undetermined')
+      return { ok: false, why: '空产出未判未判定' }
+    if (checkDebtConditionRegistry({ repoRoot: join(base, 'nope') }).state !== 'undetermined')
+      return { ok: false, why: '目录取不到未判未判定' }
+    return { ok: true }
+  } finally {
+    rmSync(base, { recursive: true, force: true })
+  }
+}
+
 /** P11 的构造面入口:注入 runner + 夹具目录 —— 三态与"promtool 缺失不判红"都在构造面上证明。 */
 function promtoolFixture() {
   const root = scratchRoot()
@@ -3500,6 +3763,13 @@ export async function selfTest() {
   t(`P9 通道活性四态成对(可用绿 / 失败红 / 双未配置未判定 / 输出解不出未判定)+ 节流派生与缓存复述${p9fix.ok ? '' : ` —— ${p9fix.why}`}`, p9fix.ok === true)
   const p10fix = undeliveredDebtFixture()
   t(`P10 未送达欠账五态成对(挂账红 / 宽限内绿 / 旧形态只报数 / 已清偿回绿 / 坏台账未判定)+ 清偿三分支(条件恢复+通道 ok 清偿 / 通道坏仍红 / 条件仍红不动)${p10fix.ok ? '' : ` —— ${p10fix.why}`}`, p10fix.ok === true)
+  // 登记覆盖(2026-11-04):漏登记读数件 = 该源告警永远静默 unknown,这一格是它的尺子。
+  const p10reg = debtRegistryFixture()
+  t(`P10 登记覆盖五臂成对(已登记绿 / 未登记红并点名 / 读数件坏失效红 / 读数件缺席失效红 / 空产出未判定)${p10reg.ok ? '' : ` —— ${p10reg.why}`}`, p10reg.ok === true)
+  t('装车锁:patrol 必须真把 P10 登记覆盖接进巡检', (() => {
+    const selfSrc = readFileSync(fileURLToPath(import.meta.url), 'utf8')
+    return patrolWiringGaps(patrolAssemblyText(selfSrc), ['P10-registry']).length === 0
+  })())
   // P11(2026-10-02 补):promtool 规则单测 —— "写完没人跑"那一格的尺子,三态与装车锁成对。
   const p11fix = promtoolFixture()
   t(`P11 promtool 三态成对(全过绿 / 任一失败红且点名文件 / promtool 或用例目录取不到未判定)${p11fix.ok ? '' : ` —— ${p11fix.why}`}`, p11fix.ok === true)
@@ -3763,6 +4033,11 @@ const PATROL_WIRING = [
   { id: 'P9', needle: 'await checkMailChannelLiveness(', why: 'P9 写了没接线 = 没有这台尺子' },
   { id: 'P12', needle: 'await checkHeadTypecheckLanded(', why: 'P12 写了没接线 = HEAD 面类型层仍然没人主动看（G-181 那格）' },
   { id: 'P10', needle: 'checkUndeliveredAlertDebt(', why: 'P10 写了没接线 = 没有这台尺子' },
+  {
+    id: 'P10-registry',
+    needle: 'checkDebtConditionRegistry(',
+    why: '登记覆盖尺子没接线 = 漏登记读数件又回到"永久静默 unknown"（登记表成为新单点）',
+  },
   { id: 'P10-ack-read', needle: 'loadDebtAcks()', why: '裁决台账没人读 ⇒ 这条队列没有死亡机制,会一路红到有人删判据' },
   { id: 'P10-ack-feed', needle: 'acks: debtAcks.entries', why: '读了台账却不喂给判据 ⇒ "已裁"在账面上永远不生效' },
   { id: 'ledger-read', needle: 'loadAdjudications(', why: 'patrol 没读台账 ⇒ 台账成了没人读的装饰' },
@@ -3850,6 +4125,13 @@ export const __test__ = {
   ackCoversDebt,
   debtAnchor,
   checkUndeliveredAlertDebt,
+  // P10 登记覆盖(2026-11-04):读数件名式/登记表/判据本体都从这里出口 —— 镜像测试只许 import 判,
+  // 不得在测试里另拼一份 `${kind}-sync-task-last.json`(§22c 同一条理由)。
+  DEBT_CONDITION_READERS,
+  debtConditionFileName,
+  readDebtCondition,
+  inspectDebtConditionRegistry,
+  checkDebtConditionRegistry,
   // P11 同一条规矩:镜像测试引这里的实现判"三态与不把未判定读成红",不得重抄。
   checkPromtoolRules,
   // 装车锁同一条规矩(§22c):锚点名单与装配段取景只住在这里,门自检与镜像测试都调它裁定。

@@ -821,6 +821,57 @@ test('TP6b P10 清偿三分支:条件恢复+通道 ok ⇒ 注销转绿 / 通道�
 })
 
 /**
+ * TP8(2026-11-04 补):登记表覆盖 —— P10 的清偿只对"登记表里确有读数件"的身份开放,
+ * 于是"漏登记一个读数件"会让该源告警永远 unknown、永不清偿且不判红。三臂必须成对:
+ * 新增未登记读数件 ⇒ 红 / 已登记 ⇒ 不红 / 登记过期失效 ⇒ 红。清单还要可枚举。
+ */
+test('TP8 P10 登记覆盖:未登记读数件判红 / 已登记不红 / 登记失效判红,且清单逐件可枚举', () => {
+  const base = mkdtempSync(join(scratchRoot(), 'ops-p10-reg-mirror-'))
+  try {
+    const repo = join(base, 'repo')
+    const wb = join(repo, '.ihui-agent', 'state')
+    mkdirSync(wb, { recursive: true })
+    const pathOf = (kind) => join(wb, gate.debtConditionFileName(kind))
+    const writeArtifact = (kind, obj) => writeFileSync(pathOf(kind), JSON.stringify(obj), 'utf8')
+    const good = { overall: 'ok', dims: { task_registered: { verdict: 'ok' } }, checkedAt: '2026-11-04T05:18:41.929Z' }
+    // ① 已登记 ⇒ 不红
+    writeArtifact('qoder', good)
+    writeArtifact('workbuddy', good)
+    const green = gate.checkDebtConditionRegistry({ repoRoot: repo })
+    assert.equal(green.state, 'ok', green.detail)
+    // 清单可枚举:名 / 路径 / 是否登记 / 最近产出时间(不是只有一个"绿")
+    assert.match(green.detail, /qoder\(已登记,\.ihui-agent\/state\/qoder-sync-task-last\.json,最近产出=/)
+    // ② 新增一个未登记读数件 ⇒ 判红并点名(漏登记不再静默)
+    writeArtifact('thirdleg', good)
+    const red = gate.checkDebtConditionRegistry({ repoRoot: repo })
+    assert.equal(red.state, 'finding')
+    assert.match(red.detail, /thirdleg-sync-task-last\.json/)
+    assert.match(red.detail, /未登记/)
+    assert.match(red.detail, /thirdleg\(未登记/)
+    rmSync(pathOf('thirdleg'))
+    // ③ 登记失效(读数件坏掉 ⇒ 登记救不出告警)⇒ 判红
+    writeFileSync(pathOf('workbuddy'), '{坏了', 'utf8')
+    assert.equal(gate.checkDebtConditionRegistry({ repoRoot: repo }).state, 'finding')
+    // ③b 登记失效(登记指向的读数件缺席)⇒ 判红
+    writeArtifact('workbuddy', good)
+    rmSync(pathOf('workbuddy'))
+    const missing = gate.checkDebtConditionRegistry({ repoRoot: repo })
+    assert.equal(missing.state, 'finding')
+    assert.match(missing.detail, /不在位|未登记/)
+    // ④ 未判定≠通过:空产出 / 目录取不到都不得冒充"已登记齐全"
+    rmSync(pathOf('qoder'))
+    assert.equal(gate.checkDebtConditionRegistry({ repoRoot: repo }).state, 'undetermined')
+    assert.equal(gate.checkDebtConditionRegistry({ repoRoot: join(base, 'nope') }).state, 'undetermined')
+    // 装车锁:这一格必须真住在 patrol 装配段里
+    const body = gate.patrolAssemblyText(src('scripts/check-ops-patrol.mjs'))
+    assert.ok(body !== null)
+    assert.deepEqual(gate.patrolWiringGaps(body, ['P10-registry']), [], '登记覆盖尺子写了没接线 = 漏登记又回到永久静默')
+  } finally {
+    rmSync(base, { recursive: true, force: true })
+  }
+})
+
+/**
  * P11(2026-10-02 补):promtool 规则单测 —— 判据写完没人跑 = 造好没装车。
  * 与 P1/P2 同族:promtool 是本机工具,取不到一律未判定、绝不判红(机器态)。
  */
