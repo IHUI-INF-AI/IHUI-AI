@@ -48,6 +48,10 @@ export function Tooltip({
         <TooltipPrimitive.Content
           id={tipId}
           role="tooltip"
+          // 2026-11-04:Radix 会在内容外再包一层 div[data-radix-popper-content-wrapper],
+          // 只给内容加 pointer-events-none 拦不住那层包装(CI 实测点击仍被 wrapper 吞)。
+          // 该标记让 globals.css 精确定位"含提示气泡的 wrapper"并关掉其指针事件。
+          data-ihui-tooltip=""
           side={side}
           align={align}
           sideOffset={4}
