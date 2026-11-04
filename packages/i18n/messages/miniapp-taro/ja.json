@@ -6989,5 +6989,34 @@
   "career": {
     "exportingReport": "エクスポート中...",
     "exportEmptyHint": "レポート生成後にエクスポートできます"
+  },
+  "activities": {
+    "join": "今すぐ参加"
+  },
+  "chatSettingsPage": {
+    "model": "モデル"
+  },
+  "eduExamListPage": {
+    "start": "試験を開始"
+  },
+  "eduExamPage": {
+    "prevQuestion": "前の問題",
+    "nextQuestion": "次の問題"
+  },
+  "eduProgressPage": {
+    "weeklyHours": "今週の学習時間"
+  },
+  "learn": {
+    "signedUp": "申込済み"
+  },
+  "learnMapPage": {
+    "completed": "完了",
+    "empty": "学習パスがありません"
+  },
+  "memberSubscriptionPage": {
+    "cancelSubscription": "サブスクリプションをキャンセル"
+  },
+  "student": {
+    "myCertsTitle": "証明書一覧"
   }
 }
