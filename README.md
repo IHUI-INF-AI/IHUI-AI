@@ -103,7 +103,7 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 工程守门 | 333 | `guardianGates` |
 | — blocking | 303 | `guardianBlocking` |
 | — warn | 32 | `guardianWarn` |
-| 跟踪文件 | 19116 | `trackedFiles` |
+| 跟踪文件 | 19098 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-04。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -42299,3 +42299,47 @@ A: Yes. ~14839+ tests / 4078 test files / 67 e2e spec / 4699 API 路由 / 622 �
 - 📚 文档:门 287 号位现读回灌两枚残留 —— hover 门入库时与同批 props 对账门撞 288,落地腿已把 runner 注册块与门体头注顺延为 287(HEAD 面在位);本枚对齐其余两处字面:README 点名条 runner id 与 UI/样式尾注、镜像⑦形状锁号位 regex+文案(prettier 归位后水印已复验完整)。README 盘上派生块(跟踪文件 18947/收编行,可重算件)随本枚带落;props 门自身与其 285 条目未触碰。盘面 scripts/guardian-runner.mjs 为已落地历史拷贝的幻影漂移(§5b 形态,P1 对账尺当轮点名),已按 30c 出路②单文件 checkout HEAD 对齐——零丢失(盘 blob 系上一枚落地态,本票文字全部已入 HEAD)。 (1c9cdb39c2)
 - 🚀 新功能/改进:落语义等价映射表 + 门288 mapped 分类与棘轮 —— 3 条命名等价(onPress↔onTap×2、label↔labelKey)归 mapped 4 键,漂移 277→273;表扩容须同轮收敛 (2ccede4e8e)
 - 🐞 修复:ColorfulLoader 两端同源收口 —— RN 补 visible(不渲染即 null)、小程序适配层补 duration(默认共享档),门288 消 2 键 (657b9ed59f)
+对外关键数字声明(与本页生成块同源,均现算):**622 张表 · 4699 API 路由 · 25 个 WebSocket 端点 ·
+100 入库模型 · 38 平台自动发布 · 4078 测试文件 · 333 道工程守门 · 53 CI workflows ·
+| 数据库表 | 622 | `dbTables` |
+| schema 文件 | 241 | `dbSchemaFiles` |
+| API 路由 | 4699 | `apiRoutes` |
+| 路由文件 | 663 | `apiRouteFiles` |
+| CLI 命令文件 | 70 | `cliCommandFiles` |
+| 测试文件 | 4078 | `testFiles` |
+| CI 工作流 | 53 | `ciWorkflows` |
+| 工程守门 | 333 | `guardianGates` |
+| — blocking | 303 | `guardianBlocking` |
+| — warn | 32 | `guardianWarn` |
+上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-04。
+  <strong>622 张表 · 4699 API 路由 · 25 WebSocket 通道 · 88 守门脚本 · 56+ pre-commit 项 · 4078 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 53 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
+| **代码规模** | 8 端代码 / 205 schema 文件 / **622 数据库表**(实测 pgTable)/ drizzle-kit push 模式 / **4699 API 路由 + 25 WebSocket 通道**(实测 grep)/ 250+ Web 页面 / 200+ 组件 / 104 hooks / 16 共享包 / 5 语言 i18n parity(35 JSON 文件 7 端 × 5 语言) |
+| **工程守门** | **88 守门/验证脚本**(60 check + 11 verify + 6 guard + 2 sync + 9 scan)+ **pre-commit 56+10 项**(47 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段(push 门 staged-scope 降级) + 53 CI workflows          |
+| **测试覆盖** | **4078 测试文件 / ~14839+ 测试用例**(490 .test.ts + 67 .spec.ts + 162 test_*.py;TS ~10176 用例 + Python 4663 用例)+ Locust 压测 + Lighthouse 性能 + Visual Regression                                                                      |
+→ **IHUI-AI(智汇 AI)**。Apache 2.0 开源,176 大模型统一调度,PostgreSQL 行级安全多租户,完整商业闭环(10 支付网关 + VIP + 积分 + 钱包 + 订阅 + 退款),8 端同源 Monorepo(Web/API/AI-Service/Desktop/Extension/Mobile/Miniapp/CLI),542 张表 / 4699 API 路由 / 4078 测试文件 / ~14839+ 测试用例。5 分钟 Fork 到上线。**GitHub**:https://github.com/IHUI-INF-AI/IHUI-AI
+→ **IHUI-AI 工程守门**:87 守门/验证脚本(59 check + 11 verify + 6 guard + 2 sync + 9 scan)+ pre-commit 56+10 项(40 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段 + 53 CI workflows + post-commit 自动 push + lost-commit tag 自动同步 + 4078 测试文件 / ~14939+ 测试用例 + 67 e2e spec + Knip 死代码检测 + Lighthouse 性能 + Locust 压测 + mypy strict(Python 0 errors)+ tsc --noEmit(TS 0 errors)。每一行代码都通过三重门禁。
+核心数字: 8 端 / 176 模型 / 542 表 / 4393 API / 24 MCP 工具 / **38 发布平台** / **反风控五层防线 37+ 检测点** / **AI 对话可视化 inline 到消息气泡** / 88 守门脚本 / 4078 测试文件 / ~14839+ 测试用例 / 5 语言 i18n(7 端 35 JSON)/ 109 万行代码
+- **运维**:Prometheus + 大屏 · 53 CI workflows · 88 守门脚本 · 蓝绿部署
+- **运维**:Prometheus + 大屏 · 53 CI workflows · 88 守门脚本 · 蓝绿部署
+   技术护城河    │  • 8 端 / 542 表 / drizzle-kit push / 4699 API 路由    │
+| **代码规模** | 8 端代码 / 205 schema 文件 / 622 数据库表 / drizzle-kit push / 4699 API 路由 / 250+ Web 页面 / 16 共享包 / 88 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
+|                   | API                 | Fastify 5 / **4699 API 路由跨 288 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **288 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+|                   | 工程守门            | **87 守门/验证脚本**(59 check + 11 verify + 6 guard + 2 sync + 9 scan)+ **pre-commit 56+10 项**(40 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段 + **53 CI workflows** + post-commit 自动 push + lost-commit tag 自动同步                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+|                   | 测试覆盖            | **4078 测试文件 / ~14839+ 测试用例**(490 .test.ts + 67 .spec.ts + 162 test_*.py;TS ~10176 + Python 4663)+ Vitest + Playwright + pytest + Locust 压测 + Lighthouse 性能 + Visual Regression                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+- **规模**:622 张表 · 4699 API 路由 · 4078 测试文件 · ~14839 测试用例
+- **质量**:333 道工程守门（244 blocking）· 53 CI workflows · 删水印即 CI 失败
+├── .github/workflows/       # 53 个 CI workflows
+├── .github/workflows/       # 53 个 CI workflows
+### 通病 ② 边界条件处理不足 → 实际:4078 测试文件 / ~14839+ 测试用例 + 67 e2e + 微服务工程模式
+| 边界条件缺失     | 4078 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
+- 622 数据库表 + drizzle-kit push + 16 共享包 + pgvector + 知识图谱 + Knip + Lighthouse + Locust 压测
+- **API(Fastify 5)**:4699 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
+- **53 CI workflows**:CI / Build Docker / e2e / Visual Regression / Release SDK / Release Desktop / Release CLI / Lighthouse CI / Knip / i18n Check / weekly-security-audit / WebSocket Load Test 等
+- **4078 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
+A: Yes. ~14839+ tests / 4078 test files / 67 e2e spec / 4699 API 路由 / 622 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+| 跟踪文件 | 19119 | `trackedFiles` |
+- git/提交链: `check-commit-scope-consistency.mjs` `check-push-sync.mjs` `check-head-typecheck.mjs` `check-typecheck.mjs` `check-git-read-timeout.mjs` `check-spawn-stdio.mjs` `check-registry-worktree-superset.mjs` `check-no-nested-git.mjs` `check-commit-loss-guard.mjs` `check-merge-addition-loss.mjs` `check-merge-deletion-resurrection.mjs` `check-staged-resurrection.mjs`(pre-commit 复活闸,与 `safe-commit.mjs` Step 3b-2 同一判据 `lib/intentional-file-deletion.mjs#judgeResurrection`;已登记删除件出现在索引新增面 ⇒ exit 1,台账判不开 ⇒ 只报不拦) `check-single-branch.mjs` `check-stale-stashes.mjs` `check-bypass-landing-scope.mjs` `check-live-doc-references.mjs` `check-mjs-syntax.mjs`(纯语法 compile 不 evaluate;判红臂 = 索引新引入不可解析;镜像 `check-mjs-syntax.test.mjs`) `check-format-changed.mjs` `check-husky-hook-form.mjs`(H1 钩子必须是 sh 薄壳;H2 包装与 node 正文同面在位;正文即 `post-commit-hook.js` 一族;镜像 `check-husky-hook-form.test.mjs`) `check-no-nested-git-sites-durability.mjs`(门 208 豁免台账耐久性)
+- 发布线 / 安卓对外下载腿(2026-11-03 立,CI 档,runner id 以现值为准): `check-mobile-download-leg.mjs`(三问各允许「未判定」而不猜绿:① 配置里的下载 URL 跟随 302 后必须 200/206;② `Content-Length` 须 ≥ `--min-bytes`(默认 50MiB);③ 手里的 APK 证书 SHA-256 须等于正式基准。**退出码 2 = skipped/未判定,不是绿** —— 判据读的是公网与签名,提交者结构上改不了那一格,故按 §12e 不挂提交门;取证 `--self-test`,口径见门体头注) · 配套国内腿运行态门 `check-mobile-download-leg-cn.mjs`(Gitee 国内腿,2026-11-04 立:两条腿 `Range: bytes=0-0` 真探,Content-Range 总长必须同为够大的同一枚包;任一腿量不到 ⇒ exit 2 未判定,绝不折算成绿)
+| 跟踪文件 | 19097 | `trackedFiles` |
