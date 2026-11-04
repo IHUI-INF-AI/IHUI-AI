@@ -61,8 +61,10 @@ import {
   writeFileSync,
   writeSync,
 } from 'node:fs'
-import { dirname, join, relative, resolve, sep } from 'node:path'
+import { basename, dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+// git-lock 只经 §22c 的 __test__ 出口暴露 acquire/release(唯一实现,不在本文件抄第二份判据)。
+import { __test__ as gitLock } from './git-lock.mjs'
 import { gitBinary } from './lib/face-reader.mjs'
 import derivedArtifacts from './lib/derived-artifacts.js'
 
@@ -76,7 +78,17 @@ export const DERIVED_SUFFIX = '.derived.json'
 export const MAX_ATTEMPTS = 5
 /** 残留判定:pid 已死,或存活但文件超过 24h(防 pid 复用把旧文件永久留下)。 */
 export const STALE_AGE_MS = 24 * 60 * 60 * 1000
-const INDEX_NAME_RE = /^(\d+)-(\d+)-([0-9a-f]{8})\.idx(\.lock|\.snap|\.derived\.json)?$/
+/**
+ * 私有提交上下文目录后缀(2026-11-04 立)。`.git/COMMIT_EDITMSG` 是全仓唯一一份,
+ * 并发提交时 git 在 pre-commit 之后写、commit-msg 之后**再读回** —— 两次写之间
+ * 只要别席也提交,这边就会把别人的消息读成自己的(native `-m`/`-F` 都挡不住,
+ * 因为 git 根本不看 `-F` 指向哪)。根治办法:每次提交给子 git 一份**私有 GIT_DIR**
+ * (同目录下 `commondir` 指回真实 gitdir,只隔离 per-worktree 元数据),
+ * 让 git 把 COMMIT_EDITMSG 写进本席目录,别人够不到。
+ */
+export const PRIVATE_GITDIR_SUFFIX = '.gitdir'
+const INDEX_NAME_RE =
+  /^(\d+)-(\d+)-([0-9a-f]{8})(\.idx(\.lock|\.snap|\.derived\.json)?|\.gitdir)$/
 const LOCK_BUSY_RE = /cannot lock ref|Unable to create|index\.lock|Another git process/i
 const FORBIDDEN_COMMIT_ARGS = [
   '--no-verify',
@@ -91,6 +103,8 @@ const FORBIDDEN_COMMIT_ARGS = [
 ]
 
 const ACTIVE_INDEXES = new Set()
+/** 本次运行的 git 写锁单元(与 safe-commit 同一把锁;post-commit 见到该 env 不再嵌套加锁)。 */
+const LOCK_UNIT = `isolated-git-${process.pid}-${Date.now()}`
 
 /** 所有 git 子进程显式接管 stdio(AGENTS §12g:不写稳定 EBUSY)。 */
 function rawGit(args, { gitCwd, env, allowFail = false } = {}) {
@@ -171,7 +185,7 @@ export function sweepStale(indexDir, { isAlive = isPidAlive, now = Date.now() } 
     const mtimeMs = Number(m[2])
     if (isAlive(pid) && now - mtimeMs < STALE_AGE_MS) continue
     try {
-      rmSync(join(indexDir, name), { force: true })
+      rmSync(join(indexDir, name), { recursive: true, force: true })
       removed.push(name)
     } catch {
       /* 别人正删/权限抖动:下次再来,绝不升级成阻断 */
@@ -188,9 +202,10 @@ export function disposeIndex(indexFile) {
     `${indexFile}.lock`,
     `${indexFile}${SNAPSHOT_SUFFIX}`,
     `${indexFile}${DERIVED_SUFFIX}`,
+    `${indexFile}${PRIVATE_GITDIR_SUFFIX}`,
   ]) {
     try {
-      rmSync(f, { force: true })
+      rmSync(f, { recursive: true, force: true })
     } catch {
       /* 清理失败不覆盖原结论 */
     }
@@ -423,15 +438,117 @@ export function restoreIndexFromSnapshot({ gitCwd, env, snapshot, derived = [], 
 }
 
 /**
+ * 从 commitOpts 里剥离一切消息来源(`-m/--message/-F/--file`),统一改写成本席私有
+ * 临时消息文件。调用方给 `-F .git/COMMIT_EDITMSG` 或 `-m` 都不会让本通道碰到共享消息文件。
+ */
+export function extractCommitMessage(commitOpts, { baseCwd = process.cwd(), gitDir = null } = {}) {
+  const rest = []
+  const messages = []
+  let file = null
+  for (let i = 0; i < commitOpts.length; i += 1) {
+    const arg = commitOpts[i]
+    if (arg === '-m' || arg === '--message') {
+      if (i + 1 >= commitOpts.length) throw new Error(`${arg} 缺少消息内容`)
+      messages.push(commitOpts[i + 1])
+      i += 1
+      continue
+    }
+    if (String(arg).startsWith('--message=')) {
+      messages.push(String(arg).slice('--message='.length))
+      continue
+    }
+    if (arg === '-F' || arg === '--file') {
+      if (i + 1 >= commitOpts.length) throw new Error(`${arg} 缺少文件路径`)
+      if (file) throw new Error('只允许一个 -F/--file')
+      file = commitOpts[i + 1]
+      i += 1
+      continue
+    }
+    if (String(arg).startsWith('--file=')) {
+      if (file) throw new Error('只允许一个 -F/--file')
+      file = String(arg).slice('--file='.length)
+      continue
+    }
+    rest.push(arg)
+  }
+  if (file && messages.length) throw new Error('不得同时给 -m 与 -F')
+  let text
+  if (file) {
+    // 相对路径按调用方 git 的工作目录解析(与 native `git commit -F` 同义)。
+    const abs = resolve(baseCwd, file)
+    // 硬线:任何站点都不许把共享 `.git/COMMIT_EDITMSG` 当成消息源(并发下它就是别人的消息)。
+    if (gitDir && abs === resolve(gitDir, 'COMMIT_EDITMSG')) {
+      throw new Error('禁止复用共享 .git/COMMIT_EDITMSG 作为提交消息源:请改用 -m 或本席私有临时文件')
+    }
+    text = readFileSync(abs, 'utf8')
+  } else {
+    text = messages.join('\n\n')
+  }
+  if (!text.trim()) throw new Error('提交消息为空')
+  return { rest, text, sourceFile: file }
+}
+
+/** `%s` 语义:第一段逐行 trim 后以单空格连接(git format_subject 同形;跳过注释行)。 */
+export function subjectFromMessage(text) {
+  const out = []
+  for (const line of String(text).replace(/\r\n/g, '\n').split('\n')) {
+    const t = line.trim()
+    if (!t) {
+      if (out.length) break
+      continue
+    }
+    if (t.startsWith('#')) continue
+    out.push(t)
+  }
+  return out.join(' ')
+}
+
+/**
+ * 为本轮提交建「私有 GIT_DIR 叠层 + 私有消息文件」。
+ * 私有 gitdir 只承载 per-worktree 元数据(HEAD/COMMIT_EDITMSG),`commondir` 指回真实
+ * gitdir ⇒ refs/objects/config 仍是同一仓。子 git 的 COMMIT_EDITMSG 因此只写本席目录,
+ * 并发会话再也覆盖不到;`-F` 也只是本席临时文件,不再指向共享路径。
+ */
+export function preparePrivateCommitContext({ gitCwd, gitDir, indexFile, commitOpts }) {
+  const { rest, text } = extractCommitMessage(commitOpts, { baseCwd: gitCwd, gitDir })
+  const baseName = basename(indexFile).replace(/\.idx$/, '')
+  const privDir = join(dirname(indexFile), `${baseName}${PRIVATE_GITDIR_SUFFIX}`)
+  rmSync(privDir, { recursive: true, force: true })
+  mkdirSync(privDir, { recursive: true })
+  // HEAD 原样复制(可能是符号引用) ⇒ 提交仍落在同一条分支上。
+  writeFileSync(join(privDir, 'HEAD'), readFileSync(join(gitDir, 'HEAD'), 'utf8'))
+  writeFileSync(join(privDir, 'commondir'), `${gitDir}\n`)
+  const messageFile = join(privDir, 'message.txt')
+  writeFileSync(messageFile, text.endsWith('\n') ? text : `${text}\n`)
+  return {
+    commitOpts: [...rest, '-F', messageFile],
+    expectedSubject: subjectFromMessage(text),
+    env: { GIT_DIR: privDir, GIT_WORK_TREE: gitCwd },
+    dispose() {
+      try {
+        rmSync(privDir, { recursive: true, force: true })
+      } catch {
+        /* 清理失败不覆盖原结论;下次 sweep 按宿主 pid/超龄清 */
+      }
+    },
+  }
+}
+
+/**
  * 核心提交:每一轮都「重新 read-tree 当时 HEAD → add 声明集 → 查无外来件 → 发令」。
  * 这样即便别的会话在上一轮把 HEAD 推前了,也不会拿旧索引去建一枚把别人改动退回去的提交
  * (2026-09-26 bf286534bd 同型事故;native `--only` 也有同一个理论窗口,这里事后还核验一次)。
+ * 每轮同时建一份私有 GIT_DIR 叠层 + 私有消息文件,提交后回读 `%s` 与本席写入逐字比对。
  */
 export function commitWithIndex({ gitCwd, env, gitDir, commitOpts, paths, log = console }) {
   const ctx = { gitCwd, env }
   const indexFile = env.GIT_INDEX_FILE
   const declared = new Set(paths.map((p) => normalizePath(gitCwd, p)))
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
+    // 目录可能在本进程排队等写锁期间被别席的 disposeIndex 收掉(它只在本进程索引文件
+    // 尚未出现时才能 rmdir 成功)⇒ 每轮开跑前重新确保目录在,否则 git 建 .idx.lock
+    // 会以 "No such file or directory" 直接失败(2026-11-04 并发夹具实测)。
+    mkdirSync(dirname(indexFile), { recursive: true })
     const base = gitOut(['rev-parse', 'HEAD'], ctx)
     rawGit(['read-tree', 'HEAD'], ctx)
     rawGit(['add', '--', ...paths], ctx)
@@ -470,7 +587,19 @@ export function commitWithIndex({ gitCwd, env, gitDir, commitOpts, paths, log = 
       // 丢了就 fail-closed,绝不静默落回共享索引。
       IHUI_EXPECTED_PRIVATE_INDEX: indexFile,
     }
-    const res = rawGit(['commit', ...commitOpts], { gitCwd, env: hookedEnv, allowFail: true })
+    // 私有 GIT_DIR 叠层 + 私有消息文件:git 的 COMMIT_EDITMSG 只写本席目录,
+    // 并发会话的提交消息再也覆盖不到这里。失败/成功都立即回收本席目录。
+    const privateCommit = preparePrivateCommitContext({ gitCwd, gitDir, indexFile, commitOpts })
+    let res
+    try {
+      res = rawGit(['commit', ...privateCommit.commitOpts], {
+        gitCwd,
+        env: { ...hookedEnv, ...privateCommit.env },
+        allowFail: true,
+      })
+    } finally {
+      privateCommit.dispose()
+    }
     if (res.status === 0) {
       // 成功路径默认吞掉 git 的 stderr;护栏复原留痕必须让作者看见(其余钩子输出不放大)。
       if (/私有索引内容护栏/.test(String(res.stderr || ''))) log.warn?.(String(res.stderr).trim())
@@ -481,6 +610,7 @@ export function commitWithIndex({ gitCwd, env, gitDir, commitOpts, paths, log = 
         declared,
         extraAllowed: derived.map((d) => d.path).filter(Boolean),
         stdout: res.stdout,
+        expectedSubject: privateCommit.expectedSubject,
         log,
       })
       const refreshed = refreshSharedIndex({
@@ -516,12 +646,36 @@ export function commitWithIndex({ gitCwd, env, gitDir, commitOpts, paths, log = 
   throw new Error(`${MAX_ATTEMPTS} 轮都没抢到写面,停手(未产生提交)`)
 }
 
-/** 提交落地后的只读核验:父提交仍是本轮基线、载荷仍等于声明集(∪ 派生申报集)。 */
-export function verifyLanded({ ctx, base, declared, extraAllowed = [], stdout, log = console }) {
+/** 提交落地后的只读核验:subject 逐字自证、父提交仍是本轮基线、载荷仍等于声明集(∪ 派生申报集)。 */
+export function verifyLanded({
+  ctx,
+  base,
+  declared,
+  extraAllowed = [],
+  stdout,
+  expectedSubject = null,
+  log = console,
+}) {
   const fromStdout = String(stdout || '').match(/\[[^\]]*\s([0-9a-f]{7,40})\]/)?.[1]
   const sha = fromStdout
     ? gitOut(['rev-parse', fromStdout], ctx)
     : gitOut(['rev-parse', 'HEAD'], ctx)
+  // 串号自证:git 在 commit-msg 之后会**再读一次** $GIT_DIR/COMMIT_EDITMSG。即便用 -m/-F
+  // 写私有消息文件,只要共享 .git/COMMIT_EDITMSG 被别人覆盖,提交就可能拿到别人的标题。
+  // 这里回读 %s 与本席写入逐字比对;不一致 ⇒ 立即上报,绝不 amend(多席在途时改写会丢别人的工作)。
+  if (expectedSubject !== null) {
+    const got = gitOut(['log', '-1', '--format=%s', sha], ctx)
+    if (got !== expectedSubject) {
+      console.error(
+        `❗ 提交 ${sha.slice(0, 12)} 已落地,但 subject 与本席写入不一致(疑似 COMMIT_EDITMSG 并发串号):`,
+      )
+      console.error(`  want=${JSON.stringify(expectedSubject)}`)
+      console.error(`  got =${JSON.stringify(got)}`)
+      console.error('  按硬线停止:不改写、不 amend;请登记勘误台账后上报。')
+      throw new Error('提交 subject 自证失败(疑似并发串号)')
+    }
+    log.info?.(`✅ subject 回读一致:${got}`)
+  }
   const parents = gitOut(['show', '--no-patch', '--format=%P', sha], ctx)
     .split(/\s+/)
     .filter(Boolean)
@@ -764,7 +918,7 @@ function runRestoreIndex(gitCwd, args) {
   return 0
 }
 
-export function main(argv = process.argv.slice(2)) {
+export async function main(argv = process.argv.slice(2)) {
   const { gitCwd, args } = parseLeadingC(argv)
   if (args[0] === '--help' || args[0] === '-h') {
     console.info(USAGE)
@@ -791,6 +945,25 @@ export function main(argv = process.argv.slice(2)) {
   if (swept.length) console.warn(`🧹 已清理 ${swept.length} 份死进程残留索引:${swept.join(', ')}`)
   const indexFile = indexPathFor(gitDir)
   ACTIVE_INDEXES.add(indexFile)
+  // 全仓 git 写锁:提交(含数分钟钩子)期间禁止别的会话推进 HEAD。否则本席索引仍是旧基线,
+  // 而提交父变成新 HEAD ⇒ 树里没有对方改动,等于把别人的文件回退(2026-11-04 夹具实测)。
+  const lockDirPath = join(gitDir, 'ihui-git-write.lock')
+  try {
+    await gitLock.acquire({
+      unitId: LOCK_UNIT,
+      timeoutMs: 900_000,
+      dir: lockDirPath,
+      cleanIndexLocks: false,
+      log: () => {},
+    })
+  } catch (e) {
+    console.error(`❌ 抢 git 写锁失败,拒绝在无人看守的共享树上提交:${e?.message ?? e}`)
+    disposeIndex(indexFile)
+    return 1
+  }
+  ACTIVE_LOCKS.add(lockDirPath)
+  // 让 post-commit 认出本席已持锁,避免它再抢同一把锁(同 unitId 可重入)。
+  process.env.IHUI_GIT_LOCK_UNIT = LOCK_UNIT
   try {
     return commitWithIndex({
       gitCwd,
@@ -804,11 +977,26 @@ export function main(argv = process.argv.slice(2)) {
     return 2
   } finally {
     disposeIndex(indexFile)
+    ACTIVE_LOCKS.delete(lockDirPath)
+    const rel = gitLock.release({ unitId: LOCK_UNIT, dir: lockDirPath, log: () => {} })
+    if (!rel.released) {
+      console.error(`⚠️ git 写锁释放失败(下次 acquire 会按 stale/身份判据回收):${rel.why ?? ''}`)
+    }
   }
 }
 
+const ACTIVE_LOCKS = new Set()
+
 function cleanupAll() {
   for (const f of [...ACTIVE_INDEXES]) disposeIndex(f)
+  for (const dir of [...ACTIVE_LOCKS]) {
+    try {
+      gitLock.release({ unitId: LOCK_UNIT, dir, log: () => {} })
+    } catch {
+      /* 忽略 */
+    }
+  }
+  ACTIVE_LOCKS.clear()
 }
 
 /** 信号路径:`exit` 不覆盖 SIGINT/SIGTERM,显式补(硬杀由下次 sweep 兜底)。 */
@@ -829,7 +1017,14 @@ export function installExitHooks() {
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 if (isDirectRun) {
   installExitHooks()
-  process.exitCode = main()
+  main()
+    .then((code) => {
+      process.exitCode = code
+    })
+    .catch((e) => {
+      console.error(`❌ ${e?.message ?? e}`)
+      process.exitCode = 2
+    })
 }
 
 export const __test__ = {
