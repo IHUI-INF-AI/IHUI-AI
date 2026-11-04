@@ -5,7 +5,7 @@
 /**
  * mobile-rn hooks 统一入口。
  *
- * 平台独占 hook(use-biometrics / use-push / use-screenshot)保留本地实现。
+ * 平台独占 hook(use-biometrics / use-push)保留本地实现。
  * use-clipboard / use-paginated-list / use-websocket 已 re-export shared。
  *
  * 本文件统一 re-export shared 工具 hook,各 Screen 可按需 import:
