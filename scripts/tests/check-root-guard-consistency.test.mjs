@@ -27,7 +27,11 @@ const readerFor = (contents) => (abs) => {
 
 const harness = ({ entryOverrides = {}, targets, missing = [], blind = false } = {}) => {
   const contents = GATE.fixtureFiles(entryOverrides)
-  const manifest = JSON.parse(GATE.manifestDoc(targets ?? GATE.baseManifestEntries()))
+  // 必备集 2026-11-04 扩容到 4 枚(git-guardian);夹具基线仍是门 267 射程核对用的原三枚,
+  // 故此处与门体自检同法显式追加,不把 ⑦ 的基线口径改掉。
+  const manifest = JSON.parse(
+    GATE.manifestDoc(targets ?? [...GATE.baseManifestEntries(), GATE.gitGuardianFixtureEntry()]),
+  )
   const read = readerFor(contents)
   // blind ⇒ 面上什么都取不到;missing=[后缀] ⇒ 只让命中的那份取不到(造"未判定与红并存")
   const readFile = blind

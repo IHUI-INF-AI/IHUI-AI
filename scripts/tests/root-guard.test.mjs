@@ -13,7 +13,7 @@ import assert from 'node:assert/strict'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
-import { __test__ as rg } from '../root-guard.mjs'
+import { __test__ as rg, REQUIRED_TARGET_IDS } from '../root-guard.mjs'
 
 const MD = '# t\n\n## 0. 全局铁律(先读,跨节通用)\nA\nB\n\n## 1. 其它\nC\n'
 
@@ -474,5 +474,52 @@ test('⑥ 形状锁:main() 必须在任何动作之前拒绝未知旗标(拒绝�
   assert.ok(guardAt > 0 && dispatchAt > 0, '找不到拒绝器或分派点')
   assert.ok(guardAt < dispatchAt, '拒绝必须排在任何 --flag 分派之前')
   assert.ok(/process\.exitCode = EXIT_UNKNOWN/.test(m.slice(0, guardAt + 900)), '用法错必须顶未判定/失败退出码')
+})
+
+/**
+ * ⑦ 必备目标扩容(2026-11-04):任一 REQUIRED 目标哈希不符 ⇒ fail / exit=1。
+ * 全部走内存替身(不碰真仓、不依赖任何服务):清单按必备 id 逐枚造封条 → 逐枚把其中一枚
+ * 换成不同内容,只该那一枚 fail,verdict 折成 exit 1;全对则 pass/exit 0(成对反向牙)。
+ */
+test('⑦ 任一 REQUIRED 目标哈希不符 ⇒ fail/exit=1', () => {
+  assert.ok(REQUIRED_TARGET_IDS.includes('git-guardian'), '扩容后必备集必须含 git-guardian')
+  const manifest = {
+    targets: REQUIRED_TARGET_IDS.map((id) => ({
+      id,
+      path: `${id}.mjs`,
+      mode: 'file',
+      sha256: rg.sha256Of('good'),
+    })),
+  }
+  const readerFor = (badId) => (abs) => {
+    const name = String(abs)
+      .replace(/\\/g, '/')
+      .split('/')
+      .pop()
+      .replace(/\.mjs$/, '')
+    return name === badId ? 'bad' : 'good'
+  }
+  const allGood = rg.checkAll({ manifest, readFile: readerFor(null), root: '/r' })
+  assert.equal(allGood.verdict, 'pass', '全对必须 pass')
+  assert.equal(rg.exitCodeOf(allGood.verdict), 0)
+  for (const badId of REQUIRED_TARGET_IDS) {
+    const r = rg.checkAll({ manifest, readFile: readerFor(badId), root: '/r' })
+    assert.equal(r.verdict, 'fail', `${badId} 哈希不符却读出 ${r.verdict}`)
+    assert.equal(rg.exitCodeOf(r.verdict), 1, `${badId} 不符必须 exit=1`)
+    assert.equal(r.targets.find((t) => t.id === badId)?.state, 'fail')
+    assert.equal(r.targets.filter((t) => t.state === 'fail').length, 1, '只该点名不相符那一枚')
+  }
+})
+
+test('⑦b 真实清单在册全部 REQUIRED 目标 id(否则该条可被静默删掉)', () => {
+  const m = rg.loadManifest(
+    readFileSync(join(ROOT, 'scripts/data/root-guard-manifest.json'), 'utf8'),
+  )
+  for (const id of REQUIRED_TARGET_IDS)
+    assert.ok(m.targets.some((t) => t.id === id), `真实清单缺必备目标 ${id}`)
+  assert.ok(
+    m.targets.length >= REQUIRED_TARGET_IDS.length,
+    `清单目标数 ${m.targets.length} 少于必备集 ${REQUIRED_TARGET_IDS.length}`,
+  )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
