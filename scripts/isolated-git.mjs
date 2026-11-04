@@ -32,8 +32,10 @@
  *   条目即中止(不把别席的在飞件交出去)。
  * - **共享索引不与之争写**:提交时不读不写共享 `.git/index`;提交成功后,仅当它「提交前
  *   本来就干净 + 全程字节哈希未变 + `.git/index.lock` 拿得到」时,才用锁文件 CAS 把它推进
- *   到新 HEAD(避免留下"反向暂存"让别的会话误以为我们删了文件)。任一条件不成立就原样
- *   不动 —— 别人的 staged 一个字节都不覆盖,留给下一条 `safe-commit`(§12 Step 1)自愈。
+ *   到新 HEAD。这个条件在多会话下基本不成立(别人总有 staged),所以再补一条**路径级**推进
+ *   (`advanceSharedIndexPaths`):持同一把锁、以共享索引现读字节为基,只把**本次声明路径**
+ *   写成新提交树里的条目 —— 别人的 staged 一个字节不改,同时不给下一条提交留 MM/AD 反向暂存。
+ *   连锁都拿不到就原样不动,留给 `safe-commit`(§12 Step 1)自愈。
  *
  * 用法:
  *   node scripts/isolated-git.mjs commit -m "<提交标题>" -- <路径...>
@@ -481,7 +483,7 @@ export function commitWithIndex({ gitCwd, env, gitDir, commitOpts, paths, log = 
         stdout: res.stdout,
         log,
       })
-      refreshSharedIndex({
+      const refreshed = refreshSharedIndex({
         gitCwd,
         gitDir,
         indexFile,
@@ -489,6 +491,17 @@ export function commitWithIndex({ gitCwd, env, gitDir, commitOpts, paths, log = 
         committedSha: sha,
         log,
       })
+      // 共享索引里还有别人的 staged(常态)⇒ 整份 CAS 会放弃;此时只把**本次声明路径**
+      // 推进到新提交树,避免留下 MM/AD 反向暂存(见 advanceSharedIndexPaths 头注)。
+      if (!refreshed) {
+        advanceSharedIndexPaths({
+          gitCwd,
+          gitDir,
+          committedSha: sha,
+          paths: [...declared],
+          log,
+        })
+      }
       return 0
     }
     if (isLockBusy(res.stderr) && attempt < MAX_ATTEMPTS) {
@@ -577,6 +590,79 @@ export function refreshSharedIndex({
       unlinkSync(lock)
     } catch {
       /* rename 成功后 lock 已不存在 */
+    }
+  }
+}
+
+/**
+ * 共享索引的**路径级**推进(2026-11-04 立)。
+ *
+ * `refreshSharedIndex` 只在共享索引恰好等于父树时整份追上;多会话下这几乎从不成立
+ * (别人总有 staged),于是本单路径在共享索引里停在父树 —— 提交落地后它们以
+ * `MM`/`AD` 形态"反向暂存":谁下一条裸 `git commit` 就会把本次提交改回去
+ * (本仓历史上「已删件复活」的同一个根)。
+ *
+ * 这里只动**本次声明路径**:持 `.git/index.lock`(拿不到就放弃,不硬闯别人正在写的窗口),
+ * 以持锁后现读的共享索引字节为基复制一份(别人的条目一个字节不改),只把声明路径的条目
+ * 写成新提交树里的 blob/mode,再原子 rename 回去。拿不到锁或任何一步失败 ⇒ 原样不动,
+ * 留给下一条 `safe-commit`(AGENTS §12 Step 1)自愈。
+ */
+export function advanceSharedIndexPaths({ gitCwd, gitDir, committedSha, paths, log = console }) {
+  const sharedIndex = join(gitDir, 'index')
+  const lock = join(gitDir, 'index.lock')
+  const declared = [...new Set((paths || []).map((p) => normalizePath(gitCwd, p)))]
+  if (!declared.length) return false
+  let staging = null
+  let fd
+  try {
+    fd = openSync(lock, 'wx')
+  } catch {
+    return false
+  }
+  try {
+    closeSync(fd)
+    staging = `${sharedIndex}.${process.pid}-${randomBytes(4).toString('hex')}.tmp`
+    writeFileSync(staging, readFileSync(sharedIndex))
+    const tree = String(
+      rawGit(
+        ['-c', 'core.quotepath=false', 'ls-tree', '-r', '-z', '--full-tree', committedSha, '--', ...declared],
+        { gitCwd, env: cleanGitEnv() },
+      ).stdout || '',
+    )
+    const recs = []
+    for (const rec of tree.split('\u0000')) {
+      if (!rec) continue
+      const tab = rec.indexOf('\t')
+      if (tab < 0) continue
+      const meta = rec.slice(0, tab).trim().split(/\s+/)
+      if (meta.length < 3 || meta[1] !== 'blob') continue
+      recs.push({ mode: meta[0], blob: meta[2], path: rec.slice(tab + 1) })
+    }
+    if (!recs.length) return false
+    const stageEnv = { ...cleanGitEnv(), GIT_INDEX_FILE: staging }
+    for (const r of recs) {
+      rawGit(['update-index', '--add', '--cacheinfo', `${r.mode},${r.blob},${r.path}`], {
+        gitCwd,
+        env: stageEnv,
+      })
+    }
+    renameSync(staging, sharedIndex)
+    return true
+  } catch (e) {
+    log.warn?.(`共享索引路径级推进失败(不影响本次提交): ${e?.message ?? e}`)
+    return false
+  } finally {
+    try {
+      unlinkSync(lock)
+    } catch {
+      /* rename 成功后 lock 已不存在 */
+    }
+    if (staging) {
+      try {
+        unlinkSync(staging)
+      } catch {
+        /* 已被 rename */
+      }
     }
   }
 }
