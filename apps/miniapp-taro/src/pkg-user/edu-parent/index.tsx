@@ -56,46 +56,48 @@ export default function EduParentPage() {
   return (
     <ThemeRoot>
       <View className="min-h-screen bg-background p-lg">
-        <View className="flex items-center gap-3 py-3">
-          <Text className="text-xl font-bold text-foreground">{t('eduParent.title')}</Text>
+        <View className="flex items-center gap-md py-md">
+          <Text className="text-heading font-bold text-foreground">{t('eduParent.title')}</Text>
         </View>
 
         <View
-          className="rounded-lg border border-border bg-card p-4 flex items-center justify-between gap-2"
+          className="rounded-lg border border-border bg-card p-lg flex items-center justify-between gap-sm"
           hoverClass="opacity-80"
           onClick={() => {
             void Taro.navigateTo({ url: '/pkg-user/edu-my-attendance/index' })
           }}
         >
-          <Text className="text-base font-semibold text-foreground">
+          <Text className="text-title font-semibold text-foreground">
             {t('eduMyAttendance.title')}
           </Text>
-          <Text className="text-xs text-muted-foreground">{t('eduParent.myAttendanceHint')}</Text>
+          <Text className="text-label text-muted-foreground">
+            {t('eduParent.myAttendanceHint')}
+          </Text>
         </View>
 
         {loading ? (
           <ScreenSkeleton variant="card" />
         ) : failed ? (
-          <View className="py-8 text-center">
-            <Text className="text-sm text-muted-foreground">{t('common.loadFailed')}</Text>
+          <View className="py-3xl text-center">
+            <Text className="text-body text-muted-foreground">{t('common.loadFailed')}</Text>
           </View>
         ) : children.length === 0 ? (
           <EmptyState title={t('eduParent.empty')} />
         ) : (
-          <View className="space-y-3">
+          <View className="space-y-md">
             {children.map((c) => (
               <View
                 key={c.bindingId}
-                className="rounded-lg border border-border bg-card p-4 flex items-center justify-between gap-2"
+                className="rounded-lg border border-border bg-card p-lg flex items-center justify-between gap-sm"
               >
-                <View className="flex-1 min-w-0 space-y-1">
-                  <Text className="text-base font-semibold text-foreground truncate">
+                <View className="flex-1 min-w-0 space-y-xs">
+                  <Text className="text-title font-semibold text-foreground truncate">
                     {c.student?.nickname ?? c.studentId}
                   </Text>
                   <Text className="text-label text-muted-foreground">{c.relationship}</Text>
                 </View>
                 <Text
-                  className={`text-xs font-semibold ${
+                  className={`text-label font-semibold ${
                     c.status === 'active' || c.status === 'confirmed'
                       ? 'text-emerald-600'
                       : 'text-muted-foreground'

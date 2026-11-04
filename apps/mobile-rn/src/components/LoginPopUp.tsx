@@ -77,7 +77,6 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  TextInput,
   View,
   type ViewStyle,
 } from 'react-native'
@@ -208,9 +207,6 @@ export function LoginPopUp({
   const [account, setAccount] = useState('')
   const [password, setPassword] = useState('')
   const [pwdSubmitting, setPwdSubmitting] = useState(false)
-  // 裸 TextInput 的聚焦态(G-978007 普查锁):onFocus/onBlur 内部记账,聚焦描边真实生效
-  const [accountFocused, setAccountFocused] = useState(false)
-  const [passwordFocused, setPasswordFocused] = useState(false)
 
   // 一键登录 = 运营商取号(A 端能力) → 与小程序端同一回调槽位,
   // loginCode 承载运营商 accessToken,phoneCode 承载本机号码。
@@ -342,22 +338,20 @@ export function LoginPopUp({
                 <View style={styles.pwdBlock}>
                   {pwdOpen ? (
                     <>
-                      <TextInput
-                        style={[styles.pwdInput, accountFocused ? styles.pwdInputFocused : null]}
+                      <TextField
+                        colorScheme={currentRnTheme()}
+                        style={styles.pwdInput}
                         value={account}
                         onChangeText={setAccount}
-                        onFocus={() => setAccountFocused(true)}
-                        onBlur={() => setAccountFocused(false)}
                         placeholder={t('login.accountPlaceholder')}
                         placeholderTextColor={tokens.text.tertiary}
                         autoCapitalize="none"
                       />
-                      <TextInput
-                        style={[styles.pwdInput, passwordFocused ? styles.pwdInputFocused : null]}
+                      <TextField
+                        colorScheme={currentRnTheme()}
+                        style={styles.pwdInput}
                         value={password}
                         onChangeText={setPassword}
-                        onFocus={() => setPasswordFocused(true)}
-                        onBlur={() => setPasswordFocused(false)}
                         placeholder={t('login.passwordPlaceholder')}
                         placeholderTextColor={tokens.text.tertiary}
                         secureTextEntry
@@ -772,10 +766,6 @@ const styles = StyleSheet.create({
     marginBottom: LOGIN_POPUP_SECTION_GAP_PX,
     fontSize: LOGIN_POPUP_BODY_FONT_PX,
     color: tokens.text.primary,
-  },
-  // 聚焦态只换描边色(不换宽度,避免顶起文字),取品牌色令牌,不写死色值
-  pwdInputFocused: {
-    borderColor: tokens.brand.DEFAULT,
   },
   loginErrorText: {
     fontSize: LOGIN_POPUP_NOTE_FONT_PX,

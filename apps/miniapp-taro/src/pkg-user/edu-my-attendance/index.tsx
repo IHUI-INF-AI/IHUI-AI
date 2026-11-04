@@ -149,12 +149,12 @@ export default function Page() {
 
   return (
     <ThemeRoot>
-      <View className="min-h-screen bg-background p-4">
-        <View className="flex items-center justify-between gap-3 py-3">
-          <Text className="text-xl font-bold text-foreground shrink-0">
+      <View className="min-h-screen bg-background p-lg">
+        <View className="flex items-center justify-between gap-md py-md">
+          <Text className="text-heading font-bold text-foreground shrink-0">
             {t('eduMyAttendance.title')}
           </Text>
-          <View className="flex flex-row items-center gap-2">
+          <View className="flex flex-row items-center gap-sm">
             <Button size="sm" loading={signing} onClick={() => void onSelfCheckIn()}>
               {t('eduMyAttendance.selfCheckIn')}
             </Button>
@@ -170,13 +170,13 @@ export default function Page() {
           </View>
         </View>
 
-        <View className="pb-3 space-y-2">
-          <Text className="text-xs text-muted-foreground">
+        <View className="pb-md space-y-sm">
+          <Text className="text-label text-muted-foreground">
             {t('eduMyAttendance.classByBackendHint')}
             {echo?.status ? ` (${st(echo.status)})` : ''}
           </Text>
           <Input
-            className="rounded-sm border border-border bg-card px-3 py-2 text-sm text-foreground"
+            className="rounded-sm border border-border bg-card px-md py-sm text-body text-foreground"
             value={remark}
             placeholder={t('eduMyAttendance.remarkPlaceholder')}
             onInput={(e) => setRemark(e.detail.value)}
@@ -186,42 +186,42 @@ export default function Page() {
         {loading ? (
           <ScreenSkeleton variant="list" />
         ) : failed ? (
-          <View className="py-8 text-center">
-            <Text className="text-sm text-muted-foreground">{t('common.loadFailed')}</Text>
+          <View className="py-3xl text-center">
+            <Text className="text-body text-muted-foreground">{t('common.loadFailed')}</Text>
           </View>
         ) : rows.length === 0 ? (
           <EmptyState title={t('common.empty')} />
         ) : (
-          <View className="space-y-3">
+          <View className="space-y-md">
             {rows.map((r) => (
-              <View key={r.id} className="rounded-lg border border-border bg-card p-4 space-y-2">
-                <View className="flex items-center justify-between gap-2">
-                  <Text className="text-xs text-muted-foreground shrink-0">
+              <View key={r.id} className="rounded-lg border border-border bg-card p-lg space-y-sm">
+                <View className="flex items-center justify-between gap-sm">
+                  <Text className="text-label text-muted-foreground shrink-0">
                     {t('eduChildAttendance.date')}
                   </Text>
-                  <Text className="text-sm text-right text-foreground">
+                  <Text className="text-body text-right text-foreground">
                     {(r.date ?? '').slice(0, 10)}
                   </Text>
                 </View>
-                <View className="flex items-center justify-between gap-2">
-                  <Text className="text-xs text-muted-foreground shrink-0">
+                <View className="flex items-center justify-between gap-sm">
+                  <Text className="text-label text-muted-foreground shrink-0">
                     {t('eduAttendance.statusTitle')}
                   </Text>
-                  <Text className="text-sm text-right text-emerald-600">{st(r.status)}</Text>
+                  <Text className="text-body text-right text-emerald-600">{st(r.status)}</Text>
                 </View>
-                <View className="flex items-center justify-between gap-2">
-                  <Text className="text-xs text-muted-foreground shrink-0">
+                <View className="flex items-center justify-between gap-sm">
+                  <Text className="text-label text-muted-foreground shrink-0">
                     {t('eduAttendance.checkIn')}
                   </Text>
-                  <Text className="text-sm text-right text-foreground">
+                  <Text className="text-body text-right text-foreground">
                     {r.checkInTime?.slice(11, 16) ?? '—'}
                   </Text>
                 </View>
-                <View className="flex items-center justify-between gap-2">
-                  <Text className="text-xs text-muted-foreground shrink-0">
+                <View className="flex items-center justify-between gap-sm">
+                  <Text className="text-label text-muted-foreground shrink-0">
                     {t('eduAttendance.checkOut')}
                   </Text>
-                  <Text className="text-sm text-right text-foreground">
+                  <Text className="text-body text-right text-foreground">
                     {r.checkOutTime?.slice(11, 16) ?? '—'}
                   </Text>
                 </View>
