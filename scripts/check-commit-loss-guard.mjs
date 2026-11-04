@@ -74,8 +74,9 @@
  *   正则/分类逻辑 —— 那正是 §22c 禁的镜像模式(抄的那份会静默漂移,而漂移的表现是恒绿)。
  *   现由 `isDirectRun` 守卫执行,判定单元经 `export const __test__` 供测试取用。
  */
+import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { pathToFileURL } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import {
@@ -86,6 +87,7 @@ import {
   gitRaw,
   Undetermined,
 } from './lib/face-reader.mjs'
+import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
 /**
  * 判定对象 = **当前工作目录所在的仓库**,不是脚本自己所在的那个仓库。
@@ -120,6 +122,10 @@ const FLAGS = {
   listUnbacked: '--list-unbacked',
   listOutOfWindow: '--list-out-of-window',
 }
+
+/** 自检入口旗标与脚本自身路径(自检必须**以子进程**再跑一遍本门才能拿到真实 exit 码)。 */
+const SELF_TEST_FLAG = '--self-test'
+const SELF_PATH = fileURLToPath(import.meta.url)
 
 /**
  * 「判绿」两句文案的唯一源头。测试只能靠 stdout 区分"判完了、判绿"与"没判成",
@@ -1314,12 +1320,266 @@ function compareTagSets(local, remote) {
   }
 }
 
+// ── --self-test(2026-11-04 立)──────────────────────────────────────────────
+/**
+ * 自检的夹具派生出口(夹具仓内的 git 一律经这里,**显式 stdio** —— §12g)。
+ *
+ * 为什么要 `GIT_CONFIG_NOSYSTEM` + `GIT_CONFIG_GLOBAL` 指到夹具内的空文件:
+ * 本机 global config 可带 `core.hooksPath` / 提交签名等设置,夹具提交若被它们接管,
+ * "真跑 main()" 读到的就不是夹具自己造的历史。空文件在夹具内且不被跟踪,fsck 不受影响。
+ */
+const FIXTURE_GIT_TIMEOUT_MS = 30_000
+function fixtureGit(dir, args) {
+  const r = spawnSync(gitBinary() || 'git', ['-c', 'safe.directory=*', ...args], {
+    cwd: dir,
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: FIXTURE_GIT_TIMEOUT_MS,
+    stdio: ['ignore', 'pipe', 'pipe'],
+    env: {
+      ...process.env,
+      GIT_CONFIG_NOSYSTEM: '1',
+      GIT_CONFIG_GLOBAL: join(dir, '.ihui-empty-gitconfig'),
+    },
+  })
+  if (r.error) throw new Error(`夹具 git ${args.join(' ')} 派生失败:${r.error.message}`)
+  if (r.status !== 0)
+    throw new Error(
+      `夹具 git ${args.join(' ')} 失败(status=${r.status}):${String(r.stderr || r.stdout || '')
+        .trim()
+        .slice(0, 200)}`,
+    )
+  return String(r.stdout || '').trim()
+}
+
+/**
+ * 以**子进程**真跑本门,拿真实 exit 码(而不是在自检进程里调 main()):
+ * main() 的档位旗标在模块加载期就从 argv 读定,同进程调用会把 `--self-test` 当成"没有 --blocking",
+ * 于是 reset/悬空这两档都只会 warn 再 exit 0 —— 自检就变成了"证明它能跑"而不是"证明它有牙"。
+ * 子进程 cwd=夹具仓 ⇒ 门的 `ROOT = process.cwd()` 自然落在夹具上,与镜像测试同一取材口径。
+ * 环境显式钉死三件:关缓存(避免复用脏结论)、关窗维(全量语义,最近造的悬空必拦)、关远程
+ * (夹具无 origin,不许任何自检去发网络)。`HUSKY_SKIP_COMMIT_LOSS_CHECK` 必须删掉 ——
+ * 留着它等于自检求一个"被跳过"的 0。
+ */
+function runGateIn(dir, flags) {
+  const env = {
+    ...process.env,
+    IHUI_COMMIT_LOSS_NO_CACHE: '1',
+    IHUI_COMMIT_LOSS_WINDOW_DAYS: '0',
+    IHUI_COMMIT_LOSS_REMOTE: '0',
+  }
+  delete env[SKIP_ENV]
+  const r = spawnSync(process.execPath, [SELF_PATH, ...flags], {
+    cwd: dir,
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 300_000,
+    stdio: ['ignore', 'pipe', 'pipe'],
+    env,
+  })
+  return {
+    status: r.error ? null : r.status,
+    error: r.error,
+    out: `${r.stdout || ''}${r.stderr || ''}`,
+  }
+}
+
+/** 失败诊断只留尾部:门的输出带 ANSI 与整段明细,截尾才看得见"结论那几行"。 */
+const tailOf = (s, n = 260) =>
+  String(s || '')
+    .replace(/\x1b\[[0-9;]*m/g, '')
+    .trim()
+    .slice(-n)
+
+/**
+ * `--self-test`:§22 三类判据 + 未判定臂的**端到端**对照。
+ *
+ * 不碰真仓:每个用例在 `mkScratch`(§26 唯一落点)里 `git init` 一个临时仓,所有 git 动作
+ * (`reset --hard` / `stash drop` / 打 tag)只发生在那个仓里,判据本体一行未改。
+ * 用例成对:
+ *   ① 正常演进 ⇒ 0(证明门不是恒红);
+ *   ② `reset --hard` 丢掉 commit 且无备份 tag ⇒ 1 且点名(证明门不是恒绿);
+ *   ③ 同样的 reset 但有 `lost-commit/*` 备份 ⇒ 0(这门存在的理由:允许回退,不许无备份回退);
+ *   ④ `stash drop` 丢掉含 commit 的 stash ⇒ 1 且点名(未过滤档);同现场加 `--filter-stash`
+ *      ⇒ 0(证明过滤臂既拦得住、也不误拦);
+ *   ⑤ 非 git 目录 ⇒ 2 且不记绿(§0.3:"没判完"不得读成"判过了")。
+ *
+ * ⚠️ ④ 为什么"未过滤档"才红:`--filter-stash` 是提交链档位,它按设计把 WIP/index/untracked
+ * 这类 stash 快照判成"不是丢失"。所以"stash drop 能被看见"这件事必须在无该旗标的档位上证明,
+ * 同时保留带旗标的正例 —— 两格一起才同时证明"判据有牙"与"过滤不误拦"。
+ */
+function runSelfTest() {
+  console.log(
+    `${C.cyan}${C.bold}🧪 check-commit-loss-guard --self-test(§22 判据端到端对照)${C.reset}`,
+  )
+  const cases = []
+  // 登记式:先真跑子进程,再把**已求值的布尔**记进来 —— 断言值不依赖 report 时刻的现场,
+  // 夹具清理与结账顺序因此无关(也就不必为了"求值点"把清理塞进 finally 里结账)。
+  const t = (name, pass, got = '') => cases.push({ name, pass: Boolean(pass), got: String(got) })
+  const dirs = []
+  const newRepo = () => {
+    const dir = mkScratch('commit-loss-selftest-')
+    dirs.push(dir)
+    writeFileSync(join(dir, '.ihui-empty-gitconfig'), '', 'utf8')
+    fixtureGit(dir, ['init', '-q', '-b', 'main'])
+    fixtureGit(dir, ['config', 'user.email', 'gate-fixture@ihui.local'])
+    fixtureGit(dir, ['config', 'user.name', 'gate-fixture'])
+    fixtureGit(dir, ['config', 'commit.gpgsign', 'false'])
+    return dir
+  }
+  const commitTwice = (dir) => {
+    writeFileSync(join(dir, 'a.txt'), 'v1\n', 'utf8')
+    fixtureGit(dir, ['add', 'a.txt'])
+    fixtureGit(dir, ['commit', '-q', '-m', 'c1'])
+    writeFileSync(join(dir, 'a.txt'), 'v2\n', 'utf8')
+    fixtureGit(dir, ['commit', '-q', '-am', 'c2'])
+    return fixtureGit(dir, ['rev-parse', 'HEAD'])
+  }
+  try {
+    // ① 正例:正常演进,没有丢失 commit
+    {
+      const dir = newRepo()
+      const head = commitTwice(dir)
+      const g = runGateIn(dir, [FLAGS.blocking, FLAGS.filterStash])
+      t(
+        '① 正例·正常演进无丢失 ⇒ exit 0',
+        g.status === 0,
+        `status=${g.status}; HEAD=${head.slice(0, SHORT_HASH_LEN)}; tail=${tailOf(g.out)}`,
+      )
+      t(
+        '② 正例·且输出真判绿(不是"没判成"的 0)',
+        g.out.includes(GREEN_MARKERS.noRisk),
+        `tail=${tailOf(g.out)}`,
+      )
+    }
+
+    // ③④⑤ 反例:reset --hard 丢掉已有 commit,且无备份 tag
+    {
+      const dir = newRepo()
+      const lost = commitTwice(dir)
+      fixtureGit(dir, ['reset', '--hard', 'HEAD~1'])
+      const g = runGateIn(dir, [FLAGS.blocking, FLAGS.filterStash])
+      t(
+        '③ 反例·reset --hard 丢 commit 且无备份 tag ⇒ exit 1',
+        g.status === 1,
+        `status=${g.status}; tail=${tailOf(g.out)}`,
+      )
+      t(
+        '④ 反例·逐条点名被丢的那枚 commit',
+        g.out.includes(lost.slice(0, SHORT_HASH_LEN)),
+        `期望点名 ${lost.slice(0, SHORT_HASH_LEN)}; tail=${tailOf(g.out)}`,
+      )
+      t(
+        '⑤ 反例·reflog reset 判据同时生效',
+        g.out.includes('次 reset 操作') && g.out.includes('reset: moving to'),
+        `tail=${tailOf(g.out)}`,
+      )
+    }
+
+    // ⑥⑦ 正例:同样的 reset,但被丢的那枚有 lost-commit/* 备份 ⇒ 门必须放行
+    {
+      const dir = newRepo()
+      const kept = commitTwice(dir)
+      fixtureGit(dir, ['tag', 'lost-commit/self-test-backup', kept])
+      fixtureGit(dir, ['reset', '--hard', 'HEAD~1'])
+      const g = runGateIn(dir, [FLAGS.blocking, FLAGS.filterStash])
+      t(
+        '⑥ 正例·reset 有 lost-commit/* 备份 ⇒ exit 0(允许回退)',
+        g.status === 0,
+        `status=${g.status}; tail=${tailOf(g.out)}`,
+      )
+      t(
+        '⑦ 正例·且门真的认了这枚备份(输出点名 tag,不是"跳过判据")',
+        g.out.includes('lost-commit/self-test-backup'),
+        `tail=${tailOf(g.out)}`,
+      )
+    }
+
+    // ⑧⑨⑩⑪ 反例+正例:stash drop 丢掉含 commit 的 stash
+    {
+      const dir = newRepo()
+      writeFileSync(join(dir, 'a.txt'), 'v1\n', 'utf8')
+      fixtureGit(dir, ['add', 'a.txt'])
+      fixtureGit(dir, ['commit', '-q', '-m', 'c1'])
+      writeFileSync(join(dir, 'a.txt'), 'v2\n', 'utf8')
+      fixtureGit(dir, ['stash', 'push', '-q', '-m', 'self-test stash'])
+      const stash = fixtureGit(dir, ['rev-parse', 'refs/stash'])
+      fixtureGit(dir, ['stash', 'drop', '-q'])
+      // 未过滤档:stash 快照就是"未备份悬空 commit",必须判红并点名
+      const gRaw = runGateIn(dir, [FLAGS.blocking])
+      t(
+        '⑧ 反例·stash drop 丢掉 stash commit ⇒ exit 1(未过滤档)',
+        gRaw.status === 1,
+        `status=${gRaw.status}; tail=${tailOf(gRaw.out)}`,
+      )
+      t(
+        '⑨ 反例·点名被丢的 stash commit',
+        gRaw.out.includes(stash.slice(0, SHORT_HASH_LEN)),
+        `期望点名 ${stash.slice(0, SHORT_HASH_LEN)}; tail=${tailOf(gRaw.out)}`,
+      )
+      // 同现场加提交链旗标:stash-like 按设计不算丢失 ⇒ 必须放过(否则就是误拦)
+      const gFiltered = runGateIn(dir, [FLAGS.blocking, FLAGS.filterStash])
+      t(
+        '⑩ 正例·同现场加 --filter-stash ⇒ exit 0(不把 stash 当丢失)',
+        gFiltered.status === 0,
+        `status=${gFiltered.status}; tail=${tailOf(gFiltered.out)}`,
+      )
+      t(
+        '⑪ 正例·且过滤确实发生(输出报出过滤数)',
+        gFiltered.out.includes('已过滤'),
+        `tail=${tailOf(gFiltered.out)}`,
+      )
+    }
+
+    // ⑫⑬ 未判定臂:非 git 目录(取不到 git 面)⇒ 2,且不得记绿
+    {
+      const dir = mkScratch('commit-loss-selftest-nongit-')
+      dirs.push(dir)
+      const g = runGateIn(dir, [FLAGS.blocking, FLAGS.filterStash])
+      t(
+        '⑫ 未判定臂·非 git 目录 ⇒ exit 2',
+        g.status === 2,
+        `status=${g.status}; tail=${tailOf(g.out)}`,
+      )
+      t(
+        '⑬ 未判定臂·不记绿(既无"无风险"也无"未检测到悬空"且明说"无法判定")',
+        !g.out.includes(GREEN_MARKERS.noRisk) &&
+          !g.out.includes(GREEN_MARKERS.noUnreachable) &&
+          g.out.includes('无法判定'),
+        `tail=${tailOf(g.out)}`,
+      )
+    }
+  } finally {
+    for (const d of dirs) {
+      try {
+        rmScratch(d, { bestEffort: true })
+      } catch (e) {
+        console.warn(`⚠ 自检夹具清理失败:${d} —— ${String(e?.message ?? e).slice(0, 120)}`)
+      }
+    }
+  }
+  // 用例登记的是**已求值的布尔**(每个 t 调用之前子进程已真跑完),所以这里结账与清理顺序无关。
+  const pass = cases.filter((c) => c.pass).length
+  const fail = cases.length - pass
+  for (const c of cases)
+    console.log(`${c.pass ? '✅' : '❌'} ${c.name}${c.pass ? '' : ` —— 实得:${c.got}`}`)
+  console.log(
+    fail === 0
+      ? `${C.green}--self-test:${pass}/${cases.length} 通过${C.reset}`
+      : `${C.red}--self-test:${pass}/${cases.length} 通过(${fail} 例失败)${C.reset}`,
+  )
+  return fail ? 1 : 0
+}
+
 /**
  * 判定主体。§22d 后它是 **async**(入口守卫要拿它的 promise 接 `.then/.catch`);
  * 函数体内没有任何 await ⇒ 求值时序与旧的同步版逐字相同,每条出口仍自己 `process.exit(N)`
  * (0 = 通过/降级通过,1 = blocking 判红,skip 档 = 0),`onFatal` 仍负责异常侧的 exit 2。
  */
 async function main() {
+  // --self-test 分派放在 skip 档**之前**:SKIP_ENV 是"紧急跳门"通道,它不得把自检也跳成 0 ——
+  // 那会在最需要证明门有牙的环境里得到一份空自检。
+  if (process.argv.includes(SELF_TEST_FLAG)) return runSelfTest()
   if (skip) {
     console.log(`${C.yellow}⚠ ${SKIP_ENV}=1 已跳过 commit 丢失防护守门(不推荐)${C.reset}`)
     process.exit(0)
