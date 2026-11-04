@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "note": "自主环判据不变量清单(门 299)。每条锚点都必须逐字出现在被审面上;清单与代码同轮变化,不留『清单还认旧名』的僵尸。立因与判据顺序见 scripts/check-autonomy-invariants.mjs 头注。",
+  "entries": [
+    {
+      "path": "scripts/auto-evolve.mjs",
+      "why": "调度器的诚实读数与落地通道:零写盘档、写调用计数、运行时归一、私有索引落账、落地五问自证、会话交付边界提示词",
+      "anchors": [
+        "export function classifySessionWrites",
+        "'session-no-write'",
+        "export function normalizeSessionRuntime",
+        "const LAND_COMMIT = join(ROOT, 'scripts', 'isolated-git.mjs')",
+        "export function judgeLandingProof",
+        "你的交付边界",
+        "runtimeNormalized: res.runtimeNormalized ?? null"
+      ]
+    },
+    {
+      "path": "scripts/lib/autonomy-nonprogress.mjs",
+      "why": "空转阶梯的分档集合:零写盘必须计空转,同一次班次只记一次,否则推不动的票无限占班次",
+      "anchors": [
+        "'session-no-write'",
+        "if (e.informational === true) continue",
+        "function* ticketRowsNewestFirst(ledger, key)"
+      ]
+    },
+    {
+      "path": "scripts/check-autonomy-leg-health.mjs",
+      "why": "看守这把环的尺子必须认识同一组档位:射程从被审面解析,派发按前缀认档",
+      "anchors": ["export function sessionResultActionsOf", "startsWith('session-')"]
+    },
+    {
+      "path": "scripts/data/autonomy-invariants.json",
+      "why": "清单自身在被审面上必须存在(自我指涉的一格:门跑在 HEAD 面而清单只在盘上 ⇒ 结构上永远判不到)",
+      "anchors": ["\"version\": 1"]
+    }
+  ]
+}
