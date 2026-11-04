@@ -254,7 +254,7 @@ test('X6 真仓全量档:退出码与 HEAD 面当场判出的期望自洽', { sk
   assert.equal(r.rc, expect, `CLI 读数与 HEAD 面判据分叉:rc=${r.rc} expect=${expect} 违规=${JSON.stringify(violations).slice(0, 200)}`)
 })
 
-test('X7 测试不得重写判据(本文件只许用门体导出的 POLLUTION / isStaged / NEXT_ENV)', () => {
+test('X7 测试不得重写判据(本文件只许用门体导出的 POLLUTION / scanFace / judgeLines / NEXT_ENV)', () => {
   const own = readFileSync(fileURLToPath(import.meta.url), 'utf8')
   assert.ok(
     own.includes("import { __test__ as gate } from '../check-next-env-dist.mjs'"),
