@@ -203,7 +203,7 @@ export default function Phone() {
                   {...ffOldCode.spread}
                   type="number"
                   maxlength={6}
-                  placeholder={tt('user.phone.codePlaceholder', '请输入验证码')}
+                  placeholder={tt('user.security.code', '请输入验证码')}
                   value={oldCode}
                   onInput={(e) => setOldCode(e.detail.value)}
                 />
@@ -215,7 +215,9 @@ export default function Phone() {
                   }`}
                   onClick={onGetOldCode}
                 >
-                  {oldCountdown > 0 ? `${oldCountdown}s` : tt('user.phone.getCode', '获取验证码')}
+                  {oldCountdown > 0
+                    ? `${oldCountdown}s`
+                    : tt('user.security.sendCode', '获取验证码')}
                 </Text>
               </View>
             </View>
@@ -269,7 +271,7 @@ export default function Phone() {
                   {...ffNewCode.spread}
                   type="number"
                   maxlength={6}
-                  placeholder={tt('user.phone.codePlaceholder', '请输入验证码')}
+                  placeholder={tt('user.security.code', '请输入验证码')}
                   value={newCode}
                   onInput={(e) => setNewCode(e.detail.value)}
                 />
@@ -281,7 +283,9 @@ export default function Phone() {
                   }`}
                   onClick={onGetNewCode}
                 >
-                  {newCountdown > 0 ? `${newCountdown}s` : tt('user.phone.getCode', '获取验证码')}
+                  {newCountdown > 0
+                    ? `${newCountdown}s`
+                    : tt('user.security.sendCode', '获取验证码')}
                 </Text>
               </View>
             </View>

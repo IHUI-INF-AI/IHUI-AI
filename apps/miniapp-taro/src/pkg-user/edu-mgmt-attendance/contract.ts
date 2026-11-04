@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// 考勤**写接口**的端侧契约(唯一实现;页面与测试都从这里取,禁止在 index.tsx 里另算一遍)。
+// 考勤页的端侧契约:写接口入参 + 状态档词表/色档/取词的**唯一实现**(页面、统计面板与测试都从这里取,禁止在别处另算一遍)。
 //
 // 为什么存在:2026-11 后端收口后,POST .../attendance/check-in 与 .../batch-check-in 的入参
 // **已删 status 字段** —— 出勤状态一律由服务端按该班 `edu_attendance_rule` 阈值 + `judgeStatus`
@@ -54,9 +54,41 @@ export const TONE_CLASS: Record<StatusTone, string> = {
   muted: 'text-muted-foreground',
 }
 
+/**
+ * 色档 → 填充类名(统计区色块与趋势堆叠条的那一列)。
+ * 与上方 TONE_CLASS **同一张 tone 表的第二个取值列**,不是第二份档位表:键仍是 StatusTone 四档,
+ * 四个类名也全是本端在册用词(bg-success / bg-warning / bg-destructive / bg-muted),
+ * 不新引色值、不动 design-tokens 源头。
+ *
+ * 与 web 侧段色(SEGMENT_COLORS)的对应:ok↔CHART_GREEN、warn↔CHART_AMBER、danger↔CHART_RED。
+ * web 另有 CHART_ORANGE(early)与 CHART_BLUE(leave)两档,本端 tone 表**结构上只有四格**
+ * (early 归 warn、leave 归 muted,2026-11-03 收口已定档)⇒ 端内这两段与 web 不同色是既定的
+ * 表差异,要逐段对齐必须先扩这张表,不得在此之外再抄一份「状态码 → 色」的映射(§0.6)。
+ */
+export const TONE_BG_CLASS: Record<StatusTone, string> = {
+  ok: 'bg-success',
+  warn: 'bg-warning',
+  danger: 'bg-destructive',
+  muted: 'bg-muted',
+}
+
 /** 词表外的未知状态 ⇒ muted(不猜):调用方仍把原文显示出来,交服务端词表解释。 */
 export function statusToneOf(status: string): StatusTone {
   return (STATUS_TONES as Partial<Record<string, StatusTone>>)[status] ?? 'muted'
+}
+
+/**
+ * 状态码 → 展示文案(唯一取词出口)。
+ *
+ * 键路径 `eduAttendance.status.<code>`;取不到(后端新增词表外的码)⇒ **原样回显该码** ——
+ * 不吞协议数据、不猜翻译。此前这条算式内联在 index.tsx 的 `st()` 里,补统计区后页面与面板
+ * 要用同一把尺,故提到本文件(状态档单源所在),index.tsx 改为 import。
+ * 词表外那一段的文案不住这里:`other` 是段键不是状态码,走 `eduAttendance.statusOther`。
+ */
+export function statusLabelOf(code: string, t: (key: string) => string): string {
+  const k = `eduAttendance.status.${code}`
+  const v = t(k)
+  return v === k ? code : v
 }
 
 /** 该业务日是否「非当日」⇒ 必须显式给出该日内时刻。 */
@@ -172,7 +204,9 @@ export const __test__ = {
   ATTENDANCE_STATUS_CODES,
   STATUS_TONES,
   TONE_CLASS,
+  TONE_BG_CLASS,
   statusToneOf,
+  statusLabelOf,
   needsExplicitMoment,
   backfillBlocked,
   checkInMomentIso,

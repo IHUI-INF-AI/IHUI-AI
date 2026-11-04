@@ -69,7 +69,12 @@ export interface ImagePreviewItem {
 
 // G-856,2026-10-07:画廊内逐项判定 video。媒体画廊是图片/视频混合的,判定只能按 item
 // 做,不能按整组做 —— 对位上游 image-preview-dialog 的 activeItemIsVideo。
-const GALLERY_VIDEO_EXTENSIONS: readonly string[] = ['mp4', 'webm', 'ogv', 'ogg', 'mov', 'm4v']
+// 2026-11-04(格式对账尺 ③ 桶收口):摘掉 'ogv' 这条虚假承诺 —— 全仓 `git grep -w ogv` 仅此一处,
+// 零生产者(ai-service/app/routers/media_tasks.py:520 的下载映射不含 ogv),而本组件 detectedType
+// 把 .ogv 归 'text',这条分支结构上走不到(同型先例:票 S4 摘小程序直开表里的 rar,17e305d180)。
+// 再往这行加档 = 必须同批进 apps/api 的 EXT_MIME_MAP,否则 node scripts/check-format-support-parity.mjs
+// 的 ③ 桶(有实现未登记)当场点名。
+const GALLERY_VIDEO_EXTENSIONS: readonly string[] = ['mp4', 'webm', 'ogg', 'mov', 'm4v']
 
 function isVideoSource(url: string): boolean {
   const path = url.split(/[?#]/)[0] ?? ''
