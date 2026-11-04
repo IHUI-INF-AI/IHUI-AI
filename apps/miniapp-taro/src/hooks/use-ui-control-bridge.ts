@@ -29,6 +29,7 @@ import {
   type TaroUiActionResult,
 } from '@/lib/ui-action-registry'
 import { BASE_URL } from '@/utils/api-config'
+import { getMiniappVersion } from '@/utils/app-version'
 import { getToken } from '@/utils/auth'
 import { logger } from '@/utils/logger'
 import { taroWebSocketFactory } from '@/utils/taro-websocket-adapter'
@@ -61,7 +62,6 @@ const CAPABILITY_INTERVAL_MS = 60_000
 /** 启动时静默登录是异步的,冷启后再各补一次(避免最长等 60s 才上报能力) */
 const AUTH_CATCHUP_DELAYS_MS: readonly number[] = [5_000, 20_000]
 const PROCESSED_IDS_MAX = 100
-const VERSION = '1.0.0'
 
 const TARO_UI_ACTIONS: readonly TaroUiActionType[] = [
   'describe',
@@ -170,11 +170,13 @@ async function postQuiet<TBody, TRes>(url: string, body: TBody, action: string):
 }
 
 function buildCapability(): AgentControlCapability {
+  // 版本走 utils/app-version(线上版才有值);开发/体验版取到空串 ⇒ 不报,不编(§0.3)
+  const version = getMiniappVersion()
   return {
     endpoint: 'miniapp',
     instanceId: INSTANCE_ID,
     taroUiActions: [...TARO_UI_ACTIONS],
-    version: VERSION,
+    ...(version ? { version } : {}),
     reportedAt: new Date().toISOString(),
   }
 }

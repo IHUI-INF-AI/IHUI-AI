@@ -55,7 +55,8 @@ export interface PublicStatusIncidentsPayload {
 /** /api/public/status/overview 的信封 data 载荷(直接是 Overview,不嵌套)。 */
 export interface PublicStatusOverview {
   platform: string
-  version: string
+  /** 服务端取其自身 package.json 版本;占位 0.0.0 视作"没有可报的号" ⇒ null,消费方不得编 */
+  version: string | null
   uptime: number
   timestamp: string
   services: Record<string, PublicStatusModelRow['status']>

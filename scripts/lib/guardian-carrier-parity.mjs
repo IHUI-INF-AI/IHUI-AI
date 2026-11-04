@@ -30,6 +30,7 @@
  */
 
 const LEG_CALL_RE = /\b((?:dispatch|sweep|heal|audit|ensure|converge|refresh|report|rotate|autoRegister)[A-Z]\w*)\s*\(/g
+const LEG_NAME_RE = /^(?:dispatch|sweep|heal|audit|ensure|converge|refresh|report|rotate|autoRegister)[A-Z]\w*$/
 const TOP_FN_RE = /^(?:export\s+)?(?:async\s+)?function\s+([A-Za-z0-9_]+)/
 
 /** 从第 start 行往下找"下一个顶层函数声明"的行号,作为该函数体的末行(不含)。找不到 ⇒ 文件末。 */
@@ -41,25 +42,129 @@ function bodyEnd(lines, start) {
   return lines.length + 1
 }
 
-/** 收集 [from,to) 区间里被调用到的腿名(不含定义本身)。 */
-function callsIn(lines, from, to) {
-  const s = new Set()
-  for (let i = from - 1; i < Math.min(to - 1, lines.length); i++) {
-    const line = lines[i]
-    if (/^\s*(\/\/|\*|\/\*)/.test(line)) continue
-    if (TOP_FN_RE.test(line)) continue
-    let m
-    LEG_CALL_RE.lastIndex = 0
-    while ((m = LEG_CALL_RE.exec(line))) s.add(m[1])
+/**
+ * 只看**形参表**判断"这像不像一个可被调度点裸调的腿"(不看法的名字,名字维在 isLegDefinition)。
+ * 两件事必须分开:unclassified 那一档专门收"名字不合规但签名是腿"的,若把名字判据折进来,
+ * 它按构造就永远是空集(2026-11-04 自己踩到,P12 就是为此而设)。
+ */
+export function hasLegSignature(line) {
+  const m = TOP_FN_RE.exec(String(line ?? ''))
+  if (!m) return false
+  const rest = String(line).slice(m[0].length)
+  const open = rest.indexOf('(')
+  if (open < 0) return false
+  let depth = 0
+  let i = open
+  for (; i < rest.length; i++) {
+    const c = rest[i]
+    if (c === '(') depth++
+    else if (c === ')') {
+      depth--
+      if (depth === 0) break
+    }
   }
-  return s
+  if (depth !== 0) return false
+  const params = rest.slice(open + 1, i).trim()
+  if (params === '') return true
+  const parts = []
+  let buf = ''
+  let d = 0
+  for (const c of params) {
+    if ('([{'.includes(c)) d++
+    else if (')]}'.includes(c)) d--
+    if (c === ',' && d === 0) {
+      parts.push(buf)
+      buf = ''
+    } else buf += c
+  }
+  if (buf.trim()) parts.push(buf)
+  // "这一段是不是可选形参"要看**深度 0 处**有没有等号:
+  //   `opts = {}` / `{ logger = log } = {}` ⇒ 深度 0 有 = ⇒ 可选(整参带默认)
+  //   `{ title, desp, dryRun = false }`     ⇒ 等号全在花括号内(深度≥1)⇒ 整参必需 ⇒ 助手
+  // 用 indexOf('=') 会把花括号里的默认值误读成"整参有默认",从而把助手判成腿。
+  return parts.every((p) => {
+    const s = p.trim()
+    if (!s) return true
+    if (s.startsWith('...')) return true // rest 形参天然可省
+    let dd = 0
+    for (let k = 0; k < s.length; k++) {
+      const c = s[k]
+      if ('([{'.includes(c)) dd++
+      else if (')]}'.includes(c)) dd--
+      else if (c === '=' && dd === 0 && s[k + 1] !== '=' && s[k - 1] !== '=') return true
+    }
+    return false
+  })
 }
 
 /**
- * @param {{source:string, minDarkWarn?:number}} p
+ * 哪些顶层函数算"腿"而不算"被复用的助手"。
+ *
+ * = 名字合腿前缀 且 签名是腿。判据取**定义处的签名**而不是调用点写法:腿的形参要么没有、
+ * 要么全部带默认值;助手的形参是必需的结构体
+ * (`function dispatchGuardMail({ title, desp, ... })` —— 无深度 0 等号,调用方必须交)。
+ * 刻意不用"调用点是否语句位"来分:那个写法太脆(赋值、await、Promise.all 里都会破),
+ * 而判据一脆就会**漏计成假绿** —— 那比多报一条危险得多。
+ */
+export function isLegDefinition(line) {
+  const m = TOP_FN_RE.exec(String(line ?? ''))
+  if (!m || !LEG_NAME_RE.test(m[1])) return false
+  return hasLegSignature(line)
+}
+
+/** 收集 [from,to) 里被调用、且在 defs 里算"腿"的名字(仅语句/守卫位,注释行跳过)。 */
+
+/**
+ * 具名豁免(§0.7"豁免必须验过才免且会到期",§0.10 失效方向=多要一次说明):
+ * 条目形如 `{ name, owner, reason, expires }`。规则:
+ *   · 命中且未到期 ⇒ 从 dark 里摘掉,但**在读数里点名**摘了哪几条、为什么(不许静默);
+ *   · 已到期 ⇒ 照旧判黑,并在 why 里写"豁免到期";
+ *   · 登记的 name 在当下面**不再命中** ⇒ 记 `rotting`(清单腐烂,和豁免本身一样是红);
+ *   · 缺 reason/owner/expires 或 reason 短于 10 字 ⇒ 视同没登记(不许白名单化入口)。
+ * @returns {{kept:string[],expired:string[],rotting:string[],malformed:string[]}}
+ */
+export function applyCarrierExemptions(darkList, exemptions, now = Date.now()) {
+  const dark = new Set(darkList ?? [])
+  const kept = []
+  const expired = []
+  const malformed = []
+  const hit = new Set()
+  for (const e of Array.isArray(exemptions) ? exemptions : []) {
+    const name = String(e?.name ?? '')
+    if (!name) continue
+    const reason = String(e?.reason ?? '').trim()
+    const exp = Date.parse(String(e?.expires ?? ''))
+    if (!e?.owner || reason.length < 10 || !Number.isFinite(exp)) {
+      malformed.push(name || '(无名字目)')
+      continue // 形状坏 ⇒ 视同没登记,照旧判黑
+    }
+    if (!dark.has(name)) {
+      continue // 由 rotting 统计算
+    }
+    hit.add(name)
+    if (exp < now) expired.push(name)
+    else kept.push(name)
+  }
+  const rotting = (Array.isArray(exemptions) ? exemptions : [])
+    .map((e) => String(e?.name ?? ''))
+    .filter((n) => n && !dark.has(n) && !hit.has(n) && n !== '')
+    .filter((n, i, arr) => arr.indexOf(n) === i)
+  const removed = new Set([...kept]) // 到期/未命中的都不摘
+  const malformedSet = new Set(malformed)
+  return {
+    darkRemaining: [...dark].filter((n) => !removed.has(n)).sort(),
+    waived: kept.sort(),
+    expired: expired.sort(),
+    rotting: rotting.sort(),
+    malformed: malformedSet ? [...malformedSet].sort() : [],
+  }
+}
+
+/**
+ * @param {{source:string, exemptions?:Array, now?:number}} p
  * @returns {{state:'ok'|'drift'|'unjudged', dark:Array, darkCount:number, mainCount:number, daemonCount:number, why:string}}
  */
-export function judgeCarrierParity({ source } = {}) {
+export function judgeCarrierParity({ source, exemptions = [], now = Date.now() } = {}) {
   const text = String(source ?? '')
   if (!text.trim()) return { state: 'unjudged', dark: [], darkCount: 0, mainCount: 0, daemonCount: 0, why: '被审面取不到 git-guardian 源 ⇒ 不判(绝不扫别的面顶替)' }
   const lines = text.split(/\r?\n/)
@@ -73,21 +178,157 @@ export function judgeCarrierParity({ source } = {}) {
   if (mainEnd <= mainAt || daemonEnd <= daemonAt) {
     return { state: 'unjudged', dark: [], darkCount: 0, mainCount: 0, daemonCount: 0, why: '函数体边界异常(mainEnd/startDaemonEnd 关系不对)⇒ 不判' }
   }
-  const mainSet = callsIn(lines, mainAt + 1, mainEnd + 1)
-  const daemonSet = callsIn(lines, daemonAt + 1, daemonEnd + 1)
+  // 哪些名字算"腿":在本文件里定义且签名说明它是腿(无必需形参);
+  // **定义不在本文件的**(import 进来的)一律当腿算 —— 判据取不到签名时宁可多报,
+  // 绝不因为"认不出来"就把一条真腿洗成不计(那是假绿,比误报贵)。
+  const defs = new Map()
+  for (let i = 0; i < lines.length; i++) {
+    const m = TOP_FN_RE.exec(lines[i])
+    if (m && !defs.has(m[1])) defs.set(m[1], hasLegSignature(lines[i]))
+  }
+  // 合前缀 + (定义在本文件则签名须像腿;取不到定义 ⇒ 保守当腿)
+  const eligible = (n) => LEG_NAME_RE.test(n) && (defs.has(n) ? defs.get(n) : true)
+  // 覆盖面自证:名字不合前缀约定、但**是顶层定义且签名说明它是腿**的,单列 unclassified 点名。
+  // 立因(2026-11-04 实测):`devenvMigratePatrol({ logger = log } = {})` 是真周期腿,
+  // 可名字不落在 dispatch|sweep|heal|audit|... 里 ⇒ 若它只挂在 main,A9 会**静默漏计成假绿**。
+  // 漏计比误报贵,所以这一维必须存在:不合约定的名字不许被"认不出来"洗掉。
+  const ANY_CALL_RE = /\b([a-z][A-Za-z0-9_]*)\s*\(/g
+  const notValueSite = (line, idx) => {
+    const before = line.slice(0, idx)
+    return !/\b(?:const|let|var)\s+[\w{}[\],. ]+\s*=\s*$/.test(before) && !/\breturn\s+$/.test(before)
+  }
+  // unclassified 这一档额外要求"真在调度语句位":剥掉可选的 if(守卫)/await 后这一行正好以该调用开始。
+  // 两档宽严不同是刻意的:
+  //   · 合前缀的腿走宽判据 —— 宁可把它在表达式位也算上,也不能因为写法没落在语句位就**漏计一条真腿**(假绿最贵);
+  //   · 不合前缀的走严判据 —— 这一档是新开的、专门收"没按命名约定"的符号,放宽会被
+  //     `if (!taskActionOk(c))` / `return status()` 这类谓词淹没(实测冒出 4 条噪声,噪声会淹掉真信号)。
+  const GUARD_PREFIX_RE = /^\s*(?:(?:else\s+)?if\s*\([^)]*\)\s*)?(?:await\s+)?/
+  const isDispatchStatement = (line, idx) => {
+    const stmtStart = (GUARD_PREFIX_RE.exec(line) || [''])[0].length
+    return idx === stmtStart && notValueSite(line, idx)
+  }
+  const scanRegion = (from, to) => {
+    const legs = new Set()
+    const unclassified = new Set()
+    for (let i = from - 1; i < Math.min(to - 1, lines.length); i++) {
+      const line = lines[i]
+      if (/^\s*(\/\/|\*|\/\*)/.test(line)) continue
+      if (TOP_FN_RE.test(line)) continue
+      let m
+      ANY_CALL_RE.lastIndex = 0
+      while ((m = ANY_CALL_RE.exec(line))) {
+        const n = m[1]
+        if (LEG_NAME_RE.test(n)) {
+          if (!notValueSite(line, m.index)) continue
+          if (eligible(n)) legs.add(n)
+          continue
+        }
+        // 不合前缀:必须同时在调度语句位、且"本文件顶层定义 + 签名说明是腿",才进 unclassified
+        // (嵌套的局部函数如 tick()、以及取不到定义的别处符号一律不列,免得拿噪声冒充读数)
+        if (!isDispatchStatement(line, m.index)) continue
+        if (defs.has(n) && defs.get(n)) unclassified.add(n)
+      }
+    }
+    return { legs, unclassified }
+  }
+  const mainScan = scanRegion(mainAt + 1, mainEnd + 1)
+  const daemonScan = scanRegion(daemonAt + 1, daemonEnd + 1)
+  const mainSet = mainScan.legs
+  const daemonSet = daemonScan.legs
+  const unclassifiedDark = [...mainScan.unclassified].filter((n) => !daemonScan.unclassified.has(n)).sort()
   if (mainSet.size === 0 || daemonSet.size === 0) {
     return { state: 'unjudged', dark: [], darkCount: mainSet.size, mainCount: mainSet.size, daemonCount: daemonSet.size, why: `某一面枚举到 0 条腿(main=${mainSet.size} daemon=${daemonSet.size})⇒ 判据失效方向是多要一次说明,不读成"齐平"` }
   }
   const dark = [...mainSet].filter((n) => !daemonSet.has(n)).sort()
+  const allDark = [...dark, ...unclassifiedDark.map((n) => `~${n}`)].sort()
+  const ex = applyCarrierExemptions(allDark, exemptions, now)
+  const remaining = ex.darkRemaining
+  const dirty = remaining.length + ex.expired.length + ex.rotting.length + ex.malformed.length
+  const notes = []
+  if (ex.waived.length) notes.push(`具名豁免摘掉 ${ex.waived.length} 条(${ex.waived.join('/')})`)
+  if (ex.expired.length) notes.push(`豁免已到期仍判黑:${ex.expired.join(',')}`)
+  if (ex.rotting.length) notes.push(`豁免清单腐烂(登记的 name 当下面不再命中):${ex.rotting.join(',')}`)
+  if (ex.malformed.length) notes.push(`豁免条目形状坏⇒视同没登记:${ex.malformed.join(',')}`)
   return {
-    state: dark.length > 0 ? 'drift' : 'ok',
-    dark,
-    darkCount: dark.length,
+    state: dirty > 0 ? 'drift' : 'ok',
+    dark: remaining,
+    darkCount: remaining.length,
+    prefixDark: dark,
+    unclassifiedDark,
+    waived: ex.waived,
+    expiredExempt: ex.expired,
+    rottingExempt: ex.rotting,
+    malformedExempt: ex.malformed,
     mainCount: mainSet.size,
     daemonCount: daemonSet.size,
-    why: dark.length ? `main 区 ${mainSet.size} 条 / daemon 常驻区 ${daemonSet.size} 条 ⇒ ${dark.length} 条只在一次性 main 里,daemon 常驻时结构上跑不到` : `两承载面调用集已齐平(main=${mainSet.size} daemon=${daemonSet.size})`,
+    // 逐条集合也带出来:别的判据(如 §7 装车表对账)要在**同一把扫描**的结果上做,
+    // 不允许另写一遍划区逻辑(§0.6 —— 第二份划区必然与这份漂开)。
+    mainLegs: [...mainSet].sort(),
+    daemonLegs: [...daemonSet].sort(),
+    why:
+      dirty === 0
+        ? `两承载面调用集已齐平(main=${mainSet.size} daemon=${daemonSet.size};具名豁免 ${ex.waived.length} 条在册未到期)`
+        : `main 区 ${mainSet.size} 条 / daemon 常驻区 ${daemonSet.size} 条 ⇒ ${remaining.length} 条只在一次性 main 里` +
+          `(${remaining.join(', ')})${notes.length ? ';' + notes.join(';') : ''}`,
   }
 }
 
-export const __test__ = { LEG_CALL_RE, TOP_FN_RE, bodyEnd, callsIn, judgeCarrierParity }
+/**
+ * 逐条成员关系(给 §7 装车表对账用)。**不另起一套划区**,只是把 judgeCarrierParity
+ * 同一把扫描的两面集合换成集合形态交出去。判不出 ⇒ null,由调用方落未判定。
+ */
+export function carrierMembership(source) {
+  const r = judgeCarrierParity({ source })
+  if (r.state === 'unjudged' || !Array.isArray(r.daemonLegs)) return null
+  return { main: new Set(r.mainLegs), daemon: new Set(r.daemonLegs), why: r.why }
+}
+
+/**
+ * 文档声称 ↔ 机器事实 对账(`docs/self-evolution-roadmap.md` §7 装车表)。
+ *
+ * 立因(2026-11-04):那张表自己就写着"只挂 main() 等于永不执行,故两条腿都必须接",
+ * 而同一天 A9 量出 46 条恰恰只挂在 main 上 —— 表里的"已装车"是**人手抄的声明**:
+ * 抄的时候对,后来谁改了挂点都没人回头改表,且没有任何东西因此响。
+ * 这一维量的不是"文档写得漂不漂亮",而是"文档每一条声称的载体,在真承载面上够不够得着"。
+ *
+ * 判据:表里 载体 列点名的派发函数必须出现在 **daemon 常驻区**(本机实际载体是 nssm 服务
+ * 跑 `--daemon`,A9/AGENTS §12h 均已实测确认);只在一次性 main ⇒ dark(= 声称已装车而跑不到);
+ * 两面都不在 ⇒ absent(声明的挂点根本不存在)。
+ * 取不到文档 / 取不到承载面 / 解析到 0 条声称 ⇒ 一律未判定(§0.3:不拿"读不到"冒充"无声明")。
+ */
+export function judgeRoadmapClaims({ guardianSource, roadmapText } = {}) {
+  const text = String(roadmapText ?? '')
+  if (!text.trim()) return { state: 'unjudged', rows: [], why: '路线图文档取不到 ⇒ 不判(不读成"没有装车声明")' }
+  const mem = carrierMembership(guardianSource)
+  if (!mem) return { state: 'unjudged', rows: [], why: '守护源/承载面边界取不到 ⇒ 不判' }
+  const sec = text.split(/^##\s/m).find((b) => /^\s*7[.\s]/.test(b)) ?? ''
+  if (!sec.trim()) return { state: 'unjudged', rows: [], why: '§7 那一节没解析到 ⇒ 不判(表可能改了标题)' }
+  const rows = []
+  for (const line of sec.split(/\r?\n/)) {
+    if (!/^\s*\|/.test(line)) continue
+    const cols = line.split('|').map((c) => c.trim()).filter((c) => c !== '')
+    if (cols.length < 2) continue
+    const fn = /\b((?:dispatch|sweep|heal|audit|ensure|converge|refresh|report|rotate)[A-Z]\w*)\(/.exec(cols[1])
+    if (!fn) continue
+    const name = fn[1]
+    const inDaemon = mem.daemon.has(name)
+    const inMain = mem.main.has(name)
+    rows.push({ artifact: cols[0], carrier: name, inDaemon, inMain, state: inDaemon ? 'ok' : inMain ? 'dark' : 'absent' })
+  }
+  if (rows.length === 0) {
+    return { state: 'unjudged', rows, why: '§7 表里一条载体派发点都没解析到 ⇒ 表形状变了,不读成"无需对账"' }
+  }
+  const bad = rows.filter((r) => r.state !== 'ok')
+  return {
+    state: bad.length ? 'drift' : 'ok',
+    rows,
+    darkCount: bad.length,
+    why: bad.length
+      ? `§7 声称已装车 ${rows.length} 条,其中 ${bad.length} 条在常驻面够不着:` +
+        bad.map((r) => `${r.carrier}(${r.state === 'dark' ? '只在一次性 main' : '两面都没出现'})`).join(', ')
+      : `§7 声称已装车 ${rows.length} 条,逐条都在常驻承载面上`,
+  }
+}
+
+export const __test__ = { LEG_CALL_RE, LEG_NAME_RE, TOP_FN_RE, bodyEnd, hasLegSignature, isLegDefinition, applyCarrierExemptions, carrierMembership, judgeRoadmapClaims, judgeCarrierParity }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
