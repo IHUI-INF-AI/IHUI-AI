@@ -63,6 +63,11 @@ export interface IconButtonItem {
   onClick?: () => void
 }
 
+/** 对齐 RN 端同名类型:图标按钮组点击来源(相机/相册/文件/微信文件)。
+ *  小程序端 icon-button-group 的 key 与 RN 的 ICON_GROUP_ITEMS.type 同一套值(同一 lucide 族),
+ *  故类型契约直接对齐,避免两端各写一份字符串联合。 */
+export type BottomActionBarIconType = 'camera' | 'album' | 'file' | 'wxfile'
+
 export interface BottomActionBarProps {
   // ===== 默认模式 props(兼容旧调用)=====
   value?: string
@@ -73,6 +78,8 @@ export interface BottomActionBarProps {
   onInput?: (value: string) => void
   onSend?: () => void
   onAttach?: () => void
+  /** 发送中(RN 端同名 isLoading 的落点):默认变体禁用发送键,ai-home 变体透传 InputArea 的发送禁用通道 */
+  isLoading?: boolean
 
   /** 样式变体:'default'(旧)/ 'ai-home'(首页专用) */
   variant?: 'default' | 'ai-home'
@@ -96,6 +103,69 @@ export interface BottomActionBarProps {
   isVoiceInput?: boolean
   /** 语音输入切换回调 */
   onVoiceInputToggle?: () => void
+  /** 手动压缩上下文:加载态(与 RN 端同名同义) */
+  compactContextLoading?: boolean
+  /** 手动压缩上下文回调(与 RN 端同名同义) */
+  onCompactContext?: () => void
+
+  // ===== 门285 存量收敛:B1 块对齐 RN 端 BottomActionBar 的属性(全部可选,与 RN 一致)=====
+  // 注:以下仅补齐 props 接口/类型,RN 同名同义且小程序已存在的
+  // compactContextLoading / onCompactContext / isLoading 不再重复;
+  // 与小程序既有属性异名同义的 prompt→value、onPromptChange→onInput、
+  // onToggleVoiceInput→onVoiceInputToggle 见 .ihui-agent/tmp/xend-props/equiv-B1.json,不在此重复加。
+  /** 图片预览列表(绑定 onRemoveImage);RN 端同名 */
+  images?: readonly string[]
+  /** 显示图标按钮组(相机/相册/文件);RN 端同名 */
+  isShowIcon?: boolean
+  // 2026-11-04 审计返工:knowledgeBaseEnabled / mcpEnabled 两端 0 调用方,删声明(死腿不当平台档)
+  /** 添加附件回调;RN 端同名 */
+  onAddFile?: () => void
+  /** 长按结束(语音按钮 onPressOut);RN 端同名 */
+  onEndLongPress?: () => void
+  /** 放大回调(辅助按钮行 ⛶);RN 端同名 */
+  onFangda?: () => void
+  /** 功能处理回调(辅助按钮行 ƒ);RN 端同名 */
+  onFunctionHandle?: () => void
+  /** 图标按钮组点击回调(type: 相机/相册/文件/微信文件);RN 端同名 */
+  onIconClick?: (type: BottomActionBarIconType) => void
+  /** 输入框失焦;RN 端同名 */
+  onInputBlur?: () => void
+  /** 输入框点击;RN 端同名 */
+  onInputClick?: () => void
+  /** 输入框聚焦;RN 端同名 */
+  onInputFocus?: () => void
+  // 2026-11-04 审计返工:onKeyboardHide / onKeyboardShow 两端 0 调用方,删声明
+  /** 模型配置变更(AGENTS §3:用 unknown);RN 端同名 */
+  onModelConfigChange?: (config: unknown) => void
+  /** 「+」按钮回调;RN 端同名 */
+  onPlusToggle?: () => void
+  /** 移除图片(index);RN 端同名 */
+  onRemoveImage?: (index: number) => void
+  /** 显示模型配置;RN 端同名 */
+  onShowModelConfig?: () => void
+  /** 显示模型列表;RN 端同名 */
+  onShowModelList?: () => void
+  /** 「我的创作」入口回调;RN 端同名 */
+  onShowMyCreation?: () => void
+  /** 来源处理回调(辅助按钮行 📎);RN 端同名 */
+  onSourceHandle?: () => void
+  /** 长按开始(语音按钮 onLongPress);RN 端同名 */
+  onStartLongPress?: () => void
+  // 2026-11-04 审计返工:onStartVoiceAnimation / onStopVoiceAnimation / onTextareaHeightChange 两端 0 调用方,删声明
+  // 2026-11-04 审计返工:onToggleKnowledgeBase / onToggleMcp / onTogglePermanentMemory /
+  // onToggleSuperAgent / onToggleSuperAgentfu / permanentMemoryEnabled 两端 0 调用方,删声明
+  /** 「+」按钮激活态;RN 端同名 */
+  plusActive?: boolean
+  /** 录音中;RN 端同名 */
+  recording?: boolean
+  /** 录音时长(秒);RN 端同名 */
+  recordingDuration?: number
+  /** 显示开关芯片行;RN 端同名 */
+  showToggleChips?: boolean
+  /** 超级智能体开关态;RN 端同名 */
+  superAgentEnabled?: boolean
+  /** 语音输入能力开关态;RN 端同名(注意与小程序既有 isVoiceInput 模式标志区分) */
+  voiceInputEnabled?: boolean
 }
 
 /**
@@ -187,6 +257,8 @@ export default function BottomActionBar(props: BottomActionBarProps) {
     onToggle,
     isVoiceInput = false,
     onVoiceInputToggle,
+    compactContextLoading = false,
+    onCompactContext,
     // 默认模式 props(解构)
     value = '',
     placeholder = tt('message.inputPlaceholder', '输入消息...'),
@@ -196,6 +268,7 @@ export default function BottomActionBar(props: BottomActionBarProps) {
     onInput,
     onSend,
     onAttach,
+    isLoading = false,
   } = props
 
   if (variant === 'ai-home') {
@@ -237,8 +310,48 @@ export default function BottomActionBar(props: BottomActionBarProps) {
           </BottomActionBarInlineRow>
         ) : null}
 
-        {/* InputArea:ai-home 模式(padding 20rpx + bg #E6F3FA 圆角 30rpx + send 100rpx 圆角 30rpx)*/}
-        <InputArea variant="ai-home" {...inputAreaProps} value={inputAreaProps?.value ?? ''} />
+        {/* InputArea:ai-home 模式(padding 20rpx + bg #E6F3FA 圆角 30rpx + send 100rpx 圆角 30rpx) */}
+        <InputArea
+          variant="ai-home"
+          {...inputAreaProps}
+          value={inputAreaProps?.value ?? ''}
+          disabled={isLoading || inputAreaProps?.disabled}
+        />
+
+        {/* 手动压缩上下文入口(与 RN 端同名 props):加载中禁用并换文案,不弹新弹窗 */}
+        {onCompactContext !== undefined ? (
+          <BottomActionBarInlineRow platform={miniPlatform} className="flex justify-end">
+            <View
+              className="flex items-center justify-center"
+              style={{
+                boxSizing: 'border-box',
+                border: '4rpx solid var(--color-card)',
+                borderRadius: rnRadius.md,
+                fontSize: toUnit(BOTTOM_ACTION_BAR_CHIP_FONT_PX),
+                padding: `${rpx(taroSpacing['xs-loose'])} ${rpx(taroSpacing['sm-loose'])}`,
+                background: 'var(--color-muted)',
+                color: 'var(--color-foreground)',
+                opacity: compactContextLoading ? 0.6 : 1,
+              }}
+              hoverClass={compactContextLoading ? 'none' : 'opacity-60'}
+              onClick={() => {
+                if (compactContextLoading) return
+                onCompactContext()
+              }}
+            >
+              <LineIcon
+                name="scissors"
+                size={toUnit(BOTTOM_ACTION_BAR_MODEL_BADGE_PX)}
+                style={{ marginRight: rpx(8) }}
+              />
+              <Text>
+                {compactContextLoading
+                  ? tt('BottomActionBar.compacting', '压缩中...')
+                  : tt('BottomActionBar.compact', '压缩上下文')}
+              </Text>
+            </View>
+          </BottomActionBarInlineRow>
+        ) : null}
 
         {/* icon-button-group:4 个图标按钮 + 语音输入按钮(对齐原项目 .icon-button-group)。
             卡盒 / 墨迹 / 标文字号 / 图文距与行衬一律由 core 的 icon-card 一支供出;
@@ -355,7 +468,7 @@ export default function BottomActionBar(props: BottomActionBarProps) {
         style={{ fontSize: toUnit(BOTTOM_ACTION_BAR_TEXT_FONT_PX) }}
         placeholder={placeholder}
         value={value}
-        disabled={disabled}
+        disabled={disabled || isLoading}
         onInput={(e) => onInput?.(e.detail.value)}
         onConfirm={() => onSend?.()}
       />
@@ -369,13 +482,14 @@ export default function BottomActionBar(props: BottomActionBarProps) {
           boxPx={BOTTOM_ACTION_BAR_CONTROL_BOX_PX}
           glyphPx={BOTTOM_ACTION_BAR_SEND_GLYPH_PX}
           glyph="arrow-up"
-          glyphColor={value ? 'var(--color-cta-foreground)' : 'var(--color-muted-foreground)'}
+          glyphColor={value && !isLoading ? 'var(--color-cta-foreground)' : 'var(--color-muted-foreground)'}
           className={cn(
             'flex items-center justify-center ml-2 rounded-sm',
-            value ? 'bg-cta text-cta-foreground' : 'bg-muted',
+            value && !isLoading ? 'bg-cta text-cta-foreground' : 'bg-muted',
           )}
+          disabled={isLoading}
           onActivate={() => {
-            if (value) onSend?.()
+            if (value && !isLoading) onSend?.()
           }}
         />
       )}
