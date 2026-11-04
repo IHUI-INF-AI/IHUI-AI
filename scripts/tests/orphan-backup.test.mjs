@@ -21,7 +21,6 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { fileURLToPath } from 'node:url'
 
 import { __test__ as lib } from '../lib/orphan-backup.mjs'
 import { __test__ as LAND } from '../object-space-land.mjs'
@@ -50,13 +49,26 @@ function spyRunner(state = { tagExists: false }) {
 }
 
 test('① 装车形状锁:三台落地器都必须"import 了 lib 且真的在弃落出口调用",缺任一即红(函数在、调度点没有 = 本仓最高频失效型)', () => {
-  // object-space-land:import + 守卫定义 + 两处弃落出口调用(CAS 逐轮输 / 12 次耗尽)
+  // object-space-land:import + 守卫定义 + 末枚备份出口(12 次耗尽 + 循环内早退),逐轮出口已收掉
   assert.match(landSrc, /import \{ backupOrphanCommit \} from '\.\/lib\/orphan-backup\.mjs'/, 'land 没 import lib')
   assert.match(landSrc, /function backupIfAbandoned\(sha, why, root, deps = \{\}\)/, 'land 的弃落守卫不见了')
   assert.match(landSrc, /kind: 'land'/, "land 调用没走 'land' 档")
-  assert.match(landSrc, /backupIfAbandoned\(commit, `object-space-land 第 \$\{attempt\} 回 CAS 未抢到`, root\)/, 'CAS 输的那一支没调备份(本票主格子)')
-  assert.match(landSrc, /backupIfAbandoned\(lastMadeCommit/, '12 次耗尽出口没调备份')
+  // 2026-11-04 治本:逐轮 CAS 失败**不许**再打 tag(那是失败沉积单向增长的源头);
+  // 末枚(不会被下一轮取代的那一枚)仍必须经统一出口照打。
+  assert.ok(
+    !/`object-space-land 第 \$\{attempt\} 回 CAS 未抢到`/.test(landSrc),
+    '逐轮 CAS 失败仍在打 tag = 失败沉积的源头没治',
+  )
+  assert.match(landSrc, /const backupLastMadeIfAbandoned = \(why\) => \{/, '末枚备份的统一出口不见了')
+  assert.match(
+    landSrc,
+    /backupLastMadeIfAbandoned\(\s*`object-space-land \$\{MAX_CAS_ATTEMPTS\} 回均未抢到 CAS\(末枚兜底\)`/,
+    '12 次耗尽出口没调末枚备份',
+  )
   assert.match(landSrc, /lastMadeCommit = commit/, '耗尽兜底拿不到末枚造出的 sha')
+  // 早退出口也必须兜住:clobber(写入/删除两档)与三处判据拒落,退出时上一轮 sha 同样不会再被取代。
+  const finalExitCalls = (landSrc.match(/backupLastMadeIfAbandoned\(/g) || []).length
+  assert.ok(finalExitCalls >= 6, `末枚备份出口应 ≥6(兜底 + 2 clobber + 3 判据拒落),实测 ${finalExitCalls}`)
   // union-converge:import + CAS 失败分支调用,且第二份"拼 ref 名"的实现必须已删净
   assert.match(unionSrc, /from '\.\/lib\/orphan-backup\.mjs'/, 'union 没 import lib')
   const casAt = unionSrc.indexOf('if (cas.status !== 0)')
@@ -188,8 +200,9 @@ test('⑦ casUpdateRef 抛出一型:先备份、再原样 rethrow(不吞异常�
     /catch \(casErr\)[\s\S]{0,600}?backupIfAbandoned\(\s*commit[\s\S]{0,300}?throw casErr\s*\}/,
     'CAS 抛出分支里必须"先 backupIfAbandoned(commit…) 再 throw casErr";缺一即那枚 sha 无备份,或异常被吞',
   )
+  // 2026-11-04:逐轮出口已收掉 ⇒ backupIfAbandoned 的直接调用只剩 定义 / CAS 抛出 / 末枚出口内部 三处。
   const calls = (landSrc.match(/backupIfAbandoned\(/g) || []).length
-  assert.ok(calls >= 4, `弃落出口调用数应 ≥4(CAS 输 / 耗尽兜底 / CAS 抛出 / __test__ 出口),实测 ${calls}`)
+  assert.ok(calls >= 3, `backupIfAbandoned 直接调用数应 ≥3(定义 / CAS 抛出 / 末枚出口),实测 ${calls}`)
   // 反向对照:守卫自身绝不抛(契约上它必须"永不抛",否则备份失败会把落地器炸成另一种失效)
   assert.doesNotThrow(() => LAND.backupIfAbandoned(null, '测试:无 sha', '.', { backup: () => ({ ok: false }) }))
 })

@@ -2934,9 +2934,30 @@ async function main() {
     }
   }
 
-  // 本轮造出却没能成为 ref 值的 sha 才是孤儿 ⇒ 备份只挂在弃落出口上(判据见 backupIfAbandoned)。
-  // lastMadeCommit = 最后一轮 commit-tree 造出的那枚,供「12 次耗尽」出口兜底(与逐轮弃落同枚时幂等零加)。
+  // 本轮造出却没能成为 ref 值的 sha 才是孤儿 ⇒ 备份只挂在**最终**弃落出口上(判据见 backupIfAbandoned)。
+  //
+  // 2026-11-04 治本(失败沉积单向增长):原先**每轮 CAS 失败**都打一枚 `lost-commit/wip-land-*`,
+  // 实测单日 46 枚、存量 100 枚。中间轮次的 sha 为什么不需要打 tag —— 这**不是**"内容丢了也没关系",
+  // 而是可以逐条证明"内容一字节没丢,丢的只是 commit 对象":
+  //   ① `mine`(本轮声明的 blob 映射)在进入循环之前一次算定,之后每一轮 entries 都取同一批 blob;
+  //   ② `casUpdateRef` 对 old→new 做祖先性守卫(非快进直接抛,fail-closed),所以第 N+1 轮的 parent
+  //      必然是第 N 轮 parent 的快进后代 —— 第 N 轮树的全部内容都在第 N+1 轮提交的可达面之内;
+  // 于是中间提交被下一轮"结构上取代":下一轮的树 = 更新的 HEAD 树 ⊕ **同一批声明 blob**。
+  // 只有"最后造出、不会再有下一轮"的那一枚才会真正沉淀成无备份孤儿 —— 它必须照打,
+  // 漏打就等于把 30a 的红转嫁给下一位提交者。因此出口收敛为:
+  //   · 12 回耗尽兜底;
+  //   · CAS 抛出(catch 内,先备份再原样 rethrow);
+  //   · 循环内三个早退(clobber / 删除档 clobber / 判据拒落)—— 它们退出时上一轮 sha 同样是"末枚",
+  //     不兜就会把上面刚收掉的逐轮噪声换成另一处泄漏。
   let lastMadeCommit = ''
+  /**
+   * 只备份"最后造出且不会再被下一轮取代"的那枚。
+   * 一次失败运行最多一枚 tag(同 sha 幂等 zero-add);没造出过 commit 时**不伪造备份动作**(§0.3)。
+   */
+  const backupLastMadeIfAbandoned = (why) => {
+    if (!lastMadeCommit) return { ok: true, ref: null, why: 'no-commit-made' }
+    return backupIfAbandoned(lastMadeCommit, why, root)
+  }
   for (let attempt = 1; attempt <= MAX_CAS_ATTEMPTS; attempt++) {
     const head = git(['rev-parse', 'HEAD'], { root })
     const clobber = clobberedPaths(paths, base, head, { root })
@@ -2944,6 +2965,7 @@ async function main() {
       console.error(
         `❌ 放弃落地:HEAD 已推进且这些目标路径被别人改过 ⇒ 需重新归并而非覆盖(第 ${attempt} 次尝试):\n  ${clobber.join('\n  ')}`,
       )
+      backupLastMadeIfAbandoned(`object-space-land 第 ${attempt} 回放弃(clobber:目标路径已被他席改过)`)
       process.exit(1)
     }
     // 删除档同款护栏(G-926):删除路径的"基线"是它在 baseRef 树里的**在位性**。
@@ -2956,6 +2978,9 @@ async function main() {
     if (removeClobber.length > 0) {
       console.error(
         `❌ 放弃落地:HEAD 已推进且这些待摘除路径的在位性被别人改过 ⇒ 需重新归并而非照旧删(第 ${attempt} 次尝试):\n  ${removeClobber.join('\n  ')}`,
+      )
+      backupLastMadeIfAbandoned(
+        `object-space-land 第 ${attempt} 回放弃(clobber:待摘除路径在位性已被他席改过)`,
       )
       process.exit(1)
     }
@@ -3013,6 +3038,9 @@ async function main() {
                 '真判红(rc=1)才需要修导入。应急 IHUI_LAND_SKIP_DANGLING_GATE=1(会打留痕)。'
             : '   出路:把悬空导入修掉后重落。应急跳过 IHUI_LAND_SKIP_DANGLING_GATE=1(会把跳过那行打进输出留痕)',
         )
+        backupLastMadeIfAbandoned(
+          `object-space-land 第 ${attempt} 回判据拒落(门 98 涉事判据未过)`,
+        )
         process.exit(danglingGate.undetermined ? 2 : 1)
       }
       if (warmBorderGate && !warmBorderGate.pass) {
@@ -3024,6 +3052,9 @@ async function main() {
         console.error(
           '   出路:把该处描边改成中性档(border.light/medium)或强调档(brandAccent.light/deep)后重落;' +
             '判据边界见门体头注。应急跳过 IHUI_LAND_SKIP_WARM_BORDER=1(会把跳过那行打进输出留痕)',
+        )
+        backupLastMadeIfAbandoned(
+          `object-space-land 第 ${attempt} 回判据拒落(门 231 暖色描边未过)`,
         )
         process.exit(warmBorderGate.undetermined ? 2 : 1)
       }
@@ -3040,6 +3071,9 @@ async function main() {
       console.error(
         '   出路只有两条:把被引用的文件一起加进 LAND_PATHS,或去掉这条引用。' +
           '应急跳过 IHUI_LAND_SKIP_IMPORT_CHECK=1(会把跳过那行打进输出留痕)',
+      )
+      backupLastMadeIfAbandoned(
+        `object-space-land 第 ${attempt} 回判据拒落(悬空相对引用预检未过)`,
       )
       process.exit(1)
     }
@@ -3097,16 +3131,15 @@ async function main() {
       )
       break
     }
-    console.log(`⚠️ 第 ${attempt} 次 CAS 失败(别人先推进了 HEAD),重读重试`)
-    // ref 没动而本枚已造出 ⇒ 孤儿就在这一行出生:当场备份(争用越久备得越多,同 sha 幂等零加)。
-    backupIfAbandoned(commit, `object-space-land 第 ${attempt} 回 CAS 未抢到`, root)
+    // 中间轮次的 sha 被下一轮结构上取代(证明见循环前注释)⇒ 这里**不打 tag**,只留一行可追溯的日志。
+    console.log(
+      `⚠️ 第 ${attempt} 次 CAS 失败(别人先推进了 HEAD),重读重试(本轮 ${commit.slice(0, 9)} 仅中间件,不备份)`,
+    )
   }
   if (landed === '') {
-    // 兜底:末枚多半已在上面逐轮备过(幂等 already:true 零加);取不到 sha 也只会报 no-sha 不冒充绿(§0.3)。
-    backupIfAbandoned(
-      lastMadeCommit,
+    // 兜底:这是"最后造出、不会再有下一轮"的那一枚 ⇒ 必须照打;取不到 sha 也只会报 no-sha 不冒充绿(§0.3)。
+    backupLastMadeIfAbandoned(
       `object-space-land ${MAX_CAS_ATTEMPTS} 回均未抢到 CAS(末枚兜底)`,
-      root,
     )
     console.error(`❌ ${MAX_CAS_ATTEMPTS} 次均未抢到 CAS,主索引未动`)
     process.exit(1)
