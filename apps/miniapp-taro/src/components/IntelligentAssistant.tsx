@@ -71,6 +71,12 @@ export interface IntelligentAssistantProps {
   isLoggedIn?: boolean
   /** 点击充值按钮回调 */
   onRecharge?: () => void
+  /**
+   * 机器人装饰图(对齐 RN 端同名可选 prop;原 xiaofang.png)。
+   * 小程序端装饰走 LineIcon "bot" 矢量墨迹(与 RN 位图不同媒介,见文件头注释),
+   * 故本 prop 仅作接口对齐保留,渲染接线为后手。
+   */
+  robotImage?: string
 }
 
 function formatTokenValue(count: number): string {
@@ -108,7 +114,7 @@ export default function IntelligentAssistant({
               : t('ai.intelligentAssistant.loginRequired')}
           </Text>
           {isLoggedIn && (
-            <View style={RECHARGE_HIT_STYLE} onClick={onRecharge}>
+            <View style={RECHARGE_HIT_STYLE} hoverClass="opacity-60" onClick={onRecharge}>
               <Text className="ia-recharge-btn" style={RECHARGE_LABEL_STYLE}>
                 {t('ai.intelligentAssistant.recharge')}
               </Text>

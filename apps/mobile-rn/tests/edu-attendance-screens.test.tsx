@@ -123,6 +123,7 @@ vi.mock('lucide-react-native', () => ({
   ScanLine: () => createElement('i', { 'data-icon': 'scan' }),
   ChevronLeft: () => createElement('i', { 'data-icon': 'chevron' }),
   RefreshCw: () => createElement('i', { 'data-icon': 'refresh' }),
+  BarChart3: () => createElement('i', { 'data-icon': 'bar-chart' }),
 }))
 
 vi.mock('react-native-qrcode-svg', () => ({
@@ -250,6 +251,11 @@ import {
   EduAttendanceQrScreen,
   EduAttendanceScanScreen,
 } from '../src/screens/EduAttendanceQrScreen'
+// 统计路径与 URL 口径一律取源出口,测试不复算(§22c 禁止第二份判据)
+import {
+  ATTENDANCE_STATS_PATH as STATS_URL,
+  attendanceStatsUrl,
+} from '../src/components/edu-attendance-stats'
 
 const LIST_URL = '/api/edu-ai-management/attendance'
 const LIST_QUERY = `${LIST_URL}?`
@@ -277,6 +283,21 @@ const callsWith = (url: string): Array<[string, FetchInit | undefined]> =>
 /** 列表取数 = 带 query 的那一条;必须与 /attendance/check-in 等写端点严格分开数 */
 const listCalls = (): number =>
   api.fetchApi.mock.calls.filter(([u]) => String(u).startsWith(LIST_QUERY)).length
+/** 统计区取数:与列表严格分开数(`/attendance?` 与 `/attendance/stats?` 前缀不重叠) */
+const statsCalls = (): number =>
+  api.fetchApi.mock.calls.filter(([u]) => String(u).startsWith(`${STATS_URL}?`)).length
+/**
+ * 挂载期取数面的等价强度断言。旧形态是「总共只发 1 次」——统计区上线后那个 1 已是假前提,
+ * 收窄成三条同强度:列表恰好 1 次 ∧ 统计恰好 1 次 ∧ 没有第三种 URL。禁止改成 toBeGreaterThan。
+ */
+const assertMountFetches = (label: string): void => {
+  expect(listCalls(), `${label}:列表取数不是恰好一次`).toBe(1)
+  expect(statsCalls(), `${label}:统计取数不是恰好一次`).toBe(1)
+  expect(
+    urls().filter((u) => !u.startsWith(LIST_QUERY) && !u.startsWith(`${STATS_URL}?`)),
+    `${label}:多发了第三种请求`,
+  ).toEqual([])
+}
 const lastAlert = (): { title: string; message?: string; buttons?: AlertButton[] } => {
   const a = h.alerts.at(-1)
   if (!a) throw new Error('没有任何 appAlert 上屏 ⇒ 尺子失效')
@@ -342,10 +363,37 @@ describe('考勤屏 · 教师侧 EduAttendanceScreen', () => {
     expect(urls()[0]).toBe(`${LIST_URL}?date=${todayShanghai()}`)
     expect(callsWith(LIST_URL)[0]?.[1], '取列表不该带请求选项(方法/请求体)').toBeUndefined()
     await settle()
-    expect(api.fetchApi.mock.calls, '挂载期多发了一次取列表').toHaveLength(1)
+    assertMountFetches('挂载期')
+    // 统计区必须按「当日 + 首行班级」取数(口径来自源出口,测试不复算日期窗口)
+    expect(
+      urls().find((u) => u.startsWith(`${STATS_URL}?`)),
+      '统计取数的 URL 与源出口算出的不一致',
+    ).toBe(attendanceStatsUrl({ date: todayShanghai(), classId: 'cls-1' }))
     expect(screen.getByText(zhKey('eduAttendance.status.absent'))).toBeTruthy()
     // 阳性对照:同一把尺子在真有条目时确实读到了行(上一条不是恒真)
     expect(latestRows()[0]?.cells['student']).toBe('stu-1')
+  })
+
+  it('⑥ 统计区挂掉不带走列表区:失败当场回显且列表照常可操作(正反成对)', async () => {
+    api.fetchApi.mockImplementation(async (url) =>
+      String(url).startsWith(`${STATS_URL}?`) ? fail('boom') : ok({ list: [teacherRow()] }),
+    )
+    render(createElement(EduAttendanceScreen))
+    await waitFor(() => expect(screen.getByText('stu-1')).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByText(new RegExp(zhKey('eduAttendance.loadStatsFailed')))).toBeTruthy(),
+    )
+    // 列表区仍可操作:整班点名入口还在(统计区失败把整屏打挂会在这里翻红)
+    expect(screen.getByText(zhKey('eduAttendance.batchTitle'))).toBeTruthy()
+
+    // 正向对照:同一把尺子在统计成功时必须读不到那条回显 ⇒ 上一条不是恒真
+    cleanup()
+    resetCapture()
+    api.fetchApi.mockImplementation(async () => ok({ list: [teacherRow()] }))
+    render(createElement(EduAttendanceScreen))
+    await waitFor(() => expect(listCalls()).toBe(1))
+    await settle()
+    expect(screen.queryByText(new RegExp(zhKey('eduAttendance.loadStatsFailed')))).toBeNull()
   })
 
   it('②④⑤ 行操作「签到」= POST check-in,payload 取自服务端行且不含 status;成功后重取列表', async () => {
@@ -520,9 +568,13 @@ describe('考勤屏 · 教师侧 EduAttendanceScreen', () => {
     api.fetchApi.mockImplementation(async () => ok({ list: [] }))
     render(createElement(EduAttendanceScreen))
     await waitFor(() => expect(listCalls()).toBe(1))
+    await settle()
+    const mountTotal = api.fetchApi.mock.calls.length
+    assertMountFetches('挂载期')
     fireEvent.click(screen.getByText(zhKey('eduAttendance.qrEntry')))
     expect(h.navigations).toEqual(['EduAttendanceQr'])
-    expect(api.fetchApi.mock.calls).toHaveLength(1)
+    // 牙不弱化:入口不得新增任何一次请求(基线由上一条断言钉成 列表1+统计1)
+    expect(api.fetchApi.mock.calls.length, '点二维码入口多发了请求').toBe(mountTotal)
   })
 })
 

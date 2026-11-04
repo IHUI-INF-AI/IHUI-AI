@@ -77,6 +77,10 @@ export const WHITELIST_ENTRIES = new Map(
       why: '数据文件:非 screen 组件,导出 ProfileScreen 4 Tab 内容类型定义',
       expires: '2027-06-30',
     },
+    'AigcPublishUpload.ts': {
+      why: '上传任务工厂 + 进度采样:真进度必须走 expo-file-system 的 File/UploadType(文件头注自述共享屏只拿得到 uploading 布尔,只能画假进度)⇒ RN 独占平台 adapter,非 screen 组件',
+      expires: '2027-06-30',
+    },
     // ── RN 独占 screen(无跨端需求,深度依赖 RN 特定 API/组件) ──
     'LearnMapScreen.tsx': {
       why: '学习地图屏:ScrollView 节点地图 + 进度环,共享层无同名屏,RN 端独占视觉交互',
