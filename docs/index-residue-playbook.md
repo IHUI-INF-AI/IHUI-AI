@@ -405,6 +405,73 @@ if ($LASTEXITCODE -ne 0) {
 ```
 
 判读:`pre-commit.log` 里**没有新标记** + exit 1 ⇒ 在 sh 层就被拒(判据 15),不是门体红;有新标记但末 40 行是门体输出 ⇒ 按门体原因处理。
+## 6A. 私有索引提交后的工作树残差与定版语义边界(判据 17–18;红线 C)
+
+> 本节来自钩子链索引改造(定版索引护栏 `scripts/lib/index-pin-guard.js` + 钩子退出网 `scripts/lib/pre-commit-hook.js`)在 main 上的实测落地,不是推演。新增判据 17–18、禁令 16–18 与红线 C;**判据 1–16、禁令 1–15 逐字不动**。
+
+### 判据 17 — 私有索引提交成功后,钩子的 `--fix` 产物只留在工作树
+
+**判据原文**:私有索引提交的提交内容 = **作者定版那一刻的索引内容**(`scripts/isolated-git.mjs` 以 `read-tree HEAD` + 声明集构造私有索引;调用方也可用 `--cacheinfo` 逐条钉住)。钩子里的 `prettier --write` / `eslint --fix`(`package.json` 的 `lint-staged` 段)改写的是**工作树文件**,其对索引的回写被定版护栏按「钩子开工那一刻」的快照逐条复原 ⇒ 格式化结果**不进提交**,提交成功后该路径显示 ` M`(索引 == HEAD,工作树 != HEAD)。
+
+```powershell
+$p = '<本席声明的仓根相对路径>'
+$sha = git rev-parse HEAD
+git status --porcelain=v1 -- $p          # 期望: M <path>(首列空格、次列 M)
+"treeBlob=$(git rev-parse "${sha}:$p")"
+"indexBlob=$(((git ls-files -s -- $p) -split '\s+')[1])"   # 两者应相等
+git diff --cached --name-status -- $p    # 期望:空
+git diff -- $p                           # 期望:只有格式化差异
+```
+
+**触发场景**:用私有 `GIT_INDEX_FILE` 提交(推荐 `node scripts/isolated-git.mjs commit -m "<标题>" -- <路径...>`),且声明路径命中 `lint-staged` 的 `prettier --write` / `eslint --fix`;提交 exit 0,随后 `git status` 在该路径上出现 ` M`。反例边界:`git commit --only -- <路径>` 交给钩子的是 git 自建的 `next-index-<pid>.lock`,按 `index-pin-guard.js` 的判据**不保护**(格式化结果进提交),不属本判据射程。
+
+**正确动作**:先确认 `HEAD:<path>` 的 blob 等于本次定版 blob、且工作树差异**仅为格式化产物**;然后只对本席该路径执行 `git restore -- <本席路径>`(只碰自己的路径,不写索引,不碰其他路径)。若要保留格式化结果,另起一笔**专门**提交格式化产物的提交,不要并回本次或下一次声明集。
+
+**反例**:
+- 把 ` M` 读成「还有未提交的工作」而补 `git add` ⇒ 下一笔提交带上未经声明的格式化结果,提交面被扩大(与判据 8 乙型同族)。
+- 用 `git checkout -- .` / `git restore .` 整树清除 ⇒ 连带清掉他席未暂存改动(§7 禁令 10 的同类整树动作)。
+- 把「提交成功但工作树 ` M`」当失败重跑 ⇒ 重复落地 / 撞幂等判据,而定版提交其实已经入库。
+
+### 判据 18 — 定版保护的语义边界:基线 = 钩子开工那一刻的索引
+
+**判据原文**:私有索引的定版基线 = **钩子开工那一刻**的索引状态(`scripts/lib/pre-commit-hook.js` 在 lint-staged 之前调 `indexPinGuard.capturePinnedIndex`;仅在 `mode='private'`、不是 git 自建的 `next-index-<pid>.lock`、且指针不是共享索引本身时启用)。**推论(明写的边界,不是漏洞)**:调用方若在**钩子开工之后**才改写私有索引(例如钩子内嵌脚本里执行 `git update-index --cacheinfo` 做定版),该次定版**不在保护范围**,会被后续腿(`lint-staged` 的 `git add`、staging area 还原等)按开工前快照静默覆盖。
+
+```powershell
+# 定版必须在钩子启动前完成:先钉索引,再发提交令
+git update-index --cacheinfo <mode>,<blob>,<path>   # 此时钩子尚未开工
+node scripts/isolated-git.mjs commit -m "<标题>" -- <路径...>
+```
+
+**触发场景**:把定版动作写进 `.husky/pre-commit` 调起的脚本、写进 `lint-staged` 任务、或写进任何在钩子进程内执行的嵌套脚本;表面「已钉住」,提交内容却是工作树版本,且退出码与日志全绿。
+
+**正确动作**:① 一切定版在**钩子启动前**完成(构造私有索引时 `--cacheinfo`,再交给 `isolated-git` 提交);② 钩子执行期间**只读**私有索引,不再写定版条目;③ 越界的正确处理是 **exit 2 未判定**(`PIN_GUARD_UNDETERMINED`;`index-pin-guard.js` 读索引输出超上界 ENOBUFS 或进程被信号中断时走这一档),**不是崩溃、不是静默放行、也不是折成红(exit 1)**——这正是 AGENTS §0.3「未判定不得冒充通过、也不得冒充失败」在索引保护上的一个应用实例。
+
+**反例**:
+- 在 `pre-commit` 的内嵌脚本里 `--cacheinfo` 定版、指望护栏兜住 ⇒ 后续腿覆盖后仍按「开工前」复原,定版意图丢失,提交反向入库他人增量(正是钩子链改造前的原病灶)。
+- 把 `PIN_GUARD_UNDETERMINED`(exit 2)重试成普通失败、或加白名单放行 ⇒ 把「没看见索引全貌」冒充成「索引没问题」。
+- 把 exit 2 折成 exit 1 ⇒ 把容量/未判定问题误报成内容违规,调用方会去改内容而不是查索引读取面。
+
+### 红线 C(单列)— 只复原本席声明集内条目;他席暂存条目只报数
+
+**判据原文**:护栏的复原面 = **本席声明集**(`isolated-git` 的 `takeIndexSnapshot` 只对声明路径取 `(mode, blob, stage)` 快照),加上**显式逐条列名且带 blob 钉**的派生产物;声明集之外的条目一律只记入 `extras` 并拒绝提交,**不删除、不复原**。他席暂存条目(`PROJECT_PLAN.md`、`scripts/tests/check-i18n-parity.test.mjs` 等)**一律不许删、不许 restore**,只能「报数」。
+
+**触发场景**:共享索引上出现他席在飞暂存(`M ` / `MM` / `AD`);或私有索引内容护栏报出 `extras`(声明集之外出现了条目)。人工收口时最容易被「顺手清干净」的冲动命中。
+
+**正确动作**:
+- 只对本席声明路径执行 `git restore --staged -- <path>` / `git rm --cached -- <path>`(且须先过判据 5–9 的前置条件);
+- `extras` 出现时**报数 + 原样打印路径**并让提交失败(exit 非 0),不做任何清理;由条目所属会话自行收口;
+- 需要确认他席条目时只跑只读取样(`git diff --cached --name-status` / `git status --porcelain=v1`),把读数贴进上报。
+
+**反例**:
+- 为了让 `extras` 归零而 `git rm --cached` / `git restore --staged -- ` 他席路径 ⇒ 清空别人正在飞的暂存面,且对方无从得知。
+- 用 `git reset HEAD` / `git restore --staged -- .` 整树清空 ⇒ 同型且更广(§7 禁令 10、11)。
+- 把「他席条目还在」误记成「本次清理失败」而反复重跑 ⇒ 并发漂移的读数被当成自己的成果或失败。
+
+### 禁令增补(编号接 §7;1–15 不动)
+
+16. 私有索引提交成功后,本席声明路径上的 ` M`(钩子 `--fix` / 格式化残差)严禁 `git add` 并入下一笔提交,严禁 `git checkout -- .` / `git restore .` 整树清除;只能 `git restore -- <本席该路径>`(判据 17)。
+17. 严禁在钩子执行期间临时改写私有索引做定版;定版必须在钩子启动前完成(判据 18)。
+18. 护栏只复原本席声明集内条目;他席暂存条目严禁删、严禁 restore,只能报数(红线 C)。
 
 ## 7. 禁令清单(15 条)
 
