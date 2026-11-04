@@ -516,7 +516,7 @@ export function createDeleteFileTool(ctx: EditToolContext): Tool {
       const filePath = args.path as string;
       if (!filePath) return { success: false, output: '', error: '缺少 path 参数' };
 
-      const perm = checkPathWritePermission(filePath, ctx);
+      const perm = checkPathWritePermission(filePath, ctx, 'delete');
       if (!perm.allowed) return { success: false, output: '', error: perm.reason };
 
       const preResult = await runPreToolCall('delete_file', { path: filePath, cwd: ctx.workspacePath }, execCtx.signal);
