@@ -828,7 +828,7 @@ const styles = StyleSheet.create({
     gap: rnSpacing.xs,
   } as ViewStyle,
   toggleChip: {
-    borderRadius: rnRadius.lg,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.surface.muted,
     paddingHorizontal: rnSpacing.sm,
     paddingVertical: rnSpacing.xs,

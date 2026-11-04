@@ -31,7 +31,7 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { atomicWriteFileSync } from './lib/atomic-write.mjs'
-import { appendLanding } from './lib/cross-end-landing-ledger.mjs'
+import { appendLanding, readLanding } from './lib/cross-end-landing-ledger.mjs'
 import { ownershipGate } from './lib/git-paths.mjs'
 import { gitRaw } from './lib/face-reader.mjs'
 
@@ -99,12 +99,14 @@ export function planMoves(items, readPack) {
       }
       const satisfied = new Set()
       for (const [key, value] of Object.entries(baseline)) {
-        if (typeof value !== 'string') continue
+        // 值可以是字符串,也可以是整块子对象(edu/learnPaymentConfirmPage 这类嵌套命名空间)。
+        // 旧形态只收 depth-1 字符串 ⇒ 纯嵌套的命名空间永远 0 枚可搬,而还原度门按 HEAD 照旧报
+        // packAbsent ⇒ 这道红永远靠机器消不掉(2026-11-05 实测:edu、learnPaymentConfirmPage 即此型)。
         if (only) satisfied.add(key)
         if (only && !only.includes(key)) continue
         if (have?.[ns]?.[key] !== undefined) {
           satisfied.add(key)
-          continue // 只补空:已有 ⇒ 一个字母不动
+          continue // 只补空:已有 ⇒ 一个字母不动(子树已存在也不整片覆盖)
         }
         moves.push({ ns, key, lang, value, from })
       }
@@ -115,6 +117,65 @@ export function planMoves(items, readPack) {
     }
   }
   return { moves, unresolvable }
+}
+
+/**
+ * 「缺口仍在、而计划=0 且基准侧并非查无」这一格必须有自己的名字(2026-11-05 立)。
+ *
+ * 立因:`needs` 出自还原度门按 **HEAD** 判的 packAbsent,而本器的写盘只到 **工作树**(落库交
+ * `sweepCrossEndLandingLeg` 收)。于是上一轮写完到收编落地之间,计划恒为 0 —— 旧形态把这一格折成
+ * `state:'unresolvable'` 而 `unresolvable` 数组**一条也不点名**,等于把「刚写完、缺收编那一跳」说成
+ * 「取不到」。驾驶舱与 `--json` 消费方读不出真相 ⇒ 同一道红隔 30 分钟复现一次而无人动手。
+ * 失效方向仍是「多要一次定向说明」(§0.10):判不出就逐枚点名并 exit 2,绝不冒绿也绝不冒错名。
+ *
+ * 输入全是调用方现读的事实,本层不再取任何一面(§0.6 零复算:账本形态与 blob 比对口径归 lib):
+ *   present     —— `${ns}@${lang}`:本端**工作树**副本里该命名空间已是对象(在位)
+ *   declared    —— 已在落点账本以本腿名申报、且申报 blob 逐字等于当前工作树 blob 的语言
+ *   ledgerError —— 账本读不出 ⇒ 一律未判定(取不到不猜)
+ */
+export function classifyNoop({ needs, present, declared, ledgerError }) {
+  if (ledgerError) return { state: 'undetermined', exit: 2, named: [`账本取不到:${ledgerError}`] }
+  if (!needs.length) return { state: 'clean', exit: 0, named: [] }
+  const missing = []
+  const undeclared = []
+  for (const ns of needs)
+    for (const lang of LANGS) {
+      const face = `${ns}@${lang}`
+      if (!present.includes(face)) missing.push(face)
+      if (!declared.includes(lang)) undeclared.push(lang)
+    }
+  // 本端副本里没有该块却既无搬运计划也无点名 ⇒ 计划面与判据面对不上,是真「判不出」
+  if (missing.length) return { state: 'undetermined', exit: 2, named: missing }
+  // 内容在盘上而本腿账本无相符申报 ⇒ 不是「我写的等收编」,不能替别人认领(归属未知 ⇒ 不猜)
+  if (undeclared.length)
+    return {
+      state: 'undetermined',
+      exit: 2,
+      named: [...new Set(undeclared)].map((l) => `本端副本已含而本腿账本无相符申报:${l}`),
+    }
+  return { state: 'awaiting-landing', exit: 0, named: [], pending: declared.length }
+}
+
+/** 从账本正文里挑出「本腿为该语言申报过、且 oid 逐字等于当前工作树 blob」的语言。 */
+export function declaredLangsFromLedger({ rows, leg = CROSS_END_LEG, oidByLang, targetPack = TARGET_PACK }) {
+  const out = []
+  for (const [lang, oid] of Object.entries(oidByLang ?? {})) {
+    if (!oid) continue
+    const rel = packRel(targetPack, lang)
+    if (rows.some((r) => r.leg === leg && r.path === rel && r.blobOid === oid)) out.push(lang)
+  }
+  return out
+}
+
+/** 本端工作树副本是否已含该命名空间(对象在位即算;与还原度门的 packAbsent 同一档语义)。 */
+export function presentFaces(needs, readPack, targetPack = TARGET_PACK) {
+  const out = []
+  for (const ns of needs)
+    for (const lang of LANGS) {
+      const j = readPack(targetPack, lang)
+      if (j?.[ns] && typeof j[ns] === 'object') out.push(`${ns}@${lang}`)
+    }
+  return out
 }
 
 /** 把 --key ns.key(可重复)折成显式搬运项;形状不对当场拒绝,不静默忽略。 */
@@ -147,12 +208,20 @@ export function insertIntoJson(text, ns, entries) {
   if (rootClose < 0) return null
   const body = text.slice(0, rootClose)
   const nsOpen = findNsOpen(body, ns)
+  // 逐行按落点缩进重排:整块子对象必须与词包既有的 2 空格阶梯一致,否则 prettier 一改就造出
+  // 与正确性无关的巨型 diff(内联 {"a":1} 形态会被展开,格式棘轮按"本次改动文件"判 ⇒ 平白添红)。
+  const renderEntry = (pad, k, v) => {
+    const head = `${pad}${JSON.stringify(k)}: `
+    if (v === null || typeof v !== 'object') return `${head}${JSON.stringify(v)}`
+    return JSON.stringify(v, null, 2)
+      .split('\n')
+      .map((line, i) => (i === 0 ? `${head}${line}` : `${pad}${line}`))
+      .join('\n')
+  }
   if (nsOpen === -1) {
     // 整块缺失 ⇒ 必须发**嵌套对象**:"career" 作为顶层命名空间不存在时,尺子的 packAbsent 维照旧命中
     const tail = body.replace(/\s*$/, '')
-    const add = entries
-      .map(([k, v]) => `    ${JSON.stringify(k)}: ${JSON.stringify(v)}`)
-      .join(',\n')
+    const add = entries.map(([k, v]) => renderEntry('    ', k, v)).join(',\n')
     const sep = tail.endsWith('{') ? '' : ','
     return `${tail}${sep}\n  ${JSON.stringify(ns)}: {\n${add}\n  }\n}\n`
   }
@@ -165,7 +234,7 @@ export function insertIntoJson(text, ns, entries) {
   const closeIndent = inner.slice(trimmed.length).match(/[ \t]*$/)[0]
   // 空块({} 与 { \n })既没有内容也不带尾逗号 ⇒ 补第一枚键不得加逗号(trimmed 为空串时 endsWith 恒假)
   const sep = trimmed.length === 0 || trimmed.endsWith('{') ? '' : ','
-  const add = entries.map(([k, v]) => `${pad}${JSON.stringify(k)}: ${JSON.stringify(v)}`).join(',\n')
+  const add = entries.map(([k, v]) => renderEntry(pad, k, v)).join(',\n')
   return `${text.slice(0, nsOpen + 1)}${trimmed}${sep}\n${add}\n${closeIndent}${text.slice(close)}`
 }
 
@@ -237,6 +306,24 @@ function defaultReadPack(pack, lang) {
   }
 }
 
+/**
+ * 现读事实 ⇒ 交给纯裁决器。账本读不到一律按「取不到」交给 classifyNoop 的 ledgerError 分支,
+ * 不回落另一个面、也不把"读不出"折成"没申报"(§0.4 同面同轮 / §0.3 不冒绿)。
+ */
+export function judgeNoop(needs, { root = ROOT } = {}) {
+  const present = presentFaces(needs, defaultReadPack)
+  const ledger = readLanding({ face: 'worktree', root })
+  if (!ledger.ok)
+    return classifyNoop({ needs, present, declared: [], ledgerError: String(ledger.reason).slice(0, 120) })
+  const oidByLang = {}
+  for (const lang of LANGS) oidByLang[lang] = worktreeBlobOid(packRel(TARGET_PACK, lang), root)
+  return classifyNoop({
+    needs,
+    present,
+    declared: declaredLangsFromLedger({ rows: ledger.lines ?? [], oidByLang }),
+  })
+}
+
 export function runFidelityJson() {
   const script = join(HERE, 'check-miniapp-mirror-fidelity.mjs')
   try {
@@ -289,19 +376,31 @@ async function main() {
   const needs = needsFromFidelity(fidelity)
   const units = [...needs, ...keyItems]
   const { moves, unresolvable } = planMoves(units, defaultReadPack)
+  // 计划=0 而缺口仍在 ⇒ 这一格到底是「等收编」还是「判不出」,只有对着账本与盘上副本才答得出
+  const noop =
+    units.length && !moves.length && !unresolvable.length ? judgeNoop(needs) : null
   if (asJson) {
     console.log(
       JSON.stringify({
         leg: CROSS_END_LEG,
-        state: units.length ? (moves.length ? 'pending' : 'unresolvable') : 'clean',
+        state:
+          units.length === 0
+            ? 'clean'
+            : moves.length
+              ? 'pending'
+              : unresolvable.length
+                ? 'unresolvable'
+                : noop.state,
         namespaces: needs,
         explicitKeys: keyItems.map((k) => `${k.ns}.${k.keys.join(',')}`),
         planned: moves.length,
         unresolvable,
+        pendingLanding: noop?.pending ?? 0,
+        named: noop?.named ?? [],
         applied: apply,
       }),
     )
-    if (!moves.length) process.exit(unresolvable.length ? 2 : 0)
+    if (!moves.length) process.exit(noop ? noop.exit : unresolvable.length ? 2 : 0)
     if (!apply) return
   }
   if (!units.length) {
@@ -318,9 +417,27 @@ async function main() {
       console.log(`⚠️ 基准侧全查无 ⇒ 不搬不代拟(${unresolvable.length} 枚):${unresolvable.join(', ')}`)
   }
   if (!moves.length) {
+    const verdict = noop ?? judgeNoop(needs)
+    console.log('─'.repeat(64))
     console.log(
-      `结论 landing=0 无变化=0 held=0 写出=0 leg=${CROSS_END_LEG} ledger=ok needs=${needs.length} 未判定=${unresolvable.length ? 'unresolvable' : '0'}`,
+      `结论 landing=0(新登记 0/在册去重 0) 计划=0 held=0 写出=0 leg=${CROSS_END_LEG} ledger=ok` +
+        ` needs=${needs.length}` +
+        ` 状态=${verdict.state}` +
+        ` 待收编=${verdict.pending ?? 0}` +
+        ` 未判定=${verdict.state === 'undetermined' || unresolvable.length ? 'unresolvable' : '0'}` +
+        ` 基准侧查无=${unresolvable.length}` +
+        ` landingPath=.ihui-agent/state/cross-end-landing.jsonl`,
     )
+    const named = unresolvable.length ? unresolvable : verdict.named
+    if (named.length)
+      console.error(
+        `❌ ${verdict.state}(逐枚点名,不代拟不冒绿,共 ${named.length} 枚):${named.slice(0, 20).join(', ')}`,
+      )
+    if (verdict.state === 'awaiting-landing')
+      console.log(
+        `ℹ️ 本腿上一轮的产出已在盘上并申报入账,缺的是收编那一跳(还原度门按 HEAD 判)⇒ 交 sweepCrossEndLandingLeg/auto-commit-quiet;本轮不重搬、不冒绿`,
+      )
+    if (verdict.exit) process.exit(verdict.exit)
     if (unresolvable.length) process.exit(2)
     return
   }
@@ -377,7 +494,12 @@ async function main() {
     }
     // 搬完逐枚回读自证:必须与基准侧取值逐字节相等,否则不算搬过(§0.14)
     for (const [key, value, ns] of list) {
-      if (parsed?.[ns]?.[key] !== value) {
+      const got = parsed?.[ns]?.[key]
+      const same =
+        value !== null && typeof value === 'object'
+          ? JSON.stringify(got) === JSON.stringify(value)
+          : got === value
+      if (!same) {
         failed.push(`${rel}(${ns}.${key} 回读值与基准侧不一致)`)
         ok = false
       }
@@ -430,6 +552,9 @@ async function main() {
 export const __test__ = {
   needsFromFidelity,
   planMoves,
+  classifyNoop,
+  declaredLangsFromLedger,
+  presentFaces,
   parseKeyArgs,
   insertIntoJson,
   findNsOpen,

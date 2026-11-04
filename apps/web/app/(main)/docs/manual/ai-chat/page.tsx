@@ -48,9 +48,9 @@ export default function ManualAiChatPage() {
     <main className="px-4 mx-auto w-full max-w-3xl py-4">
       {/* Hero */}
       <header className="space-y-3">
-        <div className="text-xs font-mono text-muted-foreground">第 02 章 · 使用说明手册</div>
+        <div className="font-[weight:inherit] text-label font-mono text-muted-foreground">第 02 章 · 使用说明手册</div>
         <h1 className="text-display min-[768px]:text-3xl font-bold tracking-tight">AI 对话</h1>
-        <p className="text-sm text-muted-foreground min-[768px]:text-base">
+        <p className="font-[weight:inherit] text-body text-muted-foreground min-[768px]:text-base">
           掌握 AI 对话的全部常用操作:发消息、上传文件、切模型、看历史、分享对话。
         </p>
       </header>
@@ -58,13 +58,13 @@ export default function ManualAiChatPage() {
       {/* 新建对话 */}
       <section id="new-chat" className="mt-10 space-y-3">
         <h2 className="text-heading font-bold">2.1 新建对话</h2>
-        <div className="rounded-lg border bg-card p-3 space-y-2 text-sm text-muted-foreground">
+        <div className="font-[weight:inherit] rounded-lg border bg-card p-3 space-y-2 text-body text-muted-foreground">
           <ul className="ml-4 list-disc space-y-1">
             <li>方式一:左侧栏顶部"新建对话"按钮</li>
-            <li>方式二:快捷键 <kbd className="rounded border bg-muted px-1.5 py-0.5 text-xs">Ctrl + K</kbd>(Mac 用 <kbd className="rounded border bg-muted px-1.5 py-0.5 text-xs">Cmd + K</kbd>)</li>
+            <li>方式二:快捷键 <kbd className="font-[weight:inherit] rounded border bg-muted px-1.5 py-0.5 text-label">Ctrl + K</kbd>(Mac 用 <kbd className="font-[weight:inherit] rounded border bg-muted px-1.5 py-0.5 text-label">Cmd + K</kbd>)</li>
             <li>方式三:历史对话列表底部"+ 新对话"</li>
           </ul>
-          <p className="rounded bg-muted/60 p-3 text-xs">
+          <p className="font-[weight:inherit] rounded bg-muted/60 p-3 text-label">
             <Lightbulb className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
             每个对话独立保存,可同时开多个对话,互不影响。建议每个话题一个对话,AI 回答更准。
           </p>
@@ -74,14 +74,14 @@ export default function ManualAiChatPage() {
       {/* 发送消息 */}
       <section id="send-message" className="mt-10 space-y-3">
         <h2 className="text-heading font-bold">2.2 发送消息</h2>
-        <div className="rounded-lg border bg-card p-3 space-y-3 text-sm text-muted-foreground">
+        <div className="font-[weight:inherit] rounded-lg border bg-card p-3 space-y-3 text-body text-muted-foreground">
           <ul className="ml-4 list-disc space-y-1">
-            <li><kbd className="rounded border bg-muted px-1.5 py-0.5 text-xs">Enter</kbd>:发送</li>
-            <li><kbd className="rounded border bg-muted px-1.5 py-0.5 text-xs">Shift + Enter</kbd>:换行(消息内多行)</li>
-            <li><kbd className="rounded border bg-muted px-1.5 py-0.5 text-xs">↑</kbd>(输入框空时):编辑上一条消息</li>
-            <li><kbd className="rounded border bg-muted px-1.5 py-0.5 text-xs">Esc</kbd>:停止 AI 流式输出</li>
+            <li><kbd className="font-[weight:inherit] rounded border bg-muted px-1.5 py-0.5 text-label">Enter</kbd>:发送</li>
+            <li><kbd className="font-[weight:inherit] rounded border bg-muted px-1.5 py-0.5 text-label">Shift + Enter</kbd>:换行(消息内多行)</li>
+            <li><kbd className="font-[weight:inherit] rounded border bg-muted px-1.5 py-0.5 text-label">↑</kbd>(输入框空时):编辑上一条消息</li>
+            <li><kbd className="font-[weight:inherit] rounded border bg-muted px-1.5 py-0.5 text-label">Esc</kbd>:停止 AI 流式输出</li>
           </ul>
-          <p className="text-xs">
+          <p className="font-[weight:inherit] text-label">
             <strong>消息长度</strong>:单条最长 32000 字符(约 2 万汉字)。长文档请用附件上传,不要直接粘贴。
           </p>
         </div>
@@ -90,7 +90,7 @@ export default function ManualAiChatPage() {
       {/* 上传文件 */}
       <section id="upload-files" className="mt-10 space-y-3">
         <h2 className="text-heading font-bold">2.3 上传文件给 AI</h2>
-        <div className="rounded-lg border bg-card p-3 space-y-3 text-sm text-muted-foreground">
+        <div className="font-[weight:inherit] rounded-lg border bg-card p-3 space-y-3 text-body text-muted-foreground">
           <ol className="ml-4 list-decimal space-y-1">
             <li>
               点击输入框左侧 <Paperclip className="inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
@@ -98,11 +98,11 @@ export default function ManualAiChatPage() {
             </li>
             <li>选择文件(可多选):PDF / Word / Excel / PPT / 图片 / TXT / Markdown / 代码文件</li>
             <li>等待上传完成(进度条显示)</li>
-            <li>在消息框补充问题,例如:<code className="rounded bg-muted px-1 text-xs">总结这份 PDF 的要点</code></li>
+            <li>在消息框补充问题,例如:<code className="font-[weight:inherit] rounded bg-muted px-1 text-label">总结这份 PDF 的要点</code></li>
             <li>发送,AI 自动读取文件内容并回答</li>
           </ol>
           <div className="space-y-2">
-            <p className="text-xs"><strong>支持的文件类型</strong>:</p>
+            <p className="font-[weight:inherit] text-label"><strong>支持的文件类型</strong>:</p>
             <div className="space-y-1">
               {[
                 { Icon: FileText, type: 'PDF / Word / PPT / Excel / TXT / Markdown', desc: 'AI 直接读取文本内容' },
@@ -113,7 +113,7 @@ export default function ManualAiChatPage() {
               ].map(({ Icon, type, desc }, i) => (
                 <div
                   key={i}
-                  className={`rounded p-2 text-xs ${i % 2 === 0 ? 'bg-background' : 'bg-muted/40'}`}
+                  className={`font-[weight:inherit] rounded p-2 text-label ${i % 2 === 0 ? 'bg-background' : 'bg-muted/40'}`}
                 >
                   <div className="flex items-center gap-1.5 font-medium">
                     <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
@@ -124,7 +124,7 @@ export default function ManualAiChatPage() {
               ))}
             </div>
           </div>
-          <p className="rounded bg-muted/60 p-3 text-xs">
+          <p className="font-[weight:inherit] rounded bg-muted/60 p-3 text-label">
             <AlertTriangle className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
             <strong>大小限制</strong>:单文件 100MB,单次最多 10 个文件。超大文件建议拆分或用知识库(见第 4 章)。
           </p>
@@ -134,7 +134,7 @@ export default function ManualAiChatPage() {
       {/* 切换模型 */}
       <section id="switch-model" className="mt-10 space-y-3">
         <h2 className="text-heading font-bold">2.4 切换 AI 模型</h2>
-        <div className="rounded-lg border bg-card p-3 space-y-3 text-sm text-muted-foreground">
+        <div className="font-[weight:inherit] rounded-lg border bg-card p-3 space-y-3 text-body text-muted-foreground">
           <ol className="ml-4 list-decimal space-y-1">
             <li>对话区顶部点击模型名称(如"GPT-4o")</li>
             <li>下拉菜单显示所有可用模型,按厂商分组</li>
@@ -147,10 +147,10 @@ export default function ManualAiChatPage() {
             </li>
             <li>点击目标模型,立即切换(下一轮对话生效)</li>
           </ol>
-          <p className="text-xs">
+          <p className="font-[weight:inherit] text-label">
             <strong>选模型建议</strong>:
           </p>
-          <ul className="ml-4 list-disc space-y-1 text-xs">
+          <ul className="font-[weight:inherit] ml-4 list-disc space-y-1 text-label">
             <li>
               <Gift className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
               <strong>免费</strong>:DeepSeek V3.2(中文 / 推理)、Qwen-Turbo(中文 / 快)
@@ -178,7 +178,7 @@ export default function ManualAiChatPage() {
       {/* 历史对话 */}
       <section id="history" className="mt-10 space-y-3">
         <h2 className="text-heading font-bold">2.5 历史对话管理</h2>
-        <div className="rounded-lg border bg-card p-3 space-y-3 text-sm text-muted-foreground">
+        <div className="font-[weight:inherit] rounded-lg border bg-card p-3 space-y-3 text-body text-muted-foreground">
           <ul className="ml-4 list-disc space-y-1">
             <li><strong>查看</strong>:左侧栏"历史对话",按时间倒序排列</li>
             <li><strong>重命名</strong>:对话右键 → 重命名(或双击标题)</li>
@@ -193,14 +193,14 @@ export default function ManualAiChatPage() {
       {/* 分享对话 */}
       <section id="share" className="mt-10 space-y-3">
         <h2 className="text-heading font-bold">2.6 分享对话</h2>
-        <div className="rounded-lg border bg-card p-3 space-y-2 text-sm text-muted-foreground">
+        <div className="font-[weight:inherit] rounded-lg border bg-card p-3 space-y-2 text-body text-muted-foreground">
           <ol className="ml-4 list-decimal space-y-1">
             <li>对话右上角点击"分享"按钮</li>
             <li>选择权限:<strong>仅查看</strong> / <strong>可评论</strong> / <strong>公开</strong></li>
             <li>复制链接,发给同事 / 朋友</li>
             <li>对方无需登录即可查看(公开模式),或需登录后查看(团队模式)</li>
           </ol>
-          <p className="rounded bg-muted/60 p-3 text-xs">
+          <p className="font-[weight:inherit] rounded bg-muted/60 p-3 text-label">
             <Lightbulb className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
             <strong>团队版</strong>:分享到团队空间,所有成员可见,支持评论协同。
           </p>
