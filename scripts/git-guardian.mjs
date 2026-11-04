@@ -7345,6 +7345,128 @@ export function auditServiceInventory(opts = {}) {
 }
 
 /**
+ * drizzle 迁移链「文件 ↔ journal」双向对账的**常驻只读**巡检轮
+ * (尺子 = `scripts/check-drizzle-journal-sync.mjs`,goal-b49 落地,2026-11-04 立)。
+ *
+ * 立因:本仓迁移链的「文件 ↔ journal」一致性此前**没有任何一面判据尺**(对侧 WorkBuddy 同型病灶更重也无尺)。
+ * 首跑实测纠正了立因本身:席报"entries=364 / sql=366 / 2 枚孤儿"取自**落后于 HEAD 的工作树副本**,
+ * HEAD blob 面现读 entries=366 与 sql=366 逐一对齐 ⇒ 那不是缺账,而是 §5b 的幻影漂移型。
+ * 这一型恰好证明尺子必须**两面分判**(尺子头注 §取材面):缺陷结论只认 HEAD 面,盘面差记 diskLag 不定责。
+ * 口径(§12e 恒红门禁令):**刻意不进提交链**——本尺量的是仓库/机器状态,把上一席的现场定责给下一席
+ * 就是把恒红门装到提交口;本轮 warn-only:drift/unjudged 都只写日志与状态件、不发人通道邮件
+ * (真 drift 那枚提交再同批接 notify,那时才谈"可整改性"§5e-1)。节流戳与尺子结论行(DRIZZLE-JOURNAL state=…)
+ * 与 auditServiceInventory 同族;unjudged 不记绿也不冒红(§0.3)。
+ */
+const DRIZZLE_JOURNAL_TICK = join(WORKTREE, '.ihui-agent', 'state', 'drizzle-journal-sync-tick.ts')
+const DRIZZLE_JOURNAL_LAST = join(WORKTREE, '.ihui-agent', 'state', 'drizzle-journal-sync-last.json')
+const DRIZZLE_JOURNAL_INTERVAL_MS = Number(
+  process.env.IHUI_DRIZZLE_JOURNAL_INTERVAL_MS || 30 * 60 * 1000,
+)
+
+export function auditDrizzleJournalSync(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = DRIZZLE_JOURNAL_INTERVAL_MS,
+    tickFile = DRIZZLE_JOURNAL_TICK,
+    lastFile = DRIZZLE_JOURNAL_LAST,
+    logger = log,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'check-drizzle-journal-sync.mjs')
+  if (!existsSync(script)) {
+    logger(
+      'ℹ️ 迁移链对账:尺子脚本不在位(scripts/check-drizzle-journal-sync.mjs)⇒ 本轮跳过,不记为已探测',
+    )
+    return { ran: false, why: '尺子脚本不在位' }
+  }
+  let lastTick = NaN
+  try {
+    lastTick = Date.parse(String(readFileSync(tickFile, 'utf8')).trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (!publicProbeDue(now, lastTick, intervalMs)) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, new Date(now).toISOString(), 'utf8')
+    const call =
+      typeof runner === 'function'
+        ? runner()
+        : (() => {
+            try {
+              const out = execFileSync(process.execPath, [script, '--json'], {
+                cwd: WORKTREE,
+                encoding: 'utf8',
+                windowsHide: true, // §5b:漏此参数在计划任务/守护下必弹控制台窗
+                timeout: 120_000, // 守门 80:热路径派生一律带上限
+                maxBuffer: 1 << 22,
+                stdio: ['ignore', 'pipe', 'pipe'], // §12g:派生必须显式接管 stdio
+              })
+              return { status: 0, stdout: String(out || ''), stderr: '' }
+            } catch (e) {
+              // 1=drift、2=unjudged:两种都不是"尺子坏了",结论整份在输出里
+              return {
+                status: typeof e.status === 'number' ? e.status : 2,
+                stdout: String(e.stdout || ''),
+                stderr: String(e.stderr || e.message || ''),
+              }
+            }
+          })()
+    const out = String(call.stdout || '')
+    const line = out
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .find((l) => l.startsWith('DRIZZLE-JOURNAL state='))
+    if (!line) {
+      logger(
+        `⚠️ 迁移链对账未产出结论行(未判定,不记绿):rc=${call.status} ${([call.stderr, call.stdout].filter(Boolean).join(' ⊕ ') || '(无输出)').split(/\r?\n/)[0].slice(0, 140)}`,
+      )
+      return { ran: true, judged: false, why: '结论行不可解析' }
+    }
+    const state = (line.match(/state=([a-z]+)/) || [])[1] ?? null
+    try {
+      writeFileSync(
+        lastFile,
+        JSON.stringify({ at: new Date(now).toISOString(), state, line }, null, 1),
+        'utf8',
+      )
+    } catch {
+      /* 状态件写不掉只影响 --status 可见性,不影响判据 */
+    }
+    if (state === 'ok') {
+      logger(`✅ 迁移链对账:本轮 ok(${line.replace(/^DRIZZLE-JOURNAL /, '')})`)
+      return { ran: true, judged: true, state }
+    }
+    if (state === 'drift') {
+      // 点名明细走 --json 的 problems(stdout,稳定机读口);尺子的人读输出把明细打在 stderr,
+      // 派发侧不依赖 stderr 的措辞(措辞改了不该让巡检轮哑)。
+      let problems = []
+      try {
+        const jsonLine = out
+          .split(/\r?\n/)
+          .map((l) => l.trim())
+          .find((l) => l.startsWith('{') && l.endsWith('}'))
+        if (jsonLine) problems = JSON.parse(jsonLine).problems ?? []
+      } catch {
+        /* 明细解析不出不阻塞结论行 */
+      }
+      const names = problems.slice(0, 8).map((p) => '    · ' + String(p).slice(0, 160))
+      logger(
+        `⚠️ 迁移链对账:drift(${line.replace(/^DRIZZLE-JOURNAL /, '')})⇒ 只写日志不喊人(存量未归零,§12e;归零那枚提交同批接 notify)\n${names.join('\n')}`,
+      )
+      return { ran: true, judged: true, state }
+    }
+    logger(
+      `ℹ️ 迁移链对账:未判定(${line.replace(/^DRIZZLE-JOURNAL /, '')})⇒ 不记绿也不冒红(§0.3),下轮照旧派发`,
+    )
+    return { ran: true, judged: false, state: state ?? 'no-state' }
+  } catch (e) {
+    logger('⚠️ 迁移链对账派发失败(不阻断其余守护): ' + String((e && e.message) || e).slice(0, 160))
+    return { ran: false, why: '派发异常' }
+  }
+}
+
+/**
  * 客户端会话回灌计划任务的**常驻**派发点(尺子 = `scripts/check-qoder-session-sync-task.mjs`,2026-10-31 立)。
  *
  * 两条腿共用同一把尺子与同一份派发逻辑,只差任务名/日志/文案(§0.6):
@@ -13263,6 +13385,10 @@ async function main() {
     // 立因 = 该闸门此前零自动派发点,快照烂在另一台机读数(host=lichunchuan/G:)无人发现。
     // 判机器状态 ⇒ 不进提交链(§12e);只有 drift 才发信,unjudged/取数失败只写日志。
     if (!CHECK_ONLY) auditServiceInventory()
+    // drizzle 迁移链「文件 ↔ journal」双向对账(2026-11-04 立,尺子 = scripts/check-drizzle-journal-sync.mjs):
+    // 立因 = 现读 journal 364 条而 .sql 366 枚,两孤儿不进 migrate() ⇒ 按链建库缺表无人知。
+    // 判据面在盘面 + 存量未归零 ⇒ 刻意不进提交链(§12e),本轮 warn-only 不发信;本行与 tick 链同挂。
+    if (!CHECK_ONLY) auditDrizzleJournalSync()
     // Qoder 会话回灌计划任务存续(2026-10-31 立,尺子 = scripts/check-qoder-session-sync-task.mjs):
     // 立因 = 回灌腿以交互用户身份跑(DPAPI 只能由登录用户解),它的失效形态全是安静 —— 任务被删/
     // 禁用/改成 S4U/停摆都不会让池里那枚号立刻变红。判机器状态 ⇒ 不进提交链(§12e),本行是唯一调度器。
@@ -13553,6 +13679,9 @@ function startDaemon(bootGuard = null) {
         // 服务清单快照 ↔ 注册表现读:与 main() 单轮路径同一挂点语义,共用节流戳
         // ⇒ 双执行体并存时只有先到那个真派生,不会翻倍发信。
         auditServiceInventory()
+        // 迁移链「文件 ↔ journal」对账:同上一条的双挂点纪律(计划任务档禁用后 daemon 是唯一执行体),
+        // 共用节流戳 ⇒ 不翻倍派生;warn-only,不发信。
+        auditDrizzleJournalSync()
         // 根护栏清单自洽性:**必须挂 tick** —— startDaemon 是 setTimeout 链且不重读本文件,
         // 只挂 main() 一次性路径的话常驻守护永不判(与上面 feedback-loop 同一条教训)。
         auditRootGuardManifestSync()
@@ -14740,6 +14869,8 @@ export const __test__ = {
   auditLintStagedPins,
   // 服务清单快照派发腿(2026-11-03 接线;镜像测试按名 import,不复制判据 §22c)。
   auditServiceInventory,
+  // drizzle 迁移链双向对账派发腿(2026-11-04 goal-b49 接线;判据全住尺子脚本,本腿只调度,§22c)。
+  auditDrizzleJournalSync,
   // App 更新卡 latest 行对账派发腿(2026-10-30 接线,Y-14;镜像测试按名 import,不复制判据 §22c)。
   // 2026-11-03 拆成两层:auditAppVersionLatest = 共用节流 + 逐端循环,auditAppVersionPlatform = 单端执行。
   auditAppVersionLatest,

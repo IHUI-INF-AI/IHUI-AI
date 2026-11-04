@@ -42,7 +42,14 @@
 ## 3. 三席取证读数(数字现读于各自报告)
 
 - W1:40 条能力;缺口表 17 行 = 零对位 10 + 半格 7,其中「零对位且建议落地」8 条(①删除保护链 ②文件 ACL(本枚已落) ③子进程网络出口 ④Job Object ⑤工具面惰性装载 ⑥成本档位审批 ⑦对抗式多票校验 ⑪CLI 启动三件套)。方法学反差已登记:REA 对 main 的 `ipc.literal_channels=0`,人工 grep 同目录得 41 条 `wb:` 通道 ⇒ 该维以人工取证为准。
-- W2:16 行缺口表(含零对位 7)。两处**自家活账**由本席顺手挖出:① `packages/database/drizzle` journal 与 sql 文件集双向差集(2 枚已入库孤儿 ⇒ 按链建库会缺表且无人知);② `apps/cli/src/commands/share.ts` 的报告 HTML 走 marked.js CDN 外链(离线不可用)。本席撞 subagent 150 轮上限中止,报告四段齐备、正文中一处「逐调用 context 内容」的关键结论**尚未完成复核** ⇒ 该条按未判定采信,不得当已证结论引用。
+- W2:16 行缺口表(含零对位 7)。两处**自家活账**由本席顺手挖出,主席三面复算后**一真一伪**:
+  ① `packages/database/drizzle` journal ↔ sql 双向差集 —— **该条已作废**:HEAD 面 entries=366 与 sql 文件 366 **逐一对齐,零孤儿、零重号、零断档**;
+     席报的"364 entries / 366 files / 2 枚孤儿"取自**落后于 HEAD 的工作树副本**(AGENTS.md §5b 的幻影漂移射程,不是迁移缺账)。
+     教训入册:凡"缺件/孤儿"型断言必须 HEAD blob / 索引 blob / 工作树三面各读一次再定性(§0.3),单面读数不作证。
+     为此新建的双向对账尺 `scripts/check-drizzle-journal-sync.mjs` 不因结论推翻而作废 —— 它同时能抓真孤儿与这类面滞后,正是这一型。
+  ② `apps/cli/src/commands/share.ts` 的报告 HTML 走 marked.js CDN 外链(自称 self-contained) —— **HEAD 面复验成立**
+     (`git show HEAD:apps/cli/src/commands/share.ts` 现读 `<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js">`),断网即无正文。
+  本席撞 subagent 150 轮上限中止,报告四段齐备、正文中一处「逐调用 context 内容」的关键结论**尚未完成复核** ⇒ 该条按未判定采信,不得当已证结论引用。
 - Q1:上批 T12 §7 遗留格「10 枚未接线导出的真实消费方」**已结清** = 10 枚全部 0 消费方(主包未混淆、asar 内既无 mtree 二进制也无装载路径 ⇒ 结构上不可能消费);native 模块内部自调仍标未知(REA Ghidra 330 s 超时)。主程序面另取证 23 条能力,对位 15 条(5 零对位 / 7 半格)。
 
 ## 4. 残余清单(逐条给归属与解锁条件,不写「已完成」)
@@ -54,7 +61,8 @@
 | Job Object 随父而终(TS 侧) | 下一执行席 | 需 Win32 作业对象封装,与 `os_sandbox.py` 那半不同栈 | W2 §3 末条 + W1 §3-④ |
 | 文件 ACL 的 delete 轴消费点 | 下一执行席 | 写侧已接,delete 散在 `fs.rmSync`/`unlinkSync` 多处,需逐点接线并带回归 | 本枚落地件的自然续集 |
 | 守护面 advisory 升 blocking | 机主/下一批 | 升档前置 = 并行席改动工作流先有「带理由声明」的出口(§12e) | 存量归零后升 |
-| drizzle journal ↔ sql 双向对账尺 | 下一执行席 | 本枚只做代码面 | W2 §3(先只读尺挂 guardian 巡检轮) |
+| drizzle journal ↔ sql 双向对账尺 | 主席待落地(B2 已交付) | 尺已建成并自证:`scripts/check-drizzle-journal-sync.mjs`(三态 + `--self-test` 15 例)+ 镜像测试 11 例 + guardian 只读轮 `auditDrizzleJournalSync()`(30min 节流、warn-only、不进提交链);因判据面受保护,由主席带 `immutable-exempt:` trailer 落 | B2-impl.md |
+| 摘掉"我方 git 可用性取决于别人装没装 WorkBuddy" | 主席(本批进行中) | 桌面 crate 的候选表曾写死第三方安装目录且该路径根本命不中;已改为 `IHUI_PORTABLE_GIT` 显式登记(与 `scripts/lib/gitdir.mjs` 同键名)+ 兜底位挪进我方 `.ihui` 目录,并加反向牙用例 | W1 §3 第⑩行 |
 | `share.ts` marked.js CDN 外链改内联 | 下一执行席 | 独立小债 | W2 §3 |
 | Trae 面增量 | 未开 | 本批三席全压在 WorkBuddy/Qoder 两个新靶 | goal-b44—b48 残余见 `docs/benchmark-evidence/2026-11/qoder-trae-rea-20261101/` |
 | **推送未落地** | 主席(下一轮) | 本地与 `origin/main` 分叉,`git-sync-converge.mjs`(含 `--take-theirs-doc`)拒推进:自证把本侧继承的 README 派生数字行与已退役归档注释算成「被吞」;远端 5 分钟内推进三次 | 按 §16b 收敛一轮:fetch → converge → `gen-doc-numbers --markdown` 重生成派生件 → 再 push |
@@ -62,7 +70,8 @@
 ## 5. 复验命令
 
 ```bash
-node scripts/watermark.mjs verify docs/benchmark-evidence/2026-11/qoder-trae-workbuddy-rea-20261105
+node scripts/watermark.mjs verify docs/benchmark-evidence/2026-11/qoder-trae-workbuddy-rea-20261105/README.md
+node scripts/check-watermark-coverage.mjs docs/benchmark-evidence/2026-11/qoder-trae-workbuddy-rea-20261105
 cd apps/cli && npx vitest run tests/file-access-policy.test.ts tests/sandbox.test.ts
 node scripts/git-push-converge.mjs            # 只读六态,判「是否已同步」只认这条
 node scripts/git-sync-converge.mjs            # 收敛唯一入口(勿手工 fetch/merge/push 循环)
