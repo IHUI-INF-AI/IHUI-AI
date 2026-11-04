@@ -75,9 +75,11 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { verifyAccessTokenEdge } from '@/lib/auth-utils'
 import {
   docsDetailGateStatusOf,
+  docsGateResponseHeaders,
   isDocsGateDocumentRequest,
   renderDocsGateHtml,
 } from '@/lib/docs-detail-gate'
+import { brand404Body, loadBrand404Html } from '@/lib/brand-404'
 import { evaluateOriginHostGuard } from '@/lib/origin-direct-host-guard'
 // 鉴权射程(2026-10-21 随 matcher 全站化迁入函数内,逐字等价于旧 matcher
 // `['/admin/:path*', '/edu/edu-management/:path*']` 的命中集,不多不少)。
@@ -257,13 +259,13 @@ export async function proxy(request: NextRequest) {
     if (docsStatus === null) return pass()
     // RSC 取数请求放行:响应体必须是 RSC 载荷,硬码与 not-found 界面交给页面自身。
     if (!isDocsGateDocumentRequest(request.headers)) return pass()
-    const headers = new Headers({
-      'content-type': 'text/html; charset=utf-8',
-      'cache-control': 'no-store',
-      'x-robots-tag': 'noindex',
-    })
-    if (csp) headers.set('content-security-policy', csp)
-    return new NextResponse(renderDocsGateHtml(docsStatus), { status: docsStatus, headers })
+    // 404 用构建期预渲染的品牌资产(scripts/build-brand-404.mts → <distDir>/static/brand-404.html);
+    // 资产缺失只可能是开发期或旧产物,才退回旧手写页。500 保持独立故障文案,两种语义不合并。
+    const body =
+      docsStatus === 404
+        ? brand404Body(await loadBrand404Html(), renderDocsGateHtml(404))
+        : renderDocsGateHtml(500)
+    return new NextResponse(body, { status: docsStatus, headers: docsGateResponseHeaders(csp) })
   }
 
   // 不阻塞 /admin/unauthorized(让用户看到无权限页)

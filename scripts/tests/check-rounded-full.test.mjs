@@ -281,18 +281,31 @@ test('豁免: <img className="rounded-full"> 头像图片(32px,等效半径 16px
 })
 
 /**
- * 2026-09-29 用户定档「任何圆角半径不得超过最大档 16px,**圆形头像/图标底板不再豁免**」。
- * 这条用例把边界钉在**量出来的数值**上,而不是钉在"是不是 img"上:同一族豁免在 32px 以内仍然有效,
- * 超过 32px 的圆头像一律判红。把旧用例(40px 头像断言"无违规")原地改判红,
- * 是因为那条断言描述的正是被这条裁决废掉的口径。
+ * 2026-11-04 用户裁定「正方盒(宽=高)且半径 = 边长一半 ⇒ 正圆,不属于『圆角过大』的定档约束」。
+ * 这条把边界钉在**几何关系**上,而不是钉在"是不是 img"上:40px 见方的圆头像等效半径 20px,
+ * 但它是可证的正圆(50% 恒等于半边)⇒ 放行。旧用例(2026-09-29 定档)断言它必须判红,
+ * 那条断言描述的正是被本次裁定取代的口径 —— 原地翻转,并保留下一条非正方头像的反例。
  */
-test('上限优先于 img/Avatar 豁免族:40px 的圆头像(等效半径 20px)必须判红', () => {
+test('几何正圆:40px 见方的圆头像(等效半径 20px)按 2026-11-04 裁定豁免', () => {
   const dir = createTempScanDir({
     'apps/web/Avatar40.tsx': `export function Avatar() {\n  return <img className="rounded-full w-10 h-10" src="/avatar.png" alt="avatar" />\n}\n`,
   })
   try {
     const r = runScript(dir)
-    assert.match(r.stdout, /圆角超过上限/, '豁免族不得挡住上限判据(它排在所有通道之前)')
+    assertPass(r)
+    assert.ok(!/Avatar40\.tsx:\d+/.test(r.stdout), '已判成正圆的站点不得同时进"未判定"名单')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('非正方:56×40 的圆头像不是正圆 ⇒ 仍判"圆角超过上限"(豁免只认几何,不认 img)', () => {
+  const dir = createTempScanDir({
+    'apps/web/Avatar56x40.tsx': `export function Avatar() {\n  return <img className="rounded-full w-14 h-10" src="/avatar.png" alt="avatar" />\n}\n`,
+  })
+  try {
+    const r = runScript(dir)
+    assert.match(r.stdout, /圆角超过上限/, '短边 40 的半边 = 20px > 16px,且宽高不等 ⇒ 不是正圆')
   } finally {
     rmScratch(dir)
   }
@@ -300,8 +313,8 @@ test('上限优先于 img/Avatar 豁免族:40px 的圆头像(等效半径 20px)�
 
 test('豁免: <Image className="rounded-full"> next/image(24px,半径 12px 在上限内)→ 无违规', () => {
   const dir = createTempScanDir({
-    // 尺寸取 24px 而非 48px:48px 的圆头像在 2026-09-29 定档后**必须**判红(见上一条用例),
-    // 这条测的是"Image 族豁免仍然成立"那一维,所以把盒留在上限之内才不会与上限判据混在一起。
+    // 这条测的是"Image 族豁免仍然成立"那一维,所以把盒留在上限之内(12px ≤ 16px),
+    // 不让它和 2026-11-04 的正圆豁免混在一起看。
     'apps/web/NextImage.tsx': `import Image from 'next/image'\nexport function Profile() {\n  return <Image className="rounded-full w-6 h-6" src="/me.png" alt="me" width={24} height={24} />\n}\n`,
   })
   try {
@@ -577,13 +590,18 @@ test('形状尺只有一份实现:门内不得再声明 boxShape/boxDims,必须�
  *    判红依据必须只来自这一行自己:假阳的代价不是"多一条红",是逼人把一颗本来正确的圆改方。
  * 因此下面四条成对写:每条阳性对照都配一条"它不该红"的对照。
  */
-test('C7 阳性对照:48×48 的盒上 rounded-full(等效半径 24px)必须判"圆角超过上限"', () => {
+/**
+ * 48×48 见方的正圆按 2026-11-04 裁定已豁免(见上面的几何正圆用例),所以阳性对照改用
+ * **非正方**且短边过阈的盒:80×40 的半边 = 20px > 16px ⇒ 仍是红。断言的是判据本身,
+ * 不是"48 这个数字" —— 正圆豁免不能把胶囊一并放走。
+ */
+test('C7 阳性对照:80×40 的非正方盒上 rounded-full(等效半径 20px)必须判"圆角超过上限"', () => {
   const dir = createTempScanDir({
-    'apps/web/Avatar.tsx': `export function Avatar() {\n  return <div className="w-[48px] h-[48px] rounded-full bg-muted" />\n}\n`,
+    'apps/web/Pill.tsx': `export function Pill() {\n  return <div className="w-[80px] h-[40px] rounded-full bg-muted" />\n}\n`,
   })
   try {
     const r = runScript(dir)
-    assert.match(r.stdout, /圆角超过上限/, '48px 见方盒的半边=24px > 16px ⇒ 必须点名')
+    assert.match(r.stdout, /圆角超过上限/, '短边 40 的半边 = 20px > 16px,且宽高不等 ⇒ 必须点名')
   } finally {
     rmScratch(dir)
   }
@@ -595,7 +613,9 @@ test('C7 反向对照:10px 红点不得被邻行大盒顶成超标(盒形只认�
       'export function Mix() {\n' +
       '  return (\n' +
       '    <View>\n' +
-      '      <View className="w-[96rpx] h-[96rpx] rounded-full bg-muted" />\n' +
+      // 邻行必须是**非正方**的大盒:正方大盒现在自己就豁免了,若拿它当邻行,本用例会变成
+      // "两处都不红",反而证明不了"红点没被顶成超标"这件事。
+      '      <View className="w-[640rpx] h-[240rpx] rounded-full bg-muted" />\n' +
       '      <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-destructive" />\n' +
       '    </View>\n' +
       '  )\n' +
@@ -604,7 +624,7 @@ test('C7 反向对照:10px 红点不得被邻行大盒顶成超标(盒形只认�
   try {
     const r = runScript(dir)
     const hits = (r.stdout.match(/圆角超过上限/g) || []).length
-    assert.equal(hits, 1, `只应抓到 48px 那一处;实得 ${hits} 处 ⇒ 盒形串了行`)
+    assert.equal(hits, 1, `只应抓到 320×120 那一处;实得 ${hits} 处 ⇒ 盒形串了行`)
   } finally {
     rmScratch(dir)
   }
@@ -626,7 +646,7 @@ test('C7:注释里写 rounded-full 是"门在解释自己",不得计入判定面
   }
 })
 
-test('C7 覆盖面:RN StyleSheet 的 camelCase `borderRadius: \'50%\'` 同样受上限约束', () => {
+test('C7 覆盖面:RN camelCase `borderRadius: 50%` 正方盒正圆豁免、非正方盒仍受上限约束', () => {
   const dir = createTempScanDir({
     'apps/mobile-rn/src/x.tsx':
       'const st = StyleSheet.create({\n' +
@@ -635,11 +655,24 @@ test('C7 覆盖面:RN StyleSheet 的 camelCase `borderRadius: \'50%\'` 同样受
       '    height: 60,\n' +
       "    borderRadius: '50%',\n" +
       '  },\n' +
+      '  bar: {\n' +
+      '    width: 320,\n' +
+      '    height: 120,\n' +
+      "    borderRadius: '9999px',\n" +
+      '  },\n' +
       '})\n',
   })
   try {
     const r = runScript(dir)
-    assert.match(r.stdout, /圆角超过上限/, "把这一族交给本门之后,camelCase 写法必须看得见 —— 否则'判据接手'是空话")
+    assert.match(
+      r.stdout,
+      /圆角超过上限/,
+      "把这一族交给本门之后,camelCase 写法必须看得见 —— 否则'判据接手'是空话",
+    )
+    assert.ok(
+      !r.stdout.includes("borderRadius: '50%'"),
+      '正方盒(宽=高)的 50% 是几何正圆豁免,不得进违规明细',
+    )
   } finally {
     rmScratch(dir)
   }
@@ -668,7 +701,9 @@ test('C7 阳性对照(跨行属性区):尺寸写在 className 的上一行、半
       'export function CrossLine() {\n' +
       '  return (\n' +
       '    <span\n' +
-      '      className="h-12 w-12 shrink-0 bg-muted"\n' +
+      // 用非正方(200×80)而不是 48×48:见方盒按 2026-11-04 裁定已是正圆豁免,
+      // 拿它做阳性对照会把"跨行量得到"与"正圆豁免"两件事混成一条绿。
+      '      className="h-[80px] w-[200px] shrink-0 bg-muted"\n' +
       "      style={{ borderRadius: '50%' }}\n" +
       '    />\n' +
       '  )\n' +
@@ -679,7 +714,31 @@ test('C7 阳性对照(跨行属性区):尺寸写在 className 的上一行、半
     assert.match(
       r.stdout,
       /圆角超过上限/,
-      'h-12 w-12 = 48px 见方 ⇒ 等效半径 24px > 16px;这一型在补第三档兜底前整族"量不到"而免检',
+      '200×80 的半边 = 40px > 16px;这一型在补第三档兜底前整族"量不到"而免检',
+    )
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('C7 正圆豁免(跨行属性区):48×48 的盒 + style borderRadius:50% ⇒ 判成正圆,不红也不计未判定', () => {
+  const dir = createTempScanDir({
+    'apps/web/CrossLineSquare.tsx':
+      'export function CrossLineSquare() {\n' +
+      '  return (\n' +
+      '    <span\n' +
+      '      className="h-12 w-12 shrink-0 bg-muted"\n' +
+      "      style={{ borderRadius: '50%' }}\n" +
+      '    />\n' +
+      '  )\n' +
+      '}\n',
+  })
+  try {
+    const r = runScript(dir)
+    assert.doesNotMatch(r.stdout, /圆角超过上限/, '48×48 见方 + 50% ⇒ 几何正圆,不属"圆角过大"')
+    assert.ok(
+      !/CrossLineSquare\.tsx:\d+/.test(r.stdout),
+      '正圆有结论,不得同时进"量不到自己那个盒"的未判定名单',
     )
   } finally {
     rmScratch(dir)
@@ -726,6 +785,23 @@ test('C7 结构锁:上限必须排在豁免通道之前,且数值族不重复计
     '上限判据内部不得再用宽窗 boxDims 量盒形(实测会按邻行尺寸判红)',
   )
   assert.ok(!/radiusPxInLine\([^\n]*cap/i.test(src), '数值/档位形态的半径上限归守门 77 的 B9,本门不重复计同一笔债')
+})
+
+test('正圆豁免:正方盒的 50% 放行,非正方盒的 9999px 仍判违规', () => {
+  const dir = createTempScanDir({
+    'apps/web/Circle.tsx': `const fab = {\n  width: 56,\n  height: 56,\n  borderRadius: '50%',\n}\nconst card = {\n  width: 320,\n  height: 120,\n  borderRadius: '9999px',\n}\n`,
+  })
+  try {
+    const r = runScript(dir)
+    assertHasViolation(r, /9999px/)
+    assert.ok(
+      !r.stdout.includes("borderRadius: '50%'"),
+      '正方盒的 50% 是几何正圆豁免,不得进违规明细',
+    )
+    assert.ok(!/Circle\.tsx:4/.test(r.stdout), '第 4 行(正方盒正圆)不得被点名')
+  } finally {
+    rmScratch(dir)
+  }
 })
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

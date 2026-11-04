@@ -16,7 +16,7 @@ import * as React from 'react'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 vi.mock('next-intl', async () => {
@@ -221,11 +221,14 @@ const trend = {
 
 function renderWallboard() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  return render(
-    <QueryClientProvider client={client}>
-      <WallboardView headerExtra={null} />
-    </QueryClientProvider>,
-  )
+  return {
+    client,
+    ...render(
+      <QueryClientProvider client={client}>
+        <WallboardView headerExtra={null} />
+      </QueryClientProvider>,
+    ),
+  }
 }
 
 describe('WallboardView 使用数据面板', () => {
@@ -497,15 +500,36 @@ describe('WallboardView 使用数据面板', () => {
   })
 
   it('业务纵深补用户构成:VIP/操盘手/邀请/近7日活跃/等级四档/14日增长都在屏上', async () => {
-    const { container } = renderWallboard()
-    // 标签是静态铺出来的 ⇒ 等**数据**上屏(否则会读到占位「—」)
-    await waitFor(() =>
-      expect(within(container).getAllByText('VIP 用户')[0]?.parentElement?.textContent).toBe(
-        'VIP 用户2',
-      ),
-    )
+    const { container, client } = renderWallboard()
+    // 标签是静态铺出来的 ⇒ 必须等**数据**绑屏再判,否则会读到占位「—」。
+    // 2026-11-04(CI run 41716831627):这里原先靠 waitFor 的固定断言预算等数据,并行负载下
+    // 预算内数据腿仍未上屏(读成「VIP 用户—」)。加预算只是把窗口拉长,不是修复。
+    // 真实完成信号 = overview 查询在 QueryCache 上写入 success(数据已到前台)。用缓存事件
+    // 等它落地:无定时器、无轮询、无时长上限,也不会被 CI 并行负载拖慢。
+    const overviewSettled = new Promise<void>((resolve) => {
+      const unsubscribe = client.getQueryCache().subscribe((event) => {
+        if (
+          event.type === 'updated' &&
+          event.query.queryKey.join('/') === 'admin/ops-wallboard/overview' &&
+          event.query.state.status === 'success'
+        ) {
+          unsubscribe()
+          resolve()
+        }
+      })
+    })
+    await act(async () => {
+      await overviewSettled
+    })
+    // React 18 的 useSyncExternalStore 提交会跨 act 边界落进渲染队列;逐拍同步 flush,
+    // 直到数据真正绑上屏。每拍都是同步 flush,没有定时器、没有时长预算,也不受 CI 负载影响。
+    const vipRow = () => within(container).getAllByText('VIP 用户')[0]?.parentElement?.textContent
+    for (let i = 0; i < 20 && vipRow() !== 'VIP 用户2'; i++) {
+      await act(async () => {})
+    }
     // 每行按父节点整段读:label 与 value 同父,中间不夹包装层
-    const row = (label: string) => within(container).getAllByText(label)[0]?.parentElement?.textContent
+    const row = (label: string) =>
+      within(container).getAllByText(label)[0]?.parentElement?.textContent
     expect(row('VIP 用户')).toBe('VIP 用户2')
     expect(row('操盘手')).toBe('操盘手0')
     expect(row('邀请注册')).toBe('邀请注册1')
