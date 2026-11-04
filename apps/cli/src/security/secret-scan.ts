@@ -137,7 +137,25 @@ const MAX_SCAN_TOTAL_BYTES = 409_600; // 400 KiB
 const MAX_SCAN_FILES_PER_REVIEW = 30;
 const FINDINGS_DEDUP_TTL_MS = 3_600_000; // 1h
 const FINDINGS_MEMORY_CAP = 500;
-const GIT_TIMEOUT_MS = 10_000;
+/**
+ * 收场审查派生 git 的预算(2026-11-04 /goal R2 立)。
+ *
+ * 立因(台账实证,非推测):`.ihui-agent/state/auto-evolve-ledger.jsonl` 219 行
+ * `git-diff-HEAD-unavailable: spawnSync git ETIMEDOUT`、222 行
+ * `git-diff-HEAD-unavailable: spawnSync git ENOBUFS` —— 两条都出自本函数。
+ * 旧值把**内容扫描预算** 400 KiB 误当成 git 派生 stdout 上限
+ * (`MAX_SCAN_TOTAL_BYTES + 65_536` = 464 KiB),而 `git diff --unified=0 HEAD`
+ * 在多席并发工作树上轻易超过这个量 ⇒ ENOBUFS;10s 墙钟在大仓同样结构性不足
+ * ⇒ ETIMEDOUT。两者都让安全审查落 `status=undetermined`("我量不动"),
+ * 再被自治派发面读成 `stopReason=no_progress`("agent 没干活"),一次真派发
+ * 因此被写成 `session-failed` + `dispatched` 双写,空转阶梯被自喂数据提前触顶。
+ *
+ * 纪律:git 派生预算与**内容扫描预算**(MAX_SCAN_TOTAL_BYTES / 30 文件上限)
+ * 是两回事。后者是 fail-closed 的有界扫描设计,不得因前者放宽而一并放大。
+ * 数值对齐 `scripts/lib/face-reader.mjs` 的 GIT_MAX_BUFFER=64MiB / 60s 默认值。
+ */
+const GIT_MAX_BUFFER_BYTES = 64 << 20; // 64 MiB,只管 git stdout
+const GIT_TIMEOUT_MS = 60_000;
 
 /**
  * 编辑类工具名匹配器的**唯一**登记处(对齐对照程序 PostToolUse matcher
@@ -336,7 +354,7 @@ function runGitForReview(workspacePath: string, args: string[]): { ok: true; std
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
       timeout: GIT_TIMEOUT_MS,
-      maxBuffer: MAX_SCAN_TOTAL_BYTES + 65_536,
+      maxBuffer: GIT_MAX_BUFFER_BYTES,
     });
     return { ok: true, stdout };
   } catch (err) {

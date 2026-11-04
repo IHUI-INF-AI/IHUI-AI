@@ -263,6 +263,66 @@ describe('G-12 ⑤ 形状锁:判据只住一处 + CLI 既有行为兼容', () =>
   });
 });
 
+// ---------------------------------------------------------------------------
+// /goal R2(2026-11-04):自治派发「我量不动」被读成「没推进」的真断链
+// ---------------------------------------------------------------------------
+//
+// 立因(台账实证):`.ihui-agent/state/auto-evolve-ledger.jsonl` 219 行
+// `git-diff-HEAD-unavailable: spawnSync git ETIMEDOUT`、222 行
+// `...;git-diff-HEAD-unavailable: spawnSync git ENOBUFS`。旧实现把内容扫描预算
+// (400 KiB) 当成 git stdout 上限,多席并发工作树上的 `git diff HEAD` 一超
+// 464 KiB 就 ENOBUFS ⇒ 安全审查落 status=undetermined ⇒ 派发面读成 no_progress。
+//
+// 第 1 条是**行为锁**:真造一份 > 旧上限的 diff,旧实现必红、修后必绿,
+// 天然构成变异自证(把 GIT_MAX_BUFFER_BYTES 改回 464 KiB ⇒ 本条翻红)。
+// 第 2 条是**常量契约锁**:防有人把 git 派生预算重新绑回内容扫描预算,
+// 或把 60s 墙钟改回 10s(ETIMEDOUT 那一半病灶)。
+describe('/goal R2 收场审查 git 派生预算(自治派发空转真断链)', () => {
+  function gitIn(args: string[]): void {
+    execFileSync('git', args, {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+      timeout: 30_000,
+      maxBuffer: 64 << 20,
+    });
+  }
+
+  it('大 diff(> 旧 464KiB maxBuffer)仍采得到,不得因 ENOBUFS 落采集失败', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-r2-bigdiff-'));
+    try {
+      gitIn(['init', '-q', dir]);
+      gitIn(['-C', dir, 'config', 'user.email', 'r2@test.local']);
+      gitIn(['-C', dir, 'config', 'user.name', 'r2']);
+      const big = path.join(dir, 'big.txt');
+      fs.writeFileSync(big, 'A'.repeat(600 * 1024) + '\n', 'utf-8');
+      gitIn(['-C', dir, 'add', 'big.txt']);
+      gitIn(['-C', dir, 'commit', '-qm', 'base']);
+      fs.writeFileSync(big, 'B'.repeat(600 * 1024) + '\n', 'utf-8');
+      const outcome = reviewWorkspaceChanges(dir);
+      const missing = outcome.missing.join(';');
+      expect(missing, `采集失败原因: ${missing}`).not.toContain('git-diff-HEAD-unavailable');
+      expect(missing).not.toContain('ENOBUFS');
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('git 派生预算与内容扫描预算解耦,且墙钟不小于 60s(常量契约)', () => {
+    const src = fs.readFileSync(path.join(SRC_DIR, 'security', 'secret-scan.ts'), 'utf-8');
+    expect(src).toMatch(/const\s+GIT_MAX_BUFFER_BYTES\s*=/);
+    expect(src).not.toMatch(/maxBuffer:\s*MAX_SCAN_TOTAL_BYTES/);
+    const bufExpr = /const\s+GIT_MAX_BUFFER_BYTES\s*=\s*([^;]+);/.exec(src)?.[1] ?? '';
+    const timeout = /const\s+GIT_TIMEOUT_MS\s*=\s*([\d_]+)\s*;/.exec(src)?.[1] ?? '0';
+    // 只求值常量表达式(64 << 20 这类),不执行整份源码;避免把常量锁写成易腐烂的整行切片。
+    const bufValue = Function(`"use strict"; return (${bufExpr});`)() as number;
+    expect(bufValue).toBeGreaterThanOrEqual(64 * 1024 * 1024);
+    expect(Number(timeout.replace(/_/g, ''))).toBeGreaterThanOrEqual(60_000);
+    // fail-closed 的内容扫描预算必须原样在位,不得被顺手放大
+    expect(src).toContain('const MAX_SCAN_TOTAL_BYTES = 409_600;');
+    expect(src).toContain('const MAX_SCAN_FILES_PER_REVIEW = 30;');
+  });
+});
+
 // 类型面自检:outcome 值域封闭在观察/推断之外不得多出"默认安全"这一格
 const _statusDomainLock: SecretScanOutcome['status'][] = ['findings', 'clean', 'undetermined'];
 expect(_statusDomainLock).toHaveLength(3);
