@@ -6617,10 +6617,14 @@ const checks = [
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_ROOT_GUARD_CONSISTENCY',
     // 射程 = 清单本体 + 清单登记的每一个 target + 门体自身:漏一个就等于给那一路开后门。
+    // 2026-11-04 补 scripts/git-guardian.mjs:此前巡检本体不在射程里 ⇒ 改它(不重 seal)在本门
+    // 结构上永不触发,只能等部署侧 root-guard --check 红;它已是清单 target,补上即"改则必审封条",
+    // 不存在误伤面(正常改它本就该同笔重封,否则 --check 必红)。
     stagedTriggers: [
       'scripts/data/root-guard-manifest.json',
       'scripts/guardian-runner.mjs',
       'scripts/lib/judgement-libs.json',
+      'scripts/git-guardian.mjs',
       'AGENTS.md',
       'scripts/check-root-guard-consistency.mjs',
       'scripts/root-guard.mjs',
