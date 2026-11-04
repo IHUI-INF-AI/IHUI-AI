@@ -103,7 +103,7 @@ function RuleGlobalStatsDialog({ onClose }: RuleGlobalStatsDialogProps) {
             {tCommon('loading')}
           </div>
         ) : error ? (
-          <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+          <div className="font-[weight:inherit] rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-label text-destructive">
             {error}
           </div>
         ) : stats ? (
@@ -136,7 +136,9 @@ function RuleGlobalStatsDialog({ onClose }: RuleGlobalStatsDialogProps) {
                       <span className="w-4 text-right text-[10px] text-muted-foreground">
                         {idx + 1}
                       </span>
-                      <span className="min-w-0 flex-1 truncate text-xs">{r.name}</span>
+                      <span className="font-[weight:inherit] min-w-0 flex-1 truncate text-label">
+                        {r.name}
+                      </span>
                       <span className="shrink-0 rounded-sm bg-blue-500/10 px-1 text-[10px] text-blue-600">
                         {t('timesCount', { n: r.matchCount })}
                       </span>

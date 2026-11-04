@@ -136,7 +136,9 @@ export function SecurityScore() {
                 <span className="text-display font-bold" style={{ color }}>
                   {total}
                 </span>
-                <span className="text-xs text-muted-foreground">/{maxScore}</span>
+                <span className="font-[weight:inherit] text-label text-muted-foreground">
+                  /{maxScore}
+                </span>
               </div>
             </div>
 
@@ -146,7 +148,7 @@ export function SecurityScore() {
               </div>
               {items.map((item) => (
                 <div key={item.id} className="space-y-1">
-                  <div className="flex items-center justify-between text-xs">
+                  <div className="font-[weight:inherit] flex items-center justify-between text-label">
                     <span className="text-muted-foreground">{item.name}</span>
                     <span className="font-mono">
                       {item.score}/{item.maxScore}
@@ -171,7 +173,9 @@ export function SecurityScore() {
             </div>
           </div>
         ) : (
-          <p className="py-6 text-center text-sm text-muted-foreground">{t('score.empty')}</p>
+          <p className="font-[weight:inherit] py-6 text-center text-body text-muted-foreground">
+            {t('score.empty')}
+          </p>
         )}
       </CardContent>
     </Card>

@@ -123,7 +123,7 @@ function RuleConflictDialog({ rules, onClose }: RuleConflictDialogProps) {
             {t('detecting')}
           </div>
         ) : error ? (
-          <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+          <div className="font-[weight:inherit] rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-label text-destructive">
             {error}
           </div>
         ) : conflicts.length === 0 ? (
@@ -131,11 +131,13 @@ function RuleConflictDialog({ rules, onClose }: RuleConflictDialogProps) {
             <div className="flex h-8 w-8 items-center justify-center rounded-md bg-green-500/10 text-green-600">
               <AlertTriangle className="h-4 w-4" />
             </div>
-            <p className="text-sm text-muted-foreground">{t('noConflict')}</p>
+            <p className="font-[weight:inherit] text-body text-muted-foreground">
+              {t('noConflict')}
+            </p>
           </div>
         ) : (
           <div className="thin-scroll space-y-2 overflow-y-auto">
-            <p className="text-xs text-muted-foreground">
+            <p className="font-[weight:inherit] text-label text-muted-foreground">
               {t('detectedConflictsHint', { n: conflicts.length })}
             </p>
             <div className="space-y-1">
@@ -148,7 +150,7 @@ function RuleConflictDialog({ rules, onClose }: RuleConflictDialogProps) {
                 onChange={(e) => setArbitrationContext(e.target.value)}
                 placeholder={t('arbitrationContextPlaceholder')}
                 rows={2}
-                className="thin-scroll w-full resize-none rounded-sm border border-border bg-background px-2 py-1.5 text-xs leading-relaxed outline-none focus:border-foreground/20"
+                className="font-[weight:inherit] thin-scroll w-full resize-none rounded-sm border border-border bg-background px-2 py-1.5 text-label leading-relaxed outline-none focus:border-foreground/20"
               />
             </div>
             {conflicts.map((conflict, idx) => (
@@ -165,7 +167,7 @@ function RuleConflictDialog({ rules, onClose }: RuleConflictDialogProps) {
                   >
                     {conflictLabel(conflict.type)}
                   </span>
-                  <span className="flex-1 min-w-0 text-xs text-muted-foreground">
+                  <span className="font-[weight:inherit] flex-1 min-w-0 text-label text-muted-foreground">
                     {conflict.detail}
                   </span>
                   {conflict.ruleIds.length >= 2 && (

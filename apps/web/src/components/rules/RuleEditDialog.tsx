@@ -101,7 +101,10 @@ function RuleEditDialog() {
           <CloseButton aria-label={tCommon('close')} onClick={closeEditor} />
         </div>
         <div className="space-y-2">
-          <label htmlFor="rule-name" className="text-xs text-muted-foreground">
+          <label
+            htmlFor="rule-name"
+            className="font-[weight:inherit] text-label text-muted-foreground"
+          >
             {t('fieldLabelName')}
           </label>
           <Input
@@ -109,9 +112,12 @@ function RuleEditDialog() {
             value={name}
             onChange={(e) => setName(e.target.value.slice(0, 128))}
             placeholder={t('ruleNamePlaceholder')}
-            className="h-8 text-sm"
+            className="font-[weight:inherit] h-8 text-body"
           />
-          <label htmlFor="rule-desc" className="text-xs text-muted-foreground">
+          <label
+            htmlFor="rule-desc"
+            className="font-[weight:inherit] text-label text-muted-foreground"
+          >
             {t('fieldLabelDescription')}
           </label>
           <Input
@@ -119,18 +125,21 @@ function RuleEditDialog() {
             value={description}
             onChange={(e) => setDescription(e.target.value.slice(0, 256))}
             placeholder={t('briefDescriptionPlaceholder')}
-            className="h-8 text-sm"
+            className="font-[weight:inherit] h-8 text-body"
           />
           <div className="flex gap-2">
             <div className="flex-1 min-w-0">
-              <label htmlFor="rule-scope" className="text-xs text-muted-foreground">
+              <label
+                htmlFor="rule-scope"
+                className="font-[weight:inherit] text-label text-muted-foreground"
+              >
                 {t('fieldLabelScope')}
               </label>
               <select
                 id="rule-scope"
                 value={scope}
                 onChange={(e) => setScope(e.target.value as RuleScope)}
-                className="mt-0.5 w-full rounded-sm border border-border bg-background px-2 py-1 text-xs outline-none"
+                className="font-[weight:inherit] mt-0.5 w-full rounded-sm border border-border bg-background px-2 py-1 text-label outline-none"
               >
                 {SCOPE_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -141,7 +150,10 @@ function RuleEditDialog() {
               </select>
             </div>
             <div className="w-24">
-              <label htmlFor="rule-priority" className="text-xs text-muted-foreground">
+              <label
+                htmlFor="rule-priority"
+                className="font-[weight:inherit] text-label text-muted-foreground"
+              >
                 {t('fieldLabelPriority')}
               </label>
               <Input
@@ -150,23 +162,24 @@ function RuleEditDialog() {
                 min={0}
                 max={100}
                 value={priority}
-                onChange={(e) =>
-                  setPriority(clampPercent(Number(e.target.value) || 0))
-                }
-                className="mt-0.5 h-8 text-sm"
+                onChange={(e) => setPriority(clampPercent(Number(e.target.value) || 0))}
+                className="font-[weight:inherit] mt-0.5 h-8 text-body"
               />
             </div>
           </div>
           <div className="flex gap-2">
             <div className="flex-1 min-w-0">
-              <label htmlFor="rule-match-type" className="text-xs text-muted-foreground">
+              <label
+                htmlFor="rule-match-type"
+                className="font-[weight:inherit] text-label text-muted-foreground"
+              >
                 {t('fieldLabelMatchType')}
               </label>
               <select
                 id="rule-match-type"
                 value={matchType}
                 onChange={(e) => setMatchType(e.target.value as RuleMatchType)}
-                className="mt-0.5 w-full rounded-sm border border-border bg-background px-2 py-1 text-xs outline-none"
+                className="font-[weight:inherit] mt-0.5 w-full rounded-sm border border-border bg-background px-2 py-1 text-label outline-none"
               >
                 {MATCH_TYPE_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -177,7 +190,10 @@ function RuleEditDialog() {
             </div>
             {matchType !== 'always' && (
               <div className="flex-1 min-w-0">
-                <label htmlFor="rule-match-pattern" className="text-xs text-muted-foreground">
+                <label
+                  htmlFor="rule-match-pattern"
+                  className="font-[weight:inherit] text-label text-muted-foreground"
+                >
                   {t('fieldLabelMatchPattern')}
                 </label>
                 <Input
@@ -185,12 +201,15 @@ function RuleEditDialog() {
                   value={matchPattern}
                   onChange={(e) => setMatchPattern(e.target.value)}
                   placeholder={t(MATCH_PATTERN_PLACEHOLDER_KEYS[matchType])}
-                  className="mt-0.5 h-8 text-sm"
+                  className="font-[weight:inherit] mt-0.5 h-8 text-body"
                 />
               </div>
             )}
           </div>
-          <label htmlFor="rule-content" className="text-xs text-muted-foreground">
+          <label
+            htmlFor="rule-content"
+            className="font-[weight:inherit] text-label text-muted-foreground"
+          >
             {t('fieldLabelContent')}
           </label>
           <textarea
@@ -199,7 +218,7 @@ function RuleEditDialog() {
             onChange={(e) => setContent(e.target.value)}
             placeholder={t('contentPlaceholder')}
             rows={6}
-            className="thin-scroll w-full resize-none rounded-sm border border-border bg-background px-2 py-1.5 text-xs leading-relaxed outline-none focus:border-foreground/20"
+            className="font-[weight:inherit] thin-scroll w-full resize-none rounded-sm border border-border bg-background px-2 py-1.5 text-label leading-relaxed outline-none focus:border-foreground/20"
           />
         </div>
         <div className="flex items-center justify-end gap-2">

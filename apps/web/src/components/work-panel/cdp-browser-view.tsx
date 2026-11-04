@@ -711,7 +711,7 @@ export function CdpBrowserView({
       )}
       {error && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-background/90 p-3 text-center">
-          <p className="text-sm text-destructive">{error}</p>
+          <p className="font-[weight:inherit] text-body text-destructive">{error}</p>
         </div>
       )}
       {/* 2026-08-17:交互受限提示条 —— 诚实告知这是自动化截图视图,扫码用手机、完整操作走外部浏览器 */}
@@ -839,7 +839,7 @@ export function CdpBrowserView({
                   role="menuitem"
                   disabled={item.disabled}
                   onClick={item.onClick}
-                  className="flex w-full items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-xs text-foreground transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-40"
+                  className="font-[weight:inherit] flex w-full items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-label text-foreground transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-40"
                 >
                   <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                   <span>{item.label}</span>

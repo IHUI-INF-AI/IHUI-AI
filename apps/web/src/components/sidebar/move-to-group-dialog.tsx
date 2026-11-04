@@ -81,7 +81,7 @@ export function MoveToGroupDialog({
             onClick={() => setSelected(null)}
             data-testid="move-target-none"
             className={cn(
-              'flex w-full items-center gap-1.5 rounded-sm border px-2 py-1.5 text-left text-xs transition-colors',
+              'font-[weight:inherit] flex w-full items-center gap-1.5 rounded-sm border px-2 py-1.5 text-left text-label transition-colors',
               selected === null && !newInput.trim()
                 ? 'border-brand-accent-deep bg-primary/5'
                 : 'hover:bg-muted',
@@ -106,7 +106,7 @@ export function MoveToGroupDialog({
                   type="button"
                   onClick={() => setSelected(folder)}
                   data-testid={`move-target-${folder}`}
-                  className="flex min-w-0 flex-1 items-center gap-1.5 px-2 py-1.5 text-left text-xs"
+                  className="font-[weight:inherit] flex min-w-0 flex-1 items-center gap-1.5 px-2 py-1.5 text-left text-label"
                 >
                   {pinned && (
                     <Pin className="h-3 w-3 shrink-0 fill-current text-primary" aria-hidden />
@@ -145,3 +145,4 @@ export function MoveToGroupDialog({
     </Dialog>
   )
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

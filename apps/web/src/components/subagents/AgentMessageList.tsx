@@ -42,7 +42,7 @@ export function AgentMessageList({ messages, isLoading }: AgentMessageListProps)
   return (
     <Card>
       <CardHeader className="p-3">
-        <CardTitle className="flex items-center gap-2 text-sm">
+        <CardTitle className="font-[weight:inherit] flex items-center gap-2 text-body">
           <MessagesSquare className="h-4 w-4 text-muted-foreground" />
           Agent 间消息
         </CardTitle>
@@ -54,12 +54,14 @@ export function AgentMessageList({ messages, isLoading }: AgentMessageListProps)
             加载中...
           </div>
         ) : list.length === 0 ? (
-          <p className="py-6 text-center text-sm text-muted-foreground">暂无消息</p>
+          <p className="font-[weight:inherit] py-6 text-center text-body text-muted-foreground">
+            暂无消息
+          </p>
         ) : (
           <ul className="space-y-2">
             {list.map((msg) => (
               <li key={msg.id} className="rounded-md bg-muted/40 p-2.5">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <div className="font-[weight:inherit] flex items-center gap-2 text-label text-muted-foreground">
                   <span className="font-medium text-foreground">{msg.fromAgent}</span>
                   <ArrowRight className="h-3 w-3" />
                   <span className="font-medium text-foreground">{msg.toAgent}</span>
@@ -70,7 +72,7 @@ export function AgentMessageList({ messages, isLoading }: AgentMessageListProps)
                   </span>
                   <span className="tabular-nums">{timeFmt.format(new Date(msg.timestamp))}</span>
                 </div>
-                <p className="mt-1.5 text-sm">{msg.content}</p>
+                <p className="font-[weight:inherit] mt-1.5 text-body">{msg.content}</p>
               </li>
             ))}
           </ul>
