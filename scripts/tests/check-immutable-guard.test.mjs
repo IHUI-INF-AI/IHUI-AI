@@ -381,4 +381,44 @@ test('T22 --range 端到端：区间内的未签名提交在窗口到期后判�
     rmScratch(root)
   }
 })
+
+// ---------------------------------------------------------------------------
+// 受保护面扩容（2026-11-04）：票面点名两处新增面必须当场判红
+// ---------------------------------------------------------------------------
+
+test('T23 扩容后：改 scripts/git-guardian.mjs 未声明 ⇒ 判红', () => {
+  const { entries } = realEntries()
+  const out = gate.decide({ entries, changes: [{ status: 'M', path: 'scripts/git-guardian.mjs' }], message: '' })
+  assert.equal(out.exit, 1, '巡检本体改了却没声明 ⇒ 必须判红')
+  assert.equal(out.hits[0]?.entry?.path, 'scripts/git-guardian.mjs')
+  // 反向牙：未登记的邻居路径不得被误吞（射程靠登记，不靠目录默认豁免）
+  assert.equal(
+    gate.decide({ entries, changes: [{ status: 'M', path: 'scripts/git-guardian.txt' }], message: '' }).exit,
+    0,
+  )
+})
+
+test('T24 扩容后：改 .husky/pre-commit ⇒ 判红；README/post-checkout/pre-rebase 仍在射程外', () => {
+  const { entries } = realEntries()
+  const out = gate.decide({ entries, changes: [{ status: 'M', path: '.husky/pre-commit' }], message: '' })
+  assert.equal(out.exit, 1, '提交链入口被改却没声明 ⇒ 必须判红')
+  assert.equal(out.hits[0]?.entry?.path, '.husky/pre-commit')
+  for (const p of ['.husky/README.md', '.husky/post-checkout', '.husky/pre-rebase'])
+    assert.equal(
+      gate.decide({ entries, changes: [{ status: 'M', path: p }], message: '' }).exit,
+      0,
+      `${p} 必须保持不在射程`,
+    )
+  // deploy/win/lib 的 glob 只覆盖顶层模块：__tests__ 显式不在射程
+  assert.equal(
+    gate.decide({ entries, changes: [{ status: 'M', path: 'deploy/win/lib/__tests__/x.mjs' }], message: '' }).exit,
+    0,
+    'deploy/win/lib/__tests__/ 必须保持不在射程',
+  )
+  assert.equal(
+    gate.decide({ entries, changes: [{ status: 'M', path: 'deploy/win/lib/edge-admission.mjs' }], message: '' }).exit,
+    1,
+    'deploy/win/lib 顶层模块必须在射程内',
+  )
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
