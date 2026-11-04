@@ -331,6 +331,60 @@ ok(
   })(),
 )
 
+// T30–T32 发起腿断裂的结构分型(2026-11-05 立)。
+// 立因:台账 2026-11-04T23:04:28.835Z 那条 session-failed 的 stderr 是 cmd.exe 的
+// 「'node' 不是内部或外部命令…」经错误码页解出的**乱码**,中英文字面签名都命中不了,
+// 于是被算成这张票的连败 ⇒ 无辜票被封。三条成对锁:乱码正例、中文正例、
+// 以及"跑起来了的失败不得被吞"两条反例(有事件帧 / 超出一行报错的长度)。
+ok(
+  'T30 /goal 台账乱码原文回放 ⇒ environment 且不烧票(旧读数 session 是这一格的病)',
+  (() => {
+    const ledged = "'node' ڲⲿ⣬Ҳǿеĳ ļ"
+    const c = classifySessionFailure({ status: 1, stderr: ledged })
+    return (
+      c.kind === 'environment' && c.sign === 'launch-unresolvable-exe' && isNonTicketFailure(c.kind)
+    )
+  })(),
+)
+
+ok(
+  'T31 同型但码页正常(中文原文)⇒ 仍 environment(签名表里并无这条中文,靠结构接住)',
+  (() => {
+    const zh = "'node' 不是内部或外部命令，也不是可运行的程序或批处理文件。"
+    const c = classifySessionFailure({ status: 1, stderr: zh })
+    return c.kind === 'environment' && isNonTicketFailure(c.kind)
+  })(),
+)
+
+ok(
+  'T32 反向锁①:会话真起来过(带事件帧)而报错首行仍像系统报错 ⇒ 仍归 session,不许吞',
+  (() => {
+    const t = '\'node\' ⲿ\n{"type":"tool_result","ok":true,"content":"编译失败于 3 个文件"}'
+    const c = classifySessionFailure({ status: 1, stderr: t })
+    return c.kind === 'session' && !isNonTicketFailure(c.kind)
+  })(),
+)
+
+ok(
+  'T32b 反向锁②:超出"一行系统报错"长度上限(600 字)⇒ 不吃结构档,仍归 session',
+  (() => {
+    const t = `'node' ${'详'.repeat(700)}`
+    const c = classifySessionFailure({ status: 1, stderr: t })
+    return c.kind === 'session' && !isNonTicketFailure(c.kind)
+  })(),
+)
+
+ok(
+  'T32c 判序形状锁:结构档必须排在契约含义之后、签名扫描之前(挪到前面会吞 exit=3/130)',
+  (() => {
+    const src = readFileSync(join(ROOT, 'scripts', 'lib', 'autonomy-runner.mjs'), 'utf8')
+    const iMeaning = src.indexOf('SESSION_EXIT_MEANINGS[status]')
+    const iLaunch = src.indexOf('isLaunchFailureText(blob)')
+    const iEnv = src.indexOf('ENV_FAILURE_SIGNS.find')
+    return iMeaning > 0 && iLaunch > 0 && iEnv > 0 && iMeaning < iLaunch && iLaunch < iEnv
+  })(),
+)
+
 console.log(
   fail === 0 ? `autonomy-runner: ${pass} 例全绿` : `autonomy-runner: ${pass} 绿 / ${fail} 红`,
 )
