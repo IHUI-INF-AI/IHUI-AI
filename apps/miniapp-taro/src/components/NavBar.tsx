@@ -475,7 +475,7 @@ export default function NavBar({
             /* 侧按钮盒子 = navbarActionBoxStyle(最小宽 28 + 定高 32 + 行内居中),与 RN 的 actionBtn
                同一条出口、同一份尺寸;端内只加自己的水平留白 px-2。 */
             <View
-              className="px-2"
+              className="px-sm"
               style={ACTION_BOX_STYLE}
               onClick={onRightClick}
               hoverClass="opacity-60"
