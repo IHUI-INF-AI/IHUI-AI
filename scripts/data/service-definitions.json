@@ -1,65 +1,249 @@
 {
-  "$comment": "本机 Windows 服务定义的入库快照(真相源)。用途:给 scripts/check-service-binary-paths.mjs 等只读巡检器一份仓内基准 —— \"这台机本来应该跑什么、从哪跑\"不必每次靠人回忆。 射程 = Windows 服务注册表 HKLM:\\SYSTEM\\CurrentControlSet\\Services 下的项目服务;计划任务承载的执行体不在本文件内(那是另一层,见 IHUI-* 计划任务)。 字段:application = ImagePath 第一个 token(去引号);parameters = ImagePath 其余部分原样;appDirectory = parameters 里 `cd /d <路径> &&` 抽出的工作目录(没有则 null);startType 按注册表 Start 值映射 0=BOOT/1=SYSTEM/2=AUTOMATIC/3=MANUAL/4=DISABLED;source 只取 registry|nssm(本机三项均非 nssm 托管,ImagePath 即命令行)。 不含任何凭据/口令/env 值;服务运行账号类别不写入本文件。 重建方式:重跑 scripts/check-service-binary-paths.mjs 的 STATE/注册表通道取现值,再按本文件同形人工核对重写,同时刷新 generatedAt/host/ledger;不得手改单条而不复核 ledger.absentOnHost。",
-  "generatedAt": "2026-10-24T17:35:24.595Z",
-  "host": "lichunchuan",
-  "sourceChannel": "HKLM:\\SYSTEM\\CurrentControlSet\\Services(Get-ItemProperty:ImagePath/Start/DisplayName;与 Get-CimInstance Win32_Service 交叉核对)",
+  "$comment": "本机 Windows 服务定义的入库快照(真相源)。用途:给 scripts/check-service-binary-paths.mjs 的仓内基准维(只报数、不参与 exitCode)与 scripts/check-service-inventory.mjs 的服务名册面一份仓内基准 —— \"这台机本来应该跑什么、从哪跑\"不必每次靠人回忆。 射程 = Windows 服务注册表 HKLM:\\SYSTEM\\CurrentControlSet\\Services 下名字匹配 ^(IHUI|Keycloak) 的项目服务(本机现读 28 枚);计划任务承载的执行体不在本文件内(那是另一层,见 IHUI-* 计划任务)。 字段:source=nssm 时 application/parameters/appDirectory 取 nssm 的 AppApplication/AppParameters/AppDirectory;source=registry 时 application = ImagePath 第一个 token(去引号)、parameters = ImagePath 其余部分原样、appDirectory = parameters 里 `cd /d <路径> &&` 抽出的工作目录(没有则 null);startType 按注册表 Start 值映射 0=BOOT/1=SYSTEM/2=AUTOMATIC/3=MANUAL/4=DISABLED。 **不收 displayName**:check-service-inventory 的名册收集器会把 name 形态的 displayName 当成服务名(本机 IHUI-PostgreSQL 会被读成幽灵引用),展示名请直接查注册表。 脱敏:秘密只存 mask 形态(前6***后2 (len=N)),原始凭据永不入仓。 重建方式:无自动生成器 —— 先 `node scripts/check-service-inventory.mjs --snapshot > <临时文件>` 取本机现读,再按本文件同形逐条映射(name/application/appParameters/appDirectory/start→startType),同时刷新 generatedAt/host/repoRoot/ledger;不得手改单条,不得把别台机的读数抄来当本机读数。",
+  "generatedAt": "2026-11-04T02:07:20.236Z",
+  "host": "服务器",
+  "repoRoot": {
+    "live": "D:\\IHUI-AI",
+    "drive": "D:",
+    "note": "当次实测的仓库根(§0 现读),只作本次对账输入,不作跨机判据"
+  },
+  "sourceChannel": "HKLM:\\SYSTEM\\CurrentControlSet\\Services(Get-ItemProperty:ImagePath/Start/DisplayName;nssm get AppApplication/AppParameters/AppDirectory)",
   "notes": [
-    "台账立票(G-10)时的\"6 个把 D:\\IHUI-AI 绝对路径钉死\"在本机已不复现:D: 盘目录不存在,现存 3 个服务的 ImagePath 全部指向 G:\\IHUI-AI。",
-    "台账 21 个服务名中,本机注册表仅 3 个在册;其余 18 个无服务键(见 ledger.absentOnHost)。缺失不代表项目不需要它们,也不代表已裁撤 —— 本机另有 17 个 IHUI-* 计划任务承载部分执行体,二者不是同一层,不得互相代填。"
+    "本机现读(2026-11-04):注册表 ^(IHUI|Keycloak) 命中 28 枚,除 IHUI-PG 由 pg_ctl.exe 直装(ImagePath 即命令行)外全部 nssm 托管(ImagePath=C:\\Windows\\System32\\nssm.exe,真实 Application/AppParameters/AppDirectory 取自 nssm 的 Parameters)。",
+    "台账 scripts/data/service-auto-restart.json 的 25 个名字中本机在册 25 枚;本机查无服务键的见 ledger.absentOnHost(建法/承载归属债账见 scripts/data/service-provisioning-gaps.json,带 reviewBy 会到期)。缺失不代表项目不需要它,也不代表已裁撤;本文件与 IHUI-* 计划任务不是同一层,不得互相代填。",
+    "本文件不含任何凭据/口令/env 值;需要 mask 的参数已由生成通道脱敏。"
   ],
   "services": [
     {
       "name": "IHUI-AI-SERVICE",
-      "displayName": "IHUI AI Service",
-      "application": "cmd.exe",
-      "parameters": "/c \"cd /d G:\\IHUI-AI\\apps\\ai-service && G:\\IHUI-AI\\apps\\ai-service\\.venv\\Scripts\\python.exe -m uvicorn app.main:app --host 0.0.0.0 --port 8803\"",
-      "appDirectory": "G:\\IHUI-AI\\apps\\ai-service",
+      "application": "C:\\windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "parameters": "-NoProfile -ExecutionPolicy Bypass -File D:\\DevEnv\\ihui-prod\\deploy\\prod-bundle\\svc\\run-ai.ps1",
+      "appDirectory": "D:\\DevEnv\\ihui-prod\\apps\\ai-service",
       "startType": "AUTOMATIC",
-      "source": "registry"
+      "source": "nssm"
     },
     {
       "name": "IHUI-API",
-      "displayName": "IHUI API Service",
-      "application": "cmd.exe",
-      "parameters": "/c \"cd /d G:\\IHUI-AI\\apps\\api && C:\\Users\\Administrator\\.workbuddy\\binaries\\node\\versions\\22.22.2-6\\node.exe --require G:\\IHUI-AI\\node_modules\\.pnpm\\tsx@4.23.12\\node_modules\\tsx\\dist\\preflight.cjs --import file:///G:/IHUI-AI/node_modules/.pnpm/tsx@4.23.12/node_modules/tsx/dist/loader.mjs src/index.ts\"",
-      "appDirectory": "G:\\IHUI-AI\\apps\\api",
+      "application": "C:\\windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "parameters": "-NoProfile -ExecutionPolicy Bypass -File D:\\DevEnv\\ihui-prod\\deploy\\prod-bundle\\svc\\run-api.ps1",
+      "appDirectory": "D:\\DevEnv\\ihui-prod\\apps\\api",
+      "startType": "MANUAL",
+      "source": "nssm"
+    },
+    {
+      "name": "IHUI-API-BLUE",
+      "application": "C:\\windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "parameters": "-NoProfile -ExecutionPolicy Bypass -File D:\\DevEnv\\ihui-prod\\deploy\\prod-bundle\\svc\\run-api.ps1",
+      "appDirectory": "D:\\DevEnv\\ihui-prod\\apps\\api",
+      "startType": "AUTOMATIC",
+      "source": "nssm"
+    },
+    {
+      "name": "IHUI-API-GREEN",
+      "application": "C:\\windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "parameters": "-NoProfile -ExecutionPolicy Bypass -File D:\\DevEnv\\ihui-prod\\deploy\\prod-bundle\\svc\\run-api.ps1",
+      "appDirectory": "D:\\DevEnv\\ihui-prod\\apps\\api",
+      "startType": "MANUAL",
+      "source": "nssm"
+    },
+    {
+      "name": "IHUI-API-ROUTER",
+      "application": "D:\\DevEnv\\runtimes\\node\\node.exe",
+      "parameters": "D:\\DevEnv\\ihui-prod\\deploy\\win\\ihui-api-router.mjs",
+      "appDirectory": "D:\\DevEnv\\ihui-prod\\deploy\\win",
+      "startType": "AUTOMATIC",
+      "source": "nssm"
+    },
+    {
+      "name": "IHUI-DEPLOYLOOP",
+      "application": "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
+      "parameters": "-NoProfile -ExecutionPolicy Bypass -File \"D:\\DevEnv\\ihui-prod\\deploy\\win\\ihui-deploy-loop.ps1\" -Daemon -IntervalSeconds 60",
+      "appDirectory": "D:\\DevEnv\\ihui-prod",
+      "startType": "AUTOMATIC",
+      "source": "nssm"
+    },
+    {
+      "name": "IHUI-Firewall-Watchdog",
+      "application": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "parameters": "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File D:\\IHUI-AI\\deploy\\win\\ihui-firewall-watchdog.ps1",
+      "appDirectory": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0",
+      "startType": "AUTOMATIC",
+      "source": "nssm"
+    },
+    {
+      "name": "IHUI-GIT-GUARD",
+      "application": "D:\\DevEnv\\runtimes\\node22-lts\\node.exe",
+      "parameters": "D:/IHUI-AI/scripts/git-guardian.mjs --daemon",
+      "appDirectory": "D:/IHUI-AI",
+      "startType": "AUTOMATIC",
+      "source": "nssm"
+    },
+    {
+      "name": "IHUI-IMAGE-CDN",
+      "application": "D:\\DevEnv\\runtimes\\node\\node.exe",
+      "parameters": "\"D:\\DevEnv\\ihui-prod\\deploy\\cdn-server.js\" --root \"D:\\DevEnv\\ihui-prod\\deploy\\server-root\" --http-port 80 --host 127.0.0.1",
+      "appDirectory": "D:\\DevEnv\\ihui-prod",
+      "startType": "AUTOMATIC",
+      "source": "nssm"
+    },
+    {
+      "name": "IHUI-MONITOR",
+      "application": "C:\\windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "parameters": "-NoProfile -ExecutionPolicy Bypass -File D:\\DevEnv\\ihui-prod\\deploy\\prod-bundle\\monitor.ps1",
+      "appDirectory": "D:\\DevEnv\\ihui-prod\\deploy\\prod-bundle",
+      "startType": "AUTOMATIC",
+      "source": "nssm"
+    },
+    {
+      "name": "IHUI-PG",
+      "application": "D:\\DevEnv\\runtimes\\pgsql\\bin\\pg_ctl.exe",
+      "parameters": "runservice -N \"IHUI-PG\" -D \"D:\\DevEnv\\data\\pgdata\" -w",
+      "appDirectory": null,
       "startType": "AUTOMATIC",
       "source": "registry"
     },
     {
-      "name": "IHUI-WEB",
-      "displayName": "IHUI Web Service",
-      "application": "cmd.exe",
-      "parameters": "/c \"cd /d G:\\IHUI-AI\\apps\\web && node G:\\IHUI-AI\\apps\\web\\node_modules\\next\\dist\\bin\\next dev --turbopack -p 8801\"",
-      "appDirectory": "G:\\IHUI-AI\\apps\\web",
+      "name": "IHUI-PG-BACKUP",
+      "application": "C:\\windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "parameters": "-NoProfile -ExecutionPolicy Bypass -File D:\\DevEnv\\ihui-prod\\deploy\\prod-bundle\\pg-backup-scheduler.ps1",
+      "appDirectory": "D:\\DevEnv\\ihui-prod\\deploy\\prod-bundle",
       "startType": "AUTOMATIC",
-      "source": "registry"
+      "source": "nssm"
+    },
+    {
+      "name": "IHUI-REDIS",
+      "application": "D:\\DevEnv\\runtimes\\redis\\redis-server.exe",
+      "parameters": "redis-ihui.conf",
+      "appDirectory": "D:\\DevEnv\\runtimes\\redis",
+      "startType": "AUTOMATIC",
+      "source": "nssm"
+    },
+    {
+      "name": "IHUI-RSSHUB",
+      "application": "D:\\DevEnv\\runtimes\\node22-lts\\node.exe",
+      "parameters": "D:\\DevEnv\\tools\\rsshub\\RSSHub\\dist\\index.mjs",
+      "appDirectory": "D:\\DevEnv\\tools\\rsshub\\RSSHub",
+      "startType": "AUTOMATIC",
+      "source": "nssm"
+    },
+    {
+      "name": "IHUI-TMP-CHROME",
+      "application": "C:\\Users\\Administrator\\.agent-browser\\browsers\\chrome-156.0.8078.73\\chrome.exe",
+      "parameters": "--headless=new --no-sandbox --disable-gpu --disable-dev-shm-usage --hide-scrollbars --window-size=1440,900 --remote-debugging-port=9333 --user-data-dir=D:\\tmp\\cdp\\profile about:blank",
+      "appDirectory": "D:\\tmp\\cdp",
+      "startType": "MANUAL",
+      "source": "nssm"
+    },
+    {
+      "name": "IHUI-WEB",
+      "application": "C:\\windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "parameters": "-NoProfile -ExecutionPolicy Bypass -File D:\\DevEnv\\ihui-prod\\deploy\\prod-bundle\\svc\\run-web.ps1",
+      "appDirectory": "D:\\DevEnv\\ihui-prod\\apps\\web",
+      "startType": "MANUAL",
+      "source": "nssm"
+    },
+    {
+      "name": "IHUI-WEB-BLUE",
+      "application": "C:\\windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "parameters": "-NoProfile -ExecutionPolicy Bypass -File D:\\DevEnv\\ihui-prod\\deploy\\prod-bundle\\svc\\run-web.ps1",
+      "appDirectory": "D:\\DevEnv\\ihui-prod\\apps\\web",
+      "startType": "AUTOMATIC",
+      "source": "nssm"
+    },
+    {
+      "name": "IHUI-WEB-GREEN",
+      "application": "C:\\windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "parameters": "-NoProfile -ExecutionPolicy Bypass -File D:\\DevEnv\\ihui-prod\\deploy\\prod-bundle\\svc\\run-web.ps1",
+      "appDirectory": "D:\\DevEnv\\ihui-prod\\apps\\web",
+      "startType": "MANUAL",
+      "source": "nssm"
+    },
+    {
+      "name": "IHUI-WEB-ROUTER",
+      "application": "D:\\DevEnv\\runtimes\\node\\node.exe",
+      "parameters": "D:\\DevEnv\\ihui-prod\\deploy\\win\\ihui-api-router.mjs",
+      "appDirectory": "D:\\DevEnv\\ihui-prod\\deploy\\win",
+      "startType": "AUTOMATIC",
+      "source": "nssm"
+    },
+    {
+      "name": "Keycloak",
+      "application": "D:\\DevEnv\\runtimes\\keycloak-26.1.4\\kc-run-production.bat",
+      "parameters": "",
+      "appDirectory": "D:\\DevEnv\\runtimes\\keycloak-26.1.4",
+      "startType": "AUTOMATIC",
+      "source": "nssm"
+    },
+    {
+      "name": "ihui-alert-bridge",
+      "application": "D:\\DevEnv\\runtimes\\node\\node.exe",
+      "parameters": "D:\\DevEnv\\ihui-prod\\deploy\\prod-bundle\\alert-webhook-bridge.cjs",
+      "appDirectory": "D:\\DevEnv\\ihui-prod\\deploy\\prod-bundle",
+      "startType": "AUTOMATIC",
+      "source": "nssm"
+    },
+    {
+      "name": "ihui-alertmanager",
+      "application": "D:\\DevEnv\\monitor\\alertmanager\\alertmanager-0.34.0.windows-amd64\\alertmanager.exe",
+      "parameters": "--config.file=D:\\DevEnv\\monitor\\alertmanager\\alertmanager.yml --web.listen-address=127.0.0.1:9093 --cluster.listen-address=",
+      "appDirectory": "D:\\DevEnv\\monitor\\alertmanager\\alertmanager-0.34.0.windows-amd64",
+      "startType": "AUTOMATIC",
+      "source": "nssm"
+    },
+    {
+      "name": "ihui-loki",
+      "application": "D:\\DevEnv\\monitor\\loki\\loki-windows-amd64.exe",
+      "parameters": "--config.file=D:\\DevEnv\\monitor\\loki\\loki-config.yml",
+      "appDirectory": "D:\\DevEnv\\monitor\\loki",
+      "startType": "AUTOMATIC",
+      "source": "nssm"
+    },
+    {
+      "name": "ihui-pg-exporter",
+      "application": "D:\\DevEnv\\monitor\\bin\\postgres_exporter.exe",
+      "parameters": "--web.listen-address=127.0.0.1:9187 --no-collector.wal --extend.query-path=D:\\DevEnv\\ihui-prod\\monitoring\\postgres-exporter\\queries.yml",
+      "appDirectory": "D:\\DevEnv\\monitor\\bin",
+      "startType": "AUTOMATIC",
+      "source": "nssm"
+    },
+    {
+      "name": "ihui-prometheus",
+      "application": "D:\\DevEnv\\monitor\\prometheus\\prometheus-3.14.0.windows-amd64\\prometheus.exe",
+      "parameters": "--config.file=D:\\DevEnv\\monitor\\prometheus\\prometheus.yml --storage.tsdb.path=D:\\DevEnv\\monitor\\prometheus\\data --storage.tsdb.retention.time=30d --web.listen-address=127.0.0.1:8815 --web.enable-lifecycle",
+      "appDirectory": "D:\\DevEnv\\monitor\\prometheus\\prometheus-3.14.0.windows-amd64",
+      "startType": "AUTOMATIC",
+      "source": "nssm"
+    },
+    {
+      "name": "ihui-promtail",
+      "application": "D:\\DevEnv\\monitor\\promtail\\promtail-windows-amd64.exe",
+      "parameters": "--config.file=D:\\DevEnv\\monitor\\promtail\\promtail-config.yml",
+      "appDirectory": "D:\\DevEnv\\monitor\\promtail",
+      "startType": "AUTOMATIC",
+      "source": "nssm"
+    },
+    {
+      "name": "ihui-redis-exporter",
+      "application": "D:\\DevEnv\\monitor\\bin\\redis_exporter.exe",
+      "parameters": "--redis.addr=localhost:8811 --redis.password= --web.***21 (len=35)",
+      "appDirectory": "D:\\DevEnv\\monitor\\bin",
+      "startType": "AUTOMATIC",
+      "source": "nssm"
+    },
+    {
+      "name": "ihui-windows-exporter",
+      "application": "D:\\DevEnv\\monitor\\bin\\windows_exporter.exe",
+      "parameters": "--web.listen-address=127.0.0.1:9182 --web.config.file=D:\\DevEnv\\monitor\\bin\\web-config.yml",
+      "appDirectory": "D:\\DevEnv\\monitor\\bin",
+      "startType": "AUTOMATIC",
+      "source": "nssm"
     }
   ],
   "ledger": {
     "source": "scripts/data/service-auto-restart.json",
-    "listedTotal": 21,
-    "presentOnHost": 3,
-    "absentOnHost": [
-      "ihui-alert-bridge",
-      "ihui-alertmanager",
-      "IHUI-DEPLOYLOOP",
-      "IHUI-GIT-GUARD",
-      "IHUI-IMAGE-CDN",
-      "ihui-loki",
-      "IHUI-MONITOR",
-      "IHUI-OLLAMA",
-      "IHUI-PG",
-      "IHUI-PG-BACKUP",
-      "ihui-pg-exporter",
-      "ihui-prometheus",
-      "ihui-promtail",
-      "IHUI-REDIS",
-      "ihui-redis-exporter",
-      "IHUI-RSSHUB",
-      "ihui-windows-exporter",
-      "Keycloak"
-    ],
-    "note": "ledger 只做\"名册 vs 本机\"对账:名册里的名字逐个在本机服务注册表查存在性;absentOnHost 是本机查无此服务键的那些(2026-10-24 实测)。本文件不收录它们的定义,因为它们在本机不存在。"
+    "listedTotal": 25,
+    "presentOnHost": 25,
+    "absentOnHost": [],
+    "note": "ledger 只做\"名册 vs 本机\"对账:scripts/data/service-auto-restart.json 里的名字逐个在本机服务注册表查存在性;absentOnHost 是本机查无此服务键的那些(2026-11-04 实测)。本文件不收录它们的定义,因为它们在本机不存在。"
   }
 }

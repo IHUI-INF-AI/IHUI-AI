@@ -36,7 +36,7 @@ import {
   QUIET_MINUTES,
 } from '../devenv-migrate.mjs'
 
-const { activityNotes, latestWrite, guardianTickAlive, probeQuietWindow, assessSteps, planSteps, applyMigration } = __test__
+const { activityNotes, latestWrite, guardianTickAlive, probeQuietWindow, assessSteps, planSteps, applyMigration, parseProcessTable } = __test__
 // 巡检派发臂三函数:判据住本体,本文件只 import(§22c 零复制)。
 const { devenvArmDue, loadDevenvMigrateArm, devenvMigratePatrol } = __test__
 
@@ -232,6 +232,47 @@ test('probeQuietWindow:依赖清单 *.lock 不计占用;空锁/未知无 pid 文
   assert.equal(empty.state, 'pending')
   const unknown = probeQuietWindow(fakeIO(probeTree({ locks: { 'weird.lock': '不是 pid 也不是清单\n' } })), NOW, IDLE)
   assert.equal(unknown.state, 'pending')
+})
+
+/** 单行读不出:PS 对受保护进程返回 CommandLine/ExecutablePath = null,parseProcessTable 归一为空串;
+ *  空串绝不能被 legacyActiveUse 读成「这一行没在用旧根」——必须进 unjudged(fail-closed)。 */
+const psRows = (arr) => parseProcessTable(JSON.stringify(arr))
+
+test('probeQuietWindow:单行 CommandLine/ExecutablePath 为 null ⇒ 不得判 window,该行计入 unjudged', () => {
+  const rows = psRows([{ ProcessId: 4, CommandLine: null, ExecutablePath: null }])
+  const r = probeQuietWindow(fakeIO(probeTree()), NOW, { listProcesses: () => rows, pidAlive: () => false })
+  assert.notEqual(r.state, 'window')
+  assert.equal(r.state, 'undetermined')
+  assert.ok(r.unjudged.some((s) => s.includes('读不出')), r.unjudged.join(';'))
+})
+
+test('probeQuietWindow:空字段行 + 其余行已判无占用 ⇒ 仍 undetermined(unjudged 带条数,不被读成静默)', () => {
+  const rows = psRows([
+    { ProcessId: 4, CommandLine: null, ExecutablePath: null },
+    { ProcessId: 88, CommandLine: 'notepad.exe', ExecutablePath: 'C:\\Windows\\System32\\notepad.exe' },
+  ])
+  const r = probeQuietWindow(fakeIO(probeTree()), NOW, { listProcesses: () => rows, pidAlive: () => false })
+  assert.equal(r.state, 'undetermined')
+  assert.equal(r.reasons.length, 0)
+  const note = r.unjudged.find((s) => s.includes('读不出'))
+  assert.ok(note && /1 个进程/.test(note) && note.includes('4'), r.unjudged.join(';'))
+  // 可读字段命中旧根仍是可判定否定 ⇒ pending(读不出不掩盖真占用)
+  const busyRows = psRows([
+    { ProcessId: 4, CommandLine: null, ExecutablePath: null },
+    { ProcessId: 4242, CommandLine: `node "${join(LEGACY_ROOT, 'Temp', 'job.mjs')}"`, ExecutablePath: null },
+  ])
+  const busy = probeQuietWindow(fakeIO(probeTree()), NOW, { listProcesses: () => busyRows, pidAlive: () => false })
+  assert.equal(busy.state, 'pending')
+  assert.ok(busy.reasons.some((s) => s.includes('4242')), busy.reasons.join(';'))
+})
+
+test('probeQuietWindow:全部字段可读且无占用 ⇒ 仍判 window(修过头即翻红)', () => {
+  const rows = psRows([
+    { ProcessId: 88, CommandLine: 'notepad.exe', ExecutablePath: 'C:\\Windows\\System32\\notepad.exe' },
+  ])
+  const r = probeQuietWindow(fakeIO(probeTree()), NOW, { listProcesses: () => rows, pidAlive: () => false })
+  assert.equal(r.state, 'window')
+  assert.equal(r.unjudged.length, 0)
 })
 
 test('assessSteps:S3 活代码命中 ⇒ todo,纯注释命中 ⇒ done(证据保留口径)', () => {
