@@ -15,6 +15,11 @@
  * 防护目标:
  *   1. 检测 reflog 近期 reset 操作 → 告警 + 提示 reset 风险
  *   2. 检测 fsck 悬空 commit → 过滤 stash-like 对象后核对 tag 备份
+ *   2b. 未备份悬空 commit 的放行判据(2026-11-04 改):**逐路径 blob 覆盖** ——
+ *       相对 parent 的每一条改动路径,其 blob 必须能在可达面(refs 面 / reflog 面)的
+ *       **同一路径**上找到逐字同的 blob;新增路径不得用"同内容别处文件名"顶替;
+ *       删除路径必须见到可达面里该路径的删除记录(不能只看 HEAD)。少一条路径 ⇒ 判红。
+ *       原「整树逐字相等」判据只是本判据的特例,对并发夹带导致的"树不同但内容全在"永不命中。
  *   3. 列出所有 lost-commit/* tag(防止 git gc 清理)
  *   4. 校验远程 lost-commit/backup tag 完整性 + tag 对象可达性
  *      (本地 tag 可能被 git gc 清理;远端 tag 缺失会导致 commit 永久丢失)
@@ -307,6 +312,26 @@ function mark(label) {
 const SPAWN_DEFAULT_TIMEOUT_MS = 120_000
 
 /**
+ * 逐路径覆盖取材的 git 上限(2026-11-04)。
+ * 本仓实测:21 条路径的 `git log --all --raw` 约 12s;reflog 面(`git log -g`)走查约 55s。
+ * 上限取 180s 而不是 LOCAL_GIT_TIMEOUT_MS(10s):这是**全历史**走查,与"批量取 subject"不同量级;
+ * 超时 ⇒ 调用方按"未覆盖"判红(fail-closed),绝不静默放行。
+ */
+const PATH_COVERAGE_TIMEOUT_MS = 180_000
+/** 一次 argv 里放多少路径字符(Windows CreateProcess 上限约 32KB;留一半余量)。 */
+const PATHSPEC_ARGV_BUDGET = 16_000
+/** 缓存判据面版本:判据本体变化 ⇒ 旧缓存件不可复用(否则修复后仍被旧红结论卡住 ≤30min)。 */
+const COVERAGE_FACE_VERSION = 1
+/**
+ * `git diff-tree --raw -z` / `git log --raw -z` 的单条记录头:
+ * `:<oldmode> <newmode> <oldsha> <newsha> <status>`,其后紧跟 NUL + 路径 + NUL。
+ * status 只取首字符(A/M/D/T 等);未开 rename detection ⇒ 不会出现 R/C。
+ */
+const RAW_DIFF_ENTRY_RE = /^:(\d{6}) (\d{6}) ([0-9a-f]{40}) ([0-9a-f]{40}) ([A-Z][0-9]*)$/
+/** `git log --raw` 里 commit 段的前缀(与 --format 唯一源头绑定)。 */
+const RAW_COMMIT_MARKER = 'IHUI:'
+
+/**
  * 本门唯一的 git 出口:命令构造与派生本体都在共用层 `scripts/lib/face-reader.mjs` 的 `gitRaw`
  * (绝对路径 git + safe.directory + quotepath + 显式 stdio + windowsHide + maxBuffer 都给足)。
  * 这里只剩本门特有的两件事:① `allowFail` —— 把"取不到"折成空串交由调用方降级;② `.trim()`
@@ -586,6 +611,8 @@ function readLossCache() {
     if (j.face.strict !== face.strict) return null
     if (j.face.filterStash !== face.filterStash) return null
     if (j.face.tagFingerprint !== face.tagFingerprint) return null
+    // 判据本体版本:改造后旧缓存件里的"红/绿"都是旧判据的结论,不得顶掉本轮重算。
+    if (j.face.coverageVersion !== face.coverageVersion) return null
     return j
   } catch {
     /* 无缓存/损坏/过期 ⇒ 正常全量算,读失败绝不影响判据 */
@@ -776,6 +803,302 @@ function splitReachableSameContent({
     remaining.push(c)
   }
   return { sameContent, treeEquivalent, remaining }
+}
+
+/**
+ * raw diff 输出解析(**纯函数**,2026-11-04;逐路径覆盖判据的唯一解析出口)。
+ *
+ * 两处调用共享同一份字节形态:
+ *   ① `git diff-tree --no-commit-id -r -z --raw --root --no-renames <commit>`(单提交相对 parent);
+ *   ② `git log … --raw -z --no-renames --root --format=IHUI:%H -- <paths>`(可达面历史);
+ * 用 `withCommit` 区分:② 的 commit 段以 `IHUI:` 开头,`-z` 让每条记录被 NUL 切成
+ * `[commit]\0\0:<meta> <status>\0<path>\0…`。空段(分隔残留)跳过。
+ *
+ * 解析失败必须**抛**:调用方以此把该面判成"取不到"→ 朝红,绝不能把半截输出读成"没有改动"。
+ */
+function parseRawDiffZ(stdout, { withCommit = false } = {}) {
+  const tokens = String(stdout ?? '').split('\0')
+  const entries = []
+  let commit = ''
+  for (let i = 0; i < tokens.length; i++) {
+    const token = tokens[i].replace(/\r?\n/g, '')
+    if (!token) continue
+    if (withCommit && token.startsWith(RAW_COMMIT_MARKER)) {
+      commit = token.slice(RAW_COMMIT_MARKER.length).trim()
+      if (!/^[0-9a-f]{40}$/.test(commit))
+        throw new Error(`raw 日志的 commit 段非法:${token.slice(0, 60)}`)
+      continue
+    }
+    if (!token.startsWith(':')) continue
+    const m = RAW_DIFF_ENTRY_RE.exec(token)
+    if (!m) throw new Error(`raw diff 头无法解析:${token.slice(0, 80)}`)
+    const path = tokens[i + 1]
+    if (path === undefined) throw new Error('raw diff 缺路径段(输出被截断?)')
+    if (withCommit && path.startsWith(RAW_COMMIT_MARKER))
+      throw new Error('raw diff 路径段错位(commit 段丢失)')
+    i += 1
+    entries.push({ commit, status: m[5][0], blob: m[4], path })
+  }
+  return entries
+}
+
+/**
+ * 逐路径覆盖分档(**纯函数**,2026-11-04;门 30a 放行判据的唯一实现)。
+ *
+ * 判据(取代原「整树逐字相等」):对悬空提交相对其 parent 的**每一个改动路径**——
+ *   - A/M/T(路径存在):该提交在该路径上的 blob 必须能在**某个可达提交**(refs 面或 reflog 面)
+ *     的**同一路径**上找到逐字同的 blob。少一条路径 ⇒ 不放行。
+ *   - D(路径被删除):必须存在一个可达提交**该路径也不存在**(证据取可达面里该路径的 D 记录),
+ *     而不是只看"HEAD 没有"—— HEAD 可能被别的会话复活。
+ * 刻意**不做路径级豁免**:任何 `startsWith`/扩展名白名单都会把"未覆盖"读成"已覆盖"。
+ *
+ * 为什么不是"整树相等":并发提交夹带会让悬空提交的树与任何可达提交都不同,即便它的每条路径
+ * 内容都已在可达面(2026-11-04 实测 4 枚悬空全部如此形态)—— 整树判据对它们永不命中。
+ *
+ * 证据逐条保留(路径 / blob / 覆盖它的可达提交 / 面来源),用于判绿时的点名与复核。
+ * `entriesByCommit` 取不到(null)或改动面为空(merge/空提交)⇒ 一律落 uncovered(朝红)。
+ */
+function splitByPathCoverage({
+  candidates = [],
+  entriesByCommit = new Map(),
+  coverage = new Map(),
+  deletions = new Map(),
+  problemsByCommit = new Map(),
+  surfaceError = '',
+} = {}) {
+  const covered = []
+  const uncovered = []
+  for (const c of candidates) {
+    const entries = entriesByCommit.get(c)
+    if (!entries) {
+      uncovered.push({
+        hash: c,
+        missing: [],
+        reason: problemsByCommit.get(c) || surfaceError || '逐路径覆盖面取不到',
+      })
+      continue
+    }
+    if (entries.length === 0) {
+      uncovered.push({
+        hash: c,
+        missing: [],
+        reason: '无改动路径(merge / 空提交),逐路径面无法证明覆盖',
+      })
+      continue
+    }
+    const evidence = []
+    const missing = []
+    for (const e of entries) {
+      if (e.status === 'D') {
+        const hit = deletions.get(e.path)
+        if (hit) {
+          evidence.push({
+            path: e.path,
+            status: 'D',
+            blob: '',
+            commit: hit.commit,
+            surface: hit.surface,
+          })
+        } else {
+          missing.push({
+            path: e.path,
+            status: 'D',
+            blob: '',
+            reason: surfaceError
+              ? `删除意图未在可达面生效(${surfaceError})`
+              : '删除意图未在可达面生效',
+          })
+        }
+        continue
+      }
+      const hit = coverage.get(`${e.path}\0${e.blob}`)
+      if (hit) {
+        evidence.push({
+          path: e.path,
+          status: e.status,
+          blob: e.blob,
+          commit: hit.commit,
+          surface: hit.surface,
+        })
+      } else {
+        // 新增路径(A)的判红措辞必须点明"须同路径同 blob":仅凭"别处有同内容"不算覆盖,
+        // 否则一次重命名就会被读成"内容已在"而放行(2026-11-04 判据要求②)。
+        const base =
+          e.status === 'A'
+            ? '新增路径未被任何可达提交覆盖(须同路径同 blob)'
+            : '同路径同 blob 未找到覆盖'
+        missing.push({
+          path: e.path,
+          status: e.status,
+          blob: e.blob,
+          reason: surfaceError ? `${base}(${surfaceError})` : base,
+        })
+      }
+    }
+    // 证据与缺口一并向判红档返回:判红输出要能同时看到"这条已覆盖 / 这条没覆盖",
+    // 否则读的人无法分辨"整枚都没覆盖"与"只差一条路径"。
+    if (missing.length === 0) covered.push({ hash: c, evidence })
+    else uncovered.push({ hash: c, missing, evidence })
+  }
+  return { covered, uncovered }
+}
+
+/** 把路径按 argv 预算切块(`:(literal)` 前缀也计入),避免 Windows 32KB 命令行上限。 */
+function chunkPathspecs(paths) {
+  const chunks = []
+  let cur = []
+  let used = 0
+  for (const p of paths) {
+    const spec = `:(literal)${p}`
+    if (cur.length > 0 && used + spec.length + 1 > PATHSPEC_ARGV_BUDGET) {
+      chunks.push(cur)
+      cur = []
+      used = 0
+    }
+    cur.push(spec)
+    used += spec.length + 1
+  }
+  if (cur.length > 0) chunks.push(cur)
+  return chunks
+}
+
+/** 单条 raw diff 记录 → 覆盖证据表。候选自身(以及所有悬空 commit)必须排除,否则自证循环。 */
+function absorbRawCoverage(entries, surface, coverage, deletions, excludedCommits) {
+  for (const e of entries) {
+    if (!e.commit || excludedCommits.has(e.commit)) continue
+    if (e.status === 'D') {
+      if (!deletions.has(e.path)) deletions.set(e.path, { commit: e.commit, surface })
+      continue
+    }
+    const key = `${e.path}\0${e.blob}`
+    if (!coverage.has(key)) coverage.set(key, { commit: e.commit, surface })
+  }
+}
+
+/**
+ * 逐路径覆盖取材(2026-11-04)。返回**纯数据**,判定在 `splitByPathCoverage`。
+ *
+ * 面拆分:
+ *   - ref 面 = `git log --all --raw`,但**排除隔离/备份 ref**(`refs/tags/lost-commit/*`、
+ *     `refs/tags/backup/*`)。立因:这些 tag 是悬空对象的隔离备份,不是交付面;若把
+ *     "另一会话刚重生成、仅被 auto-tag 兜住、尚未落地"的提交算作覆盖,就会把真缺口读成
+ *     "已另有会话去修"而放行(2026-11-04 实测 b96a9dc2 正是这一格:其 4 条路径仅被
+ *     `lost-commit/auto-108dc87` 覆盖)。这是**收紧**而非放宽:交付面越窄,能放行的越少。
+ *   - reflog 面 = `git log -g --all --raw`(仅对 ref 面未覆盖的路径补查),同样按排除集过滤。
+ * ref 面已覆盖的键不再进 reflog 面:两者对"同路径同 blob"的判定逻辑相同,补查只为防漏;
+ * 覆盖证据里的 surface 字段如实记录是哪个面命中的。
+ *
+ * `excludedCommits` 必须是**全部悬空 commit**(fsck --no-reflogs 的原始集合,含被 filter-stash
+ * 过滤掉的):悬空提交会出现在 HEAD reflog 里,若把它自己算作覆盖面,任何悬空提交都会自证通过。
+ *
+ * 取不到(ref 面失败 / reflog 面失败)一律返回 `surfaceError`,由判定层朝红;绝不把空读数读成
+ * "没有可覆盖的内容"。
+ */
+function derivePathCoverage(candidates, { excludedCommits = new Set() } = {}) {
+  const entriesByCommit = new Map()
+  const problemsByCommit = new Map()
+  const presentPaths = new Set()
+  const deletedPaths = new Set()
+  const firstLine = (e) =>
+    String((e && (e.stderr || e.message)) || e)
+      .split('\n')[0]
+      .slice(0, 160)
+
+  for (const c of candidates) {
+    try {
+      const raw = gitText(
+        ['diff-tree', '--no-commit-id', '-r', '-z', '--raw', '--root', '--no-renames', c],
+        { timeout: SPAWN_DEFAULT_TIMEOUT_MS },
+      )
+      const entries = parseRawDiffZ(raw)
+      entriesByCommit.set(c, entries)
+      for (const e of entries) {
+        if (e.status === 'D') deletedPaths.add(e.path)
+        else presentPaths.add(e.path)
+      }
+    } catch (e) {
+      entriesByCommit.set(c, null)
+      problemsByCommit.set(c, `diff-tree 取不到:${firstLine(e)}`)
+    }
+  }
+
+  const coverage = new Map()
+  const deletions = new Map()
+  const queryPaths = [...new Set([...presentPaths, ...deletedPaths])].sort()
+  if (queryPaths.length === 0)
+    return { entriesByCommit, coverage, deletions, problemsByCommit, surfaceError: '' }
+
+  const walk = (baseArgs, paths) => {
+    const out = []
+    for (const chunk of chunkPathspecs(paths)) {
+      const stdout = gitText(
+        [...baseArgs, `--format=${RAW_COMMIT_MARKER}%H`, '--', ...chunk],
+        { timeout: PATH_COVERAGE_TIMEOUT_MS },
+      )
+      out.push(...parseRawDiffZ(stdout, { withCommit: true }))
+    }
+    return out
+  }
+
+  try {
+    const refEntries = walk(
+      [
+        'log',
+        // 顺序敏感:`--exclude` 必须写在 `--all` 之前才作用于它。
+        '--exclude=refs/tags/lost-commit/*',
+        '--exclude=refs/tags/backup/*',
+        '--all',
+        '--raw',
+        '--no-abbrev',
+        '-z',
+        '--no-renames',
+        '--root',
+      ],
+      queryPaths,
+    )
+    absorbRawCoverage(refEntries, 'ref', coverage, deletions, excludedCommits)
+  } catch (e) {
+    return {
+      entriesByCommit,
+      coverage: new Map(),
+      deletions: new Map(),
+      problemsByCommit,
+      surfaceError: `ref 面取不到:${firstLine(e)}`,
+    }
+  }
+
+  // 仅对 ref 面没覆盖到的路径补查 reflog 面(含"删除意图"未在 ref 面生效的路径)
+  const leftoverPresent = new Set()
+  const leftoverDeleted = new Set()
+  for (const entries of entriesByCommit.values()) {
+    if (!entries) continue
+    for (const e of entries) {
+      if (e.status === 'D') {
+        if (!deletions.has(e.path)) leftoverDeleted.add(e.path)
+      } else if (!coverage.has(`${e.path}\0${e.blob}`)) {
+        leftoverPresent.add(e.path)
+      }
+    }
+  }
+  const reflogPaths = [...new Set([...leftoverPresent, ...leftoverDeleted])].sort()
+  if (reflogPaths.length > 0) {
+    try {
+      const reflogEntries = walk(
+        ['log', '-g', '--all', '--raw', '--no-abbrev', '-z', '--no-renames', '--root'],
+        reflogPaths,
+      )
+      absorbRawCoverage(reflogEntries, 'reflog', coverage, deletions, excludedCommits)
+    } catch (e) {
+      return {
+        entriesByCommit,
+        coverage,
+        deletions,
+        problemsByCommit,
+        surfaceError: `reflog 面取不到(剩余路径按未覆盖判):${firstLine(e)}`,
+      }
+    }
+  }
+  return { entriesByCommit, coverage, deletions, problemsByCommit, surfaceError: '' }
 }
 
 /**
@@ -1611,6 +1934,7 @@ async function main() {
     strict: isStrict ? 1 : 0,
     filterStash: isFilterStash ? 1 : 0,
     tagFingerprint: backupTagFingerprint(lostTags, backups),
+    coverageVersion: COVERAGE_FACE_VERSION,
   })
   console.log(
     `  ${C.dim}悬空 commit 量纲:${C.reset}` +
@@ -1976,7 +2300,14 @@ async function main() {
     // `git log --all` 的 (树,题) 键集两元同时相等;索引取不到(log 派生失败/空读数)
     // ⇒ 白名单整体失效,维持 blocking(fail-safe 朝红,绝不朝绿)。
     // 白名单放行**不静默**:逐条点名打在 stdout(见下方 whitelistedSameContent 打印)。
-    const { unbacked, whitelistedSameContent, treeEquivalentResidual, subjectByHash } = (() => {
+    const {
+      unbacked,
+      whitelistedSameContent,
+      treeEquivalentResidual,
+      pathCovered,
+      pathCoverageGaps,
+      subjectByHash,
+    } = (() => {
       const candidates = unreachable.filter((c) => !backedUp.has(c))
       // ① subject 内嵌原 hash 匹配(stash-like 指向已备份 base)
       // 2026-10-30:原为 BATCH=50 的 argv 分批 ⇒ 本仓 15,947 枚候选 = 220 次派生 ≈ **109 秒**,
@@ -1992,8 +2323,17 @@ async function main() {
       }
       const whitelistedSameContent = []
       const treeEquivalentResidual = []
+      const pathCovered = []
+      const pathCoverageGaps = new Map()
       if (survivors.length === 0)
-        return { unbacked: survivors, whitelistedSameContent, treeEquivalentResidual, subjectByHash }
+        return {
+          unbacked: survivors,
+          whitelistedSameContent,
+          treeEquivalentResidual,
+          pathCovered,
+          pathCoverageGaps,
+          subjectByHash,
+        }
       // ② tree 等价放行(stash WIP/index commit 树与 base 恒等)
       const treeByCommit = new Map()
       try {
@@ -2035,8 +2375,38 @@ async function main() {
           whitelistedSameContent.push(...split.sameContent)
           treeEquivalentResidual.push(...split.treeEquivalent)
         }
+        // ④ 逐路径覆盖放行(2026-11-04):取代原「整树逐字相等」判据。
+        // 并发提交夹带让悬空提交的树与任何可达提交都不同,但它的每条改动路径的 blob 可能都已在
+        // 可达面同路径上 ⇒ 内容没丢。判定与取材分离:derive 只派生数据,split 做纯判定。
+        // 排除集必须是**全部悬空 commit**(含被 filter-stash 滤掉的):它们会出现在 HEAD reflog,
+        // 若算作覆盖面,任何悬空提交都能自证通过。
+        if (rest.length > 0) {
+          mark(`path-coverage(${rest.length})`)
+          const derived = derivePathCoverage(rest, {
+            excludedCommits: new Set(rawUnreachable),
+          })
+          const splitPaths = splitByPathCoverage({
+            candidates: rest,
+            entriesByCommit: derived.entriesByCommit,
+            coverage: derived.coverage,
+            deletions: derived.deletions,
+            problemsByCommit: derived.problemsByCommit,
+            surfaceError: derived.surfaceError,
+          })
+          pathCovered.push(...splitPaths.covered)
+          for (const u of splitPaths.uncovered) pathCoverageGaps.set(u.hash, u)
+          rest = splitPaths.uncovered.map((u) => u.hash)
+          mark(`path-coverage-done(covered=${pathCovered.length})`)
+        }
       }
-      return { unbacked: rest, whitelistedSameContent, treeEquivalentResidual, subjectByHash }
+      return {
+        unbacked: rest,
+        whitelistedSameContent,
+        treeEquivalentResidual,
+        pathCovered,
+        pathCoverageGaps,
+        subjectByHash,
+      }
     })()
     if (whitelistedSameContent.length > 0) {
       console.log(
@@ -2063,13 +2433,43 @@ async function main() {
         )
       }
     }
+    // 逐路径覆盖放行(2026-11-04):与"等价残留"同样不阻塞,但证据必须逐条可见 ——
+    // 判绿时也要能回答"哪条路径由哪个可达提交覆盖",否则下一次判红无从复核。
+    if (pathCovered.length > 0) {
+      console.log(
+        `  ${C.dim}↳ 逐路径覆盖放行 ${pathCovered.length} 个(相对 parent 的每条改动路径,其 blob 均能在可达面同路径找到逐字同副本:内容未丢,仅提交身份未入库):${C.reset}`,
+      )
+      for (const { hash, evidence } of pathCovered.slice(0, 10)) {
+        const subj = subjectByHash.get(hash) || ''
+        console.log(
+          `  ${C.dim}   ↳ 放行:${C.cyan}${hash.slice(0, SHORT_HASH_LEN)}${C.reset} ${C.dim}${subj.slice(0, 80)}${C.reset}`,
+        )
+        for (const e of evidence) {
+          const blobPart = e.blob ? ` blob=${e.blob.slice(0, SHORT_HASH_LEN)}` : ''
+          const coverPart = e.commit
+            ? ` ← ${e.commit.slice(0, SHORT_HASH_LEN)} (${e.surface})`
+            : ' ← ?'
+          console.log(`  ${C.dim}        ${e.status} ${e.path}${blobPart}${coverPart}${C.reset}`)
+        }
+      }
+    }
     if (unreachable.length > 0) {
-      // 三档出处一览(2026-11-03 判据补细):已备份 / 同内容副本 / 等价残留 / 待处置。
+      // 分档出处一览(2026-11-03 判据补细;2026-11-04 增"逐路径覆盖"档):
+      // 已备份 / 同内容副本 / 等价残留 / 逐路径覆盖 / 待处置。
       // 逐档报数是为了让"门绿了"仍能读出存量里有几枚对象滞留、各是什么出处。
-      const backedOut = unreachable.length - whitelistedSameContent.length - treeEquivalentResidual.length - unbacked.length
+      const backedOut =
+        unreachable.length -
+        whitelistedSameContent.length -
+        treeEquivalentResidual.length -
+        pathCovered.length -
+        unbacked.length
+      // 只有真的出现逐路径覆盖档才加这一桶:老仓的存量账(0 枚)保持原有行形状,
+      // 免得下游按行解析的消费者(以及镜像测试)因为多一个 0 而读不到。
+      const coverageBucket = pathCovered.length > 0 ? ` / 逐路径覆盖 ${pathCovered.length}` : ''
       console.log(
         `  ${C.dim}↳ 悬空分档:已备份 ${backedOut} / 同内容副本 ${whitelistedSameContent.length}` +
-          ` / 等价残留 ${treeEquivalentResidual.length} / 待处置 ${unbacked.length}${C.reset}`,
+          ` / 等价残留 ${treeEquivalentResidual.length}${coverageBucket}` +
+          ` / 待处置 ${unbacked.length}${C.reset}`,
       )
     }
     if (unbacked.length > 0) {
@@ -2148,6 +2548,31 @@ async function main() {
           }
           if (win.blocking.length > 10)
             console.log(`  ${C.dim}   ↳ …另有 ${win.blocking.length - 10} 个未显示${C.reset}`)
+          // 2026-11-04 判据要求:判红必须点名"哪条路径的哪个 blob 没找到覆盖",并给出可直接
+          // 执行的复核命令。逐枚全量打印(不受上面 10 枚上限约束),否则被截断的那几枚无从处置。
+          for (const c of win.blocking) {
+            const gap = pathCoverageGaps.get(c)
+            if (!gap) continue
+            if (gap.reason)
+              console.log(`  ${C.yellow}   逐路径复核未判:${gap.reason}${C.reset}`)
+            // 先列该枚已覆盖的路径(如有):判红读数要能一眼分清"整枚都没覆盖"与"只差几条"。
+            for (const e of gap.evidence || []) {
+              const blobPart = e.blob ? ` blob=${e.blob.slice(0, SHORT_HASH_LEN)}` : ''
+              const coverPart = e.commit ? ` ← ${e.commit.slice(0, SHORT_HASH_LEN)} (${e.surface})` : ''
+              console.log(
+                `  ${C.dim}   ↳ 已覆盖:${e.status} ${e.path}${blobPart}${coverPart}${C.reset}`,
+              )
+            }
+            for (const m of gap.missing || []) {
+              const blobPart = m.blob ? ` blob=${m.blob.slice(0, SHORT_HASH_LEN)}` : ''
+              console.log(
+                `  ${C.yellow}   ↳ 未覆盖:${m.status} ${m.path}${blobPart} — ${m.reason}${C.reset}`,
+              )
+              console.log(
+                `  ${C.dim}      复核:git log --all --raw --no-renames -- "${m.path}"${C.reset}`,
+              )
+            }
+          }
         }
         blocking = true
       } else if (win.outOfWeek.length > 0) {
@@ -2162,10 +2587,10 @@ async function main() {
         // 认档吃这句);含等价残留时点名,避免把"内容已入库、只是提交身份没入库"
         // 读成"tag 备份了"。分档明细另有一行恒打印(见上方「悬空分档」)。
         issues.push(
-          treeEquivalentResidual.length === 0
+          treeEquivalentResidual.length === 0 && pathCovered.length === 0
             ? `${unreachable.length} 个悬空 commit 已全部 tag 备份(防止 git gc 清理)`
-            : `${unreachable.length} 个悬空 commit 已全部有出处(已备份 / 同内容副本 / 等价残留 ${treeEquivalentResidual.length});` +
-              `等价残留的树与可达提交逐字同,内容未丢,仅提交身份未入库`,
+            : `${unreachable.length} 个悬空 commit 已全部有出处(已备份 / 同内容副本 / 等价残留 ${treeEquivalentResidual.length}` +
+              ` / 逐路径覆盖 ${pathCovered.length});等价残留与逐路径覆盖的内容均未丢,仅提交身份未入库`,
         )
       }
       // `--list-out-of-window`:超窗那一批的机器可读名单(每行一枚完整 oid,与 --list-unbacked 同形,
@@ -2360,6 +2785,10 @@ export const __test__ = {
   // 同内容残留分档(2026-11-03):树+题逐字同 / 仅树逐字同 / 待处置
   reachableTreeSet,
   splitReachableSameContent,
+  // 逐路径覆盖(2026-11-04):取代「整树相等」放行判据的解析与判定
+  parseRawDiffZ,
+  splitByPathCoverage,
+  derivePathCoverage,
   // 时间窗量纲(2026-10-11):判据、取值、派生出口三者都必须可被测试直接消费,
   // 免得镜像那边再抄一份"cutoff = now - days*86400"的算术 —— 抄的那份不与源同步。
   WINDOW_DAYS_DEFAULT,

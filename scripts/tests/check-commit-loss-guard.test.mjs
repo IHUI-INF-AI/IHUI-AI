@@ -397,6 +397,223 @@ test('真丢失对照: 树不在可达历史里 → 仍 blocking(判据没被摘
   }
 })
 
+// ─── 逐路径覆盖判据(2026-11-04,取代「整树相等」)────────────────
+
+test('逐路径覆盖解析: raw -z 记录解析(A/M/D)且截断/坏头必须抛', () => {
+  const A = 'a'.repeat(40)
+  const B = 'b'.repeat(40)
+  const Z = '0'.repeat(40)
+  const meta = (oldSha, newSha, status) => `:100644 100644 ${oldSha} ${newSha} ${status}`
+  const entries = __test__.parseRawDiffZ(
+    `${meta(Z, A, 'A')}\0add.txt\0${meta(A, B, 'M')}\0mod.txt\0${meta(B, Z, 'D')}\0del.txt\0`,
+  )
+  assert.deepEqual(
+    entries.map((e) => [e.status, e.path, e.blob]),
+    [
+      ['A', 'add.txt', A],
+      ['M', 'mod.txt', B],
+      ['D', 'del.txt', Z],
+    ],
+  )
+  assert.throws(() => __test__.parseRawDiffZ(`:badheader\0x.txt\0`), /raw diff/)
+  // 只有记录头、没有路径段 = 输出被截断 ⇒ 必须抛(不得读成"没有改动")
+  assert.throws(() => __test__.parseRawDiffZ(meta(A, B, 'M')), /缺路径段/)
+})
+
+test('逐路径覆盖判定: 全覆盖放行 / 任一未覆盖点名 / 同内容不同路径不算 / 删除须见可达面删除记录', () => {
+  const A = 'a'.repeat(40)
+  const B = 'b'.repeat(40)
+  const C = 'c'.repeat(40)
+  const Z = '0'.repeat(40)
+  const entriesByCommit = new Map([
+    [
+      'c-full',
+      [
+        { status: 'M', path: 'x.txt', blob: A },
+        { status: 'A', path: 'y.txt', blob: B },
+      ],
+    ],
+    [
+      'c-part',
+      [
+        { status: 'M', path: 'x.txt', blob: A },
+        { status: 'A', path: 'z.txt', blob: C },
+      ],
+    ],
+    ['c-same-content-other-path', [{ status: 'A', path: 'new.txt', blob: B }]],
+    ['c-del-ok', [{ status: 'D', path: 'gone.txt', blob: Z }]],
+    ['c-del-bad', [{ status: 'D', path: 'keep.txt', blob: Z }]],
+    ['c-null', null],
+  ])
+  const coverage = new Map([
+    [`x.txt\0${A}`, { commit: 'c1', surface: 'ref' }],
+    [`y.txt\0${B}`, { commit: 'c2', surface: 'reflog' }],
+  ])
+  const deletions = new Map([['gone.txt', { commit: 'c3', surface: 'ref' }]])
+  const split = __test__.splitByPathCoverage({
+    candidates: [...entriesByCommit.keys()],
+    entriesByCommit,
+    coverage,
+    deletions,
+    problemsByCommit: new Map([['c-null', 'diff-tree 取不到:boom']]),
+  })
+  assert.deepEqual(
+    split.covered.map((x) => x.hash),
+    ['c-full', 'c-del-ok'],
+    '每条路径都有同路径同 blob/删除记录的四舍五入才放行',
+  )
+  const gap = new Map(split.uncovered.map((u) => [u.hash, u]))
+  assert.equal(gap.get('c-part').missing[0].path, 'z.txt', '未覆盖路径必须点名')
+  assert.equal(
+    gap.get('c-same-content-other-path').missing[0].path,
+    'new.txt',
+    '同内容只在别处文件名 ⇒ 不得放行(防重命名误判)',
+  )
+  assert.equal(gap.get('c-del-bad').missing[0].reason, '删除意图未在可达面生效')
+  assert.equal(gap.get('c-null').reason, 'diff-tree 取不到:boom', '取材失败必须朝红')
+  assert.equal(split.covered[0].evidence[0].surface, 'ref', '证据必须记录覆盖面')
+  assert.equal(split.covered[0].evidence[1].surface, 'reflog', '证据必须记录覆盖面')
+})
+
+test('逐路径覆盖·端到端: 树与任何可达提交都不同,但每条改动路径同路径同 blob ⇒ 放行并逐条给证据', () => {
+  const dir = createTempRepo()
+  const git = (cmd) => execSync(cmd, { cwd: dir, stdio: 'ignore' })
+  try {
+    // 两个可达提交分别覆盖 a.txt / b.txt 的新 blob;没有任何可达树同时含两者。
+    git('git checkout -b side-a')
+    writeFileSync(join(dir, 'a.txt'), 'vA\n')
+    git('git add a.txt')
+    git('git commit -m "land-a"')
+    git('git checkout main')
+    git('git checkout -b side-b')
+    writeFileSync(join(dir, 'b.txt'), 'vB\n')
+    git('git add b.txt')
+    git('git commit -m "land-b"')
+    git('git checkout main')
+    // 悬空提交的树 = {README, a:vA, b:vB};与 side-a/side-b/main 的树都不同(并发夹带形态)
+    git('git checkout -b temp-concurrency')
+    writeFileSync(join(dir, 'a.txt'), 'vA\n')
+    writeFileSync(join(dir, 'b.txt'), 'vB\n')
+    git('git add a.txt b.txt')
+    git('git commit -m "concurrency-dangling"')
+    git('git checkout main')
+    git('git branch -D temp-concurrency')
+    const r = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    assert.equal(
+      r.status,
+      0,
+      `逐路径全覆盖应放行 exit 0,实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
+    )
+    assert.match(r.stdout, /逐路径覆盖放行 1 个/, '放行必须点名,不得静默')
+    assert.match(r.stdout, /a\.txt/, '证据应逐条列出被覆盖的路径')
+    assert.match(r.stdout, /b\.txt/, '证据应逐条列出被覆盖的路径')
+    assert.match(r.stdout, /\(ref\)/, '证据应标明覆盖面')
+    assert.match(r.stdout, /悬空分档:.*逐路径覆盖 1/, '分档行必须报数')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('逐路径覆盖·端到端: 有一条路径未覆盖 ⇒ 判红并点名该路径与 blob + 复核命令', () => {
+  const dir = createTempRepo()
+  const git = (cmd) => execSync(cmd, { cwd: dir, stdio: 'ignore' })
+  try {
+    git('git checkout -b side-a')
+    writeFileSync(join(dir, 'a.txt'), 'vA\n')
+    git('git add a.txt')
+    git('git commit -m "land-a"')
+    git('git checkout main')
+    // a.txt 的 blob 已被 side-a 覆盖;lost-unique.txt 只存在于悬空提交里
+    git('git checkout -b temp-partial')
+    writeFileSync(join(dir, 'a.txt'), 'vA\n')
+    writeFileSync(join(dir, 'lost-unique.txt'), 'never-landed\n')
+    git('git add a.txt lost-unique.txt')
+    git('git commit -m "partial-dangling"')
+    git('git checkout main')
+    git('git branch -D temp-partial')
+    const r = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    assert.equal(
+      r.status,
+      1,
+      `有路径未覆盖必须判红,实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
+    )
+    assert.match(r.stdout, /未覆盖:A lost-unique\.txt blob=/, '判红必须点名未覆盖路径与 blob')
+    assert.match(
+      r.stdout,
+      /复核:git log --all --raw --no-renames -- "lost-unique\.txt"/,
+      '判红必须给出可直接执行的复核命令',
+    )
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('逐路径覆盖·端到端: 新增路径只有"同内容不同路径" ⇒ 判红(防重命名误判成已覆盖)', () => {
+  const dir = createTempRepo()
+  const git = (cmd) => execSync(cmd, { cwd: dir, stdio: 'ignore' })
+  try {
+    writeFileSync(join(dir, 'other.txt'), 'shared-content\n')
+    git('git add other.txt')
+    git('git commit -m "add-other"')
+    git('git checkout -b temp-renamed')
+    writeFileSync(join(dir, 'new-name.txt'), 'shared-content\n')
+    git('git add new-name.txt')
+    git('git commit -m "add-new-name"')
+    git('git checkout main')
+    git('git branch -D temp-renamed')
+    const r = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    assert.equal(
+      r.status,
+      1,
+      `同内容不同路径不得放行,实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
+    )
+    assert.match(r.stdout, /未覆盖:A new-name\.txt/, '未覆盖的新增路径必须点名')
+    assert.doesNotMatch(r.stdout, /逐路径覆盖放行 1 个/, '不得按"别处有同内容"放行')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('逐路径覆盖·端到端: 删除路径的意图未在可达面生效 ⇒ 判红并点名该路径', () => {
+  const dir = createTempRepo()
+  const git = (cmd) => execSync(cmd, { cwd: dir, stdio: 'ignore' })
+  try {
+    // keep.txt 在可达面一直存在(没有任何可达提交删过它)
+    writeFileSync(join(dir, 'keep.txt'), 'keep-me\n')
+    git('git add keep.txt')
+    git('git commit -m "add-keep"')
+    // 另两条可达路径各自覆盖 a.txt / b.txt,保证悬空树不等于任何可达树(否则会先落"等价残留")
+    git('git checkout -b side-a')
+    writeFileSync(join(dir, 'a.txt'), 'vA\n')
+    git('git add a.txt')
+    git('git commit -m "land-a"')
+    git('git checkout main')
+    git('git checkout -b side-b')
+    writeFileSync(join(dir, 'b.txt'), 'vB\n')
+    git('git add b.txt')
+    git('git commit -m "land-b"')
+    git('git checkout main')
+    // 悬空提交:删除 keep.txt,同时带上 a:vA / b:vB(树 = {README,a,b},不可达)
+    git('git checkout -b temp-del')
+    execFileSync('git', ['rm', 'keep.txt'], { cwd: dir, stdio: 'ignore' })
+    writeFileSync(join(dir, 'a.txt'), 'vA\n')
+    writeFileSync(join(dir, 'b.txt'), 'vB\n')
+    git('git add a.txt b.txt')
+    git('git commit -m "delete-keep-dangling"')
+    git('git checkout main')
+    git('git branch -D temp-del')
+    const r = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    assert.equal(
+      r.status,
+      1,
+      `删除意图未在可达面生效必须判红,实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
+    )
+    assert.match(r.stdout, /未覆盖:D keep\.txt — 删除意图未在可达面生效/, '必须点名删除路径')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
 // ─── lost-commit/* 和 backup/* tag 检测 ─────────────────
 
 test('检测: lost-commit/* tag 存在 → stdout 列出', () => {
