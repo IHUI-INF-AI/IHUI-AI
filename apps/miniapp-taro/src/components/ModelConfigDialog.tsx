@@ -86,8 +86,6 @@ export interface ModelConfigDialogProps {
   variables?: AigcVariable[]
   /** aigc variant:当前模型名(用于判断视频模型) */
   modelName?: string
-  /** aigc variant:是否 VIP(水印禁用判定) */
-  isVip?: number
   /** aigc variant:系统音色列表(默认使用内置 SYSTEM_VOICES) */
   systemVoices?: Array<string | SelecterOptionObj>
 }
@@ -164,7 +162,6 @@ export default function ModelConfigDialog({
   onClose,
   variables = [],
   modelName = '',
-  isVip = 0,
   systemVoices = SYSTEM_VOICES,
 }: ModelConfigDialogProps) {
   const tt = useTt()
@@ -795,7 +792,6 @@ export default function ModelConfigDialog({
                       item.value as Array<string | SelecterOptionObj | Record<string, unknown>>
                     }
                     desc={item.desc}
-                    isVip={isVip}
                     onChange={(val) => setConfigValue(item.name, val)}
                   />
                 </View>
