@@ -190,23 +190,41 @@ export function findSigIssue(root, sigs) {
 }
 
 /**
- * 把"验签失败"按**签发时的三样东西**逐格比对，点名到底是哪一格变了：
- *   `subject` 变 ⇒ **上游消息污染**（多会话共用 `.git/COMMIT_EDITMSG`，标题来自别席），
- *              这不是本判据的缺陷，也**不据此放宽标题绑定**；
- *   `paths`   变 ⇒ 路径集漂移（v1 的 HEAD 前移假红 / 索引内容真被改），v2 已钉 base 应能挡住前者；
- *   `blobs`   变 ⇒ 路径没变但内容被换（v1 结构上就看不见这一格）。
- * 三格都同而签名仍不过 ⇒ 密钥不对或抄了别处的签名（归 `key-mismatch`）。
- * 这是**判别器**，不是判定器：返回值只进报告，不参与 exit code。
+ * 把"验签失败"按**签发时的三样东西**逐格比对，点名到底是哪一格变了。
+ *
+ * 2026-11-04 校正：路径集不一致**不是一个成因**，必须再按"包含方向"分角——两种真实现场都在这天
+ * 同一仓里出现过，混成一句"路径集不一致"会把上游问题指成判据问题：
+ *   `subject` 变、路径集不变 ⇒ `subject-polluted`（**②** 多会话共用 `.git/COMMIT_EDITMSG`，
+ *              标题来自别席）。这是上游问题，不是判据缺陷，也**不据此放宽标题绑定**；
+ *   `paths` 变、标题不变 ⇒ 再分三种：
+ *     · 签名路径集 ⊆ 实际命中面（`missing` 为空，`extra` 非空）⇒ `path-set-drift`（**①** 取数面
+ *       在签发后**变宽**：HEAD 前移/共享索引在签发后被别席加条目。真篡改只会"变宽"这一侧被
+ *       签名挡住，v2 钉 base 后这一型应消失）；
+ *     · 签名路径集 ⊃ 实际命中面（`missing` 非空，`extra` 为空）⇒ `signed-set-superset`
+ *       （签发用的索引比提交用的索引宽，常见"签了共享索引、提交用更窄的私有索引"）；
+ *     · 两边都有（`missing` 与 `extra` 都非空）⇒ `message-from-other-commit`（**②** 整条消息
+ *       串号：签名行连同标题一起来自另一条提交，签的根本不是这批路径——注意此时标题对比
+ *       **会显示一致**，因为串号把标题也一起换掉了，只靠标题比对无法发现）；
+ *   `blobs` 变而路径集不变 ⇒ `blob-drift`（内容被换，v1 结构上就看不见这一格）。
+ * 三格都同而签名仍不过 ⇒ 密钥不对或抄了别处的签名（归 `key-or-signature-mismatch`）。
+ *
+ * 这是**判别器**，不是判定器：返回值只进报告，不参与 exit code（判红仍是判红）。
  */
 export function decomposeSigMismatch(issued, actual) {
   const iPaths = [...new Set((issued?.paths ?? []).map((p) => normalizeRel(p)))].sort()
   const aPaths = [...new Set((actual?.paths ?? []).map((p) => normalizeRel(p)))].sort()
   const paths = iPaths.length !== aPaths.length || iPaths.some((p, i) => p !== aPaths[i])
   const subject = String(issued?.subject ?? '').trim() !== String(actual?.subject ?? '').trim()
+  const missing = iPaths.filter((p) => !aPaths.includes(p))
+  const extra = aPaths.filter((p) => !iPaths.includes(p))
   let blobs = false
   const iBlobs = issued?.blobs && typeof issued.blobs === 'object' ? issued.blobs : null
-  if (iBlobs && !paths) {
+  // 只有在**两边都出现**的路径上比内容号才有意义：一侧没有的路径已由 missing/extra 点名。
+  // 2026-11-04 补：此前只在"路径集完全相同"时才比 blob，`path-and-blob-drift` 实际不可达；
+  // 共有路径内容也变时，只报"路径集漂移"会让作者重签后再次因 blob 不符判红。
+  if (iBlobs) {
     for (const p of iPaths) {
+      if (!aPaths.includes(p)) continue
       if (String(iBlobs[p] ?? '') !== String(actual?.blobs?.[p] ?? '')) {
         blobs = true
         break
@@ -215,11 +233,15 @@ export function decomposeSigMismatch(issued, actual) {
   }
   let cause
   if (subject && !paths && !blobs) cause = 'subject-polluted'
-  else if (!subject && paths) cause = 'path-set-drift'
   else if (!subject && !paths && blobs) cause = 'blob-drift'
-  else if (subject && paths) cause = 'subject-and-paths'
+  else if (!subject && paths && blobs) cause = 'path-and-blob-drift'
+  else if (!subject && paths) {
+    if (missing.length && extra.length) cause = 'message-from-other-commit'
+    else if (missing.length) cause = 'signed-set-superset'
+    else cause = 'path-set-drift'
+  } else if (subject && paths) cause = 'subject-and-paths'
   else cause = 'key-or-signature-mismatch'
-  return { subject, paths, blobs, cause, issuedPaths: iPaths, actualPaths: aPaths }
+  return { subject, paths, blobs, cause, missing, extra, issuedPaths: iPaths, actualPaths: aPaths }
 }
 
 /**
@@ -731,18 +753,34 @@ export function formatReport(out) {
         )
         if (m.cause === 'subject-polluted')
           lines.push(
-            '     · 标题那一格不一致而路径集与内容一致 ⇒ **上游消息污染**：多会话共用 `.git/COMMIT_EDITMSG`，标题取自别席。' +
+            '     · 标题那一格不一致而路径集与内容一致 ⇒ **上游消息污染（②）**：多会话共用 `.git/COMMIT_EDITMSG`，标题取自别席。' +
               '这只推翻"标题绑定"，不推翻签名语义——本判据**不放宽**标题；治本在提交侧（私有消息文件 + 提交后回读自证），修好后本条判据仍照旧生效。' +
               '可执行自查：把你写到消息文件的标题与 `git log -1 --format=%s <sha>` 直接对照。',
           )
         else if (m.cause === 'path-set-drift')
           lines.push(
-            '     · 标题一致而路径集不一致 ⇒ 索引侧变了：v2 已按签名钉住的 base 重放差异集，若仍不一致，说明暂存内容真的多/少了受保护路径（不是 HEAD 前移的假红）。',
+            `     · 标题一致、签名路径集是实际命中面的**子集**（本次多出：${m.extra.join('、') || '无'}）⇒ **① 取数面在签发后变宽**（HEAD 前移 / 同一索引在签发后被别席加条目）。` +
+              'v2 已按签名钉住的 base 重放差异集，若这型仍出现，说明签发时用的不是私有索引；不是内容篡改，也不是判据过宽。',
+          )
+        else if (m.cause === 'signed-set-superset')
+          lines.push(
+            `     · 标题一致、签名路径集**比实际命中面宽**（签名有、本次没有：${m.missing.join('、') || '无'}）⇒ 签发时读到的索引比提交用的索引宽（常见：签了共享索引、提交用了更窄的私有索引）。` +
+              '重签一次即可，判据不放宽。',
+          )
+        else if (m.cause === 'message-from-other-commit')
+          lines.push(
+            `     · 签名路径集与实际命中面**互不包含**（签名有、本次没有：${m.missing.join('、') || '无'}；本次有、签名没有：${m.extra.join('、') || '无'}）⇒ **整条消息（含签名行）串号（②）**：这条签名是给另一条提交签的，不是本席路径集被篡改。` +
+              '注意此时"标题"一格会显示一致——串号把标题也一起换掉了，只比标题发现不了，必须比路径集的包含方向。' +
+              '治本在提交侧（私有消息文件 + 提交后回读自证）；本判据不因此放宽。',
           )
         else if (m.cause === 'blob-drift')
           lines.push(
             '     · 路径集不变而内容号变了 ⇒ 同一路径被换内容（可能是 pre-commit 格式化改写了文件）：以最终提交的字节重新 --sign-staged，不要跳过签名。',
           )
+        else if (m.cause === 'path-and-blob-drift')
+          lines.push('     · 路径集与内容号都不一致 ⇒ 索引内容整体被替换；按实际暂存集与内容重新签发。')
+        else if (m.cause === 'subject-and-paths')
+          lines.push('     · 标题与路径集同时不一致 ⇒ 消息与索引都被换过；先确认提交用的索引与消息都属于本席，再重签。')
       }
       // 两句"为什么"分档给:上一句把 sig-invalid 也说成"窗口到期"是**会指错方向**的成因
       // (作者会去补理由,而真因只是签早了/签错了范围)。
@@ -1950,6 +1988,239 @@ export function selfTest() {
     )
   })
 
+  // ST49 ② 整条消息串号：签名行是给**另一条提交**（另一批受保护路径）签的，与本次命中集互不包含。
+  // 这型的关键是"标题也可以一致"——串号把标题一起换掉，只比标题发现不了；必须比路径集包含方向。
+  run((root) => {
+    const reason = '整条消息串号的反例：签名属于另一批路径'
+    const subject = 'fix: message swapped from another session'
+    const ours = 'scripts/lib/face-reader.mjs'
+    const other = 'scripts/guardian-runner.mjs'
+    const idxSign = path.join(root, '.git', 'st-index-sign')
+    const idxCommit = path.join(root, '.git', 'st-index-commit')
+    let out
+    try {
+      writeIn(root, other, '// other\n')
+      process.env.GIT_INDEX_FILE = idxSign
+      gitRaw(['read-tree', 'HEAD'], root)
+      gitRaw(['add', '--', other], root)
+      process.env[KEY_ENV] = ST_KEY
+      const signed = signStaged(root, { subject, reason, paths: [other] })
+      const msg = `${subject}\n\n${EXEMPT_TRAILER} ${reason}\n${SIG_TRAILER} ${signed.sig}`
+      writeIn(root, ours, '// ours\n')
+      process.env.GIT_INDEX_FILE = idxCommit
+      gitRaw(['read-tree', 'HEAD'], root)
+      gitRaw(['add', '--', ours], root)
+      out = audit(root, 'staged', { message: msg, key: ST_KEY })
+    } finally {
+      delete process.env[KEY_ENV]
+      delete process.env.GIT_INDEX_FILE
+    }
+    ok(
+      'ST49 ② 签名属于另一批路径（与本次命中互不包含）⇒ 仍红，且判别点名 message-from-other-commit',
+      out.exit === 1 &&
+        out.code === 'undeclared-unsigned' &&
+        out.signature.code === 'sig-invalid' &&
+        out.sigMismatch?.cause === 'message-from-other-commit' &&
+        out.sigMismatch?.missing.includes(other) &&
+        out.sigMismatch?.extra.includes(ours),
+      JSON.stringify({ exit: out.exit, code: out.code, sig: out.signature?.code, mismatch: out.sigMismatch ?? null }),
+    )
+  })
+
+  // ST50 签发面比提交面宽（签了共享索引，提交用更窄的私有索引）⇒ 判红但成因必须点名 signed-set-superset。
+  run((root) => {
+    const reason = '签发面比提交面宽的反例'
+    const subject = 'fix: sign wider than commit'
+    const ours = 'scripts/lib/face-reader.mjs'
+    const other = 'scripts/guardian-runner.mjs'
+    const idx = path.join(root, '.git', 'st-index')
+    let out
+    try {
+      writeIn(root, ours, '// ours\n')
+      writeIn(root, other, '// other\n')
+      process.env.GIT_INDEX_FILE = idx
+      gitRaw(['read-tree', 'HEAD'], root)
+      gitRaw(['add', '--', ours, other], root)
+      process.env[KEY_ENV] = ST_KEY
+      const signed = signStaged(root, { subject, reason, paths: [ours, other] })
+      const msg = `${subject}\n\n${EXEMPT_TRAILER} ${reason}\n${SIG_TRAILER} ${signed.sig}`
+      // 提交面比签发面窄：把 other 的索引条目复位到 HEAD（不删工作树、不产生 D 状态）。
+      // 不能用 `git rm --cached`：other 若在 HEAD 里，那会留下一条 D 命中，路径集就不只是"少一条"。
+      gitRaw(['reset', '-q', 'HEAD', '--', other], root)
+      out = audit(root, 'staged', { message: msg, key: ST_KEY })
+    } finally {
+      delete process.env[KEY_ENV]
+      delete process.env.GIT_INDEX_FILE
+    }
+    ok(
+      'ST50 签名面比提交面宽 ⇒ 仍红，且判别点名 signed-set-superset',
+      out.exit === 1 &&
+        out.code === 'undeclared-unsigned' &&
+        out.signature.code === 'sig-invalid' &&
+        out.sigMismatch?.cause === 'signed-set-superset' &&
+        out.sigMismatch?.missing.includes(other),
+      JSON.stringify({ exit: out.exit, code: out.code, sig: out.signature?.code, mismatch: out.sigMismatch ?? null }),
+    )
+  })
+
+  // ST51 recordSigIssue.base：签发台账必须记住"签给哪个 base 的哪批内容号"。
+  // 为什么正确：没有 base ⇒ 事后验签失败时无法按"当时那一面"重放，只能看到"路径集不一致"，
+  // 分不出①HEAD 前移与②消息串号；没有 blob ⇒ 无法判断同一路径内容是否被换。台账两格都在，才可对账。
+  run((root) => {
+    const rel = 'scripts/lib/face-reader.mjs'
+    const idx = path.join(root, '.git', 'st-index')
+    let signed
+    try {
+      writeIn(root, rel, '// signed content\n')
+      process.env.GIT_INDEX_FILE = idx
+      gitRaw(['read-tree', 'HEAD'], root)
+      gitRaw(['add', '--', rel], root)
+      process.env[KEY_ENV] = ST_KEY
+      signed = signStaged(root, { subject: 'fix: ledger base', reason: '台账必须记住签发时的 base 与内容号', paths: [rel] })
+    } finally {
+      delete process.env[KEY_ENV]
+      delete process.env.GIT_INDEX_FILE
+    }
+    const rows = readFileSync(path.join(root, SIG_ISSUE_REL), 'utf8').trim().split(/\r?\n/).map((l) => JSON.parse(l))
+    const row = rows[rows.length - 1]
+    const headNow = String(gitRaw(['rev-parse', 'HEAD'], root)).trim()
+    ok(
+      'ST51 recordSigIssue 落账 base/blob：base 恰为签发时 HEAD，blob 恰为索引里那一份',
+      row.base === signed.base &&
+        row.base === headNow &&
+        row.blobs?.[rel] === signed.blobs[rel] &&
+        FULL_SHA_RE.test(String(row.blobs?.[rel] ?? '')) &&
+        String(row.sig).startsWith(`${SIG_VERSION_V2}:${signed.base}:`) &&
+        JSON.stringify(row.paths) === JSON.stringify([rel]),
+      JSON.stringify({ rowBase: String(row.base).slice(0, 12), signedBase: String(signed.base).slice(0, 12), headNow: headNow.slice(0, 12), ledgerBlob: String(row.blobs?.[rel] ?? '').slice(0, 8), signedBlob: String(signed.blobs?.[rel] ?? '').slice(0, 8) }),
+    )
+  })
+
+  // ST52 recordSigIssue 写失败分支：留痕是帮助，不是判定输入 ⇒ 写不进去也必须照常签发。
+  // 为什么正确：把同名路径做成目录，appendFileSync 必然抛（EISDIR）⇒ 唯一正确结果是回传 null；
+  // 若它抛到调用方，一次"台账目录被占"就会把正常签发变成异常，方向变成"为了提交先删台账"。
+  run((root) => {
+    const rel = 'scripts/lib/face-reader.mjs'
+    const idx = path.join(root, '.git', 'st-index')
+    let signed
+    try {
+      writeIn(root, rel, '// content\n')
+      mkdirSync(path.join(root, SIG_ISSUE_REL), { recursive: true }) // 同名目录 ⇒ 追加必失败
+      process.env.GIT_INDEX_FILE = idx
+      gitRaw(['read-tree', 'HEAD'], root)
+      gitRaw(['add', '--', rel], root)
+      process.env[KEY_ENV] = ST_KEY
+      signed = signStaged(root, { subject: 'fix: ledger unwritable', reason: '台账写失败不得阻断签发本身', paths: [rel] })
+    } finally {
+      delete process.env[KEY_ENV]
+      delete process.env.GIT_INDEX_FILE
+    }
+    ok(
+      'ST52 recordSigIssue 写失败 ⇒ recorded=null，签名形状与 base 不受影响',
+      signed.recorded === null && signed.sig.startsWith(`v2:${signed.base}:`) && FULL_SHA_RE.test(signed.base),
+      JSON.stringify({ recorded: signed.recorded, sigHead: String(signed.sig).slice(0, 12), base: String(signed.base).slice(0, 12) }),
+    )
+  })
+
+  // ST53 blobMapFor 三条"取不到"路径：被删出索引 / 新建未入索引 / 旧面没有该路径 ⇒ 一律空串。
+  // 为什么正确：v2 载荷里 blob 是"这一面里该路径的内容号"。取不到时必须留空，让验签用它去比对；
+  // 若这里悄悄回落到 HEAD 内容或抛错，"被删/未暂存"的路径就会拿旧内容签进载荷 ⇒ 假通过或假红。
+  run((root) => {
+    const tracked = 'scripts/lib/face-reader.mjs'
+    const fresh = 'scripts/lib/new-not-staged.mjs'
+    const idx = path.join(root, '.git', 'st-index')
+    let present
+    let deleted
+    let unstaged
+    let absentInBase
+    try {
+      writeIn(root, fresh, '// 只落工作树，不入索引\n')
+      process.env.GIT_INDEX_FILE = idx
+      gitRaw(['read-tree', 'HEAD'], root)
+      gitRaw(['add', '--', tracked], root)
+      present = blobMapFor(root, 'staged', 'HEAD', [tracked])
+      gitRaw(['rm', '--cached', '--', tracked], root) // 只删索引条目（工作树仍在）
+      deleted = blobMapFor(root, 'staged', 'HEAD', [tracked])
+      unstaged = blobMapFor(root, 'staged', 'HEAD', [fresh])
+      absentInBase = blobMapFor(root, 'head', 'HEAD', ['docs/never-in-any-commit.md'])
+    } finally {
+      delete process.env.GIT_INDEX_FILE
+    }
+    ok(
+      'ST53 blobMapFor 取不到 ⇒ 空串（已入索引为 40 位）',
+      FULL_SHA_RE.test(String(present[tracked] ?? '')) &&
+        deleted[tracked] === '' &&
+        unstaged[fresh] === '' &&
+        absentInBase['docs/never-in-any-commit.md'] === '',
+      JSON.stringify({ present: String(present[tracked] ?? '').slice(0, 8), deleted: deleted[tracked], unstaged: unstaged[fresh], absentInBase: absentInBase['docs/never-in-any-commit.md'] }),
+    )
+  })
+
+  // ST54 path-and-blob-drift：路径集变了、且**共有路径**的内容号也变了 ⇒ 必须同时点名两格。
+  // 为什么正确：只报"路径集漂移"会让作者以为补齐/删掉那条路径就够，重签后仍会因内容不符再红一次；
+  // 只报 blob 又会漏掉 missing/extra。这一型只有两格都报，出路才是"按最终索引整体重签"。
+  {
+    const dec = decomposeSigMismatch(
+      {
+        subject: 's',
+        paths: ['scripts/lib/a.mjs', 'scripts/lib/b.mjs'],
+        blobs: { 'scripts/lib/a.mjs': 'a'.repeat(40), 'scripts/lib/b.mjs': 'b'.repeat(40) },
+      },
+      {
+        subject: 's',
+        paths: ['scripts/lib/a.mjs', 'scripts/lib/c.mjs'],
+        blobs: { 'scripts/lib/a.mjs': 'c'.repeat(40), 'scripts/lib/c.mjs': 'd'.repeat(40) },
+      },
+    )
+    ok(
+      'ST54 路径集与共有路径内容同时变 ⇒ cause=path-and-blob-drift，且两向差集正确',
+      dec.cause === 'path-and-blob-drift' &&
+        dec.paths === true &&
+        dec.blobs === true &&
+        dec.missing.includes('scripts/lib/b.mjs') &&
+        dec.extra.includes('scripts/lib/c.mjs'),
+      JSON.stringify(dec),
+    )
+  }
+
+  // ST55 missing/extra/issuedPaths/actualPaths：报告逐条点名路径就靠这四个字段。
+  // 为什么正确：集合必须归一化、去重、排序——同一路径的 `\` 写法与 `./` 写法不归一，报告就会把
+  // 一条路径点成两条，作者照着去查会查错文件；去重则避免同一路径报两次掩盖真正的 missing。
+  {
+    const dec = decomposeSigMismatch(
+      { subject: 'S', paths: ['scripts\\lib\\b.mjs', './scripts/lib/a.mjs', 'scripts/lib/a.mjs'] },
+      { subject: 'S', paths: ['scripts/lib/a.mjs', 'scripts/lib/c.mjs'] },
+    )
+    ok(
+      'ST55 逐格字段：issuedPaths/actualPaths 归一化去重排序，missing/extra 各自正确',
+      JSON.stringify(dec.issuedPaths) === JSON.stringify(['scripts/lib/a.mjs', 'scripts/lib/b.mjs']) &&
+        JSON.stringify(dec.actualPaths) === JSON.stringify(['scripts/lib/a.mjs', 'scripts/lib/c.mjs']) &&
+        JSON.stringify(dec.missing) === JSON.stringify(['scripts/lib/b.mjs']) &&
+        JSON.stringify(dec.extra) === JSON.stringify(['scripts/lib/c.mjs']) &&
+        dec.cause === 'message-from-other-commit',
+      JSON.stringify(dec),
+    )
+  }
+
+  // ST56 normalizeRel 直接断言：Windows 侧拼路径会带 `\` 或 `./`，不归一化 ⇒ 同一路径两种写法被当成两条。
+  // 为什么正确：判定与载荷拼装都按字符串相等比路径；归一化必须幂等，且空串保持空
+  //（调用方用空串表示"这一面取不到该路径"，不能被变成 '.' 之类）。
+  {
+    const cases = [
+      ['scripts\\lib\\x.mjs', 'scripts/lib/x.mjs'],
+      ['./scripts/x.mjs', 'scripts/x.mjs'],
+      ['scripts/lib/x.mjs', 'scripts/lib/x.mjs'],
+      ['', ''],
+    ]
+    ok(
+      'ST56 normalizeRel：反斜杠/前导 ./ 归一且幂等，空串保持空',
+      cases.every(([raw, want]) => normalizeRel(raw) === want) &&
+        normalizeRel(normalizeRel('scripts\\lib\\x.mjs')) === normalizeRel('scripts\\lib\\x.mjs') &&
+        normalizeRel('') === '',
+      JSON.stringify(cases.map(([raw]) => [raw, normalizeRel(raw)])),
+    )
+  }
+
   // ST45 自认：a2 追认行拿**提交签名钥**签（同一把）⇒ 不算他方追认，红不变。
   run((root) => {
     writeIn(root, 'scripts/lib/face-reader.mjs', '// changed\n')
@@ -2393,5 +2664,8 @@ export const __test__ = {
   stagedHitsAt,
   blobMapFor,
   decomposeSigMismatch,
+  // 2026-11-04 补测：签发台账与路径归一化（此前只有间接执行，无针对性断言）
+  recordSigIssue,
+  normalizeRel,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
