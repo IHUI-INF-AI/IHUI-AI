@@ -36,14 +36,20 @@
  *   H 桌面安装包不得回到 offlineInstaller —— 那会把 ≈205MB 的 WebView2 运行时塞进包,
  *     使 exe 超过 Gitee 单文件 100MB 硬上限,国内用户从此拿不到 Windows 安装包
  *     (2026-10-17 实测:0.1.74 的 Gitee release 只有 .exe.sig、没有 .exe)。
+ *   J 扩展端版本单一源头(2026-11-04 立):wxt.config.ts 的 manifest.version 不得是字面量,
+ *     下载页 extension 资产 href 也不得内嵌版本号字面量 —— 两者都必须由 apps/extension/package.json
+ *     驱动(WXT 在 manifest.version 缺省时回落它;sync-downloads 的文件名同样取它)。
+ *     写死的那份"看起来像版本号、却不被任何东西驱动":bump package.json 后文件名是 v1.0.1,
+ *     而装进 Chrome 的包仍显示 1.0.0 —— 两边今天相等纯属巧合。
  *
  * 用法:
  *   node scripts/check-version-drift.mjs           # 检查,失败 exit 1
  *   node scripts/check-version-drift.mjs --json     # 机器可读
  */
-import { readFileSync, existsSync } from 'node:fs'
+import { readFileSync, existsSync, readdirSync } from 'node:fs'
 import { join, resolve, dirname } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { maskComments } from './lib/code-mask.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(__dirname, '..')
@@ -60,6 +66,16 @@ export const MOBILE_JUDGE_MESSAGES = {
 
 /** 语义版本字面量(如 '1.0.0' / "0.0.5");用于识别"写死的版本号" */
 const SEMVER_LITERAL = /['"]\d+\.\d+\.\d+(?:[-+][\w.-]+)?['"]/
+
+/**
+ * J 维共用的那条尺:标识符名里带 version 却被赋成一个语义版本字面量。
+ * 单份实现(§0.6)—— wxt.config.ts、扩展源码两处判据都问它,不各写一遍。
+ * 判字面量 ⇒ 只遮注释不遮字符串(`maskComments` 等长,行号不漂)。
+ */
+const VERSION_LITERAL_ASSIGN = /\b\w*version\w*\s*[:=]\s*['"`]\d+\.\d+\.\d+(?:[-+][\w.-]+)?['"`]/i
+export function hasVersionLiteral(text) {
+  return VERSION_LITERAL_ASSIGN.test(maskComments(String(text)))
+}
 
 function read(rel) {
   const abs = join(ROOT, rel)
@@ -87,6 +103,7 @@ function readJson(rel) {
  *   rnConfigTs: string|null, capGradle: string|null, downloadsConfig: string|null,
  *   feedRouteJs: string|null, feedRouteApi: string|null, workflows: Record<string,string>,
  *   mobileAppJson: object|null, mobilePkg: object|null,
+ *   wxtConfig: string|null, extensionSources: Record<string,string|null>,
  * }} input
  * @returns {string[]} 违规描述;空数组 = 全部通过
  */
@@ -104,6 +121,8 @@ export function findVersionDrift(input) {
     workflows,
     mobileAppJson,
     mobilePkg,
+    wxtConfig,
+    extensionSources,
   } = input
 
   // A 桌面双写一致
@@ -244,7 +263,66 @@ export function findVersionDrift(input) {
     )
   }
 
+  // J 扩展端版本单一源头(2026-11-04 立)
+  //   文件名与下载页版本取 apps/extension/package.json(scripts/sync-downloads.mjs 的
+  //   readExtensionVersion),包内 manifest 由 WXT 在同一处兜底(manifest.version 缺省时回落
+  //   package.json)。任何一处把它写成字面量,就等于让"装进 Chrome 的版本"与"下载页/文件名的
+  //   版本"分头走 —— 两边今天相等纯属巧合。
+  if (wxtConfig !== null && hasVersionLiteral(wxtConfig)) {
+    v.push(
+      'J1 apps/extension/wxt.config.ts 把 manifest.version 写成了字面量 —— 删掉这一行, ' +
+        '让 WXT 回落 apps/extension/package.json(与 sync-downloads 的文件名、下载页版本号同源)',
+    )
+  }
+  // href 由 extensionPkg.version 拼出;手抄一份 v1.0.0 的路径,bump 之后静态兜底链直接 404。
+  if (
+    downloadsConfig !== null &&
+    /\/downloads\/extension\/[^'"`]*\d+\.\d+\.\d+\.zip/.test(downloadsConfig)
+  ) {
+    v.push(
+      'J2 downloads.config.ts 的 extension 资产 href 内嵌了版本号字面量 —— 必须由 ' +
+        'extensionPkg.version 拼出,否则 bump package.json 后静态兜底下载链直接 404',
+    )
+  }
+  // 打进包的源码里也不许留"手搓版本常量";取不到清单不判(§0.3),枚举到 0 个文件判死(覆盖面自证)。
+  const extFiles = Object.entries(extensionSources || {})
+  if (extFiles.length === 0) {
+    v.push('J3 extensionSources 枚举到 0 个文件 —— 采集面坏了,这一维等于没装')
+  }
+  for (const [rel, src] of extFiles) {
+    if (src === null) continue
+    if (hasVersionLiteral(src)) {
+      v.push(
+        `J3 ${rel} 里有手搓的版本字面量 —— 运行期请取 chrome.runtime.getManifest().version ` +
+          '(它的源头就是 apps/extension/package.json),写死等于向用户/服务端上报一个不存在的版本',
+      )
+    }
+  }
+
   return v
+}
+
+/**
+ * J3 的取材面:会被打进扩展包的源码。
+ * 只收 entrypoints/lib/src 三族(.ts/.tsx)—— tests/ 里的是夹具、scripts/ 里的是构建工具,
+ * 都不进包,把它们的版本字面量算成违规只会逼人写假数据绕门(排除项在此点名,不静默)。
+ */
+export function listExtensionSources() {
+  const out = {}
+  for (const dir of ['entrypoints', 'lib', 'src']) {
+    const abs = join(ROOT, 'apps', 'extension', dir)
+    if (!existsSync(abs)) continue
+    for (const name of readdirSync(abs, { recursive: true, encoding: 'utf-8' })) {
+      // 键一律正斜杠:Windows 的 readdirSync 给 `entrypoints\sub\x.tsx`,CI 给 `/` 形,
+      // 两套键名会让镜像测试的断言只在半个平台成立。
+      const rel = join('apps', 'extension', dir, name).replaceAll('\\', '/')
+      if (!/\.tsx?$/.test(rel)) continue
+      const full = join(ROOT, rel)
+      if (!existsSync(full)) continue
+      out[rel] = readFileSync(full, 'utf-8')
+    }
+  }
+  return out
 }
 
 /** 从工作区读取全部输入(与 findVersionDrift 分离,便于测试注入) */
@@ -270,6 +348,8 @@ export function collectInputs() {
     downloadsConfig: read('apps/web/src/config/downloads.config.ts'),
     feedRouteJs: read('apps/web/app/desktop-feed.json/route.ts'),
     feedRouteApi: read('apps/web/app/api/desktop-feed/route.ts'),
+    wxtConfig: read('apps/extension/wxt.config.ts'),
+    extensionSources: listExtensionSources(),
     workflows,
   }
 }

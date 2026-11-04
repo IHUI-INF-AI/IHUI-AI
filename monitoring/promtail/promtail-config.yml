@@ -30,12 +30,17 @@ clients:
 scrape_configs:
   # === Windows 应用日志采集(NSSM 托管的 svc-<service>-nssm*.log) ===
   # 使用确定性 job 标签(job="api"/job="ai-service"),LogQL 直接按 job 过滤。
+  # 轮转副本必须排在采集面之外:nssm 每次服务重启滚一份 svc-<组件>-nssm-<时间戳>.log,
+  # 现读 D:/DevEnv/logs 共 26106 个 .log 而活文件只有 40 个。`nssm*` 这类 glob 会把每个
+  # 历史副本都挂成常驻 tailer(实测 promtail_files_active_total=4530、go_goroutines=22722),
+  # 空转轮询吃掉约 4 个核。活文件名里没有年份,轮转副本都以 20xxxxxxT 结尾 ⇒ `*20*` 是唯一分界。
   - job_name: api
     static_configs:
       - targets: [localhost]
         labels:
           job: api
           __path__: 'D:/DevEnv/logs/svc-api-nssm*.log'
+          __path_exclude__: 'D:/DevEnv/logs/svc-api-nssm*20*.log'
     pipeline_stages:
       # 解析 pino 应用日志,提取关键字段
       - json:
@@ -58,6 +63,7 @@ scrape_configs:
         labels:
           job: ai-service
           __path__: 'D:/DevEnv/logs/svc-ai-nssm*.log'
+          __path_exclude__: 'D:/DevEnv/logs/svc-ai-nssm*20*.log'
     pipeline_stages:
       - json:
           expressions:
@@ -130,6 +136,7 @@ scrape_configs:
         labels:
           job: monitorlogs
           __path__: 'D:/DevEnv/logs/svc-{loki,promtail,prometheus,alertmanager,alert-bridge,pg-exporter,redis-exporter,windows-exporter}-nssm*.log'
+          __path_exclude__: 'D:/DevEnv/logs/svc-{loki,promtail,prometheus,alertmanager,alert-bridge,pg-exporter,redis-exporter,windows-exporter}-nssm*20*.log'
     pipeline_stages:
       - json:
           expressions:
