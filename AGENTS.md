@@ -175,7 +175,7 @@ push 前必须确认远端无并发会话新提交(`git-push-converge.mjs` 六�
 - **16b 推送协议**:只说「推送」时**第一动作固定为 `git push origin main`**,禁止先预判冲突去跑 merge/converge/读工具源码;仅当 push 以 non-fast-forward 失败才进入收敛,且收敛最多一轮 fetch→converge→重生成派生件(README 数字 `gen-doc-numbers --markdown`、`ui-routes` 钉)→再 push。收敛产物(合并树上的生成文件)用普通 `git add` + `git commit`,不再叠 safe-commit/AGENT_SCOPE。
 - **16c 钩子装载位对账**:`core.hooksPath` 必须指向真实存在的钩子目录且 `pre-commit`/`post-commit` 齐备(守门 226 H3)。
 ## 17. UI 改动验证强制规则(强制)
-UI 改动必须真机/真浏览器验证(截图或 e2e),禁止只凭代码审查声明"改好了";web 样式改动 commit message 带 `Verified-DOM:` trailer(`check-style-verification.mjs`,warn)。
+UI 改动必须真机/真浏览器验证(截图或 e2e),禁止只凭代码审查声明"改好了";web 样式改动 commit message 带 `Verified-DOM:` trailer(`check-style-verification.mjs`,commit-msg 已去掉 `|| true`;三态 0/1/2,缺参/git 失败/msg 读不到 = exit 2 阻断)。
 ## 18. 启动项目语义(强制)
 "启动项目"= `pnpm dev` 全栈(web+api+ai-service);单端启动须显式说端名。`dev`/`dev:clean`/`dev:stable` 三条入口统一走启动器(拿锁在 spawn 前)。
 ## 19. i18n 约束规则(强制)
@@ -223,7 +223,7 @@ export const __test__ = {/* 暴露给测试的核心函数 */}
 - **盘根"写歪项"封口改道不删**:闭源程序按相对路径写盘根,删必复发;唯一正解 = 名字换 junction 指向批准落点。唯一入口 `scripts/seal-c-root-stray.mjs`(`--check`/`--apply`,清单 `SEALED_DIRS` 带 owner+evidence),并挂进 `git-guardian` 自愈轮(`--apply` 的 junction 会被重启清掉,只靠每日体检不够)。
 - **junction 头号危险 = 递归穿透**:PowerShell `Get-ChildItem -Recurse` 会穿过 junction 清空 D 盘真实目标。递归删除/枚举前必须判 `ReparsePoint`;断链用 `[System.IO.Directory]::Delete($path,$false)`;量体积不跟随;`attrib +h` 是陷阱(设到目标侧),隐藏用提供器属性 + 父目录枚举回读。
 - **junction 管路径管不了身份**:LocalSystem 服务 TEMP = `C:\Windows\Temp`,HKCU 迁移对它无效。服务/守护脚本落临时物必须显式指定目录 + 用完必删(实测部署日志 526 项泄漏即此型);守门扫描面必须并入 `SystemRoot\Temp`。
-- **禁止硬编码 C 盘路径作写入目标**(`C:\temp\*`、`C:\Users\*\AppData\Local\Temp\*` 等;用 `os.tmpdir()`/`$env:TEMP`)。守门:`check-c-drive-paths.mjs`(45,源码字面量)、`check-c-drive-pollution.mjs`(93,warn,实地扫 C 盘 + TEMP 漂移判据,只读永不删;`--strict` 问责)。
+- **禁止硬编码 C 盘路径作写入目标**(`C:\temp\*`、`C:\Users\*\AppData\Local\Temp\*` 等;用 `os.tmpdir()`/`$env:TEMP`)。守门:`check-c-drive-paths.mjs`(45,源码字面量;guardian 以 `--staged` 调用,三态 0/1/2,无输入/空暂存区/读不到 = exit 2 未判定,warn 档不阻断)、`check-c-drive-pollution.mjs`(93,warn,实地扫 C 盘 + TEMP 漂移判据,只读永不删;`--strict` 问责)。
 - **自动维护**:`IHUI C-Drive AutoMaintain` 计划任务(每天 3am,`c-drive-maintain-hidden.vbs` → pwsh;**注册名含空格,查存在只认 `schtasks /query /fo CSV` 全量列名法**);删除出口唯一 `ForceDelete`,`-DryRun` 拦在该出口;删除面按名字白名单不整片删。页面文件改动留"待重启生效"哨兵。
 - 改共享注册类文件(runner/package.json/CI)必须逐块核对 diff,防覆盖他人注册块;判据要能让机器自己发现撞号(runner id 反查唯一性)。
 ## 27. PowerShell 7 强制规则(强制)
