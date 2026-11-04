@@ -2024,7 +2024,7 @@ function auditHostTimezone() {
         return
       }
     }
-    if (!parsed || parsed.verdict === 'error') {
+    if (!parsed || !['green', 'red'].includes(parsed.verdict)) {
       log(
         `ℹ️ 主机时区对账:未判定(${(parsed && parsed.reasons && parsed.reasons[0]) || '载荷是 error'})`,
       )
@@ -2115,7 +2115,7 @@ function auditDiskRootHygiene() {
         return
       }
     }
-    if (!parsed || !parsed.verdict) {
+    if (!parsed || !['green', 'red', 'undetermined'].includes(parsed.verdict)) {
       log('ℹ️ 盘根卫生:未判定(载荷缺 verdict)—— 不寄信,也别当已判过')
       return
     }
@@ -6947,7 +6947,7 @@ export function auditSmsChannelHealth(opts = {}) {
     } catch {
       /* 落到未判定 */
     }
-    if (!parsed || typeof parsed.verdict !== 'string') {
+    if (!parsed || !['ok', 'breach', 'unjudged'].includes(parsed.verdict)) {
       logger(
         `⚠️ 短信通道健康未产出结论(未判定,不记为已探测):rc=${call.status} ${(
           [call.stderr, call.stdout].filter(Boolean).join(' ⊕ ') || '(无输出)'
@@ -7061,7 +7061,7 @@ export function sweepAutonomyLegHealth(opts = {}) {
     } catch {
       /* 落到未判定 */
     }
-    if (!parsed || typeof parsed.verdict !== 'string') {
+    if (!parsed || !['ok', 'drift', 'unjudged'].includes(parsed.verdict)) {
       logger(
         `⚠️ 发起腿健康未产出结论(未判定,不记为已探测):rc=${call.status} ${([call.stderr, call.stdout].filter(Boolean).join(' ⊕ ') || '(无输出)').split(/\r?\n/)[0].slice(0, 140)}`,
       )
@@ -7714,7 +7714,7 @@ export function auditAssetPathHealth(opts = {}) {
     } catch {
       /* 落到未判定 */
     }
-    if (!parsed || typeof parsed.verdict !== 'string') {
+    if (!parsed || !['ok', 'breach', 'warn', 'unjudged'].includes(parsed.verdict)) {
       logger(
         `⚠️ 资产路径健康未产出结论(未判定,不记为已探测):rc=${call.status} ${([call.stderr, call.stdout].filter(Boolean).join(' ⊕ ') || '(无输出)').split(/\r?\n/)[0].slice(0, 140)}`,
       )
@@ -7848,7 +7848,7 @@ export function auditProdDepAdvisories(opts = {}) {
     } catch {
       /* 落到未判定 */
     }
-    if (!parsed || typeof parsed.verdict !== 'string') {
+    if (!parsed || !['clean', 'red', 'warn', 'unjudged'].includes(parsed.verdict)) {
       logger(
         `⚠️ 生产依赖审计未产出结论(未判定,不记为已探测):rc=${call.status} ${(
           [call.stderr, call.stdout].filter(Boolean).join(' ⊕ ') || '(无输出)'
@@ -8280,7 +8280,7 @@ export function auditAasaPublicHealth(opts = {}) {
     } catch {
       /* 落到未判定 */
     }
-    if (!parsed || typeof parsed.verdict !== 'string') {
+    if (!parsed || !['ok', 'breach', 'warn', 'unjudged'].includes(parsed.verdict)) {
       logger(
         `⚠️ AASA 公网健康未产出结论(未判定,不记为已探测):rc=${call.status} ` +
           `${([call.stderr, call.stdout].filter(Boolean).join(' ⊕ ') || '(无输出)').slice(0, 200)}`,
@@ -8412,7 +8412,7 @@ export function auditAppVersionPlatform(opts = {}) {
     }
     // 尺子的 `state` 三态(pass/fail/undetermined)与退出码 0/1/2 同源;读 state 不读退出码,
     // 因为 exit 1 也可能夹带"有红项 + 有未判定"的混合结论,退出码折不出红几条。
-    if (!parsed || typeof parsed.state !== 'string') {
+    if (!parsed || !['pass', 'fail', 'undetermined'].includes(parsed.state)) {
       logger(
         `⚠️ App 更新卡对账(${platform})未产出结论(未判定,不记为已探测):rc=${call.status} ` +
           `${([call.stderr, call.stdout].filter(Boolean).join(' ⊕ ') || '(无输出)').slice(0, 200)}`,
@@ -10020,7 +10020,12 @@ export function auditLandedReverts(opts = {}) {
   )
   for (const h of hits.slice(0, 20))
     logger(
-      `   ⚠ ${h.commit} 「${String(h.subject ?? '').slice(0, 60)}」 ${h.path} ⇒ 与祖先 ${(h.via ?? []).join('/').slice(0, 80)} 逐字同形`,
+      `   ⚠ ${h.commit} 「${String(h.subject ?? '').slice(0, 60)}」 ${h.path} ⇒ ` +
+        // 判语必须跟着臂次走:部分回退那型 via 恒空,写"与祖先  逐字同形"是把另一臂的话套在本臂上
+        // (2026-11-01 首轮生产日志就出现这种张冠李戴的行,人读了会去查根本不该查的等值关系)
+        (h.kind === 'partial'
+          ? `部分回退嫌疑:删 ${h.removed} 行=${((h.removed / (h.headLines || 1)) * 100).toFixed(1)}% 全文、仅补 ${h.added} 行`
+          : `与祖先 ${(h.via ?? []).join('/').slice(0, 80)} 逐字同形`),
     )
   if (hits.length > 20)
     logger(`   …另有 ${hits.length - 20} 处,见台账 .ihui-agent/state/landed-revert-audit.jsonl`)
@@ -10098,7 +10103,7 @@ export function auditImmutableGuardNewCommits(opts = {}) {
   } catch {
     /* 落到下面"结论不可用"那一支 */
   }
-  if (!parsed || typeof parsed.state !== 'string') {
+  if (!parsed || !['clean', 'breach', 'undetermined', 'bootstrapped', 'no-new-head', 'empty-range'].includes(parsed.state)) {
     logger(
       `⚠️ 判据面护栏巡检:尺子结论不可用 —— 派生 rc=${r.status ?? '?'};` +
         `stderr 前 120:${stderr.slice(0, 120) || '(空)'} ⇒ 本轮**没判**,不等于"判据面没人动"(§0.3)`,
@@ -10232,7 +10237,7 @@ export function sweepDownloadsLiveHealth(opts = {}) {
   } catch {
     /* 落到下面"结论不可用"那一支 */
   }
-  if (!parsed || typeof parsed.state !== 'string') {
+  if (!parsed || !['ok', 'red', 'unjudged'].includes(parsed.state)) {
     logger(
       `⚠️ 下载栏健康巡检:尺子结论不可用 —— 派生 rc=${r.status ?? '?'};` +
         `stderr 前 120:${String(r.err ?? r.stderr ?? '').slice(0, 120) || '(空)'} ⇒ 本轮**没判**,不等于"下载栏没问题"(§0.3)`,
@@ -10532,7 +10537,7 @@ export function auditCrossEndParityDrift(opts = {}) {
   } catch {
     /* 落到下面"结论不可用"那一支 */
   }
-  if (!parsed || typeof parsed.state !== 'string') {
+  if (!parsed || !['ok', 'regressed', 'undetermined'].includes(parsed.state)) {
     logger(
       `⚠️ 跨端漂移巡检:尺子结论不可用:未判定 —— ${stderr.slice(0, 120) || '未取到 JSON'}` +
         ` ⇒ 本轮没判,不等于"没有倒退"`,
@@ -14533,7 +14538,7 @@ export function dispatchRelayCapacity(opts = {}) {
   } catch {
     parsed = null
   }
-  if (!parsed || typeof parsed.state !== 'string') {
+  if (!parsed || !['ok', 'breach', 'unjudged'].includes(parsed.state)) {
     logger('❓ 号池容量哨兵:结论不可解析 ⇒ 本轮未判定(不记绿、不冒红)')
     return { ran: true, ok: false, why: '结论不可解析' }
   }
