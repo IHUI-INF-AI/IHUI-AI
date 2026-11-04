@@ -63,9 +63,9 @@ function runScript(dir, args = []) {
     encoding: 'utf8',
     // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
     stdio: ['ignore', 'pipe', 'pipe'],
-    // pnpm dedupe --check 在本机冷启动可超 30s;超时先杀进程会让 rmScratch 撞 EBUSY,
-    // 表现为"夹具失败"而非判据失败(2026-11-04 假绿专项复跑时确认)。
-    timeout: 120000,
+    // pnpm dedupe --check 在多会话并发时可达数分钟;超时先杀父进程会让 pnpm 孙进程继续持有
+    // 夹具目录,rmScratch 撞 EBUSY,表现为"夹具失败"而非判据失败(2026-11-04 复跑确认)。
+    timeout: 600000,
   })
 }
 
