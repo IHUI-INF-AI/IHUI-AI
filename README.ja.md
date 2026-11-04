@@ -2219,6 +2219,11 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-04**
+- 🔧 その他:收编停留≥3分钟的未提交改动 (43f56aa425)
+- 🐞 修正:首页 AI 输入框不再被底部淡出遮罩压住 —— 补小程序已有的那一层 (12b69b48aa)
+- 🐞 修正:校正 push-sync 注释的 rev-list 失败实测读数(本机 bad object exit 1,非 128) (15915596b8)
+
+**2026-11-04**
 - 🔧 その他:收编守护落档产出(5 件,凭落点账本) (cd17b5992d)
 - 🐞 修正:push-sync 读数改三态 —— rev-list 失败/取不到对象不再折算成 ahead=0 假绿,5 例钉三态 (03f58d1a29)
 - 🐞 修正:两处 git 派生补 windowsHide —— 门52 生产面两处判红清零,消除控制台闪窗;staged 面 3 文件 0 违规 (3f5a439b05)
@@ -2414,9 +2419,6 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 - 🐞 修正:收编器改路径白名单——业务代码/测试与规则文件不再自动入库 (f6e0ba44a9)
 - 🔧 その他:清偿旧版快照区数字 —— scrub --scope=all 用生成器同源现算值清 README 全量存量 54315 处(README.md/README.en.md 共 29820 行改写、5 行挂历史叙述豁免、manual 0)；同笔给 scrub 增显式维护档 archive|all(缺省行级棘轮不动,自检 21/21) (15f9293a7d)
 - 🔧 その他:补登 6 枚远端带入文件的溯源水印(门47 HEAD面欠账清偿) (c3c03c7da3)
-
-**2026-11-03**
-- 🔧 その他:收编停留≥3分钟的未提交改动 (d365afb360)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
