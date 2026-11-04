@@ -1880,10 +1880,21 @@ export class SubagentDispatchService {
     const taskId = runtime.agentTaskId
     if (!taskId) return
     try {
-      await db
-        .update(agentTasks)
-        .set({ attention: runtime.dispatch.attention ?? null, updatedAt: new Date() })
+      // 先取现值、按键比较:attention 未变就不发 UPDATE(守门 161 出口形态)。
+      // 该列是 varchar(20) 可空串,直接全等比较成立;空白写会把 updatedAt 推成假变化。
+      const next = runtime.dispatch.attention ?? null
+      const [current] = await db
+        .select({ attention: agentTasks.attention })
+        .from(agentTasks)
         .where(eq(agentTasks.id, taskId))
+        .limit(1)
+      const changed = current && current.attention !== next ? { attention: next } : {}
+      if (Object.keys(changed).length > 0) {
+        await db
+          .update(agentTasks)
+          .set({ ...changed, updatedAt: new Date() })
+          .where(eq(agentTasks.id, taskId))
+      }
     } catch (err) {
       logger.warn(`[subagent-dispatch] _syncAttentionToAgentTask 失败(不阻塞): ${String(err)}`)
     }

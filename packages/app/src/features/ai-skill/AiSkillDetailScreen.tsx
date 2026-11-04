@@ -465,7 +465,7 @@ function createStyles(tk: AppThemeTokens) {
     primaryBtn: {
       paddingHorizontal: rnSpacing.lg,
       paddingVertical: rnSpacing.sm,
-      borderRadius: rnRadius.md,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
     primaryBtnText: {
@@ -476,7 +476,7 @@ function createStyles(tk: AppThemeTokens) {
     secondaryBtn: {
       paddingHorizontal: rnSpacing.lg,
       paddingVertical: rnSpacing.sm,
-      borderRadius: rnRadius.md,
+      borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -507,7 +507,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.error.text,
     },
     input: {
-      borderRadius: rnRadius.md,
+      borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
       paddingHorizontal: rnSpacing.md,
