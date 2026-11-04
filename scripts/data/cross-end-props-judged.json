@@ -2080,6 +2080,45 @@
         "apps/mobile-rn/src/components/UserInfoCard.tsx:111",
         "apps/miniapp-taro/src/components/UserInfoCard.tsx:88"
       ]
+    },
+    {
+      "pair": "VideoPlayer",
+      "key": "VideoComponent",
+      "side": "rn",
+      "owner": "mobile-rn-video",
+      "expires": "2027-06-30",
+      "rationale": "RN 允许注入自定义播放组件(web/native 媒体库差异);小程序端固定用 Taro 原生 Video,无注入腿。",
+      "evidence": [
+        "apps/mobile-rn/src/components/VideoPlayer.tsx:75",
+        "apps/miniapp-taro/src/components/VideoPlayer.tsx:19",
+        "apps/mobile-rn/src/components/VideoPlayer.tsx:57"
+      ]
+    },
+    {
+      "pair": "VideoPlayer",
+      "key": "title",
+      "side": "rn",
+      "owner": "mobile-rn-video",
+      "expires": "2027-06-30",
+      "rationale": "RN 播放器舞台自绘标题覆盖层;小程序端页面标题在 NavBar,播放器不带标题腿。",
+      "evidence": [
+        "apps/mobile-rn/src/components/VideoPlayer.tsx:61",
+        "apps/miniapp-taro/src/components/VideoPlayer.tsx:20",
+        "apps/mobile-rn/src/components/VideoPlayer.tsx:57"
+      ]
+    },
+    {
+      "pair": "VideoPlayer",
+      "key": "controls",
+      "side": "mini",
+      "owner": "mobile-rn-video",
+      "expires": "2027-06-30",
+      "rationale": "小程序端原生 Video 可显式关控件;RN 底库控件由既定配置呈现,无同名开关腿。",
+      "evidence": [
+        "apps/miniapp-taro/src/components/VideoPlayer.tsx:24",
+        "apps/mobile-rn/src/components/VideoPlayer.tsx:59",
+        "apps/miniapp-taro/src/components/VideoPlayer.tsx:18"
+      ]
     }
   ]
 }
