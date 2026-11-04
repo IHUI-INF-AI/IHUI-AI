@@ -36,6 +36,42 @@
         "mini": "apps/miniapp-taro/src/components/ScrollJumpButton.tsx:64"
       },
       "rationale": "同一无障碍名称槽位:RN 由调用方给本地化字面量(屏幕阅读器只会念这一个字符串),小程序给 i18n 键由端内取词;两端都只喂 ariaLabel/accessibilityLabel,不参与可见渲染。"
+    },
+    {
+      "pair": "VideoPlayer",
+      "ours": "onProgress",
+      "theirs": "onTimeUpdate",
+      "kind": "event",
+      "owner": "cross-end-props-parity",
+      "evidence": {
+        "rn": "apps/mobile-rn/src/components/VideoPlayer.tsx:80",
+        "mini": "apps/miniapp-taro/src/components/VideoPlayer.tsx:30"
+      },
+      "rationale": "同一\"播放进度\"槽位:RN 腿在 onPlaybackStatusUpdate 里抽 (currentTime, duration) 后调 onProgress(apps/mobile-rn/src/components/VideoPlayer.tsx:136),小程序腿在 <Video onTimeUpdate> 里从 e.detail 抽同样两参后回调(apps/miniapp-taro/src/components/VideoPlayer.tsx:86);签名与语义一致,仅事件名随平台惯例而异,不是行为缺口。"
+    },
+    {
+      "pair": "VideoPlayer",
+      "ours": "onComplete",
+      "theirs": "onEnded",
+      "kind": "event",
+      "owner": "cross-end-props-parity",
+      "evidence": {
+        "rn": "apps/mobile-rn/src/components/VideoPlayer.tsx:81",
+        "mini": "apps/miniapp-taro/src/components/VideoPlayer.tsx:31"
+      },
+      "rationale": "同一\"播放结束\"槽位:RN 腿在 handleEnd 中 onComplete?.()(apps/mobile-rn/src/components/VideoPlayer.tsx:144),小程序腿在 <Video onEnded> 中 onEnded?.()(apps/miniapp-taro/src/components/VideoPlayer.tsx:87);两端都是零参结束通知,仅命名随平台事件惯例。"
+    },
+    {
+      "pair": "UserInfoCard",
+      "ours": "onEdit",
+      "theirs": "onClick",
+      "kind": "event",
+      "owner": "cross-end-props-parity",
+      "evidence": {
+        "rn": "apps/mobile-rn/src/components/UserInfoCard.tsx:100",
+        "mini": "apps/miniapp-taro/src/components/UserInfoCard.tsx:122"
+      },
+      "rationale": "同一\"进入编辑资料\"入口槽位:RN 腿把头像与姓名行的 TouchableOpacity onPress 接 onEdit(apps/mobile-rn/src/components/UserInfoCard.tsx:181、:192),宿主在 apps/mobile-rn/src/screens/ProfileScreen.tsx:669 传 onEdit={() => setEditProfileVisible(true)};小程序腿在卡体 View onClick 接 onClick(apps/miniapp-taro/src/components/UserInfoCard.tsx:168)并据此决定编辑按钮是否渲染(:221),宿主在 apps/miniapp-taro/src/pages/user/index.tsx:877 传 onClick={goProfile}。两端都只是把同一个动作透传给宿主,仅命名随平台惯例而异。"
     }
   ]
 }

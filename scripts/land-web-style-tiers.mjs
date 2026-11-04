@@ -35,9 +35,22 @@
  *       现读 web 里这两档 1332 处类名串中 29 处**没有** `font-*` 伴随 ⇒ 权重会 400→700。
  *     · `text-xs → text-label` / `text-sm → text-body` 引入 400(= 文档默认),元素自身无
  *       `font-*` 且祖先也无权重类时渲染不变;祖先带权重时会被压回 400 —— 静态证明不了。
- *   只有**同一类名串里已有 `font-*` 权重工具类**时,`--tw-font-weight` 覆盖回落值 ⇒ 恒等。
+ *   只有**同一 className 属性里已有 `font-*` 权重工具类**时,`--tw-font-weight` 覆盖回落值 ⇒ 恒等。
  *   该口径的开关是 `--only-weight-locked`(`rewriteSource` 的 `requireWeightCompanion`)。
- *   全量落盘前必须先把这个反例裁掉(改档不加权重 / 浏览器 computed-style 对照 / 接受并说明)。
+ *
+ * ⚠ 第二条实测反例(2026-11-04,本仓 tailwindcss 4.3.3 + `@tailwindcss/postcss` 编译取证):
+ *   web 里 523 处可落档的类名串**没有一处**自带 `font-*` ⇒ 恒带 `--only-weight-locked` 的守护
+ *   每轮都报 `files=0 changes=0`,自愈腿等于永久空转。正解不是放宽判据(那会静默改全站字重),
+ *   而是把「继承字重」变成**可证**:给原本无权重的类名串补一枚 `font-[weight:inherit]`。
+ *   编译产物(实测,勿凭记忆改):
+ *     · `text-body`       → `font-weight: var(--tw-font-weight, var(--text-body--font-weight))`
+ *     · `font-[inherit]`  → `font-family: inherit`(⚠ 歧义被解析成 font-family,**绝不可用**)
+ *     · `font-[weight:inherit]` → `--tw-font-weight: inherit; font-weight: inherit` ✅
+ *   后者两重恒等:① `font-weight: inherit` ≡ 属性未设置时的 CSS 继承结果(任何祖先权重下都不变);
+ *   ② `--tw-font-weight: inherit` 有值 ⇒ 具名档的 400/700 回落**整体失效**,两处声明解析后同为
+ *   `inherit`,层叠谁胜都不改变计算值。因此补钉 + 改档仍是零视觉变化,可静态证明。
+ *   开关 `--pin-inherit-weight` 只在 `requireWeightCompanion` 下生效;权重判定按**整个 className
+ *   属性**合并(修既有缺陷:`cn('text-sm','font-bold')` 曾被误判成"无权重伴随"而漏改/误钉)。
  *
  * 归属避让(多会话共享工作区):`git status --porcelain` 对该文件非空 ⇒ 跳过并点名(held)。
  *
@@ -50,6 +63,8 @@
  *   node scripts/land-web-style-tiers.mjs --apply --limit 40 # 分批(共享工作区必须能小批落)
  *   node scripts/land-web-style-tiers.mjs --file <path>      # 单文件试点(可重复)
  *   node scripts/land-web-style-tiers.mjs --only-weight-locked  # 只改"权重已被 font-* 钉死"的类名串
+ *   node scripts/land-web-style-tiers.mjs --only-weight-locked --pin-inherit-weight
+ *       # 上者 + 给无权重串补 font-[weight:inherit] 后可证恒等地改档(守护自愈口径)
  *   node scripts/land-web-style-tiers.mjs --json
  *   node scripts/land-web-style-tiers.mjs --self-test
  *
@@ -92,6 +107,22 @@ const TOKEN_RE = /(?<![\w-])text-(2xl|xl|sm|xs)(?![\w-])/g
 /** 权重工具类(含任意值档):它会把 `--tw-font-weight` 钉死 ⇒ 具名档的权重回落值不生效。 */
 const WEIGHT_RE = /(?<![\w-])font-(?:thin|extralight|light|normal|medium|semibold|bold|extrabold|black|\[[^\]]+\])(?![\w-])/
 
+/**
+ * 继承字重钉(2026-11-04 编译取证,详见头注)。**唯一一份**,测试从 `__test__` 取,不复制字面量。
+ * 绝不能写成 `font-[inherit]`:Tailwind 4.3.3 会把它解析成 `font-family: inherit`。
+ * `weight:` 类型提示同时产出 `--tw-font-weight: inherit` 与 `font-weight: inherit` ⇒ 可证零变化。
+ * 该串本身也命中 `WEIGHT_RE`(`font-\[…\]` 分支)⇒ 改过一遍的文件重跑时按"已有权重"处理,幂等。
+ */
+export const INHERIT_WEIGHT_CLASS = 'font-[weight:inherit]'
+
+/** 继承钉自身的识别式(逐 region 判"这个实参钉过没有",与 group 级的其它权重分开)。 */
+const INHERIT_PIN_RE = /(?<![\w-])font-\[weight:inherit\](?![\w-])/
+
+/** 去掉继承钉后还剩别的权重类吗?用于 group 合并判定,避免把 `font-bold` 误判成"已由钉子锁定"。 */
+function hasOtherWeight(text) {
+  return WEIGHT_RE.test(text.replace(INHERIT_PIN_RE, ''))
+}
+
 /** 与 `TOKEN_RE` 同一份模式源、无 `g`(只做"这段里有没有可改 token"的判定,不移动 lastIndex)。 */
 const TOKEN_PLAIN_RE = new RegExp(TOKEN_RE.source)
 
@@ -100,6 +131,7 @@ const apply = argv.includes('--apply')
 const jsonMode = argv.includes('--json')
 const selfTest = argv.includes('--self-test')
 const onlyWeightLocked = argv.includes('--only-weight-locked')
+const pinInheritWeight = argv.includes('--pin-inherit-weight')
 const limitArg = argv.indexOf('--limit')
 const limit = limitArg >= 0 && /^\d+$/.test(argv[limitArg + 1] ?? '') ? Number(argv[limitArg + 1]) : 0
 const fileArgs = argv.reduce((acc, a, i) => (a === '--file' && argv[i + 1] ? [...acc, argv[i + 1].replace(/\\/g, '/')] : acc), [])
@@ -164,12 +196,15 @@ export function findClassRegions(src) {
   const regions = []
   const attrRe = /(?<![\w$.-])className\s*=\s*/g
   while (attrRe.exec(face) !== null) {
-    let j = attrRe.lastIndex
+    // owner = 该 className 属性的唯一身份。`cn('text-sm','font-bold')` 的两个字符串是**同一元素**
+    // 的类名串,权重伴随必须按属性合并判定,不能逐字符串判(否则会把有权重的元素误钉成 inherit)。
+    const owner = attrRe.lastIndex
+    let j = owner
     while (j < face.length && /\s/.test(face[j])) j++
     const q = face[j]
     const direct = strings.find((s) => s.start === j)
     if ((q === '"' || q === "'" || q === '`') && direct) {
-      regions.push({ start: direct.bodyStart, end: direct.bodyEnd })
+      regions.push({ start: direct.bodyStart, end: direct.bodyEnd, owner })
       continue
     }
     if (q === '{') {
@@ -177,7 +212,7 @@ export function findClassRegions(src) {
       if (close < 0) continue
       // 表达式里每个字符串/模板字面量的本体都是候选类名串(cn/clsx/cva 实参、三元分支、变体键)
       for (const s of strings) {
-        if (s.start > j && s.end <= close) regions.push({ start: s.bodyStart, end: s.bodyEnd })
+        if (s.start > j && s.end <= close) regions.push({ start: s.bodyStart, end: s.bodyEnd, owner })
       }
       continue
     }
@@ -214,21 +249,39 @@ export function rewriteClassText(text) {
  */
 export function rewriteSource(src, opts = {}) {
   const requireWeightCompanion = opts.requireWeightCompanion === true
+  const pinInheritWeight = opts.pinInheritWeight === true
   const face = codeFace(src)
   const regions = findClassRegions(src)
+  // 权重伴随按**整个 className 属性**合并(同一元素),不逐字符串字面量判。修既有缺陷:
+  // `cn('text-sm','font-bold')` 里 font-bold 在另一实参,旧口径会把它误判成"无权重伴随"。
+  const groupOtherWeight = new Map()
+  for (const r of regions) {
+    const key = r.owner
+    groupOtherWeight.set(
+      key,
+      (groupOtherWeight.get(key) ?? false) || hasOtherWeight(src.slice(r.start, r.end)),
+    )
+  }
   const byGroup = {}
   const samples = []
   let out = src
   let changes = 0
+  let pinned = 0
   let skippedOffFace = 0
   let skippedNoWeight = 0
   for (let i = regions.length - 1; i >= 0; i--) {
     const r = regions[i]
     const before = out.slice(r.start, r.end)
-    if (requireWeightCompanion && !WEIGHT_RE.test(before)) {
+    const hasWeight = groupOtherWeight.get(r.owner) === true
+    if (requireWeightCompanion && !hasWeight && !pinInheritWeight) {
       if (TOKEN_PLAIN_RE.test(before)) skippedNoWeight++
       continue
     }
+    // 逐实参补钉,**不做属性级去重**:`cn('text-xs', ok && 'text-sm')` 里若只给一个实参补钉,
+    // 那枚实参条件为假时钉子消失、另一个实参的具名档回落就重新生效 ⇒ 恒等被破。
+    // 让每个含可改档的实参自带钉子 ⇒ 钉子与档同生共死,任意分支组合下都可证零变化。
+    const needPin =
+      requireWeightCompanion && !hasWeight && pinInheritWeight && !INHERIT_PIN_RE.test(before)
     TOKEN_RE.lastIndex = 0
     let body = ''
     let last = 0
@@ -250,10 +303,23 @@ export function rewriteSource(src, opts = {}) {
     }
     if (hitCount === 0) continue
     body += before.slice(last)
+    if (needPin) {
+      body = `${INHERIT_WEIGHT_CLASS} ${body}`
+      pinned++
+    }
     changes += hitCount
     out = out.slice(0, r.start) + body + out.slice(r.end)
   }
-  return { out, changes, byGroup, samples, regions: regions.length, skippedOffFace, skippedNoWeight }
+  return {
+    out,
+    changes,
+    byGroup,
+    samples,
+    regions: regions.length,
+    pinned,
+    skippedOffFace,
+    skippedNoWeight,
+  }
 }
 
 function mergeGroups(into, from) {
@@ -347,6 +413,12 @@ const SELF_TEST_CASES = [
   { name: '幂等:改过再跑 0 处', src: '<a className="flex text-sm items-center sm:text-xs" />', want: '<a className="flex text-body items-center sm:text-label" />', n: 2 },
   { name: '权重锁档:有 font-* 伴随才改', src: '<a className="font-semibold text-xl" /><b className="text-xl" />', want: '<a className="font-semibold text-heading" /><b className="text-xl" />', n: 1, opts: { requireWeightCompanion: true } },
   { name: '权重锁档:变体前缀的权重也算', src: '<a className="text-sm md:font-bold" />', want: '<a className="text-body md:font-bold" />', n: 1, opts: { requireWeightCompanion: true } },
+  { name: '钉档:无权重串补继承钉后可证恒等地改档', src: '<a className="text-xl" />', want: '<a className="font-[weight:inherit] text-heading" />', n: 1, opts: { requireWeightCompanion: true, pinInheritWeight: true } },
+  { name: '钉档:cn 另一实参的 font-bold 算权重伴随,绝不误钉', src: "<a className={cn('text-sm', 'font-bold')} />", want: "<a className={cn('text-body', 'font-bold')} />", n: 1, opts: { requireWeightCompanion: true, pinInheritWeight: true } },
+  { name: '钉档:条件实参逐枚自带钉,任意分支组合下钉子与档同生共死', src: "<a className={cn('text-xs', ok && 'text-sm')} />", want: "<a className={cn('font-[weight:inherit] text-label', ok && 'font-[weight:inherit] text-body')} />", n: 2, opts: { requireWeightCompanion: true, pinInheritWeight: true } },
+  { name: '钉档:表外档不产生钉子', src: '<a className="text-base" />', want: '<a className="text-base" />', n: 0, opts: { requireWeightCompanion: true, pinInheritWeight: true } },
+  { name: '钉档:已有钉的实参不重复钉,同属性新写的档补钉', src: "<a className={cn('font-[weight:inherit] text-sm', 'text-xl')} />", want: "<a className={cn('font-[weight:inherit] text-body', 'font-[weight:inherit] text-heading')} />", n: 2, opts: { requireWeightCompanion: true, pinInheritWeight: true } },
+  { name: '权重锁档(不补钉):cn 多实参的权重也按属性合并判定', src: "<a className={cn('text-sm', 'font-bold')} />", want: "<a className={cn('text-body', 'font-bold')} />", n: 1, opts: { requireWeightCompanion: true } },
 ]
 
 function runSelfTest() {
@@ -397,6 +469,7 @@ function main() {
   const byGroup = {}
   const samples = []
   let totalChanges = 0
+  let totalPinned = 0
   let truncated = false
   let scanned = 0
 
@@ -421,7 +494,7 @@ function main() {
       held.push(`${f}(二进制/不可读)`)
       continue
     }
-    const r = rewriteSource(src, { requireWeightCompanion: onlyWeightLocked })
+    const r = rewriteSource(src, { requireWeightCompanion: onlyWeightLocked, pinInheritWeight })
     if (r.changes === 0) continue
     if (dirty.has(f)) {
       held.push(f)
@@ -430,6 +503,7 @@ function main() {
     if (!apply) {
       results.push({ file: f, changes: r.changes, byGroup: r.byGroup })
       totalChanges += r.changes
+      totalPinned += r.pinned
       mergeGroups(byGroup, r.byGroup)
       for (const s of r.samples) if (samples.length < 10) samples.push(`${f}: ${s}`)
       continue
@@ -446,7 +520,10 @@ function main() {
     try {
       watermark('clean', f)
       const cleaned = readWorktreeFile(ROOT, f)
-      const rr = cleaned === null ? null : rewriteSource(cleaned, { requireWeightCompanion: onlyWeightLocked })
+      const rr =
+        cleaned === null
+          ? null
+          : rewriteSource(cleaned, { requireWeightCompanion: onlyWeightLocked, pinInheritWeight })
       if (!rr) throw new Error('clean 后读不回')
       if (rr.changes === 0) {
         watermark('inject', f)
@@ -459,6 +536,7 @@ function main() {
       results.push({ file: f, changes: rr.changes, byGroup: rr.byGroup })
       landedBatch.push(f)
       totalChanges += rr.changes
+      totalPinned += rr.pinned
       mergeGroups(byGroup, rr.byGroup)
       for (const s of rr.samples) if (samples.length < 10) samples.push(`${f}: ${s}`)
     } catch (e) {
@@ -495,6 +573,8 @@ function main() {
     failed: failed.length,
     applied: apply,
     weightLocked: onlyWeightLocked,
+    pinInheritWeight,
+    pinned: totalPinned,
     truncated,
     landing,
     landingDedup,
@@ -520,7 +600,7 @@ function main() {
   if (held.length) console.log(`  🔒 held(工作树脏,归属未知不猜)${held.length} 个:${held.slice(0, 6).join(', ')}${held.length > 6 ? ' …' : ''}`)
   if (failed.length) console.log(`  ❌ failed ${failed.length} 个(已回滚):${failed.slice(0, 5).join(', ')}`)
   console.log(
-    `结论:LAND-WEB-TIERS state=${apply ? 'applied' : 'dry-run'} files=${results.length} changes=${totalChanges} held=${held.length} failed=${failed.length}${truncated ? ' truncated=1' : ''} groups[${groups}]` +
+    `结论:LAND-WEB-TIERS state=${apply ? 'applied' : 'dry-run'} files=${results.length} changes=${totalChanges} pinned=${totalPinned} held=${held.length} failed=${failed.length}${truncated ? ' truncated=1' : ''} groups[${groups}]` +
       landingKeys({ landing, deduped: landingDedup, rejected: landingRejected, skipLanded, ledgerUnjudged, landingErr }),
   )
   if (failed.length) process.exit(1)
@@ -538,6 +618,7 @@ if (isDirectRun) {
 
 export const __test__ = {
   MAP,
+  INHERIT_WEIGHT_CLASS,
   rewriteSource,
   rewriteClassText,
   findClassRegions,
