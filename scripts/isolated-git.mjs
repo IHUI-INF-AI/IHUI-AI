@@ -56,7 +56,6 @@ import {
   readdirSync,
   renameSync,
   rmSync,
-  rmdirSync,
   unlinkSync,
   writeFileSync,
   writeSync,
@@ -105,6 +104,39 @@ const FORBIDDEN_COMMIT_ARGS = [
 const ACTIVE_INDEXES = new Set()
 /** 本次运行的 git 写锁单元(与 safe-commit 同一把锁;post-commit 见到该 env 不再嵌套加锁)。 */
 const LOCK_UNIT = `isolated-git-${process.pid}-${Date.now()}`
+/** acquire 的等待预算(原值 900_000ms 一字未动,只是提成常量,供观测行回填同一数字)。 */
+const LOCK_TIMEOUT_MS = 900_000
+/**
+ * 本次 acquire 覆盖的阶段(仅用于可 grep 的观测行,**不参与任何判据**)。
+ * 2026-11-04 起 `verifyLanded` 与共享索引推进已挪到放锁之后 ⇒ 锁只覆盖提交内核
+ * (read-tree / add / native commit 及其钩子),不再覆盖事后只读核验与索引推进。
+ */
+const LOCK_SCOPE = 'commit-core'
+
+/**
+ * 一行机器可解析的观测输出(如 `[ihui-lock] result=ok waited_ms=1234 ...`)。
+ * 只打印事实,**绝不参与锁语义**:不放宽超时、不改轮询间隔、不加退避。
+ */
+function traceLine(tag, fields) {
+  const body = Object.entries(fields)
+    .map(([k, v]) => `${k}=${String(v ?? '').replace(/\s+/g, '_')}`)
+    .join(' ')
+  const line = `[${tag}] ${body}`
+  try {
+    writeSync(1, `${line}\n`)
+  } catch {
+    console.info(line)
+  }
+}
+
+/** 读锁的 meta(只读快照;读不到 ⇒ null,绝不因此改变 acquire/release 判据)。 */
+function readLockMeta(dir) {
+  try {
+    return JSON.parse(readFileSync(join(dir, 'meta.json'), 'utf8'))
+  } catch {
+    return null
+  }
+}
 
 /** 所有 git 子进程显式接管 stdio(AGENTS §12g:不写稳定 EBUSY)。 */
 function rawGit(args, { gitCwd, env, allowFail = false } = {}) {
@@ -194,7 +226,7 @@ export function sweepStale(indexDir, { isAlive = isPidAlive, now = Date.now() } 
   return removed
 }
 
-/** 删掉本进程的索引、它自己的 `.lock`/内容快照/派生申报;目录空了就顺手收掉(不递归、不碰别的东西)。 */
+/** 删掉本进程的索引、它自己的 `.lock`/内容快照/派生申报(只删自己的文件,不碰别席)。 */
 export function disposeIndex(indexFile) {
   ACTIVE_INDEXES.delete(indexFile)
   for (const f of [
@@ -210,11 +242,11 @@ export function disposeIndex(indexFile) {
       /* 清理失败不覆盖原结论 */
     }
   }
-  try {
-    rmdirSync(dirname(indexFile))
-  } catch {
-    /* 目录非空 = 别的进程正在用,保留 */
-  }
+  // ⚠️ 2026-11-04 起**不再 rmdir 目录**(原"空了就顺手收掉")。锁外核验把 dispose 挪到了
+  // release 之后,别的席位此时已经在"mkdir 目录 → git 建 <idx>.lock"之间:一次 rmdir 若
+  // 恰好插进这两步,对方 git 就报 `Unable to create '<idx>.lock': No such file or directory`
+  // (20 轮重叠夹具实测 2/20)。空目录留在 `.git/ihui-isolated-index` 无害,残留文件由
+  // `sweepStale` 按宿主 pid 清掉;目录本身不参与任何判据。
 }
 
 /** 解析前导 `-C <dir>`(与 git 同义),其余参数原样返回。 */
@@ -604,35 +636,22 @@ export function commitWithIndex({ gitCwd, env, gitDir, commitOpts, paths, log = 
       // 成功路径默认吞掉 git 的 stderr;护栏复原留痕必须让作者看见(其余钩子输出不放大)。
       if (/私有索引内容护栏/.test(String(res.stderr || ''))) log.warn?.(String(res.stderr).trim())
       const derived = derivedArtifacts.readDerivedManifest(derivedFile)
-      const sha = verifyLanded({
-        ctx,
-        base,
-        declared,
-        extraAllowed: derived.map((d) => d.path).filter(Boolean),
-        stdout: res.stdout,
-        expectedSubject: privateCommit.expectedSubject,
-        log,
-      })
-      const refreshed = refreshSharedIndex({
-        gitCwd,
-        gitDir,
-        indexFile,
-        base,
-        committedSha: sha,
-        log,
-      })
-      // 共享索引里还有别人的 staged(常态)⇒ 整份 CAS 会放弃;此时只把**本次声明路径**
-      // 推进到新提交树,避免留下 MM/AD 反向暂存(见 advanceSharedIndexPaths 头注)。
-      if (!refreshed) {
-        advanceSharedIndexPaths({
-          gitCwd,
+      // 2026-11-04:事后核验与共享索引推进都**不需要仓级写锁** —— `verifyLanded` 按已落地的
+      // sha 只读;`advanceSharedIndexPaths` 自带 `.git/index.lock` + 现读字节基线。这里只把
+      // 「落地事实」交回给 main,由它在 release 之后再跑(锁内时长因此缩短,锁语义不变)。
+      return {
+        code: 0,
+        landed: {
+          ctx,
           gitDir,
-          committedSha: sha,
-          paths: [...declared],
-          log,
-        })
+          indexFile,
+          base,
+          declared,
+          extraAllowed: derived.map((d) => d.path).filter(Boolean),
+          stdout: res.stdout,
+          expectedSubject: privateCommit.expectedSubject,
+        },
       }
-      return 0
     }
     if (isLockBusy(res.stderr) && attempt < MAX_ATTEMPTS) {
       log.warn?.(`⟳ 第 ${attempt} 轮:git 写锁被占,2s 后重试(私有索引不碰共享 index.lock)`)
@@ -761,16 +780,37 @@ export function refreshSharedIndex({
  * 写成新提交树里的 blob/mode,再原子 rename 回去。拿不到锁或任何一步失败 ⇒ 原样不动,
  * 留给下一条 `safe-commit`(AGENTS §12 Step 1)自愈。
  */
-export function advanceSharedIndexPaths({ gitCwd, gitDir, committedSha, paths, log = console }) {
+export function advanceSharedIndexPaths({
+  gitCwd,
+  gitDir,
+  committedSha,
+  paths,
+  repoLock = 'unknown',
+  log = console,
+}) {
   const sharedIndex = join(gitDir, 'index')
   const lock = join(gitDir, 'index.lock')
   const declared = [...new Set((paths || []).map((p) => normalizePath(gitCwd, p)))]
-  if (!declared.length) return false
+  // 观测行:让"跳过不覆盖"可被 grep 计数(result=ok|skipped + reason)。判据面一字不动。
+  const report = (result, reason) =>
+    traceLine('ihui-shared-index', {
+      op: 'advance',
+      result,
+      reason,
+      paths: declared.length,
+      sha: String(committedSha || '').slice(0, 7),
+      repo_lock: repoLock,
+    })
+  if (!declared.length) {
+    report('skipped', 'empty')
+    return false
+  }
   let staging = null
   let fd
   try {
     fd = openSync(lock, 'wx')
   } catch {
+    report('skipped', 'index-lock-held')
     return false
   }
   try {
@@ -792,7 +832,10 @@ export function advanceSharedIndexPaths({ gitCwd, gitDir, committedSha, paths, l
       if (meta.length < 3 || meta[1] !== 'blob') continue
       recs.push({ mode: meta[0], blob: meta[2], path: rec.slice(tab + 1) })
     }
-    if (!recs.length) return false
+    if (!recs.length) {
+      report('skipped', 'no-entries')
+      return false
+    }
     const stageEnv = { ...cleanGitEnv(), GIT_INDEX_FILE: staging }
     for (const r of recs) {
       rawGit(['update-index', '--add', '--cacheinfo', `${r.mode},${r.blob},${r.path}`], {
@@ -801,9 +844,11 @@ export function advanceSharedIndexPaths({ gitCwd, gitDir, committedSha, paths, l
       })
     }
     renameSync(staging, sharedIndex)
+    report('ok', 'done')
     return true
   } catch (e) {
     log.warn?.(`共享索引路径级推进失败(不影响本次提交): ${e?.message ?? e}`)
+    report('skipped', 'error')
     return false
   } finally {
     try {
@@ -948,24 +993,53 @@ export async function main(argv = process.argv.slice(2)) {
   // 全仓 git 写锁:提交(含数分钟钩子)期间禁止别的会话推进 HEAD。否则本席索引仍是旧基线,
   // 而提交父变成新 HEAD ⇒ 树里没有对方改动,等于把别人的文件回退(2026-11-04 夹具实测)。
   const lockDirPath = join(gitDir, 'ihui-git-write.lock')
+  // 排队读数:抢到锁之后 meta 已经是自己的,所以"我等的是谁"只能在**进 acquire 之前**
+  // 取一份只读快照(进锁时无人持锁 ⇒ none;锁在但读不到 meta ⇒ unknown;绝不因此改锁判据)。
+  // ⚠️ waited_ms 是**字面值**(从调用 acquire 到返回的真实毫秒),含 git-lock 首次写 meta 时
+  // 的进程身份探针开销(本机实测约 1.2s,每个新进程一次);因此"零竞争"也会看到 1.2s 左右,
+  // 判断是否真排队请看 holder_unit 与 hold_ms。
+  const priorHolder = readLockMeta(lockDirPath)
+  const acquireT0 = Date.now()
+  let waitedMs = 0
   try {
     await gitLock.acquire({
       unitId: LOCK_UNIT,
-      timeoutMs: 900_000,
+      timeoutMs: LOCK_TIMEOUT_MS,
       dir: lockDirPath,
       cleanIndexLocks: false,
       log: () => {},
     })
+    waitedMs = Date.now() - acquireT0
+    traceLine('ihui-lock', {
+      result: 'ok',
+      waited_ms: waitedMs,
+      holder_unit: priorHolder ? priorHolder.unitId || 'unknown' : 'none',
+      lock_scope: LOCK_SCOPE,
+      unit: LOCK_UNIT,
+      pid: process.pid,
+    })
   } catch (e) {
+    waitedMs = Date.now() - acquireT0
+    traceLine('ihui-lock', {
+      result: 'timeout',
+      waited_ms: waitedMs,
+      timeout_ms: LOCK_TIMEOUT_MS,
+      holder_unit: readLockMeta(lockDirPath)?.unitId || 'unknown',
+      lock_scope: LOCK_SCOPE,
+      unit: LOCK_UNIT,
+      pid: process.pid,
+    })
     console.error(`❌ 抢 git 写锁失败,拒绝在无人看守的共享树上提交:${e?.message ?? e}`)
     disposeIndex(indexFile)
     return 1
   }
+  const holdT0 = Date.now()
   ACTIVE_LOCKS.add(lockDirPath)
   // 让 post-commit 认出本席已持锁,避免它再抢同一把锁(同 unitId 可重入)。
   process.env.IHUI_GIT_LOCK_UNIT = LOCK_UNIT
+  let outcome
   try {
-    return commitWithIndex({
+    outcome = commitWithIndex({
       gitCwd,
       env: childEnv(indexFile),
       gitDir,
@@ -974,14 +1048,63 @@ export async function main(argv = process.argv.slice(2)) {
     })
   } catch (e) {
     console.error(`❌ ${e?.message ?? e}`)
-    return 2
+    outcome = { code: 2 }
   } finally {
-    disposeIndex(indexFile)
     ACTIVE_LOCKS.delete(lockDirPath)
     const rel = gitLock.release({ unitId: LOCK_UNIT, dir: lockDirPath, log: () => {} })
+    traceLine('ihui-lock', {
+      result: 'release',
+      waited_ms: waitedMs,
+      hold_ms: Date.now() - holdT0,
+      holder_unit: LOCK_UNIT,
+      lock_scope: LOCK_SCOPE,
+      released: rel.released ? 1 : 0,
+    })
     if (!rel.released) {
       console.error(`⚠️ git 写锁释放失败(下次 acquire 会按 stale/身份判据回收):${rel.why ?? ''}`)
     }
+  }
+  // —— 放锁之后的两件只读/自锁事务(2026-11-04 挪出):都不需要仓级写锁,搬出去只为缩短
+  // 「锁内时长」。`verifyLanded` 按已落地 sha 只读;`advanceSharedIndexPaths` 自带
+  // `.git/index.lock` + 现读字节基线,拿不到就"跳过不覆盖"(不会静默改回别人的条目)。
+  try {
+    if (outcome && outcome.landed) {
+      const l = outcome.landed
+      const sha = verifyLanded({
+        ctx: l.ctx,
+        base: l.base,
+        declared: l.declared,
+        extraAllowed: l.extraAllowed,
+        stdout: l.stdout,
+        expectedSubject: l.expectedSubject,
+      })
+      const refreshed = refreshSharedIndex({
+        gitCwd,
+        gitDir: l.gitDir,
+        indexFile: l.indexFile,
+        base: l.base,
+        committedSha: sha,
+      })
+      // 共享索引里还有别人的 staged(常态)⇒ 整份 CAS 会放弃;此时只把**本次声明路径**
+      // 推进到新提交树,避免留下 MM/AD 反向暂存(见 advanceSharedIndexPaths 头注)。
+      if (!refreshed) {
+        advanceSharedIndexPaths({
+          gitCwd,
+          gitDir: l.gitDir,
+          committedSha: sha,
+          paths: [...l.declared],
+          repoLock: 'released',
+        })
+      }
+      return 0
+    }
+    return typeof outcome === 'number' ? outcome : outcome?.code ?? 2
+  } catch (e) {
+    console.error(`❌ ${e?.message ?? e}`)
+    return 2
+  } finally {
+    // 私有索引必须等共享索引推进读完才回收(refreshSharedIndex 直接读它的字节)。
+    disposeIndex(indexFile)
   }
 }
 
