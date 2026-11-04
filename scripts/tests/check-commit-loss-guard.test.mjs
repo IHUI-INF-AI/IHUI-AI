@@ -1676,6 +1676,11 @@ test('3b·端到端②: tag 指向的提交有路径无覆盖 ⇒ 必须点名�
     // 报告口径:本单不把 3b 未清偿转 blocking(属用户级决定),但必须**报出来**且不得记绿。
     assert.equal(r.status, 0, `3b 未清偿本轮不拦(exit 0),实际 ${r.status}:\n${r.stdout}`)
     assert.match(r.stdout, /↳ 逐路径覆盖:已清偿 0 \/ 未清偿 1/, '缺口必须计入"未清偿"')
+    assert.match(
+      r.stdout,
+      /其中有未覆盖路径 1 \/ 无改动路径 merge或空提交 0/,
+      '必须把"真有未覆盖路径"与 merge/空提交分开计数(后者没有路径可清偿)',
+    )
     assert.match(r.stdout, /已备份但缺口仍在/, '必须明确这是"已备份但未落地",不是"已保护"')
     assert.match(r.stdout, new RegExp(oid.slice(0, 7)), `必须点名该提交 ${oid}`)
     assert.match(r.stdout, /lost-unique-3b\.txt/, '必须点名未覆盖路径')
