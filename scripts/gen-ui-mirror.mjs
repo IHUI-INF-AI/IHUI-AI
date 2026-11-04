@@ -71,7 +71,7 @@ import { appendLanding, isRowComplete, readLanding, ledgerPathFor } from './lib/
 // 取 oid 与 collectiblePaths 同尺:库内 worktree 面用 gitRaw(['hash-object','--',rel], root),
 // 这里必须问同一把尺(自拼裸 git 或换 hash-object 参数 = 两侧算法不一致 ⇒ 永远 contested)。
 import { gitRaw } from './lib/face-reader.mjs'
-// 旧档回写判据(2026-11-03 立,与守门 292 同一实现):派生文本若逐字等于该路径某个祖先 blob
+// 旧档回写判据(2026-11-03 立,与守门 298 同一实现):派生文本若逐字等于该路径某个祖先 blob
 // 而 HEAD 已有更新档 ⇒ 拒绝写盘。立因见 lib/ancestor-downgrade.mjs 头注(4 组件旧 blob 回写)。
 import { ancestorBlobOf, describeMatch, gitBlobOidOfText, headBlobOf } from './lib/ancestor-downgrade.mjs'
 // 归属闸(2026-11-03 立,挂守护周期腿的**前置条件**):判据单源 = scripts/lib/git-paths.mjs
@@ -110,7 +110,7 @@ export function worktreeBlobOid(rel, root = ROOT) {
 
 /**
  * 写盘前闸:这份派生文本写下去,会不会把文件**逐字**变回 HEAD 某枚祖先的旧档?
- * 返回 { allow, match?, undetermined?, why }。判据与守门 292 同一实现(lib/ancestor-downgrade.mjs):
+ * 返回 { allow, match?, undetermined?, why }。判据与守门 298 同一实现(lib/ancestor-downgrade.mjs):
  *   · HEAD 无该路径(新增壳)⇒ 放行(无祖先可比);
  *   · 与 HEAD 同 blob ⇒ 放行(零改动);
  *   · 等于祖先 blob 且 ≠ HEAD ⇒ 拒绝写盘并点名(这不是"镜像",是把旧检出档搬回来)。
