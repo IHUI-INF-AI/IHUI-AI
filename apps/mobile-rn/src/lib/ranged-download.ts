@@ -5,19 +5,23 @@
 /**
  * ranged-download.ts — 多连接分片下载(2026-11-04 立)。
  *
- * 为什么需要它(实测读数,不是推断):
- *   APK 85MB 从 www.aizhs.top 走 Cloudflare 隧道到国内手机,单连接实测 **16 KB/s**
- *   (20 秒窗口内甚至拿不到首字节,TTFB 就顶掉了),按这个速率 85MB ≈ 90 分钟 ——
- *   用户看到的就是"几十 B/s、永远卡在 0%",报「这他妈根本就有问题」完全合理。
- *   同一台手机同一时刻、同一个文件、只把连接数从 1 提到 8:16 KB/s → **362 KB/s**;
- *   16 条 → 443 KB/s。8 条就是 22 倍,85MB 降到 ~4 分钟。
- *   ⇒ 瓶颈是**单连接**(跨境长肥管道 + 小窗口),不是总带宽,也不是服务端带宽
- *   (`cf-cache-status: HIT`,边缘就有副本)。
+ * 为什么需要它(2026-11-04 两轮真机实测,后一轮推翻了前一轮的拐点判断):
+ *   APK 85MB 从 www.aizhs.top 到国内手机,单连接实测 **10.5~16 KB/s**,TTFB 5.9~14s
+ *   (20 秒窗口里首字节就能把窗口吃光)—— 用户看到的就是"几十 B/s、永远卡在 0%"。
+ *   同一台手机、4 条并发各取 1MB,25 秒窗口聚合 **94 KB/s**(四条分别 0 / 688K / 1M / 622K),
+ *   约为单连接的 9 倍 ⇒ 瓶颈确实在**单连接**(跨境长肥管道 + 小拥塞窗口)。
+ *
+ *   但**并发不是越多越好**:首版按 8 条 × 2MB 落地,真机埋点显示 8 条请求全部正常发出,
+ *   95 秒内无一条返回 onload/onerror(`xhr.timeout` 还设成了 256s ⇒ 用户会盯着 0% 干等四分多钟);
+ *   而同机 `curl` 单条取同样 2MB 只要 19.9s。8 条并发 + 每片 2MB 的组合在这条链路上会
+ *   **集体饿死**。⇒ 片要小(512KB)、并发要收(4 条)、单片超时要短(75s),
+ *   让"首片到货"发生在十几秒内,而不是让用户先熬过一片 2MB 的跨境长尾。
+ *   这三层都是纯 JS 参数,走 OTA 热更即可调整,不需要重编原生。
  *
  * 所以这里做的不是"重试得更狠",而是**把一次传输拆成 N 条独立连接**:
  *   1. 先发一条 `Range: bytes=0-0` 探针,拿 `Content-Range: bytes 0-0/<total>`
  *      ——total 是服务端自己报的,不靠猜 Content-Length(302 链上它可能是跳转体长度);
- *   2. 按 2MB 切窗,8 条连接各领一片,彼此不共享 TCP 流;
+ *   2. 按 512KB 切窗,4 条连接各领一片,彼此不共享 TCP 流;
  *   3. 每片到货就用 `FileHandle.offset = start` + `writeBytes()` **定位写**进同一个文件
  *      (expo-file-system 的原生实现是 `FileChannel.position()+write`,越界写自动补零扩展)
  *      ⇒ 不需要"下完 N 个临时文件再拼",也就不需要把 85MB 读进 JS 内存;
@@ -32,10 +36,10 @@
 
 import { File, FileMode } from 'expo-file-system'
 
-/** 8 条是实测拐点:8→16 只多 22%,而并发越高越容易被边缘限流(CF 免费版按 IP 计)。 */
-export const DEFAULT_CONCURRENCY = 8
-/** 2MB 片:太小则请求数暴涨(每次都有 TTFB 成本),太大则单条连接尾延迟长、重试代价高。 */
-export const DEFAULT_CHUNK_BYTES = 2 * 1024 * 1024
+/** 4 条是干净 A/B 里聚合最快的可用档(1 条 10.5 KB/s、4 条 94 KB/s、8 条 × 2MB 集体饿死)。 */
+export const DEFAULT_CONCURRENCY = 4
+/** 512KB 片:跨境 TTFB 5.9~14s,片再大就会让"首片到货"拖到几分钟,进度条恒 0%。 */
+export const DEFAULT_CHUNK_BYTES = 512 * 1024
 /** 单片重试上限(含首次)。3 次约覆盖跨境链路的偶发断流,再多就只是拖着用户。 */
 const MAX_ATTEMPTS = 3
 const RETRY_BASE_MS = 600
@@ -43,12 +47,27 @@ const RETRY_BASE_MS = 600
 const SPEED_WINDOW_MS = 4000
 /** 单连接速率下限,用于把"这片要下多久"折算成 XHR 总超时(低于它就没必要再等)。 */
 const FLOOR_BYTES_PER_SECOND = 8 * 1024
+/**
+ * 首片看门狗(2026-11-04 真机教训):分片只是"加速尝试",不是唯一可用的腿。
+ * RN 的 XHR 在跨境慢链路上可能把每条 Range 请求都挂到读超时(实测 64s 集体 onerror),
+ * 此时若还按 3 次重试走完,用户要盯 3 分钟 0% 才等到降级。45s 内 0 字节到货就撤单,
+ * 让调用方立刻退回原生单流 —— 慢,但至少有真实进度、不会假装在下载。
+ */
+export const DEFAULT_STALL_TIMEOUT_MS = 45_000
 
 /** 服务端不支持 Range(或回了 200 整包)。由调用方决定退回哪条腿。 */
 export class RangeUnsupportedError extends Error {
   constructor(message: string) {
     super(message)
     this.name = 'RangeUnsupportedError'
+  }
+}
+
+/** 分片腿在首片到货前停滞。与"服务端不认 Range"同属可降级,但原因要分开报,便于排查。 */
+export class RangeStalledError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'RangeStalledError'
   }
 }
 
@@ -288,6 +307,8 @@ export interface RangedDownloadOptions {
   transport?: RangeTransport
   /** 进度节流(默认 250ms),避免每片都 setState 打爆渲染 */
   progressIntervalMs?: number
+  /** 首片看门狗(默认 45s):这段时间里 0 字节到货 ⇒ 撤掉分片腿,让上层退回原生单流 */
+  stallTimeoutMs?: number
 }
 
 export interface RangedDownloadResult {
@@ -298,7 +319,9 @@ export interface RangedDownloadResult {
 
 function chunkTimeoutMs(chunkBytes: number): number {
   const raw = (chunkBytes / FLOOR_BYTES_PER_SECOND) * 1000
-  return Math.min(300_000, Math.max(60_000, Math.round(raw)))
+  // 上限 75s:首版给 2MB 片算到 256s,真机上 8 条集体挂起时用户要干等四分多钟才看到一次重试,
+  // 等于把"卡死"伪装成"正在下载"。宁可早超时早重试,也不能拿超长超时粉饰停滞。
+  return Math.min(75_000, Math.max(30_000, Math.round(raw)))
 }
 
 function delay(ms: number): Promise<void> {
@@ -427,9 +450,26 @@ export async function downloadRanged(opts: RangedDownloadOptions): Promise<Range
     }
   }
 
+  const stallMs = Math.max(1000, opts.stallTimeoutMs ?? DEFAULT_STALL_TIMEOUT_MS)
+  let rejectStall: ((e: Error) => void) | null = null
+  // 与 workers 赛跑,而不是等它们:真实 XHR 被 abort 后会 settle,但替身/极端网络下
+  // 一条永不回调的请求不能把"撤单"也一起卡死。allSettled 永不 reject ⇒ 不会留下
+  // unhandled rejection,输掉这一侧是安全的。
+  const stallPromise = new Promise<never>((_, reject) => {
+    rejectStall = reject
+  })
+  const watchdog = setTimeout(() => {
+    if (downloaded > 0) return
+    cancellation.cancel()
+    rejectStall?.(new RangeStalledError(`分片腿 ${Math.round(stallMs / 1000)}s 内 0 字节到货`))
+  }, stallMs)
+
   try {
     emit(true)
-    const results = await Promise.allSettled(Array.from({ length: connections }, () => worker()))
+    const results = await Promise.race([
+      Promise.allSettled(Array.from({ length: connections }, () => worker())),
+      stallPromise,
+    ])
     const failure = results.find((r): r is PromiseRejectedResult => r.status === 'rejected')
     if (failure) throw failure.reason
     if (cancellation.isCancelled) throw new DownloadCancelledError()
@@ -440,6 +480,7 @@ export async function downloadRanged(opts: RangedDownloadOptions): Promise<Range
     emit(true)
     return { uri: opts.uri, bytes: totalBytes, connections }
   } finally {
+    clearTimeout(watchdog)
     try {
       handle.close()
     } catch {

@@ -75,12 +75,14 @@ vi.mock('expo-file-system', () => ({
 
 import {
   createSpeedMeter,
+  DEFAULT_CONCURRENCY,
   downloadRanged,
   DownloadCancellation,
   DownloadCancelledError,
   normalizeConcurrency,
   parseContentRange,
   planRanges,
+  RangeStalledError,
   RangeUnsupportedError,
   type RangeResponse,
   type RangeTransport,
@@ -189,8 +191,8 @@ describe('normalizeConcurrency', () => {
     expect(normalizeConcurrency(300, 100, 8)).toBe(3)
   })
 
-  it('请求值非法时回落默认 8,且永不为 0', () => {
-    expect(normalizeConcurrency(TOTAL, 1024, Number.NaN)).toBe(8)
+  it('请求值非法时回落默认并发,且永不为 0', () => {
+    expect(normalizeConcurrency(TOTAL, 1024, Number.NaN)).toBe(DEFAULT_CONCURRENCY)
     expect(normalizeConcurrency(TOTAL, TOTAL * 2, 0)).toBe(1)
   })
 })
@@ -318,6 +320,32 @@ describe('downloadRanged', () => {
     await expect(
       downloadRanged({ url: URL, uri: URI, chunkBytes: CHUNK, transport }),
     ).rejects.toThrow(/下载不完整|分片长度不符/)
+  })
+
+  it('首片一直不到货 ⇒ 看门狗撤单,不把 0% 伪装成「下载中」', async () => {
+    // 真机形态:探针正常(206),但之后每条 Range 请求都挂到读超时,永不 settle。
+    // 撤单必须能在请求仍挂着时发生(Promise.race),否则用户会一直盯着 0%。
+    const transport: RangeTransport = {
+      get(_url, headers, _timeoutMs, _cancellation) {
+        if (String(headers.Range) === 'bytes=0-0') {
+          return Promise.resolve({
+            status: 206,
+            body: new ArrayBuffer(1),
+            contentRange: `bytes 0-0/${TOTAL}`,
+          })
+        }
+        return new Promise<RangeResponse>(() => {})
+      },
+    }
+    await expect(
+      downloadRanged({
+        url: URL,
+        uri: URI,
+        chunkBytes: CHUNK,
+        transport,
+        stallTimeoutMs: 1000,
+      }),
+    ).rejects.toBeInstanceOf(RangeStalledError)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
