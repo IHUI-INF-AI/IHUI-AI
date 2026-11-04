@@ -2,38 +2,47 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useCallback, useState } from 'react'
-import * as LocalAuthentication from 'expo-local-authentication'
+// 智汇值余额卡:对齐 packages/app/src/features/token-value/TokenValueScreen.tsx 的 balanceCard 段
+import { View, Text } from '@tarojs/components'
+import type { TtFn } from '@/i18n'
+// 2026-11-04: 原 ./token-packages 已随壳化退役删除(零消费),格式化改指向跨端单一真相源;
+// mobile-rn/UserInfoCard 与端内 utils/time.ts 的 formatPrice 同样取自 @ihui/shared。
+import { formatTokenValue } from '@ihui/shared/utils'
 
-export interface BiometricResult {
-  success: boolean
-  error?: string
+interface TokenBalanceCardProps {
+  tt: TtFn
+  /** 三枚读数各自可为 null:取不到时渲染 '--',不用 0 冒充「就是 0」(余额未取到 ≠ 余额为 0) */
+  balance: number | null
+  frozen: number | null
+  totalCost: number | null
 }
 
-export function useBiometrics() {
-  const [supported, setSupported] = useState(false)
-  const [enrolled, setEnrolled] = useState(false)
-
-  const probe = useCallback(async () => {
-    const has = await LocalAuthentication.hasHardwareAsync()
-    const enrolledNow = await LocalAuthentication.isEnrolledAsync()
-    setSupported(has)
-    setEnrolled(enrolledNow)
-  }, [])
-
-  const authenticate = useCallback(async (reason = '请验证身份'): Promise<BiometricResult> => {
-    try {
-      const ok = await LocalAuthentication.authenticateAsync({
-        promptMessage: reason,
-        cancelLabel: '取消',
-        disableDeviceFallback: false,
-      })
-      return { success: ok.success, error: ok.success ? undefined : ok.error }
-    } catch (err) {
-      return { success: false, error: err instanceof Error ? err.message : '验证失败' }
-    }
-  }, [])
-
-  return { supported, enrolled, probe, authenticate }
+/** 余额主数 + 冻结 / 总消费两格副指标(与共享屏 balanceMeta 同信息层级) */
+export default function TokenBalanceCard({
+  tt,
+  balance,
+  frozen,
+  totalCost,
+}: TokenBalanceCardProps) {
+  const metas = [
+    { key: 'frozen', label: tt('tokenValue.frozen', '冻结'), value: frozen },
+    { key: 'cost', label: tt('tokenValue.totalCost', '总消费'), value: totalCost },
+  ]
+  return (
+    <View className="balance-card">
+      <Text className="balance-label">{tt('tokenValue.balanceLabel', '智汇值余额')}</Text>
+      <Text className="balance-value">{balance === null ? '--' : formatTokenValue(balance)}</Text>
+      <View className="flex items-start mt-[24rpx] gap-[48rpx]">
+        {metas.map((m) => (
+          <View key={m.key} className="flex flex-col">
+            <Text className="text-caption text-cta-foreground">{m.label}</Text>
+            <Text className="mt-[12rpx] text-title font-semibold text-cta-foreground">
+              {m.value === null ? '--' : formatTokenValue(m.value)}
+            </Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

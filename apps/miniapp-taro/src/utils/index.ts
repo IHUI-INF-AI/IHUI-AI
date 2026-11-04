@@ -2,14 +2,38 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-/**
- * doubao-voice-api — 纯 API 调用已下沉到 @ihui/api-client,本文件仅做 re-export。
- *
- * 平台特定逻辑(如 voiceChatByFile 需读取本地音频文件为 base64)由调用方
- * 自行实现:调 sendVoiceMessage 前先把文件读取为 base64。
- * 各端文件读取 API 不同(RN: expo-file-system / Taro: Taro.readFile),故不下沉。
- */
-// textToSpeech/TtsResult 已随门 8 死调用清账删除(2026-09-28):真 TTS 音频通道 = fetchTextToSpeechAudio
-export { sendVoiceMessage, speechToText, getVoiceModels } from '@ihui/api-client'
-export type { VoiceChatResult } from '@ihui/api-client'
+import Taro from '@tarojs/taro'
+
+export * from './api-bridge'
+export * from './auth'
+export * from './voice-recorder'
+export * from './upload-image'
+export * from './file-utils'
+export * from './share'
+export * from './keyboard-height'
+export * from './save-album'
+export * from './push'
+export * from './time'
+export * from './streaming-recognizer'
+export * from './doubao-voice-api'
+export * from './pay'
+
+export { default as voiceRecorder } from './voice-recorder'
+export { default as streamingRecognizer } from './streaming-recognizer'
+
+// 纯工具函数复用 @ihui/shared/utils(单一来源)
+export { debounce, throttle, sleep } from '@ihui/shared/utils/async'
+export { deepClone, isEmpty } from '@ihui/shared/utils/object'
+
+export function getStorageSync(key: string): unknown {
+  return Taro.getStorageSync(key)
+}
+
+export function setStorageSync(key: string, data: unknown): void {
+  Taro.setStorageSync(key, data)
+}
+
+export function removeStorageSync(key: string): void {
+  Taro.removeStorageSync(key)
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

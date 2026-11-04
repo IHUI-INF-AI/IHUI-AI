@@ -177,7 +177,19 @@
         // 运行时零 import。但它是 scripts/data/host-port-equivalence.json:21 的 rnImpl 锚点,
         // 由 scripts/check-host-port-equivalence.mjs:183/:192 以 existsSync 校验"实现存在",
         // 而 scripts/** 在根 ignore 里 ⇒ 静态图结构性看不见。删锚点会摘掉跨端端口等价判据的一侧。
-        "src/host/host-toast.ts"
+        "src/host/host-toast.ts",
+        // 2026-11-04:lib/alipay.ts —— 唯一"消费方"是一次**被产品规则显式短路**的支付分支:
+        // AppTopupScreen.tsx:29 把 alipay 注册进 PAY_METHODS,:100-102 又立刻
+        // `if (payMethod !== 'wechat') { appAlert(t('pay.alipayNotOpen')); return }` 拦掉,
+        // 四语言文案 pay.alipayNotOpen 同步在册。静态 import 图结构上看不到"已注册但主动拒绝"
+        // 的意图,于是 openAlipayPayment 恒零调用;上游 packages/api-client/src/endpoints/payment.ts:274
+        // 的 createAlipayAppPayment / :302 的 createAlipayPagePayment 也是成对的零调用面。
+        // 三档取舍:接线=替产品决定(要商户签约+后端联调,不是补一行 import);删除=留下两枚
+        // 零调用 API 与四语言"暂未开通"文案指向不存在实现,且重开时从零重写 ⇒ 取豁免。
+        // **到期复核**:`grep -r alipayNotOpen apps/mobile-rn/src` 归零(即支付宝开通)之日,
+        // 必须删本条并把 alipay.ts 真正接进 AppTopupScreen。注意本段不是"先落组件、屏幕在途"
+        // 那一族(那两条是屏幕不存在,本条是屏幕在、产品态关闭),口径不得混用。
+        "src/lib/alipay.ts"
       ],
       // @lobehub/icons 由 brand-icon.web.tsx 以深路径 default 导入(react-native-web 平台扩展 .web.tsx),
       // knip 静态面不解析 .web.tsx 平台变体,会把这条真实依赖误报为未用;2026-10-17 厂商矢量图标接入(f72e53becd)。

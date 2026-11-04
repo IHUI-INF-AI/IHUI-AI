@@ -2,33 +2,71 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// @gen-rn-host-shell —— 本文件为生成物,勿手改结构;共享屏 props 变更后重跑:
-//   node scripts/gen-rn-host-shell.mjs --screen=packages/app/src/features/legal-doc/LegalDocsHubScreen.tsx --write --force
+import { useTt, type TtFn } from '@/i18n'
+import { View, Text, Image } from '@tarojs/components'
+import LineIcon, { type IconName } from '@/components/LineIcon'
+import { icon } from '@/constants/remote-icons'
 
-import { useNavigation } from '@react-navigation/native'
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { LegalDocsHubScreen as SharedLegalDocsHubScreen } from '@ihui/rn-app'
-import { useI18n } from '../i18n'
-import { useTheme } from '../context/ThemeContext'
-import type { RootStackParamList } from '../navigation/RootNavigator'
+export interface EmptyIllustrationProps {
+  type?: 'empty' | 'search' | 'network' | 'permission'
+  text?: string
+  desc?: string
+  actionText?: string
+  onAction?: () => void
+}
 
-type NavigationProp = NativeStackNavigationProp<RootStackParamList>
+/** 有对应本地图标的类型(原项目 empty.png / search.svg) */
+const ICON_IMAGES: Record<string, string> = {
+  empty: icon('empty'),
+  search: icon('search'),
+}
 
-/**
- * RN 宿主薄壳 —— 真相源 legal-doc/LegalDocsHubScreen.tsx。
- * 端内不写布局、不写样式:视觉与结构全在共享屏,本屏只做平台注入(取词/主题/返回)。
- */
-export function LegalDocsHubScreen() {
-  const { t } = useI18n()
-  const { resolvedTheme } = useTheme()
-  const navigation = useNavigation<NavigationProp>()
+/** 原项目无对应图标的类型,以线性图标渲染 */
+const ICON_EMOJIS: Record<string, IconName> = {
+  network: 'wifi',
+  permission: 'lock',
+}
 
+const DEFAULT_TEXTS = (tt: TtFn): Record<string, string> => ({
+  empty: tt('common.empty', '暂无数据'),
+  search: tt('EmptyIllustration.d1', '未找到相关内容'),
+  network: tt('EmptyIllustration.d2', '网络异常'),
+  permission: tt('EmptyIllustration.d3', '暂无权限'),
+})
+
+export default function EmptyIllustration({
+  type = 'empty',
+  text,
+  desc,
+  actionText,
+  onAction,
+}: EmptyIllustrationProps) {
+  const tt = useTt()
+  const imgSrc = ICON_IMAGES[type]
   return (
-    <SharedLegalDocsHubScreen
-      t={t}
-      colorScheme={resolvedTheme}
-      onBack={() => navigation.goBack()}
-    />
+    <View className="flex flex-col items-center justify-center py-12 px-4">
+      {imgSrc ? (
+        <Image className="w-12 h-12 mb-3" src={imgSrc} mode="aspectFit" />
+      ) : (
+        <LineIcon
+          name={(ICON_EMOJIS[type] || 'inbox') as IconName}
+          size="48px"
+          color="var(--color-muted-foreground)"
+          className="mb-3"
+        />
+      )}
+      <Text className="text-sm text-muted-foreground mb-1">{text || DEFAULT_TEXTS(tt)[type]}</Text>
+      {desc && <Text className="text-xs text-muted-foreground text-center mb-3">{desc}</Text>}
+      {actionText && onAction && (
+        <View
+          className="px-4 py-2 rounded-md bg-primary/10"
+          onClick={onAction}
+          hoverClass="opacity-60"
+        >
+          <Text className="text-sm text-primary">{actionText}</Text>
+        </View>
+      )}
+    </View>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
