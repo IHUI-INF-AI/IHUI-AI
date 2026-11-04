@@ -48,7 +48,7 @@ export function ExamQuestionScreen({
   onSubmit,
   onBack,
   onRetry,
-  colorScheme = 'light',  
+  colorScheme = 'light',
   onNavigate,
 }: ExamQuestionScreenProps & { onRetry?: () => void }) {
   assertRequiredPort('onNavigate', onNavigate)
@@ -186,7 +186,7 @@ export function ExamQuestionScreen({
           onPress={onPrev}
           disabled={current === 0}
         >
-          <Text style={styles.navText}>{t('examQuestion.prev')}</Text>
+          <Text style={styles.navText}>{t('eduExamPage.prevQuestion')}</Text>
         </Tappable>
         {isLast ? (
           <Tappable
@@ -198,7 +198,7 @@ export function ExamQuestionScreen({
           </Tappable>
         ) : (
           <Tappable style={styles.navBtn} onPress={onNext}>
-            <Text style={styles.navText}>{t('examQuestion.next')}</Text>
+            <Text style={styles.navText}>{t('eduExamPage.nextQuestion')}</Text>
           </Tappable>
         )}
       </View>

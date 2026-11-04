@@ -87,9 +87,10 @@ export function AddForm({ t, draft, busy, onChange, onSave, onCancel }: AddFormP
           {t('accountPool.cancel')}
         </Text>
         <View
-          className={`flex h-[64rpx] flex-1 items-center justify-center rounded-md bg-[var(--color-cta)] ${
+          className={`flex h-[88rpx] flex-1 items-center justify-center rounded-md bg-[var(--color-cta)] ${
             canSave ? '' : 'opacity-60'
           }`}
+          hoverClass="opacity-60"
           onClick={() => {
             if (canSave) onSave()
           }}
