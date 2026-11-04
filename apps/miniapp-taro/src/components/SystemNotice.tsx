@@ -36,8 +36,8 @@ export default function SystemNotice({ list, onClick }: SystemNoticeProps) {
   const tt = useTt()
   if (!list.length) {
     return (
-      <View className="flex items-center justify-center py-16">
-        <Text className="text-sm text-muted-foreground">
+      <View className="flex items-center justify-center py-6xl">
+        <Text className="text-body text-muted-foreground">
           {tt('message.noSystem', '暂无系统通知')}
         </Text>
       </View>
@@ -45,18 +45,18 @@ export default function SystemNotice({ list, onClick }: SystemNoticeProps) {
   }
 
   return (
-    <View className="px-3 py-2">
+    <View className="px-md py-sm">
       {list.map((item) => (
         <View
           key={item.id}
-          className="flex bg-card rounded-lg p-3 mb-2"
+          className="flex bg-card rounded-lg p-md mb-sm"
           onClick={() => onClick?.(item)}
           hoverClass="opacity-60"
         >
           {item.cover && (
             <Image
               src={item.cover}
-              className="w-12 h-12 rounded-lg mr-3 bg-muted"
+              className="w-12 h-12 rounded-lg mr-md bg-muted"
               mode="aspectFill"
             />
           )}
@@ -64,20 +64,22 @@ export default function SystemNotice({ list, onClick }: SystemNoticeProps) {
             <View className="flex items-center">
               {item.type && (
                 <Text
-                  className={`text-badge px-[12rpx] py-[4rpx] rounded mr-2 ${
+                  className={`text-badge px-[12rpx] py-[4rpx] rounded mr-sm ${
                     TYPE_STYLE[item.type] || TYPE_STYLE.system
                   }`}
                 >
                   {TYPE_LABEL(tt)[item.type] || tt('message.tabs.system', '系统')}
                 </Text>
               )}
-              <Text className="text-sm font-medium text-foreground truncate flex-1">
+              <Text className="text-body font-medium text-foreground truncate flex-1">
                 {item.title}
               </Text>
-              {!item.read && <View className="w-2 h-2 rounded-full bg-destructive ml-2" />}
+              {!item.read && <View className="w-2 h-2 rounded-full bg-destructive ml-sm" />}
             </View>
-            <Text className="text-xs text-muted-foreground mt-1 line-clamp-2">{item.content}</Text>
-            <Text className="text-badge text-muted-foreground mt-1">{item.createdAt}</Text>
+            <Text className="text-label text-muted-foreground mt-xs line-clamp-2">
+              {item.content}
+            </Text>
+            <Text className="text-badge text-muted-foreground mt-xs">{item.createdAt}</Text>
           </View>
         </View>
       ))}

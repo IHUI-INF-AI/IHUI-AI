@@ -21,7 +21,7 @@
 }
 .retry {
   margin-top: var(--spacing-sm);
-  padding: var(--spacing-xs) 32rpx;
+  padding: var(--spacing-xs) var(--spacing-lg);
   font-size: var(--text-label);
   color: var(--color-primary);
 }
@@ -97,7 +97,7 @@
   color: var(--color-cta-foreground);
   background: var(--color-cta);
   border-radius: var(--radius-sm);
-  padding: 0 28rpx;
+  padding: 0 var(--spacing-md-loose);
   line-height: 56rpx;
 }
 

@@ -325,39 +325,39 @@ export default function VipBenefitsPopup({
           onClick={(e) => e.stopPropagation()}
           hoverClass="opacity-60"
         >
-          <View className="flex items-center justify-between px-4 py-3">
-            <Text className="text-base font-medium text-warning">
+          <View className="flex items-center justify-between px-lg py-md">
+            <Text className="text-title font-medium text-warning">
               {tt('vip.benefitsTitle', '会员权益')}
             </Text>
-            <Text className="text-sm vip-text-muted" onClick={onClose}>
+            <Text className="text-body vip-text-muted" onClick={onClose}>
               {tt('common.close', '关闭')}
             </Text>
           </View>
           <ScrollView scrollY className="" style={{ maxHeight: '50vh' }}>
-            <View className="px-4 py-2">
+            <View className="px-lg py-sm">
               {list.map((b) => (
-                <View key={b.id} className="flex items-start py-3 mb-2">
-                  <View className="flex items-center justify-center w-8 h-8 mr-3 rounded-lg bg-[var(--color-brand-accent-light)]">
+                <View key={b.id} className="flex items-start py-md mb-sm">
+                  <View className="flex items-center justify-center w-8 h-8 mr-md rounded-lg bg-[var(--color-brand-accent-light)]">
                     <Image src={pigeonaImg} mode="aspectFit" className="w-4 h-4" />
                   </View>
                   <View className="flex-1">
-                    <Text className="block text-sm font-medium vip-text">{b.title}</Text>
+                    <Text className="block text-body font-medium vip-text">{b.title}</Text>
                     {b.desc && (
-                      <Text className="block text-xs vip-text-muted mt-[4rpx]">{b.desc}</Text>
+                      <Text className="block text-label vip-text-muted mt-[4rpx]">{b.desc}</Text>
                     )}
                   </View>
                 </View>
               ))}
             </View>
           </ScrollView>
-          <View className="px-4 py-3">
+          <View className="px-lg py-md">
             <View
-              className="w-full py-3 rounded-md text-center"
+              className="w-full py-md rounded-md text-center"
               style={{ background: 'var(--color-warning)' }}
               onClick={onUpgrade}
               hoverClass="opacity-60"
             >
-              <Text className="text-sm text-warning-foreground font-medium">
+              <Text className="text-body text-warning-foreground font-medium">
                 {tt('vip.upgradeNow', '立即升级')}
               </Text>
             </View>
@@ -428,7 +428,7 @@ export default function VipBenefitsPopup({
           )}
 
           {/* 权益列表 */}
-          <ScrollView scrollY className="flex-1 mb-5" style={{ WebkitOverflowScrolling: 'touch' }}>
+          <ScrollView scrollY className="flex-1 mb-xl" style={{ WebkitOverflowScrolling: 'touch' }}>
             <View className="flex flex-col" style={{ gap: 'var(--spacing-xs-loose)' }}>
               {list.map((b) => (
                 <View
@@ -506,7 +506,7 @@ export default function VipBenefitsPopup({
                 className="flex justify-center items-center"
                 style={{
                   width: '356rpx',
-                  height: '80rpx',
+                  height: 'var(--spacing-4xl)',
                   borderRadius: rnRadius['2xl'],
                   margin: `${rpx(taroSpacing['sm-loose'])} auto`,
                   fontSize: '30rpx',
