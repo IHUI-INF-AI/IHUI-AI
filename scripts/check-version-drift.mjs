@@ -50,6 +50,12 @@
  * 用法:
  *   node scripts/check-version-drift.mjs           # 检查,失败 exit 1
  *   node scripts/check-version-drift.mjs --json     # 机器可读
+ *
+ * 接线档位(2026-11-04 定):本门只挂 `.github/workflows/ci.yml`,**刻意不接提交链**。
+ *   K2 那五对是"手工维护的安装器清单 vs 包版本逐字相等"—— CLI bump 一次而没同批改三份清单,
+ *   是**一次**要结清的债;若把它挂进提交链,那笔债会让之后每一枚无关提交顶 6 条红,
+ *   唯一结局是逼人 `--no-verify` 并连带废掉全部守门(AGENTS §12e 恒红门同型)。
+ *   判据本身不放宽:CI 上它照样红,只是红在"发版那一轮"而不是"每一个人的提交"。
  */
 import { readFileSync, existsSync, readdirSync } from 'node:fs'
 import { join, resolve, dirname } from 'node:path'
@@ -82,12 +88,35 @@ const SEMVER_LITERAL = /['"]\d+\.\d+\.\d+(?:[-+][\w.-]+)?['"]/
  */
 const VERSION_LITERAL_ASSIGN =
   /\b(\w*version\w*)\s*[:=]\s*['"`]\d+\.\d+\.\d+(?:[-+][\w.-]+)?['"`]/gi
-export function hasVersionLiteral(text) {
-  for (const m of maskComments(String(text)).matchAll(VERSION_LITERAL_ASSIGN)) {
-    if (/protocol/i.test(m[1] ?? '')) continue
-    return true
+
+/**
+ * 判字面量之前的遮罩。`maskComments` 讲的是 JS/TS 的词法(// 与 /* *\/),**不认 `#`** ——
+ * 而本尺的射程里有 .py(agent_engine / mcp_official)。不补这一层,Python 里一句
+ * `# SERVER_VERSION = "1.0.0" 的历史写法` 就会被当成"手搓版本常量"判红(注释不是代码)。
+ * 只遮**整行** `#` 注释,且等长替换(行号/列位不漂,§写判据时我自伤的十二格)。
+ */
+export function maskForLiteralJudge(text, relPath = '') {
+  const masked = maskComments(String(text))
+  if (!/\.py$/.test(String(relPath))) return masked
+  return masked.replace(/^[ \t]*#[^\n]*/gm, (m) => ' '.repeat(m.length))
+}
+
+/** 命中"名字含 version 且被赋成语义版本字面量"的全部标识符名(已遮注释)。 */
+export function versionLiteralIdents(text, relPath = '') {
+  const out = []
+  for (const m of maskForLiteralJudge(text, relPath).matchAll(VERSION_LITERAL_ASSIGN)) {
+    out.push(m[1] ?? '')
   }
-  return false
+  return out
+}
+
+/** 因"协议常量"名字被放过的枚数 —— 放过必须可见,不能静默(§0.10 失效方向是多要一次说明)。 */
+export function protocolSkippedIdents(text, relPath = '') {
+  return versionLiteralIdents(text, relPath).filter((id) => /protocol/i.test(id))
+}
+
+export function hasVersionLiteral(text, relPath = '') {
+  return versionLiteralIdents(text, relPath).some((id) => !/protocol/i.test(id))
 }
 
 function read(rel) {
@@ -310,7 +339,7 @@ export function findVersionDrift(input) {
   }
   for (const [rel, src] of extFiles) {
     if (src === null) continue
-    if (hasVersionLiteral(src)) {
+    if (hasVersionLiteral(src, rel)) {
       v.push(
         `J3 ${rel} 里有手搓的版本字面量 —— 运行期请取 chrome.runtime.getManifest().version ` +
           '(它的源头就是 apps/extension/package.json),写死等于向用户/服务端上报一个不存在的版本',
@@ -348,7 +377,7 @@ export function findVersionDrift(input) {
         v.push(`K1 台账点名的文件在仓里读不到(路径腐烂或未入库):${p}`)
         continue
       }
-      if (hasVersionLiteral(text)) {
+      if (hasVersionLiteral(text, p)) {
         v.push(`K1 ${p} 里有手搓的版本字面量 —— 该条登记的源头是「${e.source}」(理由:${e.why})`)
       }
     }
@@ -489,13 +518,27 @@ export function collectInputs() {
 
 export function main(argv = process.argv.slice(2)) {
   const JSON_OUT = argv.includes('--json')
-  const violations = findVersionDrift(collectInputs())
+  const inputs = collectInputs()
+  const violations = findVersionDrift(inputs)
+  // 放过必须可见:统计所有采集面里"名字含 protocol 而被放过的版本字面量"。
+  // 这条维度的正当性靠**值语义**(协议版本是契约),不靠名字;名字是唯一可机械识别的缝,
+  // 所以把它数出来打在结论行里 —— 有人改名绕门时,这行会从 N>0 变成 N=0,差异看得见。
+  const protocolSkips = [
+    ...Object.entries(inputs.extensionSources || {}),
+    ...Object.entries(inputs.versionFileTexts || {}),
+  ].reduce(
+    (n, [rel, src]) => n + (typeof src === 'string' ? protocolSkippedIdents(src, rel).length : 0),
+    0,
+  )
   if (JSON_OUT) {
     process.stdout.write(
-      `${JSON.stringify({ ok: violations.length === 0, violations }, null, 2)}\n`,
+      `${JSON.stringify({ ok: violations.length === 0, violations, protocolSkips }, null, 2)}\n`,
     )
   } else if (violations.length === 0) {
-    process.stdout.write('[check-version-drift] PASS —— 每个对外可见的版本号都可追溯到源头\n')
+    process.stdout.write(
+      `[check-version-drift] PASS —— 每个对外可见的版本号都可追溯到源头` +
+        `${protocolSkips > 0 ? `(按名字放过 protocol 常量 ${protocolSkips} 处,理由见头注)` : ''}\n`,
+    )
   } else {
     process.stdout.write(`[check-version-drift] FAIL —— ${violations.length} 项漂移风险:\n`)
     for (const item of violations) process.stdout.write(`  ✗ ${item}\n`)
