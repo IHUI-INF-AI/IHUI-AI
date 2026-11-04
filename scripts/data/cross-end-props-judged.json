@@ -1082,32 +1082,6 @@
     },
     {
       "pair": "LoginPopUp",
-      "key": "agreeChecked",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "小程序端协议勾选态在组件内自持(登录入口按勾选态渲染);RN 端提升为受控布尔腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/LoginPopUp.tsx:118",
-        "apps/miniapp-taro/src/components/LoginPopUp.tsx:88",
-        "apps/mobile-rn/src/components/LoginPopUp.tsx:109"
-      ]
-    },
-    {
-      "pair": "LoginPopUp",
-      "key": "avatarUrl",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "小程序端资料走 userInfo 容器(头像在 userInfo 内);RN 额外支持扁平 avatarUrl 覆盖容器,本端未开扁平覆盖腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/LoginPopUp.tsx:125",
-        "apps/miniapp-taro/src/components/LoginPopUp.tsx:60",
-        "apps/mobile-rn/src/components/LoginPopUp.tsx:109"
-      ]
-    },
-    {
-      "pair": "LoginPopUp",
       "key": "description",
       "side": "rn",
       "owner": "cross-end-props-parity",
@@ -1121,41 +1095,15 @@
     },
     {
       "pair": "LoginPopUp",
-      "key": "nickname",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "小程序端昵称走 userInfo 容器;RN 额外支持扁平 nickname 覆盖,本端未开扁平覆盖腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/LoginPopUp.tsx:126",
-        "apps/miniapp-taro/src/components/LoginPopUp.tsx:60",
-        "apps/mobile-rn/src/components/LoginPopUp.tsx:109"
-      ]
-    },
-    {
-      "pair": "LoginPopUp",
-      "key": "onAgreeChange",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "小程序端协议勾选在组件内切换,不回传宿主;RN 端把变更提升为受控回调腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/LoginPopUp.tsx:119",
-        "apps/miniapp-taro/src/components/LoginPopUp.tsx:88",
-        "apps/mobile-rn/src/components/LoginPopUp.tsx:109"
-      ]
-    },
-    {
-      "pair": "LoginPopUp",
       "key": "onBindPhone",
       "side": "rn",
       "owner": "cross-end-props-parity",
       "expires": "2027-06-30",
-      "rationale": "小程序端绑定手机由登录回执流程承担(onOneClickLogin 返回 phoneCode);RN 另有独立绑定回调腿。",
+      "rationale": "小程序端绑定手机由登录回执流程承担(onOneClickLogin 返回 phoneCode,由页面完成绑定),弹窗无独立绑定腿;RN 弹窗保留独立绑定回调(当前无调用方,属预留)。",
       "evidence": [
-        "apps/mobile-rn/src/components/LoginPopUp.tsx:134",
-        "apps/miniapp-taro/src/components/LoginPopUp.tsx:60",
-        "apps/mobile-rn/src/components/LoginPopUp.tsx:109"
+        "apps/mobile-rn/src/components/LoginPopUp.tsx:129",
+        "apps/miniapp-taro/src/components/LoginPopUp.tsx:55",
+        "apps/miniapp-taro/src/components/LoginPopUp.tsx:73"
       ]
     },
     {
@@ -1164,11 +1112,11 @@
       "side": "rn",
       "owner": "cross-end-props-parity",
       "expires": "2027-06-30",
-      "rationale": "小程序端退出登录在设置/资料页动作,不在本弹窗;RN 弹窗内自带退出回调腿。",
+      "rationale": "小程序登录弹窗只承担登录引导(onClose/onOneClickLogin/onPasswordLogin/onWebAuthLogin,接口无退出腿),退出在设置/资料页;RN 弹窗保留 onLogout 腿(当前无调用方,属预留)。",
       "evidence": [
-        "apps/mobile-rn/src/components/LoginPopUp.tsx:136",
-        "apps/miniapp-taro/src/components/LoginPopUp.tsx:60",
-        "apps/mobile-rn/src/components/LoginPopUp.tsx:109"
+        "apps/mobile-rn/src/components/LoginPopUp.tsx:131",
+        "apps/miniapp-taro/src/components/LoginPopUp.tsx:55",
+        "apps/miniapp-taro/src/components/LoginPopUp.tsx:89"
       ]
     },
     {
@@ -1190,11 +1138,11 @@
       "side": "rn",
       "owner": "cross-end-props-parity",
       "expires": "2027-06-30",
-      "rationale": "小程序端资料保存由页面/登录流程完成,弹窗只负责登录引导;RN 把保存回调提升到弹窗契约。",
+      "rationale": "小程序登录弹窗只承担登录引导,资料保存由页面/登录流程完成(接口无保存腿);RN 弹窗保留 onSave(当前无调用方,属预留)。",
       "evidence": [
-        "apps/mobile-rn/src/components/LoginPopUp.tsx:135",
-        "apps/miniapp-taro/src/components/LoginPopUp.tsx:60",
-        "apps/mobile-rn/src/components/LoginPopUp.tsx:109"
+        "apps/mobile-rn/src/components/LoginPopUp.tsx:130",
+        "apps/miniapp-taro/src/components/LoginPopUp.tsx:55",
+        "apps/miniapp-taro/src/components/LoginPopUp.tsx:89"
       ]
     },
     {
@@ -1212,45 +1160,6 @@
     },
     {
       "pair": "LoginPopUp",
-      "key": "onUpgradeTrader",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "小程序端升级操盘手入口在资料/会员页;RN 弹窗内自带升级回调腿,故本端无同名腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/LoginPopUp.tsx:138",
-        "apps/miniapp-taro/src/components/LoginPopUp.tsx:60",
-        "apps/mobile-rn/src/components/LoginPopUp.tsx:109"
-      ]
-    },
-    {
-      "pair": "LoginPopUp",
-      "key": "phone",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "小程序端手机号走 userInfo 容器(且由登录回执带回);RN 额外支持扁平 phone 受控,本端未开扁平覆盖腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/LoginPopUp.tsx:128",
-        "apps/miniapp-taro/src/components/LoginPopUp.tsx:60",
-        "apps/mobile-rn/src/components/LoginPopUp.tsx:109"
-      ]
-    },
-    {
-      "pair": "LoginPopUp",
-      "key": "phoneDisabled",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "小程序端手机号只读展示(不可编辑);RN 支持 phoneDisabled 控制编辑态,本端无同名开关腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/LoginPopUp.tsx:129",
-        "apps/miniapp-taro/src/components/LoginPopUp.tsx:60",
-        "apps/mobile-rn/src/components/LoginPopUp.tsx:109"
-      ]
-    },
-    {
-      "pair": "LoginPopUp",
       "key": "primaryLabel",
       "side": "rn",
       "owner": "cross-end-props-parity",
@@ -1259,19 +1168,6 @@
       "evidence": [
         "apps/mobile-rn/src/components/LoginPopUp.tsx:113",
         "apps/miniapp-taro/src/components/LoginPopUp.tsx:73",
-        "apps/mobile-rn/src/components/LoginPopUp.tsx:109"
-      ]
-    },
-    {
-      "pair": "LoginPopUp",
-      "key": "role",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "小程序端身份角色在 userInfo/登录回执里表达;RN 额外暴露扁平 role 腿,本端无同名腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/LoginPopUp.tsx:127",
-        "apps/miniapp-taro/src/components/LoginPopUp.tsx:60",
         "apps/mobile-rn/src/components/LoginPopUp.tsx:109"
       ]
     },

@@ -86,6 +86,16 @@ export interface LoginPopUpProps {
    * 不往 webview 那条死路导航"锁 —— 那条链现在有双方接管,锁的形状不变)。
    */
   onWebAuthLogin?: () => void
+  /**
+   * 协议勾选态(受控;与 RN 端 agreeChecked 同槽)。
+   * 传入 onAgreeChange 才渲染协议行 —— 与 onOneClickLogin 同一条"传入才渲染"的规矩。
+   */
+  agreeChecked?: boolean
+  /**
+   * 协议勾选变化回调(受控回传新的勾选态)。
+   * 与 RN 端 onAgreeChange 同槽;登录前的拦截由宿主页决定,组件只持有并回传态。
+   */
+  onAgreeChange?: (checked: boolean) => void
 }
 
 const DEFAULT_AVATAR = '/static/default-avatar.png'
@@ -104,6 +114,8 @@ export default function LoginPopUp({
   onOneClickLogin,
   onPasswordLogin,
   onWebAuthLogin,
+  agreeChecked = false,
+  onAgreeChange,
 }: LoginPopUpProps) {
   const tt = useTt()
 
@@ -431,6 +443,41 @@ export default function LoginPopUp({
                 {tt('login.passwordLogin', '密码登录')}
               </Text>
             )}
+          </View>
+        ) : null}
+
+        {/* 用户协议勾选(受控;传入 onAgreeChange 才渲染,与 RN 端协议行同槽) */}
+        {onAgreeChange ? (
+          <View
+            className="w-full flex items-center justify-center"
+            style={{
+              marginBottom: toUnit(LOGIN_POPUP_SECTION_GAP_PX),
+              gap: toUnit(8),
+            }}
+            onClick={() => onAgreeChange(!agreeChecked)}
+            hoverClass="opacity-60"
+          >
+            <View
+              className="flex items-center justify-center rounded-full border border-solid"
+              style={{
+                width: toUnit(18),
+                height: toUnit(18),
+                borderColor: agreeChecked ? 'var(--color-primary)' : 'var(--color-border)',
+                background: agreeChecked ? 'var(--color-primary)' : 'transparent',
+              }}
+            >
+              {agreeChecked ? (
+                <Text
+                  className="text-primary-foreground"
+                  style={{ fontSize: toUnit(12), lineHeight: toUnit(12) }}
+                >
+                  {'✓'}
+                </Text>
+              ) : null}
+            </View>
+            <Text className="text-xs text-muted-foreground">
+              {tt('login.agreement', '登录即代表同意《用户协议》和《隐私政策》')}
+            </Text>
           </View>
         ) : null}
 
