@@ -414,11 +414,11 @@ function createStyles(tk: AppThemeTokens) {
       width: rnGeometry.fabBox,
       height: rnGeometry.fabBox,
       /**
-       * 正方 FAB 的正圆 = 方盒档的一半(几何表达式),不写死 28:28 超 RADIUS_STEPS
-       * 最大档 2xl=16,裸数字属绕档;盒边长已收进 rnGeometry.fabBox 单源,
-       * 视觉与原 56×56 / 半径 28 完全一致。
+       * 正方 FAB 用相对式正圆:宽高同值(rnGeometry.fabBox=56)且半径恒为短边一半,
+       * 属守门 77 的 B9 / 守门 11 的 C7 明文承认的"几何正圆"例外,不写死 28
+       * (28 超 2xl=16 的定档上限)。视觉与原 56×56 / 半径 28 完全一致。
        */
-      borderRadius: rnGeometry.fabBox / 2,
+      borderRadius: '50%',
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: tk.brand.cta,
