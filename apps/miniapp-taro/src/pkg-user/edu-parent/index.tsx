@@ -8,7 +8,7 @@
 // children 子页(课表/考勤/成绩/餐食/账单/学习计划)镜像排后续批。
 import { useCallback, useState } from 'react'
 import { View, Text } from '@tarojs/components'
-import { useDidShow } from '@tarojs/taro'
+import Taro, { useDidShow } from '@tarojs/taro'
 import { get } from '@/api'
 import { useI18n } from '@/i18n'
 import ThemeRoot from '@/components/ThemeRoot'
@@ -58,6 +58,19 @@ export default function EduParentPage() {
       <View className="min-h-screen bg-background p-lg">
         <View className="flex items-center gap-3 py-3">
           <Text className="text-xl font-bold text-foreground">{t('eduParent.title')}</Text>
+        </View>
+
+        <View
+          className="rounded-lg border border-border bg-card p-4 flex items-center justify-between gap-2"
+          hoverClass="opacity-80"
+          onClick={() => {
+            void Taro.navigateTo({ url: '/pkg-user/edu-my-attendance/index' })
+          }}
+        >
+          <Text className="text-base font-semibold text-foreground">
+            {t('eduMyAttendance.title')}
+          </Text>
+          <Text className="text-xs text-muted-foreground">{t('eduParent.myAttendanceHint')}</Text>
         </View>
 
         {loading ? (

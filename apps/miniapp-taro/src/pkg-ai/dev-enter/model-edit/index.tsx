@@ -14,6 +14,8 @@ import { get } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
 import { onToast } from '@/host/on-toast'
 import { isModelEditFieldReadOnly } from '@ihui/shared/constants'
+import { submitModelEdit } from '@ihui/shared/utils'
+import { updateAgentBilling } from '@ihui/api-client'
 
 const CATEGORIES = [
   t('deventerModeledit.r1'),
@@ -205,12 +207,24 @@ export default function ModelEdit() {
   const onSubmit = async () => {
     if (submitting) return
     setSubmitting(true)
-    // 后端没有「模型收费配置」这条腿:`/developer/agents/:id/charge` 全仓零注册,而可落库的
-    // 只有 PUT /agents/:id 的 price/isFree 两列,本表单其余 7 项(分类/部门/收费周期/限时/
-    // 目标群体/折扣)在库里没有归宿 ⇒ 既不打必然 404 的路径,也不再把失败念成"已模拟提交"。
-    logger.warn('model-edit', '收费配置提交', '接口未开放,本次未提交')
-    onToast(tt('devEnter.modelEdit.mockSuccess', '接口暂未开放,未提交'), { kind: 'error' })
-    setSubmitting(false)
+    try {
+      // 与 RN 端同形:仅 price/isFree 两列真落库(PUT /agents/:agentId),其余只读字段不进 body。
+      // 端点由宿主注入(同跨端纪律),成功只在真实请求回来后才出现,失败原样上屏。
+      const outcome = await submitModelEdit(
+        (id, payload) => updateAgentBilling(id, payload),
+        agentId,
+        { saleType, price },
+      )
+      if (outcome.ok) {
+        onToast(tt('devEnter.modelEdit.saveSuccess', '保存成功'), { kind: 'success' })
+      } else {
+        onToast(outcome.error.message, { kind: 'error' })
+      }
+    } catch (e) {
+      onToast(e instanceof Error ? e.message : String(e), { kind: 'error' })
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (

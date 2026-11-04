@@ -58,5 +58,312 @@
       "type": "standalone-tool",
       "reason": "上游 provider 模型扫描注册机(生成器,人工/运维触发写库),不属提交门禁,不进 pre-commit 热路径"
     }
-  ]
+  ],
+  "r3Register": {
+    "$comment": "R3(五处权威接线点零命中且无接线声称)的归属台账。本区块只做三件事:①逐枚登记 state(CLI-tool / deprecated / should-wire / unknown);②登记 reviewBy 到期日,过期条目由 check-gate-wiring 报 warning(仍不判红);③should-wire 条目给出 wireTo。它不改变 R3 的任何判红阈值 —— R3 仍按原口径逐枚计数,已登记与未登记都只报数。裁定依据一律来自脚本头注行号或实际调用点,不采信二手描述。",
+    "updatedAt": "2026-11-04",
+    "entries": [
+      {
+        "path": "scripts/check-absorption-read-naming.mjs",
+        "state": "CLI-tool",
+        "reason": "头注 L27 明写「为什么本器也不接提交链」:取材依赖 gitignore 的本机只读克隆,部署机/CI 必恒红",
+        "reviewBy": "2027-02-02"
+      },
+      {
+        "path": "scripts/check-alertmanager-live-config.mjs",
+        "state": "CLI-tool",
+        "reason": "头注 L21 明写「不接提交链」:判运行中 Alertmanager 的 status API,是机器态不是仓内态",
+        "reviewBy": "2027-02-02"
+      },
+      {
+        "path": "scripts/check-batch-write-count-probe.mjs",
+        "state": "CLI-tool",
+        "reason": "头注 L14 明写「不参与提交链、不接 guardian-runner、不产出退出码 1」",
+        "reviewBy": "2027-02-02"
+      },
+      {
+        "path": "scripts/check-dispatch-key-coverage.mjs",
+        "state": "CLI-tool",
+        "reason": "头注 L6 明写「常设只读审计器,禁止接进提交链」",
+        "reviewBy": "2027-02-02"
+      },
+      {
+        "path": "scripts/check-dispatch-premise.mjs",
+        "state": "CLI-tool",
+        "reason": "AGENTS.md:283 列为「只读对账尺子不进提交链」;需 --ticket 人工触发,无自动判红入口",
+        "reviewBy": "2027-02-02"
+      },
+      {
+        "path": "scripts/check-flag-value-discipline.mjs",
+        "state": "CLI-tool",
+        "reason": "头注 L19「为什么现在不接提交链」:存量非 0,直接接链会恒红",
+        "reviewBy": "2027-02-02"
+      },
+      {
+        "path": "scripts/check-format-support-parity.mjs",
+        "state": "CLI-tool",
+        "reason": "头注 L33 归入「只读对账尺子不进提交链」惯例",
+        "reviewBy": "2027-02-02"
+      },
+      {
+        "path": "scripts/check-human-valve.mjs",
+        "state": "CLI-tool",
+        "reason": "头注 L6 定位「人工阀判定入口」:只做 RC/表达判定,由人工读 payload 决定",
+        "reviewBy": "2027-02-02"
+      },
+      {
+        "path": "scripts/check-installed-asset-catalog.mjs",
+        "state": "CLI-tool",
+        "reason": "头注 L29 明写「刻意不进提交链」;唯一调度点 = all-checks-runner.mjs:71",
+        "reviewBy": "2027-02-02"
+      },
+      {
+        "path": "scripts/check-ip-attribution-trust.mjs",
+        "state": "CLI-tool",
+        "reason": "头注 L22 明写「刻意不进提交链」;调度面 = git-guardian 巡检轮",
+        "reviewBy": "2027-02-02"
+      },
+      {
+        "path": "scripts/check-learn-video-mount.mjs",
+        "state": "CLI-tool",
+        "reason": "头注 L13 写死「不进提交链、不进 CI、不接入 pre-commit/pre-push」",
+        "reviewBy": "2027-02-02"
+      },
+      {
+        "path": "scripts/check-ledger-eaten-rows.mjs",
+        "state": "CLI-tool",
+        "reason": "头注 L6 明写「只读尺子,不进提交链、不进 CI」",
+        "reviewBy": "2027-02-02"
+      },
+      {
+        "path": "scripts/check-ledger-verifiable.mjs",
+        "state": "CLI-tool",
+        "reason": "头注 L6 明写「不进提交链、不进 CI、不改任何账面」",
+        "reviewBy": "2027-02-02"
+      },
+      {
+        "path": "scripts/check-migrated-api-response-unwrapping.mjs",
+        "state": "CLI-tool",
+        "reason": "头注 L30 定位「验收门,按票在验收时执行」,未登记进阻断清单",
+        "reviewBy": "2027-02-02"
+      },
+      {
+        "path": "scripts/check-miniapp-style-tiers.mjs",
+        "state": "CLI-tool",
+        "reason": "头注 L31 明写「刻意不进提交链」;唯一调度器 = parity-auto.mjs:258",
+        "reviewBy": "2027-02-02"
+      },
+      {
+        "path": "scripts/check-monitor-runtime-parity.mjs",
+        "state": "CLI-tool",
+        "reason": "头注 L19 明写「不得接进 pre-commit/提交链」:对象是机器运行态",
+        "reviewBy": "2027-02-02"
+      },
+      {
+        "path": "scripts/check-plan-fragment-rows.mjs",
+        "state": "CLI-tool",
+        "reason": "头注 L33「为什么不进提交链」:只点名,exit 1 是「交人」不是门红",
+        "reviewBy": "2027-02-02"
+      },
+      {
+        "path": "scripts/check-projection-replay-equality.mjs",
+        "state": "CLI-tool",
+        "reason": "头注 L10 明写「不是守门……不在提交链里」",
+        "reviewBy": "2027-02-02"
+      },
+      {
+        "path": "scripts/check-python-import-resolvable.mjs",
+        "state": "CLI-tool",
+        "reason": "头注 L21「刻意不接提交链」:接链前须先把存量清零",
+        "reviewBy": "2027-02-02"
+      },
+      {
+        "path": "scripts/check-redundant-discriminator-predicate.mjs",
+        "state": "CLI-tool",
+        "reason": "头注 L11 明写「不判红、不接提交链」的只读量算尺",
+        "reviewBy": "2027-02-02"
+      },
+      {
+        "path": "scripts/check-relay-model-dual-writers.mjs",
+        "state": "CLI-tool",
+        "reason": "头注 L40「不接 pre-commit/提交链,也不接守护巡检轮」",
+        "reviewBy": "2027-02-02"
+      },
+      {
+        "path": "scripts/check-retrieval-quality.mjs",
+        "state": "CLI-tool",
+        "reason": "头注 L32:只读取证尺,不自愈/不 spawn/绝不连 PG-Redis",
+        "reviewBy": "2027-02-02"
+      },
+      {
+        "path": "scripts/check-sdk-release-channels.mjs",
+        "state": "CLI-tool",
+        "reason": "头注 L25「刻意不接进 pre-commit / check:all」:判外部 registry 与 gh 身份",
+        "reviewBy": "2027-02-02"
+      },
+      {
+        "path": "scripts/check-state-transition-guard.mjs",
+        "state": "CLI-tool",
+        "reason": "头注 L10 明写「本门刻意不接提交链」:只读普查,交人处置",
+        "reviewBy": "2027-02-02"
+      },
+      {
+        "path": "scripts/check-switch-continuity.mjs",
+        "state": "CLI-tool",
+        "reason": "头注 L15「只读判机器状态 ⇒ 不进提交链」",
+        "reviewBy": "2027-02-02"
+      },
+      {
+        "path": "scripts/check-transcript-addressability.mjs",
+        "state": "CLI-tool",
+        "reason": "头注 L7 明写「只读尺子,不在提交链上」:数据源是 ~/.ihui/audit.jsonl",
+        "reviewBy": "2027-02-02"
+      },
+      {
+        "path": "scripts/check-wal-collector-state.mjs",
+        "state": "CLI-tool",
+        "reason": "头注 L15「warn / 手动问责档 —— 尚未接入提交链」:判服务运行态",
+        "reviewBy": "2027-02-02"
+      },
+      {
+        "path": "scripts/check-web-preview-live-reload.mjs",
+        "state": "CLI-tool",
+        "reason": "头注 L18「绝不接进提交链」:判 :8806 预览服务运行态",
+        "reviewBy": "2027-02-02"
+      },
+      {
+        "path": "scripts/check-agent-failure-vocabulary-parity.mjs",
+        "state": "should-wire",
+        "reason": "头注 L48 写「注册为 blocking, stagedTriggers 收六枚被审文件」,但五处零命中 —— 设计目标已写明、装车未发生;2026-11-04 复验发现其 FILES 声明的 display/badge 两件在库内不存在而 web 腿按 note 跳过,接前须先修真值,暂不接线",
+        "wireTo": "scripts/guardian-runner.mjs",
+        "reviewBy": "2026-12-31"
+      },
+      {
+        "path": "scripts/check-allowed-diffs-expiry.mjs",
+        "state": "should-wire",
+        "reason": "用法 L32 提供 --staged「判索引 blob(提交门)」与 --gate 档,现读零接线 —— 漏接",
+        "wireTo": "scripts/guardian-runner.mjs",
+        "reviewBy": "2026-12-31"
+      },
+      {
+        "path": "scripts/check-bare-decode-uri.mjs",
+        "state": "should-wire",
+        "reason": "标题 L8 即「差值棘轮门」,只拦本次提交增量;--staged 面现成却未进提交链",
+        "wireTo": "scripts/guardian-runner.mjs",
+        "reviewBy": "2026-12-31"
+      },
+      {
+        "path": "scripts/check-board-name-legacy.mjs",
+        "state": "should-wire",
+        "reason": "头注 L13 声称「变成一条每次提交都跑的判据」,现读零命中 —— 声称已落空",
+        "wireTo": "scripts/guardian-runner.mjs",
+        "reviewBy": "2026-12-31"
+      },
+      {
+        "path": "scripts/check-config-source-shape.mjs",
+        "state": "should-wire",
+        "reason": "头注 L52 说明 pre-commit 由 HEAD 档承接,但五处接线点零命中",
+        "wireTo": "scripts/guardian-runner.mjs",
+        "reviewBy": "2026-12-31"
+      },
+      {
+        "path": "scripts/check-db-row-narrow-cas.mjs",
+        "state": "should-wire",
+        "reason": "头注 L5「未装车;装车由主会话统一做」—— 设计目标就是装车;2026-11-04 实测全量 HEAD 面 exit 1(存量缺项未清),接线前先清存量或核对基线,不得靠改基线消红",
+        "wireTo": "scripts/guardian-runner.mjs",
+        "reviewBy": "2026-12-31"
+      },
+      {
+        "path": "scripts/check-duplicate-policy-literals.mjs",
+        "state": "should-wire",
+        "reason": "头注 L35「尚未接线……接线与定级由主会话单写者裁」",
+        "wireTo": "scripts/guardian-runner.mjs",
+        "reviewBy": "2026-12-31"
+      },
+      {
+        "path": "scripts/check-host-port-equivalence.mjs",
+        "state": "should-wire",
+        "reason": "头注 L17「缺项 exit 1」且提供 --gate 档,输入全在仓内,应进提交链",
+        "wireTo": "scripts/guardian-runner.mjs",
+        "reviewBy": "2026-12-31"
+      },
+      {
+        "path": "scripts/check-inline-suppression-reason.mjs",
+        "state": "should-wire",
+        "reason": "头注 L29「本尺子当前未接提交链」,待 runner 净面 + AGENTS/README 同笔",
+        "wireTo": "scripts/guardian-runner.mjs",
+        "reviewBy": "2026-12-31"
+      },
+      {
+        "path": "scripts/check-ipc-channel-consumers.mjs",
+        "state": "should-wire",
+        "reason": "R1(红)静态对账(Rust 注册面 ↔ invoke 取用面),仓内输入齐备,应进提交链",
+        "wireTo": "scripts/guardian-runner.mjs",
+        "reviewBy": "2026-12-31"
+      },
+      {
+        "path": "scripts/check-live-doc-archive-reinflation.mjs",
+        "state": "should-wire",
+        "reason": "头注 L42「尚未接入提交链」,接线前置①存量归零②runner 净面",
+        "wireTo": "scripts/guardian-runner.mjs",
+        "reviewBy": "2026-12-31"
+      },
+      {
+        "path": "scripts/check-panel-datasource-wiring.mjs",
+        "state": "should-wire",
+        "reason": "用法 L49 标注 --staged「索引面(提交链用)」,现读五处零命中",
+        "wireTo": "scripts/guardian-runner.mjs",
+        "reviewBy": "2026-12-31"
+      },
+      {
+        "path": "scripts/check-plan-claims-vs-head.mjs",
+        "state": "should-wire",
+        "reason": "头注 L53「尚未接线……不在提交链上」,前置=基线随建门枚落地",
+        "wireTo": "scripts/guardian-runner.mjs",
+        "reviewBy": "2026-12-31"
+      },
+      {
+        "path": "scripts/check-redline-path-naming.mjs",
+        "state": "should-wire",
+        "reason": "头注 L66「不接提交链」只因 runner 当刻被冻结,注册归解冻后主会话",
+        "wireTo": "scripts/guardian-runner.mjs",
+        "reviewBy": "2026-12-31"
+      },
+      {
+        "path": "scripts/check-sequence-null-bucket.mjs",
+        "state": "should-wire",
+        "reason": "头注 L25「正式档判红(RC=1)」,正式档即提交链语义,现读零命中",
+        "wireTo": "scripts/guardian-runner.mjs",
+        "reviewBy": "2026-12-31"
+      },
+      {
+        "path": "scripts/check-spawn-stdio.mjs",
+        "state": "should-wire",
+        "reason": "头注 L17「为什么必须立成门」:存量已归零、新增即拦,应进提交链",
+        "wireTo": "scripts/guardian-runner.mjs",
+        "reviewBy": "2026-12-31"
+      },
+      {
+        "path": "scripts/check-state-text-contrast.mjs",
+        "state": "should-wire",
+        "reason": "头注 L9「本脚本不在 scripts/guardian-runner.mjs 注册表里」,待 README 无人在飞时注册+点名同笔",
+        "wireTo": "scripts/guardian-runner.mjs",
+        "reviewBy": "2026-12-31"
+      },
+      {
+        "path": "scripts/check-truncation-boundary.mjs",
+        "state": "should-wire",
+        "reason": "头注 L40「尚未接线……接线与定级由主会话单写者裁」",
+        "wireTo": "scripts/guardian-runner.mjs",
+        "reviewBy": "2026-12-31"
+      },
+      {
+        "path": "scripts/guard-status-where.mjs",
+        "state": "should-wire",
+        "reason": "头注 L7「尚未接提交链」,L22 写接链前须先现跑确认存量",
+        "wireTo": "scripts/guardian-runner.mjs",
+        "reviewBy": "2026-12-31"
+      }
+    ]
+  }
 }

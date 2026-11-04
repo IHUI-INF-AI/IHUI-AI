@@ -130,44 +130,42 @@ async function waitForAppHydrated(page: Page) {
 
 /** 设置 locale(对齐 src/stores/language.ts:28-38 推荐方式 + 持久化) */
 async function switchLocale(page: Page, locale: string) {
-  // 2026-08-26 修复:先 goto 到目标 origin(否则 evaluate 在 about:blank 上执行,
-  // localStorage 写入无效 origin,persist rehydrate 永远恢复 zh-CN),再调
-  // window.__IHUI_LANGUAGE_STORE__.setLocale() 同步切换(注释推荐方式,无需等 rehydrate)。
-  // 2026-09-14:先等 I18nProvider 挂载完成(见 waitForAppHydrated),否则
-  // persist 回写竞态会覆盖下面的 localStorage 写入(prod build setLocale 恒 noop)。
-  await page.goto('/chat', { waitUntil: 'domcontentloaded' }).catch(() => null)
-  await waitForAppHydrated(page)
-  await page.evaluate((l: string) => {
-    const store = (
-      window as unknown as {
-        __IHUI_LANGUAGE_STORE__?: { getState: () => { setLocale: (x: string) => void } }
-      }
-    ).__IHUI_LANGUAGE_STORE__
-    if (store) store.getState().setLocale(l)
-  }, locale)
-  // 持久化:写 cookie + localStorage(供 reload 后 persist 恢复)
+  // 2026-11-03 确定性化(替代原「加载后 setLocale + 补写 localStorage + 失败 reload 重试」):
+  //   - prod 下 __IHUI_LANGUAGE_STORE__.setLocale 恒 noop,语言 store 仍持 zh-CN,
+  //     persist 中间件在随后的状态写入里会把测试手写的 localStorage 覆盖回 zh-CN;
+  //   - I18nProvider 的非默认词包是动态 import,运行期切换要等 chunk 到达才生效,
+  //     并发 workers 抢同源连接时该 chunk 可排到 15s 之外(旧写法 15s+reload 仍失败的原因)。
+  // 改在**文档加载前**种下 locale:localStorage 供 zustand persist rehydrate,cookie 供
+  // next-intl SSR/词包选择 —— 让首屏语言与词包在同一次加载内收敛,不靠 reload 重试。
+  // 起点不能用 page.url():本用例首个动作就是 switchLocale,此时页面还是 about:blank,
+  // `new URL('about:blank').origin === 'null'` ⇒ addCookies 报
+  // "Cookie should have either url or path"(2026-11-03 本地实测 5 个 locale 全红)。
+  // 取 Playwright 配置里的 baseURL(CI = http://localhost:8801),与页面实际源一致。
+  const origin = new URL(test.info().project.use.baseURL ?? 'http://localhost:8801').origin
   await page.context().addCookies([
     {
       name: 'locale',
       value: locale,
-      domain: 'localhost',
-      path: '/',
+      url: origin,
       httpOnly: false,
       secure: false,
       sameSite: 'Lax',
     },
   ])
-  await page.evaluate((l: string) => {
+  await page.addInitScript((l: string) => {
     try {
-      const raw = localStorage.getItem('ihui-language')
-      const obj = raw ? JSON.parse(raw) : { state: { locale: 'zh-CN' }, version: 0 }
-      obj.state = obj.state || {}
-      obj.state.locale = l
-      localStorage.setItem('ihui-language', JSON.stringify(obj))
+      localStorage.setItem(
+        'ihui-language',
+        JSON.stringify({ state: { locale: l, initialized: true }, version: 0 }),
+      )
     } catch {
       // localStorage 不可用时静默
     }
   }, locale)
+  // 2026-11-03:waitUntil='commit' —— 只需导航已提交即返回;addInitScript 在文档创建时
+  // 就已生效,词包/语言在这一次加载内收敛,随后用下面的条件等待替代"整页 domcontentloaded"。
+  await page.goto('/chat', { waitUntil: 'commit' })
+  await page.waitForSelector('[data-testid="agent-progress-trigger"]', { timeout: 10000 })
 }
 
 /** 检测是否弹出登录模态框(若弹出,返回命中元素描述;null 表示无)
@@ -238,28 +236,16 @@ async function pressModeShortcut(page: Page, digit: string, expectedMode: Mode) 
   }
 }
 
-/** aria-label 断言 + "卡 zh-CN 词包初始态"重载重试守卫(2026-10-22 立)
+/** aria-label 断言(2026-10-22 立,2026-11-03 改确定性等待)
  *
- *  CI run 39710007341 取证(trace 快照):失败瞬间 `html lang="ko"` 但整页内容仍是中文
- *  ⇒ 语言 store 已切换、I18nProvider 的按需词包 chunk 在断言窗内未应用完
- *  (prod 下 `LOADERS[locale]` 是动态 import,并发 workers 打满同源连接队列时会排长队;
- *  同签名曾在 2026-08 以 zh-TW 形态出现过,当时只把超时 5s→15s)。
- *  本档不再单纯加时长:首轮 15s 未命中即整页 reload 再给 15s(chunk 已被浏览器缓存,
- *  二次加载近乎瞬时),两态都不命中才算真失败。 */
-async function expectBadgeAria(page: Page, badge: ReturnType<Page['locator']>, expected: string) {
-  try {
-    await expect(badge).toHaveAttribute('aria-label', expected, { timeout: 15_000 })
-  } catch (firstError) {
-    await page.reload({ waitUntil: 'domcontentloaded', timeout: 45_000 })
-    await page.waitForSelector('[data-testid="agent-progress-trigger"]', { timeout: 10_000 })
-    // 自定义失败信息走 expect(actual, message) 第二参(Playwright 真实 API);
-    // toHaveAttribute 选项类型无 message 键,重试仍失败时把首轮错误一起带进报告,
-    // 保留"首轮卡在哪个值"的证据
-    await expect(
-      badge,
-      `aria-label 重试(含一次 reload)后仍不匹配;首轮错误:${String(firstError)}`,
-    ).toHaveAttribute('aria-label', expected, { timeout: 15_000 })
-  }
+ *  历史:CI run 39710007341 里失败瞬间 store 已切 locale 而整页仍是 zh-CN
+ *  ⇒ I18nProvider 的按需词包 chunk 未应用完;旧写法靠"15s 未命中再 reload 15s"兜。
+ *  2026-11-03:locale 改在文档加载前种下(见 switchLocale),词包与首屏同一次加载收敛,
+ *  reload 兜底已删除;这里只保留一次有界条件等待。 */
+async function expectBadgeAria(badge: ReturnType<Page['locator']>, expected: string) {
+  // 2026-11-03:locale 已在 switchLocale 里于文档加载前种好,词包与首屏同一次加载收敛;
+  // 这里只做条件等待(15s 预算内轮询),不再用 reload 当重试。
+  await expect(badge).toHaveAttribute('aria-label', expected, { timeout: 15_000 })
 }
 
 test.describe('ChatModeBadge + 3 通道模式切换', () => {
@@ -479,11 +465,11 @@ test.describe('ChatModeBadge + 3 通道模式切换', () => {
       // 2026-09-14:文案经 aria-label 断言(iconOnly 无文本 span)
       // 2026-10-22(本票):期望整串走 modeAria 模板 —— 词包已含各 locale 任务后缀,
       // 混血串(ko「빌드任务」)从此不是合法通过态。
-      await expectBadgeAria(authenticatedPage, badge, modeAria(locale, 'build'))
+      await expectBadgeAria(badge, modeAria(locale, 'build'))
       // 切到 plan(2026-08-27:pressModeShortcut 轮询重按,容忍 hydration 时序)
       await pressModeShortcut(authenticatedPage, '2', 'plan')
       await expect(badge).toHaveAttribute('data-mode', 'plan', { timeout: 3000 })
-      await expectBadgeAria(authenticatedPage, badge, modeAria(locale, 'plan'))
+      await expectBadgeAria(badge, modeAria(locale, 'plan'))
       // 2026-08-26 移除 html lang 断言:客户端 setLocale 驱动 next-intl messages 重渲染
       // (badge 文本已断言),但 <html lang> 仅由服务端 layout 渲染,项目无客户端更新机制
       // (与实现不符的过度断言,en/ja/ko 恒失败)。

@@ -1,15 +1,15 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-11-03T04:59:13.590Z",
+  "sealedAt": "2026-11-04T06:47:41.121Z",
   "sealedBy": "root-guard --seal",
-  "reason": "复核 runaway 撞号两处:① 43fe135510 缺口棘轮与文档中心公开面健康门(119c860fc8)同为 282 ⇒ 顺延 286;② 13a919a708 同一枚同时注册 props 对账门与容器 hover 门,两门同为 285 ⇒ 后者顺延 287。只改注册条目标号与其归属注释,script/args/stagedTriggers 一字未动;基线 7b237da2759 的 runner blob ⊕ 本票 5 行新增/2 行改号 = 436953 字节,现算 sha256=614ca2aa41bea979e908c27b218e5d7f245601302d9ea158e4563119149ba641 ⇒ 按在册口径重封清单",
+  "reason": "他席新增 sweepFormatParity 巡检腿(+138 行,纯新增)落地后未重封;本席复核其内容确为常规新增,按现 HEAD 重封以解部署环 fail-closed",
   "targets": [
     {
       "id": "guardian-runner",
       "path": "scripts/guardian-runner.mjs",
       "mode": "file",
-      "sha256": "614ca2aa41bea979e908c27b218e5d7f245601302d9ea158e4563119149ba641"
+      "sha256": "767230350c7ca1ec3408cd5eeb2b0277557ba2b65a410dfaecd373300d4f84a1"
     },
     {
       "id": "judgement-libs",
@@ -23,6 +23,12 @@
       "mode": "section",
       "start": "## 0. 全局铁律",
       "sha256": "541f86a3f77632be00f3cdfd0564fa4405af25c9d130b136094b66286da35573"
+    },
+    {
+      "id": "git-guardian",
+      "path": "scripts/git-guardian.mjs",
+      "mode": "file",
+      "sha256": "fc6aee6da9ed9fbdbf49b24c3084589e833d981b0ae85380c8a681e6700b281b"
     }
   ]
 }

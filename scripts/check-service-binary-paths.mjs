@@ -2398,9 +2398,81 @@ function baseMeta(deps) {
   }
 }
 
+/**
+ * 读数覆盖态(2026-11-04 观测扩面,只增说明不改判据):把"这台到底读到哪一维"钉成五态之一,
+ * 让"既不算失败也不喊"的空白项在输出里无处可藏。语义**全部取自既有四维**,不另造判据:
+ *  - probe       端口应答维 measured(=探针真的跑到了,含"明确无应答");
+ *  - observed    应答维未判定,但监听/进程维 measured(有 pid/监听端点可观测);
+ *  - ports       只有端口声明维 measured,进程与应答都取不到;
+ *  - application 只剩 Application(二进制/脚本)一维,进程维取不到(典型=服务停着 pid=0);
+ *  - no-probe    进程树实测该服务与其后代零 TCP 监听端点 ⇒ 任务型服务**没有设计探针**。
+ * 返回的 `missing` 是四维里确实未判定的维(顺序固定),一个都不吞;空白项(全维都没有)也归 application 并点名。
+ */
+export function readingCoverageOf(rec) {
+  const dimOf = (x) => (x && typeof x === 'object' ? x : unmeasured('该维没有值(rec 上没有这一维)'))
+  const application = dimOf(rec?.application)
+  const ports = dimOf(rec?.ports)
+  const observed = dimOf(rec?.observed)
+  const probe = dimOf(rec?.probe)
+  const missing = [
+    ['application', application],
+    ['ports', ports],
+    ['observed', observed],
+    ['probe', probe],
+  ]
+    .filter(([, d]) => d.kind === 'unmeasured')
+    .map(([k]) => k)
+  const missingText = missing.length ? `;未判定维:${missing.join('/')}` : ''
+  if (probe.kind === 'measured') {
+    const v = probe.value ?? {}
+    const answer =
+      v.listening === true
+        ? `探针应答正常:${(v.ports ?? v.labels ?? []).join(',') || '(未记端口)'}`
+        : `探针已跑到,声明端口无应答:${(v.labels ?? v.ports ?? []).join(',') || '(无可探端点)'}${v.why ? ` —— ${v.why}` : ''}`
+    return { state: 'probe', why: `${answer}${missingText}`, missing }
+  }
+  if (observed.kind === 'measured') {
+    const eps = observed.value?.endpoints ?? []
+    if (eps.length === 0)
+      return {
+        state: 'no-probe',
+        why: `进程树实测:该服务与其全部后代没有 TCP 监听端点 ⇒ 这类服务没有设计端口探针(不是"探针没跑"):${probe.reason}${missingText}`,
+        missing,
+      }
+    return {
+      state: 'observed',
+      why: `可观测:${eps.map((e) => `${e.address}:${e.port}←pid ${e.pid}`).join(' ')};应答维未判定:${probe.reason}${missingText}`,
+      missing,
+    }
+  }
+  if (ports.kind === 'measured' && Array.isArray(ports.value) && ports.value.length > 0)
+    return { state: 'ports', why: `只有端口登记:${ports.value.join(',')};进程/监听未判定:${observed.reason};应答未判定:${probe.reason}${missingText}`, missing }
+  if (application.kind === 'measured' && application.value !== null)
+    return {
+      state: 'application',
+      why: `只剩 Application 维:${String(application.value).slice(0, 160)};进程/监听未判定:${observed.reason};应答未判定:${probe.reason}${missingText}`,
+      missing,
+    }
+  return {
+    state: 'application',
+    why: `只知道服务名(Application 也未判定:${application.reason});端口/进程/应答均未判定${missingText}`,
+    missing,
+  }
+}
+
 function finish(meta, exitCode, opts) {
   const svcs = meta.services
   const count = (level) => svcs.filter((s) => s.level === level).length
+  // 观测扩面:每台服务在输出里必须落到五态之一 —— 空白项不是"没问题",是"没人说过话"。
+  for (const s of svcs) s.reading = readingCoverageOf(s.rec)
+  const readingStates = { probe: 0, observed: 0, ports: 0, application: 0, noProbe: 0, blank: 0 }
+  for (const s of svcs) {
+    const st = s.reading?.state
+    if (st === 'no-probe') readingStates.noProbe += 1
+    else if (st && Object.prototype.hasOwnProperty.call(readingStates, st)) readingStates[st] += 1
+    else readingStates.blank += 1
+  }
+  const readingGaps = svcs.filter((s) => (s.reading?.missing ?? []).length > 0).map((s) => s.name)
   const dimUnmeasured = (pick) => svcs.filter((s) => (pick(s.rec) ?? { kind: 'unmeasured' }).kind === 'unmeasured').length
   const rtOf = (s) => s.rec.runtime ?? { kind: 'unmeasured' }
   const rtIs = (s, v) => rtOf(s).kind === 'measured' && rtOf(s).value.verdict === v
@@ -2438,6 +2510,10 @@ function finish(meta, exitCode, opts) {
       probe: dimUnmeasured((rec) => rec.probe),
       nssmManaged: dimUnmeasured((rec) => rec.nssmManaged),
     },
+    // 读数覆盖态(2026-11-04 观测扩面):五态不并桶,blank 必须为 0 —— 有 blank 就说明分类器漏了台。
+    // 只增说明,不参与 computeExitCode,也不改任何既有判据的阈值。
+    readingStates,
+    readingGaps: { total: readingGaps.length, names: readingGaps },
     exitCode,
   }
   const text = renderText(meta)
@@ -2528,10 +2604,25 @@ export function renderText(meta) {
     )
     for (const p of s.problems) L.push(`      问题:${p}`)
     for (const b of s.blind) L.push(`      未判定:${b}`)
+    if (s.reading)
+      L.push(
+        `      读数覆盖=${s.reading.state}${s.reading.missing.length ? `(未判定维:${s.reading.missing.join('/')})` : ''} —— ${s.reading.why}`,
+      )
     if (s.level === 'skipped') L.push('      说明:该服务不是 nssm 托管 ⇒ D2(它自己声明的 Application 路径)对它不适用;STATE 与"实测监听/应答"两维仍按各自通道量过,见上面那行。')
   }
   const t = meta.totals
   if (t) {
+    if (t.readingStates) {
+      const rs = t.readingStates
+      const namesOf = (st) => meta.services.filter((s) => s.reading?.state === st).map((s) => s.name).join(', ') || '无'
+      L.push(
+        `读数覆盖态(五态不并桶,空白项必须为 0):probe ${rs.probe} / observed ${rs.observed} / ports ${rs.ports} / application ${rs.application} / no-probe ${rs.noProbe} / 空白 ${rs.blank}`,
+      )
+      for (const st of ['observed', 'ports', 'application'])
+        if (rs[st] > 0) L.push(`  · ${st}[${namesOf(st)}]`)
+      if (rs.noProbe > 0) L.push(`  · no-probe[${namesOf('no-probe')}]`)
+      L.push(`  无读数缺口(四维里至少一维未判定)${t.readingGaps.total} 台:${t.readingGaps.names.join(', ') || '无'}`)
+    }
     if (t.runtimeBuckets) {
       const rb = t.runtimeBuckets
       const rtOf = (s) => s.rec.runtime ?? { kind: 'unmeasured' }
@@ -2943,6 +3034,50 @@ function selfTest(opts) {
     resolvePorts({ pb64: { kind: 'none', text: '' }, nssmParameters: nssmUn, nssmEnvironmentExtra: nssmUn }).ports.kind === 'unmeasured')
   ok('M8b 字段缺席(!N 之类)与"空载荷"不得同形:后者是量到了空 ⇒ 合法 measured([])',
     resolvePorts({ pb64: decodeRegistryConfigBlob(Buffer.from('', 'utf8').toString('base64')), nssmParameters: nssmUn, nssmEnvironmentExtra: nssmUn }).ports.kind === 'measured')
+
+  // ── 读数覆盖态(2026-11-04 观测扩面:五态不并桶,空白项必须落位)───────────────
+  ok('C1 五态各归各的:应答/任务型/只剩应用/全维空白,且未判定维逐台列出', (() => {
+    const probe = readingCoverageOf({
+      application: dim('m', 'C:/x/app.ps1'),
+      ports: dim('m', [8810]),
+      observed: dim('m', { endpoints: [{ address: '127.0.0.1', port: 8810, pid: 5892 }], treeSize: 1 }),
+      probe: dim('m', { listening: true, ports: [8810], labels: ['127.0.0.1:8810'] }),
+    })
+    const task = readingCoverageOf({
+      application: dim('m', 'C:/x/app.ps1'),
+      ports: dim('m', []),
+      observed: dim('m', { endpoints: [], treeSize: 3 }),
+      probe: dim('u', '该服务无监听端口(任务型)'),
+    })
+    const appOnly = readingCoverageOf({
+      application: dim('m', 'C:/x/app.ps1'),
+      ports: dim('m', []),
+      observed: dim('u', 'pid=0'),
+      probe: dim('u', 'pid=0'),
+    })
+    const none = readingCoverageOf({ application: dim('u', 'x'), ports: dim('u', 'x'), observed: dim('u', 'x'), probe: dim('u', 'x') })
+    return (
+      probe.state === 'probe' && probe.missing.length === 0 &&
+      task.state === 'no-probe' && task.missing.join() === 'probe' &&
+      appOnly.state === 'application' && appOnly.missing.join() === 'observed,probe' &&
+      none.state === 'application' && none.missing.join() === 'application,ports,observed,probe'
+    )
+  })())
+  ok('C2 端口登记在而进程/探针取不到 ⇒ ports;有端点而应答失明 ⇒ observed(两者不得并桶)', (() => {
+    const ports = readingCoverageOf({
+      application: dim('m', 'C:/x/app.exe'),
+      ports: dim('m', [8852]),
+      observed: dim('u', 'pid=0'),
+      probe: dim('u', 'pid=0'),
+    })
+    const obs = readingCoverageOf({
+      application: dim('m', 'C:/x/app.exe'),
+      ports: dim('m', []),
+      observed: dim('m', { endpoints: [{ address: '127.0.0.1', port: 3100, pid: 5988 }], treeSize: 3 }),
+      probe: dim('u', '探针没跑'),
+    })
+    return ports.state === 'ports' && obs.state === 'observed'
+  })())
 
   // ── 退出码聚合与 CLI 参数 ────────────────────────────────────────────────
   ok('S11 退出码:issue⇒1 / 全 unattested⇒2 / 有量到且无 issue⇒0 / 无可判对象⇒2 / 只剩 skipped⇒2',

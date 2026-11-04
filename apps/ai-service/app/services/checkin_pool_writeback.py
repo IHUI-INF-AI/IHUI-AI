@@ -106,6 +106,18 @@ def _auth_headers(secret: str, owner_user_id: Any = None) -> dict[str, str]:
     )
 
 
+def _unwrap_envelope(body: dict[str, Any]) -> dict[str, Any]:
+    """拆 apps/api 统一响应信封 ``{code, message, data}`` → ``data``。
+
+    本端点的 200 体恒为 ``success(result)``(见 apps/api/src/utils/response.ts,唯一出口),
+    ``status`` / ``credVersion`` / ``currentVersion`` 全在 ``data`` 里。不拆信封时
+    ``outcome.get("status")`` 恒为 None —— 2026-10-29 两条真实 200 就被记成「回写未生效」,
+    pending 被清而 ``pool_cred_version`` 不校正,后续回写永远撞 conflict。非信封体原样返回。
+    """
+    data = body.get("data")
+    return data if isinstance(data, dict) else body
+
+
 async def _post_writeback(
     pool_account_id: str,
     base_version: int,
@@ -136,7 +148,7 @@ async def _post_writeback(
     if resp.status_code >= 400:
         raise RuntimeError(f"回写 HTTP {resp.status_code}: {resp.text[:200]}")
     body = resp.json()
-    return body if isinstance(body, dict) else {}
+    return _unwrap_envelope(body) if isinstance(body, dict) else {}
 
 
 def _drop_pending(device_map: dict[str, Any]) -> None:

@@ -95,13 +95,43 @@ export function parseGoModule(gomodText) {
 /** 挂在 GitHub Release 上的资产清单:文件名 + tar 内前缀 + git archive 的 pathspec。 */
 export function assetSpecs(sdkVersion, cliVersion) {
   return [
-    { file: `ihui-sdk-ts-${sdkVersion}.tar.gz`, prefix: `ihui-sdk-ts-${sdkVersion}/`, paths: ['packages/sdk', ':!packages/sdk/go', ':!packages/sdk/python', ':!packages/sdk/java', ':!packages/sdk/dotnet'] },
-    { file: `ihui-sdk-go-v${sdkVersion}.tar.gz`, prefix: `ihui-sdk-go-v${sdkVersion}/`, paths: ['packages/sdk/go'] },
-    { file: `ihui-sdk-python-${sdkVersion}.tar.gz`, prefix: `ihui-sdk-python-${sdkVersion}/`, paths: ['packages/sdk/python'] },
-    { file: `ihui-sdk-java-${sdkVersion}.tar.gz`, prefix: `ihui-sdk-java-${sdkVersion}/`, paths: ['packages/sdk/java'] },
-    { file: `ihui-sdk-dotnet-${sdkVersion}.tar.gz`, prefix: `ihui-sdk-dotnet-${sdkVersion}/`, paths: ['packages/sdk/dotnet'] },
+    {
+      file: `ihui-sdk-ts-${sdkVersion}.tar.gz`,
+      prefix: `ihui-sdk-ts-${sdkVersion}/`,
+      paths: [
+        'packages/sdk',
+        ':!packages/sdk/go',
+        ':!packages/sdk/python',
+        ':!packages/sdk/java',
+        ':!packages/sdk/dotnet',
+      ],
+    },
+    {
+      file: `ihui-sdk-go-v${sdkVersion}.tar.gz`,
+      prefix: `ihui-sdk-go-v${sdkVersion}/`,
+      paths: ['packages/sdk/go'],
+    },
+    {
+      file: `ihui-sdk-python-${sdkVersion}.tar.gz`,
+      prefix: `ihui-sdk-python-${sdkVersion}/`,
+      paths: ['packages/sdk/python'],
+    },
+    {
+      file: `ihui-sdk-java-${sdkVersion}.tar.gz`,
+      prefix: `ihui-sdk-java-${sdkVersion}/`,
+      paths: ['packages/sdk/java'],
+    },
+    {
+      file: `ihui-sdk-dotnet-${sdkVersion}.tar.gz`,
+      prefix: `ihui-sdk-dotnet-${sdkVersion}/`,
+      paths: ['packages/sdk/dotnet'],
+    },
     // 与 deploy/homebrew/ihui.rb 的 url 逐字符串同名(注意:CI 不产出此名,见报告结论)
-    { file: `ihui-src-${cliVersion}.tar.gz`, prefix: `ihui-src-${cliVersion}/`, paths: ['apps/cli'] },
+    {
+      file: `ihui-src-${cliVersion}.tar.gz`,
+      prefix: `ihui-src-${cliVersion}/`,
+      paths: ['apps/cli'],
+    },
   ]
 }
 
@@ -111,12 +141,38 @@ function sha256File(path) {
 
 function buildAsset(spec, ref) {
   const target = join(OUT_DIR, spec.file)
-  git(['archive', `--format=tar.gz`, `--prefix=${spec.prefix}`, `-o`, target, ref, '--', ...spec.paths])
+  git([
+    'archive',
+    `--format=tar.gz`,
+    `--prefix=${spec.prefix}`,
+    `-o`,
+    target,
+    ref,
+    '--',
+    ...spec.paths,
+  ])
   if (!existsSync(target)) throw new Error(`git archive 未产出 ${target}`)
-  return { ...spec, path: target, sha256: sha256File(target), bytes: readFileSync(target).byteLength }
+  return {
+    ...spec,
+    path: target,
+    sha256: sha256File(target),
+    bytes: readFileSync(target).byteLength,
+  }
 }
 
-function buildNotes(sdkVersion, goTag, cliVersion, ref, rows) {
+/**
+ * origin 上这枚 tag 到底在不在 —— 现读,不把结论写死在文案里。
+ * 此前本文案恒称"cli-v<ver> 从未打过",而 2026-11-04 实测 origin 已有 `cli-v1.0.0` ⇒
+ * 照文案执行的人会重复打 tag,或误判资产缺失。取不到(网络/凭据)如实报 unjudged,不猜(§0.3)。
+ */
+function remoteTagState(tagName) {
+  const out = git(['ls-remote', '--tags', 'origin', `refs/tags/${tagName}`], true)
+  if (out === null) return 'unjudged(origin ls-remote 取不到 ⇒ 不代表没打过)'
+  if (out.trim() === '') return 'absent'
+  return `present(${out.split(/\r?\n/)[0].split(/\s+/)[0]})`
+}
+
+function buildNotes(sdkVersion, goTag, cliVersion, ref, rows, cliTagState) {
   return [
     `# IHUI AI SDK ${sdkVersion}`,
     '',
@@ -140,8 +196,9 @@ function buildNotes(sdkVersion, goTag, cliVersion, ref, rows) {
     '',
     `## CLI(另一条发布线,当前未发)`,
     '',
-    `- \`cli-v${cliVersion}\` 尚未打过;Homebrew / winget / scoop 三个 manifest 全部指向该 release,`,
-    '  且 sha 均为占位 `0000…`,在该 release 真实产出前不得填。',
+    `- \`cli-v${cliVersion}\` 在 origin 的现读状态:${cliTagState};Homebrew / winget / scoop 三个 manifest 全部指向该 release,`,
+    '  且 sha 均为占位 `0000…`,在该 release 真实产出前不得填(bump CLI 版本后三份清单须同批改,' +
+      '判据 = scripts/check-version-drift.mjs 的 K2)。',
     '',
   ].join('\n')
 }
@@ -154,22 +211,40 @@ function printCommands({ sdkVersion, cliVersion, goTag, tag, ref, rows }) {
   console.log(`\n# 1) 打 tag 并推送(Go 模块真正生效的是 ${goTag})`)
   console.log(`git tag -a ${tag} ${ref} -m "SDK ${sdkVersion}(source assets)"`)
   console.log(`git tag -a ${goTag} ${ref} -m "Go module ${sdkVersion}"`)
-  console.log(`git push origin "refs/tags/${tag}:refs/tags/${tag}" "refs/tags/${goTag}:refs/tags/${goTag}"`)
-  console.log(`node scripts/git-refs-heal.mjs   # 嵌套 tag(refs/tags/${goTag})本地必被宿主清理,固化进 packed-refs`)
+  console.log(
+    `git push origin "refs/tags/${tag}:refs/tags/${tag}" "refs/tags/${goTag}:refs/tags/${goTag}"`,
+  )
+  console.log(
+    `node scripts/git-refs-heal.mjs   # 嵌套 tag(refs/tags/${goTag})本地必被宿主清理,固化进 packed-refs`,
+  )
   console.log(`\n# 2) 建 GitHub Release + 附件(附件名与 sha 必须与本脚本产物一致)`)
   for (const r of rows) console.log(`#   ${r.file}  ${r.sha256}`)
   const assetArgs = rows.map((r) => `"${r.path}"`).join(' \\\n  ')
-  console.log(`gh release create ${tag} \\\n  --repo ${REPO_SLUG} \\\n  --target ${ref} \\\n  --verify-tag \\\n  --title "IHUI AI SDK ${sdkVersion}" \\\n  --notes-file "${NOTES_FILE}" \\\n  ${assetArgs}`)
+  console.log(
+    `gh release create ${tag} \\\n  --repo ${REPO_SLUG} \\\n  --target ${ref} \\\n  --verify-tag \\\n  --title "IHUI AI SDK ${sdkVersion}" \\\n  --notes-file "${NOTES_FILE}" \\\n  ${assetArgs}`,
+  )
   console.log(`\n# 3) 回读校验(全绿才算发布完成)`)
-  console.log(`gh release view ${tag} --repo ${REPO_SLUG} --json tagName,isDraft,assets --jq '{tag:.tagName,draft:.isDraft,assets:[.assets[].name]}'`)
-  console.log(`curl -fsSI "https://github.com/${REPO_SLUG}/releases/download/${tag}/${rows[0].file}" | head -5`)
+  console.log(
+    `gh release view ${tag} --repo ${REPO_SLUG} --json tagName,isDraft,assets --jq '{tag:.tagName,draft:.isDraft,assets:[.assets[].name]}'`,
+  )
+  console.log(
+    `curl -fsSI "https://github.com/${REPO_SLUG}/releases/download/${tag}/${rows[0].file}" | head -5`,
+  )
   console.log(`git ls-remote --tags origin "refs/tags/${goTag}"   # 必须返回 sha == ${ref}`)
-  console.log(`GOPROXY=https://proxy.golang.org,direct go list -m -versions github.com/IHUI-INF-AI/IHUI-AI/packages/sdk/go   # 收录后须含 v${sdkVersion}`)
-  console.log(`# 兜底(不经代理,直连仓库):GOPROXY=direct GOSUMDB=off go list -m -versions github.com/IHUI-INF-AI/IHUI-AI/packages/sdk/go`)
-  console.log(`# 真实拉取验证:mkdir /tmp/gocheck && cd /tmp/gocheck && go mod init probe && go get github.com/IHUI-INF-AI/IHUI-AI/packages/sdk/go@v${sdkVersion}`)
+  console.log(
+    `GOPROXY=https://proxy.golang.org,direct go list -m -versions github.com/IHUI-INF-AI/IHUI-AI/packages/sdk/go   # 收录后须含 v${sdkVersion}`,
+  )
+  console.log(
+    `# 兜底(不经代理,直连仓库):GOPROXY=direct GOSUMDB=off go list -m -versions github.com/IHUI-INF-AI/IHUI-AI/packages/sdk/go`,
+  )
+  console.log(
+    `# 真实拉取验证:mkdir /tmp/gocheck && cd /tmp/gocheck && go mod init probe && go get github.com/IHUI-INF-AI/IHUI-AI/packages/sdk/go@v${sdkVersion}`,
+  )
   console.log(`\n# 4) 已知会红的 CI(push ${tag} 必然触发 release-sdk.yml 并在 gate 判红:凭据缺失)`)
   console.log(`gh run list --workflow release-sdk.yml --limit 3`)
-  console.log(`# 想让 Go 那条走 CI 而不是手工 push:gh workflow run release-sdk.yml -f language=go -f dry_run=false -f confirm_real_release=yes -f tag=${tag}`)
+  console.log(
+    `# 想让 Go 那条走 CI 而不是手工 push:gh workflow run release-sdk.yml -f language=go -f dry_run=false -f confirm_real_release=yes -f tag=${tag}`,
+  )
 }
 
 function main() {
@@ -191,9 +266,13 @@ function main() {
   console.log(`commit        : ${sha}`)
   console.log(`npm/PyPI 版本 : ${sdkVersion} (packages/sdk/package.json)`)
   console.log(`go module     : ${goModule}`)
-  console.log(`go 必需 tag   : ${goTag}   ← release-sdk.yml 现推的是 sdk/v${sdkVersion}(形态错误,go get 解析不到)`)
+  console.log(
+    `go 必需 tag   : ${goTag}   ← release-sdk.yml 现推的是 sdk/v${sdkVersion}(形态错误,go get 解析不到)`,
+  )
   console.log(`CI 触发 tag   : ${tag}     ← release-sdk.yml on.push.tags: 'sdk-v*'`)
-  console.log(`brew/winget   : 资产挂在 cli-v${cliVersion}(该 tag 从未打过)`)
+  const cliTag = `cli-v${cliVersion}`
+  const cliTagState = remoteTagState(cliTag)
+  console.log(`brew/winget   : 资产挂在 ${cliTag}(origin 现读:${cliTagState})`)
 
   const specs = assetSpecs(sdkVersion, cliVersion)
   if (printOnly) {
@@ -203,7 +282,11 @@ function main() {
   rmSync(OUT_DIR, { recursive: true, force: true })
   mkdirSync(OUT_DIR, { recursive: true })
   const rows = specs.map((s) => buildAsset(s, sha))
-  writeFileSync(NOTES_FILE, buildNotes(sdkVersion, goTag, cliVersion, sha, rows), 'utf8')
+  writeFileSync(
+    NOTES_FILE,
+    buildNotes(sdkVersion, goTag, cliVersion, sha, rows, cliTagState),
+    'utf8',
+  )
   console.log(`\n=== 资产(${OUT_DIR})===`)
   console.log(rows.map((r) => `${r.sha256}  ${r.file}`).join('\n'))
   printCommands({ sdkVersion, cliVersion, goTag, tag, ref: sha, rows })
