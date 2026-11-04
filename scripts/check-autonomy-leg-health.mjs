@@ -17,6 +17,13 @@
  * 档位:**判机器状态 ⇒ 刻意不进提交链**(§12e 恒红门禁令:提交者结构上满足不了"这台机的
  * 执行体在位");调度 = git-guardian 巡检轮,判红经到人通道按稳定身份去重(§5e-3)。
  *
+ * A11-closure-output(2026-11-04 立):A1-A10 全族问的是"工序在不在位、腿有没有动",
+ * 没有一条问"腿动了之后闭环有没有产出"。实测 deploy-outcome-intake 的派发戳每 20min
+ * 照刷、A8 判绿,而 incident-signals.jsonl 静默 6 天(根因:action 闭集漏 swap-fail,
+ * 一行未知 action 让整趟摄入零产出)。这一维直接复用摄入器生产判据 planIntake() 做
+ * **只读对账**:决策账里"该产而信号账里没有"的条数 >0 ⇒ drift。它不是"没事故就报红"
+ * 的恒红门 —— 全 pass 的决策账待产恒 0 ⇒ ok,量的是可整改的漏产(重跑摄入器即清)。
+ *
  * 用法:node scripts/check-autonomy-leg-health.mjs [--json] [--self-test] [--repo-root <path>]
  *      [--api-base <url>] [--ai-base <url>] [--staged|--worktree]
  * 判定面纪律(§0.4):闸门配置按被审面取 —— 默认 HEAD blob,`--staged` 判索引,
@@ -33,6 +40,11 @@ import { ticketKeyOf } from './lib/ticket-key.mjs'
 import { classifyLegs, actionableRows } from './lib/autonomy-leg-liveness.mjs'
 import { UNKNOWN_RULE_ID, classifyAction, parseValveList, BUCKETS } from './lib/human-valve.mjs'
 import { judgeCarrierParity, judgeRoadmapClaims } from './lib/guardian-carrier-parity.mjs'
+// A11 判据零复算(§0.6):闭环有没有产出,由摄入器自己的 planIntake() 说了算,
+// 本尺不自造第二份"该产几条"的算法。装饰性依赖之外全是纯函数,import 不触发写盘。
+import { deployDecisionsFace } from './lib/deploy-decisions-face.mjs'
+import { readDecisionText, parseExistingSignals, planIntake, DEFAULT_MINUTES } from './deploy-outcome-intake.mjs'
+import { loadContract } from './lib/incident-cluster.mjs'
 // 取材面纪律(§0.4 / 守门 118):闸门配置是**仓库内容**,一律按被审面取,不回落磁盘。
 // 共享工作树常年滞后 HEAD ⇒ 按磁盘读会在"恒红"与"假绿"之间来回跳,正是这一型。
 import { Undetermined, catBatch, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
@@ -326,7 +338,142 @@ export function judgeRoadmapClaimsFace({ face = FACE_SEL.face, root = ROOT } = {
   }
 }
 
-export function evaluateAll({ repoRoot = ROOT, gatesText, events, ticketRows, transit, valve, closure, liveness, parity, claims } = {}) {
+/**
+ * A11-closure-output —— 腿在跑,闭环到底有没有产出(2026-11-04 立)。
+ *
+ * 立因见文件头注:派发戳照刷 + A8 全绿,而下游事故信号静默 6 天。A8 量的是"戳有没有
+ * 更新",量不到"戳更新了却什么都没产"。这一维改成**对账**:把决策账与已有信号账喂给
+ * 摄入器自己的 `planIntake()`,算出"此刻本该产出但信号账里没有"的条数。
+ *   · >0 ⇒ drift(漏产,可整改:重跑摄入器 / 修守护派发 / 修 action 映射漂移);
+ *   · =0 ⇒ ok(**不要求有事故**:全 pass 的决策账待产恒 0,不许做成"没信号就报红"的恒红门);
+ *   · 取料不全 / 有形状坏行 ⇒ unjudged(§0.3:不拿"没判"冒充"判过")。
+ * 派发戳只记 `attemptAt`,不记判定结果 ⇒ 它只进 readout 作旁证,绝不参与三态判定。
+ */
+export const CLOSURE_SIGNALS_REL = join('.ihui-agent', 'state', 'incident-signals.jsonl')
+export const CLOSURE_STAMP_REL = join('.ihui-agent', 'state', 'deploy-outcome-intake-dispatch-last.json')
+
+function closureStampReadout(dispatchAt, now) {
+  if (!dispatchAt) return '取不到(A8 管腿存活)'
+  const t = Date.parse(dispatchAt)
+  if (!Number.isFinite(t)) return '不可解析'
+  return `${Math.round((now - t) / 60_000)}min 前`
+}
+
+export function judgeClosureOutput(input) {
+  const dim = 'A11-closure-output'
+  if (!input || input.inputsOk !== true) {
+    return {
+      dim,
+      state: 'unjudged',
+      readout: `闭环取料不全(${input?.why ?? '无输入'})⇒ 不冒充"有产出"`,
+      next: '先让判据拿得到决策账 / 信号账 / 信号契约(§0.3);决策面两候选都不在时不得当空集',
+    }
+  }
+  const { badRows = 0, torn = 0, pending = 0, pendingRows = [], decisions = 0, existingCount = 0, latestSignalAt, dispatchAt, now = Date.now(), minutes = DEFAULT_MINUTES } = input
+  const stamp = closureStampReadout(dispatchAt, now)
+  if (badRows > 0) {
+    return {
+      dim,
+      state: 'unjudged',
+      readout: `摄入面有 ${badRows} 行形状坏 ⇒ 摄入器会落未判定,产出与否判不出(另有 ${torn} 行并发撕裂已剔除)`,
+      next: '逐行修坏行;撕裂行是并发追加的半条记录,不算未判定,不得靠删输入把读数抹绿',
+    }
+  }
+  if (pending > 0) {
+    const by = {}
+    for (const s of pendingRows) by[s.route ?? '(无 route)'] = (by[s.route ?? '(无 route)'] ?? 0) + 1
+    const dist = Object.entries(by).map(([k, v]) => `${k}×${v}`).join(' ')
+    return {
+      dim,
+      state: 'drift',
+      readout: `腿在跑但闭环漏产 ${pending} 条:决策 ${decisions} 行 / 信号账 ${existingCount} 条 / 待产 ${pending} 条(${dist}) / 去重窗 ${minutes}min / 派发戳 ${stamp}`,
+      next:
+        '出路:① 确认守护派发点真跑到 deploy-outcome-intake 且写盘成功(戳只记 attemptAt,不记判定结果,故戳新不等于产出);' +
+        '② 手工 `node scripts/deploy-outcome-intake.mjs` 补齐,并复查第二趟 signals=0(幂等);' +
+        '③ 持续复发明查 action 闭集与信号映射是否漂移(scripts/lib/deploy-decision-actions.mjs 的三面同源锁)。' +
+        '不得靠删决策行或调大去重窗把读数抹绿',
+    }
+  }
+  return {
+    dim,
+    state: 'ok',
+    readout: `闭环有产出:决策 ${decisions} 行 / 信号 ${existingCount} 条 / 待产 0 / 最近产出 ${latestSignalAt ?? '(尚无)'} / 派发戳 ${stamp}`,
+    next: '',
+  }
+}
+
+/**
+ * A11 取料(与 A8 同规):决策账 / 信号账 / 派发戳全是**运行态**(gitignored),
+ * 只能读盘上真值,不按 git 被审面取;按 git 面取会把"此刻漏产"读成"仓库里写了什么"。
+ * 决策面走唯一出口 deployDecisionsFace()(生产 checkout 优先,回落主仓影子),
+ * 取不到两候选 ⇒ unjudged,绝不拿主仓那本影子账当全量(立因见 lib 头注)。
+ * 全程只读:只调 planIntake() 复算,**绝不 appendSignals**,尺子不改被量的东西。
+ */
+export function judgeClosureOutputFace({ root = ROOT, now = Date.now(), minutes = DEFAULT_MINUTES, faceResolver = deployDecisionsFace } = {}) {
+  const unjudged = (why) => judgeClosureOutput({ inputsOk: false, why })
+  let face
+  try {
+    face = faceResolver({ repoRoot: root })
+  } catch (e) {
+    return unjudged(`决策面取面抛错(${String(e?.message ?? e).slice(0, 90)})`)
+  }
+  if (!face || !face.found) {
+    return unjudged(`决策面两候选都不在(${face?.candidates?.map((c) => c.kind).join(',') ?? '无候选'})`)
+  }
+  let decisionsText
+  try {
+    decisionsText = readFileSync(face.path, 'utf8')
+  } catch (e) {
+    return unjudged(`决策账读不到(${e?.code ?? e?.message ?? e})`)
+  }
+  let signalsText = ''
+  try {
+    signalsText = readFileSync(join(root, CLOSURE_SIGNALS_REL), 'utf8')
+  } catch (e) {
+    // 信号账不存在 = 一次都没产过,是合法输入(可能就是漏产),不是未判定。
+    if (e?.code !== 'ENOENT') return unjudged(`信号账读不到(${e?.code ?? e?.message ?? e})`)
+  }
+  let stamp = null
+  try {
+    stamp = JSON.parse(readFileSync(join(root, CLOSURE_STAMP_REL), 'utf8'))
+  } catch {
+    stamp = null
+  }
+  const parsed = readDecisionText(decisionsText)
+  const existing = parseExistingSignals(signalsText)
+  let contract
+  try {
+    contract = loadContract()
+  } catch (e) {
+    return unjudged(`信号契约读不到(${String(e?.message ?? e).slice(0, 90)})`)
+  }
+  let plan
+  try {
+    plan = planIntake({ decisions: parsed.rows, contract, minutes, existing: existing.signals })
+  } catch (e) {
+    return unjudged(`摄入判据抛错(${String(e?.message ?? e).slice(0, 90)})`)
+  }
+  let latestMs = 0
+  for (const s of existing.signals) {
+    const t = Date.parse(s?.at)
+    if (Number.isFinite(t) && t > latestMs) latestMs = t
+  }
+  return judgeClosureOutput({
+    inputsOk: true,
+    badRows: parsed.bad.length + plan.bad.length + existing.bad.length,
+    torn: parsed.torn.length,
+    pending: plan.signals.length,
+    pendingRows: plan.signals.map((s) => ({ route: s.route, at: s.at })),
+    decisions: parsed.rows.length,
+    existingCount: existing.signals.length,
+    latestSignalAt: latestMs ? new Date(latestMs).toISOString() : null,
+    dispatchAt: typeof stamp?.attemptAt === 'string' ? stamp.attemptAt : null,
+    now,
+    minutes,
+  })
+}
+
+export function evaluateAll({ repoRoot = ROOT, gatesText, events, ticketRows, transit, valve, closure, liveness, parity, claims, output } = {}) {
   const dims = []
   let gates
   try {
@@ -341,6 +488,7 @@ export function evaluateAll({ repoRoot = ROOT, gatesText, events, ticketRows, tr
   if (liveness) dims.push(liveness)
   if (parity) dims.push(parity)
   if (claims) dims.push(claims)
+  if (output) dims.push(output)
   if (!events.ok) { /* 台账缺失只影响 A2/A3/A4 */
     dims.push({ dim: 'A2-attribution', state: 'unjudged', readout: events.why, next: '台账取不到 ⇒ 不冒充"没失败过"' })
     dims.push({ dim: 'A3-range', state: 'unjudged', readout: '无台账输入 ⇒ 封票数判不出', next: '' })
@@ -899,6 +1047,33 @@ async function selfTest() {
     ]
     return judgeDispatchClosure(ev, { schedulerSource: closureSrc, now: Date.parse('2026-11-01T05:00:00.000Z') }).state === 'drift'
   })())
+  // —— A11 产出型维度(2026-11-04 立):腿在跑但闭环零产出必须被量出来 ——
+  const a11Ok = judgeClosureOutput({ inputsOk: true, decisions: 294, existingCount: 18, pending: 0, latestSignalAt: '2026-11-04T11:08:05.659Z', dispatchAt: '2026-11-04T11:30:00.000Z', now: Date.parse('2026-11-04T11:40:00.000Z') })
+  ok('H44 待产 0 ⇒ ok 且读数带决策/信号/派发戳新鲜度', a11Ok.state === 'ok' && a11Ok.readout.includes('待产 0') && a11Ok.readout.includes('10min 前'))
+  const a11Drift = judgeClosureOutput({ inputsOk: true, decisions: 294, existingCount: 6, pending: 2, pendingRows: [{ route: 'deploy/swap-fail' }, { route: 'deploy/build-fail' }], dispatchAt: '2026-11-04T11:30:00.000Z', now: Date.parse('2026-11-04T11:40:00.000Z') })
+  ok('H45 变异:待产 2 ⇒ drift 且按 route 点名(漏产必须可整改)', a11Drift.state === 'drift' && a11Drift.readout.includes('deploy/swap-fail×1') && a11Drift.next.includes('deploy-outcome-intake'))
+  ok('H46 取料不全 ⇒ unjudged,不冒充"有产出"', judgeClosureOutput({ inputsOk: false, why: '两候选都不在' }).state === 'unjudged')
+  ok('H47 形状坏行 ⇒ unjudged(摄入器会落未判定,尺子不替它判)', judgeClosureOutput({ inputsOk: true, badRows: 1, pending: 0 }).state === 'unjudged')
+  ok('H48 恒红门反向锁:全 pass 决策账 + 空信号账 + 陈旧派发戳 ⇒ 仍 ok(不许"没事故就报红")', (() => {
+    const r = judgeClosureOutput({ inputsOk: true, decisions: 12, existingCount: 0, pending: 0, latestSignalAt: null, dispatchAt: '2026-10-01T00:00:00.000Z', now: Date.parse('2026-11-04T11:40:00.000Z') })
+    return r.state === 'ok' && r.readout.includes('(尚无)')
+  })())
+  ok('H49 A11 的 drift 必须顶起整尺', (() => {
+    const g = JSON.stringify({ sessionCommandTemplate: `node \${REPO_ROOT}/apps/cli/dist/index.js`, ticketWhitelist: ['a'] })
+    const r = evaluateAll({ repoRoot: root, gatesText: g, events: { ok: true, events: [] }, ticketRows: [{ text: 'a', line: 1 }], output: a11Drift })
+    return r.state === 'drift' && r.dims.some((d) => d.dim === 'A11-closure-output')
+  })())
+  ok('H50 戳只作旁证:戳缺失+待产0 ⇒ ok;戳很新+待产>0 ⇒ 仍 drift', (() => {
+    const noStamp = judgeClosureOutput({ inputsOk: true, pending: 0 })
+    const freshButLeaking = judgeClosureOutput({ inputsOk: true, pending: 1, pendingRows: [{ route: 'deploy/swap-fail' }], dispatchAt: '2026-11-04T11:39:00.000Z', now: Date.parse('2026-11-04T11:40:00.000Z') })
+    return noStamp.state === 'ok' && noStamp.readout.includes('取不到(A8') && freshButLeaking.state === 'drift'
+  })())
+  ok('H51 取料层真跑给三态之一(装车自证,不硬判绿)', (() => {
+    const r = judgeClosureOutputFace({ root: ROOT })
+    return ['ok', 'drift', 'unjudged'].includes(r.state) && r.dim === 'A11-closure-output'
+  })())
+  const healthSrc = readFileSync(join(ROOT, 'scripts', 'check-autonomy-leg-health.mjs'), 'utf8')
+  ok('H52 A11 已装进 main 与 evaluateAll(有定义无接线 = 判据没装车)', healthSrc.includes('const output = judgeClosureOutputFace({ root: repoRoot })') && /if \(output\) dims\.push\(output\)/.test(healthSrc))
   console.log(fail === 0 ? `autonomy-leg-health self-test: ${pass} 例全绿` : `autonomy-leg-health self-test: ${pass} 绿 / ${fail} 红`)
   return fail === 0 ? 0 : 1
 }
@@ -965,7 +1140,8 @@ async function main() {
   const liveness = judgeLivenessFace({ face: FACE_SEL.face, repoRoot, root: repoRoot })
   const parity = judgeCarrierParityFace({ face: FACE_SEL.face, root: repoRoot })
   const claims = judgeRoadmapClaimsFace({ face: FACE_SEL.face, root: repoRoot })
-  const result = evaluateAll({ repoRoot, gatesText, events, ticketRows: ticketRows ?? [], transit, valve, closure, liveness, parity, claims })
+  const output = judgeClosureOutputFace({ root: repoRoot })
+  const result = evaluateAll({ repoRoot, gatesText, events, ticketRows: ticketRows ?? [], transit, valve, closure, liveness, parity, claims, output })
   if (asJson) {
     console.log(JSON.stringify({ verdict: result.state, face: FACE_SEL.face, ...result, identity: alertIdentity(result) }, null, 1))
   } else {
@@ -979,5 +1155,5 @@ async function main() {
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 if (isDirectRun) main()
 
-export const __test__ = { judgePreflight, judgeMisattribution, judgeRange, judgeWhitelist, judgeBackendTransit, judgeValveGate, judgeDispatchClosure, resolveTransitBases, readGatesFace, readFaceText, evaluateAll, alertIdentity, readLedgerEvents }
+export const __test__ = { judgePreflight, judgeMisattribution, judgeRange, judgeWhitelist, judgeBackendTransit, judgeValveGate, judgeDispatchClosure, resolveTransitBases, readGatesFace, readFaceText, evaluateAll, alertIdentity, readLedgerEvents, judgeClosureOutput, judgeClosureOutputFace, CLOSURE_SIGNALS_REL, CLOSURE_STAMP_REL }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
