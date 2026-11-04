@@ -1,0 +1,17 @@
+// 有意整文件删除通知书台账（唯一真相源:scripts/lib/intentional-file-deletion.mjs）
+//
+// 用途:healer(scripts/heal-worktree-tracked.mjs)每 2-6 分钟会把「工作树缺 + 索引==HEAD」
+// 的 tracked 文件当成"被外部删除"而 git restore 复活。凡**有意 rm** 掉的 tracked 文件,
+// 必须在此登记一行,否则下一轮会被拉回来(2026-11-04 实测:24 件孤儿副本清理每轮被复活)。
+//
+// 字段:
+//   path    必填,仓库相对路径,正斜杠
+//   reason  必填,>=10 字,写清为什么删(不写清就不算理由)
+//   until   可选,YYYY-MM-DD;到期自动失效,失效后 healer 恢复照旧
+//
+// 写入通道(不要手改,防格式漂移):
+//   node scripts/heal-worktree-tracked.mjs --declare-deletion <path>... --reason "<>=10字>" [--until YYYY-MM-DD]
+//   node scripts/heal-worktree-tracked.mjs --revoke-deletion <path>...
+//
+// 与 scripts/data/intentional-deletions.jsonl 的区别:那份是**逐行删除理由**(按行 sha256,
+// 服务守门 84 的回潮对账);本份是**整文件删除意图**(按 path,服务 healer 的复活判据)。
