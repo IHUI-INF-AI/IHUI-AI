@@ -110,4 +110,48 @@ test('T3 反向对照:摘掉接线 / 剥掉一个端目录 / 改掉末行,T1·T2
   const mm = /# 自检 (\d+)\/(\d+) 通过/.exec(fake)
   assert.ok(mm && mm[1] !== mm[2], '末行等值锁抓不到"崩在最后一条"⇒ T2 那一半是空转')
 })
+
+/**
+ * T4 读点识别面锁(2026-11-04):`tool-*` 曾经 38 条"未判定"的真因不是没有读取点,
+ * 而是门只认 agent-events.ts 的 `parse<Camel>Event`(11 个),client.ts 里 `json?.type` 比较、
+ * `route ===` 分支、`case` 分支、`tryParseXxx` 跟随这四类真实读取全在识别面之外。
+ * 判据:形态少一类 ⇒ 该形态的事件永久"未判定";而"未判定"若只走 warnings,
+ * 真·有声明无读取也会被读成绿 —— 两条必须同时钉住。
+ */
+function readFaceVerdict(src) {
+  const missing = []
+  const shapes = [
+    ['const typeCmpRe =', 'client.ts 的 json/data/evt.type 比较形态未识别'],
+    ['const routeCmpRe =', 'client.ts 的 route === 分支形态未识别'],
+    ['const caseRe =', 'client.ts 的 case 分支形态未识别'],
+    ['namedFnBody', 'tryParseXxx 跟随一层未接线'],
+    ['BRACKET_RE', "括号读 v['inputId'] 形态未识别"],
+    ['CHAIN_RE', '链式读 json.a.b 形态未识别'],
+    ['knownNames = backendEvents', '未知名字面量退化集未接线'],
+  ]
+  for (const [needle, why] of shapes) if (!src.includes(needle)) missing.push(why)
+  // 真·有声明无读取必须进 errors(阻断),不许退回 warnings(提示即"未判定").
+  const NO_READ_RE = /errors\.push\((\s*)`字段面断裂: 事件 "\$\{ev\}" 生产侧声明了键集/
+  if (!NO_READ_RE.test(src)) missing.push('真·有声明无读取仍不进 errors ⇒ 未判定会被读成绿')
+  // 该判红的措辞必须把"补读取点 / 注销声明 / 禁止 fieldBaseline 豁免"写死,否则红也说不清修法.
+  if (!/补解析面读取点,或从生产侧注销该死声明/.test(src))
+    missing.push('无读取判红未指向修法(补读取点或注销声明) ⇒ 红只会被当噪音绕过')
+  return missing
+}
+
+test('T4 读点识别面锁:四形态 + 退化集 + 未读取判红都在;退回 warnings 必红', () => {
+  const src = readFileSync(GATE, 'utf8')
+  assert.deepEqual(readFaceVerdict(src), [], `读点识别面不完整:\n  · ${readFaceVerdict(src).join('\n  · ')}`)
+  // 反向:把真·无读取那条从 errors 退回 warnings ⇒ 同一条判据必须点名(证明"判红"不是复读实现)
+  const NO_READ_RE = /errors\.push\((\s*)`字段面断裂: 事件 "\$\{ev\}" 生产侧声明了键集/
+  const broken = src.replace(
+    NO_READ_RE,
+    (_m, ws) => 'warnings.push(' + ws + '`字段面断裂: 事件 "${ev}" 生产侧声明了键集',
+  )
+  assert.notEqual(broken, src, '构造面未生效:门源码里找不到「真·有声明无读取」的 errors.push')
+  assert.ok(
+    readFaceVerdict(broken).some((x) => x.includes('不进 errors')),
+    '退回 warnings 后 T4 判据仍不红 ⇒ 这道门对"未判定变绿"没有牙',
+  )
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
