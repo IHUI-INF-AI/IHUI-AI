@@ -31,7 +31,7 @@ import { preflightSessionRunner, classifySessionFailure, resolveSessionCommand }
 import { quarantinedUntilOf, LEDGER, DISPATCH_ARGS, parseTicketRows, PLAN_TASKS } from './auto-evolve.mjs'
 import { ticketKeyOf } from './lib/ticket-key.mjs'
 import { classifyLegs, actionableRows } from './lib/autonomy-leg-liveness.mjs'
-import { UNKNOWN_RULE_ID } from './lib/human-valve.mjs'
+import { UNKNOWN_RULE_ID, classifyAction, parseValveList, BUCKETS } from './lib/human-valve.mjs'
 import { judgeCarrierParity, judgeRoadmapClaims } from './lib/guardian-carrier-parity.mjs'
 // 取材面纪律(§0.4 / 守门 118):闸门配置是**仓库内容**,一律按被审面取,不回落磁盘。
 // 共享工作树常年滞后 HEAD ⇒ 按磁盘读会在"恒红"与"假绿"之间来回跳,正是这一型。
@@ -403,6 +403,53 @@ export function resolveTransitBases({ apiBase, aiBase } = {}) {
 }
 
 /**
+ * 按**当前规则表**复算历史票面,得到覆盖率现值(2026-11-04 立)。
+ * 为什么必须有这一层:台账里的 `ruleId` 是"当时那一版分类器"的结论。匹配器今天改过
+ * (名词形态工程票 + 机器注记剥离),而 A6 原先直接把历史 ruleId 分布当现值报 ——
+ * 于是 25 条 `unknown-fail-closed`(全是 `[deploy-feedback]` 那一族,今天已能具名成
+ * `production-deploy`)会永远挂在读数上,更要紧的是 **切 enforce 的前置条件"unknown 归零"
+ * 按历史计数就永远不可能满足**:尺子把已经修好的盲区报成未修,同时也把"已经全覆盖"报成永远不会发生。
+ * 判据一律走 `lib/human-valve.mjs` 的 `classifyAction`(§0.6 零复算)。
+ *
+ * 状态四档不并桶:`ok` 复算成功 / `absent` 没给规则表(调用方刻意不测这一维) /
+ * `bad` 规则表取不到或分类器抛错(⇒ 覆盖率**未判定**,既不冒"全覆盖"也不冒"有盲区") /
+ * `no-face` 台账里没有任何票面可复算。
+ */
+export function recomputeValveCoverage(events, { valveListText, now = new Date() } = {}) {
+  if (valveListText === undefined) return { status: 'absent' }
+  if (typeof valveListText !== 'string') return { status: 'bad', why: '规则表不是字符串(取不到即未判定,不猜覆盖)' }
+  let parsed
+  try {
+    parsed = parseValveList(valveListText)
+  } catch (e) {
+    return { status: 'bad', why: `规则表解析抛错:${String(e?.message ?? e).slice(0, 120)}` }
+  }
+  const problems = parsed.problems ?? []
+  if (problems.length > 0) return { status: 'bad', why: `规则表形状坏:${problems.slice(0, 2).map((p) => p.message ?? p).join('；').slice(0, 160)}` }
+  if (!Array.isArray(parsed.rules) || parsed.rules.length === 0) return { status: 'bad', why: '规则表枚举到 0 条规则 ⇒ 覆盖率判不出(不用 0 冒充"全归人")' }
+  const faces = [...new Set((Array.isArray(events) ? events : []).map((e) => String(e?.ticketLine ?? '').trim()).filter((s) => s !== ''))]
+  if (faces.length === 0) return { status: 'no-face', rules: parsed.rules.length }
+  let selfServe = 0
+  let namedStop = 0
+  let stillUnknown = 0
+  const samples = []
+  for (const f of faces) {
+    let v
+    try {
+      v = classifyAction(f, { rules: parsed.rules, now })
+    } catch (e) {
+      return { status: 'bad', why: `classifyAction 抛错:${String(e?.message ?? e).slice(0, 120)}` }
+    }
+    if (v.ruleId === UNKNOWN_RULE_ID) {
+      stillUnknown += 1
+      if (samples.length < 3) samples.push(f.slice(0, 88))
+    } else if (v.bucket === BUCKETS.SELF_SERVE) selfServe += 1
+    else namedStop += 1
+  }
+  return { status: 'ok', faces: faces.length, rules: parsed.rules.length, selfServe, namedStop, stillUnknown, samples }
+}
+
+/**
  * A6 人工阀闸是否真在派发路径上被问(2026-11-01 立)。
  * 立因(回源实测):`human-gates.mjs` 的 classify 与 `lib/human-valve.mjs` 的 classifyAction
  * 在派发路径上原本**零调用** —— 调度层只打印"自决 4 / 停机等人 7"这句计数,
@@ -411,8 +458,10 @@ export function resolveTransitBases({ apiBase, aiBase } = {}) {
  *  - 有派发尝试而零 valve-* 留痕 ⇒ 哑闸 ⇒ drift;
  *  - observe 档 ⇒ 报命中分布,并给"切 enforce 的前置条件"(未判定必须为 0、命中族必须见过);
  *  - 档位取值非法 ⇒ drift(不猜档)。
+ * 2026-11-04 追加:历史 ruleId 分布只作历史,能不能 enforce 由**当前规则表复算**的覆盖率决定
+ * (见 `recomputeValveCoverage` 头注)。
  */
-export function judgeValveGate(events, { mode, headSource } = {}) {
+export function judgeValveGate(events, { mode, headSource, valveListText, now = new Date() } = {}) {
   if (headSource === null || headSource === undefined) {
     return { dim: 'A6-human-valve-gate', state: 'unjudged', readout: '派发器源码在被审面取不到 ⇒ 接线与否判不出(不用"取不到"冒充"没接线")', next: '核 scripts/auto-evolve.mjs 是否在被审面上' }
   }
@@ -440,21 +489,39 @@ export function judgeValveGate(events, { mode, headSource } = {}) {
   // 混在一个数里报,就会既有人拿"阀在拦"当成绩、也有人拿"unknown 很多"去拆 fail-closed 默认。
   const unknownStops = byRule[UNKNOWN_RULE_ID] ?? 0
   const namedStops = stopRows.length - unknownStops
+  const cov = recomputeValveCoverage(events, { valveListText, now })
+  const covText =
+    cov.status === 'ok'
+      ? ` / 覆盖率复算(当前规则表 ${cov.rules} 条,判 ${cov.faces} 枚票面):具名自决 ${cov.selfServe} · 具名停机 ${cov.namedStop} · 仍无规则 ${cov.stillUnknown}`
+      : cov.status === 'bad'
+        ? ` / 覆盖率复算:❌ 未判定(${cov.why})`
+        : cov.status === 'no-face'
+          ? ' / 覆盖率复算:台账内无可复算票面 ⇒ 未判定(不冒"全覆盖")'
+          : ' / 覆盖率复算:本轮未测(调用方没给规则表)'
+  const covBlind = cov.status === 'ok' && cov.stillUnknown > 0
   if (mode === 'observe') {
+    const covState = unjudged.length > 0 || covBlind ? 'drift' : cov.status === 'bad' ? 'unjudged' : 'ok'
     return {
       dim: 'A6-human-valve-gate',
-      state: unjudged.length > 0 ? 'drift' : 'ok',
+      state: covState,
       readout:
-        `observe 档:派发尝试 ${attempted} 轮 / 闸留痕 ${valveRows.length} 条 / 记为"会拦" ${stopRows.length} 条` +
-        `【具名 ${namedStops} + 无规则可判 ${unknownStops}】(${dist})/ 未判定 ${unjudged.length} 条`,
+        `observe 档:派发尝试 ${attempted} 轮 / 闸留痕 ${valveRows.length} 条 / 记为"会拦" ${stopRows.length} 条(历史 ruleId 分布,只作历史)` +
+        `【具名 ${namedStops} + 无规则可判 ${unknownStops}】(${dist})/ 未判定 ${unjudged.length} 条${covText}`,
       next:
         unjudged.length > 0
           ? `未判定 ${unjudged.length} 条必须先归零(清单坏/取不到),否则切 enforce 就是把票无限期停派;切 enforce 的前置:observe 覆盖完整流量周期 ∧ 未判定=0`
-          : unknownStops > 0
-            ? `注意区分两种"拦":具名 ${namedStops} 条是这一类本就归人(出路=把该类票摘出自动派单面,不是修阀);` +
-              `unknown ${unknownStops} 条是分类器缺匹配器(出路=给 lib/human-valve.mjs 的 MATCHERS 补形态)。` +
-              `拿 unknown 当"阀在起作用"会把天花板藏起来,反过来为了数字好看把 unknown 翻成 self-serve 则是拆 fail-closed 默认,两向都不许。`
-            : '放量到 enforce 前,先确认 observe 覆盖了一个完整流量周期',
+          : covBlind
+            ? `按**当前规则表**复算仍有 ${cov.stillUnknown} 枚票面落 unknown ⇒ 分类器有盲区(出路=给 lib/human-valve.mjs 的 MATCHERS 补形态);样例:${cov.samples.join(' ｜ ')}`
+            : unknownStops > 0 && cov.status === 'ok'
+              ? `历史 unknown ${unknownStops} 条按当前规则表复算已全部能具名 ⇒ 那是**旧版分类器**的账,别再当现值(更别拿它当"不能切 enforce"的理由);` +
+                `注意区分两种"拦":具名停机是这一类本就归人(出路=把该类票摘出自动派单面),具名自决才可自办。`
+              : unknownStops > 0
+                ? `注意区分两种"拦":具名 ${namedStops} 条是这一类本就归人(出路=把该类票摘出自动派单面,不是修阀);` +
+                  `unknown ${unknownStops} 条是分类器缺匹配器(出路=给 lib/human-valve.mjs 的 MATCHERS 补形态)。` +
+                  `拿 unknown 当"阀在起作用"会把天花板藏起来,反过来为了数字好看把 unknown 翻成 self-serve 则是拆 fail-closed 默认,两向都不许。`
+                : cov.status === 'no-face'
+                  ? '覆盖率复算:台账内无可复算票面 ⇒ 这一格未判定;切 enforce 的前置是"复算仍无规则=0",不是"历史 unknown=0"'
+                  : '放量到 enforce 前,先确认 observe 覆盖了一个完整流量周期',
     }
   }
   return {
@@ -687,6 +754,58 @@ async function selfTest() {
       return r.state === 'ok' && r.next.includes('完整流量周期') && !r.next.includes('MATCHERS')
     })(),
   )
+  // H41–H43 覆盖率复算(2026-11-04 立):能不能切 enforce 由**当前规则表**复算决定,不由历史 ruleId 决定。
+  // 夹具的"已被覆盖票面"直接从清单自己的 examples 里取(V1 那条锁已经保证 examples 必被具名命中),
+  // 不写死句子 —— 写死就等于把测试钉在某一刻的规则文本上,清单一改就假红。
+  const valveListSelf = readFileSync(join(root, 'scripts', 'data', 'human-valve-list.json'), 'utf8')
+  const coveredFaceSelf = (() => {
+    const l = parseValveList(valveListSelf)
+    for (const r of l.rules ?? []) {
+      if (!Array.isArray(r.examples) || r.examples.length === 0) continue
+      const v = classifyAction(r.examples[0], { rules: l.rules, now: new Date() })
+      if (v.ruleId === r.id) return String(r.examples[0])
+    }
+    return ''
+  })()
+  ok('H41 夹具自检:清单 examples 里至少有一枚能被自己的规则具名(否则下面的成对档全是空转)', coveredFaceSelf !== '' && coveredFaceSelf.length > 4, `covered=${coveredFaceSelf.slice(0, 60)}`)
+  ok(
+    'H41a 历史 25 条 unknown + 当前规则表已能具名 ⇒ 仍 ok,并明说那是旧版的账(历史不得钉住 enforce 前置)',
+    (() => {
+      const ev = [
+        { action: 'session-failed', ticketKey: 'k' },
+        { action: 'valve-observe-stop', ticketKey: 'k', ruleId: UNKNOWN_RULE_ID, ticketLine: coveredFaceSelf },
+        { action: 'valve-observe-stop', ticketKey: 'k2', ruleId: UNKNOWN_RULE_ID, ticketLine: coveredFaceSelf },
+      ]
+      const r = judgeValveGate(ev, { mode: 'observe', headSource: wiredSrc, valveListText: valveListSelf })
+      return r.state === 'ok' && r.readout.includes('仍无规则 0') && r.next.includes('旧版分类器') && !r.next.includes('MATCHERS 补形态')
+    })(),
+  )
+  ok(
+    'H41b 变异:摘掉 valveListText(不测覆盖)⇒ 历史 unknown 会把人引去"补匹配器" —— 这正是旧读数的形态',
+    (() => {
+      const ev = [{ action: 'session-failed', ticketKey: 'k' }, { action: 'valve-observe-stop', ticketKey: 'k', ruleId: UNKNOWN_RULE_ID, ticketLine: coveredFaceSelf }]
+      const r = judgeValveGate(ev, { mode: 'observe', headSource: wiredSrc })
+      return r.state === 'ok' && r.next.includes('MATCHERS 补形态')
+    })(),
+  )
+  ok(
+    'H42 真盲区:当前规则表也判不出的票面 ⇒ drift,并把样例票面原样带出去(出路=补形态,不是摘票)',
+    (() => {
+      const blind = 'zzz-清单里从没人写过的动作-9f3c 校准仪表'
+      const ev = [{ action: 'session-failed', ticketKey: 'k' }, { action: 'valve-observe-stop', ticketKey: 'k', ruleId: UNKNOWN_RULE_ID, ticketLine: blind }]
+      const r = judgeValveGate(ev, { mode: 'observe', headSource: wiredSrc, valveListText: valveListSelf })
+      return r.state === 'drift' && r.readout.includes('仍无规则 1') && r.next.includes('MATCHERS 补形态') && r.next.includes('zzz-清单里从没人写过的动作')
+    })(),
+  )
+  ok(
+    'H43 规则表取不到/坏 ⇒ 覆盖率**未判定**(既不冒"全覆盖"也不冒"有盲区")',
+    (() => {
+      const ev = [{ action: 'session-failed', ticketKey: 'k' }, { action: 'valve-observe-stop', ticketKey: 'k', ruleId: 'api-key-change', ticketLine: coveredFaceSelf }]
+      const bad = judgeValveGate(ev, { mode: 'observe', headSource: wiredSrc, valveListText: '{ 不是合法 JSON' })
+      const none = judgeValveGate([], { mode: 'observe', headSource: wiredSrc, valveListText: null })
+      return bad.state === 'unjudged' && bad.readout.includes('覆盖率复算:❌ 未判定') && none.state === 'unjudged'
+    })(),
+  )
   ok('H27 A6 的 drift 必须顶起整尺(闸哑了尺子不能报绿)', (() => {
     const g = JSON.stringify({ sessionCommandTemplate: `node \${REPO_ROOT}/apps/cli/dist/index.js`, ticketWhitelist: ['a'], humanValveMode: 'observe' })
     const r = evaluateAll({ repoRoot: root, gatesText: g, events: { ok: true, events: [{ action: 'session-ok', ticketKey: 'k' }] }, ticketRows: [{ text: 'a', line: 1 }], valve: judgeValveGate([{ action: 'session-ok', ticketKey: 'k' }], { mode: 'observe', headSource: wiredSrc }) })
@@ -831,7 +950,13 @@ async function main() {
   } catch {
     valveSource = null
   }
-  const valve = gatesObj ? judgeValveGate(events.ok ? events.events : [], { mode: gatesObj.humanValveMode, headSource: valveSource }) : null
+  let valveListText
+  try {
+    valveListText = readFaceText('scripts/data/human-valve-list.json', FACE_SEL.face, repoRoot)
+  } catch {
+    valveListText = null
+  }
+  const valve = gatesObj ? judgeValveGate(events.ok ? events.events : [], { mode: gatesObj.humanValveMode, headSource: valveSource, valveListText }) : null
   const closure = judgeDispatchClosure(events.ok ? events.events : [], {
     schedulerSource: valveSource,
     // 在册面 = 本次派单面(与 A3 同一份 parseTicketRows 取票口径);取不到(空)⇒ null 保持旧行为
