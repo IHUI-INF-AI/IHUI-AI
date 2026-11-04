@@ -291,6 +291,8 @@ export default function UserIndex() {
   const [currentVideoUrl, setCurrentVideoUrl] = useState<string>('')
   // 登录弹窗
   const [showLoginPopup, setShowLoginPopup] = useState<boolean>(false)
+  // 登录弹窗协议勾选态(受控回传 LoginPopUp,与 RN 端 agreeChecked 同槽)
+  const [agreeChecked, setAgreeChecked] = useState<boolean>(false)
   // 侧边栏抽屉
   const [showDrawer, setShowDrawer] = useState<boolean>(false)
   // 历史对话分组数据（对齐原项目 groupedData，实际由 API 填充）
@@ -974,6 +976,8 @@ export default function UserIndex() {
               : undefined
           }
           onClose={() => setShowLoginPopup(false)}
+          agreeChecked={agreeChecked}
+          onAgreeChange={setAgreeChecked}
           onUpgrade={goVipDetail}
           onWebAuthLogin={() => {
             // 网页授权登录(G-957):打开 web 中转页 /sso/login(client_id=miniapp-taro),
