@@ -21,6 +21,8 @@ const {
   auditStagingFiles,
 } = require('./staging-snapshot.js')
 const { sanitizeGitEnv } = require('./hook-git-env.js')
+const indexContext = require('./index-context.js')
+const derivedArtifacts = require('./derived-artifacts.js')
 
 /**
  * ⛔ 被 require()/import() 时必须**立即返回**,不得执行下面任何一步(§22d 的 CJS 对应形态:
@@ -49,6 +51,37 @@ if (require.main !== module) {
 // 交给钩子的临时索引(next-index-<pid>.lock)**必须留住** —— 否则 lint-staged 会去写
 // 父 git 正持锁的共享 index.lock(exit 128),或 restore --worktree 掉别人的未暂存改动。
 sanitizeGitEnv(process.env)
+
+// ─── 索引上下文(2026-11-04 立)────────────────────────────────────────────────
+// 两处独立丢失点,都在那一份实现里(./index-context.js):
+//  ① 调用方声明了私有索引(IHUI_EXPECTED_PRIVATE_INDEX,isolated-git 设置)而指针被清掉/被改
+//     ⇒ 这里 fail-closed(「索引上下文丢失」+ exit 1),绝不让钩子链静默落到共享索引;
+//  ② `git commit --only` 给的 next-index-<pid>.lock 会被切换成 `<gitdir>/ihui-isolated-index/
+//     <pid>-<ms>-<rand>.idx` 副本 —— 上游 lint-staged 17.3.0 gitWorkflow.js:403-421 对
+//     `.lock` 结尾的 activeIndexFile 会**额外**写默认索引(index.lock),实测把 8 个路径整份
+//     索引写进去、父 git 收尾后变成共享索引上的 MM 残留。换名后那条分支结构上不可达。
+//     钩子退出时再把副本回写原 .lock(仅当钩子整体成功),父 git 读到的仍是它自己那一份。
+let INDEX_CTX
+try {
+  INDEX_CTX = indexContext.prepareIndexContext(process.env)
+} catch (e) {
+  console.error(`❌ ${e?.message ?? e}`)
+  console.error('   提交已阻止:钩子拒绝在没有正确索引上下文的情况下继续(绝不落回共享索引)。')
+  process.exit(1)
+}
+// 共享索引视图基线:只取本次声明路径(index + 若存在的 index.lock),用于 lint-staged 前后比对。
+// 路径来自 isolated-git 写下的内容快照(--only 模式无此快照 ⇒ 空集,不做共享视图断言)。
+const SHARED_VIEW_PATHS = (() => {
+  const file = process.env.IHUI_ISOLATED_INDEX_SNAPSHOT
+  if (!file) return []
+  try {
+    const snap = JSON.parse(require('node:fs').readFileSync(file, 'utf8'))
+    return Array.isArray(snap?.paths) ? snap.paths : []
+  } catch {
+    return []
+  }
+})()
+const SHARED_VIEW_BEFORE = indexContext.captureSharedView(INDEX_CTX, SHARED_VIEW_PATHS)
 
 // ─── 私有索引内容护栏调用点(2026-11-04 立)──────────────────────────────────
 // 治什么:isolated-git 现有的"查声明集外条目"只看**路径集合**;而 lint-staged 对声明路径
@@ -366,6 +399,20 @@ setupRestoreOnExit(INITIAL_STAGED_SNAPSHOT, {
   skip: process.env.HUSKY_SKIP_STAGING_RESTORE === '1',
 })
 
+// ─── 索引上下文收尾(2026-11-04 立)──────────────────────────────────────────
+// 必须**最后注册**:Node 的 'exit' 监听器按注册顺序执行,所以这里的顺序是
+//   ① 私有索引内容护栏(文件顶部,最先注册)→ ② staging area 还原(上一段)→ ③ 这里回写 .lock。
+// 回写只在钩子整体成功时做(失败时父 git 会丢弃自己那份临时索引),随后删掉本次副本。
+process.on('exit', () => {
+  try {
+    indexContext.finalizeIndexContext(INDEX_CTX, process.exitCode)
+  } catch (e) {
+    console.error(
+      `❌ 索引上下文收尾失败(不影响本次判定,但请核对父 git 的临时索引):${e?.message ?? e}`,
+    )
+  }
+})
+
 // 0b. staged 文件清单审计(2026-08-06 立,防同目录文件级污染)
 // 背景:commit aa15bec23 "fix(web): message-list ..." 意外包含 message-input.tsx(其他 agent 改的)。
 // 根因:message-input.tsx 在 hook 执行前已被 IDE/其他 agent staged,takeStagingSnapshot 把它
@@ -450,12 +497,15 @@ function spawnLintStagedOnce() {
   // ⇒ 这条 spawn 自己也 EBUSY(本机实测 `npx lint-staged --version` 裸调即 EBUSY)。
   // stdout 仍 inherit ⇒ lint-staged 的任务输出照旧原样透传(不改变它的实际行为)。
   // stderr 改 pipe ⇒ 仅为把指纹文案拿回来做判定,用完原样回显,见下。
+  // 索引上下文(2026-11-04 立):显式传指针(而不是只靠继承)+ NODE_OPTIONS 预载校验;
+  // 子进程拿不到同一份私有索引 ⇒ preload 直接 exit 1(报「索引上下文丢失」)。
   const r = spawnSync(LINT_STAGED_CMD, {
     cwd: process.cwd(),
     windowsHide: true,
     shell: true,
     stdio: ['ignore', 'inherit', 'pipe'],
     encoding: 'utf8',
+    env: indexContext.lintStagedEnv(INDEX_CTX),
   })
   const stderr = String(r.stderr || '')
   if (stderr) process.stderr.write(stderr)
@@ -525,7 +575,39 @@ function runLintStaged() {
       // 在一个正为 EBUSY 难受的进程里再 spawn 只会更糟)。
       Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, wait)
     }
+    // 开工前校验:本次那份私有索引仍原样在位(否则不跑,直接 fail-closed)。
+    try {
+      indexContext.assertIndexContext(INDEX_CTX)
+    } catch (e) {
+      console.error(`❌ ${e?.message ?? e}`)
+      console.error('   lint-staged 未启动,提交已阻止(绝不落回共享索引)。')
+      return false
+    }
     const res = spawnLintStagedOnce()
+    // 收工后两道校验:
+    //  ① 指针还在(子进程没把上下文弄丢);
+    //  ② 共享索引(index + 若存在的 index.lock)里,本次声明路径的条目一条都不能变 ——
+    //     典型违例就是上游 lint-staged 的「Staging changes from tasks」写默认索引。
+    try {
+      indexContext.assertIndexContext(INDEX_CTX)
+    } catch (e) {
+      console.error(`❌ ${e?.message ?? e}`)
+      return false
+    }
+    const sharedCheck = indexContext.assertSharedViewUnchanged(
+      INDEX_CTX,
+      SHARED_VIEW_PATHS,
+      SHARED_VIEW_BEFORE,
+    )
+    if (!sharedCheck.ok) {
+      console.error(`❌ ${sharedCheck.detail}`)
+      console.error(
+        '   lint-staged 前后共享索引里本次声明路径的条目不一致 —— 拒绝提交,先排查是谁写了共享索引。',
+      )
+      console.error(`   改前:${sharedCheck.before.replace(/\n/g, ' | ')}`)
+      console.error(`   改后:${sharedCheck.after.replace(/\n/g, ' | ')}`)
+      return false
+    }
     if (res.status === 0) return true
     last = res
     if (isIndexLockShaped(res)) {
@@ -876,15 +958,50 @@ if (!TOOL_ONLY && process.env.HUSKY_SKIP_TOKENS_SYNC !== '1') {
           console.log(`  ✅ ${t.label} 同步后无变化,跳过 git add`)
           continue
         }
+        // ─── 派生申报(2026-11-04 立)──────────────────────────────────────────
+        // 病灶:这条腿的产物天然在作者声明集之外,旧护栏只看"声明集外有没有条目",于是
+        // 每次业务提交都被私有索保护栏判红,提交者只能拿 HUSKY_SKIP_TOKENS_SYNC=1 换绿。
+        // 通道:**先申报(路径 + 工作树 blob),再 git add**,护栏把申报路径并入允许集并
+        // 逐条核验索引 blob == 申报 blob;申报之外的条目仍按原样拒绝。
+        // 只对"本次确实有变化"的产物申报 —— 生成器 warn 拒写时 continue 在上面,不会悬空申报。
+        const productPaths = t.file.split(/\s+/).filter(Boolean)
+        const manifestFile = process.env.IHUI_ISOLATED_INDEX_DERIVED_MANIFEST
+        for (const p of productPaths) {
+          try {
+            const decl = derivedArtifacts.declareDerivedArtifact({
+              manifestFile,
+              path: p,
+              generator: t.cmd,
+              declaredPaths: SHARED_VIEW_PATHS,
+              gitCwd: process.cwd(),
+            })
+            if (decl.declared)
+              console.log(`  🧾 已申报派生产物:${p}(blob ${decl.blob.slice(0, 12)})`)
+            else if (decl.skipped === 'author-declared')
+              console.log(`  ℹ️  ${p} 已在本单声明集内,按声明内容护栏复原,不再重复申报`)
+          } catch (e) {
+            console.error(`❌ ${derivedArtifacts.LOST_PREFIX}:${e?.message ?? e}`)
+            console.error('   提交已阻止:派生产物没有完成显式申报。')
+            process.exit(1)
+          }
+        }
         try {
-          execSync(`git add ${t.file}`, { stdio: 'inherit', cwd: process.cwd(), windowsHide: true })
-          // 同步更新 staging 快照,避免 setupRestoreOnExit 把它当作"非预期 staged 文件"unstage
-          if (INITIAL_STAGED_SNAPSHOT && typeof INITIAL_STAGED_SNAPSHOT.add === 'function') {
-            INITIAL_STAGED_SNAPSHOT.add(t.file)
+          for (const p of productPaths) {
+            execSync(`git add -- ${p}`, { stdio: 'inherit', cwd: process.cwd(), windowsHide: true })
+            // 同步更新 staging 快照(逐条 add,修掉旧实现把 "a b" 整体塞进集合、b 仍被 unstage 的漏洞)
+            if (INITIAL_STAGED_SNAPSHOT && typeof INITIAL_STAGED_SNAPSHOT.add === 'function') {
+              INITIAL_STAGED_SNAPSHOT.add(p)
+            }
+            const check = derivedArtifacts.verifyDeclaredEntryInIndex({
+              gitCwd: process.cwd(),
+              relPath: p,
+            })
+            if (!check.ok)
+              throw new Error(`索引内容与刚写入的工作树不一致:${check.reason}(须先排查并发写者)`)
           }
           console.log(`  ✅ 已将同步后的 ${t.file} 加入 staged`)
-        } catch {
-          console.error(`❌ git add ${t.file} 失败,提交已阻止`)
+        } catch (e) {
+          console.error(`❌ git add ${t.file} 失败,提交已阻止:${e?.message ?? e}`)
           process.exit(1)
         }
       }
