@@ -3,11 +3,14 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 校园考勤页(mobile-rn 端)—— 薄壳,复用通用控制台列表屏 ConsoleTableScreen
- * (edu-management 全原生裁决的流水线首例)。
- * 端点(与 web edu/edu-management/attendance/PageClient 同源):
+ * 校园考勤页(mobile-rn 端)—— 教师管理端(与「我的考勤」「孩子考勤」两屏并列的那一个),
+ * 薄壳复用通用控制台列表屏 ConsoleTableScreen(edu-management 全原生裁决的流水线首例)。
+ * 端点(与 web edu/edu-management/attendance/PageClient、小程序 edu-mgmt-attendance 同源):
  *  - GET /api/edu-ai-management/attendance?date=YYYY-MM-DD[&status=] ⇒ { list: AttendanceRecord[] }
- * 首版承载「按日考勤列表」(学生/状态徽章/签到/签退);stats 与请假管理排后续轮。
+ *  - GET /api/edu-ai-management/attendance/stats?period=&startDate=&endDate[&classId=]
+ *    ⇒ { total, attendanceRate, statusBreakdown, periodBreakdown }(统计区 + 趋势区的数据源)
+ * 列表只收单日、无区间参数且分页上限 100,趋势按天逐次请求即 N+1 ⇒ 统计与趋势一律走 stats,
+ * 端上只做二次聚合(算术单源 ../components/edu-attendance-stats.ts,后端一行不改)。
  *
  * 写接口契约(2026-11 收口,本端按此对齐):
  *  - POST check-in / batch-check-in **不再接受 status**,状态由服务端按该班 edu_attendance_rule
@@ -17,27 +20,38 @@
  *    故代签**限定当日**,非当日行当场拒发(不发出一条注定 400 的请求,§0.10)。
  *  - PUT check-out 的 date 是「记录定位键」(服务端写 checkOutTime=now 后重判状态,
  *    leave/absent 保留)⇒ 端上原样回发行自己的 date,不猜、不改写。
- * 三屏(教师/本人/孩子)共用本文件导出的 attendanceBizDay / attendanceStatusTone /
- * attendanceStatusLabel(§0.6 单一真相源:第二份映射必然与新契约漂移)。
+ * 三屏(教师/本人/孩子)共用的 attendanceBizDay / attendanceStatusTone / attendanceStatusLabel
+ * 单源在 ../components/attendance-status(本文件 re-export 保持既有 import 路径不变)。
  */
-import { useCallback, useEffect, useState } from 'react'
-import { StyleSheet, Text, View } from 'react-native'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { ScrollView, StyleSheet, Text, View } from 'react-native'
 import { QrCode } from 'lucide-react-native'
 import { useNavigation, type NavigationProp } from '@react-navigation/native'
 import { fetchApi } from '@ihui/api-client'
-import {
-  ConsoleTableScreen,
-  type ConsoleBadgeTone,
-  type ConsoleColumn,
-  type ConsoleRowView,
-} from '@ihui/rn-app'
+import { ConsoleTableScreen, type ConsoleColumn, type ConsoleRowView } from '@ihui/rn-app'
 import { getTokens } from '@ihui/rn-app'
 import { Tappable } from '@ihui/ui-native'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { appAlert } from '../components/BottomPops'
+import { AttendanceStatsPanel } from '../components/AttendanceStatsPanel'
+import {
+  attendanceBizDay,
+  attendanceStatusLabel,
+  attendanceStatusTone,
+} from '../components/attendance-status'
+import {
+  attendanceStatsUrl,
+  firstAttendanceClassId,
+  type AttendanceStatsPayload,
+} from '../components/edu-attendance-stats'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+
+// 状态档三枚出口已提到端内单源(屏与统计面板共用,互相 import 会成环)——
+// 三屏(本人/孩子)仍从本文件取,实现只有一份,这里只 re-export。
+export { attendanceBizDay, attendanceStatusLabel, attendanceStatusTone }
+export type { AttendanceBadgeTone } from '../components/attendance-status'
 
 interface AttendanceRecord {
   id: string
@@ -59,42 +73,6 @@ interface BatchCheckInResult {
   missedIds: string[]
 }
 
-/**
- * 上海业务日(考勤写接口与取数 query 共用的那一把尺)。
- * 原实现用 toISOString()(UTC)⇒ 北京时间 00:00–07:59 打开本页查到的是"昨天"那一天的考勤。
- * 后端库会话时区实测 Asia/Shanghai(now() 带 +08),各聚合 SQL 也按它截日 ⇒ 前端必须同口径
- * (与 server 侧 bizDayKey 同一形态;中国无夏令时,UTC+8 可直接加偏移后取 UTC 日)。
- */
-export const attendanceBizDay = (): string =>
-  new Date(Date.now() + 8 * 3600_000).toISOString().slice(0, 10)
-
-/**
- * 考勤状态 → 徽章档位(三屏唯一实现)。
- * judgeStatus 产出 present/late/early/absent 四档,leave 由请假审批流写入 ⇒ 五档都得有归宿。
- * early(早退)自 2026-11「签退后重判」落地起**真会进库**,此前它落到默认档、与未知状态同色。
- * ConsoleBadgeTone 只有 ok/warn/danger/muted 四档(源在 packages/app,端内不可扩档),
- * 故 early 与 late 同用 warn,靠取词文案区分;要落 web 的五档色(early 橙/late 黄/leave 蓝)
- * 必须先扩 tone —— 已在交付报告登记为跨端同步点,不在本端自立色档。
- */
-export const attendanceStatusTone = (s: string): ConsoleBadgeTone =>
-  s === 'present'
-    ? 'ok'
-    : s === 'late' || s === 'early'
-      ? 'warn'
-      : s === 'absent'
-        ? 'danger'
-        : 'muted'
-
-/** 状态取词:词表未命中(后端新增协议码)原样回显,不吞数据。 */
-export const attendanceStatusLabel = (
-  t: (key: string, params?: Record<string, string | number>) => string,
-  s: string,
-): string => {
-  const key = `eduAttendance.status.${s}`
-  const v = t(key)
-  return v === key ? s : v
-}
-
 function EduAttendanceScreen() {
   const { t } = useI18n()
   const { resolvedTheme } = useTheme()
@@ -106,6 +84,51 @@ function EduAttendanceScreen() {
   const [busy, setBusy] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  /**
+   * 统计区 + 趋势区的那一次 stats 取数(端点与参数单源在 ../components/edu-attendance-stats.ts)。
+   * 刻意挂在列表回读之后、而不是另起一个独立 effect:两处各自取数必然出现两个不同时刻的分母,
+   * 同批触发才能保证「清单是新的、统计也是新的」(与小程序侧 edu-mgmt-attendance/index.tsx 同做法)。
+   */
+  const [stats, setStats] = useState<AttendanceStatsPayload | null>(null)
+  const [statsLoading, setStatsLoading] = useState(false)
+  const [statsError, setStatsError] = useState('')
+  /** seq 吃掉跨业务日/重入的竞态:回来的不是最新那一批 ⇒ 整批丢弃,不把旧日读数挂到新页面上 */
+  const statsSeq = useRef(0)
+
+  const loadStats = useCallback(
+    async (list: AttendanceRecord[]): Promise<void> => {
+      const seq = ++statsSeq.current
+      const settle = (next: AttendanceStatsPayload | null, err: string): void => {
+        if (statsSeq.current !== seq) return
+        setStats(next)
+        setStatsError(err)
+        setStatsLoading(false)
+      }
+      setStatsLoading(true)
+      setStatsError('')
+      // 窗口起点算不出来(日键形状不合契约)⇒ 连请求都不发,只落一条常驻回显(§0.10)
+      const url = attendanceStatsUrl({ date: attendanceBizDay(), classId: firstAttendanceClassId(list) })
+      if (!url) {
+        settle(null, t('eduAttendance.loadStatsFailed'))
+        return
+      }
+      try {
+        const res = await fetchApi<AttendanceStatsPayload>(url)
+        if (!res.success) {
+          settle(null, `${t('eduAttendance.loadStatsFailed')}:${res.error ?? '-'}`)
+          return
+        }
+        settle(res.data ?? null, '')
+      } catch (e) {
+        settle(
+          null,
+          `${t('eduAttendance.loadStatsFailed')}:${e instanceof Error ? e.message : '-'}`,
+        )
+      }
+    },
+    [t],
+  )
+
   const tk = getTokens(resolvedTheme)
   const styles = createScreenStyles(tk)
 
@@ -119,9 +142,10 @@ function EduAttendanceScreen() {
         `/api/edu-ai-management/attendance?date=${attendanceBizDay()}`,
       )
       if (!res.success) throw new Error(res.error || 'load failed')
-      setRecords(res.data?.list ?? [])
+      const list = res.data?.list ?? []
+      setRecords(list)
       setRows(
-        (res.data?.list ?? []).map((r) => ({
+        list.map((r) => ({
           id: r.id,
           cells: {
             student: r.studentId,
@@ -133,12 +157,15 @@ function EduAttendanceScreen() {
           badgeTone: attendanceStatusTone(r.status),
         })),
       )
+      // 统计/趋势与列表同批触发,但**不 await**:列表先上屏,统计到货再补两张卡片;
+      // 统计失败只由面板常驻回显,不把整页拖成错误态(与小程序侧同一条纪律)。
+      void loadStats(list)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'load failed')
     } finally {
       setLoading(false)
     }
-  }, [statusLabel])
+  }, [loadStats, statusLabel])
 
   useEffect(() => {
     void load()
@@ -307,6 +334,18 @@ function EduAttendanceScreen() {
         <QrCode size={15} color={tk.text.primary} />
         <Text style={styles.qrBtnText}>{t('eduAttendance.qrEntry')}</Text>
       </Tappable>
+      {/* 统计区 + 趋势区:与 web 统计 Tab / 小程序面板同一份数据源、同一档形态。
+          RN 侧 ConsoleTableScreen 自带滚动且无可插槽位 ⇒ 本端用限高滚动区承载同一份内容
+          (平台独占形态差异,内容/取数/档位三样都对齐)。 */}
+      <ScrollView style={styles.statsArea} showsVerticalScrollIndicator={false}>
+        <AttendanceStatsPanel
+          payload={stats}
+          loading={statsLoading}
+          error={statsError}
+          t={t}
+          colorScheme={resolvedTheme}
+        />
+      </ScrollView>
       <ConsoleTableScreen
         t={t}
         colorScheme={resolvedTheme}
@@ -362,6 +401,8 @@ function createScreenStyles(tk: ReturnType<typeof getTokens>) {
       fontSize: rnType.body.size,
     },
     pressed: { opacity: 0.85 },
+    // 统计/趋势的限高滚动区:内容再长也不把下面的清单挤出屏幕(上限是真上限,不是偏好值)
+    statsArea: { flexGrow: 0, maxHeight: '45%' },
   })
 }
 
