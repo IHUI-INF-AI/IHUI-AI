@@ -408,8 +408,7 @@
     "totalRecharge": "累计充值",
     "totalWithdraw": "累计提现",
     "withdraw": "提现",
-    "points": "智汇值",
-    "rechargeSuccess": "充值成功"
+    "points": "智汇值"
   },
   "community": {
     "posts": "帖子",
@@ -691,8 +690,6 @@
       "agentTipTitle": "智能体使用说明"
     },
     "chatDrawers": {
-      "emptyMaterial": "暂无素材",
-      "materialLibrary": "素材库",
       "promptLabel": "提示词",
       "selectModel": "选择模型",
       "skillDetail": "技能详情"
@@ -1292,7 +1289,6 @@
     "questions": "{n} 题",
     "passScore": "及格分",
     "totalScore": "总分",
-    "passed": "已通过",
     "result": {
       "scoreValue": "{n} 分",
       "rankValue": "第 {n} 名 / 共 {total} 人",
@@ -1486,7 +1482,6 @@
     "withdrawable": "可提现",
     "pendingSettle": "待结算",
     "withdrawn": "已提现",
-    "myTeam": "我的团队",
     "columnTitle": "分销订单",
     "retry": "重试",
     "empty": "暂无数据",
@@ -2556,7 +2551,6 @@
     "startConversation": "开始你们的对话",
     "inputPlaceholder": "输入消息...",
     "sendBtn": "发送",
-    "noInteraction": "暂无互动消息",
     "noPrivate": "暂无私信",
     "noSystem": "暂无系统通知",
     "pin": "置顶会话",
@@ -2846,10 +2840,7 @@
   },
   "token": {
     "balance": {
-      "title": "我的智汇值",
-      "agentConsume": "智能体消耗",
-      "ordersConsume": "大模型消耗",
-      "costTime": "花费时间:"
+      "title": "我的智汇值"
     }
   },
   "user": {
@@ -2940,8 +2931,6 @@
       "phoneInvalid": "手机号格式不正确",
       "codeSendFailed": "验证码发送失败",
       "bindSuccess": "手机号绑定成功",
-      "codePlaceholder": "请输入验证码",
-      "getCode": "获取验证码",
       "bind": "绑定",
       "currentLabel": "当前手机号",
       "codeSent": "验证码已发送",
@@ -3289,7 +3278,6 @@
     "noCover": "无封面",
     "watched": "已观看",
     "playing": "播放中",
-    "courseCatalog": "课程目录",
     "empty": "暂无章节"
   },
   "video": {
@@ -3316,20 +3304,13 @@
     "signNow": "立即签到 +5 积分",
     "signedToday": "今日已签到"
   },
-  "withdrawal": {
-    "records": "提现记录"
-  },
   "intro": {
     "empty": "暂无简介",
     "relatedAI": "关联 AI 应用"
   },
   "invite": {
     "title": "邀请好友",
-    "qrcode": "二维码",
-    "code": "邀请码:",
     "saveImage": "保存图片",
-    "shareNow": "立即分享",
-    "inviteSuffix": "邀请你加入",
     "inviteCode": "邀请码",
     "totalInvited": "累计邀请",
     "totalReward": "累计奖励",
@@ -3434,28 +3415,6 @@
     "resendCode": "重新发送",
     "termsOfService": "服务条款",
     "loginFailed": "登录失败，请重试"
-  },
-  "level": {
-    "0": "新手",
-    "1": "青铜",
-    "2": "白银",
-    "3": "黄金",
-    "4": "铂金",
-    "5": "钻石",
-    "6": "王者",
-    "distance": "距"
-  },
-  "interaction": {
-    "collect": "收藏了我",
-    "comment": "评论了我",
-    "follow": "关注了我",
-    "like": "赞了我"
-  },
-  "planet": {
-    "empty": "暂无星球",
-    "join": "加入星球",
-    "joined": "已加入",
-    "members": "成员"
   },
   "chat": {
     "approvalExpiredNotice": "工具 {toolName} 的审批已因连接中断失效,该操作未执行;如需继续请重新发起",
@@ -3874,21 +3833,8 @@
     "d2": "全能",
     "text1": "Agent模式"
   },
-  "TitleSwitchScrollPicker": {
-    "d1": "赛道一",
-    "d2": "赛道二",
-    "d3": "赛道三",
-    "d4": "赛道四",
-    "d5": "赛道五",
-    "d6": "赛道六",
-    "d7": "赛道七",
-    "d8": "赛道八"
-  },
   "PhoneAreaCodePicker": {
     "d1": "中国"
-  },
-  "WithdrawalRecords": {
-    "d1": "已驳回"
   },
   "askCreate": {
     "d1": "技术",
@@ -3929,13 +3875,6 @@
     "d2": "月费",
     "d3": "已购买"
   },
-  "TitleSwitchOverlap": {
-    "d1": "赛道一",
-    "d2": "赛道二",
-    "d3": "赛道三",
-    "d4": "赛道四",
-    "d5": "赛道五"
-  },
   "TitleSwitchScrollTitle": {
     "d1": "赛道一",
     "d2": "子赛道 1-1",
@@ -3960,11 +3899,6 @@
     "rank": "排名",
     "studyHours": "学习时长",
     "levelDesc": "等级"
-  },
-  "EmptyIllustration": {
-    "d1": "未找到相关内容",
-    "d2": "网络异常",
-    "d3": "暂无权限"
   },
   "SystemNotice": {
     "d1": "升级"
@@ -4005,10 +3939,6 @@
     "d4": "智能体如何上架?",
     "d5": "n8n 智能体"
   },
-  "tokenBalance": {
-    "d1": "一个月",
-    "d2": "近一年"
-  },
   "LessonListItem": {
     "text1": "VIP可看",
     "text2": "VIP可看",
@@ -4021,12 +3951,6 @@
   "UserInfoCard": {
     "login1": "一键登录",
     "text2": "退订"
-  },
-  "TitleSwitchTypeBar": {
-    "text1": "自定义",
-    "settings2": "请设置自定义种类",
-    "confirm": "确定",
-    "m1": "请输入种类"
   },
   "adaptersSelectertaro": {
     "text1": "标清 480p",
@@ -4090,12 +4014,8 @@
   },
   "tail": {
     "6": "暂无数据",
-    "7": "重试",
     "8": "加载中...",
-    "10": "暂无提现记录",
     "11": "已选模型: {m}",
-    "12": "验证码已发送至 {m}",
-    "13": "加入于 {m}",
     "14": "选择感兴趣的赛道,获取个性化推荐",
     "15": "默认模型",
     "17": "付费可看 ¥{m}",
@@ -4125,12 +4045,6 @@
   "ErrorView": {
     "p1": "请稍后重试"
   },
-  "FilterDropdown": {
-    "p1": "筛选"
-  },
-  "InvitePoster": {
-    "p1": "邀请好友得现金奖励"
-  },
   "ModelTypeButtonGroup": {
     "m1": "技能",
     "m2": "声音",
@@ -4139,13 +4053,6 @@
   "QrCodeShare": {
     "p1": "分享海报",
     "p2": "扫码即可查看"
-  },
-  "TagInput": {
-    "p1": "输入后回车添加",
-    "p2": "已达上限"
-  },
-  "VipUpgradeToast": {
-    "p1": "升级会员解锁更多功能"
   },
   "aicareer": {
     "q1": "面试",
@@ -4198,9 +4105,6 @@
     "q2": "请在微信小程序中使用微信登录",
     "q3": "微信登录 code 为空",
     "q4": "微信用户"
-  },
-  "TeamManager": {
-    "p1": "不活跃"
   },
   "VideoInfo": {
     "p1": "视频详情"
@@ -4378,18 +4282,6 @@
     "n8nShareFail": "分享失败",
     "n8nGenBadge": "智汇AI生成 消耗智汇值:",
     "n8nHoldToTalk": "按住说出你的问题"
-  },
-  "verify": {
-    "phoneEmpty": "手机号为空",
-    "phoneInvalid": "请输入正确手机号",
-    "codeSent": "验证码已发送",
-    "codeIncomplete": "请输入完整验证码",
-    "verifySuccess": "验证成功",
-    "getCode": "请输入验证码"
-  },
-  "VerifyCodeModal": {
-    "p2": "重新发送",
-    "p3": "验证中..."
   },
   "VoiceInput": {
     "p1": "录音启动失败"
@@ -5215,9 +5107,7 @@
     "empty": "暂无课程",
     "free": "免费",
     "studentCount": "{count} 人学过",
-    "nextPage": "下一页",
-    "popular": "热门课程",
-    "unknownInstructor": "未知讲师"
+    "nextPage": "下一页"
   },
   "customerService": {
     "title": "联系客服",
@@ -7097,16 +6987,7 @@
     "receiveFreeBody": "链接已复制到剪贴板,可在浏览器粘贴打开"
   },
   "career": {
-    "fillField": "请填写：{name}",
-    "submitFail": "提交失败，请稍后重试",
-    "doneTitle": "提交成功",
-    "doneBody": "问卷已提交，AI 学业建议生成后可在本页查看。",
     "exportingReport": "导出中...",
-    "exportEmptyHint": "生成报告后可导出",
-    "exportLoginRequired": "请先登录后再导出"
-  },
-  "learnMapPage": {
-    "completed": "已完成",
-    "empty": "暂无学习路径"
+    "exportEmptyHint": "生成报告后可导出"
   }
 }

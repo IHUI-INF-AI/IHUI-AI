@@ -408,8 +408,7 @@
     "totalRecharge": "累計儲值",
     "totalWithdraw": "累計提現",
     "withdraw": "提現",
-    "points": "智匯值",
-    "rechargeSuccess": "充值成功"
+    "points": "智匯值"
   },
   "community": {
     "posts": "貼文",
@@ -691,8 +690,6 @@
       "agentTipTitle": "智慧體使用說明"
     },
     "chatDrawers": {
-      "emptyMaterial": "暫無素材",
-      "materialLibrary": "素材庫",
       "promptLabel": "提示詞",
       "selectModel": "選擇模型",
       "skillDetail": "技能詳情"
@@ -1292,7 +1289,6 @@
     "questions": "{n} 題",
     "passScore": "及格分",
     "totalScore": "總分",
-    "passed": "已通過",
     "result": {
       "scoreValue": "{n} 分",
       "rankValue": "第 {n} 名 / 共 {total} 人",
@@ -1486,7 +1482,6 @@
     "withdrawable": "可提現",
     "pendingSettle": "待結算",
     "withdrawn": "已提現",
-    "myTeam": "我的團隊",
     "columnTitle": "分銷訂單",
     "retry": "重試",
     "empty": "暫無資料",
@@ -2556,7 +2551,6 @@
     "startConversation": "開始你們的對話",
     "inputPlaceholder": "輸入消息...",
     "sendBtn": "發送",
-    "noInteraction": "暫無互動消息",
     "noPrivate": "暫無私信",
     "noSystem": "暫無系統通知",
     "pin": "置頂會話",
@@ -2846,10 +2840,7 @@
   },
   "token": {
     "balance": {
-      "title": "我的智匯值",
-      "agentConsume": "智能體消耗",
-      "ordersConsume": "大模型消耗",
-      "costTime": "花費時間:"
+      "title": "我的智匯值"
     }
   },
   "user": {
@@ -2940,8 +2931,6 @@
       "phoneInvalid": "手機號碼格式不正確",
       "codeSendFailed": "驗證碼發送失敗",
       "bindSuccess": "手機號碼綁定成功",
-      "codePlaceholder": "請輸入驗證碼",
-      "getCode": "取得驗證碼",
       "bind": "綁定",
       "currentLabel": "目前手機號",
       "codeSent": "驗證碼已發送",
@@ -3289,7 +3278,6 @@
     "noCover": "無封面",
     "watched": "已觀看",
     "playing": "播放中",
-    "courseCatalog": "課程目錄",
     "empty": "暫無章節"
   },
   "video": {
@@ -3316,20 +3304,13 @@
     "signNow": "立即簽到 +5 積分",
     "signedToday": "今日已簽到"
   },
-  "withdrawal": {
-    "records": "提現記錄"
-  },
   "intro": {
     "empty": "暫無簡介",
     "relatedAI": "關聯 AI 應用"
   },
   "invite": {
     "title": "邀請好友",
-    "qrcode": "二維碼",
-    "code": "邀請碼:",
     "saveImage": "保存圖片",
-    "shareNow": "立即分享",
-    "inviteSuffix": "邀請你加入",
     "inviteCode": "邀請碼",
     "totalInvited": "累計邀請",
     "totalReward": "累計獎勵",
@@ -3434,28 +3415,6 @@
     "resendCode": "重新發送",
     "termsOfService": "服務條款",
     "loginFailed": "登入失敗，請重試"
-  },
-  "level": {
-    "0": "新手",
-    "1": "青銅",
-    "2": "白銀",
-    "3": "黃金",
-    "4": "鉑金",
-    "5": "鑽石",
-    "6": "王者",
-    "distance": "距"
-  },
-  "interaction": {
-    "collect": "收藏了我",
-    "comment": "評論了我",
-    "follow": "關注了我",
-    "like": "讚了我"
-  },
-  "planet": {
-    "empty": "暫無星球",
-    "join": "加入星球",
-    "joined": "已加入",
-    "members": "成員"
   },
   "chat": {
     "approvalExpiredNotice": "工具 {toolName} 的審批已因連線中斷失效,該操作未執行;如需繼續請重新發起",
@@ -3874,21 +3833,8 @@
     "d2": "全能",
     "text1": "Agent模式"
   },
-  "TitleSwitchScrollPicker": {
-    "d1": "賽道一",
-    "d2": "賽道二",
-    "d3": "賽道三",
-    "d4": "賽道四",
-    "d5": "賽道五",
-    "d6": "賽道六",
-    "d7": "賽道七",
-    "d8": "賽道八"
-  },
   "PhoneAreaCodePicker": {
     "d1": "中國"
-  },
-  "WithdrawalRecords": {
-    "d1": "已駁回"
   },
   "askCreate": {
     "d1": "技術",
@@ -3929,13 +3875,6 @@
     "d2": "月費",
     "d3": "已購買"
   },
-  "TitleSwitchOverlap": {
-    "d1": "賽道一",
-    "d2": "賽道二",
-    "d3": "賽道三",
-    "d4": "賽道四",
-    "d5": "賽道五"
-  },
   "TitleSwitchScrollTitle": {
     "d1": "賽道一",
     "d2": "子賽道 1-1",
@@ -3960,11 +3899,6 @@
     "rank": "排名",
     "studyHours": "學習時長",
     "levelDesc": "等級"
-  },
-  "EmptyIllustration": {
-    "d1": "未找到相關內容",
-    "d2": "網路異常",
-    "d3": "暫無權限"
   },
   "SystemNotice": {
     "d1": "升級"
@@ -4005,10 +3939,6 @@
     "d4": "智慧體如何上架?",
     "d5": "n8n 智慧體"
   },
-  "tokenBalance": {
-    "d1": "一個月",
-    "d2": "近一年"
-  },
   "LessonListItem": {
     "text1": "VIP可看",
     "text2": "VIP可看",
@@ -4021,12 +3951,6 @@
   "UserInfoCard": {
     "login1": "一鍵登入",
     "text2": "退訂"
-  },
-  "TitleSwitchTypeBar": {
-    "text1": "自訂",
-    "settings2": "請設定自訂種類",
-    "confirm": "確定",
-    "m1": "請輸入種類"
   },
   "adaptersSelectertaro": {
     "text1": "標清 480p",
@@ -4090,12 +4014,8 @@
   },
   "tail": {
     "6": "暫無資料",
-    "7": "重試",
     "8": "載入中...",
-    "10": "暫無提現記錄",
     "11": "已選模型: {m}",
-    "12": "驗證碼已發送至 {m}",
-    "13": "加入於 {m}",
     "14": "選擇感興趣的賽道,獲取個人化推薦",
     "15": "預設模型",
     "17": "付費可看 ¥{m}",
@@ -4125,12 +4045,6 @@
   "ErrorView": {
     "p1": "請稍後重試"
   },
-  "FilterDropdown": {
-    "p1": "篩選"
-  },
-  "InvitePoster": {
-    "p1": "邀請好友得現金獎勵"
-  },
   "ModelTypeButtonGroup": {
     "m1": "技能",
     "m2": "聲音",
@@ -4139,13 +4053,6 @@
   "QrCodeShare": {
     "p1": "分享海報",
     "p2": "掃碼即可查看"
-  },
-  "TagInput": {
-    "p1": "輸入後按回車新增",
-    "p2": "已達上限"
-  },
-  "VipUpgradeToast": {
-    "p1": "升級會員解鎖更多功能"
   },
   "aicareer": {
     "q1": "面試",
@@ -4198,9 +4105,6 @@
     "q2": "請在微信小程式中使用微信登入",
     "q3": "微信登入 code 為空",
     "q4": "微信用戶"
-  },
-  "TeamManager": {
-    "p1": "不活躍"
   },
   "VideoInfo": {
     "p1": "影片詳情"
@@ -4378,18 +4282,6 @@
     "n8nShareFail": "分享失敗",
     "n8nGenBadge": "智匯AI生成 消耗智匯值:",
     "n8nHoldToTalk": "長按說出您的問題"
-  },
-  "verify": {
-    "phoneEmpty": "手機號碼為空",
-    "phoneInvalid": "請輸入正確手機號碼",
-    "codeSent": "驗證碼已發送",
-    "codeIncomplete": "請輸入完整驗證碼",
-    "verifySuccess": "驗證成功",
-    "getCode": "請輸入驗證碼"
-  },
-  "VerifyCodeModal": {
-    "p2": "重新發送",
-    "p3": "驗證中..."
   },
   "VoiceInput": {
     "p1": "錄音啟動失敗"
@@ -5215,9 +5107,7 @@
     "empty": "暫無課程",
     "free": "免費",
     "studentCount": "{count} 人學過",
-    "nextPage": "下一頁",
-    "popular": "熱門課程",
-    "unknownInstructor": "未知講師"
+    "nextPage": "下一頁"
   },
   "customerService": {
     "title": "聯絡客服",
@@ -7097,16 +6987,7 @@
     "receiveFreeBody": "連結已複製到剪貼板,可在瀏覽器粘貼打開"
   },
   "career": {
-    "fillField": "請填寫：{name}",
-    "submitFail": "提交失敗，請稍後重試",
-    "doneTitle": "提交成功",
-    "doneBody": "問卷已提交，AI 學業建議生成後可在本頁查看。",
     "exportingReport": "匯出中...",
-    "exportEmptyHint": "產生報告後可匯出",
-    "exportLoginRequired": "請先登入後再匯出"
-  },
-  "learnMapPage": {
-    "completed": "已完成",
-    "empty": "暫無學習路徑"
+    "exportEmptyHint": "產生報告後可匯出"
   }
 }
