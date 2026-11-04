@@ -57,14 +57,15 @@ test('T2 同屏同文案硬编码 ⇒ B1 红,并点名 web 键', () => {
   assert.equal(r.advisory.length, 0)
 })
 
-test('T3 同值异键 ⇒ B2 警告,不判红', () => {
+test('T3 同值异键(同尾段) ⇒ 已裁决的命名约定,不判红', () => {
   const r = G.judgeScreen(
     { web: 'wallet', rn: 'rn/W.tsx', webKeys: new Set(['common.save']), rnKeys: new Set(['wallet.save']), hardcoded: [] },
     MESSAGES,
   )
   assert.equal(r.blocking.length, 0)
-  assert.equal(r.advisory.length, 1)
-  assert.equal(r.advisory[0].rule, 'B2-key-diff')
+  assert.equal(r.advisory.length, 0)
+  assert.equal(r.accepted.length, 1)
+  assert.equal(r.accepted[0].rule, 'B2-accepted')
 })
 
 test('T4 同键不报;RN 自有中文(web 无同值键)不判红', () => {
@@ -124,8 +125,8 @@ test('T8 台账:到期即红;count 差额与缺字段点名;scopeFiles 只判本
   assert.equal(malformed.malformed.length, 3)
 })
 
-test('T9 自检全绿(12 例)', () => {
-  assert.equal(G.runSelfTest(), 12)
+test('T9 自检全绿(15 例)', () => {
+  assert.equal(G.runSelfTest(), 15)
 })
 
 test('T10 接线对账:gate 291 已注册进 guardian-runner,blocking + staged 触发面 + skip env', () => {

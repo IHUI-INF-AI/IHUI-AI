@@ -44,6 +44,8 @@ import {
 export interface IntelligentAssistantProps {
   /** 剩余智汇值(对齐原 tokenQuantity) */
   tokenQuantity?: number
+  /** 是否已登录;false 时只显示登录引导文案并隐藏充值(与小程序端同名 prop 同义,默认 true) */
+  isLoggedIn?: boolean
   /** 充值按钮点击(对齐原 topupClick → /pagesA/top-up/index) */
   onRecharge?: () => void
   /** 机器人装饰图(可选,缺省隐藏;原 xiaofang.png) */
@@ -61,6 +63,7 @@ function formatTokenValue(
 
 export default function IntelligentAssistant({
   tokenQuantity = 0,
+  isLoggedIn = true,
   onRecharge,
   robotImage,
 }: IntelligentAssistantProps) {
@@ -84,10 +87,16 @@ export default function IntelligentAssistant({
         <View style={styles.limitInfo}>
           <View style={styles.limitContent}>
             <View style={styles.limitText}>
-              <Text style={styles.limitLabel}>{t('ia.remainingPoints') + ':'}</Text>
-              <Text style={styles.limitCount}>{formatTokenValue(tokenQuantity, t)}</Text>
+              {isLoggedIn ? (
+                <>
+                  <Text style={styles.limitLabel}>{t('ia.remainingPoints') + ':'}</Text>
+                  <Text style={styles.limitCount}>{formatTokenValue(tokenQuantity, t)}</Text>
+                </>
+              ) : (
+                <Text style={styles.limitCount}>{t('ia.loginRequired')}</Text>
+              )}
             </View>
-            {onRecharge ? (
+            {isLoggedIn && onRecharge ? (
               <TouchableOpacity
                 style={styles.rechargeAction}
                 onPress={onRecharge}

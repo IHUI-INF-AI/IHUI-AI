@@ -226,6 +226,17 @@ test('CLI: 产物漂移 → exit 1 并提示重新生成', () => {
   } finally { rmScratch(root) }
 })
 
+test('CLI: --staged 暂存面取不到(非 git fixture)⇒ exit 2 未判定', () => {
+  const root = makeFixtureTree('export default async (server) => {}')
+  try {
+    const r = runCli(root, ['--staged'])
+    assert.equal(r.status, 2, `应 exit 2,实际 ${r.status}\n${r.stdout}${r.stderr}`)
+    assert.match(r.stderr, /staged 面取不到|未判定/)
+  } finally {
+    rmScratch(root)
+  }
+})
+
 test('CLI: --self-test 内置断言全绿(exit 0);产物缺失也判失败', () => {
   const selfTest = spawnSync(process.execPath, [SCRIPT_PATH, '--self-test'], {
     encoding: 'utf8',

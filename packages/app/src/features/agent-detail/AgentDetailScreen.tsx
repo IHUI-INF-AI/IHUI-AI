@@ -25,7 +25,7 @@ export function AgentDetailScreen({
   onStartChat,
   onEdit,
   onRetry,
-  colorScheme = 'light',  
+  colorScheme = 'light',
   onNavigate,
   onToast,
 }: AgentDetailScreenProps & { onRetry?: () => void }) {
@@ -76,7 +76,7 @@ export function AgentDetailScreen({
           <Star size={14} color={tk.warning.DEFAULT} fill={tk.warning.DEFAULT} />
           <Text style={styles.value}>{item.rating.toFixed(1)}</Text>
         </View>
-        <Text style={styles.label}>{t('agentDetail.price')}</Text>
+        <Text style={styles.label}>{t('agent.fieldPrice')}</Text>
         <Text style={styles.price}>
           {item.isFree ? t('agentDetail.free') : `¥${item.price.toFixed(2)}`}
         </Text>
