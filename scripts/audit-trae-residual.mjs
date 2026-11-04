@@ -18,7 +18,7 @@
  *
  * 用法: node scripts/audit-trae-residual.mjs [--backup <dir>] [--json] [--strict]
  *   --json    机器可读输出(纯 JSON 到 stdout,无任何装饰文字)
- *   --strict  门禁模式:硬命中 > 0 ⇒ 退出码 1
+ *   --strict  门禁模式:硬命中 > 0 ⇒ 退出码 1;覆盖面不完整(有 >12MB 文件未浸水)⇒ 退出码 2(未判定,不得读成通过)
  * 环境变量:
  *   AUDIT_SKIP_REGISTRY=1     跳过注册表定点枚举(CI / 快跑)
  *   AUDIT_IDENTITY_HISTORY    覆盖身份历史账本路径(默认 %USERPROFILE%\.trae-proxy\identity-history.json)
@@ -118,6 +118,14 @@ function collectFromJson(text, origin) {
   walkObj(obj)
 }
 
+// 体积护栏必须**可见**:跳过 ≠ 扫过(§0.3「没判」绝不写成「判过」)。
+// 12MB 是本器登记的读入上限,不是"这些文件里没有旧身份值"的证据 ⇒ 每跳过一枚都要点名并计入覆盖面。
+export const MAX_SCAN_BYTES = 12 * 1024 * 1024
+const skippedOversized = []
+const noteOversized = (p, size) => {
+  skippedOversized.push({ p, mb: Number((size / 1048576).toFixed(1)) })
+}
+
 if (existsSync(BACKUP)) {
   walk(BACKUP, (p) => {
     let size = 0
@@ -126,7 +134,10 @@ if (existsSync(BACKUP)) {
     } catch {
       return
     }
-    if (size > 12 * 1024 * 1024) return
+    if (size > MAX_SCAN_BYTES) {
+      noteOversized(p, size)
+      return
+    }
     let buf
     try {
       buf = readFileSync(p)
@@ -204,7 +215,10 @@ function scanFile(p, zone) {
   } catch {
     return
   }
-  if (size > 12 * 1024 * 1024) return
+  if (size > MAX_SCAN_BYTES) {
+    noteOversized(p, size)
+    return
+  }
   let buf
   try {
     buf = readFileSync(p)
@@ -328,7 +342,10 @@ for (const site of SITES.concat([join(LOCALAPPDATA, 'com.traework.assistant')]))
     let buf
     try {
       const st = statSync(p)
-      if (st.size > 12 * 1024 * 1024) return
+      if (st.size > MAX_SCAN_BYTES) {
+        noteOversized(p, st.size)
+        return
+      }
       buf = readFileSync(p)
     } catch {
       return
@@ -388,7 +405,8 @@ const report = {
   denoisedItems: [...denoisedIds.values()].slice(0, 20),
   registry: regOut,
   hardware: hw,
-  ok: hits.length === 0,
+  skippedOversized: { limitMb: MAX_SCAN_BYTES / 1048576, count: skippedOversized.length, sample: skippedOversized.slice(0, 20) },
+  ok: hits.length === 0 && skippedOversized.length === 0,
 }
 
 if (JSON_MODE) {
@@ -398,11 +416,18 @@ if (JSON_MODE) {
 
   console.log('\n===== 扫描覆盖面 =====')
   console.log(`文件 ${scanned.files} 个 / ${(scanned.bytes / 1048576).toFixed(1)} MB / 不可读跳过 ${scanned.skipUnreadable}`)
+  console.log(`体积护栏跳过(${(MAX_SCAN_BYTES / 1048576).toFixed(0)}MB 上限,未浸水)= ${skippedOversized.length} 个${skippedOversized.length ? ' ⇒ 本轮结论是**下界**,不是"干净":' : ''}`)
+  for (const s of skippedOversized.slice(0, 8)) console.log(`    · ${s.p} (${s.mb}MB)`)
+  if (skippedOversized.length > 8) console.log(`    …另有 ${skippedOversized.length - 8} 个未逐条列出`)
   console.log(`现场目录: ${report.sitesPresent}/3 存在`)
 
   console.log('\n===== 残留命中(旧身份值仍在本机)=====')
   if (hits.length === 0) {
-    console.log('✅ 0 项 —— 当前全现场未发现任何历史旧身份值(应用层身份已彻底翻新)')
+    console.log(
+      skippedOversized.length === 0
+        ? '✅ 0 项 —— 当前全现场未发现任何历史旧身份值(应用层身份已彻底翻新)'
+        : `⚠️ 0 项是在 ${skippedOversized.length} 个 >${(MAX_SCAN_BYTES / 1048576).toFixed(0)}MB 文件未浸水的前提下得出的 ⇒ 下界,不得当"已彻底翻新"`,
+    )
   } else {
     console.log(`❌ ${hits.length} 处命中(硬黑名单=确定身份值),分布于 ${hardHitFiles.length} 个文件:`)
     for (const f of hardHitFiles.slice(0, 40)) {
@@ -434,5 +459,5 @@ if (JSON_MODE) {
 
 // ── 6. 门禁退出码(仅 --strict 生效,默认保持向后兼容) ────────
 // 用 exitCode 而非 process.exit(),避免管道场景下 stdout 被截断
-process.exitCode = STRICT && hits.length > 0 ? 1 : 0
+process.exitCode = !STRICT ? 0 : hits.length > 0 ? 1 : skippedOversized.length > 0 ? 2 : 0
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
