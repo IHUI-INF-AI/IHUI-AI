@@ -3,19 +3,21 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * §22c 镜像测试:`scripts/check-next-env-dist.mjs`(apps/web/next-env.d.ts 的 `.next-*` 变体污染守门)。
+ * §22c 镜像测试:`scripts/check-next-env-dist.mjs`(门 50:tracked 生成物不得含 `.next-*` 变体引用)。
  *
- * 裁定一律走门体导出的 `__test__`:`POLLUTION`(污染形态)、`isStaged`(取材面选择)、`NEXT_ENV`(取材路径)。
+ * 裁定一律走门体导出的 `__test__`:`POLLUTION`(污染形态)、`scanFace`(判据面取材)、
+ * `judgeLines`(原始输出判违规)、`stagedPaths`(索引面路径)、`FACE_HEAD`/`FACE_INDEX`(两张面)。
  * 测试里不写第二份正则、也不抄第二份路径常量(守门 191 的 F1/F2 拦的就是这一型;§22c 红线同上)。
  *
  * 取材(§22c 最后一条红线:不得全部自造夹具):
  *   · 反例(放行)= `git show HEAD:apps/web/next-env.d.ts` 现读的**逐字原文** —— 铁律「变体永不提交」
  *     说的是 HEAD 面,所以这一条按规则该恒绿;真漂出变体时红的是铁律被破,不是测试写错了;
- *   · 阳性(命中)= 在同一行真原文上把 `.next/` 换成拼接出来的变体名(内存内,不落真仓);
- *     另有一臂直接取 `apps/web/` 下**真实存在**的变体目录名(现读磁盘)当素材。
+ *   · 阳性(命中)= 在同一行真原文上把 `.next/` 换成拼接出来的变体名(内存内),再落到临时仓的
+ *     **tracked 生成物**里(回归①);合法臂用同一份真原文(回归②,`.next/dev/types`)。
  *
- * 判据不得建立在"此刻是干净的"之上(本票硬约束 7):真仓面上的 CLI 退出码与
- * `POLLUTION` + 变体目录在位性**当场算出的期望**对账,而不是与某个写死的 0 对账。
+ * 判据面纪律(本票硬约束): 判据只认 git 面(HEAD tree / 索引),不读磁盘正文 ——
+ * X5 直接从门体源码锁这条;X4 用"只脏工作树、索引已复原"证明 `--staged` 判的是索引而不是磁盘。
+ * 真仓面上的 CLI 退出码与 `scanFace` + `judgeLines` **当场算出的期望**对账(X6),不写死 0。
  *
  * node:test 在本仓运行时(Node 24.19)没有模块级 `it.skipIf`(实测读数见 X8),
  * 等价通道是 `test(name, { skip: <加载期同步算出的条件> }, fn)`,账面同样落 skipped 计数。
@@ -25,7 +27,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -72,6 +74,13 @@ function gitIn(root, args) {
   return String(r.stdout ?? '')
 }
 
+/** 临时仓夹具:init + 身份(提交真实树,才有 HEAD 面可判)。 */
+function seedRepo(root) {
+  gitIn(root, ['init', '--quiet'])
+  gitIn(root, ['config', 'user.email', 'gate-test@example.invalid'])
+  gitIn(root, ['config', 'user.name', 'gate-test'])
+}
+
 /** 真仓 apps/web 下现读的变体目录(并发会话的活 distDir;为空则该臂记 skip)。 */
 const REAL_VARIANT_DIRS = (() => {
   try {
@@ -92,6 +101,13 @@ const HEAD_FACE = (() => {
 
 const HEAD_IMPORT_LINES = HEAD_FACE ? HEAD_FACE.split(/\r?\n/).filter((l) => l.includes('import')) : []
 
+/** HEAD 面全量扫描只做一次(2026-11-04 实测单次 5-7s,每条臂各扫一遍会把测试时间翻倍)。 */
+let HEAD_SCAN_CACHE
+function headScan() {
+  if (HEAD_SCAN_CACHE === undefined) HEAD_SCAN_CACHE = gate.scanFace(gate.FACE_HEAD)
+  return HEAD_SCAN_CACHE
+}
+
 /** 把真原文里的纯 `.next/` 换成给定变体名(只在内存里)。 */
 function pollute(realLine, variant) {
   assert.ok(realLine.includes(PURE_REF), `真面那一行不含 ${PURE_REF}:${JSON.stringify(realLine)}`)
@@ -99,9 +115,13 @@ function pollute(realLine, variant) {
 }
 
 test('X0 import 门体不得触发 CLI(§22d:旧写法一 import 就跑 git + 读文件 + exit)', () => {
-  for (const k of ['POLLUTION', 'isStaged', 'NEXT_ENV']) assert.ok(k in gate, `__test__ 缺导出 ${k} ⇒ 测试只能另抄一份判据`)
+  for (const k of ['POLLUTION', 'NEXT_ENV', 'FACE_HEAD', 'FACE_INDEX', 'scanFace', 'judgeLines', 'stagedPaths', 'selfTest']) {
+    assert.ok(k in gate, `__test__ 缺导出 ${k} ⇒ 测试只能另抄一份判据`)
+  }
   assert.ok(gate.POLLUTION instanceof RegExp, 'POLLUTION 不是正则 ⇒ 判据换了形状')
-  assert.equal(typeof gate.isStaged, 'function')
+  assert.equal(typeof gate.scanFace, 'function')
+  assert.equal(typeof gate.judgeLines, 'function')
+  assert.equal(typeof gate.selfTest, 'function')
   assert.equal(typeof gate.NEXT_ENV, 'string')
 
   const r = spawnSync(
@@ -114,11 +134,15 @@ test('X0 import 门体不得触发 CLI(§22d:旧写法一 import 就跑 git + �
   assert.doesNotMatch(out, /next-env\.d\.ts/, 'import 门体就打印了 CLI 读数 ⇒ §22c 的通道又断了')
 })
 
-test('X1 真仓 HEAD 面的逐字 import 行必须都不算污染(铁律锁,不是状态锁)', { skip: NOT_REPO }, () => {
+test('X1 真仓 HEAD 面(全部 tracked blob)不得含 .next-* 变体引用(铁律锁,不是状态锁)', { skip: NOT_REPO }, () => {
   assert.ok(HEAD_IMPORT_LINES.length >= 1, 'HEAD 面里一行 import 都没有 ⇒ 取材面不对,这条无从判定')
   for (const l of HEAD_IMPORT_LINES) {
     assert.equal(gate.POLLUTION.exec(l), null, `HEAD 的 next-env.d.ts 引用了 .next-* 变体(铁律「变体永不提交」被破):${JSON.stringify(l)}`)
   }
+  const raw = headScan()
+  assert.notEqual(raw, null, 'HEAD 面取不到 ⇒ 无从判定(不许回落磁盘面)')
+  const v = gate.judgeLines(raw, gate.FACE_HEAD)
+  assert.deepEqual(v, [], `HEAD 面出现变体引用(射程已扩到全部 tracked 文件):${JSON.stringify(v).slice(0, 300)}`)
 })
 
 test('X2 污染形态一正一反:变体必命中,纯 .next 与空后缀不得命中', { skip: NOT_REPO }, () => {
@@ -146,73 +170,88 @@ test('X2b 素材可来自真仓现读的变体目录名(有则判,无则 skip)',
     assert.equal(existsSync(join(REPO, 'apps', 'web', variant)), true, '现读的变体目录已消失 ⇒ 该臂的面漂了')
   })
 
-test('X3 CLI 全量档两态:同一份污染面,目录在位只提示、目录消失必须红', { skip: NOT_REPO }, () => {
-  const root = mkScratch('ihui-next-env-full-')
+test('X3 回归①:伪造 tracked 生成物含 .next-e2e-x/ 引用 ⇒ 全量档必红', { skip: NOT_REPO }, () => {
+  const root = mkScratch('ihui-next-env-head-red-')
   try {
-    const webDir = join(root, 'apps', 'web')
-    const variant = [VARIANT_PREFIX, 'staging'].join('')
-    const face = pollute(HEAD_IMPORT_LINES[0], variant)
-    const abs = join(webDir, 'next-env.d.ts')
+    seedRepo(root)
+    const variant = [VARIANT_PREFIX, 'e2e-x'].join('')
+    const polluted = pollute(HEAD_IMPORT_LINES[0], variant)
+    const rel = 'apps/web/probe.generated.ts'
+    const abs = join(root, 'apps', 'web', 'probe.generated.ts')
+    mkdirSync(dirname(abs), { recursive: true })
+    writeFileSync(abs, `${polluted}\n`, 'utf8')
+    gitIn(root, ['add', '--', rel])
+    gitIn(root, ['commit', '--quiet', '-m', 'gate-test: 变体引用入库(反例)'])
 
-    mkdirSync(join(webDir, variant), { recursive: true })
-    writeFileSync(abs, face, 'utf8')
-    const alive = runGate([], root)
-    assert.equal(alive.rc, 0, `变体目录在位时全量档不该报红(并发会话的活 distDir),实得 ${alive.rc}:${alive.all.slice(0, 300)}`)
-
-    rmSync(join(webDir, variant), { recursive: true, force: true })
-    const dead = runGate([], root)
-    assert.equal(dead.rc, 1, `目录已消失而引用留下 = 死引用污染,必须红,实得 ${dead.rc}:${dead.all.slice(0, 300)}`)
-    assert.ok(dead.all.includes(variant), `读数没点名是哪个变体:${dead.all.slice(0, 300)}`)
+    const r = runGate([], root)
+    assert.equal(r.rc, 1, `tracked 生成物引用了 ${variant} 却放行,实得 ${r.rc}:${r.all.slice(0, 300)}`)
+    assert.ok(r.all.includes(rel) && r.all.includes(variant), `读数没点名违规文件/变体:${r.all.slice(0, 300)}`)
   } finally {
     rmScratch(root, { bestEffort: true })
   }
 })
 
-test('X4 CLI --staged 无条件严格:变体引用进了暂存区就必拦(目录在位也不放行)', { skip: NOT_REPO }, () => {
+test('X3b 回归②:`.next/types` 合法形式不许误报(同一份真原文,只把变体换回纯 .next)', { skip: NOT_REPO }, () => {
+  const root = mkScratch('ihui-next-env-head-green-')
+  try {
+    seedRepo(root)
+    const rel = 'apps/web/probe.generated.ts'
+    const abs = join(root, 'apps', 'web', 'probe.generated.ts')
+    mkdirSync(dirname(abs), { recursive: true })
+    writeFileSync(abs, HEAD_FACE, 'utf8')
+    gitIn(root, ['add', '--', rel])
+    gitIn(root, ['commit', '--quiet', '-m', 'gate-test: 合法面入库'])
+
+    const r = runGate([], root)
+    assert.equal(r.rc, 0, `合法 .next 路径被误报,实得 ${r.rc}:${r.all.slice(0, 300)}`)
+  } finally {
+    rmScratch(root, { bestEffort: true })
+  }
+})
+
+test('X4 --staged 判索引面:污染进了索引必拦;只脏工作树(索引已复原)不许红', { skip: NOT_REPO }, () => {
   const root = mkScratch('ihui-next-env-staged-')
   try {
-    const webDir = join(root, 'apps', 'web')
-    const variant = [VARIANT_PREFIX, 'modal'].join('')
-    const abs = join(webDir, 'next-env.d.ts')
-    mkdirSync(join(webDir, variant), { recursive: true })
-    gitIn(root, ['init', '--quiet'])
-    gitIn(root, ['config', 'user.email', 'gate-test@example.invalid'])
-    gitIn(root, ['config', 'user.name', 'gate-test'])
-
-    writeFileSync(abs, pollute(HEAD_IMPORT_LINES[0], variant), 'utf8')
-    gitIn(root, ['add', '--', 'apps/web/next-env.d.ts'])
-    const stagedHit = runGate(['--staged'], root)
-    assert.equal(stagedHit.rc, 1, `污染引用已入索引却放行(目录在位绕开了铁律),实得 ${stagedHit.rc}:${stagedHit.all.slice(0, 300)}`)
+    seedRepo(root)
+    const variant = [VARIANT_PREFIX, 'perf'].join('')
+    const rel = 'apps/web/probe.generated.ts'
+    const abs = join(root, 'apps', 'web', 'probe.generated.ts')
+    mkdirSync(dirname(abs), { recursive: true })
 
     writeFileSync(abs, HEAD_FACE, 'utf8')
-    gitIn(root, ['add', '--', 'apps/web/next-env.d.ts'])
-    const stagedClean = runGate(['--staged'], root)
-    assert.equal(stagedClean.rc, 0, `暂存的是合法面却判红,实得 ${stagedClean.rc}:${stagedClean.all.slice(0, 300)}`)
+    gitIn(root, ['add', '--', rel])
+    gitIn(root, ['commit', '--quiet', '-m', 'gate-test: 合法基线'])
 
     writeFileSync(abs, pollute(HEAD_IMPORT_LINES[0], variant), 'utf8')
-    gitIn(root, ['commit', '--quiet', '-m', 'gate-test: 合法面入库'])
-    writeFileSync(abs, pollute(HEAD_IMPORT_LINES[0], variant), 'utf8')
+    gitIn(root, ['add', '--', rel])
+    const hit = runGate(['--staged'], root)
+    assert.equal(hit.rc, 1, `污染引用进了索引却放行,实得 ${hit.rc}:${hit.all.slice(0, 300)}`)
+
+    gitIn(root, ['reset', '--quiet', '--', rel])
     const unstaged = runGate(['--staged'], root)
-    assert.equal(unstaged.rc, 0, `未暂存时 --staged 应放行(铁律本就靠 --staged 把关),实得 ${unstaged.rc}:${unstaged.all.slice(0, 300)}`)
-    assert.match(unstaged.out, /未暂存|跳过/)
+    assert.equal(unstaged.rc, 0, `索引面已复原、只有工作树脏(该如何判磁盘面?)实得 ${unstaged.rc}:${unstaged.all.slice(0, 300)}`)
+    assert.match(unstaged.out, /跳过/)
   } finally {
     rmScratch(root, { bestEffort: true })
   }
 })
 
-test('X5 isStaged 与 live 索引面同读数对账(两面都现读,不写死"此刻未暂存")', { skip: NOT_REPO }, () => {
-  const live = gitIn(REPO, ['diff', '--cached', '--name-only']).split('\n').map((s) => s.trim()).includes(REL_NEXT_ENV)
-  assert.equal(gate.isStaged(), live, `门体的 isStaged() 与当场读的索引面分叉:gate=${gate.isStaged()} git=${live}`)
+test('X5 面纪律:门体不得读磁盘正文(node:fs 0 处),判据只认 HEAD / 索引两张 git 面', () => {
+  const src = readFileSync(GATE_PATH, 'utf8')
+  assert.doesNotMatch(src, /from ['"]node:fs['"]/, '门体又 import node:fs ⇒ 面混用(磁盘面)回归')
+  assert.match(src, /'grep'/, '判据不从 git 面取材 ⇒ 射程/面都无从锁')
+  assert.equal(gate.FACE_HEAD, 'HEAD')
+  assert.equal(gate.FACE_INDEX, 'INDEX')
 })
 
-test('X6 真仓全量档:退出码与"污染 + 目录在位性"当场算出的期望自洽', { skip: NOT_REPO }, () => {
-  const faceInPlace = existsSync(gate.NEXT_ENV)
-  const liveFace = faceInPlace ? readFileSync(gate.NEXT_ENV, 'utf8') : ''
-  const m = faceInPlace ? gate.POLLUTION.exec(liveFace) : null
-  const expect = !m ? 0 : existsSync(join(dirname(gate.NEXT_ENV), m[1])) ? 0 : 1
+test('X6 真仓全量档:退出码与 HEAD 面当场判出的期望自洽', { skip: NOT_REPO }, () => {
+  const raw = headScan()
+  assert.notEqual(raw, null, 'HEAD 面取不到 ⇒ 期望算不出来')
+  const violations = gate.judgeLines(raw, gate.FACE_HEAD)
+  const expect = violations.length ? 1 : 0
   const r = runGate([], REPO)
   assert.notEqual(r.rc, 2, `CLI 在本仓 exit 2 属脚本自身异常:${r.all.slice(0, 400)}`)
-  assert.equal(r.rc, expect, `CLI 读数与判据期望分叉:rc=${r.rc} expect=${expect} 取材面=${JSON.stringify(liveFace.slice(0, 120))}`)
+  assert.equal(r.rc, expect, `CLI 读数与 HEAD 面判据分叉:rc=${r.rc} expect=${expect} 违规=${JSON.stringify(violations).slice(0, 200)}`)
 })
 
 test('X7 测试不得重写判据(本文件只许用门体导出的 POLLUTION / isStaged / NEXT_ENV)', () => {
@@ -231,14 +270,29 @@ test('X7 测试不得重写判据(本文件只许用门体导出的 POLLUTION / 
 })
 
 test('X8 加载期能力读数(账面可复核:哪些臂有对象、哪些记 skip)', () => {
+  const raw = CWD_IS_REPO ? headScan() : null
+  const headLines = raw ? raw.split(/\r?\n/).filter(Boolean).length : 0
+  const headViolations = raw ? gate.judgeLines(raw, gate.FACE_HEAD).length : 0
+  const staged = CWD_IS_REPO ? gate.stagedPaths() : []
+  const st = gate.selfTest()
   console.info(
     [
       `    · Node ${process.version} / it.skipIf 可用 = ${typeof test.skipIf === 'function'} / skip 通道 = test(name,{skip}) 等价`,
       `    · 门体 NEXT_ENV = ${gate.NEXT_ENV} / 仓根对账 = ${CWD_IS_REPO} / 相对取材路径 = ${REL_NEXT_ENV}`,
-      `    · HEAD 面 import 行数 = ${HEAD_IMPORT_LINES.length} / apps/web 现读变体目录 = ${REAL_VARIANT_DIRS.length ? REAL_VARIANT_DIRS.join(',') : '(无)'}`,
-      `    · 当场 isStaged() = ${gate.isStaged()}`,
+      `    · HEAD 面:含 "${gate.PREFILTER}" 的行 = ${headLines} / 违规 = ${headViolations}`,
+      `    · 索引面暂存路径 = ${staged.length} / HEAD 面 import 行数 = ${HEAD_IMPORT_LINES.length}`,
+      `    · apps/web 现读变体目录 = ${REAL_VARIANT_DIRS.length ? REAL_VARIANT_DIRS.join(',') : '(无)'}`,
+      `    · 门体 --self-test 内存断言 = ${st.passed}/${st.rows.length} 通过`,
     ].join('\n'),
   )
   assert.equal(typeof CWD_IS_REPO, 'boolean')
+  assert.equal(st.failed, 0, `门体自检在本票里有失败项:${JSON.stringify(st.rows.filter((r) => !r.ok))}`)
+})
+
+test('X9 CLI --self-test 必须绿(反例在自检里常驻)', { skip: NOT_REPO }, () => {
+  const r = runGate(['--self-test'], REPO)
+  assert.equal(r.rc, 0, `门体自检 CLI 红,实得 ${r.rc}:${r.all.slice(0, 300)}`)
+  assert.match(r.out, /自检 \d+\/\d+ 通过/)
+  assert.match(r.out, /反例/)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
