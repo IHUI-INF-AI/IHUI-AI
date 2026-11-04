@@ -494,6 +494,9 @@ process.env.IHUI_GIT_LOCK_UNIT = LOCK_UNIT
 // dry-run 不加锁:acquire 会在 .git/ihui-git-write.lock 下 mkdir + 写 meta.ts,并派生心跳子进程
 // —— 那是**实打实的写**。dry-run 只打印"真实运行会在这里加锁"。
 if (dryRun) {
+  // git 的只读查询默认会"顺手刷新索引里的 stat 缓存"(必要时重写 .git/index)。GIT_OPTIONAL_LOCKS=0
+  // 把这类可选锁全关掉,保证 dry-run 期间连"状态刷新"都不落盘(不只是不执行显式写命令)。
+  process.env.GIT_OPTIONAL_LOCKS = '0'
   log(
     'info',
     `[dry-run] Step 0/5 将执行: git-lock acquire --unit ${LOCK_UNIT}(会创建 .git/ihui-git-write.lock 并派生心跳)—— 未执行`,
