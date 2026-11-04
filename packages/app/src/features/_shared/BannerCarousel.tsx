@@ -116,7 +116,7 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius.lg,
     backgroundColor: '#00000000',
   },
-  dot: { borderRadius: rnRadius.sm },
+  dot: { borderRadius: rnRadius.xs },
   dotActive: { backgroundColor: '#FFFFFF' },
   dotInactive: { backgroundColor: rnCssLight.white50 },
 })
