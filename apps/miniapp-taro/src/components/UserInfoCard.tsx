@@ -10,8 +10,6 @@ import {
   USER_INFO_CARD_ACTION_PADDING_X_PX,
   USER_INFO_CARD_ACTION_PADDING_Y_PX,
   USER_INFO_CARD_AVATAR_PX,
-  USER_INFO_CARD_BADGE_PADDING_X_PX,
-  USER_INFO_CARD_BADGE_PADDING_Y_PX,
   USER_INFO_CARD_GROWTH_BAR_HEIGHT_PX,
   USER_INFO_CARD_HEADER_GAP_PX,
   USER_INFO_CARD_LOGIN_FONT_PX,
@@ -53,14 +51,6 @@ const LOGIN_BTN_STYLE = {
 }
 /// 成长值进度条粗细:与 RN 端 `growthBarBg.height` 同档(原写 `h-2` 类名,现收进常量)
 const GROWTH_BAR_STYLE = { height: toUnit(USER_INFO_CARD_GROWTH_BAR_HEIGHT_PX) }
-/// CSSProperties(Taro)不认 paddingXxxHorizontal/Vertical 简写,拆成四键喂同一档位
-/// (原写"参照 Loading.tsx 口径" —— 那份零消费者死副本已于 2026-09-26 摘除,不再是指向)
-const BADGE_PAD_STYLE = {
-  paddingLeft: toUnit(USER_INFO_CARD_BADGE_PADDING_X_PX),
-  paddingRight: toUnit(USER_INFO_CARD_BADGE_PADDING_X_PX),
-  paddingTop: toUnit(USER_INFO_CARD_BADGE_PADDING_Y_PX),
-  paddingBottom: toUnit(USER_INFO_CARD_BADGE_PADDING_Y_PX),
-}
 const ACTION_PAD_STYLE = {
   paddingLeft: toUnit(USER_INFO_CARD_ACTION_PADDING_X_PX),
   paddingRight: toUnit(USER_INFO_CARD_ACTION_PADDING_X_PX),
@@ -83,11 +73,9 @@ const defaultAvatarImg = aizhsUrl('remote-images/daixaodiming.png') // icon-bitm
 const wirelessLogoImg = aizhsUrl('remote-images/wirelesslogo.jpg') // icon-bitmap-exempt: 品牌标识(源项目 wirelesslogo 官方位图),按 §品牌图标须官方真实图标不得自造矢量近似 until 2027-09-27
 
 // 共享类型 UserInfoCardMinimalProps 已下沉到 @ihui/types,
-// 本地 Props extends Minimal 并追加 level/levelTitle/className(miniapp-taro 专属字段)
+// 本地 Props extends Minimal 并追加 className(miniapp-taro 专属字段)
 // 及 9 项核心功能字段(对齐原项目 zhs_app-ZZ/UserInfoCard.vue)。
 export interface UserInfoCardProps extends UserInfoCardMinimalProps {
-  level?: number
-  levelTitle?: string
   className?: string
   // ===== 9 项核心功能 props(对齐原项目 UserInfoCard.vue)=====
   /** 成长值(当前) */
@@ -122,8 +110,6 @@ function formatTokenValue(v: number): string {
 export default function UserInfoCard({
   avatar,
   nickname = t('profileEdit.notLoggedIn'),
-  level = 0,
-  levelTitle,
   isVip = false,
   vipTitle,
   desc,
@@ -142,7 +128,6 @@ export default function UserInfoCard({
   onLogin,
 }: UserInfoCardProps) {
   const tt = useTt()
-  const displayLevel = levelTitle || (level > 0 ? `Lv.${level}` : '')
   // 未登录判定(对齐原项目:无头像 + 昵称为"未登录")
   const isLogged = !!avatar || nickname !== tt('profileEdit.notLoggedIn', '未登录')
   // 智汇值格式化:tokenValue 优先,无则回退 desc
@@ -229,27 +214,8 @@ export default function UserInfoCard({
                   <LineIcon name="pencil" size={32} className="ml-auto flex-shrink-0" />
                 ) : null}
               </View>
-              {/* 等级 + 智汇值行 */}
+              {/* 智汇值行 */}
               <View className="flex items-center gap-2" style={ROW_MARGIN_STYLE}>
-                {displayLevel ? (
-                  <View
-                    className="rounded-md bg-primary/10 flex-shrink-0"
-                    style={BADGE_PAD_STYLE}
-                    hoverClass="opacity-85"
-                    onClick={
-                      onOpenLevel
-                        ? (e) => {
-                            e.stopPropagation()
-                            onOpenLevel()
-                          }
-                        : undefined
-                    }
-                  >
-                    <Text className="text-primary font-medium" style={SMALL_FONT_STYLE}>
-                      {displayLevel}
-                    </Text>
-                  </View>
-                ) : null}
                 {/* 智汇值行:品牌标识位图(保留,理由见声明处)+ tokenDisplay + 文字充值按钮
                     (对齐原项目 token 显示;充值钮此前是烘了汉字的位图按钮,已矢量化/文字化) */}
                 {tokenDisplay ? (
@@ -295,7 +261,7 @@ export default function UserInfoCard({
 
               {/* ===== 成长值进度条(对齐原项目 growth-bar:外层灰底 + 内层渐变填充)===== */}
               {showGrowthBar ? (
-                <View style={ROW_MARGIN_STYLE}>
+                <View style={ROW_MARGIN_STYLE} onClick={onOpenLevel} hoverClass="opacity-85">
                   <View className="flex items-center justify-between mb-1">
                     <Text className="text-muted-foreground" style={SMALL_FONT_STYLE}>
                       {tt('member.index.growth', '成长值')}

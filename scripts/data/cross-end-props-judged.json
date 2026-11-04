@@ -1931,50 +1931,11 @@
       "side": "mini",
       "owner": "ihui-mobile-props",
       "expires": "2027-06-30",
-      "rationale": "小程序端卡片用 desc 兜底智汇值说明;RN 端由 userInfo 的余额文案承担,无同名文案腿。",
+      "rationale": "小程序端 desc 是智汇值缺失时的兜底展示槽(唯一调用方传脱敏手机号);RN 端卡片无 desc 腿,智汇值仅取 tokenQuantity,故该槽只在 Taro 承载。",
       "evidence": [
-        "packages/types/src/ui-native-components.ts:204",
-        "apps/mobile-rn/src/components/UserInfoCard.tsx:101",
-        "apps/miniapp-taro/src/components/UserInfoCard.tsx:88"
-      ]
-    },
-    {
-      "pair": "UserInfoCard",
-      "key": "level",
-      "side": "mini",
-      "owner": "ihui-mobile-props",
-      "expires": "2027-06-30",
-      "rationale": "小程序端卡片显示等级数字;RN 端成长值条与 VIP 标题表达等级,无同名数字腿。",
-      "evidence": [
-        "apps/miniapp-taro/src/components/UserInfoCard.tsx:89",
-        "apps/mobile-rn/src/components/UserInfoCard.tsx:111",
-        "apps/miniapp-taro/src/components/UserInfoCard.tsx:88"
-      ]
-    },
-    {
-      "pair": "UserInfoCard",
-      "key": "levelTitle",
-      "side": "mini",
-      "owner": "ihui-mobile-props",
-      "expires": "2027-06-30",
-      "rationale": "小程序端卡片显示等级称号;RN 端用 vipTitle/成长条表达,无同名称号腿。",
-      "evidence": [
-        "apps/miniapp-taro/src/components/UserInfoCard.tsx:90",
-        "apps/mobile-rn/src/components/UserInfoCard.tsx:111",
-        "apps/miniapp-taro/src/components/UserInfoCard.tsx:88"
-      ]
-    },
-    {
-      "pair": "UserInfoCard",
-      "key": "onOpenVip",
-      "side": "mini",
-      "owner": "ihui-mobile-props",
-      "expires": "2027-06-30",
-      "rationale": "小程序端卡内独立开通会员入口;RN 端用 onLevelIntro 打开等级介绍弹窗承载升级引导,无同名腿。",
-      "evidence": [
-        "apps/miniapp-taro/src/components/UserInfoCard.tsx:108",
-        "apps/mobile-rn/src/components/UserInfoCard.tsx:111",
-        "apps/miniapp-taro/src/components/UserInfoCard.tsx:88"
+        "apps/miniapp-taro/src/components/UserInfoCard.tsx:134",
+        "apps/miniapp-taro/src/pages/user/index.tsx:876",
+        "apps/mobile-rn/src/components/UserInfoCard.tsx:97"
       ]
     },
     {
