@@ -37,8 +37,9 @@
  *      §0.3 要求未判定不记绿也不冒红。)
  *   4. git rev-list --count <远端 sha>..HEAD —— **三态读数**:只有真读到整数才落判定;
  *      rev-list 失败 / 取不到对象 / 被信号打断一律「未判定」(exit 2)并点名原因。
- *      2026-11-04 实测:远端推进而本地未 fetch 时,该命令报
- *      `fatal: ambiguous argument '<sha>..HEAD': unknown revision ...`(exit 128);
+ *      2026-11-04 实测:远端推进而本地未 fetch 时,该命令以非零退出失败
+ *      (本机读到 `fatal: bad object <sha>` exit 1;引用形态不同时亦有
+ *      `fatal: ambiguous argument '<sha>..HEAD': unknown revision` 一型);
  *      旧写法 `allowFail ⇒ null ⇒ ahead=0 ⇒ 打印"无 ahead commit(可能 behind,跳过)" exit 0`,
  *      把"远端存在本地没有的对象(过期引用 / 浅克隆 / 取不到对象)"这一整族报成了通过。
  *   5. 如果 > 0 → 有未 push 的 commit → 阻塞
@@ -98,7 +99,8 @@ function run(cmd, opts = {}) {
  * `git rev-list --count <远端 sha>..<本地 sha>` 的**唯一读数口**。
  *   判过   : { judged:true, ahead:N } —— 真读到整数
  *   未判定 : { judged:false, why }     —— 失败 / 取不到对象 / 被信号打断
- * 立因(2026-11-04 实测):远端推进而本地未 fetch 时该命令 exit 128(ambiguous argument),
+ * 立因(2026-11-04 实测):远端推进而本地未 fetch 时该命令非零退出
+ * (`fatal: bad object <sha>` exit 1;另有 ambiguous argument / exit 128 一型),
  * 旧写法 `allowFail ⇒ null ⇒ ahead=0` 把"读不到"写成了"读到 0",于是走"跳过"分支 exit 0。
  * 折算成 0 是本门最贵的失效方向:真分叉 / 真落后被报成通过,提交堆在本地还被当成完成(§20)。
  */
