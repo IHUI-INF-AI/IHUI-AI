@@ -511,6 +511,7 @@
     "judgedKeysTotal": 166,
     "rawDriftKeysTotal": 0,
     "adjudicatedDriftKeys": 7,
-    "mappedKeysTotal": 54
+    "mappedKeysTotal": 54,
+    "equivalenceEntries": 28
   }
 }
