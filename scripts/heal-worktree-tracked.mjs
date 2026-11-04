@@ -1522,6 +1522,8 @@ export function alignDrifts(repoRoot, { dryRun = false } = {}) {
       bypassHeldOnDisk: 0,
       bypassHeldUnproven: 0,
       bypassUnprovenPaths: [],
+      bypassHeldDeclared: 0,
+      bypassHeldDeclaredPaths: [],
       bypassSkippedNotBlob: 0,
       bypassDeferred: [],
       mergeInProgress: true,
@@ -1562,6 +1564,8 @@ export function alignDrifts(repoRoot, { dryRun = false } = {}) {
       bypassHeldOnDisk: 0,
       bypassHeldUnproven: 0,
       bypassUnprovenPaths: [],
+      bypassHeldDeclared: 0,
+      bypassHeldDeclaredPaths: [],
       bypassSkippedNotBlob: 0,
       bypassDeferred: [],
     }
@@ -1626,6 +1630,10 @@ export function alignDrifts(repoRoot, { dryRun = false } = {}) {
     bypassHeldOnDisk: bypass.heldOnDisk,
     bypassHeldUnproven: bypass.heldUnproven,
     bypassUnprovenPaths: bypass.unprovenPaths,
+    // 2026-11-04:四判据成立但通知书在册(或台账坏档)⇒ 不恢复。单列:折进 bypassHeldUnproven 会让
+    // 读日志的人以为"父树签名不成立",而这一档的判据**恰恰全成立**,挡它的是一句人的声明。
+    bypassHeldDeclared: bypass.heldDeclared,
+    bypassHeldDeclaredPaths: bypass.heldDeclaredPaths,
     bypassSkippedNotBlob: bypass.skippedNotBlob,
     bypassDeferred: bypass.deferred,
     // no-bypass-orphans 是本层的常态,不占字段;其余态必须把原因带到输出里(静默与"无事发生"是两回事)
@@ -2127,6 +2135,10 @@ export function restoreBypassOrphans(repoRoot, { dryRun = false } = {}) {
       heldOnDisk: 0,
       heldUnproven: 0,
       unprovenPaths: [],
+      // 让路档也保持形状一致:缺键会被读侧当成 undefined,那是把形状不一致推给消费者(与
+      // intentDeclared 在 merge 让路档的处置同一条)。
+      heldDeclared: 0,
+      heldDeclaredPaths: [],
       skippedNotBlob: 0,
       deferred: [],
       reason: 'git 索引被占用,本轮让路',
@@ -2142,9 +2154,20 @@ function restoreBypassOrphansInner(g, repoRoot, dryRun) {
     heldOnDisk: 0,
     heldUnproven: 0,
     unprovenPaths: [],
+    heldDeclared: 0,
+    heldDeclaredPaths: [],
     skippedNotBlob: 0,
     deferred: [],
   }
+  // 通知书台账**函数级读一次**(与 findOrphanedDeletions:697 同一纪律:同一份证据只解析一次;
+  // 逐路径重读会把台账读成 N 次热点,更会把"读到哪一版"变成时序问题)。
+  //
+  // 为什么本层也必须问这一句:四条判据证明的是"这枚缺失**可以由**旁路提交解释",不是"它一定
+  // 是旁路遗留"。`git rm` 一枚上一枚提交刚加进来的文件、或 converge 刚从远端合进来的新文件
+  // 被有意删掉 —— 四判据**同样全成立**,而本层一次 `git checkout HEAD -- <batch>` 会同时写回
+  // 索引与工作树,等于把人的删除意图连同 `git rm` 的暂存一起撤销(2026-11-04 实测形态;同一
+  // 判据源的第一层闸见 findOrphanedDeletions:786)。
+  const notices = readFileDeletionNotices(repoRoot)
   // ② 索引没有该路径 = HEAD↔索引差集里"删除"那一类(`D ` 形态,与 reconcileStaleIndexOrphans 同源)
   let missing = []
   try {
@@ -2188,29 +2211,87 @@ function restoreBypassOrphansInner(g, repoRoot, dryRun) {
       skippedNotBlob,
       reason: '候选存在于 HEAD 的每个父树 ⇒ 与有意 git rm 分不清,只报数不修',
     }
-  if (dryRun)
+  // 通知书闸(2026-11-04):**四判据全成立之后、动手之前**。判据结论(`proven`)与动作清单
+  // (`restorable`)在此分开 —— 前者一字不动,后者才是本层可以 checkout 的集合。
+  //   · 有效通知书(`declared`)      ⇒ 这次缺失就是人主动删的,恢复它 = 抹掉别人的删除;
+  //   · 台账坏档(`undetermined`)    ⇒ 判不出,**同样不恢复**(§0.3:判不出不是恢复的许可证);
+  //   · `expired` / `not-declared` / 台账缺席 ⇒ 回到原判据(通知书到期即失效,见 lib 头注)。
+  const heldDeclared = []
+  const restorable = []
+  for (const p of proven) {
+    const decl = isDeletionDeclared(notices, p)
+    if (decl.declared || decl.verdict === 'undetermined') heldDeclared.push(p)
+    else restorable.push(p)
+  }
+  if (!restorable.length)
     return {
       ...base,
-      paths: proven,
       heldOnDisk,
       heldUnproven: unproven.length,
       unprovenPaths: unproven,
+      heldDeclared: heldDeclared.length,
+      heldDeclaredPaths: heldDeclared,
+      skippedNotBlob,
+      reason: `四判据成立但 ${heldDeclared.length} 个持有删除通知书(或台账坏档判不出)⇒ 只报数不恢复`,
+    }
+  if (dryRun)
+    return {
+      ...base,
+      paths: restorable,
+      heldOnDisk,
+      heldUnproven: unproven.length,
+      unprovenPaths: unproven,
+      heldDeclared: heldDeclared.length,
+      heldDeclaredPaths: heldDeclared,
       skippedNotBlob,
       dryRun: true,
       reason: '旁路提交孤儿路径,四判据成立,可恢复(未执行)',
     }
-  const { done, deferred, appeared } = restoreMissingFromHead(g, repoRoot, proven)
+  const { done, deferred, appeared } = restoreMissingFromHead(g, repoRoot, restorable)
   return {
     restored: done.length,
     paths: done,
     heldOnDisk: heldOnDisk + appeared,
     heldUnproven: unproven.length,
     unprovenPaths: unproven,
+    heldDeclared: heldDeclared.length,
+    heldDeclaredPaths: heldDeclared,
     skippedNotBlob,
     deferred,
     reason: deferred.length
       ? `已恢复 ${done.length} 个,${deferred.length} 个因 git 写锁竞争延到下一轮`
-      : `恢复 ${done.length} 个旁路提交孤儿路径(HEAD有blob/索引无/盘无/父树签名)`,
+      : `恢复 ${done.length} 个旁路提交孤儿路径(HEAD有blob/索引无/盘无/父树签名)` +
+        (heldDeclared.length ? `;${heldDeclared.length} 个因通知书在册(或台账坏档)不恢复` : ''),
+  }
+}
+
+/**
+ * 默认恢复档的**只读**旁路层读数(2026-11-04)。
+ *
+ * `heal()` 按设计**不**跑第四层的恢复动作(新层只在 `--align-drift` 写盘 —— T1 装车锁),
+ * 但"被通知书挡下"这一档必须在巡检面上看得见:否则 `--check` 会把"有 3 个路径在旁路层被
+ * 一声声明挡住"读成无事发生,而"安静"恰恰是本仓反复吃过的失效形态(§22c)。
+ *
+ * 故这里只以 `dryRun: true` 跑一次判据、**只取 `heldDeclared` 一档**:恢复清单(restorable)
+ * 仍归 `--align-drift` 处置,本档一个字节都不写盘。读数取不到也不得读成 0(§0.3):
+ * 抛错折成 `reason` 带回,调用方原样点名。
+ */
+function readBypassHeldDeclared(repoRoot) {
+  try {
+    const r = restoreBypassOrphans(repoRoot, { dryRun: true })
+    if (r.lockSkip)
+      return {
+        count: 0,
+        paths: [],
+        reason: `旁路孤儿层本轮让路(${r.lockSkip.state ?? r.lockSkip.kind})⇒ 该档未判,不是 0`,
+      }
+    return { count: r.heldDeclared || 0, paths: r.heldDeclaredPaths || [], reason: null }
+  } catch (e) {
+    return {
+      count: 0,
+      paths: [],
+      reason: `旁路孤儿层读数取不到:${String(e?.message ?? e).slice(0, 160)}`,
+    }
   }
 }
 
@@ -2235,12 +2316,17 @@ export function heal(repoRoot, { dryRun = false } = {}) {
       intentDeclaredPaths: [],
       noticeUndetermined: 0,
       noticeUndeterminedPaths: [],
+      // 旁路层的"已声明挡住"档:合并态下四判据的世界观本身不成立 ⇒ 未判,不是 0。
+      bypassHeldDeclared: 0,
+      bypassHeldDeclaredPaths: [],
+      bypassHeldDeclaredReason: '合并未收口 ⇒ 旁路孤儿层本轮未判(该档不是 0)',
       layerSkips: [mergeSkipEntry(mh, '工作区存续自愈整轮(存续恢复/陈旧索引孤儿对齐)')],
       mergeInProgress: true,
     }
   }
   const { safe, held, orphanIndex, intentLost, intentExpired, intentDeclared, noticeUndetermined } =
     findOrphanedDeletions(repoRoot)
+  const bypassHeld = readBypassHeldDeclared(repoRoot)
   const rec = reconcileStaleIndexOrphans(repoRoot, { dryRun })
   // 让路原因必须随返回值走:reconcile 跳过 ≠ 无事发生(G-794 —— 旧形状里这一层的跳过只剩
   // 一个 reconciled:0,读报告的人无从知道它是"被锁挡了"还是"本来就没有"。)
@@ -2252,6 +2338,14 @@ export function heal(repoRoot, { dryRun = false } = {}) {
   // 2026-11-04:已声明删除不进 restored/paths(它们恰恰不该回到盘上),单列一档逐条点名。
   const intentDeclaredPaths = [...intentDeclared]
   const noticeUndeterminedPaths = [...noticeUndetermined]
+  // 旁路层(第四层)的"四判据成立但通知书在册"一档。**单列,不合进 intentDeclared**:
+  // 两层判据不同(第一层=索引有/盘缺/未暂存,第四层=HEAD有blob/索引无/盘无/父树签名),
+  // 合成一格会让人去第一层找一只在第四层被挡的文件。
+  const bpDeclared = {
+    bypassHeldDeclared: bypassHeld.count,
+    bypassHeldDeclaredPaths: bypassHeld.paths,
+    ...(bypassHeld.reason ? { bypassHeldDeclaredReason: bypassHeld.reason } : {}),
+  }
   if (!safe.length)
     return {
       restored: 0,
@@ -2267,6 +2361,7 @@ export function heal(repoRoot, { dryRun = false } = {}) {
       intentDeclaredPaths,
       noticeUndetermined: noticeUndeterminedPaths.length,
       noticeUndeterminedPaths,
+      ...bpDeclared,
       layerSkips,
     }
   if (dryRun)
@@ -2284,6 +2379,7 @@ export function heal(repoRoot, { dryRun = false } = {}) {
       intentDeclaredPaths,
       noticeUndetermined: noticeUndeterminedPaths.length,
       noticeUndeterminedPaths,
+      ...bpDeclared,
       dryRun: true,
       layerSkips,
     }
@@ -2315,6 +2411,9 @@ export function heal(repoRoot, { dryRun = false } = {}) {
     intentDeclaredPaths,
     noticeUndetermined: noticeUndeterminedPaths.length,
     noticeUndeterminedPaths,
+    // 第四层:四判据成立但持有删除通知书(或台账坏档判不出)⇒ 不恢复。默认档只报数,
+    // 恢复动作仍只在 --align-drift 第四层发生。
+    ...bpDeclared,
     layerSkips,
     // 延后的原因不能只留一个数字:锁在位 / 疑似悬挂 / 此刻无锁(⇒ 前提复核不成立)是三种结论
     ...(deferred.length ? { lockStateAtReport: probeIndexLock(repoRoot, g) } : {}),
@@ -3641,6 +3740,15 @@ async function main() {
           `⚠️ ${d.bypassHeldUnproven} 个路径 HEAD 有而索引+磁盘都无,但存在于 HEAD 每个父树 ⇒ 与有意 git rm 分不清,只报数不修(处置出口:归属会话提交其删除,或人工 git checkout HEAD -- <path>)`,
         )
       for (const p of (d.bypassUnprovenPaths || []).slice(0, 10)) console.log('   ⚠ 未判定 ' + p)
+      // 2026-11-04:四判据成立但通知书在册 —— 必须在人类档点名。这一档的四个判据**全成立**,
+      // 挡它的是一句人的声明;不点名就会读成"四判据没成立",去修一个不存在的判据。
+      if (d.bypassHeldDeclared)
+        console.log(
+          `🚫 ${d.bypassHeldDeclared} 个路径四判据成立但持有删除通知书(或台账坏档判不出)⇒ 只报数不恢复` +
+            '(恢复它们等于替人撤销一次有意删除;要坐实删除就提交它,要撤回声明 ⇒ --revoke-deletion)',
+        )
+      for (const p of (d.bypassHeldDeclaredPaths || []).slice(0, 10))
+        console.log('   🚫 已声明删除(旁路层) ' + p)
       if (d.bypassDeferred?.length)
         console.log(
           `⚠️ ${d.bypassDeferred.length} 个旁路孤儿本轮未恢复(已延后,原因见下面 [旁路孤儿恢复] 那一行的锁状态归因):` +
@@ -3730,7 +3838,15 @@ async function main() {
     console.log(JSON.stringify(res))
     // 已声明删除同样是"可判定的问题",--check 必须非零(沿用 paths/orphanIndex 的既有口径):
     // 它不写盘,但它代表工作树与 HEAD 的差异**经人工声明**,巡检不该报绿。
-    return checkOnly && (res.paths.length || res.orphanIndex || (res.intentDeclaredPaths?.length || 0)) ? 1 : 0
+    // 2026-11-04:旁路层的同型档(四判据成立但通知书在册)一并计入 —— 它同样不写盘、同样
+    // 是"差异已被人声明",把它读成绿会让巡检放过一次正在进行的整文件删除。
+    return checkOnly &&
+      (res.paths.length ||
+        res.orphanIndex ||
+        (res.intentDeclaredPaths?.length || 0) ||
+        (res.bypassHeldDeclaredPaths?.length || 0))
+      ? 1
+      : 0
   }
   if (
     !res.restored &&
@@ -3739,6 +3855,7 @@ async function main() {
     !res.intentLost &&
     !res.intentExpired &&
     !res.intentDeclared &&
+    !res.bypassHeldDeclared &&
     !res.orphanIndex &&
     !res.deferred?.length &&
     !res.layerSkips?.length
@@ -3795,7 +3912,13 @@ async function main() {
       (res.intentDeclared
         ? `;🚫 ${res.intentDeclared} 个已声明删除(不恢复)` +
           (res.noticeUndetermined ? `(其中 ${res.noticeUndetermined} 个因台账坏档判不出)` : '')
-        : ''),
+        : '') +
+      // 第四层的同型档(2026-11-04):四判据全成立但通知书在册 ⇒ 也不恢复。必须与上面那档
+      // 分句读出 —— 两层的判据不同,合成一句会让人去第一层找一只在第四层被挡的文件。
+      (res.bypassHeldDeclared
+        ? `;🚫 ${res.bypassHeldDeclared} 个旁路孤儿候选四判据成立但持有删除通知书(不恢复)`
+        : '') +
+      (res.bypassHeldDeclaredReason ? `;⚠️ 旁路层该档未判:${res.bypassHeldDeclaredReason}` : ''),
   )
   if (res.intentDeclaredPaths?.length) {
     console.log(
@@ -3805,6 +3928,16 @@ async function main() {
     )
     console.log(
       '   出口:要撤回声明 ⇒ node scripts/heal-worktree-tracked.mjs --revoke-deletion <path>(文件随即恢复由下一轮判据决定)',
+    )
+  }
+  if (res.bypassHeldDeclaredPaths?.length) {
+    console.log(
+      '   已声明删除(旁路层,四判据成立但不恢复):' +
+        res.bypassHeldDeclaredPaths.slice(0, 10).join(', ') +
+        `${res.bypassHeldDeclaredPaths.length > 10 ? ' …' : ''}`,
+    )
+    console.log(
+      '   出口:确属删除 ⇒ 由归属会话提交该删除;要撤回声明 ⇒ --revoke-deletion <path>(此后 --align-drift 第四层才按四判据处置)',
     )
   }
   if (res.intentExpiredPaths?.length) {
@@ -3832,7 +3965,13 @@ async function main() {
           ' —— 出口:node scripts/heal-worktree-tracked.mjs --align-drift(第四层按四判据可证才恢复);确属删除则由归属会话提交',
       )
   }
-  return checkOnly && (res.paths.length || res.orphanIndex || (res.intentDeclaredPaths?.length || 0)) ? 1 : 0
+  return checkOnly &&
+    (res.paths.length ||
+      res.orphanIndex ||
+      (res.intentDeclaredPaths?.length || 0) ||
+      (res.bypassHeldDeclaredPaths?.length || 0))
+    ? 1
+    : 0
 }
 
 export const healTrackedFiles = heal
