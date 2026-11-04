@@ -82,13 +82,13 @@ Headline claims (same source as the table below, all live-computed): **619 table
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 4025 | `testFiles` |
+| 测试文件 | 4034 | `testFiles` |
 | CI 工作流 | 52 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 326 | `guardianGates` |
 | — blocking | 297 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
-| 跟踪文件 | 18978 | `trackedFiles` |
+| 跟踪文件 | 18991 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-04。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -100,6 +100,9 @@ Headline claims (same source as the table below, all live-computed): **619 table
 ## Recent updates (auto-maintained)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-04**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (6dcc3be9c8)
+
 **2026-11-04**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (8e04ad552e)
 - 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (4cde28b4d4)
@@ -299,9 +302,6 @@ Headline claims (same source as the table below, all live-computed): **619 table
 
 **2026-11-03**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (30d2f7ca16)
-
-**2026-11-03**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (3c9a00be72)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
