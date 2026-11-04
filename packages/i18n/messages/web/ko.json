@@ -23879,6 +23879,8 @@
     "agentSecuritySaveFailed": "보안 설정 저장에 실패했습니다",
     "analyticsEnabled": "이용 통계",
     "analyticsEnabledDesc": "켜면 클릭·페이지 방문·소요 시간 등 익명 기능 사용 이벤트를 기록해 제품을 개선합니다. 입력한 내용·코드·파일 경로는 기록하지 않습니다. 끄면 즉시 전송을 중단하며 기능에는 영향이 없습니다.",
+    "rumEnabled": "성능 및 오류 진단(선택)",
+    "rumEnabledDesc": "기본값은 꺼짐입니다. 켜면 익명 시작 시간, AI 첫 토큰 지연, 스트리밍 중 긴 작업 수, 비식별화된 오류 요약만 성능 개선 목적으로 전송합니다. 파일 경로, 워크스페이스 이름, 이메일, 기기 지문은 전송하지 않습니다. 끄면 즉시 수집을 중단하고 대기 데이터를 지우며 이후 요청을 전혀 보내지 않습니다.",
     "llmRawRetentionOptOut": "LLM 원문 보관 안 함",
     "llmRawRetentionOptOutDesc": "질문과 AI 답변 본문은 데이터베이스에 저장되지 않습니다",
     "codeIndexEgressOptOut": "코드 의미 인덱스 생성 안 함",
