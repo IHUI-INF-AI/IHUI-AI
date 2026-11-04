@@ -1979,41 +1979,15 @@
     },
     {
       "pair": "VoiceInput",
-      "key": "onImageSelected",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN 该腿是预留/未接线(源注自证全站无调用方);小程序端语音输入不做图片选择,无同名腿,登记为在期分叉。",
-      "evidence": [
-        "apps/mobile-rn/src/components/VoiceInput.tsx:51",
-        "apps/miniapp-taro/src/components/VoiceInput.tsx:11",
-        "apps/mobile-rn/src/components/VoiceInput.tsx:45"
-      ]
-    },
-    {
-      "pair": "VoiceInput",
       "key": "showClear",
       "side": "rn",
       "owner": "cross-end-props-parity",
       "expires": "2027-06-30",
-      "rationale": "RN 可显式控制清除键;小程序端语音输入不渲染清除键(结果由页面消费),无同名腿。",
+      "rationale": "RN 语音输入持有本地结果并在有结果时渲染清除键;小程序端结果以流式 partial 展示、由页面消费不落本地态,故无同名显隐腿。",
       "evidence": [
-        "apps/mobile-rn/src/components/VoiceInput.tsx:60",
-        "apps/miniapp-taro/src/components/VoiceInput.tsx:11",
-        "apps/mobile-rn/src/components/VoiceInput.tsx:45"
-      ]
-    },
-    {
-      "pair": "VoiceInput",
-      "key": "showImagePicker",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN 该显隐腿为预留未接线;小程序端语音输入无图片选择入口,无同名腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/VoiceInput.tsx:58",
-        "apps/miniapp-taro/src/components/VoiceInput.tsx:11",
-        "apps/mobile-rn/src/components/VoiceInput.tsx:45"
+        "apps/mobile-rn/src/components/VoiceInput.tsx:48",
+        "apps/miniapp-taro/src/components/VoiceInput.tsx:37",
+        "apps/mobile-rn/src/components/VoiceInput.tsx:262"
       ]
     }
   ]
