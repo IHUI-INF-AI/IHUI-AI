@@ -7273,31 +7273,5 @@
   },
   "activities": {
     "join": "立即參與"
-  },
-  "eduMyAttendance": {
-  "title": "我的考勤",
-  "selfCheckIn": "我要簽到",
-  "date": "日期",
-  "notLoggedIn": "尚未登入，無法操作",
-  "classByBackendHint": "班級由後端按在冊學籍自動確定",
-  "scanCheckIn": "掃碼簽到"
-},
-  "eduAttendanceQr": {
-  "title": "簽到二維碼",
-  "chooseClass": "選擇班級",
-  "noClass": "暫無可選班級",
-  "classLoadFailed": "班級清單載入失敗",
-  "pickClassFirst": "請先選擇班級",
-  "qrTip": "讓學生用「掃碼簽到」掃描此碼",
-  "expiresIn": "{s} 秒後過期",
-  "refresh": "重新出碼",
-  "nextStepHint": "請先到考勤規則為該班啟用規則並設定掃碼金鑰(qrSecret),再重新出碼",
-  "scanTitle": "掃碼簽到",
-  "scanHint": "將老師的簽到二維碼放入框內",
-  "scanSubmitting": "正在簽到…",
-  "scanInvalidCode": "這不是本系統的簽到二維碼",
-  "scanDone": "簽到成功",
-  "scanFailed": "簽到失敗",
-  "needLogin": "請先登入後再掃碼"
-}
+  }
 }

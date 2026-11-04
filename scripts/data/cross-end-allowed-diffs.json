@@ -58,9 +58,9 @@
       "platform": "both",
       "owner": "cross-end-ui",
       "expires": "2027-03-27",
-      "count": 15,
+      "count": 18,
       "reason": "两端盒档读数仍有差;本批只登记为允许差异,不改 UI 结构与视觉取值;到期前必须由 owner 复核收敛或续期。",
-      "evidence": "check-cross-end-ui-parity --json: InputArea diffCount=15(onlyMiniapp=10 / onlyRn=5)"
+      "evidence": "check-cross-end-ui-parity --json: InputArea diffCount=18(onlyMiniapp=10 / onlyRn=8;2026-11-04 merge 面重读)"
     },
     {
       "component": "InputArea",

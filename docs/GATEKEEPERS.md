@@ -386,11 +386,11 @@ git commit
 
 ---
 
-## 3b. 跨端五门(285/289/290/291/292,2026-11-03 落地,均 blocking)
+## 3b. 跨端五门(288/289/290/291/292,2026-11-03 落地,均 blocking)
 
-> 编号 = `scripts/guardian-runner.mjs` 注册 id(`id: '285'`/`'289'`/`'290'`/`'291'`/`'292'`);本节只记语义与出口,存量/计数一律现读(`AGENTS.md §0.1`)。
+> 编号 = `scripts/guardian-runner.mjs` 注册 id(`id: '288'`/`'289'`/`'290'`/`'291'`/`'292'`);本节只记语义与出口,存量/计数一律现读(`AGENTS.md §0.1`)。
 
-### 第 285 项 check-cross-end-component-props-parity.mjs(差值棘轮,不是绝对恒红)
+### 第 288 项 check-cross-end-component-props-parity.mjs(差值棘轮,不是绝对恒红)
 
 - **判什么**:两端同名组件对的 props 键集与必选性。判据引擎在 `scripts/lib/component-props-parity.mjs`(门脚本零复算)。
 - **存差键**:每对只记 `onlyRn` / `onlyMini` / `reqDrift` 三个集合;台账 `scripts/data/cross-end-props-parity-baseline.json` 登记当下账。
@@ -518,7 +518,7 @@ HUSKY_SKIP_TYPECHECK=1 git push   # 紧急 push,不推荐
 
 | 门 | 脚本 | 跳过变量 | 默认档 |
 |----|------|----------|--------|
-| 285 | `scripts/check-cross-end-component-props-parity.mjs` | `HUSKY_SKIP_CROSS_END_PROPS_PARITY=1` | blocking(差值棘轮) |
+| 288 | `scripts/check-cross-end-component-props-parity.mjs` | `HUSKY_SKIP_CROSS_END_PROPS_PARITY=1` | blocking(差值棘轮) |
 | 289 | `scripts/check-plan-deferred-expiry.mjs` | `HUSKY_SKIP_PLAN_DEFERRED_EXPIRY=1` | blocking |
 | 290 | `scripts/check-miniapp-interaction-hygiene.mjs` | `HUSKY_SKIP_MINIAPP_INTERACTION_HYGIENE=1` | blocking(A1/A2);A3/A4 advisory |
 | 291 | `scripts/check-web-rn-copy-parity.mjs` | `HUSKY_SKIP_WEB_RN_COPY_PARITY=1` | blocking(B1/B3);B2 advisory |

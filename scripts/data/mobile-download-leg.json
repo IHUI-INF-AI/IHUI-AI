@@ -1,10 +1,4 @@
 {
-  "cnLegTag": "mobile-apk-latest",
-  "cnLegOwner": "JLSLSSZWHYXGS_0",
-  "cnLegRepo": "IHUI-AI",
-  "cnLegUrl": "https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI/releases/download/mobile-apk-latest/ihui-ai-latest.apk",
-  "releaseCertSha256": "62b0ff0e950125230683aacfb5d0b110d93d30a229ca5df1950a572255b82514",
-  "releaseCertSha256Display": "62:B0:FF:0E…",
   "_comment": "Android 对外下载腿的唯一真源(2026-11-03 立)。改这里即改全仓;部署机/联调用 IHUI_MOBILE_DOWNLOAD_URL 覆盖,不得把覆盖值写回本文件。",
   "downloadUrl": "https://www.aizhs.top/remote-images/download/ihui-ai-latest.apk",
   "siteLegPublicBase": "https://www.aizhs.top",
@@ -19,5 +13,11 @@
   "playAppSigningCertSha256": null,
   "playAppSigningCertSha256Display": null,
   "playCertMeasuredAt": null,
-  "playCertSource": "unmeasured"
+  "playCertSource": "unmeasured",
+  "cnLegTag": "mobile-apk-latest",
+  "cnLegOwner": "JLSLSSZWHYXGS_0",
+  "cnLegRepo": "IHUI-AI",
+  "cnLegUrl": "https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI/releases/download/mobile-apk-latest/ihui-ai-latest.apk",
+  "releaseCertSha256": "62b0ff0e950125230683aacfb5d0b110d93d30a229ca5df1950a572255b82514",
+  "releaseCertSha256Display": "62:B0:FF:0E…"
 }
