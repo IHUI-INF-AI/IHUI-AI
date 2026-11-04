@@ -597,7 +597,12 @@ describe('考勤屏 · 学生本人 EduMyAttendanceScreen', () => {
     expect(wire).not.toContain('other-stu-999')
     expect(wire, '身份不得由客户端自报').not.toContain('stu-own')
     // 阳性对照:本人页确实拿到并渲染了服务端回读的行(上一条的 0 不是恒真)
-    expect(latestRows()[0]?.cells['status']).toBe(zhKey('eduAttendance.status.present'))
+    // 2026-11-04(CI run 41701328443):fetch 替身是 async 的,settle() 只排空三拍
+    // 微任务;机器负载高时 setRecords→重渲染可能落在第四拍之后,当场断言就拿到空表。
+    // 这里等的是"渲染出这一行"这个观测结果(RTL 的标准异步断言),不是给产品加等待。
+    await waitFor(() =>
+      expect(latestRows()[0]?.cells['status']).toBe(zhKey('eduAttendance.status.present')),
+    )
   })
 
   it('②④⑤ 自签 = POST self-check-in,body 只有当日 date(无 status);成功后回读列表', async () => {

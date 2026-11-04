@@ -2112,7 +2112,8 @@
       "selectAigc": "AI 작품 선택(선택)",
       "noAigc": "연결할 AI 작품이 없습니다",
       "allowComments": "댓글 허용",
-      "visibility": "공개 범위"
+      "visibility": "공개 범위",
+      "publishFailed": "게시에 실패했습니다. 다시 시도해 주세요"
     },
     "index": {
       "goPublish": "게시하러 가기",
@@ -2216,7 +2217,7 @@
       "discountNone": "참여 안 함",
       "discountPartial": "부분 참여",
       "discountFull": "전체 참여",
-      "submitSuccess": "제출 완료"
+      "saveSuccess": "저장되었습니다"
     }
   },
   "devSpace": {
@@ -2694,7 +2695,8 @@
     "payFailed": "결제 실패, 다시 시도하세요",
     "paying": "결제 중...",
     "purchaseContent": "구매 내용",
-    "userAgreement": "《사용자 약관》"
+    "userAgreement": "《사용자 약관》",
+    "activateDelayed": "혜택 부여가 지연되었습니다. 고객센터에 문의해 주세요"
   },
   "study": {
     "todayMinutes": "오늘 {n}분",
@@ -6999,7 +7001,8 @@
     "labelFreeDur": "무료 시간",
     "labelSaleType": "판매 유형",
     "submit": "저장",
-    "submitting": "제출 중..."
+    "submitting": "제출 중...",
+    "readOnlyHint": "현재 수정할 수 없습니다"
   },
   "modelIncome": {
     "accumulated": "누적 수익",

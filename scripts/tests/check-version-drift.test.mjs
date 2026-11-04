@@ -11,7 +11,7 @@
  */
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { findVersionDrift, MOBILE_JUDGE_MESSAGES } from '../check-version-drift.mjs'
+import { findVersionDrift, collectInputs, MOBILE_JUDGE_MESSAGES } from '../check-version-drift.mjs'
 
 /** 一份"全绿"的基线输入,各用例只改其中一项 */
 function baseline(over = {}) {
@@ -31,6 +31,29 @@ function baseline(over = {}) {
     feedRouteJs: "import { resolveDesktopFeedForUpdater } from '@/config/desktop-feed-live'",
     feedRouteApi: "import { resolveDesktopFeedForUpdater } from '@/config/desktop-feed-live'",
     workflows: { 'sync-downloads.yml': 'run: node scripts/sync-downloads.mjs' },
+    wxtConfig: "manifest: { name: 'IHUI AI', minimum_chrome_version: '114' }",
+    extensionSources: {
+      'apps/extension/lib/agent-control-bridge.ts':
+        'function extensionVersion(): string { return chrome.runtime.getManifest().version }',
+      'apps/extension/entrypoints/sidepanel/pages/AboutPage.tsx':
+        'const version = chrome.runtime.getManifest().version',
+    },
+    versionLedger: {
+      files: [{ path: 'apps/demo/report.ts', source: 'demoPkg.version', why: '演示用的上报脸' }],
+      pairs: [
+        {
+          path: 'deploy/demo.json',
+          sourcePkg: 'apps/demo/package.json',
+          extracts: ['"version"\\s*:\\s*"([^"]+)"'],
+          why: '演示安装器',
+        },
+      ],
+    },
+    versionFileTexts: {
+      'apps/demo/report.ts': 'const v = demoPkg.version',
+      'deploy/demo.json': '{ "version": "1.0.0" }',
+      'apps/demo/package.json': '{ "name": "demo", "version": "1.0.0" }',
+    },
     ...over,
   }
 }
@@ -209,6 +232,216 @@ describe('H 桌面安装包不得回到 offlineInstaller', () => {
 
   it('配置缺 bundle 段时不得崩(旧形态快照)', () => {
     assert.deepEqual(findVersionDrift(baseline({ tauriConf: { version: '0.1.75' } })), [])
+  })
+})
+
+describe('J 扩展端版本单一源头', () => {
+  it('J1 wxt.config.ts 写死 manifest.version 要被抓(包内版本与文件名版本分头走)', () => {
+    const v = findVersionDrift(
+      baseline({ wxtConfig: "manifest: { name: 'IHUI AI', version: '1.0.0' }" }),
+    )
+    assert.equal(v.length, 1)
+    assert.match(v[0], /J1 apps\/extension\/wxt\.config\.ts/)
+  })
+
+  it('J1 缺省不声明版本(交给 WXT 回落 package.json)不得被误伤', () => {
+    assert.deepEqual(findVersionDrift(baseline()), [])
+  })
+
+  it('J2 下载页 extension 资产 href 内嵌版本号要被抓(bump 后静态兜底链直接 404)', () => {
+    const v = findVersionDrift(
+      baseline({
+        downloadsConfig:
+          "extension: { assets: [{ href: '/downloads/extension/IHUI-AI-Extension-chrome-v1.0.0.zip' }] }",
+      }),
+    )
+    assert.equal(v.length, 1)
+    assert.match(v[0], /J2 downloads\.config\.ts/)
+  })
+
+  it('J2 由 extensionPkg.version 拼出的 href 不得被误伤', () => {
+    const ok = baseline({
+      downloadsConfig:
+        'extension: { assets: [{ href: `/downloads/extension/IHUI-AI-Extension-chrome-v${extensionPkg.version}.zip` }] }',
+    })
+    assert.deepEqual(findVersionDrift(ok), [])
+  })
+
+  it('J3 打进包的源码里手搓版本常量要被抓(向用户/服务端上报不存在的版本)', () => {
+    const v = findVersionDrift(
+      baseline({
+        extensionSources: {
+          'apps/extension/entrypoints/sidepanel/pages/AboutPage.tsx': "const VERSION = '1.0.0'",
+        },
+      }),
+    )
+    assert.equal(v.length, 1)
+    assert.match(v[0], /J3 apps\/extension\/entrypoints\/sidepanel\/pages\/AboutPage\.tsx/)
+  })
+
+  it('J3 注释里出现的版本字样不得被误伤(判字面量的门只遮注释)', () => {
+    const ok = baseline({
+      extensionSources: {
+        'apps/extension/lib/x.ts':
+          "// 历史事故:const VERSION = '1.0.0' 曾写死在这里\nexport const a = 1",
+      },
+    })
+    assert.deepEqual(findVersionDrift(ok), [])
+  })
+
+  it('J3 采集面枚举到 0 个文件判死(覆盖面坏了不能冒绿)', () => {
+    const v = findVersionDrift(baseline({ extensionSources: {} }))
+    assert.equal(v.length, 1)
+    assert.match(v[0], /J3 extensionSources 枚举到 0/)
+  })
+
+  it('取不到 wxt.config.ts 时不判(未判定不猜,也不冒红)', () => {
+    assert.deepEqual(findVersionDrift(baseline({ wxtConfig: null })), [])
+  })
+
+  it('接线锁:真实采集面必须把 wxt.config.ts 与扩展源码都送到判据前', () => {
+    // 这一条锁的是"输入接上了",不是"值等于几"—— 判据写了但采集面没带这两个键,
+    // J 维就永远不会响(本仓反复出现的那型"造好没装车")。
+    const inputs = collectInputs()
+    assert.equal(typeof inputs.wxtConfig, 'string', 'collectInputs 未带回 wxt.config.ts')
+    assert.ok(Object.keys(inputs.extensionSources).length > 0, 'collectInputs 未枚举到任何扩展源码')
+    for (const rel of [
+      'apps/extension/lib/agent-control-bridge.ts',
+      'apps/extension/entrypoints/sidepanel/pages/AboutPage.tsx',
+    ]) {
+      assert.ok(inputs.extensionSources[rel] !== undefined, `采集面漏了 ${rel}`)
+    }
+    assert.deepEqual(findVersionDrift(inputs), [], '真实仓库面上 J 维不该有违规')
+  })
+})
+
+describe('K 全端对外报版本的脸(台账对账)', () => {
+  it('台账读不到或形状坏 ⇒ 判红(这一维等于没装)', () => {
+    const v = findVersionDrift(baseline({ versionLedger: null }))
+    assert.equal(v.length, 1)
+    assert.match(v[0], /^K 台账读不到或形状坏/)
+  })
+
+  it('两侧都清空 ⇒ 判死(不许用空清单冒充通过)', () => {
+    const v = findVersionDrift(baseline({ versionLedger: { files: [], pairs: [] } }))
+    assert.equal(v.length, 1)
+    assert.match(v[0], /K 台账两侧都枚举到 0 条/)
+  })
+
+  it('K1 台账点名的文件里写死版本 ⇒ 被抓', () => {
+    const v = findVersionDrift(
+      baseline({
+        versionFileTexts: { 'apps/demo/report.ts': 'const SERVER_VERSION = "1.0.0"' },
+      }),
+    )
+    assert.ok(
+      v.some((x) => /^K1 apps\/demo\/report\.ts 里有手搓的版本字面量/.test(x)),
+      v.join('\n'),
+    )
+  })
+
+  it('K1 协议版本常量不得被误伤(它是契约,本就该写死)', () => {
+    const ok = baseline({
+      versionFileTexts: {
+        'apps/demo/report.ts': 'const PROTOCOL_VERSION = "2026.09.18"\nconst v = demoPkg.version',
+        'deploy/demo.json': '{ "version": "1.0.0" }',
+        'apps/demo/package.json': '{ "name": "demo", "version": "1.0.0" }',
+      },
+    })
+    assert.deepEqual(findVersionDrift(ok), [])
+  })
+
+  it('K1 台账点名的文件在仓里读不到 ⇒ 判红(路径腐烂不静默)', () => {
+    const v = findVersionDrift(baseline({ versionFileTexts: {} }))
+    assert.ok(
+      v.some((x) => /^K1 台账点名的文件在仓里读不到/.test(x)),
+      v.join('\n'),
+    )
+  })
+
+  it('K2 安装器清单版本 ≠ 被打包的包版本 ⇒ 被抓(装到旧包)', () => {
+    const v = findVersionDrift(
+      baseline({
+        versionFileTexts: {
+          'apps/demo/report.ts': 'const v = demoPkg.version',
+          'deploy/demo.json': '{ "version": "1.0.0" }',
+          'apps/demo/package.json': '{ "version": "1.0.1" }',
+        },
+      }),
+    )
+    assert.ok(
+      v.some((x) => /^K2 deploy\/demo\.json 写着 1\.0\.0/.test(x)),
+      v.join('\n'),
+    )
+  })
+
+  it('K2 逐字相等 ⇒ 零违规(不许把这一维做成恒红)', () => {
+    assert.deepEqual(findVersionDrift(baseline()), [])
+  })
+
+  it('K2 正则枚举到 0 处 ⇒ 判红(台账与文件脱节要人说一次)', () => {
+    const v = findVersionDrift(
+      baseline({
+        versionFileTexts: {
+          'apps/demo/report.ts': 'const v = demoPkg.version',
+          'deploy/demo.json': '{ "pkgVersion": "1.0.0" }',
+          'apps/demo/package.json': '{ "version": "1.0.0" }',
+        },
+      }),
+    )
+    assert.ok(
+      v.some((x) => /^K2 deploy\/demo\.json 按 .* 枚举到 0 处/.test(x)),
+      v.join('\n'),
+    )
+  })
+
+  it('接线锁:真实台账必须载得动,且真实仓库面上 K 维零违规', () => {
+    const inputs = collectInputs()
+    assert.ok(inputs.versionLedger, 'collectInputs 没带回 K 台账')
+    assert.ok(inputs.versionLedger.files.length > 0, 'K1 台账为空')
+    assert.ok(inputs.versionLedger.pairs.length > 0, 'K2 台账为空')
+    // 台账点名的每一枚路径都必须在取材面里(否则"判了"只是没读)
+    for (const e of inputs.versionLedger.files) {
+      assert.equal(typeof inputs.versionFileTexts[e.path], 'string', `K1 未取到 ${e.path}`)
+    }
+    for (const e of inputs.versionLedger.pairs) {
+      assert.equal(typeof inputs.versionFileTexts[e.path], 'string', `K2 未取到 ${e.path}`)
+      assert.equal(
+        typeof inputs.versionFileTexts[e.sourcePkg],
+        'string',
+        `K2 未取到 ${e.sourcePkg}`,
+      )
+    }
+    assert.deepEqual(findVersionDrift(inputs), [], '真实仓库面上 K 维不该有违规')
+  })
+})
+
+describe('G 的行注释维(2026-11-04 补,治 YAML 叙述行假红)', () => {
+  it('整行注释里的 git push … main 不判(它不执行;release-desktop.yml:994 就是这么被冤枉的)', () => {
+    const ok = baseline({
+      workflows: {
+        'release-desktop.yml':
+          '#      sync-gitee.py 已改为「先 git push refs/tags/<tag>(指向 Gitee 快照 main 提交)」\n',
+      },
+    })
+    assert.deepEqual(findVersionDrift(ok), [])
+  })
+
+  it('行尾注释不得成为出路(命令真执行 ⇒ 照判,判据不许顺手削)', () => {
+    const v = findVersionDrift(
+      baseline({ workflows: { 'x.yml': 'run: git push origin main # 推 main\n' } }),
+    )
+    assert.ok(
+      v.some((x) => /bot 裸 push 到 main/.test(x)),
+      v.join('\n'),
+    )
+  })
+
+  it('run 块里的 shell 注释行同样不判', () => {
+    const ok = baseline({
+      workflows: { 'x.yml': 'run: |\n  # git push origin main 的旧写法已废弃\n  echo ok\n' },
+    })
+    assert.deepEqual(findVersionDrift(ok), [])
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

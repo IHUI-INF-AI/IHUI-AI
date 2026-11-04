@@ -42,6 +42,22 @@ import { getApkUrl } from './downloads.config'
 
 const RELEASE_PREFIX = 'desktop-v'
 const DEFAULT_REPO = 'IHUI-INF-AI/IHUI-AI'
+/**
+ * 发布仓坐标的唯一取法(CI 里是 `GITHUB_REPOSITORY`,本机/自建跑时退回默认)。
+ * 此前它在两处各自 `process.env.GITHUB_REPOSITORY || DEFAULT_REPO`(L376 / L623),
+ * 而地域分流要的是**同一个** repo —— 再开第三处就等于允许两处的值和这一处不一样。
+ */
+export function desktopRepo(): string {
+  return process.env.GITHUB_REPOSITORY || DEFAULT_REPO
+}
+/** 桌面资产的 GitHub 权威直链(原生产物 + 签名配对那一份;地域分流的原点腿) */
+export function githubDownloadUrl(tag: string, assetName: string): string {
+  return `https://github.com/${desktopRepo()}/releases/download/${tag}/${encodeURIComponent(assetName)}`
+}
+/** 桌面 release 的 tag 形态(`desktop-v<语义版本>`),分流与快照反解都只认这一份规则 */
+export function desktopTagOf(version: string): string {
+  return `${RELEASE_PREFIX}${String(version ?? '').trim().replace(/^v/, '')}`
+}
 /** tauri-action 在每次发版时随产物一起上传的标准更新器清单 */
 const FEED_ASSET_NAME = 'latest.json'
 /**
@@ -490,6 +506,9 @@ const GITEE_REPO = process.env.GITEE_REPO || 'IHUI-AI'
  * (与 scripts/lib/tauri-updater-platforms.mjs 的 host 白名单口径一致) —— 前提就是"同一份字节"。
  */
 type GiteeParity = 'same' | 'different' | 'undetermined'
+// 只导出**类型**,声明行保持原样:上一版给声明加 `export` 前缀,等于把"基线里删过的行
+// 以新写法搬回来",会被落地器的行级复活判据点名 —— 那种形状不该开闸(它保的就是真回写)。
+export type { GiteeParity }
 
 async function headContentLength(url: string): Promise<number | null> {
   try {
@@ -506,7 +525,7 @@ async function headContentLength(url: string): Promise<number | null> {
   }
 }
 
-function giteeDownloadUrl(tag: string, assetName: string): string {
+export function giteeDownloadUrl(tag: string, assetName: string): string {
   return `https://gitee.com/${GITEE_OWNER}/${GITEE_REPO}/releases/download/${tag}/${assetName}`
 }
 

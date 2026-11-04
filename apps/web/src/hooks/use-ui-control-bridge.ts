@@ -51,7 +51,6 @@ import { resolveWsApiBaseUrl } from '@/lib/api-base-url'
  */
 const API_BASE = resolveWsApiBaseUrl()
 const CAPABILITY_INTERVAL_MS = 60_000
-const VERSION = '1.0.0'
 const PROCESSED_IDS_MAX = 100
 const INSTANCE_STORAGE_KEY = 'ihui-web-ui-instance-id'
 
@@ -117,7 +116,7 @@ function buildCapability(): AgentControlCapability {
     endpoint: 'web',
     instanceId: getInstanceId(),
     uiActions: UI_ACTIONS,
-    version: VERSION,
+    // 不报版本:web 端无可追溯版本源头(见 use-agent-control.ts 同处注记)⇒ 宁缺不编。
     reportedAt: new Date().toISOString(),
   }
 }

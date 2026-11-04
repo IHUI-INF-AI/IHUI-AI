@@ -125,6 +125,10 @@ node monitoring/alertbridge/alert-webhook-bridge.cjs --help
 换机重建：`nssm set IHUI-MONITOR AppParameters "-NoProfile -ExecutionPolicy Bypass -File <仓库根>\deploy\win\ihui-monitor.ps1"`
 （直接指向入库源即可，不必再写转发壳）。
 
+> 本脚本不负责建服务：上面这条只改写已存在服务的 `AppParameters`；IHUI-MONITOR 由本机
+> 手工 `nssm install` 直装，仓内没有建服源。建服/换机重建的出路见
+> `scripts/data/service-provisioning-gaps.json` 的 IHUI-MONITOR 条目。
+
 自检不必停服务：`pwsh -File deploy/win/ihui-monitor.ps1 -Once -DryRun`（跑完整链、不发信、
 不动服务的去重档案），或 `-ProbeMail` 真发一封【核验信】。
 

@@ -36,14 +36,25 @@
  *   H 桌面安装包不得回到 offlineInstaller —— 那会把 ≈205MB 的 WebView2 运行时塞进包,
  *     使 exe 超过 Gitee 单文件 100MB 硬上限,国内用户从此拿不到 Windows 安装包
  *     (2026-10-17 实测:0.1.74 的 Gitee release 只有 .exe.sig、没有 .exe)。
+ *   J 扩展端版本单一源头(2026-11-04 立):wxt.config.ts 的 manifest.version 不得是字面量,
+ *     下载页 extension 资产 href 也不得内嵌版本号字面量 —— 两者都必须由 apps/extension/package.json
+ *     驱动(WXT 在 manifest.version 缺省时回落它;sync-downloads 的文件名同样取它)。
+ *     写死的那份"看起来像版本号、却不被任何东西驱动":bump package.json 后文件名是 v1.0.1,
+ *     而装进 Chrome 的包仍显示 1.0.0 —— 两边今天相等纯属巧合。
+ *   K 全端"对外报版本"的脸按台账对账(2026-11-04 立):K1 = scripts/data/version-single-source-files.json
+ *     点名的文件(六端的 about 页 / 能力上报 / MCP serverInfo / 公开状态页)里不得出现版本字面量;
+ *     K2 = scripts/data/version-single-source-pairs.json 里三份安装器清单(scoop/winget/snap)的每处
+ *     版本号必须逐字等于 apps/cli/package.json。台账坏、点名文件读不到、正则枚举到 0 处 ⇒ 一律判红,
+ *     不做"读不到就放过"(§0.3/§0.10)。
  *
  * 用法:
  *   node scripts/check-version-drift.mjs           # 检查,失败 exit 1
  *   node scripts/check-version-drift.mjs --json     # 机器可读
  */
-import { readFileSync, existsSync } from 'node:fs'
+import { readFileSync, existsSync, readdirSync } from 'node:fs'
 import { join, resolve, dirname } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { maskComments } from './lib/code-mask.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(__dirname, '..')
@@ -60,6 +71,24 @@ export const MOBILE_JUDGE_MESSAGES = {
 
 /** 语义版本字面量(如 '1.0.0' / "0.0.5");用于识别"写死的版本号" */
 const SEMVER_LITERAL = /['"]\d+\.\d+\.\d+(?:[-+][\w.-]+)?['"]/
+
+/**
+ * J/K 维共用的那条尺:标识符名里带 version 却被赋成一个语义版本字面量。
+ * 单份实现(§0.6)—— wxt.config.ts、扩展源码、六端台账都问它,不各写一遍。
+ * 判字面量 ⇒ 只遮注释不遮字符串(`maskComments` 等长,行号不漂)。
+ * 刻意不判名字里带 protocol 的标识符:协议版本(如 `PROTOCOL_VERSION = "2026.09.18"`、MCP 的
+ * `2025-06-18`)是**契约常量**,本就该写字面量并由对端协商;把它算成"产品版本死值"等于逼人给台账
+ * 加豁免。产品面(SERVER/APP/CLIENT/manifest version)照判 —— 正反用例见镜像测试 K1 两档。
+ */
+const VERSION_LITERAL_ASSIGN =
+  /\b(\w*version\w*)\s*[:=]\s*['"`]\d+\.\d+\.\d+(?:[-+][\w.-]+)?['"`]/gi
+export function hasVersionLiteral(text) {
+  for (const m of maskComments(String(text)).matchAll(VERSION_LITERAL_ASSIGN)) {
+    if (/protocol/i.test(m[1] ?? '')) continue
+    return true
+  }
+  return false
+}
 
 function read(rel) {
   const abs = join(ROOT, rel)
@@ -87,6 +116,8 @@ function readJson(rel) {
  *   rnConfigTs: string|null, capGradle: string|null, downloadsConfig: string|null,
  *   feedRouteJs: string|null, feedRouteApi: string|null, workflows: Record<string,string>,
  *   mobileAppJson: object|null, mobilePkg: object|null,
+ *   wxtConfig: string|null, extensionSources: Record<string,string|null>,
+ *   versionLedger: {files:array,pairs:array}|null, versionFileTexts: Record<string,string|null>,
  * }} input
  * @returns {string[]} 违规描述;空数组 = 全部通过
  */
@@ -104,6 +135,10 @@ export function findVersionDrift(input) {
     workflows,
     mobileAppJson,
     mobilePkg,
+    wxtConfig,
+    extensionSources,
+    versionLedger,
+    versionFileTexts,
   } = input
 
   // A 桌面双写一致
@@ -209,6 +244,9 @@ export function findVersionDrift(input) {
     // 逐行而不是整篇正则 —— 单行形态(`run: git push origin main`)与块形态(`run: |` 后缩进)
     // 都要覆盖,用一条 `^\s*git push` 只能抓后者(实测漏判)。
     const offenders = src.split('\n').filter((line) => {
+      // 整行注释(YAML 说明行 / run 块里的 shell 注释)不执行,不算 bot 裸 push。
+      // 只剥**整行**注释:行尾注释(`git push origin main # 推 main`)里的命令照样执行 ⇒ 不豁免。
+      if (/^\s*#/.test(line)) return false
       const m = line.match(/(?:^|[\s;|&])git\s+push\b(.*)$/)
       if (!m) return false
       const rest = m[1].trim()
@@ -244,7 +282,176 @@ export function findVersionDrift(input) {
     )
   }
 
+  // J 扩展端版本单一源头(2026-11-04 立)
+  //   文件名与下载页版本取 apps/extension/package.json(scripts/sync-downloads.mjs 的
+  //   readExtensionVersion),包内 manifest 由 WXT 在同一处兜底(manifest.version 缺省时回落
+  //   package.json)。任何一处把它写成字面量,就等于让"装进 Chrome 的版本"与"下载页/文件名的
+  //   版本"分头走 —— 两边今天相等纯属巧合。
+  if (wxtConfig !== null && hasVersionLiteral(wxtConfig)) {
+    v.push(
+      'J1 apps/extension/wxt.config.ts 把 manifest.version 写成了字面量 —— 删掉这一行, ' +
+        '让 WXT 回落 apps/extension/package.json(与 sync-downloads 的文件名、下载页版本号同源)',
+    )
+  }
+  // href 由 extensionPkg.version 拼出;手抄一份 v1.0.0 的路径,bump 之后静态兜底链直接 404。
+  if (
+    downloadsConfig !== null &&
+    /\/downloads\/extension\/[^'"`]*\d+\.\d+\.\d+\.zip/.test(downloadsConfig)
+  ) {
+    v.push(
+      'J2 downloads.config.ts 的 extension 资产 href 内嵌了版本号字面量 —— 必须由 ' +
+        'extensionPkg.version 拼出,否则 bump package.json 后静态兜底下载链直接 404',
+    )
+  }
+  // 打进包的源码里也不许留"手搓版本常量";取不到清单不判(§0.3),枚举到 0 个文件判死(覆盖面自证)。
+  const extFiles = Object.entries(extensionSources || {})
+  if (extFiles.length === 0) {
+    v.push('J3 extensionSources 枚举到 0 个文件 —— 采集面坏了,这一维等于没装')
+  }
+  for (const [rel, src] of extFiles) {
+    if (src === null) continue
+    if (hasVersionLiteral(src)) {
+      v.push(
+        `J3 ${rel} 里有手搓的版本字面量 —— 运行期请取 chrome.runtime.getManifest().version ` +
+          '(它的源头就是 apps/extension/package.json),写死等于向用户/服务端上报一个不存在的版本',
+      )
+    }
+  }
+
+  // K 全端"对外报版本"的每一张脸(2026-11-04 立,清单见 scripts/data/version-single-source-*.json)
+  //   J 只管扩展端;同一族在 miniapp/RN/web/api/cli/ai-service 六个端各有一份,且都是"用户或对端
+  //   看得见"的版本。逐端手改不留尺子必然回潮,所以这里按台账判:
+  //   K1 台账点名的文件里不得出现版本字面量(源头另有其物,登记在条目的 source 里);
+  //   K2 安装器清单里每一处版本号必须逐字等于它打包的那个包的 version。
+  //   台账坏/空/取不到 ⇒ 判红(等于这一维没装),不做"读不到就放过"。
+  if (
+    !versionLedger ||
+    !Array.isArray(versionLedger.files) ||
+    !Array.isArray(versionLedger.pairs)
+  ) {
+    v.push(
+      'K 台账读不到或形状坏(scripts/data/version-single-source-files.json / -pairs.json 任一缺 files/pairs 数组)' +
+        ' —— 这一维等于没装,不冒绿',
+    )
+  } else {
+    if (versionLedger.files.length === 0 && versionLedger.pairs.length === 0) {
+      v.push('K 台账两侧都枚举到 0 条 —— 清空清单等于把整维抹掉,判死(覆盖面自证)')
+    }
+    for (const e of versionLedger.files) {
+      const p = typeof e?.path === 'string' ? e.path : null
+      if (!p || typeof e?.source !== 'string' || typeof e?.why !== 'string') {
+        v.push(`K1 台账条目形态坏(path+source+why 三键须齐):${JSON.stringify(e)}`)
+        continue
+      }
+      const text = versionFileTexts?.[p]
+      if (typeof text !== 'string') {
+        v.push(`K1 台账点名的文件在仓里读不到(路径腐烂或未入库):${p}`)
+        continue
+      }
+      if (hasVersionLiteral(text)) {
+        v.push(`K1 ${p} 里有手搓的版本字面量 —— 该条登记的源头是「${e.source}」(理由:${e.why})`)
+      }
+    }
+    for (const e of versionLedger.pairs) {
+      const p = typeof e?.path === 'string' ? e.path : null
+      const pkg = typeof e?.sourcePkg === 'string' ? e.sourcePkg : null
+      const extracts = Array.isArray(e?.extracts) ? e.extracts : null
+      if (!p || !pkg || !extracts || extracts.length === 0 || typeof e?.why !== 'string') {
+        v.push(`K2 台账条目形态坏(path+sourcePkg+extracts[]+why 须齐):${JSON.stringify(e)}`)
+        continue
+      }
+      const manifestText = versionFileTexts?.[p]
+      const pkgText = versionFileTexts?.[pkg]
+      if (typeof manifestText !== 'string' || typeof pkgText !== 'string') {
+        v.push(
+          `K2 台账点名的文件读不到(腐烂或未入库):${typeof manifestText !== 'string' ? p : pkg}`,
+        )
+        continue
+      }
+      let want = null
+      try {
+        const parsed = JSON.parse(pkgText)
+        want = typeof parsed?.version === 'string' ? parsed.version : null
+      } catch {
+        want = null
+      }
+      if (want === null) {
+        v.push(`K2 ${pkg} 取不到 version 字段 —— 没有源值可比,这一条判未判定(不冒绿)`)
+        continue
+      }
+      for (const pat of extracts) {
+        if (typeof pat !== 'string') {
+          v.push(`K2 ${p} 的 extracts 里有非字符串项:${JSON.stringify(pat)}`)
+          continue
+        }
+        let hits = []
+        try {
+          hits = [...manifestText.matchAll(new RegExp(pat, 'gm'))].map((m) => m[1])
+        } catch (err) {
+          v.push(`K2 ${p} 的正则取不出值(${pat}):${err?.message ?? err}`)
+          continue
+        }
+        if (hits.length === 0) {
+          v.push(`K2 ${p} 按 ${pat} 枚举到 0 处 —— 台账与文件已脱节,要么改文件要么改台账,不放行`)
+          continue
+        }
+        for (const got of hits) {
+          if (got !== want) {
+            v.push(`K2 ${p} 写着 ${got},而它打包的 ${pkg} 现读 ${want}(安装器会装到旧包)`)
+          }
+        }
+      }
+    }
+  }
+
   return v
+}
+
+/**
+ * J3 的取材面:会被打进扩展包的源码。
+ * 只收 entrypoints/lib/src 三族(.ts/.tsx)—— tests/ 里的是夹具、scripts/ 里的是构建工具,
+ * 都不进包,把它们的版本字面量算成违规只会逼人写假数据绕门(排除项在此点名,不静默)。
+ */
+export function listExtensionSources() {
+  const out = {}
+  for (const dir of ['entrypoints', 'lib', 'src']) {
+    const abs = join(ROOT, 'apps', 'extension', dir)
+    if (!existsSync(abs)) continue
+    for (const name of readdirSync(abs, { recursive: true, encoding: 'utf-8' })) {
+      // 键一律正斜杠:Windows 的 readdirSync 给 `entrypoints\sub\x.tsx`,CI 给 `/` 形,
+      // 两套键名会让镜像测试的断言只在半个平台成立。
+      const rel = join('apps', 'extension', dir, name).replaceAll('\\', '/')
+      if (!/\.tsx?$/.test(rel)) continue
+      const full = join(ROOT, rel)
+      if (!existsSync(full)) continue
+      out[rel] = readFileSync(full, 'utf-8')
+    }
+  }
+  return out
+}
+
+/**
+ * K 维的取材面:两份台账 + 它们点名的全部文件正文(含 sourcePkg)。
+ * 台账坏/读不到 ⇒ 返回 {ledger:null, texts:{}},由判据侧当场判红(不静默放过)。
+ */
+export function collectVersionLedgerInputs() {
+  const filesLedger = readJson('scripts/data/version-single-source-files.json')
+  const pairsLedger = readJson('scripts/data/version-single-source-pairs.json')
+  const ledger =
+    Array.isArray(filesLedger) && Array.isArray(pairsLedger?.pairs)
+      ? { files: filesLedger, pairs: pairsLedger.pairs }
+      : null
+  const paths = new Set()
+  if (ledger) {
+    for (const e of ledger.files) if (typeof e?.path === 'string') paths.add(e.path)
+    for (const e of ledger.pairs) {
+      if (typeof e?.path === 'string') paths.add(e.path)
+      if (typeof e?.sourcePkg === 'string') paths.add(e.sourcePkg)
+    }
+  }
+  const texts = {}
+  for (const p of paths) texts[p] = read(p)
+  return { ledger, texts }
 }
 
 /** 从工作区读取全部输入(与 findVersionDrift 分离,便于测试注入) */
@@ -270,6 +477,12 @@ export function collectInputs() {
     downloadsConfig: read('apps/web/src/config/downloads.config.ts'),
     feedRouteJs: read('apps/web/app/desktop-feed.json/route.ts'),
     feedRouteApi: read('apps/web/app/api/desktop-feed/route.ts'),
+    wxtConfig: read('apps/extension/wxt.config.ts'),
+    extensionSources: listExtensionSources(),
+    ...(() => {
+      const k = collectVersionLedgerInputs()
+      return { versionLedger: k.ledger, versionFileTexts: k.texts }
+    })(),
     workflows,
   }
 }

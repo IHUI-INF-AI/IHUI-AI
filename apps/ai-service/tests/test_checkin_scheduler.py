@@ -167,6 +167,252 @@ async def test_credits_snapshot_queries_all_when_no_cooldown(monkeypatch):
     assert sorted(queried) == ["j1", "j2"]
 
 
+# ---------------------------------------------------------------------------
+# 2026-11-04 缺陷修复:快照平台分支(minimax 不再打 Trae / qoder 用号池权威票)
+# ---------------------------------------------------------------------------
+
+
+class _SnapshotLogCapture:
+    """捕获 structlog 日志(PrintLoggerFactory 直写 stderr,caplog 抓不到)。"""
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, str, tuple[Any, ...], dict[str, Any]]] = []
+
+    def _record(self, level: str) -> Any:
+        def _inner(msg: Any, *args: Any, **kwargs: Any) -> None:
+            self.calls.append((level, str(msg), args, kwargs))
+
+        return _inner
+
+    def __getattr__(self, name: str) -> Any:
+        return self._record(name)
+
+    def summary_counts(self) -> tuple[int, int, int, int, int]:
+        """取汇总行 args:(总数, 成功, 失败, 冷却跳过, 无指标/未判定)。"""
+        for _level, msg, args, _kw in reversed(self.calls):
+            if "本轮积分快照完成" in msg:
+                return tuple(args)  # type: ignore[return-value]
+        raise AssertionError("未捕获到快照汇总日志")
+
+    def has(self, level: str, keyword: str) -> bool:
+        return any(lv == level and keyword in msg for lv, msg, _a, _k in self.calls)
+
+
+def _patch_snapshot_store(
+    monkeypatch: pytest.MonkeyPatch,
+    accounts: list[dict[str, Any]],
+    *,
+    upserts: list[tuple[tuple[Any, ...], dict[str, Any]]] | None = None,
+) -> None:
+    """快照依赖的 store 打桩:不触 DB,只留 upsert 调用记录。"""
+
+    async def fake_list_full() -> list[dict[str, Any]]:
+        return accounts
+
+    async def fake_cooldowns() -> dict[int, datetime]:
+        return {}
+
+    async def fake_sum(*_a: Any, **_k: Any) -> int:
+        return 0
+
+    async def fake_upsert(*a: Any, **k: Any) -> None:
+        if upserts is not None:
+            upserts.append((a, k))
+
+    monkeypatch.setattr(checkin_store, "list_enabled_accounts_full", fake_list_full)
+    monkeypatch.setattr(checkin_store, "get_active_cooldowns", fake_cooldowns)
+    monkeypatch.setattr(checkin_store, "sum_credits_delta_for_day", fake_sum)
+    monkeypatch.setattr(checkin_store, "upsert_credits_daily", fake_upsert)
+
+
+async def test_credits_snapshot_minimax_queries_minimax_not_trae(monkeypatch):
+    """缺陷 A①:minimax 账号必须走 MiniMax 状态查询,绝不打 Trae 余额端点。
+
+    (改前:落 else 分支 => query_remaining_credits(Trae) = 每天 08:15 的 401)
+    """
+    accounts = [
+        {
+            "id": 12,
+            "owner_user_id": "o1",
+            "name": "minimax:cn",
+            "jwt": "mm-jwt",
+            "platform": "minimax",
+            "device_map": {"uid": "u-mm"},
+        }
+    ]
+    log = _SnapshotLogCapture()
+    monkeypatch.setattr(cs, "logger", log)
+    _patch_snapshot_store(monkeypatch, accounts)
+
+    mm_calls: list[tuple[str, dict[str, Any]]] = []
+
+    async def fake_mm(jwt: str, device_map: dict[str, Any], **_kw: Any) -> dict[str, Any]:
+        mm_calls.append((jwt, dict(device_map)))
+        return {"remaining": None, "error": None, "checked_days": [1]}
+
+    async def forbidden_trae(jwt: str) -> dict[str, Any]:
+        raise AssertionError("minimax 账号不得调用 Trae 余额端点")
+
+    monkeypatch.setattr(cs.checkin_minimax, "minimax_query_credits", fake_mm)
+    monkeypatch.setattr(cs.checkin_credits, "query_remaining_credits", forbidden_trae)
+
+    await cs.checkin_scheduler._daily_credits_snapshot()
+
+    assert mm_calls == [("mm-jwt", {"uid": "u-mm"})]
+
+
+async def test_credits_snapshot_minimax_no_metric_is_neither_success_nor_failure(
+    monkeypatch,
+):
+    """缺陷 A②:MiniMax 无余额端点(err/remaining 皆 None)⇒ 记「未判定」:
+    不落快照(不伪装成功),也不计失败(不是 401)。"""
+    accounts = [
+        {
+            "id": 12,
+            "owner_user_id": "o1",
+            "name": "minimax:cn",
+            "jwt": "mm-jwt",
+            "platform": "minimax",
+            "device_map": {"uid": "u-mm"},
+        }
+    ]
+    log = _SnapshotLogCapture()
+    monkeypatch.setattr(cs, "logger", log)
+    upserts: list[tuple[tuple[Any, ...], dict[str, Any]]] = []
+    _patch_snapshot_store(monkeypatch, accounts, upserts=upserts)
+
+    async def fake_mm(jwt: str, device_map: dict[str, Any], **_kw: Any) -> dict[str, Any]:
+        return {"remaining": None, "error": None, "checked_days": [1]}
+
+    monkeypatch.setattr(cs.checkin_minimax, "minimax_query_credits", fake_mm)
+
+    await cs.checkin_scheduler._daily_credits_snapshot()
+
+    total, ok, fail, skip, na = log.summary_counts()
+    assert (total, ok, fail, skip, na) == (1, 0, 0, 0, 1)
+    assert upserts == []  # 未判定不落快照(没有 remaining 可写)
+    assert not log.has("warning", "积分查询失败")
+
+
+async def test_credits_snapshot_minimax_real_error_still_counts_failure(monkeypatch):
+    """护栏:真故障不许被「未判定」吞掉 —— err 有值时仍按失败计。"""
+    accounts = [
+        {
+            "id": 12,
+            "owner_user_id": "o1",
+            "name": "minimax:cn",
+            "jwt": "mm-jwt",
+            "platform": "minimax",
+            "device_map": {"uid": "u-mm"},
+        }
+    ]
+    log = _SnapshotLogCapture()
+    monkeypatch.setattr(cs, "logger", log)
+    _patch_snapshot_store(monkeypatch, accounts)
+
+    async def fake_mm(jwt: str, device_map: dict[str, Any], **_kw: Any) -> dict[str, Any]:
+        return {"remaining": None, "error": "token 无效或过期(401/403),请重新捕获"}
+
+    monkeypatch.setattr(cs.checkin_minimax, "minimax_query_credits", fake_mm)
+
+    await cs.checkin_scheduler._daily_credits_snapshot()
+
+    total, ok, fail, skip, na = log.summary_counts()
+    assert (total, ok, fail, skip, na) == (1, 0, 1, 0, 0)
+    assert log.has("warning", "积分查询失败")
+
+
+async def test_credits_snapshot_qoder_prefers_pool_cred(monkeypatch):
+    """缺陷 B③:qoder 快照优先用号池权威票(本地旧票必 401 的夹具有号池票即成功)。"""
+    accounts = [
+        {
+            "id": 18,
+            "owner_user_id": "o1",
+            "name": "Qoder-019f17c6",
+            "jwt": "stale-local-jwt",
+            "platform": "qoder",
+            "device_map": {"uid": "u18"},
+        }
+    ]
+    log = _SnapshotLogCapture()
+    monkeypatch.setattr(cs, "logger", log)
+    upserts: list[tuple[tuple[Any, ...], dict[str, Any]]] = []
+    _patch_snapshot_store(monkeypatch, accounts, upserts=upserts)
+
+    async def fake_load_cred(uid: str) -> dict[str, Any] | None:
+        assert uid == "u18"
+        return {
+            "token": "pool-jwt",
+            "refresh_token": "pool-rt",
+            "expires_at": 1700000000,
+            "cosy": {"machine_id": "m1"},
+        }
+
+    used_tokens: list[str] = []
+    saved_maps: list[dict[str, Any]] = []
+
+    async def fake_qoder_query(jwt: str, device_map: dict[str, Any], **_kw: Any) -> dict[str, Any]:
+        used_tokens.append(jwt)
+        if jwt != "pool-jwt":  # 本地旧票 = 死票(实测 401)
+            return {"remaining": None, "packs": [], "error": "余额接口 HTTP 401"}
+        return {"remaining": 100, "packs": [], "error": None}
+
+    async def fake_save_map(account_id: int, device_map: dict[str, Any]) -> None:
+        saved_maps.append({"id": account_id, **device_map})
+
+    monkeypatch.setattr(checkin_store, "load_qoder_cred", fake_load_cred)
+    monkeypatch.setattr(cs.checkin_qoder, "qoder_query_credits", fake_qoder_query)
+    monkeypatch.setattr(checkin_store, "save_device_map", fake_save_map)
+
+    await cs.checkin_scheduler._daily_credits_snapshot()
+
+    assert used_tokens == ["pool-jwt"]  # 号池票唯一被使用,旧本地票一发未打
+    total, ok, fail, skip, na = log.summary_counts()
+    assert (total, ok, fail, skip, na) == (1, 1, 0, 0, 0)
+    assert upserts and upserts[0][0][3] == 100  # (account_id, owner, day, remaining, gained)
+    # 号池票的 refresh_token/expires_at/cosy 一并覆盖进持久化的 device_map
+    assert saved_maps[0]["refresh_token"] == "pool-rt"
+    assert saved_maps[0]["expires_at"] == 1700000000
+    assert saved_maps[0]["cosy"]["machine_id"] == "m1"
+
+
+async def test_credits_snapshot_qoder_without_pool_cred_is_undetermined(monkeypatch):
+    """缺陷 B④:号池取不到票 ⇒ 记「未判定」:不拿未确认权威的本地票去打鉴权点,
+    也不把没判过的结果写成 ok 或 401 失败。"""
+    accounts = [
+        {
+            "id": 18,
+            "owner_user_id": "o1",
+            "name": "Qoder-019f17c6",
+            "jwt": "stale-local-jwt",
+            "platform": "qoder",
+            "device_map": {"uid": "u18"},
+        }
+    ]
+    log = _SnapshotLogCapture()
+    monkeypatch.setattr(cs, "logger", log)
+    upserts: list[tuple[tuple[Any, ...], dict[str, Any]]] = []
+    _patch_snapshot_store(monkeypatch, accounts, upserts=upserts)
+
+    async def fake_load_cred(uid: str) -> dict[str, Any] | None:
+        return None
+
+    async def forbidden_qoder_query(
+        jwt: str, device_map: dict[str, Any], **_kw: Any
+    ) -> dict[str, Any]:
+        raise AssertionError("号池无权威票时不得拿本地票查余额")
+
+    monkeypatch.setattr(checkin_store, "load_qoder_cred", fake_load_cred)
+    monkeypatch.setattr(cs.checkin_qoder, "qoder_query_credits", forbidden_qoder_query)
+
+    await cs.checkin_scheduler._daily_credits_snapshot()
+
+    total, ok, fail, skip, na = log.summary_counts()
+    assert (total, ok, fail, skip, na) == (1, 0, 0, 0, 1)
+    assert upserts == []
+    assert log.has("warning", "号池无权威票")
+
+
 async def test_record_result_challenge_cools_and_pauses(monkeypatch):
     """Challenge 结果:单账号即时落 30min 冷却 + 出站全局暂停(整批停手)。"""
     checkin_outbound_gate.reset()
@@ -1151,6 +1397,60 @@ async def test_qoder_retry_skips_when_previous_round_still_running(monkeypatch):
     with pytest.raises(RuntimeError):
         await sched._daily_run_qoder_retry()
     assert sched._qoder_retry_running is False  # finally 解锁
+
+
+async def test_midnight_job_registered_reuses_daily_run(monkeypatch):
+    """零点窗口(2026-11-04):00:05 job 存在、复用 _daily_run、8:05 主窗口未动。"""
+    monkeypatch.setenv("CHECKIN_CRON_ENABLED", "true")
+    monkeypatch.setattr(cs, "AsyncIOScheduler", _FakeAsyncIOScheduler)
+    monkeypatch.setattr(cs.checkin_store, "ensure_tables", _noop_async)
+    sched = cs.CheckinScheduler()
+    monkeypatch.setattr(sched, "_restore_outbound_pause", _noop_async)
+    await sched.start()
+
+    jobs = sched._scheduler.jobs  # type: ignore[union-attr]
+    # ① 0:05 job 真注册,且与主窗口同一 jitter;主窗口仍是 8:05(不许被挪成 0:05)
+    mid = jobs[cs._JOB_ID_MIDNIGHT]
+    assert cs._job_cron_expr(mid["trigger"]) == "5 0 * * *"
+    assert mid["trigger"].jitter == cs._CRON_JITTER
+    assert mid["func"] == sched._daily_run_midnight
+    main = jobs[cs._JOB_ID]
+    assert cs._job_cron_expr(main["trigger"]) == "5 8 * * *"
+    # 复用同一腿:零点入口只是带标签调用 _daily_run(不改业务逻辑)
+    labels: list[str] = []
+
+    async def _fake_daily_run(label: str = "主窗口") -> None:
+        labels.append(label)
+
+    monkeypatch.setattr(sched, "_daily_run", _fake_daily_run)
+    await sched._daily_run_midnight()
+    assert labels == ["零点窗口"]
+    # ③ status() 暴露下次零点窗口时刻(与 next_run 同级)
+    st = sched.status()
+    assert st["next_run_midnight"] is not None
+    assert datetime.fromisoformat(st["next_run_midnight"]).hour == 0
+    await sched.stop()
+    assert sched.status()["next_run_midnight"] is None
+
+
+async def test_midnight_run_excludes_qoder(monkeypatch):
+    """② 零点窗口的目标集不含 Qoder(Qoder 只走 10:05/补跑),轮次标签为「零点窗口」。"""
+    sched = cs.CheckinScheduler()
+    seen: dict[str, Any] = {}
+
+    async def _fake_load(label: str) -> tuple[list[dict[str, Any]], dict[int, datetime]]:
+        return [_acc(1, "trae"), _acc(2, "qoder"), _acc(3, "workbuddy")], {}
+
+    async def _fake_run(accounts: list[dict[str, Any]], cooldowns: Any, label: str) -> None:
+        seen["ids"] = [a["id"] for a in accounts]
+        seen["label"] = label
+
+    monkeypatch.setattr(sched, "_load_accounts_and_cooldowns", _fake_load)
+    monkeypatch.setattr(sched, "_run_batch", _fake_run)
+    await sched._daily_run_midnight()
+    assert 2 not in seen["ids"]  # Qoder 绝不进零点窗口
+    assert seen["ids"] == [1, 3]
+    assert seen["label"] == "零点窗口"
 
 
 async def test_qoder_retry_jobs_registered_and_status_exposed(monkeypatch):

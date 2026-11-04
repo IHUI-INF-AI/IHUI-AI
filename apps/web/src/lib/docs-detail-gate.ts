@@ -37,8 +37,26 @@ export const STATIC_DOC_SLUGS: ReadonlySet<string> = new Set([
 ])
 
 /**
+ * 与 `app/(main)/docs/<一级目录>/<二级目录>` 一一对应的静态深层文档页(当前只有 manual 一系)。
+ *
+ * 立因(2026-11-04 生产实测 `/docs/no-such/extra`):`app/(main)/docs` 下没有 catch-all 段,
+ * 构建清单里不存在任何多段文档路由,多段请求只会落到根布局的 not-found 兜底(97,434 字节营销壳、
+ * 无 x-robots-tag),和单段 404 成两种响应。故静态深层页必须放行,其余多段 `/docs/**` 一律由
+ * Proxy 落 404 + 品牌体。新增深层文档页时必须同步这里(目录名 = URL 段路径)。
+ */
+export const STATIC_DOC_SUBPATHS: ReadonlySet<string> = new Set([
+  'manual/account',
+  'manual/agent',
+  'manual/ai-chat',
+  'manual/billing',
+  'manual/faq',
+  'manual/getting-started',
+  'manual/knowledge-base',
+])
+
+/**
  * 取出「需要探针判定」的文档详情 slug;不是文档详情请求(含静态文档页、/docs 索引、
- * /docs/manual/xxx 这类多段路径)一律返回 null = 完全不碰。
+ * 多段路径)一律返回 null = 完全不碰。多段路径的判定见 `docsDeepPathGateStatus`。
  *
  * 只认单段:本应用只有默认语言有 `/docs/[slug]` 路由(`/en/docs` 是独立静态页,
  * 构建清单里没有 `/en/docs/[slug]`),所以不做语言前缀展开。
@@ -58,6 +76,24 @@ export function extractDocsDetailSlug(pathname: string): string | null {
 }
 
 /**
+ * 多段文档路径的硬状态码:静态深层页放行(null),其余一律 404。
+ *
+ * 判据是「该路径在构建清单里存不存在」,不是「后端有没有这篇」—— 多段路径没有 [slug] 段承接,
+ * 探针无从谈起,故只对账仓内目录树(STATIC_DOC_SUBPATHS),零后端往返。
+ * 只看 `/docs/` 下的 2 段及以上;`/docs` 索引与单段详情交回 extractDocsDetailSlug 那条判据。
+ */
+export function docsDeepPathGateStatus(pathname: string): 404 | null {
+  const matched = /^\/docs\/([^/]+)\/(.+)$/.exec(pathname)
+  const first = matched?.[1]
+  const rest = matched?.[2]
+  if (!first || !rest) return null
+  // 对账键是「/docs/ 之后的整条路径」,与 STATIC_DOC_SUBPATHS 的 `manual/<二级目录>` 同形;
+  // 末尾斜杠与单段判据一致地忽略(/docs/manual/account/ 仍是静态页)。
+  const subpath = `${first}/${rest}`.replace(/\/+$/, '')
+  return STATIC_DOC_SUBPATHS.has(subpath) ? null : 404
+}
+
+/**
  * 文档详情请求的硬状态码:404 / 500 / null(放行 200)。
  * 探针超时压到 2.5s:Proxy 在请求首字节之前同步跑,不能让后端抖动把整页拖成超时。
  */
@@ -65,6 +101,8 @@ export async function docsDetailGateStatus(
   pathname: string,
   options: DocProbeOptions = {},
 ): Promise<404 | 500 | null> {
+  const deepStatus = docsDeepPathGateStatus(pathname)
+  if (deepStatus) return deepStatus
   const slug = extractDocsDetailSlug(pathname)
   if (!slug) return null
   const result = await probeDocBySlug(slug, {
@@ -78,5 +116,42 @@ export async function docsDetailGateStatus(
 /** Proxy 便于直接喂 NextRequest;与上面同一条判据,零分叉。 */
 export function docsDetailGateStatusOf(request: NextRequest): Promise<404 | 500 | null> {
   return docsDetailGateStatus(request.nextUrl.pathname)
+}
+
+/**
+ * 只有"文档请求"才落硬状态码;RSC 取数请求(客户端路由跳转)不落。
+ *
+ * 立因(2026-11-04 生产实测):Proxy 用 rewrite-with-status 落码时,生产 next start 是
+ * `-H 0.0.0.0 -p 8851` 且反代带 `x-forwarded-proto: https`,Next 组装出的内部目标
+ * `https://0.0.0.0:8851/...` 与请求 Host 的 `https://localhost:8851/...` 不同源 ⇒ 被判"外部代理"
+ * ⇒ 真去 fetch 一个没有 TLS 的端口 ⇒ 500 `Internal Server Error`(21 字节)。
+ * 所以硬码改成 Proxy 直接返回 Response,不再借 Next 的渲染通道。
+ * RSC 请求的响应体必须是 RSC 载荷,Proxy 不能塞 HTML —— 这类请求放行,
+ * 由页面自身 notFound() 渲染 not-found 界面(状态码对 RSC 无意义)。
+ */
+export function isDocsGateDocumentRequest(headers: Headers): boolean {
+  if (headers.get('rsc') === '1') return false
+  const accept = (headers.get('accept') ?? '').toLowerCase()
+  return !accept.includes('text/x-component')
+}
+
+/** 硬状态码响应的公共头:404(品牌资产/兜底)与 500(故障页)必须同一组缓存与索引语义。 */
+export function docsGateResponseHeaders(csp?: string | null): Headers {
+  const headers = new Headers({
+    'content-type': 'text/html; charset=utf-8',
+    'cache-control': 'no-store',
+    'x-robots-tag': 'noindex',
+  })
+  if (csp) headers.set('content-security-policy', csp)
+  return headers
+}
+
+/** 硬状态码响应体:自包含 HTML(零脚本、零外链),404 与 500 文案分开且互不冒充。 */
+export function renderDocsGateHtml(status: 404 | 500): string {
+  const [title, heading, detail] =
+    status === 404
+      ? ['页面不存在', '文档不存在', '这个文档链接无效或已被移除。']
+      : ['服务暂时不可用', '文档服务暂时不可用', '后端异常或超时,请稍后重试。']
+  return `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${status} · ${title} | 智汇AI</title><style>html,body{margin:0;height:100%;background:#0b0f14;color:#e6edf3;font:15px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif}main{display:flex;min-height:100%;align-items:center;justify-content:center;padding:24px}div{max-width:520px;text-align:center}strong{display:block;font-size:40px;letter-spacing:.04em;color:#58a6ff}h1{margin:12px 0 8px;font-size:22px}p{margin:0 0 24px;color:#8b949e}a{color:#58a6ff;text-decoration:none}a:hover{text-decoration:underline}</style></head><body><main><div><strong>${status}</strong><h1>${heading}</h1><p>${detail}</p><a href="/docs">返回文档中心</a></div></main></body></html>`
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

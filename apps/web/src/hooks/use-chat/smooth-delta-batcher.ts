@@ -36,18 +36,21 @@ export function createSmoothDeltaBatcher(
   }
 
   /**
-   * H20 ②(2026-11-04 立):帧预算切批。
+   * H20 ②(2026-11-04 收口):提交节拍 + 帧预算切批。
    *
-   * 原实现 `step = max(2, ceil(backlog/8))` 在积压时**放大单帧工作量** —— mock 以
-   * 生产同量级(16ms/帧)推流时,积压越大单帧追加越多,渲染提交随之变重,CI 实测
-   * 流式窗口出现 56ms/53ms 两枚 >50ms 长任务(LoAF 归因 FrameRequestCallback)。
+   * 第一版只做「每帧 ≤24 字 + 8ms 预算」,CI 首跑仍有 148ms/56ms 两枚长任务:
+   * 帧预算压住了单次追加字数,但**提交频率仍是一帧一次**(60 次/秒),
+   * 流式消息的 markdown 活跃块与列表容器被反复提交,总渲染工作量没有下降。
    *
-   * 现改为:每帧最多追加固定字数(不随 backlog 放大),并叠加 8ms 硬预算 ——
-   * 追加循环一旦用满渲染预算就立即让出主线程,剩余积压留到下一帧。
-   * 追平速度由「每帧字数 × 帧率」给出恒定上限,不再出现"积压大 ⇒ 单帧重"的放大。
+   * 收口版把「消费积压」与「提交 DOM」拆开:
+   * - 每 COMMIT_INTERVAL_MS 才提交一次(≈25fps),其余帧只保留积压、不触发 React 更新;
+   * - 单次提交仍受 8ms 硬预算与 MAX_CHARS_PER_COMMIT 约束,积压大也不放大单帧;
+   * - 首帧立即提交(lastCommitAt 从 0 起算),可见延迟上限≈一个提交间隔,不牺牲首字观感。
    */
   const RENDER_BUDGET_MS = 8
-  const MAX_CHARS_PER_FRAME = 24
+  const COMMIT_INTERVAL_MS = 40
+  const MAX_CHARS_PER_COMMIT = 120
+  let lastCommitAt = 0
 
   const tick = (): void => {
     rafId = null
@@ -55,10 +58,16 @@ export function createSmoothDeltaBatcher(
       emitProgress()
       return
     }
-    const startedAt = performance.now()
+    const now = performance.now()
+    // 未到提交节拍:本帧只等待,不制造一次 React 提交(积压留在 pending)
+    if (now - lastCommitAt < COMMIT_INTERVAL_MS) {
+      rafId = requestAnimationFrame(tick)
+      return
+    }
+    const startedAt = now
     let taken = 0
-    while (pending.length > 0 && taken < MAX_CHARS_PER_FRAME) {
-      const room = MAX_CHARS_PER_FRAME - taken
+    while (pending.length > 0 && taken < MAX_CHARS_PER_COMMIT) {
+      const room = MAX_CHARS_PER_COMMIT - taken
       const take = pending.slice(0, room)
       pending = pending.slice(room)
       append(take)
@@ -66,6 +75,7 @@ export function createSmoothDeltaBatcher(
       // 硬预算:本帧已花满 8ms 就停手,剩余积压顺延到下一帧
       if (performance.now() - startedAt >= RENDER_BUDGET_MS) break
     }
+    lastCommitAt = performance.now()
     emitProgress()
     if (pending.length > 0) {
       rafId = requestAnimationFrame(tick)
