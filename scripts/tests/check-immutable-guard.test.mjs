@@ -455,3 +455,21 @@ test('T13 retro-declared 有唯一结论码文案,且追认签名与提交签名
   const p2 = ackPayload({ sha: 'x', paths: ['scripts/lib/'], reason: 'r' })
   assert.ok(!p1.includes('"a1"') && p2.includes('"a1"'), '载荷必须各带自己的版本键(交叉复用必然验不过)')
 })
+
+/**
+ * T14 接线锁(2026-11-04 立):`.husky/commit-msg` 里那一档只报不拦的预警必须真在位。
+ * 钉三件事:① 调用点带 `--message-file "$1"`(没有消息来源就结构上判不了,那一档等于空转);
+ * ② 带 `|| true`(提交链档一旦能拦,共享索引里他人暂存件就会顶住全仓提交,§12e);
+ * ③ 门体头注不得再写"刻意不进提交链"——那是本次接线之前的语义,留着就是把跑不通的说法留在文档里(§0.8)。
+ */
+test('T14 commit-msg 预警档在位、只报不拦,且头注不再自称"不进提交链"', () => {
+  const hook = readFileSync(join(ROOT, '.husky', 'commit-msg'), 'utf8')
+  const call = hook.split(/\r?\n/).find((l) => l.includes('check-immutable-guard.mjs') && l.includes('--staged'))
+  assert.ok(call, '.husky/commit-msg 必须真的调用本门(接线不在钩子里=判据从未跑到那一刻)')
+  assert.ok(call.includes('--message-file "$1"'), '必须把本次提交信息交进去,否则 --staged 档结构上判不了')
+  assert.ok(call.includes('|| true'), '提交链档必须只报不拦;硬墙在 push 门那一档')
+  const src = readFileSync(join(ROOT, 'scripts', 'check-immutable-guard.mjs'), 'utf8')
+  const head = src.slice(0, src.indexOf('export const ROOT'))
+  assert.ok(!head.includes('刻意不进提交链'), '头注不得保留已被本枚改写的旧语义')
+  assert.ok(head.includes('只报不拦'), '头注必须描述当前挂点与档位,而不是只删掉旧话')
+})
