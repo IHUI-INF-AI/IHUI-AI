@@ -143,6 +143,11 @@ export default defineConfig({
       // expo-file-system 入口 import expo-modules-core(原生模块),vitest 下解析失败会
       // 让**整个测试文件加载不进来**(报 "Test Files N failed",但一条断言都没跑)。
       // src/theme/active-tokens.ts 与 5 个 screen 引它 ⇒ 替身必须存在。
+      // 子路径 `expo-file-system/legacy` 必须**排在父别名之前**:父别名按 `pattern + '/'`
+      // 前缀匹配会把它吞成 <mock>/legacy ⇒ 收集期 "Failed to resolve import"(2026-11-04
+      // src/lib/apk-update.ts 引入 legacy 面时实测)。那份替身单列,因为 legacy 面
+      // (createDownloadResumable / getContentUriAsync)与父替身的 File/Paths 不是同一套 API。
+      'expo-file-system/legacy': resolve(__dirname, 'tests/__mocks__/expo-file-system-legacy.ts'),
       'expo-file-system': resolve(__dirname, 'tests/__mocks__/expo-file-system.ts'),
       // expo-device 与 expo-file-system 同一死法:它的 build/Device.js `import { … } from 'expo-modules-core'`,
       // 而 pnpm 严格布局下 store 里 expo-device 的兄弟面没有 expo-modules-core ⇒ vite 解析失败,

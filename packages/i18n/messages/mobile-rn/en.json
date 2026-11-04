@@ -7182,7 +7182,17 @@
     "bundleOta": "Hot update",
     "readyBody": "Update downloaded. Tap Update to apply it now.",
     "installingHint": "The app restarts automatically — usually within seconds.",
-    "restartNow": "Restart now"
+    "restartNow": "Restart now",
+    "apkTitle": "New version {{version}} available",
+    "apkBody": "Current {{current}} → latest {{latest}}",
+    "apkAction": "Download & install",
+    "apkActionBrowser": "Go to download",
+    "apkDownloading": "Downloading installer {{progress}}%",
+    "apkEta": "About {{eta}} left",
+    "apkInstalling": "Opening installer…",
+    "apkBrowserOpening": "Handed to your browser — follow the prompt to install",
+    "apkCancel": "Cancel",
+    "apkHint": "The package is large; Wi-Fi is recommended"
   },
   "cloudRuns": {
     "title": "Cloud Agent Runs",
