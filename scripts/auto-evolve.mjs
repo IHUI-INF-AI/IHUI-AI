@@ -295,15 +295,19 @@ export function parseSessionUsage(stdout) {
     }
     if (e?.type !== 'complete') continue
     const total = Number(e?.usage?.totalTokens)
-    if (!Number.isFinite(total) || total < 0) return { tokens: 0, costUsd: 0, measured: false }
+    if (!Number.isFinite(total) || total < 0) return { tokens: 0, costUsd: 0, measured: false, stopReason: null }
     const cost = Number(e?.usage?.estimatedCostUsd)
     return {
       tokens: Math.floor(total),
       costUsd: Number.isFinite(cost) && cost > 0 ? cost : 0,
       measured: true,
+      // 终态理由是会话自己给的字面值(no_progress / max_iterations / complete …)。它必须进台账:
+      // "会话失败"与"会话读完材料就没力气了"是同一种失败分型下的两件完全不同的事,
+      // 只记 exit 码就永远看不出该改提示词还是该改运行器。
+      stopReason: typeof e?.stopReason === 'string' ? e.stopReason : null,
     }
   }
-  return { tokens: 0, costUsd: 0, measured: false }
+  return { tokens: 0, costUsd: 0, measured: false, stopReason: null }
 }
 
 export function todayKey(now = new Date()) {
@@ -751,6 +755,11 @@ function dispatchSession(gates, ticket, dryRun) {
     `- 台账行:L${ticket.line}(PROJECT_PLAN.md,行号会漂移,以题面定位)`,
     ``,
     `按 AGENTS.md 全部强制条款执行本票;只改本任务文件。`,
+    `**取材纪律(2026-11-04 立,有实测依据)**:禁止整份读取 \`PROJECT_PLAN.md\` / \`AGENTS.md\`(本仓现读`,
+    `台账数万行、规则正文近 9.6 万字节 —— 一次全文读就把本会话的上下文吃光,实测到的一轮是`,
+    `promptTokens≈12.6 万而 completionTokens 只有 22,终态 \`no_progress\`,等于白烧一个班次)。`,
+    `要看规则或台账:用带行区间/grep 的取段方式,单次只取与本品直接相关的片段;`,
+    `票面里已有的信息不要再回台账找一遍。动手前先读**目标文件本身**,不是读它的登记行。`,
     `**判据面(受保护面)不许动**:清单 = \`scripts/data/immutable-guard.json\` 的 \`path\` 字段(现读,勿凭记忆),`,
     `命中即落账腿整批拒收(自治会话没有豁免签名权,补理由放行=替自己发豁免)。本票若非动那些面不可,`,
     `**不要动**:保持票未勾,走 live-doc-edit 在票行追加进展注记,写明「本票需先动判据面 <路径> <为什么必须动>」后正常退出(这是合法完成)。`,
@@ -837,7 +846,21 @@ function dispatchSession(gates, ticket, dryRun) {
     stderr,
     at: t0,
   })
-  return { action, failureKind, exitCode, durationMs, why, tokens, tokensMeasured, costUsd, transcript }
+  return {
+    action,
+    failureKind,
+    exitCode,
+    durationMs,
+    why,
+    tokens,
+    tokensMeasured,
+    costUsd,
+    transcript,
+    // 会话自己给的终态理由(no_progress / max_iterations / …)。它和 exit 码是两个问题:
+    // 本次实测到的形状是 exit=3 + `stopReason=no_progress` + 12.6 万 prompt token 而 completion 只有 22 token
+    // ⇒ 会话把预算花在读台账/规则全文上、没力气动手。只记 exit 就永远分不出"该改提示词"还是"该改运行器"。
+    stopReason: meter.stopReason ?? null,
+  }
 }
 
 /**
@@ -1292,7 +1315,7 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
         }
       }
       const res = dispatchSession(gates, ticket, dryRun)
-      record({ mode: dryRun ? 'dryrun' : 'dispatch', action: res.action, ticketKey: key, ticketLine: ticket.text.slice(0, 200), exitCode: res.exitCode ?? null, durationMs: res.durationMs ?? null, tokens: res.tokens ?? null, tokensMeasured: res.tokensMeasured === true, costUsd: res.costUsd ?? null, transcript: res.transcript ?? null, why: res.why ?? '' })
+      record({ mode: dryRun ? 'dryrun' : 'dispatch', action: res.action, ticketKey: key, ticketLine: ticket.text.slice(0, 200), exitCode: res.exitCode ?? null, stopReason: res.stopReason ?? null, durationMs: res.durationMs ?? null, tokens: res.tokens ?? null, tokensMeasured: res.tokensMeasured === true, costUsd: res.costUsd ?? null, transcript: res.transcript ?? null, why: res.why ?? '' })
       // O6502 记账腿:只有真派(非 dry-run)且拿到墙钟才进账;记不进去就如实告警,不冒充"额度还够"。
       // 第 3 期④:量到 token 就一并记账(单会话闸 + 24 小时闸的取数口);量不到只记墙钟并留响声。
       if (!dryRun && Number.isFinite(res.durationMs) && res.durationMs > 0) {
