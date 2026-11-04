@@ -14,6 +14,12 @@ const t = vi.fn((key: string): string => key)
 
 const files: AigcPublishFile[] = [{ id: 'f-1', url: 'https://cdn.example.com/a.png' }]
 
+/**
+ * 测试桩:共享屏只消费调用方解析好的明暗档案(真机值来自 ThemeContext.resolvedTheme);
+ * 单测固定浅色,避免组件静默落回形参默认值。
+ */
+const TEST_COLOR_SCHEME: 'light' | 'dark' = 'light'
+
 function renderScreen(overrides: Partial<AigcPublishScreenProps> = {}) {
   const props: AigcPublishScreenProps = {
     t,
@@ -39,6 +45,7 @@ function renderScreen(overrides: Partial<AigcPublishScreenProps> = {}) {
     onSubmit: vi.fn(),
     onBack: vi.fn(),
     onToast: vi.fn(),
+    colorScheme: TEST_COLOR_SCHEME,
     ...overrides,
   }
   return render(<AigcPublishScreen {...props} />)
