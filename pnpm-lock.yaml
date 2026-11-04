@@ -838,6 +838,9 @@ importers:
       expo-image-picker:
         specifier: ~57.0.0
         version: 57.0.10(expo@57.0.13)
+      expo-intent-launcher:
+        specifier: ~57.0.1
+        version: 57.0.1(expo@57.0.13)
       expo-linking:
         specifier: ~57.0.0
         version: 57.0.6(expo@57.0.13)(react-native@0.86.2(@babel/core@7.29.7(supports-color@8.1.1))(@react-native-community/cli@13.6.9(supports-color@8.1.1))(@react-native/metro-config@0.87.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.2.18)(react@19.2.8)(supports-color@8.1.1))(react@19.2.8)(supports-color@8.1.1)
@@ -13975,6 +13978,11 @@ packages:
 
   expo-image-picker@57.0.10:
     resolution: {integrity: sha512-Zr00cd4RuUJlke8yN8/lKdl55UauoacF45j86zJa6oxJoe+wjlt9kkf0aGxQeoPW1JILT5Ikr3Os4+a9ROJYEw==}
+    peerDependencies:
+      expo: '*'
+
+  expo-intent-launcher@57.0.1:
+    resolution: {integrity: sha512-BYiPEOUeW3AkW/uxEESbS2UBw9LasJ8Heb6A8kF9Ueh6pqrXQHMNJFHzfrOP8qZfv9G2e8CTzrtzpN5p0vH5fA==}
     peerDependencies:
       expo: '*'
 
@@ -37456,6 +37464,10 @@ snapshots:
     dependencies:
       expo: 57.0.13(7cd6c907e722ae73a42a310bd570c98a)
       expo-image-loader: 57.0.1(expo@57.0.13)
+
+  expo-intent-launcher@57.0.1(expo@57.0.13):
+    dependencies:
+      expo: 57.0.13(7cd6c907e722ae73a42a310bd570c98a)
 
   expo-json-utils@57.0.2: {}
 
