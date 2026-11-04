@@ -59,18 +59,18 @@ Full positioning narrative (value pyramid, cost comparison, differentiation, ben
 [`scripts/check-doc-numbers.mjs`](./scripts/check-doc-numbers.mjs) re-computes them for this file and
 the Chinese README, and blocks any stale value.
 
-Headline claims (same source as the table below, all live-computed): **619 tables · 4683 API routes ·
-25 WebSocket endpoints · 100 catalogued LLMs · 38 platforms auto-publishing · 4036 test files ·
-322 engineering gates · 52 CI workflows · 5-language i18n parity · 9 app packages · 16 shared packages ·
+Headline claims (same source as the table below, all live-computed): **618 tables · 4685 API routes ·
+25 WebSocket endpoints · 100 catalogued LLMs · 38 platforms auto-publishing · 4045 test files ·
+332 engineering gates · 53 CI workflows · 5-language i18n parity · 9 app packages · 16 shared packages ·
 14 compose services**.
 
 <!-- BEGIN GENERATED NUMBERS (node scripts/gen-doc-numbers.mjs --markdown) -->
 | 指标 | 现值 | 取数键 |
 | ---- | ---- | ------ |
-| 数据库表 | 619 | `dbTables` |
-| schema 文件 | 240 | `dbSchemaFiles` |
-| API 路由 | 4683 | `apiRoutes` |
-| 路由文件 | 658 | `apiRouteFiles` |
+| 数据库表 | 618 | `dbTables` |
+| schema 文件 | 239 | `dbSchemaFiles` |
+| API 路由 | 4685 | `apiRoutes` |
+| 路由文件 | 661 | `apiRouteFiles` |
 | AI 服务路由 | 628 | `aiServiceRoutes` |
 | WebSocket 端点 | 25 | `wsEndpoints` |
 | 入库模型清单 | 100 | `llmModels` |
@@ -82,15 +82,15 @@ Headline claims (same source as the table below, all live-computed): **619 table
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 4037 | `testFiles` |
-| CI 工作流 | 52 | `ciWorkflows` |
+| 测试文件 | 4045 | `testFiles` |
+| CI 工作流 | 53 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
-| 工程守门 | 326 | `guardianGates` |
-| — blocking | 296 | `guardianBlocking` |
+| 工程守门 | 332 | `guardianGates` |
+| — blocking | 302 | `guardianBlocking` |
 | — warn | 32 | `guardianWarn` |
-| 跟踪文件 | 19023 | `trackedFiles` |
+| 跟踪文件 | 18969 | `trackedFiles` |
 
-上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-03。
+上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-04。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
 
 <!-- END GENERATED NUMBERS -->
