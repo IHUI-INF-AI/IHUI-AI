@@ -104,6 +104,37 @@ describe('screenAttachmentFiles 三档判据(纯函数)', () => {
     expect(rejections[0]!.fileNames).toEqual(['tool.exe'])
   })
 
+  // 2026-11-04(格式对账尺 ③ 桶连带):改前 image/*|video/* 的 MIME 前缀无条件过预筛,
+  // 而服务端按 EXT_MIME_MAP + 魔数拒 ⇒ 浏览器认得的 .mkv/.avi/.ogv 会一路过前端、到
+  // /api/files/upload/form 才 400。这三枚用例把"预筛不得放行服务端会拒的文件"钉住。
+  it('类型档:视频/图片 MIME 前缀不再无条件放行 —— 白名单外的视频档当场拒', () => {
+    const { accepted, rejections } = screenAttachmentFiles(
+      [
+        mkFile('clip.mkv', 'video/x-matroska'),
+        mkFile('clip.avi', 'video/avi'),
+        mkFile('clip.ogv', 'video/ogg'),
+      ],
+      0,
+    )
+    expect(accepted).toHaveLength(0)
+    expect(rejections.map((r) => r.code)).toEqual(['accept'])
+    expect(rejections[0]!.fileNames.sort()).toEqual(['clip.avi', 'clip.mkv', 'clip.ogv'])
+  })
+
+  it('类型档:m4v 与 mp4 同容器,白名单已收 ⇒ 视频 MIME 走扩展名判定放行(反向对照)', () => {
+    const { accepted, rejections } = screenAttachmentFiles(
+      [mkFile('clip.m4v', 'video/x-m4v'), mkFile('clip.mp4', 'video/mp4')],
+      0,
+    )
+    expect(accepted.map((f) => f.name).sort()).toEqual(['clip.m4v', 'clip.mp4'])
+    expect(rejections).toHaveLength(0)
+  })
+
+  it('类型档:仅当文件名不含扩展名(粘贴出来的 File)才退回 MIME 前缀', () => {
+    const { accepted } = screenAttachmentFiles([mkFile('pasted-image', 'image/png')], 0)
+    expect(accepted.map((f) => f.name)).toEqual(['pasted-image'])
+  })
+
   it('大小档:边界同侧律 —— 恰等于上限放行,上限+1 拒绝(code=max_file_size)', () => {
     const { accepted, rejections } = screenAttachmentFiles(
       [
