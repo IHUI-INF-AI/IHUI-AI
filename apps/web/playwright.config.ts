@@ -10,6 +10,9 @@ import { defineConfig, devices } from '@playwright/test'
  * 本地运行:`pnpm test:e2e`(自动起 dev server)
  * CI 运行:`pnpm test:e2e`(用 build + start,更接近生产)
  * 复用已有 server:`PLAYWRIGHT_REUSE_SERVER=1 pnpm test:e2e`
+ * 完全外部供服(不自启也不探活 webServer):`IHUI_E2E_EXTERNAL_SERVER=1`
+ * —— 与 `playwright.visual.config.ts` 同名旗标同语义(2026-11-04 对齐);
+ * 旗标↔出路等价性由 `e2e/docs-slug-404.spec.ts` 末条用例钉住。
  *
  * globalSetup 在所有 spec 前自动 seed test@aizhs.top 用户,globalTeardown 在所有 spec 后
  * 自动 cleanup(回到只有 admin 状态),保证 E2E 自包含、CI 无需手动干预。
@@ -81,18 +84,20 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
   ],
-  webServer: {
-    // 本地用 dev(CI 用 build+start 更接近生产)
-    command: process.env.CI ? 'pnpm build && pnpm start' : 'pnpm dev',
-    // 探活 url 跟随 PLAYWRIGHT_BASE_URL(默认 8801 不变)。并发隔离第二台 web 时
-    // 设 IHUI_DEV_PORT + PLAYWRIGHT_BASE_URL,webServer 就不会拿 8801 判就绪。
-    url: process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:8801',
-    // 本地默认复用已运行的 dev server,避免开发时反复重启;CI 模式下显式设置 PLAYWRIGHT_REUSE_SERVER=1 也可复用
-    reuseExistingServer: process.env.PLAYWRIGHT_REUSE_SERVER
-      ? process.env.PLAYWRIGHT_REUSE_SERVER !== '0'
-      : !process.env.CI,
-    // CI build 较慢,给 240s;本地 dev 启动快,120s 够用
-    timeout: process.env.CI ? 240000 : 120000,
-  },
+  webServer: process.env.IHUI_E2E_EXTERNAL_SERVER
+    ? undefined
+    : {
+        // 本地用 dev(CI 用 build+start 更接近生产)
+        command: process.env.CI ? 'pnpm build && pnpm start' : 'pnpm dev',
+        // 探活 url 跟随 PLAYWRIGHT_BASE_URL(默认 8801 不变)。并发隔离第二台 web 时
+        // 设 IHUI_DEV_PORT + PLAYWRIGHT_BASE_URL,webServer 就不会拿 8801 判就绪。
+        url: process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:8801',
+        // 本地默认复用已运行的 dev server,避免开发时反复重启;CI 模式下显式设置 PLAYWRIGHT_REUSE_SERVER=1 也可复用
+        reuseExistingServer: process.env.PLAYWRIGHT_REUSE_SERVER
+          ? process.env.PLAYWRIGHT_REUSE_SERVER !== '0'
+          : !process.env.CI,
+        // CI build 较慢,给 240s;本地 dev 启动快,120s 够用
+        timeout: process.env.CI ? 240000 : 120000,
+      },
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

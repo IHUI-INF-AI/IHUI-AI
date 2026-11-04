@@ -344,10 +344,10 @@ admin-api(:8830) ─┘
 
 ### 环境变量(可选)
 
-| 变量                       | 默认                    | 说明                                   |
-| -------------------------- | ----------------------- | -------------------------------------- |
-| `BOARD_ADMIN_USER`       | `admin`                 | Grafana 管理员账号                     |
-| `BOARD_ADMIN_PASSWORD`   | `admin`                 | Grafana 管理员密码(生产环境必须修改)   |
+| 变量                   | 默认    | 说明                                 |
+| ---------------------- | ------- | ------------------------------------ |
+| `BOARD_ADMIN_USER`     | `admin` | Grafana 管理员账号                   |
+| `BOARD_ADMIN_PASSWORD` | `admin` | Grafana 管理员密码(生产环境必须修改) |
 
 ### Prometheus 不可达降级策略
 
@@ -357,10 +357,10 @@ admin-api(:8830) ─┘
 
 ### 自定义 dashboard
 
-- 模板:`deploy/saas/grafana/dashboards/tenant-overview.json` / `tenant-comparison.json`
+- 模板:`deploy/saas/panel-defs/panels/tenant-overview.json` / `tenant-comparison.json`
 - 变量:`var-tenant` 注入当前租户
-- 数据源:`deploy/saas/grafana/provisioning/datasources/prometheus.yml` 自动注册
-- 加载路径:`deploy/saas/grafana/provisioning/dashboards/dashboards.yml` 30s 扫描一次
+- 数据源:`deploy/saas/panel-defs/provisioning/datasources/prometheus.yml` 自动注册
+- 加载路径:`deploy/saas/panel-defs/provisioning/dashboards/dashboards.yml` 30s 扫描一次
 
 ## 故障排查
 
