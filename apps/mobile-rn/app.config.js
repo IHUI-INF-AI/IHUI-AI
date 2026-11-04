@@ -93,7 +93,13 @@ module.exports = ({ config }) => {
     process.env.EXPO_PUBLIC_WECHAT_APP_ID || process.env.WX_APP_APPID || config.extra?.WX_APP_APPID
   const universalLink =
     process.env.EXPO_PUBLIC_WECHAT_UNIVERSAL_LINK || config.extra?.WX_UNIVERSAL_LINK
-  const androidPackage = config.android?.package
+  // 2026-11-04:android.package 增加 env 覆盖口(与上面两个值同构)。
+  // 立因:静态分析器(如 knip 的 expo 插件)会用一个 **dummy config context** 调用本函数
+  // (getDummyConfigContext: staticConfigPath=null、config={plugins:[]}),里面结构上不含
+  // android.package ⇒ 下面这道 fail-closed 守卫必然抛错、整个配置加载失败。给一个 env 口
+  // 让"只做静态分析"的调用方显式供值,判据方向不变:三个值仍缺一即抛错,只是多了一条
+  // 显式供值通路(EAS/真实构建继续读 app.json 的 zh.ai.sq,env 不设时行为与旧版逐字一致)。
+  const androidPackage = process.env.WX_ANDROID_PACKAGE || config.android?.package
 
   if (!appId || !universalLink || !androidPackage) {
     throw new Error(
