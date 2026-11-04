@@ -30,6 +30,7 @@ import { Mic, AudioLines, Volume2, VolumeX } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
+import { COMPOSER_MENU_ROW_CLASS, COMPOSER_MENU_ROW_ICON_CLASS } from '@/lib/composer-menu-row'
 import { Tooltip } from '@/components/feedback'
 import { VoiceInput, type VoiceInputHandle } from './voice-input'
 import { readHandsFree, VOICE_HANDSFREE_KEY } from './voice-stream-speaker'
@@ -111,6 +112,8 @@ function writeHandsFree(next: boolean): void {
 interface VoiceToolbarProps {
   onTranscript: (text: string) => void
   disabled?: boolean
+  /** row = + 菜单内的统一设置行(2026-11-04 第三轮) */
+  variant?: 'bar' | 'row'
 }
 
 /**
@@ -139,7 +142,7 @@ function tooltipWithShortcut(label: string, key: string): React.ReactNode {
   )
 }
 
-export function VoiceToolbar({ onTranscript, disabled }: VoiceToolbarProps) {
+export function VoiceToolbar({ onTranscript, disabled, variant = 'bar' }: VoiceToolbarProps) {
   const t = useTranslations('chat')
   const voiceRef = React.useRef<VoiceInputHandle | null>(null)
   const [recording, setRecording] = React.useState(false)
@@ -266,39 +269,82 @@ export function VoiceToolbar({ onTranscript, disabled }: VoiceToolbarProps) {
             aria-haspopup="menu"
             aria-expanded={menuOpen}
             data-testid="voice-toolbar-main"
+            data-variant={variant}
             className={cn(
-              'relative flex h-8 w-8 shrink-0 items-center justify-center rounded-sm transition-colors',
-              recording
-                ? 'bg-red-500 text-white hover:bg-red-500/90'
-                : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-              'disabled:cursor-not-allowed disabled:opacity-50',
+              variant === 'row'
+                ? COMPOSER_MENU_ROW_CLASS
+                : cn(
+                    'relative flex h-8 w-8 shrink-0 items-center justify-center rounded-sm transition-colors',
+                    recording
+                      ? 'bg-red-500 text-white hover:bg-red-500/90'
+                      : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                    'disabled:cursor-not-allowed disabled:opacity-50',
+                  ),
+              variant === 'row' && recording && 'text-destructive',
             )}
           >
-            {recording ? (
-              <span className="flex h-4 items-center gap-0.5">
-                {[0, 1, 2, 3].map((i) => (
-                  <span
-                    key={`bar-${i}`}
-                    className="w-0.5 rounded bg-white"
-                    style={{
-                      height: '100%',
-                      transformOrigin: 'center',
-                      animation: `voice-wave 0.8s ease-in-out ${i * 0.12}s infinite alternate`,
-                    }}
-                  />
-                ))}
-              </span>
-            ) : (
-              <Mic className="h-4 w-4" />
-            )}
-            {showStatusDot && (
-              <span
-                aria-hidden="true"
-                className={cn(
-                  'absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full ring-2 ring-card',
-                  statusDotClassName,
+            {variant === 'row' ? (
+              <>
+                {recording ? (
+                  <span className="flex h-3.5 w-3.5 shrink-0 items-center gap-0.5">
+                    {[0, 1, 2, 3].map((i) => (
+                      <span
+                        key={`row-bar-${i}`}
+                        className="w-0.5 rounded bg-destructive"
+                        style={{
+                          height: '100%',
+                          transformOrigin: 'center',
+                          animation: `voice-wave 0.8s ease-in-out ${i * 0.12}s infinite alternate`,
+                        }}
+                      />
+                    ))}
+                  </span>
+                ) : (
+                  <Mic className={COMPOSER_MENU_ROW_ICON_CLASS} />
                 )}
-              />
+                <span className="min-w-0 flex-1 truncate">{t('voiceInputStart')}</span>
+                {(recording || showStatusDot) && (
+                  <span
+                    aria-hidden="true"
+                    className={cn(
+                      'h-1.5 w-1.5 shrink-0 rounded-full',
+                      recording ? 'bg-red-500' : statusDotClassName,
+                    )}
+                  />
+                )}
+                <span className="max-w-[52%] truncate text-label text-muted-foreground">
+                  {recording ? t('voiceInputStop') : ''}
+                </span>
+              </>
+            ) : (
+              <>
+                {recording ? (
+                  <span className="flex h-4 items-center gap-0.5">
+                    {[0, 1, 2, 3].map((i) => (
+                      <span
+                        key={`bar-${i}`}
+                        className="w-0.5 rounded bg-white"
+                        style={{
+                          height: '100%',
+                          transformOrigin: 'center',
+                          animation: `voice-wave 0.8s ease-in-out ${i * 0.12}s infinite alternate`,
+                        }}
+                      />
+                    ))}
+                  </span>
+                ) : (
+                  <Mic className="h-4 w-4" />
+                )}
+                {showStatusDot && (
+                  <span
+                    aria-hidden="true"
+                    className={cn(
+                      'absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full ring-2 ring-card',
+                      statusDotClassName,
+                    )}
+                  />
+                )}
+              </>
             )}
           </button>
         </Tooltip>

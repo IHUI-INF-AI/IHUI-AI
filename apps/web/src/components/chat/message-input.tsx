@@ -1548,43 +1548,35 @@ export function MessageInput({
                           </button>
                         </div>
                       )}
-                      <div
-                        className="flex flex-wrap items-center gap-1"
-                        data-testid="composer-quick-controls"
-                      >
+                      {/* 第三轮(2026-11-04):三枚控件统一为纵向设置行,不再并排成
+                          「迷你工具栏」(图标块 / 灰胶囊 / 描边胶囊三种形态混排) */}
+                      <div className="flex flex-col gap-0.5" data-testid="composer-quick-controls">
                         <PermissionModePopover
                           disabled={isStreaming}
                           onExplainMode={(mode) => setInfoMode(mode)}
+                          variant="row"
                         />
-                        <ModeSwitcher disabled={isStreaming} />
-                        <AgentPicker />
+                        <ModeSwitcher disabled={isStreaming} variant="row" />
+                        <AgentPicker variant="row" />
                       </div>
                     </div>
                   }
                   toolsMenuItems={
                     <div
-                      className="flex flex-col gap-1 px-1 pb-1"
+                      className="flex flex-col gap-0.5 px-1 pb-1"
                       data-testid="composer-tools-drawer"
                     >
-                      <span className="px-1.5 pb-0.5 text-[11px] font-medium text-muted-foreground">
-                        {t('moreTools')}
-                      </span>
-                      {/* 稳定网格(2026-11-04 第二轮收敛):前两项 2×2 上半行;
-                         语音两项合成一条通栏(麦克风 32px 固定 + 语音笔记 flex-1 填满),
-                         不再出现「32px 图标蹲在 103px 格子里」的半格悬空。 */}
-                      <div className="grid grid-cols-2 items-center gap-1 rounded-sm border border-border/60 bg-muted/20 p-1.5 [&>*]:min-w-0">
-                        <AgentProgressTrigger leftIcon={ListTodo} />
-                        <ContextUsageRing model={model} isStreaming={isStreaming} />
-                        <div className="col-span-2 flex min-w-0 items-center gap-1">
-                          <VoiceToolbar
-                            onTranscript={handleVoiceTranscript}
-                            disabled={isStreaming}
-                          />
-                          <div className="min-w-0 flex-1">
-                            <VoiceNote conversationId={conversationId} />
-                          </div>
-                        </div>
-                      </div>
+                      {/* 第三轮(2026-11-04):去掉「2×2 网格」——那是把 103px 按钮、
+                          裸圆环、32px 图标、96px 文字按钮硬塞进格子,导致半格悬空与
+                          尺寸参差。改为四行统一设置行,逐项带标签与当前值。 */}
+                      <AgentProgressTrigger leftIcon={ListTodo} variant="row" />
+                      <ContextUsageRing model={model} isStreaming={isStreaming} variant="row" />
+                      <VoiceToolbar
+                        onTranscript={handleVoiceTranscript}
+                        disabled={isStreaming}
+                        variant="row"
+                      />
+                      <VoiceNote conversationId={conversationId} variant="row" />
                       {/* 2026-11-04 第三轮:Steer / 打断并发送 已从本抽屉移到 + 菜单
                           第一层(composer-streaming-actions,仅流式期间出现)。抽屉只留
                           低频项(任务进度 / 上下文环 / 语音转文字 / 语音笔记)。 */}

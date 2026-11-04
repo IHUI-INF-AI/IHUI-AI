@@ -17,6 +17,12 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
+import {
+  COMPOSER_MENU_ROW_CHEVRON_CLASS,
+  COMPOSER_MENU_ROW_CLASS,
+  COMPOSER_MENU_ROW_ICON_CLASS,
+  COMPOSER_MENU_ROW_VALUE_CLASS,
+} from '@/lib/composer-menu-row'
 import { fetchPersonaCatalog } from '@/lib/personas-api'
 import { usePaneChatStore } from '@/stores/chat-pane-context'
 
@@ -36,7 +42,7 @@ import { usePaneChatStore } from '@/stores/chat-pane-context'
  *  - 胶囊形态与 ModelSelector 触发键同规格(h-8 / rounded-sm / border-input / text-sm),
  *    保证底栏单行时两枚控件视觉同权。
  */
-export function AgentPicker() {
+export function AgentPicker({ variant = 'pill' }: { variant?: 'pill' | 'row' }) {
   const t = useTranslations('chat')
   const chatStore = usePaneChatStore()
   const selectedAgentId = chatStore((s) => s.selectedAgentId)
@@ -59,26 +65,57 @@ export function AgentPicker() {
         <button
           type="button"
           disabled={isLoading}
-          aria-label={t('agentPicker.triggerAria')}
+          aria-label={
+            variant === 'row'
+              ? `${t('agentPicker.label')} · ${selectedLabel}`
+              : t('agentPicker.triggerAria')
+          }
           title={selectedLabel}
           data-testid="agent-picker-trigger"
           data-selected-agent={selectedAgentId ?? ''}
+          data-variant={variant}
           className={cn(
-            'inline-flex h-8 min-w-0 items-center gap-1 rounded-sm border border-input bg-card px-2 text-body font-medium transition-colors',
-            'hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60',
-            // 选中专家时主色描边,让"当前不是默认助手"在底栏一眼可见
-            selectedAgentId && 'border-primary/50 text-primary',
+            variant === 'row'
+              ? COMPOSER_MENU_ROW_CLASS
+              : cn(
+                  'inline-flex h-8 min-w-0 items-center gap-1 rounded-sm border border-input bg-card px-2 text-body font-medium transition-colors',
+                  'hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60',
+                  // 选中专家时主色描边,让"当前不是默认助手"在底栏一眼可见
+                  selectedAgentId && 'border-primary/50 text-primary',
+                ),
           )}
         >
-          <Users className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-          {isLoading ? (
-            <Loader2 className="agent-picker-loading h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" />
+          {variant === 'row' ? (
+            <>
+              <Users className={COMPOSER_MENU_ROW_ICON_CLASS} />
+              <span className="min-w-0 flex-1 truncate">{t('agentPicker.label')}</span>
+              {isLoading ? (
+                <Loader2 className="agent-picker-loading h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" />
+              ) : (
+                <span
+                  className={cn(
+                    COMPOSER_MENU_ROW_VALUE_CLASS,
+                    selectedAgentId && 'font-medium text-primary',
+                  )}
+                >
+                  {selectedLabel}
+                </span>
+              )}
+              <ChevronDown className={COMPOSER_MENU_ROW_CHEVRON_CLASS} aria-hidden />
+            </>
           ) : (
-            <span className="agent-picker-label min-w-0 max-w-[6rem] truncate">
-              {selectedLabel}
-            </span>
+            <>
+              <Users className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              {isLoading ? (
+                <Loader2 className="agent-picker-loading h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" />
+              ) : (
+                <span className="agent-picker-label min-w-0 max-w-[6rem] truncate">
+                  {selectedLabel}
+                </span>
+              )}
+              <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            </>
           )}
-          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent

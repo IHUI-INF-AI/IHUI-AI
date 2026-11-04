@@ -23,6 +23,12 @@ import { usePaneModeStore } from '@/stores/mode'
 import { usePaneAiToolsPanelStore } from '@/stores/ai-tools-panel'
 import type { ChatMode } from '@ihui/types'
 import { cn } from '@/lib/utils'
+import {
+  COMPOSER_MENU_ROW_CHEVRON_CLASS,
+  COMPOSER_MENU_ROW_CLASS,
+  COMPOSER_MENU_ROW_ICON_CLASS,
+  COMPOSER_MENU_ROW_VALUE_CLASS,
+} from '@/lib/composer-menu-row'
 
 /**
  * 对话模式切换器(2026-09-13 矩阵 A #24):同会话模式切换的可见控件,
@@ -49,7 +55,14 @@ const MODE_ITEMS: Array<{
   { mode: 'spec', labelKey: 'modeSpec', descKey: 'modeSpecDesc', icon: FileText },
 ]
 
-export function ModeSwitcher({ disabled = false }: { disabled?: boolean }) {
+export function ModeSwitcher({
+  disabled = false,
+  variant = 'pill',
+}: {
+  disabled?: boolean
+  /** pill = 底栏胶囊(默认);row = + 菜单内的统一设置行 */
+  variant?: 'pill' | 'row'
+}) {
   const t = useTranslations('chat')
   const tTools = useTranslations('aiToolsPanel')
   // 票60 普查批:按窗格寻址(Provider 外回落根单例 ⇒ 单窗格形态逐字不变)
@@ -72,23 +85,43 @@ export function ModeSwitcher({ disabled = false }: { disabled?: boolean }) {
         <button
           type="button"
           disabled={disabled}
-          aria-label={t(current.labelKey)}
+          aria-label={
+            variant === 'row'
+              ? `${t('modeSwitcherLabel')} · ${t(current.labelKey)}`
+              : t(current.labelKey)
+          }
           // mode-switch.spec.ts 契约(2026-09-13 矩阵 A #24):testid 定位 + data-mode
           // 反映当前模式(Ctrl+5 等快捷键切换后断言 data-mode 即时更新)。
           // 该 testid 自 spec 落地起缺失,2026-09-30 e2e 回归首次真正执行到断言才暴露。
           data-testid="mode-switcher"
           data-mode={currentMode}
+          data-variant={variant}
           className={cn(
-            'mode-switcher-trigger flex h-8 shrink-0 items-center gap-1 rounded-sm px-2 text-label font-medium transition-colors',
-            'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-            'disabled:cursor-not-allowed disabled:opacity-50',
+            variant === 'row'
+              ? COMPOSER_MENU_ROW_CLASS
+              : cn(
+                  'mode-switcher-trigger flex h-8 shrink-0 items-center gap-1 rounded-sm px-2 text-label font-medium transition-colors',
+                  'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                  'disabled:cursor-not-allowed disabled:opacity-50',
+                ),
           )}
         >
-          <CurrentIcon className="h-4 w-4" />
-          {/* mode-switcher-text:窄容器由 globals.css @container 隐藏(sm: 是视口断点,
-              管不住 300px AI 面板;视口宽面板窄时文字会把底部 toolbar 挤到右组溢出重叠) */}
-          <span className="mode-switcher-text hidden sm:inline">{t(current.labelKey)}</span>
-          <ChevronDown className="h-3 w-3 opacity-60" />
+          {variant === 'row' ? (
+            <>
+              <CurrentIcon className={COMPOSER_MENU_ROW_ICON_CLASS} />
+              <span className="min-w-0 flex-1 truncate">{t('modeSwitcherLabel')}</span>
+              <span className={COMPOSER_MENU_ROW_VALUE_CLASS}>{t(current.labelKey)}</span>
+              <ChevronDown className={COMPOSER_MENU_ROW_CHEVRON_CLASS} aria-hidden />
+            </>
+          ) : (
+            <>
+              <CurrentIcon className="h-4 w-4" />
+              {/* mode-switcher-text:窄容器由 globals.css @container 隐藏(sm: 是视口断点,
+                  管不住 300px AI 面板;视口宽面板窄时文字会把底部 toolbar 挤到右组溢出重叠) */}
+              <span className="mode-switcher-text hidden sm:inline">{t(current.labelKey)}</span>
+              <ChevronDown className="h-3 w-3 opacity-60" />
+            </>
+          )}
         </button>
       </DropdownMenuTrigger>
       {/* z-[2300](2026-11-04 第二轮收敛):本触发器现嵌在 + 菜单(z-[2200])第一层,
