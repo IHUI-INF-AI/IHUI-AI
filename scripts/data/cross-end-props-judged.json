@@ -2,6 +2,32 @@
   "rule": "逐键裁决台账(门285):仅收「同一对里按键可量出、但确认属平台/架构承载差异」的单键;每条必须 owner + expires(≤2027-06-30) + 双端 evidence(文件:行) + rationale;不得与映射表同键,不得以空 prop 冒充实现。到期须补实现或删死腿。",
   "entries": [
     {
+      "pair": "BackChevron",
+      "key": "label",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "RN 共享组件没有端内 i18n 钩子,label 作为无障碍名称必填、由调用方传入本地化字面量;小程序端组件内以 tt('common.back') 兜底,调用方无需必传,故不设必填腿。两端无障碍名称同源,属承载方式差异。",
+      "evidence": [
+        "packages/app/src/components/BackChevron.tsx:88",
+        "apps/miniapp-taro/src/components/BackChevron.tsx:104",
+        "packages/app/src/components/BackChevron.tsx:82"
+      ]
+    },
+    {
+      "pair": "BackChevron",
+      "key": "color",
+      "side": "mini",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "小程序端没有主题模式注入,颜色以 CSS token 字符串 color 传入(默认 var(--color-foreground));RN 端颜色由注入的 colorScheme(INJECTABLE)决定,故无同名 color 腿。",
+      "evidence": [
+        "apps/miniapp-taro/src/components/BackChevron.tsx:89",
+        "packages/app/src/components/BackChevron.tsx:94",
+        "apps/miniapp-taro/src/components/BackChevron.tsx:80"
+      ]
+    },
+    {
       "pair": "BottomActionBar",
       "key": "compactContextLoading",
       "side": "rn",
