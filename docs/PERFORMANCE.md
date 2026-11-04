@@ -23,7 +23,7 @@
 | 数据库 | 连接数 / 慢查询 / 缓存命中 / 死锁 / 事务耗时 | `packages/database/src/client.ts`、`apps/api/src/plugins/n1-detector.ts`、`apps/api/src/plugins/slow-sql-killer.ts` |
 | AI 服务 | 首 Token 延迟 / 流式吞吐 / 工具调用超时 | `apps/ai-service/app/core/llm_gateway.py`、`apps/ai-service/app/services/langgraph_service.py` |
 | WebSocket | 握手延迟 / 连接数 / 心跳频率 | `apps/api/src/plugins/ws-*.ts` |
-| 基础设施 | CPU / 内存 / 磁盘 | `monitoring/prometheus/alerts.yml`、`monitoring/grafana/dashboards/` |
+| 基础设施 | CPU / 内存 / 磁盘 | `monitoring/prometheus/alerts.yml`、`monitoring/panel-defs/panels/` |
 
 ### 1.2 性能工作流
 
@@ -45,7 +45,7 @@
 | `apps/api/src/plugins/compression.ts` | gzip / brotli 响应压缩 |
 | `apps/api/src/plugins/queue.ts` | Redis 限流(多租户配额) |
 | `monitoring/prometheus/alerts.yml` | 3 组告警规则(api / ai-service / infrastructure) |
-| `monitoring/grafana/dashboards/` | 19 个 大屏 仪表盘 |
+| `monitoring/panel-defs/panels/` | 19 个 大屏 仪表盘 |
 | `.github/workflows/lighthouse-ci.yml` | Lighthouse CI 门禁(每次 PR) |
 | `.github/workflows/ws-loadtest.yml` | 每周 WebSocket 压测回归 |
 
@@ -558,7 +558,7 @@ Node(node_exporter) ──┘         ├─→ Alertmanager ──→ 邮件 / 
 
 ### 10.3 大屏 仪表盘
 
-`monitoring/grafana/dashboards/` 共 19 个仪表盘,关键性能相关:
+`monitoring/panel-defs/panels/` 共 19 个仪表盘,关键性能相关:
 
 | Dashboard | 覆盖内容 |
 |-----------|---------|

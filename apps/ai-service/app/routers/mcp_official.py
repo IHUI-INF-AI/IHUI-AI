@@ -61,8 +61,9 @@ from typing import Any, Final
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from ..core.sse_frames import with_frame_trace_id
 from app import __version__
+
+from ..core.sse_frames import with_frame_trace_id
 from ..services.capability_gate import (
     Principal,
     PrincipalAuthError,

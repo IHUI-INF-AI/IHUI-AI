@@ -153,6 +153,18 @@ const READ_ONLY_RE = /\bREAD_ONLY\b/
 /** 函数体内窗口:块前后各 30 行。 */
 const WINDOW_LINES = 30
 
+/**
+ * 真正的「会抢作业」证据:进程里创建 BullMQ worker / 消费者。
+ * 只换库不等于会抢作业 —— psql、迁移守卫、drizzle-kit、注入伪 runner 的夹具都不建 worker
+ * (2026-11-04 实测:这类站点原来被「见 DATABASE_URL 即判」整片误报,见 check-migration-from-zero:496/579)。
+ */
+const WORKER_EVIDENCE_RE =
+  /new\s+Worker\s*\(|\bWorkerHost\b|\bbullmq\b|\bcreateWorker\s*\(|\bstartWorker\s*\(|\brunWorker\s*\(|relay-account-pool-queue|relayQueueName\s*\(/
+/** env 只有挂到进程派生调用上才可能影响别的进程;纯函数夹具的 `env:` 只是入参名。 */
+const LAUNCH_RE = /\b(?:spawn|spawnSync|execFile|execFileSync|exec|execSync|fork)\s*\(/
+/** 派生目标是 API / worker 入口(引号内的路径名),这类进程会注册 BullMQ worker。 */
+const API_ENTRY_RE = /(['"`])[^'"`\n]*(?:[/\\])?(?:index|main|server|worker)[^'"`\n]*\.(?:mjs|cjs|js|ts|tsx)\1/
+
 // ─── 纯函数:括号配对 ─────────────────────────────────────────────────────────
 
 /**
@@ -446,6 +458,21 @@ export function pathExemptReason(file) {
 }
 
 /**
+ * 这一处换库会不会真的创建 queue consumer / worker:
+ *  · 块或 ±WINDOW_LINES 窗口内出现 worker 创建证据 ⇒ 会(该按原判据判红);
+ *  · env 没挂到任何派生进程(纯函数/夹具入参)⇒ 不会;
+ *  · 派生目标是 API/worker 入口 ⇒ 会(进程内注册 BullMQ worker);
+ *  · 派生目标是 psql / 迁移 / drizzle-kit 这类工具子进程 ⇒ 不会。
+ * 返回 null = 有 worker 证据(继续按隔离判据判);返回字符串 = 不入红的人话理由(记 skip,不静默吞)。
+ */
+function noWorkerReason(text) {
+  if (WORKER_EVIDENCE_RE.test(text)) return null
+  if (!LAUNCH_RE.test(text)) return 'env 未挂到派生进程(纯函数/夹具入参),不会创建 worker'
+  if (API_ENTRY_RE.test(text)) return null
+  return '派生目标是 psql/迁移/工具子进程,块与 ±' + WINDOW_LINES + ' 行窗口内无 BullMQ worker 创建证据'
+}
+
+/**
  * 判一段源码。返回 `{ rewritten, violations, skips }`:
  *  - `rewritten`:命中「换库证据」的块数(0 ⇒ 无对象,即 NOT_APPLICABLE)
  *  - `violations`:换库了但没隔离,且不属任何豁免
@@ -497,6 +524,14 @@ export function scanSource(src, options = {}) {
     const from = Math.max(0, block.line - 1 - WINDOW_LINES)
     const to = Math.min(lines.length, block.endLine + WINDOW_LINES)
     if (ISOLATION_RE.test(lines.slice(from, to).join('\n'))) continue
+
+    // 判据只对「真的会创建 queue consumer / worker」的进程成立:psql/迁移/夹具换库不抢作业,
+    // 记 skip 并点名理由(不静默吞,也不靠标记绕过)。
+    const noWorker = noWorkerReason(`${codeOnly}\n${lines.slice(from, to).join('\n')}`)
+    if (noWorker !== null) {
+      result.skips.push({ file, line, reason: `无 worker 创建证据 ⇒ 不判红(${noWorker})` })
+      continue
+    }
 
     result.violations.push({
       file,
@@ -769,7 +804,7 @@ function selfTest() {
   })
 
   t('⑥ 注释里的 REDIS_URL 不算隔离证据', () => {
-    const src = `spawn(cmd, {\n  // 记得换 REDIS_URL\n  ${ENV_OPEN} DATABASE_URL: dsn },\n})\n`
+    const src = `spawn(process.execPath, ['src/index.ts'], {\n  // 记得换 REDIS_URL\n  ${ENV_OPEN} DATABASE_URL: dsn },\n})\n`
     const r = scan(src)
     return r.violations.length === 1
   })
@@ -782,13 +817,13 @@ function selfTest() {
   })
 
   t('⑧ Object.assign(process.env, { DATABASE_URL }) ⇒ 命中', () => {
-    const src = `const childEnv = ${ASSIGN_OPEN} DATABASE_URL: dsn, PORT: '8809' })\n`
+    const src = `const childEnv = ${ASSIGN_OPEN} DATABASE_URL: dsn, PORT: '8809' })\nspawn(process.execPath, ['src/index.ts'], {})\n`
     const r = scan(src)
     return r.rewritten === 1 && r.violations.length === 1
   })
 
   t('⑨ 字符串替换形(DATABASE_URL.replace 换库)⇒ 命中', () => {
-    const src = `${PE}.DATABASE_URL = ${PE}.DATABASE_URL.replace(/\\/ihui$/, '/ihui_e2e')\n`
+    const src = `${PE}.DATABASE_URL = ${PE}.DATABASE_URL.replace(/\\/ihui$/, '/ihui_e2e')\nspawn(process.execPath, ['src/index.ts'], {})\n`
     const r = scan(src)
     return r.rewritten >= 1 && r.violations.length >= 1
   })
@@ -959,10 +994,13 @@ function printHelp() {
   · --self-test 与面旗同给 ⇒ exit 2(自检构造的是内存样例,没有面可判)
   · --root 给了旗标不给值 ⇒ exit 2(不得静默回落默认根)
 
-判据三条:
+判据四条:
   ① 找 env 覆盖块:env: { … } / Object.assign(process.env, { … }) / process.env.DATABASE_URL = …
   ② 块内出现 DATABASE_URL 的改写证据 ⇒ 视为「换了库」
-  ③ 同一块(或块前后 ${WINDOW_LINES} 行窗口)必须同时出现 REDIS_URL /
+  ③ 该处必须真的会创建 queue consumer / worker(块或 ±${WINDOW_LINES} 行窗口内有 worker 创建证据,
+     或派生目标就是 API/worker 入口);psql / 迁移 / drizzle-kit / 纯夹具子进程不建 worker,
+     记 skip 并点名理由,不判红
+  ④ 会建 worker 时,同一块(或 ±${WINDOW_LINES} 行窗口)必须同时出现 REDIS_URL /
      RELAY_QUEUE_SUFFIX / QUEUE_PREFIX / BULLMQ_PREFIX 之一,否则记 violation
 
 豁免三档(逐条打印 skip(reason),不静默吞):

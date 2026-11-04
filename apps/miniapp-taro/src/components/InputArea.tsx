@@ -7,7 +7,7 @@ import { View, Text, Textarea, ScrollView, Image, Video } from '@tarojs/componen
 import Taro from '@tarojs/taro'
 import { useState, useCallback, useEffect } from 'react'
 import { useUiField } from '@/lib/ui-field-registry'
-import type { CSSProperties } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import voiceRecorder from '@/utils/voice-recorder'
 import { cn, rnRadiusFor, TARO_RPX_PER_PX, taroGeometry } from '@ihui/design-tokens'
 // 放大钮内缩 / 语音钮间距 —— 唯一源在 @ihui/shared/ui/input-area-spec(与 RN 端同档);
@@ -90,6 +90,45 @@ export interface InputAreaProps {
   onKeyboardHeightChange?: (height: number) => void
   /** 放大态变化通知父组件 */
   onFangdaChange?: (active: boolean) => void
+
+  // ── 跨端对齐(门285 B2 存量收敛):以下 16 项对齐 mobile-rn/src/components/InputArea.tsx ──
+  // 仅对齐类型契约,RN 同名项缺省即降级为原行为;组件内部暂未接线的保持可选,
+  // 不破坏既有调用点。异名同义项(images/imgsList、onImageRemove/onRemoveImage、
+  // onUpload/onImageAdd、onVoiceStart/onVoicePress、onVoiceEnd/onVoiceRelease、
+  // onChangeText/onInput、onSubmit/onSend)见 .ihui-agent/tmp/xend-props/equiv-B2.json,
+  // 不在此重复加 RN 名。
+  /** 发送中:按钮显示 loading 态替代发送图标(RN loading) */
+  loading?: boolean
+  /** 停止回调:loading 时发送钮切换为停止钮(danger 色),用于流式对话中断(RN onStop) */
+  onStop?: () => void
+  /** 停止按钮文字,缺省「停止」(RN stopLabel) */
+  stopLabel?: string
+  /** 发送按钮可访问文案(i18n 注入);未提供回退 "send"(RN sendLabel) */
+  sendLabel?: string
+  /** 已选模型名(按钮上显示;未选时按钮显示「自动」兜底)(RN selectedModelName) */
+  selectedModelName?: string | null
+  /** 清除已选模型(按钮内「×」,selectedModelName 存在时显示)(RN onClearModel) */
+  onClearModel?: () => void
+  /** 模型选择触发钮回调;模型列表面板由调用方渲染(RN onOpenModelSelect) */
+  onOpenModelSelect?: () => void
+  /** 打开模型参数配置(按钮旁滑杆钮)(RN onOpenModelConfig) */
+  onOpenModelConfig?: () => void
+  /** 「+」按钮回调(底部滑出菜单;激活时旋转 45° + 品牌色高亮)(RN onPlusToggle) */
+  onPlusToggle?: () => void
+  /** 「+」按钮激活态(底部菜单展开时高亮 + 旋转 45°)(RN plusActive) */
+  plusActive?: boolean
+  /** 显示框内麦克风按钮(长按录音,松开转写);传入后渲染为「一个大输入框」(RN showVoiceMic) */
+  showVoiceMic?: boolean
+  /** 录音中(showVoiceMic=true 时生效)(RN voiceRecording) */
+  voiceRecording?: boolean
+  /** 转写中(showVoiceMic=true 时生效)(RN voiceTranscribing) */
+  voiceTranscribing?: boolean
+  /** 录音时长(秒,showVoiceMic=true 时生效)(RN voiceDuration) */
+  voiceDuration?: number
+  /** D43 语音笔记入口节点(渲染在「+」与发送钮之间;不传不渲染)(RN voiceNoteNode) */
+  voiceNoteNode?: ReactNode
+  /** 透明底模式(停靠区容器让位,去 surface.card 底色与顶描边)(RN transparentBackground) */
+  transparentBackground?: boolean
 }
 
 const EMOJI_LIST = [

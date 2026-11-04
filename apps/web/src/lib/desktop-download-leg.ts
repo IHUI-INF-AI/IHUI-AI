@@ -16,6 +16,7 @@
  *   · 只有 `CN` 才走 Gitee,HK/MO/TW 与其它一律 GitHub —— 地域不是"我猜它在国内"的理由。
  */
 import type { GiteeParity } from '../config/desktop-feed-live'
+import { isMainDomainHost } from './auth-domains'
 
 export type DesktopLeg = 'cn' | 'origin'
 
@@ -67,9 +68,12 @@ export function pickDesktopLeg(args: {
   cnUrl: string | null | undefined
 }): PickedLeg | null {
   const { countryCode, parity, originUrl, cnUrl } = args
-  const cc = String(countryCode ?? '').trim().toUpperCase()
+  const cc = String(countryCode ?? '')
+    .trim()
+    .toUpperCase()
   const known = cc.length > 0
-  const hasOrigin = typeof originUrl === 'string' && originUrl.length > 0 && originAllowed(originUrl)
+  const hasOrigin =
+    typeof originUrl === 'string' && originUrl.length > 0 && originAllowed(originUrl)
   const hasCn = typeof cnUrl === 'string' && cnUrl.length > 0 && originAllowed(cnUrl)
   // 地域信号**取不到时不改变现状**:站点入口换过三层(Cloudflare 隧道 → EdgeOne → 自建节点直连),
   // `cf-ipcountry` 未必存在;把"没信号"读成"在海外"会让全部国内访客一夜之间退回 GitHub 直连,
@@ -112,5 +116,52 @@ export function assetNameFromHref(href: string): string {
   } catch {
     return base
   }
+}
+
+/** 回跳兜底页可用的公开 origin —— 与 RELEASE_TARGET_ALLOWED_ORIGINS 同源那批主机,加上本地开发口 */
+const LOCAL_PAGE_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]', '::1'])
+
+/**
+ * 解析"回跳到下载页"该用哪个 origin(2026-11-04 实测补的这一格)。
+ *
+ * 病灶:蓝绿/路由把请求转给内网 web 进程后,`request.url` 的 origin 就是**内网**那个
+ * (`http://localhost:8852`)。公网用户命中兜底分支时拿到的 Location 于是长成
+ * `https://localhost:8852/download/desktop` —— 一条在他机上根本打不开的跳转。
+ * 取值次序(每一步都不信裸 Host):
+ *   ① 有 `x-forwarded-host` 且它的主机名**逐字等于**主域(auth-domains 单源判定)⇒ 用它(带 https/http 由 proto 定);
+ *   ② 有转发头但不是主域(伪造/内网服务名/带端口)⇒ 不跟它走,回落到配置化的主域 origin;
+ *   ③ 没有转发头(真·本机直连)⇒ 请求自己的 origin 就是答案(本地开发可见);
+ *   ④ 上面任一 URL 解析不了 ⇒ 配置化主域 origin。
+ */
+export function pageBaseOrigin({
+  requestOrigin,
+  forwardedHost,
+  forwardedProto,
+  mainDomainOrigin,
+}: {
+  requestOrigin: string
+  forwardedHost?: string | null
+  forwardedProto?: string | null
+  mainDomainOrigin: string
+}): string {
+  const fw = String(forwardedHost ?? '').trim()
+  if (fw) {
+    const host = fw.split(':')[0]?.toLowerCase() ?? ''
+    const proto =
+      String(forwardedProto ?? '')
+        .split(',')[0]
+        ?.trim() === 'http'
+        ? 'http'
+        : 'https'
+    if (!fw.includes(':') && isMainDomainHost(host)) return `${proto}://${fw}`
+    return mainDomainOrigin
+  }
+  try {
+    const host = new URL(requestOrigin).hostname.toLowerCase()
+    if (isMainDomainHost(host) || LOCAL_PAGE_HOSTS.has(host)) return requestOrigin
+  } catch {
+    return mainDomainOrigin
+  }
+  return mainDomainOrigin
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

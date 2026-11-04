@@ -98,6 +98,12 @@ export interface UserInfoCardProps extends UserInfoCardMinimalProps {
   onOpenLevel?: () => void
   /** 一键登录回调(仅未登录显示) */
   onLogin?: () => void
+  /**
+   * 邀请码复制回调(对齐 RN onCopyInviteCode)。
+   * [需后手补载体] 本端扁平 props 暂无 inviteCode 数据字段(RN 取自 userInfo.inviteCode),
+   * 故暂仅声明、未接调用点;后手补 inviteCode 扁平属性 + 邀请码行后,在此接 onCopyInviteCode(code)。
+   */
+  onCopyInviteCode?: (code: string) => void
 }
 
 /** 智汇值格式化(对齐原项目 formatTokenValue:>=10000 显示 x.xw,>=1000 显示 x.xk) */
@@ -126,6 +132,8 @@ export default function UserInfoCard({
   onOpenVip,
   onOpenLevel,
   onLogin,
+  // [需后手补载体] onCopyInviteCode 暂未接调用点(本端无 inviteCode 扁平字段);声明保留以对齐 RN
+  onCopyInviteCode: _onCopyInviteCode,
 }: UserInfoCardProps) {
   const tt = useTt()
   // 未登录判定(对齐原项目:无头像 + 昵称为"未登录")

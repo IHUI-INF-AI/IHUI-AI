@@ -178,8 +178,8 @@ services:
       - GF_SERVER_ROOT_URL=http://127.0.0.1:8816
       - GF_SERVER_HTTP_PORT=8816
     volumes:
-      - ./grafana/provisioning:/etc/grafana/provisioning:ro
-      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - ./panel-defs/provisioning:/etc/grafana/provisioning:ro
+      - ./panel-defs/panels:/var/lib/grafana/dashboards:ro
       - saas_grafana_data:/var/lib/grafana
     networks:
       - ihui-saas-net

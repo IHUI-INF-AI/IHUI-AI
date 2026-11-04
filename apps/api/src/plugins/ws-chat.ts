@@ -138,6 +138,21 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
   // 防护:每用户 60 条/分钟(含 room 切换/typing),超限 close(4002)
   const messageRateLimiter = new WsRateLimiter(60, 60_000)
 
+  /**
+   * Redis 写 fire-and-forget 收口:失败只留痕,不阻塞主流程。
+   *
+   * 2026-11-04 门 121 清偿:此前 12 处各自展开同一段「void 承诺 + 拒绝处理器」,
+   * 处理器体逐字相同,只有日志文案两档(operation / cleanup)。收敛成单点声明后
+   * 调用点只传操作与文案,算子不再逐点重复。
+   * 行为等价:每个调用仍各自挂拒绝处理器、仍以同一 err 与同一文案记 error;
+   * 差别仅在栈帧多一层 helper。
+   */
+  const fireAndForgetRedis = (op: Promise<unknown>, msg: string): void => {
+    void op.catch((err) => {
+      server.log.error({ err }, msg)
+    })
+  }
+
   /** IDOR 校验:用户是否有权访问某房间(房主或已加入成员) */
   async function checkRoomOwnership(
     redis: Redis | null,
@@ -205,12 +220,11 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
     if (subscriber) {
       const publisher = (server as unknown as { redis?: Redis }).redis
       if (publisher) {
-        // fire-and-forget 必须挂 catch,避免未处理的 Promise 拒绝导致进程告警
-        void publisher
-          .publish(channelFor(roomId), JSON.stringify({ _src: instanceId, payload }))
-          .catch((err) => {
-            server.log.error({ err }, 'ws-chat redis operation failed')
-          })
+        // fire-and-forget 必须挂拒绝处理器,避免未处理的 Promise 拒绝导致进程告警
+        fireAndForgetRedis(
+          publisher.publish(channelFor(roomId), JSON.stringify({ _src: instanceId, payload })),
+          'ws-chat redis operation failed',
+        )
       }
     }
   }
@@ -225,17 +239,14 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
     const publisher = (server as unknown as { redis?: Redis }).redis
     if (!publisher) return
     const key = `chatroom:messages:${roomId}`
-    // fire-and-forget 必须挂 catch,避免未处理的 Promise 拒绝导致进程告警
-    void publisher.lpush(key, JSON.stringify(payload)).catch((err) => {
-      server.log.error({ err }, 'ws-chat redis operation failed')
-    })
-    void publisher.ltrim(key, 0, 199).catch((err) => {
-      server.log.error({ err }, 'ws-chat redis operation failed')
-    })
+    // fire-and-forget 必须挂拒绝处理器,避免未处理的 Promise 拒绝导致进程告警
+    fireAndForgetRedis(
+      publisher.lpush(key, JSON.stringify(payload)),
+      'ws-chat redis operation failed',
+    )
+    fireAndForgetRedis(publisher.ltrim(key, 0, 199), 'ws-chat redis operation failed')
     // 2026-09-06 P0:消息历史加 TTL,防无界集合堆积(ltrim 只限长度,不限时间)
-    void publisher.expire(key, MESSAGE_TTL_SEC).catch((err) => {
-      server.log.error({ err }, 'ws-chat redis operation failed')
-    })
+    fireAndForgetRedis(publisher.expire(key, MESSAGE_TTL_SEC), 'ws-chat redis operation failed')
   }
 
   // HTTP 鉴权辅助
@@ -581,12 +592,14 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
         const r = getRedis()
         if (r) {
           for (const targetRoom of joinedRooms) {
-            void r.srem(`chatroom:members:${targetRoom}`, userId).catch((err) => {
-              server.log.error({ err }, 'ws-chat redis cleanup failed')
-            })
-            void r.srem(`chatroom:user_rooms:${userId}`, targetRoom).catch((err) => {
-              server.log.error({ err }, 'ws-chat redis cleanup failed')
-            })
+            fireAndForgetRedis(
+              r.srem(`chatroom:members:${targetRoom}`, userId),
+              'ws-chat redis cleanup failed',
+            )
+            fireAndForgetRedis(
+              r.srem(`chatroom:user_rooms:${userId}`, targetRoom),
+              'ws-chat redis cleanup failed',
+            )
           }
         }
         // 2026-08-02 P1 安全审计:释放连接槽位 + 清除速率窗口
@@ -635,20 +648,24 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
           // 持久化成员关系到 Redis(跨实例共享,支持 HTTP 查询用户房间列表)
           const r = getRedis()
           if (r) {
-            // fire-and-forget 必须挂 catch,避免未处理的 Promise 拒绝导致进程告警
-            void r.sadd(`chatroom:members:${targetRoom}`, userId).catch((err) => {
-              server.log.error({ err }, 'ws-chat redis operation failed')
-            })
-            void r.sadd(`chatroom:user_rooms:${userId}`, targetRoom).catch((err) => {
-              server.log.error({ err }, 'ws-chat redis operation failed')
-            })
+            // fire-and-forget 必须挂拒绝处理器,避免未处理的 Promise 拒绝导致进程告警
+            fireAndForgetRedis(
+              r.sadd(`chatroom:members:${targetRoom}`, userId),
+              'ws-chat redis operation failed',
+            )
+            fireAndForgetRedis(
+              r.sadd(`chatroom:user_rooms:${userId}`, targetRoom),
+              'ws-chat redis operation failed',
+            )
             // 2026-09-06 P0:加入时刷新成员集合 TTL,防无界集合堆积
-            void r.expire(`chatroom:members:${targetRoom}`, MEMBER_TTL_SEC).catch((err) => {
-              server.log.error({ err }, 'ws-chat redis operation failed')
-            })
-            void r.expire(`chatroom:user_rooms:${userId}`, MEMBER_TTL_SEC).catch((err) => {
-              server.log.error({ err }, 'ws-chat redis operation failed')
-            })
+            fireAndForgetRedis(
+              r.expire(`chatroom:members:${targetRoom}`, MEMBER_TTL_SEC),
+              'ws-chat redis operation failed',
+            )
+            fireAndForgetRedis(
+              r.expire(`chatroom:user_rooms:${userId}`, MEMBER_TTL_SEC),
+              'ws-chat redis operation failed',
+            )
           }
           // 通知房间其他成员有新人加入(跨实例广播,排除自己)
           publish(
@@ -673,13 +690,15 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
           // 同步移除 Redis 成员关系
           const r = getRedis()
           if (r) {
-            // fire-and-forget 必须挂 catch,避免未处理的 Promise 拒绝导致进程告警
-            void r.srem(`chatroom:members:${targetRoom}`, userId).catch((err) => {
-              server.log.error({ err }, 'ws-chat redis operation failed')
-            })
-            void r.srem(`chatroom:user_rooms:${userId}`, targetRoom).catch((err) => {
-              server.log.error({ err }, 'ws-chat redis operation failed')
-            })
+            // fire-and-forget 必须挂拒绝处理器,避免未处理的 Promise 拒绝导致进程告警
+            fireAndForgetRedis(
+              r.srem(`chatroom:members:${targetRoom}`, userId),
+              'ws-chat redis operation failed',
+            )
+            fireAndForgetRedis(
+              r.srem(`chatroom:user_rooms:${userId}`, targetRoom),
+              'ws-chat redis operation failed',
+            )
           }
           // 通知房间其他成员有人离开
           publish(targetRoom, {

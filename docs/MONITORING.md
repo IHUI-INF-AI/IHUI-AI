@@ -153,9 +153,9 @@ scrape_configs:
 
 ## 4. 大屏
 
-> 配置文件:`monitoring/grafana/grafana.ini`
+> 配置文件:`monitoring/panel-defs/board.ini`
 
-### grafana.ini 关键配置
+### board.ini 关键配置
 
 ```ini
 [server]
@@ -182,7 +182,7 @@ enabled = true                 # 大屏 自身指标暴露
 
 ### 数据源(Provisioning)
 
-> 配置文件:`monitoring/grafana/provisioning/datasources/datasources.yml`
+> 配置文件:`monitoring/panel-defs/provisioning/datasources/datasources.yml`
 
 | 数据源 | 类型 | URL | 默认 | 说明 |
 |--------|------|-----|------|------|
@@ -194,7 +194,7 @@ enabled = true                 # 大屏 自身指标暴露
 
 ### 21 仪表盘清单
 
-> 目录:`monitoring/grafana/dashboards/`
+> 目录:`monitoring/panel-defs/panels/`
 
 | 仪表盘 | 文件 | 用途 |
 |--------|------|------|
@@ -222,7 +222,7 @@ enabled = true                 # 大屏 自身指标暴露
 
 ### Dashboard Provisioning
 
-> 配置文件:`monitoring/grafana/provisioning/dashboards/dashboards.yml`
+> 配置文件:`monitoring/panel-defs/provisioning/dashboards/dashboards.yml`
 
 大屏 启动时自动从 `/var/lib/grafana/dashboards/` 加载所有 JSON 仪表盘,无需手动导入。
 

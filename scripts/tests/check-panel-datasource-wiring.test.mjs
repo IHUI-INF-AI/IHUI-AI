@@ -201,4 +201,35 @@ test('D12 存量归零锁:现读仓内全部大盘必须零版面异常(有人�
   const issues = GATE.auditGrid(all)
   assert.equal(issues.length, 0, `版面坐标异常:${issues.map((i) => `${i.file} ${i.why}`).join(' | ')}`)
 })
+
+// ── 2026-11-04 退役锁:legacy */grafana 树不得经合并复活 ──────────────────────
+// a7ced7411c 已用 R100 把三棵树搬进 panel-defs;26975a4bfd 的索引层重建把整批旧路径
+// 带回,盘面于是新旧两份并存,自检 S5b 当场判红(报告原文点名三棵 legacy 树)。
+// 处置是退役旧树,不是登记也不是豁免:登记会让陈旧副本继续参与对账(S5b 存在的意义
+// 就是不许清单静默漏树),豁免则等于默许下次再复活。本锁同时封住这两种"消红"捷径。
+const RETIRED_TREES = ['monitoring/grafana/', 'deploy/observability/grafana/', 'deploy/saas/grafana/']
+
+test('D13 退役锁:legacy */grafana 树不得复活,也不得改道登记/豁免', () => {
+  const tracked = execFileSync('git', ['ls-files', '-z'], {
+    cwd: ROOT,
+    encoding: 'utf8',
+    windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+    .split('\0')
+    .filter(Boolean)
+  const hits = tracked.filter((p) => RETIRED_TREES.some((d) => p.startsWith(d)))
+  assert.equal(
+    hits.length,
+    0,
+    `legacy 树已按改名契约退役(a7ced7411c),不得经合并/索引重建复活;现读 ${hits.length} 枚:${hits.slice(0, 5).join(', ')}`
+  )
+  // 反证一:退役后这两棵树不得以"消红"为目的被登记进覆盖面(那等于换名继续对账陈旧副本)
+  const readmitted = GATE.DASHBOARD_TREES.filter((t) => RETIRED_TREES.some((d) => `${t.dashboards}/`.startsWith(d)))
+  assert.equal(readmitted.length, 0, `退役树不得重新登记进 DASHBOARD_TREES:${readmitted.map((t) => t.dashboards).join(', ')}`)
+  // 反证二:退役不得误伤现行三棵树 —— 它们必须仍在跟踪面里,否则本测试会假绿
+  for (const t of GATE.DASHBOARD_TREES) {
+    assert.ok(tracked.some((p) => p.startsWith(`${t.dashboards}/`)), `现行树 ${t.dashboards} 不得因退役被误删(假绿反证)`)
+  }
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

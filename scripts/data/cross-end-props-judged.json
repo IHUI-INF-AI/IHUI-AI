@@ -191,9 +191,9 @@
       "expires": "2027-06-30",
       "rationale": "小程序端一键登录是本弹窗职责(取 loginCode+phoneCode);RN 端登录动作由父组件 onPrimary/onSecondary 注入,无同名三腿。",
       "evidence": [
-        "apps/miniapp-taro/src/components/LoginPopUp.tsx:73",
+        "apps/miniapp-taro/src/components/LoginPopUp.tsx:81",
         "apps/mobile-rn/src/components/LoginPopUp.tsx:114",
-        "apps/miniapp-taro/src/components/LoginPopUp.tsx:73"
+        "apps/miniapp-taro/src/components/LoginPopUp.tsx:81"
       ]
     },
     {
@@ -204,9 +204,9 @@
       "expires": "2027-06-30",
       "rationale": "小程序端密码登录是本弹窗职责(账号+密码);RN 端登录动作由父组件注入,无同名回调腿。",
       "evidence": [
-        "apps/miniapp-taro/src/components/LoginPopUp.tsx:79",
+        "apps/miniapp-taro/src/components/LoginPopUp.tsx:87",
         "apps/mobile-rn/src/components/LoginPopUp.tsx:114",
-        "apps/miniapp-taro/src/components/LoginPopUp.tsx:79"
+        "apps/miniapp-taro/src/components/LoginPopUp.tsx:87"
       ]
     },
     {
@@ -217,9 +217,9 @@
       "expires": "2027-06-30",
       "rationale": "小程序端 webview 鉴权是本弹窗职责;RN 端兜底动作走 onSecondary,无同名回调腿。",
       "evidence": [
-        "apps/miniapp-taro/src/components/LoginPopUp.tsx:88",
+        "apps/miniapp-taro/src/components/LoginPopUp.tsx:96",
         "apps/mobile-rn/src/components/LoginPopUp.tsx:116",
-        "apps/miniapp-taro/src/components/LoginPopUp.tsx:88"
+        "apps/miniapp-taro/src/components/LoginPopUp.tsx:96"
       ]
     },
     {
