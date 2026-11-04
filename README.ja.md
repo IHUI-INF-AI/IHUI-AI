@@ -2221,6 +2221,12 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-04**
+- 🔧 その他:收编停留≥3分钟的未提交改动 (1e14489b39)
+- 🚀 機能/改善:新增 worktree-reclaim-guard，四条磁盘约束落成硬判据 (bef468b336)
+- 🔧 その他:结清并摘除考勤四票 B67 B70 B71 B72——逐行按其自写判据当场复跑 (3cbf9e50f8)
+- 📚 ドキュメント:auto-triage 自动登记(api-logs;第 1 期感知层产线动作,O65) (2a08aade77)
+
+**2026-11-04**
 - 🔧 その他:收编停留≥3分钟的未提交改动 (8aeb9b1863)
 - 🔧 その他:退役 blue-green-deploy 通道并换零依赖失败通知 (f6e8bf5381)
 
@@ -2699,9 +2705,6 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 **2026-11-03**
 - 🔧 その他:收编停留≥3分钟的未提交改动 (682d2b65d3)
-
-**2026-11-03**
-- 🔧 その他:收编停留≥3分钟的未提交改动 (b19d4901bb)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
