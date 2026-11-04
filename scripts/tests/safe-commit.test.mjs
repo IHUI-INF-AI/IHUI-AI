@@ -339,6 +339,20 @@ test('SC9 既有行为未被改写:5 步法、活文档对账措辞、归因链�
   for (const s of ['Step 0/5', 'Step 1/5', 'Step 2/5', 'Step 3/5', 'Step 4/5', 'Step 5/5'])
     assert.ok(src.includes(s), `既有档位 ${s} 的日志锚点被改掉了`)
   assert.match(src, /git reset HEAD/, '5 步法第 1 步不许动')
+  // 2026-11-04 P0(加法修):第 1 步的内容可以变(全局清空 → 路径作用域),但**不许**退回去。
+  // 旧断言只要求出现 `git reset HEAD` 这串字;那串字在"带 pathspec"与"清空整索引"两种形态里
+  // 都会出现 ⇒ 单独用它挡不住回退。两条新断言各钉一头:带 pathspec 的调用必须在,
+  // 无 pathspec 的调用必须不在。
+  assert.match(
+    src,
+    /gitStep\(\s*\['reset',\s*'-q',\s*'HEAD',\s*\.\.\.pathspecArgs\(/,
+    'reset 必须带 pathspec(路径作用域)—— 无 pathspec 的 reset 就是整索引清空',
+  )
+  assert.doesNotMatch(
+    src,
+    /gitStep\(\s*\['reset',\s*'HEAD'\s*\]/,
+    '无 pathspec 的 `git reset HEAD` 不得回到 Step 1(它由 auto-commit-quiet 每 3 分钟调一次)',
+  )
   assert.match(src, /gitStagedPaths/, '第 3 步的校验口径不许动')
   assert.match(src, /classifyHookFailure/, '归因链那条铰链不许被顺手摘')
   assert.match(src, /decideWithSelfRunBatch/, '归因链的自跑分支不许被顺手摘')
@@ -705,4 +719,45 @@ test('HRS5 正常提交不被误归因:钩子判 mine 时当场拒绝,不进 not
   )
   assert.equal(git(dir, 'rev-parse', 'HEAD'), before, 'mine 不许留下提交')
   assert.equal(landedRecords(dir).length, 0, '没有落地就不该有 gates-then-commit')
+})
+
+// ── SC13(2026-11-04 P0):Step 1 的 reset 从「清空整个共享索引」改成「只退回声明面」 ──
+// 病灶:auto-commit-quiet 每 3 分钟(含失败重试)调本器,而 Step 1 曾是无 pathspec 的
+// `git reset HEAD` ⇒ 并发会话刚 `git add` 的暂存被无条件冲掉,且清空之后无痕可查。
+// 本条同时钉两个方向,缺一条都能被"退回全局 reset"蒙混过去:
+//   ① 声明集外那条**仍在索引里**且工作树字节未变(不再被冲掉);
+//   ② 本枚提交的**载荷只有声明集**(不许以"保留"为名把别人的在途件打包进去)。
+test('SC13 路径作用域 reset:声明集外他人暂存原样保留、工作树不变,且不进本枚提交', (t) => {
+  const { dir } = makeRepo(t)
+  seed(dir, HEAD1)
+  writeFileSync(join(dir, 'mine.txt'), 'mine v2\n')
+  writeFileSync(join(dir, 'foreign.txt'), 'foreign v1\n')
+  git(dir, 'add', '--', 'foreign.txt') // 另一会话的暂存(A 形态),本票不声明它
+  assert.equal(
+    git(dir, 'diff', '--cached', '--name-only'),
+    'foreign.txt',
+    '夹具自证:外来件确已暂存',
+  )
+
+  const r = runSafe(dir, { files: ['mine.txt'], message: 'test: scoped reset' })
+  const out = outputOf(r)
+  assert.equal(r.status, 0, `声明集外的外来暂存不该让提交失败:\n${out}`)
+
+  // ① 载荷 = 声明集,一个外来件都不许夹带
+  assert.deepEqual(
+    git(dir, 'show', '--name-only', '--format=', 'HEAD').split(/\r?\n/).filter(Boolean),
+    ['mine.txt'],
+    '本枚提交的载荷只许含声明集(普通提交读整份索引,必须靠私有索引隔离)',
+  )
+  // ② 外来暂存仍在索引里(没有被 Step 1 冲掉)
+  assert.deepEqual(
+    git(dir, 'diff', '--cached', '--name-only').split(/\r?\n/).filter(Boolean),
+    ['foreign.txt'],
+    '外来暂存必须原样留在索引里(改前这一条必红:整索引被 reset 清空)',
+  )
+  // ③ 工作树字节未变
+  assert.equal(readFileSync(join(dir, 'foreign.txt'), 'utf8'), 'foreign v1\n', '外来件工作树内容不得被改动')
+  // ④ 留痕必须点名具体路径(只报数量等于没报)
+  assert.match(out, /foreign\.txt/, '外来暂存必须逐条点名')
+  assert.match(out, /非本票声明|按设计保留/, '必须说清留在索引里的是"外来暂存"')
 })
