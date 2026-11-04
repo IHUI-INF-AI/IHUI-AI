@@ -223,7 +223,7 @@ export const __test__ = {/* 暴露给测试的核心函数 */}
 - **盘根"写歪项"封口改道不删**:闭源程序按相对路径写盘根,删必复发;唯一正解 = 名字换 junction 指向批准落点。唯一入口 `scripts/seal-c-root-stray.mjs`(`--check`/`--apply`,清单 `SEALED_DIRS` 带 owner+evidence),并挂进 `git-guardian` 自愈轮(`--apply` 的 junction 会被重启清掉,只靠每日体检不够)。
 - **junction 头号危险 = 递归穿透**:PowerShell `Get-ChildItem -Recurse` 会穿过 junction 清空 D 盘真实目标。递归删除/枚举前必须判 `ReparsePoint`;断链用 `[System.IO.Directory]::Delete($path,$false)`;量体积不跟随;`attrib +h` 是陷阱(设到目标侧),隐藏用提供器属性 + 父目录枚举回读。
 - **junction 管路径管不了身份**:LocalSystem 服务 TEMP = `C:\Windows\Temp`,HKCU 迁移对它无效。服务/守护脚本落临时物必须显式指定目录 + 用完必删(实测部署日志 526 项泄漏即此型);守门扫描面必须并入 `SystemRoot\Temp`。
-- **禁止硬编码 C 盘路径作写入目标**(`C:\temp\*`、`C:\Users\*\AppData\Local\Temp\*` 等;用 `os.tmpdir()`/`$env:TEMP`)。守门:`check-c-drive-paths.mjs`(45,源码字面量;guardian 以 `--staged` 调用,三态 0/1/2,无输入/空暂存区/读不到 = exit 2 未判定,warn 档不阻断)、`check-c-drive-pollution.mjs`(93,warn,实地扫 C 盘 + TEMP 漂移判据,只读永不删;`--strict` 问责)。
+- **禁止硬编码 C 盘路径作写入目标**(`C:\temp\*`、`C:\Users\*\AppData\Local\Temp\*` 等;用 `os.tmpdir()`/`$env:TEMP`)。守门:`check-c-drive-paths.mjs`(45,源码字面量;guardian 以 `--staged` 调用,三态 0/1/2,无 `--staged`/git 失败/读不到 = exit 2 未判定,空暂存区 = 0 不适用,warn 档不阻断)、`check-c-drive-pollution.mjs`(93,warn,实地扫 C 盘 + TEMP 漂移判据,只读永不删;`--strict` 问责)。
 - **自动维护**:`IHUI C-Drive AutoMaintain` 计划任务(每天 3am,`c-drive-maintain-hidden.vbs` → pwsh;**注册名含空格,查存在只认 `schtasks /query /fo CSV` 全量列名法**);删除出口唯一 `ForceDelete`,`-DryRun` 拦在该出口;删除面按名字白名单不整片删。页面文件改动留"待重启生效"哨兵。
 - 改共享注册类文件(runner/package.json/CI)必须逐块核对 diff,防覆盖他人注册块;判据要能让机器自己发现撞号(runner id 反查唯一性)。
 ## 27. PowerShell 7 强制规则(强制)
