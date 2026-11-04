@@ -1601,4 +1601,115 @@ test('远程 tag 完整性·显式发起但 ls-remote 取不到 ⇒ UNDETERMINED
     '未判定不得打印"无 commit 丢失风险"',
   )
 })
+
+// ─── 3b 维(2026-11-05):lost-commit/* tag 直接指向的提交也纳入逐路径覆盖 ───
+// 盲区:tag 让提交可达 ⇒ fsck --unreachable 看不到它 ⇒ 旧判据完全失明。
+// 这四条用例把「新维度会不会恒红 / 缺口报不报 / 会不会误扩 / 会不会重复计数」分别钉住。
+
+test('3b·判据单元: tag 直接指向 ∧ 交付面不可达 ∧ 不在 fsck 悬空集 才进候选(④ 去重)', () => {
+  const tagPointed = new Set(['aa', 'bb', 'cc'])
+  const deliveryReachable = new Set(['bb'])
+  const rawUnreachable = new Set(['cc'])
+  assert.deepEqual(
+    __test__.selectTagCoverageCandidates({ tagPointed, deliveryReachable, rawUnreachable }),
+    ['aa'],
+    'bb 已在交付面、cc 已被 fsck 档处理 ⇒ 只剩 aa;cc 若再进候选就是两桶重复计数',
+  )
+})
+
+test('3b·判据单元: tagPointedCommitSet 只认 lost-commit/* 名集(③ 防误扩)', () => {
+  const reachability = [
+    { tag: 'lost-commit/auto-1', hash: 'a1' },
+    { tag: 'lost-commit/auto-2', hash: 'a2' },
+    { tag: 'release/v1', hash: 'r1' },
+    { tag: 'backup/snapshot', hash: 'b1' },
+  ]
+  assert.deepEqual(
+    [...__test__.tagPointedCommitSet(reachability, new Set(['lost-commit/auto-1', 'lost-commit/auto-2']))].sort(),
+    ['a1', 'a2'],
+    '普通 tag / backup tag 不承担"悬空提交备份"语义,纳进来是误扩',
+  )
+})
+
+test('3b·端到端①: tag 指向的提交全部路径已在交付面覆盖 ⇒ 不得报红(证明不是恒红)', () => {
+  const dir = createTempRepo()
+  const git = (cmd) => execSync(cmd, { cwd: dir, stdio: 'ignore' })
+  try {
+    // 先在 temp 上造一枚"待备份"提交:新增 shared.txt=T
+    git('git checkout -b temp-covered')
+    writeFileSync(join(dir, 'shared.txt'), 'T\n')
+    git('git add shared.txt')
+    git('git commit -m "covered-dangling"')
+    git('git checkout main')
+    git('git branch -D temp-covered')
+    const oid = execSync('git rev-parse HEAD@{1}', { cwd: dir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
+    // 再在主线上落地同样内容(同路径同 blob)⇒ 该提交"已备份且已清偿"
+    writeFileSync(join(dir, 'shared.txt'), 'T\n')
+    git('git add shared.txt')
+    git('git commit -m "land-shared"')
+    git(`git tag lost-commit/covered ${oid}`)
+    const r = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    assert.equal(
+      r.status,
+      0,
+      `已清偿必须 exit 0(否则新维度恒红),实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
+    )
+    assert.match(r.stdout, /↳ 逐路径覆盖:已清偿 1 \/ 未清偿 0/, '必须点名"已清偿 1"')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('3b·端到端②: tag 指向的提交有路径无覆盖 ⇒ 必须点名报出来(即 b96a9dc2 形态)', () => {
+  const dir = createTempRepo()
+  const git = (cmd) => execSync(cmd, { cwd: dir, stdio: 'ignore' })
+  try {
+    git('git checkout -b temp-unpledged')
+    writeFileSync(join(dir, 'lost-unique-3b.txt'), 'never-landed\n')
+    git('git add lost-unique-3b.txt')
+    git('git commit -m "unpledged-dangling"')
+    const oid = execSync('git rev-parse HEAD', { cwd: dir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
+    git('git checkout main')
+    git('git branch -D temp-unpledged')
+    git(`git tag lost-commit/unpledged ${oid}`)
+    const r = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    // 报告口径:本单不把 3b 未清偿转 blocking(属用户级决定),但必须**报出来**且不得记绿。
+    assert.equal(r.status, 0, `3b 未清偿本轮不拦(exit 0),实际 ${r.status}:\n${r.stdout}`)
+    assert.match(r.stdout, /↳ 逐路径覆盖:已清偿 0 \/ 未清偿 1/, '缺口必须计入"未清偿"')
+    assert.match(r.stdout, /已备份但缺口仍在/, '必须明确这是"已备份但未落地",不是"已保护"')
+    assert.match(r.stdout, new RegExp(oid.slice(0, 7)), `必须点名该提交 ${oid}`)
+    assert.match(r.stdout, /lost-unique-3b\.txt/, '必须点名未覆盖路径')
+    assert.ok(
+      !r.stdout.includes(__test__.GREEN_MARKERS.noRisk),
+      '有未清偿缺口时不得打印"无 commit 丢失风险"(那正是盲区原形)',
+    )
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('3b·端到端③: 非 lost-commit/* 的普通 tag ⇒ 不纳入新维度(防误扩)', () => {
+  const dir = createTempRepo()
+  const git = (cmd) => execSync(cmd, { cwd: dir, stdio: 'ignore' })
+  try {
+    git('git checkout -b temp-normal-tag')
+    writeFileSync(join(dir, 'normal-only.txt'), 'never-landed\n')
+    git('git add normal-only.txt')
+    git('git commit -m "normal-tag-dangling"')
+    const oid = execSync('git rev-parse HEAD', { cwd: dir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
+    git('git checkout main')
+    git('git branch -D temp-normal-tag')
+    git(`git tag release/3b-normal ${oid}`)
+    const r = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    assert.equal(r.status, 0, `普通 tag 不应触发任何新债,实际 ${r.status}:\n${r.stdout}`)
+    assert.match(
+      r.stdout,
+      /(无 lost-commit\/\* tag 指向的提交|↳ 逐路径覆盖:已清偿 0 \/ 未清偿 0)/,
+      '普通 tag 不得进入 3b 候选',
+    )
+    assert.doesNotMatch(r.stdout, new RegExp(oid.slice(0, 7)), '普通 tag 指向的提交不得被点名')
+  } finally {
+    rmScratch(dir)
+  }
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
