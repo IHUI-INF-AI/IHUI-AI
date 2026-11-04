@@ -152,6 +152,15 @@ export function compactView(buf) {
 }
 
 /** 从 '{' 起取花括号配平的 JSON 子串(信封值是 base64url,不含花括号,朴素的数括号够用) */
+/**
+ * 配平器能走多远 = 调用方必须**至少**给多远的窗口(2026-11-04 同族实测:本门旧写法只喂 400 字符,
+ * 而 sealed 信封的 `ct`/真会话明文远超 400 ⇒ 括号永不配平 ⇒ `extractBalancedJson` 返回 null ⇒
+ * 那条记录既不记 plain 也不记 sealed-bad,直接从台账里消失 = 明文泄漏漏报)。
+ * 两个数必须同源,否则窗口又会长成自己的第二套判据。
+ */
+export const JSON_BALANCE_MAX = 200_000
+export const RECORD_WINDOW = JSON_BALANCE_MAX + 64
+
 export function extractBalancedJson(text) {
   let depth = 0
   for (let i = 0; i < text.length; i++) {
@@ -160,7 +169,7 @@ export function extractBalancedJson(text) {
       depth -= 1
       if (depth === 0) return text.slice(0, i + 1)
     }
-    if (i > 200000) break
+    if (i > JSON_BALANCE_MAX) break
   }
   return null
 }
@@ -203,19 +212,27 @@ export function classifyPersistRecords(compact, key, consts) {
   const hits = []
   let idx = compact.indexOf(key)
   while (idx !== -1) {
-    const after = compact.slice(idx + key.length, idx + key.length + 400)
+    const after = compact.slice(idx + key.length, idx + key.length + RECORD_WINDOW)
     const brace = after.indexOf('{')
-    if (brace >= 0 && brace <= 8) {
+    if (brace < 0) {
+      hits.push({ at: idx, kind: 'absent', why: '键后整段窗口里没有 `{` ⇒ 本条未判定(旧写法在此静默跳过)' })
+    } else if (brace > 8) {
+      hits.push({ at: idx, kind: 'unknown', why: `{ 距键 ${brace} 字符(>8)⇒ 形态不认识` })
+    } else {
       const json = extractBalancedJson(after.slice(brace))
-      if (json) {
-        if (json.startsWith(`{"${consts.envelopeField}"`)) {
-          const s = checkEnvelopeStructure(json, consts)
-          hits.push({ at: idx, kind: s.ok ? 'sealed-ok' : 'sealed-bad', why: s.why })
-        } else if (json.startsWith('{"state"')) {
-          hits.push({ at: idx, kind: 'plain', why: 'persist 值以 {"state" 明文形态落盘' })
-        } else {
-          hits.push({ at: idx, kind: 'unknown', why: '' })
-        }
+      if (!json) {
+        hits.push({
+          at: idx,
+          kind: 'unjudged',
+          why: `配平取不到(JSON 起点后 ${RECORD_WINDOW} 字符内没等到闭合括号)⇒ 不记绿`,
+        })
+      } else if (json.startsWith(`{"${consts.envelopeField}"`)) {
+        const s = checkEnvelopeStructure(json, consts)
+        hits.push({ at: idx, kind: s.ok ? 'sealed-ok' : 'sealed-bad', why: s.why })
+      } else if (json.startsWith('{"state"')) {
+        hits.push({ at: idx, kind: 'plain', why: 'persist 值以 {"state" 明文形态落盘' })
+      } else {
+        hits.push({ at: idx, kind: 'unknown', why: '' })
       }
     }
     idx = compact.indexOf(key, idx + key.length)
@@ -308,6 +325,7 @@ export function listScanFiles(localAppDir, roamAppDir) {
 /** 对一组文件跑判据 1+2,返回结构化结果(不直接打控制台,供 main 与 self-test 共用) */
 export function evaluateFiles(scanList, consts, persistKeys) {
   const violations = []
+  const undetermined = []
   const perFile = []
   for (const { file, face } of scanList) {
     const size = fs.statSync(file).size
@@ -325,13 +343,16 @@ export function evaluateFiles(scanList, consts, persistKeys) {
         recordKinds.push(`${key}:${h.kind}${h.why ? `(${h.why})` : ''}`)
         if (h.kind === 'plain') violations.push(`明文 persist 记录: ${key} @ ${path.basename(file)} (${face})`)
         if (h.kind === 'sealed-bad') violations.push(`信封结构位不对: ${key} @ ${path.basename(file)}: ${h.why}`)
+        // 读到键却没判出形态 ⇒ 这条记录等于"没判",必须喊,不得静默少一条(§0.3)
+        if (h.kind === 'unjudged' || h.kind === 'absent')
+          undetermined.push(`${key} @ ${path.basename(file)} (${face}) 记录读不出:${h.why}`)
       }
     }
     if (cjk.utf8 > 0) violations.push(`CJK 明文命中(utf8 视图)×${cjk.utf8}: ${file}`)
     if (cjk.utf16 > 0) violations.push(`CJK 明文命中(utf16 字节形态)×${cjk.utf16}: ${file}`)
     perFile.push({ file, face, size, cjk, recordKinds })
   }
-  return { violations, perFile }
+  return { violations, undetermined, perFile }
 }
 
 // ==================== 判据 3:密钥不入仓(git 只读) ====================
@@ -440,6 +461,7 @@ export function runInspection(identifierOverride) {
     return { status: 'undetermined', reasons: [`常量解析失败: ${e.message}`] }
   }
   const { consts, persistKeys, unparsedPersistFiles, identifier, devIdentifier, devIdentifierNote } = loaded
+  const extraUnjudged = []
   const identifiers =
     typeof identifierOverride === 'string'
       ? [identifierOverride]
@@ -473,8 +495,8 @@ export function runInspection(identifierOverride) {
       violations: ev.violations,
       perFile: ev.perFile,
     })
+    for (const u of ev.undetermined) extraUnjudged.push(`标识 ${id} 面:${u}`)
   }
-  const extraUnjudged = []
   if (devIdentifierNote) extraUnjudged.push(`dev 标识面未判定: ${devIdentifierNote}`)
   if (persistKeys.length === 0) {
     extraUnjudged.push(`persist 键名两形(旧 name: 'ihui-*' 行 / 工厂默认参数)都解析不到(全体 store 源码无命中),判据 1 未判定 ≠ 通过`)
@@ -597,6 +619,22 @@ export function selfTest() {
       'sealed-ok 结构位通过')
     A('判据0-Cache_Data 的中文不参与判定', !ev.violations.some((v) => v.includes('Cache_Data')))
     A('判据0-纯 ASCII json 不触发 utf16 噪声', !ev.violations.some((v) => v.includes('auth.json')))
+    // —— 同族回归锁(2026-11-04):窗口不得短于配平器,长记录不许静默消失 ——
+    const longPlain = '{"state":{"recentMessages":[{"content":"' + nonce + 'x'.repeat(3000) + '"}]},"version":5}'
+    const lpHits = classifyPersistRecords('k ' + persistKeys[0] + ' = ' + longPlain, persistKeys[0], consts)
+    A('判据0-长明文记录(>400 字符)仍判 plain(旧 400 窗口整条丢掉=漏报)', lpHits.some((h) => h.kind === 'plain'), `len=${longPlain.length}`)
+    const longEnv = JSON.stringify({ [consts.envelopeField]: { alg: consts.alg, kid: '0123456789abcdef', iv: 'aGVsbG8', ct: 'A'.repeat(5000) } })
+    const leHits = classifyPersistRecords('k ' + persistKeys[0] + ' = ' + longEnv, persistKeys[0], consts)
+    A('判据0-长信封(ct 5000)仍判 sealed-ok(同一窗口同一成因)', leHits.some((h) => h.kind === 'sealed-ok'), `len=${longEnv.length}`)
+    const truncText = 'k ' + persistKeys[0] + ' = ' + '{"state":{"a":"unterminated'
+    const truncHits = classifyPersistRecords(truncText, persistKeys[0], consts)
+    A('判据0-读不出形态的记录落 unjudged(绝不静默少一条;§0.3)', truncHits.length === 1 && truncHits[0].kind === 'unjudged', JSON.stringify(truncHits.map((h) => h.kind)))
+    const badDir = path.join(scratch, 'undetermined-face')
+    fs.mkdirSync(badDir, { recursive: true })
+    fs.writeFileSync(path.join(badDir, 'x.log'), truncText)
+    const evBad = evaluateFiles([{ file: path.join(badDir, 'x.log'), face: 'leveldb' }], consts, persistKeys)
+    A('判据0-evaluateFiles 把读不出的记录计入 undetermined(不记绿)', evBad.undetermined.length === 1 && evBad.violations.length === 0, JSON.stringify(evBad.undetermined))
+    A('判据0-反向锁:窗口常量必须 ≥ 配平器上限(两者同源)', RECORD_WINDOW >= JSON_BALANCE_MAX, `RECORD_WINDOW=${RECORD_WINDOW} JSON_BALANCE_MAX=${JSON_BALANCE_MAX}`)
     // 结构位负例:多一个字段就判坏
     const badEnv = JSON.stringify({ [consts.envelopeField]: { alg: consts.alg, kid: 'a', iv: 'b', ct: 'c', extra: 1 } })
     const s = checkEnvelopeStructure(badEnv, consts)
