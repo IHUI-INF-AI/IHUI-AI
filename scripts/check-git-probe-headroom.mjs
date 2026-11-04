@@ -39,14 +39,15 @@
  * 用法:node scripts/check-git-probe-headroom.mjs [--json] [--self-test] [--samples N]
  */
 import { spawnSync } from 'node:child_process'
-import { readdirSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { readFileSync, readdirSync } from 'node:fs'
+import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 export const BUDGET_MS = 5000
 export const WARN_MS = 3500
 export const DEFAULT_SAMPLES = 3
+export const PRIME_CMD = 'git update-index --untracked-cache'
 export const PROMTAIL_METRICS_URL = 'http://127.0.0.1:9080/metrics'
 export const LOG_DIR = 'D:/DevEnv/logs'
 /** 轮转副本形态:组件名后紧跟 nssm 时间戳(活文件名里没有这一段) */
@@ -102,6 +103,34 @@ export function statusFace(repoRoot, disableMonitor, spawn = spawnSync) {
       out: null,
     }
   return { failed: false, why: '', out: r.stdout || '' }
+}
+
+/**
+ * 索引实际落点(本仓 `.git` 是 gitfile、活 gitdir 在工作树外 ⇒ 绝不能拼 `<repo>/.git/index`)。
+ * 一律问 `git rev-parse --git-path index`,取不到就是未判定。
+ */
+export function gitIndexPath(repoRoot, spawn = spawnSync) {
+  const r = spawn('git', ['rev-parse', '--git-path', 'index'], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+    windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  const p = String(r.stdout || '').trim()
+  if (r.status !== 0 || !p) return null
+  return resolve(repoRoot, p)
+}
+
+/** 布尔型 config 读取:未设置/取不到一律 false 或由调用方按 null 处理,不猜 */
+export function cfgFlag(name, repoRoot, spawn = spawnSync) {
+  const r = spawn('git', ['config', '--get', name], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+    windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  const v = String(r.stdout || '').trim()
+  return v === 'true' ? true : v === 'false' ? false : null
 }
 
 /** 配置读取:取不到一律按"未启用"处理,不当成错误(本维据此不判) */
@@ -236,6 +265,45 @@ export function judgeMonitorTrust({ enabled, monitorOut, fullOut, failed, why })
   }
 }
 
+/** 读索引尾区的扩展签名(扩展写在条目之后,只看文件头是量不到它的) */
+export function readIndexSignatures(indexPath, tailBytes = 65536) {
+  try {
+    const b = readFileSync(indexPath)
+    if (b.length < 24 || b.subarray(0, 4).toString('latin1') !== 'DIRC')
+      return { ok: false, why: `索引头不是 DIRC(${indexPath})`, hasFSMN: false, hasUNTR: false }
+    const tail = b.subarray(Math.max(0, b.length - tailBytes)).toString('latin1')
+    return { ok: true, why: '', hasFSMN: tail.includes('FSMN'), hasUNTR: tail.includes('UNTR'), entries: b.readUInt32BE(8) }
+  } catch (e) {
+    return { ok: false, why: `读不到索引(${e.message.slice(0, 60)})`, hasFSMN: false, hasUNTR: false }
+  }
+}
+
+/**
+ * 第四维:加速档是否**真的还在生效**。
+ * 立因(2026-11-04 实测):本机多席位会整份替换索引(isolated-git / object-space-land /
+ * read-tree 那几条通道写出来的临时索引不带这两枚扩展),把 FSMN/UNTR 抹掉;
+ * 而 git 只在"索引内容有变"时才写回 ⇒ `git status` 连跑 5 次也**不会自愈**,
+ * `preload/sum_lstat` 直接回到全量 19033(生效时是 2333)。
+ * 静默退化比不装更坏:账面写着"已启用 fsmonitor",实际每次都在全量扫。
+ */
+export function judgeExtensions({ monitorEnabled, untrackedEnabled, index, primeCmd = PRIME_CMD }) {
+  if (!monitorEnabled && !untrackedEnabled)
+    return { dim: 'accel-live', state: 'report', readout: '两档加速均未启用 ⇒ 无需核(全量扫描由 status-latency 量)', next: '' }
+  if (!index.ok) return { dim: 'accel-live', state: 'unjudged', readout: `索引读不到:${index.why}`, next: '先确认 gitdir 可达;取不到不判' }
+  const want = []
+  if (monitorEnabled && !index.hasFSMN) want.push('FSMN(fsmonitor token)')
+  if (untrackedEnabled && !index.hasUNTR) want.push('UNTR(untracked cache)')
+  const at = `FSMN=${index.hasFSMN ? '在' : '掉'} UNTR=${index.hasUNTR ? '在' : '掉'}`
+  if (want.length)
+    return {
+      dim: 'accel-live',
+      state: 'drift',
+      readout: `config 说开着,索引里却缺 ${want.join(' 与 ')}(${at};条目 ${index.entries})⇒ 每次 status 仍在 ${index.hasFSMN ? '全量 stat + ' : ''}全量扫目录,加速已失效`,
+      next: `重新 prime:${primeCmd}(会被别席整份换索引再抹一次;反复掉就说明该在这台机关掉这两档,而不是反复补)`,
+    }
+  return { dim: 'accel-live', state: 'ok', readout: `${at} 与 config 同事实存 ⇒ 加速在生效`, next: '' }
+}
+
 /**
  * 报告维:把"扫描面变宽"与"整机在等"分开 —— -uno 与默认档同批采样。
  * 刻意不参与定级:比值高低都不是"谁该动手"的判据,只做归因证据。
@@ -265,7 +333,7 @@ export function judgeWalkShare({ oneNo, full }) {
 export function alertIdentity(dims) {
   const st = (n) => (dims.find((d) => d.dim === n) || { state: 'missing' }).state
   const s = aggregate(dims).state
-  return `git-probe-headroom:${s}:latency=${st('status-latency')}:collectors=${st('collector-tailers')}:trust=${st('monitor-trust')}`
+  return `git-probe-headroom:${s}:latency=${st('status-latency')}:collectors=${st('collector-tailers')}:trust=${st('monitor-trust')}:accel=${st('accel-live')}`
 }
 
 export function aggregate(dims) {
@@ -470,6 +538,37 @@ async function selfTest() {
       '取不到 ⇒ 未判定',
     )
   })
+  t('S16 accel-live 四态:齐全绿 / config 开着但扩展掉了判红 / 都没开不判 / 索引读不到未判定', () => {
+    const both = { ok: true, why: '', hasFSMN: true, hasUNTR: true, entries: 19033 }
+    eq(judgeExtensions({ monitorEnabled: true, untrackedEnabled: true, index: both }).state, 'ok', '两枚都在 ⇒ 绿')
+    eq(
+      judgeExtensions({ monitorEnabled: true, untrackedEnabled: true, index: { ...both, hasUNTR: false } }).state,
+      'drift',
+      'UNTR 掉 ⇒ 红(账面说开着)',
+    )
+    eq(
+      judgeExtensions({ monitorEnabled: true, untrackedEnabled: true, index: { ...both, hasFSMN: false, hasUNTR: false } })
+        .state,
+      'drift',
+      '两枚都掉 ⇒ 红',
+    )
+    eq(judgeExtensions({ monitorEnabled: false, untrackedEnabled: false, index: both }).state, 'report', '没启用 ⇒ 不判')
+    eq(
+      judgeExtensions({ monitorEnabled: true, untrackedEnabled: false, index: { ok: false, why: '读不到' } }).state,
+      'unjudged',
+      '索引取不到 ⇒ 未判定',
+    )
+  })
+  t('S17 反向锁:判红必须给可执行 prime 命令,并写明"反复掉就该关而不是反复补"', () => {
+    const d = judgeExtensions({
+      monitorEnabled: true,
+      untrackedEnabled: true,
+      index: { ok: true, why: '', hasFSMN: true, hasUNTR: false, entries: 19033 },
+    })
+    eq(d.next.includes('git update-index --untracked-cache'), true, '出路必须是能直接执行的那一条')
+    eq(d.next.includes('反复'), true, '必须把"这不是补一次的事"写进出路')
+    eq(judgeExtensions({ monitorEnabled: true, untrackedEnabled: true, index: { ok: true, why: '', hasFSMN: true, hasUNTR: true, entries: 1 } }).next, '', '绿档不充数')
+  })
   t('S15 反向锁:漏报必须点名少/多几条并给出关回出口', () => {
     const d = judgeMonitorTrust({
       enabled: true,
@@ -518,6 +617,9 @@ async function main(argv) {
   const metricsText = await fetchText(PROMTAIL_METRICS_URL)
   const faces = countLogFaces(LOG_DIR)
   const enabled = isMonitorEnabled(ROOT)
+  const utrace = cfgFlag('core.untrackedCache', ROOT) === true
+  const idxPath = gitIndexPath(ROOT)
+  const idxSign = idxPath ? readIndexSignatures(idxPath) : { ok: false, why: '取不到 git-path index', hasFSMN: false, hasUNTR: false }
   const monFace = statusFace(ROOT, false)
   const scanFace = statusFace(ROOT, true)
   const dims = [
@@ -535,6 +637,7 @@ async function main(argv) {
       failed: monFace.failed || scanFace.failed,
       why: monFace.why || scanFace.why,
     }),
+    judgeExtensions({ monitorEnabled: enabled === true, untrackedEnabled: utrace, index: idxSign }),
     judgeWalkShare({ oneNo, full }),
   ]
   const agg = aggregate(dims)
@@ -575,6 +678,10 @@ export const __test__ = {
   sampleStatusMs,
   statusFace,
   isMonitorEnabled,
+  cfgFlag,
+  gitIndexPath,
+  readIndexSignatures,
+  judgeExtensions,
   judgeLatency,
   judgeCollectors,
   judgeMonitorTrust,
