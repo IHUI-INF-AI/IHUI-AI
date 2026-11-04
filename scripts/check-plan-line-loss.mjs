@@ -115,6 +115,7 @@ import { stripForkPrefix } from './lib/plan-merge-annotation.mjs'
 // 否则"删副本 → 门 71 判丢 → 自动回捞 → 再删"永不收敛(2026-10-22 实测 G-56 回捞提交 ec4171d119)。
 // `LEDGERS` 一并 import:闸门要点名"缺的是哪一本账",清单若在门里再抄一份就会和复洁器的漂移(§0.6)。
 import { declaredRows, titleFpOf, LEDGERS } from './scrub-declared-removals.mjs'
+import { advanceSharedIndexPaths, treeSignatures } from './lib/shared-index-advance.mjs'
 // G-722:编号形态判据(畸形号 = 族名在编号段出现两次)的**唯一实现**住在活文档编辑器里 ——
 // 判据住在 `scripts/lib/plan-task-index.mjs` 的下沉方案因该文件正被并发会话在飞编辑而未采,
 // 按票面指定的 import 方案接。两处各抄一遍形态正则必然漂移(§22c 同一条纪律),镜像形状锁钉死。
@@ -4356,6 +4357,17 @@ function heal(commit, picks = new Map()) {
       },
     ).trim()
     g2(['update-ref', 'refs/heads/main', newCommit, parent])
+    // 后置:私有索引提交只推进 HEAD,不推进共享索引 ⇒ PROJECT_PLAN.md 在共享索引里停在父树
+    // (`MM`),下一条裸 `git commit` 会把旧版本带回去(静默回滚)。期望基线 = 父提交树;
+    // 凡是他席在窗口内动过同一路径 ⇒ 只报数不覆盖(红线 C)。
+    const adv = advanceSharedIndexPaths({
+      gitCwd: ROOT,
+      committedSha: newCommit,
+      paths: [PLAN],
+      expectBefore: treeSignatures({ gitCwd: ROOT, sha: parent, paths: [PLAN] }),
+      log: { warn: (s) => console.error(`⚠️ [plan-line-loss] ${s}`) },
+    })
+    if (!adv.ok) console.error(`⚠️ [plan-line-loss] 共享索引未推进(${adv.reason ?? 'unknown'}),只报数不覆盖:${adv.skipped.join(', ') || '-'}`)
     // 留痕失败不得改变"回捞已落地"这一结论(提交已在 refs/heads/main 上),但必须喊出来:
     // 静默少一行留痕,下一次审计就会把这枚当成"绕门塞进来的"。
     const at = attestBypassCommit(newCommit, { root: ROOT, headBefore: parent, source: 'check-plan-line-loss:heal' })

@@ -26,6 +26,7 @@ import { fileURLToPath } from 'node:url'
 
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 import { keyOfRow } from './lib/plan-task-index.mjs'
+import { advanceSharedIndexPaths, treeSignatures } from './lib/shared-index-advance.mjs'
 
 const argv = process.argv.slice(2)
 const arg = (k) => argv[argv.indexOf(`--${k}`) + 1]
@@ -339,6 +340,20 @@ try {
     exitClean(1)
   }
   git(['update-ref', 'refs/heads/main', commit, before])
+  // 后置:私有索引提交只推进 HEAD,不推进共享索引 ⇒ 该文件在共享索引里停在 ours(`MM`),
+  // 下一条裸 `git commit` 会把祖先版本带回去(静默回滚)。期望基线 = 父提交树,凡是他席
+  // 在窗口内动过同一路径 ⇒ 只报数不覆盖(红线 C)。
+  const adv = advanceSharedIndexPaths({
+    gitCwd: REPO,
+    committedSha: commit,
+    paths: [FILE],
+    expectBefore: treeSignatures({ gitCwd: REPO, sha: ours, paths: [FILE] }),
+  })
+  console.info(
+    adv.ok
+      ? `   ↺ 共享索引已推进:${adv.advanced.join(', ') || '(无写入)'}`
+      : `   ⚠️ 共享索引未推进(${adv.reason ?? 'unknown'}),只报数不覆盖:${adv.skipped.join(', ') || '-'}`,
+  )
   console.info(`\n✅ 合并提交 ${commit.slice(0, 11)} 已写入 main(CAS 通过)。工作区未触碰(与 converge 同取向)。`)
   // 与 git-sync-converge 完全对齐的两步收尾(缺任何一步都会留下"本地全绿、别人下次提交才炸"的空档):
   //  ① update-ref 不 checkout ⇒ 工作区落后 HEAD,此时任何人 `git add <该文件>` 就是把祖先版本

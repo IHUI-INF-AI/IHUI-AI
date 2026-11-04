@@ -20,6 +20,7 @@
 import { existsSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { batchExecFileSync, gitBinary } from './face-reader.mjs'
+import { advanceSharedIndexPaths, treeSignatures } from './shared-index-advance.mjs'
 
 const GITDIR = 'D:/IHUI-AI-git-repo'
 const REPO = 'D:/IHUI-AI'
@@ -121,6 +122,12 @@ try {
   const before = gitTry(['-c', 'core.quotePath=false', 'diff', '--cached', '--name-only', '--no-renames'])
   const beforeN = before.ok ? before.ok.split('\n').filter(Boolean).length : 0
 
+  // ④b 留住本席声明路径在**父提交树**里的签名 —— 后置推进按它判"他席是否在窗口内动过同一路径"
+  //      (红线 C:动过就只报数,不覆盖)。刻意不用"提交那一刻共享索引的现值":别席若在我提交前
+  //      就已 staged 同一路径,他的内容会变成我的"期望值"而被当成没动过、直接覆盖。
+  const headBefore = git(['rev-parse', 'HEAD'])
+  const beforeSig = treeSignatures({ gitCwd: REPO, sha: headBefore, paths: files })
+
   // ⑤ 提交(不带 pathspec:pathspec 会另设 GIT_INDEX_FILE 指向临时 index,
   //    与我们这份私有 index 打架,且删除类路径必然 128)
   let out = ''
@@ -135,6 +142,24 @@ try {
 
   const after = gitTry(['-c', 'core.quotePath=false', 'diff', '--cached', '--name-only', '--no-renames'])
   const afterN = after.ok ? after.ok.split('\n').filter(Boolean).length : 0
+
+  // ⑥ 后置:把本席声明路径在共享索引里推进到新提交树(唯一实现 = shared-index-advance.mjs)。
+  //    不做这一步,提交后这些路径在共享索引里停在父树,`git status` 呈 MM —— 谁下一条裸
+  //    `git commit` 就会把旧 blob 带回去(本仓历史上的同一个根)。
+  if (code === 0) {
+    const sha = git(['rev-parse', 'HEAD'])
+    const adv = advanceSharedIndexPaths({
+      gitCwd: REPO,
+      committedSha: sha,
+      paths: files,
+      expectBefore: beforeSig.size ? beforeSig : undefined,
+    })
+    console.log(
+      adv.ok
+        ? `↺ 共享索引已推进(${adv.advanced.length} 条,仅本席路径):${adv.advanced.join(', ')}`
+        : `⚠️ 共享索引未推进(${adv.reason ?? 'unknown'}),只报数不覆盖:${adv.skipped.join(', ') || '-'}`,
+    )
+  }
 
   console.log(`\n=== 提交结果:exit ${code} ===`)
   console.log(
