@@ -17097,6 +17097,7 @@
     },
     "codeEditor": {
       "lspStatus": "LSP",
+      "attributionToggle": "Toggle AI line attribution",
       "zoomIn": "Zoom in",
       "zoomOut": "Zoom out"
     },
