@@ -5,30 +5,10 @@
 /**
  * 模型配置弹窗(mobile-rn 端)
  *
- * 3 变体(对齐历史 Uniapp 项目):
- * - index(默认):基础模型配置弹窗(模型选择 + 参数调节 + 动态配置项)
- * - indexa:带高级设置的模型配置弹窗(数字人上传 + 音色克隆录音 + 参数调节 + 动态配置项)
- * - selecter:纯模型选择器(无参数调节)
- *
- * 对齐历史项目:
- * - index.vue → variant='index'
- * - indexa.vue(带音频菜单弹窗 + 录音弹窗)→ variant='indexa'
- * - selecter.vue(纯选项选择器)→ variant='selecter'
- *
- * 支持参数:
- * - 基础:temperature / maxTokens / topP / systemPrompt / streamEnabled
- * - 图片:aspectRatio / resolution
- * - 视频:frameCount
- * - 音频:timbre(CosyVoice 音色)
- * - 动态配置项:variables(对齐原 index.vue 的 modelInfo.variables,
- *   支持 boolean 开关 / 数组选择器 / 输入框 / 尺寸 ratio 两级选择)
- *
  * 仅当 modelType 为 image/video/audio 时条件渲染媒体参数。
  *
  * 后端依赖回调预留(不引入原生依赖,由父组件注入):
  * - 系统音色:原版 GET /ali/audio/sys(fetchSystemVoices),RN 端由 systemVoices prop 注入
- * - 文件上传:原版 uni.chooseImage/chooseMessageFile/chooseVideo,RN 端由 onUpload* 回调注入
- * - 音色克隆:原版 recorderManager + aliGenerateTimbre,RN 端由 onStart/StopRecording 回调注入
  *
  * 设计:参考 AgentRuntimePanel / ChatScreen 的 Modal+TouchableOpacity 关闭层模式,
  *      媒体参数用 Chip 选择器,音色用下拉展开列表(替代旧 Vue picker)。
@@ -38,38 +18,24 @@ import { Modal, View, Text, Pressable, ScrollView, Switch, TouchableOpacity } fr
 import { useI18n } from '../i18n'
 import { useUiTextField } from '../lib/use-ui-text-field'
 import type { ModelConfigType } from '@ihui/ui-native'
-import { Check, ChevronLeft, Mic, Music, Plus, Square, X } from 'lucide-react-native'
+import { ChevronLeft } from 'lucide-react-native'
 import { currentRnTheme, tokens } from '../theme/active-tokens'
-import { ChevronRight } from 'lucide-react-native'
-// 本组件所有会显形的几何数字(删除角标 / 音色菜单图标块 / 上传卡宽与标记盒 / 参数输入行高与横向
-// 内衬 / 选项胶囊内衬与间距 / 字段标签间距 / 音色弹窗内衬与行纵向内衬 / 自绘录音按钮 / 三档字形)
+// 本组件所有会显形的几何数字(选项胶囊内衬与间距 / 参数输入框内衬 / 字段标签间距 / 字形)
 // 一律不在本文件取数 —— 唯一源在
 // @ihui/shared/ui/model-config-dialog-spec(与小程序端同档,裁决依据写在该文件);
 // RN 单位 dp 与逻辑 px 1:1,换算取恒等。胶囊间距两端用同一档但各挂自己的机制
 // (本端条目 margin、小程序容器 `gap`),换机制属重构不在本票,故只统一数值。
 import {
-  MODEL_CONFIG_BLOCK_GLYPH_PX,
   MODEL_CONFIG_CHIP_GAP_PX,
   MODEL_CONFIG_CHIP_PAD_X_PX,
   MODEL_CONFIG_CHIP_PAD_Y_PX,
   MODEL_CONFIG_INLINE_GLYPH_PX,
   MODEL_CONFIG_INPUT_PAD_X_PX,
   MODEL_CONFIG_LABEL_GAP_PX,
-  MODEL_CONFIG_MENU_PAD_PX,
-  MODEL_CONFIG_MENU_ROW_PAD_Y_PX,
-  MODEL_CONFIG_RECORD_BUTTON_PX,
-  MODEL_CONFIG_RECORD_GLYPH_PX,
-  MODEL_CONFIG_UPLOAD_MARK_PX,
-  modelConfigAudioMenuIconStyle,
   modelConfigChipInnerStyle,
   modelConfigChipItemMarginStyle,
-  modelConfigDeleteBadgeStyle,
   modelConfigInputBoxStyle,
   modelConfigLabelGapStyle,
-  modelConfigMenuPadXStyle,
-  modelConfigMenuRowStyle,
-  modelConfigSquareStyle,
-  modelConfigUploadCardStyle,
 } from '@ihui/shared/ui/model-config-dialog-spec'
 import { TextField } from '@ihui/rn-app'
 import { Tappable } from '@ihui/ui-native'
@@ -94,14 +60,7 @@ export interface ModelConfig {
 }
 
 /** 模型配置弹窗变体 */
-export type ModelConfigDialogVariant = 'index' | 'indexa' | 'selecter'
-
-/** selecter 变体:可选模型项 */
-export interface ModelOption {
-  id: string
-  name: string
-  description?: string
-}
+export type ModelConfigDialogVariant = 'index'
 
 /**
  * 动态配置变量(对齐原 index.vue parseModelInfo 解析出的 {name, desc, value})。
@@ -124,59 +83,14 @@ export interface ModelConfigDialogProps {
   /** 变体选择,默认 'index' */
   variant?: ModelConfigDialogVariant
 
-  // ===== indexa 变体:高级设置 Props =====
-  /** 模型名称(用于条件渲染上传按钮,如 '智汇AI数字人' / '通义语音合成') */
+  /** 模型名称(保留与小程序端同名键对账) */
   modelName?: string
-  /** 首帧图 URL(已上传时显示缩略图) */
-  firstFrameUrl?: string
-  /** 尾帧图 URL */
-  lastFrameUrl?: string
-  /** 参考音色音频 URL */
-  audioUrl?: string
-  /** 克隆数字人视频 URL */
-  videoUrl?: string
-  /** 上传首帧图回调 */
-  onUploadFirstFrame?: () => void
-  /** 上传尾帧图回调 */
-  onUploadLastFrame?: () => void
-  /** 上传参考音色回调(打开音色选择菜单) */
-  onUploadAudio?: () => void
-  /** 克隆数字人回调 */
-  onUploadVideo?: () => void
-  /** 选择系统音色回调 */
-  onSelectVoice?: () => void
-  /** 克隆音色回调(打开录音弹窗) */
-  onCloneVoice?: () => void
-  /** 开始录音回调 */
-  onStartRecording?: () => void
-  /** 停止录音回调 */
-  onStopRecording?: () => void
-  /** 是否正在录音 */
-  isRecording?: boolean
-  /** 录音时长(秒) */
-  recordDuration?: number
-
-  // ===== selecter 变体 Props =====
-  /** 可选模型列表 */
-  models?: ModelOption[]
-  /** 当前选中模型 ID */
-  selectedModelId?: string
-  /** 选择模型回调 */
-  onSelectModel?: (id: string) => void
 
   // ===== 动态配置(对齐原 index.vue 的 variables)=====
   /** 动态配置变量列表(原 modelInfo.variables;不传则仅渲染基础参数) */
   variables?: ModelConfigVariable[]
-  /** 动态配置变更回调(对齐原 $emit('change', { setVariables })) */
-  onConfigChange?: (configParams: Record<string, unknown>) => void
   /** 系统音色列表(对齐原 fetchSystemVoices → GET /ali/audio/sys;RN 端由父组件注入) */
   systemVoices?: Array<{ id: string; name: string }>
-
-  // ===== 删除回调(对齐原 deleteFirstFrame/deleteLastFrame/deleteAudio/deleteVideo)=====
-  onDeleteFirstFrame?: () => void
-  onDeleteLastFrame?: () => void
-  onDeleteAudio?: () => void
-  onDeleteVideo?: () => void
 }
 
 const ASPECT_RATIOS = ['1:1', '3:4', '4:3', '16:9', '9:16'] as const
@@ -273,7 +187,7 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
 
 // ===== 动态配置项渲染(对齐原 index.vue 动态 v-for variables)=====
 
-/** 尺寸 ratio 两级选择器(对齐原 selecter.vue type='ratio') */
+/** 尺寸 ratio 两级选择器(对齐原 index.vue type='ratio') */
 function RatioSelector({
   options,
   value,
@@ -352,11 +266,9 @@ function RatioSelector({
 function DynamicVariables({
   variables,
   isVideoModel,
-  onChange,
 }: {
   variables: ModelConfigVariable[]
   isVideoModel: boolean
-  onChange: (setVariables: ModelConfigVariable[]) => void
 }) {
   const { t } = useI18n()
   const [values, setValues] = useState<Record<string, unknown>>(() => buildInitialValues(variables))
@@ -374,13 +286,6 @@ function DynamicVariables({
     const next = { ...valuesRef.current, ...patch }
     valuesRef.current = next
     setValues(next)
-    onChange(
-      variables.map((v) => ({
-        name: v.name,
-        desc: v.desc,
-        value: (next[v.name] ?? '') as ModelConfigVariable['value'],
-      })),
-    )
   }
 
   return (
@@ -470,14 +375,11 @@ function DynamicVariables({
 // ===== 主组件(变体分发)=====
 
 export function ModelConfigDialog(props: ModelConfigDialogProps) {
-  const variant = props.variant ?? 'index'
-  if (variant === 'selecter') return <ModelSelecterDialog {...props} />
-  if (variant === 'indexa') return <AdvancedModelConfigDialog {...props} />
   return <BasicModelConfigDialog {...props} />
 }
 
 export default ModelConfigDialog
-// ===== 共享参数表单(index/indexa 变体共用,2026-09-06 抽取消除 2×140 行克隆)=====
+// ===== 共享参数表单(2026-09-06 抽取消除 2×140 行克隆)=====
 
 interface ModelParamsBodyProps {
   config: ModelConfig
@@ -490,10 +392,9 @@ interface ModelParamsBodyProps {
   timbreOpen: boolean
   setTimbreOpen: (v: boolean | ((prev: boolean) => boolean)) => void
   variables: ModelConfigVariable[]
-  handleVariableChange: (setVariables: ModelConfigVariable[]) => void
 }
 
-/** 基础参数 + 图片/视频/音色条件参数 + 动态配置项(两个弹窗变体完全一致) */
+/** 基础参数 + 图片/视频/音色条件参数 + 动态配置项 */
 function ModelParamsBody(props: ModelParamsBodyProps) {
   const {
     config,
@@ -506,7 +407,6 @@ function ModelParamsBody(props: ModelParamsBodyProps) {
     timbreOpen,
     setTimbreOpen,
     variables,
-    handleVariableChange,
   } = props
   const { t } = useI18n()
 
@@ -699,11 +599,7 @@ function ModelParamsBody(props: ModelParamsBodyProps) {
       ) : null}
 
       {/* 动态配置项(对齐原 index.vue variables) */}
-      <DynamicVariables
-        variables={variables}
-        isVideoModel={isVideoModel}
-        onChange={handleVariableChange}
-      />
+      <DynamicVariables variables={variables} isVideoModel={isVideoModel} />
     </>
   )
 }
@@ -717,7 +613,6 @@ function BasicModelConfigDialog({
   onChange,
   onClose,
   variables = [],
-  onConfigChange,
   systemVoices,
 }: ModelConfigDialogProps) {
   const { t } = useI18n()
@@ -726,11 +621,6 @@ function BasicModelConfigDialog({
   const update = useCallback(
     (patch: Partial<ModelConfig>) => onChange({ ...config, ...patch }),
     [config, onChange],
-  )
-
-  const handleVariableChange = useCallback(
-    (setVariables: ModelConfigVariable[]) => onConfigChange?.({ setVariables }),
-    [onConfigChange],
   )
 
   const isImage = modelType === 'image' || modelType === 'multimodal'
@@ -771,7 +661,6 @@ function BasicModelConfigDialog({
               timbreOpen={timbreOpen}
               setTimbreOpen={setTimbreOpen}
               variables={variables}
-              handleVariableChange={handleVariableChange}
             />
           </ScrollView>
 
@@ -799,513 +688,4 @@ function BasicModelConfigDialog({
   )
 }
 
-// ===== indexa 变体(高级设置:数字人上传 + 音色克隆)=====
-
-function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
-  const {
-    visible,
-    modelType = 'text',
-    config,
-    onChange,
-    onClose,
-    modelName,
-    firstFrameUrl,
-    lastFrameUrl,
-    audioUrl,
-    videoUrl,
-    onUploadFirstFrame,
-    onUploadLastFrame,
-    onUploadVideo,
-    onSelectVoice,
-    onCloneVoice,
-    onStartRecording,
-    onStopRecording,
-    isRecording = false,
-    recordDuration = 0,
-    variables = [],
-    onConfigChange,
-    systemVoices,
-    onDeleteFirstFrame,
-    onDeleteLastFrame,
-    onDeleteAudio,
-    onDeleteVideo,
-  } = props
-
-  const { t } = useI18n()
-  const [timbreOpen, setTimbreOpen] = useState(false)
-  const [showAudioMenu, setShowAudioMenu] = useState(false)
-  const [showRecordDialog, setShowRecordDialog] = useState(false)
-
-  const update = useCallback(
-    (patch: Partial<ModelConfig>) => onChange({ ...config, ...patch }),
-    [config, onChange],
-  )
-
-  const handleVariableChange = useCallback(
-    (setVariables: ModelConfigVariable[]) => onConfigChange?.({ setVariables }),
-    [onConfigChange],
-  )
-
-  const isImage = modelType === 'image' || modelType === 'multimodal'
-  const isVideo = modelType === 'video'
-  const isAudio = modelType === 'audio'
-  // 视频模型判断(对齐原 watch modelName:含 t2v/i2v 为视频模型)
-  const isVideoModel = isVideo || !!modelName?.includes('t2v') || !!modelName?.includes('i2v')
-  const voiceList =
-    systemVoices && systemVoices.length > 0
-      ? systemVoices
-      : TIMBRES.map((tb) => ({ id: tb.id, name: t(tb.nameKey) }))
-
-  // 数字人模型:显示首帧图/尾帧图/克隆数字人按钮
-  const isDigitalHuman = modelName?.includes('数字人') ?? false
-  // 语音合成模型:显示参考音色按钮
-  const isVoiceSynthesis = modelName?.includes('语音') ?? false
-  // 显示上传按钮组的条件
-  const showUploadButtons = isDigitalHuman || isVoiceSynthesis
-
-  const handleAudioMenu = () => {
-    setShowAudioMenu(true)
-  }
-
-  const handleSelectVoice = () => {
-    setShowAudioMenu(false)
-    onSelectVoice?.()
-  }
-
-  const handleCloneVoice = () => {
-    setShowAudioMenu(false)
-    setShowRecordDialog(true)
-    onCloneVoice?.()
-  }
-
-  const handleStartRecord = () => {
-    onStartRecording?.()
-  }
-
-  const handleStopRecord = () => {
-    onStopRecording?.()
-  }
-
-  const handleCloseRecordDialog = () => {
-    setShowRecordDialog(false)
-  }
-
-  return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <TouchableOpacity className="flex-1 bg-black/20" activeOpacity={1} onPress={onClose}>
-        <View className="mt-auto" style={{ backgroundColor: tokens.surface.card }}>
-          {/* 头部 */}
-          <View className="flex-row items-center justify-between px-4 py-3">
-            <Text className="text-sm font-semibold" style={{ color: tokens.text.primary }}>
-              {t('agent.config')}
-            </Text>
-            <Tappable onPress={onClose} hitSlop={8}>
-              <Text className="text-xs" style={{ color: tokens.text.tertiary }}>
-                {t('common.cancel')}
-              </Text>
-            </Tappable>
-          </View>
-
-          <ScrollView className="max-h-[60%] px-4 pb-2">
-            {/* 数字人生成相关功能按钮 */}
-            {showUploadButtons ? (
-              <View className="flex-row flex-wrap justify-between pt-2 pb-1">
-                {/* 首帧图 */}
-                {isDigitalHuman ? (
-                  <UploadButton
-                    label={t('profile.cfgAddFirstFrame')}
-                    url={firstFrameUrl}
-                    onPress={onUploadFirstFrame}
-                    onDelete={onDeleteFirstFrame}
-                  />
-                ) : null}
-
-                {/* 尾帧图 */}
-                {isDigitalHuman ? (
-                  <UploadButton
-                    label={t('profile.cfgAddLastFrame')}
-                    url={lastFrameUrl}
-                    onPress={onUploadLastFrame}
-                    onDelete={onDeleteLastFrame}
-                  />
-                ) : null}
-
-                {/* 参考音色 */}
-                {isVoiceSynthesis || isDigitalHuman ? (
-                  <UploadButton
-                    label={t('profile.cfgRefTimbre')}
-                    url={audioUrl}
-                    onPress={handleAudioMenu}
-                    onDelete={onDeleteAudio}
-                  />
-                ) : null}
-
-                {/* 克隆数字人 */}
-                {isDigitalHuman ? (
-                  <UploadButton
-                    label={t('profile.cfgCloneHuman')}
-                    url={videoUrl}
-                    onPress={onUploadVideo}
-                    onDelete={onDeleteVideo}
-                  />
-                ) : null}
-              </View>
-            ) : null}
-
-            {/* 基础参数(同 index 变体) */}
-            <ModelParamsBody
-              config={config}
-              update={update}
-              isImage={isImage}
-              isVideo={isVideo}
-              isAudio={isAudio}
-              isVideoModel={isVideoModel}
-              voiceList={voiceList}
-              timbreOpen={timbreOpen}
-              setTimbreOpen={setTimbreOpen}
-              variables={variables}
-              handleVariableChange={handleVariableChange}
-            />
-          </ScrollView>
-
-          {/* 底部按钮 */}
-          <View className="flex-row gap-2 px-4 pb-4 pt-2">
-            <Pressable
-              onPress={onClose}
-              className="flex-1 items-center rounded-md py-2.5 active:opacity-60"
-              style={{ backgroundColor: tokens.surface.muted }}
-            >
-              <Text className="text-xs" style={{ color: tokens.text.secondary }}>
-                {t('common.cancel')}
-              </Text>
-            </Pressable>
-            <Pressable
-              onPress={onClose}
-              className="flex-1 items-center rounded-md py-2.5 active:opacity-60"
-              style={{ backgroundColor: tokens.success.DEFAULT }}
-            >
-              <Text className="text-xs text-white">{t('common.save')}</Text>
-            </Pressable>
-          </View>
-        </View>
-      </TouchableOpacity>
-
-      {/* 音频选择菜单弹窗 */}
-      {showAudioMenu ? (
-        <TouchableOpacity
-          className="absolute inset-0 bg-black/40"
-          activeOpacity={1}
-          onPress={() => setShowAudioMenu(false)}
-        >
-          <View className="flex-1 items-center justify-center">
-            <View
-              className="w-[80%] overflow-hidden rounded-xl"
-              style={{ backgroundColor: tokens.surface.card }}
-              onStartShouldSetResponder={() => true}
-            >
-              {/* 弹窗头部 */}
-              <View
-                className="flex-row items-center justify-between py-4"
-                style={modelConfigMenuPadXStyle(MODEL_CONFIG_MENU_PAD_PX, toUnit)}
-              >
-                <Text className="text-sm font-semibold" style={{ color: tokens.text.primary }}>
-                  选择音色
-                </Text>
-                <Tappable onPress={() => setShowAudioMenu(false)} hitSlop={8}>
-                  <X size={MODEL_CONFIG_INLINE_GLYPH_PX} color={tokens.text.secondary} />
-                </Tappable>
-              </View>
-
-              {/* 菜单项 */}
-              <Pressable
-                onPress={handleSelectVoice}
-                className="flex-row items-center active:opacity-60"
-                style={{
-                  ...modelConfigMenuPadXStyle(MODEL_CONFIG_MENU_PAD_PX, toUnit),
-                  ...modelConfigMenuRowStyle(MODEL_CONFIG_MENU_ROW_PAD_Y_PX, toUnit),
-                }}
-              >
-                <View
-                  className="mr-3 items-center justify-center rounded-lg"
-                  style={{
-                    ...modelConfigAudioMenuIconStyle(toUnit),
-                    backgroundColor: tokens.success.light,
-                  }}
-                >
-                  <Music size={MODEL_CONFIG_BLOCK_GLYPH_PX} color={tokens.text.secondary} />
-                </View>
-                <View className="flex-1">
-                  <Text className="text-xs font-medium" style={{ color: tokens.text.primary }}>
-                    选择音色
-                  </Text>
-                  <Text className="text-xs" style={{ color: tokens.text.tertiary }}>
-                    {audioUrl ? t('profile.cfgTimbreChosen') : t('profile.cfgTimbreFromLib')}
-                  </Text>
-                </View>
-                <ChevronRight size={MODEL_CONFIG_INLINE_GLYPH_PX} color={tokens.text.tertiary} />
-              </Pressable>
-
-              <Pressable
-                onPress={handleCloneVoice}
-                className="flex-row items-center active:opacity-60"
-                style={{
-                  ...modelConfigMenuPadXStyle(MODEL_CONFIG_MENU_PAD_PX, toUnit),
-                  ...modelConfigMenuRowStyle(MODEL_CONFIG_MENU_ROW_PAD_Y_PX, toUnit),
-                }}
-              >
-                <View
-                  className="mr-3 items-center justify-center rounded-lg"
-                  style={{
-                    ...modelConfigAudioMenuIconStyle(toUnit),
-                    backgroundColor: tokens.success.light,
-                  }}
-                >
-                  <Mic size={MODEL_CONFIG_BLOCK_GLYPH_PX} color={tokens.text.secondary} />
-                </View>
-                <View className="flex-1">
-                  <Text className="text-xs font-medium" style={{ color: tokens.text.primary }}>
-                    克隆音色
-                  </Text>
-                  <Text className="text-xs" style={{ color: tokens.text.tertiary }}>
-                    上传音频文件克隆音色
-                  </Text>
-                </View>
-                <ChevronRight size={MODEL_CONFIG_INLINE_GLYPH_PX} color={tokens.text.tertiary} />
-              </Pressable>
-            </View>
-          </View>
-        </TouchableOpacity>
-      ) : null}
-
-      {/* 录音弹窗 */}
-      {showRecordDialog ? (
-        <Modal
-          visible={showRecordDialog}
-          transparent
-          animationType="fade"
-          onRequestClose={handleCloseRecordDialog}
-        >
-          <TouchableOpacity
-            className="flex-1 bg-black/50"
-            activeOpacity={1}
-            onPress={handleCloseRecordDialog}
-          >
-            <View className="flex-1 items-center justify-center">
-              <View
-                className="w-[85%] overflow-hidden rounded-xl"
-                style={{ backgroundColor: tokens.surface.card }}
-                onStartShouldSetResponder={() => true}
-              >
-                {/* 录音弹窗头部 */}
-                <View className="flex-row items-center justify-between px-5 py-4">
-                  <Text className="text-sm font-semibold" style={{ color: tokens.text.primary }}>
-                    音色克隆
-                  </Text>
-                  <Tappable onPress={handleCloseRecordDialog} hitSlop={8}>
-                    <X size={MODEL_CONFIG_INLINE_GLYPH_PX} color={tokens.text.secondary} />
-                  </Tappable>
-                </View>
-
-                {/* 录音内容 */}
-                <View className="px-5 pb-5">
-                  {/* 朗读文本 */}
-                  <Text className="mb-1.5 text-xs" style={{ color: tokens.text.tertiary }}>
-                    请朗读以下文本:
-                  </Text>
-                  <View
-                    className="mb-4 rounded-lg p-3"
-                    style={{ backgroundColor: tokens.surface.muted }}
-                  >
-                    <Text className="text-xs leading-5" style={{ color: tokens.text.secondary }}>
-                      我正在录制智汇 AI 定制克隆声音。通过这段录制,你将拥有一个与自己声音高度相似的
-                      AI 语音模型。
-                    </Text>
-                  </View>
-
-                  {/* 录音状态 */}
-                  <View className="mb-4 items-center">
-                    <Text className="text-xs" style={{ color: tokens.text.tertiary }}>
-                      {isRecording
-                        ? t('profile.cfgRecordingSec', { sec: recordDuration })
-                        : t('profile.cfgTapToRecord')}
-                    </Text>
-                  </View>
-
-                  {/* 录音按钮 */}
-                  <View className="mb-3 items-center">
-                    <Tappable
-                      onPress={isRecording ? handleStopRecord : handleStartRecord}
-                      className={
-                        isRecording
-                          ? 'items-center justify-center rounded-xl bg-red-500'
-                          : 'items-center justify-center rounded-xl bg-emerald-500'
-                      }
-                      style={modelConfigSquareStyle(MODEL_CONFIG_RECORD_BUTTON_PX, toUnit)}
-                    >
-                      {isRecording ? (
-                        <Square size={MODEL_CONFIG_RECORD_GLYPH_PX} color={tokens.surface.light} />
-                      ) : (
-                        <Mic size={MODEL_CONFIG_RECORD_GLYPH_PX} color={tokens.surface.light} />
-                      )}
-                    </Tappable>
-                    <Text className="mt-2 text-xs" style={{ color: tokens.text.tertiary }}>
-                      {isRecording ? t('profile.cfgStopRecord') : t('profile.cfgStartRecord')}
-                    </Text>
-                  </View>
-
-                  {/* 提示 */}
-                  <Text className="text-center text-xs" style={{ color: tokens.text.tertiary }}>
-                    建议录音时长 10-30 秒,请确保环境安静
-                  </Text>
-                </View>
-              </View>
-            </View>
-          </TouchableOpacity>
-        </Modal>
-      ) : null}
-    </Modal>
-  )
-}
-
-/** indexa 变体:上传按钮(虚线边框 + 图标 + 标签 + 可选删除) */
-function UploadButton({
-  label,
-  url,
-  onPress,
-  onDelete,
-}: {
-  label: string
-  url?: string
-  onPress?: () => void
-  onDelete?: () => void
-}) {
-  return (
-    <View className="mr-1.5 mb-1.5" style={modelConfigUploadCardStyle(toUnit)}>
-      <Pressable
-        onPress={onPress}
-        className="items-center rounded-lg border border-dashed py-2 active:opacity-60"
-        style={{
-          borderColor: tokens.success.lighter,
-          backgroundColor: tokens.success.light,
-        }}
-      >
-        <View
-          className="mb-1 items-center justify-center"
-          style={modelConfigSquareStyle(MODEL_CONFIG_UPLOAD_MARK_PX, toUnit)}
-        >
-          {url ? (
-            <Check size={MODEL_CONFIG_BLOCK_GLYPH_PX} color={tokens.text.secondary} />
-          ) : (
-            <Plus size={MODEL_CONFIG_BLOCK_GLYPH_PX} color={tokens.text.secondary} />
-          )}
-        </View>
-        <Text className="text-xs" style={{ color: tokens.text.secondary }} numberOfLines={1}>
-          {label}
-        </Text>
-      </Pressable>
-      {url && onDelete ? (
-        <Pressable
-          onPress={(e) => {
-            e.stopPropagation()
-            onDelete()
-          }}
-          hitSlop={4}
-          className="absolute -top-2 -right-2 items-center justify-center rounded-2xl active:opacity-60"
-          style={{ ...modelConfigDeleteBadgeStyle(toUnit), backgroundColor: tokens.surface.card }}
-        >
-          <Text className="text-xs" style={{ color: tokens.text.tertiary }}>
-            ×
-          </Text>
-        </Pressable>
-      ) : null}
-    </View>
-  )
-}
-
-// ===== selecter 变体(纯模型选择器,无参数调节)=====
-
-function ModelSelecterDialog({
-  visible,
-  onClose,
-  models = [],
-  selectedModelId,
-  onSelectModel,
-}: ModelConfigDialogProps) {
-  const { t } = useI18n()
-
-  const handleSelect = (id: string) => {
-    onSelectModel?.(id)
-    onClose()
-  }
-
-  return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <TouchableOpacity className="flex-1 bg-black/20" activeOpacity={1} onPress={onClose}>
-        <View className="mt-auto" style={{ backgroundColor: tokens.surface.card }}>
-          {/* 头部 */}
-          <View className="flex-row items-center justify-between px-4 py-3">
-            <Text className="text-sm font-semibold" style={{ color: tokens.text.primary }}>
-              选择模型
-            </Text>
-            <Tappable onPress={onClose} hitSlop={8}>
-              <Text className="text-xs" style={{ color: tokens.text.tertiary }}>
-                {t('common.cancel')}
-              </Text>
-            </Tappable>
-          </View>
-
-          {/* 模型列表 */}
-          <ScrollView className="max-h-[50%] px-4 pb-2">
-            {models.length === 0 ? (
-              <View className="py-8 items-center">
-                <Text className="text-xs" style={{ color: tokens.text.tertiary }}>
-                  暂无可选模型
-                </Text>
-              </View>
-            ) : (
-              models.map((model) => {
-                const isActive = model.id === selectedModelId
-                return (
-                  <Pressable
-                    key={model.id}
-                    onPress={() => handleSelect(model.id)}
-                    className="mb-2 rounded-md px-3 py-3 active:opacity-60"
-                    style={{
-                      backgroundColor: isActive ? tokens.success.light : tokens.surface.muted,
-                    }}
-                  >
-                    <Text
-                      className="text-sm font-medium"
-                      style={{ color: isActive ? tokens.success.deepText : tokens.text.primary }}
-                    >
-                      {model.name}
-                    </Text>
-                    {model.description ? (
-                      <Text className="mt-0.5 text-xs" style={{ color: tokens.text.tertiary }}>
-                        {model.description}
-                      </Text>
-                    ) : null}
-                  </Pressable>
-                )
-              })
-            )}
-          </ScrollView>
-
-          {/* 底部关闭按钮 */}
-          <View className="px-4 pb-4 pt-2">
-            <Pressable
-              onPress={onClose}
-              className="items-center rounded-md py-2.5 active:opacity-60"
-              style={{ backgroundColor: tokens.surface.muted }}
-            >
-              <Text className="text-xs" style={{ color: tokens.text.secondary }}>
-                {t('common.cancel')}
-              </Text>
-            </Pressable>
-          </View>
-        </View>
-      </TouchableOpacity>
-    </Modal>
-  )
-}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
