@@ -50,13 +50,17 @@
  *   4. 远程 tag 完整性: git ls-remote origin 'refs/tags/lost-commit/*' 'refs/tags/backup/*'
  *      → 本地/远端 tag 集对比(仅远端缺失 → blocking;仅本地 → warn)
  *      → git cat-file -e <tag> / <tag>^{} 验证 tag 对象 + commit 对象可达性
- *   5. 综合判定(reflog reset / 未备份悬空 commit / 远端 tag 缺失 / tag 对象不可达)
+ *      → **该档默认不发网络**(提交链不付 ls-remote 代价);显式发起(IHUI_COMMIT_LOSS_REMOTE=1)
+ *        却失败/超时 = **未判定** → exit 2,不得计为通过(2026-11-04 改;原为"安全降级跳过")
+ *   5. 综合判定(reflog reset / 未备份悬空 commit / 远端 tag 缺失 / tag 对象不可达 /
+ *      显式发起的远程档未判定)
  *
  * 退出码:
  *   0 — 通过(warn 告警可被忽略,但 stdout 仍打印提示)
  *   1 — blocking/strict 模式下有阻塞项(reflog reset / 未备份悬空 commit /
  *        远端 tag 缺失需 fetch / tag 对象不可达)
- *   2 — **无法判定**:判据面取不到(典型:fsck 派生不出来 / 超时 / 仓不可达)。
+ *   2 — **无法判定**:判据面取不到(典型:fsck 派生不出来 / 超时 / 仓不可达 /
+ *        显式发起的 ls-remote 失败或超时)。
  *       与 1 分开是本仓既有约定(§12e):1 = "判完了,判红",2 = "没判完"。
  *       绝不允许把"没判完"折成 0 —— 那正是本门 2026-10-03 之前恒绿的成因。
  *
@@ -597,6 +601,9 @@ function readLossCache() {
   if (!isBlocking || process.env.IHUI_COMMIT_LOSS_NO_CACHE === '1') return null
   // 名单出口的产物是**名单**,不是结论:缓存里没有名单,命中即等于把名单吞掉。
   if (isListUnbacked || isListOutOfWindow) return null
+  // 显式要看远程时,缓存里的结论只覆盖本地面(那次的远端档可能压根没跑/没判成)
+  // ⇒ 必须现算,不得拿旧结论替远程档作证(2026-11-04)。
+  if (process.env.IHUI_COMMIT_LOSS_REMOTE === '1') return null
   try {
     const j = JSON.parse(readFileSync(lossCachePath(), 'utf8'))
     if (!j || typeof j.ts !== 'number' || typeof j.blocking !== 'boolean') return null
@@ -1463,7 +1470,9 @@ function remoteTagScan() {
   // 用环境变量而非 argv 判断:本门在提交链里由 guardian-runner 以 `--filter-stash --staged`
   // 调用,而手动档/巡检档的参数形态各不相同;判据面是"要不要发网络",与环境变量一一对应最稳。
   if (process.env.IHUI_COMMIT_LOSS_REMOTE !== '1') {
-    remoteTagScanMemo = { lost: null, backup: null }
+    // 「默认不发网络」是本门的设计边界(提交链上每枚提交都付 60s 不可接受),不是"取不到"。
+    // 必须与下面「发起过但失败」分开:后者是 UNDETERMINED(§0.3),前者维持既有绿语义。
+    remoteTagScanMemo = { lost: null, backup: null, attempted: false, failed: false, reason: '' }
     return remoteTagScanMemo
   }
   const cachePath = remoteScanCachePath()
@@ -1474,8 +1483,20 @@ function remoteTagScan() {
       const ttl = j.ok ? REMOTE_SCAN_CACHE_TTL_OK_MS : REMOTE_SCAN_CACHE_TTL_FAIL_MS
       if (age >= 0 && age <= ttl) {
         remoteTagScanMemo = j.ok
-          ? { lost: Array.isArray(j.lost) ? j.lost : [], backup: Array.isArray(j.backup) ? j.backup : [] }
-          : { lost: null, backup: null }
+          ? {
+              lost: Array.isArray(j.lost) ? j.lost : [],
+              backup: Array.isArray(j.backup) ? j.backup : [],
+              attempted: true,
+              failed: false,
+              reason: '',
+            }
+          : {
+              lost: null,
+              backup: null,
+              attempted: true,
+              failed: true,
+              reason: String(j.reason || '命中失败缓存(上次 ls-remote 未取到)'),
+            }
         return remoteTagScanMemo
       }
     }
@@ -1483,6 +1504,7 @@ function remoteTagScan() {
     /* 无缓存/缓存损坏/过期 ⇒ 正常发网络,读缓存失败绝不影响判据 */
   }
   let parsed = null
+  let failureReason = ''
   try {
     // `--refs` + `protocol.version=2` 是本机实测的提速两件套(2026-10-12):这仓远端两族
     // tag 有 7968 行,其中 1004 行是 annotated tag 的 `^{}` peel 行 —— 它们只被下面的
@@ -1518,33 +1540,32 @@ function remoteTagScan() {
       lost: all.filter((n) => n.startsWith('lost-commit/')),
       backup: all.filter((n) => n.startsWith('backup/')),
     }
-  } catch {
+  } catch (e) {
+    // 发起过但没取到(失败/超时/离线)= 未判定,不是"远程没问题"。原因随缓存一起落盘,
+    // 保证 2 分钟失效窗内的下一次调用仍能说出"为什么没判成",而不是只看到一个 null。
     parsed = null
+    failureReason = gitErrText(e) || 'ls-remote 失败/超时'
   }
   try {
     writeFileSync(
       cachePath,
       JSON.stringify(
-        parsed ? { ts: Date.now(), ok: true, ...parsed } : { ts: Date.now(), ok: false, lost: null, backup: null },
+        parsed
+          ? { ts: Date.now(), ok: true, ...parsed }
+          : { ts: Date.now(), ok: false, lost: null, backup: null, reason: failureReason },
       ),
       'utf8',
     )
   } catch {
     /* 缓存写不进去只是下次还得再跑一趟,不影响本次判定 */
   }
-  remoteTagScanMemo = parsed || { lost: null, backup: null }
+  remoteTagScanMemo = parsed
+    ? { ...parsed, attempted: true, failed: false, reason: '' }
+    : { lost: null, backup: null, attempted: true, failed: true, reason: failureReason }
   return remoteTagScanMemo
 }
 /** 进程内记忆:同一次提交里两族只问一趟,不因调用点分开而重复发网络 */
 let remoteTagScanMemo = null
-
-function listRemoteLostCommitTags() {
-  return remoteTagScan().lost
-}
-
-function listRemoteBackups() {
-  return remoteTagScan().backup
-}
 
 const TAG_REF_PREFIX = 'refs/tags/'
 
@@ -1972,11 +1993,14 @@ async function main() {
   const stashCount = isFilterStash ? rawUnreachable.length - unreachable.length : 0
   // 2026-07-26 升级:远程 tag 完整性校验
   // 2026-09-06 修复:null=ls-remote 失败/超时 → 降级跳过远程 diff(不产生误导性差异)
-  const remoteLostTags = listRemoteLostCommitTags()
-  mark('listRemoteLostCommitTags')
-  const remoteBackups = listRemoteBackups()
-  mark('listRemoteBackups')
+  const remoteScan = remoteTagScan()
+  const remoteLostTags = remoteScan.lost
+  mark('remoteTagScan')
+  const remoteBackups = remoteScan.backup
   const remoteCheckSkipped = remoteLostTags === null || remoteBackups === null
+  // 「显式发起但没取到」= UNDETERMINED(§0.3:不得折成通过);「默认不发网络」= 设计边界,
+  // 维持既有绿语义。两者都让 remoteCheckSkipped 为真,但只有前者需要 exit 2。
+  const remoteUndetermined = remoteCheckSkipped && remoteScan.attempted && remoteScan.failed
   const lostTagDiff = remoteCheckSkipped
     ? { onlyLocal: [], onlyRemote: [], both: [] }
     : compareTagSets(lostTags, remoteLostTags)
@@ -2137,9 +2161,13 @@ async function main() {
   console.log(
     `  ${C.dim}本地 lost-commit/*: ${lostTags.length} 个 | 本地 backup/*: ${backups.length} 个${C.reset}`,
   )
-  if (remoteCheckSkipped) {
+  if (remoteUndetermined) {
     console.log(
-      `    ${C.yellow}⚠️  ls-remote 失败/超时(网络或 ${REMOTE_TIMEOUT_MS}ms 上限),远程完整性校验已安全降级跳过 — 不影响本次判定${C.reset}`,
+      `    ${C.red}❌ UNDETERMINED(未判定):ls-remote 失败/超时(${remoteScan.reason || '原因未取到'})—— 远程 tag 完整性本次没判成,不得计为绿${C.reset}`,
+    )
+  } else if (remoteCheckSkipped) {
+    console.log(
+      `    ${C.dim}(本门默认不发网络:远程 tag 完整性按设计跳过,不纳入本次判定;显式检查用 IHUI_COMMIT_LOSS_REMOTE=1)${C.reset}`,
     )
   } else {
     console.log(
@@ -2149,8 +2177,10 @@ async function main() {
 
   // 5.1 lost-commit 差异
   console.log(`\n  ${C.bold}lost-commit/* 差异:${C.reset}`)
-  if (remoteCheckSkipped) {
-    console.log(`    ${C.dim}(远程校验已跳过,见上方降级提示)${C.reset}`)
+  if (remoteUndetermined) {
+    console.log(`    ${C.dim}(远程校验未判定:ls-remote 未取到,见上方)${C.reset}`)
+  } else if (remoteCheckSkipped) {
+    console.log(`    ${C.dim}(远程校验未纳入本次判定,见上方)${C.reset}`)
   } else if (lostTagDiff.onlyLocal.length === 0 && lostTagDiff.onlyRemote.length === 0) {
     console.log(`    ${C.green}✅ 本地+远端完全一致${C.reset}`)
   } else {
@@ -2181,8 +2211,10 @@ async function main() {
 
   // 5.2 backup 差异
   console.log(`\n  ${C.bold}backup/* 差异:${C.reset}`)
-  if (remoteCheckSkipped) {
-    console.log(`    ${C.dim}(远程校验已跳过,见上方降级提示)${C.reset}`)
+  if (remoteUndetermined) {
+    console.log(`    ${C.dim}(远程校验未判定:ls-remote 未取到,见上方)${C.reset}`)
+  } else if (remoteCheckSkipped) {
+    console.log(`    ${C.dim}(远程校验未纳入本次判定,见上方)${C.reset}`)
   } else if (backupTagDiff.onlyLocal.length === 0 && backupTagDiff.onlyRemote.length === 0) {
     console.log(`    ${C.green}✅ 本地+远端完全一致${C.reset}`)
   } else {
@@ -2644,6 +2676,14 @@ async function main() {
     // 仅本地不阻塞,只 warn
   }
 
+  if (remoteUndetermined) {
+    // 显式发起却没取到 ⇒ 未判定(§0.3)。故意**不写结论缓存**:缓存只存"红/绿"两态,
+    // 没有"没判成"这一态;写进去等于下一轮把它读成绿。
+    issues.push(
+      `远程 tag 完整性未判定(ls-remote 失败/超时:${remoteScan.reason || '原因未取到'})—— 未判定不计绿`,
+    )
+  }
+
   if (issues.length === 0) {
     console.log(`  ${C.green}✅ ${GREEN_MARKERS.noRisk}${C.reset}`)
     process.exit(0)
@@ -2679,6 +2719,19 @@ async function main() {
     )
     writeLossCache({ ts: Date.now(), head: currentHeadSha(), blocking: true, summary: issues.join('; ') })
     process.exit(1)
+  }
+
+  // 判完但有确定判红项(ex. 仅本地 tag)时走原有 warn 档;唯独"显式发起却取不到"的远端档
+  // 必须 exit 2 —— 那一档没有结论,不能顺着 warn 档滑到 0(§0.3 未判定≠通过)。
+  if (remoteUndetermined) {
+    console.log(
+      `\n${C.red}${C.bold}❌ UNDETERMINED: 远程 tag 完整性未判定,本次结论不得记绿${C.reset}`,
+    )
+    console.log(`   ls-remote 未取到:${remoteScan.reason || '失败/超时'}`)
+    console.log(
+      `   ${C.dim}网络恢复后重跑:node scripts/check-commit-loss-guard.mjs(或 IHUI_COMMIT_LOSS_REMOTE=1 显式复核)${C.reset}`,
+    )
+    process.exit(2)
   }
 
   console.log(`\n${C.yellow}💡 建议:${C.reset}`)

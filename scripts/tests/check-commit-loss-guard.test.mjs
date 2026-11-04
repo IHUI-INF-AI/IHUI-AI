@@ -1182,4 +1182,35 @@ test('装车证明: 窗维判据必须真挂在 main 的判定链上(函数在�
   }
   assert.match(src, /wholeWalkFailed/, '整批派生失败那一支必须有实现,不得只写在注释里')
 })
+
+/**
+ * 2026-11-04:远程 tag 完整性档「显式发起但取不到」必须显式未判定(exit 2),不得折成通过。
+ * 夹具用**必然取不到**的 origin(指向不存在的本地路径):它与真超时同走 remoteTagScan 的
+ * catch 分支(parsed=null ⇒ attempted/failed=true),但不需要真等 60s。
+ * 为什么不注入假 git:PATH 注入在本门不成立 —— 派生走共用层的绝对路径 `GIT_BIN`,不经 PATH;
+ * 且 Windows 下 `execFileSync` 不能直接起 `.cmd`(实测 EINVAL)。故采用等价可控的"取不到"夹具。
+ */
+test('远程 tag 完整性·显式发起但 ls-remote 取不到 ⇒ UNDETERMINED + exit 2,不得记通过', () => {
+  const dir = createTempRepo()
+  // 不存在的远端路径 ⇒ ls-remote 必然失败(与超时同一分支:catch ⇒ null ⇒ 未判定)
+  execFileSync('git', ['remote', 'add', 'origin', join(dir, 'no-such-remote')], {
+    cwd: dir,
+    stdio: 'ignore',
+  })
+  const r = runScript(['--blocking', '--filter-stash'], {
+    cwd: dir,
+    env: { IHUI_COMMIT_LOSS_REMOTE: '1', IHUI_COMMIT_LOSS_NO_CACHE: '1' },
+  })
+  const out = `${r.stdout || ''}${r.stderr || ''}`
+  // ① 输出必须出现未判定标记
+  assert.match(out, /UNDETERMINED/, `显式发起却没取到,输出必须标未判定,实际:\n${out.slice(-600)}`)
+  // ② 退码必须是 2(0=通过 / 1=判红 / 2=没判成)
+  assert.equal(r.status, 2, `未判定必须 exit 2,实际 ${r.status}:\n${out.slice(-600)}`)
+  // ③ 不得出现"通过"字样(尤其不得打印成功句)
+  assert.ok(!out.includes('通过'), `未判定不得写成通过,实际输出:\n${out.slice(-600)}`)
+  assert.ok(
+    !out.includes(__test__.GREEN_MARKERS.noRisk),
+    '未判定不得打印"无 commit 丢失风险"',
+  )
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
