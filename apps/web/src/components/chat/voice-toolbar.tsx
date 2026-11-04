@@ -32,88 +32,35 @@ import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { COMPOSER_MENU_ROW_CLASS, COMPOSER_MENU_ROW_ICON_CLASS } from '@/lib/composer-menu-row'
 import { Tooltip } from '@/components/feedback'
-import { VoiceInput, type VoiceInputHandle } from './voice-input'
-import { readHandsFree, VOICE_HANDSFREE_KEY } from './voice-stream-speaker'
-// D62(G-76,2026-09-25 装车):字幕条渲染位的真实宿主。此前 VoiceSubtitleBar 只有
-// 自身测试消费、生产零渲染 ⇒ "播报时字幕可见 / 静音并显示字幕" 语义为空。
-// 本组件把两个既有栈的状态映射进纯展示组件:
-//   · summaryRecording ← VoiceInputHandle.recording(下方 RAF 轮询已有链路);
-//   · micError        ← VoiceInputHandle.micError(voice-input 内 classifyMicError 归一);
-//   · speaking/muted  ← useVoicePlayback() 对播报音频的只读观测(不改 VoiceStreamSpeaker);
-//   · subtitle        ← chat store 最后一条 assistant 内容(与 Speaker 同一取数形状)。
-import { VoiceSubtitleBar } from '@/components/ai/voice-subtitle-bar'
-import { useChatStore } from '@/stores/chat'
-import type { MicErrorKind, SummaryView } from '@ihui/shared/chat/voice-subtitles'
+import {
+  VoiceCompanion,
+  toggleVoiceHandsFree,
+  toggleVoicePlayback,
+  toggleVoiceRecording,
+  useVoiceState,
+} from './voice-companion'
 
 /**
- * 播报(TTS)播放态的宿主侧只读观测。
+ * VoiceToolbar — 语音入口行(2026-11-04 第三轮起收进「+ → 更多工具」抽屉)。
  *
- * 不新建第二套播放栈、也不改 voice-stream-speaker.tsx(本票文件清单外):
- * HTMLMediaElement 的 play/playing/pause/ended/error 虽不冒泡,但**捕获阶段必经
- * window**,故在 window 上以 capture=true 监听即可拿到"当前有音频在播"的真值;
- * muted 取在播元素全体 muted(=「静音并显示字幕」态的实机来源)。
+ * 2026-11-04 拆档:引擎(<VoiceInput hidden>)、全局快捷键监听、播报字幕条(D62)已迁到
+ * 常驻的 VoiceCompanion —— 菜单是条件挂载的浮层,不能承载有生命周期的语音栈,
+ * 否则"录音中点页面即中断 / 播报字幕只在抽屉打开时可见 / Ctrl+Alt+V·B·H 失效"。
+ * 本组件只剩入口与状态展示,状态从 voice-companion 的 store 读。
+ *
+ * variant:
+ *   · row = + 菜单内的统一设置行(生产唯一用法);
+ *   · bar = 底栏独立按钮形态,自带 Companion 宿主(单测/旧宿主用)。
  */
-function useVoicePlayback(): { speaking: boolean; muted: boolean } {
-  const [state, setState] = React.useState<{ speaking: boolean; muted: boolean }>({
-    speaking: false,
-    muted: false,
-  })
-  React.useEffect(() => {
-    const live = new Set<HTMLAudioElement>()
-    const sync = () => {
-      setState((prev) => {
-        const speaking = live.size > 0
-        const muted = speaking && Array.from(live).every((el) => el.muted)
-        return prev.speaking === speaking && prev.muted === muted ? prev : { speaking, muted }
-      })
-    }
-    const onStart = (e: Event) => {
-      if (e.target instanceof HTMLAudioElement) {
-        live.add(e.target)
-        sync()
-      }
-    }
-    const onStop = (e: Event) => {
-      if (e.target instanceof HTMLAudioElement) {
-        live.delete(e.target)
-        sync()
-      }
-    }
-    const startEvents = ['play', 'playing'] as const
-    const stopEvents = ['pause', 'ended', 'emptied', 'error'] as const
-    for (const ev of startEvents) window.addEventListener(ev, onStart, true)
-    for (const ev of stopEvents) window.addEventListener(ev, onStop, true)
-    return () => {
-      for (const ev of startEvents) window.removeEventListener(ev, onStart, true)
-      for (const ev of stopEvents) window.removeEventListener(ev, onStop, true)
-    }
-  }, [])
-  return state
-}
-
-const VOICE_PLAYBACK_KEY = 'ihui_voice_playback'
-const VOICE_PLAYBACK_EVENT = 'ihui-voice-playback-changed'
-
-function readPlaybackEnabled(): boolean {
-  if (typeof window === 'undefined') return false
-  return window.localStorage.getItem(VOICE_PLAYBACK_KEY) === 'on'
-}
-
-function writePlaybackEnabled(next: boolean): void {
-  window.localStorage.setItem(VOICE_PLAYBACK_KEY, next ? 'on' : 'off')
-  window.dispatchEvent(new Event(VOICE_PLAYBACK_EVENT))
-}
-
-function writeHandsFree(next: boolean): void {
-  window.localStorage.setItem(VOICE_HANDSFREE_KEY, next ? 'on' : 'off')
-  window.dispatchEvent(new Event('ihui-voice-handsfree-changed'))
-}
 
 interface VoiceToolbarProps {
-  onTranscript: (text: string) => void
+  /** 仅 bar 形态需要:转写文本回填;row 形态由 message-input 的常驻 Companion 提供 */
+  onTranscript?: (text: string) => void
   disabled?: boolean
   /** row = + 菜单内的统一设置行(2026-11-04 第三轮) */
   variant?: 'bar' | 'row'
+  /** 输入区实例 id:与常驻 Companion 分桶对齐(多输入区并存时不串台) */
+  voiceId?: string
 }
 
 /**
@@ -142,109 +89,21 @@ function tooltipWithShortcut(label: string, key: string): React.ReactNode {
   )
 }
 
-export function VoiceToolbar({ onTranscript, disabled, variant = 'bar' }: VoiceToolbarProps) {
+const noopTranscript = () => {}
+
+export function VoiceToolbar(props: VoiceToolbarProps) {
+  const { onTranscript, disabled, variant = 'bar', voiceId } = props
   const t = useTranslations('chat')
-  const voiceRef = React.useRef<VoiceInputHandle | null>(null)
-  const [recording, setRecording] = React.useState(false)
-  const [micError, setMicError] = React.useState<MicErrorKind | null>(null)
-  const [playback, setPlayback] = React.useState(false)
-  const [handsFree, setHandsFree] = React.useState(false)
   const [menuOpen, setMenuOpen] = React.useState(false)
-  const [summaryView, setSummaryView] = React.useState<SummaryView>('discussionSummary')
-
-  // D62:播报态(字幕可见性来源)与字幕正文(与 VoiceStreamSpeaker 同一取数形状)
-  const { speaking, muted } = useVoicePlayback()
-  const subtitleText = useChatStore((s) => {
-    const msgs = s.messages
-    for (let i = msgs.length - 1; i >= 0; i--) {
-      const msg = msgs[i]
-      if (msg && msg.role === 'assistant') return msg.content ?? ''
-    }
-    return ''
-  })
-
-  // 拉取 VoiceInput 内部 recording 状态:handleRef 镜像最新值,
-  // 这里用 RAF 轮询同步到本地 state,避免在 render 中读 ref(React 18 strict mode 会告警)
-  React.useEffect(() => {
-    let raf = 0
-    let last = false
-    let lastMicError: MicErrorKind | null = null
-    const tick = () => {
-      const handle = voiceRef.current
-      if (handle && handle.recording !== last) {
-        last = handle.recording
-        setRecording(last)
-      }
-      // D62:classifyMicError 归一后的四类错误同样经 handle 轮询上桥到字幕条
-      if (handle && handle.micError !== lastMicError) {
-        lastMicError = handle.micError
-        setMicError(lastMicError)
-      }
-      raf = requestAnimationFrame(tick)
-    }
-    raf = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf)
-  }, [])
-
-  // 同步两个 toggle 的 localStorage 状态(跨组件 storage 事件 + 内部事件广播)
-  React.useEffect(() => {
-    const sync = () => {
-      setPlayback(readPlaybackEnabled())
-      setHandsFree(readHandsFree())
-    }
-    sync()
-    window.addEventListener(VOICE_PLAYBACK_EVENT, sync)
-    window.addEventListener('storage', sync)
-    return () => {
-      window.removeEventListener(VOICE_PLAYBACK_EVENT, sync)
-      window.removeEventListener('storage', sync)
-    }
-  }, [])
+  const fallbackVoiceId = React.useId()
+  const instanceId = voiceId ?? fallbackVoiceId
+  // 引擎与状态都在常驻 VoiceCompanion,这里只读(菜单开合不再影响录音/快捷键/字幕)
+  const { recording, playback, handsFree } = useVoiceState(instanceId)
 
   const handleMainClick = () => {
     if (disabled) return
-    voiceRef.current?.toggleRecording()
+    toggleVoiceRecording(instanceId)
   }
-
-  const togglePlayback = () => {
-    const next = !readPlaybackEnabled()
-    if (!next) {
-      // 关闭时让 VoiceStreamSpeaker 立即停掉正在播的音频(见 voice-stream-speaker.tsx)
-      window.dispatchEvent(new CustomEvent(VOICE_PLAYBACK_EVENT))
-    }
-    writePlaybackEnabled(next)
-  }
-
-  const toggleHandsFree = () => {
-    writeHandsFree(!readHandsFree())
-  }
-
-  // 快捷键(2026-09-18 用户规则:"请为这些组件添加快捷键支持"):
-  //   Ctrl+Alt+V → 录音开始/停止(等价主按钮单击)
-  //   Ctrl+Alt+B → 自动朗读开关
-  //   Ctrl+Alt+H → 连续对话开关
-  // 由 use-global-shortcuts 派发 event,disabled 期间(VoiceInput 未挂载或流式中)由本组件自行忽略。
-  const handleMainClickRef = React.useRef(handleMainClick)
-  const togglePlaybackRef = React.useRef(togglePlayback)
-  const toggleHandsFreeRef = React.useRef(toggleHandsFree)
-  handleMainClickRef.current = handleMainClick
-  togglePlaybackRef.current = togglePlayback
-  toggleHandsFreeRef.current = toggleHandsFree
-
-  React.useEffect(() => {
-    if (typeof window === 'undefined') return
-    const onVoiceInput = () => handleMainClickRef.current()
-    const onVoicePlayback = () => togglePlaybackRef.current()
-    const onVoiceHandsFree = () => toggleHandsFreeRef.current()
-    window.addEventListener('global-shortcut:voice-input', onVoiceInput)
-    window.addEventListener('global-shortcut:voice-playback', onVoicePlayback)
-    window.addEventListener('global-shortcut:voice-handsfree', onVoiceHandsFree)
-    return () => {
-      window.removeEventListener('global-shortcut:voice-input', onVoiceInput)
-      window.removeEventListener('global-shortcut:voice-playback', onVoicePlayback)
-      window.removeEventListener('global-shortcut:voice-handsfree', onVoiceHandsFree)
-    }
-  }, [])
 
   // 主按钮视觉:录音中红底 + 波形;空闲按状态点显示绿/蓝小徽章
   const showStatusDot = !recording && !disabled && (playback || handsFree)
@@ -252,207 +111,201 @@ export function VoiceToolbar({ onTranscript, disabled, variant = 'bar' }: VoiceT
     playback && handsFree ? 'bg-primary' : playback ? 'bg-emerald-500' : 'bg-sky-500'
 
   return (
-    <DropdownMenu.Root modal={false} open={menuOpen} onOpenChange={setMenuOpen}>
-      <DropdownMenu.Trigger asChild>
-        <Tooltip
-          content={tooltipWithShortcut(
-            recording ? t('voiceInputStop') : t('voiceInputStart'),
-            'Ctrl+Alt+V',
-          )}
-          side="top"
-        >
-          <button
-            type="button"
-            onClick={handleMainClick}
-            disabled={disabled}
-            aria-label={recording ? t('voiceInputStop') : t('voiceInputStart')}
-            aria-haspopup="menu"
-            aria-expanded={menuOpen}
-            data-testid="voice-toolbar-main"
-            data-variant={variant}
-            className={cn(
-              variant === 'row'
-                ? COMPOSER_MENU_ROW_CLASS
-                : cn(
-                    'relative flex h-8 w-8 shrink-0 items-center justify-center rounded-sm transition-colors',
-                    recording
-                      ? 'bg-red-500 text-white hover:bg-red-500/90'
-                      : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-                    'disabled:cursor-not-allowed disabled:opacity-50',
-                  ),
-              variant === 'row' && recording && 'text-destructive',
+    <>
+      {variant === 'bar' && (
+        <VoiceCompanion
+          voiceId={instanceId}
+          onTranscript={onTranscript ?? noopTranscript}
+          disabled={disabled}
+        />
+      )}
+      <DropdownMenu.Root modal={false} open={menuOpen} onOpenChange={setMenuOpen}>
+        <DropdownMenu.Trigger asChild>
+          <Tooltip
+            content={tooltipWithShortcut(
+              recording ? t('voiceInputStop') : t('voiceInputStart'),
+              'Ctrl+Alt+V',
             )}
+            side="top"
           >
-            {variant === 'row' ? (
-              <>
-                {recording ? (
-                  <span className="flex h-3.5 w-3.5 shrink-0 items-center gap-0.5">
-                    {[0, 1, 2, 3].map((i) => (
-                      <span
-                        key={`row-bar-${i}`}
-                        className="w-0.5 rounded bg-destructive"
-                        style={{
-                          height: '100%',
-                          transformOrigin: 'center',
-                          animation: `voice-wave 0.8s ease-in-out ${i * 0.12}s infinite alternate`,
-                        }}
-                      />
-                    ))}
+            <button
+              type="button"
+              onClick={handleMainClick}
+              disabled={disabled}
+              aria-label={recording ? t('voiceInputStop') : t('voiceInputStart')}
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+              data-testid="voice-toolbar-main"
+              data-variant={variant}
+              className={cn(
+                variant === 'row'
+                  ? COMPOSER_MENU_ROW_CLASS
+                  : cn(
+                      'relative flex h-8 w-8 shrink-0 items-center justify-center rounded-sm transition-colors',
+                      recording
+                        ? 'bg-red-500 text-white hover:bg-red-500/90'
+                        : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                      'disabled:cursor-not-allowed disabled:opacity-50',
+                    ),
+                variant === 'row' && recording && 'text-destructive',
+              )}
+            >
+              {variant === 'row' ? (
+                <>
+                  {recording ? (
+                    <span className="flex h-3.5 w-3.5 shrink-0 items-center gap-0.5">
+                      {[0, 1, 2, 3].map((i) => (
+                        <span
+                          key={`row-bar-${i}`}
+                          className="w-0.5 rounded bg-destructive"
+                          style={{
+                            height: '100%',
+                            transformOrigin: 'center',
+                            animation: `voice-wave 0.8s ease-in-out ${i * 0.12}s infinite alternate`,
+                          }}
+                        />
+                      ))}
+                    </span>
+                  ) : (
+                    <Mic className={COMPOSER_MENU_ROW_ICON_CLASS} />
+                  )}
+                  <span className="min-w-0 flex-1 truncate">{t('voiceInputStart')}</span>
+                  {(recording || showStatusDot) && (
+                    <span
+                      aria-hidden="true"
+                      className={cn(
+                        'h-1.5 w-1.5 shrink-0 rounded-full',
+                        recording ? 'bg-red-500' : statusDotClassName,
+                      )}
+                    />
+                  )}
+                  <span className="max-w-[52%] truncate text-label text-muted-foreground">
+                    {recording ? t('voiceInputStop') : ''}
                   </span>
-                ) : (
-                  <Mic className={COMPOSER_MENU_ROW_ICON_CLASS} />
-                )}
-                <span className="min-w-0 flex-1 truncate">{t('voiceInputStart')}</span>
-                {(recording || showStatusDot) && (
-                  <span
-                    aria-hidden="true"
-                    className={cn(
-                      'h-1.5 w-1.5 shrink-0 rounded-full',
-                      recording ? 'bg-red-500' : statusDotClassName,
-                    )}
-                  />
-                )}
-                <span className="max-w-[52%] truncate text-label text-muted-foreground">
-                  {recording ? t('voiceInputStop') : ''}
-                </span>
-              </>
-            ) : (
-              <>
-                {recording ? (
-                  <span className="flex h-4 items-center gap-0.5">
-                    {[0, 1, 2, 3].map((i) => (
-                      <span
-                        key={`bar-${i}`}
-                        className="w-0.5 rounded bg-white"
-                        style={{
-                          height: '100%',
-                          transformOrigin: 'center',
-                          animation: `voice-wave 0.8s ease-in-out ${i * 0.12}s infinite alternate`,
-                        }}
-                      />
-                    ))}
-                  </span>
-                ) : (
-                  <Mic className="h-4 w-4" />
-                )}
-                {showStatusDot && (
-                  <span
-                    aria-hidden="true"
-                    className={cn(
-                      'absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full ring-2 ring-card',
-                      statusDotClassName,
-                    )}
-                  />
-                )}
-              </>
-            )}
-          </button>
-        </Tooltip>
-      </DropdownMenu.Trigger>
-      <style>{`
+                </>
+              ) : (
+                <>
+                  {recording ? (
+                    <span className="flex h-4 items-center gap-0.5">
+                      {[0, 1, 2, 3].map((i) => (
+                        <span
+                          key={`bar-${i}`}
+                          className="w-0.5 rounded bg-white"
+                          style={{
+                            height: '100%',
+                            transformOrigin: 'center',
+                            animation: `voice-wave 0.8s ease-in-out ${i * 0.12}s infinite alternate`,
+                          }}
+                        />
+                      ))}
+                    </span>
+                  ) : (
+                    <Mic className="h-4 w-4" />
+                  )}
+                  {showStatusDot && (
+                    <span
+                      aria-hidden="true"
+                      className={cn(
+                        'absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full ring-2 ring-card',
+                        statusDotClassName,
+                      )}
+                    />
+                  )}
+                </>
+              )}
+            </button>
+          </Tooltip>
+        </DropdownMenu.Trigger>
+        <style>{`
         @keyframes voice-wave {
           from { transform: scaleY(0.3); }
           to { transform: scaleY(1); }
         }
       `}</style>
-      <DropdownMenu.Portal>
-        <DropdownMenu.Content
-          align="end"
-          sideOffset={6}
-          className="z-popover w-56 rounded-lg border bg-card p-1 text-card-foreground shadow-md"
-        >
-          {/* 语音输入:主按钮同款 toggle;用普通 Item + 右侧状态指示方点,与 model-selector 风格一致 */}
-          <DropdownMenu.Item
-            onSelect={() => {
-              voiceRef.current?.toggleRecording()
-            }}
-            className={cn(
-              'flex cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1.5 text-body outline-none',
-              'focus:bg-accent focus:text-accent-foreground',
-            )}
+        <DropdownMenu.Portal>
+          <DropdownMenu.Content
+            align="end"
+            sideOffset={6}
+            className="z-popover w-56 rounded-lg border bg-card p-1 text-card-foreground shadow-md"
           >
-            {recording ? (
-              <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-sm bg-red-500 text-white">
-                <span className="block h-1.5 w-1.5 rounded-sm bg-white" />
+            {/* 语音输入:主按钮同款 toggle;用普通 Item + 右侧状态指示方点,与 model-selector 风格一致 */}
+            <DropdownMenu.Item
+              onSelect={() => toggleVoiceRecording(instanceId)}
+              className={cn(
+                'flex cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1.5 text-body outline-none',
+                'focus:bg-accent focus:text-accent-foreground',
+              )}
+            >
+              {recording ? (
+                <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-sm bg-red-500 text-white">
+                  <span className="block h-1.5 w-1.5 rounded-sm bg-white" />
+                </span>
+              ) : (
+                <Mic className="h-4 w-4 shrink-0 text-muted-foreground" />
+              )}
+              <span className="flex-1 truncate font-medium">
+                {recording ? t('voiceInputStop') : t('voiceInputStart')}
               </span>
-            ) : (
-              <Mic className="h-4 w-4 shrink-0 text-muted-foreground" />
-            )}
-            <span className="flex-1 truncate font-medium">
-              {recording ? t('voiceInputStop') : t('voiceInputStart')}
-            </span>
-            <ShortcutHint keys="Ctrl+Alt+V" />
-            <span
-              aria-hidden="true"
+              <ShortcutHint keys="Ctrl+Alt+V" />
+              <span
+                aria-hidden="true"
+                className={cn(
+                  'h-2.5 w-2.5 shrink-0 rounded-sm',
+                  recording ? 'bg-red-500' : 'bg-border',
+                )}
+              />
+            </DropdownMenu.Item>
+            <DropdownMenu.Separator className="my-1 h-px bg-border/60" />
+            <DropdownMenu.Item
+              onSelect={() => toggleVoicePlayback(instanceId)}
               className={cn(
-                'h-2.5 w-2.5 shrink-0 rounded-sm',
-                recording ? 'bg-red-500' : 'bg-border',
+                'flex cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1.5 text-body outline-none',
+                'focus:bg-accent focus:text-accent-foreground',
               )}
-            />
-          </DropdownMenu.Item>
-          <DropdownMenu.Separator className="my-1 h-px bg-border/60" />
-          <DropdownMenu.Item
-            onSelect={() => togglePlayback()}
-            className={cn(
-              'flex cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1.5 text-body outline-none',
-              'focus:bg-accent focus:text-accent-foreground',
-            )}
-          >
-            {playback ? (
-              <Volume2 className="h-4 w-4 shrink-0 text-emerald-500" />
-            ) : (
-              <VolumeX className="h-4 w-4 shrink-0 text-muted-foreground" />
-            )}
-            <span className="flex-1 truncate font-medium">{t('voicePlayback')}</span>
-            <ShortcutHint keys="Ctrl+Alt+B" />
-            <span
-              aria-hidden="true"
+            >
+              {playback ? (
+                <Volume2 className="h-4 w-4 shrink-0 text-emerald-500" />
+              ) : (
+                <VolumeX className="h-4 w-4 shrink-0 text-muted-foreground" />
+              )}
+              <span className="flex-1 truncate font-medium">{t('voicePlayback')}</span>
+              <ShortcutHint keys="Ctrl+Alt+B" />
+              <span
+                aria-hidden="true"
+                className={cn(
+                  'h-2.5 w-2.5 shrink-0 rounded-sm',
+                  playback ? 'bg-emerald-500' : 'bg-border',
+                )}
+              />
+            </DropdownMenu.Item>
+            <DropdownMenu.Separator className="my-1 h-px bg-border/60" />
+            <DropdownMenu.Item
+              onSelect={() => toggleVoiceHandsFree(instanceId)}
               className={cn(
-                'h-2.5 w-2.5 shrink-0 rounded-sm',
-                playback ? 'bg-emerald-500' : 'bg-border',
+                'flex cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1.5 text-body outline-none',
+                'focus:bg-accent focus:text-accent-foreground',
               )}
-            />
-          </DropdownMenu.Item>
-          <DropdownMenu.Separator className="my-1 h-px bg-border/60" />
-          <DropdownMenu.Item
-            onSelect={() => toggleHandsFree()}
-            className={cn(
-              'flex cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1.5 text-body outline-none',
-              'focus:bg-accent focus:text-accent-foreground',
-            )}
-          >
-            <AudioLines
-              className={cn(
-                'h-4 w-4 shrink-0',
-                handsFree ? 'text-sky-500' : 'text-muted-foreground',
-              )}
-            />
-            <span className="flex-1 truncate font-medium">{t('voiceHandsFree')}</span>
-            <ShortcutHint keys="Ctrl+Alt+H" />
-            <span
-              aria-hidden="true"
-              className={cn(
-                'h-2.5 w-2.5 shrink-0 rounded-sm',
-                handsFree ? 'bg-sky-500' : 'bg-border',
-              )}
-            />
-          </DropdownMenu.Item>
-        </DropdownMenu.Content>
-      </DropdownMenu.Portal>
-      {/* 内部 VoiceInput:hidden 只跑识别逻辑,不渲染按钮;通过 ref 桥接 recording/pending/toggle */}
-      <VoiceInput ref={voiceRef} onTranscript={onTranscript} disabled={disabled} hidden />
-      {/* D62 装车点:字幕条在生产渲染树内 —— 播报中可见(静音仍可见)、四类麦克风
-          错误逐类呈现、录音纪要 × 播报双激活时呈现互斥提示(判定全在共享层)。 */}
-      <VoiceSubtitleBar
-        speaking={speaking}
-        muted={muted}
-        subtitle={subtitleText || undefined}
-        micError={micError}
-        summaryRecording={recording}
-        view={summaryView}
-        onViewChange={setSummaryView}
-      />
-    </DropdownMenu.Root>
+            >
+              <AudioLines
+                className={cn(
+                  'h-4 w-4 shrink-0',
+                  handsFree ? 'text-sky-500' : 'text-muted-foreground',
+                )}
+              />
+              <span className="flex-1 truncate font-medium">{t('voiceHandsFree')}</span>
+              <ShortcutHint keys="Ctrl+Alt+H" />
+              <span
+                aria-hidden="true"
+                className={cn(
+                  'h-2.5 w-2.5 shrink-0 rounded-sm',
+                  handsFree ? 'bg-sky-500' : 'bg-border',
+                )}
+              />
+            </DropdownMenu.Item>
+          </DropdownMenu.Content>
+        </DropdownMenu.Portal>
+      </DropdownMenu.Root>
+    </>
   )
 }
 

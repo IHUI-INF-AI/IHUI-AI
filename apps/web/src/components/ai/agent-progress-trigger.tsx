@@ -128,21 +128,9 @@ export function AgentProgressTrigger({
     hydrateAgentProgressPaneFromStorage()
   }, [])
 
-  // 2026-08-05 修复:Ctrl+Shift+J 全局快捷键——UI 明示了该快捷键(title 提示 +
-  // 帮助面板 shortcutTogglePane),但从未实现 keydown 监听,用户按了无反应(真 bug)。
-  React.useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      // 输入法组合态放行(2026-09-22):候选词选择常用 Ctrl/Cmd+数字、Ctrl+字母,
-      // 组合中不得被应用快捷键吃掉。
-      if (e.isComposing) return
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'j' || e.key === 'J')) {
-        e.preventDefault()
-        togglePane()
-      }
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [togglePane])
+  // 2026-11-04:Ctrl+Shift+J 监听已迁到常驻的 message-input —— 本触发器收进
+  // 「+ → 更多工具」抽屉后只在菜单打开时挂载,监听留在这里会让快捷键随抽屉一起失效。
+  // (快捷键的实现与输入法组合态放行规则见 message-input.tsx 同名 useEffect。)
 
   // v10:trigger 永远渲染,Pane 由 ai-side-panel.tsx mount,trigger 只切换 store.open
   // 2026-08-12 修复:移除原生 title= 属性(浏览器默认 tooltip 样式,无 border/无动画/
