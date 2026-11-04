@@ -2219,19 +2219,30 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
 
-    const secret = randomBytes(32).toString('hex')
-    const [updated] = await db
-      .update(eduAttendanceRule)
-      .set({ qrSecret: secret, updatedAt: new Date() })
-      .where(
-        and(
-          eq(eduAttendanceRule.classId, parsed.data.classId),
-          isNull(eduAttendanceRule.deletedAt),
-        ),
-      )
-      .returning()
-    if (!updated)
+    const ruleWhere = and(
+      eq(eduAttendanceRule.classId, parsed.data.classId),
+      isNull(eduAttendanceRule.deletedAt),
+    )
+    // G-998153:先取现值再比,同值不推进 updatedAt(该列是增量读的消费源)。
+    const [existing] = await db
+      .select({ qrSecret: eduAttendanceRule.qrSecret })
+      .from(eduAttendanceRule)
+      .where(ruleWhere)
+      .limit(1)
+    if (!existing)
       return reply.status(404).send(error(404, '该班尚无考勤规则,请先 PUT /attendance/rule 建档'))
+    const secret = randomBytes(32).toString('hex')
+    const changed: { qrSecret?: string } = {}
+    if (existing.qrSecret !== secret) changed.qrSecret = secret
+    if (Object.keys(changed).length > 0) {
+      const [updated] = await db
+        .update(eduAttendanceRule)
+        .set({ ...changed, updatedAt: new Date() })
+        .where(ruleWhere)
+        .returning()
+      if (!updated)
+        return reply.status(404).send(error(404, '该班尚无考勤规则,请先 PUT /attendance/rule 建档'))
+    }
     // 响应绝不回显密钥原文,只给可核对不可用的指纹(前 6 位)
     return reply.send(success({ rotated: true, fingerprint: secret.slice(0, 6) }))
   })

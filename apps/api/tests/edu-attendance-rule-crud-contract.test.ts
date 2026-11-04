@@ -249,6 +249,8 @@ describe('B. 规则出参绝不带密钥原文', () => {
   })
 
   it('rotate-qr-secret ⇒ 只回 6 位指纹,64 位新密钥写入库侧但不出现在响应', async () => {
+    // G-998153:先取现值(select)再决定写不写;现值与随机新密钥不同 ⇒ 仍写
+    H.selectQueue.push([{ id: 'r1', classId: CLASS_A, qrSecret: 'x' }])
     H.updateQueue.push([{ id: 'r1', classId: CLASS_A, qrSecret: 'x', updatedAt: new Date() }])
     const app = await buildApp()
     const res = await app.inject({
@@ -268,7 +270,7 @@ describe('B. 规则出参绝不带密钥原文', () => {
   })
 
   it('rotate 无规则行 ⇒ 404 点名先建档,不回显任何密钥', async () => {
-    H.updateQueue.push([])
+    H.selectQueue.push([])
     const app = await buildApp()
     const res = await app.inject({
       method: 'POST',

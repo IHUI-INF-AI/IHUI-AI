@@ -1880,9 +1880,22 @@ export class SubagentDispatchService {
     const taskId = runtime.agentTaskId
     if (!taskId) return
     try {
+      // G-998153:先取现值再比。attention 是派生镜像,同一值会被重复同步 ——
+      // 同值不发 UPDATE、不盖 updatedAt(该列是增量读的消费源,tasks.ts since 补拉会误读成"变过")。
+      const [current] = await db
+        .select({ attention: agentTasks.attention })
+        .from(agentTasks)
+        .where(eq(agentTasks.id, taskId))
+        .limit(1)
+      // 镜像行尚未建立(_createAgentTask 失败 / 无 agentId):原语义就是 0 行受影响,这里不新建
+      if (!current) return
+      const desired = runtime.dispatch.attention ?? null
+      const changed: { attention?: DispatchAttention | null } = {}
+      if (current.attention !== desired) changed.attention = desired
+      if (Object.keys(changed).length === 0) return
       await db
         .update(agentTasks)
-        .set({ attention: runtime.dispatch.attention ?? null, updatedAt: new Date() })
+        .set({ ...changed, updatedAt: new Date() })
         .where(eq(agentTasks.id, taskId))
     } catch (err) {
       logger.warn(`[subagent-dispatch] _syncAttentionToAgentTask 失败(不阻塞): ${String(err)}`)
