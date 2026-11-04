@@ -205,6 +205,16 @@
       "path": "packages/shared/src/share/share-intent.tsx",
       "reason": "死副本:与 packages/shared/src/share/share-intent.ts 逐字节相同(SHA256 99d684dc697f6dbc92789810acba91403b0797ec2cded3e4a7fa1d8d8f49f95b);8eebef0d1f78042d876f90e0d6558aee624b43f6 已把零 JSX 模块改回 .ts,该 .tsx 又被索引层重建带回;全仓唯一引用是 README.md 历史链接,已改址到 .ts。",
       "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/check-grafana-datasource-wiring.mjs",
+      "reason": "grafana-* 旧族最后两枚之接线门本体:a7ced7411ca9a4a8d90ae60b29ce2792be0c3aea 已改名为 check-panel-datasource-wiring.mjs,0932d2e0affcac7cae0d1bc5646cb25c774bfcf5 的『文件面零丢失 union』又原样 A 回。旧件唯一独有判据是 listFacePaths 的 head→HEAD 归一(Linux 大小写敏感,直接把 'head' 当 rev 会 fatal: Not a valid object name,Windows 长期掩盖);本轮已把该归一迁进新件并由 D14 镜像测试锁住,旧件遂零独有逻辑,随最后两枚一并退役。首批 6 枚退役裁决枚 ed0bf2fedc3d77e9f882bc3fc05fd49b9f0e150b。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/sync-grafana-live-provisioning.mjs",
+      "reason": "grafana-* 旧族最后两枚之派生器:新件 sync-panel-live-provisioning.mjs 已完整提供并导出 splitBlocks(唯一实现,守门 222 与镜像测试一律 import 它),旧件本体实测 19/11 差异全部落在地址/文案/换名,零独有判据,故不构成保留理由。首批 6 枚退役裁决枚 ed0bf2fedc3d77e9f882bc3fc05fd49b9f0e150b,本笔为 grafana-* 旧族收口。",
+      "reviewBy": "2027-06-30"
     }
   ]
 }
