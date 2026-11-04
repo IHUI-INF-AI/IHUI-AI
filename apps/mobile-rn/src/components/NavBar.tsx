@@ -25,6 +25,8 @@ import {
   type ViewStyle,
 } from 'react-native'
 import { currentRnTheme, tokens } from '../theme/active-tokens'
+import { rnCssColor } from '@ihui/design-tokens'
+import { Menu, MessageCircle, Search, X } from 'lucide-react-native'
 import type { AppIcon } from '@ihui/types'
 import { BackChevron } from '@ihui/rn-app'
 import {
@@ -44,7 +46,7 @@ import {
 } from '@ihui/shared/ui/navbar-spec'
 import { NavBarCore, type NavBarCoreBoxProps, type NavBarCoreTextProps } from '@ihui/shared/ui'
 import { useI18n } from '../i18n'
-import { rnSpacing } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing } from '@ihui/design-tokens'
 export interface NavBarAction {
   /** emoji 字符 / 图片 URL(http:// / / 开头)/ lucide 图标组件引用(统一图标) */
   icon: AppIcon | string
@@ -52,6 +54,11 @@ export interface NavBarAction {
   /** 无障碍朗读标签(纯图标按钮无可见 label 时用它保留语义,2026-10-15 抽屉钮去文字化) */
   a11yLabel?: string
   onPress: () => void
+}
+
+export interface NavBarNotification {
+  text: string
+  onClose?: () => void
 }
 
 export interface NavBarProps {
@@ -66,6 +73,35 @@ export interface NavBarProps {
   rightAction?: ReactNode
   /** sticky 支持(对齐 Uniapp viscosity) */
   sticky?: boolean
+  // ===== B 组收口:与小程序端同名同义的离散槽位(2026-11-04)=====
+  /** 是否展示返回键(默认 true;仅 default 变体消费) */
+  showBack?: boolean
+  /** 顶栏底色覆盖(不传则保持"不自绘背景"的既有版面) */
+  bgColor?: string
+  /** 标题/副标题/右文字墨迹覆盖(不传则走主题档) */
+  textColor?: string
+  /** 右侧文字按钮(与小程序端 rightText 同槽) */
+  rightText?: string
+  onRightClick?: () => void
+  /** 行下通知条(与小程序端同一结构) */
+  notification?: NavBarNotification
+  /** 'ai-home' = 粘性 + 左菜单 + 标题切换 + 右功能钮 + 通知条 */
+  variant?: 'default' | 'ai-home'
+  onMenuClick?: () => void
+  onJoinClick?: () => void
+  /** 菜单按钮文字/图片覆盖(不传用 Menu 矢量图标) */
+  menuIcon?: string
+  joinText?: string
+  showFenLei?: boolean
+  onFenLeiClick?: () => void
+  showSearch?: boolean
+  onSearchClick?: () => void
+  showFeedback?: boolean
+  onFeedbackClick?: () => void
+  /** 返回首页按钮(ai-home 左槽,与返回上一页区分) */
+  onPack?: () => void
+  activeTitleIndex?: number
+  onActiveNav?: (index: number) => void
 }
 
 /// 行高/侧占位/按钮盒/字号不在本文件取数 —— 唯一源是 @ihui/shared/ui/navbar-spec(与小程序端同档);
@@ -79,7 +115,11 @@ function CoreBox({ style, children }: NavBarCoreBoxProps<StyleProp<ViewStyle>, s
   return <View style={style}>{children}</View>
 }
 
-function CoreText({ style, numberOfLines, children }: NavBarCoreTextProps<StyleProp<TextStyle>, string>) {
+function CoreText({
+  style,
+  numberOfLines,
+  children,
+}: NavBarCoreTextProps<StyleProp<TextStyle>, string>) {
   return (
     <Text style={style} numberOfLines={numberOfLines}>
       {children}
@@ -108,13 +148,72 @@ export function NavBar({
   rightActions,
   rightAction,
   sticky = false,
+  showBack = true,
+  bgColor,
+  textColor,
+  rightText,
+  onRightClick,
+  notification,
+  variant = 'default',
+  onMenuClick,
+  onJoinClick,
+  menuIcon,
+  joinText,
+  showFenLei,
+  onFenLeiClick,
+  showSearch,
+  onSearchClick,
+  showFeedback,
+  onFeedbackClick,
+  onPack,
+  activeTitleIndex = 0,
+  onActiveNav,
 }: NavBarProps) {
   const { t } = useI18n()
+  const aiHome = variant === 'ai-home'
   const contentHeight = subtitle ? NAVBAR_ROW_HEIGHT_SUBTITLE_PX : NAVBAR_ROW_HEIGHT_PX
+  const ink = textColor ?? tokens.text.primary
+  const subInk = textColor ?? tokens.text.secondary
+  const showBackButton = !aiHome && showBack !== false && onBack !== undefined
+  const menuButton = aiHome || onMenuClick !== undefined || menuIcon !== undefined
   const hasLeftContent =
-    onBack !== undefined || (leftActions !== undefined && leftActions.length > 0)
+    showBackButton || onPack !== undefined || menuButton || (leftActions?.length ?? 0) > 0
   const hasRightContent =
-    (rightActions !== undefined && rightActions.length > 0) || rightAction !== undefined
+    (rightActions?.length ?? 0) > 0 ||
+    rightAction !== undefined ||
+    rightText !== undefined ||
+    showFeedback === true ||
+    showFenLei === true ||
+    showSearch === true ||
+    onJoinClick !== undefined
+
+  const notificationNode = notification ? (
+    <View
+      style={[
+        styles.notification,
+        { backgroundColor: rnCssColor(currentRnTheme(), 'notificationBg') },
+      ]}
+    >
+      <Text
+        style={[
+          styles.notificationText,
+          { color: rnCssColor(currentRnTheme(), 'notificationText') },
+        ]}
+        numberOfLines={1}
+      >
+        {notification.text}
+      </Text>
+      <TouchableOpacity
+        onPress={notification.onClose}
+        hitSlop={ACTION_HIT_SLOP}
+        accessibilityRole="button"
+        accessibilityLabel={t('common.close')}
+        style={styles.notificationClose}
+      >
+        <X size={16} color={rnCssColor(currentRnTheme(), 'notificationText')} />
+      </TouchableOpacity>
+    </View>
+  ) : null
 
   /* 中间:title + subtitle(flex 居中)。
      2026-09-23 修复 P1:两侧功能图标过多压缩标题空间,"智汇AI" 4 字在 18px 下被截断为"智汇..."。
@@ -124,13 +223,39 @@ export function NavBar({
   return (
     <NavBarCore
       platform={NAVBAR_PLATFORM}
-      containerStyle={[styles.container, sticky ? STICKY_STYLE : null]}
+      containerStyle={[
+        styles.container,
+        aiHome || sticky ? STICKY_STYLE : null,
+        bgColor ? { backgroundColor: bgColor } : null,
+      ]}
       rowStyle={[styles.row, { height: contentHeight }]}
       leftStyle={styles.leftSection}
       left={
         <>
-          {onBack ? (
-            <BackChevron onPress={onBack} label={t('common.back')} colorScheme={currentRnTheme()} />
+          {onPack ? (
+            <BackChevron
+              onPress={onPack}
+              label={t('common.back')}
+              colorScheme={currentRnTheme()}
+              color={textColor}
+            />
+          ) : null}
+          {onBack && showBack !== false ? (
+            <BackChevron
+              onPress={onBack}
+              label={t('common.back')}
+              colorScheme={currentRnTheme()}
+              color={textColor}
+            />
+          ) : null}
+          {menuButton ? (
+            <NavBarActionButton
+              action={{
+                icon: menuIcon ?? Menu,
+                onPress: onMenuClick ?? (() => {}),
+                a11yLabel: t('NavBar.z2'),
+              }}
+            />
           ) : null}
           {leftActions?.map((action, index) => (
             <NavBarActionButton key={index} action={action} />
@@ -139,20 +264,104 @@ export function NavBar({
         </>
       }
       centerStyle={styles.center}
+      center={
+        onActiveNav ? (
+          <View style={styles.titleSwitch}>
+            {[
+              { label: t('NavBar.text1'), index: 0 },
+              { label: t('ranking.title'), index: 1 },
+            ].map((item) => (
+              <TouchableOpacity
+                key={item.index}
+                onPress={() => onActiveNav?.(item.index)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: activeTitleIndex === item.index }}
+              >
+                <Text
+                  style={[
+                    styles.titleSwitchText,
+                    {
+                      color:
+                        activeTitleIndex === item.index
+                          ? tokens.brand.DEFAULT
+                          : tokens.text.secondary,
+                      fontWeight: activeTitleIndex === item.index ? '600' : '400',
+                    },
+                  ]}
+                >
+                  {item.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        ) : undefined
+      }
       title={title}
-      titleStyle={styles.title}
+      titleStyle={[styles.title, { color: ink }]}
       subtitle={subtitle}
-      subtitleStyle={styles.subtitle}
+      subtitleStyle={[styles.subtitle, { color: subInk }]}
       rightStyle={styles.rightSection}
       right={
         <>
+          {showFeedback ? (
+            <NavBarActionButton
+              action={{
+                icon: MessageCircle,
+                onPress: onFeedbackClick ?? (() => {}),
+                a11yLabel: t('NavBar.feedback'),
+              }}
+            />
+          ) : null}
+          {showFenLei ? (
+            <NavBarActionButton
+              action={{
+                icon: Menu,
+                onPress: onFenLeiClick ?? (() => {}),
+                a11yLabel: t('NavBar.fenlei'),
+              }}
+            />
+          ) : null}
+          {showSearch ? (
+            <NavBarActionButton
+              action={{
+                icon: Search,
+                onPress: onSearchClick ?? (() => {}),
+                a11yLabel: t('common.search'),
+              }}
+            />
+          ) : null}
+          {onJoinClick ? (
+            <TouchableOpacity
+              onPress={onJoinClick}
+              hitSlop={ACTION_HIT_SLOP}
+              style={styles.joinButton}
+              accessibilityRole="button"
+            >
+              <Text style={styles.joinButtonText} numberOfLines={1}>
+                {joinText ?? t('NavBar.z1')}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
           {rightActions?.map((action, index) => (
             <NavBarActionButton key={index} action={action} />
           ))}
           {rightAction ? <View style={styles.legacyRight}>{rightAction}</View> : null}
+          {rightText ? (
+            <TouchableOpacity
+              onPress={onRightClick}
+              hitSlop={ACTION_HIT_SLOP}
+              accessibilityRole="button"
+              style={styles.rightTextBtn}
+            >
+              <Text style={[styles.actionLabel, { color: ink }]} numberOfLines={1}>
+                {rightText}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
           {!hasRightContent ? <View style={styles.sidePlaceholder} /> : null}
         </>
       }
+      trailing={notificationNode}
     />
   )
 }
@@ -245,6 +454,53 @@ const styles = StyleSheet.create({
   },
   sidePlaceholder: {
     width: NAVBAR_SIDE_PLACEHOLDER_PX,
+  },
+  // ===== B 组收口:ai-home 槽位 / 通知条(与小程序端同名同义)=====
+  titleSwitch: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    // 40rpx = 20 逻辑 px(小程序端同一档)
+    gap: rnSpacing.xl,
+  },
+  titleSwitchText: {
+    fontSize: NAVBAR_TITLE_FONT_PX,
+  },
+  joinButton: {
+    minWidth: NAVBAR_SIDE_PLACEHOLDER_PX,
+    height: NAVBAR_ROW_HEIGHT_PX,
+    paddingHorizontal: rnSpacing.sm,
+    borderWidth: 1.5,
+    borderColor: tokens.brand.DEFAULT,
+    borderRadius: rnRadius.sm,
+    backgroundColor: tokens.surface.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  joinButtonText: {
+    fontSize: NAVBAR_ACTION_LABEL_FONT_PX,
+    color: tokens.brand.DEFAULT,
+    fontWeight: '700',
+  },
+  rightTextBtn: {
+    ...navbarActionBoxStyle((px: number) => px),
+    paddingHorizontal: rnSpacing['xs-loose'],
+    justifyContent: 'center',
+  },
+  notification: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: rnSpacing.lg,
+    paddingVertical: rnSpacing.sm,
+  },
+  notificationText: {
+    flex: 1,
+    fontSize: NAVBAR_SUBTITLE_FONT_PX,
+  },
+  notificationClose: {
+    marginLeft: rnSpacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   actionBtn: {
     // 盒宽/盒高/居中唯一源 navbar-spec;gap 与内边距是"图标+文字"并排的端内布局,不是跨端档

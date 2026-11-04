@@ -526,7 +526,7 @@ const styles = StyleSheet.create({
   paymentName: {
     flex: 1,
     marginLeft: rnSpacing['sm-loose'],
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
     color: tokens.text.primary,
   } as TextStyle,
   radio: {

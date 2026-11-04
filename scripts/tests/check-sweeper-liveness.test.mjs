@@ -7,7 +7,7 @@
 // 出口(§22c),本文件不重写任何判定;守护层只锁"装车成套 + 节流有牙 + 三态分档"。
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync, writeFileSync, existsSync } from 'node:fs'
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { __test__ as G } from '../git-guardian.mjs'
@@ -16,6 +16,17 @@ import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 const GUARDIAN_SRC = readFileSync(fileURLToPath(new URL('../git-guardian.mjs', import.meta.url)), 'utf8')
 const PROBE_SRC = readFileSync(fileURLToPath(new URL('../check-sweeper-liveness.mjs', import.meta.url)), 'utf8')
+
+/** 精确切出 auditSweeperLiveness 函数体:终点 = 其后第一个列 0 顶层声明(函数内声明均缩进)。
+ *  不能用「下一个已知函数名」当终点 —— HEAD 里 auditSweeperLiveness 与 auditTunnelLegHealth
+ *  之间后来插进了 auditIndexUnmerged / auditLintStagedPins(都带 notify),旧切片把它们误纳入,
+ *  使「只读探针不得 notify」的既有断言被别人的函数判红(2026-11-04 W2 修射程,不放宽断言)。 */
+function sweeperBody() {
+  const i = GUARDIAN_SRC.indexOf('export function auditSweeperLiveness')
+  if (i < 0) return ''
+  const j = GUARDIAN_SRC.indexOf('\nconst ', i)
+  return j < 0 ? GUARDIAN_SRC.slice(i) : GUARDIAN_SRC.slice(i, j)
+}
 
 const NOW = Date.parse('2026-10-23T12:00:00Z')
 const min = (m) => m * 60000
@@ -56,11 +67,17 @@ test('挂点位置:必须排在两把清扫器派发之后(同轮 tick 刚刷新
   assert.ok(claim >= 0 && liveness > claim, `背离巡检必须排在 sweepStaleClaimMarks 之后(实得 claim@${claim} liveness@${liveness})`)
 })
 
+test('切片射程自证:只读探针铁律的 body 恰是 auditSweeperLiveness 本体(不串到相邻带 notify 的函数)', () => {
+  const b = sweeperBody()
+  assert.ok(b.startsWith('export function auditSweeperLiveness'), '切片起点不对')
+  assert.ok(b.includes('readProbeVerdict'), '切片漏了函数本体(射程过短 ⇒ 恒绿)')
+  assert.ok(b.includes('return {'), '切片漏了函数收尾(射程过短 ⇒ 恒绿)')
+  assert.ok(!b.includes('export function auditIndexUnmerged'), '切片串进相邻函数 ⇒ 射程已漂')
+  assert.ok(!b.includes('export function auditLintStagedPins'), '切片串进相邻函数 ⇒ 射程已漂')
+})
+
 test('只读探针铁律:不改守护退出码、不喊人(§12e 恒红门禁令)', () => {
-  const body = GUARDIAN_SRC.slice(
-    GUARDIAN_SRC.indexOf('export function auditSweeperLiveness'),
-    GUARDIAN_SRC.indexOf('export function auditTunnelLegHealth'),
-  )
+  const body = sweeperBody()
   assert.ok(!/notifyGuardRed/.test(body), '本格判的是巡检层空转,与提交内容无关 ⇒ 不得 notify')
   assert.ok(!/process\.exit/.test(body), '探针自己不得改退出码')
   assert.ok(/readProbeVerdict/.test(body), '结论必须走 readProbeVerdict 三态分档(rc=1/2 的 stdout 也是结论)')
@@ -231,22 +248,75 @@ test('存量口径单一真相源:探针 import 生产实现,守护派发层零�
   assert.match(PROBE_SRC, /closedRows\.partitionStaleByProtection\(/)
   assert.match(PROBE_SRC, /claimMarks\.planSweep\(/)
   assert.match(PROBE_SRC, /claimMarks\.planFaceBlockedBy\(/)
-  const body = GUARDIAN_SRC.slice(
-    GUARDIAN_SRC.indexOf('export function auditSweeperLiveness'),
-    GUARDIAN_SRC.indexOf('export function auditTunnelLegHealth'),
-  )
+  const body = sweeperBody()
   assert.ok(!/planSweep|partitionStaleByProtection|staleClosedVerdict/.test(body), '派发层不该自己算存量(它只负责节流、派发、分档)')
 })
 
-test('两族配置与生产端逐字一致:tick/ledger 文件名不许别席改格', () => {
+test('三族配置:前两族 tick/ledger 与生产端逐字一致,第三族 dispatch-parity 不领台账文件', () => {
   assert.deepEqual(
-    P.FAMILIES.map((f) => [f.id, f.tick, f.ledger, f.ledgerKind]),
+    P.FAMILIES.map((f) => [f.id, f.tick, f.ledger, f.ledgerKind, f.parity === true]),
     [
-      ['closed-stock', 'plan-closed-sweep-last.json', 'plan-row-drop.jsonl', 'stale-closed-sweep'],
-      ['claim-marks', 'stale-claim-strip-last.json', 'stale-claim-strip.jsonl', null],
+      ['closed-stock', 'plan-closed-sweep-last.json', 'plan-row-drop.jsonl', 'stale-closed-sweep', false],
+      ['claim-marks', 'stale-claim-strip-last.json', 'stale-claim-strip.jsonl', null, false],
+      ['dispatch-parity', null, null, null, true],
     ],
   )
   // 守护派发点写的 tick 文件名必须同款(改一格 = 探针永远读不到派发心跳)
   assert.match(GUARDIAN_SRC, /plan-closed-sweep-last\.json/)
   assert.match(GUARDIAN_SRC, /stale-claim-strip-last\.json/)
+})
+
+// ── 第三族 dispatch-parity(票 RP-74):判据 import 门体 __test__,本文件零复制(§0.6/§22c) ──
+test('parity 装车锁:measure() 的机读面必须带出第三族(state/rows/detail 齐,键表非空)', () => {
+  const dir = mkScratch('sweeper-parity-')
+  try {
+    const { families } = P.measure({ root: P.ROOT })
+    const par = families.find((f) => f.id === 'dispatch-parity')
+    assert.ok(par, 'measure() 必须产出 dispatch-parity 族')
+    assert.ok(['live', 'idle-clean', 'stalled', 'undetermined'].includes(par.state), `族态必须是四态之一,实得 ${par.state}`)
+    assert.match(par.stockNote, /键表 \d+ 条带戳腿/, 'stockNote 必须报键表条数(现解析读数)')
+    assert.ok(Array.isArray(par.rows), 'rows 必须是真名单数组(可为空,不可缺)')
+    // 键表条数必须 > 0 且与门体 self-test 同一把尺(取不到源码 ⇒ undetermined,绝不冒绿)
+    assert.ok(P.parseDispatchKeyTable(GUARDIAN_SRC).length > 0, '对真守护源码必须枚举出带戳腿')
+    assert.equal(
+      P.dispatchParityMeasure({ src: '', stateDir: dir }).state,
+      'undetermined',
+      '源码取不到 ⇒ 未判定(§0.3)',
+    )
+  } finally {
+    rmScratch(dir, { bestEffort: true })
+  }
+})
+
+test('parity 反证锁:把一条带戳腿从 tick 面摘掉,真名单必须点名它(切片判不出=判红不是判绿)', () => {
+  const dir = mkScratch('sweeper-parity-neg-')
+  try {
+    // 合成最小守护源码:legOff 有戳、只挂 main;摘除 tick 接线后必须进 stalled 名单
+    const FIX = [
+      'async function main() {',
+      '  legOff()',
+      '}',
+      'function startDaemon() {',
+      '  const tick = () => {',
+      "    log('daemon:提交窗口期')",
+      '  }',
+      '}',
+      'function legOff(opts = {}) {',
+      "  const { intervalMs = 5 * 60 * 1000, tickFile = join(WORKTREE, '.ihui-agent', 'state', 'leg-off-last.json') } = opts",
+      '}',
+    ].join('\n')
+    const st = path.join(dir, 'state')
+    mkdirSync(st, { recursive: true })
+    writeFileSync(path.join(st, 'leg-off-last.json'), JSON.stringify({ attemptAt: new Date(NOW - 10 * 24 * 3600000).toISOString() }), 'utf8')
+    const r = P.dispatchParityMeasure({ src: FIX, stateDir: st, nowMs: NOW })
+    assert.equal(r.state, 'stalled', `摘线腿戳冻结 10 天必须 stalled,实得 ${r.state}`)
+    assert.match(r.detail, /legOff/, '必须点名 legOff')
+    // 戳新鲜 ⇒ 不背离(live),不冒红
+    writeFileSync(path.join(st, 'leg-off-last.json'), JSON.stringify({ attemptAt: new Date(NOW - 60000).toISOString() }), 'utf8')
+    assert.equal(P.dispatchParityMeasure({ src: FIX, stateDir: st, nowMs: NOW }).state, 'live')
+    // tick 切片判不出(形态腐烂)⇒ 未判定,绝不默认已接线
+    assert.equal(P.dispatchParityMeasure({ src: 'function nope() {}', stateDir: st, nowMs: NOW }).state, 'undetermined')
+  } finally {
+    rmScratch(dir, { bestEffort: true })
+  }
 })

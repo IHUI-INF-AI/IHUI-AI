@@ -140,7 +140,7 @@ export function ChatScreen({
           hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
         >
           <Text style={styles.modelText}>
-            {t('chat.modelLabel')}: {currentModelName}{' '}
+            {t('chatSettingsPage.model')}: {currentModelName}{' '}
             <ChevronDown size={14} color={tk.text.secondary} />
           </Text>
         </TouchableOpacity>

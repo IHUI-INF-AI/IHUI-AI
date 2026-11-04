@@ -79,6 +79,7 @@ import { TABBAR_HOME_ICON_URL } from '@/constants/external-urls'
 import { FALLBACK_MODELS } from '@ihui/shared/constants'
 // 兜底模型的上下文容量按模型 id 取真实值(写死一个数会让广场/首页对非 128K 模型显示错误容量)
 import {
+  compactConversation,
   getModelContextCapacity,
   getMyCreation as fetchMyCreation,
   getAgents as fetchAgents,
@@ -572,6 +573,8 @@ export default function Index() {
   const [modelsLoading, setModelsLoading] = useState(false)
   // 输入框文本(受控,由 BottomActionBar -> InputArea 双向绑定)
   const [inputText, setInputText] = useState('')
+  // 手动压缩上下文进行中(BottomActionBar 压缩入口的禁用/文案态)
+  const [compactingContext, setCompactingContext] = useState(false)
 
   const systemInfo = getSystemInfoCompat()
   const statusBarHeight = systemInfo.statusBarHeight || 20
@@ -979,6 +982,37 @@ export default function Index() {
         btn.key === item.key ? { ...btn, active: !btn.active } : btn,
       ),
     }))
+  }
+
+  /** 手动压缩上下文(对标 CLI /compact):直接调 POST /api/chat/compact */
+  const handleCompactContext = async () => {
+    if (!state.isLogin) {
+      onToast(tt('index.toast.loginRequired', '请先登录'), { kind: 'error' })
+      return
+    }
+    if (compactingContext) return
+    if (!state.sessionId) {
+      onToast(tt('index.toast.compactNoSession', '请先发送一条消息'), { kind: 'info' })
+      return
+    }
+    setCompactingContext(true)
+    try {
+      const res = await compactConversation(state.sessionId)
+      if (!res.success) {
+        onToast(tt('index.toast.compactFailed', '压缩失败'), { kind: 'error' })
+        return
+      }
+      if (res.data?.compressed) {
+        onToast(tt('index.toast.compactDone', '上下文已压缩'), { kind: 'success' })
+      } else {
+        onToast(tt('index.toast.compactSkipped', '暂无可压缩的上下文'), { kind: 'info' })
+      }
+    } catch (err) {
+      console.error('[index] compact context failed', err)
+      onToast(tt('index.toast.compactFailed', '压缩失败'), { kind: 'error' })
+    } finally {
+      setCompactingContext(false)
+    }
   }
 
   const handleSend = async (text: string) => {
@@ -1704,7 +1738,7 @@ export default function Index() {
               <BottomActionBar
                 variant="ai-home"
                 modelName={state.modelName}
-                showIconButtons
+                isShowIcon
                 isVoiceInput={state.isVoiceInput}
                 onVoiceInputToggle={toggleVoiceInput}
                 toggleButtons={state.toggleButtons}
@@ -1720,6 +1754,8 @@ export default function Index() {
                   onKeyboardHeightChange: handleKeyboardShow,
                 }}
                 onToggle={handleToggleButtonClick}
+                onCompactContext={() => void handleCompactContext()}
+                compactContextLoading={compactingContext}
               />
             </View>
           </View>

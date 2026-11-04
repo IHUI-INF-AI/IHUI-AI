@@ -72,7 +72,7 @@
     {
       "app": "apps/miniapp-taro/src",
       "label": "小程序",
-      "reason": "小程序没有 EventSource,走分块 wx.request 自写续传层(D138 正在并回 api-client);已接帧以 HEAD 实测提及为准,其余暂无对应 UI。",
+      "reason": "小程序没有 EventSource,走分块 wx.request 自写续传层(D138 正在并回 api-client);已接帧以 HEAD 实测提及为准,其余暂无对应 UI。permission 仅经 /agent-runtime/execute/stream 下发(agent_runtime.py:286),小程序未接该端点,故登记为已知缺口而非已接。",
       "until": "2026-12-31",
       "events": [
         "chunk",
@@ -83,7 +83,6 @@
         "fallback",
         "goal_updated",
         "message",
-        "permission",
         "plan",
         "plan_updated",
         "reasoning",
@@ -110,6 +109,7 @@
           "insights",
           "memory_context",
           "message_send",
+          "permission",
           "permission-mode",
           "plan-step",
           "question",

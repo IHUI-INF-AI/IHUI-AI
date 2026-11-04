@@ -54,8 +54,8 @@ export function createDeveloperStyles(tk: AppThemeTokens) {
       marginBottom: rnSpacing['xs-loose'],
     },
     infoRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: rnSpacing.xs },
-    infoLabel: { width: 76, fontSize: 13, color: tk.text.secondary },
-    infoValue: { flex: 1, fontSize: 13, color: tk.text.primary },
+    infoLabel: { width: 76, fontSize: rnType.bodySm.size, color: tk.text.secondary },
+    infoValue: { flex: 1, fontSize: rnType.bodySm.size, color: tk.text.primary },
     infoAction: {
       fontSize: rnType.label.size,
       color: tk.brand.DEFAULT,
@@ -79,7 +79,7 @@ export function createDeveloperStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
     },
     entryIcon: { width: 28, height: 28 },
-    entryText: { fontSize: 13, color: tk.text.primary },
+    entryText: { fontSize: rnType.bodySm.size, color: tk.text.primary },
     faqSection: { gap: rnSpacing.sm },
     faqHeading: {
       fontSize: rnType.strong.size,
@@ -98,7 +98,7 @@ export function createDeveloperStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
       marginBottom: rnSpacing.xs,
     },
-    problemDesc: { fontSize: 13, color: tk.text.secondary, marginBottom: rnSpacing.sm },
+    problemDesc: { fontSize: rnType.bodySm.size, color: tk.text.secondary, marginBottom: rnSpacing.sm },
     problemBtn: {
       alignSelf: 'flex-start',
       paddingHorizontal: rnSpacing.md,
@@ -106,7 +106,7 @@ export function createDeveloperStyles(tk: AppThemeTokens) {
       borderRadius: rnRadiusFor.control,
       backgroundColor: tk.brand.cta,
     },
-    problemBtnText: { fontSize: 13, fontWeight: '500', color: tk.brand.ctaForeground },
+    problemBtnText: { fontSize: rnType.bodySm.size, fontWeight: '500', color: tk.brand.ctaForeground },
     contactCard: {
       backgroundColor: tk.surface.card,
       borderRadius: rnRadiusFor.control,

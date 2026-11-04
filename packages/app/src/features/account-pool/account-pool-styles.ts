@@ -54,7 +54,7 @@ export function createAccountPoolStyles(tk: AppThemeTokens) {
       flexShrink: 1,
     },
     linkBtn: { marginTop: rnSpacing.sm, alignItems: 'center', paddingVertical: rnSpacing.sm },
-    linkText: { fontSize: 13, color: tk.brand.DEFAULT ?? tk.text.primary },
+    linkText: { fontSize: rnType.bodySm.size, color: tk.brand.DEFAULT ?? tk.text.primary },
     actions: { flexDirection: 'row', gap: rnSpacing.sm, marginTop: rnSpacing['2xs'] },
     action: {
       flexDirection: 'row',

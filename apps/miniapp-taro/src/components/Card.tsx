@@ -66,11 +66,11 @@ export function CardHeader({ className, ...props }: CardProps) {
 }
 
 export function CardTitle({ className, ...props }: CardTitleProps) {
-  return <Text className={cn('text-base font-semibold text-foreground', className)} {...props} />
+  return <Text className={cn('text-title font-semibold text-foreground', className)} {...props} />
 }
 
 export function CardDescription({ className, ...props }: CardDescriptionProps) {
-  return <Text className={cn('text-sm text-muted-foreground', className)} {...props} />
+  return <Text className={cn('text-body text-muted-foreground', className)} {...props} />
 }
 
 export function CardContent({ className, ...props }: CardProps) {

@@ -155,12 +155,15 @@ export function EmptyState({
         <LineIcon name={icon} size={52} color="var(--color-text-tertiary)" />
       </View>
       {/* 标题字号/行高同 RN 端 rnType.strong —— 两端共同消费 TYPE_STEPS 单源,端内不再手写 */}
-      <Text className="ihui-state-title" style={{ fontSize: taroType.strong.fontSize, lineHeight: taroType.strong.lineHeight }}>
+      <Text
+        className="ihui-state-title"
+        style={{ fontSize: taroType.strong.fontSize, lineHeight: taroType.strong.lineHeight }}
+      >
         {title}
       </Text>
       {desc ? <Text className="ihui-state-desc">{desc}</Text> : null}
       {actionLabel && onAction ? (
-        <View className="ihui-state-btn" onClick={onAction}>
+        <View className="ihui-state-btn" hoverClass="opacity-60" onClick={onAction}>
           <Text className="ihui-state-btn-text">{actionLabel}</Text>
         </View>
       ) : null}
@@ -198,7 +201,7 @@ export function ErrorState({
         {message}
       </Text>
       {onRetry ? (
-        <View className="ihui-state-btn" onClick={onRetry}>
+        <View className="ihui-state-btn" hoverClass="opacity-60" onClick={onRetry}>
           <Text className="ihui-state-btn-text">{retryLabel}</Text>
         </View>
       ) : null}
@@ -226,6 +229,7 @@ export function PressableCard({
   return (
     <View
       className={`ihui-press-card ${colorScheme === 'dark' ? 'ihui-press-card-dark' : ''} ${className ?? ''}`}
+      hoverClass="opacity-60"
       onClick={onClick}
       style={style}
     >

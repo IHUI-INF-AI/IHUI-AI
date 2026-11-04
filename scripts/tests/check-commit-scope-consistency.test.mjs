@@ -840,4 +840,58 @@ test('装车:commit-msg 钩子真调用本脚本 + 豁免分支真在源码里�
   assert.doesNotMatch(src, /^if \(isMergeCommit\(\)\)/m, '豁免只允许在 main() 内判定')
   assert.match(src, /^  if \(isMergeCommit\(\)\) \{$/m, 'main() 第一屏就判,判据不得排在读消息文件之后')
 })
+
+// ─── 三态:取不到输入 ⇒ exit 2,不得折成通过 ──────────────────
+
+test('未判定: 无 commit message 文件参数 ⇒ exit 2(不折成绿灯)', () => {
+  const dir = mkScratch('scope-nomsg-')
+  try {
+    const { code, out } = runGate(dir, '')
+    assert.equal(code, 2, `缺 message 参数应 exit 2,实得 ${code}\n${out}`)
+    assert.match(out, /未提供 commit message 文件参数/, '必须点名缺参原因')
+    assert.match(out, /未判定/, '必须声明未判定而非通过')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('未判定: commit message 文件读不到 ⇒ exit 2(点名路径)', () => {
+  const dir = mkScratch('scope-nomsgfile-')
+  try {
+    const missing = join(dir, 'MSG-missing')
+    const { code, out } = runGate(dir, missing)
+    assert.equal(code, 2, `message 文件缺失应 exit 2,实得 ${code}\n${out}`)
+    assert.match(out, /MSG-missing/, '必须点名读不到的路径')
+    assert.match(out, /未判定/, '必须声明未判定而非通过')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('未判定: staged 面取不到(非 git 目录)⇒ exit 2,不得当"无 staged"跳过', () => {
+  const dir = mkScratch('scope-nogit-')
+  try {
+    const msg = join(dir, 'MSG')
+    writeFileSync(msg, 'feat(web): 示例提交\n')
+    const { code, out } = runGate(dir, msg)
+    assert.equal(code, 2, `git 取面失败应 exit 2,实得 ${code}\n${out}`)
+    assert.match(out, /staged 面取不到/, '必须点名取材失败')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('真 0: git 正常且 staged 确认为空 ⇒ exit 0 并显式打印不适用', () => {
+  const dir = mkScratch('scope-empty-')
+  try {
+    gitInit(dir)
+    const msg = join(dir, 'MSG')
+    writeFileSync(msg, 'feat(web): 示例提交\n')
+    const { code, out } = runGate(dir, msg)
+    assert.equal(code, 0, `真 0 应 exit 0,实得 ${code}\n${out}`)
+    assert.match(out, /不适用/, '真空集必须显式打印不适用,不得静默当通过')
+  } finally {
+    rmScratch(dir)
+  }
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

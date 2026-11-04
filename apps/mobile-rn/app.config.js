@@ -93,7 +93,13 @@ module.exports = ({ config }) => {
     process.env.EXPO_PUBLIC_WECHAT_APP_ID || process.env.WX_APP_APPID || config.extra?.WX_APP_APPID
   const universalLink =
     process.env.EXPO_PUBLIC_WECHAT_UNIVERSAL_LINK || config.extra?.WX_UNIVERSAL_LINK
-  const androidPackage = config.android?.package
+  // 2026-11-04:android.package 增加 env 覆盖口(与上面两个值同构)。
+  // 立因:静态分析器(如 knip 的 expo 插件)会用一个 **dummy config context** 调用本函数
+  // (getDummyConfigContext: staticConfigPath=null、config={plugins:[]}),里面结构上不含
+  // android.package ⇒ 下面这道 fail-closed 守卫必然抛错、整个配置加载失败。给一个 env 口
+  // 让"只做静态分析"的调用方显式供值,判据方向不变:三个值仍缺一即抛错,只是多了一条
+  // 显式供值通路(EAS/真实构建继续读 app.json 的 zh.ai.sq,env 不设时行为与旧版逐字一致)。
+  const androidPackage = process.env.WX_ANDROID_PACKAGE || config.android?.package
 
   if (!appId || !universalLink || !androidPackage) {
     throw new Error(
@@ -158,6 +164,12 @@ module.exports = ({ config }) => {
       // 危险权限摘除:SYSTEM_ALERT_WINDOW 在 manifest 里而全仓零引用(2026-11-03 实测),
       // 国内商店与工信部通报都按"声明即需说明"处理 ⇒ 摘掉,并以 tools:node=remove 防依赖库再带回
       './plugins/withPermissionPruning.cjs',
+      // 应用内整包更新:补 android.permission.REQUEST_INSTALL_PACKAGES(Android 8+ 请求安装
+      // 的调用方必须持有,缺了症状是"点了更新什么也不发生")。FileProvider 由 expo-file-system
+      // 自带,原生意图由 expo-intent-launcher 提供,只有这条权限需要我们自己声明。
+      // 刻意排在 withPermissionPruning 之后:那条只管摘除,本条的"增"要落在最后一步,
+      // 万一将来有人误把 REQUEST_INSTALL_PACKAGES 加进摘除集,插件会显式告警而不是静默失效。
+      './plugins/withApkInstaller.cjs',
       // 全局统一字体:对齐历史 Uniapp 项目 AlimamaFangYuanTi(2026-08-13 立,H19)
       // 字体文件:assets/fonts/AlimamaFangYuanTiVF-Thin.ttf
       // build-time linking,font-family 名称取字体内部 PostScript name

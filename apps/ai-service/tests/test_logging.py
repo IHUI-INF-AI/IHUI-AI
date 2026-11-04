@@ -37,11 +37,12 @@ from app.core.logging import get_logger
 
 @pytest.fixture(autouse=True)
 def restore_structlog_global_config():
-    """本文件调用 `_configure_structlog()`,而它是**整局替换** —— 收尾必须按对象还原。
+    """本文件调用 `_configure_structlog()`,收尾按对象还原全局配置(防御性)。
 
-    `structlog.configure(processors=[...])` 实测是
-    `_CONFIG.default_processors = processors`(不复制,直接指派**新的列表对象**)。
-    配合 `cache_logger_on_first_use=True`,链条是这样断掉的:
+    `structlog.configure(processors=...)` 实测是
+    `_CONFIG.default_processors = processors`(不复制,直接指派**列表对象**)。
+    配合 `cache_logger_on_first_use=True`,若各次 configure 传入的列表实例不同,链条会
+    这样断掉:
 
     1. 某个更早的用例让某个模块级懒代理**第一次**被调用 ⇒ 它把"当时的 processors 列表
        对象"缓存进那个 logger(此后该 logger 再也不看全局配置);
@@ -50,16 +51,11 @@ def restore_structlog_global_config():
        ["processors"]` 那一个列表(它刻意保持列表实例不变,正是为了不让已绑定的 logger
        失联)⇒ 它改的是新对象,而缓存的 logger 写的是旧对象 ⇒ 收 0 条,告警照常进 stderr。
 
-    实测复现链(串行、同一进程内):
-      tests/test_device_linkage_owner_scoping.py(先触发一次 legacy 兜底告警)
-      → tests/test_logging.py(本文件,reconfigure)
-      → tests/test_publish_identity_key_stability.py::
-        test_legacy_fallback_is_used_and_loudly_warned 翻红 `events == []`。
-    单独两两配对都不红,所以只有"三步链"才是证据 —— 缺第 1 步则 logger 尚未缓存,
-    缺第 2 步则全局列表身份未变,capture_logs 都还能拦到。
-
-    收尾把**同一批对象**(尤其 processors 的列表身份)放回,本文件测的行为照旧测得到,
-    而全局配置不再外泄给同进程后续文件。
+    该断链曾在 xdist 同 worker 跨文件时翻红(test_publish_identity_key_stability.py::
+    test_legacy_fallback_is_used_and_loudly_warned 的 `events == []`)。2026-11-04 起
+    app/core/logging.py 固定复用同一个进程级 `_PROCESSORS` 列表实例,第 2 步不再换对象,
+    断链条件已从源头消除;本 fixture 仍按对象还原,保证任何测试对全局配置的改动不泄漏
+    给同进程后续文件。
     """
     structlog_mod = logging_module.structlog
     if not logging_module._HAS_STRUCTLOG:  # pragma: no cover - 测试环境恒有 structlog

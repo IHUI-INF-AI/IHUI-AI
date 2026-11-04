@@ -70,7 +70,7 @@ export function createSupportStyles(tk: AppThemeTokens) {
     tabBtnActive: {
       backgroundColor: tk.selection.DEFAULT,
     },
-    tabText: { fontSize: 13, fontWeight: '600', color: tk.text.secondary },
+    tabText: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.text.secondary },
     tabTextActive: { color: tk.selection.foreground },
     card: {
       backgroundColor: tk.surface.light,
@@ -108,7 +108,7 @@ export function createSupportStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       gap: rnSpacing.sm,
     },
-    emptyText: { fontSize: 13, color: tk.text.secondary },
+    emptyText: { fontSize: rnType.bodySm.size, color: tk.text.secondary },
     /* 表单 */
     fieldLabel: {
       fontSize: rnType.label.size,
@@ -123,7 +123,7 @@ export function createSupportStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.inputBg,
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.sm,
-      fontSize: 13,
+      fontSize: rnType.bodySm.size,
       color: tk.text.primary,
     },
     inputMultiline: { minHeight: 96, textAlignVertical: 'top' },
@@ -148,7 +148,7 @@ export function createSupportStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
-    primaryBtnText: { fontSize: 13, fontWeight: '600', color: tk.brand.ctaForeground },
+    primaryBtnText: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.brand.ctaForeground },
     secondaryBtn: {
       alignSelf: 'flex-start',
       paddingHorizontal: rnSpacing.lg,
@@ -158,7 +158,7 @@ export function createSupportStyles(tk: AppThemeTokens) {
       borderColor: tk.border.medium,
       backgroundColor: tk.surface.inputBg,
     },
-    secondaryBtnText: { fontSize: 13, color: tk.text.medium },
+    secondaryBtnText: { fontSize: rnType.bodySm.size, color: tk.text.medium },
     btnDisabled: { opacity: 0.6 },
     /* 详情 */
     detailTitle: {
@@ -209,7 +209,7 @@ export function createSupportStyles(tk: AppThemeTokens) {
       padding: rnSpacing['sm-loose'],
       gap: rnSpacing['xs-loose'],
     },
-    errorText: { fontSize: 13, color: tk.danger.DEFAULT },
+    errorText: { fontSize: rnType.bodySm.size, color: tk.danger.DEFAULT },
     skeletonRow: { height: 44, borderRadius: rnRadius.lg, backgroundColor: tk.border.light },
   })
 }

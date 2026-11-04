@@ -71,27 +71,27 @@ export function AttendanceStatsPanel(options: AttendanceStatsPanelProps): ReactN
   if (!options.payload && !options.loading && options.error === '') return null
 
   return (
-    <View className="w-full space-y-2">
+    <View className="w-full space-y-sm">
       {options.loading ? <Text className={READOUT_DIM}>{t('common.loading')}</Text> : null}
       {options.error ? <Text className={READOUT_DIM}>{options.error}</Text> : null}
 
       {/* ── 统计区:状态构成(数据源 = statusBreakdown + 服务端 total / attendanceRate)── */}
       <View className={CARD}>
-        <View className="flex items-center justify-between gap-2">
-          <View className="flex items-center gap-1">
+        <View className="flex items-center justify-between gap-sm">
+          <View className="flex items-center gap-xs">
             <LineIcon name="bar-chart-3" size={28} />
-            <Text className="text-sm font-bold text-foreground">
+            <Text className="text-body font-bold text-foreground">
               {t('eduAttendance.statusDistribution')}
             </Text>
           </View>
           <Text className={READOUT_DIM}>{scopeLabel}</Text>
         </View>
 
-        <View className="flex items-center justify-between gap-2">
+        <View className="flex items-center justify-between gap-sm">
           <Text className={SEGMENT_LABEL}>{t('eduAttendance.statsTotalLabel')}</Text>
           <Text className={READOUT}>{`${readout.total}`}</Text>
         </View>
-        <View className="flex items-center justify-between gap-2">
+        <View className="flex items-center justify-between gap-sm">
           <Text className={SEGMENT_LABEL}>{t('eduAttendance.statsAttendanceRate')}</Text>
           <Text className={READOUT}>
             {readout.attendanceRate === null ? '—' : `${readout.attendanceRate}%`}
@@ -102,9 +102,9 @@ export function AttendanceStatsPanel(options: AttendanceStatsPanelProps): ReactN
           <Text className={READOUT_DIM}>{t('eduAttendance.emptyTrend')}</Text>
         ) : (
           readout.rows.map((seg) => (
-            <View key={seg.key} className="space-y-1">
-              <View className="flex items-center justify-between gap-2">
-                <View className="flex items-center gap-1">
+            <View key={seg.key} className="space-y-xs">
+              <View className="flex items-center justify-between gap-sm">
+                <View className="flex items-center gap-xs">
                   <View className={`w-2 h-2 shrink-0 rounded-xs ${TONE_BG_CLASS[seg.tone]}`} />
                   <Text className={SEGMENT_LABEL}>{labelOf(seg.key)}</Text>
                 </View>
@@ -123,20 +123,22 @@ export function AttendanceStatsPanel(options: AttendanceStatsPanelProps): ReactN
 
       {/* ── 趋势区:逐时段堆叠构成 + 出勤率(数据源 = periodBreakdown 聚合)── */}
       <View className={CARD}>
-        <View className="flex items-center gap-1">
+        <View className="flex items-center gap-xs">
           <LineIcon name="bar-chart-3" size={28} />
-          <Text className="text-sm font-bold text-foreground">
+          <Text className="text-body font-bold text-foreground">
             {t('eduAttendance.trendChartTitle')}
           </Text>
         </View>
-        <Text className="text-xs text-muted-foreground">{t('eduAttendance.trendChartHint')}</Text>
+        <Text className="text-label text-muted-foreground">
+          {t('eduAttendance.trendChartHint')}
+        </Text>
 
         {series.length === 0 ? (
           <Text className={READOUT_DIM}>{t('eduAttendance.emptyTrend')}</Text>
         ) : (
           series.map((point) => (
-            <View key={point.period} className="space-y-1">
-              <View className="flex items-center justify-between gap-2">
+            <View key={point.period} className="space-y-xs">
+              <View className="flex items-center justify-between gap-sm">
                 <Text className={SEGMENT_LABEL}>{point.period}</Text>
                 <Text className={READOUT}>{`${point.attendanceRate}%`}</Text>
               </View>
@@ -149,9 +151,9 @@ export function AttendanceStatsPanel(options: AttendanceStatsPanelProps): ReactN
                   />
                 ))}
               </View>
-              <View className="flex flex-wrap items-center gap-2">
+              <View className="flex flex-wrap items-center gap-sm">
                 {point.segments.map((seg) => (
-                  <View key={seg.key} className="flex items-center gap-1">
+                  <View key={seg.key} className="flex items-center gap-xs">
                     <View className={`w-2 h-2 shrink-0 rounded-xs ${TONE_BG_CLASS[seg.tone]}`} />
                     <Text className={READOUT_DIM}>{`${labelOf(seg.key)} ${seg.count}`}</Text>
                   </View>

@@ -27,20 +27,20 @@ export default function NotificationSettings({ items = [], onToggle }: Notificat
   const switchInk = getRnTokens(resolved).brand.DEFAULT
   return (
     <View className="bg-card">
-      <View className="px-4 pt-3 pb-2">
-        <Text className="text-xs text-muted-foreground">
+      <View className="px-lg pt-md pb-sm">
+        <Text className="text-label text-muted-foreground">
           {tt('notification.settings', '通知设置')}
         </Text>
       </View>
       {items.map((item, idx) => (
         <View
           key={item.key}
-          className={`flex items-center px-4 py-3 ${idx !== items.length - 1 ? 'mb-[12rpx]' : ''}`}
+          className={`flex items-center px-lg py-md ${idx !== items.length - 1 ? 'mb-[12rpx]' : ''}`}
         >
           <View className="flex-1 min-w-0">
-            <Text className="text-sm text-foreground">{item.label}</Text>
+            <Text className="text-body text-foreground">{item.label}</Text>
             {item.desc && (
-              <Text className="block text-xs text-muted-foreground mt-[4rpx]">{item.desc}</Text>
+              <Text className="block text-label text-muted-foreground mt-[4rpx]">{item.desc}</Text>
             )}
           </View>
           <Switch

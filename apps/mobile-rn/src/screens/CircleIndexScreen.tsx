@@ -454,7 +454,7 @@ const createStyles = (tk: RnThemeTokens) =>
       color: tk.text.primary,
     },
     topicName: {
-      fontSize: 13,
+      fontSize: rnType.bodySm.size,
       color: tk.text.primary,
       maxWidth: rpx(240),
     },
@@ -483,7 +483,7 @@ const createStyles = (tk: RnThemeTokens) =>
     },
     avatarFallback: {},
     userName: {
-      fontSize: 13,
+      fontSize: rnType.bodySm.size,
       fontWeight: '600',
       color: tk.text.primary,
       maxWidth: rpx(180),
@@ -538,7 +538,7 @@ const createStyles = (tk: RnThemeTokens) =>
     },
     author: {
       flex: 1,
-      fontSize: 13,
+      fontSize: rnType.bodySm.size,
       fontWeight: '500',
       color: tk.text.primary,
     },
@@ -595,15 +595,15 @@ const createStyles = (tk: RnThemeTokens) =>
       gap: rpx(16),
     },
     stateText: {
-      fontSize: 13,
+      fontSize: rnType.bodySm.size,
       color: tk.text.tertiary,
     },
     errorText: {
-      fontSize: 13,
+      fontSize: rnType.bodySm.size,
       color: tk.danger.DEFAULT,
     },
     retryText: {
-      fontSize: 13,
+      fontSize: rnType.bodySm.size,
       color: tk.text.primary,
     },
     emptyBtn: {
@@ -613,7 +613,7 @@ const createStyles = (tk: RnThemeTokens) =>
       backgroundColor: tk.brand.cta,
     },
     emptyBtnText: {
-      fontSize: 13,
+      fontSize: rnType.bodySm.size,
       fontWeight: '600',
       color: tk.surface.card,
     },

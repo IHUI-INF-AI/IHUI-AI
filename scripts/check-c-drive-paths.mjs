@@ -28,17 +28,15 @@
  *        → 合规示例/规范文档
  *
  * 检测模式:
- *   - 默认 (无 --staged): 报模式,扫描 staged 文件,有违规仍 exit 0
- *     (用于手动验证场景,不阻塞命令)
- *   - --staged: pre-commit 模式,违规 exit 1 阻塞 commit
+ *   - 默认(含 --staged 兼容别名): 扫描 git 暂存区文件(pre-commit / guardian 唯一输入面)
  *   - --json: 以 JSON 格式输出报告 (机器可读,接入 CI)
  *   - --quiet: 仅返回 exit code,不打印诊断 (--quiet + 成功 → stdout 空)
  *   - --help / -h: 打印帮助
  *
- * 退出码:
- *   0 = 通过 (无违规 / 仅 --staged 模式下无 staged 文件)
+ * 退出码(三态,AGENTS.md §0.3):
+ *   0 = 通过 (暂存区有在范围内的文件且无违规;暂存区为空 ⇒ 不适用,同样 0)
  *   1 = 失败 (检测到硬编码 C 盘路径)
- *   2 = 异常 (用法错误 / 文件缺失)
+ *   2 = 未判定 (git 取面失败 / 目标文件读不到)
  *
  * 集成位置:
  *   guardian-runner.mjs id 'check-c-drive-paths' (warn-only 起步,AGENTS.md §26)
@@ -63,7 +61,7 @@ const ROOT = process.cwd()
 
 // === CLI 参数 ===
 const argv = process.argv.slice(2)
-const isStaged = argv.includes('--staged')
+// 默认输入面 = git 暂存区(--staged 兼容别名;无参也真扫暂存区,不再空转报绿)
 const JSON_OUT = argv.includes('--json')
 const QUIET = argv.includes('--quiet')
 const SHOW_HELP = argv.includes('--help') || argv.includes('-h')
@@ -116,15 +114,15 @@ check-c-drive-paths.mjs — C 盘路径硬编码扫描守门 (AGENTS.md §26)
   node scripts/check-c-drive-paths.mjs [选项]
 
 选项:
-  --staged   扫描 git 暂存区文件 (pre-commit 模式,违规 exit 1)
+  --staged   兼容别名(默认即扫描 git 暂存区,违规 exit 1)
   --json     以 JSON 格式输出报告 (机器可读,接入 CI)
   --quiet    仅返回 exit code,不打印诊断
   --help     打印此帮助
 
 退出码:
-  0  通过 (无违规)
+  0  通过 (无违规 / 暂存区为空不适用)
   1  失败 (检测到硬编码 C 盘路径)
-  2  异常 (用法错误 / 文件缺失)
+  2  未判定 (git 取面失败 / 目标文件读不到)
 
 检测目标 (硬编码 Windows 路径):
   C:\\temp\\     C:\\Users\\   C:\\Program Files\\
@@ -186,24 +184,15 @@ const PATTERNS = [
   { id: 'appdata-local-temp', re: /appdata\\local\\temp\\/i, desc: 'AppData\\Local\\Temp\\' },
 ]
 
-// === 收集 staged 文件 ===
+// === 收集暂存区文件(默认且唯一输入面) ===
 function collectFiles() {
-  if (!isStaged) {
-    // 非 staged 模式: 仅扫描根目录下一层文件,不做递归 (与 check-root-dir-clean 一致)
-    // 当前本守门主要服务 pre-commit (--staged),无参数模式是辅助手动验证
-    // 此处直接返回空数组,避免误扫整个 working tree (性能 + 噪声)
-    return []
-  }
-  try {
-    // 2026-10-26 G-54:git 派生收口到 face-reader(绝对路径二进制 + safe.directory + stdio/windowsHide 统一)。
-    const out = gitRaw(['diff', '--cached', '--name-only', '--diff-filter=ACM'], ROOT)
-    return out
-      .split('\n')
-      .map((f) => f.trim())
-      .filter((f) => f.length > 0)
-  } catch {
-    return []
-  }
+  // 2026-10-26 G-54:git 派生收口到 face-reader(绝对路径二进制 + safe.directory + stdio/windowsHide 统一)。
+  // 失败向上抛,由 main 转成 exit 2(取不到输入 != 通过)
+  const out = gitRaw(['diff', '--cached', '--name-only', '--diff-filter=ACM'], ROOT)
+  return out
+    .split('\n')
+    .map((f) => f.trim())
+    .filter((f) => f.length > 0)
 }
 
 function shouldScan(file) {
@@ -217,18 +206,19 @@ function shouldScan(file) {
 }
 
 // === 扫描单个文件 ===
+// 返回 { hits, unreadable }:读失败不再折成空数组(调用方据此交付未判定 exit 2)
 function scanFile(relPath) {
   const absPath = join(ROOT, relPath)
   if (!existsSync(absPath)) {
     // 文件可能在 staged 后被删除 (git diff --cached 仍报 staged 名)
-    // 不视为错误,跳过
-    return []
+    // 不视为错误,跳过(无内容可判)
+    return { hits: [], unreadable: null }
   }
   let text
   try {
     text = readFileSync(absPath, 'utf8')
-  } catch {
-    return []
+  } catch (e) {
+    return { hits: [], unreadable: `${relPath} :: ${e?.message ?? e}` }
   }
   const lines = text.split('\n')
   const hits = []
@@ -246,17 +236,28 @@ function scanFile(relPath) {
       }
     }
   }
-  return hits
+  return { hits, unreadable: null }
 }
 
 function main() {
-  const files = collectFiles()
+  let files
+  try {
+    files = collectFiles()
+  } catch (e) {
+    if (JSON_OUT) {
+      console.log(JSON.stringify({ ok: false, undetermined: true, filesScanned: 0, violations: [], message: `git diff --cached failed: ${e?.message ?? e}` }, null, 2))
+    } else {
+      log('err', `C 盘路径扫描未判定:取不到 git 暂存区 (exit 2):${e?.message ?? e}`)
+    }
+    process.exit(2)
+  }
 
   if (files.length === 0) {
+    // --staged 且 git 取面成功但暂存区为空 ⇒ 不适用(对齐 A 级 check-file-size:暂存零新增 = exit 0)
     if (JSON_OUT) {
-      console.log(JSON.stringify({ ok: true, filesScanned: 0, violations: [], message: 'no staged files' }, null, 2))
+      console.log(JSON.stringify({ ok: true, applicable: false, filesScanned: 0, violations: [], message: 'staged area is empty' }, null, 2))
     } else {
-      log('ok', isStaged ? 'C 盘路径扫描通过:staged 区无目标文件' : 'C 盘路径扫描通过:请用 --staged 模式扫描暂存区')
+      log('ok', 'C 盘路径扫描不适用:暂存区为空')
     }
     process.exit(0)
   }
@@ -274,22 +275,26 @@ function main() {
   }
 
   const violations = []
+  const unreadable = []
   for (const f of targetFiles) {
-    const hits = scanFile(f)
-    violations.push(...hits)
+    const r = scanFile(f)
+    violations.push(...r.hits)
+    if (r.unreadable) unreadable.push(r.unreadable)
   }
 
   if (JSON_OUT) {
     const report = {
-      ok: violations.length === 0,
+      ok: violations.length === 0 && unreadable.length === 0,
+      undetermined: unreadable.length > 0,
       filesScanned: targetFiles.length,
       filesInStaged: files.length,
       violations,
+      unreadable,
     }
     console.log(JSON.stringify(report, null, 2))
-  } else if (violations.length === 0) {
+  } else if (violations.length === 0 && unreadable.length === 0) {
     log('ok', `C 盘路径扫描通过:扫描 ${targetFiles.length} 个目标文件,无硬编码`)
-  } else {
+  } else if (violations.length > 0) {
     log('err', `C 盘路径扫描发现 ${violations.length} 处硬编码:`)
     for (const v of violations) {
       console.error(`  ${C.dim}${v.file}:${v.line}${C.reset}  [${v.pattern}]  ${v.snippet}`)
@@ -309,7 +314,13 @@ function main() {
     console.error(`${C.dim}跳过方法 (应急):HUSKY_SKIP_C_DRIVE_PATHS=1 git commit ...${C.reset}`)
   }
 
-  process.exit(violations.length === 0 ? 0 : 1)
+  // 真违规优先交付 1;否则读不到任何目标文件 ⇒ 未判定 2
+  if (violations.length > 0) process.exit(1)
+  if (unreadable.length > 0) {
+    if (!JSON_OUT) log('err', `C 盘路径扫描未判定:${unreadable.length} 个目标文件读不到 (exit 2)`)
+    process.exit(2)
+  }
+  process.exit(0)
 }
 
 if (isDirectRun) {

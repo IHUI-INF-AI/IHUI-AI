@@ -191,7 +191,7 @@
   justify-content: center;
   margin-right: var(--spacing-xs-loose);
   flex-shrink: 0;
-  padding: var(--spacing-xs-loose) 20rpx;
+  padding: var(--spacing-xs-loose) var(--spacing-sm-loose);
   border-radius: var(--radius-sm);
   background: var(--color-muted);
   cursor: pointer;
@@ -235,7 +235,7 @@
   background: var(--color-card);
   border: 4rpx solid var(--color-border-list-item);
   margin: 5rpx 0;
-  padding: 0 24rpx;
+  padding: 0 var(--spacing-md);
 }
 
 .ai-chu-row-active {
@@ -395,7 +395,7 @@
   display: inline-flex;
   flex-direction: row;
   align-items: center;
-  padding: 10rpx 20rpx;
+  padding: 10rpx var(--spacing-sm-loose);
 }
 
 .material-card-item {
@@ -469,7 +469,7 @@
     var(--color-secondary),
     var(--color-accent)
   );
-  padding: var(--spacing-xs-loose) 20rpx;
+  padding: var(--spacing-xs-loose) var(--spacing-sm-loose);
   position: relative;
 }
 
