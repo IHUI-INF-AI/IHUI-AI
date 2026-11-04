@@ -11,7 +11,7 @@
 import { useEffect, useState } from 'react'
 import type { ToastKind } from '@ihui/types'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
-import { subscribeHostToast } from './host-toast'
+import { subscribeHostToast } from '@ihui/shared/utils/host-toast'
 
 interface HostToastState {
   message: string
