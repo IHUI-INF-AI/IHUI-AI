@@ -38,7 +38,6 @@ import {
   downloadRanged,
   DownloadCancellation,
   DownloadCancelledError,
-  RangeUnsupportedError,
 } from './ranged-download'
 import { APP_USER_AGENT, APP_VERSION } from './config'
 
@@ -353,12 +352,13 @@ async function downloadApkLegacy(url: string, target: string): Promise<string> {
 }
 
 /**
- * 下载 APK(先分片、后单流)。
+ * 下载 APK(分片加速 + 原生单流兜底)。
  *
- * 为什么这么排:「几十 B/s」不是下载逻辑写错,而是**单连接**在这条链路上的真实上限
- * (Cloudflare 隧道 + 跨境,实测单流 16 KB/s、8 流 362 KB/s,见 lib/ranged-download.ts 头注)。
- * 所以默认走 8 连接分片;只有当服务端真的不认 Range 时才退回单流。
- * 取消/失败/半包的口径全部在分片腿里判,这里只负责选腿与错误归类。
+ * 分片是**尝试**,不是唯一可用的腿:真机实测它在跨境慢链路上可能整批挂到读超时
+ * (8 条 × 2MB 在 95s 内 0 字节;改 4 条 × 512KB 后 4 片仍在 64s 超时点集体 onerror),
+ * 首片看门狗会在 45s 内撤单。所以这里对**任何**非取消的分片失败都退回
+ * `createDownloadResumable` —— 慢,但是原生流式、有真实进度,绝不让用户盯着 0% 假装在下载。
+ * 取消/半包口径在分片腿里判,这里只负责选腿与错误归类。
  */
 async function downloadApk(url: string, version: string): Promise<string> {
   const target = apkFileUri(version)
@@ -387,9 +387,10 @@ async function downloadApk(url: string, version: string): Promise<string> {
     return result.uri
   } catch (e) {
     if (e instanceof DownloadCancelledError) throw e
-    if (!(e instanceof RangeUnsupportedError)) throw e
-    // Range 不被支持:退回单流。注意此时 activeDownload 已被下面的 finally 之外的分支接管,
-    // 所以 finally 里必须按"身份"清理,不能无条件置空(否则取消会打在已经换掉的腿上)。
+    // 分片腿的任何失败(不认 Range / 首片停滞 / 重试耗尽 / 长度不符 / 写盘失败)都退回单流:
+    // 它是加速尝试,不该拥有"让用户没得下"的权力。
+    // activeDownload 会在下面的 finally 按身份清理,不能无条件置空
+    // (否则取消会打在已经换掉的腿上)。
     return downloadApkLegacy(url, target)
   } finally {
     if (activeDownload?.kind === 'ranged' && activeDownload.cancellation === cancellation) {
