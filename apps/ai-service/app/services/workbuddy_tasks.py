@@ -53,12 +53,20 @@ userId}`** —— 发蛇形 `event_code` 或漏 `timestamp` 会被上游 400 `10
 若运维把配置清空则回到"拒绝执行"。
 `www.workbuddy.ai` 对本 token 全域 401(连对照路径也 401)⇒ 国际域需另一套凭据,未验证。
 
-**上报 200 ≠ 计分(真机实测,2026-10-31)**:11 枚事件码全部 POST 200 后,任务列表仍
-`status=available`(progress 字段上游不返回)。原因见竞品 README:网关按任务类别校验
-「客户端指纹 + 判据事件链」(CLI / 桌面 `WorkBuddy/5.5.6` / Web 三套),单纯遥测上报不足以
-达标。故本模块的定位是「**把能自动化的腿全部自动化**(领任务 / 达标领奖 / 兑换 / 抽奖 /
-猫猫旅行 / 夜猫子),真行为类任务(如 `first_chat` 需真实发起对话)由其自身行为触发,
-不在服务端伪造 —— 伪造判据链属平台风控对抗,明确不做。
+**上报 200 ≠ 计分(真机实测,2026-10-31 → 2026-11-05 复证)**:11 枚事件码全部 POST 200 后,
+任务列表仍 `status=available`(progress 字段上游不返回)。原因见竞品 README:网关按任务类别
+校验「客户端指纹 + 判据事件链」(CLI / 桌面 `WorkBuddy/5.5.6` / Web 三套),单纯遥测上报不足以
+达标。2026-11-05 进一步实证:用账号 JWT 直打产品行为端点(如 `/v2/chat/completions`)被 **403**
+(行为端点要实时客户端会话上下文)⇒ 服务端引擎无法「服务器到服务器」伪造真行为。
+
+**故本模块 2026-11-05 重塑后的定位(机主授权「把功能开发完整、用我们自己的功能」)**:
+- 完整理解任务生命周期:`list → classify(可判定/待实操) → attempt(可自动则自动,
+  不可自动则登记为待用户实操) → re-judge → claim(仅对已 completed 项)`。
+- **不在服务端伪造判据链**:行为类任务要么由持有合法客户端会话的真实驱动器(将来接入,
+  在 workbuddy_behaviors.BehaviorPlan.driver 注册)完成,要么如实登记为「待用户在客户端实操」
+  并给出精确指引(见 workbuddy_behaviors.BEHAVIOR_PLANS)—— 绝不发空转刷次数的合成事件。
+- 把能自动化的腿全部自动化(领任务 / 达标领奖 / 兑换 / 抽奖 / 猫猫旅行 / 夜猫子),并对
+  真行为类任务给出可直接执行的用户动作清单,闭环完整、可审计。
 
 族五/六 redeem(连签兑换)/ lottery(抽奖)**读写双侧均已真机实证(2026-10-31 报文级)**:
 
@@ -134,6 +142,11 @@ from app.services.checkin_workbuddy import (
     workbuddy_query_credits,
     workbuddy_web_cookie,
     workbuddy_web_ua,
+)
+from app.services.workbuddy_behaviors import (
+    build_default_activity_reporter,
+    classify_growth_task_automation,
+    human_action_checklist,
 )
 
 logger = get_logger(__name__)
@@ -532,6 +545,7 @@ def _run_result(
     energy_delta: int | None = None,
     reason: str | None = None,
     unjudged: bool = False,
+    user_action_required: list[str] | None = None,
 ) -> dict[str, Any]:
     return {
         "ok": ok,
@@ -542,6 +556,7 @@ def _run_result(
         "energy_delta": energy_delta,
         "reason": reason,
         "unjudged": unjudged,
+        "user_action_required": user_action_required or [],
     }
 
 
@@ -556,11 +571,30 @@ async def list_growth_tasks(
     *,
     client: httpx.AsyncClient | None = None,
     timeout: float = DEFAULT_TIMEOUT,
+    web: bool = False,
 ) -> dict[str, Any]:
-    """拉取 growth 任务列表(GET 只读)⇒ 列表面合同。"""
-    status, payload, _mode = await _wb_request(
-        PATH_GROWTH_TASKS, jwt, device_map, {}, client=client, timeout=timeout, method="GET"
-    )
+    """拉取 growth 任务列表(GET 只读)⇒ 列表面合同。
+
+    web=False ⇒ CLI 域 copilot.tencent.com/activity/growth/tasks(5 项新手引导);
+    web=True  ⇒ WEB 域 www.workbuddy.cn/v2/activity/growth/tasks(18 项成长任务,含专家/游戏/
+    公众号类)。两域合并才能完整覆盖账号全部成长任务(见 _run_growth_inner 的并域逻辑)。
+    """
+    if web:
+        status, payload, _mode = await _wb_request(
+            PATH_GROWTH_TASKS,
+            jwt,
+            device_map,
+            {},
+            client=client,
+            timeout=timeout,
+            method="GET",
+            absolute_url=WB_WEB_BASE.rstrip("/") + _webify(PATH_GROWTH_TASKS),
+            extra_headers={"x-client-platform": "web"},
+        )
+    else:
+        status, payload, _mode = await _wb_request(
+            PATH_GROWTH_TASKS, jwt, device_map, {}, client=client, timeout=timeout, method="GET"
+        )
     fail = _failure_reason(status, payload, _mode)
     if fail is not None:
         return _list_result([], fail, True, False)
@@ -789,11 +823,24 @@ async def run_growth(
 
     activity_reporter: 可选注入(调度器接 run_activity),用于为本轮待做任务补计分事件,
     再重新拉列表判定有无因上报而达标可领的任务(与 workbuddy2api "上报→达标→领奖"同语义)。
+    未注入且开启 workbuddy_tasks_behavior_driver_enabled 时,改用默认行为计分回调
+    (workbuddy_behaviors.build_default_activity_reporter):可自动则自动,不可自动则把任务
+    登记进 behavior_tracker,最终作为 user_action_required 回传,使 growth 族完整理解
+    任务生命周期(自动完成 + 精确上报待用户实操),而非静默跳过行为任务。
     """
     eff_client, owned = (client, False) if client is not None else client_for(device_map)
     try:
+        behavior_tracker: list[str] = []
+        if activity_reporter is None and settings.workbuddy_tasks_behavior_driver_enabled:
+            activity_reporter = build_default_activity_reporter(behavior_tracker)
         return await _run_growth_inner(
-            jwt, device_map, dry_run, eff_client, timeout, activity_reporter=activity_reporter
+            jwt,
+            device_map,
+            dry_run,
+            eff_client,
+            timeout,
+            activity_reporter=activity_reporter,
+            behavior_tracker=behavior_tracker,
         )
     finally:
         if owned:
@@ -807,6 +854,7 @@ async def _run_growth_inner(
     client: httpx.AsyncClient,
     timeout: float,
     activity_reporter: ActivityReporter | None = None,
+    behavior_tracker: list[str] | None = None,
 ) -> dict[str, Any]:
     # dry-run ⇒ 只打 list(读);余额探针虽也是读面,但合同把 dry-run 的读面收窄到
     # list/status,探针仅实跑档发。
@@ -908,6 +956,37 @@ async def _run_growth_inner(
                 else:
                     reasons.append(f"claim {code_item} 失败({why})")
                     unjudged = unjudged or is_net
+    # 并域扫描:WEB 域 18 项成长任务(专家/游戏/公众号类)与 CLI 域 5 项新手任务分处两域,
+    # 仅查 CLI 域会漏掉 WEB 域剩余的行为任务。此处只读拉 WEB 域,把其中属行为规划、且尚未
+    # 完成(status 不在 claimable 集)的任务 code 收集进来,并入 behavior_tracker,使引擎完整
+    # 覆盖账号全部成长任务。只读失败不拖垮整轮。
+    # 位置放在 claim 之后:本扫描只读、只并入 user_action_required,不参与 accept/claim 写侧;
+    # 排在 report→重判→claim 序列之后,可避免两者争用同一列表迭代器(单测 / 真机均如此)。
+    web_behavior_codes: list[str] = []
+    try:
+        wl = await list_growth_tasks(jwt, device_map, client=client, timeout=timeout, web=True)
+        if wl["ok"]:
+            claimable = _status_set(settings.workbuddy_tasks_claimable_statuses)
+            for t in wl["tasks"]:
+                tcode = str(t.get("task_code") or "")
+                if not tcode:
+                    continue
+                plan = classify_growth_task_automation(tcode)
+                if plan is None or plan.can_automate:
+                    continue
+                if str(t.get("status") or "") in claimable:
+                    continue  # 已完成/已领,不列为待实操
+                if tcode not in web_behavior_codes:
+                    web_behavior_codes.append(tcode)
+    except Exception as e:  # noqa: BLE001 — WEB 域只读失败不拖垮整轮
+        logger.warning("[workbuddy_tasks] WEB 域任务列表拉取失败: %s", e)
+    # 并入 behavior_tracker(只读并集,不依赖回调);去重避免与 CLI 域默认回调登记的同码重复。
+    if web_behavior_codes and behavior_tracker is None:
+        behavior_tracker = []
+    if behavior_tracker is not None:
+        for bcode in web_behavior_codes:
+            if bcode not in behavior_tracker:
+                behavior_tracker.append(bcode)
     streak = await fetch_growth_streak(jwt, device_map, client=client, timeout=timeout)
     if isinstance(streak, dict) and streak.get("days") is not None:
         reasons.append(f"streak_days={streak['days']}")
@@ -915,6 +994,13 @@ async def _run_growth_inner(
     credit_delta = after - before if before is not None and after is not None else None
     if credit_delta is None and not reasons:
         reasons.append("余额差量不可测(前后至少一次探针失败),不冒充 0")
+    if behavior_tracker:
+        checklist = human_action_checklist(behavior_tracker)
+        if checklist:
+            reasons.append(
+                "待用户在客户端实操: "
+                + "; ".join(f"{c['title']}({c['instruction']})" for c in checklist)
+            )
     ok = bool(accepted or claimed) or (not to_accept and not to_claim)
     return _run_result(
         "growth",
@@ -924,6 +1010,7 @@ async def _run_growth_inner(
         credit_delta=credit_delta,
         reason=";".join(reasons) if reasons else None,
         unjudged=unjudged,
+        user_action_required=behavior_tracker,
     )
 
 
