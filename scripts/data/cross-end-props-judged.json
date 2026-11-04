@@ -2,6 +2,578 @@
   "rule": "逐键裁决台账(门285):仅收「同一对里按键可量出、但确认属平台/架构承载差异」的单键;每条必须 owner + expires(≤2027-06-30) + 双端 evidence(文件:行) + rationale;不得与映射表同键,不得以空 prop 冒充实现。到期须补实现或删死腿。",
   "entries": [
     {
+      "pair": "BottomActionBar",
+      "key": "compactContextLoading",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "小程序端未接上下文压缩(✂)能力,本组件接口无该入口;登记为在期分叉,到期复核补实现或清理 RN 侧腿。",
+      "evidence": [
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:180",
+        "apps/miniapp-taro/src/components/BottomActionBar.tsx:66",
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
+      ]
+    },
+    {
+      "pair": "BottomActionBar",
+      "key": "images",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "RN BottomActionBar 直接吃预览图列表;小程序端已选附件走 inputAreaProps.imgsList 交给 InputArea 渲染,本组件无同名列表腿。",
+      "evidence": [
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:205",
+        "apps/miniapp-taro/src/components/BottomActionBar.tsx:90",
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
+      ]
+    },
+    {
+      "pair": "BottomActionBar",
+      "key": "isShowIcon",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "RN isShowIcon 控制「+」滑出区(辅助行+图标组)显隐;小程序端用 showIconButtons 控制图标卡行,前者含展开态、后者纯显示,粒度不同故无同名腿。",
+      "evidence": [
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:211",
+        "apps/miniapp-taro/src/components/BottomActionBar.tsx:86",
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
+      ]
+    },
+    {
+      "pair": "BottomActionBar",
+      "key": "knowledgeBaseEnabled",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "RN 每档开关是独立布尔腿;小程序端把知识库开关收进 toggleButtons 数组里 key=knowledgeBase 项的 active,状态表达同源、入参聚合方式不同。",
+      "evidence": [
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:196",
+        "apps/miniapp-taro/src/components/BottomActionBar.tsx:165",
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
+      ]
+    },
+    {
+      "pair": "BottomActionBar",
+      "key": "mcpEnabled",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "RN 每档开关是独立布尔腿;小程序端把 MCP 开关收进 toggleButtons 数组里 key=mcp 项的 active,状态表达同源、入参聚合方式不同。",
+      "evidence": [
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:195",
+        "apps/miniapp-taro/src/components/BottomActionBar.tsx:164",
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
+      ]
+    },
+    {
+      "pair": "BottomActionBar",
+      "key": "onCompactContext",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "小程序端未接上下文压缩(✂)动作,无对应回调腿;登记为在期分叉,到期复核补实现或清理 RN 侧腿。",
+      "evidence": [
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:178",
+        "apps/miniapp-taro/src/components/BottomActionBar.tsx:66",
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
+      ]
+    },
+    {
+      "pair": "BottomActionBar",
+      "key": "onEndLongPress",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "RN 长按结束由 BottomActionBar 覆盖层回调;小程序端松手由 InputArea 的 onVoiceRelease 承担,本组件无长按腿。",
+      "evidence": [
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:155",
+        "apps/miniapp-taro/src/components/InputArea.tsx:78",
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
+      ]
+    },
+    {
+      "pair": "BottomActionBar",
+      "key": "onFangda",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "RN BottomActionBar 自带放大/缩小回调;小程序端放大由 InputArea 的 onFangdaChange 上报、页面切换全屏浮层,本组件不重复暴露。",
+      "evidence": [
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:176",
+        "apps/miniapp-taro/src/components/InputArea.tsx:92",
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
+      ]
+    },
+    {
+      "pair": "BottomActionBar",
+      "key": "onFunctionHandle",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "RN「+」工具栏由 onFunctionHandle 打开;小程序端 ai-home 变体只渲染固定四图标卡(相机/相册/文件/微信文件),无工具栏入口腿。",
+      "evidence": [
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:168",
+        "apps/miniapp-taro/src/components/BottomActionBar.tsx:172",
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
+      ]
+    },
+    {
+      "pair": "BottomActionBar",
+      "key": "onInputBlur",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "RN 输入行自持失焦回调;小程序端失焦由 InputArea 的 onBlur 上报,本组件不重复挂焦点腿。",
+      "evidence": [
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:164",
+        "apps/miniapp-taro/src/components/InputArea.tsx:89",
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
+      ]
+    },
+    {
+      "pair": "BottomActionBar",
+      "key": "onInputClick",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "RN 把输入行点击单独暴露;小程序端点击即聚焦,焦点语义已由 InputArea 的 onFocus 覆盖,无独立点击腿。",
+      "evidence": [
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:165",
+        "apps/miniapp-taro/src/components/InputArea.tsx:88",
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
+      ]
+    },
+    {
+      "pair": "BottomActionBar",
+      "key": "onInputFocus",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "RN 输入行自持焦点回调;小程序端焦点由 InputArea 的 onFocus 上报,本组件不重复挂焦点腿。",
+      "evidence": [
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:163",
+        "apps/miniapp-taro/src/components/InputArea.tsx:88",
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
+      ]
+    },
+    {
+      "pair": "BottomActionBar",
+      "key": "onKeyboardHide",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "RN 输入行自持键盘显隐回调;小程序端键盘收起同样经 InputArea 的 onKeyboardHeightChange(高度归零)感知,本组件无键盘腿。",
+      "evidence": [
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:187",
+        "apps/miniapp-taro/src/components/InputArea.tsx:90",
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
+      ]
+    },
+    {
+      "pair": "BottomActionBar",
+      "key": "onKeyboardShow",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "RN 输入行自持键盘显隐回调;小程序端键盘高度由 InputArea 的 textarea 事件 onKeyboardHeightChange 上报,本组件无键盘腿。",
+      "evidence": [
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:186",
+        "apps/miniapp-taro/src/components/InputArea.tsx:90",
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
+      ]
+    },
+    {
+      "pair": "BottomActionBar",
+      "key": "onModelConfigChange",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "小程序端模型配置变更由 ModelList/配置页回写并把结果作为 modelName 展示,不向输入条暴露变更回调;RN 以回调腿把变更冒泡到宿主。",
+      "evidence": [
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:175",
+        "apps/miniapp-taro/src/components/BottomActionBar.tsx:84",
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
+      ]
+    },
+    {
+      "pair": "BottomActionBar",
+      "key": "onPlusToggle",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "RN「+」切换由宿主回调;小程序端图标卡行直接由 showIconButtons 布尔驱动,无切换回调腿。",
+      "evidence": [
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:183",
+        "apps/miniapp-taro/src/components/BottomActionBar.tsx:86",
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
+      ]
+    },
+    {
+      "pair": "BottomActionBar",
+      "key": "onRemoveImage",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "RNA BottomActionBar 自持图片删除;小程序端附件删除由 InputArea 的 onRemoveImage 承担(经 inputAreaProps 注入),本组件无同名腿。",
+      "evidence": [
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:153",
+        "apps/miniapp-taro/src/components/BottomActionBar.tsx:90",
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
+      ]
+    },
+    {
+      "pair": "BottomActionBar",
+      "key": "onShowModelConfig",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "小程序端模型配置入口在 InputArea 的模型行与页面(本组件只显示 modelName),没有同名回调腿;RN 在 BottomActionBar 内直接暴露模型配置回调。",
+      "evidence": [
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:173",
+        "apps/miniapp-taro/src/components/BottomActionBar.tsx:84",
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
+      ]
+    },
+    {
+      "pair": "BottomActionBar",
+      "key": "onShowModelList",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "小程序端模型列表由页面 ModelList 弹出层打开,本组件只显示 modelName 提示,无同名回调腿;RN 把入口提升到 BottomActionBar 契约。",
+      "evidence": [
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:188",
+        "apps/miniapp-taro/src/components/BottomActionBar.tsx:84",
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
+      ]
+    },
+    {
+      "pair": "BottomActionBar",
+      "key": "onShowMyCreation",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "RN「我的创作」入口由回调腿驱动;小程序端图标卡不含我的创作入口,无同名腿。",
+      "evidence": [
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:191",
+        "apps/miniapp-taro/src/components/BottomActionBar.tsx:172",
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
+      ]
+    },
+    {
+      "pair": "BottomActionBar",
+      "key": "onSourceHandle",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "RN 来源处理入口由回调腿驱动;小程序端图标卡固定四种来源,无「来源处理」入口腿。",
+      "evidence": [
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:169",
+        "apps/miniapp-taro/src/components/BottomActionBar.tsx:172",
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
+      ]
+    },
+    {
+      "pair": "BottomActionBar",
+      "key": "onStartLongPress",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "RN 长按录音由 BottomActionBar 覆盖层自持并回调;小程序端录音长按由 InputArea 的 onVoicePress 承担,本组件无长按腿。",
+      "evidence": [
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:154",
+        "apps/miniapp-taro/src/components/InputArea.tsx:77",
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
+      ]
+    },
+    {
+      "pair": "BottomActionBar",
+      "key": "onStartVoiceAnimation",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "RN 语音波形起播由宿主驱动回调;小程序端波形动画在 InputArea/VoiceInput 内部自持,不向调用方暴露起停腿。",
+      "evidence": [
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:166",
+        "apps/miniapp-taro/src/components/InputArea.tsx:77",
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
+      ]
+    },
+    {
+      "pair": "BottomActionBar",
+      "key": "onStopVoiceAnimation",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "RN 语音波形收停由宿主驱动回调;小程序端波形动画随录音流程在 InputArea/VoiceInput 内部收停,不向调用方暴露起停腿。",
+      "evidence": [
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:167",
+        "apps/miniapp-taro/src/components/InputArea.tsx:78",
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
+      ]
+    },
+    {
+      "pair": "BottomActionBar",
+      "key": "onTextareaHeightChange",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "RN 自持输入行高度变化;小程序端 textarea 自动撑高由 InputArea 内部处理,只有键盘高度回调外露,本组件无高度腿。",
+      "evidence": [
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:174",
+        "apps/miniapp-taro/src/components/InputArea.tsx:90",
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
+      ]
+    },
+    {
+      "pair": "BottomActionBar",
+      "key": "onToggleKnowledgeBase",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "RN 每档一个具名回调;小程序端统一走 onToggle(item),按 item.key=knowledgeBase 分派,行为等价、仅回调粒度不同。",
+      "evidence": [
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:150",
+        "apps/miniapp-taro/src/components/BottomActionBar.tsx:165",
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
+      ]
+    },
+    {
+      "pair": "BottomActionBar",
+      "key": "onToggleMcp",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "RN 每档一个具名回调;小程序端统一走 onToggle(item),按 item.key=mcp 分派,行为等价、仅回调粒度不同。",
+      "evidence": [
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:149",
+        "apps/miniapp-taro/src/components/BottomActionBar.tsx:164",
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
+      ]
+    },
+    {
+      "pair": "BottomActionBar",
+      "key": "onTogglePermanentMemory",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "RN 每档一个具名回调;小程序端统一走 onToggle(item),按 item.key=permanentMemory 分派,行为等价、仅回调粒度不同。",
+      "evidence": [
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:151",
+        "apps/miniapp-taro/src/components/BottomActionBar.tsx:166",
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
+      ]
+    },
+    {
+      "pair": "BottomActionBar",
+      "key": "onToggleSuperAgent",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "RN 每档一个具名回调;小程序端统一走 onToggle(item),按 item.key=superAgent 分派,回调数由数组长度决定,行为等价。",
+      "evidence": [
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:147",
+        "apps/miniapp-taro/src/components/BottomActionBar.tsx:163",
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
+      ]
+    },
+    {
+      "pair": "BottomActionBar",
+      "key": "onToggleSuperAgentfu",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "RN 该腿与 onToggleSuperAgent 同一超级智能体开关槽位(历史别名);小程序端由 toggleButtons 里 key=superAgent 的项经 onToggle 统一分派,行为等价。",
+      "evidence": [
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:148",
+        "apps/miniapp-taro/src/components/BottomActionBar.tsx:163",
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
+      ]
+    },
+    {
+      "pair": "BottomActionBar",
+      "key": "permanentMemoryEnabled",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "RN 每档开关是独立布尔腿;小程序端把长期记忆开关收进 toggleButtons 数组里 key=permanentMemory 项的 active,状态表达同源、入参聚合方式不同。",
+      "evidence": [
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:197",
+        "apps/miniapp-taro/src/components/BottomActionBar.tsx:166",
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
+      ]
+    },
+    {
+      "pair": "BottomActionBar",
+      "key": "plusActive",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "RN「+」有受控展开态 plusActive;小程序端图标卡行由 showIconButtons 直接控制,不区分「+」激活态,故无同名腿。",
+      "evidence": [
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:185",
+        "apps/miniapp-taro/src/components/BottomActionBar.tsx:86",
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
+      ]
+    },
+    {
+      "pair": "BottomActionBar",
+      "key": "recording",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "RN 录音态由 BottomActionBar 受控;小程序端录音态在 InputArea 内随 onVoicePress/onVoiceRelease 自持,本组件无同名状态腿。",
+      "evidence": [
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:160",
+        "apps/miniapp-taro/src/components/InputArea.tsx:77",
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
+      ]
+    },
+    {
+      "pair": "BottomActionBar",
+      "key": "recordingDuration",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "RN 录音时长由 BottomActionBar 受控展示;小程序端时长在 InputArea 的录音浮层内自持,本组件无同名数字腿。",
+      "evidence": [
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:162",
+        "apps/miniapp-taro/src/components/InputArea.tsx:77",
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
+      ]
+    },
+    {
+      "pair": "BottomActionBar",
+      "key": "showToggleChips",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "RN 用显式布尔决定开关行是否渲染;小程序端以 toggleButtons.length > 0 表达同一开关行的渲染条件,判定同源、无需额外布尔腿。",
+      "evidence": [
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:201",
+        "apps/miniapp-taro/src/components/BottomActionBar.tsx:210",
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
+      ]
+    },
+    {
+      "pair": "BottomActionBar",
+      "key": "superAgentEnabled",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "RN 每档开关是独立布尔腿;小程序端把四档开关收进 toggleButtons: ToggleButtonItem[] 的 item.active(同一老板键 superAgent/mcp/knowledgeBase/permanentMemory),由调用方构造数组表达同一状态。",
+      "evidence": [
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:194",
+        "apps/miniapp-taro/src/components/BottomActionBar.tsx:163",
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
+      ]
+    },
+    {
+      "pair": "BottomActionBar",
+      "key": "iconButtons",
+      "side": "mini",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "小程序端图标卡列表可注入;RN 端图标组固定为 ICON_GROUP_ITEMS 常量,无注入腿。",
+      "evidence": [
+        "apps/miniapp-taro/src/components/BottomActionBar.tsx:92",
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:172",
+        "apps/miniapp-taro/src/components/BottomActionBar.tsx:66"
+      ]
+    },
+    {
+      "pair": "BottomActionBar",
+      "key": "inputAreaProps",
+      "side": "mini",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "小程序端以 Partial<InputAreaProps> 聚合透传输入区;RN 端在 BottomActionBar 内直接铺输入行并逐腿受控,无聚合透传腿。",
+      "evidence": [
+        "apps/miniapp-taro/src/components/BottomActionBar.tsx:90",
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:142",
+        "apps/miniapp-taro/src/components/BottomActionBar.tsx:66"
+      ]
+    },
+    {
+      "pair": "BottomActionBar",
+      "key": "onToggle",
+      "side": "mini",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "小程序端开关行统一回调 (item) 按 key 分派;RN 端每档一个具名回调,无聚合回调腿。",
+      "evidence": [
+        "apps/miniapp-taro/src/components/BottomActionBar.tsx:96",
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:147",
+        "apps/miniapp-taro/src/components/BottomActionBar.tsx:66"
+      ]
+    },
+    {
+      "pair": "BottomActionBar",
+      "key": "showAttach",
+      "side": "mini",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "小程序端用显式布尔控制附件键渲染;RN 端由 onAddFile/onIconClick 等回调在场与否隐式决定,无同名布尔腿。",
+      "evidence": [
+        "apps/miniapp-taro/src/components/BottomActionBar.tsx:71",
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:144",
+        "apps/miniapp-taro/src/components/BottomActionBar.tsx:66"
+      ]
+    },
+    {
+      "pair": "BottomActionBar",
+      "key": "showIconButtons",
+      "side": "mini",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "小程序端用纯显示布尔控制图标卡行;RN 端用 isShowIcon 驱动同一组按钮但含「+」展开态,粒度不同故无同名腿。",
+      "evidence": [
+        "apps/miniapp-taro/src/components/BottomActionBar.tsx:86",
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:211",
+        "apps/miniapp-taro/src/components/BottomActionBar.tsx:66"
+      ]
+    },
+    {
+      "pair": "BottomActionBar",
+      "key": "showSend",
+      "side": "mini",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "小程序端用显式布尔控制发送键渲染;RN 端由 onSend 回调在场与否隐式决定,无同名布尔腿。",
+      "evidence": [
+        "apps/miniapp-taro/src/components/BottomActionBar.tsx:72",
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:144",
+        "apps/miniapp-taro/src/components/BottomActionBar.tsx:66"
+      ]
+    },
+    {
+      "pair": "BottomActionBar",
+      "key": "toggleButtons",
+      "side": "mini",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "小程序端把四档开关收进 toggleButtons 数组;RN 端是四个独立 *Enabled 布尔加四个 onToggleX 回调,无同名数组腿。",
+      "evidence": [
+        "apps/miniapp-taro/src/components/BottomActionBar.tsx:88",
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:194",
+        "apps/miniapp-taro/src/components/BottomActionBar.tsx:66"
+      ]
+    },
+    {
+      "pair": "BottomActionBar",
+      "key": "variant",
+      "side": "mini",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "小程序端 ai-home 与 default 两种版式由 variant 切换;RN 端用 prompt 是否提供区分完整聊天输入 UI,无同名版式腿。",
+      "evidence": [
+        "apps/miniapp-taro/src/components/BottomActionBar.tsx:80",
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:142",
+        "apps/miniapp-taro/src/components/BottomActionBar.tsx:66"
+      ]
+    },
+    {
       "pair": "Carousel",
       "key": "itemWidth",
       "side": "rn",
