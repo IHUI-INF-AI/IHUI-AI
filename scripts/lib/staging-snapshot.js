@@ -26,8 +26,10 @@
  *   - 还原使用 `git restore --staged <file>`(git 2.23+),非破坏性,working tree 保留。
  *
  * GIT_INDEX_FILE 隔离通道防护(2026-09-03 立,真实事故):
- *   并行会话共用同一份 .git/index,commit 时会互相污染暂存区。AGENTS.md §20 推荐的
- *   隔离通道是:`GIT_INDEX_FILE=<tmp> git read-tree HEAD && git add <本任务文件>`。
+ *   并行会话共用同一份 .git/index,commit 时会互相污染暂存区。AGENTS.md §12i 的私有索引
+ *   提交通道(`node scripts/isolated-git.mjs commit -m "<标题>" -- <路径...>`)即此机制:
+ *   它把 `GIT_INDEX_FILE` 指到 `<gitdir>/ihui-isolated-index/<pid>-<ms>-<rand>.idx`
+ *   (read-tree HEAD → add 声明集 → commit)。
  *   但 git/husky 在运行 pre-commit hook 时可能改写 GIT_INDEX_FILE(指向 git 自身的
  *   临时索引),导致 takeStagingSnapshot() 与 restoreStaging() 读到的不是同一个索引:
  *   快照里只有本任务的 N 个文件,还原时却读到"本任务 N 个 + 共享索引 M 个",于是把
@@ -312,7 +314,8 @@ function setupRestoreOnExit(initialSnapshot, options = {}) {
  * 注意:
  *   - 本函数是"提示层",无法真正阻止污染。真正阻止污染的是 safe-commit.mjs
  *     (git reset HEAD 清空暂存区 + 只 add 声明文件 + 校验 staged == 预期)
- *   - agent 应遵循 AGENTS.md §12/§16/§20 强制用 safe-commit.mjs,不直接 git add + commit
+ *   - agent 应遵循 AGENTS.md §12/§16 强制用 safe-commit.mjs;多会话共用工作树时优先 §12i
+ *     的私有索引提交通道(`node scripts/isolated-git.mjs commit`),不直接 git add + commit
  *
  * 豁免: HUSKY_SKIP_STAGING_AUDIT=1 跳过审计(紧急情况用)
  *
