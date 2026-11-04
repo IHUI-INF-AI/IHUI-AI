@@ -697,45 +697,45 @@
   },
   "admin": {
     "relayPoolPolicy": {
-        "title": "号池选号策略档(全局默认)",
-        "refresh": "刷新",
-        "loading": "读取策略档…",
-        "loadFailed": "读取失败",
-        "badgeAllDefault": "全部默认档",
-        "badgeDeviated": "偏离默认 {n} 枚",
-        "badgeInvalid": "脏值回落 {n} 枚",
-        "badgeRegistryBroken": "登记表不完整",
-        "readOnlyHint": "只读:改钮写 .env 后重启 apps/api 生效",
-        "defaultIs": "默认 {v}",
-        "invalidFellBack": "脏值已回落默认",
-        "registryDiff": "未登记钮:{missing};孤立登记:{orphan}"
+      "title": "号池选号策略档(全局默认)",
+      "refresh": "刷新",
+      "loading": "读取策略档…",
+      "loadFailed": "读取失败",
+      "badgeAllDefault": "全部默认档",
+      "badgeDeviated": "偏离默认 {n} 枚",
+      "badgeInvalid": "脏值回落 {n} 枚",
+      "badgeRegistryBroken": "登记表不完整",
+      "readOnlyHint": "只读:改钮写 .env 后重启 apps/api 生效",
+      "defaultIs": "默认 {v}",
+      "invalidFellBack": "脏值已回落默认",
+      "registryDiff": "未登记钮:{missing};孤立登记:{orphan}"
     },
     "relayTasks": {
-        "wbTitle": "WorkBuddy 任务自动化",
-        "wbAccount": "账号",
-        "wbAccountEmpty": "暂无 WorkBuddy 账号",
-        "wbDryRun": "预览(干跑)",
-        "wbRefresh": "刷新",
-        "wbNoAccount": "请先选择账号",
-        "wbLoading": "读取任务清单…",
-        "wbReadFailed": "读取失败",
-        "wbUnjudged": "未判定",
-        "wbNoTasks": "没有可执行任务",
-        "wbColTask": "任务",
-        "wbColProgress": "进度",
-        "wbColStatus": "状态",
-        "wbColReward": "奖励",
-        "wbKindGrowth": "成长",
-        "wbKindTravel": "旅行",
-        "wbKindActivity": "活跃",
-        "wbKindBlackcat": "黑猫(夜间)",
-        "wbRunOk": "任务已执行",
-        "wbRunFailed": "执行失败",
-        "wbAccepted": "已接取",
-        "wbClaimed": "已领取",
-        "wbCreditDelta": "积分变化",
-        "wbEnergyDelta": "体力变化",
-        "wbNeverRun": "尚未执行"
+      "wbTitle": "WorkBuddy 任务自动化",
+      "wbAccount": "账号",
+      "wbAccountEmpty": "暂无 WorkBuddy 账号",
+      "wbDryRun": "预览(干跑)",
+      "wbRefresh": "刷新",
+      "wbNoAccount": "请先选择账号",
+      "wbLoading": "读取任务清单…",
+      "wbReadFailed": "读取失败",
+      "wbUnjudged": "未判定",
+      "wbNoTasks": "没有可执行任务",
+      "wbColTask": "任务",
+      "wbColProgress": "进度",
+      "wbColStatus": "状态",
+      "wbColReward": "奖励",
+      "wbKindGrowth": "成长",
+      "wbKindTravel": "旅行",
+      "wbKindActivity": "活跃",
+      "wbKindBlackcat": "黑猫(夜间)",
+      "wbRunOk": "任务已执行",
+      "wbRunFailed": "执行失败",
+      "wbAccepted": "已接取",
+      "wbClaimed": "已领取",
+      "wbCreditDelta": "积分变化",
+      "wbEnergyDelta": "体力变化",
+      "wbNeverRun": "尚未执行"
     },
     "smsOperations": {
       "page": {
@@ -7949,7 +7949,7 @@
           "hookName": "Hook 名称",
           "event": "触发事件",
           "evidence": "证据明细",
-            "dismiss": "关闭此卡片"
+          "dismiss": "关闭此卡片"
         },
         "hint": {
           "retryScheduled": "系统会在稍后自动重试,无需操作。",
@@ -11993,7 +11993,7 @@
       "readAloud": "朗读",
       "readAloudFailed": "朗读失败,请稍后重试",
       "readAloudTruncated": "内容过长,只朗读前 {max} 字",
-        "stopReadAloud": "停止朗读",
+      "stopReadAloud": "停止朗读",
       "regenerate": "重新生成",
       "reply": "回复",
       "saveAsNewVersion": "保存为新版本",
@@ -14848,6 +14848,86 @@
     "totalCount": "共 {count} 人"
   },
   "docs": {
+    "common": {
+      "backToDocs": "返回文档中心",
+      "startReading": "开始阅读",
+      "firstChapter": "已是第一章",
+      "lastChapter": "已是最后一章",
+      "chapterBadge": "第 {num} 章 · 使用说明手册"
+    },
+    "manual": {
+      "overview": {
+        "title": "使用说明手册",
+        "description": "无需技术背景,跟着步骤操作即可。"
+      },
+      "getting-started": {
+        "title": "开始使用"
+      },
+      "ai-chat": {
+        "title": "AI 对话"
+      },
+      "agent": {
+        "title": "使用 Agent"
+      },
+      "knowledge-base": {
+        "title": "知识库"
+      },
+      "billing": {
+        "title": "积分与订阅"
+      },
+      "account": {
+        "title": "账户设置"
+      },
+      "faq": {
+        "title": "常见问题"
+      }
+    },
+    "meta": {
+      "overview": {
+        "title": "智汇 AI 文档中心",
+        "description": "从快速开始到深度开发,完整覆盖智汇 AI 全部能力"
+      },
+      "quickstart": {
+        "title": "5 分钟快速开始 — 智汇 AI",
+        "description": "5 分钟从注册到发布第一个 AI Agent。Apache 2.0 开源,100+ 模型,六端同源。"
+      },
+      "api": {
+        "title": "API 参考 — 智汇 AI",
+        "description": "REST API + Webhook + OpenAPI 3.1,SDK 全语言覆盖。"
+      },
+      "rag": {
+        "title": "知识库 RAG — 智汇 AI",
+        "description": "文档解析、向量检索、BM25、知识图谱"
+      },
+      "mcp": {
+        "title": "MCP 工具集成 — 智汇 AI",
+        "description": "Anthropic MCP 协议原生支持,100+ 预置 Server + 自定义开发。"
+      },
+      "agent": {
+        "title": "Agent 开发 — 智汇 AI",
+        "description": "可视化编排 + 模板 + 最佳实践,六端发布。"
+      },
+      "self-host": {
+        "title": "自托管部署 — 智汇 AI",
+        "description": "Docker Compose / Kubernetes Helm Chart 部署指南"
+      },
+      "models": {
+        "title": "多模型调度 — 智汇 AI",
+        "description": "100+ LLM 统一接入,自动 fallback,Combo 链组合调用。"
+      },
+      "workflow": {
+        "title": "工作流编排 — 智汇 AI",
+        "description": "n8n 风格节点画布,可视化编排复杂 AI 流程。"
+      },
+      "team": {
+        "title": "团队协作 — 智汇 AI",
+        "description": "RBAC、SSO、审计、积分共享,企业级团队 AI 协作。"
+      },
+      "manual": {
+        "title": "使用说明手册 — 智汇 AI",
+        "description": "面向终端用户的图文教程,7 章覆盖全部常用功能。"
+      }
+    },
     "navAgent": "Agent 开发",
     "navApi": "API 文档",
     "navDevelopers": "开发者",
@@ -17021,6 +17101,7 @@
     },
     "codeEditor": {
       "lspStatus": "LSP",
+      "attributionToggle": "AI 行归属标记",
       "zoomIn": "放大字号",
       "zoomOut": "缩小字号"
     },
@@ -21052,7 +21133,8 @@
     "customNoResults": "没有找到匹配的功能",
     "eduHubTitle": "教育",
     "contentHubTitle": "内容",
-    "tradeHubTitle": "交易"
+    "tradeHubTitle": "交易",
+    "eduMyAttendance": "我的考勤"
   },
   "news": {
     "allCategories": "全部分类",
@@ -23801,6 +23883,8 @@
     "agentSecuritySaveFailed": "保存安全配置失败",
     "analyticsEnabled": "使用情况分析",
     "analyticsEnabledDesc": "开启后,平台会记录功能使用统计(点击、页面访问、耗时等匿名事件),用于改进产品;不记录您输入的内容、代码或文件路径。关闭后立即停止上报,不影响任何功能。",
+    "rumEnabled": "性能与错误诊断(可选)",
+    "rumEnabledDesc": "默认关闭。开启后仅上报匿名的启动耗时、AI 首字延迟、流式长任务数与脱敏后的错误摘要,用于改进性能;不上报文件路径、工作空间名、邮箱或设备指纹。关闭后立即停止并清空待上报数据,不再发出任何请求。",
     "llmRawRetentionOptOut": "不保留 LLM 调用原文",
     "llmRawRetentionOptOutDesc": "你的提问与 AI 回答正文不会写入数据库",
     "codeIndexEgressOptOut": "不建代码语义索引",
@@ -29432,7 +29516,56 @@
     "days": "天数",
     "reason": "原因",
     "daysWithUnit": "{count}天",
-    "approveAction": "审批"
+    "approveAction": "审批",
+    "classLabel": "班级",
+    "selectClass": "选择班级",
+    "batchCheckIn": "批量点名",
+    "batchConfirm": "开始点名",
+    "batchResultCreated": "新签到",
+    "batchResultSkipped": "跳过",
+    "batchResultMissed": "未签到",
+    "batchFailed": "批量点名失败",
+    "exportCsv": "导出 CSV",
+    "exportFailed": "导出失败,请稍后重试",
+    "studentPageTitle": "我的考勤",
+    "studentPageSubtitle": "查看本人考勤记录并自助签到",
+    "selfCheckIn": "自助签到",
+    "selfCheckInSuccess": "签到成功",
+    "selfCheckInFailed": "签到失败,请稍后重试",
+    "notLoggedIn": "请先登录后查看本人考勤",
+    "rulePanelTitle": "考勤规则",
+    "ruleClassHint": "选择班级后加载该班规则",
+    "ruleNotConfigured": "未配置",
+    "ruleLateAfter": "迟到判定时刻",
+    "ruleEarlyBefore": "早退判定时刻",
+    "ruleAbsentAfter": "缺勤判定时刻",
+    "ruleEnabledLabel": "启用规则",
+    "ruleTimeHint": "格式 HH:MM，留空表示不修改",
+    "ruleSave": "保存规则",
+    "ruleSaved": "规则已保存",
+    "ruleQrSecretState": "扫码密钥：",
+    "ruleQrSecretOn": "已配置",
+    "ruleQrSecretOff": "未配置",
+    "ruleQrSecretGuide": "扫码签到前请先在下方轮换扫码密钥",
+    "qrPanelTitle": "扫码签到",
+    "qrLoading": "正在获取二维码",
+    "qrExpiresIn": "将在 {seconds}s 后过期",
+    "qrExpired": "二维码已过期，正在重新获取",
+    "qrRefresh": "重新获取",
+    "qrRotateSecret": "轮换密钥",
+    "qrRotated": "已轮换密钥（指纹 {fingerprint}）",
+    "qrSecretNote": "密钥原文不显示在界面，仅核对指纹",
+    "qrNeedSetup": "先在上方配置规则并轮换密钥",
+    "qrLoadFailed": "二维码获取失败",
+    "trendChartTitle": "出勤趋势",
+    "trendChartScope": "统计范围：{scope}",
+    "trendChartHint": "出勤率 = 正常出勤人次 ÷ 该时段有考勤记录人次（未打卡的学生不在分母内）",
+    "trendCountAxisLabel": "人次",
+    "trendChartAria": "{scope}在所选时段的每日出勤率折线与状态构成堆叠柱",
+    "statusOther": "其他",
+    "scopeAllClasses": "全部班级",
+    "checkInAt": "签到时刻",
+    "backfillNeedsTime": "回填非当日考勤须给出该日内的签到时刻"
   },
   "eduCertificates": {
     "certificateNo": "编号：{no}",

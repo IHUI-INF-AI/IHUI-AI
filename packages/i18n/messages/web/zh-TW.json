@@ -697,45 +697,45 @@
   },
   "admin": {
     "relayPoolPolicy": {
-        "title": "號池選號策略檔(全域預設)",
-        "refresh": "重新整理",
-        "loading": "讀取策略檔…",
-        "loadFailed": "讀取失敗",
-        "badgeAllDefault": "全部預設檔",
-        "badgeDeviated": "偏離預設 {n} 枚",
-        "badgeInvalid": "髒值回落 {n} 枚",
-        "badgeRegistryBroken": "登記表不完整",
-        "readOnlyHint": "唯讀:改鈕寫 .env 後重啟 apps/api 生效",
-        "defaultIs": "預設 {v}",
-        "invalidFellBack": "髒值已回落預設",
-        "registryDiff": "未登記鈕:{missing};孤立登記:{orphan}"
+      "title": "號池選號策略檔(全域預設)",
+      "refresh": "重新整理",
+      "loading": "讀取策略檔…",
+      "loadFailed": "讀取失敗",
+      "badgeAllDefault": "全部預設檔",
+      "badgeDeviated": "偏離預設 {n} 枚",
+      "badgeInvalid": "髒值回落 {n} 枚",
+      "badgeRegistryBroken": "登記表不完整",
+      "readOnlyHint": "唯讀:改鈕寫 .env 後重啟 apps/api 生效",
+      "defaultIs": "預設 {v}",
+      "invalidFellBack": "髒值已回落預設",
+      "registryDiff": "未登記鈕:{missing};孤立登記:{orphan}"
     },
     "relayTasks": {
-        "wbTitle": "WorkBuddy 任務自動化",
-        "wbAccount": "帳號",
-        "wbAccountEmpty": "暫無 WorkBuddy 帳號",
-        "wbDryRun": "預覽(乾跑)",
-        "wbRefresh": "重新整理",
-        "wbNoAccount": "請先選擇帳號",
-        "wbLoading": "讀取任務清單…",
-        "wbReadFailed": "讀取失敗",
-        "wbUnjudged": "未判定",
-        "wbNoTasks": "沒有可執行任務",
-        "wbColTask": "任務",
-        "wbColProgress": "進度",
-        "wbColStatus": "狀態",
-        "wbColReward": "獎勵",
-        "wbKindGrowth": "成長",
-        "wbKindTravel": "旅行",
-        "wbKindActivity": "活躍",
-        "wbKindBlackcat": "黑貓(夜間)",
-        "wbRunOk": "任務已執行",
-        "wbRunFailed": "執行失敗",
-        "wbAccepted": "已接取",
-        "wbClaimed": "已領取",
-        "wbCreditDelta": "積分變化",
-        "wbEnergyDelta": "體力變化",
-        "wbNeverRun": "尚未執行"
+      "wbTitle": "WorkBuddy 任務自動化",
+      "wbAccount": "帳號",
+      "wbAccountEmpty": "暫無 WorkBuddy 帳號",
+      "wbDryRun": "預覽(乾跑)",
+      "wbRefresh": "重新整理",
+      "wbNoAccount": "請先選擇帳號",
+      "wbLoading": "讀取任務清單…",
+      "wbReadFailed": "讀取失敗",
+      "wbUnjudged": "未判定",
+      "wbNoTasks": "沒有可執行任務",
+      "wbColTask": "任務",
+      "wbColProgress": "進度",
+      "wbColStatus": "狀態",
+      "wbColReward": "獎勵",
+      "wbKindGrowth": "成長",
+      "wbKindTravel": "旅行",
+      "wbKindActivity": "活躍",
+      "wbKindBlackcat": "黑貓(夜間)",
+      "wbRunOk": "任務已執行",
+      "wbRunFailed": "執行失敗",
+      "wbAccepted": "已接取",
+      "wbClaimed": "已領取",
+      "wbCreditDelta": "積分變化",
+      "wbEnergyDelta": "體力變化",
+      "wbNeverRun": "尚未執行"
     },
     "smsOperations": {
       "page": {
@@ -7949,7 +7949,7 @@
           "hookName": "Hook 名稱",
           "event": "觸發事件",
           "evidence": "證據明細",
-            "dismiss": "關閉此卡片"
+          "dismiss": "關閉此卡片"
         },
         "hint": {
           "retryScheduled": "系統會在稍後自動重試,無需操作。",
@@ -14848,6 +14848,86 @@
     "totalCount": "共 {count} 人"
   },
   "docs": {
+    "common": {
+      "backToDocs": "返回文件中心",
+      "startReading": "開始閱讀",
+      "firstChapter": "已是第一章",
+      "lastChapter": "已是最後一章",
+      "chapterBadge": "第 {num} 章 · 使用說明手冊"
+    },
+    "manual": {
+      "overview": {
+        "title": "使用說明手冊",
+        "description": "無需技術背景,跟著步驟操作即可。"
+      },
+      "getting-started": {
+        "title": "開始使用"
+      },
+      "ai-chat": {
+        "title": "AI 對話"
+      },
+      "agent": {
+        "title": "使用 Agent"
+      },
+      "knowledge-base": {
+        "title": "知識庫"
+      },
+      "billing": {
+        "title": "積分與訂閱"
+      },
+      "account": {
+        "title": "帳戶設定"
+      },
+      "faq": {
+        "title": "常見問題"
+      }
+    },
+    "meta": {
+      "overview": {
+        "title": "智匯 AI 文件中心",
+        "description": "從快速開始到深度開發,完整涵蓋智匯 AI 全部能力"
+      },
+      "quickstart": {
+        "title": "5 分鐘快速開始 — 智匯 AI",
+        "description": "5 分鐘從註冊到發布第一個 AI Agent。Apache 2.0 開放原始碼,100+ 模型,六端同源。"
+      },
+      "api": {
+        "title": "API 參考 — 智匯 AI",
+        "description": "REST API + Webhook + OpenAPI 3.1,SDK 全語言涵蓋。"
+      },
+      "rag": {
+        "title": "知識庫 RAG — 智匯 AI",
+        "description": "文件解析、向量檢索、BM25、知識圖譜"
+      },
+      "mcp": {
+        "title": "MCP 工具整合 — 智匯 AI",
+        "description": "原生支援 Anthropic MCP 協議,內建 100+ Server,亦可自行開發。"
+      },
+      "agent": {
+        "title": "Agent 開發 — 智匯 AI",
+        "description": "視覺化編排 + 範本 + 最佳實踐,六端發布。"
+      },
+      "self-host": {
+        "title": "自託管部署 — 智匯 AI",
+        "description": "Docker Compose / Kubernetes Helm Chart 部署指南"
+      },
+      "models": {
+        "title": "多模型調度 — 智匯 AI",
+        "description": "100+ LLM 統一接入,自動 fallback,Combo 鏈組合呼叫。"
+      },
+      "workflow": {
+        "title": "工作流編排 — 智匯 AI",
+        "description": "n8n 風格節點畫布,視覺化編排複雜 AI 流程。"
+      },
+      "team": {
+        "title": "團隊協作 — 智匯 AI",
+        "description": "RBAC、SSO、稽核、積分共用,企業級團隊 AI 協作。"
+      },
+      "manual": {
+        "title": "使用說明手冊 — 智匯 AI",
+        "description": "面向終端使用者的圖文教學,7 章涵蓋全部常用功能。"
+      }
+    },
     "navAgent": "Agent 開發",
     "navApi": "API 文檔",
     "navDevelopers": "開發者",
@@ -17021,6 +17101,7 @@
     },
     "codeEditor": {
       "lspStatus": "LSP",
+      "attributionToggle": "AI 行歸屬標記",
       "zoomIn": "放大字號",
       "zoomOut": "縮小字號"
     },
@@ -20777,7 +20858,7 @@
     "downloadAndroidSysReq": "Android 8.0 (API 26) 或更高版本",
     "downloadAssets": "下載資源",
     "downloadAvailable": "已發布",
-    "downloadAvailablePlatforms": "已上線平台",
+    "downloadAvailablePlatforms": "已上線平臺",
     "downloadBack": "返回",
     "downloadCli": "命令行工具",
     "downloadCliDesc": "終端一鍵調用,腳本化集成",
@@ -20816,7 +20897,7 @@
     "downloadMobileDesc": "H5 移動端,掃碼即用",
     "downloadMobileInstallGuide": "Mobile RN 客戶端走源碼構建,請參考 GitHub 倉庫 apps/mobile-rn 目錄的 README 自行編譯。",
     "downloadMobileSysReq": "iOS 14+ / Android 8+,React Native 0.76+ 運行時",
-    "downloadNotLaunchedHint": "IHUI AI 暫未提供 {platform} 版本的下載。請選擇下方已上線的平台,或直接使用 Web 版體驗完整功能。",
+    "downloadNotLaunchedHint": "IHUI AI 暫未提供 {platform} 版本的下載。請選擇下方已上線的平臺,或直接使用 Web 版體驗完整功能。",
     "downloadNotLaunchedTitle": "{platform} 尚未上線",
     "downloadNow": "立即下載",
     "downloadSystemRequirements": "系統要求",
@@ -21023,7 +21104,8 @@
     "customNoResults": "沒有找到符合的功能",
     "eduHubTitle": "教育",
     "contentHubTitle": "內容",
-    "tradeHubTitle": "交易"
+    "tradeHubTitle": "交易",
+    "eduMyAttendance": "我的考勤"
   },
   "news": {
     "allCategories": "全部分類",
@@ -23772,6 +23854,8 @@
     "agentSecuritySaveFailed": "儲存安全設定失敗",
     "analyticsEnabled": "使用情況分析",
     "analyticsEnabledDesc": "開啟後,平臺會記錄功能使用統計(點擊、頁面造訪、耗時等匿名事件),用於改進產品;不記錄您輸入的內容、程式碼或檔案路徑。關閉後立即停止回報,不影響任何功能。",
+    "rumEnabled": "效能與錯誤診斷(選用)",
+    "rumEnabledDesc": "預設關閉。開啟後僅回報匿名的啟動耗時、AI 首字延遲、串流長任務數與去識別化後的錯誤摘要,用於改進效能;不回報檔案路徑、工作空間名稱、電子郵件或裝置指紋。關閉後立即停止並清空待回報資料,不再發出任何請求。",
     "llmRawRetentionOptOut": "不保留 LLM 調用原文",
     "llmRawRetentionOptOutDesc": "你的提問與 AI 回答正文不會寫入資料庫",
     "codeIndexEgressOptOut": "不建程式碼語義索引",
@@ -29403,7 +29487,56 @@
     "days": "天數",
     "reason": "原因",
     "daysWithUnit": "{count}天",
-    "approveAction": "審批"
+    "approveAction": "審批",
+    "classLabel": "班級",
+    "selectClass": "選擇班級",
+    "batchCheckIn": "批次點名",
+    "batchConfirm": "開始點名",
+    "batchResultCreated": "新簽到",
+    "batchResultSkipped": "跳過",
+    "batchResultMissed": "未簽到",
+    "batchFailed": "批次點名失敗",
+    "exportCsv": "匯出 CSV",
+    "exportFailed": "匯出失敗,請稍後重試",
+    "studentPageTitle": "我的考勤",
+    "studentPageSubtitle": "查看本人考勤記錄並自助簽到",
+    "selfCheckIn": "自助簽到",
+    "selfCheckInSuccess": "簽到成功",
+    "selfCheckInFailed": "簽到失敗,請稍後重試",
+    "notLoggedIn": "請先登入後查看本人考勤",
+    "rulePanelTitle": "考勤規則",
+    "ruleClassHint": "選擇班級後載入該班規則",
+    "ruleNotConfigured": "未設定",
+    "ruleLateAfter": "遲到判定時刻",
+    "ruleEarlyBefore": "早退判定時刻",
+    "ruleAbsentAfter": "缺勤判定時刻",
+    "ruleEnabledLabel": "啟用規則",
+    "ruleTimeHint": "格式 HH:MM，留空表示不修改",
+    "ruleSave": "儲存規則",
+    "ruleSaved": "規則已儲存",
+    "ruleQrSecretState": "掃碼金鑰：",
+    "ruleQrSecretOn": "已設定",
+    "ruleQrSecretOff": "未設定",
+    "ruleQrSecretGuide": "掃碼簽到前請先在下方輪換掃碼金鑰",
+    "qrPanelTitle": "掃碼簽到",
+    "qrLoading": "正在取得二維碼",
+    "qrExpiresIn": "將在 {seconds}s 後過期",
+    "qrExpired": "二維碼已過期，正在重新取得",
+    "qrRefresh": "重新取得",
+    "qrRotateSecret": "輪換金鑰",
+    "qrRotated": "已輪換金鑰（指紋 {fingerprint}）",
+    "qrSecretNote": "金鑰原文不顯示在介面，僅核對指紋",
+    "qrNeedSetup": "請先在上方設定規則並輪換金鑰",
+    "qrLoadFailed": "二維碼取得失敗",
+    "trendChartTitle": "出勤趨勢",
+    "trendChartScope": "統計範圍：{scope}",
+    "trendChartHint": "出勤率 = 正常出勤人次 ÷ 該時段有考勤記錄人次（未打卡的學生不在分母內）",
+    "trendCountAxisLabel": "人次",
+    "trendChartAria": "{scope}在所選時段的每日出勤率折線與狀態構成堆疊柱",
+    "statusOther": "其他",
+    "scopeAllClasses": "全部班級",
+    "checkInAt": "簽到時刻",
+    "backfillNeedsTime": "回填非當日考勤須給出該日內的簽到時刻"
   },
   "eduCertificates": {
     "certificateNo": "編號：{no}",

@@ -697,45 +697,45 @@
   },
   "admin": {
     "relayPoolPolicy": {
-        "title": "プール選定ポリシー(グローバル既定値)",
-        "refresh": "更新",
-        "loading": "ポリシーを読み込み中…",
-        "loadFailed": "読み込み失敗",
-        "badgeAllDefault": "すべて既定値",
-        "badgeDeviated": "{n} 件が既定値と異なる",
-        "badgeInvalid": "{n} 件が不正値のためフォールバック",
-        "badgeRegistryBroken": "登録表が不完全",
-        "readOnlyHint": "読み取り専用: .env を編集して apps/api を再起動",
-        "defaultIs": "既定 {v}",
-        "invalidFellBack": "不正値は既定に回落",
-        "registryDiff": "未登録ノブ:{missing} / 孤立登録:{orphan}"
+      "title": "プール選定ポリシー(グローバル既定値)",
+      "refresh": "更新",
+      "loading": "ポリシーを読み込み中…",
+      "loadFailed": "読み込み失敗",
+      "badgeAllDefault": "すべて既定値",
+      "badgeDeviated": "{n} 件が既定値と異なる",
+      "badgeInvalid": "{n} 件が不正値のためフォールバック",
+      "badgeRegistryBroken": "登録表が不完全",
+      "readOnlyHint": "読み取り専用: .env を編集して apps/api を再起動",
+      "defaultIs": "既定 {v}",
+      "invalidFellBack": "不正値は既定に回落",
+      "registryDiff": "未登録ノブ:{missing} / 孤立登録:{orphan}"
     },
     "relayTasks": {
-        "wbTitle": "WorkBuddy タスク自動化",
-        "wbAccount": "アカウント",
-        "wbAccountEmpty": "WorkBuddy アカウントなし",
-        "wbDryRun": "プレビュー(ドライラン)",
-        "wbRefresh": "更新",
-        "wbNoAccount": "先にアカウントを選択してください",
-        "wbLoading": "タスクを読み込み中…",
-        "wbReadFailed": "読み込み失敗",
-        "wbUnjudged": "未判定",
-        "wbNoTasks": "実行可能なタスクなし",
-        "wbColTask": "タスク",
-        "wbColProgress": "進捗",
-        "wbColStatus": "ステータス",
-        "wbColReward": "報酬",
-        "wbKindGrowth": "成長",
-        "wbKindTravel": "旅行",
-        "wbKindActivity": "アクティブ",
-        "wbKindBlackcat": "夜間",
-        "wbRunOk": "タスクを実行しました",
-        "wbRunFailed": "実行失敗",
-        "wbAccepted": "受取済み",
-        "wbClaimed": "獲得済み",
-        "wbCreditDelta": "クレジット変動",
-        "wbEnergyDelta": "体力変動",
-        "wbNeverRun": "未実行"
+      "wbTitle": "WorkBuddy タスク自動化",
+      "wbAccount": "アカウント",
+      "wbAccountEmpty": "WorkBuddy アカウントなし",
+      "wbDryRun": "プレビュー(ドライラン)",
+      "wbRefresh": "更新",
+      "wbNoAccount": "先にアカウントを選択してください",
+      "wbLoading": "タスクを読み込み中…",
+      "wbReadFailed": "読み込み失敗",
+      "wbUnjudged": "未判定",
+      "wbNoTasks": "実行可能なタスクなし",
+      "wbColTask": "タスク",
+      "wbColProgress": "進捗",
+      "wbColStatus": "ステータス",
+      "wbColReward": "報酬",
+      "wbKindGrowth": "成長",
+      "wbKindTravel": "旅行",
+      "wbKindActivity": "アクティブ",
+      "wbKindBlackcat": "夜間",
+      "wbRunOk": "タスクを実行しました",
+      "wbRunFailed": "実行失敗",
+      "wbAccepted": "受取済み",
+      "wbClaimed": "獲得済み",
+      "wbCreditDelta": "クレジット変動",
+      "wbEnergyDelta": "体力変動",
+      "wbNeverRun": "未実行"
     },
     "smsOperations": {
       "page": {
@@ -7949,7 +7949,7 @@
           "hookName": "Hook 名",
           "event": "トリガーイベント",
           "evidence": "証跡の詳細",
-            "dismiss": "このカードを閉じる"
+          "dismiss": "このカードを閉じる"
         },
         "hint": {
           "retryScheduled": "しばらくして自動的に再試行されます。操作は不要です。",
@@ -14847,6 +14847,86 @@
     "totalCount": "計 {count} 人"
   },
   "docs": {
+    "common": {
+      "backToDocs": "ドキュメントセンターに戻る",
+      "startReading": "読み始める",
+      "firstChapter": "最初の章です",
+      "lastChapter": "最後の章です",
+      "chapterBadge": "第 {num} 章 · ユーザーマニュアル"
+    },
+    "manual": {
+      "overview": {
+        "title": "ユーザーマニュアル",
+        "description": "技術的な知識がなくても、手順どおりに操作するだけです。"
+      },
+      "getting-started": {
+        "title": "はじめに"
+      },
+      "ai-chat": {
+        "title": "AI チャット"
+      },
+      "agent": {
+        "title": "Agent を使う"
+      },
+      "knowledge-base": {
+        "title": "ナレッジベース"
+      },
+      "billing": {
+        "title": "クレジットとサブスクリプション"
+      },
+      "account": {
+        "title": "アカウント設定"
+      },
+      "faq": {
+        "title": "よくある質問"
+      }
+    },
+    "meta": {
+      "overview": {
+        "title": "IHUI AI ドキュメントセンター",
+        "description": "クイックスタートから深い開発まで、IHUI AI のすべての機能をカバー"
+      },
+      "quickstart": {
+        "title": "5分クイックスタート — IHUI AI",
+        "description": "登録から最初の AI Agent 公開まで 5 分。Apache 2.0 オープンソース、100 以上のモデル、6 端末を単一のコードベースで提供。"
+      },
+      "api": {
+        "title": "API リファレンス — IHUI AI",
+        "description": "REST API + Webhook + OpenAPI 3.1、すべての主要言語の SDK をカバー。"
+      },
+      "rag": {
+        "title": "ナレッジベース RAG — IHUI AI",
+        "description": "ドキュメント解析、ベクトル検索、BM25、ナレッジグラフ"
+      },
+      "mcp": {
+        "title": "MCP ツール連携 — IHUI AI",
+        "description": "Anthropic MCP プロトコルにネイティブ対応。100 以上の標準サーバーと自作サーバーに対応。"
+      },
+      "agent": {
+        "title": "Agent 開発 — IHUI AI",
+        "description": "ビジュアルオーケストレーション + テンプレート + ベストプラクティス、6 端末へ公開。"
+      },
+      "self-host": {
+        "title": "セルフホスト構築 — IHUI AI",
+        "description": "Docker Compose / Kubernetes Helm Chart による構築ガイド"
+      },
+      "models": {
+        "title": "マルチモデルルーティング — IHUI AI",
+        "description": "100 以上の LLM を統合接続し、自動フォールバックと Combo チェーン呼び出しに対応。"
+      },
+      "workflow": {
+        "title": "ワークフローオーケストレーション — IHUI AI",
+        "description": "n8n 風のノードキャンバスで複雑な AI フローを視覚的に構築。"
+      },
+      "team": {
+        "title": "チームコラボレーション — IHUI AI",
+        "description": "RBAC、SSO、監査ログ、クレジット共有に対応した企業向けのチーム AI 協業環境。"
+      },
+      "manual": {
+        "title": "ユーザーマニュアル — IHUI AI",
+        "description": "エンドユーザー向けの図解チュートリアル。7 章で日常の全機能を紹介。"
+      }
+    },
     "navAgent": "Agent開発",
     "navApi": "APIドキュメント",
     "navDevelopers": "開発者",
@@ -17020,6 +17100,7 @@
     },
     "codeEditor": {
       "lspStatus": "LSP",
+      "attributionToggle": "AI 行の帰属表示",
       "zoomIn": "拡大",
       "zoomOut": "縮小"
     },
@@ -21051,7 +21132,8 @@
     "customNoResults": "該当する機能がありません",
     "eduHubTitle": "教育",
     "contentHubTitle": "コンテンツ",
-    "tradeHubTitle": "取引"
+    "tradeHubTitle": "取引",
+    "eduMyAttendance": "マイ出席記録"
   },
   "news": {
     "allCategories": "All categories",
@@ -23800,6 +23882,8 @@
     "agentSecuritySaveFailed": "セキュリティ設定の保存に失敗しました",
     "analyticsEnabled": "利用状況の分析",
     "analyticsEnabledDesc": "オンにすると、クリック・ページ訪問・所要時間などの匿名の利用イベントを記録し、プロダクト改善に用います。入力された本文・コード・ファイルパスは記録しません。オフにすると送信を直ちに停止し、機能への影響はありません。",
+    "rumEnabled": "パフォーマンス・エラー診断(任意)",
+    "rumEnabledDesc": "既定ではオフです。オンにした場合のみ、匿名の起動時間、AI の初回トークン遅延、ストリーミング中の長タスク数、脱識別化したエラー概要を改善目的で送信します。ファイルパス、ワークスペース名、メールアドレス、デバイス指紋は送信しません。オフにすると即座に収集を停止し、保留データを破棄して以降のリクエストも発生しません。",
     "llmRawRetentionOptOut": "LLM送受信本文を保持しない",
     "llmRawRetentionOptOutDesc": "質問とAI回答の本文はデータベースに保存されません",
     "codeIndexEgressOptOut": "コード意味インデックスを作成しない",
@@ -29431,7 +29515,56 @@
     "days": "日数",
     "reason": "理由",
     "daysWithUnit": "{count}日",
-    "approveAction": "承認"
+    "approveAction": "承認",
+    "classLabel": "クラス",
+    "selectClass": "クラスを選択",
+    "batchCheckIn": "一括出席確認",
+    "batchConfirm": "出席確認を開始",
+    "batchResultCreated": "新規チェックイン",
+    "batchResultSkipped": "スキップ",
+    "batchResultMissed": "未チェックイン",
+    "batchFailed": "一括出席確認に失敗しました",
+    "exportCsv": "CSVエクスポート",
+    "exportFailed": "エクスポートに失敗しました。後でもう一度お試しください",
+    "studentPageTitle": "マイ出席記録",
+    "studentPageSubtitle": "自分の出席記録の確認とセルフチェックインができます",
+    "selfCheckIn": "セルフチェックイン",
+    "selfCheckInSuccess": "チェックインに成功しました",
+    "selfCheckInFailed": "チェックインに失敗しました。後でもう一度お試しください",
+    "notLoggedIn": "ログイン後に自分の出席記録を確認できます",
+    "rulePanelTitle": "出席ルール",
+    "ruleClassHint": "クラスを選ぶとそのクラスのルールを読み込みます",
+    "ruleNotConfigured": "未設定",
+    "ruleLateAfter": "遅刻の判定時刻",
+    "ruleEarlyBefore": "早退の判定時刻",
+    "ruleAbsentAfter": "欠席の判定時刻",
+    "ruleEnabledLabel": "ルールを有効化",
+    "ruleTimeHint": "形式は HH:MM。空欄は変更しない意味です",
+    "ruleSave": "ルールを保存",
+    "ruleSaved": "ルールを保存しました",
+    "ruleQrSecretState": "QR署名キー：",
+    "ruleQrSecretOn": "設定済み",
+    "ruleQrSecretOff": "未設定",
+    "ruleQrSecretGuide": "QR出席登録の前に下で署名キーをローテーションしてください",
+    "qrPanelTitle": "QR出席登録",
+    "qrLoading": "QRコードを取得しています",
+    "qrExpiresIn": "{seconds} 秒後に期限切れ",
+    "qrExpired": "QRコードが期限切れです。再取得中",
+    "qrRefresh": "再取得",
+    "qrRotateSecret": "署名キーをローテーション",
+    "qrRotated": "署名キーをローテーションしました（指紋 {fingerprint}）",
+    "qrSecretNote": "キーの原文は画面に表示されず、指紋のみ確認できます",
+    "qrNeedSetup": "上側の出席ルールを設定し、署名キーをローテーションしてください",
+    "qrLoadFailed": "QRコードの取得に失敗しました",
+    "trendChartTitle": "出席の推移",
+    "trendChartScope": "集計範囲：{scope}",
+    "trendChartHint": "出席率 = 正常出席 ÷ 当該時間帯の出席記録数（未打刻の生徒は分母に含みません）",
+    "trendCountAxisLabel": "件数",
+    "trendChartAria": "{scope}の選択期間における日次出席率の折れ線と状態構成の積み上げ棒グラフ",
+    "statusOther": "その他",
+    "scopeAllClasses": "すべてのクラス",
+    "checkInAt": "出席時刻",
+    "backfillNeedsTime": "過去の日を登録するには、その日内の出席時刻が必要です"
   },
   "eduCertificates": {
     "certificateNo": "番号：{no}",
