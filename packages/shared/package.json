@@ -258,6 +258,16 @@
       "import": "./src/seo/*.ts",
       "default": "./src/seo/*.ts"
     },
+    "./attribution": {
+      "types": "./src/attribution/index.ts",
+      "import": "./src/attribution/index.ts",
+      "default": "./src/attribution/index.ts"
+    },
+    "./attribution/*": {
+      "types": "./src/attribution/*.ts",
+      "import": "./src/attribution/*.ts",
+      "default": "./src/attribution/*.ts"
+    },
     "./types": {
       "types": "./src/types/index.ts",
       "import": "./src/types/index.ts",

@@ -169,4 +169,19 @@ test('A12 覆盖段段注门号与实际守门一致(237,不是 131)', () => {
   assert.match(s.desc, /门 237/)
   assert.doesNotMatch(s.desc, /门 131/)
 })
+
+test('A14 land-web 写腿安全锁:--apply 档必须锁字重 + 补继承钉,绝不裸 --apply', () => {
+  // 2026-11-04:该段原为 apply: ['--apply'],比守护少两枚旗 ⇒ 一键链会把无 font-* 伴随的
+  // text-xl→text-heading 从 400 顶到 700(落档器头注的编译取证反例),且与自愈腿口径分叉。
+  const stage = C.STAGES.find((x) => x.name === 'land-web')
+  assert.ok(stage, 'land-web 段读不到')
+  const argv = C.stageArgv(stage, C.parseArgs(['--apply']))
+  assert.ok(argv.includes('--only-weight-locked'), '缺锁档旗 ⇒ 静默改全站字重')
+  assert.ok(argv.includes('--pin-inherit-weight'), '缺继承钉 ⇒ 该腿恒报 files=0 changes=0')
+  assert.ok(argv.includes('--limit'), '共享工作区必须小批落盘')
+  // 反向对照:把段打回裸 --apply,同一判据必须翻红(形状锁不能空转)。
+  const naked = C.stageArgv({ ...stage, apply: ['--apply'] }, C.parseArgs(['--apply']))
+  assert.ok(!naked.includes('--only-weight-locked'), '形状锁没有牙:裸 --apply 也被判成通过')
+  assert.ok(!naked.includes('--pin-inherit-weight'), '形状锁没有牙:裸 --apply 也被判成通过')
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

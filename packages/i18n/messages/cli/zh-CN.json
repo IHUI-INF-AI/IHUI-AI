@@ -149,7 +149,20 @@
     "agentStallBudgetGovernance": "预算治理",
     "agentStallHookPipeline": "钩子管线",
     "agentStallDoomLoopGuard": "死循环防护",
-    "agentStallUndetermined": "未判定环节"
+    "agentStallUndetermined": "未判定环节",
+    "taskStatusLabels": {
+      "pending": "待处理",
+      "inProgress": "进行中",
+      "completed": "已完成",
+      "cancelled": "已取消",
+      "blocked": "已阻塞"
+    },
+    "tasksHelpCancel": "/tasks cancel <id>       取消任务",
+    "tasksHelpBlock": "/tasks block <id>         阻塞任务",
+    "tasksUsageCancel": "usage: /tasks cancel <id>",
+    "tasksUsageBlock": "usage: /tasks block <id>",
+    "taskCancelledFeedback": "✓ 任务 #{id} 已取消: {content}",
+    "taskBlockedFeedback": "✓ 任务 #{id} 已阻塞: {content}"
   },
   "waiting": {
     "agent": {
