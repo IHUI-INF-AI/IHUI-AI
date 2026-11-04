@@ -112,11 +112,16 @@ test('M9 落点反向锁:不得再自取盘符,必须真的 import 共用出口 
   assert.doesNotMatch(code, /function\s+devEnvRoot\s*\(/, '本模块不得再声明私有 devEnvRoot —— 落点只许有一个出口')
   assert.match(
     code,
-    /import\s*\{[^}]*\bdevEnvRoot\b[^}]*\}\s*from\s*'\.\/seal-c-root-stray\.mjs'/,
-    '必须真的 import 共用出口(§22c 装车证明:函数在而没人调 = 提交链上一路绿灯)',
+    /import\s*\{[^}]*\bdevEnvArtifactRoot\b[^}]*\}\s*from\s*'\.\/seal-c-root-stray\.mjs'/,
+    '必须真的 import 共用出口(§22c 装车证明:函数在而没人调 = 提交链上一路绿灯)。' +
+      '2026-11-04 起出口换成 devEnvArtifactRoot:粗出口 devEnvRoot() 遇半搬迁态会选到只有 Temp/backups 的仓内 .DevEnv,拼出的 logs 目录不存在 ⇒ 回收器连续 6 夜 ENOENT',
   )
   // 射程仍必须是 logs 目录本身(换出口不得顺手把删除面挪到别处)
-  assert.match(code, /join\(\s*devEnvRoot\(\)\s*,\s*['"]logs['"]\s*\)/, 'LOGS_DIR 必须是 <外置根>/logs')
+  assert.match(
+    code,
+    /join\(\s*devEnvArtifactRoot\(\s*['"]logs['"]\s*\)\s*,\s*['"]logs['"]\s*\)/,
+    'LOGS_DIR 必须是「按件选根」得到的 <外置根>/logs —— 换出口是为了选对根,不是把删除面挪走',
+  )
 })
 
 // M10 —— 2026-10-02 实测的"死旗标":main 里写的是
