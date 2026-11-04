@@ -6051,7 +6051,17 @@
     "chooseClass": "点呼するクラスを選択",
     "noClass": "現在のリストに選択できるクラスがありません",
     "batchResult": "点呼完了：新規 {created}、スキップ {skipped}、見落とし {missed}",
-    "qrEntry": "チェックインQRを表示"
+    "qrEntry": "チェックインQRを表示",
+    "emptyTrend": "推移データがありません",
+    "statsAttendanceRate": "出席率",
+    "statusDistribution": "状態分布",
+    "statusOther": "その他",
+    "trendChartHint": "出席率 = 正常出席 ÷ 当該時間帯の出席記録数（未打刻の生徒は分母に含みません）",
+    "trendChartTitle": "出席の推移",
+    "statsTotalLabel": "考勤延べ人数",
+    "loadStatsFailed": "出席統計の読み込みに失敗しました。後で再試行してください。",
+    "trendChartScope": "集計範囲：{scope}",
+    "trendWindow": "直近 {days} 日間"
   },
   "eduGrades": {
     "title": "成績管理",
