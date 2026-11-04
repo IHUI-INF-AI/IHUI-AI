@@ -568,20 +568,32 @@ test('逐路径覆盖·端到端: 两条可达分支同秒改同一路径(一枚
       stdio: 'ignore',
       env: { ...process.env, ...(extraEnv || {}) },
     })
-  // 两台并列改动必须落在 30 天窗内(窗档只报数不拦,而本用例要走到 exit 2 那一档);
+  // 两条并列改动必须落在 30 天窗内(窗档只报数不拦,而本用例要走到 exit 2 那一档);
   // 同时它们必须比 base 更新 —— 否则侧支的提交时刻比主线还旧,latestByPath 会选到 base。
-  const T = new Date().toISOString()
+  // 2026-11-05:主链日期必须**显式**早于 T。原先用墙钟默认值:一旦 base 的提交秒与 T 跨过
+  // 同一秒边界,base 的 A 记录就会排在两条侧支之前并挡住 D/M 的并列比较 ⇒ 用例偶发 exit 1。
+  const now = Date.now()
+  let clock = now - 7_200_000
+  const olderDate = () => {
+    clock += 1000
+    return new Date(clock).toISOString()
+  }
+  const dated = () => {
+    const d = olderDate()
+    return { GIT_AUTHOR_DATE: d, GIT_COMMITTER_DATE: d }
+  }
+  const T = new Date(now - 60_000).toISOString()
   try {
     // base:{README, f=v1, k=k1};main 先让 k=v2 的 blob 可达,再删掉 k(让"删 k"有出处)。
     writeFileSync(join(dir, 'f.txt'), 'v1\n')
     writeFileSync(join(dir, 'k.txt'), 'k1\n')
     git('git add f.txt k.txt')
-    git('git commit -m "base"')
+    git('git commit -m "base"', dated())
     writeFileSync(join(dir, 'k.txt'), 'k2\n')
     git('git add k.txt')
-    git('git commit -m "k-v2"')
+    git('git commit -m "k-v2"', dated())
     git('git rm -q k.txt')
-    git('git commit -m "del-k"')
+    git('git commit -m "del-k"', dated())
     // 两条**可达**分支同秒改同一路径:一枚 D(side-del)、一枚 M(side-mod)。
     git('git checkout -b side-del')
     git('git rm -q f.txt')
@@ -610,6 +622,151 @@ test('逐路径覆盖·端到端: 两条可达分支同秒改同一路径(一枚
     assert.match(r.stdout, /同秒并列/, '必须点名原因')
     assert.match(r.stdout, /f\.txt/, '必须点名是哪条路径并列')
     assert.doesNotMatch(r.stdout, /无 commit 丢失风险/, '未判定绝不许打印通过句')
+
+    // 反向用例①(2026-11-05 裁决):把两条并列分支改名 = 换 `git log --all` 的并列入场
+    // 顺序。D vs M 是真翻转档(取 D ⇒ 最新即删除;取 M ⇒ 最新仍是存在),换序后必须仍是
+    // UNDETERMINED ⇒ exit 2;判据细化不得把"真判不了"放行。
+    git('git branch -m side-del zzz-tie-del')
+    git('git branch -m side-mod aaa-tie-mod')
+    const r2 = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    assert.equal(
+      r2.status,
+      2,
+      `换 ref 名后同秒 D/M 并列仍须 exit 2,实际 ${r2.status}\nstdout: ${r2.stdout}\nstderr: ${r2.stderr}`,
+    )
+    assert.match(r2.stdout, /UNDETERMINED/, '换序后仍必须显式报未判定')
+    assert.match(r2.stdout, /f\.txt/, '换序后仍必须点名并列路径')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('逐路径覆盖·端到端: 同秒并列两枚 D(删不同 old blob)⇒ 可判定落未清偿,不进未判定桶', () => {
+  const dir = createTempRepo()
+  // 每个主链提交错开一秒,只让两条侧支落在同一秒;避免顺手造出别的并列。
+  let clock = Date.now() - 3_600_000
+  const git = (cmd, dateOverride) => {
+    clock += 1000
+    const d = dateOverride || new Date(clock).toISOString()
+    return execSync(cmd, {
+      cwd: dir,
+      stdio: 'ignore',
+      env: { ...process.env, GIT_AUTHOR_DATE: d, GIT_COMMITTER_DATE: d },
+    })
+  }
+  const head = () =>
+    execSync('git rev-parse HEAD', { cwd: dir, encoding: 'utf8' }).trim()
+  const T = new Date().toISOString()
+  try {
+    writeFileSync(join(dir, 'f.txt'), 'v1\n')
+    git('git add f.txt')
+    git('git commit -m "f-v1"')
+    const c1 = head()
+    writeFileSync(join(dir, 'f.txt'), 'v2\n')
+    git('git add f.txt')
+    git('git commit -m "f-v2"')
+    const c2 = head()
+    writeFileSync(join(dir, 'f.txt'), 'v3\n')
+    git('git add f.txt')
+    git('git commit -m "f-v3"')
+    const c3 = head()
+    // 两条**可达**分支同秒各删一个不同版本:side-v2 删 v2、side-v3 删 v3。
+    // 候选删的是 v1 —— 与两枚并列 D 的 old blob 都不相同 ⇒ 两种顺序都只能落"未清偿"。
+    git(`git checkout -b side-v2 ${c2}`)
+    git('git rm -q f.txt')
+    git('git commit -m "side-del-v2"', T)
+    git('git checkout main')
+    git(`git checkout -b side-v3 ${c3}`)
+    git('git rm -q f.txt')
+    git('git commit -m "side-del-v3"', T)
+    git('git checkout main')
+    // tag 直指候选:从 c1 删 f(v1),随后删分支、打 lost-commit tag。
+    git(`git checkout -b temp-tag ${c1}`)
+    git('git rm -q f.txt')
+    git('git commit -m "tag-del-v1"')
+    const candidate = head()
+    git('git checkout main')
+    git('git branch -D temp-tag')
+    git(`git tag lost-commit/tie-diff ${candidate}`)
+
+    const r = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    assert.equal(
+      r.status,
+      0,
+      `同秒并列两枚 D 且两序结论一致 ⇒ 可判定,不得进未判定桶;实际 exit ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
+    )
+    assert.doesNotMatch(r.stdout, /UNDETERMINED/, '可判定项不得进未判定桶')
+    // 可判定后仍按 D 的真判据核对 old blob:两枚并列删的都不是 v1 ⇒ 落未清偿 1 枚。
+    assert.match(
+      r.stdout,
+      /逐路径覆盖:已清偿 0 \/ 未清偿 1/,
+      `必须落未清偿并点名枚数,实际未命中\nstdout: ${r.stdout}`,
+    )
+    assert.match(r.stdout, new RegExp(candidate.slice(0, 7)), '未清偿清单必须点名该 tag 直指提交')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('逐路径覆盖·端到端: 3b 未判定项不得被悬空档整体赋值覆盖(点名出现,不折成已备份)', () => {
+  const dir = createTempRepo()
+  let clock = Date.now() - 3_600_000
+  const git = (cmd, dateOverride) => {
+    clock += 1000
+    const d = dateOverride || new Date(clock).toISOString()
+    return execSync(cmd, {
+      cwd: dir,
+      stdio: 'ignore',
+      env: { ...process.env, GIT_AUTHOR_DATE: d, GIT_COMMITTER_DATE: d },
+    })
+  }
+  const head = () => execSync('git rev-parse HEAD', { cwd: dir, encoding: 'utf8' }).trim()
+  const T = new Date().toISOString()
+  try {
+    writeFileSync(join(dir, 'f.txt'), 'v1\n')
+    git('git add f.txt')
+    git('git commit -m "f-v1"')
+    // 可达面:f 同秒被删(side-del)与被改(side-mod)⇒ 3b 该路径真翻转 ⇒ 3b「未判定 1」。
+    git('git checkout -b side-del')
+    git('git rm -q f.txt')
+    git('git commit -m "side-del"', T)
+    git('git checkout main')
+    git('git checkout -b side-mod')
+    writeFileSync(join(dir, 'f.txt'), 'v2\n')
+    git('git add f.txt')
+    git('git commit -m "side-mod"', T)
+    git('git checkout main')
+    // tag 直指候选:与 side-del 同样删 f(v1)。它同时是 3b 的未判定项。
+    git('git checkout -b temp-tag')
+    git('git rm -q f.txt')
+    git('git commit -m "tag-del-f"')
+    const candidate = head()
+    git('git checkout main')
+    git('git branch -D temp-tag')
+    git(`git tag lost-commit/tie-3b ${candidate}`)
+    // 另造一枚**未被 tag**的悬空提交,让 `unreachable.length > 0` 这个块真的执行
+    // (第 2882 行整体赋值就在块内)。它的路径 uniq.txt 不并列 ⇒ 悬空档未判定 0。
+    git('git checkout -b temp-dangle')
+    writeFileSync(join(dir, 'uniq.txt'), 'only-in-dangle\n')
+    git('git add uniq.txt')
+    git('git commit -m "dangle-uniq"')
+    git('git checkout main')
+    git('git branch -D temp-dangle')
+
+    const r = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    assert.equal(
+      r.status,
+      2,
+      `3b 未判定项必须存活到出口并 exit 2(修前会被整体赋值抹成 exit 1);实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
+    )
+    assert.match(r.stdout, /UNDETERMINED/, '必须显式报未判定')
+    assert.match(r.stdout, new RegExp(candidate.slice(0, 7)), '3b 未判定项必须点名出现,不许被吞')
+    // 悬空档只扣悬空维自己的未判定:已备份 0 / 未判定 1 / 待处置 1,不得把 3b 项算成已备份。
+    const bucket = r.stdout.split('\n').find((l) => l.includes('悬空分档:'))
+    assert.ok(bucket, '必须打印悬空分档行')
+    assert.match(bucket, /已备份 0/, `3b 未判定项不许折成已备份: ${bucket}`)
+    assert.match(bucket, /未判定 1/, `悬空分档必须显示未判定 1: ${bucket}`)
+    assert.match(bucket, /待处置 1/, `悬空分档必须显示待处置 1: ${bucket}`)
   } finally {
     rmScratch(dir)
   }
