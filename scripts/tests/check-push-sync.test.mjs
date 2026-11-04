@@ -652,8 +652,8 @@ test('push-state: diverged 已过期 → exit 1(没人管的分叉才是本门�
   }
 })
 
-// ─── 8. 本地 behind origin → exit 0(跳过,不阻塞) ──────
-test('behind: 本地 behind origin → exit 0(无 ahead commit,跳过)', () => {
+// ─── 8. 本地 behind origin → exit 1(2026-11-05:落后必须红) ──────
+test('behind: 本地 behind origin → exit 1(远端领先必须红)', () => {
   const { work, origin } = createSyncedRepoWithOrigin()
   try {
     // 在 work 创建并 push 一个 commit(origin 前进)
@@ -676,9 +676,9 @@ test('behind: 本地 behind origin → exit 0(无 ahead commit,跳过)', () => {
       ],
     })
     const r = runScript([], { cwd: work })
-    // HEAD 不同但无 ahead commit(behind)→ 跳过,exit 0
-    assert.equal(r.status, 0, `behind 应 exit 0(跳过),实际 ${r.status}`)
-    assert.match(r.stdout, /behind|无 ahead|跳过/)
+    // 2026-11-05 加固:HEAD 不同且 ahead=0 不再放行 —— 远端领先必须红
+    assert.equal(r.status, 1, `behind 应 exit 1(远端领先),实际 ${r.status}`)
+    assert.match(stripAnsi(r.stdout + r.stderr), /远端领先|落后/)
   } finally {
     rmScratch(work)
     rmScratch(origin)
@@ -1104,7 +1104,8 @@ test('①窗口内真分叉(远端已推进且对象已 fetch)⇒ exit 1,不得�
     const out = stripAnsi(r.stdout + r.stderr)
     assert.equal(r.status, 1, `真分叉必须 exit 1,实际 ${r.status}\n${out}`)
     assert.match(out, /真分叉/, `必须点名真分叉,实际:${out}`)
-    assert.match(stripAnsi(r.stderr), /未 push 的 commit/)
+    // 2026-11-05 加固:分叉由关系分类直接判红(不再走"未 push 的 commit"文案)
+    assert.match(stripAnsi(r.stderr), /真分叉|远端独有/)
   } finally {
     rmScratch(work)
     rmScratch(origin)
@@ -1194,6 +1195,106 @@ test('④ 未 push commit 清单读取失败 ⇒ exit 2 未判定(不得静默�
     rmScratch(work)
     rmScratch(origin)
     rmScratch(shim)
+  }
+})
+
+// ─── 11e. behind / diverged 必须按 ls-remote 现读远端 sha 落判(2026-11-05 加固)───
+// 立因:旧逻辑只算 `rev-list --count <远端>..HEAD`(= 本地独有数),读到 0 就打印
+// "behind,不阻塞" exit 0 —— 真分叉(两侧各有提交)被读成本地未推、真落后被放行。
+// 现在必须同时算出 behind 与 ahead 两个数,落后与分叉都要红并点名两侧 sha。
+
+/** 取两侧 sha 并自证它们不同(夹具前提,防止用例空转)。 */
+function readBothTips(work) {
+  const localSha = execSync('git rev-parse HEAD', {
+    cwd: work,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  }).trim()
+  const remoteSha = execSync('git ls-remote origin refs/heads/main', {
+    cwd: work,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+    .trim()
+    .split('\t')[0]
+  assert.notEqual(localSha, remoteSha, '夹具不成立:两侧 HEAD 竟相同,本用例测不到关系')
+  return { localSha, remoteSha }
+}
+
+test('加固①: 远端领先(真 behind)⇒ exit 1 红(旧逻辑会打印 behind 后 exit 0)', () => {
+  const { work, origin } = createSyncedRepoWithOrigin()
+  let other = null
+  try {
+    other = advanceOriginWithoutFetch(work, origin)
+    // fetch 补齐对象与跟踪 ref,让 behind 可被真读到(不是"读不到"那一档)
+    execSync('git fetch -q origin', { cwd: work, stdio: ['ignore', 'pipe', 'pipe'] })
+    const { localSha, remoteSha } = readBothTips(work)
+    const r = runScript([], { cwd: work })
+    const out = stripAnsi(r.stdout + r.stderr)
+    assert.equal(r.status, 1, `真 behind 必须红,实际 ${r.status}\n${out}`)
+    assert.match(out, /远端领先|落后/, `必须点名"远端领先/本地落后",实际:${out}`)
+    assert.match(out, new RegExp(localSha.slice(0, 7)), `必须点名本地 sha,实际:${out}`)
+    assert.match(out, new RegExp(remoteSha.slice(0, 7)), `必须点名远端 sha,实际:${out}`)
+  } finally {
+    rmScratch(work)
+    rmScratch(origin)
+    if (other) rmScratch(other)
+  }
+})
+
+test('加固②: 远端分叉(两侧各有独有提交)⇒ exit 1 且点名两侧 sha(旧逻辑只说"本地 N 枚未推")', () => {
+  const { work, origin } = createSyncedRepoWithOrigin()
+  let other = null
+  try {
+    other = advanceOriginWithoutFetch(work, origin)
+    execSync('git fetch -q origin', { cwd: work, stdio: ['ignore', 'pipe', 'pipe'] })
+    makeLocalCommit(work, 'local side of a real divergence')
+    const { localSha, remoteSha } = readBothTips(work)
+    const r = runScript([], { cwd: work })
+    const out = stripAnsi(r.stdout + r.stderr)
+    assert.equal(r.status, 1, `真分叉必须红,实际 ${r.status}\n${out}`)
+    assert.match(out, /真分叉/, `必须点名"真分叉",不得只说本地未推,实际:${out}`)
+    assert.match(out, /远端独有\s*1/, `必须报远端独有提交数,实际:${out}`)
+    assert.match(out, new RegExp(localSha.slice(0, 7)), `必须点名本地 sha,实际:${out}`)
+    assert.match(out, new RegExp(remoteSha.slice(0, 7)), `必须点名远端 sha,实际:${out}`)
+  } finally {
+    rmScratch(work)
+    rmScratch(origin)
+    if (other) rmScratch(other)
+  }
+})
+
+test('加固③: 远端不可读 ⇒ exit 2 并点名"未判定:远端不可读"(不许兜底成本地未推)', () => {
+  const { work, origin } = createSyncedRepoWithOrigin()
+  try {
+    const dead = join(origin, '..', `dead-remote-${process.pid}-e`)
+    execSync(`git remote set-url origin "${dead.replace(/\\/g, '/')}"`, {
+      cwd: work,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    const r = runScript([], { cwd: work })
+    const out = stripAnsi(r.stdout + r.stderr)
+    assert.equal(r.status, 2, `远端不可读必须 exit 2,实际 ${r.status}\n${out}`)
+    assert.match(out, /未判定:远端不可读/, `必须逐字点名"未判定:远端不可读",实际:${out}`)
+    assert.doesNotMatch(out, /未 push 的 commit|已同步/, `不得兜底成"本地未推"或"已同步":${out}`)
+  } finally {
+    rmScratch(work)
+    rmScratch(origin)
+  }
+})
+
+test('加固④: 本地领先保持既有语义(exit 1 且记数),加固不得放宽这一档', () => {
+  const { work, origin } = createSyncedRepoWithOrigin()
+  try {
+    makeLocalCommit(work, 'unpushed commit 1')
+    const r = runScript([], { cwd: work })
+    const out = stripAnsi(r.stdout + r.stderr)
+    assert.equal(r.status, 1, `本地领先必须按既有语义 exit 1,实际 ${r.status}\n${out}`)
+    assert.match(out, /1 个未 push/, `必须记数,实际:${out}`)
+    assert.doesNotMatch(out, /真分叉|远端领先/, '本地领先不得被误报成分叉/落后')
+  } finally {
+    rmScratch(work)
+    rmScratch(origin)
   }
 })
 
