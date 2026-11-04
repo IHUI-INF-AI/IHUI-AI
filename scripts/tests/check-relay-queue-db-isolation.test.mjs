@@ -65,13 +65,45 @@ test('同块设 RELAY_QUEUE_SUFFIX ⇒ 0 条', () => {
 })
 
 test('注释里的 REDIS_URL 不算隔离证据(否则一行注释就能洗绿)', () => {
-  const src = `spawn(cmd, {
+  const src = `spawn(process.execPath, ['src/index.ts'], {
   // 记得换 REDIS_URL
   env: { DATABASE_URL: dsn },
 })
 `
   const r = scanSource(src, { file: 'scripts/fixture.mjs' })
   assert.equal(r.violations.length, 1)
+})
+
+test('真创建 worker + 换库未换队列 ⇒ 命中(判据看 worker,不看 env 字样)', () => {
+  const src = `const worker = new Worker('relay-account-pool-queue', handler, {
+  connection: { url: redis },
+})
+process.env.DATABASE_URL = dsn
+`
+  const r = scanSource(src, { file: 'scripts/fixture.mjs' })
+  assert.equal(r.violations.length, 1)
+})
+
+test('纯 psql 子进程换库 ⇒ 不判红,记 skip 并点名「无 worker 创建证据」', () => {
+  const src = `const r = spawnSync('psql', ['-f', 'migrations.sql'], {
+  env: { ...process.env, DATABASE_URL: dsn, PGPASSWORD: pw },
+})
+`
+  const r = scanSource(src, { file: 'scripts/fixture.mjs' })
+  assert.equal(r.rewritten, 1)
+  assert.equal(r.violations.length, 0)
+  assert.equal(r.skips.length, 1)
+  assert.match(r.skips[0].reason, /无 worker 创建证据/)
+})
+
+test('夹具入参形 env(未派生进程)⇒ 不判红,记 skip 并点名「未挂到派生进程」', () => {
+  const src = `collect({ env: { DATABASE_URL: '' }, psqlRunner: fakeRunner })
+`
+  const r = scanSource(src, { file: 'scripts/fixture.mjs' })
+  assert.equal(r.rewritten, 1)
+  assert.equal(r.violations.length, 0)
+  assert.equal(r.skips.length, 1)
+  assert.match(r.skips[0].reason, /未挂到派生进程/)
 })
 
 test('process.env.DATABASE_URL = 直赋值形 ⇒ 命中', () => {

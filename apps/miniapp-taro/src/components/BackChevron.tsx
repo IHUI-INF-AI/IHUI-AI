@@ -80,6 +80,13 @@ const TARO_PLATFORM: BackChevronPlatform<string, CSSProperties, ITouchEvent> = {
 export interface BackChevronProps {
   /** 返回动作;各页语义不同(navigateBack / switchTab / 回登录页),由调用方持有 */
   onTap?: (event: ITouchEvent) => void
+  /**
+   * 「返回」的本地化文案(对齐 RN 端同名 prop)。**只用于 accessibilityLabel,不参与渲染**
+   * —— 可见侧是裸箭头,无障碍名称必须脱离上下文也成立。
+   * RN 侧为必填(守门 91:带默认值会被认作静默脱主题开关);本块看不到全部调用点,
+   * 故先加为可选 —— 需后手改必填 + 补调用点。
+   */
+  label?: string
   /** 仅用于定位(如导航栏里的 absolute + left/top),不得用来改字号或方块尺寸 */
   className?: string
   /**
@@ -92,6 +99,7 @@ export interface BackChevronProps {
 
 export default function BackChevron({
   onTap,
+  label,
   className,
   color = 'var(--color-foreground)',
   style,
@@ -101,7 +109,7 @@ export default function BackChevron({
     <BackChevronCore
       platform={TARO_PLATFORM}
       onPress={onTap}
-      label={tt('common.back', '返回')}
+      label={label ?? tt('common.back', '返回')}
       glyphColor={color}
       className={className}
       style={style}

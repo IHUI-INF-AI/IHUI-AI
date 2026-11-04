@@ -1218,6 +1218,10 @@ class _SpyLogger:
     def warning(self, *args: Any, **kwargs: Any) -> None:
         self._emit("warning", args)
 
+    def error(self, *args: Any, **kwargs: Any) -> None:
+        """启动补偿的失败路径必须走 error 级;替身缺这个方法会把「不静默」测成 AttributeError。"""
+        self._emit("error", args)
+
     def events(self, level: str | None = None) -> list[str]:
         return [m for lv, m in self.records if level is None or lv == level]
 
@@ -1500,6 +1504,269 @@ async def test_start_disabled_registers_no_jobs(monkeypatch):
     assert st["enabled"] is False
     assert st["next_run"] is None
     assert st["next_run_qoder"] is None
+
+
+# ---------------------------------------------------------------------------
+# 启动补偿(2026-11-04):窗口切断后重启补跑。判据纯函数 + 幂等 + 过期不补。
+# ---------------------------------------------------------------------------
+
+
+def _cn_dt(hour: int, minute: int, day: int = 4) -> datetime:
+    """北京时区的一个时刻(2026-11-04 是实测事发日)。"""
+    return datetime(2026, 11, day, hour, minute, tzinfo=cs._CN_TZ)
+
+
+def _plan_labels(now: datetime, grace: int = 120) -> list[str]:
+    return [b.label for b in cs.plan_startup_compensation(now, cs._signing_beats(), grace)]
+
+
+def test_startup_compensation_plan_only_today_within_grace(monkeypatch):
+    """判据:未到点不补、超过宽限不补、同侧只取最晚一个、只补当天。"""
+    monkeypatch.setenv("CHECKIN_QODER_RETRY_TIMES", "11:00,12:30")
+    assert _plan_labels(_cn_dt(0, 4)) == []  # 00:05 还没到,交给 cron
+    assert _plan_labels(_cn_dt(0, 6)) == ["零点窗口"]
+    # 00:10 重启(实测 00:15 那次):当天零点窗口被切断 -> 补
+    assert _plan_labels(_cn_dt(0, 10)) == ["零点窗口"]
+    # 08:07 重启(实测 08:06:59 被切断):只补主窗口,零点窗口已过 8h 不越权
+    assert _plan_labels(_cn_dt(8, 7)) == ["主窗口"]
+    # 10:07 重启:主窗口刚好过 2h 宽限,只补 Qoder 窗口
+    assert _plan_labels(_cn_dt(10, 7)) == ["Qoder窗口"]
+    # 11:30:Qoder 10:05 与补跑 11:00 都在宽限内 -> 同侧只补最晚的 11:00
+    assert _plan_labels(_cn_dt(11, 30)) == ["Qoder补跑"]
+    # 13:30:11:00 已过宽限,12:30 仍在 -> 只补 12:30
+    assert _plan_labels(_cn_dt(13, 30)) == ["Qoder补跑"]
+    # 14:31:12:30 也过 2h -> 一律不补
+    assert _plan_labels(_cn_dt(14, 31)) == []
+    # 前一天 12:30 的窗口,不会被今天 00:10 当成本日窗口补跑
+    assert _plan_labels(_cn_dt(0, 10, day=5)) == ["零点窗口"]
+
+
+def test_status_exposes_startup_compensation_config(monkeypatch):
+    """只读面:配置意图 + 进程内快照位(未跑过 last=None)。"""
+    monkeypatch.delenv("CHECKIN_STARTUP_COMPENSATION_ENABLED", raising=False)
+    monkeypatch.delenv("CHECKIN_STARTUP_COMPENSATION_GRACE_MINUTES", raising=False)
+    monkeypatch.delenv("CHECKIN_STARTUP_COMPENSATION_DELAY_SECONDS", raising=False)
+    sc = cs.CheckinScheduler().status()["startup_compensation"]
+    assert sc["enabled"] is True
+    assert sc["grace_minutes"] == 120
+    assert sc["delay_seconds"] == 90
+    assert sc["running"] is False
+    assert sc["last"] is None
+
+
+async def test_startup_compensation_runs_when_window_cut(monkeypatch):
+    """实测场景复刻:08:06:59 主窗口被切断,08:07 重启 -> 只补今日无 ok 的号。"""
+    spy = _SpyLogger()
+    monkeypatch.setattr(cs, "logger", spy)
+    monkeypatch.setattr(cs.checkin_outbound_gate, "paused_remaining", lambda: 0.0)
+    sched = cs.CheckinScheduler()
+    accounts = [_full_acc(1, "a"), _full_acc(2, "b")]
+    batches: list[tuple[list[int], str]] = []
+
+    async def _load(label: str) -> tuple[list[dict[str, Any]], dict[int, datetime]]:
+        return accounts, {}
+
+    async def _records(since: datetime) -> list[dict[str, Any]]:
+        return []
+
+    async def _run_batch(
+        accs: list[dict[str, Any]], cooldowns: Any, label: str
+    ) -> dict[str, Any]:
+        batches.append(([a["id"] for a in accs], label))
+        return {
+            "accounts": len(accs),
+            "claimed": len(accs),
+            "skipped": 0,
+            "failed": 0,
+            "aborted": False,
+            "abort_reason": None,
+        }
+
+    monkeypatch.setattr(sched, "_load_accounts_and_cooldowns", _load)
+    monkeypatch.setattr(checkin_store, "list_records_since", _records)
+    monkeypatch.setattr(sched, "_run_batch", _run_batch)
+
+    snap = await sched.run_startup_compensation(now=_cn_dt(8, 7))
+    assert batches == [([1, 2], "启动补偿:主窗口")]
+    assert snap["beats"][0]["decision"] == "compensated"
+    assert snap["beats"][0]["pending"] == 2
+    assert snap["beats"][0]["claimed"] == 2
+    logs = "\n".join(spy.events())
+    assert "启动补偿触发:主窗口(计划 08:05,已过 2 分钟,宽限 120 分钟)" in logs
+    assert "启动补偿完成:主窗口" in logs
+    st = sched.status()["startup_compensation"]
+    assert st["last"]["beats"][0]["decision"] == "compensated"
+    assert st["last"]["beats"][0]["claimed"] == 2
+
+
+async def test_startup_compensation_skips_when_today_complete(monkeypatch):
+    """今日该侧全部已有 ok 记录(claim 或 skip_already)-> 一次都不打。"""
+    spy = _SpyLogger()
+    monkeypatch.setattr(cs, "logger", spy)
+    monkeypatch.setattr(cs.checkin_outbound_gate, "paused_remaining", lambda: 0.0)
+    sched = cs.CheckinScheduler()
+    accounts = [_full_acc(1, "a"), _full_acc(2, "b")]
+    batches: list[str] = []
+
+    async def _load(label: str) -> tuple[list[dict[str, Any]], dict[int, datetime]]:
+        return accounts, {}
+
+    async def _records(since: datetime) -> list[dict[str, Any]]:
+        return [
+            {"account_id": 1, "ok": True, "action": "checkin", "created_at": _cn_dt(8, 6)},
+            {"account_id": 2, "ok": True, "action": "skip_already", "created_at": _cn_dt(8, 6)},
+        ]
+
+    async def _run_batch(accs: Any, cooldowns: Any, label: str) -> dict[str, Any]:
+        batches.append(label)
+        return {}
+
+    monkeypatch.setattr(sched, "_load_accounts_and_cooldowns", _load)
+    monkeypatch.setattr(checkin_store, "list_records_since", _records)
+    monkeypatch.setattr(sched, "_run_batch", _run_batch)
+
+    snap = await sched.run_startup_compensation(now=_cn_dt(8, 7))
+    assert batches == []
+    assert snap["beats"][0]["decision"] == "no_pending"
+    assert snap["beats"][0]["settled"] == 2
+    assert snap["beats"][0]["pending"] == 0
+    assert "今日均已有 ok 结果,无需补跑" in "\n".join(spy.events())
+
+
+async def test_startup_compensation_skips_when_window_too_old(monkeypatch):
+    """15:00 重启:今天所有签到窗口都已过 2h 宽限 -> 不补(不越权)。"""
+    spy = _SpyLogger()
+    monkeypatch.setattr(cs, "logger", spy)
+    monkeypatch.setattr(cs.checkin_outbound_gate, "paused_remaining", lambda: 0.0)
+    sched = cs.CheckinScheduler()
+    batches: list[str] = []
+
+    async def _load(label: str) -> tuple[list[dict[str, Any]], dict[int, datetime]]:
+        return [_full_acc(1, "a")], {}
+
+    async def _run_batch(accs: Any, cooldowns: Any, label: str) -> dict[str, Any]:
+        batches.append(label)
+        return {}
+
+    monkeypatch.setattr(sched, "_load_accounts_and_cooldowns", _load)
+    monkeypatch.setattr(sched, "_run_batch", _run_batch)
+
+    snap = await sched.run_startup_compensation(now=_cn_dt(15, 0))
+    assert batches == []
+    assert snap["decision"] == "no_due_beat"
+    assert "无处于 120 分钟宽限内的签到节拍" in "\n".join(spy.events())
+
+
+async def test_startup_compensation_is_idempotent(monkeypatch):
+    """重复调用补偿:第二次待补集合为空,不再领取、不再落任何新记录。"""
+    spy = _SpyLogger()
+    monkeypatch.setattr(cs, "logger", spy)
+    monkeypatch.setattr(cs.checkin_outbound_gate, "paused_remaining", lambda: 0.0)
+    monkeypatch.setattr(cs.random, "uniform", lambda _a, _b: 0.0)
+    sched = cs.CheckinScheduler()
+    accounts = [_full_acc(1, "a"), _full_acc(2, "b")]
+    records: list[dict[str, Any]] = []
+    checkin_calls: list[int] = []
+
+    async def _load(label: str) -> tuple[list[dict[str, Any]], dict[int, datetime]]:
+        return accounts, {}
+
+    async def _records(since: datetime) -> list[dict[str, Any]]:
+        return list(records)
+
+    async def _one(acc: dict[str, Any]) -> dict[str, Any]:
+        checkin_calls.append(acc["id"])
+        return {"ok": True, "action": "checkin"}
+
+    async def _record(aid: int, result: dict[str, Any]) -> dict[str, Any]:
+        records.append(
+            {
+                "id": len(records) + 1,
+                "account_id": aid,
+                "ok": bool(result.get("ok")),
+                "action": result.get("action"),
+                "created_at": _cn_dt(8, 8),
+            }
+        )
+        return records[-1]
+
+    monkeypatch.setattr(sched, "_load_accounts_and_cooldowns", _load)
+    monkeypatch.setattr(checkin_store, "list_records_since", _records)
+    monkeypatch.setattr(sched, "checkin_one", _one)
+    monkeypatch.setattr(sched, "record_result", _record)
+
+    await sched.run_startup_compensation(now=_cn_dt(8, 7))
+    assert sorted(checkin_calls) == [1, 2]
+    assert len(records) == 2
+
+    snap2 = await sched.run_startup_compensation(now=_cn_dt(8, 8))
+    assert sorted(checkin_calls) == [1, 2]  # 第二次零新增调用
+    assert len(records) == 2  # 第二次零新增记录
+    assert snap2["beats"][0]["decision"] == "no_pending"
+
+
+async def test_startup_compensation_does_not_run_blind_when_records_unreadable(monkeypatch):
+    """今日记录读不出来 -> 不盲补;error 日志 + status.error 明示原因。"""
+    spy = _SpyLogger()
+    monkeypatch.setattr(cs, "logger", spy)
+    monkeypatch.setattr(cs.checkin_outbound_gate, "paused_remaining", lambda: 0.0)
+    sched = cs.CheckinScheduler()
+    batches: list[str] = []
+
+    async def _load(label: str) -> tuple[list[dict[str, Any]], dict[int, datetime]]:
+        return [_full_acc(1, "a")], {}
+
+    async def _records(since: datetime) -> list[dict[str, Any]]:
+        raise RuntimeError("db down")
+
+    async def _run_batch(accs: Any, cooldowns: Any, label: str) -> dict[str, Any]:
+        batches.append(label)
+        return {}
+
+    monkeypatch.setattr(sched, "_load_accounts_and_cooldowns", _load)
+    monkeypatch.setattr(checkin_store, "list_records_since", _records)
+    monkeypatch.setattr(sched, "_run_batch", _run_batch)
+
+    snap = await sched.run_startup_compensation(now=_cn_dt(8, 7))
+    assert batches == []
+    assert snap["beats"][0]["decision"] == "records_read_failed"
+    assert "db down" in str(snap["error"])
+    assert any("db down" in msg for msg in spy.events("error"))
+
+
+async def test_start_schedules_startup_compensation_and_stop_cancels(monkeypatch):
+    """start() 安排后台补偿;stop() 取消(不留悬空任务拖住测试/重启)。"""
+    monkeypatch.setenv("CHECKIN_CRON_ENABLED", "true")
+    monkeypatch.setenv("CHECKIN_STARTUP_COMPENSATION_DELAY_SECONDS", "3600")
+    monkeypatch.setattr(cs, "AsyncIOScheduler", _FakeAsyncIOScheduler)
+    monkeypatch.setattr(cs.checkin_store, "ensure_tables", _noop_async)
+    sched = cs.CheckinScheduler()
+    monkeypatch.setattr(sched, "_restore_outbound_pause", _noop_async)
+    await sched.start()
+
+    assert sched._startup_compensation_task is not None
+    sc = sched.status()["startup_compensation"]
+    assert sc["running"] is True
+    assert sc["delay_seconds"] == 3600
+
+    await sched.stop()
+    assert sched._startup_compensation_task is None
+    assert sched.status()["startup_compensation"]["running"] is False
+
+
+async def test_start_does_not_schedule_startup_compensation_when_disabled(monkeypatch):
+    """显式关掉补偿 -> 不建后台任务(status 如实报 enabled=false)。"""
+    monkeypatch.setenv("CHECKIN_CRON_ENABLED", "true")
+    monkeypatch.setenv("CHECKIN_STARTUP_COMPENSATION_ENABLED", "false")
+    monkeypatch.setattr(cs, "AsyncIOScheduler", _FakeAsyncIOScheduler)
+    monkeypatch.setattr(cs.checkin_store, "ensure_tables", _noop_async)
+    sched = cs.CheckinScheduler()
+    monkeypatch.setattr(sched, "_restore_outbound_pause", _noop_async)
+    await sched.start()
+
+    assert sched._startup_compensation_task is None
+    assert sched.status()["startup_compensation"]["enabled"] is False
+    await sched.stop()
 
 
 # [IHUI-AI-PROVENANCE-TAIL]

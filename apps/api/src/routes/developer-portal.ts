@@ -27,6 +27,8 @@ export const developerPortalRoutes: FastifyPluginAsync = async (server) => {
       success({
         info: {
           name: 'IHUI AI Open Platform',
+          // OpenAPI 语义下的 info.version = **接口契约版本**(随 API 面变更人工升),不是本服务的构建号;
+          // 与公开状态页那枚"产品版本"分别对待(后者走 apps/api/package.json,取不到如实 null)。
           version: '1.0.0',
           apiBase: `${apiHost}/api`,
           docsUrl: `${apiHost}/docs`,

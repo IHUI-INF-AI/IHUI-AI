@@ -11,15 +11,28 @@ import streamingRecognizer from '@/utils/streaming-recognizer'
 import type { VoiceInputMinimalProps } from '@ihui/types'
 import { rpx } from '@/utils/rpx'
 
-// 共享类型 VoiceInputMinimalProps 已下沉到 @ihui/types,
-// 本地 Props 完全匹配 Minimal,直接用 type alias。
-export type VoiceInputProps = VoiceInputMinimalProps
+// 共享类型 VoiceInputMinimalProps 已下沉到 @ihui/types。
+// 识别器配置两键与 RN 端同名(aiServiceUrl/language),真实透传给 streamingRecognizer.configure。
+export type VoiceInputProps = VoiceInputMinimalProps & {
+  /** ai-service 基础 URL;缺省沿用识别器内置档,传了才覆盖 */
+  aiServiceUrl?: string
+  /** 识别语言;缺省 zh,传了才覆盖 */
+  language?: string
+  /**
+   * 是否显示清除按钮(RN 侧同名 prop,门285 存量收敛补)。
+   * RN 侧控制清除最近一次语音结果的按钮;小程序侧暂未实现清除 UI,
+   * 本 prop 仅作接口对齐保留,功能接线为后手。
+   */
+  showClear?: boolean
+}
 
 const WAVE_BARS = [0, 1, 2, 3, 4, 5, 6]
 
 export default function VoiceInput({
   disabled = false,
   placeholder,
+  aiServiceUrl,
+  language,
   onChange,
   onComplete,
   onError,
@@ -33,6 +46,10 @@ export default function VoiceInput({
   // 使用 ref 避免回调变更导致重复注册
   const cbRef = useRef({ onChange, onComplete, onError })
   cbRef.current = { onChange, onComplete, onError }
+
+  useEffect(() => {
+    streamingRecognizer.configure({ aiServiceUrl, language })
+  }, [aiServiceUrl, language])
 
   useEffect(() => {
     streamingRecognizer.on('partial', (text) => {

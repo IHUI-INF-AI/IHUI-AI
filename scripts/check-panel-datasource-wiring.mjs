@@ -37,6 +37,16 @@
  * Loki 配置给它背书等于放死配置过关(2026-10-17 实测:agent-runtime.json 8 处
  * 小写 "prometheus" 全部悬空,大屏静静显示 Datasource not found)。
  *
+ * 退役记录(2026-11-04,自检 S5b 整门红的根因):
+ *   legacy 三棵 `<root>/grafana/dashboards` 树是**该退役的旧约定**,已按契约删除。
+ *   a7ced7411c 曾用 R100 把它们搬进 panel-defs(内容即真相面),但随后索引层重建
+ *   26975a4bfd 把整批旧路径带回,盘面于是同时存在新旧两份。旧份已陈旧 ——
+ *   缺 visitor-bot 盘、还留着 741338179d 判死的 jaeger/nginx 两盘,12 份内容也与
+ *   生成器新产物分叉。S5b 报的是这份残留:**不是夹具错,也不是判据错**。
+ *   处置只有一条:退役旧树(删除 + deploy/saas compose 挂点改 panel-defs),
+ *   既不登记进 DASHBOARD_TREES(那会让陈旧副本继续参与对账),也不进豁免名单
+ *   (那等于默许它下次复活)。镜像测试 D13 是这条退役的锁。
+ *
  * 判定面取材(2026-10-17 收口,本案自带教训):
  *   全量档 = HEAD blob、`--staged` = **索引 blob**、`--worktree` = 磁盘(人工逃生舱)。
  *   本文件一律经 `scripts/lib/face-reader.mjs` 取材,不自己派生 git 取 blob 正文
