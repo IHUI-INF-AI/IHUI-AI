@@ -99,6 +99,9 @@ import {
   SIGNATURE_REQUIRED_KEY,
   SIG_TRAILER,
   SIG_VERSION,
+  SIG_VERSION_V2,
+  SIG_VERSION_CURRENT,
+  sigBaseOf,
   UNSIGNED_LEDGER_REL,
   decide,
   parseGuardList,
@@ -109,11 +112,13 @@ import {
   matchProtected,
   globToRegExp,
   signExemption,
+  signExemptionV2,
   subjectOf,
   todayStr,
   verifyExemption,
   judgeChanges,
   exemptPayload,
+  exemptPayloadV2,
   ACK_LEDGER_REL,
   FULL_SHA_RE,
   signAck,
@@ -142,11 +147,15 @@ export const RECORD_REL = '.ihui-agent/state/immutable-guard-exemptions.jsonl'
 export const SIG_ISSUE_REL = '.ihui-agent/state/immutable-guard-sig-issues.jsonl'
 
 /** 签发留痕：写失败只回传 null，不影响签发本身（留痕是帮助，不是判定输入）。 */
-function recordSigIssue(root, { subject, paths, reason, sig }) {
+function recordSigIssue(root, { subject, paths, reason, sig, base = null, blobs = null }) {
   try {
     const abs = path.join(root, SIG_ISSUE_REL)
     mkdirSync(path.dirname(abs), { recursive: true })
-    appendFileSync(abs, `${JSON.stringify({ at: new Date().toISOString(), subject, paths, reason, sig })}\n`, 'utf8')
+    appendFileSync(
+      abs,
+      `${JSON.stringify({ at: new Date().toISOString(), subject, paths, reason, sig, base, blobs })}\n`,
+      'utf8',
+    )
     return SIG_ISSUE_REL
   } catch {
     return null
@@ -178,6 +187,39 @@ export function findSigIssue(root, sigs) {
     if (o && want.has(String(o.sig))) hit = o
   }
   return hit
+}
+
+/**
+ * 把"验签失败"按**签发时的三样东西**逐格比对，点名到底是哪一格变了：
+ *   `subject` 变 ⇒ **上游消息污染**（多会话共用 `.git/COMMIT_EDITMSG`，标题来自别席），
+ *              这不是本判据的缺陷，也**不据此放宽标题绑定**；
+ *   `paths`   变 ⇒ 路径集漂移（v1 的 HEAD 前移假红 / 索引内容真被改），v2 已钉 base 应能挡住前者；
+ *   `blobs`   变 ⇒ 路径没变但内容被换（v1 结构上就看不见这一格）。
+ * 三格都同而签名仍不过 ⇒ 密钥不对或抄了别处的签名（归 `key-mismatch`）。
+ * 这是**判别器**，不是判定器：返回值只进报告，不参与 exit code。
+ */
+export function decomposeSigMismatch(issued, actual) {
+  const iPaths = [...new Set((issued?.paths ?? []).map((p) => normalizeRel(p)))].sort()
+  const aPaths = [...new Set((actual?.paths ?? []).map((p) => normalizeRel(p)))].sort()
+  const paths = iPaths.length !== aPaths.length || iPaths.some((p, i) => p !== aPaths[i])
+  const subject = String(issued?.subject ?? '').trim() !== String(actual?.subject ?? '').trim()
+  let blobs = false
+  const iBlobs = issued?.blobs && typeof issued.blobs === 'object' ? issued.blobs : null
+  if (iBlobs && !paths) {
+    for (const p of iPaths) {
+      if (String(iBlobs[p] ?? '') !== String(actual?.blobs?.[p] ?? '')) {
+        blobs = true
+        break
+      }
+    }
+  }
+  let cause
+  if (subject && !paths && !blobs) cause = 'subject-polluted'
+  else if (!subject && paths) cause = 'path-set-drift'
+  else if (!subject && !paths && blobs) cause = 'blob-drift'
+  else if (subject && paths) cause = 'subject-and-paths'
+  else cause = 'key-or-signature-mismatch'
+  return { subject, paths, blobs, cause, issuedPaths: iPaths, actualPaths: aPaths }
 }
 
 /**
@@ -213,6 +255,21 @@ function ackShaOf(root, face, rev) {
 }
 
 /**
+ * 该 sha 是否已进 `origin/main`（a1 历史兼容的唯一边界）。
+ * 已入库 ⇒ 历史改不动、也不会再进推送区间 ⇒ 旧 a1 追认只在这一档保留；
+ * 本地枚（待推的那些）⇒ false，必须走 a2 独立追认。取不到 origin/main ⇒ false（fail-closed）。
+ */
+function isOnOriginMain(root, sha) {
+  if (!FULL_SHA_RE.test(String(sha ?? ''))) return false
+  try {
+    gitRaw(['merge-base', '--is-ancestor', String(sha), 'origin/main'], root)
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
  * 验签密钥的三个来源（优先级从高到低），全部**在提交者可控范围之外**才有意义：
  *   `IHUI_IMMUTABLE_GUARD_KEY`       CI / 机主直接注入的密钥串（最高优先，CI 的唯一推荐形态）；
  *   `IHUI_IMMUTABLE_GUARD_KEY_FILE`  CI / 机主注入的密钥文件路径；
@@ -226,10 +283,17 @@ export const KEY_FILE_ENV = 'IHUI_IMMUTABLE_GUARD_KEY_FILE'
 export const KEY_CONFIG = 'ihui.immutableGuardKeyPath'
 
 /**
- * 解析验签密钥。返回 `{key, source, why}`；`key === null` 表示"取不到可用密钥"。
- * 只回传来源**标签**，绝不把密钥本身写进任何输出（台账/JSON/告警都不带它）。
+ * 独立追认密钥（2026-11-04 立，治"作者自认"）：追认用的是**另一把**钥，与提交签名钥分档。
+ * 同一个 agent 会话既写提交又写追认行 = 自己给自己补豁免，把"他方追认"退化成一句自由文本；
+ * 所以两把钥指纹相同 ⇒ `ack-self-key` 直接拒，缺钥 ⇒ `ack-key-unavailable` fail-closed。
+ * 来源与提交钥同一套三档，但**三项都换名**（避免 CI 只注入一把钥时被静默复用）。
  */
-export function resolveSigningKey(root, env = process.env) {
+export const ACK_KEY_ENV = 'IHUI_IMMUTABLE_GUARD_ACK_KEY'
+export const ACK_KEY_FILE_ENV = 'IHUI_IMMUTABLE_GUARD_ACK_KEY_FILE'
+export const ACK_KEY_CONFIG = 'ihui.immutableGuardAckKeyPath'
+
+/** 按三源解析一把密钥；返回 `{key, source, why}`，`key===null` = 取不到可用密钥。 */
+function resolveKeyBySources(root, env, { envName, fileEnvName, configName, role }) {
   const accept = (raw, source) => {
     const k = String(raw ?? '').trim()
     if (k.length < MIN_KEY_CHARS) {
@@ -237,8 +301,8 @@ export function resolveSigningKey(root, env = process.env) {
     }
     return { key: k, source, why: '' }
   }
-  const direct = String(env[KEY_ENV] ?? '').trim()
-  if (direct) return accept(direct, KEY_ENV)
+  const direct = String(env[envName] ?? '').trim()
+  if (direct) return accept(direct, envName)
   const fromFile = (file, source) => {
     try {
       const abs = path.isAbsolute(file) ? file : path.join(root, file)
@@ -247,20 +311,43 @@ export function resolveSigningKey(root, env = process.env) {
       return { key: null, source, why: `${source} 指向的密钥文件读不到（${file}）：${e?.message ?? e}` }
     }
   }
-  const envFile = String(env[KEY_FILE_ENV] ?? '').trim()
-  if (envFile) return fromFile(envFile, KEY_FILE_ENV)
+  const envFile = String(env[fileEnvName] ?? '').trim()
+  if (envFile) return fromFile(envFile, fileEnvName)
   let configured = ''
   try {
-    configured = String(gitRaw(['config', '--get', KEY_CONFIG], root)).trim()
+    configured = String(gitRaw(['config', '--get', configName], root)).trim()
   } catch {
     configured = ''
   }
-  if (configured) return fromFile(configured, `git config ${KEY_CONFIG}`)
+  if (configured) return fromFile(configured, `git config ${configName}`)
   return {
     key: null,
     source: '',
-    why: `密钥不存在（${KEY_ENV} / ${KEY_FILE_ENV} / git config ${KEY_CONFIG} 均未提供 ⇒ 按无签名 fail-closed 处理）`,
+    why: `密钥不存在（${envName} / ${fileEnvName} / git config ${configName} 均未提供 ⇒ ${role}按无钥 fail-closed 处理）`,
   }
+}
+
+/**
+ * 解析验签密钥。返回 `{key, source, why}`；`key === null` 表示"取不到可用密钥"。
+ * 只回传来源**标签**，绝不把密钥本身写进任何输出（台账/JSON/告警都不带它）。
+ */
+export function resolveSigningKey(root, env = process.env) {
+  return resolveKeyBySources(root, env, {
+    envName: KEY_ENV,
+    fileEnvName: KEY_FILE_ENV,
+    configName: KEY_CONFIG,
+    role: '',
+  })
+}
+
+/** 解析独立追认密钥（与提交签名密钥必须是两把，判同一把在 `lookupAck` / `ackCommit` 里做）。 */
+export function resolveAckKey(root, env = process.env) {
+  return resolveKeyBySources(root, env, {
+    envName: ACK_KEY_ENV,
+    fileEnvName: ACK_KEY_FILE_ENV,
+    configName: ACK_KEY_CONFIG,
+    role: '独立追认钥',
+  })
 }
 
 /**
@@ -315,6 +402,52 @@ export function listFaceChanges(root, face, rev = 'HEAD') {
   }
 }
 
+/**
+ * 按签名自己钉住的 base 重放索引差异集（v2 专用，只对 staged 面有意义）。
+ * `git diff --cached <base>` 比的是**索引 vs 那枚旧提交的树**，与当前 HEAD 无关；
+ * HEAD 被别席推进时这个面不变，所以合法提交不会再被"多出来的他席条目"顶成 sig-invalid。
+ * base 解析不到 / git 失败 ⇒ null（调用方回落当前面，并在读数里点名，不静默当成"面为空"）。
+ * @returns {Array<{path:string,status:string,entry:object}>|null}
+ */
+export function stagedHitsAt(root, entries, base, today = todayStr()) {
+  if (!FULL_SHA_RE.test(String(base ?? ''))) return null
+  try {
+    const changes = parseNameStatusZ(gitRaw(['diff', '--cached', '--name-status', '-M', '-z', base], root))
+    return judgeChanges({ changes, entries, message: '', today }).hits
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 命中路径的**内容号**（v2 载荷里的 blob）。与判定同面同轮：
+ *   staged  → `:path`（索引条目）；head → `rev:path`（该提交树里的条目）；
+ *   worktree→ `hash-object`（工作树字节；人工逃生舱档）。
+ * 取不到（路径被删 / 新建未入索引 / 旧 base 树里没有）⇒ 空串；空串本身就是"这一格没有内容号"，
+ * 不会被当成某个真实 blob。
+ */
+export function blobMapFor(root, face, rev, paths) {
+  const map = {}
+  for (const rel of new Set((Array.isArray(paths) ? paths : []).map((p) => normalizeRel(p)))) {
+    if (!rel) continue
+    try {
+      const arg = face === 'staged' ? `:${rel}` : face === 'worktree' ? null : `${rev}:${rel}`
+      const out =
+        arg === null
+          ? gitRaw(['hash-object', '--', rel], root)
+          : gitRaw(['rev-parse', '--verify', arg], root)
+      map[rel] = String(out ?? '').trim()
+    } catch {
+      map[rel] = ''
+    }
+  }
+  return map
+}
+
+function normalizeRel(p) {
+  return String(p ?? '').replaceAll('\\', '/').replace(/^\.\//, '')
+}
+
 function readHeadMessage(root, rev = 'HEAD') {
   return gitRaw(['log', '-1', '--format=%B', rev], root)
 }
@@ -333,13 +466,19 @@ function readHeadMessage(root, rev = 'HEAD') {
  *   push 门给区间基点（origin/main）：被审者无法在自己提交里删掉/推后 `signatureRequiredFrom`
  *   来给自己放行；命中面 entries 仍取被审提交自己的清单（新增登记对当枚即生效）。
  */
-export function runAudit(root, face, { message = undefined, today = todayStr(), record = false, rev = 'HEAD', policyRev = null, key = undefined, ackRows = [] } = {}) {
+export function runAudit(root, face, { message = undefined, today = todayStr(), record = false, rev = 'HEAD', policyRev = null, key = undefined, ackKey = undefined, ackRows = [] } = {}) {
   const keyRes =
     key === undefined
       ? resolveSigningKey(root)
       : key === null
         ? { key: null, source: '', why: '密钥不存在（调用方显式置空 ⇒ 按 fail-closed 处理）' }
         : { key: String(key), source: 'caller', why: '' }
+  const ackKeyRes =
+    ackKey === undefined
+      ? resolveAckKey(root)
+      : ackKey === null
+        ? { key: null, source: '', why: '独立追认密钥不存在（调用方显式置空 ⇒ 按 fail-closed 处理）' }
+        : { key: String(ackKey), source: 'caller', why: '' }
   const baseOut = {
     face,
     rev,
@@ -413,6 +552,31 @@ export function runAudit(root, face, { message = undefined, today = todayStr(), 
     }
   }
 
+  // v2 签名的取数面：按签名自己钉住的 base 重放 staged 差异集，并取命中路径的内容号。
+  // 只对 staged 面做——head 面的差异集是 `rev^..rev`（提交自己那一轮，天然稳定），
+  // worktree 面不参与签名豁免的强制。
+  const primaryJudged = judgeChanges({ changes, entries: parsed.entries, message: '', today })
+  const blobPaths = new Set(primaryJudged.hits.map((h) => h.path))
+  let hitsByBase = null
+  if (typeof msg === 'string') {
+    const bases = new Set(parseSigTrailer(msg).sigs.map((s) => sigBaseOf(s)).filter(Boolean))
+    if (face === 'staged' && bases.size) {
+      hitsByBase = {}
+      for (const b of bases) {
+        const alt = stagedHitsAt(root, parsed.entries, b, today)
+        if (alt) {
+          hitsByBase[b] = alt
+          for (const h of alt) blobPaths.add(h.path)
+        }
+      }
+    }
+  }
+  const blobs = blobMapFor(root, face, rev, [...blobPaths])
+
+  const ackSha = ackShaOf(root, face, rev)
+  // a1 只对 origin/main 已入库枚保留：那些枚改不动历史、也不会再进推送区间；
+  // 本地枚（区间里待推的那些）必须用 a2 独立追认，否则"作者拿提交钥自签一行"照样洗白。
+  const legacyA1 = Boolean(ackSha && isOnOriginMain(root, ackSha))
   const out = decide({
     listProblems: parsed.problems,
     entries: parsed.entries,
@@ -424,7 +588,11 @@ export function runAudit(root, face, { message = undefined, today = todayStr(), 
     // 追认台账只在 face='head' 且能解析出 40 位 sha 时才问得到；--staged/--worktree 两档结构上
     // 还没有"被追认的那一枚"，传空数组即保持原语义(不是放宽，是无输入)。
     ackRows,
-    sha: ackShaOf(root, face, rev),
+    sha: ackSha,
+    ackKey: ackKeyRes.key,
+    legacyA1,
+    hitsByBase,
+    blobs,
   })
   const result = {
     ...baseOut,
@@ -438,11 +606,19 @@ export function runAudit(root, face, { message = undefined, today = todayStr(), 
   if (record && out.code === 'declared') {
     result.recorded = recordExemption(root, result)
   }
-  // 有签名行却验不过 ⇒ 回查签发台账,把"当时签给了哪个标题/哪批路径"摊开。
+  // 有签名行却验不过 ⇒ 回查签发台账,把"当时签给了哪个标题/哪批路径/哪份内容"摊开，
+  // 并**分角**点名到底是①标题、②路径集、③blob，各自成因不同（标题那支是上游消息污染）。
   // 只加线索,不改判定(判红仍判红),取不到就不印——绝不拿猜测冒充成因。
   if (out.code === 'undeclared-unsigned' && out.signature?.code === 'sig-invalid' && typeof msg === 'string') {
     const issued = findSigIssue(root, parseSigTrailer(msg).sigs)
-    if (issued) result.sigIssuedFor = { subject: issued.subject, paths: issued.paths, at: issued.at }
+    if (issued) {
+      result.sigIssuedFor = { subject: issued.subject, paths: issued.paths, at: issued.at, base: issued.base ?? null }
+      result.sigMismatch = decomposeSigMismatch(issued, {
+        subject: subjectOf(msg),
+        paths: out.hits.map((h) => h.path),
+        blobs,
+      })
+    }
   }
   // 「无签名豁免」台账**无条件**写（不依赖 --record）：迁移窗口内的旧语义通过必须留下可审计的痕迹，
   // 否则它和现状一样是完全静默的。写失败只回传原因，不改判定（漏记一条 ≠ 改动没发生，但必须可见）。
@@ -521,7 +697,7 @@ export function formatReport(out) {
       lines.push(`      签名状态：${out.signature.code}；密钥来源：${out.keySource || '(无)'}`)
       if (out.keyWhy) lines.push(`      密钥：${out.keyWhy}`)
       lines.push(`      已记台账：${out.unsignedRecorded || UNSIGNED_LEDGER_REL}`)
-      lines.push(`      补签：${SIG_TRAILER} ${SIG_VERSION}:<hex>（签发命令见 --help 的 --sign-staged）`)
+      lines.push(`      补签：${SIG_TRAILER} ${SIG_VERSION_CURRENT}:<base40>:<hex>（签发命令见 --help 的 --sign-staged）`)
     }
   } else if (out.exit === 1) {
     lines.push(`❌ ${head} ${CODE_LABEL[out.code]}`)
@@ -546,14 +722,34 @@ export function formatReport(out) {
       if (out.sigIssuedFor)
         lines.push(
           `   签发对照：这条签名是为标题「${out.sigIssuedFor.subject}」/ ${out.sigIssuedFor.paths.length} 枚路径（${out.sigIssuedFor.paths.join(',')}）签的（${out.sigIssuedFor.at}）` +
-            ` ⇒ 与实际标题/路径集不一致；载荷绑标题，改过标题或换过暂存集都会毁签。`,
+            `${out.sigIssuedFor.base ? `，base ${String(out.sigIssuedFor.base).slice(0, 12)}` : ''} ⇒ 与实际标题/路径集不一致；载荷绑标题，改过标题或换过暂存集都会毁签。`,
         )
+      if (out.sigMismatch) {
+        const m = out.sigMismatch
+        lines.push(
+          `   逐格判别：标题${m.subject ? '不一致' : '一致'} / 路径集${m.paths ? '不一致' : '一致'} / 内容 ${m.blobs ? '不一致' : '一致'} ⇒ 成因 ${m.cause}`,
+        )
+        if (m.cause === 'subject-polluted')
+          lines.push(
+            '     · 标题那一格不一致而路径集与内容一致 ⇒ **上游消息污染**：多会话共用 `.git/COMMIT_EDITMSG`，标题取自别席。' +
+              '这只推翻"标题绑定"，不推翻签名语义——本判据**不放宽**标题；治本在提交侧（私有消息文件 + 提交后回读自证），修好后本条判据仍照旧生效。' +
+              '可执行自查：把你写到消息文件的标题与 `git log -1 --format=%s <sha>` 直接对照。',
+          )
+        else if (m.cause === 'path-set-drift')
+          lines.push(
+            '     · 标题一致而路径集不一致 ⇒ 索引侧变了：v2 已按签名钉住的 base 重放差异集，若仍不一致，说明暂存内容真的多/少了受保护路径（不是 HEAD 前移的假红）。',
+          )
+        else if (m.cause === 'blob-drift')
+          lines.push(
+            '     · 路径集不变而内容号变了 ⇒ 同一路径被换内容（可能是 pre-commit 格式化改写了文件）：以最终提交的字节重新 --sign-staged，不要跳过签名。',
+          )
+      }
       // 两句"为什么"分档给:上一句把 sig-invalid 也说成"窗口到期"是**会指错方向**的成因
       // (作者会去补理由,而真因只是签早了/签错了范围)。
       lines.push(
         out.signature.code === 'sig-invalid' || out.signature.code === 'key-unavailable'
           ? `   为什么判红：消息里带了 \`${SIG_TRAILER}\` 行但**验不过**（标题/路径集/理由与签发那一刻不一致，或密钥不是那一把）——不是"没签名"，也不是窗口到期。`
-          : `   为什么判红：迁移窗口已于 ${out.signatureRequiredFrom ?? '(未设置)'} 到期 —— 仅文字理由不再放行，必须补 ${SIG_TRAILER} ${SIG_VERSION}:<hex> 签名。`,
+          : `   为什么判红：迁移窗口已于 ${out.signatureRequiredFrom ?? '(未设置)'} 到期 —— 仅文字理由不再放行，必须补 ${SIG_TRAILER} ${SIG_VERSION_CURRENT}:<base40>:<hex> 签名。`,
       )
       lines.push(
         `   怎么合法改：先 \`node scripts/check-immutable-guard.mjs --sign-staged --subject "<提交标题>" --reason "<与 immutable-exempt 同一句理由>" [--paths <a,b,c>]\` 生成签名行，再提交；密钥须由 CI/机主注入（${KEY_ENV} 或 git config ${KEY_CONFIG}）。`,
@@ -924,6 +1120,12 @@ export function formatAuditReport(out) {
         `     · 签发对照：那条签名是为标题「${b.sigIssuedFor.subject}」/ ${b.sigIssuedFor.paths.length} 枚路径（${b.sigIssuedFor.paths.join(',')}）签的，` +
           `与本页实际（标题「${b.subject}」）不一致 ⇒ **出路是重签一次，不是补理由、更不是跳门**`,
       )
+    if (b.sigMismatch) {
+      const m = b.sigMismatch
+      lines.push(`     · 逐格判别：标题${m.subject ? '不一致' : '一致'} / 路径集${m.paths ? '不一致' : '一致'} / 内容 ${m.blobs ? '不一致' : '一致'} ⇒ 成因 ${m.cause}`)
+      if (m.cause === 'subject-polluted')
+        lines.push('       - 标题那格单独不一致 ⇒ 上游消息污染（`.git/COMMIT_EDITMSG` 被并发覆盖），不是本判据过宽；标题绑定不放宽，治本在提交侧。')
+    }
   }
   for (const u of unsigned) {
     lines.push(`   ⚠️ ${u.sha}「${u.subject}」无签名豁免（${u.signatureCode}；窗口至 ${u.windowUntil}）`)
@@ -989,6 +1191,8 @@ function seedRepo(guardJson) {
 /** 自检夹具密钥（≥ MIN_KEY_CHARS；只在 scratch 仓里用，与机主真钥无关）。 */
 const ST_KEY = 'immutable-guard-self-test-key-0123456789abcdef'
 const ST_KEY_OTHER = 'immutable-guard-self-test-other-key-0123456789'
+/** 独立追认夹具钥：与上面两把都不同（a2 追认只认这一把，等于"另一个主体"）。 */
+const ST_ACK_KEY = 'immutable-guard-self-test-ack-key-0123456789abcdef'
 
 /** 造一条"理由 + 正确签名"的提交信息（签名绑定标题/命中路径/理由，与验签侧同一 payload）。 */
 function signedMessage(subject, reason, hits, key = ST_KEY) {
@@ -1035,7 +1239,8 @@ export function selfTest() {
   }
   const audit = (root, face = 'head', opts = {}) => {
     try {
-      return runAudit(root, face, opts)
+      // 追认钥默认走"另一个主体"的夹具钥；用例要测缺钥/同钥时显式覆盖。
+      return runAudit(root, face, { ackKey: ST_ACK_KEY, ...opts })
     } catch (e) {
       return { exit: 99, code: 'threw', detail: e?.message ?? String(e) }
     }
@@ -1431,7 +1636,7 @@ export function selfTest() {
   /** 造一条合法追认行（命中面由护栏自己算，这里只补签名与到期）。 */
   const ackRowFor = (sha, paths, reason = '事后逐枚具名补说明，覆盖面与命中一致', opts = {}) => {
     const row = { sha, paths, reason, ackedBy: opts.ackedBy ?? 'selftest', ackedAt: '2026-11-04T00:00:00.000Z', expires: opts.expires ?? '2099-01-01' }
-    return { ...row, sig: signAck({ sha, paths, reason, key: opts.key ?? ST_KEY }) }
+    return { ...row, sig: signAck({ sha, paths, reason, ackedBy: row.ackedBy, key: opts.key ?? ST_ACK_KEY }) }
   }
 
   // ST32 反向基准：未声明且无追认 ⇒ 照旧红（新增档不许把默认方向放松一格）
@@ -1520,11 +1725,13 @@ export function selfTest() {
     // range/巡检两档的密钥只走**正式三源**(不接 key 注入参数)——自检用 env 那一档把夹具钥递进去,
     // 与本仓真钥同一条路径,不许为了测试开后门。
     process.env[KEY_ENV] = ST_KEY
+    process.env[ACK_KEY_ENV] = ST_ACK_KEY
     let after
     try {
       after = auditRange(root, { range: `${base}..${sha}`, today: '2026-11-04' })
     } finally {
       delete process.env[KEY_ENV]
+      delete process.env[ACK_KEY_ENV]
     }
     ok(
       'ST38 range 先红 ⇒ 追认进仓后同区间 clean（追认只从**已提交面**取，工作树塞行不生效）',
@@ -1630,6 +1837,185 @@ export function selfTest() {
     })
   })
 
+  // ST42 ① HEAD 在"签发 → 验签"之间前移：v2（钉 base + blob）必须仍放行；
+  // 同场用 v1 旧语义做**基线对照**，必须红——两支都在，才证明"修的是取数面，不是放宽判据"。
+  run((root) => {
+    const reason = 'HEAD 前移不改变本席声明面（v2 把取数面钉在签发那一刻）'
+    const subject = 'fix: keep staged signature valid across HEAD advance'
+    const ours = 'scripts/lib/face-reader.mjs'
+    const theirs = 'scripts/guardian-runner.mjs'
+    const idx = path.join(root, '.git', 'st-index')
+    let outV2
+    let outV1
+    let signedBase = ''
+    try {
+      writeIn(root, ours, '// ours\n')
+      process.env.GIT_INDEX_FILE = idx
+      gitRaw(['read-tree', 'HEAD'], root)
+      gitRaw(['add', '--', ours], root)
+      process.env[KEY_ENV] = ST_KEY
+      const signed = signStaged(root, { subject, reason, paths: [ours] })
+      signedBase = signed.base
+      const msgV2 = `${subject}\n\n${EXEMPT_TRAILER} ${reason}\n${SIG_TRAILER} ${signed.sig}`
+      // 旧语义基线：v1 载荷只有 {标题, 路径集, 理由}，取数面是"相对当前 HEAD 的差异集"。
+      const entries = parseGuardList(guardJson).entries
+      const judged = judgeChanges({ changes: [{ status: 'M', path: ours }], entries, message: '', today: todayStr() })
+      const v1 = signExemption({ subject, hits: judged.hits, reason, key: ST_KEY })
+      const msgV1 = `${subject}\n\n${EXEMPT_TRAILER} ${reason}\n${SIG_TRAILER} ${v1}`
+      // 别席推进 HEAD（改另一条受保护路径），**不碰**本席私有索引。
+      delete process.env.GIT_INDEX_FILE
+      writeIn(root, theirs, '// theirs\n')
+      gitRaw(['add', '--', theirs], root)
+      gitRaw(['commit', '--no-verify', '-F', '-'], root, { input: 'chore: 别席推进 HEAD' })
+      process.env.GIT_INDEX_FILE = idx
+      outV2 = audit(root, 'staged', { message: msgV2, key: ST_KEY })
+      outV1 = audit(root, 'staged', { message: msgV1, key: ST_KEY })
+    } finally {
+      delete process.env[KEY_ENV]
+      delete process.env.GIT_INDEX_FILE
+    }
+    ok(
+      'ST42 ① HEAD 前移（签发→验签之间）⇒ v2 仍 declared，且 v1 基线同场必红',
+      outV2.exit === 0 &&
+        outV2.code === 'declared' &&
+        outV2.signature.code === 'sig-verified' &&
+        outV2.signature.matchedBase === signedBase &&
+        outV2.foreignHits.includes(theirs) &&
+        outV1.exit === 1 &&
+        outV1.code === 'undeclared-unsigned' &&
+        outV1.signature.code === 'sig-invalid',
+      JSON.stringify({
+        v2: { exit: outV2.exit, code: outV2.code, sig: outV2.signature?.code, base: outV2.signature?.matchedBase ?? null, foreign: outV2.foreignHits ?? [] },
+        v1: { exit: outV1.exit, code: outV1.code, sig: outV1.signature?.code, cause: outV1.sigMismatch?.cause ?? null },
+      }),
+    )
+  })
+
+  // ST43 ② 路径集被真实篡改（同一 base、无 HEAD 前移，偷偷多暂存一条受保护路径）⇒ 必须拒。
+  run((root) => {
+    const reason = '路径集篡改的反例：多一条未声明受保护路径'
+    const subject = 'fix: path set tamper must fail'
+    const ours = 'scripts/lib/face-reader.mjs'
+    const extra = 'scripts/guardian-runner.mjs'
+    const idx = path.join(root, '.git', 'st-index')
+    let out
+    try {
+      writeIn(root, ours, '// ours\n')
+      writeIn(root, extra, '// extra\n')
+      process.env.GIT_INDEX_FILE = idx
+      gitRaw(['read-tree', 'HEAD'], root)
+      gitRaw(['add', '--', ours], root)
+      process.env[KEY_ENV] = ST_KEY
+      const signed = signStaged(root, { subject, reason, paths: [ours] })
+      const msg = `${subject}\n\n${EXEMPT_TRAILER} ${reason}\n${SIG_TRAILER} ${signed.sig}`
+      gitRaw(['add', '--', extra], root) // 签完之后私塞
+      out = audit(root, 'staged', { message: msg, key: ST_KEY })
+    } finally {
+      delete process.env[KEY_ENV]
+      delete process.env.GIT_INDEX_FILE
+    }
+    ok(
+      'ST43 ② 路径集被真实篡改 ⇒ 仍 exit 1 / sig-invalid，且逐格判别名 paths 不一致',
+      out.exit === 1 && out.code === 'undeclared-unsigned' && out.signature.code === 'sig-invalid' && out.sigMismatch?.paths === true,
+      JSON.stringify({ exit: out.exit, code: out.code, sig: out.signature?.code, mismatch: out.sigMismatch ?? null }),
+    )
+  })
+
+  // ST44 ② 同一路径内容被换（路径集不变）⇒ v2 的 blob 硬断言必须拒；v1 结构上看不见这一格。
+  run((root) => {
+    const reason = 'blob 篡改的反例：路径不变、内容被换'
+    const subject = 'fix: content tamper must fail'
+    const ours = 'scripts/lib/face-reader.mjs'
+    const idx = path.join(root, '.git', 'st-index')
+    let out
+    try {
+      writeIn(root, ours, '// signed content\n')
+      process.env.GIT_INDEX_FILE = idx
+      gitRaw(['read-tree', 'HEAD'], root)
+      gitRaw(['add', '--', ours], root)
+      process.env[KEY_ENV] = ST_KEY
+      const signed = signStaged(root, { subject, reason, paths: [ours] })
+      const msg = `${subject}\n\n${EXEMPT_TRAILER} ${reason}\n${SIG_TRAILER} ${signed.sig}`
+      writeIn(root, ours, '// swapped after signing\n')
+      gitRaw(['add', '--', ours], root)
+      out = audit(root, 'staged', { message: msg, key: ST_KEY })
+    } finally {
+      delete process.env[KEY_ENV]
+      delete process.env.GIT_INDEX_FILE
+    }
+    ok(
+      'ST44 ② 路径集不变而内容被换 ⇒ exit 1 / sig-invalid，且逐格判别名 blobs 不一致',
+      out.exit === 1 && out.code === 'undeclared-unsigned' && out.signature.code === 'sig-invalid' && out.sigMismatch?.blobs === true,
+      JSON.stringify({ exit: out.exit, code: out.code, sig: out.signature?.code, mismatch: out.sigMismatch ?? null }),
+    )
+  })
+
+  // ST45 自认：a2 追认行拿**提交签名钥**签（同一把）⇒ 不算他方追认，红不变。
+  run((root) => {
+    writeIn(root, 'scripts/lib/face-reader.mjs', '// changed\n')
+    commitAll(root, 'refactor: silent self ack')
+    const sha = String(gitRaw(['rev-parse', 'HEAD'], root)).trim()
+    const rows = [ackRowFor(sha, ['scripts/lib/face-reader.mjs'], '作者拿自己的提交钥给自己补一行', { key: ST_KEY })]
+    const out = audit(root, 'head', { key: ST_KEY, ackRows: rows, ackKey: ST_KEY })
+    ok(
+      'ST45 追认钥 == 提交签名钥 ⇒ 仍 exit 1 且点名 ack-self-key（自认不等于他方追认）',
+      out.exit === 1 && out.code === 'undeclared' && out.ack && out.ack.code === 'ack-self-key',
+      JSON.stringify({ exit: out.exit, code: out.code, ack: out.ack && out.ack.code }),
+    )
+  })
+
+  // ST46 缺独立追认钥 ⇒ fail-closed（绝不拿提交钥顶替，也绝不"没钥就放行"）。
+  run((root) => {
+    writeIn(root, 'scripts/lib/face-reader.mjs', '// changed\n')
+    commitAll(root, 'refactor: silent missing ack key')
+    const sha = String(gitRaw(['rev-parse', 'HEAD'], root)).trim()
+    const rows = [ackRowFor(sha, ['scripts/lib/face-reader.mjs'])]
+    const out = audit(root, 'head', { key: ST_KEY, ackRows: rows, ackKey: null })
+    ok(
+      'ST46 独立追认钥不可得 ⇒ 仍 exit 1 且点名 ack-key-unavailable（fail-closed）',
+      out.exit === 1 && out.code === 'undeclared' && out.ack && out.ack.code === 'ack-key-unavailable',
+      JSON.stringify({ exit: out.exit, code: out.code, ack: out.ack && out.ack.code }),
+    )
+  })
+
+  // ST47 a1 旧行只对 origin/main 已入库枚保留：本地枚（scratch 仓）一律拒——
+  // 这一条是"作者自签一行洗白本地红"那条洞的封口。
+  run((root) => {
+    writeIn(root, 'scripts/lib/face-reader.mjs', '// changed\n')
+    commitAll(root, 'refactor: silent legacy a1')
+    const sha = String(gitRaw(['rev-parse', 'HEAD'], root)).trim()
+    const legacy = {
+      sha,
+      paths: ['scripts/lib/face-reader.mjs'],
+      reason: '旧 a1 自认行，本地枚不得再靠它洗白',
+      ackedBy: 'self',
+      ackedAt: '2026-11-04T00:00:00.000Z',
+      expires: '2099-01-01',
+      sig: `a1:${'0'.repeat(64)}`,
+    }
+    const out = audit(root, 'head', { key: ST_KEY, ackRows: [legacy] })
+    ok(
+      'ST47 本地枚 + a1 旧行 ⇒ 仍 exit 1 且点名 ack-legacy-retired（a1 只留 origin/main）',
+      out.exit === 1 && out.code === 'undeclared' && out.ack && out.ack.code === 'ack-legacy-retired',
+      JSON.stringify({ exit: out.exit, code: out.code, ack: out.ack && out.ack.code }),
+    )
+  })
+
+  // ST48 署名被改 ⇒ a2 签名必验不过（ackedBy 在载荷里，不再是一句自由文本）。
+  run((root) => {
+    writeIn(root, 'scripts/lib/face-reader.mjs', '// changed\n')
+    commitAll(root, 'refactor: ackedBy tamper')
+    const sha = String(gitRaw(['rev-parse', 'HEAD'], root)).trim()
+    const row = ackRowFor(sha, ['scripts/lib/face-reader.mjs'], '签名后把署名改成别人不算数', { ackedBy: '作者本人' })
+    const tampered = { ...row, ackedBy: '独立复核人' }
+    const out = audit(root, 'head', { key: ST_KEY, ackRows: [tampered] })
+    ok(
+      'ST48 改 ackedBy 而签名不变 ⇒ exit 1 / ack-sig-invalid（署名已签进载荷）',
+      out.exit === 1 && out.code === 'undeclared' && out.ack && out.ack.code === 'ack-sig-invalid',
+      JSON.stringify({ exit: out.exit, code: out.code, ack: out.ack && out.ack.code }),
+    )
+  })
+
   const failed = cases.filter((c) => !c.ok)
   for (const c of cases) {
     console.log(`${c.ok ? 'ok  ' : 'FAIL'} ${c.name}${c.ok ? '' : ` —— ${c.detail}`}`)
@@ -1704,8 +2090,9 @@ const USAGE = [
   '      node scripts/check-immutable-guard.mjs --sign-staged --subject "<提交标题>" --reason "<理由>" [--paths <a,b,c>]  # 生成签名行（stdout 可直接贴进提交信息）',
   '      node scripts/check-immutable-guard.mjs --self-test',
   '',
-  `受保护面清单: ${GUARD_DATA_REL}；合法改法: 提交信息里两行 —— \`${EXEMPT_TRAILER} <≥${MIN_REASON_CHARS} 字理由>\` + \`${SIG_TRAILER} ${SIG_VERSION}:<hex>\``,
+  `受保护面清单: ${GUARD_DATA_REL}；合法改法: 提交信息里两行 —— \`${EXEMPT_TRAILER} <≥${MIN_REASON_CHARS} 字理由>\` + \`${SIG_TRAILER} ${SIG_VERSION_CURRENT}:<base40>:<hex>\``,
   `签名密钥来源（按优先级）: ${KEY_ENV} / ${KEY_FILE_ENV} / git config ${KEY_CONFIG}（密钥不存在 ⇒ 需要验签的一律 fail-closed 判未豁免）`,
+  `独立追认密钥来源（与上一行必须是两把钥，同一把 ⇒ 判 ack-self-key 自认不成立）: ${ACK_KEY_ENV} / ${ACK_KEY_FILE_ENV} / git config ${ACK_KEY_CONFIG}`,
   `迁移窗口: ${GUARD_DATA_REL} 的 ${SIGNATURE_REQUIRED_KEY}；窗口内仅文字理由 ⇒ 放行并记 ${UNSIGNED_LEDGER_REL}，到期后必须有验得过的签名`,
   `巡检游标: ${CURSOR_REL}（派发点 = scripts/git-guardian.mjs 的 auditImmutableGuardNewCommits）`,
 ].join('\n')
@@ -1726,14 +2113,21 @@ export function signStaged(root, { subject, reason, paths = [], today = todayStr
   if (!judged.hits.length) throw new Error('指定路径里没有命中受保护面 ⇒ 无需签名（不签空集）')
   const keyRes = resolveSigningKey(root)
   if (!keyRes.key) throw new Error(keyRes.why)
-  const sig = signExemption({ subject, hits: judged.hits, reason, key: keyRes.key })
+  // v2：把取数面钉在**签发这一刻的 HEAD**，并把每条命中路径的内容号写进载荷。
+  // 签发之后别席推进 HEAD 不会再让路径集漂移；同一路径换了内容也验不过。
+  const base = String(gitRaw(['rev-parse', 'HEAD'], root)).trim().toLowerCase()
+  if (!FULL_SHA_RE.test(base)) throw new Error(`upstream HEAD 解析不到全量 sha：${base.slice(0, 20)}`)
+  const blobs = blobMapFor(root, 'staged', 'HEAD', judged.hits.map((h) => h.path))
+  const sig = signExemptionV2({ subject, hits: judged.hits, blobs, reason, key: keyRes.key, base })
   return {
     sig,
+    base,
+    blobs,
     hits: judged.hits.map((h) => `${h.path}（${h.entry.kind} / ${h.status}）`),
     keySource: keyRes.source,
-    // 留痕这一刻就把"签给了哪个标题/哪批路径"钉住;将来验不过时直接摊开对照,
+    // 留痕这一刻就把"签给了哪个标题/哪批路径/哪个 base/哪份内容"钉住;将来验不过时直接摊开对照,
     // 免得作者面对 sig-invalid 去补理由(错方向)或跳门(更错)。
-    recorded: recordSigIssue(root, { subject, paths: judged.hits.map((h) => h.path), reason, sig }),
+    recorded: recordSigIssue(root, { subject, paths: judged.hits.map((h) => h.path), reason, sig, base, blobs }),
   }
 }
 
@@ -1763,8 +2157,12 @@ export function ackCommit(root, { sha, reason, by, expires, today = todayStr() }
   if (one.exit === 0) throw new Error(`那枚本判就通过（code=${one.code}）⇒ 没有需要追认的东西`)
   if (one.exit === 2) throw new Error(`那枚判不了（code=${one.code}：${one.detail || '无明细'}）⇒ 先修判定输入，不签判不动的追认`)
   if (!one.hits.length) throw new Error('那枚没触及任何受保护面 ⇒ 无需追认（不追空集）')
-  const keyRes = resolveSigningKey(root)
-  if (!keyRes.key) throw new Error(`密钥不可得 ⇒ 拒签（${keyRes.why}）`)
+  const ackKeyRes = resolveAckKey(root)
+  if (!ackKeyRes.key) throw new Error(`独立追认密钥不可得 ⇒ 拒签（${ackKeyRes.why}）`)
+  const submitKeyRes = resolveSigningKey(root)
+  if (submitKeyRes.key && submitKeyRes.key === ackKeyRes.key) {
+    throw new Error('追认密钥与提交签名密钥是同一把 ⇒ 作者自认不算他方追认（请改用独立追认钥）')
+  }
   const paths = one.hits.map((h) => h.path)
   const row = {
     sha,
@@ -1773,13 +2171,13 @@ export function ackCommit(root, { sha, reason, by, expires, today = todayStr() }
     ackedBy: String(by).trim(),
     ackedAt: new Date().toISOString(),
     expires: String(expires),
-    sig: signAck({ sha, paths, reason, key: keyRes.key }),
+    sig: signAck({ sha, paths, reason, ackedBy: String(by).trim(), key: ackKeyRes.key }),
   }
   const file = path.join(root, ACK_LEDGER_REL)
   const line = `${JSON.stringify(row)}\n`
   mkdirSync(path.dirname(file), { recursive: true })
   appendFileSync(file, line, 'utf8')
-  return { row, line: line.trimEnd(), paths, keySource: keyRes.source, file: ACK_LEDGER_REL }
+  return { row, line: line.trimEnd(), paths, keySource: ackKeyRes.source, file: ACK_LEDGER_REL }
 }
 
 export function main(argv = process.argv.slice(2)) {
@@ -1972,9 +2370,12 @@ export const __test__ = {
   matchProtected,
   globToRegExp,
   decide,
-  // 签名豁免（2026-11-04 立）
+  // 签名豁免（2026-11-04 立；v2 钉 base + blob 2026-11-04 同日补）
   SIG_TRAILER,
   SIG_VERSION,
+  SIG_VERSION_V2,
+  SIG_VERSION_CURRENT,
+  sigBaseOf,
   MIN_KEY_CHARS,
   SIGNATURE_REQUIRED_KEY,
   UNSIGNED_LEDGER_REL,
@@ -1982,9 +2383,15 @@ export const __test__ = {
   KEY_FILE_ENV,
   KEY_CONFIG,
   signExemption,
+  signExemptionV2,
   verifyExemption,
   subjectOf,
   parseSigTrailer,
   exemptPayload,
+  exemptPayloadV2,
+  // 取数面钉定（v2）：按签名自己的 base 重放 + 命中路径内容号
+  stagedHitsAt,
+  blobMapFor,
+  decomposeSigMismatch,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
