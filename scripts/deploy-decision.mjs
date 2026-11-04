@@ -26,6 +26,7 @@
  *   rollback           健康门禁未过,整份退回上一可用包
  *   manual-rollback    人工执行 -rollbackOnly
  *   build-fail         构建失败,未切流
+ *   swap-fail          web 蓝绿切换失败 / 灰度对照判红或超时,未切流,保持当前在线版本
  *   canary-pass        金丝雀观察窗通过(错误率/延迟未超策略阈值),放量完成
  *   canary-rollback    金丝雀观察窗异常,自动回滚到上一可用包
  *   canary-unproven    金丝雀观察窗未判定(样本不足/未知占比过高),不回滚也不冒充通过
@@ -45,22 +46,15 @@ import { appendFileSync, mkdirSync, readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { hostname } from 'node:os'
+// §0.6 单一真相源:action 闭集与下游「是否产事故信号」映射由同一份表派生,
+// 本文件不再自抄清单(2026-11-04 三处漂移实测见 lib 头注)。
+import { DEPLOY_DECISION_ACTIONS, assertActionParity } from './lib/deploy-decision-actions.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const DEFAULT_LEDGER = join(ROOT, '.ihui-agent', 'deploy-decisions.jsonl')
 const SCHEMA_VERSION = 1
 
-export const DECISION_ACTIONS = Object.freeze([
-  'pass',
-  'pass-unproven',
-  'pass-entry-broken',
-  'rollback',
-  'manual-rollback',
-  'build-fail',
-  'canary-pass',
-  'canary-rollback',
-  'canary-unproven',
-])
+export const DECISION_ACTIONS = DEPLOY_DECISION_ACTIONS
 export const DECISION_VERDICTS = Object.freeze(['pass', 'pass-unproven', 'fail', 'entry-broken', 'unknown', 'not-run'])
 
 const SHA_RE = /^[0-9a-f]{7,40}$/
@@ -239,6 +233,18 @@ function selfTest() {
       hit = e instanceof DecisionShapeError
     }
     if (!hit) throw new Error('未抛 DecisionShapeError')
+  })
+  // 2026-11-04 断链修复的两条机器锁:发射面三处 swap-fail 曾因闭集漏登记而全数记不上账。
+  t('swap-fail 是合法 action 且可落账(切流失败不得静默丢记录)', () => {
+    if (!DECISION_ACTIONS.includes('swap-fail')) throw new Error('闭集缺 swap-fail')
+    const d = buildDecision({ action: 'swap-fail', sha: 'ca2b080a', gateVerdict: 'not-run' }, { now, host: 'h', pid: 1 })
+    if (d.action !== 'swap-fail') throw new Error('action 未落账')
+    const line = formatDecisionLine(d)
+    if (!line.startsWith('DEPLOY-DECISION ')) throw new Error('机器行前缀错')
+  })
+  t('闭集与事故信号映射逐字同源(新增出口必须同时给映射)', () => {
+    const r = assertActionParity()
+    if (!r.ok) throw new Error(r.why)
   })
   t('未判定的 sha 不得写成空', () => {
     const d = buildDecision({ action: 'build-fail', sha: 'not-a-sha' }, { now })
