@@ -161,15 +161,17 @@ const REALNAME_BADGE_STATUS: Record<string, RealnameBadgeStatus | undefined> = {
  * 真机:滚到底时末几项仍被胶囊压住,实测差额不在呼吸量):
  *  · 胶囊几何占高 = TAB_BAR_HEIGHT 62 + TAB_BAR_GAP_TOP 6 + max(8, inset/2+4);
  *    tabBarScrollReserve 本身就等于「占高 + 16 呼吸」,与 TAB_BAR_FLOAT_RESERVE 同值 ⇒ 呼吸量没缺。
- *  · 真正的遮挡件是 TabBar 自带的 BottomFadeMask:高 160、底边贴胶囊顶沿、顶部 22% 完全透明、
- *    55% 处已达 0.7 ⇒ 胶囊顶沿上方 0..124.8 依次压上 1.0..0 的页面底色。末项底边若只高出
- *    胶囊顶沿 22(6 顶隙 + 16 呼吸),就落在 ≈0.91 不透明带里 —— 观感正是「被压住」。
+ *  · 真正的遮挡件是 TabBar 自带的 BottomFadeMask:高 120(2026-11-04 机主点名「太高」,由 160 收
+ *    下来)、底边贴胶囊顶沿、顶部 22% 完全透明、55% 处已达 0.7 ⇒ 胶囊顶沿上方 0..93.6 依次压上
+ *    1.0..0 的页面底色。末项底边若只高出胶囊顶沿 22(6 顶隙 + 16 呼吸),就落在 ≈0.91 不透明带里
+ *    —— 观感正是「被压住」。
  *    该遮罩 2026-10-29 落地(同日加强),而预留定档于 10-16/18,从未把它计入。
- *  · 取值:末项底边须越过遮罩全透明起点 160×(1−22%) = 124.8,现有预留只给到 22 ⇒ 补 104
- *    (≥103,取 8 的倍数)。HomeScreen 的 dockHeight + 16 实测也停在胶囊顶沿上方约 120 处,同一档。
+ *  · 取值:末项底边须越过遮罩全透明起点 120×(1−22%) = 93.6,现有预留只给到 22 ⇒ 补 72
+ *    (≥71.6,取 8 的倍数)。HomeScreen 的 dockHeight + 16 实测停在胶囊顶沿上方约 120 处,已越过
+ *    这一档,且首页输入框另有 inputLayer 压在遮罩之上,不随本值联动。
  *  · 若 BottomFadeMask 的高度/透明带比例再变,本值须同步(它只有这一个消费点)。
  */
-const TAB_BAR_FADE_CLEARANCE_PX = 104
+const TAB_BAR_FADE_CLEARANCE_PX = 72
 
 /** 会员权益 3 项(对齐 Uniapp memberBenefitsData 行 297-310;title/desc 存 i18n 键,消费处 t 解析) */
 const MEMBERSHIP_BENEFITS: readonly {
