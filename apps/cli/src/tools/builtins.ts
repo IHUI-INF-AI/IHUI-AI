@@ -15,6 +15,8 @@ import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { runSandboxed, runSandboxedAsync } from '../sandbox/index.js';
 import type { SandboxResult } from '../sandbox/index.js';
+// 按操作分维的文件访问裁决(goal-b49 复现对侧能力):读正文之前先问这一层。
+import { evaluateFileAccess, toAclPath } from '../sandbox/file-access-policy.js';
 import { runPreToolCall, runPostToolCall } from '../hooks/index.js';
 import { highlightCode } from '../highlight.js';
 import {
@@ -514,6 +516,20 @@ export const read_file: Tool = {
     const offset = normalizeReadRangeParam(args.offset);
     const limit = normalizeReadRangeParam(args.limit);
     const abs = resolvePath(ctx, filePath);
+    // 读侧访问裁决(此前全仓只有写侧一处 folder_trust 消费点,凭据文件可被 read_file 整份读出)。
+    // 判据在**任何 fs 调用之前**:命中 deny 就一个字节都不读,也不外泄存在性之外的信息。
+    const aclRead = evaluateFileAccess(
+      'read',
+      toAclPath(ctx.workspacePath, filePath),
+      ctx.workspacePath,
+    );
+    if (aclRead.blocked) {
+      return {
+        success: false,
+        output: '',
+        error: aclRead.note ?? `按文件访问裁决禁止读取 ${filePath}`,
+      };
+    }
     if (!fs.existsSync(abs)) {
       return {
         success: false,
