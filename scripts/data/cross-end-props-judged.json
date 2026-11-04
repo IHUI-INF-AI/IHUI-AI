@@ -1341,6 +1341,305 @@
       ]
     },
     {
+      "pair": "ModelConfigDialog",
+      "key": "audioUrl",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "RN indexa 变体含首尾帧/参考音色/数字人视频上传与录音克隆链路;小程序端 ModelConfigDialog 只有 default/aigc 参数配置版式,未接该媒体链路,无同名腿,登记为在期分叉。",
+      "evidence": [
+        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:135",
+        "apps/miniapp-taro/src/components/ModelConfigDialog.tsx:76",
+        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:117"
+      ]
+    },
+    {
+      "pair": "ModelConfigDialog",
+      "key": "firstFrameUrl",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "RN indexa 变体含首尾帧/参考音色/数字人视频上传与录音克隆链路;小程序端 ModelConfigDialog 只有 default/aigc 参数配置版式,未接该媒体链路,无同名腿,登记为在期分叉。",
+      "evidence": [
+        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:131",
+        "apps/miniapp-taro/src/components/ModelConfigDialog.tsx:76",
+        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:117"
+      ]
+    },
+    {
+      "pair": "ModelConfigDialog",
+      "key": "isRecording",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "RN indexa 变体含首尾帧/参考音色/数字人视频上传与录音克隆链路;小程序端 ModelConfigDialog 只有 default/aigc 参数配置版式,未接该媒体链路,无同名腿,登记为在期分叉。",
+      "evidence": [
+        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:155",
+        "apps/miniapp-taro/src/components/ModelConfigDialog.tsx:76",
+        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:117"
+      ]
+    },
+    {
+      "pair": "ModelConfigDialog",
+      "key": "lastFrameUrl",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "RN indexa 变体含首尾帧/参考音色/数字人视频上传与录音克隆链路;小程序端 ModelConfigDialog 只有 default/aigc 参数配置版式,未接该媒体链路,无同名腿,登记为在期分叉。",
+      "evidence": [
+        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:133",
+        "apps/miniapp-taro/src/components/ModelConfigDialog.tsx:76",
+        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:117"
+      ]
+    },
+    {
+      "pair": "ModelConfigDialog",
+      "key": "models",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "RN selecter 变体在对话框内选模型;小程序端模型列表由独立 ModelList 弹出层承担,对话框无同名选型数据腿。",
+      "evidence": [
+        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:161",
+        "apps/miniapp-taro/src/components/ModelList.tsx:82",
+        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:117"
+      ]
+    },
+    {
+      "pair": "ModelConfigDialog",
+      "key": "onCloneVoice",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "RN indexa 变体含首尾帧/参考音色/数字人视频上传与录音克隆链路;小程序端 ModelConfigDialog 只有 default/aigc 参数配置版式,未接该媒体链路,无同名腿,登记为在期分叉。",
+      "evidence": [
+        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:149",
+        "apps/miniapp-taro/src/components/ModelConfigDialog.tsx:76",
+        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:117"
+      ]
+    },
+    {
+      "pair": "ModelConfigDialog",
+      "key": "onConfigChange",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "小程序端 onChange 的联合类型已把动态配置变更语义合并进单一回调;RN 另设 onConfigChange 专腿,两端粒度不同。",
+      "evidence": [
+        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:171",
+        "apps/miniapp-taro/src/components/ModelConfigDialog.tsx:82",
+        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:117"
+      ]
+    },
+    {
+      "pair": "ModelConfigDialog",
+      "key": "onDeleteAudio",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "RN indexa 变体含首尾帧/参考音色/数字人视频上传与录音克隆链路;小程序端 ModelConfigDialog 只有 default/aigc 参数配置版式,未接该媒体链路,无同名腿,登记为在期分叉。",
+      "evidence": [
+        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:178",
+        "apps/miniapp-taro/src/components/ModelConfigDialog.tsx:76",
+        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:117"
+      ]
+    },
+    {
+      "pair": "ModelConfigDialog",
+      "key": "onDeleteFirstFrame",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "RN indexa 变体含首尾帧/参考音色/数字人视频上传与录音克隆链路;小程序端 ModelConfigDialog 只有 default/aigc 参数配置版式,未接该媒体链路,无同名腿,登记为在期分叉。",
+      "evidence": [
+        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:176",
+        "apps/miniapp-taro/src/components/ModelConfigDialog.tsx:76",
+        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:117"
+      ]
+    },
+    {
+      "pair": "ModelConfigDialog",
+      "key": "onDeleteLastFrame",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "RN indexa 变体含首尾帧/参考音色/数字人视频上传与录音克隆链路;小程序端 ModelConfigDialog 只有 default/aigc 参数配置版式,未接该媒体链路,无同名腿,登记为在期分叉。",
+      "evidence": [
+        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:177",
+        "apps/miniapp-taro/src/components/ModelConfigDialog.tsx:76",
+        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:117"
+      ]
+    },
+    {
+      "pair": "ModelConfigDialog",
+      "key": "onDeleteVideo",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "RN indexa 变体含首尾帧/参考音色/数字人视频上传与录音克隆链路;小程序端 ModelConfigDialog 只有 default/aigc 参数配置版式,未接该媒体链路,无同名腿,登记为在期分叉。",
+      "evidence": [
+        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:179",
+        "apps/miniapp-taro/src/components/ModelConfigDialog.tsx:76",
+        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:117"
+      ]
+    },
+    {
+      "pair": "ModelConfigDialog",
+      "key": "onSelectModel",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "RN 对话框内选模型回调;小程序端选模型动作在 ModelList 弹出层完成,对话框无同名回调腿。",
+      "evidence": [
+        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:165",
+        "apps/miniapp-taro/src/components/ModelList.tsx:82",
+        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:117"
+      ]
+    },
+    {
+      "pair": "ModelConfigDialog",
+      "key": "onSelectVoice",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "RN indexa 变体含首尾帧/参考音色/数字人视频上传与录音克隆链路;小程序端 ModelConfigDialog 只有 default/aigc 参数配置版式,未接该媒体链路,无同名腿,登记为在期分叉。",
+      "evidence": [
+        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:147",
+        "apps/miniapp-taro/src/components/ModelConfigDialog.tsx:76",
+        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:117"
+      ]
+    },
+    {
+      "pair": "ModelConfigDialog",
+      "key": "onStartRecording",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "RN indexa 变体含首尾帧/参考音色/数字人视频上传与录音克隆链路;小程序端 ModelConfigDialog 只有 default/aigc 参数配置版式,未接该媒体链路,无同名腿,登记为在期分叉。",
+      "evidence": [
+        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:151",
+        "apps/miniapp-taro/src/components/ModelConfigDialog.tsx:76",
+        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:117"
+      ]
+    },
+    {
+      "pair": "ModelConfigDialog",
+      "key": "onStopRecording",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "RN indexa 变体含首尾帧/参考音色/数字人视频上传与录音克隆链路;小程序端 ModelConfigDialog 只有 default/aigc 参数配置版式,未接该媒体链路,无同名腿,登记为在期分叉。",
+      "evidence": [
+        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:153",
+        "apps/miniapp-taro/src/components/ModelConfigDialog.tsx:76",
+        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:117"
+      ]
+    },
+    {
+      "pair": "ModelConfigDialog",
+      "key": "onUploadAudio",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "RN indexa 变体含首尾帧/参考音色/数字人视频上传与录音克隆链路;小程序端 ModelConfigDialog 只有 default/aigc 参数配置版式,未接该媒体链路,无同名腿,登记为在期分叉。",
+      "evidence": [
+        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:143",
+        "apps/miniapp-taro/src/components/ModelConfigDialog.tsx:76",
+        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:117"
+      ]
+    },
+    {
+      "pair": "ModelConfigDialog",
+      "key": "onUploadFirstFrame",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "RN indexa 变体含首尾帧/参考音色/数字人视频上传与录音克隆链路;小程序端 ModelConfigDialog 只有 default/aigc 参数配置版式,未接该媒体链路,无同名腿,登记为在期分叉。",
+      "evidence": [
+        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:139",
+        "apps/miniapp-taro/src/components/ModelConfigDialog.tsx:76",
+        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:117"
+      ]
+    },
+    {
+      "pair": "ModelConfigDialog",
+      "key": "onUploadLastFrame",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "RN indexa 变体含首尾帧/参考音色/数字人视频上传与录音克隆链路;小程序端 ModelConfigDialog 只有 default/aigc 参数配置版式,未接该媒体链路,无同名腿,登记为在期分叉。",
+      "evidence": [
+        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:141",
+        "apps/miniapp-taro/src/components/ModelConfigDialog.tsx:76",
+        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:117"
+      ]
+    },
+    {
+      "pair": "ModelConfigDialog",
+      "key": "onUploadVideo",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "RN indexa 变体含首尾帧/参考音色/数字人视频上传与录音克隆链路;小程序端 ModelConfigDialog 只有 default/aigc 参数配置版式,未接该媒体链路,无同名腿,登记为在期分叉。",
+      "evidence": [
+        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:145",
+        "apps/miniapp-taro/src/components/ModelConfigDialog.tsx:76",
+        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:117"
+      ]
+    },
+    {
+      "pair": "ModelConfigDialog",
+      "key": "recordDuration",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "RN indexa 变体含首尾帧/参考音色/数字人视频上传与录音克隆链路;小程序端 ModelConfigDialog 只有 default/aigc 参数配置版式,未接该媒体链路,无同名腿,登记为在期分叉。",
+      "evidence": [
+        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:157",
+        "apps/miniapp-taro/src/components/ModelConfigDialog.tsx:76",
+        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:117"
+      ]
+    },
+    {
+      "pair": "ModelConfigDialog",
+      "key": "selectedModelId",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "RN selecter 变体在对话框内持有选中模型 id;小程序端选中态在 ModelList 弹出层内维护,对话框无同名腿。",
+      "evidence": [
+        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:163",
+        "apps/miniapp-taro/src/components/ModelList.tsx:82",
+        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:117"
+      ]
+    },
+    {
+      "pair": "ModelConfigDialog",
+      "key": "videoUrl",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "RN indexa 变体含首尾帧/参考音色/数字人视频上传与录音克隆链路;小程序端 ModelConfigDialog 只有 default/aigc 参数配置版式,未接该媒体链路,无同名腿,登记为在期分叉。",
+      "evidence": [
+        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:137",
+        "apps/miniapp-taro/src/components/ModelConfigDialog.tsx:76",
+        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:117"
+      ]
+    },
+    {
+      "pair": "ModelConfigDialog",
+      "key": "isVip",
+      "side": "mini",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "小程序端 aigc 变体用 isVip 决定水印/高级参数可见性;RN 端由外层会员态与 modelName 条件渲染承担,无同名腿。",
+      "evidence": [
+        "apps/miniapp-taro/src/components/ModelConfigDialog.tsx:90",
+        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:129",
+        "apps/miniapp-taro/src/components/ModelConfigDialog.tsx:72"
+      ]
+    },
+    {
       "pair": "UserInfoCard",
       "key": "onCopyInviteCode",
       "side": "rn",
