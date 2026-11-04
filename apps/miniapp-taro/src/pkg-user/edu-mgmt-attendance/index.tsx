@@ -260,23 +260,23 @@ export default function Page() {
         {t('eduAttendance.batchCheckIn')}
       </Button>
       {noClass ? (
-        <Text className="text-xs text-muted-foreground">{t('eduAttendance.noClassReason')}</Text>
+        <Text className="text-label text-muted-foreground">{t('eduAttendance.noClassReason')}</Text>
       ) : classIds.length > 1 ? (
-        <Text className="text-xs text-muted-foreground">
+        <Text className="text-label text-muted-foreground">
           {t('eduAttendance.multiClass', { classId: targetClassId })}
         </Text>
       ) : null}
       {/* 状态构成:壳的 tone 是按列生效的,逐行色档要等壳补 rowCellTone —— 这一行先把真色档给出来 */}
       {tally.length > 0 ? (
-        <View className="w-full flex flex-wrap items-center justify-end gap-2">
+        <View className="w-full flex flex-wrap items-center justify-end gap-sm">
           {tally.map((x) => (
-            <Text key={x.code} className={`text-xs ${TONE_CLASS[statusToneOf(x.code)]}`}>
+            <Text key={x.code} className={`text-label ${TONE_CLASS[statusToneOf(x.code)]}`}>
               {`${st(x.code)} ${x.count}`}
             </Text>
           ))}
         </View>
       ) : null}
-      {notice ? <Text className="w-full text-xs text-foreground">{notice}</Text> : null}
+      {notice ? <Text className="w-full text-label text-foreground">{notice}</Text> : null}
       {/* 统计区 + 趋势区:整块 w-full 换到标题行之下,与上面的当日 tally 同一档挂载形态。
           口径不同不互相替代 —— tally 是「本页当前清单」的当日计数,面板是 stats 端点的窗口读数。 */}
       <StatsPanel payload={stats} loading={statsLoading} error={statsError} />

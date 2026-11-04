@@ -241,7 +241,7 @@ export default function ModelConfigDialog({
       <View className="fixed inset-0 z-[2000] flex items-center justify-center" onClick={onClose}>
         <View className="absolute inset-0 bg-[var(--color-black-40)]" />
         <View
-          className="relative bg-card ui-panel rounded-xl mx-6 w-full max-w-sm max-h-[80vh] overflow-y-auto"
+          className="relative bg-card ui-panel rounded-xl mx-2xl w-full max-w-sm max-h-[80vh] overflow-y-auto"
           onClick={(e) => e.stopPropagation()}
           hoverClass="opacity-60"
         >
@@ -651,7 +651,9 @@ export default function ModelConfigDialog({
                     </View>
                   )}
                 </View>
-                <Text className="text-label text-muted-foreground mt-1">{it.name || it.label}</Text>
+                <Text className="text-label text-muted-foreground mt-xs">
+                  {it.name || it.label}
+                </Text>
               </View>
             ))}
           </View>
@@ -663,7 +665,7 @@ export default function ModelConfigDialog({
               onClick={() => setShowAudioMenu(false)}
             >
               <View
-                className="mcd-audio-menu mx-6 w-full max-w-xs"
+                className="mcd-audio-menu mx-2xl w-full max-w-xs"
                 style={modelConfigMenuCardStyle(MODEL_CONFIG_MENU_PAD_PX, toUnit)}
                 onClick={(e) => e.stopPropagation()}
                 hoverClass="opacity-60"

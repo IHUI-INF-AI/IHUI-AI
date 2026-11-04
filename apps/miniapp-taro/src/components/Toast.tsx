@@ -55,10 +55,10 @@ export default function Toast({
 
   return (
     <View className="fixed top-1/2 left-1/2 z-50" style={{ transform: 'translate(-50%, -50%)' }}>
-      <View className={`${COLORS[type]} px-4 py-3 rounded-lg shadow-lg max-w-xs`}>
+      <View className={`${COLORS[type]} px-lg py-md rounded-lg shadow-lg max-w-xs`}>
         <View className="flex items-center">
-          <Text className="text-sm font-medium mr-2">{ICONS[type]}</Text>
-          <Text className="text-sm">{text}</Text>
+          <Text className="text-body font-medium mr-sm">{ICONS[type]}</Text>
+          <Text className="text-body">{text}</Text>
         </View>
       </View>
     </View>

@@ -21,7 +21,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 120rpx 32rpx 24rpx;
+  padding: 120rpx var(--spacing-lg) var(--spacing-md);
   background: var(--color-card);
 }
 .nav-title {
@@ -35,13 +35,13 @@
 }
 .msg-list {
   flex: 1;
-  padding: var(--spacing-md) 32rpx;
+  padding: var(--spacing-md) var(--spacing-lg);
 }
 /* D20 留尾2:加载更早消息入口(顶部居中,弱化视觉,不与气泡抢注意力) */
 .load-earlier {
   display: flex;
   justify-content: center;
-  padding: var(--spacing-xs) 0 16rpx;
+  padding: var(--spacing-xs) 0 var(--spacing-sm);
 }
 .load-earlier-text {
   font-size: var(--text-label);
@@ -76,7 +76,7 @@
 .suggest-item {
   display: inline-block;
   margin: var(--spacing-xs-loose);
-  padding: var(--spacing-sm) 28rpx;
+  padding: var(--spacing-sm) var(--spacing-md-loose);
   background: var(--color-card);
   border-radius: var(--radius-2xl);
   font-size: var(--text-body-sm);
@@ -110,7 +110,7 @@
 }
 .bubble {
   max-width: 100%;
-  margin: 0 20rpx;
+  margin: 0 var(--spacing-sm-loose);
   padding: var(--spacing-sm-loose);
   border-radius: var(--radius-2xl);
   box-sizing: border-box;
@@ -148,7 +148,7 @@
 .input-bar {
   display: flex;
   flex-direction: column;
-  padding: var(--spacing-xs-loose) 24rpx;
+  padding: var(--spacing-xs-loose) var(--spacing-md);
   padding-bottom: calc(12rpx + env(safe-area-inset-bottom));
   background: var(--color-card);
   gap: var(--spacing-xs);
@@ -156,14 +156,14 @@
 .input {
   flex: 1;
   height: var(--spacing-4xl);
-  padding: 0 24rpx;
+  padding: 0 var(--spacing-md);
   background: var(--color-background);
   border-radius: var(--radius-sm);
   font-size: var(--text-body);
 }
 .send-btn {
   margin-left: var(--spacing-sm);
-  padding: 0 32rpx;
+  padding: 0 var(--spacing-lg);
   height: var(--spacing-4xl);
   line-height: 80rpx;
   background: var(--color-cta);
@@ -198,7 +198,7 @@
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
-  padding: 0 4rpx;
+  padding: 0 var(--spacing-2xs);
 }
 .tool-icon {
   width: var(--spacing-2xl);
@@ -212,7 +212,7 @@
 .material-tag {
   display: flex;
   align-items: center;
-  padding: var(--spacing-xs-loose) 32rpx;
+  padding: var(--spacing-xs-loose) var(--spacing-lg);
   background: var(--color-link-bg);
 }
 .material-tag-text {
@@ -230,7 +230,7 @@
 }
 
 .drawer-header {
-  padding: var(--spacing-md) 32rpx;
+  padding: var(--spacing-md) var(--spacing-lg);
   margin-bottom: var(--spacing-sm);
 }
 .drawer-title {
@@ -246,7 +246,7 @@
 }
 
 .material-list {
-  padding: var(--spacing-sm) 32rpx;
+  padding: var(--spacing-sm) var(--spacing-lg);
 }
 .material-item {
   display: flex;
@@ -270,7 +270,7 @@
 }
 
 .agent-info {
-  padding: var(--spacing-md) 32rpx;
+  padding: var(--spacing-md) var(--spacing-lg);
 }
 .agent-header {
   display: flex;
@@ -326,7 +326,7 @@
 
 .reasoning-wrap {
   margin-bottom: var(--spacing-xs-loose);
-  padding: var(--spacing-xs-loose) 16rpx;
+  padding: var(--spacing-xs-loose) var(--spacing-sm);
   background: var(--color-background);
   border-radius: var(--radius-sm);
 }
@@ -347,8 +347,8 @@
 .tishi-block {
   display: flex;
   align-items: center;
-  padding: var(--spacing-sm) 24rpx;
-  margin: var(--spacing-xs-loose) 16rpx;
+  padding: var(--spacing-sm) var(--spacing-md);
+  margin: var(--spacing-xs-loose) var(--spacing-sm);
   background: var(--color-card);
   border-radius: var(--radius-sm);
 }
@@ -361,7 +361,7 @@
   color: var(--color-primary);
 }
 .tishi-box {
-  margin: var(--spacing-xs-loose) 16rpx;
+  margin: var(--spacing-xs-loose) var(--spacing-sm);
   padding: var(--spacing-sm-loose);
   background: var(--color-card);
   border-radius: var(--radius-sm);
@@ -381,7 +381,7 @@
   font-weight: 500;
 }
 .tishi-content {
-  padding: var(--spacing-xs-loose) 16rpx;
+  padding: var(--spacing-xs-loose) var(--spacing-sm);
   background: var(--color-background);
   border-radius: var(--radius-xs);
 }
@@ -395,14 +395,14 @@
 /* 历史入口按钮(对标原 ai_assistant.vue 导航栏历史图标) */
 .nav-history {
   font-size: var(--text-title);
-  padding: 0 12rpx;
+  padding: 0 var(--spacing-xs-loose);
   margin-right: var(--spacing-sm);
   color: var(--color-muted-foreground);
 }
 
 /* 历史对话抽屉列表(对标原 ai_assistant.vue 历史抽屉) */
 .history-list {
-  padding: var(--spacing-sm) 32rpx;
+  padding: var(--spacing-sm) var(--spacing-lg);
   max-height: 50vh;
 }
 .history-item {
@@ -462,7 +462,7 @@
 /* 数字人跳转按钮(对标原 ai_assistant.vue 数字人跳转) */
 .digital-human-btn {
   margin-top: var(--spacing-xs-loose);
-  padding: var(--spacing-xs) 16rpx;
+  padding: var(--spacing-xs) var(--spacing-sm);
   background: var(--color-link-bg);
   color: var(--color-info);
   border-radius: var(--radius-sm);
@@ -476,7 +476,7 @@
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
-  padding: var(--spacing-sm) 24rpx;
+  padding: var(--spacing-sm) var(--spacing-md);
   border-radius: var(--radius-2xl);
   margin-top: 10rpx;
 }
@@ -623,7 +623,7 @@
   right: 0;
   z-index: 1;
   width: 100%;
-  padding: 0 0 20rpx 0;
+  padding: 0 0 var(--spacing-sm-loose) 0;
   box-sizing: border-box;
   overflow-x: auto;
   flex: none;
@@ -952,7 +952,7 @@
   position: relative;
   z-index: 1;
   background: var(--color-card);
-  margin: 0 4rpx 4rpx;
+  margin: 0 var(--spacing-2xs) var(--spacing-2xs);
   border-radius: 0 0 var(--radius-lg) var(--radius-lg);
   padding: var(--spacing-sm-loose);
   max-height: 40vh;
@@ -975,7 +975,7 @@
   padding: 2rpx;
   background: linear-gradient(81deg, var(--color-ring) 54%, transparent 126%);
   border-radius: var(--radius-sm);
-  margin: var(--spacing-xs-loose) 16rpx;
+  margin: var(--spacing-xs-loose) var(--spacing-sm);
 }
 .tishi-box-inner {
   background: var(--color-card);
@@ -992,7 +992,7 @@
 
 /* ============ 快捷按钮区(对标原 ai_assistant.vue .quick-actions-container + .quick-action-btn) ============ */
 .quick-actions-container {
-  padding: 10rpx 20rpx;
+  padding: 10rpx var(--spacing-sm-loose);
   margin-bottom: 10rpx;
   background-color: transparent;
 }
@@ -1007,7 +1007,7 @@
 }
 .quick-action-btn {
   display: inline-block;
-  padding: var(--spacing-xs) 16rpx;
+  padding: var(--spacing-xs) var(--spacing-sm);
   font-size: var(--text-body-sm);
   font-weight: bold;
   color: var(--color-foreground);
@@ -1112,7 +1112,7 @@
   background: var(--color-brand);
   border-radius: var(--radius-2xl);
   float: right;
-  padding: var(--spacing-md-loose) 20rpx;
+  padding: var(--spacing-md-loose) var(--spacing-sm-loose);
   color: var(--color-primary-foreground);
   font-size: var(--text-strong);
   line-height: 40rpx;
@@ -1124,7 +1124,7 @@
 .agent-content-item {
   background: var(--color-card);
   border-radius: var(--radius-2xl);
-  padding: var(--spacing-md-loose) 20rpx;
+  padding: var(--spacing-md-loose) var(--spacing-sm-loose);
   float: left;
   max-width: 78%;
   margin-top: var(--spacing-sm-loose);
@@ -1287,7 +1287,7 @@
 
 /* 上下文占用归因条(消费共享引擎,样式只走 token 变量) */
 .ctx-usage {
-  padding: var(--spacing-xs) 24rpx 0;
+  padding: var(--spacing-xs) var(--spacing-md) 0;
 }
 .ctx-usage-summary {
   font-size: var(--text-caption);
@@ -1386,7 +1386,7 @@
 }
 .business-form-send-failed {
   display: block;
-  margin: 6rpx 20rpx 0;
+  margin: 6rpx var(--spacing-sm-loose) 0;
   font-size: var(--text-badge);
   color: var(--color-danger);
 }
