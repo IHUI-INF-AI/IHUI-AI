@@ -21,7 +21,9 @@
  *   T8 css-tokens 腿三态:零字节写回⇒clean 无日志 / 已写回⇒written 有日志 / 乱输出⇒未判定;
  *   T9 装车顺序锁:sweepCssTokensSourceLeg() 与 sweepCrossEndLandingLeg() 两行必须排在
  *      sweepHandMirrorUpgrades() 之后、sweepParityCockpit() 之前(源头先补、再收编、最后汇总面);
- *   C1 契约锁:两条腿匹配的结论文案必须真存在于生产方源码(不手抄形状)。
+ *   C1 契约锁:两条腿匹配的结论文案必须真存在于生产方源码(不手抄形状);
+ *   U7/U8 两态分道:拒写(downgrade>0)落 tick 的 downgrade 字段并进告警面;
+ *      未判定(exit 2)落 undetermined 字段、走 ⚠️ 且不喊人,不合成一个 red。
  *
  * 取材面说明:被测两条腿系主 agent 本轮新写入工作树(HEAD 尚无),形状锁按 §0.4 取"与被测实现
  * 同面"的工作树副本(readFileSync),与同族样板 cross-end-mirror-heal-dispatch.test.mjs 一致;
@@ -330,6 +332,60 @@ test('U4 落档腿:held>0 ⇒ 必须点名(拦截不能静默)', () => {
   assert.equal(r.held, 6)
   assert.equal(r.state, 'unjudged-ledger')
   assert.ok(seen.length > 0, 'held=6 是"本应落档却被归属闸拦下",不点名等于静默放过')
+})
+
+test('U7 落档腿:downgrade>0 落 tick 字段并进告警面,与未判定分道', () => {
+  const tickFile = tick('u7.json')
+  const logs = []
+  const alerts = []
+  const r = sweepUiMirrorLeg({
+    tickFile,
+    logger: (s) => logs.push(String(s)),
+    notify: (title, body, opts) => alerts.push({ title, body, opts }),
+    runner: () => ({
+      status: 1,
+      stdout:
+        '配对 3 · ✅一致 1 · 🔴漂移 2 · ?未判定 0\n' +
+        '  ⛔ downgrade(派生结果=祖先旧档,拒写)2 枚:a/Badge.tsx, b/Input.tsx\n' +
+        '结论 landing=0(新登记 0/在册去重 0) skipLanded=0 held=0 downgrade=2 写出=0 landingPath=x',
+      stderr: '',
+    }),
+  })
+  const t = JSON.parse(readFileSync(tickFile, 'utf8'))
+  assert.equal(t.downgrade, 2, '拒写枚数必须落 tick(可 grep 的字段)')
+  assert.equal(t.undetermined, 0, '未判定是另一条字段,不得把拒写折进去')
+  assert.equal(t.state, 'refused-downgrade')
+  assert.equal(r.state, 'refused-downgrade')
+  assert.equal(r.ok, false, '拒写=该写却没写,不能报 ok')
+  assert.match(logs.join('\n'), /downgrade=2/, '日志必须点名拒写枚数')
+  assert.equal(alerts.length, 1, '非 0 必须进告警面')
+  assert.match(alerts[0].title, /拒写 2 枚/)
+})
+
+test('U8 落档腿:未判定(exit 2)走另一条字段与另一条文案,不混成拒写', () => {
+  const tickFile = tick('u8.json')
+  const logs = []
+  const alerts = []
+  const r = sweepUiMirrorLeg({
+    tickFile,
+    logger: (s) => logs.push(String(s)),
+    notify: (title, body, opts) => alerts.push({ title, body, opts }),
+    runner: () => ({
+      status: 2,
+      stdout:
+        '配对 3 · ✅一致 1 · 🔴漂移 0 · ?未判定 2\n' +
+        '结论 landing=0(新登记 0/在册去重 0) skipLanded=0 held=0 downgrade=0 写出=0 landingPath=x',
+      stderr: '',
+    }),
+  })
+  const t = JSON.parse(readFileSync(tickFile, 'utf8'))
+  assert.equal(t.downgrade, 0)
+  assert.equal(t.undetermined, 2, '未判定进自己的字段,不借 downgrade 的槽')
+  assert.equal(t.state, 'undetermined')
+  assert.equal(r.state, 'undetermined')
+  assert.equal(r.ok, false, '未判定不得报 ok(§0.3)')
+  assert.match(logs.join('\n'), /未判定 2/)
+  assert.equal(alerts.length, 0, '未判定不喊人(与拒写的告警面分道)')
 })
 
 test('U5 落档腿顺序锁:两件在写盘腿之后、在落库腿之前,且 tickFile 可被 opts 覆盖', () => {
