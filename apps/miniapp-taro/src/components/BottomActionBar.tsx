@@ -73,8 +73,6 @@ export interface BottomActionBarProps {
   value?: string
   placeholder?: string
   disabled?: boolean
-  showAttach?: boolean
-  showSend?: boolean
   onInput?: (value: string) => void
   onSend?: () => void
   onAttach?: () => void
@@ -87,14 +85,10 @@ export interface BottomActionBarProps {
   // ===== ai-home 模式 props =====
   /** 当前模型名(显示在 button-group-box) */
   modelName?: string
-  /** 显示 4 个图标按钮(相机/相册/文件/微信文件)*/
-  showIconButtons?: boolean
   /** ToggleButtonGroup 列表 */
   toggleButtons?: ToggleButtonItem[]
   /** InputArea 透传 props(ai-home 模式) */
   inputAreaProps?: Partial<InputAreaProps>
-  /** 图标按钮列表(默认 4 个:相机/相册/本地文件/微信文件) */
-  iconButtons?: IconButtonItem[]
   /** 图标按钮点击回调 */
   onIconButtonClick?: (item: IconButtonItem) => void
   /** ToggleButton 切换回调 */
@@ -246,10 +240,9 @@ export default function BottomActionBar(props: BottomActionBarProps) {
   const {
     variant = 'default',
     modelName,
-    showIconButtons = false,
+    isShowIcon = false,
     toggleButtons = DEFAULT_TOGGLE_BUTTONS,
     inputAreaProps,
-    iconButtons = DEFAULT_ICON_BUTTONS,
     onIconButtonClick,
     onToggle,
     isVoiceInput = false,
@@ -260,8 +253,6 @@ export default function BottomActionBar(props: BottomActionBarProps) {
     value = '',
     placeholder = tt('message.inputPlaceholder', '输入消息...'),
     disabled = false,
-    showAttach = true,
-    showSend = true,
     onInput,
     onSend,
     onAttach,
@@ -354,7 +345,7 @@ export default function BottomActionBar(props: BottomActionBarProps) {
             卡盒 / 墨迹 / 标文字号 / 图文距与行衬一律由 core 的 icon-card 一支供出;
             这一组的「与 RN 的 AddPanel 面板同不同元素」问题仍挂在 spec 的【B 单端档】上,
             等 AddPanel 那一票裁 —— 收编改的是"谁持有数字",不是把单端档粉饰成两端同档 */}
-        {showIconButtons ? (
+        {isShowIcon ? (
           <BottomActionBarIconCardRow
             platform={miniPlatform}
             className="flex"
@@ -370,7 +361,7 @@ export default function BottomActionBar(props: BottomActionBarProps) {
             labelColor="var(--color-foreground)"
             activeLabelColor="var(--color-primary-foreground)"
             items={[
-              ...iconButtons.map((btn): BottomActionBarIconCardItem => ({
+              ...DEFAULT_ICON_BUTTONS.map((btn): BottomActionBarIconCardItem => ({
                 key: btn.key,
                 label: btn.label,
                 glyph: btn.icon,
@@ -390,7 +381,7 @@ export default function BottomActionBar(props: BottomActionBarProps) {
                 onVoiceInputToggle?.()
                 return
               }
-              const hit = iconButtons.find((btn) => btn.key === item.key)
+              const hit = DEFAULT_ICON_BUTTONS.find((btn) => btn.key === item.key)
               if (hit) onIconButtonClick?.(hit)
             }}
           />
@@ -447,16 +438,14 @@ export default function BottomActionBar(props: BottomActionBarProps) {
           与 RN 端的 lucide `Plus` 同名不同载体 —— 这正是"两端图标不一样"的直接成因
           (AGENTS §4:UI 图标一律用矢量图标库)。方块与墨迹与 RN 端同读
           BOTTOM_ACTION_BAR_CONTROL_BOX_PX / _GLYPH_PX(web `Plus h-3.5` = 14)。 */}
-      {showAttach && (
-        <BottomActionBarControl
-          platform={miniPlatform}
-          boxPx={BOTTOM_ACTION_BAR_CONTROL_BOX_PX}
-          glyphPx={BOTTOM_ACTION_BAR_CONTROL_GLYPH_PX}
-          glyph="plus"
-          className="flex items-center justify-center mr-2 rounded-sm bg-muted"
-          onActivate={onAttach}
-        />
-      )}
+      <BottomActionBarControl
+        platform={miniPlatform}
+        boxPx={BOTTOM_ACTION_BAR_CONTROL_BOX_PX}
+        glyphPx={BOTTOM_ACTION_BAR_CONTROL_GLYPH_PX}
+        glyph="plus"
+        className="flex items-center justify-center mr-2 rounded-sm bg-muted"
+        onActivate={onAttach}
+      />
       <FocusInput
         className="flex-1 px-3 py-2 leading-5 bg-muted rounded-sm"
         // 正文字号走跨端单一源(与 RN 端同读 BOTTOM_ACTION_BAR_TEXT_FONT_PX = 14);
@@ -473,25 +462,23 @@ export default function BottomActionBar(props: BottomActionBarProps) {
           BOTTOM_ACTION_BAR_SEND_GLYPH_PX(= web `h-4 w-4` = 16,落 glyphSm 箭头档)。
           历史形态:字符 `↑` → lucide `send` 纸飞机 → ArrowUp(三端同形)。
           方块 32 / 居中字形 / 按压与禁用通道由 core 的 control 一支供出,本端只给 className 与配色。 */}
-      {showSend && (
-        <BottomActionBarControl
-          platform={miniPlatform}
-          boxPx={BOTTOM_ACTION_BAR_CONTROL_BOX_PX}
-          glyphPx={BOTTOM_ACTION_BAR_SEND_GLYPH_PX}
-          glyph="arrow-up"
-          glyphColor={
-            value && !isLoading ? 'var(--color-cta-foreground)' : 'var(--color-muted-foreground)'
-          }
-          className={cn(
-            'flex items-center justify-center ml-2 rounded-sm',
-            value && !isLoading ? 'bg-cta text-cta-foreground' : 'bg-muted',
-          )}
-          disabled={isLoading}
-          onActivate={() => {
-            if (value && !isLoading) onSend?.()
-          }}
-        />
-      )}
+      <BottomActionBarControl
+        platform={miniPlatform}
+        boxPx={BOTTOM_ACTION_BAR_CONTROL_BOX_PX}
+        glyphPx={BOTTOM_ACTION_BAR_SEND_GLYPH_PX}
+        glyph="arrow-up"
+        glyphColor={
+          value && !isLoading ? 'var(--color-cta-foreground)' : 'var(--color-muted-foreground)'
+        }
+        className={cn(
+          'flex items-center justify-center ml-2 rounded-sm',
+          value && !isLoading ? 'bg-cta text-cta-foreground' : 'bg-muted',
+        )}
+        disabled={isLoading}
+        onActivate={() => {
+          if (value && !isLoading) onSend?.()
+        }}
+      />
     </View>
   )
 }

@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { aizhsUrl } from '@/constants/icon-urls'
-import { useTt, t } from '@/i18n'
+import { useTt } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
 import { cn, TARO_RPX_PER_PX } from '@ihui/design-tokens'
 import {
@@ -23,7 +23,7 @@ import {
 } from '@ihui/shared/ui/user-info-card-spec'
 import { rpx } from '@/utils/rpx'
 import LineIcon from './LineIcon'
-import type { UserInfoCardMinimalProps } from '@ihui/types'
+import type { UserInfo, UserInfoCardMinimalProps } from '@ihui/types'
 
 /// 档位数字唯一源在 @ihui/shared/ui/user-info-card-spec(与 RN 端同表);本文件只做 rpx 换算 + 挂 Taro 原语。
 /// 书写形态:**本族全部档位经 `toUnit(具名档)` 内联**,端内不落第二个数字。
@@ -77,6 +77,11 @@ const wirelessLogoImg = aizhsUrl('remote-images/wirelesslogo.jpg') // icon-bitma
 // 及 9 项核心功能字段(对齐原项目 zhs_app-ZZ/UserInfoCard.vue)。
 export interface UserInfoCardProps extends UserInfoCardMinimalProps {
   className?: string
+  /**
+   * 容器结构(与 RN 端 `userInfo` 同槽)。
+   * 本端既有调用方用扁平字段;两者同时出现时扁平字段优先,容器字段只做兜底。
+   */
+  userInfo?: UserInfo
   // ===== 9 项核心功能 props(对齐原项目 UserInfoCard.vue)=====
   /** 成长值(当前) */
   growthValue?: number
@@ -98,6 +103,12 @@ export interface UserInfoCardProps extends UserInfoCardMinimalProps {
   onOpenLevel?: () => void
   /** 一键登录回调(仅未登录显示) */
   onLogin?: () => void
+  /**
+   * 邀请码复制回调(对齐 RN onCopyInviteCode)。
+   * [需后手补载体] 本端扁平 props 暂无 inviteCode 数据字段(RN 取自 userInfo.inviteCode),
+   * 故暂仅声明、未接调用点;后手补 inviteCode 扁平属性 + 邀请码行后,在此接 onCopyInviteCode(code)。
+   */
+  onCopyInviteCode?: (code: string) => void
 }
 
 /** 智汇值格式化(对齐原项目 formatTokenValue:>=10000 显示 x.xw,>=1000 显示 x.xk) */
@@ -108,28 +119,46 @@ function formatTokenValue(v: number): string {
 }
 
 export default function UserInfoCard({
-  avatar,
-  nickname = t('profileEdit.notLoggedIn'),
-  isVip = false,
-  vipTitle,
-  desc,
+  userInfo,
+  avatar: avatarProp,
+  nickname: nicknameProp,
+  isVip: isVipProp,
+  vipTitle: vipTitleProp,
+  desc: descProp,
   onClick,
   className = '',
   // 新增 9 项功能 props
-  growthValue,
-  growthMax,
-  tokenValue,
-  identityType = 0,
+  growthValue: growthValueProp,
+  growthMax: growthMaxProp,
+  tokenValue: tokenValueProp,
+  identityType: identityTypeProp,
   onWallet,
   showRechargeBtn = true,
   onUnsubscribe,
   onOpenVip,
   onOpenLevel,
   onLogin,
+  // [需后手补载体] onCopyInviteCode 暂未接调用点(本端无 inviteCode 扁平字段);声明保留以对齐 RN
+  onCopyInviteCode: _onCopyInviteCode,
 }: UserInfoCardProps) {
   const tt = useTt()
-  // 未登录判定(对齐原项目:无头像 + 昵称为"未登录")
-  const isLogged = !!avatar || nickname !== tt('profileEdit.notLoggedIn', '未登录')
+  // 容器 / 扁平双形态同一数据源:扁平显式值优先,userInfo 容器只兜底
+  const avatar = avatarProp ?? userInfo?.avatarUrl
+  const nickname = nicknameProp ?? userInfo?.username ?? tt('profileEdit.notLoggedIn', '未登录')
+  const isVip = isVipProp ?? userInfo?.isVip === 1
+  const vipTitle = vipTitleProp ?? userInfo?.vipLevel
+  const desc = descProp
+  // 容器 tokenQuantity 可为 number|string,统一收成有限数字;非法值退化为 undefined
+  const rawToken = tokenValueProp ?? userInfo?.tokenQuantity
+  const parsedToken = typeof rawToken === 'string' ? Number(rawToken) : rawToken
+  const tokenValue =
+    typeof parsedToken === 'number' && Number.isFinite(parsedToken) ? parsedToken : undefined
+  const growthValue = growthValueProp ?? userInfo?.growthValue
+  const growthMax = growthMaxProp ?? userInfo?.growthMax
+  const identityType = identityTypeProp ?? userInfo?.identityType ?? 0
+  // 未登录判定(对齐原项目:无头像 + 昵称为"未登录";容器带 uuid 即视为已登录)
+  const isLogged =
+    Boolean(userInfo?.uuid) || !!avatar || nickname !== tt('profileEdit.notLoggedIn', '未登录')
   // 智汇值格式化:tokenValue 优先,无则回退 desc
   const tokenDisplay = tokenValue !== undefined ? formatTokenValue(tokenValue) : desc
   // 充值入口:显式开关 ∧ 回调在场(默认开 → 现有调用方行为不变)

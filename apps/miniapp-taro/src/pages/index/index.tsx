@@ -1738,7 +1738,7 @@ export default function Index() {
               <BottomActionBar
                 variant="ai-home"
                 modelName={state.modelName}
-                showIconButtons
+                isShowIcon
                 isVoiceInput={state.isVoiceInput}
                 onVoiceInputToggle={toggleVoiceInput}
                 toggleButtons={state.toggleButtons}

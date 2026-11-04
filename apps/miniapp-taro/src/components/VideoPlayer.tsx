@@ -18,6 +18,8 @@ const STAGE_STYLE: CSSProperties = { height: rpx(vpStageHeightRpx()) }
 export interface VideoPlayerProps {
   src?: string
   poster?: string
+  /** 标题(与 RN 端同名同义):显示在控制条上方 */
+  title?: string
   /** 起始播放位置(秒)(与 RN 端同名同义):喂给原生 Video 的 initialTime */
   startPosition?: number
   autoplay?: boolean
@@ -33,6 +35,7 @@ export interface VideoPlayerProps {
 export default function VideoPlayer({
   src,
   poster,
+  title,
   startPosition,
   autoplay = false,
   controls = true,
@@ -69,7 +72,13 @@ export default function VideoPlayer({
   }
 
   return (
-    <View className="w-full overflow-hidden rounded-lg bg-[var(--color-black)]" style={STAGE_STYLE}>
+    <View className="w-full overflow-hidden rounded-lg bg-[var(--color-black)]">
+      {/* 标题(与 RN 端同槽):原生 Video 之上无法叠放兄弟节点,故排在舞台正上方一行 */}
+      {title ? (
+        <Text className="w-full truncate px-[24rpx] pt-[16rpx] text-label font-medium text-[var(--color-surface-light)]">
+          {title}
+        </Text>
+      ) : null}
       <Video
         className="w-full rounded-lg"
         style={STAGE_STYLE}

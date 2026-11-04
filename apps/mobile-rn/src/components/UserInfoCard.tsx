@@ -19,8 +19,8 @@ import { useI18n } from '../i18n'
  * 已如实登记在 spec 文件末差异登记第 3 条,由下一票决定去留。
  *
  * 共享类型 UserInfo 已下沉到 @ihui/types,消除两端数据类型重复定义。
- * 本地 Props 用 `userInfo: UserInfo` 对象结构,与 miniapp-taro 扁平 props 结构不同,
- * 不 extends UserInfoCardMinimalProps(该 Minimal 仅作语义参考)。
+ * 本地 Props 用 `userInfo?: UserInfo` 对象结构(同小程序端可选,扁平字段可单独承载),
+ * 与 miniapp-taro 扁平 props 结构不同,不 extends UserInfoCardMinimalProps(该 Minimal 仅作语义参考)。
  */
 import { useState } from 'react'
 import { tokens } from '../theme/active-tokens'
@@ -95,7 +95,7 @@ function formatDateTime(dateStr: string): string {
 }
 
 export interface UserInfoCardProps {
-  userInfo: UserInfo
+  userInfo?: UserInfo
   showRechargeBtn?: boolean
   onEdit?: () => void
   onRecharge?: () => void
@@ -128,6 +128,11 @@ export interface UserInfoCardProps {
   growthMax?: number
   /** 身份类型:0=普通用户 / 1=会员 / 2=操盘手(覆盖 userInfo.identityType) */
   identityType?: number
+  /**
+   * 智汇值行的文本兜底(与小程序端 `desc` 同槽):
+   * `userInfo.tokenQuantity` 是数字时以数字为准,否则显示本字段。
+   */
+  desc?: string
 }
 
 export default function UserInfoCard(props: UserInfoCardProps) {
@@ -154,13 +159,14 @@ function UserInfoCardNew({
   growthValue: growthValueProp,
   growthMax: growthMaxProp,
   identityType,
+  desc,
 }: UserInfoCardProps) {
   const { t } = useI18n()
   const [levelModalVisible, setLevelModalVisible] = useState(false)
   // 扁平字段与 userInfo 容器同一数据源:显式扁平值优先覆盖容器同字段
   // (与 LoginPopUp 的 resolvedAvatarUrl/resolvedRole 先例同构),容器键与扁平键语义对齐。
   const userInfo: UserInfo = {
-    ...userInfoProp,
+    ...(userInfoProp ?? {}),
     ...(avatarProp !== undefined ? { avatarUrl: avatarProp } : {}),
     ...(nicknameProp !== undefined ? { username: nicknameProp } : {}),
     ...(isVipProp !== undefined ? { isVip: isVipProp ? 1 : 0 } : {}),
@@ -184,7 +190,11 @@ function UserInfoCardNew({
 
   const role = getRoleLabel(userInfo.isVip, userInfo.identityType)
   const isVip = userInfo.isVip === 1
-  const tokenStr = formatTokenValue(userInfo.tokenQuantity)
+  // 智汇值展示:数字优先;无数字时用调用方传入的 desc 文本兜底(与小程序端同一槽位)
+  const tokenStr =
+    typeof userInfo.tokenQuantity === 'number'
+      ? formatTokenValue(userInfo.tokenQuantity)
+      : (desc ?? '')
   const hasAvatarUrl = Boolean(userInfo.avatarUrl)
   // 无头像 URL 时走下方 initials 兜底(原 DEFAULT_AVATAR_URL 指向已失效的 file.aizhs.top,2026-10-21 摘除)
   const avatar = userInfo.avatarUrl ?? ''

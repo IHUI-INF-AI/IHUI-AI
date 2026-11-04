@@ -17,6 +17,7 @@ import {
   LOGIN_POPUP_ROW_HEIGHT_PX,
   LOGIN_POPUP_ROW_PADDING_X_PX,
   LOGIN_POPUP_BODY_FONT_PX,
+  LOGIN_POPUP_TITLE_FONT_PX,
   LOGIN_POPUP_PILL_HEIGHT_PX,
   LOGIN_POPUP_PILL_PADDING_X_PX,
   LOGIN_POPUP_PILL_FONT_PX,
@@ -52,6 +53,13 @@ import { onToast } from '@/host/on-toast'
  * 注:identityTypy 字段保留原项目拼写(原项目 loginPopUp/index.vue line 35 即为 identityTypy,
  * 非 identityType),本组件沿用以保持与后端契约一致。
  */
+/** 保存载荷(与 RN LoginPopUpSavePayload 同形;phone 本端走微信一键登录不暴露手动输入,故可缺省) */
+export interface LoginPopUpSavePayload {
+  avatar?: string
+  nickname?: string
+  phone?: string
+}
+
 export interface LoginPopUpProps {
   visible?: boolean
   /** 默认头像 URL */
@@ -96,6 +104,25 @@ export interface LoginPopUpProps {
    * 与 RN 端 onAgreeChange 同槽;登录前的拦截由宿主页决定,组件只持有并回传态。
    */
   onAgreeChange?: (checked: boolean) => void
+  // ===== 与 RN 端同名同义的授权卡 / 资料操作槽位(传入即渲染,不传零增量)=====
+  /** 弹窗标题(授权卡模式) */
+  title?: string
+  /** 弹窗描述(授权卡模式) */
+  description?: string
+  /** 主按钮文案(授权卡模式) */
+  primaryLabel?: string
+  /** 主按钮点击(授权卡模式) */
+  onPrimary?: () => void
+  /** 次按钮文案(授权卡模式) */
+  secondaryLabel?: string
+  /** 次按钮点击(授权卡模式) */
+  onSecondary?: () => void
+  /** 绑定手机号回调(carrierLogin 运营商一键登录拿到手机号并回填后触发) */
+  onBindPhone?: () => void
+  /** 保存回调(回传 {avatar, nickname}) */
+  onSave?: (payload: LoginPopUpSavePayload) => void
+  /** 登出回调 */
+  onLogout?: () => void
 }
 
 const DEFAULT_AVATAR = '/static/default-avatar.png'
@@ -116,6 +143,16 @@ export default function LoginPopUp({
   onWebAuthLogin,
   agreeChecked = false,
   onAgreeChange,
+  // ===== B4 块:对齐 RN 公开属性(授权卡模式 / 资料操作)=====
+  title,
+  description,
+  primaryLabel,
+  onPrimary,
+  secondaryLabel,
+  onSecondary,
+  onBindPhone,
+  onSave,
+  onLogout,
 }: LoginPopUpProps) {
   const tt = useTt()
 
@@ -179,6 +216,67 @@ export default function LoginPopUp({
         onClick={(e) => e.stopPropagation()}
         hoverClass="opacity-60"
       >
+        {/* 授权卡标题/描述(RN 授权卡模式;本端缺省不渲染,不影响现有调用点) */}
+        {title ? (
+          <Text
+            className="font-semibold text-foreground text-center"
+            style={{
+              fontSize: toUnit(LOGIN_POPUP_TITLE_FONT_PX),
+              marginBottom: toUnit(LOGIN_POPUP_SECTION_GAP_PX),
+            }}
+          >
+            {title}
+          </Text>
+        ) : null}
+        {description ? (
+          <Text
+            className="text-muted-foreground text-center"
+            style={{
+              fontSize: toUnit(LOGIN_POPUP_BODY_FONT_PX),
+              marginBottom: toUnit(LOGIN_POPUP_SECTION_GAP_PX),
+            }}
+          >
+            {description}
+          </Text>
+        ) : null}
+        {/* 授权卡主/次按钮(RN 授权卡模式;缺省不渲染) */}
+        {onPrimary ? (
+          <View
+            className="w-full bg-primary rounded-sm flex items-center justify-center"
+            style={{
+              height: toUnit(LOGIN_POPUP_BUTTON_HEIGHT_PX),
+              marginBottom: toUnit(LOGIN_POPUP_SECTION_GAP_PX),
+            }}
+            onClick={onPrimary}
+            hoverClass="opacity-60"
+          >
+            <Text
+              className="text-primary-foreground font-medium"
+              style={{ fontSize: toUnit(LOGIN_POPUP_BUTTON_FONT_PX) }}
+            >
+              {primaryLabel}
+            </Text>
+          </View>
+        ) : null}
+        {onSecondary ? (
+          <View
+            className="w-full rounded-sm border border-border flex items-center justify-center"
+            style={{
+              height: toUnit(LOGIN_POPUP_BUTTON_HEIGHT_PX),
+              marginBottom: toUnit(LOGIN_POPUP_SECTION_GAP_PX),
+            }}
+            onClick={onSecondary}
+            hoverClass="opacity-60"
+          >
+            <Text
+              className="text-foreground font-medium"
+              style={{ fontSize: toUnit(LOGIN_POPUP_BUTTON_FONT_PX) }}
+            >
+              {secondaryLabel}
+            </Text>
+          </View>
+        ) : null}
+
         {/* 头像区:圆形头像(rounded-full 豁免,AGENTS.md §4 头像豁免) */}
         <View
           className="flex flex-col items-center"
@@ -478,6 +576,63 @@ export default function LoginPopUp({
             <Text className="text-xs text-muted-foreground">
               {tt('login.agreement', '登录即代表同意《用户协议》和《隐私政策》')}
             </Text>
+          </View>
+        ) : null}
+
+        {/* 资料操作按钮(RN footer:保存 / 绑定手机 / 登出;缺省不渲染,不影响现有调用点) */}
+        {onSave || onBindPhone || onLogout ? (
+          <View
+            className="w-full flex items-center"
+            style={{
+              gap: toUnit(LOGIN_POPUP_SECTION_GAP_PX),
+              marginBottom: toUnit(LOGIN_POPUP_SECTION_GAP_PX),
+            }}
+          >
+            {onSave ? (
+              <View
+                className="flex-1 bg-primary rounded-sm flex items-center justify-center"
+                style={{ height: toUnit(LOGIN_POPUP_BUTTON_HEIGHT_PX) }}
+                onClick={() => onSave?.({ avatar, nickname })}
+                hoverClass="opacity-60"
+              >
+                <Text
+                  className="text-primary-foreground font-medium"
+                  style={{ fontSize: toUnit(LOGIN_POPUP_BUTTON_FONT_PX) }}
+                >
+                  {tt('common.save', '保存')}
+                </Text>
+              </View>
+            ) : null}
+            {onBindPhone ? (
+              <View
+                className="flex-1 rounded-sm border border-border flex items-center justify-center"
+                style={{ height: toUnit(LOGIN_POPUP_BUTTON_HEIGHT_PX) }}
+                onClick={onBindPhone}
+                hoverClass="opacity-60"
+              >
+                <Text
+                  className="text-foreground font-medium"
+                  style={{ fontSize: toUnit(LOGIN_POPUP_BUTTON_FONT_PX) }}
+                >
+                  {tt('user.bindPhone', '绑定手机')}
+                </Text>
+              </View>
+            ) : null}
+            {onLogout ? (
+              <View
+                className="flex-1 rounded-sm border border-border flex items-center justify-center"
+                style={{ height: toUnit(LOGIN_POPUP_BUTTON_HEIGHT_PX) }}
+                onClick={onLogout}
+                hoverClass="opacity-60"
+              >
+                <Text
+                  className="text-foreground font-medium"
+                  style={{ fontSize: toUnit(LOGIN_POPUP_BUTTON_FONT_PX) }}
+                >
+                  {tt('common.logout', '登出')}
+                </Text>
+              </View>
+            ) : null}
           </View>
         ) : null}
 

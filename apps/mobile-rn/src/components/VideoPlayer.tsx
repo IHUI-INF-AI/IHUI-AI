@@ -52,7 +52,7 @@ const PLAYBACK_RATES = [0.75, 1, 1.25, 1.5, 2] as const
 
 // 共享类型 VideoPlayerMinimalProps 已下沉到 @ihui/types,
 // 本地 Props extends Omit<Minimal,'url'> 并将 url 改为必选,
-// 追加 title/startPosition/VideoComponent(mobile-rn 专属字段)。
+// 追加 title/startPosition/controls(mobile-rn 专属字段)。
 // miniapp-taro 字段名不同(src/onTimeUpdate/onEnded),不 extends Minimal,保留本地定义。
 export interface VideoPlayerProps extends Omit<VideoPlayerMinimalProps, 'url'> {
   /** 视频 URL(HLS / MP4 / 其他 react-native-video 支持的协议) */
@@ -71,8 +71,11 @@ export interface VideoPlayerProps extends Omit<VideoPlayerMinimalProps, 'url'> {
   onPlay?: () => void
   /** 暂停回调(与小程序端同名同义) */
   onPause?: () => void
-  /** 用于测试:注入 Video 实现,默认从 react-native-video 导入 */
-  VideoComponent?: typeof Video
+  /**
+   * 原生控制条开关(与小程序端同名同义)。
+   * 本端默认为 false —— 既有版面是自绘控制条;传 true 时把原生 chrome 一并打开。
+   */
+  controls?: boolean
 }
 
 function formatTime(seconds: number): string {
@@ -95,10 +98,9 @@ export function VideoPlayer({
   onError,
   onPlay,
   onPause,
-  VideoComponent,
+  controls = false,
 }: VideoPlayerProps) {
   const { t } = useI18n()
-  const VideoImpl = VideoComponent ?? Video
   const ref = useRef<VideoRef>(null)
   const [paused, setPaused] = useState(!autoplay)
   const [currentTime, setCurrentTime] = useState(startPosition)
@@ -249,7 +251,7 @@ export function VideoPlayer({
       onLayout={onContainerLayout}
       testID="video-player"
     >
-      <VideoImpl
+      <Video
         ref={ref}
         source={{ uri: url }}
         paused={paused}
@@ -262,7 +264,7 @@ export function VideoPlayer({
         onFullscreenPlayerDidPresent={handleFullscreenDidPresent}
         onFullscreenPlayerDidDismiss={handleFullscreenDidDismiss}
         resizeMode="contain"
-        controls={false}
+        controls={controls}
         style={StyleSheet.absoluteFill}
         progressUpdateInterval={1000}
       />
