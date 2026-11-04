@@ -34,6 +34,8 @@ export interface CourseMetaItem {
 
 export interface CarouselProps {
   items?: CarouselItem[]
+  /** 单张 slide 宽度(分页步长)(与 RN 端 itemWidth 同名同义);本端当前渲染整屏 slide,此项预留待接分页 */
+  itemWidth?: number
   autoplay?: boolean
   interval?: number
   height?: number | string

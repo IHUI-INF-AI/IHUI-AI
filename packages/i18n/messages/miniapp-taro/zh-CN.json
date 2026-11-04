@@ -408,7 +408,8 @@
     "totalRecharge": "累计充值",
     "totalWithdraw": "累计提现",
     "withdraw": "提现",
-    "points": "智汇值"
+    "points": "智汇值",
+    "rechargeSuccess": "充值成功"
   },
   "community": {
     "posts": "帖子",
@@ -2112,8 +2113,7 @@
       "selectAigc": "选择 AI 作品(可选)",
       "noAigc": "暂无可关联的 AI 作品",
       "allowComments": "允许评论",
-      "visibility": "可见范围",
-      "publishFailed": "发布失败，请重试"
+      "visibility": "可见范围"
     },
     "index": {
       "goPublish": "去发布",
@@ -2215,8 +2215,7 @@
       "targetGroupEnterprise": "企业",
       "discountNone": "不参与",
       "discountPartial": "部分参与",
-      "discountFull": "全部参与",
-      "saveSuccess": "保存成功"
+      "discountFull": "全部参与"
     }
   },
   "devSpace": {
@@ -2694,8 +2693,7 @@
     "payFailed": "支付失败,请重试",
     "paying": "支付中...",
     "purchaseContent": "购买内容",
-    "userAgreement": "《用户协议》",
-    "activateDelayed": "权益发放延迟，请联系客服"
+    "userAgreement": "《用户协议》"
   },
   "study": {
     "todayMinutes": "今日 {n} 分钟",
@@ -2992,6 +2990,10 @@
     "text6": "等级介绍页未配置",
     "menu": {
       "subscriptions": "我的订阅"
+    },
+    "security": {
+      "code": "验证码",
+      "sendCode": "发送验证码"
     }
   },
   "vipScreen": {
@@ -3247,7 +3249,8 @@
     "contactPlaceholder": "请输入联系方式(选填)",
     "contentPlaceholder": "请输入反馈详情",
     "submit": "提交反馈",
-    "type": "类型"
+    "type": "类型",
+    "success": "提交成功"
   },
   "comment": {
     "loading": "加载中...",
@@ -4796,8 +4799,7 @@
       "active": "生效",
       "rejected": "已拒绝",
       "cancelled": "已解除"
-    },
-    "myAttendanceHint": "查看并自签"
+    }
   },
   "eduChildAttendance": {
     "title": "孩子考勤",
@@ -4820,22 +4822,10 @@
     "status": {
       "present": "正常",
       "late": "迟到",
-      "early": "早退",
       "absent": "缺勤",
       "leave": "请假"
     },
-    "student": "学生",
-    "batchCheckIn": "整班点名",
-    "checkInFor": "代签",
-    "checkedInToast": "签到成功",
-    "checkedOutToast": "签退成功",
-    "batchDoneToast": "点名完成",
-    "batchResult": "点名完成：新增 {created} 人，跳过 {skipped} 人，未落库 {missed} 人",
-    "noClassReason": "未取到班级信息，暂不能整班点名",
-    "multiClass": "列表含多个班级，本次仅点名 {classId}",
-    "checkInAt": "签到时刻",
-    "momentNow": "此刻",
-    "backfillNeedsTime": "回填非当日考勤须给出该日内的打卡时刻"
+    "student": "学生"
   },
   "eduMgmt": {
     "attendanceTitle": "考勤管理",
@@ -6991,7 +6981,7 @@
     "labelSaleType": "售卖类型",
     "submit": "保存",
     "submitting": "提交中...",
-    "readOnlyHint": "该项暂未开放修改"
+    "readOnlyHint": "该字段暂不支持修改"
   },
   "modelIncome": {
     "accumulated": "累计收入",
@@ -7106,14 +7096,17 @@
   "studyIndex": {
     "receiveFreeBody": "链接已复制到剪贴板,可在浏览器粘贴打开"
   },
-  "eduMyAttendance": {
-    "title": "我的考勤",
-    "selfCheckIn": "我要签到",
-    "selfDoneToast": "签到成功",
-    "classByBackendHint": "班级由后端按在册学籍自动确定",
-    "remarkPlaceholder": "备注(可选)",
-    "scanCheckIn": "扫码签到",
-    "scanDoneToast": "扫码签到成功",
-    "scanInvalidToast": "这不是本系统的签到二维码"
+  "career": {
+    "fillField": "请填写：{name}",
+    "submitFail": "提交失败，请稍后重试",
+    "doneTitle": "提交成功",
+    "doneBody": "问卷已提交，AI 学业建议生成后可在本页查看。",
+    "exportingReport": "导出中...",
+    "exportEmptyHint": "生成报告后可导出",
+    "exportLoginRequired": "请先登录后再导出"
+  },
+  "learnMapPage": {
+    "completed": "已完成",
+    "empty": "暂无学习路径"
   }
 }

@@ -176,7 +176,14 @@ test('T3 默认档锁:入库开关面必须 enabled=false(开臂是机主的决�
   assert.deepEqual(Object.keys(raw), ['enabled'])
 })
 
-test('T4 probe-only:开关关 + window ⇒ 只探测不搬,且记录型 io 上零写盘调用', () => {
+/** 唯一允许的写面:续扫游标(.ihui-agent/state/devenv-migrate-scan.json)的叠加写。
+ *  除此之外 probe-only 档不得有任何写调用(不碰旧根、不碰新根、不落预演件)。 */
+const onlyScanCursorWrites = (io) =>
+  io.writes.every(
+    (w) => w === 'mkdir' || w === 'rename' || (w.startsWith('write:') && w.includes('devenv-migrate-scan.json')),
+  )
+
+test('T4 probe-only:开关关 + window ⇒ 只探测不搬;除续扫游标外零写盘调用', () => {
   const f = fixture({ enabled: false })
   try {
     const io = fakeIO(windowTree())
@@ -184,7 +191,8 @@ test('T4 probe-only:开关关 + window ⇒ 只探测不搬,且记录型 io 上�
     assert.equal(r.ran, true)
     assert.equal(r.state, 'window')
     assert.equal(f.applies.length, 0, '合臂却派生了 apply')
-    assert.equal(io.writes.length, 0, `probe-only 档出现写调用:${io.writes.join(',')}`)
+    assert.ok(io.writes.length > 0, '默认臂应落续扫游标(否则跨轮进度攒不起来)')
+    assert.ok(onlyScanCursorWrites(io), `probe-only 档出现非游标写调用:${io.writes.join(',')}`)
     assert.equal(f.logs.length, 1, '窗口已到应恰好留一行(不搬的理由要人看得见)')
     assert.match(f.logs[0], /⏸/)
     assert.match(f.logs[0], /enabled=false/)
@@ -194,7 +202,7 @@ test('T4 probe-only:开关关 + window ⇒ 只探测不搬,且记录型 io 上�
   }
 })
 
-test('T5 窗口未到(pending)⇒ 不搬且静默(常态不刷渠道);判据理由仍如实带在证据里', () => {
+test('T5 窗口未到(pending)⇒ 不搬且静默(常态不刷渠道);写面同样只许续扫游标', () => {
   const f = fixture({ enabled: true })
   try {
     const io = fakeIO(windowTree({ legacyMin: 5 }))
@@ -202,7 +210,7 @@ test('T5 窗口未到(pending)⇒ 不搬且静默(常态不刷渠道);判据理�
     assert.equal(r.state, 'pending')
     assert.equal(f.applies.length, 0, 'pending 却派生了 apply')
     assert.equal(f.logs.length, 0, 'pending 是常态:不得每窗口刷一行')
-    assert.equal(io.writes.length, 0)
+    assert.ok(onlyScanCursorWrites(io), `pending 档出现非游标写调用:${io.writes.join(',')}`)
   } finally {
     rmScratch(f.dir)
   }

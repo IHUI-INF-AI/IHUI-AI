@@ -59,7 +59,10 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 // 门内正则对 Promise `.catch(` 无差别计数是本门已知宽口径(现有 93 里另有 28 处同类),本次按
 // 「增量走人审后吸收」处理,不因消红改写调用点写法、不换 .passthrough()/looseObject、不动判据面。
 // 若将来把计数口径收窄到 zod 语境,应同批把基线降到收窄后的真值(实测仅含 zod 导入的文件合计 63)。
-const BASELINE_TOTAL = 93
+// [2026-11-04 基线收紧 93→87] 清偿 17 处同构展开后收紧,来源提交 6f05742c01(ws-chat 12 处收敛为
+// fireAndForgetRedis、ws-auto-recovery 5 处收敛为 safeRemoveConnection/safeCleanup,运行时 catch 一枚未删);
+// 收紧不是放宽判据,而是把清偿后的真值钉死,余量归零后任何新增算子都会即时报红。
+const BASELINE_TOTAL = 87
 
 const SCAN_ROOTS = ['apps/api/src/plugins', 'packages/shared/src']
 const EXTENSIONS = /\.(ts|tsx)$/
