@@ -8,8 +8,8 @@
 
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/miniapp-taro/scripts/generate-ui-routes.mjs
-// sourceCommit: cf4c76ff1ef746259b16cfdd25ffd6083d722f2e
-// inputsSha256: 6d2681a40dcb5a07e609026179d1c467590517c8b5ed2d3865e84502ec4ce7b7
+// sourceCommit: dcd5d46c43261d9e385680129ffb7420c9b943c1
+// inputsSha256: 26af27b41e798071c700aad7e2958a5b4e91828bff9c7a807de2c20dfad22ed0
 // input: apps/miniapp-taro/src/api/index.ts e62d7695551265df9b141f83d284c7741aafdd33bd26ae92d69e37681d1fb915
 // input: apps/miniapp-taro/src/api/social.ts fd88850ce0063cb633cf6aec38b9b982a1f11406481a5032a36227a3ea87dec4
 // input: apps/miniapp-taro/src/app.config.ts d49f8d705e8c3d86642c2b0d6cf794bd9caacb67996f4d1a38b02c626d3a2810
@@ -379,7 +379,7 @@
 // input: apps/miniapp-taro/src/pkg-content/announcement/index.config.ts 450fcb40d8a1927cbea5ac4debd0f4b81a337ef89edfd3e2bb024b7d58eb6753
 // input: apps/miniapp-taro/src/pkg-content/announcement/index.tsx 1ddb50b2885c57d5a337d5035971d844181fa7f4433ae49e6fd3f8af0ec21e71
 // input: apps/miniapp-taro/src/pkg-content/carte/index.config.ts 7180d07a413bd8d0c56a6b67d4094479af030c6a70c29c40649e65d3c87bab42
-// input: apps/miniapp-taro/src/pkg-content/carte/index.tsx dacb74192f948157d1ef9455a2b4eb9a71fa1bad3f6bd2106aa4667aff81c7be
+// input: apps/miniapp-taro/src/pkg-content/carte/index.tsx 6cbe7bff5104acb6dd5dee52f0ad482b0b2a1211d1fe7100976deac6c5ed2a88
 // input: apps/miniapp-taro/src/pkg-content/category-detail/index.config.ts 5156359babbc9652f17e2e1febce3570914a0456d75592ec230bf2eb0bbc4eef
 // input: apps/miniapp-taro/src/pkg-content/category-detail/index.tsx 58b9cbe1bb70bb02591ebcf5ef345defc984af4e83753b6f686c5df858239a0b
 // input: apps/miniapp-taro/src/pkg-content/circle-post/index.tsx 1ff420fc541f0023f39e7d26ee4091a40dcf72cf489ec9bd2cb4de01cb25ef0b
@@ -617,7 +617,7 @@
 // input: apps/miniapp-taro/src/pkg-user/edu-mgmt-attendance/index.tsx 9c62f0f31f5daaecff5f0b96016ea571239990818f43064afbc56f5cf731a20a
 // input: apps/miniapp-taro/src/pkg-user/edu-mgmt-finance/index.tsx da71fae05b635dea4267674307659c37469b4ffc6a41461c9781ac73b4f4ab68
 // input: apps/miniapp-taro/src/pkg-user/edu-mgmt-grades/index.tsx 9dd6a7f3c5428b0724c732699f39f1cbc4f0ba9852b339acc0e8d35569c79677
-// input: apps/miniapp-taro/src/pkg-user/edu-parent/index.tsx c03360a67bd23bb583eff86e558509498339bef7852e7d74ba8523fa9fa6def3
+// input: apps/miniapp-taro/src/pkg-user/edu-parent/index.tsx 8c4df84524dae33fd217ff27fba433e30a0a55c6afd66809c81f3301b0418a19
 // input: apps/miniapp-taro/src/pkg-user/edu-teacher-study-plan/index.tsx 3a289cb7468fa811f2fde76e20907d548e7a33aabf7f73364050d985a20d6173
 // input: apps/miniapp-taro/src/pkg-user/fans/index.config.ts 7311b4e06c791b6d7f638bef538c6af67dbc89f22b967ebc96f5ce5e5ab75eaf
 // input: apps/miniapp-taro/src/pkg-user/fans/index.tsx d1df8bb14a66410b259490c80e0db0fd56e9f5418834688eb1d3631e7063a179
@@ -746,7 +746,7 @@
 // input: apps/miniapp-taro/src/utils/wechat-login.ts 08992a45fbbfb70b37f5a3518c5a82d2c55b9337f6ece0e0192b3c8d9c29470e
 // scanned: 610 source files(navigateTo url 参数探测,requiresParams 的依据)
 // skipped: pagesWithoutOwnConfig=205(标题回落 app window / tabBar 文案)
-// generatedAt: 2026-11-04T06:42:14.737Z
+// generatedAt: 2026-11-04T07:50:37.988Z
 // IHUI-GEN-PIN-END
 
 /** AI 可导航页面条目:path 为 Taro 导航全路径(含前导斜杠,分包已拼 root) */
