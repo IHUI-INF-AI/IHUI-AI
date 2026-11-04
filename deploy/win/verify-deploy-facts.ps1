@@ -218,7 +218,9 @@ $idC = 'entry_layer_hash'
 $relEdge = 'deploy\win\lib\edge-admission.mjs'
 $srcEdge = Join-Path $SourceRoot $relEdge
 $prodEdge = Join-Path $ProdRoot $relEdge
-if ([System.IO.Path]::GetFullPath($SourceRoot).TrimEnd('\') -eq [System.IO.Path]::GetFullPath($ProdRoot).TrimEnd('\')) {
+$srcFull = [System.IO.Path]::GetFullPath($SourceRoot).TrimEnd([char[]]@('\', '/'))
+$prodFull = [System.IO.Path]::GetFullPath($ProdRoot).TrimEnd([char[]]@('\', '/'))
+if ($srcFull -eq $prodFull) {
     Emit-Pass $idC 'undetermined' "source_equals_prod; root=$ProdRoot; cannot_distinguish"
     $undetCount++; $undetLines += $idC
 } elseif (-not (Test-Path -LiteralPath $srcEdge)) {
