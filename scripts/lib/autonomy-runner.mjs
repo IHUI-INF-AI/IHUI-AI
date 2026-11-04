@@ -188,37 +188,100 @@ export const UNDETERMINED_FAILURE_SIGNS = [
   'scan-budget-exhausted',
 ]
 
-export function classifySessionFailure({ status, stderr, error }) {
+/**
+ * 会话退出码的**契约含义**(2026-11-05 立,唯一一份)。
+ *
+ * 为什么判序必须是"终态先于文本签名":旧写法先拿 stderr 全文找签名,于是**任何一行诊断**
+ * 都能盖掉退出码。实测(2026-11-05 用一次真会话的原样 stderr 复现,会话 rc=0、两个文件都真写出来了):
+ *   status=0 ⇒ kind=undetermined sign=status=undetermined
+ *   status=3 ⇒ kind=undetermined …
+ *   status=1 ⇒ kind=undetermined …
+ * 四臂同色。那句把它判成"未判定"的文本,来自 CLI 收尾自检的一行警告
+ * (`⚠ [security-scan] … status=undetermined … untracked-files-over-cap`),不是失败本身。
+ * 账面后果:调度器把成功会话记成 `runner-unavailable`(台账 248 行里 41 条),
+ * 于是"自治环坏了"被记成"我的腿断了"—— 一个把自身故障当万用兜底的分类器,
+ * 永远不需要为任何一次零产出负责(§0.3 的失效方向是"多要一次定向说明",不是"多给一个借口")。
+ *
+ * 现在:退出码有明确含义的(0/3/130)一律按含义判;只有**非零且含义不明确**的码(1/2/4/其它)
+ * 才去扫签名,因为那些码本身只说"没成",没说"为什么没成"。
+ * 签名命中而终态已定 ⇒ 收进 `diagnostics` 如实报出,不参与判定。
+ */
+export const SESSION_EXIT_MEANINGS = Object.freeze({
+  0: 'ok',
+  3: 'no-progress',
+  130: 'cancelled',
+})
+
+export function classifySessionFailure({ status, stderr, error, signal = null } = {}) {
   const blob = `${String(stderr ?? '')}\n${String(error ?? '')}`
+  const signsSeen = [
+    ...ENV_FAILURE_SIGNS.filter((s) => blob.includes(s)),
+    ...TRANSPORT_FAILURE_SIGNS.filter((s) => blob.includes(s)),
+    ...UNDETERMINED_FAILURE_SIGNS.filter((s) => blob.includes(s)),
+  ]
+  const withDiag = (r) => ({ ...r, diagnostics: signsSeen })
+
+  if (status === null || status === undefined) {
+    return withDiag({
+      kind: 'undetermined',
+      sign: null,
+      why:
+        '退出码取不到 ⇒ 不判成功也不记票失败(被信号终止时按取消判:' +
+        (signal ? String(signal) : '无信号') +
+        ')',
+    })
+  }
+  const meaning = SESSION_EXIT_MEANINGS[status]
+  if (meaning === 'ok') {
+    return withDiag({
+      kind: 'ok',
+      sign: null,
+      why: signsSeen.length
+        ? `rc=0 ⇒ 会话终态成功(stderr 有 ${signsSeen.length} 行诊断命中签名,只报数不改判)`
+        : '',
+    })
+  }
+  if (meaning === 'no-progress') {
+    return withDiag({
+      kind: 'no-progress',
+      sign: 'exit=3',
+      why: 'exit=3 = CLI 终态 no_progress(整班无工具调用 + 空正文,补救一次后仍未推进)⇒ 会话跑完了而零推进,不是发起腿故障',
+    })
+  }
+  if (meaning === 'cancelled') {
+    return withDiag({
+      kind: 'cancelled',
+      sign: 'exit=130',
+      why: 'exit=130 = 会话被取消 ⇒ 不记票失败,也不记成功',
+    })
+  }
+  // 以下:非零且退出码本身不带唯一含义(1=硬错误/验收未过、2=轮次耗尽/doom-loop/待批、4=CPU 限制、其它)
   const env = ENV_FAILURE_SIGNS.find((s) => blob.includes(s))
   if (env)
-    return {
+    return withDiag({
       kind: 'environment',
       sign: env,
       why: `执行体/模块级失败(${env})⇒ 属调度器自身故障,不计票连败`,
-    }
+    })
   const transport = TRANSPORT_FAILURE_SIGNS.find((s) => blob.includes(s))
   if (transport)
-    return {
+    return withDiag({
       kind: 'transport',
       sign: transport,
       why: `通路级失败(${transport})⇒ 服务面/上游依赖,不计票连败`,
-    }
+    })
   const undetermined = UNDETERMINED_FAILURE_SIGNS.find((s) => blob.includes(s))
   if (undetermined)
-    return {
+    return withDiag({
       kind: 'undetermined',
       sign: undetermined,
       why: `判据取不到输入(${undetermined})⇒ "我量不动"不是"没推进",不记票连败、不触空转阶梯`,
-    }
-  if (status === null || status === undefined)
-    return { kind: 'undetermined', sign: null, why: '退出码取不到 ⇒ 不判成功也不记票失败' }
-  if (status === 0) return { kind: 'ok', sign: null, why: '' }
-  return { kind: 'session', sign: null, why: `会话自身失败(exit=${status})` }
+    })
+  return withDiag({ kind: 'session', sign: null, why: `会话自身失败(exit=${status})` })
 }
 
-/** 会冤封好票的两型:都不该进票的连败计数。 */
-export const NON_TICKET_FAILURE_KINDS = ['environment', 'transport', 'undetermined']
+/** 会冤封好票的几型(被取消也算:它既不是票坏,也不是推进):都不该进票的连败计数。 */
+export const NON_TICKET_FAILURE_KINDS = ['environment', 'transport', 'undetermined', 'cancelled']
 export function isNonTicketFailure(kind) {
   return NON_TICKET_FAILURE_KINDS.includes(kind)
 }

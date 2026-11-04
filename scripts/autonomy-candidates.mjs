@@ -38,9 +38,23 @@ import { pathToFileURL } from 'node:url'
 import { spawnSync } from 'node:child_process'
 
 // 口径全部从既有实现 import —— 本文件不拼第二份旗标、不写第二份解析器、不算第二份票键。
-import { ROOT, PLAN_TASKS, DISPATCH_ARGS, LEDGER, parseTicketRows, quarantinedUntilOf, rankTicketRows } from './auto-evolve.mjs'
+import {
+  ROOT,
+  PLAN_TASKS,
+  DISPATCH_ARGS,
+  LEDGER,
+  parseTicketRows,
+  quarantinedUntilOf,
+  rankTicketRows,
+} from './auto-evolve.mjs'
 import { ticketKeyOf } from './lib/ticket-key.mjs'
-import { loadPolicy, POLICY_PATH, FACTOR_KEYS, validateCandidates, decide } from './autonomy-decision.mjs'
+import {
+  loadPolicy,
+  POLICY_PATH,
+  FACTOR_KEYS,
+  validateCandidates,
+  decide,
+} from './autonomy-decision.mjs'
 
 /** 落盘位置(与 auto-evolve.mjs 的 AUTONOMY_CANDIDATES 同一路径;那边未导出,故此处按仓根归一拼一次) */
 export const CANDIDATES_PATH = join(ROOT, '.ihui-agent', 'state', 'autonomy-candidates.json')
@@ -67,12 +81,35 @@ export const SCHEMA_VERSION = 1
  * `session-no-write` 必须在册(2026-11-04):它是"派了会话但整班零写盘"的结果档 —— 班次确实被这张票
  * 吃掉了。漏认它会把刚派过班的票读成"没人动过",认领牌年龄与紧迫度都算错方向。
  */
-const ACTIVITY_ACTIONS = new Set(['dispatched', 'session-ok', 'session-no-write', 'session-failed', 'session-timeout'])
+const ACTIVITY_ACTIONS = new Set([
+  'dispatched',
+  'session-ok',
+  'session-no-write',
+  'session-no-progress',
+  'session-failed',
+  'session-timeout',
+])
 
 // ───────────────────────── 证据词表(全部是"命中即见"的硬词,不收泛词) ─────────────────────────
 
 /** 高影响词:命中即牵动生产面(与票面同语言,不依赖模型理解) */
-const IMPACT_TERMS = ['安全', '鉴权', '认证', '凭据', '密钥', '口令', '数据', '迁移', '部署', '生产', '守门', '判据', '回滚', '支付', '隐私']
+const IMPACT_TERMS = [
+  '安全',
+  '鉴权',
+  '认证',
+  '凭据',
+  '密钥',
+  '口令',
+  '数据',
+  '迁移',
+  '部署',
+  '生产',
+  '守门',
+  '判据',
+  '回滚',
+  '支付',
+  '隐私',
+]
 
 /** 用户可见面:落点路径 + 路由字面(API 端点也是用户面) */
 const USER_SURFACES = [
@@ -95,12 +132,19 @@ const IRREVERSIBLE_EXPLICIT = ['不可逆', '不可恢复', '永久删除', '物
 /** 外部依赖族:机主审批 / 第三方控制台 / 外部服务 */
 const EXTERNAL_FAMILIES = [
   { name: '机主审批', terms: ['机主', '拍板', '审批', '人工阀', '等人', '等条件'] },
-  { name: '第三方控制台', terms: ['控制台', '阿里云', '腾讯云', '微信公众平台', '域名', 'DNS', '备案'] },
-  { name: '外部服务', terms: ['外部服务', '第三方', '上游', 'GitHub App', '短信', 'OSS', 'CDN', '隧道', 'webhook'] },
+  {
+    name: '第三方控制台',
+    terms: ['控制台', '阿里云', '腾讯云', '微信公众平台', '域名', 'DNS', '备案'],
+  },
+  {
+    name: '外部服务',
+    terms: ['外部服务', '第三方', '上游', 'GitHub App', '短信', 'OSS', 'CDN', '隧道', 'webhook'],
+  },
 ]
 
 /** 规则面落点:点名到规则文件本身 = 改判据,属人工阀面;只提"判据"二字算中档 */
-const RULE_FILE_RE = /(?:^|[\s`"'(\[（【、,，:：;；])(AGENTS\.md|scripts\/check-[A-Za-z0-9\-_]+\.mjs|scripts\/lib\/[A-Za-z0-9\-_]+\.mjs)/
+const RULE_FILE_RE =
+  /(?:^|[\s`"'(\[（【、,，:：;；])(AGENTS\.md|scripts\/check-[A-Za-z0-9\-_]+\.mjs|scripts\/lib\/[A-Za-z0-9\-_]+\.mjs)/
 const RULE_TERMS = ['守门', '判据', '铁律']
 
 /** 票面点名的路径(落点计数用)。只认仓内可辨路径,不认 URL/域名/纯词。 */
@@ -121,7 +165,9 @@ const eachMatch = (text, re) => [...String(text).matchAll(new RegExp(re.source, 
 export function pathsOf(text) {
   const out = new Set()
   for (const m of eachMatch(text, PATH_TOKEN_RE)) {
-    const p = String(m[1]).replace(/[.,;:，、；：]+$/, '').replace(/\/+$/, '')
+    const p = String(m[1])
+      .replace(/[.,;:，、；：]+$/, '')
+      .replace(/\/+$/, '')
     if (!p || p.includes('://')) continue
     out.add(p)
   }
@@ -146,12 +192,15 @@ export function factorUserValue(text, max) {
   const hit = new Map()
   for (const s of USER_SURFACES) if (s.re.test(text)) hit.set(s.name, s.label)
   const routes = [...new Set(text.match(new RegExp(ROUTE_LITERAL_RE.source, 'g')) ?? [])]
-  if (routes.length && !hit.has('api-route')) hit.set('api-route', `路由字面 ${routes.slice(0, 2).join('、')}`)
+  if (routes.length && !hit.has('api-route'))
+    hit.set('api-route', `路由字面 ${routes.slice(0, 2).join('、')}`)
   if (hit.size === 0) {
     const apiOnly = /apps\/api\//.test(text)
     return {
       level: apiOnly ? clamp(1, max) : 0,
-      evidence: apiOnly ? '仅点名 apps/api 非路由文件(轻量用户面)' : '未点名 apps/web / apps/mobile / apps/api 路由面',
+      evidence: apiOnly
+        ? '仅点名 apps/api 非路由文件(轻量用户面)'
+        : '未点名 apps/web / apps/mobile / apps/api 路由面',
     }
   }
   return {
@@ -162,7 +211,10 @@ export function factorUserValue(text, max) {
 
 /** 不可逆:按族计数封顶 2 档;只有票面显式说"不可逆/物理删除"才顶到最高档 */
 export function factorIrreversible(text, max) {
-  const families = IRREVERSIBLE_FAMILIES.map((f) => ({ name: f.name, hit: f.terms.filter((t) => text.includes(t)) })).filter((f) => f.hit.length)
+  const families = IRREVERSIBLE_FAMILIES.map((f) => ({
+    name: f.name,
+    hit: f.terms.filter((t) => text.includes(t)),
+  })).filter((f) => f.hit.length)
   const explicit = IRREVERSIBLE_EXPLICIT.filter((t) => text.includes(t))
   if (explicit.length) {
     return {
@@ -182,7 +234,10 @@ export function factorIrreversible(text, max) {
 
 /** 外部依赖:机主审批 / 第三方控制台 / 外部服务,按族计数 */
 export function factorExternal(text, max) {
-  const families = EXTERNAL_FAMILIES.map((f) => ({ name: f.name, hit: f.terms.filter((t) => text.includes(t)) })).filter((f) => f.hit.length)
+  const families = EXTERNAL_FAMILIES.map((f) => ({
+    name: f.name,
+    hit: f.terms.filter((t) => text.includes(t)),
+  })).filter((f) => f.hit.length)
   return {
     level: clamp(families.length, max),
     evidence: families.length
@@ -194,7 +249,8 @@ export function factorExternal(text, max) {
 /** 触碰铁律:点名规则文件本身 ⇒ 3;只提守门/判据 ⇒ 2;只提铁律/规则 ⇒ 1 */
 export function factorRuleTouch(text, max) {
   const file = RULE_FILE_RE.exec(text)
-  if (file) return { level: clamp(3, max), evidence: `落点点名规则文件 ${file[1]}(改判据属人工阀面)` }
+  if (file)
+    return { level: clamp(3, max), evidence: `落点点名规则文件 ${file[1]}(改判据属人工阀面)` }
   const terms = RULE_TERMS.filter((t) => text.includes(t))
   const door = /门\s?\d{1,3}/.exec(text)
   if (terms.length || door) {
@@ -203,7 +259,8 @@ export function factorRuleTouch(text, max) {
       evidence: `提到规则面:${[...terms, ...(door ? [door[0]] : [])].join('、')}(未点名规则文件本体)`,
     }
   }
-  if (/规则/.test(text)) return { level: clamp(1, max), evidence: '仅提到「规则」,无守门/判据/铁律落点' }
+  if (/规则/.test(text))
+    return { level: clamp(1, max), evidence: '仅提到「规则」,无守门/判据/铁律落点' }
   return { level: 0, evidence: '未提到 AGENTS.md/守门/判据/铁律' }
 }
 
@@ -226,10 +283,21 @@ export function factorChangeSurface(text, max) {
 export function factorVerifyMinutes(text, policy) {
   const ref = policy.scales.verifyMinutesRef
   const tests = [...new Set(eachMatch(text, TEST_FILE_RE).map((m) => m[0]))]
-  if (tests.length) return { minutes: Math.round(ref / 4), evidence: `点名测试面 ${tests.slice(0, 2).join('、')} ⇒ ${Math.round(ref / 4)}min(参照 ${ref}min)` }
+  if (tests.length)
+    return {
+      minutes: Math.round(ref / 4),
+      evidence: `点名测试面 ${tests.slice(0, 2).join('、')} ⇒ ${Math.round(ref / 4)}min(参照 ${ref}min)`,
+    }
   const terms = VERIFY_TERMS.filter((t) => text.includes(t))
-  if (terms.length) return { minutes: Math.round(ref / 2), evidence: `提到验收手段「${terms.join('、')}」但未点名测试文件 ⇒ ${Math.round(ref / 2)}min(参照 ${ref}min)` }
-  return { minutes: ref, evidence: `票面未点名测试面/验收件 ⇒ 按参照 ${ref}min 计(零余量,不假装便宜)` }
+  if (terms.length)
+    return {
+      minutes: Math.round(ref / 2),
+      evidence: `提到验收手段「${terms.join('、')}」但未点名测试文件 ⇒ ${Math.round(ref / 2)}min(参照 ${ref}min)`,
+    }
+  return {
+    minutes: ref,
+    evidence: `票面未点名测试面/验收件 ⇒ 按参照 ${ref}min 计(零余量,不假装便宜)`,
+  }
 }
 
 /**
@@ -247,9 +315,13 @@ export function factorLease(text, key, ctx) {
     if (Number.isFinite(at)) starts.push({ at, src: `票面认领牌「进行中@${marker[1]}」` })
   }
   const ledgerAt = ctx.lastActivityAt.get(key)
-  if (Number.isFinite(ledgerAt)) starts.push({ at: ledgerAt, src: `台账本票最近动作 ${new Date(ledgerAt).toISOString()}` })
+  if (Number.isFinite(ledgerAt))
+    starts.push({ at: ledgerAt, src: `台账本票最近动作 ${new Date(ledgerAt).toISOString()}` })
   if (starts.length === 0) {
-    return { hours: null, evidence: '无认领牌(票面无「进行中@」且台账无本票动作)⇒ null,模型口径"无租约"紧迫度 0' }
+    return {
+      hours: null,
+      evidence: '无认领牌(票面无「进行中@」且台账无本票动作)⇒ null,模型口径"无租约"紧迫度 0',
+    }
   }
   const start = Math.min(...starts.map((s) => s.at))
   const ageHours = Math.max(0, (ctx.now - start) / 3_600_000)
@@ -262,11 +334,17 @@ export function factorLease(text, key, ctx) {
 
 /** 阻塞他人:点名"挡住/卡住谁" ⇒ 3;只说"阻塞" ⇒ 2;只提到被阻塞/等待 ⇒ 1 */
 export function factorBlocking(text, max) {
-  const blocks = ['阻塞他人', '挡住', '卡住', '堵住', '卡着', '阻塞别'].filter((t) => text.includes(t))
+  const blocks = ['阻塞他人', '挡住', '卡住', '堵住', '卡着', '阻塞别'].filter((t) =>
+    text.includes(t),
+  )
   if (blocks.length) return { level: clamp(3, max), evidence: `点名阻塞他人:${blocks.join('、')}` }
-  if (text.includes('阻塞')) return { level: clamp(2, max), evidence: '提到「阻塞」但未点名对象/方向 ⇒ 记 2 档' }
-  const waiting = ['被阻塞', '等条件', '等人', '等待', '待上游', '未落地'].filter((t) => text.includes(t))
-  if (waiting.length) return { level: clamp(1, max), evidence: `只提到被他人阻塞/等待:${waiting.join('、')}` }
+  if (text.includes('阻塞'))
+    return { level: clamp(2, max), evidence: '提到「阻塞」但未点名对象/方向 ⇒ 记 2 档' }
+  const waiting = ['被阻塞', '等条件', '等人', '等待', '待上游', '未落地'].filter((t) =>
+    text.includes(t),
+  )
+  if (waiting.length)
+    return { level: clamp(1, max), evidence: `只提到被他人阻塞/等待:${waiting.join('、')}` }
   return { level: 0, evidence: '未提到阻塞他人或被阻塞' }
 }
 
@@ -336,7 +414,9 @@ export function evaluateTicket(row, ctx) {
       blockingOthers: blocking.evidence,
     },
     line: row?.line ?? null,
-    notes: quarantinedUntil ? [`台账封禁至 ${new Date(quarantinedUntil).toISOString()}(派发闸另拦,本文件照评)`] : [],
+    notes: quarantinedUntil
+      ? [`台账封禁至 ${new Date(quarantinedUntil).toISOString()}(派发闸另拦,本文件照评)`]
+      : [],
   }
 }
 
@@ -413,7 +493,9 @@ export function pickFace() {
   if (r.error) throw new Error(`派单面取不到:${r.error.message}`)
   const rows = parseTicketRows(r.stdout)
   if (rows.length === 0 && r.status !== 0) {
-    throw new Error(`派单面未判定(status=${r.status}):${String(r.stderr ?? r.stdout ?? '').slice(-300)}`)
+    throw new Error(
+      `派单面未判定(status=${r.status}):${String(r.stderr ?? r.stdout ?? '').slice(-300)}`,
+    )
   }
   return rows
 }
@@ -441,7 +523,8 @@ const FACTOR_ORDER = Object.entries(FACTOR_KEYS).flatMap(([dim, keys]) => keys.m
 function renderFactorLines(c) {
   const lines = []
   for (const [dim, key] of FACTOR_ORDER) {
-    const value = dim === 'cost' && key === 'verifyMinutes' ? `${c.cost.verifyMinutes}min` : String(c[dim][key])
+    const value =
+      dim === 'cost' && key === 'verifyMinutes' ? `${c.cost.verifyMinutes}min` : String(c[dim][key])
     lines.push(`    ${`${dim}.${key}`.padEnd(26)} = ${value.padEnd(6)} :: ${c.evidence[key]}`)
   }
   if (c.notes.length) lines.push(`    notes: ${c.notes.join(';')}`)
@@ -462,13 +545,16 @@ export function renderPreview(doc, decision, { written = false } = {}) {
   }
   if (decision) {
     out.push('', '── 模型裁决(直接调 autonomy-decision.decide,不另写第二份排序)──')
-    out.push(`可排期 ${decision.counts.ranked} / 压后 ${decision.counts.deferred}(候选 ${decision.counts.input} 枚)`)
+    out.push(
+      `可排期 ${decision.counts.ranked} / 压后 ${decision.counts.deferred}(候选 ${decision.counts.input} 枚)`,
+    )
     for (const item of decision.ranked) {
       out.push(`#${item.rank} [${item.score}] ${item.id} ${item.title.slice(0, 60)}`)
     }
     if (decision.deferred.length) {
       out.push('压后:')
-      for (const item of decision.deferred) out.push(`- [${item.score}] ${item.id} ${item.code}:${item.reason}`)
+      for (const item of decision.deferred)
+        out.push(`- [${item.score}] ${item.id} ${item.code}:${item.reason}`)
     }
   }
   return out.join('\n')
@@ -489,8 +575,19 @@ export function toJsonDoc({ doc, decision, mode, written, duplicates }) {
       ? {
           state: decision.state,
           counts: decision.counts,
-          ranked: decision.ranked.map((x) => ({ rank: x.rank, id: x.id, score: x.score, riskLevel: x.riskLevel, reason: x.reason })),
-          deferred: decision.deferred.map((x) => ({ id: x.id, score: x.score, code: x.code, reason: x.reason })),
+          ranked: decision.ranked.map((x) => ({
+            rank: x.rank,
+            id: x.id,
+            score: x.score,
+            riskLevel: x.riskLevel,
+            reason: x.reason,
+          })),
+          deferred: decision.deferred.map((x) => ({
+            id: x.id,
+            score: x.score,
+            code: x.code,
+            reason: x.reason,
+          })),
         }
       : null,
   }
@@ -512,7 +609,10 @@ function selfTest() {
   // S1 因子键集与策略逐键对上(多一个少一个都是形状坏)
   const mine = Object.keys(evaluateTicket({ line: 1, text: '空票面占位' }, ctx).evidence).sort()
   const want = Object.values(FACTOR_KEYS).flat().sort()
-  assert(mine.length === want.length && mine.every((k, i) => k === want[i]), `因子键集必须恰为 ${want.join('/')},现为 ${mine.join('/')}`)
+  assert(
+    mine.length === want.length && mine.every((k, i) => k === want[i]),
+    `因子键集必须恰为 ${want.join('/')},现为 ${mine.join('/')}`,
+  )
 
   // S2 影响面:按命中枚数分档
   assert(factorImpact('无关键词的一句话', max).level === 0, '零命中应为 0 档')
@@ -523,9 +623,15 @@ function selfTest() {
   // S3 用户价值:落点面数
   assert(factorUserValue('改 apps/web/src/app/page.tsx', max).level === 2, '单个用户面应 2 档')
   assert(factorUserValue('改 apps/web 与 apps/mobile 两端', max).level === 3, '两个用户面应 3 档')
-  assert(factorUserValue('改 apps/api/src/db/schema.ts', max).level === 1, '只点名 api 非路由文件应 1 档')
+  assert(
+    factorUserValue('改 apps/api/src/db/schema.ts', max).level === 1,
+    '只点名 api 非路由文件应 1 档',
+  )
   assert(factorUserValue('改 scripts/plan-tasks.mjs', max).level === 0, '无用户面应 0 档')
-  assert(factorUserValue('GET /api/app-version/latest 返 404', max).level === 2, '路由字面也算用户面')
+  assert(
+    factorUserValue('GET /api/app-version/latest 返 404', max).level === 2,
+    '路由字面也算用户面',
+  )
 
   // S4 不可逆:族计数封顶 2,显式表述才顶 3
   assert(factorIrreversible('做一次数据迁移', max).level === 1, '单族应 1 档')
@@ -539,7 +645,10 @@ function selfTest() {
 
   // S6 触碰铁律:点名规则文件才 3 档
   assert(factorRuleTouch('补 AGENTS.md 的判据段', max).level === 3, '点名 AGENTS.md 应 3 档')
-  assert(factorRuleTouch('修 scripts/check-plan-fields.mjs 的判据', max).level === 3, '点名守门脚本应 3 档')
+  assert(
+    factorRuleTouch('修 scripts/check-plan-fields.mjs 的判据', max).level === 3,
+    '点名守门脚本应 3 档',
+  )
   assert(factorRuleTouch('按守门判据补一段说明', max).level === 2, '只提守门/判据应 2 档')
   assert(factorRuleTouch('照规则补注释', max).level === 1, '只提规则应 1 档')
 
@@ -551,17 +660,29 @@ function selfTest() {
 
   // S8 验证时长:模型口径是分钟,不是 0-3
   const ref = policy.scales.verifyMinutesRef
-  assert(factorVerifyMinutes('补 scripts/tests/x.test.mjs', policy).minutes === Math.round(ref / 4), '点名测试文件应最便宜')
-  assert(factorVerifyMinutes('跑自检后再报', policy).minutes === Math.round(ref / 2), '只提验收手段应中档')
+  assert(
+    factorVerifyMinutes('补 scripts/tests/x.test.mjs', policy).minutes === Math.round(ref / 4),
+    '点名测试文件应最便宜',
+  )
+  assert(
+    factorVerifyMinutes('跑自检后再报', policy).minutes === Math.round(ref / 2),
+    '只提验收手段应中档',
+  )
   assert(factorVerifyMinutes('改一句文案', policy).minutes === ref, '无验收面应按参照满额')
 
   // S9 租约:字段写剩余小时(模型方向),牌龄进 evidence;无牌 = null
   assert(factorLease('普通票面', 'k', ctx).hours === null, '无牌必须给 null,不写 0 小时')
   const aged = { ...ctx, lastActivityAt: new Map([['k', now - 100 * 3_600_000]]) }
   const agedOut = factorLease('普通票面', 'k', aged)
-  assert(agedOut.hours === 0 && agedOut.evidence.includes('100.0h'), '超参照牌龄剩余应为 0,且 evidence 点名牌龄')
+  assert(
+    agedOut.hours === 0 && agedOut.evidence.includes('100.0h'),
+    '超参照牌龄剩余应为 0,且 evidence 点名牌龄',
+  )
   const fresh = { ...ctx, lastActivityAt: new Map([['k', now - 2 * 3_600_000]]) }
-  assert(factorLease('普通票面', 'k', fresh).hours === policy.scales.leaseHoursRef - 2, '新牌剩余 = 参照 - 牌龄')
+  assert(
+    factorLease('普通票面', 'k', fresh).hours === policy.scales.leaseHoursRef - 2,
+    '新牌剩余 = 参照 - 牌龄',
+  )
 
   // S10 阻塞他人
   assert(factorBlocking('这张票挡住另外两张', max).level === 3, '点名阻塞他人应 3 档')
@@ -580,18 +701,40 @@ function selfTest() {
   assert(normalized.length === 2, '产出必须过决策器形状锁')
 
   // S12 端到端:rankTicketRows 必须能消费本文件内容(真消费者,不是自证)
-  const doc = buildDocument({ candidates: built.candidates, generatedAt: built.generatedAt, policy, rowCount: rows.length })
-  const ranked = rankTicketRows(rows, { policyText: readFileSync(POLICY_PATH, 'utf8'), candidatesText: JSON.stringify(doc) })
+  const doc = buildDocument({
+    candidates: built.candidates,
+    generatedAt: built.generatedAt,
+    policy,
+    rowCount: rows.length,
+  })
+  const ranked = rankTicketRows(rows, {
+    policyText: readFileSync(POLICY_PATH, 'utf8'),
+    candidatesText: JSON.stringify(doc),
+  })
   assert(ranked.mode === 'decision', `rankTicketRows 应进入 decision 模式,现为 ${ranked.mode}`)
-  assert(ranked.ranked.length >= 1 && typeof ranked.ranked[0].decision.score === 'number', '应至少排出一枚并带分数')
-  assert(ranked.skipped.some((s) => s.line === 12), '改判据的票应被压后并逐条点名')
+  assert(
+    ranked.ranked.length >= 1 && typeof ranked.ranked[0].decision.score === 'number',
+    '应至少排出一枚并带分数',
+  )
+  assert(
+    ranked.skipped.some((s) => s.line === 12),
+    '改判据的票应被压后并逐条点名',
+  )
 
   // S13 确定性:同一输入两次产出逐字相同(排期可复核的前提)
   const again = buildCandidates({ rows, policy, ledger: [], now })
-  assert(JSON.stringify(again.candidates) === JSON.stringify(built.candidates), '同一输入两次产出必须逐字相同')
+  assert(
+    JSON.stringify(again.candidates) === JSON.stringify(built.candidates),
+    '同一输入两次产出必须逐字相同',
+  )
 
   // S14 重复票键只留一枚(决策器遇重复 id 会整轮判形状坏)
-  const dup = buildCandidates({ rows: [rows[0], { line: 99, text: rows[0].text }], policy, ledger: [], now })
+  const dup = buildCandidates({
+    rows: [rows[0], { line: 99, text: rows[0].text }],
+    policy,
+    ledger: [],
+    now,
+  })
   assert(dup.candidates.length === 1 && dup.duplicates.length === 1, '同票键重复行应只留一条并点名')
 
   // S15 策略形状坏必须抛(调用方据此 exit 2)
@@ -607,25 +750,55 @@ function selfTest() {
   const q = buildCandidates({
     rows: [rows[0]],
     policy,
-    ledger: [{ ticketKey: ticketKeyOf(rows[0].text), action: 'quarantined', until: '2026-11-02T00:00:00.000Z' }],
+    ledger: [
+      {
+        ticketKey: ticketKeyOf(rows[0].text),
+        action: 'quarantined',
+        until: '2026-11-02T00:00:00.000Z',
+      },
+    ],
     now,
   })
-  assert(q.candidates[0].notes.length === 1 && q.candidates[0].notes[0].includes('封禁'), '封禁票应带 notes 点名')
+  assert(
+    q.candidates[0].notes.length === 1 && q.candidates[0].notes[0].includes('封禁'),
+    '封禁票应带 notes 点名',
+  )
 
   // S17 票面截断 ⇒ 风险三因子抬到保守下限(治"风险读 0 把高风险票排前面"这一失效方向错误)
   const longRaw = 'X-77 票面'.padEnd(200, '填')
   const shortText = 'X-77 票面'
   const planLines17 = [null, null, null, null, longRaw]
-  assert(isTicketTruncated({ line: 5, text: shortText }, { planLines: planLines17 }) === true, '原文明显更长必须判截断')
-  const truncBuilt = buildCandidates({ rows: [{ line: 5, text: shortText }], policy, ledger: [], now, planLines: planLines17 })
+  assert(
+    isTicketTruncated({ line: 5, text: shortText }, { planLines: planLines17 }) === true,
+    '原文明显更长必须判截断',
+  )
+  const truncBuilt = buildCandidates({
+    rows: [{ line: 5, text: shortText }],
+    policy,
+    ledger: [],
+    now,
+    planLines: planLines17,
+  })
   const tc = truncBuilt.candidates[0]
-  assert(tc.risk.irreversible >= 1 && tc.risk.externalDependency >= 1 && tc.risk.ruleTouch >= 1, '截断时风险三因子不得读 0')
+  assert(
+    tc.risk.irreversible >= 1 && tc.risk.externalDependency >= 1 && tc.risk.ruleTouch >= 1,
+    '截断时风险三因子不得读 0',
+  )
   assert(/截断/.test(tc.evidence.irreversible), '截断必须在 evidence 里说清,不静默抬值')
   // 反向锁:原文等长 ⇒ 不抬。否则"所有票一律加风险"会把整面压后,等于另一种失效。
-  const notTrunc = buildCandidates({ rows: [{ line: 2, text: 'X-78 完整票面' }], policy, ledger: [], now, planLines: [null, 'X-78 完整票面'] })
+  const notTrunc = buildCandidates({
+    rows: [{ line: 2, text: 'X-78 完整票面' }],
+    policy,
+    ledger: [],
+    now,
+    planLines: [null, 'X-78 完整票面'],
+  })
   assert(notTrunc.candidates[0].risk.irreversible === 0, '未截断且无风险词时必须读 0')
   // 取不到原文 ⇒ 按截断处理(fail-safe:不猜"没截断")
-  assert(isTicketTruncated({ line: 5, text: shortText }, { planLines: null }) === true, '取不到原文必须按截断处理')
+  assert(
+    isTicketTruncated({ line: 5, text: shortText }, { planLines: null }) === true,
+    '取不到原文必须按截断处理',
+  )
 
   console.log(`self-test: 全绿(${cases} 组断言)`)
 }
@@ -658,13 +831,27 @@ function main(argv) {
 
   const ledger = readLedger()
   const built = buildCandidates({ rows, policy, ledger, planLines: readPlanLines() })
-  const doc = buildDocument({ candidates: built.candidates, generatedAt: built.generatedAt, policy, rowCount: rows.length })
+  const doc = buildDocument({
+    candidates: built.candidates,
+    generatedAt: built.generatedAt,
+    policy,
+    rowCount: rows.length,
+  })
 
   // 空面:合法事实,但空候选文件会让决策器判"候选为空 ⇒ 未判定",故不落盘(保留上一轮文件)。
   if (rows.length === 0) {
-    const empty = toJsonDoc({ doc, decision: null, mode: apply ? 'apply' : 'preview', written: false, duplicates: built.duplicates })
+    const empty = toJsonDoc({
+      doc,
+      decision: null,
+      mode: apply ? 'apply' : 'preview',
+      written: false,
+      duplicates: built.duplicates,
+    })
     if (asJson) console.log(JSON.stringify(empty, null, 2))
-    else console.log(`派单面现读 0 行 ⇒ 无票可评,不写 ${CANDIDATES_PATH}(空候选会被决策器判未判定,不冒充已评估)`)
+    else
+      console.log(
+        `派单面现读 0 行 ⇒ 无票可评,不写 ${CANDIDATES_PATH}(空候选会被决策器判未判定,不冒充已评估)`,
+      )
     return
   }
 
@@ -685,7 +872,19 @@ function main(argv) {
   }
 
   if (asJson) {
-    console.log(JSON.stringify(toJsonDoc({ doc, decision, mode: apply ? 'apply' : 'preview', written, duplicates: built.duplicates }), null, 2))
+    console.log(
+      JSON.stringify(
+        toJsonDoc({
+          doc,
+          decision,
+          mode: apply ? 'apply' : 'preview',
+          written,
+          duplicates: built.duplicates,
+        }),
+        null,
+        2,
+      ),
+    )
     return
   }
   console.log(renderPreview(doc, decision, { written }))

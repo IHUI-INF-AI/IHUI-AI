@@ -22,6 +22,7 @@ import {
   normalizeSessionRuntime,
   judgeLandingProof,
   WRITE_TOOL_NAMES,
+  classifySessionFailure,
 } from '../auto-evolve.mjs'
 import { NON_PROGRESS_ACTIONS, PROGRESS_ACTIONS } from '../lib/autonomy-nonprogress.mjs'
 
@@ -760,5 +761,36 @@ test('⑯c 接线锁:自我面闸真在派发路径上,且两档都带 informati
   )
   assert.ok(gate.includes('informational: true'), '自我面留痕必须标 informational ⇒ 不进空转阶梯')
   assert.ok(gate.includes("if (selfFace.state !== 'ok')"), 'ok 之外一律不派(含未判定)')
+})
+
+// ⑰ 会话终态分型改向(2026-11-05):exit=3 = CLI 的 no_progress,不是"发起腿故障"
+test('⑰a 调度器拿到的分型是对的:rc=3 + 那行劫持诊断 ⇒ no-progress;同一份诊断 rc=0 ⇒ ok', () => {
+  const HIJACK =
+    '⚠ [security-scan] stop|workspace-aggregate-diff|status=undetermined: ' +
+    'not-judged-safe | missing=untracked-files-over-cap(total=69, scanned=30)'
+  assert.equal(classifySessionFailure({ status: 3, stderr: HIJACK }).kind, 'no-progress')
+  assert.equal(classifySessionFailure({ status: 0, stderr: HIJACK }).kind, 'ok')
+})
+
+test('⑰b session-no-progress 归空转集(它确实吃掉班次),且不许同时是推进档', () => {
+  assert.ok(
+    NON_PROGRESS_ACTIONS.includes('session-no-progress'),
+    '零推进必须计入空转阶梯(rotate/park)',
+  )
+  assert.ok(!PROGRESS_ACTIONS.includes('session-no-progress'), '同一枚不许两档(计推进就等于没修)')
+})
+
+test('⑰c 接线锁:字面量发射 + 排在连败块之前(走连败=给零推进开了一条封票通道)', () => {
+  const src = readFileSync(new URL('../auto-evolve.mjs', import.meta.url), 'utf8')
+  assert.ok(
+    src.includes(`action = kind.kind === 'no-progress' ? 'session-no-progress' : 'session-failed'`),
+    '派发腿必须按分型发射字面量(模板串会被 C4「豁免须验过才免」判成收不到)',
+  )
+  const iNo = src.indexOf("if (res.action === 'session-no-progress')")
+  const iFail = src.indexOf(
+    "if (res.action === 'session-failed' || res.action === 'session-timeout')",
+  )
+  assert.ok(iNo > 0 && iFail > 0 && iNo < iFail, '零推进档必须短路在连败封票之前')
+  assert.ok(src.slice(iNo, iFail).includes('return'), '那一档只 return,不许顺手把票计进连败')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

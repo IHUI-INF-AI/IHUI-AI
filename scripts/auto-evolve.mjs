@@ -1021,8 +1021,11 @@ function dispatchSession(gates, ticket, dryRun) {
     // 真因常在头部(ERR_MODULE_NOT_FOUND 的前两行),只截尾会把 "der:639:32" 这类
     // 中段残渣当成原因寄出去 —— 比没有原因更贵。各取头尾并标来源。
     const errText = excerptBothEnds(stderr, stdout)
-    const kind = classifySessionFailure({ status: r.status, stderr: `${stderr}\n${stdout}` })
-    action = 'session-failed'
+    const kind = classifySessionFailure({ status: r.status, stderr: `${stderr}\n${stdout}`, signal })
+    // 2026-11-05:退出码含义排在文本签名之前。exit=3 是 CLI 自己的 `no_progress` 终态
+    // (整班无工具调用 + 空正文),把它记成 session-failed 会走连败封票,记成
+    // runner-unavailable 又成了"我的腿断了"的借口 —— 两向都是错的归因。
+    action = kind.kind === 'no-progress' ? 'session-no-progress' : 'session-failed'
     failureKind = kind.kind
     exitCode = r.status
     why = `exit=${r.status} ${errText}`
@@ -1729,6 +1732,12 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
           sendEscapeMail(gates, `auto-evolve:runner-${res.failureKind ?? 'undetermined'}`, `[auto-evolve] 起会话失败已分型为调度器侧(${res.failureKind ?? res.action}),已停派本轮`, `票面(未被计入连败):L${ticket.line} ${ticket.text.slice(0, 120)}\n分型:${res.failureKind ?? res.action}｜${res.why}\n出路:核 scripts/data/auto-evolve-gates.json 的 sessionCommandTemplate 与 CLI 产物是否在位;本器判据 = scripts/lib/autonomy-runner.mjs。`)
         }
         process.exitCode = 2
+        return
+      }
+      if (res.action === 'session-no-progress') {
+        // 零推进 ≠ 腿故障 ≠ 票坏:它由空转阶梯(rotate/park)负责,不走连败封票,也不进落账腿
+        // (会话一个文件都没动,落账腿只能再记一行 manifest-missing ⇒ 同一件事双记账)。
+        console.log(`⚠ 整班零推进(exit=3 no_progress,票键 ${key})⇒ 不计连败、不封票、跳过落账腿;阶梯负责这一族`)
         return
       }
       if (res.action === 'session-failed' || res.action === 'session-timeout') {

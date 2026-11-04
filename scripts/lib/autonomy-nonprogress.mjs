@@ -45,6 +45,12 @@ export const NON_PROGRESS_ACTIONS = Object.freeze([
   // ⇒ 阶梯每轮都被"成功"归零 ⇒ 一张永远推不动的票可以无限占班次而不 rotate、不 park。
   // 实测形态:9/9 次 session-ok 的 transcript 写类工具命中为 0,`artifact-committed` 至今为 0。
   'session-no-write',
+  // exit=3 = CLI 自己的 `no_progress` 终态(整班无工具调用 + 空正文,补救一次后仍未推进)。
+  // 2026-11-05 立:此前它被 stderr 里一行诊断劫持成 `runner-unavailable`(实测四臂同色:
+  // rc=0/1/3/null 都判 undetermined),于是"零推进"这件事在阶梯里根本不存在,而 41 条台账
+  // 把责任全推给调度器自己的腿。分型改对之后,这一档必须进空转集:它确实吃掉了班次。
+  // 但它不走连败封票(那是"票坏不坏"那条轴),两轴不互相替换。
+  'session-no-progress',
   // 整批落在判据面上被落账腿拒收:会话确实跑了、清单也写了,但**零推进**(没有任何文件进仓)。
   // 计入空转是有方向的收紧(不是放宽):不计,同一枚"非动判据面不可"的票会每小时白占一份日预算,
   // 把 B53 那型饿死在另一个入口上重演。
