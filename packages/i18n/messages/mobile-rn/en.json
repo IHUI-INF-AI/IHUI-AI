@@ -6051,7 +6051,17 @@
     "chooseClass": "Choose a class to check",
     "noClass": "No selectable class in the current list",
     "batchResult": "Done: created {created}, skipped {skipped}, missed {missed}",
-    "qrEntry": "Show check-in QR"
+    "qrEntry": "Show check-in QR",
+    "emptyTrend": "No trend data yet",
+    "statsAttendanceRate": "Attendance rate",
+    "statusDistribution": "Status distribution",
+    "statusOther": "Other",
+    "trendChartHint": "Attendance rate = present ÷ records logged in that period (students without a record are not in the denominator)",
+    "trendChartTitle": "Attendance trend",
+    "statsTotalLabel": "Total check-ins",
+    "loadStatsFailed": "Failed to load attendance statistics. Please try again later.",
+    "trendChartScope": "Scope: {scope}",
+    "trendWindow": "Last {days} days"
   },
   "eduGrades": {
     "title": "Grades",

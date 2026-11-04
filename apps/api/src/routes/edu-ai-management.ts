@@ -333,11 +333,35 @@ const updatePlanItemSchema = createPlanItemSchema.partial().extend({
 // 8. 签到记录 (edu_attendance_record)
 // =============================================================================
 
+/**
+ * 考勤 status 筛选闸的合法值(2026-11-04 收口,本文件唯一一份取值表,§0.6)。
+ *
+ * 立因:`GET /attendance` 的 status 此前是 `z.string().max(20)` ⇒ 任意字符串都被当成一个
+ * 合法筛选值,后端按 `eq(status, 'all')` **精确匹配**,于是 web「全部状态」档直传
+ * `status=all` 时恒查空列表、且不报错(用户看到的是"今天没人考勤")。前端已于 41d5da91ec8
+ * 归一成"不传";本票补后端那一半 —— 非法枚举值必须是可整改的 400,不能静默放行。
+ *
+ * 值集来源(现读,不另立共享档位常量文件):`edu_attendance_record.status` 的词表
+ * = present/late/early/absent/leave,见 packages/database/src/schema/edu-ai-management.ts
+ * 的列注释;其中前四档由 services/edu-attendance-rule.ts 的 `judgeStatus` 现算,
+ * leave 由请假审批流写入(本文件 `eq(eduAttendanceRecord.status, 'leave')`)。
+ *
+ * 写法照同文件 `attendanceStatsQuerySchema.period` 的既有形态(就地写 z.enum);
+ * 一枚实例被三处考勤读端点共用(GET /attendance、GET /parent/child/:id/attendance、
+ * GET /parent/children/:childId/attendance),免得同一取值表在同文件抄两份必然漂移。
+ * 错误文案点名合法值,让"该改成什么"当场可知(§0.10:失效方向恒为多要一次定向说明)。
+ */
+const attendanceStatusFilter = z.enum(
+  ['present', 'late', 'early', 'absent', 'leave'],
+  'status 仅支持 present/late/early/absent/leave',
+)
+
 const attendanceListQuerySchema = z.object({
   studentId: z.transform(emptyToUndefined).pipe(z.string().uuid().optional()),
   classId: z.transform(emptyToUndefined).pipe(z.string().uuid().optional()),
   date: z.transform(emptyToUndefined).pipe(z.string().optional()),
-  status: z.transform(emptyToUndefined).pipe(z.string().max(20).optional()),
+  /** 空串经 emptyToUndefined 归一为"不筛选";非五档值 ⇒ 400(不再静默当合法筛选值)。 */
+  status: z.transform(emptyToUndefined).pipe(attendanceStatusFilter.optional()),
 })
 
 /**
@@ -361,8 +385,25 @@ const checkOutSchema = z.object({
   checkOutMethod: z.string().max(20).optional(),
 })
 
+/**
+ * 考勤记录修订入参(2026-11-04 收口:**status 字段已删,与教师代签/批量点名同一条口径**)。
+ *
+ * 取证(现读调用方,不是推断):全仓 `apps/web` / `apps/miniapp-taro/src` / `apps/mobile-rn/src` /
+ * `packages/app|shared|api-client` 对 `PUT /attendance/:id` 的调用数 = **0**
+ * (web 只有 `DELETE /attendance/${id}`,见 edu-management/attendance/PageClient.tsx;
+ * RN 的 `attendance/${kind}` 是 check-in / check-out 两条具名路由;小程序只有 check-in /
+ * check-out / batch-check-in;e2e 桩也没登记这条 PUT)。⇒ 这一枚 `status` 是无主死面。
+ *
+ * 为什么删而不是收成枚举:死字段收成枚举等于给一条没人走的路由再养一份契约;而按 2026-11
+ * 已定的口径,`edu_attendance_record.status` 只能由服务端现算
+ * (services/edu-attendance-rule.ts 的 `judgeStatus` + 请假审批写 'leave'),
+ * 端上自报状态本身就是越权面 —— 留着它,任何拿到 edu:manage 的人都能把 absent 改成 present,
+ * 且脏值会长期留在库里、让前端五档取词/色档落到默认档。
+ *
+ * zod 默认 strip 未知键 ⇒ 老客户端继续传 `status` 只会被静默丢弃(与 checkInSchema 同形),
+ * 不会 400 打断既有集成;真正的持久化路径(签退/请假)各自带自己的重判逻辑。
+ */
 const updateAttendanceSchema = z.object({
-  status: z.string().max(20).optional(),
   checkInTime: z.string().optional(),
   checkOutTime: z.string().optional(),
   checkInMethod: z.string().max(20).optional(),
@@ -524,7 +565,16 @@ const bindingListQuerySchema = z.object({
 // =============================================================================
 
 const childAttendanceQuerySchema = z.object({
-  status: z.transform(emptyToUndefined).pipe(z.string().max(20).optional()),
+  /**
+   * 家长侧「按状态筛选孩子的考勤」与 `GET /attendance` 同一张脸(2026-11-04 同批收口):
+   * 此前同样是 `z.string().max(20)`,非法值被静默当合法筛选条件 ⇒ 恒空且不报错。
+   * 共用同一枚 `attendanceStatusFilter` 实例,不在这里抄第二份取值表(§0.6)。
+   * 2026-11-04 补:这枚 schema 现由**两条**家长读端点共用
+   * (`/parent/child/:id/attendance` 与 `/parent/children/:childId/attendance`)
+   * —— 后者此前没有任何 query 闸,传 status 被静默忽略;同一条查询形状两条端点判得不一样
+   * 就是缺陷,所以不复抄新表、直接复用这一枚。
+   */
+  status: z.transform(emptyToUndefined).pipe(attendanceStatusFilter.optional()),
   startDate: z.transform(emptyToUndefined).pipe(z.string().optional()),
   endDate: z.transform(emptyToUndefined).pipe(z.string().optional()),
 })
@@ -4009,6 +4059,15 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     if (!authed) return
     const childId = (request.params as { childId: string }).childId
     if (!childId) return reply.status(400).send(error(400, '无效的孩子ID'))
+    // 查询形状闸(2026-11-04 补):此前这条端点**根本没有 query 闸**,传任何 status 都被
+    // 静默忽略 ⇒ 客户端以为筛了、服务端按全量回,与同族 GET /parent/child/:id/attendance
+    // 的「非法值 400 点名 + 合法值真筛」两张脸对不上。取证(现读 web 家长子页 PageClient 与
+    // 小程序/RN 的家长侧取数)⇒ 目前**没有任何调用方发 status**,所以缺的是筛选能力而不是
+    // 已发生的静默失效缺陷;能力是否接线归前端票,本票只做"不再静默忽略"这一半。
+    // 复用同枚 `childAttendanceQuerySchema` 实例(§0.6:取值表全文件只有一份)。
+    const parsed = childAttendanceQuerySchema.safeParse(request.query)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const userId = request.userId!
 
     const [binding] = await db
@@ -4025,10 +4084,22 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
       .limit(1)
     if (!binding) return reply.status(403).send(error(403, '无权查看该学生数据'))
 
+    const conds: SQL[] = [
+      eq(eduAttendanceRecord.studentId, childId),
+      isNull(eduAttendanceRecord.deletedAt),
+    ]
+    if (parsed.data.status) conds.push(eq(eduAttendanceRecord.status, parsed.data.status))
+    if (parsed.data.startDate && parsed.data.endDate) {
+      conds.push(between(eduAttendanceRecord.date, parsed.data.startDate, parsed.data.endDate))
+    } else if (parsed.data.startDate) {
+      conds.push(gte(eduAttendanceRecord.date, parsed.data.startDate))
+    } else if (parsed.data.endDate) {
+      conds.push(lte(eduAttendanceRecord.date, parsed.data.endDate))
+    }
     const list = await db
       .select()
       .from(eduAttendanceRecord)
-      .where(and(eq(eduAttendanceRecord.studentId, childId), isNull(eduAttendanceRecord.deletedAt)))
+      .where(and(...conds))
       .orderBy(desc(eduAttendanceRecord.date))
     return reply.send(success({ list }))
   })
@@ -6789,6 +6860,12 @@ export const __test__ = {
   generateFeeScheduleSchema,
   feeReminderStatsSchema,
   buildLegacySegment,
+  // 2026-11-04 考勤 status 枚举闸(§22c:镜像测试直接 import 源件实例,不在测试里抄取值表)
+  attendanceStatusFilter,
+  attendanceListQuerySchema,
+  childAttendanceQuerySchema,
+  // 2026-11-04 写面收口:status 已从入参删除 ⇒ 必须能被测试直接 import 钉住(不靠跑 HTTP 看形状)
+  updateAttendanceSchema,
 }
 
 export default eduAiManagementRoutes
