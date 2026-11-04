@@ -2255,37 +2255,43 @@ export function HomeScreen() {
          *  组件默认 collapsible=false → 永久展开,无「×」回折按钮)。
          *  大输入框(2026-09-22 用户定稿):麦克风+文本+发送同框,长按麦克风「按住说出你的问题」。
          *  提交跳 Chat(对齐 Uniapp handleSendMessageabc → 跳 ai_index2)。
-         *  transparentBackground:底色/顶描边由停靠区玻璃统一提供(2026-10-16)。 */}
-        <InputArea
-          value={inputValue}
-          onChangeText={setInputValue}
-          placeholder={t('home.inputPlaceholder')}
-          onSubmit={handleInputSubmit}
-          showVoiceMic
-          voiceRecording={voiceRecorder.recording}
-          voiceTranscribing={voiceRecorder.transcribing}
-          voiceDuration={voiceRecorder.duration}
-          onVoiceStart={voiceRecorder.start}
-          onVoiceEnd={() => void voiceRecorder.stop()}
-          onPlusToggle={handlePlusToggle}
-          plusActive={plusPanelVisible}
-          // 模型选择收进大输入框(2026-10-15 用户定:对齐 web 输入卡 ModelSelector ——
-          // 单按钮显示当前模型/「自动」,点击直接弹全量模型列表;8 分类 chips 平铺已废)
-          onOpenModelSelect={() => openModelModal()}
-          selectedModelName={selectedModel?.name ?? null}
-          onClearModel={handleClearModel}
-          onOpenModelConfig={() => setShowModelConfig(true)}
-          // D43 票③ RN 大输入框挂载位(2026-10-23 强制令到终态的顺延格,与 ChatScreen
-          // L3025 同形):首页尚未开会话 ⇒ conversationId 恒 null,归档笔记标"无会话";
-          // 「插入对话」= 追加进本页输入框既有通道(setInputValue),提交时随消息带过去。
-          voiceNoteNode={
-            <VoiceNote
-              conversationId={null}
-              onInsert={(text) => setInputValue((prev) => (prev.trim() ? `${prev} ${text}` : text))}
-            />
-          }
-          transparentBackground
-        />
+         *  transparentBackground:底色/顶描边由停靠区玻璃统一提供(2026-10-16)。
+         *  inputLayer:停靠区内的固定 UI 必须压在 TabBar 自带 BottomFadeMask 之上 ——
+         *  遮罩高 160 而底边只落在胶囊顶沿,输入框(高 62 + 顶隙 6)整条都落在它的
+         *  0.7→0.98 不透明段里;遮罩溶解的对象是滚动内容,不是这张输入框。
+         *  小程序端同一格早已成立(首页输入栏 zIndex 1000 > 遮罩 zIndex 40),此处补齐同形。 */}
+        <View style={shellStyles.inputLayer}>
+          <InputArea
+            value={inputValue}
+            onChangeText={setInputValue}
+            placeholder={t('home.inputPlaceholder')}
+            onSubmit={handleInputSubmit}
+            showVoiceMic
+            voiceRecording={voiceRecorder.recording}
+            voiceTranscribing={voiceRecorder.transcribing}
+            voiceDuration={voiceRecorder.duration}
+            onVoiceStart={voiceRecorder.start}
+            onVoiceEnd={() => void voiceRecorder.stop()}
+            onPlusToggle={handlePlusToggle}
+            plusActive={plusPanelVisible}
+            // 模型选择收进大输入框(2026-10-15 用户定:对齐 web 输入卡 ModelSelector ——
+            // 单按钮显示当前模型/「自动」,点击直接弹全量模型列表;8 分类 chips 平铺已废)
+            onOpenModelSelect={() => openModelModal()}
+            selectedModelName={selectedModel?.name ?? null}
+            onClearModel={handleClearModel}
+            onOpenModelConfig={() => setShowModelConfig(true)}
+            // D43 票③ RN 大输入框挂载位(2026-10-23 强制令到终态的顺延格,与 ChatScreen
+            // L3025 同形):首页尚未开会话 ⇒ conversationId 恒 null,归档笔记标"无会话";
+            // 「插入对话」= 追加进本页输入框既有通道(setInputValue),提交时随消息带过去。
+            voiceNoteNode={
+              <VoiceNote
+                conversationId={null}
+                onInsert={(text) => setInputValue((prev) => (prev.trim() ? `${prev} ${text}` : text))}
+              />
+            }
+            transparentBackground
+          />
+        </View>
         {/* 悬浮胶囊让位区:透明,停靠区玻璃透出;TabBar 绝对定位在其中浮起 */}
         <View style={{ height: tabBarDockSpacer(insets.bottom) }} />
         <TabBar activeTab="home" onChange={handleTabChange} blurTarget={tabBarBlurTargetRef} />
@@ -2305,6 +2311,12 @@ const shellStyles = {
     left: 0,
     right: 0,
     bottom: 0,
+  } as const,
+  // 输入区抬到 TabBar 的 BottomFadeMask 之上(TabBar root 未设 zIndex ⇒ 默认 0,同级后渲染者
+  // 压上,输入框会被那层 0.7→0.98 不透明的页面底色糊住)。zIndex 需配合定位才生效,故 relative。
+  inputLayer: {
+    position: 'relative',
+    zIndex: 1,
   } as const,
   // 顶栏行取白档,与 App.tsx 给 Home 的状态栏带同色;主体底色由外层导航容器提供
   scroll: { flex: 1 } as const,
