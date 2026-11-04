@@ -18,7 +18,6 @@ import { SlashCommandPalette } from '@/components/ai/slash-command-palette'
 import { VoiceToolbar } from './voice-toolbar'
 import { VoiceCompanion } from './voice-companion'
 import { VoiceNote } from './voice-note'
-import { useAgentProgressPaneStore } from '@/stores/agent-progress-pane'
 import { readHandsFree } from '@/components/chat/voice-stream-speaker'
 import { ModelSelector } from '@/components/chat/model-selector'
 import { AgentPicker } from '@/components/chat/agent-picker'
@@ -47,7 +46,10 @@ import {
 } from '@/components/ai/permission-mode-popover'
 import { PermissionShortcutsModal } from '@/components/ai/permission-shortcuts-modal'
 import { PermissionModeInfoModal } from '@/components/ai/permission-mode-info-modal'
-import { AgentProgressTrigger } from '@/components/ai/agent-progress-trigger'
+import {
+  AgentProgressTrigger,
+  AgentProgressShortcutHost,
+} from '@/components/ai/agent-progress-trigger'
 import { ModeSwitcher } from '@/components/chat/mode-switcher'
 import { SamplingParamsButton } from '@/components/chat/sampling-params-panel'
 // D130(2026-09-30 立):推理强度第三轴 —— 输入区的档位控件。摘掉下面 JSX 里那一行挂载,
@@ -1047,21 +1049,9 @@ export function MessageInput({
     }
   }, [isStreaming, value, handleScreenshot])
 
-  // Ctrl+Shift+J 任务进度面板(2026-11-04 补洞):监听必须挂在常驻宿主上。
-  // 此前监听住在 AgentProgressTrigger 内,而该触发器第三轮收进「+ → 更多工具」抽屉,
-  // 抽屉不开时监听根本不存在 —— 快捷键名义上还在、实际已全局失联。
-  const toggleAgentProgressPane = useAgentProgressPaneStore((s) => s.toggle)
-  React.useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.isComposing) return
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'j' || e.key === 'J')) {
-        e.preventDefault()
-        toggleAgentProgressPane()
-      }
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [toggleAgentProgressPane])
+  // Ctrl+Shift+J 任务进度面板(2026-11-04 第四轮):监听已抽成 AgentProgressShortcutHost
+  // 组件(下方 JSX 里常驻挂载),本文件不再自持 keydown 监听 —— 单测可直接渲染该宿主,
+  // 不必为一个 5 行快捷键把整条 message-input 依赖链搬进测试环境。
 
   // 手动压缩上下文(2026-09-02 立):点击触发 POST /api/chat/compact
   // D117(2026-09-27):实现抽到 use-chat/manual-compact.ts 的 runManualCompact 单一实现,
@@ -1404,11 +1394,15 @@ export function MessageInput({
               className="ai-input-toolbar flex min-w-0 flex-wrap items-center gap-1 overflow-visible px-2 pb-2 pt-1"
               data-testid="ai-input-toolbar"
             >
-              {/* ── 左簇:仅「添加 +」一个锚点 ───────────────────────────────
-                  2026-11-04 信息架构重构:任务进度、权限、模式、Agent、上下文环、语音、
-                  语音笔记全部从底栏移入「+ → 更多工具」抽屉(见 toolsMenuItems),
-                  底栏只保留 [+] [模型] [发送/停止] 四个锚点(对标 Claude/ChatGPT composer)。 */}
+              {/* ── 左簇:「实时状态」芯片(仅活跃时) + 「添加 +」───────────
+                  2026-11-04 信息架构重构:权限、模式、Agent、上下文环、语音、语音笔记
+                  移入「+ → 更多工具」抽屉;底栏锚点 = 状态芯片(条件渲染) / + / 模型 /
+                  发送·停止 —— 空闲态仍是极简三锚点(对标 Claude/ChatGPT composer)。
+                  第四轮(用户规则):任务进度的实时状态不该降级到 2 击 —— 流式期间芯片
+                  常驻显示当前任务与步数,点它开合右侧 Pane;与抽屉里的同一控件是同一
+                  store 的两个入口(testid 不同名:status / trigger)。 */}
               <div className="ai-input-toolbar-left flex min-w-0 items-center gap-1">
+                <AgentProgressTrigger variant="status" />
                 {/* "添加"下拉菜单(2026-07-25 终极整合,2026-07-30 提取到 AddMenuPopover 子组件)
                   行为零变更:关闭时重置 menu 态 / disabled 状态 / 所有回调透传 */}
                 <AddMenuPopover
@@ -1528,54 +1522,16 @@ export function MessageInput({
                   }
                   /* 2026-11-04 第二轮收敛:权限 / 模式 / Agent 提到 + 菜单第一层
                      (composer-quick-settings),点 + 后再点一次即打开各自面板(2 击)。
-                     第三轮追加:流式期间把「中途引导 / 打断并发送」也放在这一层(时间敏感,
-                     2 击必达);低频项(任务进度 / 上下文环 / 语音转文字 / 语音笔记)仍在
+                     第四轮修订:流式「中途引导 / 打断并发送」已回到底栏 send cluster
+                     (与 Stop 并列三枚,1 击可达),菜单第一层只留三枚设置行;
+                     低频项(任务进度 / 上下文环 / 语音转文字 / 语音笔记)仍在
                      「更多工具」抽屉(3 击)。 */
                   primaryMenuItems={
                     <div className="flex w-full min-w-0 flex-col gap-1">
-                      {/* 2026-11-04 第三轮:流式期间的两枚**时间敏感**动作提到 + 菜单第一层。
-                          「中途引导 / 打断并发送」要在模型还在吐字时决定,原落点
-                          (+ → 更多工具 → 动作)是 3 击,来不及;一级落位后 = 点 + 1 击
-                          + 点动作 1 击 = 2 击。空闲态这两枚本就不渲染(isStreaming 条件),
-                          + 菜单结构零变化(权限/模式/Agent 仍是一层 3 枚)。
-                          280 下用 2 列等宽 + truncate,不允许换行错位或半格悬空。 */}
-                      {isStreaming && (
-                        <div
-                          className="grid grid-cols-2 gap-1"
-                          data-testid="composer-streaming-actions"
-                        >
-                          <button
-                            type="button"
-                            role="menuitem"
-                            data-testid="steer-button"
-                            disabled={!value.trim()}
-                            onClick={() => {
-                              void steer()
-                              setAddMenuOpen(false)
-                              setAddMenuMode('menu')
-                            }}
-                            className="flex min-w-0 items-center gap-1.5 rounded-sm border border-border/60 bg-muted/20 px-1.5 py-1 text-label text-popover-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            <Zap className="h-3.5 w-3.5 shrink-0 text-amber-500" />
-                            <span className="min-w-0 flex-1 truncate">{t('steer')}</span>
-                          </button>
-                          <button
-                            type="button"
-                            role="menuitem"
-                            data-testid="interrupt-and-send-button"
-                            disabled={!value.trim()}
-                            onClick={() => {
-                              void interruptAndSend()
-                              setAddMenuOpen(false)
-                              setAddMenuMode('menu')
-                            }}
-                            className="flex min-w-0 items-center gap-1.5 rounded-sm border border-border/60 bg-muted/20 px-1.5 py-1 text-label text-popover-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            <ArrowUp className="h-3.5 w-3.5 shrink-0 text-sky-500" />
-                            <span className="min-w-0 flex-1 truncate">{tq('interruptAndRun')}</span>
-                          </button>
-                        </div>
-                      )}
+                      {/* 第四轮(2026-11-04):流式动作已回到底栏 send cluster ——
+                          原「+ 菜单第一层 2 击」的副本整体移除。同一 testid 若在菜单与
+                          底栏各挂一处,Playwright strict mode 会因多元素解析直接报错;
+                          产品上也不允许同一动作出现两个入口却分属两种击数。 */}
                       {/* 第三轮(2026-11-04):三枚控件统一为纵向设置行,不再并排成
                           「迷你工具栏」(图标块 / 灰胶囊 / 描边胶囊三种形态混排) */}
                       <div className="flex flex-col gap-0.5" data-testid="composer-quick-controls">
@@ -1605,9 +1561,9 @@ export function MessageInput({
                         variant="row"
                       />
                       <VoiceNote conversationId={conversationId} variant="row" />
-                      {/* 2026-11-04 第三轮:Steer / 打断并发送 已从本抽屉移到 + 菜单
-                          第一层(composer-streaming-actions,仅流式期间出现)。抽屉只留
-                          低频项(任务进度 / 上下文环 / 语音转文字 / 语音笔记)。 */}
+                      {/* 2026-11-04 第四轮:Steer / 打断并发送 已回到底栏 send cluster
+                          (与 Stop 并列三枚 32px 方按钮,1 击可达)。抽屉只留低频项
+                          (任务进度 / 上下文环 / 语音转文字 / 语音笔记)。 */}
                     </div>
                   }
                 />
@@ -1653,11 +1609,12 @@ export function MessageInput({
                 aria-hidden="true"
                 tabIndex={-1}
               />
-              {/* ── 右簇:模型 + 发送/停止 ─────────────────────────────────── */}
-              {/* 2026-11-04 信息架构重构:右簇由 6 枚控件收敛为「模型选择 + 发送/停止」。
+              {/* ── 右簇:模型 + 流式三动作/发送 ───────────────────────────── */}
+              {/* 2026-11-04 信息架构重构:右簇由 6 枚控件收敛为「模型选择 + 发送·停止」。
                   权限 / 模式 / Agent / 上下文环 / 语音 / 语音笔记移入 + 菜单的
-                  「更多工具」抽屉(toolsMenuItems);流式期间的 Steer / 打断并发送
-                  也在同一抽屉里(见上),底栏恒为单行 4 锚点。 */}
+                  「更多工具」抽屉(toolsMenuItems)。
+                  第四轮:流式期间的中途引导 / 打断并发送 回到底栏 send cluster,
+                  与 Stop 并列(时间敏感动作必须 1 击可达);空闲仍只有发送一枚。 */}
               <div className="ai-input-toolbar-right flex min-w-0 flex-1 flex-wrap items-center justify-end gap-1">
                 <div className="ai-input-toolbar-actions flex min-w-0 flex-wrap items-center justify-end gap-1">
                   {/* 模型选择器 + footer(推理强度轴 D130 + 采样参数 P1-7):
@@ -1678,21 +1635,59 @@ export function MessageInput({
                   />
                   {/* 语音转文字 / 语音笔记 / 任务进度 / 权限 / 模式 / Agent / 上下文环
                       已于 2026-11-04 移入「+ → 更多工具」抽屉(toolsMenuItems)。
-                      底栏不再渲染它们,单行锚点 = + / 模型 / 发送·停止。 */}
+                      底栏常驻锚点 = 状态芯片(仅活跃时) / + / 模型 / 发送·停止三动作。 */}
                 </div>
                 {/* 主操作独立成组且 shrink-0:发送/停止在任何宽度下都不参与收缩,永远可见可点 */}
                 <div className="ai-input-toolbar-send flex shrink-0 items-center gap-1">
                   {/* 发送/停止(2026-09-30 修订,用户规则:项目禁止圆形发送按钮,改方形 rounded-sm;
                     空输入禁用(灰),有内容 bg-cta 主色 + ArrowUp;
-                    流式中切 Steer(琥珀,中途引导)+ Stop(天蓝),同规格方形。
-                    2026-10-08 用户指令:收编 token 体系 —— 尺寸同源
+                    流式中切三枚同规格方形:Steer(琥珀,中途引导)/ 打断并发送(紫罗兰)/
+                    Stop(天蓝)。2026-10-08 用户指令:收编 token 体系 —— 尺寸同源
                     ICON_BUTTON_ACTION_BASE_CLASS(= ICON_BUTTON_SIZE,32×32 唯一尺寸,
                     与全项目图标按钮对齐),禁用态同源 ICON_BUTTON_ACTION_DISABLED_CLASS) */}
                   {isStreaming ? (
                     <>
-                      {/* Steer 中途引导 / 打断并发送(2026-11-04 信息架构重构):
-                         两枚流式专属动作已移入「+ → 更多工具」抽屉的流式分组,
-                         底栏主操作槽只保留「停止」一枚;状态机与请求链路完全未变。 */}
+                      {/* 2026-11-04 第四轮:流式三动作全部常驻 send cluster ——
+                          Steer(琥珀,中途引导)/ 打断并发送(紫罗兰,先入队再停流)/
+                          Stop(天蓝)。空输入时前两枚走同源禁用态(灰),Stop 恒可点。 */}
+                      <Tooltip content={t('steer')}>
+                        <span className="inline-flex">
+                          <button
+                            type="button"
+                            onClick={() => void steer()}
+                            disabled={!value.trim()}
+                            className={cn(
+                              ICON_BUTTON_ACTION_BASE_CLASS,
+                              value.trim()
+                                ? 'bg-amber-500 text-white hover:bg-amber-600'
+                                : ICON_BUTTON_ACTION_DISABLED_CLASS,
+                            )}
+                            aria-label={t('steer')}
+                            data-testid="steer-button"
+                          >
+                            <Zap className="h-4 w-4" />
+                          </button>
+                        </span>
+                      </Tooltip>
+                      <Tooltip content={tq('interruptAndRun')}>
+                        <span className="inline-flex">
+                          <button
+                            type="button"
+                            onClick={() => void interruptAndSend()}
+                            disabled={!value.trim()}
+                            className={cn(
+                              ICON_BUTTON_ACTION_BASE_CLASS,
+                              value.trim()
+                                ? 'bg-violet-500 text-white hover:bg-violet-600'
+                                : ICON_BUTTON_ACTION_DISABLED_CLASS,
+                            )}
+                            aria-label={tq('interruptAndRun')}
+                            data-testid="interrupt-and-send-button"
+                          >
+                            <ArrowUp className="h-4 w-4" />
+                          </button>
+                        </span>
+                      </Tooltip>
                       <Tooltip content={stopLabel ?? t('stop')}>
                         <button
                           type="button"
@@ -1748,6 +1743,9 @@ export function MessageInput({
           - 用户勾选"我了解"后才能点"继续启用"(内部 markFullAccessSuppressed/Acknowledged)
           - 确认后调 cyclePermissionMode(再次切到 bypass,此时 isFullAccessConfirmSuppressed=true,直走切换) */}
       <FullAccessConfirmBridge />
+      {/* Ctrl+Shift+J 任务进度面板的全局监听宿主(2026-11-04 第四轮):
+          必须常驻且全应用只挂这一处;两处同时挂载会把一次按键 toggle 成两次。 */}
+      <AgentProgressShortcutHost />
       {/* D117:/diff 会话改动总览弹窗(全局单实例) */}
       <SessionDiffDialog />
       {/* 权限模式快捷键帮助面板(2026-07-25 深化,深度对标 Codex CLI /help):
