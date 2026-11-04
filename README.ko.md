@@ -2221,6 +2221,9 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-04**
+- 🔧 기타:收编停留≥3分钟的未提交改动 (9ee2b0ae61)
+
+**2026-11-04**
 - 🔧 기타:收编停留≥3分钟的未提交改动 (3bb1c36f58)
 - 🚀 기능/개선:Gitee 源码只读快照(方案 c)—— 无父单提交 + 周更/发版刷新,force 仅 Gitee main (20919f3d4c)
 - 📚 문서:Gitee main 为发版时点只读快照 —— 明示可能落后 origin/main,最新代码以 GitHub 为准 (8cb42bdffe)
@@ -2705,9 +2708,6 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 - 🐞 수정:去重窗口不再被重复推送续期——被抑制的推送只读不写,持续 firing 按窗口重报 (19f67b3b45)
 - 📚 문서:修正 AiLlm 告警注释里 printf 措辞（与 humanizePercentage 模板对齐） (99f9e0ed34)
 - 🐞 수정:修 AiLlm 告警正文把比率当百分比格式化（printf "%.0f%%" → humanizePercentage） (e7bab5a086)
-
-**2026-11-03**
-- 🔧 기타:收编停留≥3分钟的未提交改动 (15c45b0bae)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
