@@ -32,7 +32,7 @@ export function CertListScreen({
     <View style={styles.container}>
       <View style={styles.header}>
         <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
-        <Text style={styles.title}>{t('certList.title')}</Text>
+        <Text style={styles.title}>{t('student.myCertsTitle')}</Text>
       </View>
       {error ? <Text style={styles.errorBar}>{error}</Text> : null}
       {loading && items.length === 0 ? (

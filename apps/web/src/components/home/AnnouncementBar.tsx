@@ -8,11 +8,13 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { Megaphone } from 'lucide-react'
 import { CloseButton } from '@ihui/ui-react'
+import { useLatestAnnouncementTitle } from '@/hooks/use-announcements'
 
 const STORAGE_KEY = 'home-announcement-dismissed'
 
 export function AnnouncementBar() {
   const t = useTranslations('home.announcement')
+  const latestTitle = useLatestAnnouncementTitle()
   const [visible, setVisible] = React.useState(false)
   const [text, setText] = React.useState('')
 
@@ -23,9 +25,10 @@ export function AnnouncementBar() {
     } catch {
       // localStorage 不可用
     }
-    setText(t('welcomeMessage'))
+    // 优先用后台最新公告标题;无则 i18n 静态兜底
+    setText(latestTitle ?? t('welcomeMessage'))
     setVisible(true)
-  }, [t])
+  }, [t, latestTitle])
 
   const handleClose = () => {
     setVisible(false)

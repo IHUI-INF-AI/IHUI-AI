@@ -15,7 +15,7 @@
  * - Carousel: mobile-rn 用 banner/autoplayInterval/onItemPress,
  *             miniapp-taro 用 items/autoplay/interval/onItemClick/className
  * - Menu: mobile-rn 用 onPress,miniapp-taro 用 onItemClick/className
- * - VideoPlayer: mobile-rn 用 url(必选)/onProgress/onComplete/startPosition/VideoComponent,
+ * - VideoPlayer: mobile-rn 用 url(必选)/onProgress/onComplete/startPosition/controls/onPlay/onPause,
  *                miniapp-taro 用 src(可选)/onTimeUpdate/onEnded/poster/autoplay/controls/className
  *                (字段名不同,提取 VideoPlayerMinimalProps 仅含公共语义字段,以 mobile-rn 命名为准)
  * - UserInfoCard: mobile-rn 用 `userInfo: UserInfo` 对象结构 + 登录/编辑/充值回调,
@@ -217,7 +217,7 @@ export interface UserInfoCardMinimalProps {
  * - onError: 两端字段名相同
  *
  * 各端本地 Props 与 Minimal 的关系:
- * - mobile-rn: 本地 VideoPlayerProps 不直接 extends(url 必选 + 额外字段 title/startPosition/VideoComponent)
+ * - mobile-rn: 本地 VideoPlayerProps 不直接 extends(url 必选 + 额外字段 title/startPosition/controls)
  * - miniapp-taro: 本地 VideoPlayerProps 字段名不同(src/onTimeUpdate/onEnded),不 extends
  *   (Minimal 仅作语义参考,各端保留本地定义)
  */

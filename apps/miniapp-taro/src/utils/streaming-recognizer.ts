@@ -48,6 +48,17 @@ class StreamingRecognizer {
   private onFinalResult: ResultCallback | null = null
   private onError: ErrorCallback | null = null
 
+  /**
+   * 平台统一入口别名(2026-11-04):VoiceInput.tsx 与 RN/桌面端一样调用 configure(),
+   * 命名对齐消除 typecheck TS2339。上游实现委托 init(),但 init 会重挂 onStop/onError
+   * (重复注册),故此处只合并配置、不重挂录音回调。
+   */
+  configure(config?: RecognizerConfig): void {
+    if (!config) return
+    const next = Object.fromEntries(Object.entries(config).filter(([, v]) => v !== undefined)) as RecognizerConfig
+    if (Object.keys(next).length) this.config = { ...this.config, ...next }
+  }
+
   init(config?: RecognizerConfig): void {
     if (config) this.config = { ...this.config, ...config }
     this.recorderManager = Taro.getRecorderManager()

@@ -384,7 +384,8 @@
     "empty": "No live sessions yet",
     "lecturer": "Lecturer",
     "startAt": "Starts at",
-    "loadFailed": "Failed to load live"
+    "loadFailed": "Failed to load live",
+    "startTime": "Start Time"
   },
   "liveDetail": {
     "title": "Live Details",
@@ -633,7 +634,11 @@
     "runtimeEmpty": "No runtime activity yet",
     "runtimeInputPlaceholder": "Enter a message to send to the agent",
     "runtimeStop": "Stop",
-    "runtimeSend": "Send"
+    "runtimeSend": "Send",
+    "fieldName": "Name",
+    "fieldCategory": "Category",
+    "fieldDescription": "Description",
+    "fieldPrice": "Price"
   },
   "chat": {
     "assetCatText": "Text",
@@ -941,7 +946,9 @@
     "version": "Version",
     "language": "Language",
     "theme": "Theme",
-    "logoutConfirmBody": "Sign out of this account?"
+    "logoutConfirmBody": "Sign out of this account?",
+    "accountDeletionConfirmLabel": "Confirm Deletion",
+    "accountDeletionConfirmTitle": "Confirm Deletion"
   },
   "menu": {
     "artifacts": "Artifacts",
@@ -1607,11 +1614,8 @@
   },
   "agentCreate": {
     "title": "Create Agent",
-    "name": "Name",
     "namePlaceholder": "Name your agent",
-    "category": "Category",
     "categoryPlaceholder": "e.g. Office Assistant",
-    "description": "Description",
     "descPlaceholder": "Describe what this agent does",
     "systemPrompt": "System Prompt",
     "promptPlaceholder": "Define the role and behavior of the agent",
@@ -1764,7 +1768,6 @@
     "instructor": "Instructor",
     "rating": "Rating",
     "free": "Free",
-    "enrolled": "Enrolled",
     "enroll": "Enroll Now",
     "pay": "Pay ¥{amount}",
     "lessons": "Lessons",
@@ -1890,7 +1893,8 @@
     "treeLoadFailed": "Failed to load tree",
     "treeRetry": "Retry",
     "treeLevelLabel": "Level {level}",
-    "treeCollapseHint": "Tap a node for details"
+    "treeCollapseHint": "Tap a node for details",
+    "teamTitle": "My team"
   },
   "earnCommission": {
     "title": "Commission Program",
@@ -1905,9 +1909,7 @@
   "exam": {
     "subtitle": "Test yourself and track your learning",
     "retry": "Retry",
-    "questions": "Questions",
     "end": "Ends",
-    "startExam": "Start Exam",
     "attempts": "Attempts",
     "duration": "Duration",
     "empty": "No exams",
@@ -1918,14 +1920,13 @@
     "passScore": "Pass score",
     "start": "Start exam",
     "title": "Exam",
-    "totalScore": "Total score"
+    "totalScore": "Total score",
+    "questionCountLabel": "Questions"
   },
   "examQuestion": {
     "loadFailed": "Failed to load the exam",
     "single": "Single Choice",
     "multi": "Multiple Choice",
-    "prev": "Previous",
-    "next": "Next",
     "submit": "Submit",
     "submitFailed": "Submit failed"
   },
@@ -2085,7 +2086,6 @@
     "saveFailed": "Failed to save"
   },
   "notificationSettings": {
-    "title": "Notification Settings",
     "push": "Push Notifications",
     "message": "In-App Messages",
     "email": "Email",
@@ -2236,8 +2236,6 @@
     "unverifiedDesc": "Complete verification to unlock more services",
     "name": "Real Name",
     "namePlaceholder": "Enter your real name",
-    "idNumber": "ID Number",
-    "idNumberPlaceholder": "Enter your ID number",
     "submit": "Submit",
     "submitting": "Submitting...",
     "failed": "Verification failed",
@@ -2283,10 +2281,8 @@
   },
   "withdraw": {
     "availableBalance": "Available Balance (CNY)",
-    "amount": "Amount",
     "amountInvalid": "Invalid amount",
     "amountPlaceholder": "Enter amount",
-    "bankCard": "Bank card",
     "bankCardPlaceholder": "Select a bank card",
     "confirmMessage": "Confirm withdrawal of {amount} CNY?",
     "confirmTitle": "Confirm",
@@ -2637,7 +2633,6 @@
     "current": "Current points",
     "totalEarned": "Total earned",
     "totalSpent": "Total spent",
-    "level": "Level",
     "nextLevel": "{points} points to {name}",
     "maxLevel": "Highest level reached",
     "experience": "Experience",
@@ -2657,14 +2652,17 @@
       "historyLoadFailed": "Failed to load check-in history",
       "historyConsecutive": "{days}-day streak"
     },
-    "mallLink": "Points mall",
-    "taskCenterLink": "Task center",
     "ruleLink": "Points rules",
     "txTitle": "Points history",
     "empty": "No points records",
     "loadFailed": "Failed to load points",
     "balance": "Balance",
-    "loadMore": "Load more"
+    "loadMore": "Load more",
+    "levelLabel": "Level",
+    "mallTitle": "Points Mall",
+    "tasks": {
+      "title": "Task Center"
+    }
   },
   "groups": {
     "title": "My groups",
@@ -2768,7 +2766,6 @@
     "submitFailed": "Submission failed, please try again later",
     "amountLabel": "Top-up amount (CNY)",
     "amountRange": "Amount must be between {min} and {max} CNY",
-    "payMethod": "Payment method",
     "wechat": "WeChat Pay",
     "alipay": "Alipay",
     "payNow": "Pay now",
@@ -3373,7 +3370,6 @@
     "loadFailed": "Failed to load study progress",
     "courses": "Courses (done/total)",
     "totalMinutes": "Total Minutes",
-    "weekMinutes": "This Week (min)",
     "streak": "Day Streak",
     "courseProgress": "Course Progress"
   },
@@ -3416,7 +3412,6 @@
     "tab_newbie": "Newbie"
   },
   "team": {
-    "title": "My Team",
     "subtitle": "Team size and performance at a glance",
     "retry": "Retry",
     "totalMembers": "Total Members",
@@ -3537,12 +3532,18 @@
     "opType4": "Refund",
     "opType5": "Commission",
     "loginRequiredHint": "Sign in to view fund flows",
-    "goLogin": "Sign in"
+    "goLogin": "Sign in",
+    "rechargeFail": "Recharge Failed",
+    "rechargeSuccess": "Recharge Successful",
+    "contactSupport": "Contact Support",
+    "retryRecharge": "Retry Recharge",
+    "withdrawAmount": "Amount",
+    "methodBank": "Bank Card",
+    "rechargeMethod": "Payment Method"
   },
   "activity": {
     "empty": "No activities",
     "endTime": "End time",
-    "joinNow": "Join now",
     "loadFailed": "Failed to load",
     "participants": "Participants",
     "startTime": "Start time",
@@ -3553,7 +3554,6 @@
     "description": "Description",
     "free": "Free",
     "loadFailed": "Failed to load agent details",
-    "price": "Price",
     "rating": "Rating",
     "startChat": "Start chat",
     "uses": "Uses"
@@ -3709,7 +3709,13 @@
       "issued": "Issued",
       "revoked": "Revoked"
     },
-    "title": "My Certificates"
+    "title": "My Certificates",
+    "download": {
+      "noCertificates": "No certificates"
+    },
+    "detail": {
+      "issueDate": "Issue Date"
+    }
   },
   "certDetail": {
     "certNo": "Certificate No.",
@@ -3726,8 +3732,7 @@
     "empty": "No certificates",
     "issuedAt": "Issue date",
     "issuer": "Issued by",
-    "loadFailed": "Failed to load",
-    "title": "Certificates"
+    "loadFailed": "Failed to load"
   },
   "certVerify": {
     "certNo": "Certificate No.",
@@ -3798,7 +3803,6 @@
   },
   "courseQAList": {
     "answers": "Answers",
-    "ask": "Ask",
     "asker": "Asker",
     "empty": "No Q&A",
     "loadFailed": "Failed to load",
@@ -3839,7 +3843,8 @@
     "type": "Type",
     "imagesLabel": "Upload screenshots of the issue (max 9)",
     "imagePickFailed": "Failed to pick images, please retry",
-    "pickImages": "Pick images"
+    "pickImages": "Pick images",
+    "field_contact": "Contact"
   },
   "feedbackDetail": {
     "content": "Content",
@@ -5763,6 +5768,7 @@
   },
   "ia": {
     "remainingPoints": "Remaining points",
+    "loginRequired": "Please log in first to use",
     "recharge": "Top up"
   },
   "uiCard": {
@@ -6038,30 +6044,9 @@
     "status": {
       "present": "Present",
       "late": "Late",
-      "early": "Left early",
       "absent": "Absent",
       "leave": "Leave"
-    },
-    "chooseAction": "Choose action",
-    "actionDone": "Action succeeded",
-    "actionFailed": "Action failed",
-    "needClassId": "Missing class info; proxy check-in/out unavailable",
-    "onlyTodayCheckIn": "Proxy check-in covers today only: backdating needs a time inside that day, not offered here",
-    "batchTitle": "Whole-class check",
-    "chooseClass": "Choose a class to check",
-    "noClass": "No selectable class in the current list",
-    "batchResult": "Done: created {created}, skipped {skipped}, missed {missed}",
-    "qrEntry": "Show check-in QR",
-    "emptyTrend": "No trend data yet",
-    "statsAttendanceRate": "Attendance rate",
-    "statusDistribution": "Status distribution",
-    "statusOther": "Other",
-    "trendChartHint": "Attendance rate = present ÷ records logged in that period (students without a record are not in the denominator)",
-    "trendChartTitle": "Attendance trend",
-    "statsTotalLabel": "Total check-ins",
-    "loadStatsFailed": "Failed to load attendance statistics. Please try again later.",
-    "trendChartScope": "Scope: {scope}",
-    "trendWindow": "Last {days} days"
+    }
   },
   "eduGrades": {
     "title": "Grades",
@@ -7196,7 +7181,17 @@
     "bundleOta": "Hot update",
     "readyBody": "Update downloaded. Tap Update to apply it now.",
     "installingHint": "The app restarts automatically — usually within seconds.",
-    "restartNow": "Restart now"
+    "restartNow": "Restart now",
+    "apkTitle": "New version {{version}} available",
+    "apkBody": "Current {{current}} → latest {{latest}}",
+    "apkAction": "Download & install",
+    "apkActionBrowser": "Go to download",
+    "apkDownloading": "Downloading installer {{progress}}%",
+    "apkEta": "About {{eta}} left",
+    "apkInstalling": "Opening installer…",
+    "apkBrowserOpening": "Handed to your browser — follow the prompt to install",
+    "apkCancel": "Cancel",
+    "apkHint": "The package is large; Wi-Fi is recommended"
   },
   "cloudRuns": {
     "title": "Cloud Agent Runs",
@@ -7229,30 +7224,54 @@
     "searchNoResult": "No results",
     "retry": "Retry"
   },
-  "eduMyAttendance": {
-    "title": "My Attendance",
-    "selfCheckIn": "Check in",
-    "date": "Date",
-    "notLoggedIn": "Not signed in; unavailable",
-    "classByBackendHint": "Class is resolved automatically from your enrollment",
-    "scanCheckIn": "Scan to check in"
+  "learnMapPage": {
+    "completed": "Completed",
+    "empty": "No learning paths yet"
   },
-  "eduAttendanceQr": {
-    "title": "Check-in QR code",
-    "chooseClass": "Select class",
-    "noClass": "No class available",
-    "classLoadFailed": "Failed to load class list",
-    "pickClassFirst": "Select a class first",
-    "qrTip": "Students scan this code with Scan to check in",
-    "expiresIn": "Expires in {s}s",
-    "refresh": "Regenerate code",
-    "nextStepHint": "Enable an attendance rule and set the scan secret (qrSecret) for this class, then regenerate",
-    "scanTitle": "Scan to check in",
-    "scanHint": "Put the teacher check-in QR code inside the frame",
-    "scanSubmitting": "Checking in...",
-    "scanInvalidCode": "Not a check-in QR code of this system",
-    "scanDone": "Checked in",
-    "scanFailed": "Check-in failed",
-    "needLogin": "Sign in before scanning"
+  "user": {
+    "security": {
+      "sendCode": "Send Code"
+    },
+    "realname": {
+      "form": {
+        "idCard": "ID Card Number",
+        "idCardPlaceholder": "Enter your ID number"
+      }
+    }
+  },
+  "chatSettingsPage": {
+    "model": "Model"
+  },
+  "eduExamListPage": {
+    "start": "Start Exam"
+  },
+  "eduExamPage": {
+    "prevQuestion": "Previous",
+    "nextQuestion": "Next"
+  },
+  "edu": {
+    "qa": {
+      "askBtn": "Ask"
+    }
+  },
+  "eduProgressPage": {
+    "weeklyHours": "Study hours this week"
+  },
+  "learn": {
+    "signedUp": "Enrolled"
+  },
+  "learnPaymentConfirmPage": {
+    "fields": {
+      "payMethod": "Payment Method"
+    }
+  },
+  "memberSubscriptionPage": {
+    "cancelSubscription": "Cancel Subscription"
+  },
+  "student": {
+    "myCertsTitle": "My Certificates"
+  },
+  "activities": {
+    "join": "Join Now"
   }
 }

@@ -900,6 +900,11 @@ async function main() {
   const routeSources = loadRouteSources(OPTS.staged)
   const { prefixOf } = buildPrefixMap(routeSources)
   const { files: selected, unavailable } = selectRouteFiles(routeSources)
+  if (unavailable) {
+    // 取不到暂存面 ≠ 没有待判路由;此前只 warn 后按 0 失败继续,会让 blocking 门空转绿灯。
+    console.error(`${C.red}❌ [check:capability-catalog] staged 面取不到(git diff --cached 失败)⇒ 未判定(exit 2)${C.reset}`)
+    return 2
+  }
   const routeFiles = selected.map((rel) => {
     const raw = routeSources.get(rel) ?? readText(rel) ?? ''
     return { relPath: rel, analysis: analyzeRouteFile({ relPath: rel, source: raw, prefixes: prefixOf(rel) }) }

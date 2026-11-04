@@ -384,7 +384,8 @@
     "empty": "暂无直播",
     "lecturer": "讲师",
     "startAt": "开始时间",
-    "loadFailed": "加载直播失败"
+    "loadFailed": "加载直播失败",
+    "startTime": "开始时间"
   },
   "liveDetail": {
     "title": "直播详情",
@@ -633,7 +634,11 @@
     "runtimeEmpty": "暂无运行记录",
     "runtimeInputPlaceholder": "输入消息发送给智能体",
     "runtimeStop": "停止",
-    "runtimeSend": "发送"
+    "runtimeSend": "发送",
+    "fieldName": "名称",
+    "fieldCategory": "分类",
+    "fieldDescription": "描述",
+    "fieldPrice": "价格"
   },
   "chat": {
     "assetCatText": "文本",
@@ -941,7 +946,9 @@
     "version": "版本",
     "language": "语言",
     "theme": "主题",
-    "logoutConfirmBody": "确认退出当前账号？"
+    "logoutConfirmBody": "确认退出当前账号？",
+    "accountDeletionConfirmLabel": "确认注销",
+    "accountDeletionConfirmTitle": "确认注销"
   },
   "menu": {
     "artifacts": "产物中心",
@@ -1607,11 +1614,8 @@
   },
   "agentCreate": {
     "title": "创建智能体",
-    "name": "名称",
     "namePlaceholder": "给智能体起个名字",
-    "category": "分类",
     "categoryPlaceholder": "如:办公助手",
-    "description": "描述",
     "descPlaceholder": "介绍一下这个智能体",
     "systemPrompt": "系统提示词",
     "promptPlaceholder": "定义智能体的角色和行为",
@@ -1764,7 +1768,6 @@
     "instructor": "讲师",
     "rating": "评分",
     "free": "免费",
-    "enrolled": "已报名",
     "enroll": "立即报名",
     "pay": "支付 ¥{amount}",
     "lessons": "课程目录",
@@ -1890,7 +1893,8 @@
     "treeLoadFailed": "层级树加载失败",
     "treeRetry": "重试",
     "treeLevelLabel": "第 {level} 层",
-    "treeCollapseHint": "点击节点查看详情"
+    "treeCollapseHint": "点击节点查看详情",
+    "teamTitle": "我的团队"
   },
   "earnCommission": {
     "title": "分佣计划",
@@ -1905,9 +1909,7 @@
   "exam": {
     "subtitle": "以考促学,检验学习成果",
     "retry": "重试",
-    "questions": "题数",
     "end": "结束时间",
-    "startExam": "开始考试",
     "attempts": "考试次数",
     "duration": "考试时长",
     "empty": "暂无考试",
@@ -1918,14 +1920,13 @@
     "passScore": "及格分",
     "start": "开始考试",
     "title": "考试",
-    "totalScore": "总分"
+    "totalScore": "总分",
+    "questionCountLabel": "题目数"
   },
   "examQuestion": {
     "loadFailed": "加载试卷失败",
     "single": "单选题",
     "multi": "多选题",
-    "prev": "上一题",
-    "next": "下一题",
     "submit": "交卷",
     "submitFailed": "提交失败"
   },
@@ -2085,7 +2086,6 @@
     "saveFailed": "保存失败"
   },
   "notificationSettings": {
-    "title": "通知设置",
     "push": "推送通知",
     "message": "站内消息",
     "email": "邮件通知",
@@ -2236,8 +2236,6 @@
     "unverifiedDesc": "完成实名认证,解锁更多服务",
     "name": "真实姓名",
     "namePlaceholder": "请输入真实姓名",
-    "idNumber": "身份证号",
-    "idNumberPlaceholder": "请输入身份证号",
     "submit": "提交认证",
     "submitting": "提交中...",
     "failed": "认证失败",
@@ -2283,10 +2281,8 @@
   },
   "withdraw": {
     "availableBalance": "可提现金额(元)",
-    "amount": "提现金额",
     "amountInvalid": "金额无效",
     "amountPlaceholder": "请输入提现金额",
-    "bankCard": "银行卡",
     "bankCardPlaceholder": "请选择银行卡",
     "confirmMessage": "确定要提现 {amount} 元吗?",
     "confirmTitle": "确认提现",
@@ -2637,7 +2633,6 @@
     "current": "当前积分",
     "totalEarned": "累计获得",
     "totalSpent": "累计消费",
-    "level": "等级",
     "nextLevel": "距离 {name} 还需 {points} 积分",
     "maxLevel": "已达最高等级",
     "experience": "经验值",
@@ -2657,14 +2652,17 @@
       "historyLoadFailed": "签到历史加载失败",
       "historyConsecutive": "连续 {days} 天"
     },
-    "mallLink": "积分商城",
-    "taskCenterLink": "任务中心",
     "ruleLink": "积分规则",
     "txTitle": "积分流水",
     "empty": "暂无积分记录",
     "loadFailed": "积分加载失败",
     "balance": "余额",
-    "loadMore": "加载更多"
+    "loadMore": "加载更多",
+    "levelLabel": "等级",
+    "mallTitle": "积分商城",
+    "tasks": {
+      "title": "任务中心"
+    }
   },
   "groups": {
     "title": "我的群组",
@@ -2768,7 +2766,6 @@
     "submitFailed": "提交失败，请稍后重试",
     "amountLabel": "充值金额（元）",
     "amountRange": "充值金额需在 {min} - {max} 元之间",
-    "payMethod": "支付方式",
     "wechat": "微信支付",
     "alipay": "支付宝",
     "payNow": "立即支付",
@@ -3373,7 +3370,6 @@
     "loadFailed": "加载学习进度失败",
     "courses": "课程(已完成/总数)",
     "totalMinutes": "累计学习(分钟)",
-    "weekMinutes": "本周学习(分钟)",
     "streak": "连续打卡(天)",
     "courseProgress": "课程进度"
   },
@@ -3416,7 +3412,6 @@
     "tab_newbie": "新手"
   },
   "team": {
-    "title": "我的团队",
     "subtitle": "团队人数与业绩一览",
     "retry": "重试",
     "totalMembers": "团队总人数",
@@ -3537,12 +3532,18 @@
     "opType4": "退款",
     "opType5": "佣金",
     "loginRequiredHint": "登录后查看资金流水",
-    "goLogin": "去登录"
+    "goLogin": "去登录",
+    "rechargeFail": "充值失败",
+    "rechargeSuccess": "充值成功",
+    "contactSupport": "联系客服",
+    "retryRecharge": "重新充值",
+    "withdrawAmount": "提现金额",
+    "methodBank": "银行卡",
+    "rechargeMethod": "支付方式"
   },
   "activity": {
     "empty": "暂无活动",
     "endTime": "结束时间",
-    "joinNow": "立即参加",
     "loadFailed": "加载失败",
     "participants": "参与人数",
     "startTime": "开始时间",
@@ -3553,7 +3554,6 @@
     "description": "简介",
     "free": "免费",
     "loadFailed": "加载智能体详情失败",
-    "price": "价格",
     "rating": "评分",
     "startChat": "开始对话",
     "uses": "使用次数"
@@ -3709,7 +3709,13 @@
       "issued": "有效",
       "revoked": "已撤销"
     },
-    "title": "我的证书"
+    "title": "我的证书",
+    "download": {
+      "noCertificates": "暂无证书"
+    },
+    "detail": {
+      "issueDate": "颁发日期"
+    }
   },
   "certDetail": {
     "certNo": "证书编号",
@@ -3726,8 +3732,7 @@
     "empty": "暂无证书",
     "issuedAt": "颁发时间",
     "issuer": "颁发机构",
-    "loadFailed": "加载失败",
-    "title": "证书列表"
+    "loadFailed": "加载失败"
   },
   "certVerify": {
     "certNo": "证书编号",
@@ -3798,7 +3803,6 @@
   },
   "courseQAList": {
     "answers": "回答",
-    "ask": "提问",
     "asker": "提问者",
     "empty": "暂无问答",
     "loadFailed": "加载失败",
@@ -3839,7 +3843,8 @@
     "type": "反馈类型",
     "imagesLabel": "请在此上传你所遇到问题的截图（最多9张）",
     "imagePickFailed": "图片选择失败,请重试",
-    "pickImages": "选择图片"
+    "pickImages": "选择图片",
+    "field_contact": "联系方式"
   },
   "feedbackDetail": {
     "content": "反馈内容",
@@ -5763,6 +5768,7 @@
   },
   "ia": {
     "remainingPoints": "剩余智汇值",
+    "loginRequired": "请先登录后使用",
     "recharge": "充值"
   },
   "uiCard": {
@@ -6038,30 +6044,9 @@
     "status": {
       "present": "正常",
       "late": "迟到",
-      "early": "早退",
       "absent": "缺勤",
       "leave": "请假"
-    },
-    "chooseAction": "选择操作",
-    "actionDone": "操作成功",
-    "actionFailed": "操作失败",
-    "needClassId": "缺少班级信息，无法代签到/签退",
-    "onlyTodayCheckIn": "仅可为当日考勤代签到：跨日回填需给出该日内时刻，本屏未提供",
-    "batchTitle": "整班点名",
-    "chooseClass": "选择要点名的班级",
-    "noClass": "当前列表没有可选班级",
-    "batchResult": "点名完成：新增 {created}、跳过 {skipped}、遗漏 {missed}",
-    "qrEntry": "出示签到码",
-    "emptyTrend": "暂无趋势数据",
-    "statsAttendanceRate": "出勤率",
-    "statusDistribution": "状态分布",
-    "statusOther": "其他",
-    "trendChartHint": "出勤率 = 正常出勤人次 ÷ 该时段有考勤记录人次（未打卡的学生不在分母内）",
-    "trendChartTitle": "出勤趋势",
-    "statsTotalLabel": "考勤总人次",
-    "loadStatsFailed": "加载考勤统计失败，请稍后重试",
-    "trendChartScope": "统计范围：{scope}",
-    "trendWindow": "近 {days} 天"
+    }
   },
   "eduGrades": {
     "title": "成绩管理",
@@ -7196,7 +7181,17 @@
     "bundleOta": "热更",
     "readyBody": "更新已下载完成，点「更新」立即生效",
     "installingHint": "应用会自动重启，通常只需几秒",
-    "restartNow": "立即重启"
+    "restartNow": "立即重启",
+    "apkTitle": "发现新版本 {{version}}",
+    "apkBody": "当前 {{current}} → 最新 {{latest}}",
+    "apkAction": "下载并安装",
+    "apkActionBrowser": "前往下载",
+    "apkDownloading": "正在下载安装包 {{progress}}%",
+    "apkEta": "剩余约 {{eta}}",
+    "apkInstalling": "正在打开安装程序…",
+    "apkBrowserOpening": "已交给浏览器下载，按提示安装即可",
+    "apkCancel": "取消",
+    "apkHint": "安装包较大，建议在 Wi-Fi 下更新"
   },
   "cloudRuns": {
     "title": "云托管 Agent 运行",
@@ -7229,30 +7224,54 @@
     "searchNoResult": "无匹配结果",
     "retry": "重试"
   },
-  "eduMyAttendance": {
-    "title": "我的考勤",
-    "selfCheckIn": "我要签到",
-    "date": "日期",
-    "notLoggedIn": "未登录，无法操作",
-    "classByBackendHint": "班级由后端按在册学籍自动确定",
-    "scanCheckIn": "扫码签到"
+  "learnMapPage": {
+    "completed": "已完成",
+    "empty": "暂无学习路径"
   },
-  "eduAttendanceQr": {
-    "title": "签到二维码",
-    "chooseClass": "选择班级",
-    "noClass": "暂无可选班级",
-    "classLoadFailed": "班级清单加载失败",
-    "pickClassFirst": "请先选择班级",
-    "qrTip": "让学生用「扫码签到」扫描此码",
-    "expiresIn": "{s} 秒后过期",
-    "refresh": "重新出码",
-    "nextStepHint": "请先到考勤规则为该班启用规则并设置扫码密钥(qrSecret),再重新出码",
-    "scanTitle": "扫码签到",
-    "scanHint": "将老师的签到二维码放入框内",
-    "scanSubmitting": "正在签到…",
-    "scanInvalidCode": "这不是本系统的签到二维码",
-    "scanDone": "签到成功",
-    "scanFailed": "签到失败",
-    "needLogin": "请先登录后再扫码"
+  "user": {
+    "security": {
+      "sendCode": "发送验证码"
+    },
+    "realname": {
+      "form": {
+        "idCard": "身份证号",
+        "idCardPlaceholder": "请输入身份证号"
+      }
+    }
+  },
+  "chatSettingsPage": {
+    "model": "模型"
+  },
+  "eduExamListPage": {
+    "start": "开始考试"
+  },
+  "eduExamPage": {
+    "prevQuestion": "上一题",
+    "nextQuestion": "下一题"
+  },
+  "edu": {
+    "qa": {
+      "askBtn": "提问"
+    }
+  },
+  "eduProgressPage": {
+    "weeklyHours": "本周学习时长"
+  },
+  "learn": {
+    "signedUp": "已报名"
+  },
+  "learnPaymentConfirmPage": {
+    "fields": {
+      "payMethod": "支付方式"
+    }
+  },
+  "memberSubscriptionPage": {
+    "cancelSubscription": "取消订阅"
+  },
+  "student": {
+    "myCertsTitle": "我的证书"
+  },
+  "activities": {
+    "join": "立即参与"
   }
 }

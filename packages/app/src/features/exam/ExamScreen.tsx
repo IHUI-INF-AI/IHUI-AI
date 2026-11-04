@@ -130,7 +130,7 @@ export function ExamScreen({
               </View>
               <View style={styles.metaWrap}>
                 <Text style={styles.metaText}>
-                  {t('exam.questions')}:{item.questionCount}
+                  {t('exam.questionCountLabel')}:{item.questionCount}
                 </Text>
                 <Text style={styles.metaText}>
                   {t('exam.attempts')}:{item.attemptCount}/{item.maxAttempts || '∞'}
@@ -153,7 +153,7 @@ export function ExamScreen({
                   disabled={!canStart}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.startBtnText}>{t('exam.startExam')}</Text>
+                  <Text style={styles.startBtnText}>{t('eduExamListPage.start')}</Text>
                 </TouchableOpacity>
               </View>
             </View>

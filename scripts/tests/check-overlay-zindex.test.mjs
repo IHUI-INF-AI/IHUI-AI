@@ -59,8 +59,8 @@ function assertPass(r) {
   assert.match(r.stdout, /✅.*通过|z-index 检查通过/, `stdout 应含通过标记\nstdout: ${r.stdout}`)
 }
 
-// ─── 1. CLI --help 不崩溃(脚本未实现 --help,按默认模式运行) ─
-test('CLI: --help 不崩溃(空目录 → exit 0)', () => {
+// ─── 1. CLI --help 不崩溃,且显式打印用法 ─
+test('CLI: --help 不崩溃并打印用法(exit 0)', () => {
   const dir = mkScratch('ihui-overlay-help-')
   try {
     // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
@@ -69,8 +69,21 @@ test('CLI: --help 不崩溃(空目录 → exit 0)', () => {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
     })
-    assert.ok(r.status === 0 || r.status === 1, `--help 不应 crash,实际 exit ${r.status}\nstderr: ${r.stderr}`)
+    assert.equal(r.status, 0, `--help 应 exit 0,实际 exit ${r.status}\nstderr: ${r.stderr}`)
+    assert.match(r.stdout, /用法:/, '--help 必须打印用法')
     assert.ok(!r.stderr.includes('Error:'), `--help 不应产生未捕获 Error`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+// ─── 1b. 空扫描面 ⇒ exit 2,不得报通过(2026-11-04 假绿专项) ─
+test('未判定: 扫描面为空 ⇒ exit 2(不折成"检查通过")', () => {
+  const dir = mkScratch('ihui-overlay-empty-')
+  try {
+    const r = runScript(dir)
+    assert.equal(r.status, 2, `空扫描面应 exit 2,实际 exit ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`)
+    assert.match(r.stderr, /扫描面为空|未判定/, '必须点名扫描面为空')
   } finally {
     rmScratch(dir)
   }
@@ -272,13 +285,13 @@ test('违规: fixed inset-0 bg-zinc-900/80 z-20 → exit 1(zinc 遮罩)', () => 
   }
 })
 
-// ─── 16. 空目录(无 apps/web)→ 扫描 0 文件 exit 0 ──────
-test('空目录: 无 apps/web → 扫描 0 文件 exit 0', () => {
+// ─── 16. 空目录(无 apps/web)→ 扫描 0 文件 ⇒ exit 2 未判定 ──────
+test('空目录: 无 apps/web → 扫描面为空 exit 2(不得报通过)', () => {
   const dir = mkScratch('ihui-overlay-empty-')
   try {
     const r = runScript(dir)
-    assert.equal(r.status, 0, `空目录应 exit 0,实际 ${r.status}`)
-    assert.match(r.stdout, /扫描 0 文件|扫描.*文件/)
+    assert.equal(r.status, 2, `空目录应 exit 2,实际 ${r.status}`)
+    assert.match(r.stderr, /扫描面为空|未判定/)
   } finally {
     rmScratch(dir)
   }
@@ -288,6 +301,8 @@ test('空目录: 无 apps/web → 扫描 0 文件 exit 0', () => {
 test('注: .css 文件 z-index: 9999 不被检测(源脚本只检测 className z 类)→ exit 0', () => {
   const dir = createTempScanDir({
     'apps/web/styles/modal.css': `.modal {\n  position: fixed;\n  inset: 0;\n  z-index: 9999;\n  background: rgba(0,0,0,0.5);\n}\n`,
+    // 扫描面必须非空(本门只搜 .tsx/.jsx/.ts/.js);放一只合法组件,让"css 不被检测"这条判据可判。
+    'apps/web/styles/Legal.tsx': `export function Legal() {\n  return <div className="fixed inset-0 bg-black/50 z-modal" />\n}\n`,
   })
   try {
     const r = runScript(dir)
