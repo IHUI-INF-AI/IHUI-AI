@@ -398,22 +398,22 @@ export default function ChatMessageItem({
               与 web 端 MessageItem D22 同一形态,跨端视觉一致。 */}
           {isFailed ? (
             <View className="w-full overflow-hidden rounded-lg border border-destructive/40 bg-destructive/5">
-              <View className="flex items-center bg-destructive/10 px-3 py-2">
+              <View className="flex items-center bg-destructive/10 px-md py-sm">
                 <LineIcon
                   name="triangle-alert"
                   size={28}
                   color="var(--color-destructive)"
                   style={{ marginRight: 'var(--spacing-xs)' }}
                 />
-                <Text className="text-xs font-medium text-destructive">
+                <Text className="text-label font-medium text-destructive">
                   {t('ai.chatMessageItem.errorCardTitle')}
                 </Text>
               </View>
-              <Text className="block whitespace-pre-wrap break-words px-3 py-2 text-sm text-destructive">
+              <Text className="block whitespace-pre-wrap break-words px-md py-sm text-body text-destructive">
                 {msg.content}
               </Text>
               {onRegenerate ? (
-                <View className="px-3 pb-2">
+                <View className="px-md pb-sm">
                   <View
                     className="inline-flex items-center"
                     onClick={() => onRegenerate(msg)}
@@ -425,7 +425,7 @@ export default function ChatMessageItem({
                       color="var(--color-destructive)"
                       style={{ marginRight: '6rpx' }}
                     />
-                    <Text className="text-xs text-destructive">
+                    <Text className="text-label text-destructive">
                       {t('ai.chatMessageItem.retry')}
                     </Text>
                   </View>

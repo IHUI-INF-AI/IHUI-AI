@@ -47,7 +47,7 @@ export default function Comment({
         lowerThreshold={50}
       >
         {loading ? (
-          <View className="py-8 text-center">
+          <View className="py-3xl text-center">
             <Text className="text-body text-muted-foreground">
               {tt('comment.loading', '加载中...')}
             </Text>

@@ -68,9 +68,9 @@ export default function MessageVersionMenu({
   if (!pos) return null
 
   return (
-    <View className="inline-flex items-center gap-1 rounded-md bg-muted/60 px-2 py-[4rpx]">
+    <View className="inline-flex items-center gap-xs rounded-md bg-muted/60 px-sm py-[4rpx]">
       <View
-        className="inline-flex items-center px-1"
+        className="inline-flex items-center px-xs"
         onClick={() => step(prev)}
         hoverClass="opacity-60"
       >
@@ -84,7 +84,7 @@ export default function MessageVersionMenu({
         {pos.index + 1}/{pos.total}
       </Text>
       <View
-        className="inline-flex items-center px-1"
+        className="inline-flex items-center px-xs"
         onClick={() => step(next)}
         hoverClass="opacity-60"
       >
@@ -94,9 +94,13 @@ export default function MessageVersionMenu({
           color={next ? 'var(--color-muted-foreground)' : 'var(--color-border)'}
         />
       </View>
-      <View className="inline-flex items-center px-1" onClick={openHistory} hoverClass="opacity-60">
+      <View
+        className="inline-flex items-center px-xs"
+        onClick={openHistory}
+        hoverClass="opacity-60"
+      >
         <LineIcon name="chevron-down" size={24} color="var(--color-muted-foreground)" />
-        <Text className="ml-1 text-[10px] text-muted-foreground">
+        <Text className="ml-xs text-[10px] text-muted-foreground">
           {t('ai.messageVersion.history')}
         </Text>
       </View>

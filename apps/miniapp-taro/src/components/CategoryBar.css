@@ -28,7 +28,7 @@
   align-items: center;
   gap: var(--spacing-xs-loose);
   height: var(--spacing-3xl);
-  padding: 0 24rpx;
+  padding: 0 var(--spacing-md);
   /* web ITEM_BASE 是 whitespace-nowrap 且**不封顶**(现读 packages/ui-react/src/components/
      category-bar.tsx 的 ITEM_BASE);此前这里有一条 max-width 上限 ⇒ 同名分类在手机上被截、
      在 web 不截。跨端取 web 那一侧:长名靠横向滚动消化,不靠截断。
@@ -78,7 +78,7 @@
   justify-content: center;
   height: var(--spacing-lg);
   min-width: var(--spacing-lg);
-  padding: 0 8rpx;
+  padding: 0 var(--spacing-xs);
   border-radius: var(--radius-md);
   background: var(--color-muted);
 }

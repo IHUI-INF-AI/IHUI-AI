@@ -57,7 +57,7 @@ export default function CartePage() {
         return (
           <View
             key={seg.id}
-            className="flex flex-row items-center gap-3 rounded-t-2xl bg-brand-accent p-4"
+            className="flex flex-row items-center gap-md rounded-t-2xl bg-brand-accent p-lg"
           >
             {src ? (
               <Image className="h-16 w-16 shrink-0 rounded-xl" src={src} mode="aspectFill" />
@@ -68,7 +68,7 @@ export default function CartePage() {
                   key={key}
                   className={
                     row === 0
-                      ? 'block text-base font-bold text-brand-accent-foreground'
+                      ? 'block text-title font-bold text-brand-accent-foreground'
                       : 'mt-xs block text-body text-brand-accent-foreground'
                   }
                 >
@@ -82,7 +82,10 @@ export default function CartePage() {
         return (
           <View key={seg.id} className="mt-lg px-md">
             {seg.textKeys.map((key) => (
-              <Text key={key} className="block text-center text-base font-semibold text-foreground">
+              <Text
+                key={key}
+                className="block text-center text-title font-semibold text-foreground"
+              >
                 {t(key)}
               </Text>
             ))}
@@ -99,7 +102,7 @@ export default function CartePage() {
         return (
           <View
             key={seg.id}
-            className="mt-3 mb-4 flex flex-row items-center justify-center gap-[12rpx]"
+            className="mt-md mb-lg flex flex-row items-center justify-center gap-[12rpx]"
           >
             {glyph ? <LineIcon name={glyph} size={28} /> : null}
             {seg.textKeys.map((key) => (
@@ -117,7 +120,7 @@ export default function CartePage() {
     <ThemeRoot>
       <View className="min-h-screen bg-background px-lg py-lg">
         <Text className="text-lg font-semibold text-foreground">{t(CARTE_I18N_KEYS.title)}</Text>
-        <View className="mt-2 overflow-hidden rounded-lg border border-border bg-card">
+        <View className="mt-sm overflow-hidden rounded-lg border border-border bg-card">
           {CARTE_SEGMENTS.map((seg) => renderSegment(seg))}
         </View>
       </View>

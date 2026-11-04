@@ -12,7 +12,7 @@
 .page {
   min-height: 100vh;
   background: var(--color-background);
-  padding: 0 20rpx 120rpx;
+  padding: 0 var(--spacing-sm-loose) 120rpx;
 }
 
 /* 分类 tab(小程序独有,active 用 --color-primary 对齐 RN 强调) */

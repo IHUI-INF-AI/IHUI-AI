@@ -46,16 +46,16 @@ export default function QrCodeShare({
   }
 
   return (
-    <View className="flex flex-col items-center px-6 py-8">
-      <Text className="text-base font-semibold text-foreground">{title}</Text>
-      <Text className="text-xs text-muted-foreground mt-1">{desc}</Text>
+    <View className="flex flex-col items-center px-2xl py-3xl">
+      <Text className="text-title font-semibold text-foreground">{title}</Text>
+      <Text className="text-label text-muted-foreground mt-xs">{desc}</Text>
 
-      <View className="relative mt-5 w-56 h-56 bg-card rounded-lg shadow-sm flex items-center justify-center">
+      <View className="relative mt-xl w-56 h-56 bg-card rounded-lg shadow-sm flex items-center justify-center">
         {qrUrl ? (
           <Image src={qrUrl} className="w-48 h-48" mode="aspectFit" />
         ) : (
           <View className="w-48 h-48 bg-muted rounded-lg flex items-center justify-center">
-            <Text className="text-xs text-muted-foreground">
+            <Text className="text-label text-muted-foreground">
               {tt('qrcode.loading', '二维码加载中')}
             </Text>
           </View>
@@ -70,18 +70,20 @@ export default function QrCodeShare({
       </View>
 
       {userName && (
-        <Text className="mt-4 text-sm text-foreground">{t('qrcode.from', { name: userName })}</Text>
+        <Text className="mt-lg text-body text-foreground">
+          {t('qrcode.from', { name: userName })}
+        </Text>
       )}
 
-      <View className="flex gap-3 mt-6 w-full">
+      <View className="flex gap-md mt-2xl w-full">
         <Button
-          className="flex-1 !bg-muted !text-foreground text-sm rounded-sm"
+          className="flex-1 !bg-muted !text-foreground text-body rounded-sm"
           onClick={handleShare}
         >
           {tt('wallet.recharge.success.shareFriend', '分享给好友')}
         </Button>
         <Button
-          className="flex-1 !bg-cta !text-cta-foreground text-sm rounded-sm"
+          className="flex-1 !bg-cta !text-cta-foreground text-body rounded-sm"
           onClick={handleSave}
         >
           {tt('invite.saveImage', '保存图片')}

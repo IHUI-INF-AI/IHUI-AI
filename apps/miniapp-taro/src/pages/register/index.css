@@ -25,7 +25,7 @@
   min-height: 100vh;
   box-sizing: border-box;
   /* RN paddingTop 48dp 含状态栏;小程序 custom 导航用 safe-area 补状态栏 + 余量 */
-  padding: calc(env(safe-area-inset-top) + 8rpx) 20rpx 64rpx;
+  padding: calc(env(safe-area-inset-top) + 8rpx) var(--spacing-sm-loose) var(--spacing-3xl);
   display: flex;
   flex-direction: column;
 }
@@ -69,7 +69,7 @@
   flex-direction: row;
   align-items: center;
   height: 100rpx;
-  padding: 0 24rpx;
+  padding: 0 var(--spacing-md);
   border: 1rpx solid var(--color-border);
   border-radius: var(--radius-xl);
   background-color: var(--color-muted);
@@ -99,7 +99,7 @@
 /* 发送验证码按钮(对齐 RN codeBtn:brand 描边 + surface.light 底) */
 .reg-codebtn {
   height: 100rpx;
-  padding: 0 28rpx;
+  padding: 0 var(--spacing-md-loose);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -208,7 +208,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: var(--spacing-sm) 8rpx;
+  padding: var(--spacing-sm) var(--spacing-xs);
   flex-shrink: 0;
 }
 
