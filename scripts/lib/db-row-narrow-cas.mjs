@@ -268,8 +268,113 @@ function writePathText(code, pos) {
   return code
 }
 
-/** 旧值形态:`expectedDirectory` / `expectedPath` / `expectedX`。 */
+/** 旧值形态一:`expectedDirectory` / `expectedPath` / `expectedX`(命名式旧值)。 */
 const EXPECTED_RE = /\bexpected[A-Za-z0-9_]*\b/
+/* ── 旧值形态二:WHERE 里的**等值谓词**(2026-11-04 第二批) ──
+ * 旧值不一定被命名成 `expectedX`:`and(eq(status,'firing'), lt(firedAt, threshold))`、
+ * `backfillWhere({ … conditions:[eq(batch, oldBatch)] })` 都把旧值钉在 WHERE 等值条件里,
+ * 那是真的窄 CAS 证据,不该因为"没取 expected 名"就判红。
+ *
+ * **认什么**:`eq(列, 值)` / 裸 SQL `where` 之后的 `列 = 值`,值不得是 `null` 字面量
+ * (等 null 是 IS NULL,不是旧值等值)。范围/时间上界(`lt/lte/gt/gte/between`)可与等值并存
+ * —— 它们只会收窄,不单独构成旧值证据。
+ *
+ * **不认什么**(明确列出来,免得口径漂移成"什么都通过"):
+ *   · `in`/`inArray`/`notInArray` —— 集合命中,不是旧值等值;
+ *   · `ne`/`neq`/`!=`/`<>`/`not(...)` —— 否定式,不是等值;
+ *   · `isNull`/`isNotNull` —— 空值判断,不是旧值等值;
+ *   · 顶层/任意位置出现 `or(...)` —— OR 会放宽条件,整条 WHERE 都不再算窄证据;
+ *   · 找不到 `where`(或该语句内找不到)⇒ 不认。
+ * 认不出 ⇒ **退回"缺 expected"判红**(fail-closed),不许因为认不出就放过。
+ */
+/** 右值 token:字面量 / `${…}` / 标识符(可带点) / 数字 / 布尔 / null。 */
+const RHS_TOKEN = String.raw`((?:'[^']*'|"[^"]*"|\$\{[^}]*\}|[A-Za-z_$][\w$.]*|-?\d+(?:\.\d+)?|true|false|null))`
+const EQ_CALL_RE = new RegExp(`\\beq\\s*\\(\\s*[A-Za-z_$][\\w$.]*\\s*,\\s*${RHS_TOKEN}\\s*(?:,|\\))`, 'g')
+const SQL_EQ_RE = new RegExp(`[A-Za-z_][\\w.$]*\\s*=\\s*${RHS_TOKEN}`, 'gi')
+/** 旧值来源命名:右侧是字面量,或名字像"读出来的旧值"(old/prev/cur/before/baseline/expected/from…)。 */
+const OLD_VALUE_SOURCE_RE = /^(?:old|prev|previous|cur|current|before|baseline|expected|original|from)/i
+/** 放宽/否定式:出现即整条 WHERE 不算窄证据(范围谓词不在此列,它们只收窄)。 */
+const WIDE_OR_NEGATED_RE = /\bor\s*\(|\bnot\s*\(|\bne\s*\(|\bneq\s*\(|!=|<>/i
+
+/** 等值右值是否"旧值来源"(不是 null;不是裸 id 之类的入参名 —— 那种认不出就退回判红)。 */
+function rhsIsOldValue(rhs) {
+  const raw = rhs.trim()
+  if (/^['"]/.test(raw)) return !/^['"]null['"]$/.test(raw)
+  const t = raw.replace(/^\$\{|\}$/g, '').trim()
+  if (/^null$/i.test(t)) return false
+  if (/^-?\d+(?:\.\d+)?$/.test(t) || /^(?:true|false)$/i.test(t)) return true
+  return OLD_VALUE_SOURCE_RE.test(t.split('.').pop().trim())
+}
+
+/** 取 `(` 起头的括号内文本(平衡配平;字符串干扰时退化为定长窗口)。 */
+function parenText(code, openIdx, limit = 800) {
+  let depth = 0
+  const stop = Math.min(code.length, openIdx + limit)
+  for (let i = openIdx; i < stop; i += 1) {
+    const c = code[i]
+    if (c === '(') depth += 1
+    else if (c === ')') {
+      depth -= 1
+      if (depth === 0) return code.slice(openIdx + 1, i)
+    }
+  }
+  return code.slice(openIdx + 1, stop)
+}
+
+/** UPDATE 所在语句:[起,止) 行区间:链式行(以 `.` `)` `,` 起头)算同一条,遇同缩进的下一句即停。 */
+function statementRange(code, pos) {
+  const lines = code.split('\n')
+  const idx = code.slice(0, pos).split('\n').length - 1
+  const baseInd = indentOf(lines[idx])
+  let end = lines.length
+  for (let j = idx + 1; j < lines.length; j += 1) {
+    const t = lines[j].trim()
+    if (!t) continue
+    if (indentOf(lines[j]) <= baseInd && !/^[.,)]/.test(t)) {
+      end = j
+      break
+    }
+  }
+  const text = lines.slice(idx, end).join('\n')
+  return { text, start: code.lastIndexOf('\n', pos - 1) + 1 }
+}
+
+/** 该条 WHERE 参数是否给得出**真等值**旧值证据(等值 + 右值是旧值来源,且无放宽/否定式)。 */
+function narrowWhereEvidence(args) {
+  if (!args) return false
+  if (WIDE_OR_NEGATED_RE.test(args)) return false
+  for (const re of [EQ_CALL_RE, SQL_EQ_RE]) {
+    re.lastIndex = 0
+    let m = re.exec(args)
+    while (m !== null) {
+      if (rhsIsOldValue(m[1])) return true
+      m = re.exec(args)
+    }
+  }
+  return false
+}
+
+/** 是否有**任一** UPDATE 带 WHERE 等值旧值谓词(找不到/认不出即 false ⇒ 退回判红)。 */
+function updateHasWhereEqGuard(code) {
+  const scan = new RegExp(UPDATE_FORM_RE.source, 'g')
+  let m = scan.exec(code)
+  while (m !== null) {
+    const { text: stmt, start } = statementRange(code, m.index)
+    const w = /\.where\s*\(|\bwhere\b/i.exec(stmt)
+    if (w) {
+      const abs = start + w.index
+      if (/^\.where/i.test(w[0])) {
+        const open = code.indexOf('(', abs)
+        if (open >= 0 && narrowWhereEvidence(parenText(code, open))) return true
+      } else if (narrowWhereEvidence(code.slice(abs + w[0].length, abs + w[0].length + 600))) {
+        return true
+      }
+    }
+    if (m[0].length === 0) scan.lastIndex += 1
+    m = scan.exec(code)
+  }
+  return false
+}
 /** CAS 未命中形态:受影响行数与 0 比较。 */
 const CAS_MISS_RE = /\b(changes|rowCount|rowcount|rowsAffected|affected|modified)\b\s*(?:===|==|<=)\s*0\b|\bchanges\b/
 /**
@@ -311,8 +416,9 @@ export function judgeTemplate(text) {
   const candidate = UPDATE_FORM_RE.test(code) && updateSelfClaimsRepair(code)
   const usesTemplate = TEMPLATE_IMPORT_RE.test(code)
   const missing = []
-  // ① 旧值:走不走模板都得自己给 —— 模板不知道你那一行的旧值是什么
-  if (!EXPECTED_RE.test(code)) missing.push('expected')
+  // ① 旧值:走不走模板都得自己给 —— 模板不知道你那一行的旧值是什么。
+  //    证据两种:命名式 `expectedX`,或 UPDATE 自己的 WHERE 等值谓词(口径见上,认不出即判红)。
+  if (!EXPECTED_RE.test(code) && !updateHasWhereEqGuard(code)) missing.push('expected')
 
   const tokens = new Set()
   for (const t of FOUR_STATE_TOKENS) if (new RegExp(`\\b${t}\\b`).test(code)) tokens.add(t)
