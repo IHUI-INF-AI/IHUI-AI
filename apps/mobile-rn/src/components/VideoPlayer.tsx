@@ -61,6 +61,16 @@ export interface VideoPlayerProps extends Omit<VideoPlayerMinimalProps, 'url'> {
   title?: string
   /** 起始播放位置(秒) */
   startPosition?: number
+  /** 封面图(与小程序端同名同义):喂给 react-native-video 原生 poster,播放前展示 */
+  poster?: string
+  /** 是否自动播放(与小程序端同名同义,默认 true:沿用本端 paused=false 的既有行为) */
+  autoplay?: boolean
+  /** 外部加载态(与小程序端同名同义):与内部 onLoad 状态取或后显示加载占位 */
+  loading?: boolean
+  /** 开始播放回调(与小程序端同名同义) */
+  onPlay?: () => void
+  /** 暂停回调(与小程序端同名同义) */
+  onPause?: () => void
   /** 用于测试:注入 Video 实现,默认从 react-native-video 导入 */
   VideoComponent?: typeof Video
 }
@@ -77,20 +87,25 @@ export function VideoPlayer({
   url,
   title,
   startPosition = 0,
+  poster,
+  autoplay = true,
+  loading = false,
   onProgress,
   onComplete,
   onError,
+  onPlay,
+  onPause,
   VideoComponent,
 }: VideoPlayerProps) {
   const { t } = useI18n()
   const VideoImpl = VideoComponent ?? Video
   const ref = useRef<VideoRef>(null)
-  const [paused, setPaused] = useState(false)
+  const [paused, setPaused] = useState(!autoplay)
   const [currentTime, setCurrentTime] = useState(startPosition)
   const [duration, setDuration] = useState(0)
   const [rate, setRate] = useState<number>(1)
   const [fullscreen, setFullscreen] = useState(false)
-  const [loading, setLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
   const [containerWidth, setContainerWidth] = useState(0)
   const lastProgressEmit = useRef(0)
@@ -117,13 +132,14 @@ export function VideoPlayer({
   useEffect(() => {
     setCurrentTime(startPosition)
     setDuration(0)
-    setLoading(true)
+    setIsLoading(true)
     setError('')
+    setPaused(!autoplay)
     lastProgressEmit.current = 0
-  }, [url, startPosition])
+  }, [url, startPosition, autoplay])
 
   const handleLoad = useCallback((data: OnLoadData) => {
-    setLoading(false)
+    setIsLoading(false)
     setDuration(data.duration)
   }, [])
 
@@ -151,13 +167,18 @@ export function VideoPlayer({
           ? String((e as { error: unknown }).error)
           : t('course.playError')
       setError(msg)
-      setLoading(false)
+      setIsLoading(false)
       onError?.(msg)
     },
     [onError, t],
   )
 
-  const togglePlay = useCallback(() => setPaused((p) => !p), [])
+  const togglePlay = useCallback(() => {
+    const next = !paused
+    setPaused(next)
+    if (next) onPause?.()
+    else onPlay?.()
+  }, [paused, onPause, onPlay])
   const cycleRate = useCallback(() => {
     const idx = PLAYBACK_RATES.indexOf(rate as (typeof PLAYBACK_RATES)[number])
     const next = PLAYBACK_RATES[(idx + 1) % PLAYBACK_RATES.length] ?? 1
@@ -233,6 +254,7 @@ export function VideoPlayer({
         source={{ uri: url }}
         paused={paused}
         rate={rate}
+        poster={poster}
         onLoad={handleLoad}
         onProgress={handleProgress}
         onEnd={handleEnd}
@@ -245,7 +267,7 @@ export function VideoPlayer({
         progressUpdateInterval={1000}
       />
 
-      {loading ? (
+      {isLoading || loading ? (
         <View style={StyleSheet.absoluteFill} className="items-center justify-center">
           <Loading color={tokens.surface.light} />
         </View>
