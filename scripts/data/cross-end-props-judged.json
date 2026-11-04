@@ -585,6 +585,19 @@
         "apps/miniapp-taro/src/pkg-ai/ai/chat.tsx:2309",
         "apps/mobile-rn/src/components/BottomActionBar.tsx:162"
       ]
+    },
+    {
+      "pair": "BottomActionBar",
+      "key": "onSourceHandle",
+      "side": "rn",
+      "owner": "mobile-rn-props",
+      "expires": "2027-06-30",
+      "rationale": "RN 端辅助按钮行有「知识来源」四面板入口(onSourceHandle 真实渲染并接 ChatScreen 面板),小程序端没有对应来源面板子组件 —— 这是功能缺口(审计建议 implement/功能待办),不是平台机制分叉;已删除小程序侧仅声明无渲染的空 prop,保留 RN 腿并限期跟进。",
+      "evidence": [
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:156",
+        "apps/mobile-rn/src/screens/ChatScreen.tsx:2983",
+        "apps/miniapp-taro/src/components/BottomActionBar.tsx:71"
+      ]
     }
   ]
 }

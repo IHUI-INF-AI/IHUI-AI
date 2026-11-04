@@ -147,8 +147,8 @@ export interface BottomActionBarProps {
   onShowModelList?: () => void
   /** 「我的创作」入口回调;RN 端同名 */
   onShowMyCreation?: () => void
-  /** 来源处理回调(辅助按钮行 📎);RN 端同名 */
-  onSourceHandle?: () => void
+  // 2026-11-04 审计返工:onSourceHandle 小程序端无来源面板实现(仅声明无渲染=空 prop),删声明;
+  // RN 侧该能力真实存在,登记为平台档(功能缺口待接,审计值 implement/功能待办)
   /** 长按开始(语音按钮 onLongPress);RN 端同名 */
   onStartLongPress?: () => void
   // 2026-11-04 审计返工:onStartVoiceAnimation / onStopVoiceAnimation / onTextareaHeightChange 两端 0 调用方,删声明
