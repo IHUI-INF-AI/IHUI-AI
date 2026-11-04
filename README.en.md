@@ -101,6 +101,15 @@ Headline claims (same source as the table below, all live-computed): **619 table
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-04**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (dde2283d8c)
+- 🐞 Fix:恢复下载详情页被误删的三个展示组件,修复主干编译中断 (a7fc6138d3)
+- 🐞 Fix:门291 C组32条挂账清零,RN改取web真源键并摘除旧键 (0605ec255d)
+- 🐞 Fix:门 285 证据定位改为按符号名解析，消除加注释即报证据行漂移的误红 (842c0f0b9a)
+- 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (4fd158208d)
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (61d4502095)
+- 🐞 Fix:分片腿加首片看门狗,任何失败都退回原生单流 (61bf95afe2)
+
+**2026-11-04**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (decbaf9b4c)
 - 🐞 Fix:B 组收尾补漏（showClear 两端删除、mini robotImage 真渲染） (dcd22d3ccc)
 - 🐞 Fix:平台裁决清零(46→0),A组18条真实现/删除,门128两红收口;补 pnpm-lock 记账(解门101 存量红) (2cf8856fd1)
@@ -302,9 +311,6 @@ Headline claims (same source as the table below, all live-computed): **619 table
 - ♻️ Refactor:BannerCarousel 的 50% 白改走设计令牌 rnCssLight.white50 (3d0d31a294)
 - ⚡ Perf:下载栏的站点腿探测改「本机源站优先」,并给安卓版补上真实体积 (6a324ae21d)
 - 🔧 Chore/Other:烘焙 0.1.77 更新源与下载页快照 — Gitee 镜像仓为空仓无 main/tag/release,字节对账未判定故保留 GitHub 直链 (694810b9dc)
-
-**2026-11-03**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (1fb2f45d04)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
