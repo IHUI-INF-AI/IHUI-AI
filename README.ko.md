@@ -2219,6 +2219,56 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-04**
+- 🔧 기타:收编停留≥3分钟的未提交改动 (dcd5d46c43)
+- 🐞 수정:c-drive 默认即扫暂存区，无输入面不再空转报绿 (ce21ce2967)
+- 📚 문서:门45 注释同步空暂存区=0 不适用 (d03d3421ab)
+- 🐞 수정:c-drive 空暂存区按 A 级 check-file-size 口径 = 0 不适用（更正） (15ab31909f)
+- ♻️ 리팩터:屏级默认档等值落具名档·carte/edu-parent 10 处 (31b1682c69)
+- 🐞 수정:B 级 6 门三态化，取不到输入即 exit 2 (12c11a928f)
+- 🚀 기능/개선:跨端写盘腿 tick 落 downgrade/undetermined 两态并接告警面 (682441757b)
+- 🐞 수정:登录页 welcome SVG 按 </svg> 截断,消除裸文本子节点触发的 Text 组件告警 (2892132dbf)
+- 🚀 기능/개선:新增真机热更预览通道 rn-live-preview(8809, 自检12/12) (80a4925cb6)
+- 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (cd055b78af)
+- 🐞 수정:BottomActionBar 来源面板空声明回退 (cf4c76ff1e)
+- 🐞 수정:LoginPopUp/BackChevron 必选性对齐 (f11df86f5f)
+- 🐞 수정:ModelConfigDialog 死变体删除 (923044485c)
+- 🐞 수정:InputArea/ModelList 死腿删除 (804ee7142a)
+- 🐞 수정:BottomActionBar 手工压缩入口接线与死腿删除 (a7e4a73d7a)
+- 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (cbe4ddd32c)
+- 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (5ffc1c5120)
+- 🐞 수정:NavBar/VideoPlayer 证据换真 (2ef7755dc4)
+- 🐞 수정:VoiceInput 图片死腿删除 (633b4a018a)
+- 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (9795a8effe)
+- 🐞 수정:UserInfoCard onOpenVip 真实现与死字段删除 (67afef48b0)
+- 🐞 수정:LoginPopUp 协议真实现与同槽收敛 (db8e6679cb)
+- 🐞 수정:capability-catalog 门取不到暂存面时改判 exit 2 未判定 (d551e17bc3)
+- 🔧 기타:dedupe 夹具超时放宽到 600s(规避 pnpm 并发持有夹具) (552b8cfc5d)
+- 🐞 수정:底部淡出遮罩渐变段 120→90 —— 机主复看仍点名「顶部有点高」 (f989956df1)
+- 🐞 수정:根治「签名不一致」—— debug 签名不再静默可得,装机前强制证书对账 (45506184a7)
+- 🐞 수정:底部淡出遮罩渐变段 160→120 —— 机主点名「还是高」,同步「我的」页让位量 104→72 (2c32f411d7)
+- 🐞 수정:overlay-zindex 门扫描面为空/文件读不到时改判 exit 2 (c26b9a983a)
+- 🐞 수정:基线落账补记等价映射条数,棘轮字段不再随重落丢失 (beb3a3e6e9)
+- 🐞 수정:event-closure-leak 门取材失败/文件缺失时改判 exit 2 (31cede2149)
+- 🔧 기타:门285 基线重落(存量存差 177→0,judged 166,裁决不适用 2 对) (f92c386395)
+- 🐞 수정:VoiceInput 3 键逐键裁决登记(RN 预留未接线腿) (5538025fff)
+- 🐞 수정:VideoPlayer 3 键逐键裁决登记(原生 Video vs 注入组件/页面标题) (a728994def)
+- 🐞 수정:NavBar 23 键逐键裁决登记(固定槽位 vs RN 泛型动作数组) (d7d23a6822)
+- 🐞 수정:file-size 门取材失败/读不到文件时改判 exit 2 (361b4678f8)
+- 🐞 수정:ModelList 5 键逐键裁决登记(分组 groups vs 平铺 models+currentType) (362de27391)
+- 🐞 수정:ModelConfigDialog 23 键逐键裁决登记(indexa 媒体链路未接/选型拆到 ModelList) (45fe8f9a40)
+- 🐞 수정:LoginPopUp 20 键逐键裁决登记(登录三回调 vs RN 受控弹窗+扁平资料) (91d15877ab)
+- 🐞 수정:IntelligentAssistant robotImage 归矢量字形媒介裁决 (3280b88e47)
+- 🐞 수정:BackChevron 2 键逐键裁决登记(label 端内 i18n 兜底/color 走 token) (c4154d3c81)
+- 🐞 수정:dedupe 门取不到 staged 面/锁文件时改判 exit 2 (137263b6ac)
+- 🐞 수정:BottomActionBar 44 键逐键裁决登记(开关聚合/图标卡入参与 RN 受控腿) (0fe3ce7009)
+- 🐞 수정:InputArea 31 键逐键裁决登记(折叠/模型/语音腿归平台载体) (dfd42f5393)
+- 🐞 수정:Carousel banner↔items 映射登记(3 键转裁决) (d7ab5acac8)
+- 🐞 수정:UserInfoCard 扁平字段真接线 + 报销空 prop 半成品(6 键转裁决) (784d8dfdbb)
+- 🐞 수정:commit-scope 门取不到输入时改判 exit 2 未判定 (9ffeb094b2)
+- 🐞 수정:push-sync 四类折绿分支收口 —— 窗口只降文案不降退出码,祖先/HEAD/清单读数失败一律 exit 2 (e0f8c0e451)
+- 🐞 수정:底部淡出遮罩延伸到屏幕底 —— 胶囊下方那段悬浮间距此前无人覆盖 (3c2e132bf5)
+
+**2026-11-04**
 - 🔧 기타:收编停留≥3分钟的未提交改动 (43f56aa425)
 - 🐞 수정:首页 AI 输入框不再被底部淡出遮罩压住 —— 补小程序已有的那一层 (12b69b48aa)
 - 🐞 수정:校正 push-sync 注释的 rev-list 失败实测读数(本机 bad object exit 1,非 128) (15915596b8)
@@ -2385,9 +2435,6 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 **2026-11-03**
 - 🔧 기타:收编停留≥3分钟的未提交改动 (f6d68d470b)
-
-**2026-11-03**
-- 🔧 기타:收编停留≥3分钟的未提交改动 (415b1414a3)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
