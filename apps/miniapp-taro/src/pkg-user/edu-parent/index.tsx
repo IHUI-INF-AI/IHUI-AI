@@ -55,7 +55,7 @@ export default function EduParentPage() {
 
   return (
     <ThemeRoot>
-      <View className="min-h-screen bg-background p-4">
+      <View className="min-h-screen bg-background p-lg">
         <View className="flex items-center gap-3 py-3">
           <Text className="text-xl font-bold text-foreground">{t('eduParent.title')}</Text>
         </View>
@@ -79,7 +79,7 @@ export default function EduParentPage() {
                   <Text className="text-base font-semibold text-foreground truncate">
                     {c.student?.nickname ?? c.studentId}
                   </Text>
-                  <Text className="text-xs text-muted-foreground">{c.relationship}</Text>
+                  <Text className="text-label text-muted-foreground">{c.relationship}</Text>
                 </View>
                 <Text
                   className={`text-xs font-semibold ${
