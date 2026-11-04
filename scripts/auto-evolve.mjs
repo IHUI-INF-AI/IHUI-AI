@@ -40,6 +40,9 @@ import { loadHumanGates, summarize as summarizeHumanGates } from './human-gates.
 import { loadPolicy, decide, POLICY_PATH } from './autonomy-decision.mjs'
 // 票键唯一实现(§0.6 单一真相源):本器不再自持一份,改从 lib 收口处取,转出保持既有导出面不变。
 import { ticketKeyOf } from './lib/ticket-key.mjs'
+// 自我面核验复用门 299 的清单解析器(§0.6:锚点表与"锚点怎么算命中"只有一份实现)
+import { __test__ as INV_SELF } from './check-autonomy-invariants.mjs'
+const invParse = INV_SELF.parseInvariants
 export { ticketKeyOf }
 // 发起腿的「执行体存续」判据单源(2026-11-01 立):盘符归一 + 派发前核验 + 失败分型。
 // 本层零复算判据(§0.6),只做接线。
@@ -323,6 +326,74 @@ export function normalizeSessionRuntime(cmdText, execPath = process.execPath) {
   // 这里加的那一对是唯一被许可的引号。
   const quoted = /[\s"]/.test(exe) ? `"${exe}"` : exe
   return { cmd: m[1] + quoted + m[2] + t.slice(m[0].length), replaced: true, why: `模板首 token 是裸 node ⇒ 换成当前进程运行时(${exe})` }
+}
+
+/**
+ * 自我面核验(2026-11-05 立):本器**从盘上被 spawn 运行**,而多会话共树时盘上那份
+ * 可能是某席从旧基线改的半成品 —— 今天实测到的正是这一形:工作树 2851 行 vs HEAD 2263 行,
+ * 且缺当天全部 7 条判据锚点。那种时刻照派 = 拿半成品当执行体,烧掉一个班次还会把票记成"会话成功";
+ * 但也不能要求"盘必须干净"——共树常年脏,那等于把自主环饿死。
+ * 所以判据只看方向:**只在"盘上缺 HEAD 已有的锚点"(回潮)时停派**;盘上是超集(新增未提交)照派。
+ * 锚点表与门 299 同一份(§0.6 不复算):`scripts/data/autonomy-invariants.json`。
+ * 任一面取不到 ⇒ 未判定 ⇒ 不派也不谎报(§0.3)。
+ * @param {{guardListText?:string|null, headText?:string|null, diskText?:string|null, selfRel:string}} p
+ */
+export function judgeSelfFace({ guardListText = null, headText = null, diskText = null, selfRel }) {
+  if (typeof guardListText !== 'string' || typeof headText !== 'string' || typeof diskText !== 'string') {
+    return { state: 'undetermined', missing: [], why: '清单 / HEAD 面 / 盘上三份之一取不到 ⇒ 不猜' }
+  }
+  const parsed = parseInvariantsForSelf(guardListText)
+  if (parsed.problems.length) return { state: 'undetermined', missing: [], why: `锚点清单有问题:${parsed.problems[0].message}` }
+  const me = parsed.entries.find((e) => e.path === selfRel)
+  if (!me) return { state: 'undetermined', missing: [], why: `清单里没有 ${selfRel} 这一条 ⇒ 无从判盘上是否落后` }
+  const missing = me.anchors.filter((a) => headText.includes(a) && !diskText.includes(a))
+  if (missing.length) {
+    return {
+      state: 'stale-disk',
+      missing,
+      why: `盘上这份缺 HEAD 已有的 ${missing.length}/${me.anchors.length} 条判据(有席正从旧基线改调度器,此刻派发=跑半成品)`,
+    }
+  }
+  return { state: 'ok', missing: [], why: `盘上这份未落后 HEAD(${me.anchors.length} 条锚点齐备)` }
+}
+
+/** 只借门 299 那一份清单解析器;取不到/坏都由上层落未判定。 */
+function parseInvariantsForSelf(text) {
+  try {
+    return invParse(text)
+  } catch (e) {
+    return { entries: [], problems: [{ code: 'parse-throw', message: String(e?.message ?? e) }] }
+  }
+}
+
+const SELF_REL = 'scripts/auto-evolve.mjs'
+
+/**
+ * 真出口:三面现读(清单 / HEAD 面本器 / 盘上本器)。任一取不到 ⇒ 交给上层落未判定。
+ * 盘上那份**必须**按路径读本器自己(`SELF_REL`),不能拿 `import.meta.url` 推 —— 被 tsx/spawn 包装时
+ * 两者可能不同(§15 的 ROOT 纪律说的正是这件事)。
+ */
+function readSelfFace() {
+  const g = (args) => {
+    const r = spawnSync('git', args, {
+      cwd: ROOT,
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      encoding: 'utf8',
+      maxBuffer: 64 * 1024 * 1024,
+      timeout: 60_000,
+    })
+    return r.status === 0 ? String(r.stdout ?? '') : null
+  }
+  const guardListText = g(['show', `HEAD:${GUARD_LIST_REL}`])
+  const headText = g(['show', `HEAD:${SELF_REL}`])
+  let diskText = null
+  try {
+    diskText = readFileSync(join(ROOT, SELF_REL), 'utf8')
+  } catch {
+    diskText = null
+  }
+  return judgeSelfFace({ guardListText, headText, diskText, selfRel: SELF_REL })
 }
 
 export function parseSessionUsage(stdout) {
@@ -1571,6 +1642,24 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
         break
       }
       console.log(`→ L${ticket.line} 命中白名单,进入派发闸`)
+      // 自我面闸(排在铸凭据之前:既然决定不派,就不该再消耗一次凭据供值)
+      const selfFace = readSelfFace()
+      if (selfFace.state !== 'ok') {
+        // informational ⇒ 不进空转阶梯:这是"本器跑的盘被他人旧基线占了"的环境级形态,
+        // 记进票头会把每张票都推向 park(而盘常年脏)——与 runner-unavailable 同一分型纪律。
+        record({
+          mode: 'dispatch',
+          action:
+            selfFace.state === 'stale-disk' ? 'runner-face-stale-disk' : 'runner-face-undetermined',
+          ticketKey: key,
+          ticketLine: ticket.text.slice(0, 200),
+          informational: true,
+          why: `${selfFace.why}｜停派本轮,不冒充执行`,
+        })
+        console.error(`⚠ 自我面不是当前这份:${selfFace.why} ⇒ 本轮不派(不拿半成品当执行体)`)
+        process.exitCode = 2
+        return
+      }
       if (!dryRun) {
         const mint = await mintSessionCredential()
         if (!mint.ok) {
@@ -2236,6 +2325,9 @@ async function main(args) {
 
 export const __test__ = {
   loadGates,
+  judgeSelfFace,
+  normalizeSessionRuntime,
+  classifySessionWrites,
   GateShapeError,
   ticketKeyOf,
   matchWhitelist,
