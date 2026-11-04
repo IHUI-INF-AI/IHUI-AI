@@ -9,7 +9,7 @@
  *  · T1 远祖先旧 blob 进索引 ⇒ 红并点名;
  *  · T2 父版本(HEAD 更新档)回写 ⇒ 红(30c 只看 merge-base 之前,这一格是它漏掉的);
  *  · T3 提交正文 `intentional-revert: <依据>` ⇒ 放行 + 留痕;
- *  · T4 全新内容 ⇒ 不判;T5 无暂存 ⇒ 不判;T6 空口声明(依据过短)⇒ 仍红;
+ *  · T4 全新内容 ⇒ 不判;T5 无暂存 ⇒ not-applicable(不记绿);T6 空口声明(依据过短)⇒ 仍红;
  *  · T7/T8 写手闸 `downgradeGuardOf`:派生结果等于祖先旧档 ⇒ 拒写;新内容 ⇒ 放行;
  *  · T9/T10 写手闸 HEAD 三态:取不到 ⇒ 未判定拒写;确实缺席 ⇒ 放行(新增文件)。
  *
@@ -95,7 +95,7 @@ test('T3 合法回滚声明 ⇒ 放行并留痕', () => {
     const ledger = join(dir, '.ihui-agent/state/intentional-revert.jsonl')
     assert.equal(existsSync(ledger), true)
     const row = JSON.parse(readFileSync(ledger, 'utf8').trim().split('\n').at(-1))
-    assert.equal(row.gate, '292')
+    assert.equal(row.gate, '298')
     assert.equal(row.path, REL)
     assert.equal(row.rationale, '撤销小程序 token 化,RN 侧尚未迁移')
   } finally {
@@ -116,11 +116,11 @@ test('T4 全新内容(不等于任何祖先 blob)⇒ 不判', () => {
   }
 })
 
-test('T5 无暂存 ⇒ 不判(judged=0)', () => {
+test('T5 无暂存 ⇒ not-applicable(不记绿)', () => {
   const { dir } = makeRepo()
   try {
     const r = gate.judge({ root: dir })
-    assert.equal(r.state, 'pass')
+    assert.equal(r.state, 'not-applicable')
     assert.equal(r.judged, 0)
     assert.equal(r.stale.length, 0)
   } finally {
