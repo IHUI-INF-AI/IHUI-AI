@@ -132,6 +132,55 @@ export const SELF_SKIP = 'HUSKY_SKIP_IMMUTABLE_GUARD'
 export const RECORD_REL = '.ihui-agent/state/immutable-guard-exemptions.jsonl'
 
 /**
+ * 签发台账（2026-11-04 立）：`--sign-staged` 每签一次就记一行"我为哪个标题、哪批路径、哪句理由签的"。
+ * 存在的理由是这一型事故当天真发生过：签发时钉的是**计划标题**，提交信息随后被改序，
+ * 而签名载荷绑标题 ⇒ 验签必然不过 ⇒ 读数只说 `sig-invalid`，作者看不出"我少改了什么"，
+ * 最可能的下一步就是"再补一句理由"或跳门——两条都是错的方向。
+ * 有了这行台账，验不过时能直接把"当时签给谁"摊开对照：出路立刻从"补理由"变成"重签一次"。
+ * 只存标题/路径/理由/签名（都是本来就写在提交信息里的东西），**绝不存密钥**。
+ */
+export const SIG_ISSUE_REL = '.ihui-agent/state/immutable-guard-sig-issues.jsonl'
+
+/** 签发留痕：写失败只回传 null，不影响签发本身（留痕是帮助，不是判定输入）。 */
+function recordSigIssue(root, { subject, paths, reason, sig }) {
+  try {
+    const abs = path.join(root, SIG_ISSUE_REL)
+    mkdirSync(path.dirname(abs), { recursive: true })
+    appendFileSync(abs, `${JSON.stringify({ at: new Date().toISOString(), subject, paths, reason, sig })}\n`, 'utf8')
+    return SIG_ISSUE_REL
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 拿"消息里那条签名"回查签发台账。命中 ⇒ 返回当时钉住的标题与路径集（用于点名成因）；
+ * 取不到文件 / 没这条 ⇒ null（**不猜**，也不因此改判：判红就是判红，这里只多给一条可执行的成因线索）。
+ */
+export function findSigIssue(root, sigs) {
+  const want = new Set((Array.isArray(sigs) ? sigs : []).map((s) => String(s).trim()))
+  if (want.size === 0) return null
+  let text
+  try {
+    text = readFileSync(path.join(root, SIG_ISSUE_REL), 'utf8')
+  } catch {
+    return null
+  }
+  let hit = null
+  for (const line of String(text).split(/\r?\n/)) {
+    if (!line.trim()) continue
+    let o
+    try {
+      o = JSON.parse(line)
+    } catch {
+      continue
+    }
+    if (o && want.has(String(o.sig))) hit = o
+  }
+  return hit
+}
+
+/**
  * 追认台账取面：一律取**被审面的可见末端**（巡检/推送档 = HEAD blob，§0.4 同面同轮），不取工作树。
  * 理由："本地先塞一行台账就能把历史某枚洗白"这件事结构上不成立——那一行必须先进仓，
  * 而进仓本身要过本护栏（台账已登记进受保护面清单）。
@@ -389,6 +438,12 @@ export function runAudit(root, face, { message = undefined, today = todayStr(), 
   if (record && out.code === 'declared') {
     result.recorded = recordExemption(root, result)
   }
+  // 有签名行却验不过 ⇒ 回查签发台账,把"当时签给了哪个标题/哪批路径"摊开。
+  // 只加线索,不改判定(判红仍判红),取不到就不印——绝不拿猜测冒充成因。
+  if (out.code === 'undeclared-unsigned' && out.signature?.code === 'sig-invalid' && typeof msg === 'string') {
+    const issued = findSigIssue(root, parseSigTrailer(msg).sigs)
+    if (issued) result.sigIssuedFor = { subject: issued.subject, paths: issued.paths, at: issued.at }
+  }
   // 「无签名豁免」台账**无条件**写（不依赖 --record）：迁移窗口内的旧语义通过必须留下可审计的痕迹，
   // 否则它和现状一样是完全静默的。写失败只回传原因，不改判定（漏记一条 ≠ 改动没发生，但必须可见）。
   if (out.code === 'declared-unsigned') {
@@ -488,8 +543,17 @@ export function formatReport(out) {
       for (const p of out.signature.problems) lines.push(`   ⚠️ ${p.message}`)
       lines.push(`   签名状态：${out.signature.code}${out.keySource ? `；密钥来源：${out.keySource}` : ''}`)
       if (out.keyWhy) lines.push(`   密钥：${out.keyWhy}`)
+      if (out.sigIssuedFor)
+        lines.push(
+          `   签发对照：这条签名是为标题「${out.sigIssuedFor.subject}」/ ${out.sigIssuedFor.paths.length} 枚路径（${out.sigIssuedFor.paths.join(',')}）签的（${out.sigIssuedFor.at}）` +
+            ` ⇒ 与实际标题/路径集不一致；载荷绑标题，改过标题或换过暂存集都会毁签。`,
+        )
+      // 两句"为什么"分档给:上一句把 sig-invalid 也说成"窗口到期"是**会指错方向**的成因
+      // (作者会去补理由,而真因只是签早了/签错了范围)。
       lines.push(
-        `   为什么判红：迁移窗口已于 ${out.signatureRequiredFrom ?? '(未设置)'} 到期 —— 仅文字理由不再放行，必须补 ${SIG_TRAILER} ${SIG_VERSION}:<hex> 签名。`,
+        out.signature.code === 'sig-invalid' || out.signature.code === 'key-unavailable'
+          ? `   为什么判红：消息里带了 \`${SIG_TRAILER}\` 行但**验不过**（标题/路径集/理由与签发那一刻不一致，或密钥不是那一把）——不是"没签名"，也不是窗口到期。`
+          : `   为什么判红：迁移窗口已于 ${out.signatureRequiredFrom ?? '(未设置)'} 到期 —— 仅文字理由不再放行，必须补 ${SIG_TRAILER} ${SIG_VERSION}:<hex> 签名。`,
       )
       lines.push(
         `   怎么合法改：先 \`node scripts/check-immutable-guard.mjs --sign-staged --subject "<提交标题>" --reason "<与 immutable-exempt 同一句理由>" [--paths <a,b,c>]\` 生成签名行，再提交；密钥须由 CI/机主注入（${KEY_ENV} 或 git config ${KEY_CONFIG}）。`,
@@ -618,6 +682,7 @@ function judgeBatch(root, batch, { today = todayStr(), record = false, policyRev
       reasons: (one.exempt?.reasons ?? []).map((r) => r.reason),
       problems: (one.exempt?.problems ?? []).map((p) => p.message),
       signatureCode: one.signature?.code ?? '',
+      sigIssuedFor: one.sigIssuedFor ?? null,
       keySource: one.keySource ?? '',
       windowUntil: one.signatureRequiredFrom ?? null,
       expired: (one.expired ?? []).map((x) => `${x.path}@${x.reviewBy}`),
@@ -854,6 +919,11 @@ export function formatAuditReport(out) {
     for (const x of b.expired) lines.push(`     · 清单到期：${x}`)
     for (const p of b.problems) lines.push(`     ⚠️ ${p}`)
     if (b.signatureCode) lines.push(`     · 签名状态：${b.signatureCode}${b.keySource ? `（密钥来源 ${b.keySource}）` : ''}`)
+    if (b.sigIssuedFor)
+      lines.push(
+        `     · 签发对照：那条签名是为标题「${b.sigIssuedFor.subject}」/ ${b.sigIssuedFor.paths.length} 枚路径（${b.sigIssuedFor.paths.join(',')}）签的，` +
+          `与本页实际（标题「${b.subject}」）不一致 ⇒ **出路是重签一次，不是补理由、更不是跳门**`,
+      )
   }
   for (const u of unsigned) {
     lines.push(`   ⚠️ ${u.sha}「${u.subject}」无签名豁免（${u.signatureCode}；窗口至 ${u.windowUntil}）`)
@@ -1508,6 +1578,58 @@ export function selfTest() {
     )
   })
 
+  // ST41 签发留痕回查:签给"计划标题"、提交时标题被改 ⇒ 除 sig-invalid 外还必须摊开"当时签给了谁",
+  // 且那句"为什么判红"不许再说成"窗口到期"(两个出路完全不同:重签 vs 补签名)。
+  run((root) => {
+    const reason = '载荷绑标题这一条就是标题被改序后的反例'
+    const planned = 'refactor: planned subject'
+    const actual = 'refactor: actual subject after reorder'
+    writeIn(root, 'scripts/lib/face-reader.mjs', '// changed\n')
+    gitRaw(['add', '-A'], root)
+    process.env[KEY_ENV] = ST_KEY
+    let signed
+    let out
+    try {
+      signed = signStaged(root, { subject: planned, reason, paths: ['scripts/lib/face-reader.mjs'] })
+      commitAll(root, `${actual}\n\n${EXEMPT_TRAILER} ${reason}\n${SIG_TRAILER} ${signed.sig}`)
+      out = audit(root, 'head', { key: ST_KEY })
+    } finally {
+      delete process.env[KEY_ENV]
+    }
+    const report = out.exit === 1 ? formatReport(out) : ''
+    ok(
+      'ST41 标题被改 ⇒ sig-invalid + 签发对照点名计划标题,且成因句不再谎称"窗口到期"',
+      out.exit === 1 &&
+        out.code === 'undeclared-unsigned' &&
+        out.signature.code === 'sig-invalid' &&
+        out.sigIssuedFor &&
+        out.sigIssuedFor.subject === planned &&
+        out.sigIssuedFor.paths.join(',') === 'scripts/lib/face-reader.mjs' &&
+        report.includes('签发对照') &&
+        report.includes('不一致') &&
+        !report.includes('仅文字理由不再放行'),
+      JSON.stringify({ exit: out.exit, code: out.code, sig: out.signature.code, issued: out.sigIssuedFor ?? null, has对照: report.includes('签发对照'), 仍说窗口: report.includes('仅文字理由不再放行') }),
+    )
+    // ST41b 反向:签名本来就是为实际标题签的 ⇒ 不许出现"签发对照"这一行(线索只在真不一致时才给,
+    // 拿它当装饰就会把对的方向说歪)。
+    run((root2) => {
+      writeIn(root2, 'scripts/lib/face-reader.mjs', '// changed\n')
+      gitRaw(['add', '-A'], root2)
+      process.env[KEY_ENV] = ST_KEY
+      let clean
+      let out2
+      try {
+        signed = signStaged(root2, { subject: actual, reason, paths: ['scripts/lib/face-reader.mjs'] })
+        commitAll(root2, `${actual}\n\n${EXEMPT_TRAILER} ${reason}\n${SIG_TRAILER} ${signed.sig}`)
+        out2 = audit(root2, 'head', { key: ST_KEY })
+        clean = formatReport(out2)
+      } finally {
+        delete process.env[KEY_ENV]
+      }
+      ok('ST41b 标题一致 ⇒ declared 且不出签发对照线索', out2.exit === 0 && out2.code === 'declared' && !clean.includes('签发对照'), JSON.stringify({ exit: out2.exit, code: out2.code }))
+    })
+  })
+
   const failed = cases.filter((c) => !c.ok)
   for (const c of cases) {
     console.log(`${c.ok ? 'ok  ' : 'FAIL'} ${c.name}${c.ok ? '' : ` —— ${c.detail}`}`)
@@ -1604,10 +1726,14 @@ export function signStaged(root, { subject, reason, paths = [], today = todayStr
   if (!judged.hits.length) throw new Error('指定路径里没有命中受保护面 ⇒ 无需签名（不签空集）')
   const keyRes = resolveSigningKey(root)
   if (!keyRes.key) throw new Error(keyRes.why)
+  const sig = signExemption({ subject, hits: judged.hits, reason, key: keyRes.key })
   return {
-    sig: signExemption({ subject, hits: judged.hits, reason, key: keyRes.key }),
+    sig,
     hits: judged.hits.map((h) => `${h.path}（${h.entry.kind} / ${h.status}）`),
     keySource: keyRes.source,
+    // 留痕这一刻就把"签给了哪个标题/哪批路径"钉住;将来验不过时直接摊开对照,
+    // 免得作者面对 sig-invalid 去补理由(错方向)或跳门(更错)。
+    recorded: recordSigIssue(root, { subject, paths: judged.hits.map((h) => h.path), reason, sig }),
   }
 }
 
