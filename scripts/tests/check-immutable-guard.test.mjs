@@ -25,16 +25,25 @@
  *   T14 源码形状锁：判据只在 lib 一份（源脚本不自己拼 trailer 正则/最小长度）
  */
 import assert from 'node:assert/strict'
-import { existsSync, readFileSync } from 'node:fs'
-import { spawnSync } from 'node:child_process'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { spawn, spawnSync } from 'node:child_process'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import test from 'node:test'
 
-import { rmScratch } from '../lib/scratch-dir.mjs'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { gitRaw } from '../lib/face-reader.mjs'
 import { __test__ as gate } from '../check-immutable-guard.mjs'
-import { CODE_LABEL, ACK_LEDGER_REL, ACK_SIG_VERSION, SIG_VERSION, exemptPayload, ackPayload } from '../lib/immutable-guard.mjs'
+import {
+  CODE_LABEL,
+  ACK_LEDGER_REL,
+  ACK_SIG_VERSION,
+  ACK_SIG_VERSION_CURRENT,
+  SIG_VERSION,
+  exemptPayload,
+  ackPayload,
+  ackPayloadV2,
+} from '../lib/immutable-guard.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(HERE, '..', '..')
@@ -451,9 +460,13 @@ test('T12 追认台账自身登记在受保护面清单里(补一行=改判据�
 test('T13 retro-declared 有唯一结论码文案,且追认签名与提交签名版本不同形', () => {
   assert.ok(CODE_LABEL['retro-declared'].includes('追认'), '文案必须点明这是事后追认,不得与 declared 同句')
   assert.notEqual(SIG_VERSION, ACK_SIG_VERSION, '两种签名的版本前缀必须不同,否则可互相抄用')
+  assert.notEqual(SIG_VERSION, ACK_SIG_VERSION_CURRENT, '新追认签名前缀也必须与提交签名不同形')
+  assert.notEqual(ACK_SIG_VERSION, ACK_SIG_VERSION_CURRENT, 'a1 历史档与 a2 现行档必须分开,否则 a1 的洞会跟着版本走')
   const p1 = exemptPayload({ subject: 's', hits: [{ path: 'scripts/lib/' }], reason: 'r' })
-  const p2 = ackPayload({ sha: 'x', paths: ['scripts/lib/'], reason: 'r' })
-  assert.ok(!p1.includes('"a1"') && p2.includes('"a1"'), '载荷必须各带自己的版本键(交叉复用必然验不过)')
+  const p2 = ackPayloadV2({ sha: 'x', paths: ['scripts/lib/'], reason: 'r', ackedBy: '独立复核席位' })
+  assert.ok(!p1.includes(`"${ACK_SIG_VERSION_CURRENT}"`) && p2.includes(`"${ACK_SIG_VERSION_CURRENT}"`), '载荷必须各带自己的版本键(交叉复用必然验不过)')
+  assert.ok(p2.includes('"ackedBy"'), 'a2 载荷必须绑定 ackedBy，否则署名仍是自由文本')
+  assert.ok(!ackPayload({ sha: 'x', paths: ['scripts/lib/'], reason: 'r' }).includes('"ackedBy"'), 'a1 是历史档，不得偷偷长出新键')
 })
 
 /**
@@ -473,3 +486,183 @@ test('T14 commit-msg 预警档在位、只报不拦,且头注不再自称"不进
   assert.ok(!head.includes('刻意不进提交链'), '头注不得保留已被本枚改写的旧语义')
   assert.ok(head.includes('只报不拦'), '头注必须描述当前挂点与档位,而不是只删掉旧话')
 })
+
+/**
+ * T15 并发夹具（2026-11-04 立）：**两个子进程**，一个在另一进程推进 HEAD 的同时验签。
+ *
+ * 现场（会话 cc7876c2 实测）：私有 `GIT_INDEX_FILE` + 原生 `git commit` 时，别席把 HEAD
+ * 推进之后，`git diff --cached HEAD` 把"他席那条提交的反向改动"也算进本席差异集 ⇒
+ * 受保护面命中数从 1 变 2 ⇒ v1 签名（载荷只绑标题/路径集）随机报 `sig-invalid`，
+ * 合法提交被判死。本夹具把这条做成可复现读数：
+ *   · v2（钉 base + blob）：HEAD 前移前后都必须 `status=0`；
+ *   · v1（旧语义基线）：同一轮、同一面必须 `status=1`（证明修的是取数面，不是放宽判据）。
+ * 两个子进程同时起跑：推进者 `git commit`，验签者睡几十毫秒后跑 `--staged`（模拟钩子那一刻）。
+ * 轮次 ≥20，读数按"验签时 HEAD 是否已离开签发 base"分桶。
+ */
+test('T25 并发夹具：HEAD 被别席推进时 v2 合法提交仍过 / v1 旧语义必红（≥20 轮）', { timeout: 180000 }, async () => {
+  const ROUNDS = 20
+  const ours = 'scripts/lib/face-reader.mjs'
+  const theirs = 'scripts/guardian-runner.mjs'
+  const reason = '并发夹具：HEAD 前移不得改变本席声明面'
+  const subject = 'fix: staged signature survives concurrent HEAD advance'
+  const root = mkScratch('immguard-conc-')
+  const records = []
+  try {
+    for (const [rel, text] of [
+      [ours, '// baseline ours\n'],
+      [theirs, '// baseline theirs\n'],
+    ]) {
+      const abs = join(root, rel)
+      mkdirSync(dirname(abs), { recursive: true })
+      writeFileSync(abs, text, 'utf8')
+    }
+    const guardAbs = join(root, gate.GUARD_DATA_REL)
+    mkdirSync(dirname(guardAbs), { recursive: true })
+    writeFileSync(guardAbs, realText(), 'utf8')
+    gitRaw(['init', '-q', '-b', 'main'], root)
+    gitRaw(['config', 'user.email', 'selftest@example.invalid'], root)
+    gitRaw(['config', 'user.name', 'selftest'], root)
+    gitRaw(['config', 'commit.gpgsign', 'false'], root)
+    gitRaw(['config', 'core.hooksPath', '.git/no-hooks'], root)
+    gitRaw(['add', '-A'], root)
+    gitRaw(['commit', '--no-verify', '-F', '-'], root, { input: 'baseline' })
+
+    const verifier = `
+      const { spawnSync } = require('child_process')
+      const fs = require('fs')
+      const c = JSON.parse(process.env.CONC_V)
+      const out = { status: 99, headBefore: '', headAfter: '', stdout: '', stderr: '' }
+      const git = (args) => spawnSync(process.env.IHUI_GIT_BIN || 'git', ['-C', c.root, ...args], { encoding: 'utf8' }).stdout || ''
+      setTimeout(() => {
+        out.headBefore = git(['rev-parse', 'HEAD']).trim()
+        try {
+          const r = spawnSync(process.execPath, [c.script, '--staged', '--root', c.root, '--message-file', c.msg], {
+            cwd: c.root,
+            encoding: 'utf8',
+            env: { ...process.env, GIT_INDEX_FILE: c.idx },
+            stdio: ['ignore', 'pipe', 'pipe'],
+            timeout: 60000,
+          })
+          out.status = r.status
+          out.stdout = String(r.stdout || '').slice(-2500)
+          out.stderr = String(r.stderr || '').slice(-2500)
+        } catch (e) {
+          out.stderr = String((e && e.message) || e)
+        }
+        out.headAfter = git(['rev-parse', 'HEAD']).trim()
+        fs.writeFileSync(c.out, JSON.stringify(out))
+      }, c.delay)
+    `
+    const advancer = `
+      const { execFileSync, spawnSync } = require('child_process')
+      const fs = require('fs')
+      const c = JSON.parse(process.env.CONC_A)
+      const out = { ok: false, head: '', err: '' }
+      setTimeout(() => {
+        try {
+          fs.writeFileSync(c.root + '/' + c.theirs, '// theirs ' + c.round + '\\n')
+          execFileSync(process.env.IHUI_GIT_BIN || 'git', ['-C', c.root, 'add', '--', c.theirs], { stdio: 'ignore' })
+          const r = spawnSync(process.env.IHUI_GIT_BIN || 'git', ['-C', c.root, 'commit', '--no-verify', '-F', '-'], { input: 'chore: 别席推进 HEAD ' + c.round, encoding: 'utf8' })
+          if (r.status !== 0) throw new Error('commit rc=' + r.status + ' ' + String(r.stderr || '').slice(-200))
+          out.ok = true
+          out.head = String(execFileSync(process.env.IHUI_GIT_BIN || 'git', ['-C', c.root, 'rev-parse', 'HEAD'], { encoding: 'utf8' })).trim()
+        } catch (e) {
+          out.err = String((e && e.message) || e).slice(0, 200)
+        }
+        fs.writeFileSync(c.out, JSON.stringify(out))
+      }, c.delay)
+    `
+    const runWorker = (code, env) =>
+      new Promise((done) => {
+        const p = spawn(process.execPath, ['-e', code], { env: { ...process.env, ...env }, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
+        p.stdout.resume()
+        p.stderr.resume()
+        const guard = setTimeout(() => {
+          try {
+            p.kill()
+          } catch {}
+          done(99)
+        }, 30000)
+        p.on('exit', (c) => {
+          clearTimeout(guard)
+          done(c)
+        })
+        p.on('error', () => {
+          clearTimeout(guard)
+          done(99)
+        })
+      })
+    const readJson = (p) => {
+      try {
+        return JSON.parse(readFileSync(p, 'utf8'))
+      } catch {
+        return null
+      }
+    }
+
+    for (let round = 1; round <= ROUNDS; round += 1) {
+      const base = String(gitRaw(['rev-parse', 'HEAD'], root)).trim()
+      const idx = join(root, '.git', `st-index-${round}`)
+      const msgV2 = join(root, '.git', `msg-v2-${round}.txt`)
+      const msgV1 = join(root, '.git', `msg-v1-${round}.txt`)
+      const outV2 = join(root, '.git', `out-v2-${round}.json`)
+      const outV1 = join(root, '.git', `out-v1-${round}.json`)
+      const outA = join(root, '.git', `out-a-${round}.json`)
+      // 本席：私有索引（相对**当前** HEAD 建），只 add 自己那条路径。
+      const gitIdx = (args) => spawnSync(process.env.IHUI_GIT_BIN || 'git', args, { cwd: root, encoding: 'utf8', env: { ...process.env, GIT_INDEX_FILE: idx } })
+      writeOurs(root, ours, round)
+      assert.equal(gitIdx(['read-tree', 'HEAD']).status, 0, `round ${round}: read-tree 失败`)
+      assert.equal(gitIdx(['add', '--', ours]).status, 0, `round ${round}: add 失败`)
+      const signedV2 = runGate(['--sign-staged', '--root', root, '--subject', subject, '--reason', reason, '--paths', ours], root, {
+        [gate.KEY_ENV]: T_KEY,
+        GIT_INDEX_FILE: idx,
+      })
+      assert.equal(signedV2.status, 0, `round ${round}: v2 签发失败 ${signedV2.stderr}`)
+      const v1 = gate.signExemption({ subject, hits: [{ path: ours }], reason, key: T_KEY })
+      writeFileSync(msgV2, `${subject}\n\n${signedV2.stdout}`, 'utf8')
+      writeFileSync(msgV1, `${subject}\n\n${gate.EXEMPT_TRAILER} ${reason}\n${gate.SIG_TRAILER} ${v1}`, 'utf8')
+
+      const envFor = (msg, out, delay) => ({
+        CONC_V: JSON.stringify({ root, script: SCRIPT, idx, msg, delay, out }),
+        // 验签子进程也要拿到同一把测试钥，否则验的是本机真钥 ⇒ key-or-signature-mismatch（与夹具无关）
+        [gate.KEY_ENV]: T_KEY,
+      })
+      const verV2 = runWorker(verifier, envFor(msgV2, outV2, 70 + round * 2))
+      const verV1 = runWorker(verifier, envFor(msgV1, outV1, 70 + round * 2))
+      const adv = runWorker(advancer, {
+        CONC_A: JSON.stringify({ root, theirs, round, delay: 0, out: outA }),
+      })
+      await Promise.all([verV2, verV1, adv])
+      const r2 = readJson(outV2)
+      const r1 = readJson(outV1)
+      const ra = readJson(outA)
+      const moved = Boolean(r2 && ((r2.headBefore && r2.headBefore !== base) || (r2.headAfter && r2.headAfter !== base)))
+      records.push({ round, base, moved, advanced: Boolean(ra && ra.ok), v2: r2?.status, v1: r1?.status, err2: r2?.stderr ?? '', err1: r1?.stderr ?? '' })
+    }
+  } finally {
+    rmScratch(root, { bestEffort: true })
+  }
+
+  const movedRounds = records.filter((r) => r.moved)
+  const v2Pass = movedRounds.filter((r) => r.v2 === 0).length
+  const v1Pass = movedRounds.filter((r) => r.v1 === 0).length
+  const detail = JSON.stringify({
+    rounds: records.length,
+    advanced: records.filter((r) => r.advanced).length,
+    headMovedBeforeVerify: movedRounds.length,
+    v2Pass,
+    v1Pass,
+    sample: records.slice(0, 3),
+  })
+  assert.equal(records.length, ROUNDS, '轮次必须跑满')
+  assert.ok(movedRounds.length >= 15, `HEAD 前移的轮次太少（${movedRounds.length}/${ROUNDS}），夹具没压到并发窗口：${detail}`)
+  assert.equal(v2Pass, movedRounds.length, `v2 在 HEAD 前移后仍必须全绿：${detail}`)
+  assert.equal(v1Pass, 0, `v1 旧语义在 HEAD 前移后必须全红（对照基线）：${detail}`)
+})
+
+/** T15 用：写本席路径内容（每轮换内容，保证 blob 真的变）。 */
+function writeOurs(root, rel, round) {
+  const abs = join(root, rel)
+  mkdirSync(dirname(abs), { recursive: true })
+  writeFileSync(abs, `// ours ${round}\n`, 'utf8')
+}
