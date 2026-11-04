@@ -33,7 +33,13 @@ import { loadContract } from '../lib/incident-cluster.mjs'
 
 const SRC = resolve(fileURLToPath(import.meta.url), '../../check-autonomy-leg-health.mjs')
 const { __test__ } = await import(pathToFileURL(SRC).href)
-const { judgeClosureOutput, judgeClosureOutputFace, evaluateAll, CLOSURE_SIGNALS_REL, CLOSURE_STAMP_REL } = __test__
+const {
+  judgeClosureOutput,
+  judgeClosureOutputFace,
+  evaluateAll,
+  CLOSURE_SIGNALS_REL,
+  CLOSURE_STAMP_REL,
+} = __test__
 
 const ROOT = resolve(fileURLToPath(import.meta.url), '..', '..', '..')
 const NOW = Date.parse('2026-11-04T11:40:00.000Z')
@@ -55,17 +61,36 @@ function decision(over = {}) {
 function fixture(decisions, { withStamp = true, signals = [] } = {}) {
   const root = mkScratch('leg-health-output-')
   const decisionsPath = join(root, 'deploy-decisions.jsonl')
-  writeFileSync(decisionsPath, `${decisions.map((d) => (typeof d === 'string' ? d : JSON.stringify(d))).join('\n')}\n`, 'utf8')
+  writeFileSync(
+    decisionsPath,
+    `${decisions.map((d) => (typeof d === 'string' ? d : JSON.stringify(d))).join('\n')}\n`,
+    'utf8',
+  )
   const signalsPath = join(root, CLOSURE_SIGNALS_REL)
   mkdirSync(dirname(signalsPath), { recursive: true })
-  if (signals.length) writeFileSync(signalsPath, `${signals.map((s) => JSON.stringify(s)).join('\n')}\n`, 'utf8')
-  if (withStamp) writeFileSync(join(root, CLOSURE_STAMP_REL), JSON.stringify({ attemptAt: '2026-11-04T11:30:00.000Z' }), 'utf8')
-  return { root, decisionsPath, signalsPath, faceResolver: () => ({ found: true, kind: 'test', path: decisionsPath }) }
+  if (signals.length)
+    writeFileSync(signalsPath, `${signals.map((s) => JSON.stringify(s)).join('\n')}\n`, 'utf8')
+  if (withStamp)
+    writeFileSync(
+      join(root, CLOSURE_STAMP_REL),
+      JSON.stringify({ attemptAt: '2026-11-04T11:30:00.000Z' }),
+      'utf8',
+    )
+  return {
+    root,
+    decisionsPath,
+    signalsPath,
+    faceResolver: () => ({ found: true, kind: 'test', path: decisionsPath }),
+  }
 }
 
 test('① 纯判据三态分桶:待产 0 ⇒ ok / 待产 >0 ⇒ drift / 取不到 ⇒ unjudged', () => {
   const ok = judgeClosureOutput({ inputsOk: true, pending: 0, decisions: 10, existingCount: 3 })
-  const drift = judgeClosureOutput({ inputsOk: true, pending: 2, pendingRows: [{ route: 'deploy/swap-fail' }, { route: 'deploy/build-fail' }] })
+  const drift = judgeClosureOutput({
+    inputsOk: true,
+    pending: 2,
+    pendingRows: [{ route: 'deploy/swap-fail' }, { route: 'deploy/build-fail' }],
+  })
   const unjudged = judgeClosureOutput({ inputsOk: false, why: '契约读不到' })
   assert.equal(ok.state, 'ok')
   assert.equal(drift.state, 'drift')
@@ -76,7 +101,13 @@ test('① 纯判据三态分桶:待产 0 ⇒ ok / 待产 >0 ⇒ drift / 取不�
 })
 
 test('② 恒红门反向锁:全 pass 决策账 + 空信号账 + 陈旧派发戳 ⇒ 仍 ok', () => {
-  const f = fixture([decision({ action: 'pass' }), decision({ action: 'canary-pass', ts: '2026-11-04T10:20:00.000Z' })], { withStamp: false })
+  const f = fixture(
+    [
+      decision({ action: 'pass' }),
+      decision({ action: 'canary-pass', ts: '2026-11-04T10:20:00.000Z' }),
+    ],
+    { withStamp: false },
+  )
   try {
     const r = judgeClosureOutputFace({ root: f.root, now: NOW, faceResolver: f.faceResolver })
     assert.equal(r.state, 'ok', '没事故不该报红;把 A11 做成"没信号就报红"就是 §12e 恒红门')
@@ -128,7 +159,11 @@ test('⑤ 尺子只读:判定前后信号账逐字节不变(不许改被量的�
     const r = judgeClosureOutputFace({ root: f.root, now: NOW, faceResolver: f.faceResolver })
     assert.equal(r.state, 'drift', '夹具自检:这里必须还剩 1 条待产,否则本例空转')
     assert.equal(readFileSync(f.signalsPath, 'utf8'), before, 'A11 只准对账,绝不 appendSignals')
-    assert.equal(readFileSync(f.decisionsPath, 'utf8').trim().split(/\r?\n/).length, 2, '决策账也不许被改写')
+    assert.equal(
+      readFileSync(f.decisionsPath, 'utf8').trim().split(/\r?\n/).length,
+      2,
+      '决策账也不许被改写',
+    )
   } finally {
     rmScratch(f.root)
   }
@@ -140,7 +175,10 @@ test('⑥ 决策面两候选都不在 ⇒ unjudged(不拿主仓影子账当全�
     const r = judgeClosureOutputFace({
       root: f.root,
       now: NOW,
-      faceResolver: () => ({ found: false, candidates: [{ kind: 'prod-checkout' }, { kind: 'repo' }] }),
+      faceResolver: () => ({
+        found: false,
+        candidates: [{ kind: 'prod-checkout' }, { kind: 'repo' }],
+      }),
     })
     assert.equal(r.state, 'unjudged')
     assert.match(r.readout, /两候选都不在\(prod-checkout,repo\)/)
@@ -165,15 +203,53 @@ test('⑧ 接线锁:main 真的取料、evaluateAll 真的计入(有定义无接
   const at = src.indexOf('async function main()')
   assert.ok(at > 0, 'main 取不到')
   const mainBody = src.slice(at, src.indexOf('const isDirectRun'))
-  assert.match(mainBody, /const output = judgeClosureOutputFace\(/, 'main 没调取料层 ⇒ A11 永远不会出现在巡检读数里')
+  assert.match(
+    mainBody,
+    /const output = judgeClosureOutputFace\(/,
+    'main 没调取料层 ⇒ A11 永远不会出现在巡检读数里',
+  )
   assert.match(mainBody, /claims, output }\)/, 'evaluateAll 调用没把 output 传进去')
-  assert.match(src, /if \(output\) dims\.push\(output\)/, 'evaluateAll 没把 output 计入 dims ⇒ 判据造了没装车')
-  assert.match(src, /import \{ readDecisionText, parseExistingSignals, planIntake, DEFAULT_MINUTES \}/, '判据必须零复算 import 摄入器')
+  assert.match(
+    src,
+    /if \(output\) dims\.push\(output\)/,
+    'evaluateAll 没把 output 计入 dims ⇒ 判据造了没装车',
+  )
+  // 锁"import 了那一份实现"这件事,不锁"这一行折没折行":格式化器会按行宽把说明符列表拆开
+  // (今天同一族自伤已经踩过两次:H69 与这格)。判据要看的是**规格符集合与来源模块**,不是换行位置。
+  assert.match(
+    src,
+    /import\s*\{[^}]*\bplanIntake\b[^}]*\}\s*from\s*'\.\/deploy-outcome-intake\.mjs'/,
+    '判据必须零复算 import 摄入器(四个说明符同批、来源只有那一个模块)',
+  )
+  for (const spec of [
+    'readDecisionText',
+    'parseExistingSignals',
+    'planIntake',
+    'DEFAULT_MINUTES',
+  ]) {
+    assert.ok(
+      new RegExp(
+        `import\\s*\\{[^}]*\\b${spec}\\b[^}]*\\}\\s*from\\s*'./deploy-outcome-intake\\.mjs'`,
+      ).test(src),
+      `说明符 ${spec} 没从摄入器 import ⇒ 本器里可能藏着第二份实现`,
+    )
+  }
 })
 
 test('⑨ 戳只作旁证:戳新不等于产出,戳旧不等于断链', () => {
-  const stale = judgeClosureOutput({ inputsOk: true, pending: 0, dispatchAt: '2026-10-01T00:00:00.000Z', now: NOW })
-  const fresh = judgeClosureOutput({ inputsOk: true, pending: 1, pendingRows: [{ route: 'deploy/swap-fail' }], dispatchAt: '2026-11-04T11:39:00.000Z', now: NOW })
+  const stale = judgeClosureOutput({
+    inputsOk: true,
+    pending: 0,
+    dispatchAt: '2026-10-01T00:00:00.000Z',
+    now: NOW,
+  })
+  const fresh = judgeClosureOutput({
+    inputsOk: true,
+    pending: 1,
+    pendingRows: [{ route: 'deploy/swap-fail' }],
+    dispatchAt: '2026-11-04T11:39:00.000Z',
+    now: NOW,
+  })
   assert.equal(stale.state, 'ok')
   assert.equal(fresh.state, 'drift')
   assert.match(fresh.readout, /派发戳 1min 前/)
@@ -181,8 +257,18 @@ test('⑨ 戳只作旁证:戳新不等于产出,戳旧不等于断链', () => {
 
 test('⑩ A11 的 drift 必须顶起整尺', () => {
   const gatesText = JSON.stringify({ sessionCommandTemplate: 'x', ticketWhitelist: ['a'] })
-  const output = judgeClosureOutput({ inputsOk: true, pending: 1, pendingRows: [{ route: 'deploy/swap-fail' }] })
-  const r = evaluateAll({ repoRoot: ROOT, gatesText, events: { ok: true, events: [] }, ticketRows: [{ text: 'a', line: 1 }], output })
+  const output = judgeClosureOutput({
+    inputsOk: true,
+    pending: 1,
+    pendingRows: [{ route: 'deploy/swap-fail' }],
+  })
+  const r = evaluateAll({
+    repoRoot: ROOT,
+    gatesText,
+    events: { ok: true, events: [] },
+    ticketRows: [{ text: 'a', line: 1 }],
+    output,
+  })
   assert.equal(r.state, 'drift')
   assert.ok(r.dims.some((d) => d.dim === 'A11-closure-output'))
   assert.match(r.summary, /DRIFT=1/)
