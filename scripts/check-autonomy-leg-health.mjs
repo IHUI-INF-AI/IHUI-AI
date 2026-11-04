@@ -31,6 +31,7 @@ import { preflightSessionRunner, classifySessionFailure, resolveSessionCommand }
 import { quarantinedUntilOf, LEDGER, DISPATCH_ARGS, parseTicketRows, PLAN_TASKS } from './auto-evolve.mjs'
 import { ticketKeyOf } from './lib/ticket-key.mjs'
 import { classifyLegs, actionableRows } from './lib/autonomy-leg-liveness.mjs'
+import { judgeCarrierParity } from './lib/guardian-carrier-parity.mjs'
 // 取材面纪律(§0.4 / 守门 118):闸门配置是**仓库内容**,一律按被审面取,不回落磁盘。
 // 共享工作树常年滞后 HEAD ⇒ 按磁盘读会在"恒红"与"假绿"之间来回跳,正是这一型。
 import { Undetermined, catBatch, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
@@ -250,7 +251,34 @@ export function judgeLivenessFace({ face = FACE_SEL.face, root = ROOT, now = Dat
   return judgeLegLiveness(classifyLegs({ legs, stamps, stampFilesOnDisk: onDisk, now }))
 }
 
-export function evaluateAll({ repoRoot = ROOT, gatesText, events, ticketRows, transit, valve, closure, liveness } = {}) {
+/**
+ * A9-carrier-parity —— 有多少自治腿**根本不在常驻承载面上**(判据零复算,
+ * 全 import `scripts/lib/guardian-carrier-parity.mjs`)。
+ * 被审面 = 本次判定面的 git-guardian.mjs 源(§0.4:与 A6 取 auto-evolve.mjs 同规)。
+ */
+export function judgeCarrierParityFace({ face = FACE_SEL.face, root = ROOT } = {}) {
+  let src = null
+  try {
+    src = readFaceText('scripts/git-guardian.mjs', face, root)
+  } catch {
+    src = null
+  }
+  const r = judgeCarrierParity({ source: src ?? '' })
+  const names = r.dark.slice(0, 6).join(', ')
+  return {
+    dim: 'A9-carrier-parity',
+    state: r.state,
+    readout: r.state === 'unjudged' ? r.why : `${r.why}${r.dark.length ? ` ｜ 例:${names}${r.dark.length > 6 ? ` …共 ${r.dark.length} 条` : ''}` : ''}`,
+    next:
+      r.state === 'drift'
+        ? '这些腿只挂在一次性 main() 里,而常驻 daemon 全程持轮级锁 ⇒ main 每趟都让路,它们结构上跑不到。出路 = 逐条裁决:该上常驻面的把调用点补进 startDaemon 的 tick(每条都得自证有节流),确实只能一次性跑的进具名豁免清单带理由与到期。清单见 scripts/lib/guardian-carrier-parity.mjs 头注。'
+        : r.state === 'unjudged'
+          ? '先把被审面取到(HEAD/索引任一可读)再谈判定'
+          : '',
+  }
+}
+
+export function evaluateAll({ repoRoot = ROOT, gatesText, events, ticketRows, transit, valve, closure, liveness, parity } = {}) {
   const dims = []
   let gates
   try {
@@ -263,6 +291,7 @@ export function evaluateAll({ repoRoot = ROOT, gatesText, events, ticketRows, tr
   if (valve) dims.push(valve)
   if (closure) dims.push(closure)
   if (liveness) dims.push(liveness)
+  if (parity) dims.push(parity)
   if (!events.ok) { /* 台账缺失只影响 A2/A3/A4 */
     dims.push({ dim: 'A2-attribution', state: 'unjudged', readout: events.why, next: '台账取不到 ⇒ 不冒充"没失败过"' })
     dims.push({ dim: 'A3-range', state: 'unjudged', readout: '无台账输入 ⇒ 封票数判不出', next: '' })
@@ -710,7 +739,8 @@ async function main() {
     activeTicketKeys: ticketRows && ticketRows.length ? new Set(ticketRows.map((r) => ticketKeyOf(r.text))) : null,
   })
   const liveness = judgeLivenessFace({ face: FACE_SEL.face, repoRoot, root: repoRoot })
-  const result = evaluateAll({ repoRoot, gatesText, events, ticketRows: ticketRows ?? [], transit, valve, closure, liveness })
+  const parity = judgeCarrierParityFace({ face: FACE_SEL.face, root: repoRoot })
+  const result = evaluateAll({ repoRoot, gatesText, events, ticketRows: ticketRows ?? [], transit, valve, closure, liveness, parity })
   if (asJson) {
     console.log(JSON.stringify({ verdict: result.state, face: FACE_SEL.face, ...result, identity: alertIdentity(result) }, null, 1))
   } else {
