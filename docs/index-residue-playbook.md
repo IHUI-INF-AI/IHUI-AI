@@ -9,7 +9,7 @@
 > **读者**:其他并行会话、将来接手本仓的人。
 > **定位**:只写「看到什么形态、跑哪条命令、什么条件下才能动手」,不写事故叙事。
 > **纪律基准**:一切提交纪律以 [AGENTS.md](../AGENTS.md) 为准;本文**不替代** AGENTS.md,不新增门判据,也不进 AGENTS.md(其体积余量约 134B)。
-> **计数**:判据 18 条(形态识别 4 + `D `+`??` 清理 3 + 不可用 2 + 共享索引取样 1 + 提交硬约束 2 + 取证 1 + `AD`/`MM` 2 + 越界识别 1 + 提交后残差 1 + 定版边界 1)、禁令 18 条(§7 1–18)。
+> **计数**:判据 19 条(形态识别 4 + `D `+`??` 清理 3 + 不可用 2 + 共享索引取样 1 + 提交硬约束 2 + 取证 1 + `AD`/`MM` 2 + 越界识别 1 + 提交后残差 1 + 定版边界 1 + 归属三态 1)、禁令 19 条(§7 1–19)。
 > **解释器**:以下命令均为 PowerShell 7(`pwsh`),在仓库根执行;路径写仓根相对或绝对均可。
 
 ## 0. 先取样,后判断
@@ -288,6 +288,67 @@ git status --porcelain=v2 | Where-Object {
 
 （`⇥` 表示 TAB）注意:带 pathspec 的 `git status --porcelain=v2 -- <path>` 会关闭 rename 检测;实测同一处显示 `1 A.` 而非 `2 R....`,所以识别 `R` 必须全量取样。命中后把原始行贴进上报,不做任何索引写入。
 
+## 2C. 归属三态:本席 / 他席在飞 / 无主(判据 19)
+
+> 本节解决 §2(判据 5–7 的清理通道)与红线 C(他席条目一律不许 restore)在「无主残留」与「他席在飞」之间没有边界的问题。**判定顺序固定为「本席 → 他席在飞 → 无主」;顺序反了会把「有替换版本」的他席现场当残留清掉。**
+
+### 判据 19 — 归属三态,按固定顺序短路
+
+**判据原文**:同一条 `D ` + `??`,只能按下表顺序判成三态之一;三条都不成立 ⇒ `未判定`,停手上报。
+
+| 顺序 | 归属 | 机器可判条件 | 动作 |
+|---|---|---|---|
+| ① | **本席** | 路径 ∈ 本席本轮 `own` 声明集,且 `pre-commit-rounds.jsonl` 有 `declaredFiles` 命中、带 `ts` / `headBefore` 的轮次记录 | 按判据 5–7 处置 |
+| ② | **他席在飞** | `declaredFiles` 命中且有可追溯轮次(`ts` / `headBefore` 非空),**且**(该路径历史里 ≥2 个不同 blob,或 `worktree != HEAD`) | 走红线 C:只报数,不删、不 restore |
+| ③ | **无主** | `declaredRounds=0` ∧ `git log --all --diff-filter=D` 为空 ∧ 历史里只有 1 个 blob ∧ `worktree == HEAD` ∧ 索引无条目 | 只 `git restore --staged --source=HEAD -- <单条>` |
+| — | **未判定** | ①②③ 都不成立 | 停手上报,不动索引 |
+
+**可执行判定(按 ①→②→③ 短路)**:
+
+```powershell
+$p = '<仓根相对路径>'
+$own = @('<本席本轮声明路径>')
+$rounds = '.ihui-agent/state/hook-logs/pre-commit-rounds.jsonl'
+
+$idx = git rev-parse --verify --quiet ":$p"
+if ($idx) { throw '不是 D +??:索引有条目,转判据 8/9' }
+if (-not (Test-Path $p)) { throw '不是 D +??:工作树无此文件' }
+$head = git rev-parse --verify --quiet "HEAD:$p"
+if (-not $head) { throw '不是 D +??:HEAD 无此路径,转判据 9' }
+$wt = git hash-object -- $p
+
+$hits = @()
+if (Test-Path $rounds) {
+  $hits = @(Get-Content $rounds | ForEach-Object { try { $_ | ConvertFrom-Json } catch {} } |
+    Where-Object { $_.declaredFiles -contains $p -and $_.ts -and $_.headBefore })
+}
+
+$blobs = New-Object System.Collections.Generic.HashSet[string]
+foreach ($c in @(git log --all --format='%H' -- $p)) {
+  $b = git rev-parse --verify --quiet "${c}:$p"
+  if ($b) { [void]$blobs.Add($b); if ($blobs.Count -ge 2) { break } }
+}
+$anyDelete = @(git log --all -1 --diff-filter=D --format='%H' -- $p).Count -gt 0
+
+if ($own -contains $p) {
+  '归属=本席 ⇒ 按判据 5–7'
+} elseif ($hits.Count -gt 0 -and ($blobs.Count -ge 2 -or $wt -ne $head)) {
+  "归属=他席在飞(rounds=$($hits.Count),blobs=$($blobs.Count),wtEqHead=$($wt -eq $head)) ⇒ 红线 C:只报数"
+} elseif ($hits.Count -eq 0 -and (-not $anyDelete) -and $blobs.Count -le 1 -and $wt -eq $head) {
+  git restore --staged --source=HEAD -- $p
+} else {
+  '归属=未判定 ⇒ 停手,把上面读数贴进上报'
+}
+```
+
+**为什么顺序不能反**:`declaredRounds=0` 只证明「没人申报过」,**不证明**「没人改过」。若先判无主,一条已有第二版 blob、甚至 `worktree != HEAD` 的现场会被当成「没主的残留」直接 `restore --staged --source=HEAD`,把他席的暂存面清掉。必须先让「有申报 + 替换版本」短路。
+
+**修完必须复验**:`git diff --cached --name-status -- <path>` 无输出;`git status --porcelain=v1 -- <path>` 不再出现 `D `;`git hash-object -- <path>` 与执行前逐字相同;`check-live-doc-references` 对本文点名路径回绿。
+
+**必须停手**:`HEAD:path` 缺失、工作树文件消失、`R`/`T`/`U`,或 ①②③ 都不成立 ⇒ 未判定,不得用「无主」兜底。
+
+> **与红线 C 的分工**:本判据只回答「这条归谁」;红线 C 只在判据 19 判为「他席在飞」时生效;红线 C 也不得用来否决判据 19 的「无主」清理通道。
+
 ## 3. 两条明确「不可用作判据」的读数(判据 11–12)
 
 ### 判据 11 — 「索引 vs HEAD 两哈希相等」不能区分 `git rm --cached` 与索引落后
@@ -453,9 +514,11 @@ node scripts/isolated-git.mjs commit -m "<标题>" -- <路径...>
 
 ### 红线 C(单列)— 只复原本席声明集内条目;他席暂存条目只报数
 
-**判据原文**:护栏的复原面 = **本席声明集**(`isolated-git` 的 `takeIndexSnapshot` 只对声明路径取 `(mode, blob, stage)` 快照),加上**显式逐条列名且带 blob 钉**的派生产物;声明集之外的条目一律只记入 `extras` 并拒绝提交,**不删除、不复原**。他席暂存条目(`PROJECT_PLAN.md`、`scripts/tests/check-i18n-parity.test.mjs` 等)**一律不许删、不许 restore**,只能「报数」。
+**判据原文**:护栏的复原面 = **本席声明集**(`isolated-git` 的 `takeIndexSnapshot` 只对声明路径取 `(mode, blob, stage)` 快照),加上**显式逐条列名且带 blob 钉**的派生产物;声明集之外的条目一律只记入 `extras` 并拒绝提交,**不删除、不复原**。他席暂存条目以实测在飞样本 `MM PROJECT_PLAN.md` 为准(本轮实测 rounds=8 可追溯,index 旧 blob ≠ HEAD 且 worktree ≠ HEAD),**一律不许删、不许 restore**,只能「报数」。**原举例 `scripts/tests/check-i18n-parity.test.mjs` 已按判据 19 归为「无主」残留(处置方按判据 19 第③态收口,门已回绿),不再作为本红线样本。**
 
-**触发场景**:共享索引上出现他席在飞暂存(`M ` / `MM` / `AD`);或私有索引内容护栏报出 `extras`(声明集之外出现了条目)。人工收口时最容易被「顺手清干净」的冲动命中。
+**触发场景**:共享索引上出现判据 19 第②态的他席在飞暂存(`M ` / `MM` / `AD`);或私有索引内容护栏报出 `extras`(声明集之外出现了条目)。人工收口时最容易被「顺手清干净」的冲动命中。
+
+**归属判定**:本条只对判据 19 判为「他席在飞」的条目生效;「无主」残留在判据 19 第③态处置,本条不得用来否决它。
 
 **正确动作**:
 - 只对本席声明路径执行 `git restore --staged -- <path>` / `git rm --cached -- <path>`(且须先过判据 5–9 的前置条件);
@@ -467,9 +530,9 @@ node scripts/isolated-git.mjs commit -m "<标题>" -- <路径...>
 - 用 `git reset HEAD` / `git restore --staged -- .` 整树清空 ⇒ 同型且更广(§7 禁令 10、11)。
 - 把「他席条目还在」误记成「本次清理失败」而反复重跑 ⇒ 并发漂移的读数被当成自己的成果或失败。
 
-禁令 16–18 已并入 §7 的同一份编号序列(1–18),本节不再重复措辞;语义逐字见 §7。
+禁令 16–18 已并入 §7 的同一份编号序列(1–19),本节不再重复措辞;禁令 19 见 §2C。
 
-## 7. 禁令清单(18 条)
+## 7. 禁令清单(19 条)
 
 1. 严禁 `--no-verify`;
 2. 严禁 `HUSKY=0`(及任何等价关钩子环境);
@@ -489,6 +552,7 @@ node scripts/isolated-git.mjs commit -m "<标题>" -- <路径...>
 16. 私有索引提交成功后,本席声明路径上的 ` M`(钩子 `--fix` / 格式化残差)严禁 `git add` 并入下一笔提交,严禁 `git checkout -- .` / `git restore .` 整树清除;只能 `git restore -- <本席该路径>`(判据 17)。
 17. 严禁在钩子执行期间临时改写私有索引做定版;定版必须在钩子启动前完成(判据 18)。
 18. 护栏只复原本席声明集内条目;他席暂存条目严禁删、严禁 restore,只能报数(红线 C)。
+19. 任何时候都不许用「无主」去绕过「存在替换版本」这个停手条件(判据 19 第②态必须先于第③态)。
 
 ## 8. 五分钟收口流程
 
@@ -517,7 +581,7 @@ git status --porcelain=v1 -- $p
 
 | 提交 | 通道 | gatesRun | 后置核验(2026-11-04,内容面) |
 |---|---|---|---|
-| `5599fd8` | `live-doc-edit` 锚点插入 | `false` | 水印 verify=0(该提交内容单独复核也=0);`--self-test`=0(37/37);duplicates=0;dead-script-refs=0;docs-public-health=0;live-doc-pathspec=0(本文不在其三份名单);orphan-deletion-refs=0;agents-doc-size=0(不覆盖本文);file-size=0(不覆盖 docs);**live-doc-references=1**(本文点名的 `scripts/tests/check-i18n-parity.test.mjs` 在共享索引呈 `D `+`??`,属他席索引残留而非文档内容);**live-doc-archive-reinflation=1**(命中在 AGENTS.md,与本文无关) |
+| `5599fd8` | `live-doc-edit` 锚点插入 | `false` | 水印 verify=0(该提交内容单独复核也=0);`--self-test`=0(37/37);duplicates=0;dead-script-refs=0;docs-public-health=0;live-doc-pathspec=0(本文不在其三份名单);orphan-deletion-refs=0;agents-doc-size=0(不覆盖本文);file-size=0(不覆盖 docs);**live-doc-references=1→0**(当时本文点名的 `scripts/tests/check-i18n-parity.test.mjs` 在共享索引呈 `D `+`??`,属非本席残留而非文档内容;该残留随后由处置方按判据 19 第③态收口,门已回绿 2142/2597);**live-doc-archive-reinflation=1**(命中在 AGENTS.md,与本文无关) |
 | `5af5c3d` | `live-doc-edit` 整行改写 | `false` | 同上 |
 
 **attest 口径**:这两笔只能记为 `bypass-landing(gatesRun=false)` + 上表后置核验,不得写成「已过钩子」;两条判红均非本文内容问题,也未被「改断言/加豁免」消掉。
