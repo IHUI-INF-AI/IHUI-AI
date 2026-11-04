@@ -49,7 +49,13 @@ const LEDGER_KEYS = ['pkg', 'version', 'reason', 'reviewBy']
  */
 export function parseFragments(text) {
   const s = String(text ?? '')
-  if (!/dedupe/i.test(s)) return null
+  if (!/dedupe/i.test(s)) {
+    // 2026-11-04 实测(pnpm 11.18.0):`dedupe --check` 干净收尾时**一个 "dedupe" 字样都不打**,
+    // 只剩若干 `Progress: resolved …, reused …, downloaded …, added 0` 与末尾 `done`。
+    // 认得这一形态且无 ERR_PNPM_ ⇒ 确认"本次无碎片";其余不认识形态仍返回 null(未判定)。
+    if (/Progress: resolved \d+[\s\S]*\bdone\b/i.test(s) && !/ERR_PNPM_/i.test(s)) return []
+    return null
+  }
   const found = []
   for (const raw of s.split(/\r?\n/)) {
     const m = /^-\s+(@?[^@\s]+(?:\/[^@\s]+)?)@([0-9][^\s]*)$/.exec(raw.trim())
@@ -208,7 +214,14 @@ function selfTest() {
   const r = parseFragments('Run pnpm dedupe to apply the changes above.')
   if (r === null) ok++
   else fail.push(`T11 说了"有变更要应用"却解析不到条目 ⇒ 必须未判定,实得 ${JSON.stringify(r)}`)
-  console.log(`[check:dedupe --self-test] ${ok}/${SELF_TEST_FIXTURES.length + 3} 通过`)
+  const cleanReal = parseFragments([
+    '✓ Lockfile passes supply-chain policies (verified 1m ago)',
+    'Progress: resolved 4445, reused 4049, downloaded 0, added 0, done',
+    '[WARN] Issues with peer dependencies found. Run "pnpm peers check" to list them.',
+  ].join('\n'))
+  if (Array.isArray(cleanReal) && cleanReal.length === 0) ok++
+  else fail.push(`T12 pnpm 11 干净收尾(无 dedupe 字样)应解析成 []:实得 ${JSON.stringify(cleanReal)}`)
+  console.log(`[check:dedupe --self-test] ${ok}/${SELF_TEST_FIXTURES.length + 4} 通过`)
   for (const f of fail) console.log(`  ❌ ${f}`)
   process.exit(fail.length ? 1 : 0)
 }
