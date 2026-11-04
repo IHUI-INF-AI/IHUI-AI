@@ -817,6 +817,13 @@
       // import lucide-react(真 SVG),native 侧用 -native;这些组件随 TabBar 液态玻璃接入(068af74ddf)、
       // 尚未挂到静态可达入口,knip 因而把真依赖误报为未用。
       // 到期复核:组件挂载到入口可达面后应删本白名单。
+      // 2026-11-05:NavBar 的 DOM 副本零运行时 import,但它是判据锚点,不是死代码 ——
+      // packages/shared/src/ui/__tests__/navbar-wiring.test.ts:71 的 DEAD_COPY_FILE 常量
+      // readFileSync 本文件,⑫ 条断言 packages/app 的 DOM 副本不是腿(不得含 NavBarCore/navbar-spec,
+      // 且 packages/app/src/index.ts 不得导出 NavBar)。删除 ⇒ 该测试 ENOENT(2026-11-05 实测 gate-test 红);
+      // 已按「由绿转红立刻恢复」撤回删除。与 host-toast.ts / Avatar / Tooltip 同族:静态图看不见、
+      // 但有跨端判据价值。到期复核:若 ⑫ 改为不读源码(改读 spec 运行时断言),应删本条并真删文件。
+      "ignore": ["src/components/NavBar.tsx"],
       "ignoreDependencies": ["lucide-react"]
     }
   }
