@@ -53,7 +53,7 @@ import { gitRaw, resolveRemoteHead } from './lib/face-reader.mjs'
 import { postMergeLedgerSync } from './lib/post-merge-ledger-sync.mjs'
 // 孤儿提交备份腿的单一实现(2026-10-29 门 30a 根因票):四台旁路落地器共用一份判据(§0.6),
 // 本器只留薄封装与再导出 —— conv 档命名/幂等/pack-refs/留痕/永不抛 全部住在那一层。
-import { orphanBackupRefName, backupOrphanCommit } from './lib/orphan-backup.mjs'
+import { orphanBackupRefName, backupOrphanCommit, recordAbandonedCommit } from './lib/orphan-backup.mjs'
 // G-322:「带值旗标吞值」判据全仓只许一份(§0.6/§22c)。旧 `getOpt` 写的是
 //   `i >= 0 && argv[i + 1] ? argv[i + 1] : dflt`,把「没点旗标」与「点了旗标却没给值」折成同一件事:
 //   实测改前 `--branch --dry-run` ⇒ branch 被喂成 `'--dry-run'`,本器**照常出结论并 rc=0**
@@ -468,6 +468,23 @@ function backupOrphanMerge(sha, why) {
     )
   }
   return { ok: false, ref: res.ref }
+}
+
+/**
+ * 中间轮次只记台账(2026-11-04 立,第五单)。
+ *
+ * 立因:本文件每轮都按**当时的 freshLocal/远端**现算合并树,blob 集合并非循环前一次算定,
+ * 也没有"下一轮 parent 是上一轮 parent 的快进后代"这条结构关系 ⇒ 不能照搬 object-space-land
+ * 的"中间 sha 内容必然被下一轮覆盖"论证。保守收法:中间轮次只 `recordAbandonedCommit`
+ * 记同一本 jsonl 台账(`superseded:true` / `ref:null`,不建 tag),只有**最终失败的那一枚**
+ * (循环耗尽那一枚)才走 backupOrphanMerge 打 tag —— 否则 30a 窗内恒红,又会逼全仓跳门(§12e)。
+ */
+function noteSupersededMerge(sha, why) {
+  const r = recordAbandonedCommit({ sha, why, kind: 'conv', root: process.cwd() })
+  if (!r.ok) {
+    log(C.yellow, `  ⚠️ 中间轮次台账写不进(${r.why}):${String(sha).slice(0, 11)} 按未备份处理`)
+  }
+  return r
 }
 /** 纯函数:拼出带身份的 `commit-tree` 参数(判据可被镜像测试直接喂构造面)。 */
 export function mergeCommitArgs({ tree, parents, message }) {
@@ -2078,6 +2095,7 @@ function main() {
     }
   }
 
+  let lastSupersededMerge = ''
   for (let round = 1; round <= maxRounds; round++) {
     log(C.dim, `── 第 ${round}/${maxRounds} 轮 ──`)
     // fetch 失败**不是收敛器的失败模式**(休眠/瞬时锁/代理抖动都算不得结论),但也不能拿旧值继续判断
@@ -2452,11 +2470,15 @@ function main() {
         // "未备份的悬空 commit"是 blocking,而它**没有 stagedTriggers ⇒ 每一次提交都必跑**
         // ——于是一轮正常的并发争用会把全链 158 道检查对之后每一次提交都顶成 --no-verify。
         // 2026-09-27 同日两例:一枚 round3 悬空 merge 让所有会话的提交被挡,最后是人工补 tag
-        // 才消红(见 AGENTS §12f"恒红门优先级")。出路 = §29 既定的零损失流程:tag 指向原对象
-        // (不删、不改写、不碰别人的引用),再固化进 packed-refs —— 嵌套 refs/tags/<ns>/* 属
-        // depth≥2,不 pack 就会被宿主清理层删掉,下次照样红(tag 在 = 红在,等于没修)。
-        // tag 失败只报数:多一枚悬空是 30a 该喊的事,不能因此让收敛器在本轮罢工。
-        backupOrphanMerge(mergeSha, `round${round}`)
+        // 才消红(见 AGENTS §12f"恒红门优先级")。
+        // 2026-11-04(第五单)改口径:中间轮次**不再逐轮打 tag** —— 每轮都按当时的 HEAD/远端现算,
+        // 中间 sha 的内容不必然被下一轮覆盖(结构论证在 object-space-land 成立,在这里不成立),
+        // 所以既不能当噪声丢掉、也不能继续逐轮堆 tag:只记台账(不建 ref),末枚(循环耗尽那枚)
+        // 才按 §29 打 tag。台账不是备份,30a 仍按"无 tag = 未备份"判(不放宽任何门)。
+        lastSupersededMerge = mergeSha
+        // 末轮失败不记"被取代"台账:它会在循环耗尽处被照打 tag,再记一行会把"已打 tag 的那枚"
+        // 写成"只是被取代",台账与事实相反。
+        if (round < maxRounds) noteSupersededMerge(mergeSha, `round${round} CAS 失败(HEAD 被并发推进):中间轮次仅记台账,不打 tag`)
         continue
       }
       log(C.dim, `  合并提交 ${mergeSha.slice(0, 11)} 已推进本地 ${branch}`)
@@ -2508,6 +2530,11 @@ function main() {
     log(C.yellow, `  第 ${round} 轮未落地(远端 ${nowRemote.slice(0, 11)}),继续下一轮`)
   }
 
+  // 末枚兜底:循环耗尽时,最后一轮被并发抢走的那枚合并提交**必须照打**(它是本轮真正的失败产物);
+  // 更早的轮次已在上面逐轮记进台账(不建 ref)。两者都不删、不改写、不碰别人的引用。
+  if (lastSupersededMerge) {
+    backupOrphanMerge(lastSupersededMerge, `${maxRounds} 轮均未收敛:末轮 CAS 失败产物兜底`)
+  }
   log(C.red, `❌ ${maxRounds} 轮未收敛,稍后重跑: node scripts/git-sync-converge.mjs`)
   const lastState = (() => {
     try {
