@@ -30,7 +30,7 @@ import { execFileSync } from 'node:child_process'
 import { dirname } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
-import { catBatch, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
+import { catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
 import { shellRefsOf, shellTargetRel, mismatchedShellBinding } from './lib/rn-shell-refs.mjs'
 // 路由解析复用造页器那一份(parseMiniappRoutes)—— 本门 C3 与 C8 判的都是"在册路由",
 // 自己再写一条正则就是第二份真相,而路由清单两头一漂,C3/C8 会各自读出不同的"在册"集合(§0.6)。
@@ -67,6 +67,25 @@ const REMOTE_PACK_REL = 'apps/miniapp-taro/src/i18n/generated/remote-locales.gen
 const MIRROR_MARK_RE = /^\/\/ ?镜像 (packages\/app\/src\/\S+)/m
 /** 真复用的两种形态:直接渲染共享屏,或承载 RN 壳 */
 const REUSE_IMPORT_RE = /from '@(?:ihui\/rn-app|rn-shells)[^']*'/
+/**
+ * 取面射程 = 本门所有可能读到的正文所在的树(2026-11-04 立)。
+ * 依据不是猜:消费面(CONSUMERS 两棵树)、壳(@rn-shells → apps/mobile-rn/src)、
+ * 共享屏与桶(@ihui/rn-app → packages/app/src)、兼容层/生成物/词包/app.config
+ * (apps/miniapp-taro,含 types/ 下的派生 declare 件)。闭包解析器 toRel 只认这四种形态,
+ * 射程外的说明符一律 isBare ⇒ 不进图,所以这三棵树就是本门取面的上界。
+ * 壳树取整棵(不是 src/):页会 `require('../../assets/images/...')`,
+ * 资源图与 app.json/package.json 也在闭包射程内(实测剩下的 73 个落空探路全在这里)。
+ */
+const PRELOAD_DIRS = ['packages/app/src', 'apps/mobile-rn', 'apps/miniapp-taro']
+/** 枚举等**同步**子进程的硬超时:超时抛错 ⇒ 主流程落「未判定」,不静默绿也不冒红。 */
+const LIST_TIMEOUT_MS = 60000
+/** 面 → 正文表(同一次运行内跨 reader 共享;三档面互不串用) */
+const FACE_TEXTS = new Map()
+/** 面 → 该面在射程内的**全部路径**清单(用来判"确认不存在",不为此再起 git 进程) */
+const FACE_PATHS = new Map()
+/** 取正文的候选后缀(解析器探路(每条 9 个候选)只会问这一族;不在族内仍回落到单批问 git) */
+const PRELOAD_EXT_RE = /\.(ts|tsx|js|jsx|mjs|cjs|json)$/
+const withinPreload = (rel) => PRELOAD_DIRS.some((d) => rel.startsWith(`${d}/`))
 
 /** 判定面选择一律走取材层(§0.4):两面同给当场判死 */
 function faceFlags(argv) {
@@ -93,6 +112,7 @@ function makeReader(face) {
       maxBuffer: 1 << 26,
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
+      timeout: LIST_TIMEOUT_MS, // 旧实现没有 timeout ⇒ 断言面卡死时门跟着一起卡死(票面事实)
     })
     return out
       .trim()
@@ -100,11 +120,52 @@ function makeReader(face) {
       .filter(Boolean)
       .map((l) => (face === 'head' ? l.replace(/^HEAD:/, '') : l))
   }
+  const specOf = (rel) => (face === 'staged' ? `:${rel}` : `HEAD:${rel}`)
+  /** 面内正文缓存(含"该面没有这份件"= null):命中就不再起子进程。 */
+  const knownTexts = () => {
+    // 按面共享(同一次运行内 C4/C10 会各造一个 head reader):面是快照,读第二遍没有新事实
+    if (!FACE_TEXTS.has(face)) FACE_TEXTS.set(face, new Map())
+    return FACE_TEXTS.get(face)
+  }
   /**
-   * 批量取正文:一次 catBatch 取完整批。
-   * 为什么必须批量而不是逐枚 read():消费面现读 467 个文件,逐枚起 git 进程实测把这道门
-   * 拖到 2 分钟以上(超时)⇒ 门一慢就没人跑,等于没装车;而 §0.4 要求"清单与内容同面同轮",
-   * 同轮正是靠一次批取完成的。取不到的路径落 null,由调用方判「未判定」。
+   * 整面一次读满(2026-11-04 立 —— 本门"跑不完"的根因不是 git 快照大,而是派生次数)。
+   *
+   * 实测事实(本机,不是推断):旧实现每次 readMany 都要起一对
+   * `git cat-file --batch-check` + `git cat-file --batch`;而 C10 的闭包解析
+   * (carriedKeysFromRepo → makeBatchResolver / walkClosure 的 readBatch → safeOne)是
+   * **逐说明符**问一次 ⇒ 单个承载页闭包就能问上百次,整门要问上千次。单跑 60s 现场:
+   * node CPU 仅 1.7s、已 spawn 87 个子进程、仍未进入输出阶段;同机单次 git 派生
+   * 实测 0.6~1.1s ⇒ 全量档 >15 分钟跑不完(票面 14:54:51 启动、15:09:47 仍在跑)。
+   *
+   * 口径一字未改:仍是同一个面、同一次判定、取不到 = null。变的只是"一次"的粒度 ——
+   * 射程(PRELOAD_DIRS)内的正文一次性进内存;射程外的路径仍走同面单批(实测清单里没有),
+   * 并把结果(含 null)一并记进缓存,否则解析器的候选探路(每条 9 个候选)会继续逐条起进程。
+   */
+  const preload = () => {
+    const faceTexts = knownTexts()
+    if (faceTexts.size > 0) return faceTexts
+    const args =
+      face === 'staged'
+        ? ['ls-files', '-c', '--', ...PRELOAD_DIRS]
+        : ['ls-tree', '-r', '--name-only', 'HEAD', '--', ...PRELOAD_DIRS]
+    // 枚举走取材层(绝对路径 git + quotepath + 数字 timeout),不自拼第二套派生
+    const out = gitRaw(args, ROOT, { maxBuffer: 1 << 26, timeout: LIST_TIMEOUT_MS })
+    const rels = out
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean)
+    FACE_PATHS.set(face, new Set(rels))
+    const textRels = rels.filter((r) => PRELOAD_EXT_RE.test(r))
+    const got = catBatch(ROOT, textRels.map(specOf))
+    for (const rel of textRels) faceTexts.set(rel, got.get(specOf(rel)) ?? null)
+    // 面上存在但非文本的件(图片等):旧实现会把它的**字节**当正文返回并计入闭包文件数。
+    // 它们不可能带 import/键,记为 "" 与原口径等价(不然闭包文件数会凭空少 7 枚),且不再读字节。
+    for (const rel of rels) if (!faceTexts.has(rel)) faceTexts.set(rel, '')
+    return faceTexts
+  }
+  /**
+   * 批量取正文:一律经上面的面内缓存。取不到的路径 = null(该面没有这份件),git 派生故障抛错
+   * ⇒ 调用方落「未判定」,不回落另一个面(§0.4)。
    */
   const readMany = (rels) => {
     const uniq = [...new Set(rels)]
@@ -113,11 +174,33 @@ function makeReader(face) {
       for (const rel of uniq) map.set(rel, readWorktreeFile(ROOT, rel))
       return map
     }
-    const prefix = face === 'staged' ? ':' : 'HEAD:'
-    const specs = uniq.map((r) => `${prefix}${r}`)
-    const got = catBatch(ROOT, specs)
+    const known = preload()
+    const onFace = FACE_PATHS.get(face) ?? new Set()
     const map = new Map()
-    for (const rel of uniq) map.set(rel, got.get(`${prefix}${rel}`) ?? null)
+    const miss = []
+    for (const rel of uniq) {
+      if (known.has(rel)) {
+        map.set(rel, known.get(rel))
+        continue
+      }
+      // 预读清单 = 该面在这三棵树上的**完整**路径清单 ⇒ 不在清单里就是"该面没有这份件"。
+      // 解析器探路(每条说明符 9 个候选:裸路径 + 4 个后缀 + 4 个 index 后缀)此前每一个
+      // 落空候选都单独起了一次 git,实测 201 次派生 / 68s(全门 70s)就是这么来的。
+      // 带 `..` 的未归一路径不在此判(它可能指到清单外的真实文件),仍走下面的单批问 git。
+      if (onFace.has(rel) || (withinPreload(rel) && !rel.split('/').includes('..'))) {
+        map.set(rel, null)
+        continue
+      }
+      miss.push(rel)
+    }
+    if (miss.length > 0) {
+      const got = catBatch(ROOT, miss.map(specOf))
+      for (const rel of miss) {
+        const v = got.get(specOf(rel)) ?? null
+        known.set(rel, v)
+        map.set(rel, v)
+      }
+    }
     return map
   }
   return { face, label: face === 'staged' ? '索引 blob' : face === 'worktree' ? '工作树磁盘(人工逃生舱)' : 'HEAD blob', listFiles, readMany }
