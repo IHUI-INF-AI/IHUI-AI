@@ -70,7 +70,7 @@ _RECORDS_LIMIT_MAX = 200
 _DAILY_DAYS_DEFAULT = 30
 _DAILY_DAYS_MAX = 365
 
-# 每日快照的日界与调度器同一时区(08:05 签到 / 08:10 快照均为 Asia/Shanghai)
+# 每日快照的日界与调度器同一时区(00:05/08:05 签到 / 08:10 快照均为 Asia/Shanghai)
 _CN_TZ = ZoneInfo("Asia/Shanghai")
 
 
