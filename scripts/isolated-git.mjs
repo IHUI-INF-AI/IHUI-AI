@@ -30,10 +30,10 @@
  * - `IHUI_GATE_FAST` 等既有开关一字未动;拒绝 `--no-verify` / `-n` / `HUSKY=0`;
  * - 只提交 `--` 之后声明的路径:索引以 HEAD 为基,`git diff --cached` 里出现声明集之外的
  *   条目即中止(不把别席的在飞件交出去)。
- * - **共享索引一个字节都不写**:提交后共享 `.git/index` 相对新 HEAD 会"落后一版"(表现为
- *   `git status` 把这些路径显示为待提交的回退)。这是刻意的——写它就得跟别的会话抢
- *   `index.lock` 并可能清掉别人 staged 的路径;下一条 `safe-commit`(§12 Step 1 `reset HEAD`)
- *   会自愈。别在本通道之后再裸 `git commit`。
+ * - **共享索引不与之争写**:提交时不读不写共享 `.git/index`;提交成功后,仅当它「提交前
+ *   本来就干净 + 全程字节哈希未变 + `.git/index.lock` 拿得到」时,才用锁文件 CAS 把它推进
+ *   到新 HEAD(避免留下"反向暂存"让别的会话误以为我们删了文件)。任一条件不成立就原样
+ *   不动 —— 别人的 staged 一个字节都不覆盖,留给下一条 `safe-commit`(§12 Step 1)自愈。
  *
  * 用法:
  *   node scripts/isolated-git.mjs commit -m "<提交标题>" -- <路径...>
@@ -45,7 +45,19 @@
 
 import { spawnSync } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
-import { existsSync, mkdirSync, readdirSync, rmSync, rmdirSync } from 'node:fs'
+import {
+  closeSync,
+  existsSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  readdirSync,
+  renameSync,
+  rmSync,
+  rmdirSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs'
 import { dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -100,6 +112,13 @@ export function childEnv(indexFile, baseEnv = process.env) {
   delete env.GIT_OBJECT_DIRECTORY
   delete env.GIT_ALTERNATE_OBJECT_DIRECTORIES
   delete env.GIT_QUARANTINE_PATH
+  return env
+}
+
+/** 操作"共享索引"时把 GIT_INDEX_FILE 也剥掉,确保读/写的是仓库默认索引。 */
+export function cleanGitEnv(baseEnv = process.env) {
+  const env = childEnv('', baseEnv)
+  delete env.GIT_INDEX_FILE
   return env
 }
 
@@ -236,8 +255,9 @@ function sleepMs(ms) {
  * 这样即便别的会话在上一轮把 HEAD 推前了,也不会拿旧索引去建一枚把别人改动退回去的提交
  * (2026-09-26 bf286534bd 同型事故;native `--only` 也有同一个理论窗口,这里事后还核验一次)。
  */
-export function commitWithIndex({ gitCwd, env, commitOpts, paths, log = console }) {
+export function commitWithIndex({ gitCwd, env, gitDir, commitOpts, paths, log = console }) {
   const ctx = { gitCwd, env }
+  const indexFile = env.GIT_INDEX_FILE
   const declared = new Set(paths.map((p) => normalizePath(gitCwd, p)))
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
     const base = gitOut(['rev-parse', 'HEAD'], ctx)
@@ -258,7 +278,15 @@ export function commitWithIndex({ gitCwd, env, commitOpts, paths, log = console 
     }
     const res = rawGit(['commit', ...commitOpts], { ...ctx, allowFail: true })
     if (res.status === 0) {
-      verifyLanded({ ctx, base, declared, stdout: res.stdout, log })
+      const sha = verifyLanded({ ctx, base, declared, stdout: res.stdout, log })
+      refreshSharedIndex({
+        gitCwd,
+        gitDir,
+        indexFile,
+        base,
+        committedSha: sha,
+        log,
+      })
       return 0
     }
     if (isLockBusy(res.stderr) && attempt < MAX_ATTEMPTS) {
@@ -276,7 +304,9 @@ export function commitWithIndex({ gitCwd, env, commitOpts, paths, log = console 
 /** 提交落地后的只读核验:父提交仍是本轮基线、载荷仍等于声明集。 */
 export function verifyLanded({ ctx, base, declared, stdout, log = console }) {
   const fromStdout = String(stdout || '').match(/\[[^\]]*\s([0-9a-f]{7,40})\]/)?.[1]
-  const sha = fromStdout || gitOut(['rev-parse', 'HEAD'], ctx)
+  const sha = fromStdout
+    ? gitOut(['rev-parse', fromStdout], ctx)
+    : gitOut(['rev-parse', 'HEAD'], ctx)
   const parents = gitOut(['show', '--no-patch', '--format=%P', sha], ctx)
     .split(/\s+/)
     .filter(Boolean)
@@ -297,6 +327,55 @@ export function verifyLanded({ ctx, base, declared, stdout, log = console }) {
     )
   }
   console.info(`✅ 已提交 ${sha.slice(0, 7)} (私有索引 ${INDEX_DIR_NAME})`)
+  return sha
+}
+
+/**
+ * 提交后把**共享索引**推进到新 HEAD —— 只在"共享索引此刻恰好等于本提交的父树"时做:
+ * 说明里面没有任何人 staged 的内容,推进只是把陈旧的一版追上,不会丢别人东西。
+ * 先抢 `.git/index.lock` 再复核(拿到锁后别的写者进不来),条件不成立立即放锁原样不动,
+ * 留给下一条 `safe-commit`(§12 Step 1)自愈。
+ */
+export function refreshSharedIndex({
+  gitCwd,
+  gitDir,
+  indexFile,
+  base,
+  committedSha,
+  log = console,
+}) {
+  if (gitOut(['rev-parse', 'HEAD'], { gitCwd, env: cleanGitEnv() }) !== committedSha) return false
+  const sharedIndex = join(gitDir, 'index')
+  const lock = join(gitDir, 'index.lock')
+  let fd
+  try {
+    fd = openSync(lock, 'wx')
+  } catch {
+    return false
+  }
+  try {
+    closeSync(fd)
+    const stillOurs = gitOut(['rev-parse', 'HEAD'], { gitCwd, env: cleanGitEnv() }) === committedSha
+    const indexIsParent =
+      rawGit(['diff-index', '--cached', '--quiet', base], {
+        gitCwd,
+        env: cleanGitEnv(),
+        allowFail: true,
+      }).status === 0
+    if (!stillOurs || !indexIsParent) return false
+    writeFileSync(lock, readFileSync(indexFile))
+    renameSync(lock, sharedIndex)
+    return true
+  } catch (e) {
+    log.warn?.(`共享索引 CAS 刷新失败(不影响本次提交): ${e?.message ?? e}`)
+    return false
+  } finally {
+    try {
+      unlinkSync(lock)
+    } catch {
+      /* rename 成功后 lock 已不存在 */
+    }
+  }
 }
 
 const USAGE = `usage:
@@ -323,16 +402,18 @@ export function main(argv = process.argv.slice(2)) {
     console.error(`❌ ${e?.message ?? e}`)
     return 2
   }
-  const indexDir = join(gitDirOf(gitCwd), INDEX_DIR_NAME)
+  const gitDir = gitDirOf(gitCwd)
+  const indexDir = join(gitDir, INDEX_DIR_NAME)
   mkdirSync(indexDir, { recursive: true })
   const swept = sweepStale(indexDir)
   if (swept.length) console.warn(`🧹 已清理 ${swept.length} 份死进程残留索引:${swept.join(', ')}`)
-  const indexFile = indexPathFor(dirname(indexDir))
+  const indexFile = indexPathFor(gitDir)
   ACTIVE_INDEXES.add(indexFile)
   try {
     return commitWithIndex({
       gitCwd,
       env: childEnv(indexFile),
+      gitDir,
       commitOpts: parsed.commitOpts,
       paths: parsed.paths,
     })
