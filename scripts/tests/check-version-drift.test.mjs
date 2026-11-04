@@ -11,7 +11,7 @@
  */
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { findVersionDrift, MOBILE_JUDGE_MESSAGES } from '../check-version-drift.mjs'
+import { findVersionDrift, collectInputs, MOBILE_JUDGE_MESSAGES } from '../check-version-drift.mjs'
 
 /** 一份"全绿"的基线输入,各用例只改其中一项 */
 function baseline(over = {}) {
@@ -31,6 +31,13 @@ function baseline(over = {}) {
     feedRouteJs: "import { resolveDesktopFeedForUpdater } from '@/config/desktop-feed-live'",
     feedRouteApi: "import { resolveDesktopFeedForUpdater } from '@/config/desktop-feed-live'",
     workflows: { 'sync-downloads.yml': 'run: node scripts/sync-downloads.mjs' },
+    wxtConfig: "manifest: { name: 'IHUI AI', minimum_chrome_version: '114' }",
+    extensionSources: {
+      'apps/extension/lib/agent-control-bridge.ts':
+        'function extensionVersion(): string { return chrome.runtime.getManifest().version }',
+      'apps/extension/entrypoints/sidepanel/pages/AboutPage.tsx':
+        'const version = chrome.runtime.getManifest().version',
+    },
     ...over,
   }
 }
@@ -209,6 +216,86 @@ describe('H 桌面安装包不得回到 offlineInstaller', () => {
 
   it('配置缺 bundle 段时不得崩(旧形态快照)', () => {
     assert.deepEqual(findVersionDrift(baseline({ tauriConf: { version: '0.1.75' } })), [])
+  })
+})
+
+describe('J 扩展端版本单一源头', () => {
+  it('J1 wxt.config.ts 写死 manifest.version 要被抓(包内版本与文件名版本分头走)', () => {
+    const v = findVersionDrift(
+      baseline({ wxtConfig: "manifest: { name: 'IHUI AI', version: '1.0.0' }" }),
+    )
+    assert.equal(v.length, 1)
+    assert.match(v[0], /J1 apps\/extension\/wxt\.config\.ts/)
+  })
+
+  it('J1 缺省不声明版本(交给 WXT 回落 package.json)不得被误伤', () => {
+    assert.deepEqual(findVersionDrift(baseline()), [])
+  })
+
+  it('J2 下载页 extension 资产 href 内嵌版本号要被抓(bump 后静态兜底链直接 404)', () => {
+    const v = findVersionDrift(
+      baseline({
+        downloadsConfig:
+          "extension: { assets: [{ href: '/downloads/extension/IHUI-AI-Extension-chrome-v1.0.0.zip' }] }",
+      }),
+    )
+    assert.equal(v.length, 1)
+    assert.match(v[0], /J2 downloads\.config\.ts/)
+  })
+
+  it('J2 由 extensionPkg.version 拼出的 href 不得被误伤', () => {
+    const ok = baseline({
+      downloadsConfig:
+        'extension: { assets: [{ href: `/downloads/extension/IHUI-AI-Extension-chrome-v${extensionPkg.version}.zip` }] }',
+    })
+    assert.deepEqual(findVersionDrift(ok), [])
+  })
+
+  it('J3 打进包的源码里手搓版本常量要被抓(向用户/服务端上报不存在的版本)', () => {
+    const v = findVersionDrift(
+      baseline({
+        extensionSources: {
+          'apps/extension/entrypoints/sidepanel/pages/AboutPage.tsx': "const VERSION = '1.0.0'",
+        },
+      }),
+    )
+    assert.equal(v.length, 1)
+    assert.match(v[0], /J3 apps\/extension\/entrypoints\/sidepanel\/pages\/AboutPage\.tsx/)
+  })
+
+  it('J3 注释里出现的版本字样不得被误伤(判字面量的门只遮注释)', () => {
+    const ok = baseline({
+      extensionSources: {
+        'apps/extension/lib/x.ts':
+          "// 历史事故:const VERSION = '1.0.0' 曾写死在这里\nexport const a = 1",
+      },
+    })
+    assert.deepEqual(findVersionDrift(ok), [])
+  })
+
+  it('J3 采集面枚举到 0 个文件判死(覆盖面坏了不能冒绿)', () => {
+    const v = findVersionDrift(baseline({ extensionSources: {} }))
+    assert.equal(v.length, 1)
+    assert.match(v[0], /J3 extensionSources 枚举到 0/)
+  })
+
+  it('取不到 wxt.config.ts 时不判(未判定不猜,也不冒红)', () => {
+    assert.deepEqual(findVersionDrift(baseline({ wxtConfig: null })), [])
+  })
+
+  it('接线锁:真实采集面必须把 wxt.config.ts 与扩展源码都送到判据前', () => {
+    // 这一条锁的是"输入接上了",不是"值等于几"—— 判据写了但采集面没带这两个键,
+    // J 维就永远不会响(本仓反复出现的那型"造好没装车")。
+    const inputs = collectInputs()
+    assert.equal(typeof inputs.wxtConfig, 'string', 'collectInputs 未带回 wxt.config.ts')
+    assert.ok(Object.keys(inputs.extensionSources).length > 0, 'collectInputs 未枚举到任何扩展源码')
+    for (const rel of [
+      'apps/extension/lib/agent-control-bridge.ts',
+      'apps/extension/entrypoints/sidepanel/pages/AboutPage.tsx',
+    ]) {
+      assert.ok(inputs.extensionSources[rel] !== undefined, `采集面漏了 ${rel}`)
+    }
+    assert.deepEqual(findVersionDrift(inputs), [], '真实仓库面上 J 维不该有违规')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -231,7 +231,8 @@ node scripts/check-gate-wiring.mjs            # 「门造好了但没装车」�
 F 两条更新器 feed route 必须走 `resolveDesktopFeedForUpdater`(不得退回读静态快照);
 G 不得再出现 bot 裸 `git push` 到 main(该路径在 protected main 上恒被 GH006 拒,
 GITHUB_TOKEN 推送不触发 workflow ⇒ required check 永不出现,只会制造每天一次的假红)。
-自检 `node --test scripts/tests/check-version-drift.test.mjs`(13/13,每条判据都配了能被它抓住的反例)。
+J 扩展端版本单一源头 —— `apps/extension/wxt.config.ts` 不得写死 `manifest.version`(缺省时 WXT 回落 `apps/extension/package.json`,与 `sync-downloads` 的文件名同源),下载页 extension 资产 href 必须由 `extensionPkg.version` 拼出,扩展源码里也不许留手搓版本常量(运行期取 `chrome.runtime.getManifest().version`)。
+自检 `node --test scripts/tests/check-version-drift.test.mjs`(每条判据都配了能被它抓住的反例;这里不写用例总数 —— 数字比代码先腐)。
 立因:桌面下载页与更新器 feed 曾静默停在 0.1.54 四天,而仓库已发到 0.1.58;
 同一时期安卓侧三处版本号互相矛盾、Capacitor 壳写死 `"1.0"` 从不跟真实版本走。
 ---
@@ -5830,7 +5831,8 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 `versionName`/`versionCode`;E 下载页 web/mobile/extension/cli 四端不得写死语义版本字面量;
 F 两条更新器 feed route 必须走 `resolveDesktopFeedForUpdater`(不得退回读静态快照);
 G 不得再出现 bot 裸 `git push` 到 main(该路径在 protected main 上恒被 GH006 拒,
-自检 `node --test scripts/tests/check-version-drift.test.mjs`(13/13,每条判据都配了能被它抓住的反例)。
+J 扩展端版本单一源头 —— `apps/extension/wxt.config.ts` 不得写死 `manifest.version`(缺省时 WXT 回落 `apps/extension/package.json`,与 `sync-downloads` 的文件名同源),下载页 extension 资产 href 必须由 `extensionPkg.version` 拼出,扩展源码里也不许留手搓版本常量(运行期取 `chrome.runtime.getManifest().version`)。
+自检 `node --test scripts/tests/check-version-drift.test.mjs`(每条判据都配了能被它抓住的反例;这里不写用例总数 —— 数字比代码先腐)。
 立因:桌面下载页与更新器 feed 曾静默停在 0.1.54 四天,而仓库已发到 0.1.58;
 同一时期安卓侧三处版本号互相矛盾、Capacitor 壳写死 `"1.0"` 从不跟真实版本走。
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 88 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
@@ -6298,7 +6300,8 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
   F 两条更新器 feed route 必须走 `resolveDesktopFeedForUpdater`(不得退回读静态快照);
   G 不得再出现 bot 裸 `git push` 到 main(该路径在 protected main 上恒被 GH006 拒,
   GITHUB_TOKEN 推送不触发 workflow ⇒ required check 永不出现,只会制造每天一次的假红);
-  自检 `node --test scripts/tests/check-version-drift.test.mjs`(13/13,每条判据都配了能被它抓住的反例)。
+  J 扩展端版本单一源头 —— `apps/extension/wxt.config.ts` 不得写死 `manifest.version`(缺省时 WXT 回落 `apps/extension/package.json`,与 `sync-downloads` 的文件名同源),下载页 extension 资产 href 必须由 `extensionPkg.version` 拼出,扩展源码里也不许留手搓版本常量(运行期取 `chrome.runtime.getManifest().version`)。
+自检 `node --test scripts/tests/check-version-drift.test.mjs`(每条判据都配了能被它抓住的反例;这里不写用例总数 —— 数字比代码先腐)。
   立因:桌面下载页与更新器 feed 曾静默停在 0.1.54 四天,而仓库已发到 0.1.58;
   同一时期安卓侧三处版本号互相矛盾、Capacitor 壳写死 `"1.0"` 从不跟真实版本走。
   | 指标                                                                                | 现值           | 取数键                                                                                                                                                                |
@@ -7821,7 +7824,8 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 `versionName`/`versionCode`;E 下载页 web/mobile/extension/cli 四端不得写死语义版本字面量;
 F 两条更新器 feed route 必须走 `resolveDesktopFeedForUpdater`(不得退回读静态快照);
 G 不得再出现 bot 裸 `git push` 到 main(该路径在 protected main 上恒被 GH006 拒,
-自检 `node --test scripts/tests/check-version-drift.test.mjs`(13/13,每条判据都配了能被它抓住的反例)。
+J 扩展端版本单一源头 —— `apps/extension/wxt.config.ts` 不得写死 `manifest.version`(缺省时 WXT 回落 `apps/extension/package.json`,与 `sync-downloads` 的文件名同源),下载页 extension 资产 href 必须由 `extensionPkg.version` 拼出,扩展源码里也不许留手搓版本常量(运行期取 `chrome.runtime.getManifest().version`)。
+自检 `node --test scripts/tests/check-version-drift.test.mjs`(每条判据都配了能被它抓住的反例;这里不写用例总数 —— 数字比代码先腐)。
 立因:桌面下载页与更新器 feed 曾静默停在 0.1.54 四天,而仓库已发到 0.1.58;
 同一时期安卓侧三处版本号互相矛盾、Capacitor 壳写死 `"1.0"` 从不跟真实版本走。
   <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 88 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
