@@ -19,6 +19,7 @@ import {
   gateTicketByHumanValve,
   VALVE_LIST_JSON,
   classifySessionWrites,
+  normalizeSessionRuntime,
   judgeLandingProof,
   WRITE_TOOL_NAMES,
 } from '../auto-evolve.mjs'
@@ -546,5 +547,46 @@ test('⑭c 落账腿真的走私有索引通道,且不再指 safe-commit(反向�
   const fn = src.slice(src.indexOf('export function runLandCommit'), src.indexOf('async function runOnce('))
   assert.ok(fn.length > 400, 'runLandCommit 函数体切片取到了(锚点漂了就要同步本锁)')
   assert.ok(fn.includes('recordGatesThenCommit({') && fn.includes('recordForCommit({'), '提交后两腿必须接上(否则每枚自主提交都被读成没跑门/无归属)')
+})
+
+/**
+ * ⑮ 会话运行时归一(2026-11-05 立)。
+ * 立因是台账原文,不是推测:16:09:00 那轮 `session-failed exit=1`,stderr 按 GBK 码页解出来是
+ * 「'node' 不是内部或外部命令…」⇒ 模板首 token 是裸 `node`,而派发方是 nssm 服务身份的守护,
+ * 服务读机器级 PATH(本机实测那是死目录)。而 `preflightSessionRunner` 放行了它 —— 它只核验模板里的
+ * **绝对路径 token**(tsx/cli.mjs、index.ts 全在位),可执行文件能不能解析这一格不在射程 ⇒
+ * 器物在库、核验在跑、产出恒为零(§0.9 同一型)。正解用派发进程自己的运行时:当次取、不写死盘符(§0)。
+ */
+test('⑮a 裸 node / node.exe 换成当次运行时,其余一字不动', () => {
+  const filled = 'node D:/R/apps/cli/node_modules/tsx/dist/cli.mjs D:/R/apps/cli/src/index.ts --json --max-iterations 40'
+  const r = normalizeSessionRuntime(filled, 'D:/DevEnv/runtimes/node.exe')
+  assert.equal(r.replaced, true)
+  assert.ok(r.cmd.startsWith('D:/DevEnv/runtimes/node.exe '), `首 token 必须被换掉,实得:${r.cmd.slice(0, 40)}`)
+  assert.ok(r.cmd.includes('--max-iterations 40'), '模板其余部分必须逐字保留')
+  assert.equal(normalizeSessionRuntime('node.exe D:/a.mjs', 'D:/x/node.exe').replaced, true, 'node.exe 写法同档')
+})
+
+test('⑮b 反向锁:自定义 runner 与取不到路径都不得改写(不猜、不静默改)', () => {
+  const own = normalizeSessionRuntime('py -3.12 D:/a.py', 'D:/x/node.exe')
+  assert.equal(own.replaced, false, '首 token 不是裸 node ⇒ 原样(自定义 runner 必须照原样跑)')
+  assert.equal(own.cmd, 'py -3.12 D:/a.py')
+  const noPath = normalizeSessionRuntime('node D:/a.mjs', '')
+  assert.equal(noPath.replaced, false, 'execPath 取不到 ⇒ 不猜路径')
+  assert.equal(noPath.cmd, 'node D:/a.mjs', '取不到就原样交给 cmd,失败会如实落 session-failed 而不是被假运行时顶掉')
+  const abs = normalizeSessionRuntime('D:/already/node D:/a.mjs', 'D:/x/node.exe')
+  assert.equal(abs.replaced, false, '已经写绝对路径的模板不得被二次改写')
+})
+
+test('⑮c 带空格的运行时必须加引号(cmd.exe 语义),且只加这一对', () => {
+  const r = normalizeSessionRuntime('node D:/a.mjs --json', 'C:/Program Files/node.exe')
+  assert.equal(r.cmd, '"C:/Program Files/node.exe" D:/a.mjs --json', `实得:${r.cmd}`)
+  assert.equal((r.cmd.match(/"/g) || []).length, 2, '模板本身零内嵌引号是既有纪律,这里只许加一对')
+})
+
+test('⑮d 接线锁:真起子进程的两处都必须过归一,且读数进台账', () => {
+  const src = readFileSync(new URL('../auto-evolve.mjs', import.meta.url), 'utf8')
+  const n = (src.match(/normalizeSessionRuntime\(/g) || []).length
+  assert.ok(n >= 3, `派发档 + probe 档两处调用 + 定义至少 3 处命中,实得 ${n} ⇒ 少一处就是那条通道仍依赖 PATH`)
+  assert.ok(/runtimeNormalized: res\.runtimeNormalized \?\? null/.test(src), '归一与否必须记进台账(否则下次只剩一个 exit=1 没人看得见成因)')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

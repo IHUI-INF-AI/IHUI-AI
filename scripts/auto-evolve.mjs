@@ -296,6 +296,35 @@ export function fillTemplate(tpl, { promptFile, ticketLine, ticketKey }) {
  * (会话文件不落 usage,文本模式只有人读排版)。
  * 取最后一个 complete 行;没读到 / 字段坏 ⇒ measured:false —— 不把"量不到"读成 0。
  */
+/**
+ * 会话可执行文件的运行时归一(2026-11-05 立)。
+ * 立因(台账原样,不是推测):16:09 那一轮 `session-failed exit=1`,stderr 按 GBK 码页解出来是
+ * 「'node' 不是内部或外部命令,也不是可运行的程序或批处理文件」—— 模板第一个 token 是裸 `node`,
+ * 而派发方是 nssm 服务身份的守护进程,**服务身份读的是机器级 PATH(实测那是个死目录)**,
+ * 用户级 PATH 里的 node 根本不在其中 ⇒ 会话从来没起来过,而 `preflightSessionRunner` 放行了它:
+ * 它核验的是模板里的**绝对路径 token**(tsx/cli.mjs、apps/cli/src/index.ts),那些全在;
+ * 可执行文件本身能不能解析,这一格当时不在射程内 ⇒ "器物在库、核验在跑、依然零产出"的同型缺口
+ * (§0.9:判不到就是没有判)。
+ * 正解不是往机器级 PATH 里塞 node(那是改机器事实,换机即复犯),而是**用派发进程自己的运行时**:
+ * 它就是 node,子会话必然该用同一个可执行文件。路径当次取,不写死盘符(§0)。
+ * 失效方向:取不到 execPath / 首 token 不是裸 node ⇒ 原样返回且 `replaced:false`,
+ * 绝不猜一个路径出来(§0.3),也不静默改写非 node 的模板(自定义 runner 必须照原样跑)。
+ * @param {string} cmdText 模板填充后的完整命令
+ * @param {string} [execPath] 当前进程可执行文件(测试注入用)
+ * @returns {{cmd:string, replaced:boolean, why:string}}
+ */
+export function normalizeSessionRuntime(cmdText, execPath = process.execPath) {
+  const t = String(cmdText ?? '')
+  const m = /^(\s*)(?:node|node\.exe)(\s)/i.exec(t)
+  if (!m) return { cmd: t, replaced: false, why: '首 token 不是裸 node ⇒ 不动(自定义 runner 照原样)' }
+  const exe = String(execPath ?? '')
+  if (!exe || !/[\\/]/.test(exe)) return { cmd: t, replaced: false, why: `当前进程可执行路径取不到(${JSON.stringify(exe).slice(0, 24)})⇒ 不猜,原样执行` }
+  // cmd.exe 下带空格的路径必须引号包住;模板本身刻意零内嵌引号(见下方 windowsVerbatimArguments 注),
+  // 这里加的那一对是唯一被许可的引号。
+  const quoted = /[\s"]/.test(exe) ? `"${exe}"` : exe
+  return { cmd: m[1] + quoted + m[2] + t.slice(m[0].length), replaced: true, why: `模板首 token 是裸 node ⇒ 换成当前进程运行时(${exe})` }
+}
+
 export function parseSessionUsage(stdout) {
   const lines = String(stdout ?? '').split(/\r?\n/)
   for (let i = lines.length - 1; i >= 0; i--) {
@@ -876,7 +905,9 @@ function dispatchSession(gates, ticket, dryRun) {
     `  在回答里给出工作量评估后正常退出(这是合法退出,但账面仍记为本轮未动手 —— 不会冒充成功)。`,
   ].join('\n')
   writeFileSync(promptFile, promptText, 'utf8')
-  const cmd = fillTemplate(resolved, { promptFile, ticketLine: ticket.text, ticketKey: key })
+  const filled = fillTemplate(resolved, { promptFile, ticketLine: ticket.text, ticketKey: key })
+  const rt = normalizeSessionRuntime(filled)
+  const cmd = rt.cmd
   const t0 = Date.now()
   // windowsVerbatimArguments 必带(同 probe:node 对 cmd.exe 的默认引用改写会毁模板内引号)
   const r = spawnSync('cmd.exe', ['/d', '/s', '/c', cmd], {
@@ -970,6 +1001,10 @@ function dispatchSession(gates, ticket, dryRun) {
     // 也是"清单缺失该催会话还是该改指令"的取数口。未取到 ⇒ null,不用 0 冒充"没写"。
     writeOk: writes ? writes.writeOk : null,
     writeTried: writes ? writes.writeTried : null,
+    // 运行时是否被归一(裸 node ⇒ 当前进程可执行文件)。不记这一格,下次换机/换服务身份时
+    // "会话根本没起来"又会只留下一个 exit=1 的 session-failed,没人看得见是 PATH 的哪一层。
+    runtimeNormalized: rt.replaced,
+    runtimeWhy: rt.why,
   }
 }
 
@@ -1546,7 +1581,7 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
         }
       }
       const res = dispatchSession(gates, ticket, dryRun)
-      record({ mode: dryRun ? 'dryrun' : 'dispatch', action: res.action, ticketKey: key, ticketLine: ticket.text.slice(0, 200), exitCode: res.exitCode ?? null, stopReason: res.stopReason ?? null, durationMs: res.durationMs ?? null, tokens: res.tokens ?? null, tokensMeasured: res.tokensMeasured === true, costUsd: res.costUsd ?? null, transcript: res.transcript ?? null, writeOk: res.writeOk ?? null, writeTried: res.writeTried ?? null, why: res.why ?? '' })
+      record({ mode: dryRun ? 'dryrun' : 'dispatch', action: res.action, ticketKey: key, ticketLine: ticket.text.slice(0, 200), exitCode: res.exitCode ?? null, stopReason: res.stopReason ?? null, durationMs: res.durationMs ?? null, tokens: res.tokens ?? null, tokensMeasured: res.tokensMeasured === true, costUsd: res.costUsd ?? null, transcript: res.transcript ?? null, writeOk: res.writeOk ?? null, writeTried: res.writeTried ?? null, runtimeNormalized: res.runtimeNormalized ?? null, why: res.why ?? '' })
       // O6502 记账腿:只有真派(非 dry-run)且拿到墙钟才进账;记不进去就如实告警,不冒充"额度还够"。
       // 第 3 期④:量到 token 就一并记账(单会话闸 + 24 小时闸的取数口);量不到只记墙钟并留响声。
       if (!dryRun && Number.isFinite(res.durationMs) && res.durationMs > 0) {
@@ -1690,7 +1725,8 @@ async function probeSession({ gates, dryRun = false } = {}) {
       process.exitCode = 2
       return
     }
-    const cmd = fillTemplate(resolvedProbe, { promptFile, ticketLine: 'probe 自检', ticketKey: 'probe' })
+    const filledProbe = fillTemplate(resolvedProbe, { promptFile, ticketLine: 'probe 自检', ticketKey: 'probe' })
+    const cmd = normalizeSessionRuntime(filledProbe).cmd
     const t0 = Date.now()
     // windowsVerbatimArguments 必带:node 对 cmd.exe 有默认引用改写,会把模板里的引号拼进
     // 模块路径(实测 'D:\IHUI-AI\"D:\...\"' 型报错);verbatim + 模板零内嵌引号 = 双保险
