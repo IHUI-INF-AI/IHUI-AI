@@ -2112,7 +2112,8 @@
       "selectAigc": "AI作品を選択(任意)",
       "noAigc": "関連付け可能なAI作品はありません",
       "allowComments": "コメントを許可",
-      "visibility": "公開範囲"
+      "visibility": "公開範囲",
+      "publishFailed": "公開に失敗しました。再試行してください"
     },
     "index": {
       "goPublish": "投稿する",
@@ -2214,7 +2215,8 @@
       "targetGroupEnterprise": "企業",
       "discountNone": "不参加",
       "discountPartial": "一部参加",
-      "discountFull": "全て参加"
+      "discountFull": "全て参加",
+      "saveSuccess": "保存しました"
     }
   },
   "devSpace": {
@@ -2692,7 +2694,8 @@
     "payFailed": "支払いに失敗しました。再試行してください",
     "paying": "支払い中...",
     "purchaseContent": "購入内容",
-    "userAgreement": "《利用規約》"
+    "userAgreement": "《利用規約》",
+    "activateDelayed": "特典の付与が遅延しています。カスタマーサポートへお問い合わせください"
   },
   "study": {
     "todayMinutes": "今日 {n} 分",
@@ -6996,7 +6999,8 @@
     "labelFreeDur": "無料時間",
     "labelSaleType": "販売タイプ",
     "submit": "保存",
-    "submitting": "送信中..."
+    "submitting": "送信中...",
+    "readOnlyHint": "現在編集できません"
   },
   "modelIncome": {
     "accumulated": "累計収入",

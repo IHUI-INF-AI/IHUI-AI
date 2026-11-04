@@ -2112,7 +2112,8 @@
       "selectAigc": "選擇 AI 作品(可選)",
       "noAigc": "暫無可關聯的 AI 作品",
       "allowComments": "允許評論",
-      "visibility": "可見範圍"
+      "visibility": "可見範圍",
+      "publishFailed": "發佈失敗，請重試"
     },
     "index": {
       "goPublish": "去釋出",
@@ -2214,7 +2215,8 @@
       "targetGroupEnterprise": "企業",
       "discountNone": "不參與",
       "discountPartial": "部分參與",
-      "discountFull": "全部參與"
+      "discountFull": "全部參與",
+      "saveSuccess": "儲存成功"
     }
   },
   "devSpace": {
@@ -2692,7 +2694,8 @@
     "payFailed": "支付失敗,請重試",
     "paying": "支付中...",
     "purchaseContent": "購買內容",
-    "userAgreement": "《使用者協議》"
+    "userAgreement": "《使用者協議》",
+    "activateDelayed": "權益發放延遲，請聯繫客服"
   },
   "study": {
     "todayMinutes": "今日 {n} 分鐘",
@@ -6996,7 +6999,8 @@
     "labelFreeDur": "免費時長",
     "labelSaleType": "販售類型",
     "submit": "儲存",
-    "submitting": "提交中..."
+    "submitting": "提交中...",
+    "readOnlyHint": "該項暫未開放修改"
   },
   "modelIncome": {
     "accumulated": "累計收入",

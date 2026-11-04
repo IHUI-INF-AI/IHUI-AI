@@ -43,6 +43,8 @@ vi.mock('../../app/(main)/docs/[slug]/PageClient', () => ({
 
 import {
   STATIC_DOC_SLUGS,
+  STATIC_DOC_SUBPATHS,
+  docsDeepPathGateStatus,
   docsDetailGateStatus,
   extractDocsDetailSlug,
 } from '../lib/docs-detail-gate'
@@ -164,10 +166,43 @@ describe('② 代理档:闸的三态与射程(判据源 docs-detail-gate)', () =
 
   it('静态段与索引页不进探测射程(fetch 一次都不被调)', async () => {
     const seen = stubFetch(() => ({ status: 404, body: MISSING_BODY }))
-    for (const p of ['/docs', '/docs/rag', '/docs/manual/account', '/docs/agent', '/docs/api']) {
+    for (const p of [
+      '/docs',
+      '/docs/rag',
+      '/docs/manual/account',
+      '/docs/manual/faq',
+      '/docs/manual/getting-started',
+      '/docs/agent',
+      '/docs/api',
+    ]) {
       expect(await docsDetailGateStatus(p), p).toBeNull()
     }
     expect(seen).toEqual([])
+  })
+
+  it('多段不存在的文档路径 ⇒ 硬 404,且零后端往返(与单段同一语义)', async () => {
+    const seen = stubFetch(() => ({ status: 404, body: MISSING_BODY }))
+    for (const p of [
+      '/docs/no-such/extra',
+      '/docs/a/b/c',
+      '/docs/quickstart/extra',
+      '/docs/manual/account/extra',
+    ]) {
+      expect(await docsDetailGateStatus(p), p).toBe(404)
+    }
+    expect(seen, '多段路径没有 [slug] 承接,不该探后端').toEqual([])
+  })
+
+  it('纯判据:多段只有静态深层页放行,其余一律 404', () => {
+    expect(docsDeepPathGateStatus('/docs/manual/account')).toBeNull()
+    expect(docsDeepPathGateStatus('/docs/manual/faq')).toBeNull()
+    expect(docsDeepPathGateStatus('/docs/manual/account/')).toBeNull()
+    expect(docsDeepPathGateStatus('/docs/no-such/extra')).toBe(404)
+    expect(docsDeepPathGateStatus('/docs/a/b/c')).toBe(404)
+    expect(docsDeepPathGateStatus('/docs/quickstart/extra')).toBe(404)
+    expect(docsDeepPathGateStatus('/docs/plain-ghost')).toBeNull()
+    expect(docsDeepPathGateStatus('/docs')).toBeNull()
+    expect(docsDeepPathGateStatus('/help/a/b')).toBeNull()
   })
 
   it('纯判据:只有单段 /docs/<x> 算详情;多段、非 docs、坏编码一律不猜', () => {
@@ -191,6 +226,28 @@ describe('③ 静态段清单 ⇔ 目录树现读等价(双向)', () => {
       .filter((entry) => existsSync(path.join(docsRoot, entry, 'page.tsx')))
       .sort()
     expect([...STATIC_DOC_SLUGS].sort()).toEqual(onDisk)
+  })
+
+  it('STATIC_DOC_SUBPATHS 与 app/(main)/docs 下含 page.tsx 的二级目录逐字节同集', () => {
+    const docsRoot = path.resolve(
+      path.dirname(fileURLToPath(import.meta.url)),
+      '../../app/(main)/docs',
+    )
+    const onDisk: string[] = []
+    for (const top of readdirSync(docsRoot)) {
+      if (top === '[slug]') continue
+      const topDir = path.join(docsRoot, top)
+      let children: string[]
+      try {
+        children = readdirSync(topDir)
+      } catch {
+        continue
+      }
+      for (const child of children) {
+        if (existsSync(path.join(topDir, child, 'page.tsx'))) onDisk.push(`${top}/${child}`)
+      }
+    }
+    expect([...STATIC_DOC_SUBPATHS].sort()).toEqual(onDisk.sort())
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

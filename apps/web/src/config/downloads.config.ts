@@ -83,7 +83,7 @@
  *    `desktop-feed.generated.ts` 快照(由 scripts/resolve-desktop-download.mjs 从
  *    GitHub Releases API 动态解析最新 desktop-v* release 资产生成,发版后 CI 自动刷新
  *    并提交回仓库)。
- *  - 快照缺失或资产为空时回退 `DESKTOP_FALLBACK`(最近一次已知值,仅作离线兜底)。
+ *  - 快照资产为空 ⇒ 如实"没有可报的包"(assets 空,端读作未配置),不再供陈迹直链(见 DESKTOP_RELEASES_URL 注记)。
  *  - 每次发版(desktop-vX.Y.Z)后,下载页自动展示新版本号、日期与安装包,无需改代码。
  */
 
@@ -345,38 +345,22 @@ export function resolveWechatHref(): string {
 /* -------------------------------------------------------------------------- */
 
 /**
- * Desktop 兜底元数据(仅当快照 `desktop-feed.generated.ts` 的 assets 为空时使用)。
- * 说明:快照为静态 import,构建期由 webpack 解析,文件缺失会直接构建失败(不存在
- * 优雅降级路径)——因此快照**必须**存在,由 git 跟踪入库 + CI 发版自动刷新双重保障,
- * 如误删请先运行 `pnpm resolve:desktop-download` 重新生成。
- * 正常流程:快照由 scripts/resolve-desktop-download.mjs 从 GitHub Releases API 动态
- * 生成并入库,发版后 CI 自动刷新提交;本常量只是资产解析为空时的最后防线,
- * 值 = 最近一次线上解析结果(0.1.14),**不要手动更新它**,刷新请跑解析脚本。
+ * Desktop 快照不可用时**只剩这一个常量**:GitHub Releases 页址(不是某个具体包)。
+ *
+ * 此前这里还写着 0.1.14 的 version/releaseDate 与两条 exe/msi 直链,自称"最近一次线上解析结果"。
+ * 实测(2026-11-04):那两条 URL 指向的产物在全仓与生产签出都不存在,产物命名早已换成
+ * `AI_0.1.77_*`;而快照 `desktop-feed.generated.ts` 是静态 import、缺失即构建失败 ⇒ 这条"兜底"
+ * 结构上只在**快照被人为清空**时才生效,而那正是"我们不知道有任何包"的状态 ——
+ * 拿一个编出来的旧号顶上,等于给用户一条 404 下载链(§0.3 取不到不猜)。
+ * 现在:快照不可用 ⇒ assets 为空,详情页/下载栏按"未配置"如实显示,刷新出口仍是
+ * `pnpm resolve:desktop-download`。
  */
-const DESKTOP_FALLBACK = {
-  version: '0.1.14',
-  releaseDate: '2026-08-29',
-  githubReleasesUrl: 'https://github.com/IHUI-INF-AI/IHUI-AI/releases',
-  assets: [
-    {
-      href: 'https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-v0.1.14/IHUI.AI_0.1.14_x64-setup.exe',
-      sizeBytes: 237770846,
-      format: 'Windows NSIS exe',
-      arch: 'x64',
-    },
-    {
-      href: 'https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-v0.1.14/IHUI.AI_0.1.14_x64_en-US.msi',
-      sizeBytes: 246292480,
-      format: 'Windows MSI',
-      arch: 'x64',
-    },
-  ],
-} satisfies Pick<PlatformMeta, 'version' | 'releaseDate' | 'githubReleasesUrl' | 'assets'>
+const DESKTOP_RELEASES_URL = 'https://github.com/IHUI-INF-AI/IHUI-AI/releases'
 
 /**
  * 解析 Desktop 端元数据:
  *  - 快照(desktop-feed.generated.ts)存在且资产非空 → 用快照(version/releaseDate/githubReleasesUrl/assets 全动态);
- *  - 否则 → 回退 DESKTOP_FALLBACK(最近一次已知值)。
+ *  - 否则 → 如实"没有可报的包"(assets 空 ⇒ 端读作未配置),不供陈迹直链。
  */
 function resolveDesktopMeta(): Pick<
   PlatformMeta,
@@ -387,11 +371,16 @@ function resolveDesktopMeta(): Pick<
     return {
       version: feed.version,
       releaseDate: feed.releaseDate ?? '',
-      githubReleasesUrl: feed.githubReleasesUrl ?? DESKTOP_FALLBACK.githubReleasesUrl,
+      githubReleasesUrl: feed.githubReleasesUrl ?? DESKTOP_RELEASES_URL,
       assets: feed.assets,
     }
   }
-  return DESKTOP_FALLBACK
+  return {
+    version: undefined,
+    releaseDate: undefined,
+    githubReleasesUrl: DESKTOP_RELEASES_URL,
+    assets: [],
+  }
 }
 
 /**
@@ -494,7 +483,7 @@ export function getPlatformMetaMap(): Record<DownloadPlatform, PlatformMeta> {
       // 运行期由 downloads-live 枚举实物填真实字节与版本;取不到时 UI 显示 '-'。
       assets: [
         {
-          href: '/downloads/extension/IHUI-AI-Extension-chrome-v1.0.0.zip',
+          href: `/downloads/extension/IHUI-AI-Extension-chrome-v${extensionPkg.version}.zip`,
           sizeBytes: 0,
           format: 'Chrome MV3 ZIP',
         },

@@ -50,7 +50,7 @@ export const EXIT_DRIFT = 1
 export const EXIT_UNKNOWN = 2
 
 /** 目标清单形状(唯一真源在 manifest 内;此处只写"必须有哪几条",不写哈希)。 */
-export const REQUIRED_TARGET_IDS = ['guardian-runner', 'judgement-libs', 'agents-ironlaw']
+export const REQUIRED_TARGET_IDS = ['guardian-runner', 'judgement-libs', 'agents-ironlaw', 'git-guardian']
 /**
  * advisory 档(2026-10-30 立):不一致只告警、**不 fail-closed**。
  *

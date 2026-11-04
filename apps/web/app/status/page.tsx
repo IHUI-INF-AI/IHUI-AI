@@ -25,7 +25,8 @@ type IncidentSeverity = 'minor' | 'major' | 'critical'
 
 interface Overview {
   platform: string
-  version: string
+  /** 与 apps/api 同契约:服务端取不到自己的发布版本时如实给 null,页面不渲染那一格 */
+  version: string | null
   uptime: number
   timestamp: string
   services: Record<string, ServiceStatus>
@@ -87,7 +88,7 @@ function parseOverview(d: unknown): Overview | null {
   }
   if (
     typeof d.platform !== 'string' ||
-    typeof d.version !== 'string' ||
+    !(typeof d.version === 'string' || d.version === null) ||
     typeof d.uptime !== 'number' ||
     typeof d.timestamp !== 'string'
   )
@@ -366,7 +367,8 @@ export default async function StatusPage() {
           系统状态
         </h1>
         <p className="mt-0.5 text-body text-muted-foreground">
-          {overview.platform} · v{overview.version} · 每 60 秒自动刷新
+          {overview.platform}
+          {overview.version ? ` · v${overview.version}` : ''} · 每 60 秒自动刷新
         </p>
       </div>
 

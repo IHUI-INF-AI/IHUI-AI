@@ -12,7 +12,7 @@
  *  ③ 解析 —— CRLF / 多余分隔符归并 / 坏行丢弃(错位比丢行更难查);
  *  ④ 渲染 —— JSONL 一行一对象;0 行 ⇒ 空串(空文件=判过,不是缺件);
  *  ⑤ 消费面兼容 —— 本器产出必须被 `auto-triage.readUserFeedback` 读成 ok 且只收未结;
- *  ⑥ 落点同源 —— 生产者写盘路径 === 消费方读取路径(同一份分诊配置,不造第二份真相);
+ *  ⑥ 落点退役 —— 配置不再点名 userFeedback.jsonl(退役证据),默认解析判形状坏、显式 --jsonl 才可落盘;
  *  ⑦ 0 行 ⇒ rc 0(判过),落空文件;不把"该库该表为空"写成未判定;
  *  ⑧ 取不到 ⇒ rc 2(未判定),不写件、清陈旧件 —— 旧读数不得冒充本轮读数;
  *  ⑨ psql 缺席 / 生产口 / 非回环 ⇒ 未判定且逐条点名;
@@ -37,16 +37,6 @@ const fakeLocate = () => ({ psql: 'psql-stub', tried: ['stub'] })
 const spawnWith = (stdout) => () => ({ status: 0, stdout, stderr: '', lost: '' })
 const spawnFail = (stderr) => () => ({ status: 1, stdout: '', stderr, lost: '' })
 const sampleLine = 'id-1|bug|pending|报表打不开|点导出就 500|2026-10-28T01:00:00.000Z'
-
-const exportTo = (name, extra = {}) =>
-  uf.runExport({
-    argv: ['--jsonl', join(scratch, name)],
-    readFile: readEnv,
-    locate: fakeLocate,
-    spawn: spawnWith(`${sampleLine}\n`),
-    processEnv: {},
-    ...extra,
-  })
 
 test('① SQL 是单语句只读;同一把尺对写语句真抛', () => {
   const sql = uf.buildFeedbackExportSql(7)
@@ -92,14 +82,18 @@ test('⑤ 产出被 readUserFeedback 读成 ok,且只收未结', () => {
   assert.match(read.records[0].label, /^bug:导出失败/)
 })
 
-test('⑥ 落点同源:配置那格非空 ⇒ 消费方走文件通道,生产者写的就是它读的那一格', () => {
+test('⑥ 退役后:配置不再点名 userFeedback.jsonl ⇒ 默认路径判形状坏,显式 --jsonl 才落盘', () => {
   const cfg = loadConfig()
-  const configured = String(cfg.userFeedback?.jsonl ?? '')
-  assert.ok(configured.length > 0, '分诊配置必须点名 userFeedback.jsonl(非空才轮到文件通道)')
-  const produced = uf.resolveExportPath(cfg, '')
-  assert.ok(produced.endsWith(join('.ihui-agent', 'state', 'user-feedback-export.jsonl')), `落点异常:${produced}`)
-  assert.ok(produced.endsWith(join(...configured.split('/'))), '生产者不得自持第二份路径字面量')
-  // 缺件时消费方仍落「未判定」并点名该路径(说明它读的确实是这一格);生产者此时必须形状坏,两边不各自猜
+  assert.equal(
+    String(cfg.userFeedback?.jsonl ?? ''),
+    '',
+    '退役后配置不得再留 userFeedback.jsonl(否则文件通道会被重新接回)',
+  )
+  assert.throws(() => uf.resolveExportPath(cfg, ''), uf.ExportShapeError, '默认路径必须判形状坏,不猜旧落点')
+  const explicit = join(scratch, 'explicit.jsonl')
+  const produced = uf.resolveExportPath(cfg, explicit)
+  assert.ok(produced.endsWith(explicit), `显式路径未生效:${produced}`)
+  // 缺件时消费方仍落「未判定」并点名该路径(说明它读的确实是显式路径);两边不各自猜
   const miss = readUserFeedback({ jsonlPath: join(scratch, 'no-such.jsonl'), query: () => ({ status: 'undetermined', why: '夹具' }) })
   assert.equal(miss.status, 'undetermined')
   assert.throws(() => uf.resolveExportPath({ userFeedback: { jsonl: '' } }, ''), uf.ExportShapeError)

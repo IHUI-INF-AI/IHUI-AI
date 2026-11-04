@@ -1149,6 +1149,7 @@ async def test_scheduler_status_shape(client, monkeypatch):
     assert body["enabled"] is True
     assert body["started"] is False
     assert body["next_run"] is None
+    assert body["next_run_midnight"] is None
     assert body["next_run_qoder"] is None
 
 
@@ -1160,6 +1161,7 @@ def test_scheduler_status_next_run_when_started(monkeypatch):
     assert st0["enabled"] is False
     assert st0["started"] is False
     assert st0["next_run"] is None
+    assert st0["next_run_midnight"] is None
     assert st0["next_run_qoder"] is None
     assert st0["next_run_probe"] is None
     # 2026-10-31:WorkBuddy 任务巡检 job 也进 status(未启动同样为 None)
@@ -1167,11 +1169,15 @@ def test_scheduler_status_next_run_when_started(monkeypatch):
     assert isinstance(st0["wb_tasks"], dict)
 
     nrt = datetime(2026, 10, 9, 8, 5, tzinfo=checkin_scheduler_mod._CN_TZ)
+    nrt_m = datetime(2026, 10, 9, 0, 5, tzinfo=checkin_scheduler_mod._CN_TZ)
     nrt_q = datetime(2026, 10, 9, 10, 5, tzinfo=checkin_scheduler_mod._CN_TZ)
     nrt_p = datetime(2026, 10, 9, 6, 0, tzinfo=checkin_scheduler_mod._CN_TZ)
 
     class _FakeJob:
         next_run_time: datetime | None = nrt
+
+    class _FakeJobMidnight:
+        next_run_time: datetime | None = nrt_m
 
     class _FakeJobQoder:
         next_run_time: datetime | None = nrt_q
@@ -1183,6 +1189,8 @@ def test_scheduler_status_next_run_when_started(monkeypatch):
         def get_job(self, job_id: str):
             if job_id == checkin_scheduler_mod._JOB_ID:
                 return _FakeJob()
+            if job_id == checkin_scheduler_mod._JOB_ID_MIDNIGHT:
+                return _FakeJobMidnight()
             if job_id == checkin_scheduler_mod._JOB_ID_QODER:
                 return _FakeJobQoder()
             if job_id == checkin_scheduler_mod._JOB_ID_PROBE:
@@ -1195,6 +1203,7 @@ def test_scheduler_status_next_run_when_started(monkeypatch):
     assert st["started"] is True
     assert st["enabled"] is False
     assert st["next_run"] == "2026-10-09T08:05:00+08:00"
+    assert st["next_run_midnight"] == "2026-10-09T00:05:00+08:00"
     assert st["next_run_qoder"] == "2026-10-09T10:05:00+08:00"
     assert st["next_run_probe"] == "2026-10-09T06:00:00+08:00"
 

@@ -22,6 +22,9 @@
  *
  * 复用模式参考 apps/api/src/routes/admin/relay-stats.ts(percentile_cont / filter 聚合)。
  */
+import { readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import type { FastifyPluginAsync } from 'fastify'
 import type { Redis } from 'ioredis'
 import { z } from 'zod'
@@ -43,7 +46,7 @@ interface ServicesHealth {
 
 interface OverviewResponse {
   platform: 'IHUI-AI'
-  version: '1.0.0'
+  version: string | null
   uptime: number
   timestamp: string
   services: ServicesHealth
@@ -91,7 +94,23 @@ const incidentsQuerySchema = z.object({
 const CACHE_TTL_SEC = 30
 const RATE_LIMIT_CONFIG = { max: 60, timeWindow: '1 minute' as const }
 const PLATFORM_NAME = 'IHUI-AI' as const
-const PLATFORM_VERSION = '1.0.0' as const
+/**
+ * 平台版本单一源头 = apps/api/package.json 的 version(此前写死 '1.0.0',与任何构建都没有关系)。
+ * 该字段今天还是工作区占位 0.0.0 ⇒ 占位当"没有可报的号",如实给 null 让前端不渲染那一格,
+ * 而不是向公众展示 0.0.0 或继续供着一个编出来的号(§0.3 取不到不猜)。
+ */
+function readPlatformVersion(): string | null {
+  try {
+    // src/routes 与 dist/routes 都是"应用根的下两层",同一相对路径两种运行形态都成立
+    const pkgPath = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'package.json')
+    const parsed = JSON.parse(readFileSync(pkgPath, 'utf-8')) as { version?: unknown }
+    const v = typeof parsed.version === 'string' && parsed.version ? parsed.version : null
+    return v && v !== '0.0.0' ? v : null
+  } catch {
+    return null
+  }
+}
+const PLATFORM_VERSION: string | null = readPlatformVersion()
 const FIVE_MIN_MS = 5 * 60 * 1000
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000
 

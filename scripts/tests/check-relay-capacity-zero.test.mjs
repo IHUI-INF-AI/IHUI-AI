@@ -17,6 +17,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
+import ts from 'typescript'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const GUARD_PATH = resolve(HERE, '..', 'check-relay-capacity-zero.mjs')
@@ -38,16 +39,54 @@ test('M0 判据装载成功(锚点在、括号配平、四个都是函数)', () 
 })
 
 test('M1 判据单源:四个函数逐字来自 stats 源文件,且本尺子里没有第二份可调度算法(§0.6)', () => {
+  // 旧形在这里再写一遍 `export function ${name}(` 字面量 —— 那既是 §0.6 的第二份判据副本,
+  // 又把"必须带 export"这个偶然形态当成了契约。2026-11-03 生产侧把 isRelayPoolRowSchedulable
+  // 收成内部符号 ⇒ 哨兵连着 146 轮未判定,而这行断言当时也在红(只是红在测试层,不在到人通道)。
+  // 现在一律问源脚本自己的定位器,两形态同判。
   for (const name of __test__.REQUIRED_JUDGES) {
-    assert.ok(
-      STATS_SRC.includes(`export function ${name}(`),
-      `${STATS_SRC ? 'stats' : ''} 源文件里应有 export function ${name}( 锚点`,
-    )
+    const decl = __test__.findTopLevelDeclaration(STATS_SRC, name)
+    assert.ok(decl, `stats 源文件里应有 ${name} 的顶层声明(export function / function 任一形态)`)
+    const end = __test__.sliceTopLevelFunction(STATS_SRC, decl.index)
+    assert.ok(end > 0, `${name} 的函数体应能括号配平取段`)
+    assert.match(STATS_SRC.slice(decl.index, end + 1), new RegExp(`function\\s+${name}\\s*\\(`), `${name} 取到的段应是它自己`)
   }
   // 形状锁:哨子只搬行,不重算 —— 出现任何一种"自己判可调度"的写法就是复制判据。
   assert.doesNotMatch(GUARD_SRC, /Boolean\(\s*row\.isEnabled\s*\)/)
   assert.doesNotMatch(GUARD_SRC, /&&\s*!\s*\w+\.tempUnschedulable/)
   assert.doesNotMatch(GUARD_SRC, /isEnabled\s*\?\s*\w+\.tempUnschedulable/)
+})
+
+test('M1b 定位器成对:两形态都认,而注释/调用点不得被当成声明(反向夹具)', () => {
+  const F = __test__.findTopLevelDeclaration
+  const N = 'isRelayPoolRowSchedulable'
+  // 正向①:带 export
+  assert.ok(F(`export function ${N}(row: R): boolean {\n return true\n}`, N)?.exported === true)
+  // 正向②:内部形态(本次真漂移形)
+  const bare = F(`/** 全仓唯一一份 */\nfunction ${N}(row: R): boolean {\n return true\n}`, N)
+  assert.ok(bare, '内部 function 形态必须认')
+  assert.equal(bare.exported, false)
+  // 反向①:只有注释与调用点 ⇒ 不许命中(否则从错误的一段里"抽出"一个恰好能跑的函数)
+  assert.equal(F(`// ${N} 已废弃\nconst n = ${N}(row)\n`, N), null)
+  // 反向②:同名但前缀更长的别的函数不算命中
+  assert.equal(F(`export function ${N}Extra(row) {}\n`, N), null)
+  // 反向③:被缩进到块里的内层函数不当作顶层声明
+  assert.equal(F(`  function ${N}(row) {}\n`, N), null)
+})
+
+test('M1c 合成导出:内部符号取段后仍能被求值取到(证明没靠改判据蒙过去)', async () => {
+  const decl = __test__.findTopLevelDeclaration(STATS_SRC, 'isRelayPoolRowSchedulable')
+  assert.ok(decl && !decl.exported, '现读形态应为「无 export 的内部符号」')
+  const end = __test__.sliceTopLevelFunction(STATS_SRC, decl.index)
+  const part = `export ${STATS_SRC.slice(decl.index, end + 1)}`
+  const js = ts.transpileModule(part, {
+    compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext },
+  }).outputText
+  const mod = await import(`data:text/javascript;charset=utf-8,${encodeURIComponent(js)}`)
+  const f = mod.isRelayPoolRowSchedulable
+  assert.equal(typeof f, 'function')
+  assert.equal(f({ isEnabled: true, tempUnschedulable: false }), true)
+  assert.equal(f({ isEnabled: true, tempUnschedulable: true }), false)
+  assert.equal(f({ isEnabled: false, tempUnschedulable: false }), false)
 })
 
 test('M2 正/反成对:抽出来的是真判据,不是恒真的空壳', () => {

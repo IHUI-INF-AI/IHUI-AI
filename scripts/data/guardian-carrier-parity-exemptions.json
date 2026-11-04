@@ -1,0 +1,23 @@
+{
+  "note": "A9 承载面齐平的具名豁免(2026-11-04 立)。判据与到期语义 = scripts/lib/guardian-carrier-parity.mjs 的 applyCarrierExemptions:缺 owner/reason(<10字)/expires 任一 ⇒ 视同没登记照旧判黑;到期 ⇒ 照旧判黑;登记的 name 在当下面不再命中 ⇒ 记 rotting(清单腐烂同红,§0.7)。这一档存在的目的不是把 A9 调绿,而是把『为什么这条腿本来就该只走任务路径』写成可到期、可追责的条目 —— 想长期让某条腿不出现在常驻面,必须在这里留下理由。",
+  "exemptions": [
+    {
+      "name": "ensureGuardDaemonAlive",
+      "owner": "scripts/git-guardian.mjs 的一次性 main 路径(计划任务档)",
+      "reason": "它的职责就是检出常驻 daemon 不在并把服务拉起,函数体开头即 `if (daemon) return daemon-self`,挂进 daemon 自己里等于让它监视自己;daemon 活着时它本就该 no-op,而 daemon 死了锁会变陈旧、计划任务那趟 main 就能走到它 —— 这条腿的可达性恰好只在它需要起作用的时候成立。",
+      "expires": "2027-02-01"
+    },
+    {
+      "name": "ensureS4u",
+      "owner": "scripts/git-guardian.mjs 的一次性 main 路径(计划任务档)",
+      "reason": "它改的是计划任务本身的登录身份(cscript task-set-s4u.vbs + schtasks);从被它配置的那个服务的进程里回头改任务定义属于自指写面,且任务态归计划任务档管,留在 main 才与注册/自愈链路同一执行体。",
+      "expires": "2027-02-01"
+    },
+    {
+      "name": "~registerTask",
+      "owner": "scripts/git-guardian.mjs 的 --install 分支",
+      "reason": "它只在 `--install` 那条 argv 分支里被语句位调用,是一次性安装动作而非周期腿;A9 按语句位收它会把它算成腿,故在此点名说明它不该上常驻面(合前缀的同类安装动作没有,故仅此一条)。",
+      "expires": "2027-02-01"
+    }
+  ]
+}

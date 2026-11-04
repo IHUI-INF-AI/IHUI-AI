@@ -193,7 +193,13 @@ def test_guard_judgment_identical_with_and_without_metering(monkeypatch, enabled
     monkeypatch.setenv(METRICS_ENABLED_ENV, "1" if enabled else "0")
     info = apply_job_sandbox(_NoPidProc())  # type: ignore[arg-type]
     assert info["active"] is False
-    assert info["reason"] == "process pid 不可用"
+    # proc_sandbox 先判平台再判 pid:非 win32 在拿到 _NoPidProc 之前就降级到
+    # non-windows 分支(见 apply_job_sandbox 的 _degraded(_REASON_NON_WINDOWS,...))。
+    # 本用例钉的是"计量开关不改变判断字节",期望值必须按真实平台分支,不能只钉 win32 文案。
+    if sys.platform == "win32":
+        assert info["reason"] == "process pid 不可用"
+    else:
+        assert info["reason"] == "non-windows(仅生产 Windows 生效)"
 
 
 def test_metering_off_writes_no_series(snap, monkeypatch):
@@ -485,10 +491,15 @@ def test_guard_branch_counted_same_batch_and_version_carried(snap):
     info = apply_job_sandbox(_NoPidProc())  # type: ignore[arg-type]
 
     assert info["active"] is False
-    assert "pid" in info["reason"]
+    if sys.platform == "win32":
+        assert "pid" in info["reason"]
+        assert (snap()["guard"]["byReason"].get("pid_unavailable") or 0.0) >= 1.0
+    else:
+        # 非 win32 走平台降级分支:实现先于 pid 检查返回 non-windows,reason_id 固定短名
+        assert info["reason"] == "non-windows(仅生产 Windows 生效)"
+        assert (snap()["guard"]["byReason"].get("non_windows_platform") or 0.0) >= 1.0
     assert info["policyVersion"].startswith(f"sbx-p{SM['schema_version']}-")
     assert (snap()["guard"]["byState"]["degraded"] or 0.0) - before == 1.0
-    assert (snap()["guard"]["byReason"].get("pid_unavailable") or 0.0) >= 1.0
 
 
 def test_guard_states_cover_all_three_axes(snap):
@@ -497,13 +508,18 @@ def test_guard_states_cover_all_three_axes(snap):
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="non_windows 分支在 win32 结构上取不到")
-def test_non_windows_reason_identity_is_reachable_off_win32():
-    """非 Windows 面的降级身份是稳定短名而非异常原文。
+def test_non_windows_reason_identity_is_reachable_off_win32(snap):
+    """非 Windows 面的降级身份是稳定短名而非异常原文。"""
+    from app.core.proc_sandbox import apply_job_sandbox
 
-    本机是 win32 ⇒ 这一格**取不到输入**,如实 skip 并说明原因,不拿"应该也记上了"
-    冒充判过(§0.3)。
-    """
-    raise AssertionError("win32 上不该进入本用例")
+    assert sys.platform != "win32"
+    before = snap()["guard"]["byReason"].get("non_windows_platform") or 0.0
+    info = apply_job_sandbox(_NoPidProc())  # type: ignore[arg-type]
+    assert info["active"] is False
+    assert info["reason"] == "non-windows(仅生产 Windows 生效)"
+    # 身份口径:固定英文短名进时序;中文原因只进返回值给人看,不得混入身份(§5e-3)
+    assert "pid" not in info["reason"]
+    assert (snap()["guard"]["byReason"].get("non_windows_platform") or 0.0) - before == 1.0
 
 
 # =============================================================================
