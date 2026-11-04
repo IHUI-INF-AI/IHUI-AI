@@ -19,7 +19,7 @@
  * 因此本测试同时验证 wrapper 注入与共享 UI 的联动。
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react'
 
 const { rnMocks } = vi.hoisted(() => ({
   rnMocks: {
@@ -169,8 +169,16 @@ describe('ConversationImportScreen(RN)', () => {
   it('初始只拉导入历史并渲染 5 个来源', async () => {
     render(<ConversationImportScreen />)
 
+    // 2026-11-04(CI run 41727343304):原来的「等 getConversationImportHistory 被调过」
+    // 只证明请求已发出,响应还没回填状态 ⇒ 紧随其后的 getByText('export.jsonl') 会撞上
+    // 尚未提交的渲染(并行负载下实测红)。真实完成信号是 onLoadHistory 的 promise 落地 +
+    // React 状态提交:在 act 内 await 该 promise,不设时长上限、不轮询。
     await waitFor(() => expect(rnMocks.getConversationImportHistory).toHaveBeenCalledTimes(1))
+    await act(async () => {
+      await rnMocks.getConversationImportHistory.mock.results[0]?.value
+    })
 
+    expect(rnMocks.getConversationImportHistory).toHaveBeenCalledTimes(1)
     expect(screen.getByText('conversationImport.sourceClaudeCode')).toBeTruthy()
     expect(screen.getByText('conversationImport.sourceCodex')).toBeTruthy()
     expect(screen.getByText('conversationImport.sourceCursor')).toBeTruthy()
