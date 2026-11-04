@@ -117,7 +117,7 @@ function createArtifactsStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing['3xl'],
       gap: rnSpacing['xs-loose'],
     },
-    emptyText: { fontSize: 13, color: tk.text.secondary, textAlign: 'center' },
+    emptyText: { fontSize: rnType.bodySm.size, color: tk.text.secondary, textAlign: 'center' },
     row: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -127,7 +127,7 @@ function createArtifactsStyles(tk: AppThemeTokens) {
       borderTopColor: tk.border.light,
     },
     rowMain: { flex: 1, minWidth: 0, gap: rnSpacing.xs },
-    rowName: { fontSize: 13, fontWeight: '600', color: tk.text.primary },
+    rowName: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.text.primary },
     rowMeta: {
       flexDirection: 'row',
       alignItems: 'center',

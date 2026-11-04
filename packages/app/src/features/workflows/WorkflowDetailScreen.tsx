@@ -693,7 +693,7 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
-    primaryBtnText: { fontSize: 13, fontWeight: '600', color: tk.brand.ctaForeground },
+    primaryBtnText: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.brand.ctaForeground },
     outlineBtn: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -705,7 +705,7 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
       borderColor: tk.border.medium,
       backgroundColor: tk.surface.inputBg,
     },
-    outlineBtnText: { fontSize: 13, color: tk.text.medium },
+    outlineBtnText: { fontSize: rnType.bodySm.size, color: tk.text.medium },
     dangerBtn: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -715,7 +715,7 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
       borderRadius: rnRadius.sm,
       backgroundColor: tk.danger.light,
     },
-    dangerBtnText: { fontSize: 13, fontWeight: '600', color: tk.danger.DEFAULT },
+    dangerBtnText: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.danger.DEFAULT },
     btnDisabled: { opacity: 0.6 },
     confirmBox: {
       gap: rnSpacing.sm,
@@ -741,7 +741,7 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
       borderColor: tk.border.medium,
       backgroundColor: tk.surface.inputBg,
     },
-    secondaryBtnText: { fontSize: 13, color: tk.text.medium },
+    secondaryBtnText: { fontSize: rnType.bodySm.size, color: tk.text.medium },
     skeletonRow: { height: 44, borderRadius: rnRadius.lg, backgroundColor: tk.border.light },
     formBlock: { gap: rnSpacing['xs-loose'] },
     formActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: rnSpacing.sm },
@@ -758,7 +758,7 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
       backgroundColor: tk.surface.inputBg,
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.sm,
-      fontSize: 13,
+      fontSize: rnType.bodySm.size,
       color: tk.text.primary,
     },
     inputMultiline: { minHeight: 56, textAlignVertical: 'top' },
@@ -790,7 +790,7 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
       backgroundColor: tk.surface.light,
     },
     tabActive: { backgroundColor: tk.brandAccent.light, borderColor: tk.brandAccent.deep },
-    tabText: { fontSize: 13, color: tk.text.secondary },
+    tabText: { fontSize: rnType.bodySm.size, color: tk.text.secondary },
     tabTextActive: { color: tk.brandAccent.deep, fontWeight: '600' },
     instRow: {
       gap: rnSpacing.xs,
@@ -835,7 +835,7 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
     },
     stepIndex: { fontSize: rnType.caption.size, color: tk.text.tertiary, width: 26 },
     stepBody: { flex: 1, gap: rnSpacing['2xs'] },
-    stepName: { fontSize: 13, fontWeight: '600', color: tk.text.primary },
+    stepName: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.text.primary },
     stepInput: { fontSize: 11, color: tk.text.secondary, lineHeight: 15 },
   })
 }

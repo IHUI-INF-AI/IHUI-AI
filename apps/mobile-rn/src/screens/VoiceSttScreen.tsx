@@ -338,7 +338,7 @@ const styles = StyleSheet.create({
     gap: rnSpacing.sm,
     paddingVertical: rnSpacing['2xl'],
   },
-  muted: { fontSize: 13, color: tokens.text.secondary },
+  muted: { fontSize: rnType.bodySm.size, color: tokens.text.secondary },
   warningBox: {
     padding: rnSpacing['sm-loose'],
     borderRadius: rnRadius.sm,
