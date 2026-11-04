@@ -21,10 +21,10 @@
  *     裸字面量 ⇒ 那一处尺寸有两个来源(改一端不带另一端走)。块级限定是**归因受控**的关键:
  *     全端扫裸数字会把别的元素(别的档、别的机制)误伤 —— 那是"归因过宽"。
  *  ④ **本锁有牙**:用"改坏的源码"回喂同一把尺子,断言它必须红 —— 缺这一半就是一条空转的尺子。
- *  ⑤ **单端档归属表(25 枚)**:门 128 的 SL 维只说"这一档只在一端出现",说不出那是
+ *  ⑤ **单端档归属表(24 枚)**:门 128 的 SL 维只说"这一档只在一端出现",说不出那是
  *     "另一端根本没有这个元素"还是"本该同值却各写一份"。这张表把判词写死:谁往"另一端"
- *     补一个取数点(典型动机 = 让 diffCount 变小),这里就红。**门现读 SL LoginPopUp(24)
- *     与本表 25 的差是被门漏掉的负值档 `LOGIN_POPUP_NOTE_MARGIN_TOP_PX`(-6):门内 spec 档
+ *     补一个取数点(典型动机 = 让 diffCount 变小),这里就红。**门现读 SL LoginPopUp(23)
+ *     与本表 24 的差是被门漏掉的负值档 `LOGIN_POPUP_NOTE_MARGIN_TOP_PX`(-6):门内 spec 档
  *     解析只认非负字面量(`\d+(\.\d+)?`),负号档不进 tiers ⇒ 不进 SL;本表按 spec 导出面
  *     补登它,不照抄门的漏读。**
  *  ⑥ **导出面全覆盖**:每枚 spec 导出档必须有真消费方(腿取数点);"造好没装车"不算收敛。
@@ -97,10 +97,11 @@ const CROSS_END_TIERS = [
   'LOGIN_POPUP_ROW_HEIGHT_PX',
   'LOGIN_POPUP_ROW_PADDING_X_PX',
   'LOGIN_POPUP_SECTION_GAP_PX',
+  'LOGIN_POPUP_TITLE_FONT_PX',
 ] as const
 
 /**
- * 单端档归属表 —— 本族"两端不一样"的 25 枚具名档各自只许在哪一端出现。
+ * 单端档归属表 —— 本族"两端不一样"的 24 枚具名档各自只许在哪一端出现。
  *
  * 三类归属(与 login-popup-spec 头注 O02 段逐条对应):
  *   A 一端根本没有该元素/该形态(往另一端补引用 = 往屏幕上加一个不存在的节点);
@@ -108,8 +109,12 @@ const CROSS_END_TIERS = [
  *   C 同槽位两端各由自身机制决定 —— 本族**没有 C 类具名档**(圆角走 77 单源、遮罩颜色
  *     走 tokens,都不是 spec 几何档,故不在此表)。
  *
- * 这枚差值的来源要写死:门 128 现读 SL LoginPopUp(24)= 仅小程序 2 + 仅 RN 22,
- * 而 spec 导出面的单端档实为 25 —— 差的 `LOGIN_POPUP_NOTE_MARGIN_TOP_PX`(-6)因门只解析
+ * 2026-11-04 由 25 枚收敛到 24 枚:小程序 LoginPopUp 补授权卡标题块(9013baa469,门 285
+ * B 块 6 组件存量收敛),`LOGIN_POPUP_TITLE_FONT_PX` 两端都真引用 ⇒ 登记进 CROSS_END_TIERS。
+ * 标题底距仍单侧:小程序走 `LOGIN_POPUP_SECTION_GAP_PX`,未取 `TITLE_MARGIN_BOTTOM_PX`。
+ *
+ * 这枚差值的来源要写死:门 128 现读 SL LoginPopUp(23)= 仅小程序 2 + 仅 RN 21,
+ * 而 spec 导出面的单端档实为 24 —— 差的 `LOGIN_POPUP_NOTE_MARGIN_TOP_PX`(-6)因门只解析
  * 非负字面量而不在门 tiers 里。本表按 spec 导出面补登,不沿用门的漏读(§0.3)。
  */
 const SINGLE_END_TIERS: ReadonlyArray<{
@@ -157,16 +162,10 @@ const SINGLE_END_TIERS: ReadonlyArray<{
     why: 'A 同上:把手与内容的距离(与分块间距同值但语义独立,不并档)',
   },
   {
-    tier: 'LOGIN_POPUP_TITLE_FONT_PX',
-    owner: 'mobile-rn',
-    kind: 'A',
-    why: 'A 授权卡标题块;小程序弹窗无标题',
-  },
-  {
     tier: 'LOGIN_POPUP_TITLE_MARGIN_BOTTOM_PX',
     owner: 'mobile-rn',
     kind: 'A',
-    why: 'A 同上:标题底距',
+    why: 'A 标题底距:小程序标题块已存在但底距走 SECTION_GAP,未取本档(同一槽位另一枚档,待收敛)',
   },
   {
     tier: 'LOGIN_POPUP_DESC_MARGIN_BOTTOM_PX',
