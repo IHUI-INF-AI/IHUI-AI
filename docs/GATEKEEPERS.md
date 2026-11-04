@@ -485,7 +485,7 @@ if (!run('🔍 检查 xxx...', 'node scripts/check-xxx.mjs --staged')) {
 }
 ```
 
-3. **更新 [AGENTS.md 守门脚本速查表](../AGENTS.md)**:在表格中加一行,说明脚本用途
+3. **更新 [本文 §10 守门脚本速查](./GATEKEEPERS.md)**:在对应族的条目里加一行,说明脚本用途(2026-11-04 起速查表已自 AGENTS.md 逐字迁入本文,AGENTS 只留指针)
 
 **约定**:
 - 阻塞项用 `if (!run(...)) { process.exit(1) }`
@@ -567,7 +567,7 @@ if (!run('🔍 检查 xxx...', 'node scripts/check-xxx.mjs --staged')) {
 
 ## 相关文档
 
-- [AGENTS.md 守门脚本速查](../AGENTS.md) — 守门脚本速查表(本文档的索引;项数与编号同样以 runner 现值为准)
+- [本文 §10 守门脚本速查](./GATEKEEPERS.md) — 速查表本体(2026-11-04 自 AGENTS.md 逐字迁入;项数与编号同样以 runner 现值为准)
 - [AGENTS.md §21](../AGENTS.md) — 任务完成硬定义 / git-push-guard 5 条标准
 - [AGENTS.md §12/§16](../AGENTS.md) — `--no-verify` 合法性边界
 - [I18N.md](./I18N.md) — i18n 守门脚本(第 2/2b/2c/2d/2e 项)详解
