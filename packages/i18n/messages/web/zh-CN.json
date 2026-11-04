@@ -23347,6 +23347,8 @@
     "accountDeletionResend": "{seconds}s 后重新发送",
     "accountDeletionSendCode": "发送验证码",
     "accountDeletionSubmit": "确认注销",
+    "accountDeletionConfirmLabel": "确认注销",
+    "accountDeletionConfirmTitle": "确认注销",
     "accountDeletionSuccess": "账号已注销，正在跳转登录页",
     "accountDeletionTitle": "账号注销",
     "accountDeletionWarning": "此操作不可逆，所有数据将永久丢失。",
@@ -25885,8 +25887,7 @@
     "empty": "暂无活动",
     "startTime": "开始时间",
     "endTime": "结束时间",
-    "participants": "参与人数",
-    "joinNow": "立即参与"
+    "participants": "参与人数"
   },
   "agentReviewDetail": {
     "title": "审核详情",
@@ -26137,8 +26138,6 @@
     "unverifiedDesc": "您尚未完成实名认证，请完善以下信息。",
     "name": "真实姓名",
     "namePlaceholder": "请输入真实姓名",
-    "idNumber": "身份证号",
-    "idNumberPlaceholder": "请输入身份证号",
     "submitting": "提交中…",
     "submit": "提交认证"
   },
@@ -26150,7 +26149,6 @@
     "title": "学习进度",
     "courses": "学习课程",
     "totalMinutes": "累计学习时长",
-    "weekMinutes": "本周学习时长",
     "streak": "连续学习",
     "courseProgress": "课程进度"
   },
@@ -26820,11 +26818,8 @@
   },
   "agentCreate": {
     "title": "创建 Agent",
-    "name": "名称",
     "namePlaceholder": "请输入名称",
-    "category": "分类",
     "categoryPlaceholder": "请选择分类",
-    "description": "描述",
     "descPlaceholder": "请输入描述",
     "systemPrompt": "系统提示词",
     "promptPlaceholder": "请输入系统提示词",
@@ -26891,7 +26886,6 @@
     "remove": "移除"
   },
   "certList": {
-    "title": "我的证书",
     "empty": "暂无证书",
     "issuer": "颁发机构",
     "issuedAt": "颁发时间"
@@ -26943,7 +26937,6 @@
   },
   "courseQAList": {
     "title": "课程问答",
-    "ask": "提问",
     "empty": "暂无问答",
     "asker": "提问者",
     "answers": "回答"
@@ -27020,7 +27013,6 @@
     "actionEdit": "编辑"
   },
   "notificationSettings": {
-    "title": "通知设置",
     "push": "推送通知",
     "message": "消息提醒",
     "email": "邮件通知",
@@ -27121,9 +27113,7 @@
   "withdraw": {
     "title": "提现",
     "availableBalance": "可提现余额",
-    "amount": "提现金额",
     "amountPlaceholder": "请输入提现金额",
-    "bankCard": "银行卡",
     "bankCardPlaceholder": "请输入银行卡号",
     "submitting": "提现中...",
     "submit": "确认提现",
@@ -27518,7 +27508,6 @@
   },
   "team": {
     "retry": "重试",
-    "title": "我的团队",
     "subtitle": "团队管理",
     "totalMembers": "总成员",
     "activeMembers": "活跃成员",

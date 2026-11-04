@@ -44,7 +44,7 @@ export function ActivityScreen({
   onBack,
   onItemPress,
   onRetry,
-  colorScheme = 'light'
+  colorScheme = 'light',
 }: ActivityScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
@@ -107,7 +107,7 @@ export function ActivityScreen({
                 {t('activity.participants')}: {item.participants}
               </Text>
               <TouchableOpacity style={styles.joinBtn}>
-                <Text style={styles.joinText}>{t('activity.joinNow')}</Text>
+                <Text style={styles.joinText}>{t('activities.join')}</Text>
               </TouchableOpacity>
             </TouchableOpacity>
           )}
