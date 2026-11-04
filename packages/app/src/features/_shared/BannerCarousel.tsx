@@ -114,9 +114,8 @@ const styles = StyleSheet.create({
     width: '100%',
     overflow: 'hidden',
     borderRadius: rnRadius.lg,
-    backgroundColor: '#00000000',
   },
   dot: { borderRadius: rnRadius.sm },
-  dotActive: { backgroundColor: '#FFFFFF' },
+  dotActive: { backgroundColor: rnCssLight.surfaceLight },
   dotInactive: { backgroundColor: rnCssLight.white50 },
 })

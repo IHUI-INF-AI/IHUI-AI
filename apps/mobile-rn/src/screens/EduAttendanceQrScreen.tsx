@@ -225,7 +225,7 @@ export function EduAttendanceQrScreen() {
                   style={[styles.classChip, on ? styles.classChipOn : null]}
                 >
                   <Text
-                    style={[styles.classChipText, on ? styles.classChipTextOn : null]}
+                    style={[styles.classChipText, on ? styles.classChipOnText : null]}
                     numberOfLines={1}
                   >
                     {c.grade ? `${c.name}·${c.grade}` : c.name}
@@ -247,7 +247,7 @@ export function EduAttendanceQrScreen() {
                 value={qr.payload}
                 size={QR_SIZE}
                 color={tk.gray.black}
-                backgroundColor="#FFFFFF"
+                backgroundColor={rnCssLight.surfaceLight}
                 ecl="M"
               />
             </View>
@@ -459,7 +459,7 @@ function createQrStyles(tk: ReturnType<typeof getTokens>) {
     },
     classChipOn: { backgroundColor: tk.brand.cta, borderColor: tk.brand.cta },
     classChipText: { color: tk.text.primary, fontSize: rnType.caption.size, maxWidth: 180 },
-    classChipTextOn: { color: tk.brand.ctaForeground, fontWeight: '600' },
+    classChipOnText: { color: tk.brand.ctaForeground, fontWeight: '600' },
     qrArea: {
       flex: 1,
       alignItems: 'center',
@@ -470,7 +470,7 @@ function createQrStyles(tk: ReturnType<typeof getTokens>) {
     qrBox: {
       padding: rnSpacing.md,
       borderRadius: rnRadius.xl,
-      backgroundColor: '#FFFFFF',
+      backgroundColor: rnCssLight.surfaceLight,
       borderWidth: 1,
       borderColor: tk.border.light,
     },
@@ -570,8 +570,8 @@ function createQrStyles(tk: ReturnType<typeof getTokens>) {
   })
 }
 
-/** 相机层文字恒白(画面是暗底,不能依赖主题色);与 ScanLoginScreen 同一处理。 */
-const CAMERA_TEXT = '#FFFFFF'
+/** 相机层文字恒白(画面是暗底,不能依赖主题色);取亮档调色板的纯白常量,不随主题翻面。 */
+const CAMERA_TEXT = rnCssLight.surfaceLight
 const CAMERA_SHADOW = {
   textShadowColor: rnCssLight.black75,
   textShadowOffset: { width: 0, height: 1 },
