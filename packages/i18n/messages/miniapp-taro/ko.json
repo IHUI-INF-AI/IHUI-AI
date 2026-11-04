@@ -2216,7 +2216,7 @@
       "discountNone": "참여 안 함",
       "discountPartial": "부분 참여",
       "discountFull": "전체 참여",
-      "submitSuccess": "제출 완료"
+      "saveSuccess": "저장되었습니다"
     }
   },
   "devSpace": {
