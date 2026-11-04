@@ -77,7 +77,9 @@ export function SubscriptionsScreen({
               onPress={() => onCancel(item)}
               hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
             >
-              <Text style={styles.cancelBtnText}>{t('subscriptions.cancel')}</Text>
+              <Text style={styles.cancelBtnText}>
+                {t('memberSubscriptionPage.cancelSubscription')}
+              </Text>
             </TouchableOpacity>
           </View>
         )}

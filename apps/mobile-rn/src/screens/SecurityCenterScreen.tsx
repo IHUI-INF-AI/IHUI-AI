@@ -621,7 +621,7 @@ function makeStyles() {
     },
     secret: {
       fontFamily: 'monospace',
-      fontSize: 13,
+      fontSize: rnType.bodySm.size,
       color: tokens.text.primary,
       paddingVertical: rnSpacing.xs,
     },
@@ -636,7 +636,7 @@ function makeStyles() {
     backupGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing.sm },
     backupCode: {
       fontFamily: 'monospace',
-      fontSize: 13,
+      fontSize: rnType.bodySm.size,
       color: tokens.text.primary,
       width: '45%',
     },
@@ -650,7 +650,7 @@ function makeStyles() {
     rowMain: { flex: 1, gap: rnSpacing['2xs'] },
     rowPrimary: { fontSize: rnType.body.size, color: tokens.text.primary },
     rowSecondary: { fontSize: rnType.label.size, color: tokens.text.tertiary },
-    revoke: { fontSize: 13, fontWeight: '600', color: tokens.danger.DEFAULT },
+    revoke: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.danger.DEFAULT },
     linkRow: {
       flexDirection: 'row',
       alignItems: 'center',

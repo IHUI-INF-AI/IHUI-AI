@@ -384,7 +384,8 @@
     "empty": "暫無直播",
     "lecturer": "講師",
     "startAt": "開始時間",
-    "loadFailed": "載入直播失敗"
+    "loadFailed": "載入直播失敗",
+    "startTime": "開始時間"
   },
   "liveDetail": {
     "title": "直播詳情",
@@ -633,7 +634,11 @@
     "runtimeEmpty": "暫無執行記錄",
     "runtimeInputPlaceholder": "輸入訊息傳送給智慧體",
     "runtimeStop": "停止",
-    "runtimeSend": "傳送"
+    "runtimeSend": "傳送",
+    "fieldName": "名稱",
+    "fieldCategory": "分類",
+    "fieldDescription": "描述",
+    "fieldPrice": "價格"
   },
   "chat": {
     "assetCatText": "文本",
@@ -941,7 +946,9 @@
     "version": "版本",
     "language": "語言",
     "theme": "主題",
-    "logoutConfirmBody": "確認退出當前帳號？"
+    "logoutConfirmBody": "確認退出當前帳號？",
+    "accountDeletionConfirmLabel": "確認注銷",
+    "accountDeletionConfirmTitle": "確認注銷"
   },
   "menu": {
     "artifacts": "產物中心",
@@ -1607,11 +1614,8 @@
   },
   "agentCreate": {
     "title": "建立智能體",
-    "name": "名稱",
     "namePlaceholder": "幫智能體取個名字",
-    "category": "分類",
     "categoryPlaceholder": "如:辦公助手",
-    "description": "描述",
     "descPlaceholder": "介紹一下這個智能體",
     "systemPrompt": "系統提示詞",
     "promptPlaceholder": "定義智能體的角色和行為",
@@ -1764,7 +1768,6 @@
     "instructor": "講師",
     "rating": "評分",
     "free": "免費",
-    "enrolled": "已報名",
     "enroll": "立即報名",
     "pay": "支付 ¥{amount}",
     "lessons": "課程目錄",
@@ -1890,7 +1893,8 @@
     "treeLoadFailed": "層級樹載入失敗",
     "treeRetry": "重試",
     "treeLevelLabel": "第 {level} 層",
-    "treeCollapseHint": "點擊節點查看詳情"
+    "treeCollapseHint": "點擊節點查看詳情",
+    "teamTitle": "我的團隊"
   },
   "earnCommission": {
     "title": "分傭計畫",
@@ -1905,9 +1909,7 @@
   "exam": {
     "subtitle": "以考促學,檢驗學習成果",
     "retry": "重試",
-    "questions": "題數",
     "end": "結束時間",
-    "startExam": "開始考試",
     "attempts": "考試次數",
     "duration": "考試時長",
     "empty": "暫無考試",
@@ -1918,14 +1920,13 @@
     "passScore": "及格分",
     "start": "開始考試",
     "title": "考試",
-    "totalScore": "總分"
+    "totalScore": "總分",
+    "questionCountLabel": "題目數"
   },
   "examQuestion": {
     "loadFailed": "載入試卷失敗",
     "single": "單選題",
     "multi": "多選題",
-    "prev": "上一題",
-    "next": "下一題",
     "submit": "交卷",
     "submitFailed": "提交失敗"
   },
@@ -2085,7 +2086,6 @@
     "saveFailed": "儲存失敗"
   },
   "notificationSettings": {
-    "title": "通知設定",
     "push": "推播通知",
     "message": "站內訊息",
     "email": "郵件通知",
@@ -2236,8 +2236,6 @@
     "unverifiedDesc": "完成實名認證,解鎖更多服務",
     "name": "真實姓名",
     "namePlaceholder": "請輸入真實姓名",
-    "idNumber": "身分證號",
-    "idNumberPlaceholder": "請輸入身分證號",
     "submit": "提交認證",
     "submitting": "提交中...",
     "failed": "認證失敗",
@@ -2283,10 +2281,8 @@
   },
   "withdraw": {
     "availableBalance": "可提現金額(元)",
-    "amount": "提現金額",
     "amountInvalid": "金額無效",
     "amountPlaceholder": "請輸入提現金額",
-    "bankCard": "銀行卡",
     "bankCardPlaceholder": "請選擇銀行卡",
     "confirmMessage": "確定要提現 {amount} 元嗎?",
     "confirmTitle": "確認提現",
@@ -2637,7 +2633,6 @@
     "current": "目前積分",
     "totalEarned": "累計獲得",
     "totalSpent": "累計消費",
-    "level": "等級",
     "nextLevel": "距離 {name} 尚需 {points} 積分",
     "maxLevel": "已達最高等級",
     "experience": "經驗值",
@@ -2657,14 +2652,17 @@
       "historyLoadFailed": "簽到歷史載入失敗",
       "historyConsecutive": "連續 {days} 天"
     },
-    "mallLink": "積分商城",
-    "taskCenterLink": "任務中心",
     "ruleLink": "積分規則",
     "txTitle": "積分流水",
     "empty": "尚無積分紀錄",
     "loadFailed": "積分載入失敗",
     "balance": "餘額",
-    "loadMore": "載入更多"
+    "loadMore": "載入更多",
+    "levelLabel": "等級",
+    "mallTitle": "積分商城",
+    "tasks": {
+      "title": "任務中心"
+    }
   },
   "groups": {
     "title": "我的群組",
@@ -2768,7 +2766,6 @@
     "submitFailed": "提交失敗，請稍後重試",
     "amountLabel": "儲值金額（元）",
     "amountRange": "儲值金額需在 {min} - {max} 元之間",
-    "payMethod": "付款方式",
     "wechat": "微信支付",
     "alipay": "支付寶",
     "payNow": "立即付款",
@@ -3373,7 +3370,6 @@
     "loadFailed": "載入學習進度失敗",
     "courses": "課程(已完成/總數)",
     "totalMinutes": "累計學習(分鐘)",
-    "weekMinutes": "本週學習(分鐘)",
     "streak": "連續打卡(天)",
     "courseProgress": "課程進度"
   },
@@ -3416,7 +3412,6 @@
     "tab_newbie": "新手"
   },
   "team": {
-    "title": "我的團隊",
     "subtitle": "團隊人數與業績一覽",
     "retry": "重試",
     "totalMembers": "團隊總人數",
@@ -3537,12 +3532,18 @@
     "opType4": "退款",
     "opType5": "佣金",
     "loginRequiredHint": "登入後查看資金流水",
-    "goLogin": "前往登入"
+    "goLogin": "前往登入",
+    "rechargeFail": "充值失敗",
+    "rechargeSuccess": "充值成功",
+    "contactSupport": "聯系客服",
+    "retryRecharge": "重新充值",
+    "withdrawAmount": "提現金額",
+    "methodBank": "銀行卡",
+    "rechargeMethod": "支付方式"
   },
   "activity": {
     "empty": "暫無活動",
     "endTime": "結束時間",
-    "joinNow": "立即參加",
     "loadFailed": "載入失敗",
     "participants": "參與人數",
     "startTime": "開始時間",
@@ -3553,7 +3554,6 @@
     "description": "簡介",
     "free": "免費",
     "loadFailed": "載入智慧體詳情失敗",
-    "price": "價格",
     "rating": "評分",
     "startChat": "開始對話",
     "uses": "使用次數"
@@ -3709,7 +3709,13 @@
       "issued": "有效",
       "revoked": "已撤銷"
     },
-    "title": "我的證書"
+    "title": "我的證書",
+    "download": {
+      "noCertificates": "暫無證書"
+    },
+    "detail": {
+      "issueDate": "頒發日期"
+    }
   },
   "certDetail": {
     "certNo": "證書編號",
@@ -3726,8 +3732,7 @@
     "empty": "暫無證書",
     "issuedAt": "頒發時間",
     "issuer": "頒發機構",
-    "loadFailed": "載入失敗",
-    "title": "證書列表"
+    "loadFailed": "載入失敗"
   },
   "certVerify": {
     "certNo": "證書編號",
@@ -3798,7 +3803,6 @@
   },
   "courseQAList": {
     "answers": "回答",
-    "ask": "提問",
     "asker": "提問者",
     "empty": "暫無問答",
     "loadFailed": "載入失敗",
@@ -3839,7 +3843,8 @@
     "type": "反饋類型",
     "imagesLabel": "請在此上傳你所遇到問題的截圖（最多9張）",
     "imagePickFailed": "圖片選擇失敗,請重試",
-    "pickImages": "選擇圖片"
+    "pickImages": "選擇圖片",
+    "field_contact": "聯絡方式"
   },
   "feedbackDetail": {
     "content": "反饋內容",
@@ -5763,6 +5768,7 @@
   },
   "ia": {
     "remainingPoints": "剩餘智匯值",
+    "loginRequired": "請先登入後使用",
     "recharge": "充值"
   },
   "uiCard": {
@@ -6038,29 +6044,29 @@
     "status": {
       "present": "正常",
       "late": "遲到",
-      "early": "早退",
       "absent": "缺勤",
-      "leave": "請假"
+      "leave": "請假",
+      "early": "早退"
     },
-    "chooseAction": "選擇操作",
     "actionDone": "操作成功",
     "actionFailed": "操作失敗",
-    "needClassId": "缺少班級資訊，無法代簽到／簽退",
-    "onlyTodayCheckIn": "僅可為當日考勤代簽到：跨日回填需給出該日內時刻，本屏未提供",
-    "batchTitle": "整班點名",
-    "chooseClass": "選擇要點名的班級",
-    "noClass": "目前清單沒有可選班級",
     "batchResult": "點名完成：新增 {created}、跳過 {skipped}、遺漏 {missed}",
-    "qrEntry": "出示簽到碼",
+    "batchTitle": "整班點名",
+    "chooseAction": "選擇操作",
+    "chooseClass": "選擇要點名的班級",
     "emptyTrend": "暫無趨勢數據",
+    "loadStatsFailed": "載入考勤統計失敗，請稍後重試",
+    "needClassId": "缺少班級資訊，無法代簽到／簽退",
+    "noClass": "目前清單沒有可選班級",
+    "onlyTodayCheckIn": "僅可為當日考勤代簽到：跨日回填需給出該日內時刻，本屏未提供",
+    "qrEntry": "出示簽到碼",
     "statsAttendanceRate": "出勤率",
+    "statsTotalLabel": "考勤總人次",
     "statusDistribution": "狀態分佈",
     "statusOther": "其他",
     "trendChartHint": "出勤率 = 正常出勤人次 ÷ 該時段有考勤記錄人次（未打卡的學生不在分母內）",
-    "trendChartTitle": "出勤趨勢",
-    "statsTotalLabel": "考勤總人次",
-    "loadStatsFailed": "載入考勤統計失敗，請稍後重試",
     "trendChartScope": "統計範圍：{scope}",
+    "trendChartTitle": "出勤趨勢",
     "trendWindow": "近 {days} 天"
   },
   "eduGrades": {
@@ -7196,7 +7202,17 @@
     "bundleOta": "熱更新",
     "readyBody": "更新已下載完成，點「更新」立即生效",
     "installingHint": "應用程式會自動重新啟動，通常只需幾秒",
-    "restartNow": "立即重新啟動"
+    "restartNow": "立即重新啟動",
+    "apkTitle": "發現新版本 {{version}}",
+    "apkBody": "目前 {{current}} → 最新 {{latest}}",
+    "apkAction": "下載並安裝",
+    "apkActionBrowser": "前往下載",
+    "apkDownloading": "正在下載安裝檔 {{progress}}%",
+    "apkEta": "剩餘約 {{eta}}",
+    "apkInstalling": "正在開啟安裝程式…",
+    "apkBrowserOpening": "已交給瀏覽器下載，依提示安裝即可",
+    "apkCancel": "取消",
+    "apkHint": "安裝檔較大，建議在 Wi-Fi 下更新"
   },
   "cloudRuns": {
     "title": "雲託管 Agent 運行",
@@ -7229,30 +7245,86 @@
     "searchNoResult": "無匹配結果",
     "retry": "重試"
   },
-  "eduMyAttendance": {
-    "title": "我的考勤",
-    "selfCheckIn": "我要簽到",
-    "date": "日期",
-    "notLoggedIn": "尚未登入，無法操作",
-    "classByBackendHint": "班級由後端按在冊學籍自動確定",
-    "scanCheckIn": "掃碼簽到"
+  "learnMapPage": {
+    "completed": "已完成",
+    "empty": "暫無學習路徑"
+  },
+  "user": {
+    "security": {
+      "sendCode": "發送驗證碼"
+    },
+    "realname": {
+      "form": {
+        "idCard": "身分證號",
+        "idCardPlaceholder": "請輸入身分證號"
+      }
+    }
+  },
+  "NavBar": {
+    "text1": "每日資訊",
+    "z1": "加入社群群組",
+    "feedback": "意見回饋",
+    "fenlei": "分類"
+  },
+  "chatSettingsPage": {
+    "model": "模型"
+  },
+  "eduExamListPage": {
+    "start": "開始考試"
+  },
+  "eduExamPage": {
+    "prevQuestion": "上一題",
+    "nextQuestion": "下一題"
+  },
+  "edu": {
+    "qa": {
+      "askBtn": "提問"
+    }
+  },
+  "eduProgressPage": {
+    "weeklyHours": "本週學習時長"
+  },
+  "learn": {
+    "signedUp": "已報名"
+  },
+  "learnPaymentConfirmPage": {
+    "fields": {
+      "payMethod": "支付方式"
+    }
+  },
+  "memberSubscriptionPage": {
+    "cancelSubscription": "取消訂閱"
+  },
+  "student": {
+    "myCertsTitle": "我的證書"
+  },
+  "activities": {
+    "join": "立即參與"
   },
   "eduAttendanceQr": {
-    "title": "簽到二維碼",
     "chooseClass": "選擇班級",
-    "noClass": "暫無可選班級",
     "classLoadFailed": "班級清單載入失敗",
+    "expiresIn": "{s} 秒後過期",
+    "needLogin": "請先登入後再掃碼",
+    "nextStepHint": "請先到考勤規則為該班啟用規則並設定掃碼金鑰(qrSecret),再重新出碼",
+    "noClass": "暫無可選班級",
     "pickClassFirst": "請先選擇班級",
     "qrTip": "讓學生用「掃碼簽到」掃描此碼",
-    "expiresIn": "{s} 秒後過期",
     "refresh": "重新出碼",
-    "nextStepHint": "請先到考勤規則為該班啟用規則並設定掃碼金鑰(qrSecret),再重新出碼",
-    "scanTitle": "掃碼簽到",
-    "scanHint": "將老師的簽到二維碼放入框內",
-    "scanSubmitting": "正在簽到…",
-    "scanInvalidCode": "這不是本系統的簽到二維碼",
     "scanDone": "簽到成功",
     "scanFailed": "簽到失敗",
-    "needLogin": "請先登入後再掃碼"
+    "scanHint": "將老師的簽到二維碼放入框內",
+    "scanInvalidCode": "這不是本系統的簽到二維碼",
+    "scanSubmitting": "正在簽到…",
+    "scanTitle": "掃碼簽到",
+    "title": "簽到二維碼"
+  },
+  "eduMyAttendance": {
+    "classByBackendHint": "班級由後端按在冊學籍自動確定",
+    "date": "日期",
+    "notLoggedIn": "尚未登入，無法操作",
+    "scanCheckIn": "掃碼簽到",
+    "selfCheckIn": "我要簽到",
+    "title": "我的考勤"
   }
 }

@@ -7,6 +7,7 @@
 import * as React from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { refreshAccessTokenOnce } from '@ihui/api-client'
+import { parseTaskStatusChangedEvent, parseWorkspaceLockReleasedEvent } from '@ihui/shared'
 import type { AgentSSEEvent } from '@ihui/types'
 
 export interface UseAgentSSEReturn {
@@ -42,14 +43,29 @@ export function useAgentSSE(source: AgentSSEUrlSource): UseAgentSSEReturn {
 
   const invalidateOnEvent = React.useCallback(
     (evt: AgentSSEEvent) => {
+      // 2026-11-04(sse-event-parity):这两类帧的字段契约此前无人读(只判 type 就失效)。
+      // 走共享解析读 fromStatus/toStatus/released,字段真被消费,门才算"可比且绿"。
+      if (evt.type === 'task_status_changed') {
+        const parsed = parseTaskStatusChangedEvent(evt)
+        if (!parsed || parsed.toStatus !== parsed.fromStatus) {
+          queryClient.invalidateQueries({ queryKey: ['agents-kanban'] })
+        }
+        return
+      }
+      if (evt.type === 'workspace_lock_released') {
+        const parsed = parseWorkspaceLockReleasedEvent(evt)
+        // released=false 是续期/信息帧,不动看板;true/缺省才失效
+        if (parsed?.released !== false) {
+          queryClient.invalidateQueries({ queryKey: ['agents-kanban'] })
+        }
+        return
+      }
       if (
         evt.type === 'task_created' ||
-        evt.type === 'task_status_changed' ||
         evt.type === 'task_completed' ||
         evt.type === 'task_failed' ||
         // 2-2 工作区锁事件:锁徽标(lockedBy/lockedAt)需随流转刷新
-        evt.type === 'workspace_lock_acquired' ||
-        evt.type === 'workspace_lock_released'
+        evt.type === 'workspace_lock_acquired'
       ) {
         queryClient.invalidateQueries({ queryKey: ['agents-kanban'] })
       }

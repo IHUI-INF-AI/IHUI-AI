@@ -8,13 +8,14 @@
  * 现在改为:录音停止 → 上传到 ai-service /api/voice/stt → 返回转写文字。
  *
  * 对齐历史 Uniapp VoiceInput/index.vue 补全(不破坏现有录音/STT):
- * - 图片弹出层(相机/相册/文件:onImageSelected(type) 回调预留,不引入原生依赖)
- * - 遮罩层(弹出层打开时透明遮罩拦截点击以关闭,分离点击/长按)
  * - 清除按钮(清除最近一次语音结果:onChange?.('') 回传)
+ *
+ * 2026-11-04 门 285 审计返工:图片弹出层(onImageSelected/showImagePicker)全站 0 调用方,
+ * 属死腿;按「死腿不得挂平台档」删声明与整段 UI,不再保留平台分叉。
  * - 50 线语音动画 → 简化 12 条波形条(单 Animated 循环 + 相位错峰)
  *
  * 共享类型 VoiceInputMinimalProps 已下沉到 @ihui/types,
- * 本地 Props extends Minimal 并追加 aiServiceUrl/language + 图片/清除扩展。
+ * 本地 Props extends Minimal 并追加 aiServiceUrl/language + 清除扩展。
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
@@ -34,30 +35,15 @@ import { VOICE_INPUT_RECORD_ROW_GAP_PX } from '@ihui/shared/ui/voice-input-spec'
 import { voiceSttFromReactNative } from '@ihui/api-client'
 import { getToken } from '../lib/token'
 import type { VoiceInputMinimalProps } from '@ihui/types'
-import { Camera, Folder, Image as ImageIcon, type LucideIcon } from 'lucide-react-native'
 
 import { rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 import { Tappable } from '@ihui/ui-native'
-
-/** 图片弹出层来源类型(对齐 Uniapp handleIconClick(type):camera/album/file) */
-export type VoiceImageSource = 'camera' | 'album' | 'file'
 
 export interface VoiceInputProps extends VoiceInputMinimalProps {
   /** ai-service URL(默认 http://localhost:8803) */
   aiServiceUrl?: string
   /** 语言提示(默认 zh) */
   language?: string
-  /** 图片弹出层选择回调(预留:相机/相册/文件,不引入原生图片选择依赖) */
-  onImageSelected?: (type: VoiceImageSource) => void
-  /**
-   * 是否显示图片弹出层入口。默认 false:添加入口统一归输入区
-   * (PlusButton + AddPanel),而本弹出层全站无调用方接线(onImageSelected
-   * 无人传入),开着就是与输入区加号并存的第二个死加号。
-   * 需要时显式传 true 并接上真实上传链路。
-   */
-  showImagePicker?: boolean
-  /** 是否显示清除按钮(默认 true,清除最近一次语音结果) */
-  showClear?: boolean
 }
 
 const RECORD_MAX_SECONDS = 60
@@ -66,12 +52,6 @@ const WAVE_MIN = 6
 const WAVE_MAX = 28
 const WAVE_SAMPLES = [0, 0.25, 0.5, 0.75, 1]
 
-const IMAGE_SOURCES: ReadonlyArray<{ type: VoiceImageSource; icon: LucideIcon; label: string }> = [
-  { type: 'camera', icon: Camera, label: 'voice.cam' },
-  { type: 'album', icon: ImageIcon, label: 'voice.album' },
-  { type: 'file', icon: Folder, label: 'voice.file' },
-]
-
 export function VoiceInput({
   onComplete,
   onChange,
@@ -79,15 +59,11 @@ export function VoiceInput({
   placeholder,
   aiServiceUrl = 'http://localhost:8803',
   language = 'zh',
-  onImageSelected,
-  showImagePicker = false,
-  showClear = true,
 }: VoiceInputProps) {
   const { t } = useI18n()
   const [recording, setRecording] = useState(false)
   const [transcribing, setTranscribing] = useState(false)
   const [duration, setDuration] = useState(0)
-  const [showImagePopup, setShowImagePopup] = useState(false)
   const [lastResult, setLastResult] = useState('')
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const waveAnim = useRef(new Animated.Value(0)).current
@@ -232,15 +208,6 @@ export function VoiceInput({
     onChange?.('')
   }, [onChange])
 
-  // 图片弹出层选择(回调预留,不引入原生图片选择依赖)
-  const handleImagePick = useCallback(
-    (type: VoiceImageSource) => {
-      setShowImagePopup(false)
-      onImageSelected?.(type)
-    },
-    [onImageSelected],
-  )
-
   // 12 条波形(单 Animated 循环 + 相位错峰,替代原版 50 线)
   const bars = useMemo(
     () =>
@@ -256,30 +223,6 @@ export function VoiceInput({
 
   return (
     <View style={styles.container}>
-      {/* 遮罩层:图片弹出层打开时,透明遮罩拦截点击以关闭(分离点击/长按) */}
-      {showImagePopup ? (
-        <Tappable
-          style={styles.mask}
-          onPress={() => setShowImagePopup(false)}
-          accessibilityLabel={t('voice.closeImgMenu')}
-        />
-      ) : null}
-
-      {/* 图片弹出层入口(对齐原版 search-add 按钮) */}
-      {showImagePicker ? (
-        <Tappable
-          style={styles.imageToggleBtn}
-          onPress={() => setShowImagePopup((v) => !v)}
-          hitSlop={4}
-          accessibilityRole="button"
-          accessibilityLabel={t('voice.addImage')}
-        >
-          <Text style={styles.imageToggleIcon} allowFontScaling={false}>
-            {'＋'}
-          </Text>
-        </Tappable>
-      ) : null}
-
       {/* 语音按钮:长按录音,松开转写 */}
       <Pressable
         onLongPress={handleLongPress}
@@ -313,7 +256,7 @@ export function VoiceInput({
       </Pressable>
 
       {/* 清除按钮(有结果时显示,对齐原版 clearIcon) */}
-      {showClear && lastResult !== '' ? (
+      {lastResult !== '' ? (
         <Tappable
           style={styles.clearBtn}
           onPress={handleClear}
@@ -325,26 +268,6 @@ export function VoiceInput({
             {'×'}
           </Text>
         </Tappable>
-      ) : null}
-
-      {/* 图片弹出层:相机 / 相册 / 文件 */}
-      {showImagePopup ? (
-        <View style={styles.imagePopup}>
-          {IMAGE_SOURCES.map((item) => (
-            <Tappable
-              key={item.type}
-              style={styles.popupItem}
-              onPress={() => handleImagePick(item.type)}
-              accessibilityRole="button"
-              accessibilityLabel={t(item.label)}
-            >
-              <item.icon size={20} color={tokens.text.secondary} />
-              <Text style={styles.popupLabel} numberOfLines={1}>
-                {t(item.label)}
-              </Text>
-            </Tappable>
-          ))}
-        </View>
       ) : null}
     </View>
   )

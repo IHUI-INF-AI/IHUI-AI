@@ -89,7 +89,7 @@ export interface ModelListProps {
   /** 分组模型数据(与 RN 端同名同义;本端历史用扁平 models + 内部 splitModelCatalog 分组)。
    *  需后手改必填 + 补调用点(RN 端为必填,本块看不到全部调用点故先置可选占位)。 */
   groups?: ModelListGroup[]
-  models: ModelItem[]
+  models?: ModelItem[]
   selectedId?: string | number
   onSelect?: (model: ModelItem) => void
   loading?: boolean
@@ -126,7 +126,7 @@ const TYPE_LABELS = (tt: TtFn): Record<string, string> => ({
 })
 
 export default function ModelList({
-  models,
+  models = [],
   selectedId,
   onSelect,
   loading = false,
@@ -641,11 +641,11 @@ export default function ModelList({
   // ===== 默认 'list' 模式:兼容 ChatDrawers 等旧调用 =====
   if (loading) {
     return (
-      <View className="px-3 py-2" style={style}>
+      <View className="px-md py-sm" style={style}>
         {Array.from({ length: 3 }).map((_, i) => (
-          <View key={i} className="flex items-center py-3 animate-pulse">
-            <View className="w-10 h-10 mr-3 rounded-lg bg-muted" />
-            <View className="flex-1 space-y-2">
+          <View key={i} className="flex items-center py-md animate-pulse">
+            <View className="w-10 h-10 mr-md rounded-lg bg-muted" />
+            <View className="flex-1 space-y-sm">
               <View className="h-3 w-1/3 rounded bg-muted" />
               <View className="h-[20rpx] w-2/3 rounded bg-muted" />
             </View>
@@ -682,27 +682,27 @@ export default function ModelList({
   }
 
   return (
-    <View className="px-3 py-1" style={style}>
+    <View className="px-md py-xs" style={style}>
       {/* 默认列表:只展示"最新 + 对话类" */}
       {split.primary.map((model) => {
         const selected = selectedSet.has(String(model.id))
         return (
           <View
             key={model.id}
-            className={`flex items-center py-[20rpx] px-3 mb-2 rounded-lg transition-colors ${
+            className={`flex items-center py-[20rpx] px-md mb-sm rounded-lg transition-colors ${
               selected ? 'bg-muted' : 'bg-card'
             }`}
             onClick={() => handleSelect(model)}
             hoverClass="opacity-60"
           >
-            <View className="flex items-center justify-center w-10 h-10 mr-3 rounded-lg bg-muted">
-              <Text className="text-sm font-medium text-muted-foreground">
+            <View className="flex items-center justify-center w-10 h-10 mr-md rounded-lg bg-muted">
+              <Text className="text-body font-medium text-muted-foreground">
                 {model.name.charAt(0)}
               </Text>
             </View>
             <View className="flex-1 min-w-0">
               <View className="flex items-center">
-                <Text className="text-sm font-medium text-foreground truncate">{model.name}</Text>
+                <Text className="text-body font-medium text-foreground truncate">{model.name}</Text>
                 {/* 选中态:U+2713 勾字符改矢量;size 走本族勾字号单一源
                     MODEL_LIST_CHECK_GLYPH_PX(=12px,与原 text-xs 同档)× TARO_RPX_PER_PX,
                     端内不另立数字;color = 原类名的 text-primary */}
@@ -711,13 +711,13 @@ export default function ModelList({
                     name="check"
                     size={MODEL_LIST_CHECK_GLYPH_PX * TARO_RPX_PER_PX}
                     color="var(--color-primary)"
-                    className="ml-2"
+                    className="ml-sm"
                   />
                 )}
               </View>
-              <Text className="text-xs text-muted-foreground truncate">{model.provider}</Text>
+              <Text className="text-label text-muted-foreground truncate">{model.provider}</Text>
             </View>
-            <Text className="ml-2 text-xs text-muted-foreground shrink-0">
+            <Text className="ml-sm text-label text-muted-foreground shrink-0">
               {categoryLabel(categoryOf(model))}
             </Text>
           </View>
@@ -727,16 +727,16 @@ export default function ModelList({
       {/* ===== 历史模型折叠区(默认收起) ===== */}
       {split.archivedCount > 0 ? (
         <View
-          className="flex items-center justify-between px-3 py-[20rpx] mb-2 rounded-lg bg-muted"
+          className="flex items-center justify-between px-md py-[20rpx] mb-sm rounded-lg bg-muted"
           onClick={() => setHistoryExpanded((v) => !v)}
           hoverClass="opacity-60"
         >
-          <Text className="text-sm text-foreground">
+          <Text className="text-body text-foreground">
             {`${historyLabel(locale)} (${split.archivedCount})`}
           </Text>
           {/* 开合指示用文字而非图标字形:项目守门(11h)禁止在 UI 图标位使用
               emoji / 符号字符做图标,小程序端也没有 lucide 可用,故用中文状态词 */}
-          <Text className="text-sm text-muted-foreground">
+          <Text className="text-body text-muted-foreground">
             {showArchived ? collapseLabel(locale) : expandLabel(locale)}
           </Text>
         </View>
@@ -744,13 +744,13 @@ export default function ModelList({
 
       {showArchived
         ? split.archived.map((group) => (
-            <View key={`archived-${group.category}`} className="mb-2">
+            <View key={`archived-${group.category}`} className="mb-sm">
               {/* O81 逐档复核(2026-09-27):分组头行底衬 4→8 —— 与 RN 同一元素 sectionHeader 的
                   paddingVertical 8、及本行自己的 pt-2 同档(同元素两端不同档 ⇒ 收敛,间距取较大)。
                   守门 128 读数「仅小程序档 4」的另一半是 list 变体外层容器 py-1,该层内衬已由
                   model-list-spec 头注登记为「另计一票」布局裁决项,本票不动,故 4 仍会在读数出现。 */}
-              <View className="px-3 pt-2 pb-2">
-                <Text className="text-xs text-muted-foreground">
+              <View className="px-md pt-sm pb-sm">
+                <Text className="text-label text-muted-foreground">
                   {`${categoryLabel(group.category)} · ${group.items.length}`}
                 </Text>
               </View>
@@ -759,20 +759,20 @@ export default function ModelList({
                 return (
                   <View
                     key={model.id}
-                    className={`flex items-center py-[20rpx] px-3 mb-2 rounded-lg transition-colors ${
+                    className={`flex items-center py-[20rpx] px-md mb-sm rounded-lg transition-colors ${
                       selected ? 'bg-muted' : 'bg-card'
                     }`}
                     onClick={() => handleSelect(model)}
                     hoverClass="opacity-60"
                   >
-                    <View className="flex items-center justify-center w-10 h-10 mr-3 rounded-lg bg-muted">
-                      <Text className="text-sm font-medium text-muted-foreground">
+                    <View className="flex items-center justify-center w-10 h-10 mr-md rounded-lg bg-muted">
+                      <Text className="text-body font-medium text-muted-foreground">
                         {model.name.charAt(0)}
                       </Text>
                     </View>
                     <View className="flex-1 min-w-0">
                       <View className="flex items-center">
-                        <Text className="text-sm font-medium text-foreground truncate">
+                        <Text className="text-body font-medium text-foreground truncate">
                           {model.name}
                         </Text>
                         {/* 选中态:U+2713 勾字符改矢量;取值同上默认列表那一处 */}
@@ -781,15 +781,15 @@ export default function ModelList({
                             name="check"
                             size={MODEL_LIST_CHECK_GLYPH_PX * TARO_RPX_PER_PX}
                             color="var(--color-primary)"
-                            className="ml-2"
+                            className="ml-sm"
                           />
                         )}
                       </View>
-                      <Text className="text-xs text-muted-foreground truncate">
+                      <Text className="text-label text-muted-foreground truncate">
                         {model.provider}
                       </Text>
                     </View>
-                    <Text className="ml-2 text-xs text-muted-foreground shrink-0">
+                    <Text className="ml-sm text-label text-muted-foreground shrink-0">
                       {categoryLabel(group.category)}
                     </Text>
                   </View>

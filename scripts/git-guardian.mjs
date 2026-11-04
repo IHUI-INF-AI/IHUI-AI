@@ -11130,6 +11130,14 @@ const CROSS_END_SHELL_INTERVAL_MS = Number(
  *
  * 三态:器物不在位 ⇒ 跳过且不记为已探测;取不到结论行 ⇒ 未判定(不记绿);有改动/零改动各记一行。
  * held 是"工作树脏、归属未知不猜"的跳过面,不是失败 —— 它会自己随着他席提交而回落。
+ *
+ * 2026-11-05 补 `--include-font-size`(**造好没装车**那一格,§0.9):器物本有三条子腿
+ * (字号 / 字号成对 / 圆角),而本腿此前恒只传 `--apply` ⇒ 只有间距腿在自动跑,字号轴结构上永远不会
+ * 跟随 web。现读实测该旗的预演面:`--include-font-size` = 263 处改写 / 96 文件 / **verifyFailed=0**
+ * (器物自验:写成 token 后取值逐枚与原数字相等 ⇒ 零视觉变化),并把 75 处"带 lineHeight 的成对字号"
+ * 主动让给成对腿(`--include-font-size-pair` 预演实测 0 可落:75 处 pairMismatch + 293 处无行高 ⇒
+ * 那两条要等成对档表补齐才能动,不是把判据削窄);`--include-radius` 预演 0 处可落(圆角已单源收口)。
+ * 与 web 腿的 `--only-weight-locked --pin-inherit-weight` 同一条纪律:**只放行可证零变化的那一档**。
  */
 const RN_STYLE_TIERS_INTERVAL_MS = Number(
   process.env.IHUI_RN_STYLE_TIERS_INTERVAL_MS || 30 * 60 * 1000,
@@ -11166,7 +11174,7 @@ export function sweepRnStyleTiers(opts = {}) {
       ? runner
       : () => {
           try {
-            const out = execFileSync(process.execPath, [script, '--apply'], {
+            const out = execFileSync(process.execPath, [script, '--apply', '--include-font-size'], {
               cwd: WORKTREE,
               encoding: 'utf8',
               windowsHide: true, // §5b 派生进程纪律
@@ -11325,9 +11333,16 @@ export function sweepMiniappStyleTiers(opts = {}) {
  * ⚠ 这条腿与另两条有一处必须显式带的差异(器物自己头注写明的实测反例):
  * 具名档是**三元组**(size / line-height / font-weight),Tailwind 默认档只给前两项 ⇒
  * "字号与行高相同"**不等于零视觉变化**:`text-xl → text-heading` 会把没有 `font-*` 伴随的
- * 元素从 400 顶到 700。所以本轮**恒带 `--only-weight-locked`**(只改"同一类名串里已有 font-*
- * 工具类钉住权重"的那些),这是"可证恒等"的唯一子集。不带这旗的 `--apply` 会静默改全站字重,
- * 因此这里把它写死成常量,而不是留一个可被环境变量调掉的口子。
+ * 元素从 400 顶到 700。所以本轮**恒带 `--only-weight-locked`**;不带这旗的 `--apply`
+ * 会静默改全站字重,因此写死成常量,而不是留一个可被环境变量调掉的口子。
+ *
+ * ⚠ 2026-11-04 追加:光有上一旗会让这条腿**永久空转** —— 现读 web 523 处可落档类名串
+ * 无一自带 `font-*`,每轮恒报 `files=0 changes=0`。故再恒带 `--pin-inherit-weight`:给无
+ * 权重串补 `font-[weight:inherit]`(本仓 Tailwind 4.3.3 编译取证产物为
+ * `--tw-font-weight: inherit; font-weight: inherit`)。它自身等价于"属性未设置时继承祖先",
+ * 又让具名档的 400/700 回落整体失效 ⇒ 仍是可证零变化,只是把可证子集从 0 扩到全部。
+ * **绝不可改用 `font-[inherit]`**:同一轮取证里它被解析成 `font-family: inherit`。
+ * `--limit 20` 小批落盘,配合落点账本 `skipLanded` 逐轮续跑,避免一轮写 86 个文件。
  *
  * 失效方向与另两条同形:器物不在位 ⇒ 跳过且不记为已探测;取不到结论行 ⇒ 未判定(不记绿);
  * `failed>0` ⇒ ok:false 并点名(那批文件没落,不是"已对齐");`truncated=1` 原样带出(有上限被触到)。
@@ -11372,14 +11387,18 @@ export function sweepWebStyleTiers(opts = {}) {
       ? runner
       : () => {
           try {
-            const out = execFileSync(process.execPath, [script, '--apply', '--only-weight-locked'], {
-              cwd: WORKTREE,
-              encoding: 'utf8',
-              windowsHide: true, // §5b 派生进程纪律
-              timeout: Number(process.env.IHUI_WEB_STYLE_TIERS_TIMEOUT_MS || 20 * 60 * 1000),
-              maxBuffer: 1 << 22,
-              stdio: ['ignore', 'pipe', 'pipe'], // §12g 派生 git/node 必须显式接管 stdio
-            })
+            const out = execFileSync(
+              process.execPath,
+              [script, '--apply', '--only-weight-locked', '--pin-inherit-weight', '--limit', '20'],
+              {
+                cwd: WORKTREE,
+                encoding: 'utf8',
+                windowsHide: true, // §5b 派生进程纪律
+                timeout: Number(process.env.IHUI_WEB_STYLE_TIERS_TIMEOUT_MS || 20 * 60 * 1000),
+                maxBuffer: 1 << 22,
+                stdio: ['ignore', 'pipe', 'pipe'], // §12g 派生 git/node 必须显式接管 stdio
+              },
+            )
             return { ok: true, out: String(out ?? ''), status: 0 }
           } catch (e) {
             return {
@@ -11419,10 +11438,20 @@ export function sweepWebStyleTiers(opts = {}) {
     return { ran: true, ok: false, state, files, changes, held, failed, truncated }
   }
   logger(
-    `ℹ️ web 落档自愈:${line.slice(0, 200)}(恒带 --only-weight-locked:只动权重已被 font-* 钉死的那批)` +
+    `ℹ️ web 落档自愈:${line.slice(0, 200)}(恒带 --only-weight-locked + --pin-inherit-weight:补 font-[weight:inherit] 后仍是可证零变化;pinned=${num('pinned')})` +
       `${truncated ? ' [truncated=1:本轮触到上限,余量下轮续]' : ''}`,
   )
-  return { ran: true, ok: true, state, files, changes, held, failed, truncated }
+  return {
+    ran: true,
+    ok: true,
+    state,
+    files,
+    changes,
+    pinned: num('pinned'),
+    held,
+    failed,
+    truncated,
+  }
 }
 
 export function sweepCrossEndShellPages(opts = {}) {
@@ -11956,6 +11985,9 @@ export function sweepCrossEndLandingLeg(opts = {}) {
     tickFile = join(dirname(LOG), 'cross-end-landing-last.json'),
     logger = log,
     runner = null,
+    // 与其余跨端腿同一注入面(被别的 sweepXxx 用同名默认):漏了这一行就是运行期 ReferenceError,
+    // 而 node --check 查不出来(模块能加载 ≠ 能调用)。
+    notify = notifyGuardRed,
   } = opts
   const script = join(dirname(fileURLToPath(import.meta.url)), 'auto-commit-quiet.mjs')
   if (!existsSync(script)) {
@@ -11986,6 +12018,11 @@ export function sweepCrossEndLandingLeg(opts = {}) {
   const num = (k) => Number(new RegExp(`${k}=(\\d+)`).exec(line)?.[1]) || 0
   const ledger = /ledger=(\w+)/.exec(line)?.[1] ?? 'unknown'
   const landed = num('collected')
+  // 2026-11-05 与收编器同日改口径:`collected` 现在只算**真入库**的枚数,被门拦下的走 blocked/blocker。
+  // 必须同时改下面那条"什么时候出声"的条件 —— 否则"整批被无关红门拦死"的轮次 collected=0,
+  // 会落进原来的静默分支,把唯一需要喊的那一刻变成安静(§0.9 判据失效的表现永远是安静)。
+  const blocked = num('blocked')
+  const blocker = /blocker=(\S+)/.exec(line)?.[1] ?? null
   const out = {
     ran: true,
     ok: true,
@@ -11996,6 +12033,26 @@ export function sweepCrossEndLandingLeg(opts = {}) {
     contested: num('contested'),
     incomplete: num('incomplete'),
     held: num('held'),
+    blocked,
+    blocker,
+  }
+  if (blocked > 0) {
+    logger(
+      `❌ 跨端落库:本轮挑中 ${blocked} 枚但一枚未入库,拦路者=${blocker ?? 'unidentified'} ⇒ ` +
+        `账本申报仍在盘上,下一轮仍会重来(不是"没有待收").${line.slice(0, 200)}`,
+    )
+    try {
+      notify(
+        `跨端收编被拦:拦路者 ${blocker ?? 'unidentified'}`,
+        `COLLECT-RESULT 现读:${line.slice(0, 300)}\n\n` +
+          '这不是"没有待收编",是整批被一道与跨端无关的门拦死(它判的是索引/工作树全局面 ⇒ 全仓提交都被堵)。' +
+          '整改下一步:按上面点名的门修它自己的红(或等它红被消除),不要给收编器加跳门旗。',
+        { severity: 'warning', dedupKey: `cross-end-collect-blocked:${blocker ?? 'unidentified'}` },
+      )
+    } catch {
+      /* 到人通道异常不改本轮结论(与既有各腿同形) */
+    }
+    return out
   }
   if (landed === 0 && out.contested === 0 && out.incomplete === 0) return out
   logger(`📦 跨端落库:${line.slice(0, 220)}`)
@@ -12081,6 +12138,7 @@ function runCrossEndApplyLeg({ scriptName, args, defaultTickFile, label, opts })
     tickFile = defaultTickFile,
     logger = log,
     runner = null,
+    notify = notifyGuardRed,
   } = opts
   const script = join(dirname(fileURLToPath(import.meta.url)), scriptName)
   if (!existsSync(script)) {
@@ -12103,16 +12161,62 @@ function runCrossEndApplyLeg({ scriptName, args, defaultTickFile, label, opts })
           : `status=${r.status ?? '?'}`
       })—— 这不等于"无漂移可落"`,
     )
+    stampCrossEndDispatch(tickFile, now, r, String(r.stdout ?? ''), { state: 'unparsed' })
     return { ran: true, ok: false, state: 'undetermined', status: r.status, signal: r.signal }
   }
   const num = (k) => Number(new RegExp(`${k}=(\\d+)`).exec(line)?.[1]) || 0
+  // 2026-11-04:两种"没写成"必须分道,不得合成一个 red(§0.3):
+  //   downgrade  = 派生结果逐字等于祖先旧档、被写手闸拒掉的枚数(真"该写却没写");
+  //   undetermined = 本轮没判成的对数(祖先面取不到/归属未明),"没判"不等于"没有倒退"。
+  // 原实现两者只留在 stdout,tick 只有 rc/tail,日志只在 landed/held>0 时出话 ⇒ 两态都静默。
+  const downgrade = num('downgrade')
+  const notJudged = Number(/\?未判定\s+(\d+)/.exec(blob)?.[1]) || 0
+  const refusedWrite = downgrade > 0
+  const missedJudge = notJudged > 0 || (typeof r.status === 'number' && r.status === 2)
+  // tick 字段恒写(0 也要在,便于 grep 趋势);state 取最具体的一态。
+  stampCrossEndDispatch(tickFile, now, r, String(r.stdout ?? ''), {
+    state: refusedWrite ? 'refused-downgrade' : missedJudge ? 'undetermined' : 'ok',
+    downgrade,
+    undetermined: notJudged,
+  })
   const out = {
     ran: true,
     ok: true,
-    state: /ledger=unjudged/.test(line) ? 'unjudged-ledger' : 'ok',
+    state: refusedWrite
+      ? 'refused-downgrade'
+      : missedJudge
+        ? 'undetermined'
+        : /ledger=unjudged/.test(line)
+          ? 'unjudged-ledger'
+          : 'ok',
     landed: num('landing'),
     held: num('held'),
     skipped: num('skipLanded'),
+    downgrade,
+    undetermined: notJudged,
+  }
+  if (refusedWrite) {
+    const detail = /^.*⛔ downgrade.*$/m.exec(blob)?.[0] ?? ''
+    logger(
+      `❌ ${label}:祖先旧档拒写 downgrade=${downgrade} 枚(未判定 ${notJudged} 对)⇒ 本轮写出 ${num('写出')} 枚;` +
+        `需先让 RN 壳对齐同一档,再派生;${line.slice(0, 220)}`,
+    )
+    try {
+      notify(`${label}:派生结果=祖先旧档,拒写 ${downgrade} 枚`, `${detail || line}\n\n这不是"已落档",是写手闸拦下了旧 blob;拒写(downgrade>0)与未判定(exit 2)两态不可混:未判定=${notJudged}。`, {
+        severity: 'warning',
+        dedupKey: `cross-end-apply-downgrade:${scriptName}`,
+      })
+    } catch {
+      /* 告警面失败不改变判据面(与本守护 notify 同格) */
+    }
+    return { ...out, ok: false }
+  }
+  if (missedJudge) {
+    logger(
+      `⚠️ ${label}:未判定 ${notJudged} 对(rc=${r.status ?? '?'})⇒ 本轮没判,不等于"无漂移可落"` +
+        `(拒写 downgrade=${downgrade} 是另一态);${line.slice(0, 220)}`,
+    )
+    return { ...out, ok: false }
   }
   if (out.landed === 0 && out.held === 0) return out
   logger(`🧩 ${label}:${line.slice(0, 220)}`)
@@ -12156,6 +12260,17 @@ export function sweepRnCompatLeg(opts = {}) {
     args: ['--write'],
     defaultTickFile: join(dirname(LOG), 'rn-compat-last.json'),
     label: '小程序 RN 兼容层派生产物落档',
+    opts,
+  })
+}
+
+/** 小程序词包整块缺口搬运(基准侧已有译文 ⇒ 逐字搬,取不到 ⇒ 点名不代拟;只写工作树,落库交收编腿)。 */
+export function sweepMiniappMessageKeysLeg(opts = {}) {
+  return runCrossEndApplyLeg({
+    scriptName: 'sync-miniapp-message-keys.mjs',
+    args: ['--apply'],
+    defaultTickFile: join(dirname(LOG), 'miniapp-message-keys-last.json'),
+    label: '小程序词包整块缺口搬运',
     opts,
   })
 }
@@ -13314,6 +13429,10 @@ async function main() {
     if (!CHECK_ONLY) sweepRnColorLiteralLeg()
     // 门 251 的修法出口此前全仓零调度点 ⇒ 挂在这里:图标全集/路由映射一漂,提交链那道 blocking 就等人手敲。
     if (!CHECK_ONLY) sweepRnCompatLeg()
+    // 跨端驾驶舱连日复发的那道红(mirror-pack-namespace-missing)此前只有尺、没有器物 ⇒ 每次等人手抄五语言 JSON。
+    // 本腿把它变成机械动作:基准侧已有的译文逐字搬,取不到则点名不代拟;排在建包腿(healI18nBundleLeg)之前,
+    // 搬完的词下一轮就进小程序离线包。
+    if (!CHECK_ONLY) sweepMiniappMessageKeysLeg()
     if (!CHECK_ONLY) sweepCrossEndLandingLeg()
     // 汇总面排在各腿之后:驾驶舱会把整条链再跑一趟,先让各腿把该补的补完,这一趟读到的才是本轮终态。
     if (!CHECK_ONLY) sweepParityCockpit()

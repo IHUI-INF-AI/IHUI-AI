@@ -247,25 +247,37 @@ export default function DevEnterCover() {
             <View className="dc-account-row">
               <Text className="dc-account-label">{tt('devEnter.cover.account', '账号')}</Text>
               <Text className="dc-account-value">{developer.signNickname || '-'}</Text>
-              <Text className="dc-copy-btn" onClick={() => copyText(developer.signNickname || '')}>
-                {tt('devEnter.cover.copy', '复制')}
-              </Text>
+              <View
+                className="dc-copy-btn"
+                hoverClass="opacity-60"
+                onClick={() => copyText(developer.signNickname || '')}
+              >
+                <Text>{tt('devEnter.cover.copy', '复制')}</Text>
+              </View>
             </View>
             <View className="dc-account-row">
               <Text className="dc-account-label">{tt('devEnter.cover.password', '密码')}</Text>
               <Text className="dc-account-value">{developer.signPassword || '-'}</Text>
-              <Text className="dc-copy-btn" onClick={() => copyText(developer.signPassword || '')}>
-                {tt('devEnter.cover.copy', '复制')}
-              </Text>
+              <View
+                className="dc-copy-btn"
+                hoverClass="opacity-60"
+                onClick={() => copyText(developer.signPassword || '')}
+              >
+                <Text>{tt('devEnter.cover.copy', '复制')}</Text>
+              </View>
             </View>
             <View className="dc-account-row">
               <Text className="dc-account-label">{tt('devEnter.cover.website', '网址')}</Text>
               <Text className="dc-account-value">
                 {developer.address || tt('devEnter.cover.noWebsite', '无')}
               </Text>
-              <Text className="dc-copy-btn" onClick={() => copyText(developer.address || '')}>
-                {tt('devEnter.cover.copy', '复制')}
-              </Text>
+              <View
+                className="dc-copy-btn"
+                hoverClass="opacity-60"
+                onClick={() => copyText(developer.address || '')}
+              >
+                <Text>{tt('devEnter.cover.copy', '复制')}</Text>
+              </View>
             </View>
             {/* RN 到期时间行: label/value 同为 danger.bright,行尾「续费」纯文字 */}
             <View className="dc-account-row">
@@ -275,9 +287,9 @@ export default function DevEnterCover() {
               <Text className="dc-account-value dc-expire-text">
                 {devLink?.expiresAtStr || '-'}
               </Text>
-              <Text className="dc-renew-btn" onClick={renew}>
-                {tt('devEnter.cover.renew', '续费')}
-              </Text>
+              <View className="dc-renew-btn" hoverClass="opacity-60" onClick={renew}>
+                <Text>{tt('devEnter.cover.renew', '续费')}</Text>
+              </View>
             </View>
           </View>
         ) : null}

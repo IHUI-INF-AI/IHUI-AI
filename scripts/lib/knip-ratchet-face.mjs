@@ -64,4 +64,35 @@ export function provenanceNote({ comparable, dirtyCount, forced, isolated = fals
     ? `recordedFrom: ⚠️ DIRTY worktree(${n} 个未提交改动) —— 经 --allow-dirty 人工放行,该数与 CI 不可比,须复核`
     : `recordedFrom: DIRTY worktree(${n})`
 }
+
+/**
+ * 从 knip 的 stderr 里认出「插件配置文件加载失败」。
+ *
+ * 为什么这是一条**必判**的判据,而不是日志噪音(2026-11-04 取证):
+ * knip 的 WorkspaceWorker 在配置加载抛错时只做两件事 —— `logError` 一行,然后
+ * `this.cache.removeEntry(configFilePath)` 把它从**入口面**摘掉,进程照常 exit 0
+ * (见 node_modules/knip/dist/WorkspaceWorker.js 的 hasLoadConfigError 分支)。
+ * 于是读数不是"红",而是"少了一整块面却仍以为自己量过" —— 本仓把这种失败叫
+ * 静默降级,判据方向只能是"读数不可比",绝不能当噪音吞掉。
+ *
+ * 实测面(2026-11-04 干净检出,5 处同时失败):apps/mobile-rn/app.config.js(WX 守卫、
+ * knip 用 dummy config 上下文调用)、apps/mobile-rn/metro.config.cjs(nativewind 的
+ * configPath 默认相对 cwd)、apps/extension/{wxt,vitest}.config.ts(.wxt/tsconfig.json
+ * 未生成)、packages/database/drizzle.config.ts(缺 DATABASE_URL 时 fail-closed)。
+ *
+ * 形态:knip 的格式是 `ERROR: Error loading <相对路径> (<cause>)`。路径里可能带括号
+ * (本仓有 `app/(main)/…` 这种 Next 路由段),所以只能以「空格 + 左括号」作分隔点,不能
+ * 用第一个左括号;cause 里可能再带括号,故取到行尾最后一个右括号。
+ *
+ * @param {string} stderr
+ * @returns {Array<{ path: string, cause: string }>} 空数组 = 没有加载失败
+ */
+export function detectConfigLoadFailures(stderr) {
+  const failures = []
+  for (const line of String(stderr ?? '').split('\n')) {
+    const m = /^ERROR: Error loading (.+?) \((.*)\)\s*$/.exec(line)
+    if (m) failures.push({ path: m[1], cause: m[2] })
+  }
+  return failures
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

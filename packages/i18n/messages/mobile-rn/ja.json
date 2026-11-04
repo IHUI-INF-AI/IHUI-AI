@@ -384,7 +384,8 @@
     "empty": "ライブはありません",
     "lecturer": "講師",
     "startAt": "開始時間",
-    "loadFailed": "ライブの読み込みに失敗"
+    "loadFailed": "ライブの読み込みに失敗",
+    "startTime": "開始時間"
   },
   "liveDetail": {
     "title": "ライブ詳細",
@@ -633,7 +634,11 @@
     "runtimeEmpty": "実行履歴はまだありません",
     "runtimeInputPlaceholder": "エージェントに送信するメッセージを入力",
     "runtimeStop": "停止",
-    "runtimeSend": "送信"
+    "runtimeSend": "送信",
+    "fieldName": "名称",
+    "fieldCategory": "カテゴリ",
+    "fieldDescription": "説明",
+    "fieldPrice": "価格"
   },
   "chat": {
     "assetCatText": "文本",
@@ -941,7 +946,9 @@
     "version": "バージョン",
     "language": "言語",
     "theme": "テーマ",
-    "logoutConfirmBody": "このアカウントからログアウトしますか？"
+    "logoutConfirmBody": "このアカウントからログアウトしますか？",
+    "accountDeletionConfirmLabel": "アカウント削除を確認",
+    "accountDeletionConfirmTitle": "アカウント削除を確認"
   },
   "menu": {
     "artifacts": "成果物センター",
@@ -1607,11 +1614,8 @@
   },
   "agentCreate": {
     "title": "エージェント作成",
-    "name": "名称",
     "namePlaceholder": "エージェントの名前を入力",
-    "category": "カテゴリ",
     "categoryPlaceholder": "例:オフィスアシスタント",
-    "description": "説明",
     "descPlaceholder": "このエージェントを紹介してください",
     "systemPrompt": "システムプロンプト",
     "promptPlaceholder": "エージェントの役割と動作を定義します",
@@ -1764,7 +1768,6 @@
     "instructor": "講師",
     "rating": "評価",
     "free": "無料",
-    "enrolled": "申込済み",
     "enroll": "今すぐ申し込む",
     "pay": "¥{amount} を支払う",
     "lessons": "コース目次",
@@ -1890,7 +1893,8 @@
     "treeLoadFailed": "ツリーの読み込みに失敗しました",
     "treeRetry": "再試行",
     "treeLevelLabel": "第 {level} 階層",
-    "treeCollapseHint": "ノードをタップして詳細を表示"
+    "treeCollapseHint": "ノードをタップして詳細を表示",
+    "teamTitle": "マイチーム"
   },
   "earnCommission": {
     "title": "コミッションプラン",
@@ -1905,9 +1909,7 @@
   "exam": {
     "subtitle": "試験で学び、学習成果を確認",
     "retry": "再試行",
-    "questions": "問題数",
     "end": "終了時間",
-    "startExam": "試験開始",
     "attempts": "受験回数",
     "duration": "所要時間",
     "empty": "試験がありません",
@@ -1918,14 +1920,13 @@
     "passScore": "合格点",
     "start": "試験を開始",
     "title": "試験",
-    "totalScore": "総得点"
+    "totalScore": "総得点",
+    "questionCountLabel": "問題数"
   },
   "examQuestion": {
     "loadFailed": "試験問題の読み込みに失敗しました",
     "single": "単一選択",
     "multi": "複数選択",
-    "prev": "前の問題",
-    "next": "次の問題",
     "submit": "提出",
     "submitFailed": "送信に失敗"
   },
@@ -2085,7 +2086,6 @@
     "saveFailed": "保存に失敗"
   },
   "notificationSettings": {
-    "title": "通知設定",
     "push": "プッシュ通知",
     "message": "サイト内メッセージ",
     "email": "メール通知",
@@ -2236,8 +2236,6 @@
     "unverifiedDesc": "実名認証を完了すると、より多くのサービスを利用できます",
     "name": "本名",
     "namePlaceholder": "本名を入力してください",
-    "idNumber": "身分証番号",
-    "idNumberPlaceholder": "身分証番号を入力してください",
     "submit": "認証を提出",
     "submitting": "送信中...",
     "failed": "認証に失敗",
@@ -2283,10 +2281,8 @@
   },
   "withdraw": {
     "availableBalance": "引き出し可能額(元)",
-    "amount": "出金額",
     "amountInvalid": "金額が無効です",
     "amountPlaceholder": "出金額を入力",
-    "bankCard": "銀行口座",
     "bankCardPlaceholder": "銀行口座を選択",
     "confirmMessage": "{amount}元の出金を行いますか?",
     "confirmTitle": "確認",
@@ -2637,7 +2633,6 @@
     "current": "現在のポイント",
     "totalEarned": "累計獲得",
     "totalSpent": "累計消費",
-    "level": "レベル",
     "nextLevel": "{name} まであと {points} ポイント",
     "maxLevel": "最高レベルに到達しました",
     "experience": "経験値",
@@ -2657,14 +2652,17 @@
       "historyLoadFailed": "チェックイン履歴の読み込みに失敗しました",
       "historyConsecutive": "{days} 日連続"
     },
-    "mallLink": "ポイントモール",
-    "taskCenterLink": "タスクセンター",
     "ruleLink": "ポイントルール",
     "txTitle": "ポイント履歴",
     "empty": "ポイント記録がありません",
     "loadFailed": "ポイントの読み込みに失敗しました",
     "balance": "残高",
-    "loadMore": "さらに読み込む"
+    "loadMore": "さらに読み込む",
+    "levelLabel": "レベル",
+    "mallTitle": "ポイントモール",
+    "tasks": {
+      "title": "タスクセンター"
+    }
   },
   "groups": {
     "title": "マイグループ",
@@ -2768,7 +2766,6 @@
     "submitFailed": "送信に失敗しました。後でもう一度お試しください",
     "amountLabel": "チャージ金額（元）",
     "amountRange": "チャージ金額は {min}〜{max} 元の範囲で指定してください",
-    "payMethod": "支払い方法",
     "wechat": "WeChat Pay",
     "alipay": "Alipay",
     "payNow": "支払う",
@@ -3373,7 +3370,6 @@
     "loadFailed": "学習進捗の読み込みに失敗しました",
     "courses": "コース(完了/合計)",
     "totalMinutes": "累計学習(分)",
-    "weekMinutes": "今週の学習(分)",
     "streak": "連続学習(日)",
     "courseProgress": "コース進捗"
   },
@@ -3416,7 +3412,6 @@
     "tab_newbie": "初心者"
   },
   "team": {
-    "title": "マイチーム",
     "subtitle": "チーム人数と業績を一覧表示",
     "retry": "再試行",
     "totalMembers": "チーム総人数",
@@ -3537,12 +3532,18 @@
     "opType4": "返金",
     "opType5": "コミッション",
     "loginRequiredHint": "ログインして資金履歴を表示",
-    "goLogin": "ログイン"
+    "goLogin": "ログイン",
+    "rechargeFail": "チャージ",
+    "rechargeSuccess": "チャージ",
+    "contactSupport": "サポートに連絡",
+    "retryRecharge": "再チャージ",
+    "withdrawAmount": "出金金額",
+    "methodBank": "カード",
+    "rechargeMethod": "支払い方法"
   },
   "activity": {
     "empty": "アクティビティがありません",
     "endTime": "終了時間",
-    "joinNow": "今すぐ参加",
     "loadFailed": "読み込みに失敗しました",
     "participants": "参加人数",
     "startTime": "開始時間",
@@ -3553,7 +3554,6 @@
     "description": "紹介",
     "free": "無料",
     "loadFailed": "エージェント詳細の読み込みに失敗",
-    "price": "価格",
     "rating": "評価",
     "startChat": "チャットを開始",
     "uses": "利用回数"
@@ -3709,7 +3709,13 @@
       "issued": "有効",
       "revoked": "取り消されました"
     },
-    "title": "マイ証明書"
+    "title": "マイ証明書",
+    "download": {
+      "noCertificates": "証明書がありません"
+    },
+    "detail": {
+      "issueDate": "発行日"
+    }
   },
   "certDetail": {
     "certNo": "証明書番号",
@@ -3726,8 +3732,7 @@
     "empty": "証明書がありません",
     "issuedAt": "発行日",
     "issuer": "発行機関",
-    "loadFailed": "読み込みに失敗",
-    "title": "証明書一覧"
+    "loadFailed": "読み込みに失敗"
   },
   "certVerify": {
     "certNo": "証明書番号",
@@ -3798,7 +3803,6 @@
   },
   "courseQAList": {
     "answers": "回答",
-    "ask": "質問",
     "asker": "質問者",
     "empty": "質問がありません",
     "loadFailed": "読み込みに失敗",
@@ -3839,7 +3843,8 @@
     "type": "種類",
     "imagesLabel": "問題のスクリーンショットをアップロード(最大9枚)",
     "imagePickFailed": "画像の選択に失敗しました",
-    "pickImages": "画像を選択"
+    "pickImages": "画像を選択",
+    "field_contact": "連絡先"
   },
   "feedbackDetail": {
     "content": "内容",
@@ -5763,6 +5768,7 @@
   },
   "ia": {
     "remainingPoints": "残りポイント",
+    "loginRequired": "先にログインしてお使いください",
     "recharge": "チャージ"
   },
   "uiCard": {
@@ -6038,29 +6044,29 @@
     "status": {
       "present": "出席",
       "late": "遅刻",
-      "early": "早退",
       "absent": "欠席",
-      "leave": "休み"
+      "leave": "休み",
+      "early": "早退"
     },
-    "chooseAction": "操作を選択",
     "actionDone": "操作に成功しました",
     "actionFailed": "操作に失敗しました",
-    "needClassId": "クラス情報がないため代理の登校・下校ができません",
-    "onlyTodayCheckIn": "代理チェックインは当日のみ：遡って記入するにはその日内の時刻が必要で、この画面では扱えません",
-    "batchTitle": "クラス一括点呼",
-    "chooseClass": "点呼するクラスを選択",
-    "noClass": "現在のリストに選択できるクラスがありません",
     "batchResult": "点呼完了：新規 {created}、スキップ {skipped}、見落とし {missed}",
-    "qrEntry": "チェックインQRを表示",
+    "batchTitle": "クラス一括点呼",
+    "chooseAction": "操作を選択",
+    "chooseClass": "点呼するクラスを選択",
     "emptyTrend": "推移データがありません",
+    "loadStatsFailed": "出席統計の読み込みに失敗しました。後で再試行してください。",
+    "needClassId": "クラス情報がないため代理の登校・下校ができません",
+    "noClass": "現在のリストに選択できるクラスがありません",
+    "onlyTodayCheckIn": "代理チェックインは当日のみ：遡って記入するにはその日内の時刻が必要で、この画面では扱えません",
+    "qrEntry": "チェックインQRを表示",
     "statsAttendanceRate": "出席率",
+    "statsTotalLabel": "考勤延べ人数",
     "statusDistribution": "状態分布",
     "statusOther": "その他",
     "trendChartHint": "出席率 = 正常出席 ÷ 当該時間帯の出席記録数（未打刻の生徒は分母に含みません）",
-    "trendChartTitle": "出席の推移",
-    "statsTotalLabel": "考勤延べ人数",
-    "loadStatsFailed": "出席統計の読み込みに失敗しました。後で再試行してください。",
     "trendChartScope": "集計範囲：{scope}",
+    "trendChartTitle": "出席の推移",
     "trendWindow": "直近 {days} 日間"
   },
   "eduGrades": {
@@ -7196,7 +7202,17 @@
     "bundleOta": "ホットアップデート",
     "readyBody": "更新のダウンロードが完了しました。「更新」をタップするとすぐに反映されます。",
     "installingHint": "アプリは自動的に再起動します（通常は数秒）。",
-    "restartNow": "今すぐ再起動"
+    "restartNow": "今すぐ再起動",
+    "apkTitle": "新しいバージョン {{version}} があります",
+    "apkBody": "現在 {{current}} → 最新 {{latest}}",
+    "apkAction": "ダウンロードしてインストール",
+    "apkActionBrowser": "ダウンロードへ",
+    "apkDownloading": "インストーラーをダウンロード中 {{progress}}%",
+    "apkEta": "残り約 {{eta}}",
+    "apkInstalling": "インストーラーを起動しています…",
+    "apkBrowserOpening": "ブラウザに引き継ぎました。案内に従ってインストールしてください",
+    "apkCancel": "キャンセル",
+    "apkHint": "パッケージが大きいため、Wi-Fi での更新を推奨します"
   },
   "cloudRuns": {
     "title": "クラウドエージェント実行",
@@ -7229,30 +7245,86 @@
     "searchNoResult": "結果なし",
     "retry": "再試行"
   },
-  "eduMyAttendance": {
-    "title": "自分の出席",
-    "selfCheckIn": "自分で登校登録",
-    "date": "日付",
-    "notLoggedIn": "ログインしていないため操作できません",
-    "classByBackendHint": "クラスは在籍情報に基づいて自動的に決定されます",
-    "scanCheckIn": "スキャンしてチェックイン"
+  "learnMapPage": {
+    "completed": "完了",
+    "empty": "学習パスがありません"
+  },
+  "user": {
+    "security": {
+      "sendCode": "コード取得"
+    },
+    "realname": {
+      "form": {
+        "idCard": "身分証番号",
+        "idCardPlaceholder": "身分証番号を入力してください"
+      }
+    }
+  },
+  "NavBar": {
+    "text1": "デイリーニュース",
+    "z1": "コミュニティに参加",
+    "feedback": "フィードバック",
+    "fenlei": "カテゴリ"
+  },
+  "chatSettingsPage": {
+    "model": "モデル"
+  },
+  "eduExamListPage": {
+    "start": "試験を開始"
+  },
+  "eduExamPage": {
+    "prevQuestion": "前の問題",
+    "nextQuestion": "次の問題"
+  },
+  "edu": {
+    "qa": {
+      "askBtn": "質問"
+    }
+  },
+  "eduProgressPage": {
+    "weeklyHours": "今週の学習時間"
+  },
+  "learn": {
+    "signedUp": "申込済み"
+  },
+  "learnPaymentConfirmPage": {
+    "fields": {
+      "payMethod": "支払い方法"
+    }
+  },
+  "memberSubscriptionPage": {
+    "cancelSubscription": "サブスクリプションをキャンセル"
+  },
+  "student": {
+    "myCertsTitle": "証明書一覧"
+  },
+  "activities": {
+    "join": "今すぐ参加"
   },
   "eduAttendanceQr": {
-    "title": "チェックインQRコード",
     "chooseClass": "クラスを選択",
-    "noClass": "選択できるクラスがありません",
     "classLoadFailed": "クラス一覧の読み込みに失敗しました",
+    "expiresIn": "{s} 秒で有効期限切れ",
+    "needLogin": "ログインしてからスキャンしてください",
+    "nextStepHint": "出欠ルールを有効化しスキャン鍵(qrSecret)を設定してから再発行してください",
+    "noClass": "選択できるクラスがありません",
     "pickClassFirst": "最初にクラスを選択してください",
     "qrTip": "生徒はこのコードをスキャンしてチェックインで読み取ります",
-    "expiresIn": "{s} 秒で有効期限切れ",
     "refresh": "再発行",
-    "nextStepHint": "出欠ルールを有効化しスキャン鍵(qrSecret)を設定してから再発行してください",
-    "scanTitle": "スキャンしてチェックイン",
-    "scanHint": "先生のチェックインQRコードを枠内に合わせてください",
-    "scanSubmitting": "チェックイン中...",
-    "scanInvalidCode": "本システムのチェックインQRコードではありません",
     "scanDone": "チェックインしました",
     "scanFailed": "チェックインに失敗しました",
-    "needLogin": "ログインしてからスキャンしてください"
+    "scanHint": "先生のチェックインQRコードを枠内に合わせてください",
+    "scanInvalidCode": "本システムのチェックインQRコードではありません",
+    "scanSubmitting": "チェックイン中...",
+    "scanTitle": "スキャンしてチェックイン",
+    "title": "チェックインQRコード"
+  },
+  "eduMyAttendance": {
+    "classByBackendHint": "クラスは在籍情報に基づいて自動的に決定されます",
+    "date": "日付",
+    "notLoggedIn": "ログインしていないため操作できません",
+    "scanCheckIn": "スキャンしてチェックイン",
+    "selfCheckIn": "自分で登校登録",
+    "title": "自分の出席"
   }
 }

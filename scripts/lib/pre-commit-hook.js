@@ -161,6 +161,34 @@ try {
   // 守门脚本失败不阻塞 commit(脚本内部 git 失败已自行 exit 0)
 }
 
+// 0b. 复活闸(2026-11-04 立,P0「已声明的删除被复活后收编进提交」)───────────────
+// 判据单源 `lib/intentional-file-deletion.mjs#judgeResurrection`,与 `safe-commit.mjs`
+// Step 3b-2 是**同一份**,区别只在从哪儿取新增面(那边用声明集,这边用索引面 diff)。
+//
+// 为什么 non-safe-commit 路径还要在 hook 里再立一道:`safe-commit` 只是 AGENTS §12 的
+// **约定**入口,仓里仍有 `auto-commit-quiet` 的 `chore(auto)`、人工 `git commit`、各席位
+// 自拼的 git 命令 —— pre-commit 是唯一所有提交路径都会经过的地方。实证 `8331e5460a`
+// (父提交正是修好 healer 的 `54feeb4011`)把 `105a55a40c` 删掉的 3 件当新增提交回来,
+// 全仓零外部引用,直到台账↔树对账才发现。
+//
+// 与上一段"文件数预检"不同,这一道**失败即阻塞**:回流件是"明确有害且可自动判定"的一档,
+// 放过去只会让下一轮清理重来一遍。刻意**不设 HUSKY_SKIP_* 应急变量** —— 台账登记有误时
+// 的正确出路是 `--revoke-deletion`(§0.10:多要一次定向说明),不是给一个谁都能按的跳过键。
+// 台账坏档 / 读不到索引面 ⇒ 脚本自身 exit 0(判不出只报不拦,绝不当定罪证据)。
+try {
+  execSync('node scripts/check-staged-resurrection.mjs --quiet', {
+    stdio: 'inherit',
+    cwd: process.cwd(),
+    windowsHide: true,
+  })
+} catch {
+  console.error(
+    '❌ Pre-commit 复活闸失败:本次提交把「已登记为有意删除」的文件当新增收编了。' +
+      '按上文两条出路处理后重试(确要用回来 ⇒ --revoke-deletion;误带进来 ⇒ git restore --staged)。',
+  )
+  process.exit(1)
+}
+
 function run(label, cmd) {
   console.log(label)
   try {

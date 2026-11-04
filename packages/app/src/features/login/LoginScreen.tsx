@@ -1945,7 +1945,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       alignItems: 'center',
     },
     historyClearText: {
-      fontSize: 13,
+      fontSize: rnType.bodySm.size,
       color: tk.text.tertiary,
     },
     // ===== 主按钮 =====
@@ -2099,11 +2099,11 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       backgroundColor: tk.surface.muted,
     },
     qrPlaceholderText: {
-      fontSize: 13,
+      fontSize: rnType.bodySm.size,
       color: tk.text.tertiary,
     },
     qrStatusText: {
-      fontSize: 13,
+      fontSize: rnType.bodySm.size,
       color: tk.text.secondary,
       textAlign: 'center',
     },
@@ -2116,7 +2116,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       backgroundColor: surface,
     },
     qrRefreshText: {
-      fontSize: 13,
+      fontSize: rnType.bodySm.size,
       fontWeight: '500',
       color: tk.text.primary,
     },
@@ -2199,7 +2199,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       backgroundColor: tk.brand.cta,
     },
     qrOpenWebText: {
-      fontSize: 13,
+      fontSize: rnType.bodySm.size,
       fontWeight: '500',
       color: onBrandText,
     },

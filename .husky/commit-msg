@@ -16,8 +16,9 @@ unset GIT_DIR GIT_WORK_TREE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIE
 # 样式改动强制验证守门(AGENTS.md 第 19 节)
 # .css 改动时要求 commit message 附 Verified-DOM trailer
 # 跳过:HUSKY_SKIP_STYLE_VERIFY=1
-# 原语义:失败不阻断 commit(仅警告),故 || true 后回显日志
-wscript //nologo scripts/hook-run-hidden.vbs commit-msg-style scripts/check-style-verification.mjs "$1" || true
+# 2026-11-04 三态化:去掉 || true,失败/未判定均阻断(exit 1/2),不再 advisory 恒绿
+wscript //nologo scripts/hook-run-hidden.vbs commit-msg-style scripts/check-style-verification.mjs "$1"
+_style_rc=$?
 tail -5 .ihui-agent/state/hook-logs/commit-msg-style.log >&2 || true
 
 # Commit scope 一致性预警(2026-07-26 立,AGENTS.md §16 配套)
@@ -26,4 +27,7 @@ tail -5 .ihui-agent/state/hook-logs/commit-msg-style.log >&2 || true
 wscript //nologo scripts/hook-run-hidden.vbs commit-msg-scope scripts/check-commit-scope-consistency.mjs "$1"
 _scope_rc=$?
 tail -5 .ihui-agent/state/hook-logs/commit-msg-scope.log >&2 || true
+
+# 两道门都跑完再收口:任一门非零即阻断,优先返回样式门的退出码(保留 1/2 语义)
+if [ "$_style_rc" -ne 0 ]; then exit "$_style_rc"; fi
 exit $_scope_rc
