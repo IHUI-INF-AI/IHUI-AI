@@ -60,7 +60,8 @@
  * 退出码:
  *   0 — 通过(无污染特征 或 无 scope 或 无 staged 文件 或 本次是合并提交)
  *   1 — blocking(检测到污染特征签名)
- *   紧急跳过: HUSKY_SKIP_SCOPE_CHECK=1
+ *   2 — 未判定(无 commit message 参数 / message 文件读不到 / staged 面取不到)
+ * 紧急跳过: HUSKY_SKIP_SCOPE_CHECK=1
  *
  * 合并提交豁免(2026-09-24):MERGE_HEAD 在位时本门直接判"不适用"并 exit 0 ——
  *   合并的暂存集是两条分支的并集,R1~R4 的"这次 git add 混入了别人改动"前提不成立。
@@ -344,7 +345,7 @@ export function detectPollution(staged, scope) {
 
 /**
  * 获取 staged 文件清单
- * @returns {string[]} 相对路径数组
+ * @returns {string[]|null} 相对路径数组;取不到面(命令失败)返回 null,不得折成空集
  */
 function getStagedFiles() {
   try {
@@ -355,7 +356,7 @@ function getStagedFiles() {
       .filter(Boolean)
       .map((f) => f.replace(/\\/g, '/'))
   } catch {
-    return []
+    return null
   }
 }
 
@@ -373,16 +374,16 @@ function main() {
   // 1. 读取 commit message 文件
   const commitMsgFile = process.argv[2]
   if (!commitMsgFile) {
-    console.log(`${C.dim}⏭  commit scope 一致性检查(无 commit message 文件参数, 跳过)${C.reset}`)
-    process.exit(0)
+    console.error(`${C.red}❌ commit scope 一致性检查:未提供 commit message 文件参数 ⇒ 未判定(exit 2)${C.reset}`)
+    process.exit(2)
   }
 
   let message
   try {
     message = readFileSync(commitMsgFile, 'utf8')
-  } catch {
-    console.log(`${C.dim}⏭  commit scope 一致性检查(无法读取 commit message 文件, 跳过)${C.reset}`)
-    process.exit(0)
+  } catch (e) {
+    console.error(`${C.red}❌ commit scope 一致性检查:commit message 文件读不到(${commitMsgFile}:${e?.message ?? e})⇒ 未判定(exit 2)${C.reset}`)
+    process.exit(2)
   }
 
   // 2. 解析 commit message
@@ -390,8 +391,12 @@ function main() {
 
   // 3. 读取 staged 文件清单
   const staged = getStagedFiles()
+  if (staged === null) {
+    console.error(`${C.red}❌ commit scope 一致性检查:staged 面取不到(git diff --cached 失败)⇒ 未判定(exit 2)${C.reset}`)
+    process.exit(2)
+  }
   if (staged.length === 0) {
-    console.log(`${C.dim}⏭  commit scope 一致性检查(无 staged 文件, 跳过)${C.reset}`)
+    console.log(`${C.dim}⏭  commit scope 一致性检查(不适用:staged 面确认为空,无文件可判)${C.reset}`)
     process.exit(0)
   }
 
