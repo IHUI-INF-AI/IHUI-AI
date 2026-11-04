@@ -55,7 +55,7 @@ import path from 'node:path'
 import { findWriteChains, findFunctionBodies, maskText, closeParen, closeBrace } from './lib/batch-write-lexer.mjs'
 import { maskComments } from './lib/code-mask.mjs'
 // 被审面取材一律走面读取层(§0.4/§5b:绝对路径 git + 显式 stdio + quotepath + 数字 timeout)
-import { gitRaw, gitErrText } from './lib/face-reader.mjs'
+import { gitRaw, gitErrText, catBatch } from './lib/face-reader.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const SCOPE = 'apps/api/src'
@@ -347,17 +347,29 @@ function faceFiles(face) {
   }
 }
 
-/** 取某一面/某一修订上的文件内容;取不到返回 null(交调用方落「未判定」)。 */
-function readRev(rev, file) {
-  if (rev === null) {
-    const p = path.join(ROOT, file)
-    return existsSync(p) ? readFileSync(p, 'utf8') : null
-  }
-  const r = git(['show', `${rev}:${file}`])
-  return r.status === 0 ? r.stdout : null
+/** 工作树面取正文(人工逃生舱);git 面一律走 `revTexts` 整面批取。取不到返回 null。 */
+function readWorktree(file) {
+  const p = path.join(ROOT, file)
+  return existsSync(p) ? readFileSync(p, 'utf8') : null
 }
 
 const FACE_REV = { head: 'HEAD', staged: ':', worktree: null }
+
+// 整面批取(2026-11-04):此前对每枚候选各派生一次 `git show <rev>:<path>`(全量面 1,397 枚
+// = 1,397 次派生)。改为层内一次枚举 + 折叠 oid + `cat-file --batch` 分块读取。块上限沿用
+// 层默认 CAT_BATCH_CHUNK=2500 枚 / BATCH_BLOCK_BYTES=48MB、maxBuffer=64MB(本面实测 1,397 枚
+// / 21.19MB / 单枚最大 243.4KB ⇒ 一块吃完)。硬超时同门 244:默认 120s,`IHUI_BATCH_TIMEOUT_MS`
+// 可调;批取抛错 ⇒ 调用方落 exit 2(未判定),不折成「取不到 ⇒ 判绿」或「取不到 ⇒ 判红」。
+const SUBPROC_TIMEOUT_MS = Number(process.env.IHUI_BATCH_TIMEOUT_MS) || 120000
+/** 把一批文件在某一面上的正文整面批取回 Map<file, text|null>(null = 该面不存在)。 */
+function revTexts(rev, files) {
+  const out = new Map()
+  if (!files.length) return out
+  const specs = files.map((f) => (rev === ':' ? `:${f}` : `${rev}:${f}`))
+  const got = catBatch(ROOT, specs, { timeout: SUBPROC_TIMEOUT_MS })
+  for (let i = 0; i < files.length; i++) out.set(files[i], got.get(specs[i]) ?? null)
+  return out
+}
 
 /** 按面取原文 + 遮罩:额度链判据(G1/G3)要认得 sql`` 模板正文,只抹注释;G2 同理。 */
 function auditText(src) {
@@ -572,8 +584,23 @@ async function main() {
   // 逐个 `cat-file --batch-check` 全可读,就是这一格的代价)。路径与取不到的原因一并留下。
   const unreadableFiles = []
   const aRev = anchorRev()
+  // 正文整面批取(git 面):worktree 面仍读磁盘(人工逃生舱,不派生 git)。
+  let faceTexts = null
+  if (FACE_REV[face] !== null) {
+    try {
+      faceTexts = revTexts(FACE_REV[face], listed.files)
+    } catch (e) {
+      console.error(`❌ 被审面(${face})正文批取失败:${gitErrText(e)} ⇒ 未判定`)
+      return 2
+    }
+  }
+  // 两段式:第一段只取当前面正文并按原判据算 current;需要锚点的文件记下来;第二段按文件
+  // 顺序回填 findings/stock/undetermined(与改造前逐文件同序同文)。锚点面正文同样整面批取,
+  // 且只对「当前面确有命中」的文件取(保留改造前的懒读,不多派生)。
+  const pending = []
+  const anchorFiles = []
   for (const file of listed.files) {
-    const src = readRev(FACE_REV[face], file)
+    const src = FACE_REV[face] === null ? readWorktree(file) : (faceTexts.get(file) ?? null)
     if (src === null) {
       unreadable++
       unreadableFiles.push({
@@ -591,7 +618,7 @@ async function main() {
     // 词法机没走干净 ⇒ 本文件的判据是瞎的:落「未判定」逐条点名,既不记绿也不冒红(§0.3)。
     // 拿"扫不出违规"当通过,正是守门 134 头注点名的"从字符串里 harvest 假用量"那一族的反面。
     if (leaks.length) {
-      undetermined.push({ file, reason: `词法状态机残留 ${leaks.length} 处(判据失明,不代为判定)` })
+      pending.push({ file, leaks: leaks.length })
       continue
     }
     const curG1 = findDiscardedGuardedWrites(g1)
@@ -601,7 +628,26 @@ async function main() {
     const curG2 = findCallbackSwallowingFailure(g2)
     const curG4 = g4.hits
     if (!curG1.length && !curG2.length && !curG3.length && !curG4.length && !curG5.length) continue
-    const aSrc = readRev(aRev, file)
+    anchorFiles.push(file)
+    pending.push({ file, locate1, locate3, locate2, locate4, curG1, curG2, curG3, curG4, curG5 })
+  }
+  let anchorTexts = new Map()
+  if (anchorFiles.length) {
+    try {
+      anchorTexts = revTexts(aRev, anchorFiles)
+    } catch (e) {
+      console.error(`❌ 锚点面(${aRev})正文批取失败:${gitErrText(e)} ⇒ 未判定`)
+      return 2
+    }
+  }
+  for (const rec of pending) {
+    const { file } = rec
+    if (rec.leaks) {
+      undetermined.push({ file, reason: `词法状态机残留 ${rec.leaks} 处(判据失明,不代为判定)` })
+      continue
+    }
+    const { locate1, locate3, locate2, locate4, curG1, curG2, curG3, curG4, curG5 } = rec
+    const aSrc = anchorTexts.get(file) ?? null
     if (aSrc === null) {
       // 锚点面无此文件 = 本枚新建的文件 ⇒ 存量按 0 计,当前违规全算新增
       for (const h of curG1) findings.push({ dim: 'G1', file, line: locate1(h.whereFull), where: h.whereText })
