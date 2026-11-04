@@ -19,30 +19,6 @@
   },
   "fontSizeElements": [
     {
-      "file": "apps/mobile-rn/src/components/CourseCarousel.tsx",
-      "styleKey": "thumbIcon",
-      "size": 36,
-      "count": 1,
-      "class": "rn-only-display",
-      "decision": "allowance"
-    },
-    {
-      "file": "apps/mobile-rn/src/components/CourseCarousel.tsx",
-      "styleKey": "thumbIcon",
-      "size": 32,
-      "count": 1,
-      "class": "rn-only-display",
-      "decision": "allowance"
-    },
-    {
-      "file": "apps/mobile-rn/src/components/CourseCarousel.tsx",
-      "styleKey": "thumbIcon",
-      "size": 28,
-      "count": 1,
-      "class": "rn-only-display",
-      "decision": "allowance"
-    },
-    {
       "file": "apps/mobile-rn/src/components/HandPlatePops.tsx",
       "styleKey": "purchasePrice",
       "size": 22,

@@ -5,7 +5,9 @@
 // 智汇值余额卡:对齐 packages/app/src/features/token-value/TokenValueScreen.tsx 的 balanceCard 段
 import { View, Text } from '@tarojs/components'
 import type { TtFn } from '@/i18n'
-import { formatTokenValue } from './token-packages'
+// 2026-11-04: 原 ./token-packages 已随壳化退役删除(零消费),格式化改指向跨端单一真相源;
+// mobile-rn/UserInfoCard 与端内 utils/time.ts 的 formatPrice 同样取自 @ihui/shared。
+import { formatTokenValue } from '@ihui/shared/utils'
 
 interface TokenBalanceCardProps {
   tt: TtFn
