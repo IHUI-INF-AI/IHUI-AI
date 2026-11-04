@@ -176,7 +176,7 @@ export default function Page() {
             {echo?.status ? ` (${st(echo.status)})` : ''}
           </Text>
           <Input
-            className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
+            className="rounded-sm border border-border bg-card px-3 py-2 text-sm text-foreground"
             value={remark}
             placeholder={t('eduMyAttendance.remarkPlaceholder')}
             onInput={(e) => setRemark(e.detail.value)}
