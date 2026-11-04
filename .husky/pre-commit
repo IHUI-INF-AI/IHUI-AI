@@ -18,6 +18,24 @@
 if [ -z "$GIT_INDEX_FILE" ] || [ ! -f "$GIT_INDEX_FILE" ]; then
   unset GIT_INDEX_FILE
 fi
+
+# ─── 私有索引上下文 fail-closed(2026-11-04 立)─────────────────────────────
+# 2026-11-03 的修法只保住了"非空且文件存在"的指针,但它对**调用方声明过私有索引**的场景
+# 仍然是静默降级:指针空/缺失时照旧 unset ⇒ 整条钩子链(含 lint-staged 与派生腿)落到共享
+# 索引。实测后果:门 173 在 278.9s 后 exit 1,只因别的会话在共享索引暂存了 12 个文件。
+# 因此 isolated-git 现在额外传 IHUI_EXPECTED_PRIVATE_INDEX(它那份索引的绝对路径):
+# 声明在场 ⇒ GIT_INDEX_FILE 必须一字不差且文件可用,否则当场拒绝,绝不退回共享索引。
+# 没有声明(普通 `git commit` / `git commit --only`)⇒ 上面的原判据一字不改。
+if [ -n "$IHUI_EXPECTED_PRIVATE_INDEX" ]; then
+  # 只把分隔符归一(Windows 下 \ 与 / 是同一路径),不做大小写/相对路径放宽。
+  want=$(printf '%s' "$IHUI_EXPECTED_PRIVATE_INDEX" | tr '\\' '/')
+  got=$(printf '%s' "$GIT_INDEX_FILE" | tr '\\' '/')
+  if [ -z "$got" ] || [ "$got" != "$want" ] || [ ! -f "$GIT_INDEX_FILE" ]; then
+    printf '%s\n' "❌ 索引上下文丢失:调用方声明了私有索引($IHUI_EXPECTED_PRIVATE_INDEX),钩子实际拿到的是 '${GIT_INDEX_FILE:-<空>}'。" \
+      "   提交已阻止 —— 绝不静默落回共享索引。" >&2
+    exit 1
+  fi
+fi
 unset GIT_DIR GIT_WORK_TREE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_QUARANTINE_PATH
 # ─── Pre-commit 守门薄壳(2026-09-22 弹窗根治) ─────────────────
 # 原本逻辑:本文件直接是 node 脚本(#!/usr/bin/env node),由 git 直接启动。
