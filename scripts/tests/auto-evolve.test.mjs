@@ -58,13 +58,20 @@ test('① 闸门形状锁:各型坏配置一律 GateShapeError 不回落', () =>
     JSON.stringify({ ...GOOD_GATES, sessionCommandTemplate: null }),
   ]
   for (const raw of bad) {
-    assert.throws(() => ae.loadGates(() => raw), ae.GateShapeError, `应判形状坏: ${raw.slice(0, 60)}`)
+    assert.throws(
+      () => ae.loadGates(() => raw),
+      ae.GateShapeError,
+      `应判形状坏: ${raw.slice(0, 60)}`,
+    )
   }
 })
 
 test('② 取票唯一入口:plan-tasks + --open --dispatchable --exclude-inflight', () => {
   assert.ok(ae.PLAN_TASKS.endsWith('plan-tasks.mjs'))
-  assert.deepEqual([...ae.DISPATCH_ARGS].sort(), ['--dispatchable', '--exclude-inflight', '--open'].sort())
+  assert.deepEqual(
+    [...ae.DISPATCH_ARGS].sort(),
+    ['--dispatchable', '--exclude-inflight', '--open'].sort(),
+  )
 })
 
 test('③a 白名单:命中/不命中/大小写不敏感/只看标题区', () => {
@@ -72,7 +79,10 @@ test('③a 白名单:命中/不命中/大小写不敏感/只看标题区', () =>
   assert.equal(ae.matchWhitelist('补齐 i18n 五语言键', ['i18n']), true)
   assert.equal(ae.matchWhitelist('重构数据库连接池', ['readme', '文档', 'i18n']), false)
   // 2026-10-25 --once 真派实测缺口:正文含白名单词而标题不含 ⇒ 不得命中(误派大工程票)
-  assert.equal(ae.matchWhitelist('**第 3 期·进化回流**:失败票归因沉淀;pnpm 依赖升级自动生成票', ['依赖升级']), false)
+  assert.equal(
+    ae.matchWhitelist('**第 3 期·进化回流**:失败票归因沉淀;pnpm 依赖升级自动生成票', ['依赖升级']),
+    false,
+  )
   assert.equal(ae.matchWhitelist('**README 数字收尾** 其他正文随便写依赖升级', ['readme']), true)
 })
 
@@ -84,7 +94,10 @@ test('③b 连败封票:计数只看连续失败,派发成功打断', () => {
     { ticketKey: 'k', action: 'session-failed' },
   ]
   assert.equal(ae.failureStreakOf(ledger, 'k'), 1)
-  assert.equal(ae.failureStreakOf([...ledger, { ticketKey: 'k', action: 'session-timeout' }], 'k'), 2)
+  assert.equal(
+    ae.failureStreakOf([...ledger, { ticketKey: 'k', action: 'session-timeout' }], 'k'),
+    2,
+  )
   assert.equal(ae.failureStreakOf(ledger, '不存在'), 0)
 })
 
@@ -93,7 +106,10 @@ test('③c 封票成对:未到期拦 / 已到期放 / 无封票放', () => {
   const past = new Date(Date.now() - 1000).toISOString()
   const led = [{ ticketKey: 'k', action: 'quarantined', until: future }]
   assert.ok(ae.quarantinedUntilOf(led, 'k') !== null)
-  assert.equal(ae.quarantinedUntilOf([{ ticketKey: 'k', action: 'quarantined', until: past }], 'k'), null)
+  assert.equal(
+    ae.quarantinedUntilOf([{ ticketKey: 'k', action: 'quarantined', until: past }], 'k'),
+    null,
+  )
   assert.equal(ae.quarantinedUntilOf([], 'k'), null)
 })
 
@@ -153,9 +169,15 @@ test('⑧ token 计量:只认终态 complete 行的 usage,缺失/形状坏判未
   assert.equal(ae.parseSessionUsage('{"type":"message_delta","text":"x"}').measured, false)
   assert.equal(ae.parseSessionUsage('').measured, false)
   // 终态行 usage 形状坏 ⇒ 未计量
-  assert.equal(ae.parseSessionUsage('{"type":"complete","usage":{"totalTokens":"NaN"}}').measured, false)
+  assert.equal(
+    ae.parseSessionUsage('{"type":"complete","usage":{"totalTokens":"NaN"}}').measured,
+    false,
+  )
   // complete 行不是 JSON 行(人读排版)⇒ 未计量
-  assert.equal(ae.parseSessionUsage('📊 tokens: 1000 (prompt 900 + completion 100)').measured, false)
+  assert.equal(
+    ae.parseSessionUsage('📊 tokens: 1000 (prompt 900 + completion 100)').measured,
+    false,
+  )
 })
 
 test('⑦ 会话 JWT 形状:HS256 三段 / sub 必在(实测缺口)/ iss/aud/exp 同 auth 包', async () => {
@@ -173,7 +195,9 @@ test('⑦ 会话 JWT 形状:HS256 三段 / sub 必在(实测缺口)/ iss/aud/exp
   assert.equal(payload.aud, 'ihui-ai-users')
   assert.equal(payload.roleId, 0, '最小权限:机器会话恒 role 0')
   assert.ok(payload.exp - payload.iat === 8 * 3600)
-  const expect = createHmac('sha256', secret).update(h + '.' + p).digest('base64url')
+  const expect = createHmac('sha256', secret)
+    .update(h + '.' + p)
+    .digest('base64url')
   assert.equal(s, expect)
 })
 
@@ -271,18 +295,23 @@ test('⑩f 接线锁:skip-observe-stop 的 continue 必须早于 dispatchSession
   const continueIdx = loop.indexOf('continue', skipIdx)
   const dispatchIdx = loop.indexOf('dispatchSession(gates, ticket, dryRun)')
   assert.ok(skipIdx > 0, '派发循环里必须有 skip-observe-stop 分支')
-  assert.ok(continueIdx > skipIdx && dispatchIdx > continueIdx, '跳过必须真 continue,且不落到 dispatchSession')
+  assert.ok(
+    continueIdx > skipIdx && dispatchIdx > continueIdx,
+    '跳过必须真 continue,且不落到 dispatchSession',
+  )
   assert.ok(src.includes('valve-observe-stop(skip)'), '日志要能一眼分清"停机未派"')
   assert.ok(src.includes('gateTicketByHumanValve({'), 'A6 依赖的阀调用点不许搬走')
 })
-
 
 /**
  * ⑪ 判据面闸(2026-11-04 立):自治环落账腿必须整批拒收命中受保护面的产物,
  * 因为会话侧没有豁免签名权 —— 替它补一行 immutable-exempt 等于自己给自己发豁免。
  * 匹配判据一律走 lib/immutable-guard.mjs(本文件零复算),这里只钉"接线与方向"。
  */
-const GUARD_LIST_TEXT = readFileSync(new URL('../data/immutable-guard.json', import.meta.url), 'utf8')
+const GUARD_LIST_TEXT = readFileSync(
+  new URL('../data/immutable-guard.json', import.meta.url),
+  'utf8',
+)
 const MANIFEST_KEY = 'pface1'
 const manifestOfFiles = (files) => JSON.stringify({ ticketKey: MANIFEST_KEY, files })
 const statusAllDirty = () => ' M x'
@@ -311,7 +340,12 @@ test('⑪a 成对·正:全部不在判据面上 ⇒ clean 并照常代提交', (
 })
 
 test('⑪b 成对·反:glob / 目录前缀 / 精确三种清单形态各命中一枚 ⇒ blocked 且一次提交都不发', () => {
-  for (const f of ['scripts/check-demo.mjs', 'scripts/lib/demo.mjs', 'scripts/guardian-runner.mjs', 'scripts/data/demo-exemptions.json']) {
+  for (const f of [
+    'scripts/check-demo.mjs',
+    'scripts/lib/demo.mjs',
+    'scripts/guardian-runner.mjs',
+    'scripts/data/demo-exemptions.json',
+  ]) {
     const s = ae.partitionProtectedFaces([f], GUARD_LIST_TEXT)
     assert.equal(s.state, 'blocked', `${f} 应命中判据面`)
     assert.equal(s.protectedHits.length, 1)
@@ -391,7 +425,9 @@ test('⑪g 空转计数成套:新档进 NON_PROGRESS 且绝不进 PROGRESS(否�
  * 一个班次白烧。而当时台账里只有 `session-failed`,分不出该改提示词还是该改运行器。
  */
 test('⑫a parseSessionUsage 取到终态理由;没有 complete 行时为 null(不猜)', () => {
-  const withReason = ae.parseSessionUsage('{"type":"start"}\n{"type":"complete","stopReason":"no_progress","usage":{"totalTokens":10,"estimatedCostUsd":0.1}}\n')
+  const withReason = ae.parseSessionUsage(
+    '{"type":"start"}\n{"type":"complete","stopReason":"no_progress","usage":{"totalTokens":10,"estimatedCostUsd":0.1}}\n',
+  )
   assert.equal(withReason.stopReason, 'no_progress')
   assert.equal(withReason.measured, true)
   const noComplete = ae.parseSessionUsage('{"type":"start"}\n')
@@ -403,20 +439,38 @@ test('⑫a parseSessionUsage 取到终态理由;没有 complete 行时为 null(�
 
 test('⑫b 派发票必须带取材纪律,且点名两份大文件(摘掉这段=本锁翻红)', () => {
   const src = readFileSync(new URL('../auto-evolve.mjs', import.meta.url), 'utf8')
-  const block = src.slice(src.indexOf('const promptText = ['), src.indexOf('writeFileSync(promptFile'))
+  const block = src.slice(
+    src.indexOf('const promptText = ['),
+    src.indexOf('writeFileSync(promptFile'),
+  )
   assert.ok(block.includes('取材纪律'), '派发票里必须有取材纪律这一节')
-  assert.ok(block.includes('PROJECT_PLAN.md') && block.includes('AGENTS.md'), '必须点名两份会被整份读掉的大文件')
+  assert.ok(
+    block.includes('PROJECT_PLAN.md') && block.includes('AGENTS.md'),
+    '必须点名两份会被整份读掉的大文件',
+  )
   assert.ok(block.includes('no_progress'), '纪律要带着实测终态理由一起给,否则只是空喊"别浪费"')
 })
 
 test('⑫c 记账行把 stopReason 带进台账(只留 exit 码就永远分不出成因)', () => {
   const src = readFileSync(new URL('../auto-evolve.mjs', import.meta.url), 'utf8')
   const at = src.indexOf("record({ mode: dryRun ? 'dryrun' : 'dispatch', action: res.action")
-  assert.ok(at > 0, '派发结果那一行 record 必须还在(搬家了就要同步本锁,不许让切片悄悄落到别处的 record 上)')
+  assert.ok(
+    at > 0,
+    '派发结果那一行 record 必须还在(搬家了就要同步本锁,不许让切片悄悄落到别处的 record 上)',
+  )
   const rec = src.slice(at)
-  assert.ok(rec.slice(0, 600).includes('stopReason: res.stopReason ?? null'), '派发记账行必须显式带 stopReason')
-  const ret = src.slice(src.indexOf('  return {\n    action,'), src.indexOf('/**\n * 代提交消息前缀'))
-  assert.ok(ret.includes('stopReason: meter.stopReason ?? null'), 'dispatchSession 的返回必须透出终态理由')
+  assert.ok(
+    rec.slice(0, 600).includes('stopReason: res.stopReason ?? null'),
+    '派发记账行必须显式带 stopReason',
+  )
+  const ret = src.slice(
+    src.indexOf('  return {\n    action,'),
+    src.indexOf('/**\n * 代提交消息前缀'),
+  )
+  assert.ok(
+    ret.includes('stopReason: meter.stopReason ?? null'),
+    'dispatchSession 的返回必须透出终态理由',
+  )
 })
 
 /**
@@ -483,7 +537,10 @@ test('⑬e 发射端接线:known∧零写 ⇒ action 必须是 session-no-write(
 test('⑬f 写类工具名清单不得腐烂:每个名字必须在 CLI 源码里真注册', () => {
   // 只验存在性(改名/下架即翻红)。dangerLevel 档位本身分散在各工具文件里声明,本锁不重抄档位判据。
   const hits = new Set()
-  for (const rel of ['../../apps/cli/src/tools/file-edit.ts', '../../apps/cli/src/tools/file-batch-edit.ts']) {
+  for (const rel of [
+    '../../apps/cli/src/tools/file-edit.ts',
+    '../../apps/cli/src/tools/file-batch-edit.ts',
+  ]) {
     const text = readFileSync(new URL(rel, import.meta.url), 'utf8')
     for (const name of WRITE_TOOL_NAMES) {
       if (new RegExp(`name:\\s*'${name}'`).test(text)) {
@@ -492,7 +549,10 @@ test('⑬f 写类工具名清单不得腐烂:每个名字必须在 CLI 源码里
     }
   }
   for (const name of WRITE_TOOL_NAMES) {
-    assert.ok(hits.has(name), `清单里的 ${name} 在 CLI 工具源码里找不到注册点 ⇒ 清单腐烂,零写判据会恒真`)
+    assert.ok(
+      hits.has(name),
+      `清单里的 ${name} 在 CLI 工具源码里找不到注册点 ⇒ 清单腐烂,零写判据会恒真`,
+    )
   }
 })
 
@@ -543,10 +603,19 @@ test('⑭c 落账腿真的走私有索引通道,且不再指 safe-commit(反向�
   const src = readFileSync(new URL('../auto-evolve.mjs', import.meta.url), 'utf8')
   assert.ok(src.includes("'isolated-git.mjs'"), 'LAND_COMMIT 必须指向 isolated-git')
   assert.ok(!src.includes('[SAFE_COMMIT,'), '代提交不得再拼 safe-commit(它 Step1 清共享索引)')
-  assert.ok(/spawnSync\(process\.execPath, \[LAND_COMMIT, 'commit'/.test(src), '必须以 commit 子命令形态调用')
-  const fn = src.slice(src.indexOf('export function runLandCommit'), src.indexOf('async function runOnce('))
+  assert.ok(
+    /spawnSync\(process\.execPath, \[LAND_COMMIT, 'commit'/.test(src),
+    '必须以 commit 子命令形态调用',
+  )
+  const fn = src.slice(
+    src.indexOf('export function runLandCommit'),
+    src.indexOf('async function runOnce('),
+  )
   assert.ok(fn.length > 400, 'runLandCommit 函数体切片取到了(锚点漂了就要同步本锁)')
-  assert.ok(fn.includes('recordGatesThenCommit({') && fn.includes('recordForCommit({'), '提交后两腿必须接上(否则每枚自主提交都被读成没跑门/无归属)')
+  assert.ok(
+    fn.includes('recordGatesThenCommit({') && fn.includes('recordForCommit({'),
+    '提交后两腿必须接上(否则每枚自主提交都被读成没跑门/无归属)',
+  )
 })
 
 /**
@@ -558,12 +627,20 @@ test('⑭c 落账腿真的走私有索引通道,且不再指 safe-commit(反向�
  * 器物在库、核验在跑、产出恒为零(§0.9 同一型)。正解用派发进程自己的运行时:当次取、不写死盘符(§0)。
  */
 test('⑮a 裸 node / node.exe 换成当次运行时,其余一字不动', () => {
-  const filled = 'node D:/R/apps/cli/node_modules/tsx/dist/cli.mjs D:/R/apps/cli/src/index.ts --json --max-iterations 40'
+  const filled =
+    'node D:/R/apps/cli/node_modules/tsx/dist/cli.mjs D:/R/apps/cli/src/index.ts --json --max-iterations 40'
   const r = normalizeSessionRuntime(filled, 'D:/DevEnv/runtimes/node.exe')
   assert.equal(r.replaced, true)
-  assert.ok(r.cmd.startsWith('D:/DevEnv/runtimes/node.exe '), `首 token 必须被换掉,实得:${r.cmd.slice(0, 40)}`)
+  assert.ok(
+    r.cmd.startsWith('D:/DevEnv/runtimes/node.exe '),
+    `首 token 必须被换掉,实得:${r.cmd.slice(0, 40)}`,
+  )
   assert.ok(r.cmd.includes('--max-iterations 40'), '模板其余部分必须逐字保留')
-  assert.equal(normalizeSessionRuntime('node.exe D:/a.mjs', 'D:/x/node.exe').replaced, true, 'node.exe 写法同档')
+  assert.equal(
+    normalizeSessionRuntime('node.exe D:/a.mjs', 'D:/x/node.exe').replaced,
+    true,
+    'node.exe 写法同档',
+  )
 })
 
 test('⑮b 反向锁:自定义 runner 与取不到路径都不得改写(不猜、不静默改)', () => {
@@ -572,7 +649,11 @@ test('⑮b 反向锁:自定义 runner 与取不到路径都不得改写(不猜�
   assert.equal(own.cmd, 'py -3.12 D:/a.py')
   const noPath = normalizeSessionRuntime('node D:/a.mjs', '')
   assert.equal(noPath.replaced, false, 'execPath 取不到 ⇒ 不猜路径')
-  assert.equal(noPath.cmd, 'node D:/a.mjs', '取不到就原样交给 cmd,失败会如实落 session-failed 而不是被假运行时顶掉')
+  assert.equal(
+    noPath.cmd,
+    'node D:/a.mjs',
+    '取不到就原样交给 cmd,失败会如实落 session-failed 而不是被假运行时顶掉',
+  )
   const abs = normalizeSessionRuntime('D:/already/node D:/a.mjs', 'D:/x/node.exe')
   assert.equal(abs.replaced, false, '已经写绝对路径的模板不得被二次改写')
 })
@@ -586,7 +667,98 @@ test('⑮c 带空格的运行时必须加引号(cmd.exe 语义),且只加这一�
 test('⑮d 接线锁:真起子进程的两处都必须过归一,且读数进台账', () => {
   const src = readFileSync(new URL('../auto-evolve.mjs', import.meta.url), 'utf8')
   const n = (src.match(/normalizeSessionRuntime\(/g) || []).length
-  assert.ok(n >= 3, `派发档 + probe 档两处调用 + 定义至少 3 处命中,实得 ${n} ⇒ 少一处就是那条通道仍依赖 PATH`)
-  assert.ok(/runtimeNormalized: res\.runtimeNormalized \?\? null/.test(src), '归一与否必须记进台账(否则下次只剩一个 exit=1 没人看得见成因)')
+  assert.ok(
+    n >= 3,
+    `派发档 + probe 档两处调用 + 定义至少 3 处命中,实得 ${n} ⇒ 少一处就是那条通道仍依赖 PATH`,
+  )
+  assert.ok(
+    /runtimeNormalized: res\.runtimeNormalized \?\? null/.test(src),
+    '归一与否必须记进台账(否则下次只剩一个 exit=1 没人看得见成因)',
+  )
+})
+
+/**
+ * ⑯ 自我面闸(2026-11-05 立)。本器**从盘上被 spawn 运行**,而共享工作树里盘上那份可能是
+ * 某席从旧基线改的半成品 —— 当次实测:工作树 2851 行 vs HEAD 2263 行,缺当天 7 条判据锚点。
+ * 那种时刻照派 = 拿半成品当执行体。但判据只能看"回潮方向":盘上多出东西是常态(共树常年脏),
+ * 若要求"盘必须等于 HEAD"就等于把自主环饿死 —— 所以超集必须放行。
+ */
+const GUARD_TEXT = JSON.stringify({
+  entries: [
+    {
+      path: 'scripts/auto-evolve.mjs',
+      anchors: ['alphaAnchor', 'betaAnchor'],
+      why: '自我面核验用的样例锚点说明',
+    },
+  ],
+})
+
+test('⑯a 盘上缺 HEAD 已有的锚点 ⇒ stale-disk 并逐条点名', () => {
+  const r = ae.judgeSelfFace({
+    guardListText: GUARD_TEXT,
+    headText: 'x alphaAnchor y betaAnchor z',
+    diskText: 'x alphaAnchor y —— 当天那枚判据没跟上来 z',
+    selfRel: 'scripts/auto-evolve.mjs',
+  })
+  assert.equal(r.state, 'stale-disk')
+  assert.deepEqual(r.missing, ['betaAnchor'], '只点名真缺的那条,不许把整张表甩出来')
+  assert.match(r.why, /1\/2/, '读数要给出"缺几条/共几条"')
+})
+
+test('⑯b 三向不并桶:超集放行、任一面取不到未判定、清单无本器条目未判定', () => {
+  const F = ae.judgeSelfFace
+  const superset = F({
+    guardListText: GUARD_TEXT,
+    headText: 'x alphaAnchor',
+    diskText: 'x alphaAnchor y betaAnchor 别人今天新加的第三枚锚点',
+    selfRel: 'scripts/auto-evolve.mjs',
+  })
+  assert.equal(superset.state, 'ok', '盘上是超集 ⇒ 照派(共树常年脏,要求"盘==HEAD"会饿死环)')
+  assert.equal(
+    F({ guardListText: null, headText: 'x', diskText: 'x', selfRel: 'a' }).state,
+    'undetermined',
+    '清单取不到 ⇒ 不猜',
+  )
+  assert.equal(
+    F({ guardListText: GUARD_TEXT, headText: null, diskText: 'x', selfRel: 'a' }).state,
+    'undetermined',
+    'HEAD 面取不到 ⇒ 不猜',
+  )
+  assert.equal(
+    F({ guardListText: GUARD_TEXT, headText: 'x', diskText: null, selfRel: 'a' }).state,
+    'undetermined',
+    '盘上读不到 ⇒ 不猜',
+  )
+  assert.equal(
+    F({ guardListText: GUARD_TEXT, headText: 'x', diskText: 'x', selfRel: 'scripts/other.mjs' })
+      .state,
+    'undetermined',
+    '清单里没有本器这一条 ⇒ 无从判落后,必须响而不是"没问题"',
+  )
+  assert.equal(
+    F({
+      guardListText: '{坏 JSON',
+      headText: 'x',
+      diskText: 'x',
+      selfRel: 'scripts/auto-evolve.mjs',
+    }).state,
+    'undetermined',
+    '清单坏 ⇒ 未判定(不冒充"锚点齐")',
+  )
+})
+
+test('⑯c 接线锁:自我面闸真在派发路径上,且两档都带 informational(不带就会把每张票推去 park)', () => {
+  const src = readFileSync(new URL('../auto-evolve.mjs', import.meta.url), 'utf8')
+  assert.ok(src.includes('const selfFace = readSelfFace()'), '派发路径必须真调自我面闸')
+  assert.ok(
+    src.includes("'runner-face-stale-disk'") && src.includes("'runner-face-undetermined'"),
+    '两档都必须是字面量发射:模板串 `runner-face-${state}` 会让 C4「豁免须验过才免」拿不到可核对的串',
+  )
+  const gate = src.slice(
+    src.indexOf('const selfFace = readSelfFace()'),
+    src.indexOf('const res = dispatchSession'),
+  )
+  assert.ok(gate.includes('informational: true'), '自我面留痕必须标 informational ⇒ 不进空转阶梯')
+  assert.ok(gate.includes("if (selfFace.state !== 'ok')"), 'ok 之外一律不派(含未判定)')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
