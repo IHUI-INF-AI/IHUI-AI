@@ -54,19 +54,23 @@
  *
  * 退出码: 0 = 通过 / 1 = 有违规(业务失败) / 2 = 脚本自身异常(git 解析失败等,绝不静默放行)
  */
-import { execFileSync } from 'node:child_process'
-import { readFileSync, existsSync } from 'node:fs'
+import { execFileSync, spawnSync } from 'node:child_process'
+import { readFileSync, existsSync, writeFileSync } from 'node:fs'
 import { join, relative, basename, extname, resolve, dirname } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { isExcludedDirName } from './lib/exclude-dirs.mjs'
 import { resolveGitBin } from './lib/gitdir.mjs'
+import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+import { makeRegistrar } from './lib/selftest-registrant.mjs'
 
 // 零宽载荷字符(与 watermark.mjs 的 ZWSP/ZWNJ/ZWJ/SENTINEL 对应)
 // 由码点构造字符类:本门源码里**不留**任何 Cf 类不可见字符 —— 文本级批量改写(reflow /
 // prettier / sed / 编码往返)会静默改写它们(§5c 记录的 144 文件 218 处载荷损坏即此),
 // 而字面写死的判据源码自己就是靶子。运行时字符类与旧斜杠写法逐字符等价。
 export const INVISIBLE_CODEPOINTS = [0x200b, 0x200c, 0x200d, 0x2060]
-export const INVISIBLE_RE = new RegExp('[' + INVISIBLE_CODEPOINTS.map((c) => String.fromCharCode(c)).join('') + ']')
+export const INVISIBLE_RE = new RegExp(
+  '[' + INVISIBLE_CODEPOINTS.map((c) => String.fromCharCode(c)).join('') + ']',
+)
 
 // 横幅行形态(与 watermark.mjs isBannerLine 同款):剥行首注释前缀(// # --)后,
 // 行首锚定匹配版权行 / 溯源声明 / [ID]: 载荷行才视为横幅内容行。
@@ -74,7 +78,11 @@ export const INVISIBLE_RE = new RegExp('[' + INVISIBLE_CODEPOINTS.map((c) => Str
 export const BANNER_TEXT_RE =
   /^(?:©\s*\d{4}\s+IHUI\s+AI|Provenance-watermarked(?:\.|\s)|\[IHUI-AI-PROVENANCE\]\s*:)/
 export function isBannerLine(line) {
-  return BANNER_TEXT_RE.test(String(line).trim().replace(/^\s*(\/\/|#|--)\s*/, ''))
+  return BANNER_TEXT_RE.test(
+    String(line)
+      .trim()
+      .replace(/^\s*(\/\/|#|--)\s*/, ''),
+  )
 }
 
 /**
@@ -98,19 +106,56 @@ export const STYLES = {
 }
 
 const EXT_MAP = {
-  '.ts': 'slash', '.tsx': 'slash', '.js': 'slash', '.jsx': 'slash',
-  '.mjs': 'slash', '.cjs': 'slash', '.mts': 'slash', '.cts': 'slash',
-  '.go': 'slash', '.java': 'slash', '.rs': 'slash', '.kt': 'slash', '.kts': 'slash',
-  '.swift': 'slash', '.c': 'slash', '.h': 'slash', '.cpp': 'slash', '.hpp': 'slash',
-  '.cc': 'slash', '.scala': 'slash', '.dart': 'slash',
-  '.scss': 'slash', '.sass': 'slash', '.less': 'slash',
-  '.py': 'hash', '.sh': 'hash', '.bash': 'hash', '.zsh': 'hash', '.fish': 'hash',
-  '.yml': 'hash', '.yaml': 'hash', '.toml': 'hash', '.rb': 'hash', '.ini': 'hash',
-  '.conf': 'hash', '.cfg': 'hash', '.env': 'hash', '.properties': 'hash',
-  '.ps1': 'hash', '.psm1': 'hash', '.pl': 'hash', '.r': 'hash', '.lua': 'hash',
-  '.css': 'block', '.jsonc': 'block',
-  '.html': 'html', '.htm': 'html', '.xml': 'html',
-  '.md': 'html', '.markdown': 'html',
+  '.ts': 'slash',
+  '.tsx': 'slash',
+  '.js': 'slash',
+  '.jsx': 'slash',
+  '.mjs': 'slash',
+  '.cjs': 'slash',
+  '.mts': 'slash',
+  '.cts': 'slash',
+  '.go': 'slash',
+  '.java': 'slash',
+  '.rs': 'slash',
+  '.kt': 'slash',
+  '.kts': 'slash',
+  '.swift': 'slash',
+  '.c': 'slash',
+  '.h': 'slash',
+  '.cpp': 'slash',
+  '.hpp': 'slash',
+  '.cc': 'slash',
+  '.scala': 'slash',
+  '.dart': 'slash',
+  '.scss': 'slash',
+  '.sass': 'slash',
+  '.less': 'slash',
+  '.py': 'hash',
+  '.sh': 'hash',
+  '.bash': 'hash',
+  '.zsh': 'hash',
+  '.fish': 'hash',
+  '.yml': 'hash',
+  '.yaml': 'hash',
+  '.toml': 'hash',
+  '.rb': 'hash',
+  '.ini': 'hash',
+  '.conf': 'hash',
+  '.cfg': 'hash',
+  '.env': 'hash',
+  '.properties': 'hash',
+  '.ps1': 'hash',
+  '.psm1': 'hash',
+  '.pl': 'hash',
+  '.r': 'hash',
+  '.lua': 'hash',
+  '.css': 'block',
+  '.jsonc': 'block',
+  '.html': 'html',
+  '.htm': 'html',
+  '.xml': 'html',
+  '.md': 'html',
+  '.markdown': 'html',
   '.sql': 'sql',
 }
 
@@ -120,28 +165,103 @@ const EXT_MAP = {
  * 落在 `vendor/`、`dist/` 等段下,少一条就等于对既有内容新增红点。
  */
 export const SKIP_DIRS = new Set([
-  'node_modules', '.git', '.turbo', 'dist', 'build', '.next', 'out', 'coverage',
-  '.pnpm', 'target', '.cache', '.vercel', 'storybook-static', '_.husky', '_husky',
-  '.husky/_', '.nyc_output', '.gradle', '.idea', '__pycache__', '.pytest_cache',
-  '.venv', 'venv', 'vendor', 'expo/dist', '.expo',
-  'tmp', 'playwright-report', 'test-results', 'vs',
-  '.next-static', '.cxx', 'CMakeFiles', '.externalNativeBuild', '.cmake', '.wxt',
+  'node_modules',
+  '.git',
+  '.turbo',
+  'dist',
+  'build',
+  '.next',
+  'out',
+  'coverage',
+  '.pnpm',
+  'target',
+  '.cache',
+  '.vercel',
+  'storybook-static',
+  '_.husky',
+  '_husky',
+  '.husky/_',
+  '.nyc_output',
+  '.gradle',
+  '.idea',
+  '__pycache__',
+  '.pytest_cache',
+  '.venv',
+  'venv',
+  'vendor',
+  'expo/dist',
+  '.expo',
+  'tmp',
+  'playwright-report',
+  'test-results',
+  'vs',
+  '.next-static',
+  '.cxx',
+  'CMakeFiles',
+  '.externalNativeBuild',
+  '.cmake',
+  '.wxt',
 ])
 
 export const SKIP_FILES = new Set([
-  'pnpm-lock.yaml', 'uv.lock', 'yarn.lock', 'package-lock.json',
-  'bun.lockb', 'Cargo.lock', 'poetry.lock', 'go.sum', '.gitignore', '.dockerignore',
-  '.npmignore', '.prettierignore', '.gitattributes', '.editorconfig', '.actrc',
-  '.prettierrc', '.eslintignore', '.env', '.env.local', '.env.production',
+  'pnpm-lock.yaml',
+  'uv.lock',
+  'yarn.lock',
+  'package-lock.json',
+  'bun.lockb',
+  'Cargo.lock',
+  'poetry.lock',
+  'go.sum',
+  '.gitignore',
+  '.dockerignore',
+  '.npmignore',
+  '.prettierignore',
+  '.gitattributes',
+  '.editorconfig',
+  '.actrc',
+  '.prettierrc',
+  '.eslintignore',
+  '.env',
+  '.env.local',
+  '.env.production',
 ])
 
 const BINARY_EXT = new Set([
-  '.png', '.jpg', '.jpeg', '.gif', '.ico', '.webp', '.bmp', '.avif',
-  '.woff', '.woff2', '.ttf', '.otf', '.eot',
-  '.pdf', '.zip', '.gz', '.tar', '.7z', '.rar',
-  '.exe', '.dll', '.so', '.dylib', '.bin', '.wasm',
-  '.mp4', '.mp3', '.wav', '.ogg', '.mov', '.webm',
-  '.db', '.sqlite', '.sqlite3', '.lock',
+  '.png',
+  '.jpg',
+  '.jpeg',
+  '.gif',
+  '.ico',
+  '.webp',
+  '.bmp',
+  '.avif',
+  '.woff',
+  '.woff2',
+  '.ttf',
+  '.otf',
+  '.eot',
+  '.pdf',
+  '.zip',
+  '.gz',
+  '.tar',
+  '.7z',
+  '.rar',
+  '.exe',
+  '.dll',
+  '.so',
+  '.dylib',
+  '.bin',
+  '.wasm',
+  '.mp4',
+  '.mp3',
+  '.wav',
+  '.ogg',
+  '.mov',
+  '.webm',
+  '.db',
+  '.sqlite',
+  '.sqlite3',
+  '.lock',
 ])
 
 export function styleFor(path) {
@@ -186,7 +306,26 @@ export function maskTokensFor(style) {
 }
 
 const REGEX_OK_AFTER = new Set([
-  '=', '(', ',', ':', '[', '!', '&', '|', '?', '{', '}', ';', '+', '-', '*', '%', '^', '~', '<', '>',
+  '=',
+  '(',
+  ',',
+  ':',
+  '[',
+  '!',
+  '&',
+  '|',
+  '?',
+  '{',
+  '}',
+  ';',
+  '+',
+  '-',
+  '*',
+  '%',
+  '^',
+  '~',
+  '<',
+  '>',
 ])
 const REGEX_KEYWORD_RE =
   /(?:^|[^\w$])(?:return|typeof|instanceof|in|of|new|delete|void|case|do|else|yield|await)\s*$/
@@ -305,7 +444,11 @@ export function maskHidden(src, toks) {
 /** 取一行的"可见"文本(掩码位替换为空格);整行未被掩时直接复用原串。 */
 export function visibleSlice(line, start, hidden) {
   let any = false
-  for (let k = 0; k < line.length; k++) if (hidden[start + k]) { any = true; break }
+  for (let k = 0; k < line.length; k++)
+    if (hidden[start + k]) {
+      any = true
+      break
+    }
   if (!any) return line
   let out = ''
   for (let k = 0; k < line.length; k++) out += hidden[start + k] ? ' ' : line[k]
@@ -357,7 +500,13 @@ export function judgeText(text, style, relPath) {
   const src = String(text).replace(/^\uFEFF/, '')
   const lines = src.split('\n')
   const issues = []
-  checkMarkedLines(lines, lineStartsOf(lines), maskHidden(src, maskTokensFor(style)), relPath, issues)
+  checkMarkedLines(
+    lines,
+    lineStartsOf(lines),
+    maskHidden(src, maskTokensFor(style)),
+    relPath,
+    issues,
+  )
   checkXmlDecl(lines, relPath, issues)
   return issues
 }
@@ -378,13 +527,17 @@ function gitBin() {
 function gitOut(args, root, timeoutMs) {
   const bin = gitBin()
   if (!bin) throw new Error('git 可执行文件候选解析全部失败 —— 判据无法执行')
-  return execFileSync(bin, ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', '-C', root, ...args], {
-    encoding: 'buffer',
-    stdio: ['ignore', 'pipe', 'pipe'],
-    maxBuffer: 1 << 28,
-    timeout: timeoutMs,
-    windowsHide: true,
-  })
+  return execFileSync(
+    bin,
+    ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', '-C', root, ...args],
+    {
+      encoding: 'buffer',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      maxBuffer: 1 << 28,
+      timeout: timeoutMs,
+      windowsHide: true,
+    },
+  )
 }
 
 /** 路径清单走 `-z`:避免 git 对非 ASCII 路径做引号转义(转义后既匹配不到也取不到 blob)。 */
@@ -445,7 +598,93 @@ export function readHeadBlob(root, rel, timeoutMs = 60000) {
 }
 
 // ---------- main ----------
+/** 自检期间吞掉判据本体的正常输出(含 [FAIL] 行由断言自己取)。 */
+async function captureConsole(fn) {
+  const orig = console.log
+  const lines = []
+  console.log = (...a) => lines.push(a.join(' '))
+  try {
+    return { code: await fn(), text: lines.join('\n') }
+  } finally {
+    console.log = orig
+  }
+}
+
+/**
+ * `--self-test`:全部落在 mkScratch 夹具里,走**显式文件模式**(`--root <夹具> <file>`),
+ * 不扫版本树、不读仓库活面、不联网、不写生产路径。判据本体(judgeText/maskHidden)一行未改,
+ * 自检只是换输入面真跑同一条 main()。
+ */
+export async function runSelfTest() {
+  const { t, report } = makeRegistrar()
+  const dir = mkScratch('watermark-syntax-selftest-')
+  try {
+    const zw = String.fromCharCode(INVISIBLE_CODEPOINTS[0])
+    const put = (name, body) => {
+      writeFileSync(join(dir, name), body, 'utf8')
+      return name
+    }
+    const okComment = put('ok-comment.ts', `// IHUI banner ${zw}\nexport const a = 1\n`)
+    const okString = put('ok-string.ts', `export const a = "${zw}"\n`)
+    const badBare = put('bad-bare.ts', `export const a = 1;${zw}\nexport const b = 2\n`)
+    const badXml = put('bad-xml.xml', `<!-- ${zw} -->\n<?xml version="1.0"?>\n<root/>\n`)
+
+    const run = (files) => captureConsole(() => main(['--root', dir, ...files]))
+    const okC = await run([okComment])
+    const okS = await run([okString])
+    const bad = await run([badBare])
+    const xml = await run([badXml])
+
+    // 未判定臂:无显式文件且 --root 不是 git 仓 ⇒ assertRepoRoot 抛错 ⇒ CLI 出口 exit 2。
+    const undet = spawnSync(process.execPath, [fileURLToPath(import.meta.url), '--root', dir], {
+      cwd: dir,
+      encoding: 'utf8',
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+
+    t(
+      '①正例:零宽载荷落在行注释内 ⇒ exit 0',
+      () => okC.code === 0 && !/FAIL/.test(okC.text),
+      okC.text.slice(0, 160),
+    )
+    t(
+      '②正例:零宽落在字符串字面量内(掩码区间)⇒ exit 0',
+      () => okS.code === 0 && !/FAIL/.test(okS.text),
+      okS.text.slice(0, 160),
+    )
+    t(
+      '③反例:零宽裸在代码位 ⇒ exit 1 且点名该文件行',
+      () => bad.code === 1 && /\[FAIL\].*bad-bare\.ts:1/.test(bad.text),
+      bad.text.slice(0, 160),
+    )
+    t(
+      '④反例:XML 声明不在首个非空行 ⇒ exit 1',
+      () => xml.code === 1 && /XML 声明非首个非空行/.test(xml.text),
+      xml.text.slice(0, 160),
+    )
+    t(
+      '⑤反例:清单取不到(--root 非 git 仓)⇒ exit 2 未判定(不记绿)',
+      () => undet.status === 2,
+      `exit=${undet.status}`,
+    )
+
+    const { fail, cases } = report()
+    for (const c of cases)
+      console.log(`${c.pass ? '✅' : '❌'} ${c.name}${c.pass ? '' : ` —— 实得:${c.got}`}`)
+    console.log(
+      fail
+        ? `self-test: 未通过(${fail}/${cases.length} 组失败)`
+        : `self-test: 全绿(${cases.length} 组)`,
+    )
+    return fail ? 1 : 0
+  } finally {
+    rmScratch(dir)
+  }
+}
+
 export async function main(argv = process.argv.slice(2), defaultRoot) {
+  if (argv.includes('--self-test')) return runSelfTest()
   const root = defaultRoot ?? resolve(dirname(fileURLToPath(import.meta.url)), '..')
   const flags = new Set()
   const positional = []
@@ -548,17 +787,25 @@ export async function main(argv = process.argv.slice(2), defaultRoot) {
     }
   }
 
-  const mode = positional.length ? `显式文件 ${positional.length} 个` : staged ? '--staged 暂存区' : '版本树 HEAD'
+  const mode = positional.length
+    ? `显式文件 ${positional.length} 个`
+    : staged
+      ? '--staged 暂存区'
+      : '版本树 HEAD'
   console.log(
     `[check:watermark-syntax] 取材=${mode} 清单=${stats.listed} 可注入=${checked}` +
       ` (工作区副本 ${stats.disk} / blob 回退 ${stats.blob} / 取不到内容 ${stats.missing})`,
   )
   if (totalIssues > 0) {
     console.log(`违例 ${totalIssues} 处`)
-    console.log('处理: 对违例文件执行 node scripts/watermark.mjs clean <file> 后重新 inject, 或手工补注释前缀')
+    console.log(
+      '处理: 对违例文件执行 node scripts/watermark.mjs clean <file> 后重新 inject, 或手工补注释前缀',
+    )
     return 1
   }
-  console.log('全部通过: 载荷/横幅行均注释包裹(字符串/模板/正则字面量内的命中不计), XML 声明位置正确。')
+  console.log(
+    '全部通过: 载荷/横幅行均注释包裹(字符串/模板/正则字面量内的命中不计), XML 声明位置正确。',
+  )
   return 0
 }
 
