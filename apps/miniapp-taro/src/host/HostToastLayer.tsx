@@ -5,7 +5,7 @@
 /**
  * 小程序侧 HostToastLayer(M4 端口等价层)。
  *
- * 与 RN 侧共用 `apps/mobile-rn/src/host/host-toast.ts` 这一条通道:共享屏调
+ * 与 RN 侧共用 `packages/shared/src/utils/host-toast.ts` 这一条通道(2026-11-04 下沉到 shared):共享屏调
  * `onToast → showHostToast` 写入事件,本层是端内唯一订阅者,负责落成 `Taro.showToast`。
  * 此前小程序没有订阅者 ⇒ 事件在 prod 被静默丢弃(dev 才 warn),端口看起来"接了"。
  *
@@ -15,7 +15,7 @@
 import Taro from '@tarojs/taro'
 import { useEffect } from 'react'
 import type { ToastKind } from '@ihui/types'
-import { subscribeHostToast } from '../../../mobile-rn/src/host/host-toast'
+import { subscribeHostToast } from '@ihui/shared/utils/host-toast'
 
 const DEFAULT_DURATION = 2000
 
