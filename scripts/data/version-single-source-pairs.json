@@ -18,6 +18,18 @@
       "sourcePkg": "apps/cli/package.json",
       "extracts": ["^version:\\s*'([^']+)'"],
       "why": "Snap 清单装的是 ihui CLI"
+    },
+    {
+      "path": "packages/sdk/python/pyproject.toml",
+      "sourcePkg": "packages/sdk/package.json",
+      "extracts": ["^version\\s*=\\s*\"([^\"]+)\""],
+      "why": "scripts/release-assets.mjs 用 packages/sdk/package.json 的 version 给**全部** SDK 产物命名(ihui-sdk-python-<同一号>.tar.gz),pip 侧读的是 pyproject ⇒ 两者必须同值,否则包名与实际版本各说一套"
+    },
+    {
+      "path": "packages/sdk/python/ihui_ai/__init__.py",
+      "sourcePkg": "packages/sdk/package.json",
+      "extracts": ["__version__\\s*=\\s*\"([^\"]+)\""],
+      "why": "SDK 客户端 self.__version__ 会进 User-Agent / 诊断输出;与 pyproject 各写一份就是第三套号(现读三处同为 0.1.0)"
     }
   ]
 }
