@@ -2221,6 +2221,18 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-04**
+- 🔧 기타:收编停留≥3分钟的未提交改动 (25543544d5)
+- 🔧 기타:dispatch 用 run_id 独立 concurrency group —— 手动取证建镜像不再被 push 挤掉，push/tags 取消语义不变 (12c3359838)
+- 🚀 기능/개선:票类白名单 9→14 档(逐条来自当次派单面现读)—— 日预算空转这一格才有出口 (8e507d519a)
+- 🚀 기능/개선:判据面加「持钥方追认」前向出口 —— 治 push 区间被历史未声明枚永久顶死(自治环最后一米) (d11f6c86dc)
+- 🔧 기타:窄CAS旧值证据:认可UPDATE自身WHERE等值谓词 (083bb1e12c)
+- 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (6df7b71db8)
+- 🐞 수정:备份节律审计的落点改吃「按件选根」—— 它天天报"未判定",而备份天天在落 (6e2175bac8)
+- 🔧 기타:追认 3778408c 的 immutable 豁免(签发标题与实际标题不符,过窗口后具名补) (530b5ed84a)
+- 🐞 수정:桌面分流入口的兜底跳转不再吐内网 origin —— 公网用户此前会拿到打不开的 localhost (dc5b917b8a)
+- 🐞 수정:窄 CAS 门射程收紧到写路径自称,清 4 枚共现误报 (a28fddd557)
+
+**2026-11-04**
 - 🐞 수정:门 128 几何维按 TS 真实形态解析折行联合,清掉一处干净 HEAD 恒红 (719f4fe984)
 - 🔧 기타:dispatch 用 run_id 独立 concurrency group —— 手动取证建镜像不再被 push 挤掉，push/tags 取消语义不变 (8f186ea381)
 - 🐞 수정:修 ruff I001 导入分组排序(mcp_official 相对导入置于 first-party 段后;agent_engine 的 agents_md_state 归位 __version__ 之后) (97fa5f00f4)
@@ -2583,9 +2595,6 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 - ♻️ 리팩터:发布/巡检脚本接入 mobile-download-leg 单源并补一致性断言 (4078b4afcd)
 - 🐞 수정:给 @ihui/rn-app 替身补出 AgentReview 列表/详情两屏与 props 捕获出口(与真身 154/278 行同步) (7ffcf16a68)
 - 🐞 수정:补录 ai-service memory.py 六个 MEMORY_* 兜底码到错误目录并补齐五语词包 (575a1bd2b7)
-
-**2026-11-03**
-- 🐞 수정:缺勤补录加回溯窗——absent_after 晚于跑批时刻的班级不再永远漏判 (8a9fd219e6)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
