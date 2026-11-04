@@ -1,5 +1,5 @@
 {
-  "note": "自治腿「黑腿探测器」登记表(2026-11-04 立)。候选集 = 盘上所有 *-dispatch-last.json;每条 = 一枚守护派发戳。nominalIntervalMs 一律现读自 scripts/git-guardian.mjs 里该派发器的默认值(envVar 覆盖它),归属见 owner。容忍窗不在这里存:由 scripts/lib/autonomy-leg-liveness.mjs 按 ×SILENCE_MULTIPLIER 与 MIN_SILENCE_MS 下限现算,免得同一件事两处各存一份必然漂移。verifiedAt 超 ROTATE_DAYS 即要求复确认。盘上有而本表没有的戳 ⇒ unregistered 点名(覆盖面自证,不靠人记得登记)。",
+  "note": "自治腿「黑腿探测器」登记表(2026-11-04 立)。候选集 = 盘上所有 *-dispatch-last.json;每条 = 一枚守护派发戳。nominalIntervalMs 一律现读自 scripts/git-guardian.mjs 里该派发器的默认值(envVar 覆盖它),归属见 owner。容忍窗不在这里存:由 scripts/lib/autonomy-leg-liveness.mjs 按 ×SILENCE_MULTIPLIER 与 MIN_SILENCE_MS 下限现算,免得同一件事两处各存一份必然漂移。verifiedAt 超 ROTATE_DAYS 即要求复确认。盘上有而本表没有的戳 ⇒ unregistered 点名(覆盖面自证,不靠人记得登记)。2026-11-04 R3 增产出对账字段(A12):outputKind=always(每轮必写)/conditional(有结论才写)/none(结构性无产出账),outputRel/outputTimeField 指认运行态产出台账,silenceCeilingMs 是**产出账**的静默天花板(与 A8 派发戳容忍窗各管一件事,刻意分开存,不许复用),selfReportToken 是守护日志里该腿「整条腿没判出来」的稳定措辞(局部数据源未判定不算,别配错)。coveredBy 标记已有更精确尺子覆盖的腿,本维不重复量。判据单一真源 = scripts/lib/autonomy-leg-output.mjs。",
   "legs": [
     {
       "stamp": "relay-capacity-dispatch-last.json",
@@ -7,7 +7,12 @@
       "envVar": "IHUI_RELAY_CAPACITY_INTERVAL_MS",
       "nominalIntervalMs": 300000,
       "verifiedAt": "2026-11-04",
-      "ruler": "scripts/check-relay-capacity-zero.mjs"
+      "ruler": "scripts/check-relay-capacity-zero.mjs",
+      "outputKind": "none",
+      "outputRel": null,
+      "outputTimeField": "ts",
+      "silenceCeilingMs": 21600000,
+      "selfReportToken": ""
     },
     {
       "stamp": "auto-evolve-dispatch-last.json",
@@ -15,7 +20,12 @@
       "envVar": "IHUI_AUTO_EVOLVE_INTERVAL_MS",
       "nominalIntervalMs": 3600000,
       "verifiedAt": "2026-11-04",
-      "ruler": "scripts/auto-evolve.mjs"
+      "ruler": "scripts/auto-evolve.mjs",
+      "outputKind": "always",
+      "outputRel": "auto-evolve-ledger.jsonl",
+      "outputTimeField": "ts",
+      "silenceCeilingMs": 21600000,
+      "selfReportToken": ""
     },
     {
       "stamp": "auto-triage-dispatch-last.json",
@@ -23,7 +33,12 @@
       "envVar": "IHUI_AUTO_TRIAGE_INTERVAL_MS",
       "nominalIntervalMs": 1800000,
       "verifiedAt": "2026-11-04",
-      "ruler": "scripts/auto-triage.mjs"
+      "ruler": "scripts/auto-triage.mjs",
+      "outputKind": "conditional",
+      "outputRel": "auto-triage-ledger.jsonl",
+      "outputTimeField": "ts",
+      "silenceCeilingMs": 86400000,
+      "selfReportToken": ""
     },
     {
       "stamp": "deploy-feedback-dispatch-last.json",
@@ -32,7 +47,12 @@
       "nominalIntervalMs": 1200000,
       "verifiedAt": "2026-11-04",
       "ruler": "scripts/deploy-feedback.mjs",
-      "knownBlocker": "机器级 IHUI_GUARDIAN_DISABLE_DEPLOY_FEEDBACK=1 会把它整条短路(仓内无任何地方登记谁关的/为何/何时恢复)⇒ 静默属预期,本探测器正是要把这种静默量出来"
+      "knownBlocker": "机器级 IHUI_GUARDIAN_DISABLE_DEPLOY_FEEDBACK=1 会把它整条短路(仓内无任何地方登记谁关的/为何/何时恢复)⇒ 静默属预期,本探测器正是要把这种静默量出来",
+      "outputKind": "conditional",
+      "outputRel": "deploy-feedback-ledger.jsonl",
+      "outputTimeField": "ts",
+      "silenceCeilingMs": 86400000,
+      "selfReportToken": ""
     },
     {
       "stamp": "deploy-outcome-intake-dispatch-last.json",
@@ -40,7 +60,13 @@
       "envVar": "IHUI_DEPLOY_OUTCOME_INTERVAL_MS",
       "nominalIntervalMs": 1200000,
       "verifiedAt": "2026-11-04",
-      "ruler": "scripts/deploy-outcome-intake.mjs"
+      "ruler": "scripts/deploy-outcome-intake.mjs",
+      "coveredBy": "A11-closure-output",
+      "outputKind": "conditional",
+      "outputRel": "incident-signals.jsonl",
+      "outputTimeField": "at",
+      "silenceCeilingMs": 86400000,
+      "selfReportToken": ""
     },
     {
       "stamp": "e2e-autofill-dispatch-last.json",
@@ -48,7 +74,12 @@
       "envVar": "IHUI_E2E_AUTOFILL_INTERVAL_MS",
       "nominalIntervalMs": 1800000,
       "verifiedAt": "2026-11-04",
-      "ruler": "scripts/e2e-autofill.mjs"
+      "ruler": "scripts/e2e-autofill.mjs",
+      "outputKind": "none",
+      "outputRel": null,
+      "outputTimeField": "ts",
+      "silenceCeilingMs": 21600000,
+      "selfReportToken": ""
     },
     {
       "stamp": "gate-rot-dispatch-last.json",
@@ -56,7 +87,12 @@
       "envVar": "IHUI_GATE_ROT_INTERVAL_MS",
       "nominalIntervalMs": 21600000,
       "verifiedAt": "2026-11-04",
-      "ruler": "scripts/check-gate-rot.mjs"
+      "ruler": "scripts/check-gate-rot.mjs",
+      "outputKind": "none",
+      "outputRel": null,
+      "outputTimeField": "ts",
+      "silenceCeilingMs": 86400000,
+      "selfReportToken": ""
     },
     {
       "stamp": "dep-radar-dispatch-last.json",
@@ -64,7 +100,13 @@
       "envVar": "IHUI_DEP_RADAR_INTERVAL_MS",
       "nominalIntervalMs": 86400000,
       "verifiedAt": "2026-11-04",
-      "ruler": "scripts/dep-radar.mjs"
+      "ruler": "scripts/dep-advisory-radar.mjs",
+      "outputKind": "conditional",
+      "outputRel": "dep-advisory-ledger.jsonl",
+      "outputTimeField": "ts",
+      "silenceCeilingMs": 172800000,
+      "selfReportToken": "依赖安全通告轮:未判定",
+      "logLegPrefix": "依赖安全通告轮:"
     },
     {
       "stamp": "merge-addition-loss-dispatch-last.json",
@@ -72,7 +114,12 @@
       "envVar": "(无独立 env;间隔写死在调用点)",
       "nominalIntervalMs": 1800000,
       "verifiedAt": "2026-11-04",
-      "ruler": "scripts/check-merge-addition-loss.mjs"
+      "ruler": "scripts/check-merge-addition-loss.mjs",
+      "outputKind": "none",
+      "outputRel": null,
+      "outputTimeField": "at",
+      "silenceCeilingMs": 21600000,
+      "selfReportToken": ""
     },
     {
       "stamp": "recovery-source-dispatch-last.json",
@@ -80,7 +127,12 @@
       "envVar": "(无独立 env;间隔写死在调用点)",
       "nominalIntervalMs": 1800000,
       "verifiedAt": "2026-11-04",
-      "ruler": "scripts/git-backup-refresh.mjs"
+      "ruler": "scripts/git-backup-refresh.mjs",
+      "outputKind": "none",
+      "outputRel": null,
+      "outputTimeField": "ts",
+      "silenceCeilingMs": 21600000,
+      "selfReportToken": ""
     },
     {
       "stamp": "run-log-rotate-dispatch-last.json",
@@ -88,7 +140,12 @@
       "envVar": "(无独立 env;间隔写死在调用点)",
       "nominalIntervalMs": 1800000,
       "verifiedAt": "2026-11-04",
-      "ruler": "本文件 rotateRunLogs"
+      "ruler": "本文件 rotateRunLogs",
+      "outputKind": "none",
+      "outputRel": null,
+      "outputTimeField": "ts",
+      "silenceCeilingMs": 21600000,
+      "selfReportToken": ""
     },
     {
       "stamp": "baseline-freshness-dispatch-last.json",
@@ -96,7 +153,12 @@
       "envVar": "(无独立 env;间隔写死在调用点)",
       "nominalIntervalMs": 3600000,
       "verifiedAt": "2026-11-04",
-      "ruler": "本文件 reportBaselineFreshness"
+      "ruler": "本文件 reportBaselineFreshness",
+      "outputKind": "none",
+      "outputRel": null,
+      "outputTimeField": "epoch",
+      "silenceCeilingMs": 21600000,
+      "selfReportToken": ""
     }
   ]
 }
