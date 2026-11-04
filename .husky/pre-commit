@@ -77,12 +77,14 @@ unset GIT_DIR GIT_WORK_TREE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIE
 # 根治:node 逻辑整体挪至 scripts/lib/pre-commit-hook.js,本薄壳经
 #   wscript //nologo scripts/hook-run-hidden.vbs(GUI 子系统 + SW_HIDE)执行,
 #   输出转 .ihui-agent/state/hook-logs/pre-commit.log,退出码原样传播。
-# 成功回显日志末 5 行摘要;失败回显末 40 行定位原因。
+# Success: echo last 5 lines. Failure: echo last 200 lines.
+# 200 instead of 40: the real cause is often pushed ABOVE the last 40 lines by
+# downstream noise (measured during forensics), so 40 hid the error itself.
 wscript //nologo scripts/hook-run-hidden.vbs pre-commit scripts/lib/pre-commit-hook.js "$@"
 _hook_rc=$?
 if [ "$_hook_rc" -ne 0 ]; then
-  printf '%s\n' "❌ Pre-commit 守门失败(rc=$_hook_rc),提交已阻止 —— 日志末 40 行:" >&2
-  tail -40 .ihui-agent/state/hook-logs/pre-commit.log >&2 || true
+  printf '%s\n' "❌ Pre-commit 守门失败(rc=$_hook_rc),提交已阻止 —— 日志末 200 行:" >&2
+  tail -200 .ihui-agent/state/hook-logs/pre-commit.log >&2 || true
   printf '%s\n' "   (完整日志: .ihui-agent/state/hook-logs/pre-commit.log)" >&2
   # 原样传播钩子退出码。旧写法 `|| { ...; exit 1; }` 把所有失败折成 1,丢掉两种语义:
   #   2  = 未判定(§0.3:既没判绿也没判红,如定版索引输出超过上界)
