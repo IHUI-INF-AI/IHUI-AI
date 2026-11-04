@@ -2,97 +2,36 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-'use client'
+// 收藏分类 Tab:对齐 packages/app/src/features/favorite/FavoriteScreen.tsx 的 TABS + tabLabel
+//
+// 课程/直播/AI作品/资讯 四枚 tab 已下线(假绿清偿@2026-10-31,取证):后端收藏面
+// FAVORITE_RESOURCE_TYPES = project|file|doc|post|comment|aiworld|agent
+// (apps/api/src/routes/social.ts:44-52;zod 与 JSON schema 单源同枚举),
+// course/live/aigc/news 既存不进 POST /favorites,GET /favorites?resourceType=course
+// 还会被 favoritesListQuery 的枚举直接 400 ⇒ 这四枚 tab 一点必恒空 = 假功能,撤;
+// 后端扩枚举后再从 git 历史接回(键 favorite.tab_course/tab_live/tab_aigc/tab_news 在词包不动)。
+import type { TtFn } from '@/i18n'
 
-import { useEffect, useRef } from 'react'
-import { useTranslations } from 'next-intl'
-import { SearchInput } from '@ihui/ui-react'
-import type { SearchResult } from '@/hooks/use-chat-search'
+export type CategoryTab = 'all' | 'post'
 
-interface ChatSearchBarProps {
-  /** 是否显示搜索栏 */
-  show: boolean
-  /** 搜索关键词 */
-  value: string
-  /** 搜索结果列表 */
-  results: SearchResult[]
-  /** 输入回调 */
-  onSearch: (value: string) => void
-  /** 滚动到消息 */
-  onScrollToMessage: (id: string) => void
+export interface CategoryDef {
+  key: CategoryTab
+  resourceType: string
 }
 
-/** 格式化时间为相对时间 */
-function formatTime(time: string): string {
-  if (!time) return ''
-  const date = new Date(time)
-  const now = new Date()
-  const diff = now.getTime() - date.getTime()
-  const minutes = Math.floor(diff / 60000)
-  if (minutes < 1) return '刚刚'
-  if (minutes < 60) return `${minutes}分钟前`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}小时前`
-  const days = Math.floor(hours / 24)
-  if (days < 7) return `${days}天前`
-  return new Intl.DateTimeFormat('zh-CN', {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(date)
-}
+// 分类 Tab:全部/帖子(resourceType 作为 GET /favorites 的服务端筛选参数,后端在册支持)
+export const CATEGORY_TABS: CategoryDef[] = [
+  { key: 'all', resourceType: '' },
+  { key: 'post', resourceType: 'post' },
+]
 
-/**
- * AI 聊天对话搜索栏
- *
- * 从旧架构 client/src/components/ai/chat-parts/chatsearchbar.vue 迁移至 React TSX。
- * 提供对话内消息搜索 UI：搜索输入框 + 结果列表，点击结果滚动定位。
- */
-export function ChatSearchBar({
-  show,
-  value,
-  results,
-  onSearch,
-  onScrollToMessage,
-}: ChatSearchBarProps) {
-  const t = useTranslations('chatSearchBar')
-  const inputRef = useRef<HTMLInputElement>(null)
-  useEffect(() => {
-    if (show) inputRef.current?.focus()
-  }, [show])
-  if (!show) return null
-
-  return (
-    <div className="bg-background/95 backdrop-blur">
-      {/* 全项目统一搜索框(共享 SearchInput 圆角输入井) */}
-      <div className="px-3 py-2">
-        <SearchInput
-          ref={inputRef}
-          value={value}
-          onChange={(e) => onSearch(e.target.value)}
-          placeholder={t('searchPlaceholder')}
-          aria-label={t('searchAriaLabel')}
-          size="sm"
-        />
-      </div>
-      {results.length > 0 && (
-        <div className="max-h-48 overflow-y-auto mt-1 p-1">
-          {results.map((result) => (
-            <button
-              key={result.id}
-              onClick={() => onScrollToMessage(result.id)}
-              className="flex w-full flex-col gap-0.5 px-3 py-2 text-left transition-colors hover:bg-muted/50"
-            >
-              <span className="line-clamp-1 text-label text-foreground">{result.preview}</span>
-              <span className="whitespace-nowrap tabular-nums text-[10px] text-muted-foreground">
-                {formatTime(result.createTime)}
-              </span>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  )
+/** Tab 文案:与共享屏 tabLabel 同一套键(逐分支字面量,禁止拼键,否则门与静态分析都读不到) */
+export function tabLabel(tab: CategoryTab, tt: TtFn): string {
+  switch (tab) {
+    case 'post':
+      return tt('favorite.tab_post', '帖子')
+    default:
+      return tt('favorite.tab_all', '全部')
+  }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
