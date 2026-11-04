@@ -63,7 +63,10 @@
  *              ③ **clobber 同语义**:CAS 期间 HEAD 推进而该路径在位性变了 ⇒ 拒绝,不照旧删。
  *              `paths` 与 `removePaths` 可同时非空(一次落地里既有写入又有摘除);两边都空才拒绝。
  *              他席已暂存的删除路径由 `alignSharedIndex` 保护:不动并点名(§12)。
- *  LAND_MSG    必填,提交信息
+ *  LAND_MSG    必填,提交信息**正文本身**(不是文件路径)。要按文件给就写 `@<路径>`(相对 LAND_ROOT 或绝对),
+ *              读不到即拒。为什么把这句话说全:2026-11-04 实测有调用方把路径塞进来,落地照样成功,
+ *              而那枚的正文成了一串路径 ⇒ 取证叙述与 `immutable-exempt` trailer 全掉在枚外,
+ *              事后判 `undeclared` 且提交者自己修不了(追认要独立密钥)。现在另有形状闸兜住(见 judgeLandMsgShape)。
  *  LAND_BLOBS  可选,指向一份 JSON 清单**文件的路径**(内容 `{files:[{path,blob}]}`;
  *              blob 由 hash-object -w 得到,须已在对象库)。注意与 LAND_CLASH_SCOPE 同形:传的是路径,
  *              不是内联 JSON —— 本器按 `readFileSync(env.LAND_BLOBS)` 取它,把 JSON 字符串直接塞进
@@ -229,6 +232,8 @@ import { recordBypassLanding } from './lib/commit-attestation.mjs'
 // 孤儿提交备份腿的单一真相源(2026-10-29 门 30a 根因票):拼名/查重/annotated tag/pack-refs/
 // 留痕/永不抛 全部住 lib,本器只在**弃落出口**调它 —— 判据不在本文件复刻第二份(§0.6)。
 import { backupOrphanCommit } from './lib/orphan-backup.mjs'
+// 判据面声明自检复用护栏自己的清单与匹配器(§0.6 单一真相源:本器不另写一份"什么算受保护面")
+import { GUARD_DATA_REL, parseGuardList, matchProtected } from './lib/immutable-guard.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 // 水印 CLI 与本器同目录:用它而不是拼 cwd 相对路径,理由见 watermarkPreflight 内注释。
@@ -277,13 +282,92 @@ function defaultRefHeadValue(root) {
 }
 
 /** 读 env 并判用法;不合法 ⇒ {error, code:2}。 */
+/**
+ * `LAND_MSG` 的形状判定(2026-11-04 立,立因是一次真事故)。
+ * 本器原先只要求"非空",而头注对它的写法是「必填,提交信息」——没说**收的是正文还是路径**。
+ * 自主环调用方按"文件路径"理解并传了进来,结果落地成功、而那枚的正文就是一串
+ * `D:\…\.ihui-agent\tmp\…\commit-msg-no-write.txt`:取证叙述、票键、`immutable-exempt` trailer
+ * 全掉在枚外 ⇒ 判据面命中被事后判 `undeclared`,而这一格按设计**提交者自己修不了**
+ * (补声明要独立的追认密钥,签发钥不等于追认钥)。代价不是一次失败,是一条无法自愈的账。
+ * 所以这里两条一起做:① 给 `@<文件>` 一个显式出口(长正文/多行不必塞进环境变量);
+ * ② 分不清是正文还是路径时**拒落**,不猜(§0.10 失效方向恒为"多要一次说明",
+ *    绝不是"多放一次静默")。
+ * @param {string} msg 已经过 @file 解析的文本
+ * @returns {{ok:boolean, why:string}}
+ */
+export function judgeLandMsgShape(msg) {
+  const t = String(msg ?? '').trim()
+  if (t === '') return { ok: false, why: '空 ⇒ 提交史无法归因' }
+  const startsConventional = /^(feat|fix|docs|chore|test|refactor|perf|style|ci|build)(\([^)]*\))?!?:\s/.test(t)
+  const oneLine = !t.includes('\n')
+  // 盘符绝对路径 / UNC / 以 commit-msg*.txt|md 形态收尾的裸路径 —— 三者都是"把文件名当正文"的形状
+  const looksLikePath =
+    /^[A-Za-z]:[\\/]/.test(t) || /^\\\\/.test(t) || /^(?:[^\s]*[\\/])?commit-msg[^\s]*\.(?:txt|md|log)$/i.test(t)
+  if (oneLine && looksLikePath && !startsConventional) {
+    return {
+      ok: false,
+      why: `正文只有一行且长得像**文件路径**(${t.slice(0, 60)}…)⇒ 拒落。LAND_MSG 收的是提交信息正文;要从文件取,写 LAND_MSG=@<路径>`,
+    }
+  }
+  if (oneLine && t.length < 24 && !startsConventional) {
+    return { ok: false, why: `正文单行且不足 24 字符(${t})⇒ 不像一句能被回读证明的说明;要么写成 conventional 标题,要么把取证正文一起给全` }
+  }
+  return { ok: true, why: '' }
+}
+
+/**
+ * 判据面(受保护面)命中自检(2026-11-04 立,立因是同一次"正文传成路径"的事故)。
+ * 护栏判的是**提交信息里的 `immutable-exempt:` trailer**,而本器的正文由调用方传。传歪时:
+ * 落地成功、提交面回读全绿、什么也不喊 —— 只有事后 `--audit-new` 才发现 undeclared,
+ * 而那一格按设计**提交者自己修不了**(补声明要独立的追认密钥,签发钥≠追认钥)。
+ * 所以把这一问搬到"还改得动"的那一刻:枚上要声明却没声明 ⇒ 当场报红并点名命中面。
+ * @param {{paths:string[], guardListText:string|null, message:string}} p
+ * @returns {{state:'ok'|'missing'|'undetermined', hits:string[], why:string}}
+ */
+export function checkExemptDeclaration({ paths = [], guardListText = null, message = '' }) {
+  if (guardListText === null || guardListText === undefined) {
+    return { state: 'undetermined', hits: [], why: '受保护面清单取不到 ⇒ 无法判断本枚是否需要声明(不冒充"不需要")' }
+  }
+  let parsed
+  try {
+    parsed = parseGuardList(guardListText)
+  } catch (e) {
+    return { state: 'undetermined', hits: [], why: `清单解析抛错(${String(e?.message ?? e).slice(0, 80)})⇒ 未判定` }
+  }
+  if ((parsed.problems ?? []).length > 0 || !Array.isArray(parsed.entries) || parsed.entries.length === 0) {
+    return { state: 'undetermined', hits: [], why: `清单形状坏或为空(${(parsed.problems ?? []).map((x) => x.code ?? x.message).join(',') || 'empty'})⇒ 未判定` }
+  }
+  const hits = []
+  for (const p of paths) {
+    const rel = String(p).replace(/\\/g, '/')
+    const hit = matchProtected(rel, parsed.entries)
+    if (hit) hits.push(`${rel}〔${hit.path}〕`)
+  }
+  if (hits.length === 0) return { state: 'ok', hits: [], why: '本枚不触及判据面 ⇒ 无需豁免声明' }
+  if (!/immutable-exempt:\s*\S/.test(String(message ?? ''))) {
+    return { state: 'missing', hits, why: `本枚命中判据面 ${hits.length} 处而提交信息里没有 immutable-exempt 行` }
+  }
+  return { state: 'ok', hits, why: `命中判据面 ${hits.length} 处且已随枚声明` }
+}
+
 export function parseArgs(env = process.env) {
   const root = env.LAND_ROOT ? resolve(env.LAND_ROOT) : REPO_ROOT
   const paths = String(env.LAND_PATHS ?? '')
     .split(';')
     .map((s) => s.trim())
     .filter(Boolean)
-  const msg = env.LAND_MSG ?? ''
+  const msgRaw = String(env.LAND_MSG ?? '')
+  let msg = msgRaw
+  // `LAND_MSG=@<文件>` 是显式的"从文件取正文"出口(长正文/多行取证不必塞进环境变量)。
+  // 读不到一律拒,绝不把 `@路径` 字面量当正文落进去 —— 那正是本旗要治的那一型。
+  if (msgRaw.startsWith('@')) {
+    const msgFile = msgRaw.slice(1).trim()
+    try {
+      msg = readFileSync(resolve(root, msgFile), 'utf8')
+    } catch (e) {
+      return { error: `LAND_MSG=@${msgFile} 读不到(${String(e?.message ?? e).slice(0, 140)})⇒ 拒绝执行(不把"@路径"当正文落地)` }
+    }
+  }
   const baseRef = env.LAND_BASE_REF || 'HEAD'
   /**
    * `LAND_REMOVE_PATHS` = 从结果树里**摘掉**的路径清单(以 `;` 分隔)。G-926(2026-10-21 立):
@@ -324,6 +408,8 @@ export function parseArgs(env = process.env) {
         '缺 LAND_PATHS / LAND_REMOVE_PATHS(至少给一边,以 ; 分隔)⇒ 拒绝执行(空清单会把 undefined 当路径提交,本仓踩过)',
     }
   if (msg === '') return { error: '缺 LAND_MSG ⇒ 拒绝执行(不允许空消息落地,提交史无法归因)' }
+  const msgShape = judgeLandMsgShape(msg)
+  if (!msgShape.ok) return { error: `LAND_MSG 形状不成立:${msgShape.why}` }
   if (!resolveHeadRef({ root }))
     return { error: `${root} 不是可用仓库(HEAD 不可解析或 detached)⇒ 无法判定,不落` }
   // 仓库身份对账(2026-10-30):root 必须是**它自己的仓顶**,不能是某个仓的内部目录 ——
@@ -3210,6 +3296,45 @@ async function main() {
   console.log(
     `✅ 提交面回读 ${paths.length}/${paths.length} 路径在树${removePaths.length ? `;删除档 ${removePaths.length} 路径已摘除` : ''}${listed ? (extras.length ? `;另有非声明路径 ${extras.length} 条(检查是否混提)` : '') : '(混提核查未判定)'}`,
   )
+  // 判据面声明自检:紧接回读成功之后(这一刻还改得动 —— 下一枚就能把正文补对;等到事后审计就只剩追认)
+  {
+    let guardText = null
+    try {
+      guardText = execFileSync(gitBinary(), ['-C', root, 'show', `${landed}:${GUARD_DATA_REL}`], {
+        encoding: 'utf8',
+        maxBuffer: 32 * 1024 * 1024,
+        windowsHide: true,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        timeout: 60_000,
+      })
+    } catch {
+      guardText = null
+    }
+    let landedMsg = ''
+    try {
+      landedMsg = execFileSync(gitBinary(), ['-C', root, 'show', '-s', '--format=%B', landed], {
+        encoding: 'utf8',
+        maxBuffer: 32 * 1024 * 1024,
+        windowsHide: true,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        timeout: 60_000,
+      })
+    } catch {
+      landedMsg = ''
+    }
+    const dec = checkExemptDeclaration({ paths, guardListText: guardText, message: landedMsg })
+    if (dec.state === 'missing') {
+      console.error(
+        `❌ 判据面声明自检:本枚命中受保护面而枚上**没有** immutable-exempt 行 ⇒ 事后只会判 undeclared,而那一格提交者自己修不了(追认要独立密钥)。命中面:\n  ${dec.hits.join('\n  ')}\n   出路:就地再落一枚带 \`immutable-exempt: <≥10 字理由>\` 的更正,或请持追认钥的一方 --ack。落地不回滚。`,
+      )
+      process.exitCode = 2
+    } else if (dec.state === 'undetermined') {
+      console.error(`⚠ 判据面声明自检未判定:${dec.why} —— 未判定不等于"无需声明",请人工核这一枚`)
+      process.exitCode = 2
+    } else if (dec.hits.length > 0) {
+      console.log(`ℹ 判据面声明自检:${dec.why}`)
+    }
+  }
 
   /**
    * G-725 留痕:走到这里"这枚提交已在 HEAD 里、且声明路径都过了逐路径存在性判定"是既成事实 ——
@@ -3796,7 +3921,7 @@ const USAGE = [
   '      # CLI 契约是 env 驱动、无位置参数;每个 env 的含义:',
   '  LAND_PATHS          必填(与 LAND_REMOVE_PATHS 至少给一边),";" 分隔的仓库相对路径',
   '  LAND_REMOVE_PATHS   可选,要从结果树里摘掉(取消跟踪)的同一形清单;与 LAND_PATHS 不得有交集',
-  '  LAND_MSG            提交信息(只写能被回读证明的东西)',
+  '  LAND_MSG            提交信息**正文**(不是路径);按文件给写 @<路径>;长得像路径的单行正文会被拒',
   '  LAND_BASE_REF       基线 ref(缺省 HEAD)',
   '  LAND_BLOBS          内容清单 JSON 路径(给了就不读工作树,用于"同文件里有他人在飞改动")',
   '  LAND_ROOT           仓库根(缺省本仓)',
@@ -3831,6 +3956,8 @@ if (isDirectRun) {
 
 export const __test__ = {
   parseArgs,
+  judgeLandMsgShape,
+  checkExemptDeclaration,
   backupIfAbandoned,
   clobberedPaths,
   lineDelta,

@@ -1383,7 +1383,6 @@ test('T-WM-NEW-6 形状锁:新建路径档只调那一份编排,未判定必须 
   assert.ok(!/scripts\/data\//.test(seg), '豁免清单只住在 lib 的台账里,本器不得自持一张表')
 })
 
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 // ─────────────────────────────────────────────────────────────────────────────
 // G-815985 悬空相对引用预检(2026-09-29 立,由本会话一次真实自伤换来)
@@ -3167,3 +3166,49 @@ test('T-RM-E7 反向④:改既有条目导致基线丢元素 ⇒ element 型不�
   assert.match(out, /消失|丢/, `必须把"丢"讲明白,现读:${out.slice(0, 800)}`)
   assert.equal(runGit(dir, ['rev-parse', 'HEAD']).trim(), head, '被拒的落地不得动 HEAD')
 })
+
+/**
+ * 2026-11-04 两道新闸:`LAND_MSG` 收的是**正文**,不是文件路径。
+ * 立因(实测,不是假想):落地器把路径当正文照样落地成功,那一枚的正文成了一串
+ * 形如 `D:\…\commit-msg-no-write.txt` 的串 ⇒ 取证叙述与 `immutable-exempt` trailer 掉在枚外,
+ * 事后判 `undeclared` 而**提交者自己修不了**(补声明要独立追认密钥,签发钥≠追认钥)。
+ * 所以:① 正文形状不对当场拒;② 落地后回读枚上正文,命中判据面却没声明就报红。
+ */
+test('judgeLandMsgShape:路径形态/空/含糊短行拒,conventional 标题与多行正文放行', () => {
+  const T = __test__.judgeLandMsgShape
+  assert.equal(T('D:\\IHUI-AI\\.ihui-agent\\tmp\\goal-autonomy\\commit-msg-no-write.txt').ok, false, '盘符单行 = 长得像路径 ⇒ 必须拒')
+  assert.equal(T('/tmp/commit-msg-no-write.txt').ok, false, 'commit-msg*.txt 形态同样拒(不带盘符的那种)')
+  assert.equal(T('').ok, false, '空必拒(提交史无法归因)')
+  assert.equal(T('随手写的一句话').ok, false, '单行、非 conventional、不足 24 字 ⇒ 拒(方向是多要一次说明)')
+  assert.equal(T('fix(gates): 短标题也算正文').ok, true, 'conventional 标题放行,不许逼人凑字数')
+  assert.equal(T('fix(x): 标题\n\n多行取证正文若干。').ok, true, '多行正文放行')
+})
+
+test('checkExemptDeclaration:命中未声明=missing,已声明=ok,清单取不到=未判定(三态不并桶)', () => {
+  const T = __test__.checkExemptDeclaration
+  const list = readFileSync(join(HERE, '..', 'data', 'immutable-guard.json'), 'utf8')
+  const hit = T({ paths: ['scripts/lib/sample.mjs'], guardListText: list, message: 'fix(x): 标题\n\n正文若干行。' })
+  assert.equal(hit.state, 'missing', '命中判据面而枚上没 trailer ⇒ missing(不是 ok、不是未判定)')
+  assert.ok(hit.hits.some((h) => h.includes('scripts/lib/sample.mjs')), '必须点名命中的那枚路径')
+  const declared = T({
+    paths: ['scripts/lib/sample.mjs'],
+    guardListText: list,
+    message: 'fix(x): 标题\n\nimmutable-exempt: 这是一句足够长的理由说明,用来补上判据面声明。',
+  })
+  assert.equal(declared.state, 'ok', '带 trailer ⇒ ok')
+  assert.equal(
+    T({ paths: ['docs/sample.md'], guardListText: list, message: 'docs(x): 标题' }).hits.length,
+    0,
+    '射程外 ⇒ 不要求声明',
+  )
+  assert.equal(T({ paths: ['scripts/lib/x.mjs'], guardListText: null, message: 'fix(x): t' }).state, 'undetermined', '清单取不到 ⇒ 未判定,不得冒充"不需要声明"(§0.3)')
+  assert.equal(T({ paths: ['scripts/lib/x.mjs'], guardListText: '{不是合法 JSON', message: 'fix(x): t' }).state, 'undetermined', '清单坏 ⇒ 未判定')
+})
+
+test('接线锁:两道闸都真被调用(函数在而没人调=没有,§0.9)', () => {
+  const tool = readFileSync(TOOL, 'utf8')
+  assert.ok(tool.includes('judgeLandMsgShape(msg)'), 'parseArgs 必须真调正文形状闸')
+  assert.ok(tool.includes('checkExemptDeclaration({'), '落地后必须真调判据面声明自检')
+  assert.ok(tool.includes("msgRaw.startsWith('@')"), '@<文件> 出口必须在(否则长正文只能塞 env,正是这次踩的形状)')
+})
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
