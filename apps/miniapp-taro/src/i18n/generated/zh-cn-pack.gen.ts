@@ -8,15 +8,15 @@
 // ZH_CN_CRITICAL 是同批派生的**最小内置键集**(纯 JSON、不参与压缩):gunzip/JSON.parse
 // 任一环失败时 fail-closed 回落到它 —— 兜底刻意不复用那条失败的解码链路。
 // IHUI-GEN-PIN-BEGIN
-// generator: apps/miniapp-taro/scripts/gen-i18n-compressed.mjs
-// sourceCommit: eda6cf460c52bc13d371700ad75ad5dcd6cb10fe
+// generator: scripts/gen-i18n-compressed.mjs
+// sourceCommit: 8f8adbfa78043b8c489cfa4b0a9b3ddc95accae3
 // inputsSha256: de41c4996d6176ba210d3377cafbf0fab8dfc1899446c0df2b6f94cc7979523f
 // input: packages/i18n/messages/miniapp-taro/zh-CN.json 0f50a2429edb0ff6ff24eaf5a32d8ff19d71f0b308cd85b471d150a5365d814d
 // input: packages/i18n/messages/mobile-rn/zh-CN.json 9883fbf20a03960b6e72d0fe1f118b9087a3f2b679fba96998f1aa8258fe8563
 // input: packages/i18n/messages/shared/zh-CN.json 70bb6788a147be04e76164fdf9b636ccce67370375597610a2ea2007b14843e5
 // carried: present
 // carriedKeys: zh-CN=586
-// generatedAt: 2026-11-04T08:07:11.766Z
+// generatedAt: 2026-11-04T11:11:01.536Z
 // IHUI-GEN-PIN-END
 export const ZH_CN_PACK_VERSION = '632ccb31d17680929ec8ba1acbd4d06dec28b160709943c74260b6e2d91e5142'
 export const ZH_CN_PACK_BYTES = 148740
