@@ -13476,6 +13476,15 @@ function startDaemon(bootGuard = null) {
         sweepStaleClosedRows()
         sweepUiMirrorLeg()
         sweepWebStyleTiers()
+        // ---- 第二批:原先整条链无节流的 4 条,用调用点 legThrottle 补上后才敢上常驻面 ----
+        // 节流戳一律落 `.ihui-agent/state/<腿>-dispatch-last.json`,与 A8(check-autonomy-leg-health
+        // 的腿在位尺)读的是同一族文件 ⇒ 这四条从"挂上"那一刻起就是**被量着**的,不是挂了就算数。
+        // 间隔取的是"这条腿自己那一步有多重":auditMergeAdditionLoss/refreshRecoverySource 各带
+        // 240s 超时的派生、rotateRunLogs 会动在写的日志面 ⇒ 30 分钟;reportBaselineFreshness 只读 ⇒ 1 小时。
+        if (legThrottle(join(dirname(LOG), 'merge-addition-loss-dispatch-last.json'), 30 * 60 * 1000, Date.now(), log)) auditMergeAdditionLoss()
+        if (legThrottle(join(dirname(LOG), 'recovery-source-dispatch-last.json'), 30 * 60 * 1000, Date.now(), log)) refreshRecoverySource()
+        if (legThrottle(join(dirname(LOG), 'run-log-rotate-dispatch-last.json'), 30 * 60 * 1000, Date.now(), log)) rotateRunLogs()
+        if (legThrottle(join(dirname(LOG), 'baseline-freshness-dispatch-last.json'), 60 * 60 * 1000, Date.now(), log)) reportBaselineFreshness()
       }
     } catch (e) {
       log('巡检异常(忽略): ' + String(e.message || e))
