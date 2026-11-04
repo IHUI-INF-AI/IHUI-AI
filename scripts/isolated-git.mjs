@@ -57,6 +57,7 @@ import {
   rmdirSync,
   unlinkSync,
   writeFileSync,
+  writeSync,
 } from 'node:fs'
 import { dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -64,10 +65,12 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 /** 仓根由脚本自身位置推导,禁 `process.cwd()` 定根(AGENTS §15)。 */
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 export const INDEX_DIR_NAME = 'ihui-isolated-index'
+/** 内容快照后缀:与索引同名前缀,随 `disposeIndex`/sweep 一起清掉。 */
+export const SNAPSHOT_SUFFIX = '.snap'
 export const MAX_ATTEMPTS = 5
 /** 残留判定:pid 已死,或存活但文件超过 24h(防 pid 复用把旧文件永久留下)。 */
 export const STALE_AGE_MS = 24 * 60 * 60 * 1000
-const INDEX_NAME_RE = /^(\d+)-(\d+)-([0-9a-f]{8})\.idx(\.lock)?$/
+const INDEX_NAME_RE = /^(\d+)-(\d+)-([0-9a-f]{8})\.idx(\.lock|\.snap)?$/
 const LOCK_BUSY_RE = /cannot lock ref|Unable to create|index\.lock|Another git process/i
 const FORBIDDEN_COMMIT_ARGS = [
   '--no-verify',
@@ -171,10 +174,10 @@ export function sweepStale(indexDir, { isAlive = isPidAlive, now = Date.now() } 
   return removed
 }
 
-/** 删掉本进程的索引与它自己的 `.lock`;目录空了就顺手收掉(不递归、不碰别的东西)。 */
+/** 删掉本进程的索引、它自己的 `.lock` 与内容快照;目录空了就顺手收掉(不递归、不碰别的东西)。 */
 export function disposeIndex(indexFile) {
   ACTIVE_INDEXES.delete(indexFile)
-  for (const f of [indexFile, `${indexFile}.lock`]) {
+  for (const f of [indexFile, `${indexFile}.lock`, `${indexFile}${SNAPSHOT_SUFFIX}`]) {
     try {
       rmSync(f, { force: true })
     } catch {
@@ -250,6 +253,122 @@ function sleepMs(ms) {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
 }
 
+/** `git ls-files -s -z` 的逐条解析:`<mode> <blob> <stage>\t<path>\0`。 */
+export function parseLsFilesZ(text) {
+  const out = []
+  for (const rec of String(text ?? '').split('\u0000')) {
+    if (!rec) continue
+    const tab = rec.indexOf('\t')
+    if (tab < 0) continue
+    const meta = rec.slice(0, tab).trim().split(/\s+/)
+    if (meta.length < 3) continue
+    out.push({ mode: meta[0], blob: meta[1], stage: Number(meta[2]), path: rec.slice(tab + 1) })
+  }
+  return out
+}
+
+function lsEntries(ctx, paths) {
+  return parseLsFilesZ(
+    String(
+      rawGit(['-c', 'core.quotepath=false', 'ls-files', '-s', '-z', '--', ...paths], ctx).stdout ??
+        '',
+    ),
+  )
+}
+
+/**
+ * 内容快照:声明路径在**钩子运行前**的索引条目(mode + blob + stage)。
+ * 路径集合校验(`diff --cached --name-only`)看不见"同路径内容被整份替换",
+ * 所以这里把每条声明路径的 blob 号钉住,由 `restore-index` 在钩子跑完后逐条比对。
+ */
+export function takeIndexSnapshot({ gitCwd, env, paths }) {
+  const ctx = { gitCwd, env }
+  const declared = [...new Set(paths.map((p) => normalizePath(gitCwd, p)))]
+  return { version: 1, paths: declared, entries: lsEntries(ctx, declared) }
+}
+
+function entriesDiffer(expected, actual) {
+  return (
+    !actual ||
+    !expected ||
+    expected.mode !== actual.mode ||
+    expected.blob !== actual.blob ||
+    expected.stage !== actual.stage
+  )
+}
+
+function nameOnlyZ(ctx) {
+  const text = String(
+    rawGit(['-c', 'core.quotepath=false', 'diff', '--cached', '--name-only', '-z'], ctx).stdout ??
+      '',
+  )
+  return text.split('\u0000').filter(Boolean)
+}
+
+/**
+ * 钩子跑完后的内容级护栏(由 pre-commit 钩子在 exit 阶段调起,见
+ * `scripts/lib/pre-commit-hook.js` 的 `IHUI_ISOLATED_INDEX_SNAPSHOT` 段):
+ *
+ *   ① 声明集之外出现任何条目 ⇒ 记入 `extras`(调用方据此拒绝提交,不替钩子"擦屁股");
+ *   ② 声明路径的 (mode, blob, stage) 与快照不等 ⇒ 用 `git update-index --cacheinfo`
+ *      逐条精确复原(不 `checkout`/`reset`/`restore`,一个字节都不碰工作树);
+ *   ③ 复原后再读一次索引复核,仍不等 ⇒ 记入 `still`,调用方 exit 非 0。
+ *
+ * 正常情况(钩子没动内容)零写入:不满足 ② 时一条 `update-index` 都不发。
+ */
+export function restoreIndexFromSnapshot({ gitCwd, env, snapshot, log = console }) {
+  const ctx = { gitCwd, env }
+  const declared = new Set(snapshot.paths)
+  const expected = new Map(snapshot.entries.map((e) => [e.path, e]))
+  const extras = nameOnlyZ(ctx).filter((p) => !declared.has(p))
+
+  const before = new Map(lsEntries(ctx, snapshot.paths).map((e) => [e.path, e]))
+  const drift = []
+  for (const [p, exp] of expected) {
+    const cur = before.get(p)
+    if (entriesDiffer(exp, cur)) drift.push({ path: p, expected: exp, actual: cur ?? null })
+  }
+  for (const [p, cur] of before) {
+    if (!expected.has(p)) drift.push({ path: p, expected: null, actual: cur })
+  }
+
+  if (drift.length) {
+    log.error?.('⚠️ 私有索引内容护栏:钩子改动了声明路径的索引内容,按快照逐条复原(工作树未动):')
+    for (const d of drift) {
+      log.error?.(
+        `  ${d.path}: 快照 ${d.expected?.blob ?? '(无条目)'} → 钩子后 ${d.actual?.blob ?? '(无条目)'}`,
+      )
+      if (d.expected) {
+        rawGit(
+          [
+            'update-index',
+            '--add',
+            '--cacheinfo',
+            `${d.expected.mode},${d.expected.blob},${d.path}`,
+          ],
+          ctx,
+        )
+      } else {
+        rawGit(['update-index', '--force-remove', '--', d.path], ctx)
+      }
+    }
+  }
+
+  // 复核:复原后必须与快照逐条相等;不等就交给调用方拒绝提交。
+  const after = new Map(lsEntries(ctx, snapshot.paths).map((e) => [e.path, e]))
+  const still = []
+  for (const [p, exp] of expected) {
+    const cur = after.get(p)
+    if (entriesDiffer(exp, cur)) still.push({ path: p, expected: exp, actual: cur ?? null })
+  }
+  for (const [p, cur] of after) {
+    if (!expected.has(p)) still.push({ path: p, expected: null, actual: cur })
+  }
+  const extrasAfter = nameOnlyZ(ctx).filter((p) => !declared.has(p))
+
+  return { restored: drift.length, extras: [...new Set([...extras, ...extrasAfter])], still }
+}
+
 /**
  * 核心提交:每一轮都「重新 read-tree 当时 HEAD → add 声明集 → 查无外来件 → 发令」。
  * 这样即便别的会话在上一轮把 HEAD 推前了,也不会拿旧索引去建一枚把别人改动退回去的提交
@@ -276,8 +395,17 @@ export function commitWithIndex({ gitCwd, env, gitDir, commitOpts, paths, log = 
       log.warn?.(`⟳ 第 ${attempt} 轮:HEAD 在灌索引期间被并发推进,重新基于新 HEAD 再来`)
       continue
     }
-    const res = rawGit(['commit', ...commitOpts], { ...ctx, allowFail: true })
+    // 内容级护栏的"钩子前"一侧:把声明路径的索引 blob 记成快照,并把路径交给 pre-commit
+    // 钩子(它退出前调 restore-index 逐条比对+复原)。没有这份快照,路径集合校验对
+    // "同路径内容整份替换"完全无感。
+    const snapshot = takeIndexSnapshot({ gitCwd, env, paths })
+    const snapshotFile = `${indexFile}${SNAPSHOT_SUFFIX}`
+    writeFileSync(snapshotFile, JSON.stringify(snapshot))
+    const hookedEnv = { ...env, IHUI_ISOLATED_INDEX_SNAPSHOT: snapshotFile }
+    const res = rawGit(['commit', ...commitOpts], { gitCwd, env: hookedEnv, allowFail: true })
     if (res.status === 0) {
+      // 成功路径默认吞掉 git 的 stderr;护栏复原留痕必须让作者看见(其余钩子输出不放大)。
+      if (/私有索引内容护栏/.test(String(res.stderr || ''))) log.warn?.(String(res.stderr).trim())
       const sha = verifyLanded({ ctx, base, declared, stdout: res.stdout, log })
       refreshSharedIndex({
         gitCwd,
@@ -381,7 +509,83 @@ export function refreshSharedIndex({
 const USAGE = `usage:
   node scripts/isolated-git.mjs commit -m "<提交标题>" -- <路径...>
   node scripts/isolated-git.mjs -C <仓库目录> commit -m "<标题>" -- <路径...>
-说明:一次调用 = 一份私有 GIT_INDEX_FILE;pre-commit/commit-msg 照常跑,只交声明集。`
+说明:一次调用 = 一份私有 GIT_INDEX_FILE;pre-commit/commit-msg 照常跑,只交声明集。
+      (restore-index 是 pre-commit 钩子内部使用的私有子命令,不面向人工调用。)`
+
+/** `restore-index --snapshot <文件>`:只给钩子内部用,故不校验 assertNoBypass。 */
+export function parseRestoreArgs(args) {
+  const rest = [...args]
+  let snapshot = ''
+  for (let i = 0; i < rest.length; i += 1) {
+    if (rest[i] === '--snapshot') {
+      snapshot = String(rest[i + 1] ?? '')
+      i += 1
+    } else {
+      throw new Error(`restore-index 不认识的参数:${rest[i]}`)
+    }
+  }
+  if (!snapshot) throw new Error('restore-index 必须给 --snapshot <文件>')
+  return snapshot
+}
+
+/**
+ * 钩子退出阶段 `console.error` 走异步 pipe,进程一退出就可能丢行;护栏的复原/拒绝
+ * 必须让用户与后续排查看得见,所以直接 `writeSync(2, ...)`。
+ */
+function stderrLine(line) {
+  try {
+    writeSync(2, `${line}\n`)
+  } catch {
+    console.error(line)
+  }
+}
+
+function runRestoreIndex(gitCwd, args) {
+  let snapshotFile
+  try {
+    snapshotFile = parseRestoreArgs(args)
+  } catch (e) {
+    stderrLine(`❌ ${e?.message ?? e}`)
+    return 2
+  }
+  let snapshot
+  try {
+    snapshot = JSON.parse(readFileSync(snapshotFile, 'utf8'))
+    if (!snapshot || !Array.isArray(snapshot.paths) || !Array.isArray(snapshot.entries)) {
+      throw new Error(`快照形状坏:${snapshotFile}`)
+    }
+  } catch (e) {
+    stderrLine(`❌ 私有索引内容护栏取不到快照(${snapshotFile}):${e?.message ?? e}`)
+    return 1
+  }
+  let result
+  try {
+    result = restoreIndexFromSnapshot({
+      gitCwd,
+      env: childEnv(process.env.GIT_INDEX_FILE),
+      snapshot,
+      log: { error: stderrLine },
+    })
+  } catch (e) {
+    stderrLine(`❌ 私有索引内容护栏复原失败:${e?.message ?? e}`)
+    return 1
+  }
+  if (result.still.length) {
+    stderrLine('❌ 私有索引内容护栏:复原后索引仍与快照不一致,拒绝提交:')
+    for (const d of result.still) {
+      stderrLine(
+        `  ${d.path}: 快照 ${d.expected?.blob ?? '(无条目)'} → 复原后 ${d.actual?.blob ?? '(无条目)'}`,
+      )
+    }
+    return 1
+  }
+  if (result.extras.length) {
+    stderrLine('❌ 私有索引内容护栏:钩子在声明集之外塞入了索引条目,拒绝提交:')
+    for (const p of result.extras) stderrLine(`  ${p}`)
+    return 1
+  }
+  return 0
+}
 
 export function main(argv = process.argv.slice(2)) {
   const { gitCwd, args } = parseLeadingC(argv)
@@ -389,6 +593,7 @@ export function main(argv = process.argv.slice(2)) {
     console.info(USAGE)
     return 0
   }
+  if (args[0] === 'restore-index') return runRestoreIndex(gitCwd, args.slice(1))
   if (args[0] !== 'commit') {
     console.error(`❌ 只支持 commit 子命令(收到:${args[0] ?? '空'})`)
     console.error(USAGE)
@@ -461,5 +666,7 @@ export const __test__ = {
   indexPathFor,
   gitDirOf,
   isLockBusy,
+  parseLsFilesZ,
+  parseRestoreArgs,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

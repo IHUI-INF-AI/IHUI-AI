@@ -445,4 +445,178 @@ test('⑦ 共享索引里有别人的 staged 内容时,本通道一个字节都�
     rmScratch(dir)
   }
 })
+
+// ─── 内容级护栏(2026-11-04 立)──────────────────────────────────────────────
+// 前四条只钉路径集合;lint-staged 的 `git add` 会**同路径整份替换内容**,路径集合校验
+// 看不见。下面四例钉住"钩子前快照 → 钩子跑完逐条比对 → 只动声明集内条目 → 复核"。
+const ISO_SCRIPT_FWD = SCRIPT.split('\\').join('/')
+
+/** 钩子脚本:先跑给定的污染动作,再按真实 pre-commit 钩子的契约调 restore-index。 */
+function writeGuardHook(dir, actionLines, tailLines = []) {
+  const body = [
+    '#!/bin/sh',
+    ...actionLines,
+    'node "$IHUI_ISO_SCRIPT" -C "$PWD" restore-index --snapshot "$IHUI_ISOLATED_INDEX_SNAPSHOT" || exit 1',
+    ...tailLines,
+    '',
+  ].join('\n')
+  writeHook(dir, body)
+}
+
+function runIso(dir, args, env = {}) {
+  return spawnSync(process.execPath, [SCRIPT, '-C', dir, ...args], {
+    cwd: dir,
+    env: cleanEnv({ IHUI_ISO_SCRIPT: ISO_SCRIPT_FWD, ...env }),
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+  })
+}
+
+test('⑧ 护栏① 钩子没动内容:提交内容不变、零复原、私有索引已清理', () => {
+  const dir = makeRepo('iso-git-guard-clean-')
+  try {
+    const log = join(dir, '.guard.log')
+    writeGuardHook(
+      dir,
+      ['{ echo BEFORE; git ls-files -s -- a.txt; } > "$IHUI_TEST_LOG"'],
+      ['{ echo AFTER; git ls-files -s -- a.txt; } >> "$IHUI_TEST_LOG"'],
+    )
+    writeFileSync(join(dir, 'a.txt'), 'a1\n')
+    writeFileSync(join(dir, 'b.txt'), 'b1\n')
+
+    const r = runIso(dir, ['commit', '-m', 'guard-clean', '--', 'a.txt'], { IHUI_TEST_LOG: log })
+    assert.equal(r.status, 0, `提交应成功: ${r.stderr}`)
+    assert.equal(
+      git(dir, ['show', 'HEAD:a.txt']).stdout.trim(),
+      'a1',
+      '提交内容必须等于声明时的索引内容',
+    )
+    assert.equal(
+      git(dir, ['status', '--porcelain', '--', 'b.txt']).stdout.trim(),
+      'M b.txt',
+      '未声明文件仍保持未暂存',
+    )
+    assert.equal(r.stderr.includes('内容护栏'), false, '无漂移时不得触发复原输出')
+    const text = readFileSync(log, 'utf8')
+    const before = text.slice(text.indexOf('BEFORE') + 6, text.indexOf('AFTER')).trim()
+    const after = text.slice(text.indexOf('AFTER') + 5).trim()
+    assert.equal(before, after, '钩子前后索引条目必须逐字相等')
+    assert.deepEqual(isolatedFiles(dir), [], '正常结束后不得残留索引/快照')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('⑨ 护栏② 钩子整份替换声明路径内容:按快照复原后提交,工作树不动', () => {
+  const dir = makeRepo('iso-git-guard-swap-')
+  try {
+    writeGuardHook(dir, ['printf "a-external\\n" > a.txt', 'git add -- a.txt'])
+    writeFileSync(join(dir, 'a.txt'), 'a1\n')
+
+    const r = runIso(dir, ['commit', '-m', 'guard-swap', '--', 'a.txt'])
+    assert.equal(r.status, 0, `复原策略下提交应成功: ${r.stderr}`)
+    assert.equal(
+      git(dir, ['show', 'HEAD:a.txt']).stdout.trim(),
+      'a1',
+      '提交落地的必须是快照内容,不是钩子灌回的工作树内容',
+    )
+    assert.equal(
+      readFileSync(join(dir, 'a.txt'), 'utf8').trim(),
+      'a-external',
+      '工作树不得被复原动作回滚',
+    )
+    assert.match(r.stderr, /内容护栏:钩子改动了声明路径的索引内容/, '复原动作必须可见')
+    assert.match(
+      r.stderr,
+      /a\.txt: 快照 [0-9a-f]{40} → 钩子后 [0-9a-f]{40}/,
+      '必须点名路径与两侧 blob',
+    )
+    assert.equal(
+      git(dir, ['status', '--porcelain', '--', 'a.txt']).stdout.trim(),
+      'M a.txt',
+      '提交后工作树的他人内容保持为未暂存改动',
+    )
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('⑩ 护栏③ 钩子往声明集外塞条目:拒绝提交,HEAD 不动', () => {
+  const dir = makeRepo('iso-git-guard-extra-')
+  try {
+    writeGuardHook(dir, ['printf "x\\n" > extra.txt', 'git add -- extra.txt'])
+    writeFileSync(join(dir, 'a.txt'), 'a1\n')
+    const before = minor(dir)
+
+    const r = runIso(dir, ['commit', '-m', 'guard-extra', '--', 'a.txt'])
+    assert.notEqual(r.status, 0, '声明集外条目必须拒绝提交')
+    assert.equal(minor(dir), before, '被拒绝时不得产生提交')
+    assert.match(r.stderr, /声明集之外塞入了索引条目/, '拒绝理由必须可见')
+    assert.match(r.stderr, /extra\.txt/, '必须点名被塞入的路径')
+    assert.deepEqual(isolatedFiles(dir), [], '拒绝路径也不得留下索引/快照')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('⑪ 护栏④ 复原后索引与快照逐条相等(blob/mode 断言),提交载荷逐条核对', () => {
+  const dir = makeRepo('iso-git-guard-eq-')
+  try {
+    const log = join(dir, '.eq.log')
+    writeGuardHook(
+      dir,
+      [
+        '{ echo SNAPSHOT; cat "$IHUI_ISOLATED_INDEX_SNAPSHOT"; echo; echo AFTER; } > "$IHUI_TEST_LOG"',
+        'printf "a-hook\\n" > a.txt',
+        'printf "b-hook\\n" > b.txt',
+        'git add -- a.txt b.txt',
+      ],
+      ['{ echo RESTORED; git ls-files -s -- a.txt b.txt; } >> "$IHUI_TEST_LOG"'],
+    )
+    writeFileSync(join(dir, 'a.txt'), 'a1\n')
+    writeFileSync(join(dir, 'b.txt'), 'b1\n')
+
+    const r = runIso(dir, ['commit', '-m', 'guard-eq', '--', 'a.txt', 'b.txt'], {
+      IHUI_TEST_LOG: log,
+    })
+    assert.equal(r.status, 0, `提交应成功: ${r.stderr}`)
+
+    const text = readFileSync(log, 'utf8')
+    const snapshot = JSON.parse(
+      text.slice(text.indexOf('SNAPSHOT') + 'SNAPSHOT'.length, text.indexOf('AFTER')),
+    )
+    const restoredRaw = text.slice(text.indexOf('RESTORED') + 'RESTORED'.length)
+    const restored = restoredRaw
+      .trim()
+      .split(/\r?\n/)
+      .filter(Boolean)
+      .map((line) => {
+        const [meta, ...pathParts] = line.split('\t')
+        const [mode, blob, stage] = meta.trim().split(/\s+/)
+        return { mode, blob, stage: Number(stage), path: pathParts.join('\t') }
+      })
+    assert.equal(restored.length, snapshot.entries.length, '复原后条目数必须与快照一致')
+    for (const exp of snapshot.entries) {
+      const act = restored.find((e) => e.path === exp.path)
+      assert.ok(act, `快照条目 ${exp.path} 必须仍在索引里`)
+      assert.equal(act.mode, exp.mode, `${exp.path} 的 mode 必须与快照逐条相等`)
+      assert.equal(act.blob, exp.blob, `${exp.path} 的 blob 必须与快照逐条相等`)
+      assert.equal(act.stage, exp.stage, `${exp.path} 的 stage 必须与快照逐条相等`)
+    }
+    assert.equal(
+      git(dir, ['rev-parse', 'HEAD:a.txt']).stdout.trim(),
+      snapshot.entries.find((e) => e.path === 'a.txt').blob,
+      '落地提交的 a.txt blob 必须等于快照',
+    )
+    assert.equal(
+      git(dir, ['rev-parse', 'HEAD:b.txt']).stdout.trim(),
+      snapshot.entries.find((e) => e.path === 'b.txt').blob,
+      '落地提交的 b.txt blob 必须等于快照',
+    )
+    assert.match(r.stderr, /a\.txt: 快照 .* → 钩子后 .*/s, '逐条复原必须留痕')
+  } finally {
+    rmScratch(dir)
+  }
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
