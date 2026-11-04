@@ -6,7 +6,7 @@
  * scripts/lib/ancestor-downgrade.mjs —— 「旧 blob 回写」判据的单一实现(2026-11-03 立)。
  *
  * 为什么要有这一层:同一个病理今天有两处要用 ——
- *   ① 提交链守门 292(`check-staged-downgrade.mjs`):暂存 blob 逐字等于该路径某个祖先 blob,
+ *   ① 提交链守门 298(`check-staged-downgrade.mjs`):暂存 blob 逐字等于该路径某个祖先 blob,
  *      而 HEAD 已有更新版本 ⇒ 幻影回写,拦提交;
  *   ② 写盘器 `gen-ui-mirror.mjs`:派生结果若逐字等于祖先 blob ⇒ 拒绝写盘(写手根治)。
  * 两处各写一遍必漂移(§0.6/§22c),所以判定、取材、留痕解析全在这一层,调用方只喂面。
