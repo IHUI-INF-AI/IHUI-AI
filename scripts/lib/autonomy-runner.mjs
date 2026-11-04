@@ -212,6 +212,26 @@ export const SESSION_EXIT_MEANINGS = Object.freeze({
   130: 'cancelled',
 })
 
+/**
+ * 发起腿断裂(承载体解不出可执行文件)的**结构**判据。
+ * 立因(2026-11-05 实测):台账 `2026-11-04T23:04:28.835Z` 那条 session-failed 的 stderr 是
+ * cmd.exe 的「'node' 不是内部或外部命令,也不是可运行的程序或批处理文件」,而它经错误码页解出来
+ * 是乱码(`ڲⲿ…`)⇒ ENV_FAILURE_SIGNS 里中英文两条字面签名**都命中不了**,
+ * 于是被分型成 `session`(算这张票的连败)⇒ 无辜票会被烧进封禁。
+ * 这一型不能靠文字认:文字要先过码页,而码页正是坏的那一环。改按两条结构认:
+ *  ① 首行形如 `'<裸命令名>' <后随内容>`(cmd.exe 这句报错的固定开头,与语种无关);
+ *  ② 全段没有事件帧 —— 真起来的会话必然往 stdout 吐 `{"type":…}`,没起来就是一行报错。
+ * 再加长度上限把射程收在"一行系统报错":长篇正文里恰好以 `'xxx'` 开头的会话失败不被吞掉。
+ * @param {string} text 合并后的 stderr(+stdout) 文本
+ */
+export const LAUNCH_FAILURE_MAX_TEXT_CHARS = 600
+export function isLaunchFailureText(text) {
+  const t = String(text ?? '').trim()
+  if (!t || t.length > LAUNCH_FAILURE_MAX_TEXT_CHARS) return false
+  if (!/^'[\w.\-:/\\]+'\s/.test(t)) return false
+  return !/\{["']?type["']?\s*:/.test(t)
+}
+
 export function classifySessionFailure({ status, stderr, error, signal = null } = {}) {
   const blob = `${String(stderr ?? '')}\n${String(error ?? '')}`
   const signsSeen = [
@@ -256,6 +276,14 @@ export function classifySessionFailure({ status, stderr, error, signal = null } 
     })
   }
   // 以下:非零且退出码本身不带唯一含义(1=硬错误/验收未过、2=轮次耗尽/doom-loop/待批、4=CPU 限制、其它)
+  // 先按结构认"发起腿断裂":乱码使字面签名必然失效,而这一型烧的是无辜票(排在 env 之后、session 之前,
+  // 真英文形态仍由上面的 ENV_FAILURE_SIGNS 先接住,不改既有归类)。
+  if (isLaunchFailureText(blob))
+    return withDiag({
+      kind: 'environment',
+      sign: 'launch-unresolvable-exe',
+      why: "发起腿断裂:首行是 `'<命令名>' …` 一行系统报错且全段零事件帧 ⇒ 承载体没解出可执行文件(乱码不参与判据),属调度器自身故障,不计票连败",
+    })
   const env = ENV_FAILURE_SIGNS.find((s) => blob.includes(s))
   if (env)
     return withDiag({
