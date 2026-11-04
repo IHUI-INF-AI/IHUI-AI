@@ -125,8 +125,8 @@ test('T8 台账:到期即红;count 差额与缺字段点名;scopeFiles 只判本
   assert.equal(malformed.malformed.length, 3)
 })
 
-test('T9 自检全绿(15 例)', () => {
-  assert.equal(G.runSelfTest(), 15)
+test('T9 自检全绿(17 例)', () => {
+  assert.equal(G.runSelfTest(), 17)
 })
 
 test('T10 接线对账:gate 291 已注册进 guardian-runner,blocking + staged 触发面 + skip env', () => {
@@ -140,14 +140,32 @@ test('T10 接线对账:gate 291 已注册进 guardian-runner,blocking + staged �
   assert.match(SELF, /集成位置: .*guardian-runner\.mjs 第 291 项/)
 })
 
-test('T11 账本文件在仓且条目形制齐全,分母不为零(首读真有差异)', () => {
+test('T11 账本结构合法:条目必须是可判据规则且字段齐全;空账必须带 emptyReason(清零依据)', () => {
   const raw = JSON.parse(readFileSync(join(ROOT, 'scripts/data/web-rn-copy-diffs.json'), 'utf8'))
-  assert.ok(Array.isArray(raw.entries) && raw.entries.length > 0)
+  assert.ok(Array.isArray(raw.entries), 'entries 必须是数组')
+  if (raw.entries.length === 0) {
+    assert.ok(
+      typeof raw.emptyReason === 'string' && raw.emptyReason.trim(),
+      '空账必须写明 emptyReason(已清零的判定依据)',
+    )
+  }
   for (const e of raw.entries) {
     assert.ok(e.file && e.rule && e.owner && e.expires && e.evidence, `条目缺字段:${JSON.stringify(e).slice(0, 120)}`)
     assert.match(e.expires, /^\d{4}-\d{2}-\d{2}$/)
     assert.ok(Number.isInteger(e.count) && e.count > 0, `count 非正整数:${e.file}`)
+    assert.ok(G.JUDGED_RULES.has(e.rule), `rule 不是可判据规则(真缺口不许挂账):${e.rule}`)
   }
+})
+
+test('T11b 真缺口必红:web 侧缺键而 RN 有消费被挂账(B1-web-no-key)⇒ 形状判据必须红', () => {
+  const gap = G.validateLedgerShape(
+    [{ file: 'learn', rule: 'B1-web-no-key', count: 4, owner: 'web-rn-copy', expires: '2027-06-30', evidence: 'x' }],
+    undefined,
+  )
+  assert.equal(gap.length, 1)
+  assert.match(gap[0], /web 侧缺键而 RN 有消费/)
+  assert.deepEqual(G.validateLedgerShape([], '已清零:B1 0 / B2 0 / B3 0 / 未判定 0'), [])
+  assert.equal(G.validateLedgerShape([], undefined).length, 1)
 })
 
 test('T12 两面读:staged 面读索引、worktree 面读盘;取不到返回 null 而不是空串', () => {
