@@ -195,13 +195,21 @@ export function actionBucketOf(action) {
 }
 
 /**
+ * 从台账尾部往回取该票"距上次推进"的空转次数。
+ * 只认 ticketKey 相等的行;PROGRESS ⇒ 立即归零返回 0;NON_PROGRESS ⇒ +1;其余 ⇒ 跳过继续往前数。
+ * @param {Array<{ticketKey?:string,action?:string,mode?:string,informational?:boolean}>} ledger
+ * @param {string} key
+ * @returns {number}
+ */
+/**
  * 该票可参与阶梯的留痕行,**从尾往前**逐条给。三道卫生过滤在这里做一次,不给两个调用者各抄一遍(§0.6):
- *  - `mode==='dryrun'` 跳过:预演不占班次,拿它扣真票的空转数 = dry-run 跑一晚上把票 park 光。
- *  - `informational===true` 跳过:同一次班次因"发起腿故障"会落两行(`res.action` 那行 +
- *    `runner-unavailable`),发射端已给前一行打 informational 保留 exitCode/tokens/transcript 供诊断;
- *    阶梯若照数就是把一次班次记成两次 ⇒ rotate/park 比账面提前到。与 `failureStreakOf` 的同一过滤对齐。
- * 按 `ts` 折叠是错的修法:夹具与真实数据里同毫秒多行都存在,折叠会把既有阶梯用例一起打掉,
- * 并掩盖真正该修的位置(发射端不该为同一次班次落两行非推进账)。
+ *  - `mode==='dryrun'` 直接跳过:预演不占班次,拿它扣真票的空转数 = dry-run 跑一晚上把票 park 光。
+ *  - `informational===true` 跳过:同一次班次的诊断留痕(2026-11-04 发射端收口,§8 未闭环第 9 条)。
+ *    旧形是 `auto-evolve.mjs` 一轮内对同一票落两行(派发结果的 `res.action` 与发起腿分型的
+ *    `runner-unavailable`,ts 相差数毫秒)⇒ rotate4/park8 实际 2/4 轮就触顶。现由发射端给第一行
+ *    打标记、只让 `runner-unavailable` 计一次;本层按标记跳过,不重写历史行(旧账没有该标记,照旧各算一次)。
+ * 刻意**不按 `ts` 折叠**:夹具与真实数据里同毫秒多行都存在,折叠会把 6 条既有阶梯用例一起打掉,
+ * 还把真正该修的发射位置盖掉 —— 本枚第一次就是这么改的,已回退。
  */
 function* ticketRowsNewestFirst(ledger, key) {
   for (let i = ledger.length - 1; i >= 0; i--) {
@@ -213,13 +221,6 @@ function* ticketRowsNewestFirst(ledger, key) {
   }
 }
 
-/**
- * 从台账尾部往回取该票"距上次推进"的空转次数。
- * 只认 ticketKey 相等的行;PROGRESS ⇒ 立即归零返回 0;NON_PROGRESS ⇒ +1;其余 ⇒ 跳过继续往前数。
- * @param {Array<{ticketKey?:string,action?:string,mode?:string}>} ledger
- * @param {string} key
- * @returns {number}
- */
 export function attemptsSinceProgress(ledger, key) {
   if (!Array.isArray(ledger) || !key) return 0
   let n = 0

@@ -86,6 +86,11 @@ function harvestFromSource(text) {
     rest = ternaryBranches(rest)
     for (const lit of rest.matchAll(/'([a-z][a-z0-9-]{2,})'/g)) out.add(lit[1])
   }
+  // 赋值形态(`action = 'x'`)同样是发射点,而且调度器里多数分支就是这么写的。
+  // 上一版只扫 `action:` 属性形态 ⇒ `session-no-write` 这类"先赋值再 return {action}"的档名
+  // 永远收不到,C1(发射集 ⊆ 分档集)对它就永久失明:共享工作树里只要有人从分档集里删掉这一枚,
+  // 这把锁一声不响 —— 2026-11-04 独立审实测到(复刻源码收割 44 枚,不含该档)。
+  for (const m of text.matchAll(/\baction\s*=\s*'([a-z][a-z0-9-]{2,})'/g)) out.add(m[1])
   return out
 }
 
@@ -128,9 +133,16 @@ test('C1 发射集 ⊆ 分档集:源码直写与模板展开出的每一枚动�
   )
 })
 
-test('C2 数据侧兜底:真实台账里出现过的每一枚 action 都必须已分档', () => {
-  assert.ok(observed.ok, '台账取不到 ⇒ 这一档未判定(不许当通过,也不许当违规)')
-  const unclassified = observed.actions.filter((a) => NP.actionBucketOf(a) === 'unclassified')
+test('C2 数据侧兜底:真实台账里出现过的每一枚 action 都必须已分档(台账被 gitignore ⇒ 干净检出上落未判定,不判红)', (t) => {
+  const observedNow = observedActions()
+  if (!observedNow.ok) {
+    // `.ihui-agent/state/` 被 .gitignore 忽略:CI/干净检出没有这份数据。
+    // 按 §0.3 这是**未判定**,既不能记绿也不能记红(上一版直接 assert.ok(observed.ok) ⇒ CI 上必红,
+    // 而红的原因与被审内容无关 —— 正是 §12e 禁止的形态)。
+    t.diagnostic('台账取不到 ⇒ C2 未判定(不记绿也不冒红);源码侧 C1 仍然照判')
+    return
+  }
+  const unclassified = observedNow.actions.filter((a) => NP.actionBucketOf(a) === 'unclassified')
   assert.deepEqual(unclassified, [], `台账里出现过但没人分档:${unclassified.join(', ')}`)
 })
 
@@ -217,5 +229,20 @@ test('C9 阶梯读的是同一份表:PROGRESS/NON_PROGRESS/EXEMPT 三段都从�
   )
   assert.equal(typeof NP.ACTION_EXEMPTIONS, 'object', '豁免表必须导出(锁与阶梯读同一份)')
   assert.equal(typeof NP.actionBucketOf, 'function', '分档判据必须是导出的那一份,测试不许自己抄')
+})
+
+test('C10 取样器必须认得赋值形态 `action = \'x\'`(这一格此前是永久盲区)', () => {
+  const fixture = "if (a) {\n  action = 'zzz-fixture-only'\n}\nreturn { action, why }\n"
+  const got = harvestFromSource(fixture)
+  assert.ok(got.has('zzz-fixture-only'), '赋值形态收不到 ⇒ 凡是"先赋值再 return {action}"的档名都不在这把锁射程内')
+})
+
+test('C11 调度器真源码里的 session-no-write 必须既被收到、又在分档集里(有人覆盖即红)', () => {
+  // 立因:共享工作树里 lib 那份常被他人旧基线写回;若取样器收不到赋值形态,C1 对它永久失明,
+  // 而"漏出分档集"的表现恰好是**静默**——阶梯照旧归零,谁也不知道档位退回了。
+  const got = harvestFromSource(SRC)
+  assert.ok(got.has('session-no-write'), '发射端必须被取样器收到(收不到 ⇒ C1 结构上判不了这一档)')
+  assert.ok(NP.NON_PROGRESS_ACTIONS.includes('session-no-write'), '分档端必须收这一枚,否则"exit 0 但零写盘"又回到 PROGRESS 语义之外')
+  assert.equal(NP.actionBucketOf('session-no-write'), 'non-progress', '分档桶必须是空转,不是豁免也不是未分类')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

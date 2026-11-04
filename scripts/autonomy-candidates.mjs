@@ -62,8 +62,12 @@ export function readPlanLines(path = PLAN_MD) {
 }
 export const SCHEMA_VERSION = 1
 
-/** 台账里算"本票被认领过/动过"的动作档(用于认领牌年龄;其他动作与租约无关,不参与) */
-const ACTIVITY_ACTIONS = new Set(['dispatched', 'session-ok', 'session-failed', 'session-timeout'])
+/**
+ * 台账里算"本票被认领过/动过"的动作档(用于认领牌年龄;其他动作与租约无关,不参与)
+ * `session-no-write` 必须在册(2026-11-04):它是"派了会话但整班零写盘"的结果档 —— 班次确实被这张票
+ * 吃掉了。漏认它会把刚派过班的票读成"没人动过",认领牌年龄与紧迫度都算错方向。
+ */
+const ACTIVITY_ACTIONS = new Set(['dispatched', 'session-ok', 'session-no-write', 'session-failed', 'session-timeout'])
 
 // ───────────────────────── 证据词表(全部是"命中即见"的硬词,不收泛词) ─────────────────────────
 
