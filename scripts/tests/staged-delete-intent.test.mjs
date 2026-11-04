@@ -442,17 +442,21 @@ test('形状锁:safe-commit 必须在 reset 之前取样,只标记不代裁(不�
 
   // 取样必须**在** reset 之前:两个下标可比。
   // ⚠️ 两处定位纪律(都是本用例实测踩出来的):
-  //  ① reset 的定位用**未遮罩**的 src:它在源码里是 `gitStep(['reset', 'HEAD'], ...)`,
+  //  ① reset 的定位用**未遮罩**的 src:它在源码里是 `gitStep([...reset...], ...)`,
   //     而 `'HEAD'` 是字符串字面量,会被 maskCommentsAndStrings 抹掉(实测 masked 侧 indexOf = -1)。
+  //     2026-11-04 起 Step 1 是**路径作用域**形态(`gitStep(['reset','-q','HEAD',...pathspecArgs(...)])`),
+  //     逐字锚 `"gitStep(['reset', 'HEAD']"` 会恒 -1 ⇒ 改成锚函数名 + 首个实参,顺序判据的语义不变;
+  //     "reset 必须带 pathspec" 由 safe-commit.test.mjs SC9 单独钉(此处不复制第二条判据)。
   //  ② 三个函数名在文件顶部的 **import 段**里各出现一次,而 mask **保留标识符**
   //     ⇒ 只按裸名 indexOf 会命中 import(恒在 reset 之前),量出假的顺序。
   //     故一律锚在**带实参的调用文本**上。
   const iSnap = masked.indexOf('snapshotStagedDeleteIntent({ root: repoRoot })')
   const iJudge = masked.indexOf('judgeStagedDeleteIntent({')
   const iAfter = masked.indexOf('readCachedNameStatus({ root: repoRoot })')
-  const iReset = src.indexOf("gitStep(['reset', 'HEAD']")
+  const resetMatch = /gitStep\(\s*\['reset'/.exec(src)
+  const iReset = resetMatch ? resetMatch.index : -1
   assert.ok(iSnap > -1 && iReset > -1 && iJudge > -1, '三处调用点都要在')
-  assert.ok(iSnap < iReset, '取样必须早于 git reset HEAD —— 判据的唯一合法取样窗')
+  assert.ok(iSnap < iReset, '取样必须早于 git reset —— 判据的唯一合法取样窗')
   assert.ok(iAfter > iReset, '清空后的第二次取样必须晚于 reset(否则量的是清空前那一瞬,判据恒空)')
   assert.ok(iJudge > iReset, '判据必须跑在 reset 之后(它比的是清面前后两次观测)')
 

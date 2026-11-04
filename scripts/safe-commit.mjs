@@ -758,7 +758,7 @@ function stageDeclared(files, label) {
   return { status: 0, stderr: '', forceCount: tracked.length }
 }
 
-function gitStep(args, label) {
+function gitStep(args, label, extraEnv = null) {
   let last = null
   const startedAt = Date.now()
   for (let attempt = 1; attempt <= LOCK_RETRIES + 1; attempt++) {
@@ -766,6 +766,8 @@ function gitStep(args, label) {
       encoding: 'utf8',
       cwd: repoRoot,
       windowsHide: true,
+      // 私有索引(Step 3h)只在这一层加 env;其余调用方一律不传,行为与改前逐字相同。
+      ...(extraEnv ? { env: { ...process.env, ...extraEnv } } : {}),
       // 2026-11-02:大批量路径时 git 会**逐文件**告警(典型:core.autocrlf 下的
       // "LF will be replaced by CRLF")。10,000 条 ≈ 1.05MB,超过 spawnSync 默认 1MB
       // 缓冲 ⇒ ENOBUFS + status=null,一次成功的 git add 被读成失败,还会把
@@ -793,8 +795,19 @@ function gitStep(args, label) {
   return last
 }
 
-// ─── 1. git reset HEAD (清空整个暂存区) ────────────────────
-// G-1018292(2026-10-04):本 Step 的 `git reset HEAD` 会把**整个共享索引**清空,
+// ─── 1. git reset(路径作用域:只退回本票声明面)────────────
+// 2026-11-04 P0:本 Step 原是无 pathspec 的 `git reset HEAD` —— 那是**清空整个共享索引**,
+// 而 auto-commit-quiet 每 3 分钟(含失败重试)调一次本器 ⇒ 任何并发会话刚 `git add` 的暂存
+// 都被无条件冲掉,且清空后**无痕可查**(暂存的修改/新增连"曾存在"都留不下来;只有暂存删除
+// 由下面 G-1018292 那一路留底)。现在只 reset `expectedFiles`,
+// 外来暂存原样留在索引里(Step 3a 判据同步扣掉它们,Step 3h 用私有索引把它们挡在载荷之外)。
+//
+// 三条守卫(缺一条就回到"多放一次清空"):
+//  ① 空声明集**不得**退化成全局 reset —— 失效方向必须是"多要一次定向说明";
+//  ② 清空前快照 `活索引 ∖ 声明面`(= 外来暂存)并**逐条点名**,不是只报数量;
+//  ③ 超量分批(每批 ≤ RESET_BATCH,pathspec 出口与 add 同一份 pathspecArgs)。
+//
+// G-1018292(2026-10-04):本 Step 曾经会把**整个共享索引**清空,
 // 于是"他人已暂存的删除"(`git status --porcelain` 的 `D ` 形态)那枚保护标记
 // 一起被摘掉 —— 退化成 ` D` 之后存续自愈那三条判据(工作树缺 ∧ 索引 blob==HEAD blob
 // ∧ HEAD 有)全部成立,会把一枚**可能有意的删除**当成外部删除恢复回盘上,而两边账面都绿。
@@ -819,13 +832,83 @@ if (!intentSnapshot.ok) {
   )
 }
 
-log('info', 'Step 1/5: git reset HEAD — 清空暂存区(无论谁 staged 的)')
-const resetResult = gitStep(['reset', 'HEAD'], 'git reset HEAD')
+// 空声明集守卫:此时若还发 `git reset`,唯一形态就是全局清空 —— 失效方向必须是
+// "多要一次定向说明",不是"多放一次清空"。argv 侧与 --files-from 侧都已在前面拒过空集,
+// 这里是最后一道(任何将来新增的入口都必须过它)。
+if (expectedFiles.length === 0) {
+  log(
+    'err',
+    '声明集为空 ⇒ 拒绝 reset(空集时唯一的 reset 形态是 `git reset HEAD` 全局清空,那正是本步要杀的事)',
+  )
+  log('warn', '出路:显式给出要提交的路径(`-- <path...>` 或 `--files-from <清单>`)后重跑')
+  process.exit(2)
+}
+
+/** Step 1 的分批口径:单次 reset 的 pathspec 条数上限(与 add 同规 —— 大批量不拼巨型 argv)。 */
+const RESET_BATCH = 200
+
+/**
+ * **路径作用域 reset**:只把给定路径的索引条目退回 HEAD。无 pathspec 的全局形态永久禁用。
+ * @param {string[]} paths 非空
+ * @param {string} label 日志标签
+ * @param {Record<string,string>|null} extraEnv 私有索引(GIT_INDEX_FILE)场景用
+ */
+function resetScoped(paths, label, extraEnv = null) {
+  if (!Array.isArray(paths) || paths.length === 0) {
+    // 走到这里就是拼错了:宁可中止,不退回全局 reset。
+    return { status: 2, stdout: '', stderr: 'resetScoped() 收到空路径集,拒绝退化成全局 reset' }
+  }
+  // 超量清单:一次调用走 `--pathspec-from-file`(NUL 分帧)。
+  // 不是为了好看 —— 每批 reset 都要**整份重写索引**,10,000 条 × 50 批实测 >8 分钟
+  // (safe-commit-files-from FF2 直接撞 480s 超时)。出口与 add 共用 pathspecArgs 那一份。
+  const payloadBytes = Buffer.byteLength(`${paths.map(normalize).join('\0')}\0`, 'utf8')
+  if (payloadBytes > PATHSPEC_ARGV_BUDGET)
+    return gitStep(['reset', '-q', 'HEAD', ...pathspecArgs(paths)], label, extraEnv)
+  let last = { status: 0, stdout: '', stderr: '' }
+  for (let i = 0; i < paths.length; i += RESET_BATCH) {
+    last = gitStep(
+      ['reset', '-q', 'HEAD', ...pathspecArgs(paths.slice(i, i + RESET_BATCH))],
+      label,
+      extraEnv,
+    )
+    if (last.status !== 0) return last
+  }
+  return last
+}
+
+// ① 清空**前**快照:活索引(谁 staged 的都在这一面)∖ 本票声明面 = 外来暂存。
+// 这份快照要活到 Step 3(判据扣减)与 Step 3h(私有索引),所以放在 reset 之前取。
+const declaredNormAtReset = new Set(expectedFiles.map(normalize))
+const liveStagedBeforeReset = gitStagedPaths({ root: repoRoot })
+const foreignStagedBeforeReset = liveStagedBeforeReset
+  .map(normalize)
+  .filter((p) => !declaredNormAtReset.has(p))
+
+log(
+  'info',
+  `Step 1/5: git reset HEAD -- <${expectedFiles.length} 条声明路径>(路径作用域;不再清空整个共享索引)`,
+)
+const resetResult = resetScoped(expectedFiles, 'git reset HEAD -- <声明集>')
 if (resetResult.status !== 0) {
-  log('err', `git reset HEAD 失败: ${resetResult.stderr}`)
+  log('err', `git reset HEAD -- <声明集> 失败: ${resetResult.stderr}`)
   if (isGitLockFailure(resetResult.status, `${resetResult.stdout ?? ''}${resetResult.stderr ?? ''}`))
     log('err', LOCK_EXHAUSTED_ADVICE)
   process.exit(2)
+}
+
+// ② 外来暂存**逐条点名**(只报数量等于没报:事后无人能对应"消失的是哪一份")。
+// 语义:它们是别人的工作面,本器**不裁决、不清除、不改工作树**,也不因此中止提交。
+if (foreignStagedBeforeReset.length > 0) {
+  log(
+    'warn',
+    `清空前索引里另有 ${C.yellow}${foreignStagedBeforeReset.length}${C.reset} 条**非本票声明**的已暂存件` +
+      `(他人工作面:本条不 reset、不提交、不恢复,原样保留):`,
+  )
+  for (const p of foreignStagedBeforeReset) console.log(`     ${C.yellow}= ${p}${C.reset}`)
+  log(
+    'info',
+    '   ⇒ 本步只退回声明面;这些外来件在 Step 3 判据里被扣除(不判"意外文件"),也不进本枚提交(见 Step 3h 私有索引)',
+  )
 }
 
 // 清空之后**再取一次**索引面:判据必须是"清面前后两次观测"的差,不是单面推断。
@@ -933,13 +1016,27 @@ const stagedNorm = new Set(stagedFiles.map(normalize))
 const expectedNorm = new Set(expectedFiles.map(normalize))
 
 // 3a. 意外文件(其他 agent 留下的)
-const unexpected = [...stagedNorm].filter((f) => !expectedNorm.has(f))
+// 判据 = 活索引 ∖ 声明面 ∖ **清空前的外来快照**:Step 1 不再清空共享索引,所以"别人本来就
+// 暂存着的"会合法地留在索引里 —— 那不是"意外涌入",不能中止(那是别人的工作面,不该由本器裁决),
+// 只留痕。清空前不在快照里、此刻却出现在索引里的路径,仍然照旧判"意外文件"并中止。
+const foreignNorm = new Set(foreignStagedBeforeReset)
+const unexpected = [...stagedNorm].filter((f) => !expectedNorm.has(f) && !foreignNorm.has(f))
 if (unexpected.length > 0) {
   log('err', `暂存区出现 ${C.red}${unexpected.length}${C.reset} 个非预期文件(其他 agent 残留?):`)
   for (const f of unexpected) console.log(`     ${C.red}+ ${f}${C.reset}`)
   log('err', `为安全起见,中止 commit(不悄悄剥离意外文件,人工确认后再操作)`)
-  log('warn', `修复建议: git reset HEAD 然后 git add <你自己的文件>`)
+  log('warn', `修复建议: git reset HEAD -- <你自己的文件> 然后 git add <你自己的文件>`)
   process.exit(1)
+}
+
+// 3a-2. 外来暂存原样在册:点名 + 明确"不入本枚提交"(Step 3h 用私有索引把它们挡在载荷之外)。
+const keptForeign = [...stagedNorm].filter((f) => !expectedNorm.has(f) && foreignNorm.has(f))
+if (keptForeign.length > 0) {
+  log(
+    'warn',
+    `暂存区另有 ${C.yellow}${keptForeign.length}${C.reset} 条**外来暂存按设计保留**(不中止;不进本枚提交):`,
+  )
+  for (const f of keptForeign) console.log(`     ${C.yellow}= ${f}${C.reset}`)
 }
 
 // 3b. 缺失文件(用户预期但未 staged)
@@ -1254,6 +1351,87 @@ if (dryRun) {
   process.exit(0)
 }
 
+// ─── 3h. 外来暂存的隔离(私有索引)────────────────────────────
+// 两条铁律在此正面相撞,必须同时成立:
+//   · Step 1 不再清空共享索引 ⇒ 别人的暂存**不能被冲掉**(P0 要修的那件事);
+//   · Step 3a/Step 4-pre 的用意是"不把别人的在途件交出去",而 Step 4 是**普通提交**
+//     (不带 pathspec,理由见下段 2026-10-12 注记),普通提交读的就是整份索引 ⇒
+//     若原样留着外来件,它们会被本枚提交打包(a0f753c7 的原始事故形态)。
+// 解法**不碰活索引**:把「生效索引」拷一份到 scratch,在**拷贝上**把 `活索引 ∖ 声明集`
+// 逐条退回 HEAD(⇒ 拷贝 = HEAD + 声明集),本枚提交用 GIT_INDEX_FILE 指向拷贝。
+//   · 活索引自始至终一个字节没被改写 —— 外来暂存全程在册("原样保留"是字面意义);
+//   · 拷贝里声明集的条目与 Step 2/3 验过的逐字相同(同一份索引的拷贝 + 只动非声明面);
+//   · 没有"先摘后恢复"那种失败窗口:进程被杀也不会有谁的暂存丢在半路。
+// 拷贝之后**自证一次**:拷贝的暂存面必须恰等于声明集,否则中止(不拿没验过的索引发令)。
+function readStagedInIndexFile(idx) {
+  const r = spawnSync(
+    'git',
+    ['-c', 'safe.directory=*', '-C', repoRoot, 'diff', '--cached', '--name-only', '--no-renames', '-z'],
+    {
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 60_000,
+      maxBuffer: 64 << 20,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: { ...process.env, GIT_INDEX_FILE: idx },
+    },
+  )
+  if (r.status !== 0) return null
+  return String(r.stdout ?? '')
+    .split('\0')
+    .filter(Boolean)
+    .map(normalize)
+}
+
+const commitIndexFile = (() => {
+  // 取材刻意**不再现读一次**:并集 = (Step 3 实测的活索引 ∖ 声明面) ∪ (清空前的外来快照 ∖ 声明面)。
+  // 现读失败会返回空集,而"空集"在这里的含义是"没有外来件 ⇒ 直接普通提交"—— 那正是静默
+  // 把别人的在途件交出去的形态。用两张已经验过的面求并集,结构上不会有这个失效方向。
+  const strip = [
+    ...new Set([
+      ...[...stagedNorm].filter((p) => !expectedNorm.has(p)),
+      ...foreignStagedBeforeReset.filter((p) => !expectedNorm.has(p)),
+    ]),
+  ].sort()
+  if (strip.length === 0) return null // 无外来件 ⇒ 走原路径,逐字不变
+  try {
+    const dir = mkScratch('safe-commit-index-')
+    process.on('exit', () => {
+      try {
+        rmScratch(dir)
+      } catch {
+        /* 临时索引清理失败不该改写提交结论 */
+      }
+    })
+    const relIdx = String(run('git rev-parse --git-path index', { allowFail: true }) || '').trim()
+    if (!relIdx) throw new Error('git rev-parse --git-path index 取不到(不知道要拷哪份索引)')
+    const idx = join(dir, 'index')
+    copyFileSync(isAbsolute(relIdx) ? relIdx : resolve(repoRoot, relIdx), idx)
+    const stripResult = resetScoped(strip, '私有索引:摘除外来暂存', { GIT_INDEX_FILE: idx })
+    if (stripResult.status !== 0)
+      throw new Error(`拷贝索引上摘除外来件失败:${stripResult.stderr || stripResult.stdout}`)
+    const inCopy = readStagedInIndexFile(idx)
+    if (inCopy === null) throw new Error('私有索引的暂存面取不到(不能拿没验过的索引发令)')
+    const copyExtra = inCopy.filter((p) => !expectedNorm.has(p))
+    const copyMissing = [...expectedNorm].filter((p) => !inCopy.includes(p))
+    if (copyExtra.length || copyMissing.length)
+      throw new Error(
+        `私有索引自证不符(多 ${copyExtra.length} / 缺 ${copyMissing.length}):` +
+          `${[...copyExtra, ...copyMissing].slice(0, 5).join(', ')}`,
+      )
+    log(
+      'info',
+      `Step 3h/5: 本枚提交改用私有索引(拷自生效索引,已摘除 ${strip.length} 条外来暂存)⇒ ` +
+        `活索引里的外来件一个字节都没动:${idx}`,
+    )
+    return idx
+  } catch (e) {
+    log('err', `外来暂存隔离失败,拒绝发令(不许把别人的在途件打进本枚提交):${e?.message ?? e}`)
+    log('warn', '出路:等外来暂存归属会话自行提交/撤走后重跑,或改走 `node scripts/object-space-land.mjs`')
+    process.exit(2)
+  }
+})()
+
 // ─── 4. git commit(普通提交,两阶段重试,与 git-push-guard 逻辑一致)───────────
 // 2026-10-12:去掉 `-- ...expectedFiles` pathspec —— 那是**确定性自碰撞**,不是运气问题:
 // pathspec/--only 提交在钩子运行期间由父 git 持 `.git/index.lock`(GIT_INDEX_FILE=
@@ -1485,7 +1663,12 @@ async function launchCommitWithHooks() {
     {
       encoding: 'utf8',
       cwd: repoRoot,
-      env: { ...process.env, IHUI_DECLARED_FILES: expectedFiles.join('\n') },
+      env: {
+        ...process.env,
+        IHUI_DECLARED_FILES: expectedFiles.join('\n'),
+        // Step 3h:有外来暂存时只把私有索引交给 git(活索引原样,含外来件)。
+        ...(commitIndexFile ? { GIT_INDEX_FILE: commitIndexFile } : {}),
+      },
       windowsHide: true,
     },
   )
@@ -1541,6 +1724,19 @@ for (let attempt = 1; attempt <= LOCK_RETRIES + 1; attempt++) {
     process.exit(1)
   }
   break
+}
+
+// Step 3h 配套:私有索引发令成功 ⇒ 把活索引的声明面归位到新 HEAD。
+// 为什么需要:钩子(lint-staged)改写的字节只进了私有索引 ⇒ 活索引可能停在"改前"的 blob,
+// 提交后 `git status` 会留下一片**幽灵暂存**(幽灵件恰恰会被别人的全局提交顺手带走)。
+// 只动声明面(`reset -- <声明集>`),外来暂存一行都不碰;失败只留痕,不改写提交结论。
+if (commitIndexFile && commitResult?.status === 0) {
+  const hygiene = resetScoped(expectedFiles, '私有索引提交后:声明面索引归位')
+  if (hygiene.status !== 0)
+    log(
+      'warn',
+      `私有索引提交后声明面归位失败(提交已落地,不影响结论):${String(hygiene.stderr || '').split('\n')[0]}`,
+    )
 }
 
 // O43②:护栏判红 = 窗口期外来件在写树前被点名。**绝不能落进下面的 --no-verify 兜底**
