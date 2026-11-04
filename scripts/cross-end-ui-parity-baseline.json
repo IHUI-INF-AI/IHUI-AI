@@ -8,7 +8,7 @@
     "LoginPopUp": 9,
     "ModelConfigDialog": 6,
     "ModelList": 6,
-    "NavBar": 7,
+    "NavBar": 4,
     "UserInfoCard": 4,
     "VideoPlayer": 5,
     "VoiceInput": 6,
@@ -92,7 +92,7 @@
       "until": "2027-03-27"
     },
     "NavBar": {
-      "reason": "RN 页头有 subtitle 一支(实测 git grep -c subtitle 于 RN NavBar = 9、小程序 = 0,该端 props 根本没有这一行)→ 2/12/56 随它而来;行高 44 是 RN 自测量、小程序走微信胶囊 menuButton.height+8(平台量);32 是 RN 空侧占位块,小程序用 absolute 悬浮钮居中,无占位元素;4 是 hitSlop 命中扩张通道;13 = 胶囊兜底对象 `{ top: 26, height: 32 }` 的量纲误读(该对象是逻辑 px,经 utils/rpx.ts 的 px() 落成真 CSS px,门按小程序裸数字=rpx 折半读成 13;对面无对应元素,状态栏由 App.tsx SafeAreaView 单点注入)。圆角 RD 4 同属单侧:小程序 ai-home「加入社区群」胶囊的 rnRadius.sm,RN 无该带边框 CTA。更正@2026-10-27:旧文案「px() 通道门读不到」与现读矛盾(门确实读到了这一行,只是量纲读错),已删。",
+      "reason": "2026-11-04 收敛:小程序 NavBar 补 subtitle 一支(fe50a4123d,门 285 B3 属性对齐 RN),双行行高 56 / 副标题字号 12 / 上距 2 已两端真引用,从单侧账撤下并登记进共用清单(门 SL NavBar 5→2,counts 7→4);行高 44 是 RN 自测量、小程序走微信胶囊 menuButton.height+8(平台量);32 是 RN 空侧占位块,小程序用 absolute 悬浮钮居中,无占位元素;4 是 hitSlop 命中扩张通道;13 = 胶囊兜底对象 `{ top: 26, height: 32 }` 的量纲误读(该对象是逻辑 px,经 utils/rpx.ts 的 px() 落成真 CSS px,门按小程序裸数字=rpx 折半读成 13;对面无对应元素,状态栏由 App.tsx SafeAreaView 单点注入)。圆角 RD 4 同属单侧:小程序 ai-home「加入社区群」胶囊的 rnRadius.sm,RN 无该带边框 CTA。更正@2026-10-27:旧文案「px() 通道门读不到」与现读矛盾(门确实读到了这一行,只是量纲读错),已删。",
       "singleEndTiers": [
         {
           "tier": "NAVBAR_ROW_HEIGHT_PX",
@@ -103,35 +103,11 @@
           "until": "2027-03-27"
         },
         {
-          "tier": "NAVBAR_ROW_HEIGHT_SUBTITLE_PX",
-          "side": "rn",
-          "kind": "mechanism-variant",
-          "element": "带副标题时的双行行高 56",
-          "reason": "副标题这一支只存在于 RN(小程序 NavBarProps 现读无 subtitle 字段,全仓传参 0 处);双行行高在小程序端没有可承载的节点。",
-          "until": "2027-03-27"
-        },
-        {
           "tier": "NAVBAR_SIDE_PLACEHOLDER_PX",
           "side": "rn",
           "kind": "element-absent",
           "element": "空侧占位块宽 32",
           "reason": "RN 用一块空占位把标题夹在中间;小程序腿居中走 absolute 悬浮钮 + justify-center,结构上没有占位元素,补一个 32 = 往屏上加节点。",
-          "until": "2027-03-27"
-        },
-        {
-          "tier": "NAVBAR_SUBTITLE_FONT_PX",
-          "side": "rn",
-          "kind": "mechanism-variant",
-          "element": "副标题字号 12",
-          "reason": "同 NAVBAR_ROW_HEIGHT_SUBTITLE_PX:副标题支只在 RN,小程序端没有这一行字,不是同一元素取了不同档。",
-          "until": "2027-03-27"
-        },
-        {
-          "tier": "NAVBAR_SUBTITLE_MARGIN_TOP_PX",
-          "side": "rn",
-          "kind": "element-absent",
-          "element": "副标题与主标题的间距 2",
-          "reason": "小程序腿没有\"主标题下方再一行\"这层结构,间距无从落点;RN 独有。",
           "until": "2027-03-27"
         }
       ],
@@ -597,19 +573,11 @@
           "until": "2027-03-27"
         },
         {
-          "tier": "LOGIN_POPUP_TITLE_FONT_PX",
-          "side": "rn",
-          "kind": "element-absent",
-          "element": "授权卡标题字号 16",
-          "reason": "授权卡标题块是 RN 独有(小程序弹窗无标题),补字号等于加一个标题节点。",
-          "until": "2027-03-27"
-        },
-        {
           "tier": "LOGIN_POPUP_TITLE_MARGIN_BOTTOM_PX",
           "side": "rn",
-          "kind": "element-absent",
+          "kind": "mechanism-variant",
           "element": "授权卡标题底距 8",
-          "reason": "同 LOGIN_POPUP_TITLE_FONT_PX。",
+          "reason": "2026-11-04 小程序补授权卡标题/描述后标题节点已存在,但标题底距走 LOGIN_POPUP_SECTION_GAP_PX(与描述同块间距),未取本档 ⇒ 仍单侧;不是缺元素,是同一槽位取了另一枚档,待后续收敛。",
           "until": "2027-03-27"
         },
         {
