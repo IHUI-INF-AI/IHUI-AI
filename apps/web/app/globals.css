@@ -1821,6 +1821,18 @@ button[data-state='closed']:focus-visible {
 .ihui-edit-intent-preview {
   background: color-mix(in oklab, var(--color-brand-accent, hsl(212 92% 52%)) 16%, transparent);
 }
+/* ==========================================================
+ * 行级归因(Line Attribution,2026-11-04)
+ * AI 行 = 品牌蓝淡底;AI 写过但已被人工改动 = 琥珀淡底。
+ * 只动背景色,不碰字号/行高,避免影响原有内容布局与测量口径。
+ * 关闭开关时不产生 decoration,本节样式自然不生效。
+ * ========================================================== */
+.ihui-attr-ai-line {
+  background: color-mix(in oklab, hsl(212 92% 52%) 9%, transparent);
+}
+.ihui-attr-ai-then-human-line {
+  background: color-mix(in oklab, hsl(38 92% 50%) 12%, transparent);
+}
 /* glyph margin 空槽位 hover 提示可点击 */
 .monaco-editor .margin-view-overlays .cgmr {
   cursor: pointer;

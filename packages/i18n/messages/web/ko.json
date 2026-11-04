@@ -17100,6 +17100,7 @@
     },
     "codeEditor": {
       "lspStatus": "LSP",
+      "attributionToggle": "AI 줄 귀속 표시",
       "zoomIn": "확대",
       "zoomOut": "축소"
     },

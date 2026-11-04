@@ -29,6 +29,8 @@ import {
   shouldAutoRecheck,
   useOtaUpdate,
 } from '../lib/ota-update'
+import { checkApkUpdate, shouldAutoRecheckApk, useApkUpdate } from '../lib/apk-update'
+import { ApkUpdatePromptView, isApkPromptVisible } from './ApkUpdatePrompt'
 import { Tappable } from '@ihui/ui-native'
 
 /** 挂载后延迟检查的毫秒数:首屏资源/请求优先,更新检查让路。 */
@@ -39,10 +41,14 @@ const RECHECK_MIN_INTERVAL_MS = 30 * 60 * 1000
 export function UpdatePrompt(): React.JSX.Element | null {
   const { t } = useI18n()
   const { state, dismissed, downloadProgress: progress } = useOtaUpdate()
+  // 整包(APK)通道的状态;与 OTA 是两份独立 store,由下面的渲染顺序决定谁占浮层
+  const apk = useApkUpdate()
 
   React.useEffect(() => {
     const timer = setTimeout(() => {
       void checkOtaUpdate()
+      // 整包在这里只**检查**,下载必须由用户在卡片上点(APK ~90MB,静默下载=偷跑流量)
+      void checkApkUpdate()
     }, CHECK_DELAY_MS)
     return () => clearTimeout(timer)
   }, [])
@@ -52,8 +58,9 @@ export function UpdatePrompt(): React.JSX.Element | null {
   React.useEffect(() => {
     const sub = AppState.addEventListener('change', (next) => {
       if (next !== 'active') return
-      if (!shouldAutoRecheck(RECHECK_MIN_INTERVAL_MS)) return
-      void checkOtaUpdate()
+      // 两条通道各自判"该不该补查":OTA 看 ready/下载中,APK 看是否已有可点卡片
+      if (shouldAutoRecheck(RECHECK_MIN_INTERVAL_MS)) void checkOtaUpdate()
+      if (shouldAutoRecheckApk(RECHECK_MIN_INTERVAL_MS)) void checkApkUpdate()
     })
     return () => sub.remove()
   }, [])
@@ -78,7 +85,6 @@ export function UpdatePrompt(): React.JSX.Element | null {
   // 应用商店式「下载读条 → 安装」的可见链路,机主 2026-10-27 反馈「不像 web 一样有读条」)。
   const applying = state === 'installing' || starting
   const downloading = state === 'downloading'
-  if ((state !== 'ready' && !applying && !downloading) || dismissed) return null
 
   // 重启窗口(2026-10-27 机主实拍「点完更新直接调到灰屏页,一直不动」):
   // 进程重启前有一段空白,没有任何反馈 ⇒ 被当成卡死。改成整幅「正在重启…」遮罩,
@@ -97,6 +103,12 @@ export function UpdatePrompt(): React.JSX.Element | null {
       </View>
     )
   }
+
+  // 整包更新优先于热更(2026-11-04):APK 能带新的原生面,热更只能改 JS。
+  // 两者**互斥显示** —— 同一处浮层位置不能叠两张卡(见 components/ApkUpdatePrompt.tsx 头注)。
+  if (isApkPromptVisible(apk)) return <ApkUpdatePromptView apk={apk} />
+
+  if ((state !== 'ready' && !downloading) || dismissed) return null
 
   // 当前跑的是哪个包(内置/热更 + 短 id):更新前后各看一眼,「生效没生效」不再靠猜
   const rb = runningBundle()

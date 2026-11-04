@@ -20,6 +20,8 @@ import { cn } from '@/lib/utils'
 import { useDebugStore } from '@/stores/debug'
 import { EditIntentBar } from './edit-intent-bar'
 import { useEditorEditIntent } from './use-edit-intent'
+import { buildAttributionDecorations } from './attribution-decorations'
+import type { AttributionSource } from '@ihui/shared/attribution'
 
 // 2026-07-31 self-host Monaco Editor(对标 主流 IDE,避免 CDN/CSP/网络问题)
 // 默认从 cdn.jsdelivr.net 加载,GFW/网络/CSP 经常导致 vs/loader.js 加载失败。
@@ -87,6 +89,8 @@ type MonacoEditorInstance = {
         glyphMarginClassName?: string
         /** 行内高亮类(编辑意图悬停预览装饰用) */
         className?: string
+        /** 行级归因标记的悬停说明 */
+        hoverMessage?: { value: string }
       }
     }>,
   ): string[]
@@ -484,6 +488,13 @@ export interface CodeEditorProps {
   workspacePath?: string
   /** LSP 跨文件跳转回调(definition 落在其他文件时由宿主打开;编辑器记录 pendingReveal 待内容加载后揭示) */
   onOpenLocation?: (loc: { file: string; line: number; column: number }) => void
+  /**
+   * 行级归因(逐行来源数组,索引 0 = 第 1 行):'ai' 行画蓝底、'ai-then-human' 行画琥珀底,
+   * 'human' 不着色。数据来自 @ihui/shared/attribution,组件只负责渲染,不做任何归属推断。
+   */
+  attributionSources?: readonly AttributionSource[]
+  /** 归因标记显隐开关(UI 可关闭;关闭时不产生任何 decoration) */
+  attributionVisible?: boolean
 }
 
 /** Monaco editor 组件的最小 props 类型(用于类型安全的渲染) */
@@ -524,10 +535,14 @@ export function CodeEditor({
   filePath,
   workspacePath,
   onOpenLocation,
+  attributionSources,
+  attributionVisible = true,
 }: CodeEditorProps) {
   const { resolvedTheme } = useTheme()
   const theme = resolvedTheme === 'dark' ? 'vs-dark' : 'vs'
   const editorRef = React.useRef<MonacoEditorInstance | null>(null)
+  // Monaco 是否已挂载(挂载前 deltaDecorations 无对象可调,归因/装饰效果统一等它)
+  const [editorReady, setEditorReady] = React.useState(false)
   // AI inline completion provider disposable(卸载时释放)
   const inlineProviderDisposableRef = React.useRef<{ dispose(): void } | null>(null)
   // debounce timer(用户停止输入 300ms 后才请求 AI 补全,避免频繁调用 AI 服务)
@@ -653,6 +668,25 @@ export function CodeEditor({
       },
     ])
   }, [editIntentPreview, editIntent])
+
+  // ---- 行级归因标记(AI 行 / AI 写后被人改) ----
+  // 只渲染宿主传入的逐行来源,不在编辑器里推断归属;开关关闭时清空全部 decoration。
+  const attributionDecosRef = React.useRef<string[]>([])
+  React.useEffect(() => {
+    const e = editorRef.current
+    if (!e) return
+    if (
+      !editorReady ||
+      !attributionVisible ||
+      !attributionSources ||
+      attributionSources.length === 0
+    ) {
+      attributionDecosRef.current = e.deltaDecorations(attributionDecosRef.current, [])
+      return
+    }
+    const decorations = buildAttributionDecorations(attributionSources)
+    attributionDecosRef.current = e.deltaDecorations(attributionDecosRef.current, decorations)
+  }, [editorReady, attributionVisible, attributionSources, value])
   const applySelectedEditIntents = React.useCallback(
     (indices: number[]) => {
       if (!editIntent) return
@@ -810,6 +844,7 @@ export function CodeEditor({
     (editor: unknown, monaco: unknown) => {
       const e = editor as MonacoEditorInstance
       editorRef.current = e
+      setEditorReady(true)
       // 选区变化:上报给调用方
       e.onDidChangeCursorSelection((ev) => {
         if (!onSelectionChange) return

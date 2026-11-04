@@ -17100,6 +17100,7 @@
     },
     "codeEditor": {
       "lspStatus": "LSP",
+      "attributionToggle": "AI 行の帰属表示",
       "zoomIn": "拡大",
       "zoomOut": "縮小"
     },

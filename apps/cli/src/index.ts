@@ -113,6 +113,7 @@ import { getTool } from './tools/index.js';
 import { replayArgumentDeviations } from './tools/argument-validation-replay.js';
 import { notifyUpdates } from './updater.js';
 import { installCrashHandler } from './crash-handler.js';
+import { registerSkillPackageCommands } from './commands/skill-package.js';
 import { needsFirstRunSetup, runFirstRunSetup } from './commands/first-run.js';
 
 // P1-16 在所有模块加载后立即安装 crash handler(全局兜底未捕获异常)
@@ -972,6 +973,9 @@ skillsCmd
     // 样本 ≥1 ⇒ 0,报告里带冲突率与逐对建议,裁决(开不开真门控)仍是单独一票的事。
     if (agg.insufficient) process.exitCode = 2;
   });
+
+// 技能包安装安全链 + 专家包生成器: install / verify / uninstall / pack
+registerSkillPackageCommands(skillsCmd);
 
 // settings 子命令组
 const settingsCmd = program.command('settings').description(t('cliEntry.settingsCmdDesc'));
