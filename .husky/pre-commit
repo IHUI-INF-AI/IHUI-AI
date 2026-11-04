@@ -19,6 +19,22 @@ if [ -z "$GIT_INDEX_FILE" ] || [ ! -f "$GIT_INDEX_FILE" ]; then
   unset GIT_INDEX_FILE
 fi
 
+# ─── sh 层机器可读留痕(2026-11-04 立)─────────────────────────────────────
+# 本层任何 exit 1 都发生在 node 启动**之前** ⇒ 没有 vbs 轮次标记、没有 pre-commit-rounds.jsonl
+# 轮次,失败只剩 git 侧 stderr(实测:别单 `git commit --only -- <7 路径>` 钩子阶段 exit 1,
+# pre-commit.log 无 `==== <Now> :: <script> ====`,rounds 无本轮,无 COMMIT_EDITMSG/index.lock)。
+# 因此本层所有拒绝路径都必须**先落一行机器可读记录**再 exit。
+# ⚠ 该文件必须 ASCII-only:它被 wscript 侧读取,非 ASCII 会在 wscript 编译期报 Syntax error。
+#    故这里用 tr 只保留可打印 ASCII(含 TAB),中文/全角字符一律丢弃。
+IHUI_MARKER_DIR=.ihui-agent/state/hook-logs
+hook_marker() {
+  mkdir -p "$IHUI_MARKER_DIR" 2>/dev/null || return 0
+  _m_ts=$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null)
+  printf '{"hook":"pre-commit","stage":"sh","event":"%s","ts":"%s","expected":"%s","got":"%s"}\n' \
+    "$1" "$_m_ts" "$2" "$3" \
+    | tr -cd '\11\12\15\40-\176' >>"$IHUI_MARKER_DIR/hook-markers.jsonl" 2>/dev/null || true
+}
+
 # ─── 私有索引上下文 fail-closed(2026-11-04 立)─────────────────────────────
 # 2026-11-03 的修法只保住了"非空且文件存在"的指针,但它对**调用方声明过私有索引**的场景
 # 仍然是静默降级:指针空/缺失时照旧 unset ⇒ 整条钩子链(含 lint-staged 与派生腿)落到共享
@@ -27,10 +43,25 @@ fi
 # 声明在场 ⇒ GIT_INDEX_FILE 必须一字不差且文件可用,否则当场拒绝,绝不退回共享索引。
 # 没有声明(普通 `git commit` / `git commit --only`)⇒ 上面的原判据一字不改。
 if [ -n "$IHUI_EXPECTED_PRIVATE_INDEX" ]; then
+  _idx_norm=$(printf '%s' "$GIT_INDEX_FILE" | tr '\\' '/')
+  case "$_idx_norm" in
+    */next-index-*.lock)
+      # 命中 git 自己为 `--only/--amend -- <路径>` 建的临时索引 ⇒ 这是**共享索引提交**,
+      # 不是私有索引提交。此时还挂着 IHUI_EXPECTED_PRIVATE_INDEX,只可能是多会话共享环境变量
+      # 造成的泄漏(实测:别单正常 `git commit --only -- <7 路径>` 被这条守卫在 node 启动前
+      # 挡掉,且没有任何钩子内痕迹)。留痕后按"无声明"走原判据放行 —— 被挡的语义不属于本守卫。
+      hook_marker env-leak-git-temp-index "$IHUI_EXPECTED_PRIVATE_INDEX" "$GIT_INDEX_FILE"
+      unset IHUI_EXPECTED_PRIVATE_INDEX
+      ;;
+  esac
+fi
+if [ -n "$IHUI_EXPECTED_PRIVATE_INDEX" ]; then
   # 只把分隔符归一(Windows 下 \ 与 / 是同一路径),不做大小写/相对路径放宽。
   want=$(printf '%s' "$IHUI_EXPECTED_PRIVATE_INDEX" | tr '\\' '/')
   got=$(printf '%s' "$GIT_INDEX_FILE" | tr '\\' '/')
   if [ -z "$got" ] || [ "$got" != "$want" ] || [ ! -f "$GIT_INDEX_FILE" ]; then
+    # 先留痕再 exit:本层拒绝不经过 node,不落这一行就等于"fail-closed 但无证据"。
+    hook_marker index-context-lost "$IHUI_EXPECTED_PRIVATE_INDEX" "${GIT_INDEX_FILE:-}"
     printf '%s\n' "❌ 索引上下文丢失:调用方声明了私有索引($IHUI_EXPECTED_PRIVATE_INDEX),钩子实际拿到的是 '${GIT_INDEX_FILE:-<空>}'。" \
       "   提交已阻止 —— 绝不静默落回共享索引。" >&2
     exit 1
