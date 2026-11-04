@@ -45,17 +45,15 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 // stdin 管道 —— 2026-10-12 病窗复发实证:补了 stdio:['pipe','pipe','pipe'] 仍 10/10 EBUSY,
 // fd 通道不受影响)。此前本器裸 execFileSync,病窗一来 --self-test H27 必挂、--apply 全程
 // 派生全灭;兜底实现收口在共用层,这里绝不复制一份(本仓对"两份真相"零容忍)。
-import { batchExecFileSync } from './lib/face-reader.mjs'
+// 二进制解析统一走取材层 gitBinary()(绝对路径优先,兜底只留在层内一处,不在本文件另写)。
+import { batchExecFileSync, gitBinary } from './lib/face-reader.mjs'
 import { scratchRoot } from './lib/scratch-dir.mjs'
-// git 二进制绝对路径优先(AGENTS §5b"git 调用不得依赖环境"):GUI 宿主/服务账户的 PATH
-// 与交互终端不通。resolveGitBin 解析不到时回退 'git'(与既有行为一致,不新增故障面)。
-import { resolveGitBin } from './lib/gitdir.mjs'
 
 const SELF_DIR = dirname(fileURLToPath(import.meta.url))
 // 仓库锚点:缺省由脚本自身位置推导(§15),IHUI_HEAL_ROOT 只作**测试通道**(镜像测试要在临时仓里跑端到端,
 // 靠 cwd 定位夹具是守门 70 记过的恒红那一型:脚本按定义忽略 cwd,13/14 例其实在审真仓)。
 const ROOT = resolve(process.env.IHUI_HEAL_ROOT || resolve(SELF_DIR, '..'))
-const GIT = process.env.IHUI_GIT_BIN || resolveGitBin() || 'git'
+const GIT = process.env.IHUI_GIT_BIN || gitBinary()
 const GIT_BASE = ['-c', 'safe.directory=*']
 
 /** 派生 git:显式接管 stdio(AGENTS §12g —— 本机宿主下不写 stdio 会稳定 spawnSync git EBUSY)。

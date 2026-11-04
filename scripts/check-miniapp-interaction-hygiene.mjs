@@ -63,6 +63,7 @@ import { dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { maskComments } from './lib/code-mask.mjs'
+import { gitBinary } from './lib/face-reader.mjs'
 import { PORT_TYPE_DECLARATIONS } from './check-host-port-equivalence.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -496,7 +497,7 @@ export function runSelfTest() {
 function stagedFiles() {
   try {
     const out = execFileSync(
-      'git',
+      gitBinary(),
       ['-c', 'safe.directory=*', 'diff', '--cached', '--name-only', '--diff-filter=ACMR', '--', SRC_REL],
       { cwd: REPO, encoding: 'utf8', maxBuffer: 1 << 26, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true },
     )

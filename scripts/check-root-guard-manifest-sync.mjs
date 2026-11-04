@@ -48,7 +48,7 @@ import { execFileSync } from 'node:child_process'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
-import { catBatch, gitRaw, readWorktreeFile } from './lib/face-reader.mjs'
+import { catBatch, gitBinary, gitRaw, readWorktreeFile } from './lib/face-reader.mjs'
 import {
   ADVISORY_TARGET_IDS,
   MANIFEST_PATH,
@@ -63,7 +63,7 @@ const norm = (p) => path.relative(ROOT, path.isAbsolute(p) ? p : path.join(ROOT,
 
 /** §12g:派生 git 必须显式接管 stdio;§5b:本机任何派生进程一律 windowsHide。 */
 function git(args) {
-  return execFileSync('git', args, {
+  return execFileSync(gitBinary(), args, {
     cwd: ROOT,
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],

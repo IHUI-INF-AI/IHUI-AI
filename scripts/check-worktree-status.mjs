@@ -20,6 +20,7 @@
  */
 /* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
 import { spawnSync } from 'node:child_process'
+import { gitBinary } from './lib/face-reader.mjs'
 
 const UNMERGED = new Set(['DD', 'AU', 'UD', 'UA', 'DU', 'AA', 'UU'])
 
@@ -41,7 +42,7 @@ function gitEnv() {
 }
 
 function git(args, cwd) {
-  const r = spawnSync('git', args, {
+  const r = spawnSync(gitBinary(), args, {
     cwd,
     encoding: 'utf8',
     windowsHide: true,

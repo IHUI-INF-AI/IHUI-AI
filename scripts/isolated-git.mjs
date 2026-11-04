@@ -61,16 +61,20 @@ import {
 } from 'node:fs'
 import { dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { gitBinary } from './lib/face-reader.mjs'
+import derivedArtifacts from './lib/derived-artifacts.js'
 
 /** 仓根由脚本自身位置推导,禁 `process.cwd()` 定根(AGENTS §15)。 */
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 export const INDEX_DIR_NAME = 'ihui-isolated-index'
 /** 内容快照后缀:与索引同名前缀,随 `disposeIndex`/sweep 一起清掉。 */
 export const SNAPSHOT_SUFFIX = '.snap'
+/** 派生腿产物申报文件后缀(2026-11-04 立,见 scripts/lib/derived-artifacts.js)。 */
+export const DERIVED_SUFFIX = '.derived.json'
 export const MAX_ATTEMPTS = 5
 /** 残留判定:pid 已死,或存活但文件超过 24h(防 pid 复用把旧文件永久留下)。 */
 export const STALE_AGE_MS = 24 * 60 * 60 * 1000
-const INDEX_NAME_RE = /^(\d+)-(\d+)-([0-9a-f]{8})\.idx(\.lock|\.snap)?$/
+const INDEX_NAME_RE = /^(\d+)-(\d+)-([0-9a-f]{8})\.idx(\.lock|\.snap|\.derived\.json)?$/
 const LOCK_BUSY_RE = /cannot lock ref|Unable to create|index\.lock|Another git process/i
 const FORBIDDEN_COMMIT_ARGS = [
   '--no-verify',
@@ -88,7 +92,7 @@ const ACTIVE_INDEXES = new Set()
 
 /** 所有 git 子进程显式接管 stdio(AGENTS §12g:不写稳定 EBUSY)。 */
 function rawGit(args, { gitCwd, env, allowFail = false } = {}) {
-  const res = spawnSync('git', args, {
+  const res = spawnSync(gitBinary(), args, {
     cwd: gitCwd,
     env,
     encoding: 'utf8',
@@ -174,10 +178,15 @@ export function sweepStale(indexDir, { isAlive = isPidAlive, now = Date.now() } 
   return removed
 }
 
-/** 删掉本进程的索引、它自己的 `.lock` 与内容快照;目录空了就顺手收掉(不递归、不碰别的东西)。 */
+/** 删掉本进程的索引、它自己的 `.lock`/内容快照/派生申报;目录空了就顺手收掉(不递归、不碰别的东西)。 */
 export function disposeIndex(indexFile) {
   ACTIVE_INDEXES.delete(indexFile)
-  for (const f of [indexFile, `${indexFile}.lock`, `${indexFile}${SNAPSHOT_SUFFIX}`]) {
+  for (const f of [
+    indexFile,
+    `${indexFile}.lock`,
+    `${indexFile}${SNAPSHOT_SUFFIX}`,
+    `${indexFile}${DERIVED_SUFFIX}`,
+  ]) {
     try {
       rmSync(f, { force: true })
     } catch {
@@ -309,18 +318,23 @@ function nameOnlyZ(ctx) {
  * 钩子跑完后的内容级护栏(由 pre-commit 钩子在 exit 阶段调起,见
  * `scripts/lib/pre-commit-hook.js` 的 `IHUI_ISOLATED_INDEX_SNAPSHOT` 段):
  *
- *   ① 声明集之外出现任何条目 ⇒ 记入 `extras`(调用方据此拒绝提交,不替钩子"擦屁股");
- *   ② 声明路径的 (mode, blob, stage) 与快照不等 ⇒ 用 `git update-index --cacheinfo`
+ *   ① 声明集 ∪ **派生申报集**之外出现任何条目 ⇒ 记入 `extras`(调用方据此拒绝提交,
+ *      不替钩子"擦屁股");申报只放行**逐条列名且带 blob 内容钉**的产物,不是"什么都放行";
+ *   ② 申报的产物必须真的在索引里、且 blob/mode 与申报一致 ⇒ 否则记入 `derivedViolations`;
+ *   ③ 声明路径的 (mode, blob, stage) 与快照不等 ⇒ 用 `git update-index --cacheinfo`
  *      逐条精确复原(不 `checkout`/`reset`/`restore`,一个字节都不碰工作树);
- *   ③ 复原后再读一次索引复核,仍不等 ⇒ 记入 `still`,调用方 exit 非 0。
+ *   ④ 复原后再读一次索引复核,仍不等 ⇒ 记入 `still`,调用方 exit 非 0。
  *
- * 正常情况(钩子没动内容)零写入:不满足 ② 时一条 `update-index` 都不发。
+ * 正常情况(钩子没动内容)零写入:不满足 ③ 时一条 `update-index` 都不发。
  */
-export function restoreIndexFromSnapshot({ gitCwd, env, snapshot, log = console }) {
+export function restoreIndexFromSnapshot({ gitCwd, env, snapshot, derived = [], log = console }) {
   const ctx = { gitCwd, env }
   const declared = new Set(snapshot.paths)
+  // 作者已声明的路径以快照为准(复原语义优先),派生申报只补声明集之外的产物。
+  const derivedEntries = derived.filter((d) => d && d.path && !declared.has(d.path))
+  const allowed = new Set([...declared, ...derivedEntries.map((d) => d.path)])
   const expected = new Map(snapshot.entries.map((e) => [e.path, e]))
-  const extras = nameOnlyZ(ctx).filter((p) => !declared.has(p))
+  const extras = nameOnlyZ(ctx).filter((p) => !allowed.has(p))
 
   const before = new Map(lsEntries(ctx, snapshot.paths).map((e) => [e.path, e]))
   const drift = []
@@ -364,9 +378,41 @@ export function restoreIndexFromSnapshot({ gitCwd, env, snapshot, log = console 
   for (const [p, cur] of after) {
     if (!expected.has(p)) still.push({ path: p, expected: null, actual: cur })
   }
-  const extrasAfter = nameOnlyZ(ctx).filter((p) => !declared.has(p))
+  const extrasAfter = nameOnlyZ(ctx).filter((p) => !allowed.has(p))
 
-  return { restored: drift.length, extras: [...new Set([...extras, ...extrasAfter])], still }
+  // 申报产物的内容钉核验:索引里必须真有这一条,且 mode/stage/blob 与申报一致。
+  const afterDerived = new Map(
+    lsEntries(
+      ctx,
+      derivedEntries.map((d) => d.path),
+    ).map((e) => [e.path, e]),
+  )
+  const derivedViolations = []
+  for (const d of derivedEntries) {
+    const cur = afterDerived.get(d.path)
+    if (!cur) {
+      derivedViolations.push(`${d.path}:申报了但索引里没有该条目`)
+      continue
+    }
+    if (cur.stage !== 0) {
+      derivedViolations.push(`${d.path}:索引 stage=${cur.stage}(非 0)`)
+      continue
+    }
+    if (!/^100(644|755)$/.test(cur.mode)) {
+      derivedViolations.push(`${d.path}:索引 mode=${cur.mode}(非普通文件)`)
+      continue
+    }
+    if (!d.blob || cur.blob !== d.blob) {
+      derivedViolations.push(`${d.path}:索引 blob ${cur.blob} ≠ 申报 blob ${d.blob ?? '(缺失)'}`)
+    }
+  }
+
+  return {
+    restored: drift.length,
+    extras: [...new Set([...extras, ...extrasAfter])],
+    still,
+    derivedViolations,
+  }
 }
 
 /**
@@ -401,12 +447,35 @@ export function commitWithIndex({ gitCwd, env, gitDir, commitOpts, paths, log = 
     const snapshot = takeIndexSnapshot({ gitCwd, env, paths })
     const snapshotFile = `${indexFile}${SNAPSHOT_SUFFIX}`
     writeFileSync(snapshotFile, JSON.stringify(snapshot))
-    const hookedEnv = { ...env, IHUI_ISOLATED_INDEX_SNAPSHOT: snapshotFile }
+    // 派生腿产物申报(2026-11-04 立):每轮重置,钩子里的派生腿在 `git add` 前把
+    // 「将写出的产物路径 + 工作树 blob」写进这份文件;restore-index 据此并入允许集。
+    const derivedFile = `${indexFile}${DERIVED_SUFFIX}`
+    try {
+      unlinkSync(derivedFile)
+    } catch {
+      /* 不存在 = 正常 */
+    }
+    const hookedEnv = {
+      ...env,
+      IHUI_ISOLATED_INDEX_SNAPSHOT: snapshotFile,
+      IHUI_ISOLATED_INDEX_DERIVED_MANIFEST: derivedFile,
+      // 声明给 .husky/pre-commit 与 sanitizeGitEnv:本次提交的私有索引必须一字不差地传下去,
+      // 丢了就 fail-closed,绝不静默落回共享索引。
+      IHUI_EXPECTED_PRIVATE_INDEX: indexFile,
+    }
     const res = rawGit(['commit', ...commitOpts], { gitCwd, env: hookedEnv, allowFail: true })
     if (res.status === 0) {
       // 成功路径默认吞掉 git 的 stderr;护栏复原留痕必须让作者看见(其余钩子输出不放大)。
       if (/私有索引内容护栏/.test(String(res.stderr || ''))) log.warn?.(String(res.stderr).trim())
-      const sha = verifyLanded({ ctx, base, declared, stdout: res.stdout, log })
+      const derived = derivedArtifacts.readDerivedManifest(derivedFile)
+      const sha = verifyLanded({
+        ctx,
+        base,
+        declared,
+        extraAllowed: derived.map((d) => d.path).filter(Boolean),
+        stdout: res.stdout,
+        log,
+      })
       refreshSharedIndex({
         gitCwd,
         gitDir,
@@ -429,8 +498,8 @@ export function commitWithIndex({ gitCwd, env, gitDir, commitOpts, paths, log = 
   throw new Error(`${MAX_ATTEMPTS} 轮都没抢到写面,停手(未产生提交)`)
 }
 
-/** 提交落地后的只读核验:父提交仍是本轮基线、载荷仍等于声明集。 */
-export function verifyLanded({ ctx, base, declared, stdout, log = console }) {
+/** 提交落地后的只读核验:父提交仍是本轮基线、载荷仍等于声明集(∪ 派生申报集)。 */
+export function verifyLanded({ ctx, base, declared, extraAllowed = [], stdout, log = console }) {
   const fromStdout = String(stdout || '').match(/\[[^\]]*\s([0-9a-f]{7,40})\]/)?.[1]
   const sha = fromStdout
     ? gitOut(['rev-parse', fromStdout], ctx)
@@ -441,7 +510,8 @@ export function verifyLanded({ ctx, base, declared, stdout, log = console }) {
   const changed = gitOut(['-c', 'core.quotepath=false', 'diff', '--name-only', base, sha], ctx)
     .split(/\r?\n/)
     .filter(Boolean)
-  const extra = changed.filter((p) => !declared.has(p))
+  const allowed = new Set([...declared, ...extraAllowed.filter(Boolean)])
+  const extra = changed.filter((p) => !allowed.has(p))
   if (extra.length) {
     console.error(
       `❗ 提交 ${sha.slice(0, 12)} 已落地,但载荷含声明集之外的路径 —— 不要推送,先人工核验:`,
@@ -558,12 +628,23 @@ function runRestoreIndex(gitCwd, args) {
     stderrLine(`❌ 私有索引内容护栏取不到快照(${snapshotFile}):${e?.message ?? e}`)
     return 1
   }
+  let derived = []
+  const derivedFile = process.env.IHUI_ISOLATED_INDEX_DERIVED_MANIFEST
+  if (derivedFile) {
+    try {
+      derived = derivedArtifacts.readDerivedManifest(derivedFile)
+    } catch (e) {
+      stderrLine(`❌ 私有索引内容护栏读不到派生申报(${derivedFile}):${e?.message ?? e}`)
+      return 1
+    }
+  }
   let result
   try {
     result = restoreIndexFromSnapshot({
       gitCwd,
       env: childEnv(process.env.GIT_INDEX_FILE),
       snapshot,
+      derived,
       log: { error: stderrLine },
     })
   } catch (e) {
@@ -579,8 +660,13 @@ function runRestoreIndex(gitCwd, args) {
     }
     return 1
   }
+  if (result.derivedViolations.length) {
+    stderrLine('❌ 私有索引内容护栏:派生产物申报与索引实际内容不符,拒绝提交:')
+    for (const d of result.derivedViolations) stderrLine(`  ${d}`)
+    return 1
+  }
   if (result.extras.length) {
-    stderrLine('❌ 私有索引内容护栏:钩子在声明集之外塞入了索引条目,拒绝提交:')
+    stderrLine('❌ 私有索引内容护栏:钩子在声明集(含派生申报集)之外塞入了索引条目,拒绝提交:')
     for (const p of result.extras) stderrLine(`  ${p}`)
     return 1
   }
