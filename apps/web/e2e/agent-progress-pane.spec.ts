@@ -56,20 +56,35 @@ async function openComposerTools(page: Page) {
   await expect(panel).toBeVisible()
 }
 
-/** 关闭 `+` 菜单(Esc 只在菜单位于 overlay 栈顶时被消费;未生效则点 textarea 左上角
- *  触发外部 mousedown 兜底)。 */
+/** 关闭 `+` 菜单(判据一律看菜单面板在不在,不看 trigger 的 data-state ——
+ *  2026-11-04 CI 实测:本条链路(工具抽屉里再开 agent-progress 弹层)里 trigger 的
+ *  data-state 呈空串,不是 open/closed 二值;面板 `{open && createPortal(...)}` 结构上
+ *  只在打开时存在,`toHaveCount(0)` 才是 DOM 事实。Esc 只在菜单位于 overlay 栈顶时
+ *  被消费(此刻栈顶可能是 agent-progress 弹层),未生效则点自身触发器切关。) */
 async function closeComposerMenu(page: Page) {
-  const trigger = page.locator(ADD_MENU_TRIGGER)
-  if ((await trigger.getAttribute('data-state').catch(() => null)) !== 'open') return
-  await page.keyboard.press('Escape')
-  if ((await trigger.getAttribute('data-state').catch(() => null)) === 'open') {
-    await page
-      .locator('textarea')
+  const panel = page.locator(ADD_MENU_OPEN_MARK)
+  if (
+    !(await panel
       .first()
-      .click({ position: { x: 8, y: 8 } })
+      .isVisible()
+      .catch(() => false))
+  )
+    return
+  await page.keyboard.press('Escape')
+  if (
+    await panel
+      .first()
+      .isVisible()
+      .catch(() => false)
+  ) {
+    // 此时 Esc 已被上层弹层消费:点 `+` 自身把 open 翻成 false(open 时点击即关闭)。
+    // force 绕过 actionability —— 目标判定只关心触发器的 toggle 语义,不关心遮挡。
+    await page
+      .locator(ADD_MENU_TRIGGER)
+      .click({ force: true })
       .catch(() => {})
   }
-  await expect(trigger).toHaveAttribute('data-state', 'closed', { timeout: 5000 })
+  await expect(panel).toHaveCount(0, { timeout: 5000 })
 }
 
 /** 软断言版展开抽屉:未登录 / 无输入卡时返回 false,沿用本文件"找不到则 skip"风格 */
