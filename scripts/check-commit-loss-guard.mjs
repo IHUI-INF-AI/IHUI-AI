@@ -335,8 +335,16 @@ const PATHSPEC_ARGV_BUDGET = 16_000
  * 旧缓存件里的绿结论是按宽判据得出的,不得复用。
  * 同日再升到 3:同秒并列(取谁都会改变 D 判定)改判「未判定 → exit 2」,旧缓存里的绿结论
  * 可能是拿"git log 先到者"冒充"最新"得出的,同样不得复用。
+ * 2026-11-05 升到 4:新增 3b 维(lost-commit tag 直接指向的提交也纳入逐路径覆盖)。旧缓存
+ * 是按"看不见这些提交"的面算出的,不得复用 —— 否则新维度头 30 分钟仍是盲区。
  */
-const COVERAGE_FACE_VERSION = 3
+const COVERAGE_FACE_VERSION = 4
+/**
+ * 3b 维批量取材的 stdout 上限(2026-11-05)。
+ * 本仓实测一次全历史 `git log --all --raw -z` 约 140MB(972,397 条记录),默认 64MB 会 ENOBUFS。
+ * 取 256MB:够装下本仓读数,又给对象数增长留一档余量;超限时如实报「未判定」,不静默放行。
+ */
+const BULK_RAW_MAX_BUFFER = 256 * 1024 * 1024
 /**
  * `git diff-tree --raw -z` / `git log --raw -z` 的单条记录头:
  * `:<oldmode> <newmode> <oldsha> <newsha> <status>`,其后紧跟 NUL + 路径 + NUL。
@@ -1239,6 +1247,225 @@ function derivePathCoverage(candidates, { excludedCommits = new Set() } = {}) {
     }
   }
   return { entriesByCommit, coverage, latestByPath, problemsByCommit, surfaceError: '', ambiguousPaths }
+}
+
+/**
+ * 3b 维(2026-11-05 立):`lost-commit/*` tag 直接指向的提交集(**纯函数**)。
+ *
+ * 立因(盲区):tag 让提交可达 ⇒ `git fsck --unreachable` 永远看不到它 ⇒ 旧判据对它完全失明。
+ * 于是「已备份且已清偿(内容另在交付面出现)」与「已备份但缺口还在(内容只活在这枚 tag 上)」
+ * 在检测面上**无法区分**,后者永久不可见。本维只做一件事:把这批提交也送进
+ * `splitByPathCoverage` —— 复用同一套 `coverage` / `oldBlob` 判据,不另立第二套。
+ *
+ * 只认 `lost-commit/*`:其它 tag(`backup/*` 是树快照,普通 tag 是发布引用)不承担
+ * 「悬空提交备份」语义,纳进来就是误扩(镜像用例③)。
+ */
+function tagPointedCommitSet(reachability, lostTagNames) {
+  const out = new Set()
+  for (const r of reachability) if (r.hash && lostTagNames.has(r.tag)) out.add(r.hash)
+  return out
+}
+
+/**
+ * 3b 维候选筛选(**纯函数**)。三个集合由调用方给,便于镜像用例直接断言 ④ 的去重语义。
+ *
+ * - 去掉 `rawUnreachable`:同一枚已在 `fsck --unreachable` 档里,重复计数会让两个桶混账(④)。
+ * - 去掉 `deliveryReachable`:这些提交本身就落在交付面上,不是"只靠 tag 活着"的盲区;
+ *   若把它们也排除在覆盖面之外,它们自己的改动就只剩自己作证 ⇒ 会造出假缺口。
+ */
+function selectTagCoverageCandidates({ tagPointed, deliveryReachable, rawUnreachable }) {
+  const out = []
+  for (const c of tagPointed) {
+    if (rawUnreachable.has(c)) continue
+    if (deliveryReachable.has(c)) continue
+    out.push(c)
+  }
+  out.sort()
+  return out
+}
+
+/**
+ * 交付面可达 commit 集 = 去掉隔离/备份 tag 后的 `rev-list --all`(不读 reflog)。
+ * 口径与 `fsck --no-reflogs` 一致:判断"只靠 tag 活着"时,reflog 不算交付面。
+ */
+function deliveryReachableCommits() {
+  const raw = gitText(
+    // 顺序敏感:`--exclude` 必须写在 `--all` 之前。
+    ['rev-list', '--exclude=refs/tags/lost-commit/*', '--exclude=refs/tags/backup/*', '--all'],
+    { timeout: SPAWN_DEFAULT_TIMEOUT_MS },
+  )
+  const out = new Set()
+  for (const line of raw.split('\n')) {
+    const h = line.trim()
+    if (h) out.add(h)
+  }
+  return out
+}
+
+function firstErrorLine(e) {
+  return String((e && (e.stderr || e.message)) || e)
+    .split('\n')[0]
+    .slice(0, 160)
+}
+
+/**
+ * 3b 维的**批量取材**(与 `derivePathCoverage` 同一套解析/吸收/判定,只压批)。
+ *
+ * 为什么不能直接复用 `derivePathCoverage` 的逐枚 `diff-tree` 与按路径切块:
+ * 本仓实测 tag 直接指向 22,381 枚 / 401,099 条改动,候选 18,621 枚 / 31,057 条路径。
+ * - 逐枚 `diff-tree` 每个 spawn ~2s ⇒ 十几小时;
+ * - 按 16KB argv 预算切块 = 79 次**全历史**走查,实测 24 分钟。
+ * 这里压成:① 候选改动一次 `log --no-walk=unsorted --stdin`(实测 9.5s);
+ * ② ref 面一次全历史走查(实测 17.7s / 140MB);③ reflog 面一次 `log -g --all`(实测 51.6s / 10.4MB)。
+ * 判定仍由 `splitByPathCoverage` 完成 —— 本函数只负责"把同一份证据更快地摆到它面前"。
+ */
+function deriveTagBackupPathCoverage(candidates, excludedCommits) {
+  const entriesByCommit = new Map()
+  const problemsByCommit = new Map()
+  const coverage = new Map()
+  const latestByPath = new Map()
+  const ambiguousPaths = new Set()
+  const fail = (reason) => ({
+    entriesByCommit,
+    coverage,
+    latestByPath,
+    problemsByCommit,
+    surfaceError: reason,
+    ambiguousPaths,
+  })
+
+  const rawLogArgs = (base) => [
+    ...base,
+    '--raw',
+    '--no-abbrev',
+    '-z',
+    '--no-renames',
+    '--root',
+    `--format=${RAW_COMMIT_MARKER}%H:%ct`,
+  ]
+
+  try {
+    const raw = gitRaw(
+      rawLogArgs(['log', '--no-walk=unsorted', '--stdin']),
+      ROOT,
+      {
+        timeout: PATH_COVERAGE_TIMEOUT_MS,
+        maxBuffer: BULK_RAW_MAX_BUFFER,
+        input: candidates.join('\n') + '\n',
+      },
+    )
+    const entries = parseRawDiffZ(String(raw ?? ''), { withCommit: true })
+    for (const c of candidates) entriesByCommit.set(c, [])
+    for (const e of entries) {
+      if (!entriesByCommit.has(e.commit)) entriesByCommit.set(e.commit, [])
+      entriesByCommit.get(e.commit).push(e)
+    }
+  } catch (e) {
+    return fail(`候选改动取不到:${firstErrorLine(e)}`)
+  }
+
+  try {
+    const raw = gitRaw(
+      rawLogArgs([
+        'log',
+        // 顺序敏感:`--exclude` 必须写在 `--all` 之前才作用于它。
+        '--exclude=refs/tags/lost-commit/*',
+        '--exclude=refs/tags/backup/*',
+        '--all',
+      ]),
+      ROOT,
+      { timeout: PATH_COVERAGE_TIMEOUT_MS, maxBuffer: BULK_RAW_MAX_BUFFER },
+    )
+    absorbRawCoverage(
+      parseRawDiffZ(String(raw ?? ''), { withCommit: true }),
+      'ref',
+      coverage,
+      latestByPath,
+      excludedCommits,
+      ambiguousPaths,
+    )
+  } catch (e) {
+    return fail(`ref 面取不到:${firstErrorLine(e)}`)
+  }
+
+  // 与 `derivePathCoverage` 同一口径:只对 ref 面没作证的路径补查 reflog 面。
+  const leftover = new Set()
+  for (const entries of entriesByCommit.values()) {
+    for (const e of entries) {
+      if (e.status === 'D') {
+        const latest = latestByPath.get(e.path)
+        const proven = latest && latest.status === 'D' && latest.oldBlob === (e.oldBlob || '')
+        if (!proven) leftover.add(e.path)
+      } else if (!coverage.has(`${e.path}\0${e.blob}`)) {
+        leftover.add(e.path)
+      }
+    }
+  }
+  if (leftover.size > 0) {
+    try {
+      const raw = gitRaw(
+        rawLogArgs(['log', '-g', '--all']),
+        ROOT,
+        { timeout: PATH_COVERAGE_TIMEOUT_MS, maxBuffer: BULK_RAW_MAX_BUFFER },
+      )
+      absorbRawCoverage(
+        parseRawDiffZ(String(raw ?? ''), { withCommit: true }),
+        'reflog',
+        coverage,
+        latestByPath,
+        excludedCommits,
+        ambiguousPaths,
+      )
+    } catch (e) {
+      return fail(`reflog 面取不到(剩余路径按未覆盖判):${firstErrorLine(e)}`)
+    }
+  }
+  return { entriesByCommit, coverage, latestByPath, problemsByCommit, surfaceError: '', ambiguousPaths }
+}
+
+/**
+ * 3b 维入口:tag 指向 → 候选筛选 → 批量取材 → 同一套逐路径判定。
+ * 取不到一律 `surfaceError`(调用方落「未判定 → exit 2」),绝不把空读数读成"全部已清偿"。
+ */
+function computeTagBackupCoverage({ reachability, lostTags, rawUnreachable }) {
+  const lostTagNames = new Set(lostTags)
+  const tagPointed = tagPointedCommitSet(reachability, lostTagNames)
+  const base = {
+    tagPointedTotal: tagPointed.size,
+    candidates: [],
+    covered: [],
+    uncovered: [],
+    undetermined: [],
+    surfaceError: '',
+  }
+  if (tagPointed.size === 0) return base
+
+  let deliveryReachable
+  try {
+    deliveryReachable = deliveryReachableCommits()
+  } catch (e) {
+    return { ...base, surfaceError: `交付面 rev-list 取不到:${firstErrorLine(e)}` }
+  }
+  const unreachableSet = new Set(rawUnreachable)
+  const candidates = selectTagCoverageCandidates({
+    tagPointed,
+    deliveryReachable,
+    rawUnreachable: unreachableSet,
+  })
+  if (candidates.length === 0) return { ...base, candidates }
+
+  const excluded = new Set([...unreachableSet, ...candidates])
+  const derived = deriveTagBackupPathCoverage(candidates, excluded)
+  if (derived.surfaceError) return { ...base, candidates, surfaceError: derived.surfaceError }
+  const split = splitByPathCoverage({ candidates, ...derived })
+  return {
+    tagPointedTotal: tagPointed.size,
+    candidates,
+    covered: split.covered,
+    uncovered: split.uncovered,
+    undetermined: split.undetermined,
+    surfaceError: '',
+  }
 }
 
 /**
@@ -2289,6 +2516,61 @@ async function main() {
     }
   }
 
+  // ── 3b. lost-commit/* tag 备份提交的逐路径清偿核对(2026-11-05 立) ──
+  // 这一维独立于上面的「悬空分档」:分档统计的是 `fsck --unreachable` 的 200 枚,
+  // 这里统计的是**被 tag 变成可达、因而 fsck 看不到**的那一批。两档不得混算。
+  console.log(header('3b. lost-commit/* tag 备份提交的逐路径清偿核对'))
+  const tagBackup = computeTagBackupCoverage({ reachability, lostTags, rawUnreachable })
+  if (tagBackup.tagPointedTotal === 0) {
+    console.log(`  ${C.dim}(无 lost-commit/* tag 指向的提交)${C.reset}`)
+  } else if (tagBackup.surfaceError) {
+    console.log(
+      `  ${C.red}❌ UNDETERMINED(未判定):${tagBackup.surfaceError} —— 3b 本次没判成,不得计为绿${C.reset}`,
+    )
+  } else {
+    console.log(
+      `  ${C.dim}tag 直接指向 ${tagBackup.tagPointedTotal} 枚;其中去掉隔离 tag 后不可达(盲区候选)` +
+        `${tagBackup.candidates.length} 枚${C.reset}`,
+    )
+    console.log(
+      `  ${tagBackup.uncovered.length === 0 ? C.green : C.yellow}↳ 逐路径覆盖:已清偿 ${tagBackup.covered.length}` +
+        ` / 未清偿 ${tagBackup.uncovered.length}` +
+        `${tagBackup.undetermined.length > 0 ? ` / 未判定 ${tagBackup.undetermined.length}` : ''}${C.reset}`,
+    )
+    if (tagBackup.uncovered.length > 0) {
+      console.log(
+        `  ${C.yellow}⚠️  已备份但缺口仍在(tag 只防 gc,不等于内容已落地):${C.reset}`,
+      )
+      // 展示按 committer 时刻**新→旧**排序:缺口存量近万枚,按 oid 字母序取样只会永远
+      // 展示一批最老的（现案 b96a9dc2 这类"刚产生"的缺口反而看不到）。只影响展示,不改判定。
+      const times = committerUnixFor(tagBackup.uncovered.map((u) => u.hash)).map
+      const shown = [...tagBackup.uncovered]
+        .sort((a, b) => (times.get(b.hash) || 0) - (times.get(a.hash) || 0))
+        .slice(0, 10)
+      const subj = subjectsForHashes(shown.map((u) => u.hash))
+      for (const u of shown) {
+        console.log(
+          `     ${C.cyan}${u.hash.slice(0, SHORT_HASH_LEN)}${C.reset}  ${C.dim}${subj.get(u.hash) || '(空)'}${C.reset}`,
+        )
+        for (const m of u.missing.slice(0, 3)) {
+          console.log(
+            `        ${C.dim}${m.status} ${m.path} blob=${String(m.blob || '').slice(0, SHORT_HASH_LEN)} — ${m.reason}${C.reset}`,
+          )
+        }
+        if (u.missing.length > 3) {
+          console.log(`        ${C.dim}…另 ${u.missing.length - 3} 条未覆盖路径${C.reset}`)
+        }
+      }
+      if (tagBackup.uncovered.length > 10) {
+        console.log(`     ${C.dim}…另有 ${tagBackup.uncovered.length - 10} 枚${C.reset}`)
+      }
+    } else if (tagBackup.undetermined.length === 0) {
+      console.log(
+        `  ${C.green}✅ 候选提交的每条改动路径均已在交付面同路径同 blob 出现(已备份且已清偿)${C.reset}`,
+      )
+    }
+  }
+
   // ── 5. 远程 tag 完整性(2026-07-26 升级,放在综合判定之前) ──
   console.log(header('5. 远程 tag 完整性(本地 vs origin)'))
   console.log(
@@ -2398,6 +2680,8 @@ async function main() {
   // 逐路径覆盖的「未判定」档必须活到最外层出口:它决定 exit 2,且优先级高于判红档。
   // (下面的放行分档在 `if (unreachable.length > 0)` 块内,块内 const 到不了 2832 的出口。)
   let undeterminedCoverage = new Map()
+  // 3b 维的「同秒并列」与悬空档同语义:判不了 ⇒ exit 2,不折绿也不折红(§0.3)。
+  for (const u of tagBackup.undetermined) undeterminedCoverage.set(u.hash, u)
 
   if (resets.length > 0) {
     issues.push(`reflog 检测到 ${resets.length} 次 reset 操作`)
@@ -2789,6 +3073,16 @@ async function main() {
     }
   }
 
+  // 3b 维:已备份但未清偿的缺口必须进 issues —— 否则本轮会打印"✅ 无风险"并通过句,
+  // 而那正是盲区的原形(门说绿,缺口还在)。本维暂不置 blocking,是否转 blocking 属用户级决定
+  // (见本单交付说明);但必须**报出来**,不得静默。
+  if (tagBackup.uncovered.length > 0) {
+    issues.push(
+      `${tagBackup.uncovered.length} 个 lost-commit/* tag 备份的提交仍有未清偿路径` +
+        `(已备份但未落地,见 3b;缺口未转 blocking,待拍板)`,
+    )
+  }
+
   // 2026-07-26 升级:远程 tag 完整性加入综合判定
   // 2026-09-24 改版:仅远端缺失先由本门自己 fetch 固化(见 healMissingRemoteTags);
   //   拉回来了 → 不再出现在差异里,自然不红;
@@ -2867,6 +3161,18 @@ async function main() {
     process.exit(2)
   }
 
+  // 3b 维取不到 ⇒ 未判定(§0.3):不打印通过句、不写结论缓存、exit 2。
+  if (tagBackup.surfaceError) {
+    console.log(
+      `\n${C.red}${C.bold}❌ UNDETERMINED: 3b lost-commit tag 备份逐路径核对未判定,本次结论不得记绿${C.reset}`,
+    )
+    console.log(`   ${tagBackup.surfaceError}`)
+    console.log(
+      `   ${C.dim}恢复后重跑:node scripts/check-commit-loss-guard.mjs${C.reset}`,
+    )
+    process.exit(2)
+  }
+
   // 2026-07-25 升级:isBlocking 模式(guardian-runner 30a 注册)直接 exit 1
   if (blocking && (isStrict || isBlocking)) {
     console.log(
@@ -2912,12 +3218,16 @@ async function main() {
   console.log(`   - 备份悬空 commit:${C.cyan}git tag lost-commit/<name> <hash>${C.reset}`)
   console.log(`   - 查看丢失历史:${C.cyan}git tag -l "lost-commit/*" && git show <tag>${C.reset}`)
   console.log(`   - 详细规则见 AGENTS.md §22`)
-  writeLossCache({
-    ts: Date.now(),
-    head: currentHeadSha(),
-    blocking: false,
-    summary: `无 reset;悬空 commit ${unreachable.length} 枚均在窗外或已备份;tag 完整`,
-  })
+  // 3b 有未清偿项时**不写结论缓存**:缓存只有"红/绿"两态,写进去等于把"已备份但缺口仍在"
+  // 在下一轮读成绿 —— 那正是本单要闭合的失明形态。
+  if (tagBackup.uncovered.length === 0) {
+    writeLossCache({
+      ts: Date.now(),
+      head: currentHeadSha(),
+      blocking: false,
+      summary: `无 reset;悬空 commit ${unreachable.length} 枚均在窗外或已备份;tag 完整;3b 已清偿`,
+    })
+  }
   process.exit(0)
 }
 
@@ -3016,6 +3326,10 @@ export const __test__ = {
   parseRawDiffZ,
   splitByPathCoverage,
   derivePathCoverage,
+  // 3b 维(2026-11-05):lost-commit tag 直接指向的提交也纳入逐路径覆盖
+  tagPointedCommitSet,
+  selectTagCoverageCandidates,
+  deriveTagBackupPathCoverage,
   // 时间窗量纲(2026-10-11):判据、取值、派生出口三者都必须可被测试直接消费,
   // 免得镜像那边再抄一份"cutoff = now - days*86400"的算术 —— 抄的那份不与源同步。
   WINDOW_DAYS_DEFAULT,
