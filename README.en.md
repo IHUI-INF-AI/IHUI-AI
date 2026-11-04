@@ -101,6 +101,10 @@ Headline claims (same source as the table below, all live-computed): **619 table
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-04**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (8e04ad552e)
+- 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (4cde28b4d4)
+
+**2026-11-04**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (dcd5d46c43)
 - 🐞 Fix:c-drive 默认即扫暂存区，无输入面不再空转报绿 (ce21ce2967)
 - 📚 Docs:门45 注释同步空暂存区=0 不适用 (d03d3421ab)
@@ -298,9 +302,6 @@ Headline claims (same source as the table below, all live-computed): **619 table
 
 **2026-11-03**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (3c9a00be72)
-
-**2026-11-03**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (f6d68d470b)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
