@@ -128,6 +128,46 @@ jobs:
           node scripts/sync-cross-end-cascade.mjs --json > cascade-preview.json && RC=0 || RC=$?
           echo "preview_rc=${RC}" >> "$GITHUB_OUTPUT"
 
+      - name: 提交并推送派生结果(门禁红也推进,避免死循环)
+        # 关键修正:无论门禁是否全绿都落地派生进度。门禁红只拦"合并",不拦"推进"。
+        # 全绿时带 [cross-end-auto] 哨兵标记,下一轮 push 自跳过;门禁红时不带标记,
+        # 下一轮 push 会再次触发继续派生,直到收敛(无变更 ⇒ 无 push ⇒ 链自然停)。
+        if: steps.can-write.outputs.can_write == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          git config user.name "ihui-cross-end-bot"
+          git config user.email "bot@ihui.top"
+          RC="${{ steps.apply.outputs.apply_rc }}"
+          # 只 stage 跨端派生可能改动的目录,绝不碰他人 WIP
+          git add apps/mobile-rn apps/miniapp-taro packages/design-tokens packages/ui-native packages/shared apps/web
+          if ! git diff --cached --quiet; then
+            MARK=""
+            if [[ "${RC}" == "0" ]]; then MARK=" ${AUTO_MARK}"; fi
+            git commit -m "chore(cross-end): auto-sync RN & miniapp from web${MARK}"
+          else
+            echo "无工作树派生变更"
+          fi
+          # 造页器(object-space-land)可能已把小程序页直接落进本地分支 HEAD,
+          # 即便没有工作树变更也要把本地领先远端的提交推上去,否则下一轮 checkout 会把进度吞掉。
+          TARGET="${{ github.head_ref || github.ref_name }}"
+          ORIGIN_TIP="$(git rev-parse "origin/${TARGET}" 2>/dev/null || echo none)"
+          if [[ "$(git rev-parse HEAD)" != "${ORIGIN_TIP}" ]]; then
+            if ! git push origin "HEAD:${TARGET}"; then
+              # main 受分支保护时退回开自动 PR
+              BR="cross-end-auto-${{ github.run_id }}"
+              git checkout -b "${BR}"
+              git push origin "${BR}"
+              gh pr create --title "chore(cross-end): auto-sync RN & miniapp" \
+                --body "由 cross-end-sync 工作流自动派生(web→RN→小程序),跨端门禁全绿。" \
+                --base "${TARGET}"
+            fi
+          else
+            echo "本地与远端同 tip,无需推送"
+          fi
+
       - name: 汇总报告(job summary)
         if: always()
         shell: bash
@@ -147,42 +187,15 @@ jobs:
             echo '</details>'
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: 门禁红则失败(不落地)
+      - name: 门禁红则失败(进度已落地,仅拦合并)
         if: steps.can-write.outputs.can_write == 'true'
         shell: bash
         run: |
           set -euo pipefail
           RC="${{ steps.apply.outputs.apply_rc }}"
           if [[ "${RC}" != "0" ]]; then
-            echo "::error::跨端门禁未全绿(退出码 ${RC}),自动落地已中止。请查看上方报告中的 red 段。"
+            echo "::error::跨端门禁未全绿(退出码 ${RC})。派生进度已自动落地并推送,下一轮会继续收敛;本检查仅拦合并,不拦推进。"
             exit "${RC}"
-          fi
-
-      - name: 提交并推送派生结果(全绿才落地)
-        if: steps.can-write.outputs.can_write == 'true' && steps.apply.outputs.apply_rc == '0'
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          git config user.name "ihui-cross-end-bot"
-          git config user.email "bot@ihui.top"
-          # 只 stage 跨端派生可能改动的目录,绝不碰他人 WIP
-          git add apps/mobile-rn apps/miniapp-taro packages/design-tokens packages/ui-native packages/shared apps/web
-          if git diff --cached --quiet; then
-            echo "无派生变更,无需提交"
-            exit 0
-          fi
-          git commit -m "chore(cross-end): auto-sync RN & miniapp from web ${AUTO_MARK}"
-          TARGET="${{ github.head_ref || github.ref_name }}"
-          if ! git push origin "HEAD:${TARGET}"; then
-            # main 受分支保护时退回开自动 PR
-            BR="cross-end-auto-${{ github.run_id }}"
-            git checkout -b "${BR}"
-            git push origin "${BR}"
-            gh pr create --title "chore(cross-end): auto-sync RN & miniapp" \
-              --body "由 cross-end-sync 工作流自动派生(web→RN→小程序),跨端门禁全绿。" \
-              --base "${TARGET}"
           fi
 
       - name: 上传产物(便于排查)
