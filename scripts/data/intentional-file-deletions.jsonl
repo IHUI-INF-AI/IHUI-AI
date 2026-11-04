@@ -1,0 +1,102 @@
+// 有意整文件删除通知书台账（唯一真相源:scripts/lib/intentional-file-deletion.mjs）
+//
+// 用途:healer(scripts/heal-worktree-tracked.mjs)每 2-6 分钟会把「工作树缺 + 索引==HEAD」
+// 的 tracked 文件当成"被外部删除"而 git restore 复活。凡**有意 rm** 掉的 tracked 文件,
+// 必须在此登记一行,否则下一轮会被拉回来(2026-11-04 实测:24 件孤儿副本清理每轮被复活)。
+//
+// 字段:
+//   path    必填,仓库相对路径,正斜杠
+//   reason  必填,>=10 字,写清为什么删(不写清就不算理由)
+//   until   可选,YYYY-MM-DD;到期自动失效,失效后 healer 恢复照旧
+//
+// 写入通道(不要手改,防格式漂移):
+//   node scripts/heal-worktree-tracked.mjs --declare-deletion <path>... --reason "<>=10字>" [--until YYYY-MM-DD]
+//   node scripts/heal-worktree-tracked.mjs --revoke-deletion <path>...
+//
+// 与 scripts/data/intentional-deletions.jsonl 的区别:那份是**逐行删除理由**(按行 sha256,
+// 服务守门 84 的回潮对账);本份是**整文件删除意图**(按 path,服务 healer 的复活判据)。
+{"path":"apps/miniapp-taro/probe-tmp/probe.tsx","reason":"Taro 小程序迁移后的孤儿副本与死 hook:barrel 已改指向新实现,零运行时 import"}
+{"path":"apps/miniapp-taro/src/components/Avatar.tsx","reason":"Taro 小程序迁移后的孤儿副本与死 hook:barrel 已改指向新实现,零运行时 import"}
+{"path":"apps/miniapp-taro/src/components/ColorfulLoader.tsx","reason":"Taro 小程序迁移后的孤儿副本与死 hook:barrel 已改指向新实现,零运行时 import"}
+{"path":"apps/miniapp-taro/src/components/ConfirmDialog.tsx","reason":"Taro 小程序迁移后的孤儿副本与死 hook:barrel 已改指向新实现,零运行时 import"}
+{"path":"apps/miniapp-taro/src/components/CountdownTimer.tsx","reason":"Taro 小程序迁移后的孤儿副本与死 hook:barrel 已改指向新实现,零运行时 import"}
+{"path":"apps/miniapp-taro/src/components/CourseCatalog.tsx","reason":"Taro 小程序迁移后的孤儿副本与死 hook:barrel 已改指向新实现,零运行时 import"}
+{"path":"apps/miniapp-taro/src/components/EmptyIllustration.tsx","reason":"Taro 小程序迁移后的孤儿副本与死 hook:barrel 已改指向新实现,零运行时 import"}
+{"path":"apps/miniapp-taro/src/components/FilterDropdown.tsx","reason":"Taro 小程序迁移后的孤儿副本与死 hook:barrel 已改指向新实现,零运行时 import"}
+{"path":"apps/miniapp-taro/src/components/InteractionMessage.tsx","reason":"Taro 小程序迁移后的孤儿副本与死 hook:barrel 已改指向新实现,零运行时 import"}
+{"path":"apps/miniapp-taro/src/components/InvitePoster.tsx","reason":"Taro 小程序迁移后的孤儿副本与死 hook:barrel 已改指向新实现,零运行时 import"}
+{"path":"apps/miniapp-taro/src/components/LevelBadge.tsx","reason":"Taro 小程序迁移后的孤儿副本与死 hook:barrel 已改指向新实现,零运行时 import"}
+{"path":"apps/miniapp-taro/src/components/LoadingSpinner.tsx","reason":"Taro 小程序迁移后的孤儿副本与死 hook:barrel 已改指向新实现,零运行时 import"}
+{"path":"apps/miniapp-taro/src/components/RetryButton.tsx","reason":"Taro 小程序迁移后的孤儿副本与死 hook:barrel 已改指向新实现,零运行时 import"}
+{"path":"apps/miniapp-taro/src/components/SkeletonCard.tsx","reason":"Taro 小程序迁移后的孤儿副本与死 hook:barrel 已改指向新实现,零运行时 import"}
+{"path":"apps/miniapp-taro/src/components/TagInput.tsx","reason":"Taro 小程序迁移后的孤儿副本与死 hook:barrel 已改指向新实现,零运行时 import"}
+{"path":"apps/miniapp-taro/src/components/TeamManager.tsx","reason":"Taro 小程序迁移后的孤儿副本与死 hook:barrel 已改指向新实现,零运行时 import"}
+{"path":"apps/miniapp-taro/src/components/TitleSwitchOverlap.tsx","reason":"Taro 小程序迁移后的孤儿副本与死 hook:barrel 已改指向新实现,零运行时 import"}
+{"path":"apps/miniapp-taro/src/components/TitleSwitchScrollPicker.tsx","reason":"Taro 小程序迁移后的孤儿副本与死 hook:barrel 已改指向新实现,零运行时 import"}
+{"path":"apps/miniapp-taro/src/components/TitleSwitchTypeBar.css","reason":"Taro 小程序迁移后的孤儿副本与死 hook:barrel 已改指向新实现,零运行时 import"}
+{"path":"apps/miniapp-taro/src/components/TitleSwitchTypeBar.tsx","reason":"Taro 小程序迁移后的孤儿副本与死 hook:barrel 已改指向新实现,零运行时 import"}
+{"path":"apps/miniapp-taro/src/components/Toast.tsx","reason":"Taro 小程序迁移后的孤儿副本与死 hook:barrel 已改指向新实现,零运行时 import"}
+{"path":"apps/miniapp-taro/src/components/Tooltip.tsx","reason":"Taro 小程序迁移后的孤儿副本与死 hook:barrel 已改指向新实现,零运行时 import"}
+{"path":"apps/miniapp-taro/src/components/VerifyCodeModal.tsx","reason":"Taro 小程序迁移后的孤儿副本与死 hook:barrel 已改指向新实现,零运行时 import"}
+{"path":"apps/miniapp-taro/src/components/VipUpgradeToast.tsx","reason":"Taro 小程序迁移后的孤儿副本与死 hook:barrel 已改指向新实现,零运行时 import"}
+{"path":"apps/miniapp-taro/src/components/WithdrawalRecords.tsx","reason":"Taro 小程序迁移后的孤儿副本与死 hook:barrel 已改指向新实现,零运行时 import"}
+{"path":"apps/miniapp-taro/src/hooks/use-load-more.ts","reason":"Taro 小程序迁移后的孤儿副本与死 hook:barrel 已改指向新实现,零运行时 import"}
+{"path":"apps/miniapp-taro/src/hooks/use-pagination.ts","reason":"Taro 小程序迁移后的孤儿副本与死 hook:barrel 已改指向新实现,零运行时 import"}
+{"path":"apps/miniapp-taro/src/pages/exam/wrong-list/header.tsx","reason":"Taro 小程序迁移后的孤儿副本与死 hook:barrel 已改指向新实现,零运行时 import"}
+{"path":"apps/miniapp-taro/src/pkg-ai/ai/permission-stamp.ts","reason":"Taro 小程序迁移后的孤儿副本与死 hook:barrel 已改指向新实现,零运行时 import"}
+{"path":"apps/miniapp-taro/src/pkg-content/news/news-mapper.ts","reason":"Taro 小程序迁移后的孤儿副本与死 hook:barrel 已改指向新实现,零运行时 import"}
+{"path":"apps/miniapp-taro/src/pkg-content/news/news-state.tsx","reason":"Taro 小程序迁移后的孤儿副本与死 hook:barrel 已改指向新实现,零运行时 import"}
+{"path":"apps/miniapp-taro/src/pkg-learn/live/detail-sections.tsx","reason":"Taro 小程序迁移后的孤儿副本与死 hook:barrel 已改指向新实现,零运行时 import"}
+{"path":"apps/miniapp-taro/src/pkg-shop/token/token-balance-card.tsx","reason":"Taro 小程序迁移后的孤儿副本与死 hook:barrel 已改指向新实现,零运行时 import"}
+{"path":"apps/miniapp-taro/src/pkg-shop/token/token-filter-bar.tsx","reason":"Taro 小程序迁移后的孤儿副本与死 hook:barrel 已改指向新实现,零运行时 import"}
+{"path":"apps/miniapp-taro/src/pkg-shop/token/token-packages.tsx","reason":"Taro 小程序迁移后的孤儿副本与死 hook:barrel 已改指向新实现,零运行时 import"}
+{"path":"apps/miniapp-taro/src/pkg-shop/token/token-record.tsx","reason":"Taro 小程序迁移后的孤儿副本与死 hook:barrel 已改指向新实现,零运行时 import"}
+{"path":"apps/miniapp-taro/src/pkg-shop/wallet/commission/income-item.tsx","reason":"Taro 小程序迁移后的孤儿副本与死 hook:barrel 已改指向新实现,零运行时 import"}
+{"path":"apps/miniapp-taro/src/pkg-user/favorites/tabs.ts","reason":"Taro 小程序迁移后的孤儿副本与死 hook:barrel 已改指向新实现,零运行时 import"}
+{"path":"apps/miniapp-taro/src/utils/doubao-voice-api.ts","reason":"Taro 小程序迁移后的孤儿副本与死 hook:barrel 已改指向新实现,零运行时 import"}
+{"path":"apps/miniapp-taro/src/utils/file-utils.ts","reason":"Taro 小程序迁移后的孤儿副本与死 hook:barrel 已改指向新实现,零运行时 import"}
+{"path":"apps/miniapp-taro/src/utils/keyboard-height.ts","reason":"Taro 小程序迁移后的孤儿副本与死 hook:barrel 已改指向新实现,零运行时 import"}
+{"path":"apps/miniapp-taro/src/utils/push.ts","reason":"Taro 小程序迁移后的孤儿副本与死 hook:barrel 已改指向新实现,零运行时 import"}
+{"path":"apps/web/app/(main)/download/[platform]/DownloadAssetCard.tsx","reason":"Web 端零消费死代码与 plugins-data 本地副本(真源在 packages),构建期零引用"}
+{"path":"apps/web/app/(main)/download/[platform]/DownloadDetailHeader.tsx","reason":"Web 端零消费死代码与 plugins-data 本地副本(真源在 packages),构建期零引用"}
+{"path":"apps/web/app/(main)/download/[platform]/InstallGuideContent.tsx","reason":"Web 端零消费死代码与 plugins-data 本地副本(真源在 packages),构建期零引用"}
+{"path":"apps/web/app/(main)/plugins/plugins-data/market-plugins-parts/part-1.ts","reason":"Web 端零消费死代码与 plugins-data 本地副本(真源在 packages),构建期零引用"}
+{"path":"apps/web/app/(main)/plugins/plugins-data/market-plugins-parts/part-10.ts","reason":"Web 端零消费死代码与 plugins-data 本地副本(真源在 packages),构建期零引用"}
+{"path":"apps/web/app/(main)/plugins/plugins-data/market-plugins-parts/part-11.ts","reason":"Web 端零消费死代码与 plugins-data 本地副本(真源在 packages),构建期零引用"}
+{"path":"apps/web/app/(main)/plugins/plugins-data/market-plugins-parts/part-2.ts","reason":"Web 端零消费死代码与 plugins-data 本地副本(真源在 packages),构建期零引用"}
+{"path":"apps/web/app/(main)/plugins/plugins-data/market-plugins-parts/part-3.ts","reason":"Web 端零消费死代码与 plugins-data 本地副本(真源在 packages),构建期零引用"}
+{"path":"apps/web/app/(main)/plugins/plugins-data/market-plugins-parts/part-4.ts","reason":"Web 端零消费死代码与 plugins-data 本地副本(真源在 packages),构建期零引用"}
+{"path":"apps/web/app/(main)/plugins/plugins-data/market-plugins-parts/part-5.ts","reason":"Web 端零消费死代码与 plugins-data 本地副本(真源在 packages),构建期零引用"}
+{"path":"apps/web/app/(main)/plugins/plugins-data/market-plugins-parts/part-6.ts","reason":"Web 端零消费死代码与 plugins-data 本地副本(真源在 packages),构建期零引用"}
+{"path":"apps/web/app/(main)/plugins/plugins-data/market-plugins-parts/part-7.ts","reason":"Web 端零消费死代码与 plugins-data 本地副本(真源在 packages),构建期零引用"}
+{"path":"apps/web/app/(main)/plugins/plugins-data/market-plugins-parts/part-8.ts","reason":"Web 端零消费死代码与 plugins-data 本地副本(真源在 packages),构建期零引用"}
+{"path":"apps/web/app/(main)/plugins/plugins-data/market-plugins-parts/part-9.ts","reason":"Web 端零消费死代码与 plugins-data 本地副本(真源在 packages),构建期零引用"}
+{"path":"apps/web/app/(main)/plugins/plugins-data/market-plugins.ts","reason":"Web 端零消费死代码与 plugins-data 本地副本(真源在 packages),构建期零引用"}
+{"path":"apps/web/app/(main)/plugins/plugins-data/project-plugins.ts","reason":"Web 端零消费死代码与 plugins-data 本地副本(真源在 packages),构建期零引用"}
+{"path":"apps/web/app/(main)/plugins/plugins-data/types.ts","reason":"Web 端零消费死代码与 plugins-data 本地副本(真源在 packages),构建期零引用"}
+{"path":"apps/web/e2e/tagsview-debug.ts","reason":"Web 端零消费死代码与 plugins-data 本地副本(真源在 packages),构建期零引用"}
+{"path":"apps/web/src/components/admin/AdminFilterBar.tsx","reason":"Web 端零消费死代码与 plugins-data 本地副本(真源在 packages),构建期零引用"}
+{"path":"apps/web/src/components/ai/chat-search-bar.tsx","reason":"Web 端零消费死代码与 plugins-data 本地副本(真源在 packages),构建期零引用"}
+{"path":"apps/web/src/components/ai/progress-sections/agent-actions-card.tsx","reason":"Web 端零消费死代码与 plugins-data 本地副本(真源在 packages),构建期零引用"}
+{"path":"apps/web/src/components/ai/voice-input.tsx","reason":"Web 端零消费死代码与 plugins-data 本地副本(真源在 packages),构建期零引用"}
+{"path":"apps/web/src/components/ai/voice-record.tsx","reason":"Web 端零消费死代码与 plugins-data 本地副本(真源在 packages),构建期零引用"}
+{"path":"apps/web/src/components/media/UnifiedViewer.tsx","reason":"Web 端零消费死代码与 plugins-data 本地副本(真源在 packages),构建期零引用"}
+{"path":"apps/web/src/components/rules/rules-api.ts","reason":"Web 端零消费死代码与 plugins-data 本地副本(真源在 packages),构建期零引用"}
+{"path":"apps/web/src/lib/error-messages.ts","reason":"Web 端零消费死代码与 plugins-data 本地副本(真源在 packages),构建期零引用"}
+{"path":"apps/mobile-rn/src/api/payment.ts","reason":"mobile-rn 迁移遗留:已由 RN 新架构替代,零运行时 import,无页面或路由引用"}
+{"path":"apps/mobile-rn/src/api/plugin.ts","reason":"mobile-rn 迁移遗留:已由 RN 新架构替代,零运行时 import,无页面或路由引用"}
+{"path":"apps/mobile-rn/src/components/CardWithList.tsx","reason":"mobile-rn 迁移遗留:已由 RN 新架构替代,零运行时 import,无页面或路由引用"}
+{"path":"apps/mobile-rn/src/components/Menu.tsx","reason":"mobile-rn 迁移遗留:已由 RN 新架构替代,零运行时 import,无页面或路由引用"}
+{"path":"apps/mobile-rn/src/components/TaskApprovalCard.tsx","reason":"mobile-rn 迁移遗留:已由 RN 新架构替代,零运行时 import,无页面或路由引用"}
+{"path":"apps/mobile-rn/src/components/UpdatePromptGate.tsx","reason":"mobile-rn 迁移遗留:已由 RN 新架构替代,零运行时 import,无页面或路由引用"}
+{"path":"apps/mobile-rn/src/components/common/Default.tsx","reason":"mobile-rn 迁移遗留:已由 RN 新架构替代,零运行时 import,无页面或路由引用"}
+{"path":"apps/mobile-rn/src/hooks/use-paginated-list.ts","reason":"mobile-rn 迁移遗留:已由 RN 新架构替代,零运行时 import,无页面或路由引用"}
+{"path":"apps/mobile-rn/src/hooks/use-screenshot.ts","reason":"mobile-rn 迁移遗留:已由 RN 新架构替代,零运行时 import,无页面或路由引用"}
+{"path":"apps/mobile-rn/src/screens/LegalDocsHubScreen.tsx","reason":"mobile-rn 迁移遗留:已由 RN 新架构替代,零运行时 import,无页面或路由引用"}
+{"path":"apps/mobile-rn/src/utils/doubao-voice-api.ts","reason":"mobile-rn 迁移遗留:已由 RN 新架构替代,零运行时 import,无页面或路由引用"}
+{"path":"packages/app/src/features/model-edit/model-edit-save.ts","reason":"packages 内零消费残留:消费方已迁走,knip 判定零引用且无生成器输入钉"}
+{"path":"packages/database/src/schema/chat-sync-rev.ts","reason":"packages 内零消费残留:消费方已迁走,knip 判定零引用且无生成器输入钉"}
+{"path":"packages/shared/src/share/share-intent.tsx","reason":"packages 内零消费残留:消费方已迁走,knip 判定零引用且无生成器输入钉"}
+{"path":"packages/ui-react/src/lib/artifact-preview.ts","reason":"packages 内零消费残留:消费方已迁走,knip 判定零引用且无生成器输入钉"}
+{"path":"apps/api/src/services/clawdbot/card-converter.ts","reason":"迁移后零消费文件:同层替代实现已接管,全仓无运行时引用与字符串路由"}
+{"path":"apps/desktop/src/lib/approval-card.ts","reason":"迁移后零消费文件:同层替代实现已接管,全仓无运行时引用与字符串路由"}
