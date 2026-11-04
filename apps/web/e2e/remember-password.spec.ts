@@ -55,12 +55,10 @@ async function openLoginDialog(page: Page) {
   // 如果协议通知弹窗打开了,关闭它
   const disagreeBtn = page.getByTestId('agreement-notice-disagree')
   if (await disagreeBtn.isVisible({ timeout: 500 }).catch(() => false)) {
-    const dbox = await disagreeBtn.boundingBox()
-    if (dbox) {
-      await page.mouse.move(dbox.x + dbox.width / 2, dbox.y + dbox.height / 2)
-      await page.mouse.down()
-      await page.mouse.up()
-    }
+    // 2026-11-04:原写法先 boundingBox 再用鼠标坐标点屏幕,CI 上 gaming 动画未收敛时
+    // boundingBox 会一直等到用例级 30s 超时(flaky 根因)。改为作用在元素自身的强制点击,
+    // 与同文件 switchToPasswordTab 的既有修法同源。
+    await disagreeBtn.click({ force: true })
     await page.waitForTimeout(300)
   }
 }

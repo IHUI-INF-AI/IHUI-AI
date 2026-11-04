@@ -242,6 +242,9 @@ test.describe('AI panel env-info (重构后)', () => {
       test.skip(true, '环境信息弹窗 header 未提供完整详情按钮,跳过')
       return
     }
+    // 2026-11-04:弹窗由溢出菜单项打开,菜单退场动画期间首个 click 会被遮罩吞掉
+    // (实测 CI:data-state=closed 一直等到用例级超时)。等菜单真正退场再点,不加时/不加 retry。
+    await expect(overflowMenu(authenticatedPage)).toBeHidden({ timeout: 10_000 })
     await viewFullBtn.click()
 
     // 完整详情 Modal 打开:env-full-close 按钮(Modal 渲染标志)
