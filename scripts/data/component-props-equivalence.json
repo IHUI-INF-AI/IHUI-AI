@@ -298,7 +298,7 @@
       "rationale": "同一资料编辑入口:RN 弹层内编辑(onEdit),小程序跳资料页(onClick→goProfile);点位不同,语义同源。",
       "evidence": {
         "rn": "apps/mobile-rn/src/components/UserInfoCard.tsx:100",
-        "mini": "apps/miniapp-taro/src/components/UserInfoCard.tsx:130"
+        "mini": "apps/miniapp-taro/src/components/UserInfoCard.tsx:116"
       }
     },
     {
@@ -310,7 +310,7 @@
       "rationale": "同一充值动作:RN onRecharge(跳 Wallet) ↔ 小程序 onWallet(跳智汇值余额/充值页)。",
       "evidence": {
         "rn": "apps/mobile-rn/src/components/UserInfoCard.tsx:101",
-        "mini": "apps/miniapp-taro/src/components/UserInfoCard.tsx:102"
+        "mini": "apps/miniapp-taro/src/components/UserInfoCard.tsx:90"
       }
     },
     {
@@ -322,7 +322,7 @@
       "rationale": "同一等级介绍入口:RN onLevelIntro(等级 Modal/介绍) ↔ 小程序 onOpenLevel(等级介绍页)。",
       "evidence": {
         "rn": "apps/mobile-rn/src/components/UserInfoCard.tsx:111",
-        "mini": "apps/miniapp-taro/src/components/UserInfoCard.tsx:110"
+        "mini": "apps/miniapp-taro/src/components/UserInfoCard.tsx:98"
       }
     },
     {

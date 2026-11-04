@@ -674,6 +674,7 @@ export function ProfileScreen() {
                     onLogin={() => rootNav?.navigate('Login')}
                     onUnsubscribe={() => setUnsubscribeVisible(true)}
                     onLevelIntro={() => setLevelIntroVisible(true)}
+                    onOpenVip={() => rootNav?.navigate('VipTrader')}
                   />
                   {/* 等级介绍按钮(对齐 Uniapp level-intro popup,UserInfoCard 内部仅有简化等级 Modal,
                       此处为完整 3 级体系介绍入口) */}
