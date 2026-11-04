@@ -19,7 +19,10 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { createHash, createPrivateKey, type KeyObject } from 'node:crypto';
 
+import { getCapability, validateExtensionManifest, type ApiKeyPermission } from '@ihui/types';
+
 import {
+  createExtensionManifestGate,
   generateExpertPack,
   discoverInstalledSkillSources,
   getDefaultSkillInstallRoot,
@@ -28,6 +31,14 @@ import {
   uninstallSkillPackage,
   verifySkillPackage,
 } from '../skills/packaging/index.js';
+
+/**
+ * 技能安装授权面:直接委托声明式扩展 manifest 校验器(单一 schema 来源),
+ * 权限 scope 走 capability-catalog 已登记索引,未登记即拒。
+ */
+const extensionManifestGate = createExtensionManifestGate(validateExtensionManifest, {
+  isRegisteredScope: (scope) => getCapability(scope as ApiKeyPermission) !== undefined,
+});
 
 interface PackageOptions {
   trustedKeys?: string;
@@ -88,6 +99,7 @@ export function registerSkillPackageCommands(skillsCmd: Command): void {
         const result = installSkillPackage(packagePath, {
           trustedKeysPath: options.trustedKeys,
           installRoot: options.installRoot,
+          manifestGate: extensionManifestGate,
         });
         if (options.json) {
           printJson(result);
@@ -107,7 +119,10 @@ export function registerSkillPackageCommands(skillsCmd: Command): void {
     .option('--trusted-keys <path>', 'trustedKeys JSON (default: ~/.ihui/skill-trusted-keys.json)')
     .option('--json', 'machine-readable result')
     .action((packagePath: string, options: PackageOptions) => {
-      const result = verifySkillPackage(packagePath, { trustedKeysPath: options.trustedKeys });
+      const result = verifySkillPackage(packagePath, {
+        trustedKeysPath: options.trustedKeys,
+        manifestGate: extensionManifestGate,
+      });
       if (options.json) {
         printJson(result);
       } else {
@@ -175,9 +190,13 @@ export function registerSkillPackageCommands(skillsCmd: Command): void {
           signingKey: loadSigningKey(options.signingKey),
           keyId: options.keyId,
           outputPath: path.resolve(options.output),
+          manifestGate: extensionManifestGate,
         });
         const verification = options.trustedKeys
-          ? verifySkillPackage(generated.outputPath, { trustedKeysPath: options.trustedKeys })
+          ? verifySkillPackage(generated.outputPath, {
+              trustedKeysPath: options.trustedKeys,
+              manifestGate: extensionManifestGate,
+            })
           : undefined;
         const payload = {
           ok: generated.ok && (verification?.ok ?? true),
