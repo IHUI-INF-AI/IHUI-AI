@@ -408,8 +408,7 @@
     "totalRecharge": "累計チャージ",
     "totalWithdraw": "累計出金",
     "withdraw": "出金",
-    "points": "トークン",
-    "rechargeSuccess": "チャージ"
+    "points": "トークン"
   },
   "community": {
     "posts": "投稿",
@@ -691,8 +690,6 @@
       "agentTipTitle": "エージェント使用ガイド"
     },
     "chatDrawers": {
-      "emptyMaterial": "素材がありません",
-      "materialLibrary": "素材ライブラリ",
       "promptLabel": "プロンプト",
       "selectModel": "モデルを選択",
       "skillDetail": "スキル詳細"
@@ -1292,7 +1289,6 @@
     "questions": "{n} 問",
     "passScore": "合格点",
     "totalScore": "総得点",
-    "passed": "合格",
     "result": {
       "scoreValue": "{n} 点",
       "rankValue": "{total} 人中 {n} 位",
@@ -1486,7 +1482,6 @@
     "withdrawable": "引出可能",
     "pendingSettle": "決済待ち",
     "withdrawn": "引出済み",
-    "myTeam": "マイチーム",
     "columnTitle": "流通注文",
     "retry": "再試行",
     "empty": "データなし",
@@ -2556,7 +2551,6 @@
     "startConversation": "会話を始めましょう",
     "inputPlaceholder": "メッセージを入力...",
     "sendBtn": "送信",
-    "noInteraction": "メッセージなし",
     "noPrivate": "DMなし",
     "noSystem": "通知なし",
     "pin": "会話を固定",
@@ -2846,10 +2840,7 @@
   },
   "token": {
     "balance": {
-      "title": "マイトークン",
-      "agentConsume": "エージェント消費",
-      "ordersConsume": "大規模モデル消費",
-      "costTime": "消費時間:"
+      "title": "マイトークン"
     }
   },
   "user": {
@@ -2940,8 +2931,6 @@
       "phoneInvalid": "無効な電話番号",
       "codeSendFailed": "コード送信失敗",
       "bindSuccess": "電話番号登録成功",
-      "codePlaceholder": "コード入力",
-      "getCode": "コード取得",
       "bind": "登録",
       "currentLabel": "現在の電話番号",
       "codeSent": "認証コードを送信しました",
@@ -3289,7 +3278,6 @@
     "noCover": "表紙なし",
     "watched": "視聴済み",
     "playing": "再生中",
-    "courseCatalog": "コース目次",
     "empty": "章はまだありません"
   },
   "video": {
@@ -3316,20 +3304,13 @@
     "signNow": "今すぐチェックイン +5ポイント",
     "signedToday": "本日チェックイン済み"
   },
-  "withdrawal": {
-    "records": "引出記録"
-  },
   "intro": {
     "empty": "紹介なし",
     "relatedAI": "関連AIアプリ"
   },
   "invite": {
     "title": "友達招待",
-    "qrcode": "QRコード",
-    "code": "招待コード:",
     "saveImage": "画像保存",
-    "shareNow": "今すぐ共有",
-    "inviteSuffix": "あなたを招待します",
     "inviteCode": "招待コード",
     "totalInvited": "累計招待",
     "totalReward": "累計報酬",
@@ -3434,28 +3415,6 @@
     "resendCode": "再送",
     "termsOfService": "利用規約",
     "loginFailed": "ログインに失敗しました。再試行"
-  },
-  "level": {
-    "0": "初心者",
-    "1": "ブロンズ",
-    "2": "シルバー",
-    "3": "ゴールド",
-    "4": "プラチナ",
-    "5": "ダイヤモンド",
-    "6": "キング",
-    "distance": "あと"
-  },
-  "interaction": {
-    "collect": "私をコレクションしました",
-    "comment": "私にコメントしました",
-    "follow": "私をフォローしました",
-    "like": "私に「いいね」しました"
-  },
-  "planet": {
-    "empty": "プラネットはまだありません",
-    "join": "プラネットに参加",
-    "joined": "参加済み",
-    "members": "メンバー"
   },
   "chat": {
     "approvalExpiredNotice": "接続が切断されたため {toolName} の承認は失効しました。この操作は実行されていません。必要なら再度リクエストしてください。",
@@ -3874,21 +3833,8 @@
     "d2": "万能",
     "text1": "エージェントモード"
   },
-  "TitleSwitchScrollPicker": {
-    "d1": "トラック1",
-    "d2": "トラック2",
-    "d3": "トラック3",
-    "d4": "トラック4",
-    "d5": "トラック5",
-    "d6": "トラック6",
-    "d7": "トラック7",
-    "d8": "トラック8"
-  },
   "PhoneAreaCodePicker": {
     "d1": "中国"
-  },
-  "WithdrawalRecords": {
-    "d1": "却下済み"
   },
   "askCreate": {
     "d1": "技術",
@@ -3929,13 +3875,6 @@
     "d2": "月額",
     "d3": "購入済み"
   },
-  "TitleSwitchOverlap": {
-    "d1": "トラック1",
-    "d2": "トラック2",
-    "d3": "トラック3",
-    "d4": "トラック4",
-    "d5": "トラック5"
-  },
   "TitleSwitchScrollTitle": {
     "d1": "トラック1",
     "d2": "サブトラック 1-1",
@@ -3960,11 +3899,6 @@
     "rank": "ランキング",
     "studyHours": "学習時間",
     "levelDesc": "レベル"
-  },
-  "EmptyIllustration": {
-    "d1": "関連コンテンツが見つかりません",
-    "d2": "ネットワーク異常",
-    "d3": "権限がありません"
   },
   "SystemNotice": {
     "d1": "アップグレード"
@@ -4005,10 +3939,6 @@
     "d4": "エージェントはどう出品するか?",
     "d5": "n8nエージェント"
   },
-  "tokenBalance": {
-    "d1": "1ヶ月",
-    "d2": "直近1年"
-  },
   "LessonListItem": {
     "text1": "VIP限定",
     "text2": "VIP限定",
@@ -4021,12 +3951,6 @@
   "UserInfoCard": {
     "login1": "ワンタップログイン",
     "text2": "退会"
-  },
-  "TitleSwitchTypeBar": {
-    "text1": "カスタム",
-    "settings2": "カスタム種類を設定してください",
-    "confirm": "確定",
-    "m1": "種類を入力"
   },
   "adaptersSelectertaro": {
     "text1": "SD 480p",
@@ -4090,12 +4014,8 @@
   },
   "tail": {
     "6": "データなし",
-    "7": "再試行",
     "8": "読み込み中...",
-    "10": "出金記録なし",
     "11": "選択モデル: {m}",
-    "12": "認証コードを {m} に送信しました",
-    "13": "{m}に参加",
     "14": "興味のあるトラックを選択してパーソナライズされたおすすめを取得",
     "15": "デフォルトモデル",
     "17": "有料 ¥{m}",
@@ -4125,12 +4045,6 @@
   "ErrorView": {
     "p1": "後でもう一度お試しください"
   },
-  "FilterDropdown": {
-    "p1": "フィルター"
-  },
-  "InvitePoster": {
-    "p1": "友達を招待して現金報酬を獲得"
-  },
   "ModelTypeButtonGroup": {
     "m1": "スキル",
     "m2": "音声",
@@ -4139,13 +4053,6 @@
   "QrCodeShare": {
     "p1": "ポスターを共有",
     "p2": "スキャンして閲覧"
-  },
-  "TagInput": {
-    "p1": "Enter で追加",
-    "p2": "上限に達しました"
-  },
-  "VipUpgradeToast": {
-    "p1": "会員にアップグレードして機能を解放"
   },
   "aicareer": {
     "q1": "面接",
@@ -4198,9 +4105,6 @@
     "q2": "WeChatミニプログラムでWeChatログインを使用してください",
     "q3": "WeChatログインコードが空です",
     "q4": "WeChatユーザー"
-  },
-  "TeamManager": {
-    "p1": "非アクティブ"
   },
   "VideoInfo": {
     "p1": "動画詳細"
@@ -4378,18 +4282,6 @@
     "n8nShareFail": "共有に失敗しました",
     "n8nGenBadge": "AI生成 消費ポイント:",
     "n8nHoldToTalk": "長押しで質問を話す"
-  },
-  "verify": {
-    "phoneEmpty": "電話番号が入力されていません",
-    "phoneInvalid": "正しい電話番号を入力してください",
-    "codeSent": "認証コードを送信しました",
-    "codeIncomplete": "認証コードをすべて入力してください",
-    "verifySuccess": "認証に成功しました",
-    "getCode": "認証コードを入力してください"
-  },
-  "VerifyCodeModal": {
-    "p2": "再送信",
-    "p3": "認証中..."
   },
   "VoiceInput": {
     "p1": "録音を開始できませんでした"
@@ -5215,9 +5107,7 @@
     "empty": "コースはまだありません",
     "free": "無料",
     "studentCount": "{count} 人が学習",
-    "nextPage": "次のページ",
-    "popular": "人気コース",
-    "unknownInstructor": "不明な講師"
+    "nextPage": "次のページ"
   },
   "customerService": {
     "title": "カスタマーサポートに連絡",
@@ -7097,16 +6987,7 @@
     "receiveFreeBody": "リンクをコピーしました。ブラウザに貼り付けて開けます"
   },
   "career": {
-    "fillField": "入力してください：{name}",
-    "submitFail": "送信に失敗しました。後で再試行",
-    "doneTitle": "送信完了",
-    "doneBody": "アンケート送信済み。AI 学習プランはこのページに表示されます.",
     "exportingReport": "エクスポート中...",
-    "exportEmptyHint": "レポート生成後にエクスポートできます",
-    "exportLoginRequired": "エクスポートするにはログインしてください"
-  },
-  "learnMapPage": {
-    "completed": "完了",
-    "empty": "学習パスがありません"
+    "exportEmptyHint": "レポート生成後にエクスポートできます"
   }
 }
