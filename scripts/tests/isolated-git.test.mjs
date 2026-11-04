@@ -21,7 +21,13 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
-import { INDEX_DIR_NAME, __test__ as iso } from '../isolated-git.mjs'
+import {
+  INDEX_DIR_NAME,
+  childEnv,
+  restoreIndexFromSnapshot,
+  takeIndexSnapshot,
+  __test__ as iso,
+} from '../isolated-git.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const SCRIPT = resolve(HERE, '..', 'isolated-git.mjs')
@@ -410,17 +416,18 @@ test('⑥ 单元:命名唯一、只按死 pid/超龄 sweep、子进程 env 剥 G
   }
 })
 
-test('⑦ 共享索引里有别人的 staged 内容时,本通道一个字节都不覆盖', () => {
+test('⑦ 共享索引里有别人的 staged 内容时:别人的条目一字不动,本单路径只做路径级推进(不留 MM/AD)', () => {
   const dir = makeRepo('iso-git-dirty-')
   try {
     writeFileSync(join(dir, 'c.txt'), 'c1\n')
     git(dir, ['add', '--', 'c.txt']) // 模拟另一席已 staged 的活
-    const before = indexDigest(dir)
+    const cBlobBefore = git(dir, ['rev-parse', ':c.txt']).stdout.trim()
     writeFileSync(join(dir, 'a.txt'), 'a-dirty\n')
+    writeFileSync(join(dir, 'n.txt'), 'n-new\n')
 
     const r = spawnSync(
       process.execPath,
-      [SCRIPT, '-C', dir, 'commit', '-m', 't7', '--', 'a.txt'],
+      [SCRIPT, '-C', dir, 'commit', '-m', 't7', '--', 'a.txt', 'n.txt'],
       {
         cwd: dir,
         env: cleanEnv(),
@@ -430,15 +437,35 @@ test('⑦ 共享索引里有别人的 staged 内容时,本通道一个字节都�
       },
     )
     assert.equal(r.status, 0, `提交应成功: ${r.stderr}`)
-    assert.equal(indexDigest(dir), before, '共享索引不干净时不得 CAS 覆盖别人的 staged')
+    // 别人的 staged 必须原样保留(内容的 blob 与状态都一字不改)
     assert.equal(
-      git(dir, ['ls-files', '--stage', '--', 'c.txt']).stdout.includes('c.txt'),
-      true,
-      '别人的 staged 必须原样保留',
+      git(dir, ['rev-parse', ':c.txt']).stdout.trim(),
+      cBlobBefore,
+      '别人的 staged 内容不得被覆盖',
     )
     assert.equal(
-      git(dir, ['show', '--name-only', '--format=', 'HEAD']).stdout.trim(),
-      'a.txt',
+      git(dir, ['status', '--short', '--', 'c.txt']).stdout.trim(),
+      'A  c.txt',
+      '别人的 staged 必须仍是 staged(A)',
+    )
+    // 本单路径只做路径级推进:提交落地后共享索引里就该是新 HEAD 的内容,不留反向暂存
+    assert.equal(
+      git(dir, ['status', '--short', '--', 'a.txt', 'n.txt']).stdout.trim(),
+      '',
+      '本单路径不得留 MM/AD 反向暂存(否则下一条裸 commit 会把本次提交改回去)',
+    )
+    assert.equal(
+      git(dir, ['ls-files', '--stage', '--', 'n.txt']).stdout.includes('n.txt'),
+      true,
+      '本单新增文件必须进共享索引(否则是 AD 残留)',
+    )
+    assert.equal(
+      git(dir, ['show', '--name-only', '--format=', 'HEAD'])
+        .stdout.trim()
+        .split(/\r?\n/)
+        .sort()
+        .join(','),
+      'a.txt,n.txt',
       '载荷仍只含声明集',
     )
   } finally {
@@ -552,7 +579,7 @@ test('⑩ 护栏③ 钩子往声明集外塞条目:拒绝提交,HEAD 不动', ()
     const r = runIso(dir, ['commit', '-m', 'guard-extra', '--', 'a.txt'])
     assert.notEqual(r.status, 0, '声明集外条目必须拒绝提交')
     assert.equal(minor(dir), before, '被拒绝时不得产生提交')
-    assert.match(r.stderr, /声明集之外塞入了索引条目/, '拒绝理由必须可见')
+    assert.match(r.stderr, /声明集(?:\(含派生申报集\))?之外塞入了索引条目/, '拒绝理由必须可见')
     assert.match(r.stderr, /extra\.txt/, '必须点名被塞入的路径')
     assert.deepEqual(isolatedFiles(dir), [], '拒绝路径也不得留下索引/快照')
   } finally {
@@ -615,6 +642,116 @@ test('⑪ 护栏④ 复原后索引与快照逐条相等(blob/mode 断言),提�
       '落地提交的 b.txt blob 必须等于快照',
     )
     assert.match(r.stderr, /a\.txt: 快照 .* → 钩子后 .*/s, '逐条复原必须留痕')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('⑫ 空路径集不列举整个索引(私有索引护栏 ENOBUFS 回归)', () => {
+  // 旧实现把空路径直接交给 `git ls-files -s -z --`;git 的空 pathspec = 列举全索引,
+  // 本仓输出 >1MB ⇒ spawnSync 默认 maxBuffer 触发 ENOBUFS,无派生产物的每次提交都被
+  // 私有索引护栏判成"复原失败"。空集必须在不触达 git 的情况下直接返回 []。
+  assert.deepEqual(iso.lsEntries({ gitCwd: 'Z:\\__no_such_repo__', env: {} }, []), [])
+})
+
+// ─── 大索引回归(2026-11-04):ENOBUFS 的两个入口都走同一个 `lsEntries` ──────────
+// 入口①:派生集为空 ⇒ `lsEntries(ctx, [])`(派生命中外层 / 复原臂复核)。
+// 入口②:派生集非空但索引漂移 ⇒ 复原臂先写 index,再复核(同样落到上面的空集调用之外)。
+// 旧实现把空数组直接拼成 `git ls-files -s -z --` ⇒ git 列举**整个索引** ⇒ 本仓
+// 18,972 条 / 1,872,503 字节挤爆 spawnSync 默认 1MiB maxBuffer ⇒ ENOBUFS。
+const BIG_ENTRIES = 20000
+
+/** 造一个大到足以越过 spawnSync 默认 maxBuffer 的索引(20k 条 ≈ 1.3MB 输出)。 */
+function makeBigRepo(prefix = 'iso-git-big-') {
+  const dir = makeRepo(prefix)
+  const blob = git(dir, ['rev-parse', 'HEAD:a.txt']).stdout.trim()
+  const lines = []
+  for (let i = 0; i < BIG_ENTRIES; i += 1) {
+    lines.push(`100644 ${blob} 0\tbig/f${String(i).padStart(5, '0')}.txt`)
+  }
+  git(dir, ['update-index', '--index-info'], {
+    input: `${lines.join('\n')}\n`,
+    stdio: ['pipe', 'pipe', 'pipe'],
+  })
+  const tree = git(dir, ['write-tree']).stdout.trim()
+  const base = git(dir, ['rev-parse', 'HEAD']).stdout.trim()
+  const big = git(dir, ['commit-tree', tree, '-p', base, '-m', 'big-index']).stdout.trim()
+  git(dir, ['update-ref', 'refs/heads/main', big])
+  return { dir, blob }
+}
+
+/** 私有索引(不碰仓的默认索引),以 HEAD 为基。 */
+function bigIndexEnv(dir, name) {
+  const env = childEnv(join(dir, '.git', `${name}.idx`), cleanEnv())
+  git(dir, ['read-tree', 'HEAD'], { env })
+  return env
+}
+
+const quietLog = { error() {} }
+
+test('⑬ 空派生集:大索引上不列举全索引,复原复核正常返回(ENOBUFS 回归)', () => {
+  const { dir } = makeBigRepo('iso-git-big-empty-')
+  try {
+    const env = bigIndexEnv(dir, 'iso-empty')
+    const raw = spawnSync('git', ['-c', 'core.quotepath=false', 'ls-files', '-s', '-z', '--'], {
+      cwd: dir,
+      env,
+      encoding: 'buffer',
+      maxBuffer: 64 * 1024 * 1024,
+    })
+    assert.ok(
+      raw.stdout.length > 1024 * 1024,
+      `夹具索引输出必须超过 1MiB,实际 ${raw.stdout.length}`,
+    )
+    const snapshot = takeIndexSnapshot({ gitCwd: dir, env, paths: ['a.txt'] })
+    assert.equal(snapshot.entries.length, 1, '快照只应含声明路径')
+    const r = restoreIndexFromSnapshot({ gitCwd: dir, env, snapshot, derived: [], log: quietLog })
+    assert.deepEqual(r.extras, [])
+    assert.equal(r.still.length, 0)
+    assert.equal(r.derivedViolations.length, 0)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('⑭ 派生集非空 + 索引漂移:复原臂真跑一次也不 ENOBUFS,仍按快照复原', () => {
+  const { dir, blob } = makeBigRepo('iso-git-big-drift-')
+  try {
+    const env = bigIndexEnv(dir, 'iso-drift')
+    const snapshot = takeIndexSnapshot({ gitCwd: dir, env, paths: ['a.txt'] })
+    const otherBlob = git(dir, ['rev-parse', 'HEAD:b.txt']).stdout.trim()
+    git(dir, ['update-index', '--cacheinfo', `100644,${otherBlob},a.txt`], { env })
+    const r = restoreIndexFromSnapshot({
+      gitCwd: dir,
+      env,
+      snapshot,
+      derived: [{ path: 'big/f00000.txt', blob }],
+      log: quietLog,
+    })
+    assert.equal(r.restored, 1, '漂移必须被复原一次')
+    assert.equal(r.still.length, 0)
+    assert.equal(r.derivedViolations.length, 0)
+    assert.deepEqual(r.extras, [])
+    assert.ok(
+      git(dir, ['ls-files', '-s', '--', 'a.txt'], { env })
+        .stdout.trim()
+        .startsWith(`100644 ${blob} 0`),
+      '复原后的 a.txt 必须回到快照 blob',
+    )
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('⑮ 空派生集 + 污染条目:语义不退化,仍拒绝并点名', () => {
+  const { dir } = makeBigRepo('iso-git-big-pollute-')
+  try {
+    const env = bigIndexEnv(dir, 'iso-pollute')
+    const snapshot = takeIndexSnapshot({ gitCwd: dir, env, paths: ['a.txt'] })
+    const otherBlob = git(dir, ['rev-parse', 'HEAD:b.txt']).stdout.trim()
+    git(dir, ['update-index', '--add', '--cacheinfo', `100644,${otherBlob},rogue.txt`], { env })
+    const r = restoreIndexFromSnapshot({ gitCwd: dir, env, snapshot, derived: [], log: quietLog })
+    assert.deepEqual(r.extras, ['rogue.txt'], '声明集外条目必须被捕获')
   } finally {
     rmScratch(dir)
   }
