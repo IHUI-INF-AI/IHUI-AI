@@ -141,8 +141,13 @@ async function openLoginDialog(
   // 海外 geo 下不弹,guard 跳过。
   const autoAgreementDisagree = page.getByTestId('agreement-notice-disagree')
   if (await autoAgreementDisagree.isVisible().catch(() => false)) {
-    await autoAgreementDisagree.click()
-    await expect(autoAgreementDisagree).toBeHidden({ timeout: 2000 })
+    // 2026-11-04 CI flaky 根因(login-enter-submit:144):isVisible 是瞬时快照,
+    // 国内 geo 的协议窗会在快照之后被自动收起/重挂,回到 click 时元素已不存在
+    // (报错原文 waiting for getByTestId('agreement-notice-disagree'))。
+    // 收口:click 用有界等待(3s,短于默认),元素已消失即视为目的达成;
+    // 随后仍以 toBeHidden 断言兜底 —— 若点击真失败且窗口还在,这里会红,不吞真错。
+    await autoAgreementDisagree.click({ timeout: 3000 }).catch(() => {})
+    await expect(autoAgreementDisagree).toBeHidden({ timeout: 3000 })
   }
 
   await page.getByTestId(tabTestId).click()
