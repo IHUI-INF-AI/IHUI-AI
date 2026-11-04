@@ -6139,6 +6139,143 @@ const checks = [
       '',
     ].join('\n'),
   },
+  // --- R3 should-wire 批:最低风险 5 枚(2026-11-04 接线) ---
+  // 挑选口径:无外部前置 / 不联网 / 不依赖时间窗 / 不写生产盘;且判据自身已支持 --staged 索引面。
+  // 面板四道里的 check-panel-datasource-wiring 因 --self-test S5b 在 HEAD 存量上就红(legacy
+  // */grafana/dashboards 树)而让位给 check-db-row-narrow-cas —— 不为了让门变绿改判据或放宽断言。
+  {
+    id: '293',
+    label: '📏 计划台账单行长度(delta ratchet:只判本次新增的超长行)',
+    script: 'check-plan-row-length.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_PLAN_ROW_LENGTH',
+    stagedTriggers: [
+      'PROJECT_PLAN.md',
+      'scripts/check-plan-row-length.mjs',
+      'scripts/lib/plan-task-index.mjs',
+    ],
+    onFailHint: [
+      '',
+      '  💡 PROJECT_PLAN.md 的表格/正文行必须保持单行原子性:一条任务一行。',
+      '     新增行超长 ⇒ 把长句拆成多行或缩短描述,不要改判据阈值。',
+      '     复验:node scripts/check-plan-row-length.mjs --staged',
+      '     自检:node scripts/check-plan-row-length.mjs --self-test',
+      '',
+    ].join('\n'),
+  },
+  {
+    id: '294',
+    label: '📊 大屏指标名对账(G1 差值棘轮:只拦本次把幽灵名加回来)',
+    script: 'check-panel-metric-exists.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_PANEL_METRIC_EXISTS',
+    stagedTriggers: [
+      'monitoring/panel-defs/panels/',
+      'deploy/observability/panel-defs/panels/',
+      'deploy/saas/panel-defs/panels/',
+      'apps/ai-service/app/',
+      'apps/api/src/',
+      'packages/',
+      'monitoring/alertbridge/',
+      'scripts/data/panel-external-metrics.json',
+      'scripts/check-panel-metric-exists.mjs',
+    ],
+    onFailHint: [
+      '',
+      '  💡 大屏 expr 引用的指标名必须在代码发射点 / 核心指标 / 带到期的第三方台账里找得到。',
+      '     存量幽灵名只报数;本次新增幽灵名 ⇒ 补发射点或登记台账(带 expires),不要删查询了事。',
+      '     复验:node scripts/check-panel-metric-exists.mjs --staged',
+      '     自检:node scripts/check-panel-metric-exists.mjs --self-test',
+      '     跳过:HUSKY_SKIP_PANEL_METRIC_EXISTS=1',
+      '',
+    ].join('\n'),
+  },
+  {
+    id: '295',
+    label: '➖ 分隔线单侧形态(禁止双边 hairline 拼线)',
+    script: 'check-hairline-separator.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_HAIRLINE_SEPARATOR',
+    stagedTriggers: ['apps/', 'packages/', 'scripts/check-hairline-separator.mjs'],
+    onFailHint: [
+      '',
+      '  💡 分隔线只允许单侧 hairline(border-t/border-b 择一),不得两边同时画。',
+      '     存量只报数、新增才拦;新代码按单侧写。',
+      '     复验:node scripts/check-hairline-separator.mjs --staged',
+      '     自检:node scripts/check-hairline-separator.mjs --self-test',
+      '',
+    ].join('\n'),
+  },
+  {
+    id: '296',
+    label: '🔁 重试回调别名(禁止 onBack/onRefresh/undefined 冒充 onRetry)',
+    script: 'check-retry-aliases.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_RETRY_ALIASES',
+    stagedTriggers: [
+      'packages/app/src/features/',
+      'apps/mobile-rn/src/screens/',
+      'scripts/check-retry-aliases.mjs',
+      'scripts/check-cross-end-screen-coverage.mjs',
+      'scripts/check-rn-host-shell-coverage.mjs',
+    ],
+    onFailHint: [
+      '',
+      '  💡 onRetry 必须绑定真重试回调;别名(onBack / onRefresh / onLoadMore / undefined / null)',
+      '     会把失败路径静默吞掉。共享屏与 RN 壳要同笔接上同一回调。',
+      '     复验:node scripts/check-retry-aliases.mjs --staged',
+      '',
+    ].join('\n'),
+  },
+  {
+    id: '297',
+    label: '🔐 权限放宽租约化(带到期 + 唯一放行出口)',
+    script: 'check-permission-lease-bounded.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_PERMISSION_LEASE_BOUNDED',
+    stagedTriggers: [
+      'apps/cli/src/',
+      'packages/',
+      'scripts/check-permission-lease-bounded.mjs',
+    ],
+    onFailHint: [
+      '',
+      '  💡 权限放宽必须租约化:grantPermissionLease 调用点同笔带 (expiresAt|ttlMs) 与',
+      '     (expiresAfterTurns|maxCalls);引用租约符号的文件不得自写 \'ask\' 比较式放行。',
+      '     唯一出口 = apps/cli/src/tools/permissions.ts 的 applyLeaseToDecision。',
+      '     复验:node scripts/check-permission-lease-bounded.mjs --staged',
+      '     自检:node scripts/check-permission-lease-bounded.mjs --self-test',
+      '',
+    ].join('\n'),
+  },
+  // 编号 298:旧 blob 回写守门(本侧独有;上游 293-297 已被 R3 五枚判据占用,按现读最大 + 1 顺延)。
+  // 有意回滚须提交正文写 `intentional-revert: <依据>`(≥8 字符),留痕
+  // .ihui-agent/state/intentional-revert.jsonl;无声明一律红。
+  {
+    id: '298',
+    label:
+      '🧊 旧 blob 回写守门(blocking:暂存内容逐字等于该路径祖先 blob 而 HEAD 已有更新档 ⇒ 拦提交;有意回滚须写 intentional-revert: 依据)',
+    script: 'check-staged-downgrade.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: ['**/*'],
+    skipEnv: 'HUSKY_SKIP_STALE_DOWNGRADE',
+    onFailHint: [
+      '  💡 红 = 有人把旧检出档搬回暂存区(内容与某枚祖先提交的 blob 逐字相同,HEAD 已有新版本)。',
+      '     先看点名里的「祖先 sha」:git show <祖先sha> -- <路径> 对比 HEAD;改法是从 HEAD 形态重做本次编辑',
+      '     (git restore --source=HEAD -- <文件> 后重改),不要保留旧档。',
+      '  💡 确属有意回滚:提交正文写一行 `intentional-revert: <依据>`(≥8 字符),本门放行并留痕',
+      '     .ihui-agent/state/intentional-revert.jsonl。',
+      '     取证:node scripts/check-staged-downgrade.mjs --self-test(6 例:远/近祖先回写、合法回滚、新内容、无暂存、空口声明)',
+      '     镜像:node --test scripts/tests/check-staged-downgrade.test.mjs',
+      '     应急放行:HUSKY_SKIP_STALE_DOWNGRADE=1 git commit ...(不推荐;跳过会留痕)',
+    ].join('\n'),
+  },
   // --- info (1 项) ---
   {
     id: '23',
@@ -6619,10 +6756,14 @@ const checks = [
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_ROOT_GUARD_CONSISTENCY',
     // 射程 = 清单本体 + 清单登记的每一个 target + 门体自身:漏一个就等于给那一路开后门。
+    // 2026-11-04 补 scripts/git-guardian.mjs:此前巡检本体不在射程里 ⇒ 改它(不重 seal)在本门
+    // 结构上永不触发,只能等部署侧 root-guard --check 红;它已是清单 target,补上即"改则必审封条",
+    // 不存在误伤面(正常改它本就该同笔重封,否则 --check 必红)。
     stagedTriggers: [
       'scripts/data/root-guard-manifest.json',
       'scripts/guardian-runner.mjs',
       'scripts/lib/judgement-libs.json',
+      'scripts/git-guardian.mjs',
       'AGENTS.md',
       'scripts/check-root-guard-consistency.mjs',
       'scripts/root-guard.mjs',
@@ -6777,8 +6918,12 @@ const checks = [
   //   - 其他工作树脏 / 有 stash ⇒ 只告警不阻断(并行会话的在飞 WIP 不得让本树恒红);
   //   - 主工作树**残量**(未暂存/未跟踪/冲突/stash)⇒ 阻断;主树 staged = 本次提交内容,不计脏。
   // 收尾核验(要连 staged 一起判)走严格模式:node scripts/check-worktree-status.mjs。
+  // 编号 285(2026-11-03 让号):本条原登记为 282,与 43fe135510(11-03 01:37)先占的
+  // `check-web-rn-gap-ratchet.mjs` 撞号 ⇒ 门 89 R5 判红(同 id 两道门会串 skipEnv 与失败归属);
+  // 在册口径是「后来者必须改号」,后到的是本条(119c860fc8,11-03 08:32),故本条让号、那一支不动。
+  // 取号按「注册前现读」:数值 id 现读最大 284,285..300 全空 ⇒ 落 285。判据/档位/skipEnv 一字未动。
   {
-    id: '282',
+    id: '285',
     label: '📚 文档中心公开面健康对账(blocking;D1 hreflang 声明↔路由文件存在 / D2 sitemap 收录↔路由 / D3 docs 的 icon 字段禁 emoji)',
     script: 'check-docs-public-health.mjs',
     args: ['--staged'],
@@ -6800,6 +6945,35 @@ const checks = [
       '  💡 应急放行:HUSKY_SKIP_DOCS_PUBLIC_HEALTH=1 git commit ...(不推荐;跳过会留痕)',
     ],
   },
+  // 编号 286(2026-11-03 让号):本条在本地面原登记为 282,与 43fe135510(11-03 01:37)先占的
+  // `check-web-rn-gap-ratchet.mjs` 撞号 ⇒ 门 89 R5(同 id 登记两门)判红。在册口径是「后来者必须
+  // 改号」,后到的是本条,故本条让号;取号按「注册前现读」:数值 id 现读最大 285,286..300 全空
+  // ⇒ 落 286。判据/档位/skipEnv/射程一字未动,只改编号与这段取号留痕。
+  // 立因(2026-11-03):把 alerts-ai.yml 的指标名改成 `..._totl`,promtool/reload/status/config
+  // 全绿、lastError 空,规则从此静默永不触发。本门把规则里的指标名与 Prometheus
+  // `/api/v1/label/__name__/values` + `/api/v1/series`(默认 24h)对账,打错/从未产生/样本过期
+  // 三态任一命中即 exit 1。直接跑:node scripts/check-metric-existence.mjs
+  // 为什么是 warn 而不是 blocking:判据依赖本机 Prometheus(8815→9090),机器没起时只能退到
+  // 静态清单;把机器态升成 blocking 会变成"Prometheus 没起就谁也提交不了"的恒红门(§12e)。
+  {
+    id: '286',
+    label: '📊 告警/记录规则指标存在性(打错/从未产生/样本过期 ⇒ 非零退出;warn)',
+    script: 'check-metric-existence.mjs',
+    // pre-commit 门审的是**暂存内容**:默认 HEAD 面会漏掉本次暂存进来的规则改动
+    args: ['--staged'],
+    mode: 'warn',
+    stagedTriggers: ['monitoring/', 'scripts/data/metric-existence-exemptions.json'],
+    skipEnv: 'HUSKY_SKIP_METRIC_EXISTENCE',
+    onFailHint: [
+      '  💡 先看输出里的三态:打错(最近已知名 + 编辑距离)/ 从未产生 / 样本过期。',
+      '     直接跑:node scripts/check-metric-existence.mjs(有 Prometheus 时按真实名字与 24h 序列判)',
+      '     没有 Prometheus 时退到静态清单(代码声明 + exporter 前缀台账 + recording 输出)。',
+      '     合法零样本(事件型计数器无 0 基线)只能登记在 scripts/data/metric-existence-exemptions.json:',
+      '     硬验发射点仍在 + up{job}==1,到期/空挂/发射点改名都会判红 —— 它不是"忽略"。',
+      '     自检:node --test scripts/tests/check-metric-existence.test.mjs(现读例数)',
+      '  💡 应急放行:HUSKY_SKIP_METRIC_EXISTENCE=1 git commit ...(须在提交信息写明理由)',
+    ].join('\n'),
+  },
   {
     id: '281',
     label: '🌳 全工作树未提交状态(blocking;主树残量阻断,其他工作树脏只告警)',
@@ -6816,10 +6990,10 @@ const checks = [
       '     自检:node --test scripts/tests/check-worktree-status.test.mjs(5 例)',
     ].join('\n'),
   },
-  // 编号 286:原为 282,与文档中心公开面健康门(119c860fc8)撞号;285 已由同批入库的 props 对账门
-  // 占用 ⇒ 本门顺延 286,取号规则仍为「现读最大 + 1」。
+  // 编号 289:原为 282,与文档中心公开面健康门(119c860fc8)撞号;285 被正号 docs 门占、286 被正号指标门占、
+  // 288 给同批 props 对账门 ⇒ 本门顺延 289,取号规则仍为「现读最大 + 1」。
   {
-    id: '286',
+    id: '289',
     label:
       '📏 web↔RN 覆盖缺口棘轮(blocking;unmapped/judgedGap/prefixHits/prefixExpired/data.kind 任一退化拦提交)',
     script: 'check-web-rn-gap-ratchet.mjs',
@@ -6858,7 +7032,8 @@ const checks = [
       '  💡 单独复验:node scripts/check-rn-host-shell-coverage.mjs [--gate|--json]。缺口两条正路:① 补 RN 壳(node scripts/gen-rn-host-shell.mjs --all --write);② 在 scripts/data/rn-host-shell-manual.json 逐条认领(owner + expires + reason)。挂账到期即判红,禁止为消红批量伪造认领。',
   },
   {
-    id: '285',
+    id: '288',
+    // 285 与正号 docs 公开面门撞号、286 与正号指标门撞号 ⇒ 本门(及下方 gap-ratchet)按现读最大 +1 顺延。
     label:
       '🦾 两端同名组件 props 行为对账(blocking,差值棘轮:同名配对组件的 props 键集/必选性只减不增 —— 缺腿是静默失效型,调用端传过去本端无声忽略)',
     script: 'check-cross-end-component-props-parity.mjs',
@@ -6874,7 +7049,6 @@ const checks = [
       'scripts/lib/component-props-parity.mjs',
       'scripts/data/cross-end-props-parity-baseline.json',
       'scripts/data/component-props-equivalence.json',
-      'scripts/data/cross-end-props-judged.json',
       'scripts/lib/cross-end-screen-props.mjs',
     ],
     onFailHint:
@@ -6989,40 +7163,13 @@ const checks = [
       '     应急放行:HUSKY_SKIP_WEB_RN_COPY_PARITY=1 git commit ...(不推荐;跳过会留痕)',
     ].join('\n'),
   },
-  // 编号 292:旧 blob 回写守门(2026-11-03 立;判据见 check-staged-downgrade.mjs 头注)。
-  // 立因(实测):guardian 的 sweepUiMirrorLeg → gen-ui-mirror --apply 把 RN 壳未 token 化的
-  // 绑定声明当权威,30 分钟一轮把小程序已 token 化声明覆盖回祖先版本;4 组件
-  // (Badge/Input/Tooltip/VipBadge)整 blob 逐字等于 766687c346^ / ec9802df54^,随后被收编/并行
-  // 会话 git add 进共享索引。30c 只认 merge-base 之前的基线祖先,84 的 R1 只看行级 ⇒ 两者都漏
-  // "回退到父提交/近几枚提交旧档"这一格。本门整 blob 逐字判,红了点路径+祖先提交+HEAD oid。
-  // 合法回滚的唯一出口:提交正文写 `intentional-revert: <依据>`(≥8 字符)⇒ 放行并留痕
-  // .ihui-agent/state/intentional-revert.jsonl;无声明一律红。
-  {
-    id: '292',
-    label:
-      '🧊 旧 blob 回写守门(blocking:暂存内容逐字等于该路径祖先 blob 而 HEAD 已有更新档 ⇒ 拦提交;有意回滚须写 intentional-revert: 依据)',
-    script: 'check-staged-downgrade.mjs',
-    args: [],
-    mode: 'blocking',
-    stagedTriggers: ['**/*'],
-    skipEnv: 'HUSKY_SKIP_STALE_DOWNGRADE',
-    onFailHint: [
-      '  💡 红 = 有人把旧检出档搬回暂存区(内容与某枚祖先提交的 blob 逐字相同,HEAD 已有新版本)。',
-      '     先看点名里的「祖先 sha」:git show <祖先sha> -- <路径> 对比 HEAD;改法是从 HEAD 形态重做本次编辑',
-      '     (git restore --source=HEAD -- <文件> 后重改),不要保留旧档。',
-      '  💡 确属有意回滚:提交正文写一行 `intentional-revert: <依据>`(≥8 字符),本门放行并留痕',
-      '     .ihui-agent/state/intentional-revert.jsonl。',
-      '     取证:node scripts/check-staged-downgrade.mjs --self-test(6 例:远/近祖先回写、合法回滚、新内容、无暂存、空口声明)',
-      '     镜像:node --test scripts/tests/check-staged-downgrade.test.mjs',
-      '     应急放行:HUSKY_SKIP_STALE_DOWNGRADE=1 git commit ...(不推荐;跳过会留痕)',
-    ].join('\n'),
-  },
-  // 编号 289:台账 deferred@ 到期判据(2026-11-03 立;判据见脚本头注)。deferred 日当天放行,
+  // 编号 292:台账 deferred@ 到期判据(2026-11-03 立;判据见脚本头注)。并入 origin/main 时原号 289
+  // 与既有 gap-ratchet 撞号,按现读最大 +1 顺延为 292。deferred 日当天放行,
   // 次日起红;--grace N 把红线顺延 N 天。台账/侧车取不到或 marker 日期非法 ⇒ exit 2,不记绿。
   // 射程写 ['**/*'](= 任何提交都跑):到期与本次暂存了哪些文件无关;只在碰台账/文档时才跑
   // 就退回"靠人记",而留空在两通道上语义相反(门 262 明令必须显式声明)。
   {
-    id: '289',
+    id: '292',
     label: '📆 台账 deferred@ 到期判据(blocking:到期未复评即红,逐条点名 行号|编号|日期|owner)',
     script: 'check-plan-deferred-expiry.mjs',
     args: [],
@@ -7036,213 +7183,6 @@ const checks = [
       '     镜像:node --test scripts/tests/check-plan-deferred-expiry.test.mjs',
       '     应急放行:HUSKY_SKIP_PLAN_DEFERRED_EXPIRY=1 git commit ...(不推荐;跳过会留痕)',
     ].join('\n'),
-  },
-  {
-    id: '293',
-    label: '📏 计划台账单行长度(delta ratchet:只判本次新增的超长行)',
-    script: 'check-plan-row-length.mjs',
-    args: [],
-    mode: 'blocking',
-    skipEnv: 'HUSKY_SKIP_PLAN_ROW_LENGTH',
-    stagedTriggers: [
-      'PROJECT_PLAN.md',
-      'scripts/check-plan-row-length.mjs',
-      'scripts/lib/plan-task-index.mjs',
-    ],
-    onFailHint: [
-      '',
-      '  💡 PROJECT_PLAN.md 的表格/正文行必须保持单行原子性:一条任务一行。',
-      '     新增行超长 ⇒ 把长句拆成多行或缩短描述,不要改判据阈值。',
-      '     复验:node scripts/check-plan-row-length.mjs --staged',
-      '     自检:node scripts/check-plan-row-length.mjs --self-test',
-      '',
-    ].join('\n'),
-  },
-  {
-    id: '294',
-    label: '📊 大屏指标名对账(G1 差值棘轮:只拦本次把幽灵名加回来)',
-    script: 'check-panel-metric-exists.mjs',
-    args: [],
-    mode: 'blocking',
-    skipEnv: 'HUSKY_SKIP_PANEL_METRIC_EXISTS',
-    stagedTriggers: [
-      'monitoring/panel-defs/panels/',
-      'deploy/observability/panel-defs/panels/',
-      'deploy/saas/panel-defs/panels/',
-      'apps/ai-service/app/',
-      'apps/api/src/',
-      'packages/',
-      'monitoring/alertbridge/',
-      'scripts/data/panel-external-metrics.json',
-      'scripts/check-panel-metric-exists.mjs',
-    ],
-    onFailHint: [
-      '',
-      '  💡 大屏 expr 引用的指标名必须在代码发射点 / 核心指标 / 带到期的第三方台账里找得到。',
-      '     存量幽灵名只报数;本次新增幽灵名 ⇒ 补发射点或登记台账(带 expires),不要删查询了事。',
-      '     复验:node scripts/check-panel-metric-exists.mjs --staged',
-      '     自检:node scripts/check-panel-metric-exists.mjs --self-test',
-      '     跳过:HUSKY_SKIP_PANEL_METRIC_EXISTS=1',
-      '',
-    ].join('\n'),
-  },
-  {
-    id: '294',
-    label: '📊 大屏指标名对账(G1 差值棘轮:只拦本次把幽灵名加回来)',
-    script: 'check-panel-metric-exists.mjs',
-    args: [],
-    mode: 'blocking',
-    skipEnv: 'HUSKY_SKIP_PANEL_METRIC_EXISTS',
-    stagedTriggers: [
-      'monitoring/panel-defs/panels/',
-      'deploy/observability/panel-defs/panels/',
-      'deploy/saas/panel-defs/panels/',
-      'apps/ai-service/app/',
-      'apps/api/src/',
-      'packages/',
-      'monitoring/alertbridge/',
-      'scripts/data/panel-external-metrics.json',
-      'scripts/check-panel-metric-exists.mjs',
-    ],
-    onFailHint: [
-      '',
-      '  💡 大屏 expr 引用的指标名必须在代码发射点 / 核心指标 / 带到期的第三方台账里找得到。',
-      '     存量幽灵名只报数;本次新增幽灵名 ⇒ 补发射点或登记台账(带 expires),不要删查询了事。',
-      '     复验:node scripts/check-panel-metric-exists.mjs --staged',
-      '     自检:node scripts/check-panel-metric-exists.mjs --self-test',
-      '     跳过:HUSKY_SKIP_PANEL_METRIC_EXISTS=1',
-      '',
-    ].join('\n'),
-  },
-  {
-    id: '295',
-    label: '➖ 分隔线单侧形态(禁止双边 hairline 拼线)',
-    script: 'check-hairline-separator.mjs',
-    args: [],
-    mode: 'blocking',
-    skipEnv: 'HUSKY_SKIP_HAIRLINE_SEPARATOR',
-    stagedTriggers: ['apps/', 'packages/', 'scripts/check-hairline-separator.mjs'],
-    onFailHint: [
-      '',
-      '  💡 分隔线只允许单侧 hairline(border-t/border-b 择一),不得两边同时画。',
-      '     存量只报数、新增才拦;新代码按单侧写。',
-      '     复验:node scripts/check-hairline-separator.mjs --staged',
-      '     自检:node scripts/check-hairline-separator.mjs --self-test',
-      '',
-    ].join('\n'),
-  },
-  {
-    id: '295',
-    label: '➖ 分隔线单侧形态(禁止双边 hairline 拼线)',
-    script: 'check-hairline-separator.mjs',
-    args: [],
-    mode: 'blocking',
-    skipEnv: 'HUSKY_SKIP_HAIRLINE_SEPARATOR',
-    stagedTriggers: ['apps/', 'packages/', 'scripts/check-hairline-separator.mjs'],
-    onFailHint: [
-      '',
-      '  💡 分隔线只允许单侧 hairline(border-t/border-b 择一),不得两边同时画。',
-      '     存量只报数、新增才拦;新代码按单侧写。',
-      '     复验:node scripts/check-hairline-separator.mjs --staged',
-      '     自检:node scripts/check-hairline-separator.mjs --self-test',
-      '',
-    ].join('\n'),
-  },
-  {
-    id: '296',
-    label: '🔁 重试回调别名(禁止 onBack/onRefresh/undefined 冒充 onRetry)',
-    script: 'check-retry-aliases.mjs',
-    args: [],
-    mode: 'blocking',
-    skipEnv: 'HUSKY_SKIP_RETRY_ALIASES',
-    stagedTriggers: [
-      'packages/app/src/features/',
-      'apps/mobile-rn/src/screens/',
-      'scripts/check-retry-aliases.mjs',
-      'scripts/check-cross-end-screen-coverage.mjs',
-      'scripts/check-rn-host-shell-coverage.mjs',
-    ],
-    onFailHint: [
-      '',
-      '  💡 onRetry 必须绑定真重试回调;别名(onBack / onRefresh / onLoadMore / undefined / null)',
-      '     会把失败路径静默吞掉。共享屏与 RN 壳要同笔接上同一回调。',
-      '     复验:node scripts/check-retry-aliases.mjs --staged',
-      '',
-    ].join('\n'),
-  },
-  {
-    id: '296',
-    label: '🔁 重试回调别名(禁止 onBack/onRefresh/undefined 冒充 onRetry)',
-    script: 'check-retry-aliases.mjs',
-    args: [],
-    mode: 'blocking',
-    skipEnv: 'HUSKY_SKIP_RETRY_ALIASES',
-    stagedTriggers: [
-      'packages/app/src/features/',
-      'apps/mobile-rn/src/screens/',
-      'scripts/check-retry-aliases.mjs',
-      'scripts/check-cross-end-screen-coverage.mjs',
-      'scripts/check-rn-host-shell-coverage.mjs',
-    ],
-    onFailHint: [
-      '',
-      '  💡 onRetry 必须绑定真重试回调;别名(onBack / onRefresh / onLoadMore / undefined / null)',
-      '     会把失败路径静默吞掉。共享屏与 RN 壳要同笔接上同一回调。',
-      '     复验:node scripts/check-retry-aliases.mjs --staged',
-      '',
-    ].join('\n'),
-  },
-  {
-    id: '297',
-    label: '🔐 权限放宽租约化(带到期 + 唯一放行出口)',
-    script: 'check-permission-lease-bounded.mjs',
-    args: [],
-    mode: 'blocking',
-    skipEnv: 'HUSKY_SKIP_PERMISSION_LEASE_BOUNDED',
-    stagedTriggers: [
-      'apps/cli/src/',
-      'packages/',
-      'scripts/check-permission-lease-bounded.mjs',
-    ],
-    onFailHint: [
-      '',
-      '  💡 权限放宽必须租约化:grantPermissionLease 调用点同笔带 (expiresAt|ttlMs) 与',
-      '     (expiresAfterTurns|maxCalls);引用租约符号的文件不得自写 \'ask\' 比较式放行。',
-      '     唯一出口 = apps/cli/src/tools/permissions.ts 的 applyLeaseToDecision。',
-      '     复验:node scripts/check-permission-lease-bounded.mjs --staged',
-      '     自检:node scripts/check-permission-lease-bounded.mjs --self-test',
-      '',
-    ].join('\n'),
-  },
-  {
-    id: '297',
-    label: '🔐 权限放宽租约化(带到期 + 唯一放行出口)',
-    script: 'check-permission-lease-bounded.mjs',
-    args: [],
-    mode: 'blocking',
-    skipEnv: 'HUSKY_SKIP_PERMISSION_LEASE_BOUNDED',
-    stagedTriggers: [
-      'apps/cli/src/',
-      'packages/',
-      'scripts/check-permission-lease-bounded.mjs',
-    ],
-    onFailHint: [
-      '',
-      '  💡 权限放宽必须租约化:grantPermissionLease 调用点同笔带 (expiresAt|ttlMs) 与',
-      '     (expiresAfterTurns|maxCalls);引用租约符号的文件不得自写 \'ask\' 比较式放行。',
-      '     唯一出口 = apps/cli/src/tools/permissions.ts 的 applyLeaseToDecision。',
-      '     复验:node scripts/check-permission-lease-bounded.mjs --staged',
-      '     自检:node scripts/check-permission-lease-bounded.mjs --self-test',
-      '',
-    ].join('\n'),
-  },
-  // --- info (1 项) ---
-  {
-    id: '23',
-    label: '📋 staged 文件清单(info)',
-    script: 'check-staged-files.mjs',
-    args: [],
-    mode: 'info',
   },
 ]
 
@@ -7312,6 +7252,30 @@ const pushGateChecks = [
       '     push 档只写工作区、不碰索引:inject 完仍红属正常(HEAD 面欠账只能由真正的提交销账)。',
       '     列出缺口:node scripts/watermark.mjs list-uncovered --files-from <清单>(清单即 PUSH_SCOPE_FILES)。',
       '     退出码 2 = 取不到判定面或 push scope 不可得时退回全量面,不是"没水印"。',
+      '',
+    ].join('\n'),
+  },
+  // 2026-11-04（中单：签名豁免）：判据面护栏此前只挂巡检游标档（auditImmutableGuardNewCommits），
+  // push 时一步都不判 ⇒ 未声明 / 仅文字理由的改动可以原样上 main（HEAD 1553af77 即实例）。
+  // 这里挂到 push 门：判**本次要推的每一枚**（origin/main..HEAD），红则整批不推。
+  // 不碰 .husky/pre-push 的 tag 分支（另一席在改）；只在本注册表里加一条 blocking。
+  {
+    id: 'IG',
+    label: '🧊  判据面不可变护栏(push 区间 origin/main..HEAD 逐枚判:未声明/签名缺失或验不过/清单到期 ⇒ 拦推)',
+    script: 'check-immutable-guard.mjs',
+    args: ['--range', 'origin/main..HEAD'],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_IMMUTABLE_GUARD',
+    onFailHint: [
+      '',
+      '  💡 判红三种形态:① 没有 immutable-exempt 理由;② 有理由但缺/验不过 immutable-exempt-sig;',
+      '     ③ 清单 reviewBy 到期。三种都不许"改判据让它变绿"。',
+      '  合法改法:先 `node scripts/check-immutable-guard.mjs --sign-staged --subject "<提交标题>"',
+      '     --reason "<与 immutable-exempt 同一句>" --paths <a,b,c>` 取签名行,再重写提交信息(会改 sha)。',
+      '  密钥来源(必须由 CI/机主注入,不在提交者可控范围):IHUI_IMMUTABLE_GUARD_KEY /',
+      '     IHUI_IMMUTABLE_GUARD_KEY_FILE / git config ihui.immutableGuardKeyPath。缺钥 ⇒ 一律判未豁免。',
+      '  迁移窗口:scripts/data/immutable-guard.json 的 signatureRequiredFrom(到期自动收紧,无静默放行)。',
+      '  单独复验:node scripts/check-immutable-guard.mjs --range origin/main..HEAD',
       '',
     ].join('\n'),
   },

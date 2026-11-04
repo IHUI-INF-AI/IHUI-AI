@@ -7,6 +7,7 @@
 import { Cpu, Download, HardDrive } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
+import { assetNameFromHref, isSafeAssetName } from '@/lib/desktop-download-leg'
 import { Card } from '@ihui/ui-react'
 import {
   formatFileSize,
@@ -29,6 +30,14 @@ export function DownloadAssetCard({
 }) {
   const trackDownload = useDownloadTrack()
   const isExternal = /^https?:/.test(asset.href)
+  // 桌面端的一击交同源解析器 `/dl/desktop`(按访客地域 302:国内且字节等值⇒Gitee,其余⇒GitHub 权威腿)。
+  // 判据全在服务端那一份(`lib/desktop-download-leg.ts` + `config/desktop-feed-live.ts`),这里只负责
+  // "文件名不合法 / 不是桌面端 ⇒ 原样直链",不在前端猜第二条腿,也不给小程序/RN 那两端换语义。
+  const assetName = platform === 'desktop' ? assetNameFromHref(asset.href) : ''
+  const legHref =
+    /^https?:/.test(asset.href) && assetName && isSafeAssetName(assetName)
+      ? `/dl/desktop?file=${encodeURIComponent(assetName)}`
+      : asset.href
   const sizeLabel = formatFileSize(asset.sizeBytes)
 
   return (
@@ -57,7 +66,7 @@ export function DownloadAssetCard({
         </div>
       </div>
       <a
-        href={asset.href}
+        href={legHref}
         target={isExternal ? '_blank' : undefined}
         rel={isExternal ? 'noopener noreferrer' : undefined}
         onClick={() => trackDownload(platform, 'detail_page', asset.href)}

@@ -4,11 +4,11 @@
 
  
 /**
- * 守门 285 镜像测试(§22c:判据只 import,不在此复刻一份;运行入口 node --test,与 scripts/tests 族一致)。
+ * 守门 288 镜像测试(§22c:判据只 import,不在此复刻一份;运行入口 node --test,与 scripts/tests 族一致)。
  * 覆盖:
  *  ① pairDelta 纯差集(含 INJECTABLE 豁免与必选性漂移形态)—— 生产判据 import lib;
  *  ② verifyAgainstBaseline 棘轮正反例(新键红/消键绿/新对带差红/undetermined warn/台账腐烂 warn);
- *  ③ 形状锁:guardian-runner 285 注册条目存在、blocking+skipEnv 成套、三件文件在场、stagedTriggers 覆盖族目录面。
+ *  ③ 形状锁:guardian-runner 288 注册条目存在、blocking+skipEnv 成套、三件文件在场、stagedTriggers 覆盖族目录面。
  */
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
@@ -27,7 +27,7 @@ const { verifyAgainstBaseline, buildBaselineEntry, validateEquivalence, validate
 const d = (name, extra = {}) => ({ name, state: 'ok', onlyRn: [], onlyMini: [], reqDrift: [], driftTotal: 0, ...extra })
 const mk = (name, optional = false) => ({ name, optional })
 
-describe('285 pairDelta(生产判据直用)', () => {
+describe('288 pairDelta(生产判据直用)', () => {
   it('共用键=无差;单侧独有键入 onlyRn/onlyMini;必选性不同入 reqDrift', () => {
     const rn = { state: 'ok', props: [mk('title'), mk('modal', true), mk('visible')] }
     const mini = { state: 'ok', props: [mk('title'), mk('modal'), mk('extra')] }
@@ -55,7 +55,7 @@ describe('285 pairDelta(生产判据直用)', () => {
   })
 })
 
-describe('285 台账棘轮 verifyAgainstBaseline(生产判据直用)', () => {
+describe('288 台账棘轮 verifyAgainstBaseline(生产判据直用)', () => {
   const base = {
     pairs: {
       Foo: { state: 'ok', onlyRn: ['onBar'], onlyMini: [], reqDrift: [] },
@@ -160,7 +160,7 @@ describe('285 台账棘轮 verifyAgainstBaseline(生产判据直用)', () => {
   })
 })
 
-describe('285 语义等价映射(生产判据直用)', () => {
+describe('288 语义等价映射(生产判据直用)', () => {
   const rn = { state: 'ok', props: [mk('title'), mk('label'), mk('onPress')] }
   const mini = { state: 'ok', props: [mk('title'), mk('labelKey'), mk('onTap')] }
   const eq = [
@@ -223,8 +223,8 @@ describe('285 语义等价映射(生产判据直用)', () => {
   })
 })
 
-describe('285 证据定位:按符号名解析(五种漂移情形)', () => {
-  const root = mkdtempSync(join(tmpdir(), 'gate285-evidence-'))
+describe('288 证据定位:按符号名解析(五种漂移情形)', () => {
+  const root = mkdtempSync(join(tmpdir(), 'gate288-evidence-'))
   const rel = 'apps/mobile-rn/src/components/Fixture.tsx'
   mkdirSync(join(root, 'apps/mobile-rn/src/components'), { recursive: true })
   const write = (lines) => writeFileSync(join(root, rel), lines.join('\n'))
@@ -276,9 +276,9 @@ describe('285 证据定位:按符号名解析(五种漂移情形)', () => {
   })
 })
 
-describe('285 逐键 judged 桶(生产判据直用)', () => {
+describe('288 逐键 judged 桶(生产判据直用)', () => {
   const now = new Date('2026-11-03T00:00:00')
-  const fixtureRoot = mkdtempSync(join(tmpdir(), 'gate285-judged-'))
+  const fixtureRoot = mkdtempSync(join(tmpdir(), 'gate288-judged-'))
   const miniFixture = 'apps/miniapp-taro/src/components/NavBar.tsx'
   const rnFixture = 'apps/mobile-rn/src/components/NavBar.tsx'
   mkdirSync(join(fixtureRoot, 'apps/miniapp-taro/src/components'), { recursive: true })
@@ -334,17 +334,16 @@ describe('285 逐键 judged 桶(生产判据直用)', () => {
   })
 })
 
-describe('285 形状锁(注册条目与文件在场)', () => {
+describe('288 形状锁(注册条目与文件在场)', () => {
   // 本仓多会话并发注册/让号时会短时重写 runner——直接读会撞上"半写窗口"假失败。
   // 完整判据(四枚 needle 全在)满足即收卷;4 轮后仍不齐 = 真缺,照样红(不是放行走后门)。
-  const NUM = '285'
+  const NUM = '288'
   const NEEDLES = [
     'apps/miniapp-taro/src/components/',
     'packages/app/src/components/',
     'apps/mobile-rn/src/components/',
     'scripts/data/cross-end-props-parity-baseline.json',
     'scripts/data/component-props-equivalence.json',
-    'scripts/data/cross-end-props-judged.json',
   ]
   const loadRunnerWindow = () => {
     let best = null
@@ -369,11 +368,12 @@ describe('285 形状锁(注册条目与文件在场)', () => {
     return best ? best.text : readFileSync(join(ROOT, 'scripts/guardian-runner.mjs'), 'utf8')
   }
   const runner = loadRunnerWindow()
-  it('285 已注册且 blocking + skipEnv 成套;同 id 不重复(R5/R13:重复注册=判红对象)', () => {
-    const entries = [...runner.matchAll(/^\s{4}id: '285',$/gm)]
-    assert.equal(entries.length, 1, 'runner 面出现多枚 id 285 ⇒ 撞号真缺,先解号再跑测试')
+  it('288 已注册且 blocking + skipEnv 成套;同 id 不重复(R5/R13:重复注册=判红对象)', () => {
+    const entries = [...runner.matchAll(/^\s{4}id: '288',$/gm)]
+    assert.equal(entries.length, 1, 'runner 面出现多枚 id 288 ⇒ 撞号真缺,先解号再跑测试')
     // 窗口=从本条目 id 行到本对象收括号:固定字符窗会被并发插入挪动邻行而误切
-    const start = runner.search(/^\s{4}id: '285',$/m)
+    // 注:远端 af9c8a35 的编号权威把本门登记为 288(docs 公开面门占 288),本地旧号 288 已顺延。
+    const start = runner.search(/^\s{4}id: '288',$/m)
     const endRel = runner.slice(start).search(/^\s{2},\n/m)
     const blk = runner.slice(start, start + (endRel > 0 ? endRel : 2600))
     assert.ok(blk.includes("mode: 'blocking'"))
@@ -389,7 +389,7 @@ describe('285 形状锁(注册条目与文件在场)', () => {
       assert.ok(existsSync(join(ROOT, f)), `缺:${f}`)
   })
   it('stagedTriggers 覆盖两端组件目录 + 台账与判据面自身', () => {
-    const start = runner.search(/^\s{4}id: '285',$/m)
+    const start = runner.search(/^\s{4}id: '288',$/m)
     const endRel = runner.slice(start).search(/^\s{2},\n/m)
     const blk = runner.slice(start, start + (endRel > 0 ? endRel : 2600))
     for (const needle of [
@@ -397,13 +397,13 @@ describe('285 形状锁(注册条目与文件在场)', () => {
       'packages/app/src/components/',
       'apps/mobile-rn/src/components/',
       'scripts/data/cross-end-props-parity-baseline.json',
-      'scripts/data/cross-end-props-judged.json',
+      'scripts/data/component-props-equivalence.json',
     ])
       assert.ok(blk.includes(needle), `stagedTriggers 缺:${needle}`)
   })
 })
 
-describe('285 审计返工接线锁(B 组真实现/死腿删除)', () => {
+describe('288 审计返工接线锁(B 组真实现/死腿删除)', () => {
   const read = (p) => readFileSync(join(ROOT, p), 'utf8')
   it('LoginPopUp agreeChecked/onAgreeChange 两端声明,小程序宿主持有并回传', () => {
     const rn = read('apps/mobile-rn/src/components/LoginPopUp.tsx')
@@ -446,7 +446,7 @@ describe('285 审计返工接线锁(B 组真实现/死腿删除)', () => {
   })
 })
 
-describe('285 审计返工接线锁(A 组真实现/死腿删除)', () => {
+describe('288 审计返工接线锁(A 组真实现/死腿删除)', () => {
   const read = (p) => readFileSync(join(ROOT, p), 'utf8')
   it('BottomActionBar 手工压缩入口已在小程序真接线', () => {
     const mini = read('apps/miniapp-taro/src/components/BottomActionBar.tsx')

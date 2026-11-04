@@ -42094,3 +42094,228 @@ J 扩展端版本单一源头 —— `apps/extension/wxt.config.ts` 不得写死
 诚实边界:以上都只验到"静态判据 + 单元/组件用例"这一层。本机 PostgreSQL 8810 在听(2026-11-04 实测),
 但本轮取证没有浏览器会话,所以**到端渲染与真机行为未取证**,不写成"已实测"。
 J 扩展端版本单一源头 —— `apps/extension/wxt.config.ts` 不得写死 `manifest.version`(缺省时 WXT 回落 `apps/extension/package.json`,与 `sync-downloads` 的文件名同源),下载页 extension 资产 href 必须由 `extensionPkg.version` 拼出,扩展源码里也不许留手搓版本常量(运行期取 `chrome.runtime.getManifest().version`)。
+对外关键数字声明(与本页生成块同源,均现算):**622 张表 · 4699 API 路由 · 25 个 WebSocket 端点 ·
+100 入库模型 · 38 平台自动发布 · 4078 测试文件 · 333 道工程守门 · 53 CI workflows ·
+| 数据库表 | 622 | `dbTables` |
+| schema 文件 | 241 | `dbSchemaFiles` |
+| API 路由 | 4699 | `apiRoutes` |
+| 路由文件 | 663 | `apiRouteFiles` |
+| CLI 命令文件 | 70 | `cliCommandFiles` |
+| 测试文件 | 4078 | `testFiles` |
+| 工程守门 | 333 | `guardianGates` |
+| — blocking | 303 | `guardianBlocking` |
+| 跟踪文件 | 19097 | `trackedFiles` |
+  <strong>622 张表 · 4699 API 路由 · 25 WebSocket 通道 · 88 守门脚本 · 56+ pre-commit 项 · 4078 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 53 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
+| **代码规模** | 8 端代码 / 205 schema 文件 / **622 数据库表**(实测 pgTable)/ drizzle-kit push 模式 / **4699 API 路由 + 25 WebSocket 通道**(实测 grep)/ 250+ Web 页面 / 200+ 组件 / 104 hooks / 16 共享包 / 5 语言 i18n parity(35 JSON 文件 7 端 × 5 语言) |
+| **测试覆盖** | **4078 测试文件 / ~14839+ 测试用例**(490 .test.ts + 67 .spec.ts + 162 test_*.py;TS ~10176 用例 + Python 4663 用例)+ Locust 压测 + Lighthouse 性能 + Visual Regression                                                                      |
+→ **IHUI-AI(智汇 AI)**。Apache 2.0 开源,176 大模型统一调度,PostgreSQL 行级安全多租户,完整商业闭环(10 支付网关 + VIP + 积分 + 钱包 + 订阅 + 退款),8 端同源 Monorepo(Web/API/AI-Service/Desktop/Extension/Mobile/Miniapp/CLI),542 张表 / 4699 API 路由 / 4078 测试文件 / ~14839+ 测试用例。5 分钟 Fork 到上线。**GitHub**:https://github.com/IHUI-INF-AI/IHUI-AI
+→ **IHUI-AI 工程守门**:87 守门/验证脚本(59 check + 11 verify + 6 guard + 2 sync + 9 scan)+ pre-commit 56+10 项(40 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段 + 53 CI workflows + post-commit 自动 push + lost-commit tag 自动同步 + 4078 测试文件 / ~14939+ 测试用例 + 67 e2e spec + Knip 死代码检测 + Lighthouse 性能 + Locust 压测 + mypy strict(Python 0 errors)+ tsc --noEmit(TS 0 errors)。每一行代码都通过三重门禁。
+核心数字: 8 端 / 176 模型 / 542 表 / 4393 API / 24 MCP 工具 / **38 发布平台** / **反风控五层防线 37+ 检测点** / **AI 对话可视化 inline 到消息气泡** / 88 守门脚本 / 4078 测试文件 / ~14839+ 测试用例 / 5 语言 i18n(7 端 35 JSON)/ 109 万行代码
+   技术护城河    │  • 8 端 / 542 表 / drizzle-kit push / 4699 API 路由    │
+| **代码规模** | 8 端代码 / 205 schema 文件 / 622 数据库表 / drizzle-kit push / 4699 API 路由 / 250+ Web 页面 / 16 共享包 / 88 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
+|                   | API                 | Fastify 5 / **4699 API 路由跨 288 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **288 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+|                   | 测试覆盖            | **4078 测试文件 / ~14839+ 测试用例**(490 .test.ts + 67 .spec.ts + 162 test_*.py;TS ~10176 + Python 4663)+ Vitest + Playwright + pytest + Locust 压测 + Lighthouse 性能 + Visual Regression                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+- **规模**:622 张表 · 4699 API 路由 · 4078 测试文件 · ~14839 测试用例
+- **质量**:333 道工程守门（303 blocking）· 53 CI workflows · 删水印即 CI 失败
+### 通病 ② 边界条件处理不足 → 实际:4078 测试文件 / ~14839+ 测试用例 + 67 e2e + 微服务工程模式
+| 边界条件缺失     | 4078 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
+- 622 数据库表 + drizzle-kit push + 16 共享包 + pgvector + 知识图谱 + Knip + Lighthouse + Locust 压测
+- **API(Fastify 5)**:4699 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
+- **4078 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
+A: Yes. ~14839+ tests / 4078 test files / 67 e2e spec / 4699 API 路由 / 622 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+**2026-11-03**
+- 🐞 修复:门 288 证据定位改为按符号名解析，消除加注释即报证据行漂移的误红 (842c0f0b9a)
+- 🔧 工程/其他:门288 基线重落(存量存差 177→0,judged 166,裁决不适用 2 对) (f92c386395)
+**2026-11-03**
+- 🔧 工程/其他:288 judged 自检改临时夹具 —— 不再钉死真仓行号 (414db88c6b)
+- 📚 文档:288/289/290/291/292 语义与三条纪律入档 + 逃生变量并入 §6.3 (53cbd16b34)
+- 🚀 新功能/改进:门288 引入逐键 judged 桶 —— 存差=未实现+未映射+未裁决 (0013f61827)
+- 🔧 工程/其他:摘除 ColorfulLoader 死副本并重算 ui-routes inputs —— 全仓静态/动态引用为 0,删除后经生成器重算(inputs 611→610、自述钉自洽);门105 保持绿、门288 258 键不变 (72eea3c5d5)
+**2026-11-03**
+- 🐞 修复:门288 将 ScreenStates 判为 not-applicable —— 文件级四组件族容器,非单组件对 (ec90d7b58b)
+- 🐞 修复:SectionHeader 两端同源收口 —— 小程序适配层真接 leading/style/titleStyle/subtitleStyle/accessibilityLabel(容器与文字样式覆盖、ariaLabel 落地),非空 prop;门288 270→265,该对归零;intentional-delete: 该对五键已由实现消除 (b80032e3b9)
+- 🐞 修复:IntelligentAssistant 两端同源收口 —— RN 补 isLoggedIn(登录态文案+隐藏充值,默认 true 零观感变化)与 5 语 loginRequired,tokenQuantity↔tokenBalance 入映射表;门288 273→270;intentional-delete: 该对 tokenQuantity/tokenBalance/isLoggedIn 三键已由映射+实现消除 (9436bdf042)
+- 🚀 新功能/改进:新增小程序交互卫生门(290)与 web↔RN 措辞一致性门(291) (f664fb52e9)
+- 🚀 新功能/改进:落语义等价映射表 + 门288 mapped 分类与棘轮 —— 3 条命名等价(onPress↔onTap×2、label↔labelKey)归 mapped 4 键,漂移 277→273;表扩容须同轮收敛 (2ccede4e8e)
+- 🔧 工程/其他:补齐 gen-rn-shell-scaffold 与 rn-shell-target 两枚溯源水印欠账 (e343c19714)
+- 🐞 修复:门 289 补射程声明 stagedTriggers ['**/*'] —— check-gate-triggers 新增缺 1→0(到期与暂存面无关,必须每提交跑) (75768f75a5)
+- 🚀 新功能/改进:deferred@ 到期判据常驻(门 289,blocking) (fec71850ab)
+- 🚀 新功能/改进:覆盖门增补「新屏无壳且无判决」造壳命令队列(既有读数不变) (5f258fd86a)
+- 🚀 新功能/改进:新增 gen-rn-shell-scaffold 预演式造壳器(默认 dry-run/--force 先备份/6 例自检) (9eaf14ef2f)
+- 🐞 修复:结清 P84/P85/P86 + 摘 RP-91 重复副本 + 结清 docs-207 (848e4a4f46)
+- 🐞 修复:收口被整块重复的登记(F6 块级判据的修复出口) (e61c494fc5)
+- 🔧 工程/其他:登记 B72/D04/D05 处置 (a1ee9465bf)
+- 🔧 工程/其他:登记 B72/D04/D05 处置 (d9ed3e722f)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (0af18824e2)
+- 🔧 工程/其他:RP-79 dedupe theirs (plan-union-merge input) (c3a32de7d7)
+- 🐞 修复:ColorfulLoader 两端同源收口 —— RN 补 visible(不渲染即 null)、小程序适配层补 duration(默认共享档),门288 消 2 键 (657b9ed59f)
+- 🔧 工程/其他:store-migration-end-factory 冷启动移出用例窗口——全量超时 flake 的确定化收口 (3b72141949)
+- 🐞 修复:门 30a 悬空 commit 分档——等价残留(仅树逐字同)不判红,四档逐次报数 (18a0179a49)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (55c2cb04cd)
+- ♻️ 重构:共享屏间距 26 处落档 + 2 处 Platform 锁 web 值,销账 18 条 decision (73dfd3f56c)
+- 🐞 修复:B02② 会话切换时 chatSync 判据面与 resyncPending 一起换人(同 id 重设不动,补 1 条判据测试) (03b1cec6db)
+- 🐞 修复:PayPopup 回退误带入的他会话间距中间态，仅保留 ¥ 档位落档 (2ea19b406b)
+- 🐞 修复:RP-1 号域族注册表(RP 多字母族在册,单字母逐字不变)+ O01 空对照面收口为「挂账+到期」; immutable-exempt: 族注册表为新增只读取表,挂账判定只在空对照面改判,既有判红档与退出码语义不动 (73eac1c22b)
+- 🐞 修复:RP-47×2 staged 面双测试(有暂存必须取索引 blob/暂存为空判未判定不回落工作树) (1952b604cd)
+- ♻️ 重构:钱包/课程/排行等 92 处间距默认档落具名档 (7afdef0638)
+- 🐞 修复:runGate 的 node 分支显式 windowsHide(守门 no-visible-spawn 73 行按面转绿;超时与错误文案不变) (f4e33958fc)
+- 🐞 修复:出包链 windowsHide 接线回归锁(静态扫描全部 spawn/exec 调用点+门体形态锁,2 项) (f04f0b8ab7)
+- 🔧 工程/其他:D171 形状锁五→六处，点名 O67 发令前只读点名 (fd1fe89c72)
+- ♻️ 重构:门128 几何名额回退 3 处(4/8 档恢复 numeric) (b295cede8c)
+- 🐞 修复:18 处人工档位判定·落 8 保 10·不动几何额度 (ec9802df54)
+- 📚 文档:守门 207 体积清偿归零(96,790→95,910) (8e09798d32)
+- ♻️ 重构:支付/分销/课程头/简介/VIP/课时 87 处间距默认档落具名档 (9772113c78)
+- ♻️ 重构:共享屏 17/28/32/36 字号落 title/displayLg 档·10 处 (7a241e4d3e)
+- ♻️ 重构:模型配置/运行时/评论 92 处间距默认档落具名档 (d32e043698)
+- ♻️ 重构:共享屏 22px 标题/数值落 heading 20 档·71 处 (d2f150f983)
+- 🐞 修复:默认永不跳钩,锁重试收窄为 3 次/指数退避/60s,新增 --allow-skip-hooks (c3898fdb14)
+- 🔧 工程/其他:提交后格式化回流 2 文件 (1eac95dcd6)
+- ♻️ 重构:默认档等值落具名档·课程批 73 处 (904cb347c2)
+- ♻️ 重构:默认档等值落具名档·屏级批 58 处 (511fcc7b95)
+- ♻️ 重构:默认档等值落具名档·组件批 68 处 (766687c346)
+- 🐞 修复:--next-id 拒发池外号,池满点名改走 next-plan-id(G-44/G-54) (42f6d6414f)
+- ♻️ 重构:销账 6 条已全清 decision、补细 19 条挂账证据 (903c6cee1a)
+- ♻️ 重构:22px 上边距落 xl 20 档、30px 内边距落 3xl 32 档 (d5a54b93f4)
+- ♻️ 重构:18px 间距落 lg 16 档、30px 落 3xl 32 档 (83617072bc)
+- 📚 文档:门 287 号位现读回灌两枚残留 —— hover 门入库时与同批 props 对账门撞 288,落地腿已把 runner 注册块与门体头注顺延为 287(HEAD 面在位);本枚对齐其余两处字面:README 点名条 runner id 与 UI/样式尾注、镜像⑦形状锁号位 regex+文案(prettier 归位后水印已复验完整)。README 盘上派生块(跟踪文件 18947/收编行,可重算件)随本枚带落;props 门自身与其 285 条目未触碰。盘面 scripts/guardian-runner.mjs 为已落地历史拷贝的幻影漂移(§5b 形态,P1 对账尺当轮点名),已按 30c 出路②单文件 checkout HEAD 对齐——零丢失(盘 blob 系上一枚落地态,本票文字全部已入 HEAD)。 (1c9cdb39c2)
+- ♻️ 重构:17/32/40/12.5 字号落 title/displayLg/label 档 (4e11292057)
+- 🔧 工程/其他:结清 B67/B70/B71、G-1222560/59/56 与 Z-1 两条(证据见行内) (85f1c08855)
+- ♻️ 重构:22px 金额/标题落 heading 20 档 (2be9294d5f)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (14cdb641cc)
+**2026-11-03**
+**2026-11-03**
+**2026-11-03**
+**2026-11-03**
+**2026-11-03**
+**2026-11-03**
+**2026-11-03**
+**2026-11-03**
+**2026-11-03**
+**2026-11-03**
+**2026-11-03**
+**2026-11-03**
+**2026-11-03**
+**2026-11-03**
+**2026-11-03**
+- 🚀 新功能/改进:支付出口移入导航层 + Follow/VideoPlayer 语义登记 + 九屏端口自证测试 (830eb717a3)
+- 🚀 新功能/改进:校正 AigcList 薄壳对共享屏承接行号的引用 (b569c10672)
+- 🔧 工程/其他:重算四语 README 数字块并刷新最近更新 (e647bf8ab5)
+- ♻️ 重构:间距 rpx 字面量等值落档（CSS var / taroSpacing，weapp 像素零变化） (0ea20bbe01)
+**2026-11-03**
+- 🔧 工程/其他:扫码凭证用例确定化 2500ms 轮询触发,消除首轮计时抖动 (ad65d2b05f)
+- 🐞 修复:修掉 runner 两处撞号并重封根护栏 (73e64fd2e2)
+- ♻️ 重构:常量/条件字面量与手工收尾字号落档 (89831e5034)
+- 🚀 新功能/改进:Vip 支付链成功落 PayResult(replace),失败/取消留守;等级横幅入口走 VipUpgrade (2c37223cfd)
+- ♻️ 重构:发布/巡检脚本接入 mobile-download-leg 单源并补一致性断言 (5a9fcadb2e)
+- 🚀 新功能/改进:ConversationImport 选文件取消/失败经 onToast 明确反馈 (f778f2a752)
+- ♻️ 重构:字号任意值等值落具名档（className 字面量批，零视觉变化） (0fdda86798)
+- 🚀 新功能/改进:AigcList 切薄壳并给 AigcPublish 接真实上传进度 (ea9e0f60f7)
+- 🚀 新功能/改进:补 ExamDetail/VipUpgrade 路由并收口 Exam 两屏推送 (a514deeecc)
+- 🔧 工程/其他:refactor(web)!: 容器 hover 浮起回归 --lift-* 单源并立守门 287 防回潮 (13a919a708)
+- ♻️ 重构:发布/巡检脚本接入 mobile-download-leg 单源并补一致性断言 (4078b4afcd)
+- 🐞 修复:给 @ihui/rn-app 替身补出 AgentReview 列表/详情两屏与 props 捕获出口(与真身 154/278 行同步) (7ffcf16a68)
+- 🐞 修复:补录 ai-service memory.py 六个 MEMORY_* 兜底码到错误目录并补齐五语词包 (575a1bd2b7)
+- 🔧 工程/其他:分叉收敛后按 HEAD 面重生成 web/miniapp 两枚 ui-routes 产物(合并提交承诺的落地后重生成;门 105 stale→matched) (35bddefbd9)
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+| 工程守门 | 288 | `guardianGates` |
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-03。
+**2026-11-03**
+- 🔧 工程/其他:分叉收敛后按 HEAD 面重生成 web/miniapp 两枚 ui-routes 产物(合并提交承诺的落地后重生成;门 105 stale→matched) (35bddefbd9)
+- ♻️ 重构:容器 hover 浮起按 2026-11-03 机主二次定档减淡 —— 数值源 --lift-* 单点收敛(位移-4px→-2px,缩放1.015→1.008,两层阴影 6px/12%+30px/25%→3px/6%+18px/12%,暗档同比例),端内不散改 (03d1c4d32e)
+> ⚠️ 未判定 1 项:`guardianGates`(runner 里有 1 个重复 id ⇒ 撞号,条目数不可信)
+**2026-11-03**
+- 🔧 工程/其他:补全 10 个文件的 L2 零宽载荷与水印尾标(scripts/watermark.mjs inject 生成物) (0223f5e987)
+- ♻️ 重构:BannerCarousel 的 50% 白改走设计令牌 rnCssLight.white50 (3d0d31a294)
+- ⚡ 性能:下载栏的站点腿探测改「本机源站优先」,并给安卓版补上真实体积 (6a324ae21d)
+- 🔧 工程/其他:烘焙 0.1.77 更新源与下载页快照 — Gitee 镜像仓为空仓无 main/tag/release,字节对账未判定故保留 GitHub 直链 (694810b9dc)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (1fb2f45d04)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (30d2f7ca16)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (3c9a00be72)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (f6d68d470b)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (415b1414a3)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (d365afb360)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (34ba63607b)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (9b60105652)
+- 🔧 工程/其他:AgentReviewDetail 改判 not-applicable（无 RN 详情路由/入口） (4381683c20)
+- 🚀 新功能/改进:CoursePlanet/MoreCourse/StudyIndex 接共享屏薄壳 (30a2725d76)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (ae46cd2635)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (45954293cd)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (ce45e49f3f)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (4c8f9d6aca)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (be8220b87d)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (3f04652720)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (bd75e36dab)
+- 文档中心 / 公开面健康(2026-11-03 装车,blocking,runner id '288';**原登记为 282,与 `check-web-rn-gap-ratchet.mjs` 撞号后被后来者让号**): `check-docs-public-health.mjs`(D1 docs 页 `metadata.alternates.languages` 声明的 hreflang 必须有真实路由文件 / D2 `app/sitemap.ts` 收录的 `/docs*` 路径必须有路由 / D3 docs 页 `icon:` 字段禁 emoji 当图标,须 lucide 矢量组件;三档各自成对夹具 + `--self-test` 10 例,镜像 `scripts/tests/check-docs-public-health.test.mjs`;应急 `HUSKY_SKIP_DOCS_PUBLIC_HEALTH=1`)
+| — blocking | 293 | `guardianBlocking` |
+**2026-11-03**
+- 📚 文档:门 287 号位现读回灌两枚残留 —— hover 门入库时与同批 props 对账门撞 288,落地腿已把 runner 注册块与门体头注顺延为 287(HEAD 面在位);本枚对齐其余两处字面:README 点名条 runner id 与 UI/样式尾注、镜像⑦形状锁号位 regex+文案(prettier 归位后水印已复验完整)。README 盘上派生块(跟踪文件 18947/收编行,可重算件)随本枚带落;props 门自身与其 285 条目未触碰。盘面 scripts/guardian-runner.mjs 为已落地历史拷贝的幻影漂移(§5b 形态,P1 对账尺当轮点名),已按 30c 出路②单文件 checkout HEAD 对齐——零丢失(盘 blob 系上一枚落地态,本票文字全部已入 HEAD)。 (1c9cdb39c2)
+- 🚀 新功能/改进:落语义等价映射表 + 门288 mapped 分类与棘轮 —— 3 条命名等价(onPress↔onTap×2、label↔labelKey)归 mapped 4 键,漂移 277→273;表扩容须同轮收敛 (2ccede4e8e)
+- 🐞 修复:ColorfulLoader 两端同源收口 —— RN 补 visible(不渲染即 null)、小程序适配层补 duration(默认共享档),门288 消 2 键 (657b9ed59f)
