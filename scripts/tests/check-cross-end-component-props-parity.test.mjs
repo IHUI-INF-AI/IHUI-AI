@@ -380,4 +380,39 @@ describe('285 审计返工接线锁(B 组真实现/死腿删除)', () => {
     assert.ok(!mini.includes('displayLevel'), 'level 派生展示仍在')
   })
 })
+
+describe('285 审计返工接线锁(A 组真实现/死腿删除)', () => {
+  const read = (p) => readFileSync(join(ROOT, p), 'utf8')
+  it('BottomActionBar 手工压缩入口已在小程序真接线', () => {
+    const mini = read('apps/miniapp-taro/src/components/BottomActionBar.tsx')
+    const page = read('apps/miniapp-taro/src/pages/index/index.tsx')
+    assert.ok(mini.includes('compactContextLoading?: boolean'), '小程序缺 compactContextLoading 声明')
+    assert.ok(mini.includes('onCompactContext?: () => void'), '小程序缺 onCompactContext 声明')
+    assert.ok(mini.includes('if (compactContextLoading) return'), '压缩按钮未消费 loading')
+    assert.ok(page.includes('onCompactContext={() => void handleCompactContext()}'), '宿主未接线 onCompactContext')
+    assert.ok(page.includes('compactContextLoading={compactingContext}'), '宿主未接线 compactContextLoading')
+    assert.ok(page.includes('compactConversation(state.sessionId)'), '未调用共享 compactConversation')
+  })
+  it('ModelConfigDialog indexa/selecter 死变体与 onConfigChange 已从两端删除', () => {
+    const rn = read('apps/mobile-rn/src/components/ModelConfigDialog.tsx')
+    const mini = read('apps/miniapp-taro/src/components/ModelConfigDialog.tsx')
+    for (const k of ['audioUrl', 'videoUrl', 'onUploadVideo', 'recordDuration']) {
+      assert.ok(!rn.includes(`${k}?:`), `RN 仍声明 ${k} 死腿`)
+      assert.ok(!mini.includes(`${k}?:`), `小程序仍声明 ${k} 死腿`)
+    }
+    assert.ok(!rn.includes('onConfigChange?:'), 'RN 仍保留零调用 onConfigChange')
+    assert.ok(!rn.includes('AdvancedModelConfigDialog'), 'RN 高级变体死代码仍在')
+    assert.ok(!rn.includes('ModelSelecterDialog'), 'RN 选择器死代码仍在')
+    assert.ok(!mini.includes('isVip?:'), '小程序仍声明零调用 isVip')
+  })
+  it('InputArea 折叠/受控放大/语音受控死腿已删除', () => {
+    const rn = read('apps/mobile-rn/src/components/InputArea.tsx')
+    for (const k of ['collapsible?:', 'onCollapsedChange?:', 'expanded?:', 'onExpandToggle?:', 'voiceInput?:', 'voiceActive?:', 'onVoiceToggle?:'])
+      assert.ok(!rn.includes(k), `RN 仍声明死腿 ${k}`)
+  })
+  it('ModelList onEndReached 死腿两端已删', () => {
+    assert.ok(!read('apps/mobile-rn/src/components/ModelList.tsx').includes('onEndReached?:'), 'RN 仍声明 onEndReached')
+    assert.ok(!read('apps/miniapp-taro/src/components/ModelList.tsx').includes('onEndReached?:'), '小程序仍声明 onEndReached')
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
