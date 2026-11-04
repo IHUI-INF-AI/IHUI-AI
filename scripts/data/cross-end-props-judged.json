@@ -2,81 +2,42 @@
   "rule": "逐键裁决台账(门285):仅收「同一对里按键可量出、但确认属平台/架构承载差异」的单键;每条必须 owner + expires(≤2027-06-30) + 双端 evidence(文件:行) + rationale;不得与映射表同键,不得以空 prop 冒充实现。到期须补实现或删死腿。",
   "entries": [
     {
-      "pair": "UserInfoCard",
-      "key": "onCopyInviteCode",
+      "pair": "Carousel",
+      "key": "itemWidth",
       "side": "rn",
-      "owner": "ihui-mobile-props",
+      "owner": "cross-end-props-parity",
       "expires": "2027-06-30",
-      "rationale": "小程序端资料卡没有邀请码复制入口(该入口在别的页面);RN 卡内自带复制回调腿。",
+      "rationale": "RN 需要调用方给单张 slide 宽(分页步长)以免容器边距裁切;小程序端由 Taro swiper 按容器宽自算,无同名腿。",
       "evidence": [
-        "apps/mobile-rn/src/components/UserInfoCard.tsx:106",
-        "apps/miniapp-taro/src/components/UserInfoCard.tsx:88",
-        "apps/mobile-rn/src/components/UserInfoCard.tsx:97"
+        "apps/mobile-rn/src/components/Carousel.tsx:51",
+        "apps/miniapp-taro/src/components/Carousel.tsx:61",
+        "apps/mobile-rn/src/components/Carousel.tsx:46"
       ]
     },
     {
-      "pair": "UserInfoCard",
-      "key": "userInfo",
-      "side": "rn",
-      "owner": "ihui-mobile-props",
-      "expires": "2027-06-30",
-      "rationale": "RN 以 userInfo 容器为主入参(扁平字段为覆盖);小程序端只接受扁平字段(avatar/nickname/isVip 等,声明在共享 UserInfoCardMinimalProps),无容器腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/UserInfoCard.tsx:98",
-        "apps/miniapp-taro/src/components/UserInfoCard.tsx:88",
-        "apps/mobile-rn/src/components/UserInfoCard.tsx:97"
-      ]
-    },
-    {
-      "pair": "UserInfoCard",
-      "key": "desc",
+      "pair": "Carousel",
+      "key": "courseMeta",
       "side": "mini",
-      "owner": "ihui-mobile-props",
+      "owner": "cross-end-props-parity",
       "expires": "2027-06-30",
-      "rationale": "小程序端卡片用 desc 兜底智汇值说明;RN 端由 userInfo 的余额文案承担,无同名文案腿。",
+      "rationale": "小程序端把课程版式(标题+价格叠层)并入 Carousel 的 course 变体,用与 items 同长的 courseMeta 提供覆盖数据;RN 端课程轮播是独立 CourseCarousel,Carousel 只做通用图轮播。",
       "evidence": [
-        "packages/types/src/ui-native-components.ts:204",
-        "apps/mobile-rn/src/components/UserInfoCard.tsx:101",
-        "apps/miniapp-taro/src/components/UserInfoCard.tsx:88"
+        "apps/miniapp-taro/src/components/Carousel.tsx:45",
+        "apps/mobile-rn/src/components/Carousel.tsx:47",
+        "apps/miniapp-taro/src/components/Carousel.tsx:35"
       ]
     },
     {
-      "pair": "UserInfoCard",
-      "key": "level",
+      "pair": "Carousel",
+      "key": "variant",
       "side": "mini",
-      "owner": "ihui-mobile-props",
+      "owner": "cross-end-props-parity",
       "expires": "2027-06-30",
-      "rationale": "小程序端卡片显示等级数字;RN 端成长值条与 VIP 标题表达等级,无同名数字腿。",
+      "rationale": "小程序端用 variant=default|course 切换课程叠层;RN 端把课程版式拆成独立 CourseCarousel 组件,通用 Carousel 无版式开关。",
       "evidence": [
-        "apps/miniapp-taro/src/components/UserInfoCard.tsx:89",
-        "apps/mobile-rn/src/components/UserInfoCard.tsx:111",
-        "apps/miniapp-taro/src/components/UserInfoCard.tsx:88"
-      ]
-    },
-    {
-      "pair": "UserInfoCard",
-      "key": "levelTitle",
-      "side": "mini",
-      "owner": "ihui-mobile-props",
-      "expires": "2027-06-30",
-      "rationale": "小程序端卡片显示等级称号;RN 端用 vipTitle/成长条表达,无同名称号腿。",
-      "evidence": [
-        "apps/miniapp-taro/src/components/UserInfoCard.tsx:90",
-        "apps/mobile-rn/src/components/UserInfoCard.tsx:111",
-        "apps/miniapp-taro/src/components/UserInfoCard.tsx:88"
-      ]
-    },
-    {
-      "pair": "UserInfoCard",
-      "key": "onOpenVip",
-      "side": "mini",
-      "owner": "ihui-mobile-props",
-      "expires": "2027-06-30",
-      "rationale": "小程序端卡内独立开通会员入口;RN 端用 onLevelIntro 打开等级介绍弹窗承载升级引导,无同名腿。",
-      "evidence": [
-        "apps/miniapp-taro/src/components/UserInfoCard.tsx:108",
-        "apps/mobile-rn/src/components/UserInfoCard.tsx:111",
-        "apps/miniapp-taro/src/components/UserInfoCard.tsx:88"
+        "apps/miniapp-taro/src/components/Carousel.tsx:43",
+        "apps/mobile-rn/src/components/Carousel.tsx:47",
+        "apps/miniapp-taro/src/components/Carousel.tsx:35"
       ]
     }
   ]
