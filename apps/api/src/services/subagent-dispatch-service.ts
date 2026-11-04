@@ -1888,7 +1888,7 @@ export class SubagentDispatchService {
         .from(agentTasks)
         .where(eq(agentTasks.id, taskId))
         .limit(1)
-      const changed = current && current.attention !== next ? { attention: next } : {}
+      const changed = current?.attention === next ? {} : { attention: next }
       if (Object.keys(changed).length > 0) {
         await db
           .update(agentTasks)
