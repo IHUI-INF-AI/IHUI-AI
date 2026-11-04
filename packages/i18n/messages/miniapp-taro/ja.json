@@ -408,7 +408,8 @@
     "totalRecharge": "累計チャージ",
     "totalWithdraw": "累計出金",
     "withdraw": "出金",
-    "points": "トークン"
+    "points": "トークン",
+    "rechargeSuccess": "チャージ"
   },
   "community": {
     "posts": "投稿",
@@ -2112,8 +2113,7 @@
       "selectAigc": "AI作品を選択(任意)",
       "noAigc": "関連付け可能なAI作品はありません",
       "allowComments": "コメントを許可",
-      "visibility": "公開範囲",
-      "publishFailed": "公開に失敗しました。再試行してください"
+      "visibility": "公開範囲"
     },
     "index": {
       "goPublish": "投稿する",
@@ -2215,8 +2215,7 @@
       "targetGroupEnterprise": "企業",
       "discountNone": "不参加",
       "discountPartial": "一部参加",
-      "discountFull": "全て参加",
-      "saveSuccess": "保存しました"
+      "discountFull": "全て参加"
     }
   },
   "devSpace": {
@@ -2694,8 +2693,7 @@
     "payFailed": "支払いに失敗しました。再試行してください",
     "paying": "支払い中...",
     "purchaseContent": "購入内容",
-    "userAgreement": "《利用規約》",
-    "activateDelayed": "特典の付与が遅延しています。カスタマーサポートへお問い合わせください"
+    "userAgreement": "《利用規約》"
   },
   "study": {
     "todayMinutes": "今日 {n} 分",
@@ -2992,6 +2990,10 @@
     "text6": "レベル紹介ページ未設定",
     "menu": {
       "subscriptions": "マイ購読"
+    },
+    "security": {
+      "code": "認証コード",
+      "sendCode": "コード取得"
     }
   },
   "vipScreen": {
@@ -3247,7 +3249,8 @@
     "contactPlaceholder": "連絡先を入力してください(任意)",
     "contentPlaceholder": "フィードバックの詳細を入力してください",
     "submit": "フィードバックを送信",
-    "type": "タイプ"
+    "type": "タイプ",
+    "success": "送信しました"
   },
   "comment": {
     "loading": "読み込み中...",
@@ -4796,8 +4799,7 @@
       "active": "有効",
       "rejected": "拒否済み",
       "cancelled": "解除済み"
-    },
-    "myAttendanceHint": "確認・自分で登校"
+    }
   },
   "eduChildAttendance": {
     "title": "子どもの出席",
@@ -4820,31 +4822,10 @@
     "status": {
       "present": "出席",
       "late": "遅刻",
-      "early": "早退",
       "absent": "欠席",
       "leave": "休み"
     },
-    "student": "生徒",
-    "batchCheckIn": "クラス一括出席",
-    "checkInFor": "代行登録",
-    "checkedInToast": "登校しました",
-    "checkedOutToast": "下校しました",
-    "batchDoneToast": "一括登録が完了しました",
-    "batchResult": "点呼が完了しました：新規 {created} 件、スキップ {skipped} 件、未登録 {missed} 件",
-    "noClassReason": "クラス情報を取得できないため、クラス一括点呼はできません",
-    "multiClass": "一覧に複数のクラスがあります。今回は {classId} のみ点呼します",
-    "checkInAt": "登校時刻",
-    "momentNow": "現在",
-    "backfillNeedsTime": "過去の日を登録するには、その日内の登校時刻が必要です",
-    "statsTotalLabel": "記録数",
-    "statsAttendanceRate": "出席率",
-    "statusDistribution": "状態分布",
-    "trendChartTitle": "出席の推移",
-    "trendChartHint": "出席率 = 正常出席 ÷ 当該時間帯の出席記録数（未打刻の生徒は分母に含みません）",
-    "trendChartScope": "集計範囲：{scope}",
-    "trendWindow": "直近 {days} 日間",
-    "emptyTrend": "推移データがありません",
-    "statusOther": "その他"
+    "student": "生徒"
   },
   "eduMgmt": {
     "attendanceTitle": "出席管理",
@@ -7000,7 +6981,7 @@
     "labelSaleType": "販売タイプ",
     "submit": "保存",
     "submitting": "送信中...",
-    "readOnlyHint": "現在編集できません"
+    "readOnlyHint": "この項目はまだ変更できません"
   },
   "modelIncome": {
     "accumulated": "累計収入",
@@ -7115,14 +7096,17 @@
   "studyIndex": {
     "receiveFreeBody": "リンクをコピーしました。ブラウザに貼り付けて開けます"
   },
-  "eduMyAttendance": {
-    "title": "自分の出席",
-    "selfCheckIn": "自分で登校",
-    "selfDoneToast": "登校しました",
-    "classByBackendHint": "クラスは在籍情報に基づいて自動的に決定されます",
-    "remarkPlaceholder": "備考(任意)",
-    "scanCheckIn": "スキャンしてチェックイン",
-    "scanDoneToast": "スキャンチェックインに成功しました",
-    "scanInvalidToast": "本システムのチェックインQRコードではありません"
+  "career": {
+    "fillField": "入力してください：{name}",
+    "submitFail": "送信に失敗しました。後で再試行",
+    "doneTitle": "送信完了",
+    "doneBody": "アンケート送信済み。AI 学習プランはこのページに表示されます.",
+    "exportingReport": "エクスポート中...",
+    "exportEmptyHint": "レポート生成後にエクスポートできます",
+    "exportLoginRequired": "エクスポートするにはログインしてください"
+  },
+  "learnMapPage": {
+    "completed": "完了",
+    "empty": "学習パスがありません"
   }
 }
