@@ -22,6 +22,12 @@
     "格式",
     "依赖升级",
     "安全通告",
-    "deploy-feedback"
-  ]
+    "deploy-feedback",
+    "性能",
+    "索引",
+    "检索",
+    "跨端",
+    "旗标"
+  ],
+  "ticketWhitelistNote": "2026-11-04 扩到 13 档(前一日读数:派单面 12 行 / 模型判可排期 8 行 / **本轮候选 8 行 / 今日已派 0/6** ⇒ 日预算整天空转,天花板就是这张表)。新增四档逐条来自**当次派单面现读**的票,不是想象:P84(ai-service 索引面 ignore 规则)、P85(代码检索改名检测)、Y-12(api 公网腿 p95 响应 8.3 秒)、RP-91(git-sync-converge 未知旗标用法守卫)、B3 系(跨端 NavBar 对齐)。\n**判据面类(守门/判据/尺子/护栏/豁免)一律不进白名单,且这不是保守,是结构**:那一类票的产物必然落 `scripts/check-*.mjs` 或 `scripts/lib/`(清单现读 `scripts/data/immutable-guard.json` 的 gate-body/judgement-lib 两族),而自治会话手里没有豁免签名钥 ⇒ 落账腿按 `artifact-protected-face` 整批拒收。把「结构上落不了账」的类别写进白名单 = 造一台只会空转的机器,正是 B53 那型饿死(209 行台账里吃掉 127 行)的重演。真要放开那一格,前提是给「持钥方追认台账 `scripts/data/immutable-guard-acks.jsonl`」配一条**人一次性授权、逐枚点名**的通道,而不是把密钥塞进会话环境。"
 }
