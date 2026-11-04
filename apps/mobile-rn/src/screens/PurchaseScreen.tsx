@@ -353,7 +353,7 @@ export default function PurchaseScreen() {
               ))}
             </View>
 
-            <Text style={styles.label}>{t('purchase.payMethod')}</Text>
+            <Text style={styles.label}>{t('wallet.rechargeMethod')}</Text>
             <View style={styles.methodRow}>
               {(['wechat', 'alipay'] as const).map((m) => (
                 <TouchableOpacity
@@ -426,7 +426,7 @@ function makeStyles() {
       justifyContent: 'center',
     },
     tabActive: { borderColor: tokens.brandAccent.deep, backgroundColor: tokens.brandAccent.light },
-    tabText: { fontSize: 13, color: tokens.text.secondary },
+    tabText: { fontSize: rnType.bodySm.size, color: tokens.text.secondary },
     tabTextActive: { color: tokens.brandAccent.deep, fontWeight: '600' },
     stateBox: {
       alignItems: 'center',
@@ -434,8 +434,8 @@ function makeStyles() {
       gap: rnSpacing.sm,
       paddingVertical: rnSpacing['5xl'],
     },
-    errorText: { fontSize: 13, color: tokens.danger.DEFAULT },
-    retry: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
+    errorText: { fontSize: rnType.bodySm.size, color: tokens.danger.DEFAULT },
+    retry: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.text.primary },
     card: {
       padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
@@ -497,7 +497,7 @@ function makeStyles() {
       borderColor: tokens.brandAccent.deep,
       backgroundColor: tokens.brandAccent.light,
     },
-    methodText: { fontSize: 13, color: tokens.text.secondary },
+    methodText: { fontSize: rnType.bodySm.size, color: tokens.text.secondary },
     methodTextActive: { color: tokens.brandAccent.deep, fontWeight: '600' },
     noteBox: {
       flexDirection: 'row',

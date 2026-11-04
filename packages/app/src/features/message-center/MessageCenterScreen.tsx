@@ -391,7 +391,7 @@ function createStyles(tk: AppThemeTokens) {
     // ── 会话列表区块(对齐 Uniapp message 页聊天列表) ──
     convSection: { marginBottom: rnSpacing['xs-loose'] },
     convTitle: {
-      fontSize: 13,
+      fontSize: rnType.bodySm.size,
       fontWeight: '700',
       color: tk.text.primary,
       marginBottom: rnSpacing.xs,
@@ -423,7 +423,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     convName: { flex: 1, fontSize: rnType.strong.size, fontWeight: '600', color: tk.text.primary },
     convTime: { fontSize: rnType.label.size, color: tk.text.tertiary },
-    convPreview: { marginTop: rnSpacing['2xs'], fontSize: 13, color: tk.text.secondary },
+    convPreview: { marginTop: rnSpacing['2xs'], fontSize: rnType.bodySm.size, color: tk.text.secondary },
     convPinBtn: { paddingHorizontal: rnSpacing.xs, justifyContent: 'center' },
     convActionBtn: { paddingHorizontal: rnSpacing.xs, justifyContent: 'center' },
     loadMoreBtn: {

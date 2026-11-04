@@ -358,7 +358,7 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
-    createBtnText: { fontSize: 13, fontWeight: '600', color: tk.brand.ctaForeground },
+    createBtnText: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.brand.ctaForeground },
     scroll: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'], gap: rnSpacing.md },
     hero: { gap: rnSpacing.xs },
     heroTitle: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
@@ -415,7 +415,7 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
       backgroundColor: tk.surface.inputBg,
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.sm,
-      fontSize: 13,
+      fontSize: rnType.bodySm.size,
       color: tk.text.primary,
     },
     inputMultiline: { minHeight: 56, textAlignVertical: 'top' },
@@ -438,7 +438,7 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
     chipText: { fontSize: rnType.label.size, color: tk.text.secondary },
     chipActiveText: { color: tk.brand.ctaForeground, fontWeight: '600' },
     formErr: { fontSize: rnType.label.size, color: tk.danger.DEFAULT },
-    errorText: { fontSize: 13, color: tk.danger.DEFAULT },
+    errorText: { fontSize: rnType.bodySm.size, color: tk.danger.DEFAULT },
     formActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: rnSpacing.sm },
     primaryBtn: {
       paddingHorizontal: rnSpacing.lg,
@@ -446,7 +446,7 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
-    primaryBtnText: { fontSize: 13, fontWeight: '600', color: tk.brand.ctaForeground },
+    primaryBtnText: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.brand.ctaForeground },
     secondaryBtn: {
       alignSelf: 'flex-start',
       paddingHorizontal: rnSpacing.lg,
@@ -456,7 +456,7 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
       borderColor: tk.border.medium,
       backgroundColor: tk.surface.inputBg,
     },
-    secondaryBtnText: { fontSize: 13, color: tk.text.medium },
+    secondaryBtnText: { fontSize: rnType.bodySm.size, color: tk.text.medium },
     btnDisabled: { opacity: 0.6 },
     emptyBox: {
       borderWidth: StyleSheet.hairlineWidth,
@@ -466,7 +466,7 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
       paddingVertical: rnSpacing['3xl'],
       alignItems: 'center',
     },
-    emptyText: { fontSize: 13, color: tk.text.secondary },
+    emptyText: { fontSize: rnType.bodySm.size, color: tk.text.secondary },
     skeletonRow: { height: 44, borderRadius: rnRadius.lg, backgroundColor: tk.border.light },
   })
 }

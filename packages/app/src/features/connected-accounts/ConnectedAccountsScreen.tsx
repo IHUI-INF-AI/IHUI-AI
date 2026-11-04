@@ -229,7 +229,7 @@ function createStyles(tk: AppThemeTokens) {
     cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing['xs-loose'] },
     cardTitle: { flex: 1, fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
     refresh: { paddingVertical: rnSpacing['2xs'], paddingHorizontal: rnSpacing.xs },
-    link: { fontSize: 13, fontWeight: '600', color: tk.text.primary },
+    link: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.text.primary },
     muted: { fontSize: 13, color: tk.text.secondary, lineHeight: 19 },
     hint: {
       fontSize: rnType.label.size,
@@ -237,7 +237,7 @@ function createStyles(tk: AppThemeTokens) {
       lineHeight: 17,
       marginTop: rnSpacing['2xs'],
     },
-    error: { fontSize: 13, color: tk.danger.DEFAULT },
+    error: { fontSize: rnType.bodySm.size, color: tk.danger.DEFAULT },
     loading: { paddingVertical: rnSpacing.lg },
     centerBox: { alignItems: 'center', gap: rnSpacing.sm, paddingVertical: rnSpacing.lg },
     row: {

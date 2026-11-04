@@ -324,20 +324,16 @@ export default function ChatMessageItem({
                 flexDirection: 'column',
                 alignItems: 'center',
               }}
+              hoverClass="opacity-60"
+              onClick={handleReuse}
             >
-              <Image
-                src={reuseBtnPng}
-                className="fuyong-btn"
-                mode="widthFix"
-                onClick={handleReuse}
-              />
+              <Image src={reuseBtnPng} className="fuyong-btn" mode="widthFix" />
               <Text
                 style={{
                   fontSize: '20rpx',
                   color: 'var(--color-link)',
                   marginTop: 'var(--spacing-2xs)',
                 }}
-                onClick={handleReuse}
               >
                 {t('ai.chatMessageItem.reuse')}
               </Text>
@@ -383,12 +379,13 @@ export default function ChatMessageItem({
                 {t('ai.chatMessageItem.me')}
               </Text>
               {onEdit ? (
-                <Text
-                  style={{ fontSize: '20rpx', color: 'var(--color-foreground)', opacity: 0.7 }}
-                  onClick={handleEdit}
-                >
-                  {t('ai.chatMessageItem.edit')}
-                </Text>
+                <View className="px-[8rpx] py-[4rpx]" hoverClass="opacity-60" onClick={handleEdit}>
+                  <Text
+                    style={{ fontSize: '20rpx', color: 'var(--color-foreground)', opacity: 0.7 }}
+                  >
+                    {t('ai.chatMessageItem.edit')}
+                  </Text>
+                </View>
               ) : null}
             </View>
             <Text>{msg.content}</Text>
@@ -401,22 +398,22 @@ export default function ChatMessageItem({
               与 web 端 MessageItem D22 同一形态,跨端视觉一致。 */}
           {isFailed ? (
             <View className="w-full overflow-hidden rounded-lg border border-destructive/40 bg-destructive/5">
-              <View className="flex items-center bg-destructive/10 px-3 py-2">
+              <View className="flex items-center bg-destructive/10 px-md py-sm">
                 <LineIcon
                   name="triangle-alert"
                   size={28}
                   color="var(--color-destructive)"
                   style={{ marginRight: 'var(--spacing-xs)' }}
                 />
-                <Text className="text-xs font-medium text-destructive">
+                <Text className="text-label font-medium text-destructive">
                   {t('ai.chatMessageItem.errorCardTitle')}
                 </Text>
               </View>
-              <Text className="block whitespace-pre-wrap break-words px-3 py-2 text-sm text-destructive">
+              <Text className="block whitespace-pre-wrap break-words px-md py-sm text-body text-destructive">
                 {msg.content}
               </Text>
               {onRegenerate ? (
-                <View className="px-3 pb-2">
+                <View className="px-md pb-sm">
                   <View
                     className="inline-flex items-center"
                     onClick={() => onRegenerate(msg)}
@@ -428,7 +425,7 @@ export default function ChatMessageItem({
                       color="var(--color-destructive)"
                       style={{ marginRight: '6rpx' }}
                     />
-                    <Text className="text-xs text-destructive">
+                    <Text className="text-label text-destructive">
                       {t('ai.chatMessageItem.retry')}
                     </Text>
                   </View>
@@ -761,17 +758,20 @@ export default function ChatMessageItem({
               ) : null}
               {/* 重新生成(增强功能,历史项目无,保留) */}
               {onRegenerate ? (
-                <Text
+                <View
                   style={{
-                    fontSize: '24rpx',
-                    color: 'var(--color-link)',
+                    display: 'flex',
+                    alignItems: 'center',
                     marginLeft: 'var(--spacing-sm-loose)',
                     lineHeight: '40rpx',
                   }}
+                  hoverClass="opacity-60"
                   onClick={() => onRegenerate(msg)}
                 >
-                  ↻ {t('ai.chatMessageItem.regenerate')}
-                </Text>
+                  <Text style={{ fontSize: '24rpx', color: 'var(--color-link)' }}>
+                    ↻ {t('ai.chatMessageItem.regenerate')}
+                  </Text>
+                </View>
               ) : null}
               {/* 收藏(增强功能,历史项目无,保留) */}
               {onToggleFavorite ? (
@@ -811,6 +811,7 @@ export default function ChatMessageItem({
                 <View
                   key={action.id}
                   className="action-btn"
+                  hoverClass="opacity-60"
                   onClick={() => void handleApproval(action.id)}
                 >
                   <Text style={{ fontSize: '24rpx', color: 'var(--color-muted-foreground)' }}>

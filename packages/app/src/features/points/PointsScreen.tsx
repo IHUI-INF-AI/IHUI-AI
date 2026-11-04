@@ -167,7 +167,11 @@ export function PointsScreen({
     { key: 'current', label: t('points.current'), value: account?.points },
     { key: 'earned', label: t('points.totalEarned'), value: account?.totalEarned },
     { key: 'spent', label: t('points.totalSpent'), value: account?.totalSpent },
-    { key: 'level', label: t('points.level'), value: account ? `Lv.${account.level}` : undefined },
+    {
+      key: 'level',
+      label: t('points.levelLabel'),
+      value: account ? `Lv.${account.level}` : undefined,
+    },
   ]
 
   return (
@@ -203,7 +207,9 @@ export function PointsScreen({
             <View style={styles.card}>
               <View style={styles.cardHead}>
                 <Award size={16} color={tk.text.secondary} />
-                <Text style={styles.cardTitle}>{level?.current?.name ?? t('points.level')}</Text>
+                <Text style={styles.cardTitle}>
+                  {level?.current?.name ?? t('points.levelLabel')}
+                </Text>
                 <Text style={styles.cardMuted}>
                   {level?.next
                     ? t('points.nextLevel', { name: level.next.name, points: remaining })
@@ -305,20 +311,20 @@ export function PointsScreen({
                 onPress={onOpenMall}
                 activeOpacity={0.7}
                 accessibilityRole="button"
-                accessibilityLabel={t('points.mallLink')}
+                accessibilityLabel={t('points.mallTitle')}
               >
                 <ShoppingBag size={16} color={tk.text.primary} />
-                <Text style={styles.entryText}>{t('points.mallLink')}</Text>
+                <Text style={styles.entryText}>{t('points.mallTitle')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.entryBtn}
                 onPress={onOpenTasks}
                 activeOpacity={0.7}
                 accessibilityRole="button"
-                accessibilityLabel={t('points.taskCenterLink')}
+                accessibilityLabel={t('points.tasks.title')}
               >
                 <ListChecks size={16} color={tk.text.primary} />
-                <Text style={styles.entryText}>{t('points.taskCenterLink')}</Text>
+                <Text style={styles.entryText}>{t('points.tasks.title')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.entryBtn}
@@ -405,8 +411,8 @@ function createStyles(tk: AppThemeTokens) {
     },
     body: { padding: rnSpacing.md, gap: rnSpacing['sm-loose'], paddingBottom: rnSpacing['3xl'] },
     subtitle: { fontSize: rnType.label.size, color: tk.text.tertiary },
-    errorText: { fontSize: 13, color: tk.danger.DEFAULT },
-    retry: { fontSize: 13, fontWeight: '600', color: tk.text.primary },
+    errorText: { fontSize: rnType.bodySm.size, color: tk.danger.DEFAULT },
+    retry: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.text.primary },
     textButton: { paddingVertical: rnSpacing.xs, paddingHorizontal: rnSpacing.sm },
     statGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing.sm },
     statCard: {
@@ -464,7 +470,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing.sm,
     },
     txMain: { flex: 1, gap: rnSpacing['2xs'] },
-    txSource: { fontSize: 13, color: tk.text.primary },
+    txSource: { fontSize: rnType.bodySm.size, color: tk.text.primary },
     txRight: { alignItems: 'flex-end', gap: rnSpacing['2xs'] },
     txAmount: { fontSize: rnType.body.size, fontWeight: '700' },
     txIn: { color: tk.success.DEFAULT },
@@ -477,7 +483,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    moreText: { fontSize: 13, color: tk.text.primary },
+    moreText: { fontSize: rnType.bodySm.size, color: tk.text.primary },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

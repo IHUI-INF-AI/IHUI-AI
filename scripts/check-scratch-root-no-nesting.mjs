@@ -17,10 +17,14 @@
  * 为什么「量不完」必须落 undetermined 而不是 ok:本仓最高频的失效型是「把没判写成判过了」
  * (守门 70/76/81/103 各记过一次同族)。只报数不喊,拿到数字的人就会读成「这一族干净」。
  *
- * 定级:**只告警,不判红,退出码恒 0**(票面硬要求)。理由与 §12e / 守门 77·83·126 同型 ——
- * 它判的是**本机盘上有没有残留**,属机器态:残留可能是别的会话、别台机器、或上一次取证跑
- * 出来的,提交者结构上满足不了。挂进提交链 blocking 就是每台每次被逼 `--no-verify`,一次绕过
- * 约等于全部守门对该提交作废。所以本门的意义是**把债现形**,不是拦提交。
+ * 定级:**advisory(guardian 注册为 warn 档,不进 blocking 判红)**。它判的是**本机盘上有没有残留**,
+ * 属机器态:残留可能是别的会话、别台机器、或上一次取证跑出来的,提交者结构上满足不了。
+ * 挂进提交链 blocking 就是每台每次被逼 `--no-verify`,一次绕过约等于全部守门对该提交作废。
+ * 所以本门的意义是**把债现形**,不是拦提交。
+ *
+ * 退出码(三态,AGENTS.md §0.3;2026-11-04 由「恒 0」收口):
+ *   0 = ok(真 0);1 = drift(真违规,只是 warn 档不阻断);2 = undetermined(输入取不到/量不完,点名)
+ * 是否阻断由 guardian 的 warn/blocking 档决定 —— 本门自身不再把 drift/undetermined 折成绿。
  *
  * 判定路径**零写盘**(票面「清理由人决定,本工具绝不删」):`scanScratchRoot` / `decide` /
  * `formatLines` / `measure` 只调 readdir / lstat(快照与元数据)。唯一的写与删在
@@ -54,7 +58,7 @@
  *   · --root 只决定"扫哪棵树"(取证/人工通道),不改变判据语义;默认取 scratchRoot()。
  *   · 环境闸 IHUI_SCRATCH_NEST_BUDGET 覆盖条目预算(取证时给极小值可构造"量不完")。
  * 镜像测试:node --test scripts/tests/check-scratch-root-no-nesting.test.mjs
- * 紧急跳过:无需 —— 它不判红,退出码恒 0 是设计而不是疏忽。
+ * 紧急跳过:无需 —— 它由 guardian 以 warn 档调用,退出码 1/2 也不会阻断提交。
  */
 import { lstatSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
@@ -263,13 +267,15 @@ export function decide(res) {
 }
 
 /**
- * 退出码(纯函数)—— **恒 0**,不存在第二种取值。
- * 单独做成函数,是为了让镜像测试把三种状态各喂一遍并断言 `code === 0`:
- * 「不判红、不改退出码」若只是散文,下一次有人想"顺手升档"时就没有东西挡它。
+ * 退出码(纯函数)—— 三态显式映射:ok→0 / drift→1 / undetermined→2。
+ * 单独做成函数,是为了让镜像测试把三种状态各喂一遍并钉死映射:
+ * 「不把 drift/undetermined 折成绿」若只是散文,下一次有人想"顺手改回 0"时就没有东西挡它。
+ * 是否阻断由 guardian 的 warn/blocking 档决定(本门注册为 warn,故 1/2 也不会拦提交)。
  */
 export function exitCodeFor(state) {
-  void state
-  return 0
+  if (state === 'ok') return 0
+  if (state === 'drift') return 1
+  return 2
 }
 
 export function formatLines(res, state) {
@@ -294,7 +300,7 @@ export function formatLines(res, state) {
       )
       for (const u of res.unreadable.slice(0, 10)) out.push(`     · ${u}`)
     }
-    out.push('   本门不判红、不改退出码(机器态残留不该拦每一次提交);但也不得记为通过。')
+    out.push('   本门以 exit 2 交付「未判定」;是否阻断由调用方(warn 档不阻塞),但不得记为通过。')
     return out
   }
   if (state === 'ok') {
@@ -365,7 +371,7 @@ function selfTest() {
     // ① 空根 ⇒ ok,退出码 0
     const s0 = decide(scanScratchRoot(base, { entryBudget: 500 }))
     check('空 scratch 根 ⇒ ok', s0 === 'ok')
-    check('ok 的退出码恒 0(不判红)', exitCodeFor(s0) === 0)
+    check('ok 的退出码是 0', exitCodeFor(s0) === 0)
 
     // ② 注入 P1 形态 ⇒ drift,且两型都点名
     mkdirSync(nested, { recursive: true })
@@ -389,7 +395,7 @@ function selfTest() {
           f.files === 1,
       ),
     )
-    check('drift 的退出码仍是 0(只告警)', exitCodeFor(s1) === 0)
+    check('drift 的退出码是 1(真违规,阻断与否归 runner 档位)', exitCodeFor(s1) === 1)
     // ③ 判定路径零写盘(行为证明,不是正则):扫完之后树本身一字未动
     check('scan 前后目录清单逐字相同 ⇒ 判定路径零写盘', snapshotTree(base) === snapBefore)
     check('被点名的现场仍在(本工具绝不删)', existsHere(join(nested, 'keep.txt')))
@@ -399,11 +405,11 @@ function selfTest() {
     const a2 = scanScratchRoot(base, { entryBudget: 500 })
     check('抹掉二阶形态 ⇒ 回到 ok(判据认形态,不认"见过")', decide(a2) === 'ok')
 
-    // ⑤ 根不在盘上 ⇒ undetermined,退出码 0,且必须打印原因
+    // ⑤ 根不在盘上 ⇒ undetermined,退出码 2,且必须打印原因
     const a3 = scanScratchRoot(join(base, 'no-such-root-at-all'))
     const s3 = decide(a3)
     check('scratch 根不在盘上 ⇒ undetermined', s3 === 'undetermined')
-    check('undetermined 的退出码是 0(机器态不拦提交)', exitCodeFor(s3) === 0)
+    check('undetermined 的退出码是 2(未判定,不得报绿)', exitCodeFor(s3) === 2)
     check(
       'undetermined 必须喊出原因,不得静默成"看起来全绿"',
       formatLines(a3, s3).join('\n').includes('未判定'),
@@ -413,7 +419,7 @@ function selfTest() {
     mkdirSync(join(base, 'deep', 'a', 'b', 'c'), { recursive: true })
     const a4 = scanScratchRoot(base, { entryBudget: 1 })
     check('预算耗尽 ⇒ undetermined(量不完不得记为通过)', decide(a4) === 'undetermined')
-    check('预算耗尽的退出码也是 0', exitCodeFor(decide(a4)) === 0)
+    check('预算耗尽的退出码是 2', exitCodeFor(decide(a4)) === 2)
 
     // ⑦ 深度闸是一对**成对**用例:同一棵树,maxDepth=1 看不见二阶 scratch 根、=默认看得见。
     //    这不是"把限制藏起来",而是把限制量出来 —— 报告必须始终写明射程(见下一条),
@@ -438,10 +444,10 @@ function selfTest() {
     rmSync(join(base, 'd1'), { recursive: true, force: true })
     check('有界枚举必然终止(能走到这里就是终止本身的证据)', true)
 
-    // ⑧ 三态各自 code 恒 0(把"不判红"钉成函数行为而不是措辞)
+    // ⑧ 三态各自 code 显式映射(把"不折成绿"钉成函数行为而不是措辞)
     check(
-      'decide 的三种取值都映射到退出码 0',
-      ['ok', 'drift', 'undetermined'].every((s) => exitCodeFor(s) === 0),
+      'decide 三态 → 退出码 0/1/2',
+      exitCodeFor('ok') === 0 && exitCodeFor('drift') === 1 && exitCodeFor('undetermined') === 2,
     )
     rmSync(join(base, SECOND_ORDER_ROOT_NAME), { recursive: true, force: true })
     rmSync(join(base, 'deep'), { recursive: true, force: true })
@@ -505,13 +511,13 @@ function main(argv) {
 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
-// §22d 的"脚本异常 ⇒ exit 2"在本门刻意不适用:判的是机器态,异常同样只该喊出来、不该拦提交。
+// §22d 的"脚本异常 ⇒ exit 2":本门自身崩了属未判定,不得静默成绿(warn 档仍不阻断)。
 if (isDirectRun) {
   try {
     main(process.argv.slice(2))
   } catch (e) {
-    console.error(`⚠ 本门自身异常(不是判据结论,按未判定处理且不判红):${e?.message ?? e}`)
-    process.exit(0)
+    console.error(`⚠ 本门自身异常(不是判据结论,按未判定 exit 2 处理):${e?.message ?? e}`)
+    process.exit(2)
   }
 }
 

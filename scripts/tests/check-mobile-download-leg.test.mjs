@@ -16,11 +16,13 @@ import {
   LATEST_KEY,
   MIN_APK_BYTES,
   MOBILE_DOWNLOAD_LEG_CONFIG_PATH,
-  RELEASE_CERT_SHA256,
-  RELEASE_CERT_SHA256_DISPLAY,
+  PLAY_APP_SIGNING_CERT_SHA256,
+  PLAY_UPLOAD_KEY_CERT_SHA256,
+  SITE_APK_CERT_SHA256,
+  SITE_APK_CERT_SHA256_DISPLAY,
   SITE_LEG_PUBLIC_BASE,
   SITE_LEG_URL_PREFIX,
-  judgeCertDigest,
+  judgeLegCertDigest,
   judgeDownloadProbe,
   resolveMobileDownloadUrl,
   summarizeExit,
@@ -91,21 +93,37 @@ test('探针三态:200+足量=ok / 404=fail / 缺长度=undetermined', () => {
   assert.equal(ranged.state, 'ok')
 })
 
-test('证书基准:相等/大小写冒号归一后相等;伪造签名即 fail 并点名 62:B0:FF:0E', () => {
-  assert.equal(judgeCertDigest({ actual: RELEASE_CERT_SHA256 }).state, 'ok')
+test('证书基准三值:官网腿对/错、Play 两值未测跳过、已测才参与校验', () => {
+  // 官网腿:本腿自己的基准,大小写/冒号归一后仍相等
+  assert.equal(judgeLegCertDigest('siteApk', { actual: SITE_APK_CERT_SHA256 }).state, 'ok')
   assert.equal(
-    judgeCertDigest({ actual: RELEASE_CERT_SHA256.toUpperCase().replace(/(.{2})(?!$)/g, '$1:') }).state,
+    judgeLegCertDigest('siteApk', {
+      actual: SITE_APK_CERT_SHA256.toUpperCase().replace(/(.{2})(?!$)/g, '$1:'),
+    }).state,
     'ok',
   )
-
-  const forged = judgeCertDigest({
+  const forged = judgeLegCertDigest('siteApk', {
     actual: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
   })
   assert.equal(forged.state, 'fail')
-  assert.match(forged.reason, new RegExp(RELEASE_CERT_SHA256_DISPLAY.replace(/\./g, '\\.')))
-  assert.match(forged.reason, new RegExp(RELEASE_CERT_SHA256))
+  assert.match(forged.reason, new RegExp(SITE_APK_CERT_SHA256_DISPLAY.replace(/\./g, '\\.')))
+  assert.match(forged.reason, new RegExp(SITE_APK_CERT_SHA256))
+  assert.equal(judgeLegCertDigest('siteApk', { actual: '' }).state, 'fail')
 
-  assert.equal(judgeCertDigest({ actual: '' }).state, 'fail')
+  // Play 两值当前未实测 ⇒ null ⇒ skipped,且点名待 Play Console 量取;不判绿
+  assert.equal(PLAY_UPLOAD_KEY_CERT_SHA256, '')
+  assert.equal(PLAY_APP_SIGNING_CERT_SHA256, '')
+  for (const leg of ['playUploadKey', 'playAppSigning']) {
+    const skipped = judgeLegCertDigest(leg, { actual: SITE_APK_CERT_SHA256 })
+    assert.equal(skipped.state, 'skipped', `${leg} 未测不得判绿`)
+    assert.match(skipped.reason, /待 Play Console 量取/)
+  }
+
+  // 已测形态(夹具):本腿值参与比对,与官网值不同也不得跨腿互校
+  const measured = 'a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90'
+  const baseline = { label: 'Play 上传密钥证书', sha256: measured, display: 'A1:B2:C3:D4…' }
+  assert.equal(judgeLegCertDigest('playUploadKey', { actual: measured, baseline }).state, 'ok')
+  assert.equal(judgeLegCertDigest('playUploadKey', { actual: SITE_APK_CERT_SHA256, baseline }).state, 'fail')
 })
 
 test('退出码:fail 优先于 skip;只有 skip 也不绿', () => {

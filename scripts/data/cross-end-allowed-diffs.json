@@ -58,9 +58,9 @@
       "platform": "both",
       "owner": "cross-end-ui",
       "expires": "2027-03-27",
-      "count": 15,
+      "count": 18,
       "reason": "两端盒档读数仍有差;本批只登记为允许差异,不改 UI 结构与视觉取值;到期前必须由 owner 复核收敛或续期。",
-      "evidence": "check-cross-end-ui-parity --json: InputArea diffCount=15(onlyMiniapp=10 / onlyRn=5)"
+      "evidence": "check-cross-end-ui-parity --json: InputArea diffCount=18(onlyMiniapp=10 / onlyRn=8;2026-11-04 merge 面重读)"
     },
     {
       "component": "InputArea",
@@ -111,6 +111,16 @@
       "count": 6,
       "reason": "两端盒档读数仍有差;本批只登记为允许差异,不改 UI 结构与视觉取值;到期前必须由 owner 复核收敛或续期。",
       "evidence": "check-cross-end-ui-parity --json: ModelConfigDialog diffCount=6(onlyMiniapp=1 / onlyRn=5)"
+    },
+    {
+      "component": "ModelConfigDialog",
+      "key": "radius",
+      "platform": "miniapp",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 3,
+      "reason": "小程序端保留的音色菜单/上传块/删除角标三处圆角取 8/12/16(均为 radius 7 档内的合法档);RN 端在 923044485c 删除 AdvancedModelConfigDialog/ModelSelecterDialog/UploadButton 死变体后已无对应元素,差异属单端元素存在性而非同名元素取值分叉;到期前复核 RN 若重建这些元素必须收敛到同档。",
+      "evidence": "check-cross-end-ui-parity --json: ModelConfigDialog radiusCount=3(onlyMiniapp=8/12/16),仅小程序元素 mcd-audio-menu/mcd-delete-btn/mcd-upload-btn(apps/miniapp-taro/src/components/ModelConfigDialog.css:33,17,10);档位来源 apps/miniapp-taro/src/components/ModelConfigDialog.tsx:244(rounded-xl=12)/:610(rounded-lg=8)/:635(rounded-2xl=16)"
     },
     {
       "component": "ModelList",
@@ -245,8 +255,8 @@
       "platform": "miniapp",
       "owner": "cross-end-platform",
       "expires": "2027-03-27",
-      "reason": "小程序码/截屏/微信授权属微信宿主产物;RN 无 wxacode 能力,截屏走 react-native-view-shot。",
-      "evidence": "apps/miniapp-taro/src/rn-compat/native-wechat.ts:27-34:unsupported; apps/miniapp-taro/src/pages/distribution/index.tsx:72:getWxCode; apps/mobile-rn/src/hooks/use-screenshot.ts:7:captureRef"
+      "reason": "小程序码/截屏/微信授权属微信宿主产物;RN 无 wxacode 能力,截屏在各屏内直调 react-native-view-shot(无共享入口,2026-11-05 起 use-screenshot 已删)。",
+      "evidence": "apps/miniapp-taro/src/rn-compat/native-wechat.ts:27-34:unsupported; apps/miniapp-taro/src/pages/distribution/index.tsx:72:getWxCode; apps/mobile-rn/src/screens/ChatScreen.tsx:59:captureRef; apps/mobile-rn/src/screens/DistributionScreen.tsx:10:captureRef"
     },
     {
       "component": "font",
@@ -332,36 +342,6 @@
       "count": 1,
       "reason": "圆形按钮/圆点按「尺寸的一半」写 borderRadius,web 侧用 rounded-full;RN 无百分比圆角档,该值是渲染必需而非散档;零观感改动。",
       "evidence": "check-web-rn-style-tiers --json: apps/mobile-rn/src/components/ConfirmPurchasePopUp.tsx 的 radioDot 为 borderRadius=10(1 处);台账 scripts/data/cross-end-fork-decisions.json"
-    },
-    {
-      "component": "CourseCarousel.thumbIcon",
-      "key": "styleTier:fontSize:fontSize:36",
-      "platform": "rn",
-      "owner": "cross-end-ui",
-      "expires": "2027-03-27",
-      "count": 1,
-      "reason": "RN 用 fontSize 作图标/emoji/首字母的字形盒,web 侧同类元素由 SVG/图标组件承载,没有可对齐的排版档;登记为 RN 单侧展示元素,零观感改动。",
-      "evidence": "check-web-rn-style-tiers --json: apps/mobile-rn/src/components/CourseCarousel.tsx 的 thumbIcon 为 fontSize=36(1 处);台账 scripts/data/cross-end-fork-decisions.json"
-    },
-    {
-      "component": "CourseCarousel.thumbIcon",
-      "key": "styleTier:fontSize:fontSize:32",
-      "platform": "rn",
-      "owner": "cross-end-ui",
-      "expires": "2027-03-27",
-      "count": 1,
-      "reason": "RN 用 fontSize 作图标/emoji/首字母的字形盒,web 侧同类元素由 SVG/图标组件承载,没有可对齐的排版档;登记为 RN 单侧展示元素,零观感改动。",
-      "evidence": "check-web-rn-style-tiers --json: apps/mobile-rn/src/components/CourseCarousel.tsx 的 thumbIcon 为 fontSize=32(1 处);台账 scripts/data/cross-end-fork-decisions.json"
-    },
-    {
-      "component": "CourseCarousel.thumbIcon",
-      "key": "styleTier:fontSize:fontSize:28",
-      "platform": "rn",
-      "owner": "cross-end-ui",
-      "expires": "2027-03-27",
-      "count": 1,
-      "reason": "RN 用 fontSize 作图标/emoji/首字母的字形盒,web 侧同类元素由 SVG/图标组件承载,没有可对齐的排版档;登记为 RN 单侧展示元素,零观感改动。",
-      "evidence": "check-web-rn-style-tiers --json: apps/mobile-rn/src/components/CourseCarousel.tsx 的 thumbIcon 为 fontSize=28(1 处);台账 scripts/data/cross-end-fork-decisions.json"
     },
     {
       "component": "RN:spacing:marginLeft",
@@ -462,16 +442,6 @@
       "count": 1,
       "reason": "圆形按钮/圆点按「尺寸的一半」写 borderRadius,web 侧用 rounded-full;RN 无百分比圆角档,该值是渲染必需而非散档;零观感改动。",
       "evidence": "check-web-rn-style-tiers --json: apps/mobile-rn/src/components/VoiceInput.tsx 的 clearBtn 为 borderRadius=24(1 处);台账 scripts/data/cross-end-fork-decisions.json"
-    },
-    {
-      "component": "Default.emoji",
-      "key": "styleTier:fontSize:fontSize:56",
-      "platform": "rn",
-      "owner": "cross-end-ui",
-      "expires": "2027-03-27",
-      "count": 1,
-      "reason": "RN 用 fontSize 作图标/emoji/首字母的字形盒,web 侧同类元素由 SVG/图标组件承载,没有可对齐的排版档;登记为 RN 单侧展示元素,零观感改动。",
-      "evidence": "check-web-rn-style-tiers --json: apps/mobile-rn/src/components/common/Default.tsx 的 emoji 为 fontSize=56(1 处);台账 scripts/data/cross-end-fork-decisions.json"
     },
     {
       "component": "Empty.emoji",
@@ -912,6 +882,969 @@
       "count": 1,
       "reason": "RN 用 fontSize 作图标/emoji/首字母的字形盒,web 侧同类元素由 SVG/图标组件承载,没有可对齐的排版档;登记为 RN 单侧展示元素,零观感改动。",
       "evidence": "check-web-rn-style-tiers --json: packages/app/src/features/topup-success/TopupSuccessScreen.tsx 的 icon 为 fontSize=64(1 处);台账 scripts/data/cross-end-fork-decisions.json"
+    },
+    {
+      "component": "Carousel",
+      "key": "platform:carousel-slide-model",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-03-27",
+      "reason": "同一轮播数据槽位两端项模型不同:RN 用 banner:CarouselSlide(含 link 跳转字段),小程序用 items:CarouselItem(含 price/isFree/tag 课程字段);各自页面按本端模型取数,不是命名差异,登记为数据模型差异,不硬摊平。",
+      "evidence": "check-cross-end-component-props-parity --json: Carousel onlyRn 含 banner / onlyMini 含 items;对照两端组件文件顶部类型声明"
+    },
+    {
+      "component": "Carousel",
+      "key": "platform:slide-step-width",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-03-27",
+      "reason": "itemWidth 是 RN 端分页步长:RN 用横向 ScrollView + 显式 slide 宽,容器有边距时必须传实际宽;小程序用 swiper 原生分页、页宽恒为容器宽,无同名概念 → 宿主布局能力差异。",
+      "evidence": "check-cross-end-component-props-parity --json: Carousel onlyRn 含 itemWidth;对照 apps/mobile-rn/src/components/Carousel.tsx slideWidth 取值处与 apps/miniapp-taro/src/components/Carousel.tsx swiper 段"
+    },
+    {
+      "component": "Carousel",
+      "key": "platform:course-overlay-variant",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-03-27",
+      "reason": "variant/courseMeta 是小程序端「课程专用轮播」叠层(标题+价格/免费标签);RN 端同名 Carousel 不承担课程叠层,其课程轮播实现已于 2026-11-04 作为零消费死代码删除 → 架构分工差异,登记而不复制渲染。",
+      "evidence": "check-cross-end-component-props-parity --json: Carousel onlyMini 含 variant/courseMeta;RN 侧无同名课程叠层组件(2026-11-04 作为零消费死代码删除)"
+    },
+    {
+      "component": "InputArea",
+      "key": "platform:props:rn:collapseButtonLabel",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "reason": "折叠按钮的无障碍名称。小程序端无无障碍名称通道（apps/miniapp-taro/src/components/BottomActionBar.tsx:113 明示「无障碍名称这一端无通道」），且折叠 FAB 形态本身不在小程序端承载；按 a11y 平台差异登记，不造空 prop。",
+      "evidence": "check-cross-end-component-props-parity --json: InputArea rn 侧独有键 collapseButtonLabel(2026-11-03 提案复核登记);提案证据 apps/mobile-rn/src/components/InputArea.tsx:226"
+    },
+    {
+      "component": "InputArea",
+      "key": "platform:props:rn:collapsedFabLabel",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "reason": "折叠后 FAB 的无障碍名称。同 collapseButtonLabel：小程序端无 aria 通道（BottomActionBar.tsx:113），且无折叠 FAB 形态。",
+      "evidence": "check-cross-end-component-props-parity --json: InputArea rn 侧独有键 collapsedFabLabel(2026-11-03 提案复核登记);提案证据 apps/mobile-rn/src/components/InputArea.tsx:224"
+    },
+    {
+      "component": "InputArea",
+      "key": "platform:props:rn:collapsible",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "reason": "RN Home 的折叠 FAB 宿主形态，用于给悬浮入口让位。小程序 Home 输入栏常驻（BottomActionBar.tsx:241 直接透传 inputAreaProps），无折叠态概念，属宿主形态差异。",
+      "evidence": "check-cross-end-component-props-parity --json: InputArea rn 侧独有键 collapsible(2026-11-03 提案复核登记);提案证据 apps/mobile-rn/src/components/InputArea.tsx:218"
+    },
+    {
+      "component": "InputArea",
+      "key": "platform:props:rn:defaultCollapsed",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "reason": "collapsible 折叠形态的初始值，小程序端无折叠态（同上）。",
+      "evidence": "check-cross-end-component-props-parity --json: InputArea rn 侧独有键 defaultCollapsed(2026-11-03 提案复核登记);提案证据 apps/mobile-rn/src/components/InputArea.tsx:220"
+    },
+    {
+      "component": "InputArea",
+      "key": "platform:props:rn:expanded",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "reason": "小程序端放大态由组件内部 isFangdaActive 自管并以 onFangdaChange 回传（apps/miniapp-taro/src/components/InputArea.tsx:161,214-221），不开放受控入口；RN 为受控 expanded + onExpandToggle。受控/非受控为端内状态所有权差异。",
+      "evidence": "check-cross-end-component-props-parity --json: InputArea rn 侧独有键 expanded(2026-11-03 提案复核登记);提案证据 apps/mobile-rn/src/components/InputArea.tsx:204"
+    },
+    {
+      "component": "InputArea",
+      "key": "platform:props:rn:loading",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "reason": "小程序端流式态渲染在 InputArea 之外：chat.tsx:2317-2321 用 thinking 条件渲染 .send-btn 停止按钮；InputArea 契约不承载发送中态，功能未缺（停止按钮可用）。",
+      "evidence": "check-cross-end-component-props-parity --json: InputArea rn 侧独有键 loading(2026-11-03 提案复核登记);提案证据 apps/mobile-rn/src/components/InputArea.tsx:178"
+    },
+    {
+      "component": "InputArea",
+      "key": "platform:props:rn:onClearModel",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "reason": "输入栏内的「清除已选模型」入口。小程序输入栏无该按钮，模型选择/清除在 ModelDrawer（apps/miniapp-taro/src/pkg-ai/ai/chat.tsx:2324）与页面模型面板承载。",
+      "evidence": "check-cross-end-component-props-parity --json: InputArea rn 侧独有键 onClearModel(2026-11-03 提案复核登记);提案证据 apps/mobile-rn/src/components/InputArea.tsx:258"
+    },
+    {
+      "component": "InputArea",
+      "key": "platform:props:rn:onCollapsedChange",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "reason": "折叠态变化通知，随 collapsible 形态一并只存在于 RN Host（小程序 Home 输入栏常驻，BottomActionBar.tsx:241）。",
+      "evidence": "check-cross-end-component-props-parity --json: InputArea rn 侧独有键 onCollapsedChange(2026-11-03 提案复核登记);提案证据 apps/mobile-rn/src/components/InputArea.tsx:222"
+    },
+    {
+      "component": "InputArea",
+      "key": "platform:props:rn:onImageAdd",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "reason": "小程序端由组件内部直接调起 Taro.chooseImage / chooseMessageFile 完成选文件（apps/miniapp-taro/src/components/InputArea.tsx:232-252），不需要宿主回调；RN 无内建文件/图片选择器，必须由宿主 AddPanel 注入。属平台能力归属差异，小程序端功能不缺。",
+      "evidence": "check-cross-end-component-props-parity --json: InputArea rn 侧独有键 onImageAdd(2026-11-03 提案复核登记);提案证据 apps/mobile-rn/src/components/InputArea.tsx:192"
+    },
+    {
+      "component": "InputArea",
+      "key": "platform:props:rn:onOpenModelConfig",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "reason": "输入栏内的模型配置入口。小程序端模型配置弹窗由页面侧入口打开，InputArea 两个 variant 均无该按钮（apps/miniapp-taro/src/components/InputArea.tsx:592-900）。",
+      "evidence": "check-cross-end-component-props-parity --json: InputArea rn 侧独有键 onOpenModelConfig(2026-11-03 提案复核登记);提案证据 apps/mobile-rn/src/components/InputArea.tsx:260"
+    },
+    {
+      "component": "InputArea",
+      "key": "platform:props:rn:onOpenModelSelect",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "reason": "小程序端模型选择由 ModelDrawer 承载（apps/miniapp-taro/src/pkg-ai/ai/chat.tsx:2324），输入栏内无模型选择槽位；RN 把该入口放进输入栏。",
+      "evidence": "check-cross-end-component-props-parity --json: InputArea rn 侧独有键 onOpenModelSelect(2026-11-03 提案复核登记);提案证据 apps/mobile-rn/src/components/InputArea.tsx:254"
+    },
+    {
+      "component": "InputArea",
+      "key": "platform:props:rn:onPageAgentVariablesChange",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "reason": "agent 参数变量写回调，仅 RN HomeScreen 在输入栏内渲染参数区使用；小程序两 variant 无该渲染分支（apps/miniapp-taro/src/components/InputArea.tsx:592-900）。属宿主面差异；若小程序要接 agent 参数区须另开票实施，到期复核。",
+      "evidence": "check-cross-end-component-props-parity --json: InputArea rn 侧独有键 onPageAgentVariablesChange(2026-11-03 提案复核登记);提案证据 apps/mobile-rn/src/components/InputArea.tsx:210"
+    },
+    {
+      "component": "InputArea",
+      "key": "platform:props:rn:onParamImageAdd",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "reason": "agent 参数区「图片类型」添加回调，随 onPageAgentVariablesChange 一组只存在于 RN 宿主面；小程序无参数区渲染分支。",
+      "evidence": "check-cross-end-component-props-parity --json: InputArea rn 侧独有键 onParamImageAdd(2026-11-03 提案复核登记);提案证据 apps/mobile-rn/src/components/InputArea.tsx:212"
+    },
+    {
+      "component": "InputArea",
+      "key": "platform:props:rn:onPlusToggle",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "reason": "小程序加号直接触发组件内选文件并自带旋转回退（apps/miniapp-taro/src/components/InputArea.tsx:231-252），无 AddPanel 展开回调；RN 加号打开宿主 AddPanel，需回调透出。",
+      "evidence": "check-cross-end-component-props-parity --json: InputArea rn 侧独有键 onPlusToggle(2026-11-03 提案复核登记);提案证据 apps/mobile-rn/src/components/InputArea.tsx:244"
+    },
+    {
+      "component": "InputArea",
+      "key": "platform:props:rn:onStop",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "reason": "小程序端停止按钮在 chat.tsx:2317-2321 由页面渲染并直连 stopGeneration，InputArea 不需要停止回调；功能已具备。",
+      "evidence": "check-cross-end-component-props-parity --json: InputArea rn 侧独有键 onStop(2026-11-03 提案复核登记);提案证据 apps/mobile-rn/src/components/InputArea.tsx:180"
+    },
+    {
+      "component": "InputArea",
+      "key": "platform:props:rn:onVoiceAnimationStart",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "reason": "RN 端语音波形动画由宿主驱动（按压起停回调）；小程序端 30 线动画由组件内 recording 状态驱动（apps/miniapp-taro/src/components/InputArea.tsx:346-376），无同名回调需求。",
+      "evidence": "check-cross-end-component-props-parity --json: InputArea rn 侧独有键 onVoiceAnimationStart(2026-11-03 提案复核登记);提案证据 apps/mobile-rn/src/components/InputArea.tsx:200"
+    },
+    {
+      "component": "InputArea",
+      "key": "platform:props:rn:onVoiceAnimationStop",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "reason": "同 onVoiceAnimationStart：小程序动画随内部 recording 状态收放，不需要宿主起停回调。",
+      "evidence": "check-cross-end-component-props-parity --json: InputArea rn 侧独有键 onVoiceAnimationStop(2026-11-03 提案复核登记);提案证据 apps/mobile-rn/src/components/InputArea.tsx:202"
+    },
+    {
+      "component": "InputArea",
+      "key": "platform:props:rn:onVoiceToggle",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "reason": "小程序端语音/键盘模式由组件内 state 切换（apps/miniapp-taro/src/components/InputArea.tsx:313-321），没有受控切换入口；RN 需宿主回调接管模式。",
+      "evidence": "check-cross-end-component-props-parity --json: InputArea rn 侧独有键 onVoiceToggle(2026-11-03 提案复核登记);提案证据 apps/mobile-rn/src/components/InputArea.tsx:198"
+    },
+    {
+      "component": "InputArea",
+      "key": "platform:props:rn:pageAgentVariables",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "reason": "agent 参数变量数据（AgentVariableGroup[]），仅 RN HomeScreen 输入栏渲染该区；小程序两 variant 无该渲染分支（apps/miniapp-taro/src/components/InputArea.tsx:592-900）。属宿主面差异，非输入基础契约。",
+      "evidence": "check-cross-end-component-props-parity --json: InputArea rn 侧独有键 pageAgentVariables(2026-11-03 提案复核登记);提案证据 apps/mobile-rn/src/components/InputArea.tsx:208"
+    },
+    {
+      "component": "InputArea",
+      "key": "platform:props:rn:plusActive",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "reason": "小程序加号旋转态由内部 isShowIcon 自管（apps/miniapp-taro/src/components/InputArea.tsx:231-233），不对外开放受控；RN 由宿主 AddPanel 开关驱动，需受控 prop。",
+      "evidence": "check-cross-end-component-props-parity --json: InputArea rn 侧独有键 plusActive(2026-11-03 提案复核登记);提案证据 apps/mobile-rn/src/components/InputArea.tsx:246"
+    },
+    {
+      "component": "InputArea",
+      "key": "platform:props:rn:selectedModelName",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "reason": "输入栏已选模型文案槽位；小程序模型名显示在页面模型面板块/ModelDrawer（apps/miniapp-taro/src/pkg-ai/ai/chat.tsx:2324），输入栏无该槽位。",
+      "evidence": "check-cross-end-component-props-parity --json: InputArea rn 侧独有键 selectedModelName(2026-11-03 提案复核登记);提案证据 apps/mobile-rn/src/components/InputArea.tsx:256"
+    },
+    {
+      "component": "InputArea",
+      "key": "platform:props:rn:sendLabel",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "reason": "发送按钮无障碍文案（i18n 注入）。小程序端无无障碍名称通道（apps/miniapp-taro/src/components/BottomActionBar.tsx:113），按 a11y 平台差异登记。",
+      "evidence": "check-cross-end-component-props-parity --json: InputArea rn 侧独有键 sendLabel(2026-11-03 提案复核登记);提案证据 apps/mobile-rn/src/components/InputArea.tsx:184"
+    },
+    {
+      "component": "InputArea",
+      "key": "platform:props:rn:showVoiceMic",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "reason": "RN Home 专属「大输入框」布局形态；小程序 ai-home 由 variant + Taro CSS 类族承载（apps/miniapp-taro/src/components/InputArea.tsx:87,285-296），两套布局体系不可 1:1 映射。",
+      "evidence": "check-cross-end-component-props-parity --json: InputArea rn 侧独有键 showVoiceMic(2026-11-03 提案复核登记);提案证据 apps/mobile-rn/src/components/InputArea.tsx:231"
+    },
+    {
+      "component": "InputArea",
+      "key": "platform:props:rn:stopLabel",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "reason": "停止按钮文案（同时作无障碍名）。小程序停止按钮由页面渲染并直接取 i18n 文案（apps/miniapp-taro/src/pkg-ai/ai/chat.tsx:2318-2319），无 a11y 通道（BottomActionBar.tsx:113）。",
+      "evidence": "check-cross-end-component-props-parity --json: InputArea rn 侧独有键 stopLabel(2026-11-03 提案复核登记);提案证据 apps/mobile-rn/src/components/InputArea.tsx:182"
+    },
+    {
+      "component": "InputArea",
+      "key": "platform:props:rn:transparentBackground",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "reason": "RN 端与玻璃 dock 组合时的透明底开关；小程序背景固定为 --color-card（apps/miniapp-taro/src/components/InputArea.tsx:293 放大态 background），无该合成需求。",
+      "evidence": "check-cross-end-component-props-parity --json: InputArea rn 侧独有键 transparentBackground(2026-11-03 提案复核登记);提案证据 apps/mobile-rn/src/components/InputArea.tsx:268"
+    },
+    {
+      "component": "InputArea",
+      "key": "platform:props:rn:voiceActive",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "reason": "小程序录音态由组件内 recording 自管（apps/miniapp-taro/src/components/InputArea.tsx:326-342），无受控 prop；RN 录音由宿主模块驱动，需受控态。",
+      "evidence": "check-cross-end-component-props-parity --json: InputArea rn 侧独有键 voiceActive(2026-11-03 提案复核登记);提案证据 apps/mobile-rn/src/components/InputArea.tsx:196"
+    },
+    {
+      "component": "InputArea",
+      "key": "platform:props:rn:voiceDuration",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "reason": "录音时长显示值；小程序由内部录音器计时（apps/miniapp-taro/src/components/InputArea.tsx:326-342），不需要宿主透传。",
+      "evidence": "check-cross-end-component-props-parity --json: InputArea rn 侧独有键 voiceDuration(2026-11-03 提案复核登记);提案证据 apps/mobile-rn/src/components/InputArea.tsx:237"
+    },
+    {
+      "component": "InputArea",
+      "key": "platform:props:rn:voiceInput",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "reason": "语音输入模式受控态；小程序模式切换由内部 state 自管（apps/miniapp-taro/src/components/InputArea.tsx:313-321），无受控入口。",
+      "evidence": "check-cross-end-component-props-parity --json: InputArea rn 侧独有键 voiceInput(2026-11-03 提案复核登记);提案证据 apps/mobile-rn/src/components/InputArea.tsx:194"
+    },
+    {
+      "component": "InputArea",
+      "key": "platform:props:rn:voiceNoteNode",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "reason": "语音笔记挂载插槽（ReactNode），仅 RN Home 宿主传入并渲染；小程序两 variant 无该挂载点（apps/miniapp-taro/src/components/InputArea.tsx:592-900）。属宿主面差异。",
+      "evidence": "check-cross-end-component-props-parity --json: InputArea rn 侧独有键 voiceNoteNode(2026-11-03 提案复核登记);提案证据 apps/mobile-rn/src/components/InputArea.tsx:249"
+    },
+    {
+      "component": "InputArea",
+      "key": "platform:props:rn:voiceRecording",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "reason": "录音中态由宿主录音模块驱动；小程序用内部 recording（apps/miniapp-taro/src/components/InputArea.tsx:326-342）。",
+      "evidence": "check-cross-end-component-props-parity --json: InputArea rn 侧独有键 voiceRecording(2026-11-03 提案复核登记);提案证据 apps/mobile-rn/src/components/InputArea.tsx:233"
+    },
+    {
+      "component": "InputArea",
+      "key": "platform:props:rn:voiceTranscribing",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "reason": "转写中态由宿主 STT 模块驱动；小程序语音识别走内部 voiceRecorder 流程（apps/miniapp-taro/src/components/InputArea.tsx:326-342），无宿主态透传。",
+      "evidence": "check-cross-end-component-props-parity --json: InputArea rn 侧独有键 voiceTranscribing(2026-11-03 提案复核登记);提案证据 apps/mobile-rn/src/components/InputArea.tsx:235"
+    },
+    {
+      "component": "InputArea",
+      "key": "platform:props:mini:onUpload",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "reason": "小程序由组件内部调起 Taro.chooseImage / chooseMessageFile 并回传选中路径（:232-252）；RN 无内建选择器，选文件由宿主 AddPanel 完成，故无可对接的同名回调。功能未缺。",
+      "evidence": "check-cross-end-component-props-parity --json: InputArea mini 侧独有键 onUpload(2026-11-03 提案复核登记);提案证据 apps/miniapp-taro/src/components/InputArea.tsx:79"
+    },
+    {
+      "component": "InputArea",
+      "key": "platform:props:mini:variant",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "reason": "小程序以 variant('default'|'ai-home')切两套 Taro CSS 类族（:285-296,:592+）；RN 以 showVoiceMic/collapsible 布局开关表达（apps/mobile-rn/src/components/InputArea.tsx:231,218），属渲染体系差异，非同名同构契约。",
+      "evidence": "check-cross-end-component-props-parity --json: InputArea mini 侧独有键 variant(2026-11-03 提案复核登记);提案证据 apps/miniapp-taro/src/components/InputArea.tsx:87"
+    },
+    {
+      "component": "ModelConfigDialog",
+      "key": "platform:props:rn:audioUrl",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "reason": "参考音色音频 URL。小程序端 uploads 由组件内部 state 自管（apps/miniapp-taro/src/components/ModelConfigDialog.tsx:181,514-551），宿主不注入 URL；RN 无 Taro 选择器，只能由宿主上传后回传（RN:937 渲染缩略图）。属平台能力归属差异，小程序端功能未缺。",
+      "evidence": "check-cross-end-component-props-parity --json: ModelConfigDialog rn 侧独有键 audioUrl(2026-11-03 提案复核登记);提案证据 apps/mobile-rn/src/components/ModelConfigDialog.tsx:135"
+    },
+    {
+      "component": "ModelConfigDialog",
+      "key": "platform:props:rn:firstFrameUrl",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "reason": "首帧图 URL。小程序端由内部 uploads.firstFrame 自管（apps/miniapp-taro/src/components/ModelConfigDialog.tsx:179-184,514-545,607），RN 由宿主上传后回传（RN:917-919）。",
+      "evidence": "check-cross-end-component-props-parity --json: ModelConfigDialog rn 侧独有键 firstFrameUrl(2026-11-03 提案复核登记);提案证据 apps/mobile-rn/src/components/ModelConfigDialog.tsx:131"
+    },
+    {
+      "component": "ModelConfigDialog",
+      "key": "platform:props:rn:isRecording",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "reason": "录音中态。RN 端录音能力由宿主原生录音模块提供，组件只渲染态（RN:1128-1152）；小程序端音色克隆走「上传音频」路径（apps/miniapp-taro/src/components/ModelConfigDialog.tsx:514-545,712-713），不接 RecorderManager。按平台录音能力归属登记，到期复核小程序是否补录音通道。",
+      "evidence": "check-cross-end-component-props-parity --json: ModelConfigDialog rn 侧独有键 isRecording(2026-11-03 提案复核登记);提案证据 apps/mobile-rn/src/components/ModelConfigDialog.tsx:155"
+    },
+    {
+      "component": "ModelConfigDialog",
+      "key": "platform:props:rn:lastFrameUrl",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "reason": "尾帧图 URL。同 firstFrameUrl：小程序内部 uploads 自管（apps/miniapp-taro/src/components/ModelConfigDialog.tsx:179-184,607），RN 宿主回传（RN:927）。",
+      "evidence": "check-cross-end-component-props-parity --json: ModelConfigDialog rn 侧独有键 lastFrameUrl(2026-11-03 提案复核登记);提案证据 apps/mobile-rn/src/components/ModelConfigDialog.tsx:133"
+    },
+    {
+      "component": "ModelConfigDialog",
+      "key": "platform:props:rn:models",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "reason": "selecter 变体的可选模型列表（RN:1259-1266 渲染）。小程序端无 selecter 变体，模型列表/选择由 ModelDrawer 承载（apps/miniapp-taro/src/pkg-ai/ai/chat.tsx:2324）；属变体宿主面差异。",
+      "evidence": "check-cross-end-component-props-parity --json: ModelConfigDialog rn 侧独有键 models(2026-11-03 提案复核登记);提案证据 apps/mobile-rn/src/components/ModelConfigDialog.tsx:161"
+    },
+    {
+      "component": "ModelConfigDialog",
+      "key": "platform:props:rn:onCloneVoice",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "reason": "打开录音克隆弹窗（RN:878,1137-1152 由宿主录音模块接管）。小程序端同一功能在组件内「上传音频克隆」入口（apps/miniapp-taro/src/components/ModelConfigDialog.tsx:712-713），不需要宿主回调。",
+      "evidence": "check-cross-end-component-props-parity --json: ModelConfigDialog rn 侧独有键 onCloneVoice(2026-11-03 提案复核登记);提案证据 apps/mobile-rn/src/components/ModelConfigDialog.tsx:149"
+    },
+    {
+      "component": "ModelConfigDialog",
+      "key": "platform:props:rn:onDeleteAudio",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "reason": "删除音频缩略图。小程序端内部 deleteUpload 直接把 uploads 置空（apps/miniapp-taro/src/components/ModelConfigDialog.tsx:550-551,642），无需宿主回调；RN 的 URL 由宿主持有，删除必须回调（RN:919 同型）。",
+      "evidence": "check-cross-end-component-props-parity --json: ModelConfigDialog rn 侧独有键 onDeleteAudio(2026-11-03 提案复核登记);提案证据 apps/mobile-rn/src/components/ModelConfigDialog.tsx:178"
+    },
+    {
+      "component": "ModelConfigDialog",
+      "key": "platform:props:rn:onDeleteFirstFrame",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "reason": "同上：小程序内部 deleteUpload（apps/miniapp-taro/src/components/ModelConfigDialog.tsx:550-551,642）；RN 宿主持有 URL 故需删除回调（RN:919）。",
+      "evidence": "check-cross-end-component-props-parity --json: ModelConfigDialog rn 侧独有键 onDeleteFirstFrame(2026-11-03 提案复核登记);提案证据 apps/mobile-rn/src/components/ModelConfigDialog.tsx:176"
+    },
+    {
+      "component": "ModelConfigDialog",
+      "key": "platform:props:rn:onDeleteLastFrame",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "reason": "同上：小程序内部自管（apps/miniapp-taro/src/components/ModelConfigDialog.tsx:550-551）；RN 宿主回调。",
+      "evidence": "check-cross-end-component-props-parity --json: ModelConfigDialog rn 侧独有键 onDeleteLastFrame(2026-11-03 提案复核登记);提案证据 apps/mobile-rn/src/components/ModelConfigDialog.tsx:177"
+    },
+    {
+      "component": "ModelConfigDialog",
+      "key": "platform:props:rn:onDeleteVideo",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "reason": "同上：小程序内部自管（apps/miniapp-taro/src/components/ModelConfigDialog.tsx:550-551）；RN 宿主回调。",
+      "evidence": "check-cross-end-component-props-parity --json: ModelConfigDialog rn 侧独有键 onDeleteVideo(2026-11-03 提案复核登记);提案证据 apps/mobile-rn/src/components/ModelConfigDialog.tsx:179"
+    },
+    {
+      "component": "ModelConfigDialog",
+      "key": "platform:props:rn:onSelectModel",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "reason": "selecter 变体选中回调（RN:1231-1237）。小程序端无该变体，选择动作由 ModelDrawer 的 onSelect 承载（apps/miniapp-taro/src/pkg-ai/ai/chat.tsx:2324,2330）。",
+      "evidence": "check-cross-end-component-props-parity --json: ModelConfigDialog rn 侧独有键 onSelectModel(2026-11-03 提案复核登记);提案证据 apps/mobile-rn/src/components/ModelConfigDialog.tsx:165"
+    },
+    {
+      "component": "ModelConfigDialog",
+      "key": "platform:props:rn:onSelectVoice",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "reason": "打开系统音色选择（RN:872）。小程序端系统音色由组件内 Selecter 直接选择（apps/miniapp-taro/src/components/ModelConfigDialog.tsx:688-710），无宿主回调。",
+      "evidence": "check-cross-end-component-props-parity --json: ModelConfigDialog rn 侧独有键 onSelectVoice(2026-11-03 提案复核登记);提案证据 apps/mobile-rn/src/components/ModelConfigDialog.tsx:147"
+    },
+    {
+      "component": "ModelConfigDialog",
+      "key": "platform:props:rn:onStartRecording",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "reason": "开始录音（RN:882,1137）。小程序端不做录音（克隆走上传音频，apps/miniapp-taro/src/components/ModelConfigDialog.tsx:712-713），按平台录音能力归属登记。",
+      "evidence": "check-cross-end-component-props-parity --json: ModelConfigDialog rn 侧独有键 onStartRecording(2026-11-03 提案复核登记);提案证据 apps/mobile-rn/src/components/ModelConfigDialog.tsx:151"
+    },
+    {
+      "component": "ModelConfigDialog",
+      "key": "platform:props:rn:onStopRecording",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "reason": "停止录音（RN:886,1137）。小程序端无录音通道，同 isRecording 组登记。",
+      "evidence": "check-cross-end-component-props-parity --json: ModelConfigDialog rn 侧独有键 onStopRecording(2026-11-03 提案复核登记);提案证据 apps/mobile-rn/src/components/ModelConfigDialog.tsx:153"
+    },
+    {
+      "component": "ModelConfigDialog",
+      "key": "platform:props:rn:onUploadAudio",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "reason": "上传参考音色（RN 端打开音色菜单）。小程序端在组件内直接调起 Taro.chooseMessageFile/chooseImage 并把路径写进 uploads（apps/miniapp-taro/src/components/ModelConfigDialog.tsx:514-545,712-713），无需宿主回调。",
+      "evidence": "check-cross-end-component-props-parity --json: ModelConfigDialog rn 侧独有键 onUploadAudio(2026-11-03 提案复核登记);提案证据 apps/mobile-rn/src/components/ModelConfigDialog.tsx:143"
+    },
+    {
+      "component": "ModelConfigDialog",
+      "key": "platform:props:rn:onUploadFirstFrame",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "reason": "上传首帧图（RN:918）。小程序由内部 handleUpload('firstFrame') 自管（apps/miniapp-taro/src/components/ModelConfigDialog.tsx:514-545,607）。",
+      "evidence": "check-cross-end-component-props-parity --json: ModelConfigDialog rn 侧独有键 onUploadFirstFrame(2026-11-03 提案复核登记);提案证据 apps/mobile-rn/src/components/ModelConfigDialog.tsx:139"
+    },
+    {
+      "component": "ModelConfigDialog",
+      "key": "platform:props:rn:onUploadLastFrame",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "reason": "上传尾帧图。小程序内部 handleUpload 自管（apps/miniapp-taro/src/components/ModelConfigDialog.tsx:514-545,607）；RN 宿主注入。",
+      "evidence": "check-cross-end-component-props-parity --json: ModelConfigDialog rn 侧独有键 onUploadLastFrame(2026-11-03 提案复核登记);提案证据 apps/mobile-rn/src/components/ModelConfigDialog.tsx:141"
+    },
+    {
+      "component": "ModelConfigDialog",
+      "key": "platform:props:rn:onUploadVideo",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "reason": "上传克隆数字人视频（RN:947）。小程序内部 handleUpload('video') 自管（apps/miniapp-taro/src/components/ModelConfigDialog.tsx:514-545）。",
+      "evidence": "check-cross-end-component-props-parity --json: ModelConfigDialog rn 侧独有键 onUploadVideo(2026-11-03 提案复核登记);提案证据 apps/mobile-rn/src/components/ModelConfigDialog.tsx:145"
+    },
+    {
+      "component": "ModelConfigDialog",
+      "key": "platform:props:rn:recordDuration",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "reason": "录音计时（RN:1128-1152 展示）。小程序端无录音计时，随录音能力组登记。",
+      "evidence": "check-cross-end-component-props-parity --json: ModelConfigDialog rn 侧独有键 recordDuration(2026-11-03 提案复核登记);提案证据 apps/mobile-rn/src/components/ModelConfigDialog.tsx:157"
+    },
+    {
+      "component": "ModelConfigDialog",
+      "key": "platform:props:rn:selectedModelId",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "reason": "selecter 变体当前选中模型 ID（RN:1231）。小程序无该变体，选中态在 ModelDrawer（apps/miniapp-taro/src/pkg-ai/ai/chat.tsx:2328）。",
+      "evidence": "check-cross-end-component-props-parity --json: ModelConfigDialog rn 侧独有键 selectedModelId(2026-11-03 提案复核登记);提案证据 apps/mobile-rn/src/components/ModelConfigDialog.tsx:163"
+    },
+    {
+      "component": "ModelConfigDialog",
+      "key": "platform:props:rn:videoUrl",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "reason": "克隆数字人视频 URL。小程序内部 uploads.video 自管（apps/miniapp-taro/src/components/ModelConfigDialog.tsx:179-184,607）；RN 宿主回传（RN:947）。",
+      "evidence": "check-cross-end-component-props-parity --json: ModelConfigDialog rn 侧独有键 videoUrl(2026-11-03 提案复核登记);提案证据 apps/mobile-rn/src/components/ModelConfigDialog.tsx:137"
+    },
+    {
+      "component": "ModelConfigDialog",
+      "key": "platform:props:mini:isVip",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "reason": "小程序端把 VIP 判定传给 Selecter 以控制选项图水印（apps/miniapp-taro/src/components/ModelConfigDialog.tsx:798）。RN 端模型选项为纯文字 Chip、无图片项/水印通道（RN:1259-1266），属渲染通道差异。",
+      "evidence": "check-cross-end-component-props-parity --json: ModelConfigDialog mini 侧独有键 isVip(2026-11-03 提案复核登记);提案证据 apps/miniapp-taro/src/components/ModelConfigDialog.tsx:90"
+    },
+    {
+      "component": "ModelList",
+      "key": "platform:props:rn:groups",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-03-31",
+      "reason": "数据模型分工:RN 由 5 个调用屏按 vendor/type/title 预分组后传入 groups;小程序端在组件内用 splitModelCatalog(models) 按 category 分组(apps/miniapp-taro/src/components/ModelList.tsx:158)。两端承载的分组职责不同,统一会把分组语义搬进错误的一端,登记为架构差异。",
+      "evidence": "check-cross-end-component-props-parity --json: ModelList rn 侧独有键 groups(2026-11-03 提案复核登记);提案证据 apps/mobile-rn/src/components/ModelList.tsx:319"
+    },
+    {
+      "component": "ModelList",
+      "key": "platform:props:rn:onEndReached",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-03-31",
+      "reason": "滚动容器归属不同:RN 由 SectionList 自持滚动并回调 onEndReached;小程序端列表不自持 ScrollView,分页触发权在宿主页面,由 pages/index/index.tsx:750 的 useReachBottom→loadMoreModels 承接。登记为架构差异,不向组件塞空回调。",
+      "evidence": "check-cross-end-component-props-parity --json: ModelList rn 侧独有键 onEndReached(2026-11-03 提案复核登记);提案证据 apps/mobile-rn/src/components/ModelList.tsx:386"
+    },
+    {
+      "component": "ModelList",
+      "key": "platform:props:mini:currentType",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-03-31",
+      "reason": "分类筛选职责承载端不同:小程序 popup 变体把「当前分类」作为组件入参并在端内渲染(调用屏 pages/index/index.tsx:1502 传 currentType);RN 的分类 tab 在调用屏(apps/mobile-rn/src/screens/HomeScreen.tsx:2030 只传已过滤的 groups)。登记为架构差异。",
+      "evidence": "check-cross-end-component-props-parity --json: ModelList mini 侧独有键 currentType(2026-11-03 提案复核登记);提案证据 apps/miniapp-taro/src/components/ModelList.tsx:244"
+    },
+    {
+      "component": "ModelList",
+      "key": "platform:props:mini:models",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-03-31",
+      "reason": "与 groups 同一数据源槽位,聚合形态随端架构不同:小程序端收扁平 models 并在组件内分组,RN 收预分组 groups(apps/mobile-rn/src/components/ModelList.tsx:319)。登记为架构差异。",
+      "evidence": "check-cross-end-component-props-parity --json: ModelList mini 侧独有键 models(2026-11-03 提案复核登记);提案证据 apps/miniapp-taro/src/components/ModelList.tsx:158"
+    },
+    {
+      "component": "ModelList",
+      "key": "platform:props:mini:variant",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-03-31",
+      "reason": "浮层壳归属端不同:小程序端组件内自带 list/popup 双形态(ChatDrawers 旧调用 vs 首页分类弹层);RN 由调用屏用 Modal 承担浮层壳,ModelList 只负责列表本体(apps/mobile-rn/src/screens/HomeScreen.tsx:2030)。登记为架构差异。",
+      "evidence": "check-cross-end-component-props-parity --json: ModelList mini 侧独有键 variant(2026-11-03 提案复核登记);提案证据 apps/miniapp-taro/src/components/ModelList.tsx:168"
+    },
+    {
+      "component": "BottomActionBar",
+      "key": "platform:props:rn:compactContextLoading",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-03-31",
+      "reason": "小程序会话压缩由后端 88% 阈值自动触发并 toast 提示(chat.tsx:907/937),没有手动压缩钮及其 loading 通道;RN 的手动压缩钮只存在于 RN 会话输入条,小程序会话输入不归本同名组件,属承载面分工,不是本对 props 缺口。",
+      "evidence": "check-cross-end-component-props-parity --json: BottomActionBar rn 侧独有键 compactContextLoading(2026-11-03 提案复核登记);提案证据 apps/miniapp-taro/src/pkg-ai/ai/chat.tsx:937"
+    },
+    {
+      "component": "BottomActionBar",
+      "key": "platform:props:rn:images",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-03-31",
+      "reason": "小程序图片列表由 InputArea.imgsList 承接并经 inputAreaProps 透传(BottomActionBar.tsx:90),渲染与删除链路已存在,能力不缺;只是通道落在 InputArea 而非本组件顶层。",
+      "evidence": "check-cross-end-component-props-parity --json: BottomActionBar rn 侧独有键 images(2026-11-03 提案复核登记);提案证据 apps/miniapp-taro/src/components/InputArea.tsx:81"
+    },
+    {
+      "component": "BottomActionBar",
+      "key": "platform:props:rn:isShowIcon",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-03-31",
+      "reason": "RN 的 isShowIcon 是滑出区总开关(辅助行 + 图标组,RN:577/585),小程序没有滑出区:图标卡组常驻,显隐由 showIconButtons(86)控制。两种展开模型,不是同一语义槽位,也不是能力缺口。",
+      "evidence": "check-cross-end-component-props-parity --json: BottomActionBar rn 侧独有键 isShowIcon(2026-11-03 提案复核登记);提案证据 apps/miniapp-taro/src/components/BottomActionBar.tsx:86"
+    },
+    {
+      "component": "BottomActionBar",
+      "key": "platform:props:rn:knowledgeBaseEnabled",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-03-31",
+      "reason": "小程序把开关态收进 ToggleButtonItem.active(toggleButtons 列表,51-55),由 onToggle 统一回传;能力有,只是数据模型是列表项而不是逐项布尔 prop。",
+      "evidence": "check-cross-end-component-props-parity --json: BottomActionBar rn 侧独有键 knowledgeBaseEnabled(2026-11-03 提案复核登记);提案证据 apps/miniapp-taro/src/components/BottomActionBar.tsx:51"
+    },
+    {
+      "component": "BottomActionBar",
+      "key": "platform:props:rn:mcpEnabled",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-03-31",
+      "reason": "同 knowledgeBaseEnabled:小程序以 ToggleButtonItem.active 承载各开关的激活态,列表键即开关身份,不需要逐项布尔 prop。",
+      "evidence": "check-cross-end-component-props-parity --json: BottomActionBar rn 侧独有键 mcpEnabled(2026-11-03 提案复核登记);提案证据 apps/miniapp-taro/src/components/BottomActionBar.tsx:51"
+    },
+    {
+      "component": "BottomActionBar",
+      "key": "platform:props:rn:onCompactContext",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-03-31",
+      "reason": "手动压缩只存在于 RN 会话输入条;小程序压缩为后端自动触发并以 toast 告知(chat.tsx:937-940),无手动触发入口。该入口的消费面不在本同名组件,登记为承载面分工,不是 props 契约缺口。",
+      "evidence": "check-cross-end-component-props-parity --json: BottomActionBar rn 侧独有键 onCompactContext(2026-11-03 提案复核登记);提案证据 apps/miniapp-taro/src/pkg-ai/ai/chat.tsx:937"
+    },
+    {
+      "component": "BottomActionBar",
+      "key": "platform:props:rn:onEndLongPress",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-03-31",
+      "reason": "小程序语音手势在 InputArea 内部闭环(按下/松开,InputArea:77-78),不经 BottomActionBar;RN 因录音内嵌在输入条才外抛。属语音录制归属分工。",
+      "evidence": "check-cross-end-component-props-parity --json: BottomActionBar rn 侧独有键 onEndLongPress(2026-11-03 提案复核登记);提案证据 apps/miniapp-taro/src/components/InputArea.tsx:78"
+    },
+    {
+      "component": "BottomActionBar",
+      "key": "platform:props:rn:onFangda",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-03-31",
+      "reason": "小程序的放大钮与放大态由 InputArea 自持(状态 161、toggleFangda 215、按钮 641),仅通过 onFangdaChange(92)通知父级;RN 的 onFangda 是父级下发命令,方向相反,属控制权分工。",
+      "evidence": "check-cross-end-component-props-parity --json: BottomActionBar rn 侧独有键 onFangda(2026-11-03 提案复核登记);提案证据 apps/miniapp-taro/src/components/InputArea.tsx:161"
+    },
+    {
+      "component": "BottomActionBar",
+      "key": "platform:props:rn:onFunctionHandle",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-03-31",
+      "reason": "RN 的 ƒ 打开输入条内函数面板;小程序把功能开关做成 toggleButtons chips(深度思考/联网/知识库/记忆),没有输入条内面板。入口模型不同,能力在同一开关组内已具备。",
+      "evidence": "check-cross-end-component-props-parity --json: BottomActionBar rn 侧独有键 onFunctionHandle(2026-11-03 提案复核登记);提案证据 apps/miniapp-taro/src/components/BottomActionBar.tsx:51"
+    },
+    {
+      "component": "BottomActionBar",
+      "key": "platform:props:rn:onInputBlur",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-03-31",
+      "reason": "focus/blur 经 inputAreaProps 直达 InputArea.onBlur(InputArea:89,首页 index.tsx:1719 已接),能力已在,只是通道不在本组件顶层。",
+      "evidence": "check-cross-end-component-props-parity --json: BottomActionBar rn 侧独有键 onInputBlur(2026-11-03 提案复核登记);提案证据 apps/miniapp-taro/src/components/InputArea.tsx:89"
+    },
+    {
+      "component": "BottomActionBar",
+      "key": "platform:props:rn:onInputClick",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-03-31",
+      "reason": "小程序 input 只暴露 focus/input 事件,没有 RN 的点击(非聚焦)通道;这是宿主事件模型差异,Taro 端不可天然表达,不是缺口。",
+      "evidence": "check-cross-end-component-props-parity --json: BottomActionBar rn 侧独有键 onInputClick(2026-11-03 提案复核登记);提案证据 apps/miniapp-taro/src/components/BottomActionBar.tsx:364"
+    },
+    {
+      "component": "BottomActionBar",
+      "key": "platform:props:rn:onInputFocus",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-03-31",
+      "reason": "经 inputAreaProps 直达 InputArea.onFocus(InputArea:88,首页 index.tsx:1718 已接);能力已在,通道不同。",
+      "evidence": "check-cross-end-component-props-parity --json: BottomActionBar rn 侧独有键 onInputFocus(2026-11-03 提案复核登记);提案证据 apps/miniapp-taro/src/components/InputArea.tsx:88"
+    },
+    {
+      "component": "BottomActionBar",
+      "key": "platform:props:rn:onKeyboardHide",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-03-31",
+      "reason": "小程序以键盘高度回调表达收起(height=0),首页经 inputAreaProps 已接(index.tsx:1720);show/hide 二值事件在宿主侧不可天然分离。",
+      "evidence": "check-cross-end-component-props-parity --json: BottomActionBar rn 侧独有键 onKeyboardHide(2026-11-03 提案复核登记);提案证据 apps/miniapp-taro/src/components/InputArea.tsx:90"
+    },
+    {
+      "component": "BottomActionBar",
+      "key": "platform:props:rn:onKeyboardShow",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-03-31",
+      "reason": "同上:小程序以 onKeyboardHeightChange(height>0 即弹出)表达,首页已接(index.tsx:1720),无需逐事件 prop。",
+      "evidence": "check-cross-end-component-props-parity --json: BottomActionBar rn 侧独有键 onKeyboardShow(2026-11-03 提案复核登记);提案证据 apps/miniapp-taro/src/components/InputArea.tsx:90"
+    },
+    {
+      "component": "BottomActionBar",
+      "key": "platform:props:rn:onModelConfigChange",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-03-31",
+      "reason": "小程序模型配置由首页 ModelConfigDialog 承载(index.tsx:58-59 引入),配置变更不经 BottomActionBar;能力在页面级,不在本组件。",
+      "evidence": "check-cross-end-component-props-parity --json: BottomActionBar rn 侧独有键 onModelConfigChange(2026-11-03 提案复核登记);提案证据 apps/miniapp-taro/src/pages/index/index.tsx:58"
+    },
+    {
+      "component": "BottomActionBar",
+      "key": "platform:props:rn:onPlusToggle",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-03-31",
+      "reason": "小程序默认变体 attach 常驻、ai-home 图标卡常驻,没有 RN 的「+」滑出面板;两种展开模型,能力不缺。",
+      "evidence": "check-cross-end-component-props-parity --json: BottomActionBar rn 侧独有键 onPlusToggle(2026-11-03 提案复核登记);提案证据 apps/miniapp-taro/src/components/BottomActionBar.tsx:333"
+    },
+    {
+      "component": "BottomActionBar",
+      "key": "platform:props:rn:onRemoveImage",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-03-31",
+      "reason": "小程序图片删除回调在 InputArea.onRemoveImage(80),经 inputAreaProps 透传(BottomActionBar.tsx:90);删除链路已真接,通道不同。",
+      "evidence": "check-cross-end-component-props-parity --json: BottomActionBar rn 侧独有键 onRemoveImage(2026-11-03 提案复核登记);提案证据 apps/miniapp-taro/src/components/InputArea.tsx:80"
+    },
+    {
+      "component": "BottomActionBar",
+      "key": "platform:props:rn:onShowModelConfig",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-03-31",
+      "reason": "模型配置弹层入口在首页 ModelConfigDialog(index.tsx:58-59),不在 BottomActionBar 内;承载面分工。",
+      "evidence": "check-cross-end-component-props-parity --json: BottomActionBar rn 侧独有键 onShowModelConfig(2026-11-03 提案复核登记);提案证据 apps/miniapp-taro/src/pages/index/index.tsx:58"
+    },
+    {
+      "component": "BottomActionBar",
+      "key": "platform:props:rn:onShowModelList",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-03-31",
+      "reason": "模型列表由首页 ModelList 承载(index.tsx:55),模型类型点击直达(index.tsx:789);能力在页面级。",
+      "evidence": "check-cross-end-component-props-parity --json: BottomActionBar rn 侧独有键 onShowModelList(2026-11-03 提案复核登记);提案证据 apps/miniapp-taro/src/pages/index/index.tsx:55"
+    },
+    {
+      "component": "BottomActionBar",
+      "key": "platform:props:rn:onShowMyCreation",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-03-31",
+      "reason": "「我的创作/素材」在小程序由模型类型 sck 打开素材库弹窗(index.tsx:792),不占用输入条「+」面板;承载面不同。",
+      "evidence": "check-cross-end-component-props-parity --json: BottomActionBar rn 侧独有键 onShowMyCreation(2026-11-03 提案复核登记);提案证据 apps/miniapp-taro/src/pages/index/index.tsx:792"
+    },
+    {
+      "component": "BottomActionBar",
+      "key": "platform:props:rn:onSourceHandle",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-03-31",
+      "reason": "小程序没有输入条内来源面板,引用/附件入口走 InputArea.onUpload 与图标卡组(InputArea:79);RN 的纸夹面板是 RN 会话输入条专有承载面。",
+      "evidence": "check-cross-end-component-props-parity --json: BottomActionBar rn 侧独有键 onSourceHandle(2026-11-03 提案复核登记);提案证据 apps/miniapp-taro/src/components/InputArea.tsx:79"
+    },
+    {
+      "component": "BottomActionBar",
+      "key": "platform:props:rn:onStartLongPress",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-03-31",
+      "reason": "小程序语音按键/松开在 InputArea 内部(77-78),录制归属输入区;RN 因录音内嵌在本组件才外抛按下/松开。",
+      "evidence": "check-cross-end-component-props-parity --json: BottomActionBar rn 侧独有键 onStartLongPress(2026-11-03 提案复核登记);提案证据 apps/miniapp-taro/src/components/InputArea.tsx:77"
+    },
+    {
+      "component": "BottomActionBar",
+      "key": "platform:props:rn:onStartVoiceAnimation",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-03-31",
+      "reason": "小程序语音动画由 VoiceInput 组件内部驱动(index.tsx:1686-1691),不由输入条外抛;动画归属组件不同。",
+      "evidence": "check-cross-end-component-props-parity --json: BottomActionBar rn 侧独有键 onStartVoiceAnimation(2026-11-03 提案复核登记);提案证据 apps/miniapp-taro/src/pages/index/index.tsx:1686"
+    },
+    {
+      "component": "BottomActionBar",
+      "key": "platform:props:rn:onStopVoiceAnimation",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-03-31",
+      "reason": "同 onStartVoiceAnimation:小程序语音动画开合在 VoiceInput 内部(index.tsx:1686-1691),无需输入条外抛事件。",
+      "evidence": "check-cross-end-component-props-parity --json: BottomActionBar rn 侧独有键 onStopVoiceAnimation(2026-11-03 提案复核登记);提案证据 apps/miniapp-taro/src/pages/index/index.tsx:1686"
+    },
+    {
+      "component": "BottomActionBar",
+      "key": "platform:props:rn:onTextareaHeightChange",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-03-31",
+      "reason": "Taro textarea 自撑高,InputArea 只暴露键盘高度(90),没有内容高度回调;两端高度测量模型是平台差异,不是能力缺口。",
+      "evidence": "check-cross-end-component-props-parity --json: BottomActionBar rn 侧独有键 onTextareaHeightChange(2026-11-03 提案复核登记);提案证据 apps/miniapp-taro/src/components/InputArea.tsx:90"
+    },
+    {
+      "component": "BottomActionBar",
+      "key": "platform:props:rn:onToggleKnowledgeBase",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-03-31",
+      "reason": "小程序五项开关统一走 onToggle(item)(BottomActionBar:96),列表项承载身份;RN 是逐项回调。数据模型不同,能力齐全。",
+      "evidence": "check-cross-end-component-props-parity --json: BottomActionBar rn 侧独有键 onToggleKnowledgeBase(2026-11-03 提案复核登记);提案证据 apps/miniapp-taro/src/components/BottomActionBar.tsx:96"
+    },
+    {
+      "component": "BottomActionBar",
+      "key": "platform:props:rn:onToggleMcp",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-03-31",
+      "reason": "同 onToggleKnowledgeBase:小程序以 ToggleButtonItem 列表 + onToggle 统一回传,无需逐项回调 prop。",
+      "evidence": "check-cross-end-component-props-parity --json: BottomActionBar rn 侧独有键 onToggleMcp(2026-11-03 提案复核登记);提案证据 apps/miniapp-taro/src/components/BottomActionBar.tsx:96"
+    },
+    {
+      "component": "BottomActionBar",
+      "key": "platform:props:rn:onTogglePermanentMemory",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-03-31",
+      "reason": "同 onToggleKnowledgeBase:记忆开关作为 toggleButtons 一项由 onToggle 回传。",
+      "evidence": "check-cross-end-component-props-parity --json: BottomActionBar rn 侧独有键 onTogglePermanentMemory(2026-11-03 提案复核登记);提案证据 apps/miniapp-taro/src/components/BottomActionBar.tsx:96"
+    },
+    {
+      "component": "BottomActionBar",
+      "key": "platform:props:rn:onToggleSuperAgent",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-03-31",
+      "reason": "同 onToggleKnowledgeBase:深度思考开关作为 toggleButtons 一项由 onToggle 回传。",
+      "evidence": "check-cross-end-component-props-parity --json: BottomActionBar rn 侧独有键 onToggleSuperAgent(2026-11-03 提案复核登记);提案证据 apps/miniapp-taro/src/components/BottomActionBar.tsx:96"
+    },
+    {
+      "component": "BottomActionBar",
+      "key": "platform:props:rn:onToggleSuperAgentfu",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-03-31",
+      "reason": "小程序 toggleButtons 是数据驱动列表(51-55),第 5 项可由数据注入并由同一个 onToggle 回传,不需要独立回调 prop。",
+      "evidence": "check-cross-end-component-props-parity --json: BottomActionBar rn 侧独有键 onToggleSuperAgentfu(2026-11-03 提案复核登记);提案证据 apps/miniapp-taro/src/components/BottomActionBar.tsx:51"
+    },
+    {
+      "component": "BottomActionBar",
+      "key": "platform:props:rn:permanentMemoryEnabled",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-03-31",
+      "reason": "小程序以 ToggleButtonItem.active 承载记忆开关激活态(51-55),由列表项回传,不需要逐项布尔 prop。",
+      "evidence": "check-cross-end-component-props-parity --json: BottomActionBar rn 侧独有键 permanentMemoryEnabled(2026-11-03 提案复核登记);提案证据 apps/miniapp-taro/src/components/BottomActionBar.tsx:51"
+    },
+    {
+      "component": "BottomActionBar",
+      "key": "platform:props:rn:plusActive",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-03-31",
+      "reason": "小程序没有「+」钮及其激活态:attach 常驻、图标卡常驻;不存在可映射的高亮槽位,属展开模型差异。",
+      "evidence": "check-cross-end-component-props-parity --json: BottomActionBar rn 侧独有键 plusActive(2026-11-03 提案复核登记);提案证据 apps/miniapp-taro/src/components/BottomActionBar.tsx:333"
+    },
+    {
+      "component": "BottomActionBar",
+      "key": "platform:props:rn:recording",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-03-31",
+      "reason": "小程序录音态由 InputArea/VoiceInput 内部持有(语音按下/松开 77-78),不向输入条暴露;录制归属不同。",
+      "evidence": "check-cross-end-component-props-parity --json: BottomActionBar rn 侧独有键 recording(2026-11-03 提案复核登记);提案证据 apps/miniapp-taro/src/components/InputArea.tsx:77"
+    },
+    {
+      "component": "BottomActionBar",
+      "key": "platform:props:rn:recordingDuration",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-03-31",
+      "reason": "同 recording:小程序录音时长在 VoiceInput 内部显示与维护(index.tsx:1686),不经本组件。",
+      "evidence": "check-cross-end-component-props-parity --json: BottomActionBar rn 侧独有键 recordingDuration(2026-11-03 提案复核登记);提案证据 apps/miniapp-taro/src/components/InputArea.tsx:77"
+    },
+    {
+      "component": "BottomActionBar",
+      "key": "platform:props:rn:showToggleChips",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-03-31",
+      "reason": "小程序以 toggleButtons 列表有无控制开关行显隐,没有独立布尔位;能力等价,表达形态不同。",
+      "evidence": "check-cross-end-component-props-parity --json: BottomActionBar rn 侧独有键 showToggleChips(2026-11-03 提案复核登记);提案证据 apps/miniapp-taro/src/components/BottomActionBar.tsx:88"
+    },
+    {
+      "component": "BottomActionBar",
+      "key": "platform:props:rn:superAgentEnabled",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-03-31",
+      "reason": "小程序以 ToggleButtonItem.active 承载深度思考开关激活态(51-55),列表项即开关身份,不需要逐项布尔 prop。",
+      "evidence": "check-cross-end-component-props-parity --json: BottomActionBar rn 侧独有键 superAgentEnabled(2026-11-03 提案复核登记);提案证据 apps/miniapp-taro/src/components/BottomActionBar.tsx:51"
+    },
+    {
+      "component": "BottomActionBar",
+      "key": "platform:props:mini:iconButtons",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-03-31",
+      "reason": "RN 图标组是编译期固定的 4 项(BottomActionBar:304-330),小程序把同一组做成可配置列表(默认即同 4 项);能力等价,数据形态不同,不是缺口。",
+      "evidence": "check-cross-end-component-props-parity --json: BottomActionBar mini 侧独有键 iconButtons(2026-11-03 提案复核登记);提案证据 apps/mobile-rn/src/components/BottomActionBar.tsx:304"
+    },
+    {
+      "component": "BottomActionBar",
+      "key": "platform:props:mini:inputAreaProps",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-03-31",
+      "reason": "小程序把输入区能力整体下沉到 InputArea 并经 inputAreaProps 透传;RN 是逐项顶层 prop。能力集合一致,传递形态不同。",
+      "evidence": "check-cross-end-component-props-parity --json: BottomActionBar mini 侧独有键 inputAreaProps(2026-11-03 提案复核登记);提案证据 apps/miniapp-taro/src/components/BottomActionBar.tsx:90"
+    },
+    {
+      "component": "BottomActionBar",
+      "key": "platform:props:mini:onToggle",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-03-31",
+      "reason": "小程序用单一 onToggle(item) 承接全部开关,RN 用逐项 onToggleXxx(BottomActionBar:147-151)。同一能力,事件数据模型不同。",
+      "evidence": "check-cross-end-component-props-parity --json: BottomActionBar mini 侧独有键 onToggle(2026-11-03 提案复核登记);提案证据 apps/mobile-rn/src/components/BottomActionBar.tsx:147"
+    },
+    {
+      "component": "BottomActionBar",
+      "key": "platform:props:mini:showAttach",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-03-31",
+      "reason": "RN 聊天模式没有独立附件键显隐:附件入口在「+」滑出面板内由 isShowIcon/onAddFile 驱动;显示与否由入口是否存在决定,不需要独立布尔 prop。",
+      "evidence": "check-cross-end-component-props-parity --json: BottomActionBar mini 侧独有键 showAttach(2026-11-03 提案复核登记);提案证据 apps/mobile-rn/src/components/BottomActionBar.tsx:183"
+    },
+    {
+      "component": "BottomActionBar",
+      "key": "platform:props:mini:showIconButtons",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-03-31",
+      "reason": "小程序 showIconButtons 只控图标卡组显隐,RN isShowIcon 控整片滑出区(辅助行+图标组,RN:577/585);控制范围不同,不能并入同一槽位,也不是缺口。",
+      "evidence": "check-cross-end-component-props-parity --json: BottomActionBar mini 侧独有键 showIconButtons(2026-11-03 提案复核登记);提案证据 apps/mobile-rn/src/components/BottomActionBar.tsx:211"
+    },
+    {
+      "component": "BottomActionBar",
+      "key": "platform:props:mini:showSend",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-03-31",
+      "reason": "RN 以 onSend 是否存在决定发送键显隐(存在才渲染,RN:727-742),小程序用显式布尔;同一结果两种机制,不是能力缺口。",
+      "evidence": "check-cross-end-component-props-parity --json: BottomActionBar mini 侧独有键 showSend(2026-11-03 提案复核登记);提案证据 apps/mobile-rn/src/components/BottomActionBar.tsx:727"
+    },
+    {
+      "component": "BottomActionBar",
+      "key": "platform:props:mini:toggleButtons",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-03-31",
+      "reason": "小程序用 ToggleButtonItem 列表(含 label/active)承载开关组,RN 用固定 5 组逐项状态 + showToggleChips。同一能力,数据模型不同。",
+      "evidence": "check-cross-end-component-props-parity --json: BottomActionBar mini 侧独有键 toggleButtons(2026-11-03 提案复核登记);提案证据 apps/mobile-rn/src/components/BottomActionBar.tsx:194"
+    },
+    {
+      "component": "BottomActionBar",
+      "key": "platform:props:mini:variant",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-03-31",
+      "reason": "RN 用 prompt 是否存在隐式切换聊天/按钮两种模式(RN:328-332),小程序用显式 variant(default/ai-home)。模式判别机制不同,能力齐全。",
+      "evidence": "check-cross-end-component-props-parity --json: BottomActionBar mini 侧独有键 variant(2026-11-03 提案复核登记);提案证据 apps/mobile-rn/src/components/BottomActionBar.tsx:328"
     }
   ]
 }

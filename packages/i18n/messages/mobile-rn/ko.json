@@ -384,7 +384,8 @@
     "empty": "라이브가 없습니다",
     "lecturer": "강사",
     "startAt": "시작 시간",
-    "loadFailed": "라이브 불러오기 실패"
+    "loadFailed": "라이브 불러오기 실패",
+    "startTime": "시작시간"
   },
   "liveDetail": {
     "title": "라이브 상세",
@@ -633,7 +634,11 @@
     "runtimeEmpty": "실행 기록이 없습니다",
     "runtimeInputPlaceholder": "에이전트에 보낼 메시지를 입력하세요",
     "runtimeStop": "중지",
-    "runtimeSend": "전송"
+    "runtimeSend": "전송",
+    "fieldName": "이름",
+    "fieldCategory": "카테고리",
+    "fieldDescription": "설명",
+    "fieldPrice": "가격"
   },
   "chat": {
     "assetCatText": "텍스트",
@@ -941,7 +946,9 @@
     "version": "버전",
     "language": "언어",
     "theme": "테마",
-    "logoutConfirmBody": "이 계정에서 로그아웃하시겠어요?"
+    "logoutConfirmBody": "이 계정에서 로그아웃하시겠어요?",
+    "accountDeletionConfirmLabel": "삭제 확인",
+    "accountDeletionConfirmTitle": "삭제 확인"
   },
   "menu": {
     "artifacts": "산출물 센터",
@@ -1607,11 +1614,8 @@
   },
   "agentCreate": {
     "title": "에이전트 생성",
-    "name": "이름",
     "namePlaceholder": "에이전트 이름을 지어주세요",
-    "category": "카테고리",
     "categoryPlaceholder": "예: 업무 어시스턴트",
-    "description": "설명",
     "descPlaceholder": "에이전트를 소개해 주세요",
     "systemPrompt": "시스템 프롬프트",
     "promptPlaceholder": "에이전트의 역할과 동작을 정의하세요",
@@ -1764,7 +1768,6 @@
     "instructor": "강사",
     "rating": "평점",
     "free": "무료",
-    "enrolled": "신청 완료",
     "enroll": "지금 신청",
     "pay": "¥{amount} 결제",
     "lessons": "강좌 목차",
@@ -1890,7 +1893,8 @@
     "treeLoadFailed": "트리를 불러오지 못했습니다",
     "treeRetry": "다시 시도",
     "treeLevelLabel": "{level} 단계",
-    "treeCollapseHint": "노드를 눌러 상세 보기"
+    "treeCollapseHint": "노드를 눌러 상세 보기",
+    "teamTitle": "내 팀"
   },
   "earnCommission": {
     "title": "커미션 플랜",
@@ -1905,9 +1909,7 @@
   "exam": {
     "subtitle": "시험을 통해 학습 성과를 확인하세요",
     "retry": "재시도",
-    "questions": "문제 수",
     "end": "종료 시간",
-    "startExam": "시험 시작",
     "attempts": "응시 횟수",
     "duration": "시험 시간",
     "empty": "시험이 없습니다",
@@ -1918,14 +1920,13 @@
     "passScore": "합격 점수",
     "start": "시험 시작",
     "title": "시험",
-    "totalScore": "총점"
+    "totalScore": "총점",
+    "questionCountLabel": "문제 수"
   },
   "examQuestion": {
     "loadFailed": "시험지 로드 실패",
     "single": "객관식",
     "multi": "복수 선택",
-    "prev": "이전 문제",
-    "next": "다음 문제",
     "submit": "제출",
     "submitFailed": "제출 실패"
   },
@@ -2085,7 +2086,6 @@
     "saveFailed": "저장 실패"
   },
   "notificationSettings": {
-    "title": "알림 설정",
     "push": "푸시 알림",
     "message": "사이트 메시지",
     "email": "이메일 알림",
@@ -2236,8 +2236,6 @@
     "unverifiedDesc": "실명 인증을 완료해 더 많은 서비스를 이용하세요",
     "name": "실명",
     "namePlaceholder": "실명을 입력하세요",
-    "idNumber": "주민등록번호",
-    "idNumberPlaceholder": "주민등록번호를 입력하세요",
     "submit": "인증 제출",
     "submitting": "제출 중...",
     "failed": "인증 실패",
@@ -2283,10 +2281,8 @@
   },
   "withdraw": {
     "availableBalance": "출금 가능 금액(원)",
-    "amount": "출금 금액",
     "amountInvalid": "잘못된 금액",
     "amountPlaceholder": "출금 금액 입력",
-    "bankCard": "은행 계좌",
     "bankCardPlaceholder": "은행 계좌 선택",
     "confirmMessage": "{amount}위안 출금하시겠습니까?",
     "confirmTitle": "확인",
@@ -2637,7 +2633,6 @@
     "current": "현재 포인트",
     "totalEarned": "누적 획득",
     "totalSpent": "누적 사용",
-    "level": "레벨",
     "nextLevel": "{name}까지 {points} 포인트 남음",
     "maxLevel": "최고 레벨에 도달했습니다",
     "experience": "경험치",
@@ -2657,14 +2652,17 @@
       "historyLoadFailed": "출석 내역을 불러오지 못했습니다",
       "historyConsecutive": "{days}일 연속"
     },
-    "mallLink": "포인트 몰",
-    "taskCenterLink": "작업 센터",
     "ruleLink": "포인트 규칙",
     "txTitle": "포인트 내역",
     "empty": "포인트 기록이 없습니다",
     "loadFailed": "포인트를 불러오지 못했습니다",
     "balance": "잔액",
-    "loadMore": "더 불러오기"
+    "loadMore": "더 불러오기",
+    "levelLabel": "레벨",
+    "mallTitle": "포인트 몰",
+    "tasks": {
+      "title": "작업 센터"
+    }
   },
   "groups": {
     "title": "내 그룹",
@@ -2768,7 +2766,6 @@
     "submitFailed": "제출에 실패했습니다. 잠시 후 다시 시도해 주세요",
     "amountLabel": "충전 금액(위안)",
     "amountRange": "충전 금액은 {min}~{max}위안이어야 합니다",
-    "payMethod": "결제 수단",
     "wechat": "위챗페이",
     "alipay": "알리페이",
     "payNow": "결제하기",
@@ -3373,7 +3370,6 @@
     "loadFailed": "학습 진도 로드 실패",
     "courses": "강좌(완료/전체)",
     "totalMinutes": "누적 학습(분)",
-    "weekMinutes": "이번 주 학습(분)",
     "streak": "연속 출석(일)",
     "courseProgress": "강좌 진도"
   },
@@ -3416,7 +3412,6 @@
     "tab_newbie": "신규"
   },
   "team": {
-    "title": "내 팀",
     "subtitle": "팀 인원과 실적 한눈에 보기",
     "retry": "재시도",
     "totalMembers": "팀 전체 인원",
@@ -3537,12 +3532,18 @@
     "opType4": "환불",
     "opType5": "커미션",
     "loginRequiredHint": "로그인 후 자금 내역을 확인하세요",
-    "goLogin": "로그인"
+    "goLogin": "로그인",
+    "rechargeFail": "충전실패",
+    "rechargeSuccess": "충전성공",
+    "contactSupport": "고객 지원",
+    "retryRecharge": "다시 충전",
+    "withdrawAmount": "금액",
+    "methodBank": "은행 카드",
+    "rechargeMethod": "결제 수단"
   },
   "activity": {
     "empty": "활동이 없습니다",
     "endTime": "종료 시간",
-    "joinNow": "지금 참여",
     "loadFailed": "불러오기 실패",
     "participants": "참여 인원",
     "startTime": "시작 시간",
@@ -3553,7 +3554,6 @@
     "description": "소개",
     "free": "무료",
     "loadFailed": "에이전트 상세 불러오기 실패",
-    "price": "가격",
     "rating": "평점",
     "startChat": "대화 시작",
     "uses": "사용 횟수"
@@ -3709,7 +3709,13 @@
       "issued": "유효",
       "revoked": "취소됨"
     },
-    "title": "내 자격증"
+    "title": "내 자격증",
+    "download": {
+      "noCertificates": "증명서 없음"
+    },
+    "detail": {
+      "issueDate": "발급일"
+    }
   },
   "certDetail": {
     "certNo": "자격증 번호",
@@ -3726,8 +3732,7 @@
     "empty": "자격증이 없습니다",
     "issuedAt": "발급일",
     "issuer": "발급 기관",
-    "loadFailed": "불러오기 실패",
-    "title": "자격증 목록"
+    "loadFailed": "불러오기 실패"
   },
   "certVerify": {
     "certNo": "자격증 번호",
@@ -3798,7 +3803,6 @@
   },
   "courseQAList": {
     "answers": "답변",
-    "ask": "질문",
     "asker": "질문자",
     "empty": "Q&A가 없습니다",
     "loadFailed": "불러오기 실패",
@@ -3839,7 +3843,8 @@
     "type": "유형",
     "imagesLabel": "문제 스크린샷 업로드(최대 9장)",
     "imagePickFailed": "이미지 선택 실패, 다시 시도해주세요",
-    "pickImages": "이미지 선택"
+    "pickImages": "이미지 선택",
+    "field_contact": "연락처"
   },
   "feedbackDetail": {
     "content": "내용",
@@ -5763,6 +5768,7 @@
   },
   "ia": {
     "remainingPoints": "남은 포인트",
+    "loginRequired": "먼저 로그인 후 이용해 주세요",
     "recharge": "충전"
   },
   "uiCard": {
@@ -6038,29 +6044,29 @@
     "status": {
       "present": "정상",
       "late": "지각",
-      "early": "조퇴",
       "absent": "결석",
-      "leave": "공결"
+      "leave": "조퇴",
+      "early": "조퇴"
     },
-    "chooseAction": "작업 선택",
     "actionDone": "작업 성공",
     "actionFailed": "작업 실패",
-    "needClassId": "반 정보가 없어 대리 등교/하교를 할 수 없습니다",
-    "onlyTodayCheckIn": "대리 체크인은 당일만 가능합니다: 과거 날짜는 해당 날짜 내 시각이 필요하며 이 화면에서는 지원하지 않습니다",
-    "batchTitle": "반 전체 출석 체크",
-    "chooseClass": "출석 체크할 반을 선택하세요",
-    "noClass": "현재 목록에 선택할 반이 없습니다",
     "batchResult": "출석 완료: 신규 {created}, 건너뜀 {skipped}, 누락 {missed}",
-    "qrEntry": "체크인 QR 표시",
+    "batchTitle": "반 전체 출석 체크",
+    "chooseAction": "작업 선택",
+    "chooseClass": "출석 체크할 반을 선택하세요",
     "emptyTrend": "추이 데이터가 없습니다",
+    "loadStatsFailed": "출결 통계를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.",
+    "needClassId": "반 정보가 없어 대리 등교/하교를 할 수 없습니다",
+    "noClass": "현재 목록에 선택할 반이 없습니다",
+    "onlyTodayCheckIn": "대리 체크인은 당일만 가능합니다: 과거 날짜는 해당 날짜 내 시각이 필요하며 이 화면에서는 지원하지 않습니다",
+    "qrEntry": "체크인 QR 표시",
     "statsAttendanceRate": "출석률",
+    "statsTotalLabel": "총 체크인 수",
     "statusDistribution": "상태 분포",
     "statusOther": "기타",
     "trendChartHint": "출석률 = 정상 출석 ÷ 해당 시간대의 출석 기록 수(체크인하지 않은 학생은 분모에 포함되지 않음)",
-    "trendChartTitle": "출석 추이",
-    "statsTotalLabel": "총 체크인 수",
-    "loadStatsFailed": "출결 통계를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.",
     "trendChartScope": "집계 범위: {scope}",
+    "trendChartTitle": "출석 추이",
     "trendWindow": "최근 {days}일"
   },
   "eduGrades": {
@@ -7196,7 +7202,17 @@
     "bundleOta": "핫 업데이트",
     "readyBody": "업데이트 다운로드가 완료되었습니다. 「업데이트」를 누르면 바로 적용됩니다.",
     "installingHint": "앱이 자동으로 다시 시작되며 보통 몇 초면 됩니다.",
-    "restartNow": "지금 다시 시작"
+    "restartNow": "지금 다시 시작",
+    "apkTitle": "새 버전 {{version}} 사용 가능",
+    "apkBody": "현재 {{current}} → 최신 {{latest}}",
+    "apkAction": "다운로드 및 설치",
+    "apkActionBrowser": "다운로드로 이동",
+    "apkDownloading": "설치 파일 다운로드 중 {{progress}}%",
+    "apkEta": "약 {{eta}} 남음",
+    "apkInstalling": "설치 프로그램을 여는 중…",
+    "apkBrowserOpening": "브라우저로 넘겼습니다. 안내에 따라 설치하세요",
+    "apkCancel": "취소",
+    "apkHint": "설치 파일이 크므로 Wi-Fi 사용을 권장합니다"
   },
   "cloudRuns": {
     "title": "클라우드 에이전트 실행",
@@ -7229,30 +7245,86 @@
     "searchNoResult": "결과 없음",
     "retry": "재시도"
   },
-  "eduMyAttendance": {
-    "title": "내 출석",
-    "selfCheckIn": "등교 체크하기",
-    "date": "날짜",
-    "notLoggedIn": "로그인하지 않아 사용할 수 없습니다",
-    "classByBackendHint": "반은 재학 등록 정보에 따라 자동으로 결정됩니다",
-    "scanCheckIn": "스캔으로 체크인"
+  "learnMapPage": {
+    "completed": "완료됨",
+    "empty": "학습 경로가 없습니다"
+  },
+  "user": {
+    "security": {
+      "sendCode": "전송인증 코드"
+    },
+    "realname": {
+      "form": {
+        "idCard": "신분증 번호",
+        "idCardPlaceholder": "신분증 번호 입력"
+      }
+    }
+  },
+  "NavBar": {
+    "text1": "데일리 뉴스",
+    "z1": "커뮤니티 가입",
+    "feedback": "피드백",
+    "fenlei": "카테고리"
+  },
+  "chatSettingsPage": {
+    "model": "모델"
+  },
+  "eduExamListPage": {
+    "start": "시험 시작"
+  },
+  "eduExamPage": {
+    "prevQuestion": "이전 문제",
+    "nextQuestion": "다음 문제"
+  },
+  "edu": {
+    "qa": {
+      "askBtn": "질문"
+    }
+  },
+  "eduProgressPage": {
+    "weeklyHours": "이번 주 학습 시간"
+  },
+  "learn": {
+    "signedUp": "신청 완료"
+  },
+  "learnPaymentConfirmPage": {
+    "fields": {
+      "payMethod": "결제 수단"
+    }
+  },
+  "memberSubscriptionPage": {
+    "cancelSubscription": "구독 취소"
+  },
+  "student": {
+    "myCertsTitle": "자격증 목록"
+  },
+  "activities": {
+    "join": "지금 참여"
   },
   "eduAttendanceQr": {
-    "title": "체크인 QR 코드",
     "chooseClass": "클래스 선택",
-    "noClass": "선택할 수 있는 클래스가 없습니다",
     "classLoadFailed": "클래스 목록을 불러오지 못했습니다",
+    "expiresIn": "{s}초 후 만료",
+    "needLogin": "로그인 후 스캔해 주세요",
+    "nextStepHint": "출결 규칙을 활성화하고 스캔 키(qrSecret)를 설정한 뒤 다시 발급하세요",
+    "noClass": "선택할 수 있는 클래스가 없습니다",
     "pickClassFirst": "먼저 클래스를 선택하세요",
     "qrTip": "학생이 스캔 체크인으로 이 코드를 인식합니다",
-    "expiresIn": "{s}초 후 만료",
     "refresh": "다시 발급",
-    "nextStepHint": "출결 규칙을 활성화하고 스캔 키(qrSecret)를 설정한 뒤 다시 발급하세요",
-    "scanTitle": "스캔으로 체크인",
-    "scanHint": "선생님의 체크인 QR 코드를 테두리에 맞춰 주세요",
-    "scanSubmitting": "체크인 중...",
-    "scanInvalidCode": "이 시스템의 체크인 QR 코드가 아닙니다",
     "scanDone": "체크인했습니다",
     "scanFailed": "체크인 실패",
-    "needLogin": "로그인 후 스캔해 주세요"
+    "scanHint": "선생님의 체크인 QR 코드를 테두리에 맞춰 주세요",
+    "scanInvalidCode": "이 시스템의 체크인 QR 코드가 아닙니다",
+    "scanSubmitting": "체크인 중...",
+    "scanTitle": "스캔으로 체크인",
+    "title": "체크인 QR 코드"
+  },
+  "eduMyAttendance": {
+    "classByBackendHint": "반은 재학 등록 정보에 따라 자동으로 결정됩니다",
+    "date": "날짜",
+    "notLoggedIn": "로그인하지 않아 사용할 수 없습니다",
+    "scanCheckIn": "스캔으로 체크인",
+    "selfCheckIn": "등교 체크하기",
+    "title": "내 출석"
   }
 }

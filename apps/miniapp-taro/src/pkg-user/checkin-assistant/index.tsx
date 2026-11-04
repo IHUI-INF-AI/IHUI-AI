@@ -131,7 +131,7 @@ export default function CheckinAssistant() {
     }
   }
 
-  const inputStyle = `height:88rpx;background:var(--color-muted);border-radius:${rnRadius.xl}px;padding:0 24rpx;font-size:30rpx;color:var(--color-foreground);width:100%;box-sizing:border-box;margin-top:12rpx;`
+  const inputStyle = `height:88rpx;background:var(--color-muted);border-radius:${rnRadius.xl}px;padding:0 var(--spacing-md);font-size:30rpx;color:var(--color-foreground);width:100%;box-sizing:border-box;margin-top:var(--spacing-xs-loose);`
 
   return (
     <ThemeRoot>
@@ -254,6 +254,7 @@ export default function CheckinAssistant() {
               className={`mt-[24rpx] flex h-[88rpx] items-center justify-center rounded-xl bg-[var(--color-cta)] ${
                 busy ? 'opacity-60' : ''
               }`}
+              hoverClass="opacity-60"
               onClick={() => void submit()}
             >
               <Text className="text-strong font-semibold text-[var(--color-cta-foreground)]">
