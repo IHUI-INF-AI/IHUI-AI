@@ -7,7 +7,7 @@ import { useI18n } from '@/i18n'
 // G-815966:百分比裁剪走具名唯一出口,不再内联手搓(棘轮门基线 0)
 import { clampPercent } from '@ihui/shared/utils/clamp-percent'
 import { View, Text } from '@tarojs/components'
-import Taro, { useDidShow } from '@tarojs/taro'
+import Taro, { useDidShow, useShareAppMessage, useShareTimeline } from '@tarojs/taro'
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { getVideoDetail, get, getStudyRecords, post } from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
@@ -68,6 +68,12 @@ export default function VideoDetailPage() {
    * 本节位置报满秒数后后端把 status 落成 2,再用回包的 completed 决定徽章。
    */
   const { waitUntilReady } = useAuthReadyGate()
+  // 分享配置:与 RN VideoPlayerScreen 同源(share.appTitle / share.timelineTitle),不另立文案
+  useShareAppMessage(() => ({
+    title: t('share.appTitle'),
+    path: `/pages/study/video-detail/index?id=${info.id}`,
+  }))
+  useShareTimeline(() => ({ title: t('share.timelineTitle') }))
   const [lessonProgress, setLessonProgress] = useState(0)
   const [lessonCompleted, setLessonCompleted] = useState(false)
   const [doneSections, setDoneSections] = useState<string[]>([])
