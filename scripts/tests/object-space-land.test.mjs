@@ -34,7 +34,11 @@ import { __test__ } from '../object-space-land.mjs'
 import { decideBanner } from '../object-space-land.mjs'
 // G-04 新建路径载荷维:载荷可解码性只问 watermark.mjs 那一份判据(§0.6,不在测试里重写解码)
 import { __test__ as WM } from '../watermark.mjs'
+// T-BANNER-S 用同一份"哪一行算水印结构"的识别出口(§0.6:不在测试里另拼一份正则)
+import { stripWatermarkStructure } from '../lib/watermark-lines.mjs'
 import { maskCommentsAndStrings } from '../lib/code-mask.mjs'
+// T-BANNER-U 只遮注释(不遮字符串):它要钉的形态里有 'verify' 这类字面量
+import { maskComments } from '../lib/code-mask.mjs'
 import { git, headBlobOf, indexBlobOf, writeBlob } from '../lib/bypass-git.mjs'
 import { landsLedger } from '../lib/bypass-git.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
@@ -1209,13 +1213,20 @@ test('T-WM-NEW-3b 反向例:既有路径 banner 完好但零宽载荷被剥 ⇒ 
   // 残迹形态:可见横幅两行俱在,只把零宽载荷整段剥掉(与 agent-chat-stream.ts 丢 24 个码元同型)。
   const residue = baseText.replace(/[\u200b\u200c\u200d\u2060\ufeff]/g, '')
   assert.equal(WM.payloadIntact(residue), false, '夹具前提:残迹载荷必须解不出')
-  assert.ok(residue.includes('© 2026 IHUI AI'), '夹具前提:可见横幅必须仍然在(否则测的是"缺横幅"不是"坏载荷")')
+  assert.ok(
+    residue.includes('© 2026 IHUI AI'),
+    '夹具前提:可见横幅必须仍然在(否则测的是"缺横幅"不是"坏载荷")',
+  )
   const bad = hashText(dir, residue)
   const mf = join(dir, 'mf-existing-bad.json')
   writeFileSync(mf, JSON.stringify({ files: [{ path: 'keep.ts', blob: bad }] }))
   const r = runLandBlob(dir, { paths: 'keep.ts', manifest: mf })
   assert.notEqual(r.status, 0, `坏载荷必须拒落,实得 ${r.status}:${r.stdout}|${r.stderr}`)
-  assert.match(r.stderr + r.stdout, /水印预检不通过|水印校验派生失败/, '必须报"预检不通过",不得静默落地')
+  assert.match(
+    r.stderr + r.stdout,
+    /水印预检不通过|水印校验派生失败/,
+    '必须报"预检不通过",不得静默落地',
+  )
   assert.match(r.stderr + r.stdout, /keep\.ts/, '必须点名那个既有文件(只报数不点名 = 责任不可归)')
   assert.equal(git(['rev-parse', 'HEAD'], { root: dir }), before, '被拒时 HEAD 不得前进')
 })
@@ -1382,7 +1393,6 @@ test('T-WM-NEW-6 形状锁:新建路径档只调那一份编排,未判定必须 
   assert.match(seg, /judgeToolGenerated\s*\(/, '上游工具生成物豁免面必须问那份单源判据')
   assert.ok(!/scripts\/data\//.test(seg), '豁免清单只住在 lib 的台账里,本器不得自持一张表')
 })
-
 
 // ─────────────────────────────────────────────────────────────────────────────
 // G-815985 悬空相对引用预检(2026-09-29 立,由本会话一次真实自伤换来)
@@ -2921,7 +2931,10 @@ const rmElem = (jsonPath, value, restoredFrom, why) => ({
 
 test('T-RM-E1 形态闸(element 型,纯函数):两型同给/都没给/jsonPath 不以 $ 起/缺 value/同路径混型 ⇒ 逐条点名', () => {
   const full = 'a'.repeat(40)
-  const okEl = { path: 'reg.json', ...rmElem('$.entries[].roots', 'minus.svg', full, '还原被误删的元素声明') }
+  const okEl = {
+    path: 'reg.json',
+    ...rmElem('$.entries[].roots', 'minus.svg', full, '还原被误删的元素声明'),
+  }
   const good = __test__.validateRestoreManifest({ entries: [okEl] }, { paths: ['reg.json'] })
   assert.equal(good.errors.length, 0, `合法 element 声明应零错,现读:${good.errors.join(' | ')}`)
   assert.equal(good.entries.length, 1)
@@ -2933,12 +2946,12 @@ test('T-RM-E1 形态闸(element 型,纯函数):两型同给/都没给/jsonPath �
   assert.equal(good.entries[0].line, null, 'element 型条目的 line 必须是 null(两型互斥)')
 
   const badCases = [
+    ['两型同给', { entries: [{ ...okEl, line: 'x' }] }, /两型都给 ⇒ 口径不同不得混用/],
     [
-      '两型同给',
-      { entries: [{ ...okEl, line: 'x' }] },
-      /两型都给 ⇒ 口径不同不得混用/,
+      '两型都没给',
+      { entries: [{ path: 'reg.json', restoredFrom: full, why: '什么都没声明的空壳条目' }] },
+      /都没给/,
     ],
-    ['两型都没给', { entries: [{ path: 'reg.json', restoredFrom: full, why: '什么都没声明的空壳条目' }] }, /都没给/],
     [
       'jsonPath 不以 $ 起',
       { entries: [{ ...okEl, element: { jsonPath: 'entries[].roots', value: 'x' } }] },
@@ -2949,11 +2962,7 @@ test('T-RM-E1 形态闸(element 型,纯函数):两型同给/都没给/jsonPath �
       { entries: [{ ...okEl, element: { jsonPath: '$.entries[].roots' } }] },
       /element\.value 缺失/,
     ],
-    [
-      'element 不是对象',
-      { entries: [{ ...okEl, element: 'minus.svg' }] },
-      /element 必须是对象/,
-    ],
+    ['element 不是对象', { entries: [{ ...okEl, element: 'minus.svg' }] }, /element 必须是对象/],
   ]
   for (const [name, input, re] of badCases) {
     const r = __test__.validateRestoreManifest(input, { paths: ['reg.json'] })
@@ -3029,14 +3038,20 @@ test('T-RM-E3 正控端到端:键路径档还原一枚被删的数组元素 ⇒ 
   // 追加一枚新条目(不修改既有条目 ⇒ 基线零丢),把两枚元素搬回来
   writeFileSync(
     join(dir, 'reg.json'),
-    rmJson([{ id: 'a', roots: ['x.svg'] }, { id: 'b', roots: ['minus.svg'] }]),
+    rmJson([
+      { id: 'a', roots: ['x.svg'] },
+      { id: 'b', roots: ['minus.svg'] },
+    ]),
   )
   const mf = join(dir, '.restore-manifest.json')
   writeFileSync(
     mf,
     JSON.stringify({
       entries: [
-        { path: 'reg.json', ...rmElem('$.entries[].roots', 'minus.svg', A, 'e2e 正控:还原被删的元素') },
+        {
+          path: 'reg.json',
+          ...rmElem('$.entries[].roots', 'minus.svg', A, 'e2e 正控:还原被删的元素'),
+        },
       ],
     }),
   )
@@ -3052,8 +3067,11 @@ test('T-RM-E3 正控端到端:键路径档还原一枚被删的数组元素 ⇒ 
   )
   const body = runGit(dir, ['show', '--format=%B', '-s', 'HEAD']).toString()
   assert.match(body, /Restore-Manifest-Entry/, '清单必须逐字进提交信息')
-  assert.match(body, /"element":\{"jsonPath":"\$\.entries\[\]\.roots","value":"minus\.svg"\}/,
-    `trailer 必须带 element(jsonPath + value),现读:${body.slice(0, 600)}`)
+  assert.match(
+    body,
+    /"element":\{"jsonPath":"\$\.entries\[\]\.roots","value":"minus\.svg"\}/,
+    `trailer 必须带 element(jsonPath + value),现读:${body.slice(0, 600)}`,
+  )
   const face = runGit(dir, ['show', 'HEAD:reg.json']).toString()
   assert.ok(face.includes('minus.svg'), '被还原的元素必须真进树')
 })
@@ -3063,14 +3081,20 @@ test('T-RM-E4 反向①:夹带一枚未声明的元素复活 ⇒ 当场拒落并
   const head = runGit(dir, ['rev-parse', 'HEAD']).trim()
   writeFileSync(
     join(dir, 'reg.json'),
-    rmJson([{ id: 'a', roots: ['x.svg'] }, { id: 'b', roots: ['minus.svg', 'plus.svg'] }]),
+    rmJson([
+      { id: 'a', roots: ['x.svg'] },
+      { id: 'b', roots: ['minus.svg', 'plus.svg'] },
+    ]),
   )
   const mf = join(dir, '.restore-manifest.json')
   writeFileSync(
     mf,
     JSON.stringify({
       entries: [
-        { path: 'reg.json', ...rmElem('$.entries[].roots', 'minus.svg', A, 'e2e 反向①:只声明一枚') },
+        {
+          path: 'reg.json',
+          ...rmElem('$.entries[].roots', 'minus.svg', A, 'e2e 反向①:只声明一枚'),
+        },
       ],
     }),
   )
@@ -3091,14 +3115,20 @@ test('T-RM-E5 反向②:声明对象里还有标量键复活 ⇒ element 型不�
   // legacy 是 B 里被删掉的**标量键**,这里把它搬回来 + 还原一枚元素
   writeFileSync(
     join(dir, 'reg.json'),
-    rmJson([{ id: 'a', roots: ['x.svg'] }, { id: 'b', legacy: 'old', roots: ['minus.svg'] }]),
+    rmJson([
+      { id: 'a', roots: ['x.svg'] },
+      { id: 'b', legacy: 'old', roots: ['minus.svg'] },
+    ]),
   )
   const mf = join(dir, '.restore-manifest.json')
   writeFileSync(
     mf,
     JSON.stringify({
       entries: [
-        { path: 'reg.json', ...rmElem('$.entries[].roots', 'minus.svg', A, 'e2e 反向②:只声明元素') },
+        {
+          path: 'reg.json',
+          ...rmElem('$.entries[].roots', 'minus.svg', A, 'e2e 反向②:只声明元素'),
+        },
       ],
     }),
   )
@@ -3119,13 +3149,21 @@ test('T-RM-E6 反向③:假声明(该祖先 blob 的容器里没有这枚元素)
   const B = head // B 里 minus.svg 已被删 ⇒ 拿它当 restoredFrom 就是假声明
   writeFileSync(
     join(dir, 'reg.json'),
-    rmJson([{ id: 'a', roots: ['x.svg'] }, { id: 'b', roots: ['minus.svg'] }]),
+    rmJson([
+      { id: 'a', roots: ['x.svg'] },
+      { id: 'b', roots: ['minus.svg'] },
+    ]),
   )
   const mfFake = join(dir, '.restore-manifest.json')
   writeFileSync(
     mfFake,
     JSON.stringify({
-      entries: [{ path: 'reg.json', ...rmElem('$.entries[].roots', 'minus.svg', B, '假声明:指着一枚没有它的提交') }],
+      entries: [
+        {
+          path: 'reg.json',
+          ...rmElem('$.entries[].roots', 'minus.svg', B, '假声明:指着一枚没有它的提交'),
+        },
+      ],
     }),
   )
   const r1 = runLand(dir, {
@@ -3152,7 +3190,10 @@ test('T-RM-E7 反向④:改既有条目导致基线丢元素 ⇒ element 型不�
     mf,
     JSON.stringify({
       entries: [
-        { path: 'reg.json', ...rmElem('$.entries[].roots', 'minus.svg', A, 'e2e 反向④:改既有条目形态') },
+        {
+          path: 'reg.json',
+          ...rmElem('$.entries[].roots', 'minus.svg', A, 'e2e 反向④:改既有条目形态'),
+        },
       ],
     }),
   )
@@ -3176,10 +3217,22 @@ test('T-RM-E7 反向④:改既有条目导致基线丢元素 ⇒ element 型不�
  */
 test('judgeLandMsgShape:路径形态/空/含糊短行拒,conventional 标题与多行正文放行', () => {
   const T = __test__.judgeLandMsgShape
-  assert.equal(T('D:\\IHUI-AI\\.ihui-agent\\tmp\\goal-autonomy\\commit-msg-no-write.txt').ok, false, '盘符单行 = 长得像路径 ⇒ 必须拒')
-  assert.equal(T('/tmp/commit-msg-no-write.txt').ok, false, 'commit-msg*.txt 形态同样拒(不带盘符的那种)')
+  assert.equal(
+    T('D:\\IHUI-AI\\.ihui-agent\\tmp\\goal-autonomy\\commit-msg-no-write.txt').ok,
+    false,
+    '盘符单行 = 长得像路径 ⇒ 必须拒',
+  )
+  assert.equal(
+    T('/tmp/commit-msg-no-write.txt').ok,
+    false,
+    'commit-msg*.txt 形态同样拒(不带盘符的那种)',
+  )
   assert.equal(T('').ok, false, '空必拒(提交史无法归因)')
-  assert.equal(T('随手写的一句话').ok, false, '单行、非 conventional、不足 24 字 ⇒ 拒(方向是多要一次说明)')
+  assert.equal(
+    T('随手写的一句话').ok,
+    false,
+    '单行、非 conventional、不足 24 字 ⇒ 拒(方向是多要一次说明)',
+  )
   assert.equal(T('fix(gates): 短标题也算正文').ok, true, 'conventional 标题放行,不许逼人凑字数')
   assert.equal(T('fix(x): 标题\n\n多行取证正文若干。').ok, true, '多行正文放行')
 })
@@ -3187,9 +3240,16 @@ test('judgeLandMsgShape:路径形态/空/含糊短行拒,conventional 标题与�
 test('checkExemptDeclaration:命中未声明=missing,已声明=ok,清单取不到=未判定(三态不并桶)', () => {
   const T = __test__.checkExemptDeclaration
   const list = readFileSync(join(HERE, '..', 'data', 'immutable-guard.json'), 'utf8')
-  const hit = T({ paths: ['scripts/lib/sample.mjs'], guardListText: list, message: 'fix(x): 标题\n\n正文若干行。' })
+  const hit = T({
+    paths: ['scripts/lib/sample.mjs'],
+    guardListText: list,
+    message: 'fix(x): 标题\n\n正文若干行。',
+  })
   assert.equal(hit.state, 'missing', '命中判据面而枚上没 trailer ⇒ missing(不是 ok、不是未判定)')
-  assert.ok(hit.hits.some((h) => h.includes('scripts/lib/sample.mjs')), '必须点名命中的那枚路径')
+  assert.ok(
+    hit.hits.some((h) => h.includes('scripts/lib/sample.mjs')),
+    '必须点名命中的那枚路径',
+  )
   const declared = T({
     paths: ['scripts/lib/sample.mjs'],
     guardListText: list,
@@ -3201,14 +3261,159 @@ test('checkExemptDeclaration:命中未声明=missing,已声明=ok,清单取不�
     0,
     '射程外 ⇒ 不要求声明',
   )
-  assert.equal(T({ paths: ['scripts/lib/x.mjs'], guardListText: null, message: 'fix(x): t' }).state, 'undetermined', '清单取不到 ⇒ 未判定,不得冒充"不需要声明"(§0.3)')
-  assert.equal(T({ paths: ['scripts/lib/x.mjs'], guardListText: '{不是合法 JSON', message: 'fix(x): t' }).state, 'undetermined', '清单坏 ⇒ 未判定')
+  assert.equal(
+    T({ paths: ['scripts/lib/x.mjs'], guardListText: null, message: 'fix(x): t' }).state,
+    'undetermined',
+    '清单取不到 ⇒ 未判定,不得冒充"不需要声明"(§0.3)',
+  )
+  assert.equal(
+    T({ paths: ['scripts/lib/x.mjs'], guardListText: '{不是合法 JSON', message: 'fix(x): t' })
+      .state,
+    'undetermined',
+    '清单坏 ⇒ 未判定',
+  )
 })
 
 test('接线锁:两道闸都真被调用(函数在而没人调=没有,§0.9)', () => {
   const tool = readFileSync(TOOL, 'utf8')
   assert.ok(tool.includes('judgeLandMsgShape(msg)'), 'parseArgs 必须真调正文形状闸')
   assert.ok(tool.includes('checkExemptDeclaration({'), '落地后必须真调判据面声明自检')
-  assert.ok(tool.includes("msgRaw.startsWith('@')"), '@<文件> 出口必须在(否则长正文只能塞 env,正是这次踩的形状)')
+  assert.ok(
+    tool.includes("msgRaw.startsWith('@')"),
+    '@<文件> 出口必须在(否则长正文只能塞 env,正是这次踩的形状)',
+  )
 })
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 2026-11-05 两格(同一枚事故引出的两个方向)。
+// 引子:清 HEAD 面水印欠账时,blob 通道把"基线整条载荷缺失 ⇒ inject 追加独立载荷行"这件正事
+// 判成"改写横幅文字"而拒 —— 于是这类欠账**没有落地通道**(提交链上的水印门只写磁盘,而磁盘那份
+// 常属他人现场)。修 A 的同时把 B 挖了出来:旧 `payloadIntactViaVerify` 把正文写进
+// `mkScratch()/probe.txt` 再派生 `verify <该文件>` 拿 RC 当答案,而 scratch 落点不在仓库口径内,
+// verify 报「覆盖 0/0」却按 0 退出 ⇒ 四臂实测(完好/损坏 × .txt/.mjs)同色,复核恒真。
+// §0.7 禁的正是"没验过却写成验过":decideBanner 里那档 fail-closed 从装上那天起就是装饰。
+// ─────────────────────────────────────────────────────────────────────────────
+
+const BANNER_TWO = [
+  '// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top',
+  '// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。',
+].join('\n')
+
+test('T-BANNER-S 载荷缺失档:基线只有可见横幅而整条载荷缺失 ⇒ 追加载荷行默认拒、复核过才算补回', () => {
+  const base = `${BANNER_TWO}\n\n正文 A\n正文 B\n`
+  assert.equal(WM.payloadIntact(base), false, '夹具必须真的没有可解码载荷(否则测不到这一档)')
+  const seat = WM.injectText(base, { rel: 'sample.mjs' })
+  assert.equal(seat.action, 'injected', '夹具必须真被官方构造处注过(否则测的是空差异)')
+  const reseated = seat.text
+  assert.equal(WM.payloadIntact(reseated), true, '官方构造处的产物必须可解码')
+  // 判据用的剥离出口与 lib 同一份:剥掉水印结构行后必须整篇等值,否则这条测不到"只动结构"
+  assert.equal(
+    stripWatermarkStructure(base).text,
+    stripWatermarkStructure(reseated).text,
+    '夹具不成立:两份正文剥掉水印结构后不等值',
+  )
+  const a = decideBanner({ baseText: base, newText: reseated })
+  assert.equal(a.verdict, 'broken', '没复核过就不得放行(默认坏 = fail-closed)')
+  assert.equal(a.needsPayloadCheck, true, '要标明这是"待复核"而不是"已判定坏"')
+  const b = decideBanner({ baseText: base, newText: reseated, newPayloadOk: true })
+  assert.equal(b.verdict, 'repaired', '剥掉结构行整篇等值 + 载荷判完好 ⇒ 这是补回,不是改写')
+  // 反向:同一通道不得吞掉真改动 —— 正文多一行就该回到"改写横幅"那一支
+  const tampered = reseated.replace('正文 B\n', '正文 B\n正文 C\n')
+  const c = decideBanner({ baseText: base, newText: tampered, newPayloadOk: true })
+  assert.equal(c.verdict, 'broken', '夹带了正文改动 ⇒ 载荷复核过也不认')
+  assert.notEqual(c.needsPayloadCheck, true, '真改动不得带"待复核"旗(那等于给它第二次机会)')
+})
+
+test('T-BANNER-T 载荷判据有牙:完好/损坏/无水印三臂必须给出不同读数(旧 CLI 探针四臂同色)', () => {
+  const probe = __test__.payloadIntactViaWatermark
+  assert.equal(typeof probe, 'function', '__test__ 必须透出这一份载荷判据的调用口')
+  const intact = WM.injectText('正文 A\n', { rel: 'sample.mjs' }).text
+  assert.deepEqual(probe(intact), { judged: true, ok: true }, '完好载荷必须读成 ok=true')
+  const damaged = intact.replace(/\u200b/g, '?')
+  assert.notEqual(damaged, intact, '夹具必须真的改坏了载荷')
+  assert.deepEqual(
+    probe(damaged),
+    { judged: true, ok: false },
+    '载荷被改坏必须读成 ok=false —— 旧实现拿 scratch/probe.txt 问 verify,这一臂会读成 ok=true(恒真)',
+  )
+  assert.deepEqual(
+    probe('正文 A\n'),
+    { judged: true, ok: false },
+    '通篇没有载荷 ⇒ 不是"没判",是判为不完好',
+  )
+  assert.equal(probe(null).judged, false, '取不到输入 ⇒ 未判定,不得折成完好或损坏')
+})
+
+test('T-BANNER-U 形状锁:blob 通道不再拿路径口径当载荷判据(反向钉住那次恒真的成因)', () => {
+  // 判"实现"必须看**遮掉注释后**的代码面:成因叙述合规地留在注释里(§14 交付报告一致性),
+  // 拿整份源码比字符串会把说明当成残留(第一版就是这么误红的)。
+  const code = maskComments(readFileSync(TOOL, 'utf8'))
+  assert.ok(
+    !/probe\.txt/.test(code),
+    'scratch 里的探针文件不得再当载荷判据输入 —— 仓库口径外的文件 verify 报「覆盖 0/0」而 RC=0',
+  )
+  assert.ok(
+    !/payloadIntactViaVerify/.test(code),
+    '旧的 verify-探针通道必须整颗摘掉,留着(哪怕没人调)就是给下一个人复用的陷阱',
+  )
+  assert.match(
+    code,
+    /WM_PROBE\?\.payloadIntact/,
+    '载荷完坏必须进程内问 watermark.mjs 那一份实现(§0.6 单一真相源)',
+  )
+  // 工作树模式的预检仍然走 CLI(那里路径在仓库口径内,覆盖数是真的)—— 别把它一起摘了
+  assert.match(code, /WATERMARK_CLI,\s*'verify'/, 'worktree 预检仍须问那份 CLI')
+})
+
+/** 端到端(纯函数格绿不等于有出口):基线"横幅在位而载荷缺失"这一型必须真能落下去。 */
+test('T-BANNER-SEAT-E2E 端到端:基线只有可见横幅而整条载荷缺失 ⇒ blob 通道把补回的载荷落得下去', (t) => {
+  const dir = makeRepo(t)
+  const base = `${BANNER_TWO}\n\nconst x = 1\n`
+  writeFileSync(join(dir, 'seat.txt'), base)
+  runGit(dir, ['add', '--', 'seat.txt'])
+  runGit(dir, ['commit', '-q', '-m', '基线:横幅在位而载荷缺失'])
+  const before = git(['rev-parse', 'HEAD'], { root: dir })
+  const seat = WM.injectText(base, { rel: 'sample.mjs' })
+  assert.equal(seat.action, 'injected', '夹具必须真被官方构造处注过')
+  const want = writeBlob(seat.text, { root: dir })
+  const r = runLand(dir, {
+    paths: 'seat.txt',
+    blobs: [{ path: 'seat.txt', blob: want }],
+    proof: '构造内容 = 基线正文逐字节 + 官方构造处追加的水印结构行',
+    msg: 'fix(watermark): e2e 补回载荷位(夹具)',
+  })
+  assert.equal(
+    r.status,
+    0,
+    `补回必须落得下去,实得 ${r.status}:${String(r.stdout).slice(-1200)}${String(r.stderr).slice(-600)}`,
+  )
+  assert.notEqual(git(['rev-parse', 'HEAD'], { root: dir }), before, '落地后 HEAD 必须前进')
+  assert.match(`${r.stdout}${r.stderr}`, /水印横幅保持/, '这一档要报名,不能静默放行')
+})
+
+test('接线锁 2026-11-05:本器的 --self-test 由这一层真跑一次(否则装载证明只住在人工敲的那一档)', () => {
+  // 立因:`judgeLandMsgShape`(2026-11-04 落)把"单行且不足 24 字符"的正文拒了,而 --self-test 的
+  // 九个夹具正文全是 `selftest …` 短串 ⇒ 落地器自己的自检从那天起 6/12 红,而 CI/门禁里没有一处
+  // 跑它(grep `.github/workflows` 对本器 --self-test 零命中)⇒ 红是静默的,直到这次人工敲才撞上。
+  // "造好没装车 = 没有"(§0.9)同样适用于器物自己的自检:它必须住在每次提交都跑的那一层。
+  const r = spawnSync(process.execPath, [TOOL, '--self-test'], {
+    cwd: join(HERE, '..', '..'),
+    ...runOpts,
+    timeout: 900_000,
+  })
+  const out = `${String(r.stdout ?? '')}${String(r.stderr ?? '')}`
+  const m = /self-test:\s*(\d+)\/(\d+)\s*通过/.exec(out)
+  assert.ok(m, `末行没给出例数读数(不硬抄数字,§0.1):${out.slice(-400)}`)
+  assert.equal(
+    r.status,
+    0,
+    `--self-test RC=${r.status}\n${out
+      .split(/\r?\n/)
+      .filter((l) => l.startsWith('❌'))
+      .join('\n')
+      .slice(0, 1500)}`,
+  )
+  assert.equal(Number(m[1]), Number(m[2]), `自检未全绿:${m[1]}/${m[2]}`)
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

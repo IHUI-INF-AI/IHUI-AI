@@ -164,11 +164,16 @@ import {
   hasAnyWatermarkTrace,
   hasExactCanonicalBanner,
   dropZeroWidth,
+  stripWatermarkStructure,
+  isWatermarkStructureLine,
 } from './lib/watermark-lines.mjs'
 // G-04 第二格(2026-10-25):新建路径的注入必须复用 watermark.mjs 的**文本级唯一构造处**
 // (`injectText`)。在这里再拼一份横幅/零宽载荷 = §0.6 禁止的第二份真相 —— 编码只有
 // `encodePayload` 一份,拼第二次必然漂移;而漂移的形态是"落地器造的载荷 verify 解不出"。
-import { injectText } from './watermark.mjs'
+// `WM_PROBE.payloadIntact` 同批取用(2026-11-05):载荷完不完好是同一件事,判据只许住在
+// watermark.mjs 那一处;本器过去拿 `verify <scratch>/probe.txt` 问它,而那份探针**从来不被
+// 水印口径覆盖**(实测 覆盖 0/0、RC 恒 0),等于无条件放行 —— 详见 payloadIntactViaWatermark 头注。
+import { injectText, __test__ as WM_PROBE } from './watermark.mjs'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { execFileSync, spawnSync } from 'node:child_process'
 import { basename, dirname, join, normalize, relative, resolve } from 'node:path'
@@ -182,10 +187,7 @@ import { maskComments, scanLiterals } from './lib/code-mask.mjs'
 import { rerunAffectedGates } from './lib/land-gate-rerun.mjs'
 // L33560 最后一格(2026-11-01):落地前的冲突标记判据**只有一份实现**,住在 lib 里
 // (union-converge 的落地闸用的是同一个出口)。本器只提供"将要落地的内容"这一取材面。
-import {
-  gateLandingMarkers,
-  LANDING_MARKER_SKIP_ENV,
-} from './lib/conflict-marker-landing-gate.mjs'
+import { gateLandingMarkers, LANDING_MARKER_SKIP_ENV } from './lib/conflict-marker-landing-gate.mjs'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import {
@@ -298,11 +300,14 @@ function defaultRefHeadValue(root) {
 export function judgeLandMsgShape(msg) {
   const t = String(msg ?? '').trim()
   if (t === '') return { ok: false, why: '空 ⇒ 提交史无法归因' }
-  const startsConventional = /^(feat|fix|docs|chore|test|refactor|perf|style|ci|build)(\([^)]*\))?!?:\s/.test(t)
+  const startsConventional =
+    /^(feat|fix|docs|chore|test|refactor|perf|style|ci|build)(\([^)]*\))?!?:\s/.test(t)
   const oneLine = !t.includes('\n')
   // 盘符绝对路径 / UNC / 以 commit-msg*.txt|md 形态收尾的裸路径 —— 三者都是"把文件名当正文"的形状
   const looksLikePath =
-    /^[A-Za-z]:[\\/]/.test(t) || /^\\\\/.test(t) || /^(?:[^\s]*[\\/])?commit-msg[^\s]*\.(?:txt|md|log)$/i.test(t)
+    /^[A-Za-z]:[\\/]/.test(t) ||
+    /^\\\\/.test(t) ||
+    /^(?:[^\s]*[\\/])?commit-msg[^\s]*\.(?:txt|md|log)$/i.test(t)
   if (oneLine && looksLikePath && !startsConventional) {
     return {
       ok: false,
@@ -310,7 +315,10 @@ export function judgeLandMsgShape(msg) {
     }
   }
   if (oneLine && t.length < 24 && !startsConventional) {
-    return { ok: false, why: `正文单行且不足 24 字符(${t})⇒ 不像一句能被回读证明的说明;要么写成 conventional 标题,要么把取证正文一起给全` }
+    return {
+      ok: false,
+      why: `正文单行且不足 24 字符(${t})⇒ 不像一句能被回读证明的说明;要么写成 conventional 标题,要么把取证正文一起给全`,
+    }
   }
   return { ok: true, why: '' }
 }
@@ -326,16 +334,32 @@ export function judgeLandMsgShape(msg) {
  */
 export function checkExemptDeclaration({ paths = [], guardListText = null, message = '' }) {
   if (guardListText === null || guardListText === undefined) {
-    return { state: 'undetermined', hits: [], why: '受保护面清单取不到 ⇒ 无法判断本枚是否需要声明(不冒充"不需要")' }
+    return {
+      state: 'undetermined',
+      hits: [],
+      why: '受保护面清单取不到 ⇒ 无法判断本枚是否需要声明(不冒充"不需要")',
+    }
   }
   let parsed
   try {
     parsed = parseGuardList(guardListText)
   } catch (e) {
-    return { state: 'undetermined', hits: [], why: `清单解析抛错(${String(e?.message ?? e).slice(0, 80)})⇒ 未判定` }
+    return {
+      state: 'undetermined',
+      hits: [],
+      why: `清单解析抛错(${String(e?.message ?? e).slice(0, 80)})⇒ 未判定`,
+    }
   }
-  if ((parsed.problems ?? []).length > 0 || !Array.isArray(parsed.entries) || parsed.entries.length === 0) {
-    return { state: 'undetermined', hits: [], why: `清单形状坏或为空(${(parsed.problems ?? []).map((x) => x.code ?? x.message).join(',') || 'empty'})⇒ 未判定` }
+  if (
+    (parsed.problems ?? []).length > 0 ||
+    !Array.isArray(parsed.entries) ||
+    parsed.entries.length === 0
+  ) {
+    return {
+      state: 'undetermined',
+      hits: [],
+      why: `清单形状坏或为空(${(parsed.problems ?? []).map((x) => x.code ?? x.message).join(',') || 'empty'})⇒ 未判定`,
+    }
   }
   const hits = []
   for (const p of paths) {
@@ -345,7 +369,11 @@ export function checkExemptDeclaration({ paths = [], guardListText = null, messa
   }
   if (hits.length === 0) return { state: 'ok', hits: [], why: '本枚不触及判据面 ⇒ 无需豁免声明' }
   if (!/immutable-exempt:\s*\S/.test(String(message ?? ''))) {
-    return { state: 'missing', hits, why: `本枚命中判据面 ${hits.length} 处而提交信息里没有 immutable-exempt 行` }
+    return {
+      state: 'missing',
+      hits,
+      why: `本枚命中判据面 ${hits.length} 处而提交信息里没有 immutable-exempt 行`,
+    }
   }
   return { state: 'ok', hits, why: `命中判据面 ${hits.length} 处且已随枚声明` }
 }
@@ -365,7 +393,9 @@ export function parseArgs(env = process.env) {
     try {
       msg = readFileSync(resolve(root, msgFile), 'utf8')
     } catch (e) {
-      return { error: `LAND_MSG=@${msgFile} 读不到(${String(e?.message ?? e).slice(0, 140)})⇒ 拒绝执行(不把"@路径"当正文落地)` }
+      return {
+        error: `LAND_MSG=@${msgFile} 读不到(${String(e?.message ?? e).slice(0, 140)})⇒ 拒绝执行(不把"@路径"当正文落地)`,
+      }
     }
   }
   const baseRef = env.LAND_BASE_REF || 'HEAD'
@@ -796,10 +826,7 @@ export function detectStaleLanding({
           declared: entries.map((en) => en.element),
         })
         const exempt =
-          line.status === 'judged' &&
-          !wholeHit &&
-          (delta.vanished ?? 0) === 0 &&
-          cmp.match === true
+          line.status === 'judged' && !wholeHit && (delta.vanished ?? 0) === 0 && cmp.match === true
         restoreEval.set(p, {
           consumed: exempt,
           entries,
@@ -1030,7 +1057,8 @@ export function validateRestoreManifest(parsed, { paths, removePaths = [] } = {}
     }
     const p = typeof e.path === 'string' ? e.path : ''
     const l = typeof e.line === 'string' ? e.line : null
-    const el = e.element && typeof e.element === 'object' && !Array.isArray(e.element) ? e.element : null
+    const el =
+      e.element && typeof e.element === 'object' && !Array.isArray(e.element) ? e.element : null
     const sha = typeof e.restoredFrom === 'string' ? e.restoredFrom : ''
     const why = typeof e.why === 'string' ? e.why.trim() : ''
     if (!p) {
@@ -2217,14 +2245,47 @@ export function decideBanner({ baseText, newText, newPayloadOk = false }) {
       if (newPayloadOk)
         return {
           verdict: 'repaired',
-          why: '只差在隐写载荷位(可见文案逐字未动)且构造内容经 watermark verify 判完好 ⇒ 这是 §5c 要求的"载荷损坏"修复',
+          why: '只差在隐写载荷位(可见文案逐字未动)且构造内容经载荷判据判完好 ⇒ 这是 §5c 要求的"载荷损坏"修复',
         }
       return {
         verdict: 'broken',
-        why: '差异只在零宽载荷位,但构造内容没能经 watermark verify ⇒ 不认这次"修复",拒绝把解不出载荷的内容放进 HEAD',
-        // 这一格是"待复核"而不是"已判定坏":调用方有权问一次唯一判据(`watermark.mjs verify`)
+        why: '差异只在零宽载荷位,但构造内容没能经载荷判据复核 ⇒ 不认这次"修复",拒绝把解不出载荷的内容放进 HEAD',
+        // 这一格是"待复核"而不是"已判定坏":调用方有权问一次唯一判据(`watermark.mjs` 的 `payloadIntact`)
         // 再带 `newPayloadOk:true` 重试。**默认坏 = fail-closed** —— 调用方不复核就落不了地,
         // 而不是悄悄放行。
+        needsPayloadCheck: true,
+      }
+    }
+    // 2026-11-05 补的一档:基线**整条载荷缺失**(§5c 的"残迹(载荷丢失)"那一态)时,inject 的正解是
+    // 追加一条独立载荷行,而它就落在横幅区里 ⇒ "前三行"必然不同、剥掉零宽后也不同,上一档救不了它。
+    // 旧判据把这档读成"改写横幅文字"而拒,于是这类 HEAD 面欠账**没有任何落地通道**:提交链上的水印门
+    // 是自愈式、只写磁盘,而磁盘那份常属他人现场(§12 不许本席写),blob 通道又被上一行堵死。
+    // 收紧而非放宽,两条同时成立才算"只动结构":
+    //   ① 剥掉全部水印结构行后**整篇**逐字相等(识别用 lib/watermark-lines 那一份,§0.6 不复算)
+    //      —— 正文任何改动都会破坏这个等式;
+    //   ② 基线已有的每一条水印结构行,剥掉零宽后必须**原样**出现在构造内容里(只许增加结构行,不许改写
+    //      其中某一行)。缺这一条时"在载荷标记行里塞一个可见字符"会随整行一起被剥掉而洗白 ——
+    //      2026-11-05 自家反向锁 T-BANNER-BOM4 当场抓到,所以补,而不是把那一档当误报删掉。
+    // 并且同样要求载荷经判据复核,否则照旧拒(fail-closed 与上一档同形)。
+    const structVisible = (text) =>
+      String(text)
+        .split('\n')
+        .filter(isWatermarkStructureLine)
+        .map((l) => dropZeroWidth(l))
+    const baseStruct = structVisible(baseText)
+    const newStruct = new Set(structVisible(newText))
+    const bodyEqual =
+      stripWatermarkStructure(baseText).text === stripWatermarkStructure(newText).text
+    const structureOnlyGrew = baseStruct.every((l) => newStruct.has(l))
+    if (bodyEqual && structureOnlyGrew) {
+      if (newPayloadOk)
+        return {
+          verdict: 'repaired',
+          why: '剥掉全部水印结构行后整篇逐字相等、基线结构行又逐条原样在位 ⇒ 本次只追加了载荷结构(基线是"载荷缺失"态),并经载荷判据判完好',
+        }
+      return {
+        verdict: 'broken',
+        why: '差异只在水印结构行,但构造内容没能经载荷判据复核 ⇒ 不认这次"补回",拒绝把解不出载荷的内容放进 HEAD',
         needsPayloadCheck: true,
       }
     }
@@ -2291,13 +2352,12 @@ export function blobBannerPreserved({ root, paths, blobOf, baseRef = 'HEAD' }) {
       continue
     }
     const d0 = decideBanner({ baseText: bt, newText: nt })
-    // 只有走到"载荷位复核"那一格才派生 verify —— 其余分支不为此多花一次进程(落地器是共享出口,
-    // 每次给每个路径都验一遍会把无关提交一起拖慢)。
+    // 只有走到"载荷位复核"那一格才问判据 —— 其余分支不为此多花一次解码(载荷解码要扫全文零宽族)。
     let d = d0
     if (d0.needsPayloadCheck) {
-      const v = payloadIntactViaVerify(String(nt))
+      const v = payloadIntactViaWatermark(String(nt))
       if (!v.judged) {
-        unjudged.push({ path: p, why: `差异只在零宽载荷位,而 watermark verify 问不到:${v.why}` })
+        unjudged.push({ path: p, why: `差异只在水印结构位,而载荷判据问不到:${v.why}` })
         continue
       }
       d = decideBanner({ baseText: bt, newText: nt, newPayloadOk: v.ok })
@@ -2309,31 +2369,33 @@ export function blobBannerPreserved({ root, paths, blobOf, baseRef = 'HEAD' }) {
 }
 
 /**
- * 问"这份构造内容的载荷到底完不完好"—— **只能问那一份判据**(`watermark.mjs verify`),
- * 不在本器里重写解码:§5c 明写"哪一行算横幅 / 哪一行算隐写 / 规范文案长什么样只许有一份",
- * 解码是同一族事实。临时件落点走 `scripts/lib/scratch-dir.mjs`(§26:不落 os.tmpdir、不落仓库树内)。
- * 三态:`judged=false` 是"问不到"(派生失败/超时),**不得**折成"不完好"或"完好"。
+ * 问"这份构造内容的载荷到底完不完好"—— **只能问那一份判据**,不在本器里重写解码:
+ * §5c 明写"哪一行算横幅 / 哪一行算隐写 / 规范文案长什么样只许有一份",解码是同一族事实。
+ *
+ * 2026-11-05 换通道(把假绿换成真牙)。旧写法把正文写进 `mkScratch()/probe.txt`,再派生
+ * `watermark.mjs verify <那个文件>` 并把 RC 当答案。四臂实测(完好 / 载荷被改坏 × .txt / .mjs):
+ *   probe.txt 完好载荷 ⇒ {"rc":0,"covered":0,"specified":0}
+ *   probe.txt 载荷损坏 ⇒ {"rc":0,"covered":0,"specified":0}
+ *   probe.mjs 完好载荷 ⇒ {"rc":0,"covered":0,"specified":0}
+ *   probe.mjs 载荷损坏 ⇒ {"rc":0,"covered":0,"specified":0}
+ * 四臂同色:scratch 落点不在仓库口径内,`verify` 压根没把该文件纳入统计(覆盖 0/0)却按 0 退出
+ * ⇒ 旧"复核"从装上那天起恒真,`decideBanner` 里"必须经 verify 判完好才认修复"那一档是装饰:
+ * 任何载荷损坏的内容都能拿到 `newPayloadOk:true`。§0.7 禁的正是"没验过却写成验过"。
+ *
+ * 现改为**进程内直接问那一份实现**(`watermark.mjs` 的 `payloadIntact`,verify 内部用的就是它):
+ * 拿布尔而不是退出码,不看路径口径。三态纪律不变 —— `judged=false` 只剩"实现取不到/抛异常"一种成因,
+ * 且它**不得**被折成"完好"或"不完好"。
  */
-function payloadIntactViaVerify(text) {
-  const dir = mkScratch('osl-banner-')
+function payloadIntactViaWatermark(text) {
+  if (typeof text !== 'string') return { judged: false, why: '构造正文不是字符串 ⇒ 无从解码' }
+  const fn = WM_PROBE?.payloadIntact
+  if (typeof fn !== 'function') {
+    return { judged: false, why: 'watermark.mjs 未导出 payloadIntact ⇒ 唯一判据取不到' }
+  }
   try {
-    const f = join(dir, 'probe.txt')
-    writeFileSync(f, text, 'utf8')
-    // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
-    const r = spawnSync(process.execPath, [WATERMARK_CLI, 'verify', f], {
-      stdio: ['ignore', 'pipe', 'pipe'],
-      cwd: REPO_ROOT,
-      encoding: 'utf8',
-      windowsHide: true,
-      timeout: 120_000,
-    })
-    if (r.error) return { judged: false, why: String(r.error.message ?? r.error).split('\n')[0] }
-    if (r.signal) return { judged: false, why: `verify 被 ${r.signal} 终止` }
-    return { judged: true, ok: r.status === 0, rc: r.status }
+    return { judged: true, ok: fn(text) === true }
   } catch (e) {
-    return { judged: false, why: String(e?.message ?? e).split('\n')[0] }
-  } finally {
-    rmScratch(dir, { bestEffort: true })
+    return { judged: false, why: `payloadIntact 抛异常:${String(e?.message ?? e).split('\n')[0]}` }
   }
 }
 
@@ -3051,7 +3113,9 @@ async function main() {
       console.error(
         `❌ 放弃落地:HEAD 已推进且这些目标路径被别人改过 ⇒ 需重新归并而非覆盖(第 ${attempt} 次尝试):\n  ${clobber.join('\n  ')}`,
       )
-      backupLastMadeIfAbandoned(`object-space-land 第 ${attempt} 回放弃(clobber:目标路径已被他席改过)`)
+      backupLastMadeIfAbandoned(
+        `object-space-land 第 ${attempt} 回放弃(clobber:目标路径已被他席改过)`,
+      )
       process.exit(1)
     }
     // 删除档同款护栏(G-926):删除路径的"基线"是它在 baseRef 树里的**在位性**。
@@ -3124,9 +3188,7 @@ async function main() {
                 '真判红(rc=1)才需要修导入。应急 IHUI_LAND_SKIP_DANGLING_GATE=1(会打留痕)。'
             : '   出路:把悬空导入修掉后重落。应急跳过 IHUI_LAND_SKIP_DANGLING_GATE=1(会把跳过那行打进输出留痕)',
         )
-        backupLastMadeIfAbandoned(
-          `object-space-land 第 ${attempt} 回判据拒落(门 98 涉事判据未过)`,
-        )
+        backupLastMadeIfAbandoned(`object-space-land 第 ${attempt} 回判据拒落(门 98 涉事判据未过)`)
         process.exit(danglingGate.undetermined ? 2 : 1)
       }
       if (warmBorderGate && !warmBorderGate.pass) {
@@ -3139,9 +3201,7 @@ async function main() {
           '   出路:把该处描边改成中性档(border.light/medium)或强调档(brandAccent.light/deep)后重落;' +
             '判据边界见门体头注。应急跳过 IHUI_LAND_SKIP_WARM_BORDER=1(会把跳过那行打进输出留痕)',
         )
-        backupLastMadeIfAbandoned(
-          `object-space-land 第 ${attempt} 回判据拒落(门 231 暖色描边未过)`,
-        )
+        backupLastMadeIfAbandoned(`object-space-land 第 ${attempt} 回判据拒落(门 231 暖色描边未过)`)
         process.exit(warmBorderGate.undetermined ? 2 : 1)
       }
       console.error(`❌ 悬空相对引用预检不通过,拒绝落地(未创建任何 commit、HEAD 与主索引均未动):`)
@@ -3158,9 +3218,7 @@ async function main() {
         '   出路只有两条:把被引用的文件一起加进 LAND_PATHS,或去掉这条引用。' +
           '应急跳过 IHUI_LAND_SKIP_IMPORT_CHECK=1(会把跳过那行打进输出留痕)',
       )
-      backupLastMadeIfAbandoned(
-        `object-space-land 第 ${attempt} 回判据拒落(悬空相对引用预检未过)`,
-      )
+      backupLastMadeIfAbandoned(`object-space-land 第 ${attempt} 回判据拒落(悬空相对引用预检未过)`)
       process.exit(1)
     }
     if (!skipImportCheck) {
@@ -3224,9 +3282,7 @@ async function main() {
   }
   if (landed === '') {
     // 兜底:这是"最后造出、不会再有下一轮"的那一枚 ⇒ 必须照打;取不到 sha 也只会报 no-sha 不冒充绿(§0.3)。
-    backupLastMadeIfAbandoned(
-      `object-space-land ${MAX_CAS_ATTEMPTS} 回均未抢到 CAS(末枚兜底)`,
-    )
+    backupLastMadeIfAbandoned(`object-space-land ${MAX_CAS_ATTEMPTS} 回均未抢到 CAS(末枚兜底)`)
     console.error(`❌ ${MAX_CAS_ATTEMPTS} 次均未抢到 CAS,主索引未动`)
     process.exit(1)
   }
@@ -3612,7 +3668,7 @@ function stMakeRepo() {
 }
 
 /** 以子进程真身重入本器(env 契约与外部调用完全同形,不走任何内存内快捷路径)。 */
-function stRun(dir, { paths = '', remove = '', msg = 'selftest', extra = {} }) {
+function stRun(dir, { paths = '', remove = '', msg = 'test(land): selftest fixture', extra = {} }) {
   const r = spawnSync(process.execPath, [fileURLToPath(import.meta.url)], {
     env: {
       ...process.env,
@@ -3683,7 +3739,7 @@ async function runSelfTest() {
   })
 
   await one('ST4', SELF_TEST_PLAN[3].name, (dir) => {
-    const r = stRun(dir, { remove: 'gone.txt', msg: 'selftest-pure-remove' })
+    const r = stRun(dir, { remove: 'gone.txt', msg: 'test(land): selftest pure remove' })
     if (r.rc !== 0) return `纯删除必须放行,实得 rc=${r.rc}:${r.out.slice(0, 300)}`
     if (stTreeHas(dir, 'gone.txt')) return '纯删除后 gone.txt 仍在树里'
     return null
@@ -3758,7 +3814,7 @@ async function runSelfTest() {
     ])
     const r = stRun(dir, {
       paths: 'r.txt',
-      msg: 'selftest restore',
+      msg: 'test(land): selftest restore',
       extra: { LAND_RESTORE_MANIFEST: mf },
     })
     if (r.rc !== 0) return `正控必须放行,实得 rc=${r.rc}:${r.out.slice(0, 500)}`
@@ -3786,7 +3842,7 @@ async function runSelfTest() {
     ])
     const r = stRun(dir, {
       paths: 'r.txt',
-      msg: 'selftest restore ①',
+      msg: 'test(land): selftest restore ①',
       extra: { LAND_RESTORE_MANIFEST: mf },
     })
     if (r.rc === 0) return `夹带未声明的复活行仍必须拒落,实得 rc=0(白名单被走成了整闸放行,假修复)`
@@ -3811,7 +3867,7 @@ async function runSelfTest() {
     ])
     const r1 = stRun(dir, {
       paths: 'r.txt',
-      msg: 'selftest restore ②a',
+      msg: 'test(land): selftest restore ②a',
       extra: { LAND_RESTORE_MANIFEST: mf1 },
     })
     if (r1.rc !== 1)
@@ -3821,7 +3877,7 @@ async function runSelfTest() {
     const mf2 = stManifest(dir, [{ path: 'r.txt', line: RS_LINE_A, restoredFrom: A, why: '太短' }])
     const r2 = stRun(dir, {
       paths: 'r.txt',
-      msg: 'selftest restore ②b',
+      msg: 'test(land): selftest restore ②b',
       extra: { LAND_RESTORE_MANIFEST: mf2 },
     })
     if (r2.rc !== 2) return `why 过短必须 exit 2(用法错),实得 rc=${r2.rc}`
@@ -3835,7 +3891,7 @@ async function runSelfTest() {
     ])
     const r3 = stRun(dir, {
       paths: 'r.txt',
-      msg: 'selftest restore ②c',
+      msg: 'test(land): selftest restore ②c',
       extra: { LAND_RESTORE_MANIFEST: mf3 },
     })
     if (r3.rc !== 2) return `短 sha 必须 exit 2(§1 证据指针:40 位全量),实得 rc=${r3.rc}`
@@ -3848,7 +3904,7 @@ async function runSelfTest() {
     const head = stGit(dir, ['rev-parse', 'HEAD']).trim()
     writeFileSync(join(dir, 'r.txt'), `alpha\n${RS_LINE_A}\nbeta\n${RS_TICKET}\n`, 'utf8')
     // 与 ST8 正控**同一现场**,只是不传旗 ⇒ 必须与设立前逐字节同形:陈旧守卫照旧拒
-    const r = stRun(dir, { paths: 'r.txt', msg: 'selftest restore ③' })
+    const r = stRun(dir, { paths: 'r.txt', msg: 'test(land): selftest restore ③' })
     if (r.rc !== 1) return `不传旗的滞后复活必须照旧 rc=1,实得 rc=${r.rc}:${r.out.slice(0, 300)}`
     if (!/陈旧落地守卫/.test(r.out))
       return `拒绝行必须是既有的"陈旧落地守卫"文案,实得:${r.out.slice(0, 300)}`
@@ -3872,7 +3928,7 @@ async function runSelfTest() {
     ])
     const r = stRun(dir, {
       paths: 'r.txt',
-      msg: 'selftest restore ④',
+      msg: 'test(land): selftest restore ④',
       extra: { LAND_RESTORE_MANIFEST: mf },
     })
     if (r.rc !== 1) return `未被消费的声明必须 rc=1 拒落,实得 rc=${r.rc}:${r.out.slice(0, 400)}`
@@ -3881,7 +3937,7 @@ async function runSelfTest() {
     // 与 LAND_ALLOW_STALE 同举 ⇒ 用法错 exit 2(逐行放行与整闸关旗不得合并语义)
     const r2 = stRun(dir, {
       paths: 'r.txt',
-      msg: 'selftest restore ⑤',
+      msg: 'test(land): selftest restore ⑤',
       extra: { LAND_RESTORE_MANIFEST: mf, LAND_ALLOW_STALE: '1' },
     })
     if (r2.rc !== 2) return `两面旗同给必须 exit 2,实得 rc=${r2.rc}:${r2.out.slice(0, 300)}`
@@ -3974,6 +4030,10 @@ export const __test__ = {
   // G-04:新建路径注入(文本级构造住在 watermark.mjs 的 injectText,本处只做对象空间编排)
   injectNewPathBlobs,
   watermarkPreflight,
+  // 横幅保持档的判据是纯函数(2026-11-05 起镜像测试直接 import 生产实现,§22c 不复制判据)
+  decideBanner,
+  blobBannerPreserved,
+  payloadIntactViaWatermark,
   SELF_TEST_PLAN,
   runSelfTest,
 }
