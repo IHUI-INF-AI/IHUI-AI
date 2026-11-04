@@ -7018,5 +7018,15 @@
   },
   "student": {
     "myCertsTitle": "証明書一覧"
+  },
+  "edu": {
+    "qa": {
+      "askBtn": "質問"
+    }
+  },
+  "learnPaymentConfirmPage": {
+    "fields": {
+      "payMethod": "支払い方法"
+    }
   }
 }

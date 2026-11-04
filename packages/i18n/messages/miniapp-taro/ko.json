@@ -7021,5 +7021,15 @@
   },
   "student": {
     "myCertsTitle": "자격증 목록"
+  },
+  "edu": {
+    "qa": {
+      "askBtn": "질문"
+    }
+  },
+  "learnPaymentConfirmPage": {
+    "fields": {
+      "payMethod": "결제 수단"
+    }
   }
 }
