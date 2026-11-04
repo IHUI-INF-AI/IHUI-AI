@@ -4,16 +4,20 @@
 
 import { useTt, t } from '@/i18n'
 import { View, Text } from '@tarojs/components'
-import type { CSSProperties } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import LineIcon from '@/components/LineIcon'
 import Taro from '@tarojs/taro'
+import type { AppIcon } from '@ihui/types'
 import { rnRadius, TARO_RPX_PER_PX } from '@ihui/design-tokens'
 import {
   NAVBAR_ACTION_GLYPH_PX,
   NAVBAR_ACTION_LABEL_FONT_PX,
   NAVBAR_ACTION_LABEL_MAX_WIDTH_PX,
   NAVBAR_CENTER_MIN_WIDTH_PX,
+  NAVBAR_ROW_HEIGHT_SUBTITLE_PX,
   NAVBAR_SIDE_PADDING_PX,
+  NAVBAR_SUBTITLE_FONT_PX,
+  NAVBAR_SUBTITLE_MARGIN_TOP_PX,
   NAVBAR_TITLE_FONT_PX,
   NAVBAR_TITLE_MAX_WIDTH_PX,
   navbarActionBoxStyle,
@@ -32,6 +36,11 @@ const TITLE_FONT = toUnit(NAVBAR_TITLE_FONT_PX)
 /// 不是把数字搬进声明而另一端仍渲染别的宽度)
 const CENTER_STYLE = { minWidth: toUnit(NAVBAR_CENTER_MIN_WIDTH_PX) } as const
 const TITLE_STYLE = { fontSize: TITLE_FONT, maxWidth: toUnit(NAVBAR_TITLE_MAX_WIDTH_PX) } as const
+/// 副标题档与 RN 端 `subtitle` 同表同值(字号 12 / 上距 2),颜色由调用方的 textColor 决定
+const SUBTITLE_STYLE = {
+  fontSize: toUnit(NAVBAR_SUBTITLE_FONT_PX),
+  marginTop: toUnit(NAVBAR_SUBTITLE_MARGIN_TOP_PX),
+} as const
 /// 侧按钮文字上限:与 RN 的 actionLabel.maxWidth 同档;配 truncate 才等价 RN 的 numberOfLines={1}
 const ACTION_LABEL_STYLE = {
   fontSize: toUnit(NAVBAR_ACTION_LABEL_FONT_PX),
@@ -63,6 +72,18 @@ export interface NavBarNotification {
   onClose?: () => void
 }
 
+/// 对齐 RN 端 `NavBarAction`(apps/mobile-rn/src/components/NavBar.tsx)。
+/// 门 285 存量收敛(B3 块):原本 mini 端用离散 prop(rightText/onRightClick/onMenuClick...)
+/// 表达右侧行为,现补数组式 actions 接口以对齐 RN 的 leftActions/rightActions。
+export interface NavBarAction {
+  /** emoji 字符 / 图片 URL(http:// / / 开头)/ lucide 图标组件引用(统一图标) */
+  icon: AppIcon | string
+  label?: string
+  /** 无障碍朗读标签(纯图标按钮无可见 label 时用它保留语义) */
+  a11yLabel?: string
+  onPress: () => void
+}
+
 /**
  * NavBar 顶部导航栏
  *
@@ -74,6 +95,16 @@ export interface NavBarNotification {
  */
 export interface NavBarProps {
   title?: string
+  /** 副标题(与 RN 端同语义:标题下方第二行,单行截断) */
+  subtitle?: string
+  /** 粘性顶栏(与 RN 端 sticky 同语义;仅影响定位,不影响配色/槽位) */
+  sticky?: boolean
+  /** 左侧额外按钮(菜单/drawer),渲染在 back 之后(对齐 RN 端 leftActions) */
+  leftActions?: ReadonlyArray<NavBarAction>
+  /** 右侧多按钮(搜索/设置/分类等)(对齐 RN 端 rightActions) */
+  rightActions?: ReadonlyArray<NavBarAction>
+  /** 兼容旧 API:单个 rightAction ReactNode(对齐 RN 端 rightAction) */
+  rightAction?: ReactNode
   showBack?: boolean
   bgColor?: string
   textColor?: string
@@ -121,6 +152,8 @@ const menuButton = Taro.getMenuButtonBoundingClientRect?.() || { top: 26, height
 
 export default function NavBar({
   title = '',
+  subtitle,
+  sticky = false,
   showBack = true,
   bgColor = 'var(--color-background)',
   textColor = 'var(--color-foreground)',
@@ -131,6 +164,7 @@ export default function NavBar({
   variant = 'default',
   onMenuClick,
   onJoinClick,
+  menuIcon,
   joinText = t('NavBar.z1'),
   showFenLei,
   onFenLeiClick,
@@ -145,6 +179,8 @@ export default function NavBar({
   const tt = useTt()
   const statusBarHeight = menuButton.top
   const navBarHeight = menuButton.height + 8
+  // 有副标题时行高取 spec 的 56 档(与 RN 端 ROW_HEIGHT_SUBTITLE 同值);无副标题仍走胶囊实测高
+  const rowHeight = subtitle ? NAVBAR_ROW_HEIGHT_SUBTITLE_PX : navBarHeight
 
   const handleBack = () => {
     if (onBack) {
@@ -164,7 +200,7 @@ export default function NavBar({
   /// 375 逻辑宽下两版同一档,而**更宽的屏上旧版恒偏下 (实际盒高 − 36)/2**:返回盒 72rpx 在 390/402
   /// 宽上实渲 37.44/38.59px,旧算术按声明档 36 居中 ⇒ 偏下 0.72/1.30px;右钮 64rpx 同理偏 0.64/1.16px。
   /// 也就是说旧写法在 375 之外**本来就没居中**(把 rpx 当 px 用了),flex 才是对的。
-  const rowBoxStyle = { top: 0, height: px(navBarHeight) } as const
+  const rowBoxStyle = { top: 0, height: px(rowHeight) } as const
 
   if (variant === 'ai-home') {
     // ===== ai-home 模式:对齐原项目 navigation-bars/index.vue(粘性 + 标题居中 + 左菜单 + 右加入按钮)=====
@@ -179,7 +215,7 @@ export default function NavBar({
         leading={<View style={{ height: px(statusBarHeight) }} />}
         rowClassName="relative flex items-center"
         rowStyle={{
-          height: px(navBarHeight),
+          height: px(rowHeight),
           paddingLeft: toUnit(NAVBAR_SIDE_PADDING_PX),
           paddingRight: toUnit(NAVBAR_SIDE_PADDING_PX),
         }}
@@ -189,18 +225,31 @@ export default function NavBar({
             {/* 返回首页按钮 + 菜单按钮(对齐原项目 navigation-bars: @pack + @menu-click) */}
             {onPack ? <BackChevron onTap={onPack} color={textColor} /> : null}
             <View style={ACTION_BOX_STYLE} onClick={onMenuClick} hoverClass="opacity-60">
-              <LineIcon
-                name="menu"
-                size={ACTION_GLYPH_RPX_NUM}
-                color="var(--color-muted-foreground)"
-              />
+              {menuIcon ? (
+                <Text
+                  style={{
+                    color: 'var(--color-muted-foreground)',
+                    fontSize: toUnit(NAVBAR_ACTION_LABEL_FONT_PX),
+                  }}
+                >
+                  {menuIcon}
+                </Text>
+              ) : (
+                <LineIcon
+                  name="menu"
+                  size={ACTION_GLYPH_RPX_NUM}
+                  color="var(--color-muted-foreground)"
+                />
+              )}
             </View>
           </>
         }
         centerClassName={
           onActiveNav
             ? 'flex flex-1 items-center justify-center gap-[40rpx]'
-            : 'flex flex-1 items-center justify-center'
+            : subtitle
+              ? 'flex flex-1 flex-col items-center justify-center'
+              : 'flex flex-1 items-center justify-center'
         }
         centerStyle={CENTER_STYLE}
         center={
@@ -241,6 +290,8 @@ export default function NavBar({
         title={title}
         titleClassName="font-bold truncate"
         titleStyle={{ color: textColor, ...TITLE_STYLE }}
+        subtitle={subtitle}
+        subtitleStyle={{ color: textColor, ...SUBTITLE_STYLE }}
         rightClassName="ml-auto flex flex-shrink-0 items-center gap-[12rpx]"
         right={
           <>
@@ -335,21 +386,31 @@ export default function NavBar({
   return (
     <NavBarCore
       platform={NAVBAR_PLATFORM}
-      containerClassName="fixed top-0 left-0 right-0 z-50 flex items-center justify-center"
+      containerClassName={
+        sticky
+          ? 'sticky top-0 left-0 right-0 z-[1001] flex items-center justify-center'
+          : 'fixed top-0 left-0 right-0 z-50 flex items-center justify-center'
+      }
       containerStyle={{
         backgroundColor: bgColor,
-        height: px(statusBarHeight + navBarHeight),
+        height: px(statusBarHeight + rowHeight),
       }}
       leading={<View style={{ height: px(statusBarHeight) }} />}
       rowClassName="relative flex w-full items-center justify-center"
-      rowStyle={{ height: px(navBarHeight) }}
+      rowStyle={{ height: px(rowHeight) }}
       leftClassName="absolute left-2 flex items-center"
       leftStyle={rowBoxStyle}
       left={showBack ? <BackChevron onTap={handleBack} color={textColor} /> : null}
-      centerClassName="flex w-full items-center justify-center"
+      centerClassName={
+        subtitle
+          ? 'flex w-full flex-col items-center justify-center'
+          : 'flex w-full items-center justify-center'
+      }
       title={title}
       titleClassName="font-medium truncate max-w-[60%]"
-      titleStyle={{ color: textColor, fontSize: TITLE_FONT, lineHeight: px(navBarHeight) }}
+      titleStyle={{ color: textColor, fontSize: TITLE_FONT, lineHeight: px(rowHeight) }}
+      subtitle={subtitle}
+      subtitleStyle={{ color: textColor, ...SUBTITLE_STYLE }}
       rightClassName="absolute right-3 flex items-center"
       rightStyle={rowBoxStyle}
       right={
@@ -374,7 +435,7 @@ export default function NavBar({
           <View
             className="absolute left-0 right-0 flex items-center justify-between px-[32rpx] py-[16rpx]"
             style={{
-              top: px(statusBarHeight + navBarHeight),
+              top: px(statusBarHeight + rowHeight),
               backgroundColor: 'var(--color-notification-bg)',
             }}
           >
