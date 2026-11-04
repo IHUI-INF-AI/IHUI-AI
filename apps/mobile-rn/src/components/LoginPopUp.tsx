@@ -117,16 +117,11 @@ export interface LoginPopUpProps {
   onClose: () => void
   agreeChecked?: boolean
   onAgreeChange?: (value: boolean) => void
-  // ===== 业务资料(可选) =====
-  /** 用户资料包(与小程序端同形;与下列扁平字段同时传入时,扁平字段优先) */
+  // ===== 业务资料(可选;与小程序端同槽:资料包 userInfo) =====
+  /** 用户资料包(与小程序端同形) */
   userInfo?: LoginPopUpUserInfo
   /** 无头像时的默认头像(与小程序端 defaultAvatar 同语义;不传则退回 initials) */
   defaultAvatar?: string
-  avatarUrl?: string
-  nickname?: string
-  role?: LoginPopUpRole
-  phone?: string
-  phoneDisabled?: boolean
   /** 昵称输入变化回调(传已按两端同规则过滤后的值) */
   onNicknameChange?: (nickname: string) => void
   // ===== 业务回调(可选,均待接后端/微信 SDK) =====
@@ -135,7 +130,6 @@ export interface LoginPopUpProps {
   onSave?: (payload: LoginPopUpSavePayload) => void
   onLogout?: () => void
   onUpgrade?: () => void
-  onUpgradeTrader?: () => void
 }
 
 // 可见几何数字唯一源在 @ihui/shared/ui/login-popup-spec(与小程序端同表,逐档裁决见该文件注释);
@@ -186,18 +180,12 @@ export function LoginPopUp({
   onAgreeChange,
   userInfo,
   defaultAvatar,
-  avatarUrl,
-  nickname,
-  role,
-  phone,
-  phoneDisabled = false,
   onNicknameChange,
   onChooseAvatar,
   onBindPhone,
   onSave,
   onLogout,
   onUpgrade,
-  onUpgradeTrader,
 }: LoginPopUpProps) {
   const { t } = useI18n()
   const handleAgreeToggle = () => {
@@ -206,25 +194,14 @@ export function LoginPopUp({
 
   const showAgreementRow = onAgreeChange !== undefined
 
-  // 小程序端资料包 → RN 扁平字段(扁平字段优先,保持既有单字段调用方语义不变)
-  const resolvedAvatarUrl = avatarUrl ?? userInfo?.avatar
-  const resolvedNickname = nickname ?? userInfo?.nickname
+  // 资料包 → 展示字段(与小程序端同一 userInfo 槽位)
+  const resolvedAvatarUrl = userInfo?.avatar
+  const resolvedNickname = userInfo?.nickname
   const resolvedRole: LoginPopUpRole =
-    role ?? (userInfo?.isVip === 1 ? (userInfo?.identityTypy === 1 ? 'trader' : 'vip') : 'normal')
+    userInfo?.isVip === 1 ? (userInfo?.identityTypy === 1 ? 'trader' : 'vip') : 'normal'
 
   const showProfile = Boolean(
-    onSave ||
-    onLogout ||
-    onChooseAvatar ||
-    onBindPhone ||
-    onUpgrade ||
-    onUpgradeTrader ||
-    userInfo ||
-    resolvedAvatarUrl !== undefined ||
-    resolvedNickname !== undefined ||
-    // role 无默认值(由 userInfo 推导) ⇒ 不得当存在性判据:它曾把整支授权卡判成不可达
-    // (唯一调用点 ProfileScreen.tsx:639 只传 title/primary/secondary ⇒ 屏上是空白资料表单)。
-    phone !== undefined,
+    onSave || onLogout || onChooseAvatar || onBindPhone || onUpgrade || userInfo,
   )
 
   return (
@@ -253,15 +230,12 @@ export function LoginPopUp({
               defaultAvatar={defaultAvatar}
               initialNickname={resolvedNickname}
               role={resolvedRole}
-              initialPhone={phone}
-              phoneDisabled={phoneDisabled}
               onNicknameChange={onNicknameChange}
               onChooseAvatar={onChooseAvatar}
               onBindPhone={onBindPhone}
               onSave={onSave}
               onLogout={onLogout}
               onUpgrade={onUpgrade}
-              onUpgradeTrader={onUpgradeTrader}
             />
           ) : (
             <>
@@ -314,15 +288,12 @@ interface ProfileFormProps {
   defaultAvatar?: string
   initialNickname?: string
   role: LoginPopUpRole
-  initialPhone?: string
-  phoneDisabled?: boolean
   onNicknameChange?: (nickname: string) => void
   onChooseAvatar?: () => void
   onBindPhone?: () => void
   onSave?: (payload: LoginPopUpSavePayload) => void
   onLogout?: () => void
   onUpgrade?: () => void
-  onUpgradeTrader?: () => void
 }
 
 function ProfileForm({
@@ -330,20 +301,17 @@ function ProfileForm({
   defaultAvatar,
   initialNickname,
   role,
-  initialPhone,
-  phoneDisabled,
   onNicknameChange,
   onChooseAvatar,
   onBindPhone,
   onSave,
   onLogout,
   onUpgrade,
-  onUpgradeTrader,
 }: ProfileFormProps) {
   const { t } = useI18n()
   const [nickname, setNickname] = useState(initialNickname ?? '')
   const displayAvatar = avatarUrl ?? defaultAvatar
-  const [phone, setPhone] = useState(initialPhone ?? '')
+  const [phone, setPhone] = useState('')
   const [nicknameError, setNicknameError] = useState('')
   const [phoneError, setPhoneError] = useState('')
   // 运营商一键登录绑定中(绑定按钮 loading)
@@ -464,7 +432,7 @@ function ProfileForm({
         {showUpgrade ? (
           <Pressable
             style={styles.upgradeButton}
-            onPress={role === 'normal' ? onUpgrade : onUpgradeTrader}
+            onPress={onUpgrade}
             accessibilityLabel={t('lp.upgradeA11y')}
           >
             {({ pressed }) => (
@@ -490,7 +458,6 @@ function ProfileForm({
           placeholderTextColor={tokens.text.tertiary}
           maxLength={11}
           keyboardType="phone-pad"
-          editable={!phoneDisabled}
         />
         {onBindPhone ? (
           <Pressable
