@@ -16,7 +16,6 @@
 // 与 scripts/data/intentional-deletions.jsonl 的区别:那份是**逐行删除理由**(按行 sha256,
 // 服务守门 84 的回潮对账);本份是**整文件删除意图**(按 path,服务 healer 的复活判据)。
 {"path":"apps/miniapp-taro/probe-tmp/probe.tsx","reason":"Taro 小程序迁移后的孤儿副本与死 hook:barrel 已改指向新实现,零运行时 import"}
-{"path":"apps/miniapp-taro/src/components/Avatar.tsx","reason":"Taro 小程序迁移后的孤儿副本与死 hook:barrel 已改指向新实现,零运行时 import"}
 {"path":"apps/miniapp-taro/src/components/ColorfulLoader.tsx","reason":"Taro 小程序迁移后的孤儿副本与死 hook:barrel 已改指向新实现,零运行时 import"}
 {"path":"apps/miniapp-taro/src/components/ConfirmDialog.tsx","reason":"Taro 小程序迁移后的孤儿副本与死 hook:barrel 已改指向新实现,零运行时 import"}
 {"path":"apps/miniapp-taro/src/components/CountdownTimer.tsx","reason":"Taro 小程序迁移后的孤儿副本与死 hook:barrel 已改指向新实现,零运行时 import"}
@@ -36,7 +35,6 @@
 {"path":"apps/miniapp-taro/src/components/TitleSwitchTypeBar.css","reason":"Taro 小程序迁移后的孤儿副本与死 hook:barrel 已改指向新实现,零运行时 import"}
 {"path":"apps/miniapp-taro/src/components/TitleSwitchTypeBar.tsx","reason":"Taro 小程序迁移后的孤儿副本与死 hook:barrel 已改指向新实现,零运行时 import"}
 {"path":"apps/miniapp-taro/src/components/Toast.tsx","reason":"Taro 小程序迁移后的孤儿副本与死 hook:barrel 已改指向新实现,零运行时 import"}
-{"path":"apps/miniapp-taro/src/components/Tooltip.tsx","reason":"Taro 小程序迁移后的孤儿副本与死 hook:barrel 已改指向新实现,零运行时 import"}
 {"path":"apps/miniapp-taro/src/components/VerifyCodeModal.tsx","reason":"Taro 小程序迁移后的孤儿副本与死 hook:barrel 已改指向新实现,零运行时 import"}
 {"path":"apps/miniapp-taro/src/components/VipUpgradeToast.tsx","reason":"Taro 小程序迁移后的孤儿副本与死 hook:barrel 已改指向新实现,零运行时 import"}
 {"path":"apps/miniapp-taro/src/components/WithdrawalRecords.tsx","reason":"Taro 小程序迁移后的孤儿副本与死 hook:barrel 已改指向新实现,零运行时 import"}
@@ -100,3 +98,13 @@
 {"path":"packages/ui-react/src/lib/artifact-preview.ts","reason":"packages 内零消费残留:消费方已迁走,knip 判定零引用且无生成器输入钉"}
 {"path":"apps/api/src/services/clawdbot/card-converter.ts","reason":"迁移后零消费文件:同层替代实现已接管,全仓无运行时引用与字符串路由"}
 {"path":"apps/desktop/src/lib/approval-card.ts","reason":"迁移后零消费文件:同层替代实现已接管,全仓无运行时引用与字符串路由"}
+{"path":"apps/miniapp-taro/src/utils/index.ts","reason":"2026-11-04 盲区收口:零运行时 import 且装载机制已被逐条证伪(metro 无映射/无 script 调用/Tauri 直连线上),整文件删除"}
+{"path":"apps/mobile-rn/src/components/CourseCarousel.tsx","reason":"2026-11-04 盲区收口:零运行时 import 且装载机制已被逐条证伪(metro 无映射/无 script 调用/Tauri 直连线上),整文件删除"}
+{"path":"apps/mobile-rn/src/components/Toolbar.tsx","reason":"2026-11-04 盲区收口:零运行时 import 且装载机制已被逐条证伪(metro 无映射/无 script 调用/Tauri 直连线上),整文件删除"}
+{"path":"apps/mobile-rn/src/lib/web-stubs/expo-media-library.ts","reason":"2026-11-04 盲区收口:零运行时 import 且装载机制已被逐条证伪(metro 无映射/无 script 调用/Tauri 直连线上),整文件删除"}
+{"path":"apps/mobile-rn/src/lib/web-stubs/react-native-video.tsx","reason":"2026-11-04 盲区收口:零运行时 import 且装载机制已被逐条证伪(metro 无映射/无 script 调用/Tauri 直连线上),整文件删除"}
+{"path":"apps/mobile-rn/src/lib/web-stubs/react-native-view-shot.ts","reason":"2026-11-04 盲区收口:零运行时 import 且装载机制已被逐条证伪(metro 无映射/无 script 调用/Tauri 直连线上),整文件删除"}
+{"path":"apps/mobile-rn/src/lib/web-stubs/react-native-webview.tsx","reason":"2026-11-04 盲区收口:零运行时 import 且装载机制已被逐条证伪(metro 无映射/无 script 调用/Tauri 直连线上),整文件删除"}
+{"path":"apps/web/playwright.edge.config.ts","reason":"2026-11-04 盲区收口:零运行时 import 且装载机制已被逐条证伪(metro 无映射/无 script 调用/Tauri 直连线上),整文件删除"}
+{"path":"apps/web/playwright.sidebar-verify.config.ts","reason":"2026-11-04 盲区收口:零运行时 import 且装载机制已被逐条证伪(metro 无映射/无 script 调用/Tauri 直连线上),整文件删除"}
+{"path":"apps/desktop/src/lib/task-receiver.ts","reason":"2026-11-04 盲区收口:零运行时 import 且装载机制已被逐条证伪(metro 无映射/无 script 调用/Tauri 直连线上),整文件删除"}
