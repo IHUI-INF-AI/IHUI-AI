@@ -1658,11 +1658,11 @@
       "side": "mini",
       "owner": "cross-end-props-parity",
       "expires": "2027-06-30",
-      "rationale": "小程序端底色以 prop 传入;RN 端底色由主题 token 内建,无同名腿。",
+      "rationale": "小程序端顶栏底色由 bgColor prop 直传(containerStyle/页面配置两处消费);RN 端顶栏容器 StyleSheet 不设 backgroundColor(跟随父级/主题),标题与副标题色由模块级 tokens 决定,故无同名配色腿。",
       "evidence": [
         "apps/miniapp-taro/src/components/NavBar.tsx:90",
-        "apps/mobile-rn/src/components/NavBar.tsx:68",
-        "apps/miniapp-taro/src/components/NavBar.tsx:83"
+        "apps/miniapp-taro/src/components/NavBar.tsx:195",
+        "apps/mobile-rn/src/components/NavBar.tsx:203"
       ]
     },
     {
@@ -1697,11 +1697,11 @@
       "side": "mini",
       "owner": "cross-end-props-parity",
       "expires": "2027-06-30",
-      "rationale": "小程序端顶栏通知条(文本+关闭)是组件内固定槽位;RN 端通知由页面自渲染,无同名腿。",
+      "rationale": "小程序端通知条(文本+关闭)是顶栏内固定槽位;RN 端通知由 App 级全局覆盖层 NotificationPanel 承载(RootNavigator 单点挂载,不在顶栏内),故顶栏无同名腿。",
       "evidence": [
         "apps/miniapp-taro/src/components/NavBar.tsx:95",
-        "apps/mobile-rn/src/components/NavBar.tsx:9",
-        "apps/miniapp-taro/src/components/NavBar.tsx:83"
+        "apps/miniapp-taro/src/components/NavBar.tsx:337",
+        "apps/mobile-rn/src/navigation/RootNavigator.tsx:1390"
       ]
     },
     {
@@ -1879,11 +1879,11 @@
       "side": "mini",
       "owner": "cross-end-props-parity",
       "expires": "2027-06-30",
-      "rationale": "小程序端字色以 prop 传入;RN 端字色由主题 token 内建,无同名腿。",
+      "rationale": "小程序端字色由 textColor prop 直传(titleStyle/subtitleStyle/动作文字);RN 端 title/subtitle 在模块级 StyleSheet 取 tokens.text.primary/secondary(不走 props 注入),故无同名腿。",
       "evidence": [
         "apps/miniapp-taro/src/components/NavBar.tsx:91",
-        "apps/mobile-rn/src/components/NavBar.tsx:68",
-        "apps/miniapp-taro/src/components/NavBar.tsx:83"
+        "apps/miniapp-taro/src/components/NavBar.tsx:273",
+        "apps/mobile-rn/src/components/NavBar.tsx:229"
       ]
     },
     {
@@ -1944,11 +1944,11 @@
       "side": "rn",
       "owner": "mobile-rn-video",
       "expires": "2027-06-30",
-      "rationale": "RN 允许注入自定义播放组件(web/native 媒体库差异);小程序端固定用 Taro 原生 Video,无注入腿。",
+      "rationale": "RN 允许注入自定义播放组件(VideoComponent,缺省 react-native-video);小程序端 render 固定使用 Taro 原生 <Video>,无注入腿。",
       "evidence": [
         "apps/mobile-rn/src/components/VideoPlayer.tsx:75",
-        "apps/miniapp-taro/src/components/VideoPlayer.tsx:19",
-        "apps/mobile-rn/src/components/VideoPlayer.tsx:57"
+        "apps/miniapp-taro/src/components/VideoPlayer.tsx:73",
+        "apps/mobile-rn/src/components/VideoPlayer.tsx:101"
       ]
     },
     {
@@ -1957,11 +1957,11 @@
       "side": "rn",
       "owner": "mobile-rn-video",
       "expires": "2027-06-30",
-      "rationale": "RN 播放器舞台自绘标题覆盖层;小程序端页面标题在 NavBar,播放器不带标题腿。",
+      "rationale": "RN 播放舞台自绘标题覆盖层;小程序端标题由页面/NavBar 承担,VideoPlayerProps 无 title 腿。",
       "evidence": [
         "apps/mobile-rn/src/components/VideoPlayer.tsx:61",
-        "apps/miniapp-taro/src/components/VideoPlayer.tsx:20",
-        "apps/mobile-rn/src/components/VideoPlayer.tsx:57"
+        "apps/miniapp-taro/src/components/VideoPlayer.tsx:30",
+        "apps/mobile-rn/src/components/VideoPlayer.tsx:292"
       ]
     },
     {
@@ -1970,11 +1970,11 @@
       "side": "mini",
       "owner": "mobile-rn-video",
       "expires": "2027-06-30",
-      "rationale": "小程序端原生 Video 可显式关控件;RN 底库控件由既定配置呈现,无同名开关腿。",
+      "rationale": "小程序端原生 Video 以 controls prop 开关控件;RN 端固定 controls={false} 走自绘控制条,无同名开关腿。",
       "evidence": [
         "apps/miniapp-taro/src/components/VideoPlayer.tsx:24",
-        "apps/mobile-rn/src/components/VideoPlayer.tsx:59",
-        "apps/miniapp-taro/src/components/VideoPlayer.tsx:18"
+        "apps/mobile-rn/src/components/VideoPlayer.tsx:265",
+        "apps/miniapp-taro/src/components/VideoPlayer.tsx:79"
       ]
     },
     {
