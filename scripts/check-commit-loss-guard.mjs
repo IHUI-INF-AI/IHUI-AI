@@ -18,7 +18,9 @@
  *   2b. 未备份悬空 commit 的放行判据(2026-11-04 改):**逐路径 blob 覆盖** ——
  *       相对 parent 的每一条改动路径,其 blob 必须能在可达面(refs 面 / reflog 面)的
  *       **同一路径**上找到逐字同的 blob;新增路径不得用"同内容别处文件名"顶替;
- *       删除路径必须见到可达面里该路径的删除记录(不能只看 HEAD)。少一条路径 ⇒ 判红。
+ *       删除路径必须见到可达面里该路径的**最新一次改动就是删除、且删的是同一个 old blob**
+ *       (不能只看 HEAD,也不能拿更早的删除记录为新的删除意图作证 —— 见 splitByPathCoverage
+ *       头注的"删→重建→再删"搭便车案例)。少一条路径 ⇒ 判红。
  *       原「整树逐字相等」判据只是本判据的特例,对并发夹带导致的"树不同但内容全在"永不命中。
  *   3. 列出所有 lost-commit/* tag(防止 git gc 清理)
  *   4. 校验远程 lost-commit/backup tag 完整性 + tag 对象可达性
@@ -324,8 +326,12 @@ const SPAWN_DEFAULT_TIMEOUT_MS = 120_000
 const PATH_COVERAGE_TIMEOUT_MS = 180_000
 /** 一次 argv 里放多少路径字符(Windows CreateProcess 上限约 32KB;留一半余量)。 */
 const PATHSPEC_ARGV_BUDGET = 16_000
-/** 缓存判据面版本:判据本体变化 ⇒ 旧缓存件不可复用(否则修复后仍被旧红结论卡住 ≤30min)。 */
-const COVERAGE_FACE_VERSION = 1
+/**
+ * 缓存判据面版本:判据本体变化 ⇒ 旧缓存件不可复用(否则修复后仍被旧红结论卡住 ≤30min)。
+ * 2026-11-04 升到 2:D 类判据从"任意删除记录"收紧为"old blob 相同 且 是该路径最新状态",
+ * 旧缓存件里的绿结论是按宽判据得出的,不得复用。
+ */
+const COVERAGE_FACE_VERSION = 2
 /**
  * `git diff-tree --raw -z` / `git log --raw -z` 的单条记录头:
  * `:<oldmode> <newmode> <oldsha> <newsha> <status>`,其后紧跟 NUL + 路径 + NUL。
@@ -817,9 +823,13 @@ function splitReachableSameContent({
  *
  * 两处调用共享同一份字节形态:
  *   ① `git diff-tree --no-commit-id -r -z --raw --root --no-renames <commit>`(单提交相对 parent);
- *   ② `git log … --raw -z --no-renames --root --format=IHUI:%H -- <paths>`(可达面历史);
- * 用 `withCommit` 区分:② 的 commit 段以 `IHUI:` 开头,`-z` 让每条记录被 NUL 切成
- * `[commit]\0\0:<meta> <status>\0<path>\0…`。空段(分隔残留)跳过。
+ *   ② `git log … --raw -z --no-renames --root --format=IHUI:%H:%ct -- <paths>`(可达面历史);
+ * 用 `withCommit` 区分:② 的 commit 段以 `IHUI:` 开头,形如 `IHUI:<40hex>:<committer-unix>`,
+ * `-z` 让每条记录被 NUL 切成 `[commit]\0\0:<meta> <status>\0<path>\0…`。空段(分隔残留)跳过。
+ *
+ * 每条记录保留 **old sha**(`oldBlob`):D 类判据要证明"删的确实是同一内容"—— 只凭
+ * "该路径在某个可达提交里不存在"会被"删→重建→再删"里的旧删除记录搭便车(详见
+ * splitByPathCoverage 头注)。old sha 全零(A / root)折成空串。
  *
  * 解析失败必须**抛**:调用方以此把该面判成"取不到"→ 朝红,绝不能把半截输出读成"没有改动"。
  */
@@ -827,13 +837,17 @@ function parseRawDiffZ(stdout, { withCommit = false } = {}) {
   const tokens = String(stdout ?? '').split('\0')
   const entries = []
   let commit = ''
+  let ct = 0
   for (let i = 0; i < tokens.length; i++) {
     const token = tokens[i].replace(/\r?\n/g, '')
     if (!token) continue
     if (withCommit && token.startsWith(RAW_COMMIT_MARKER)) {
-      commit = token.slice(RAW_COMMIT_MARKER.length).trim()
-      if (!/^[0-9a-f]{40}$/.test(commit))
+      const body = token.slice(RAW_COMMIT_MARKER.length).trim()
+      const parts = body.split(':')
+      if (parts.length !== 2 || !/^[0-9a-f]{40}$/.test(parts[0]) || !/^\d+$/.test(parts[1]))
         throw new Error(`raw 日志的 commit 段非法:${token.slice(0, 60)}`)
+      commit = parts[0]
+      ct = Number(parts[1])
       continue
     }
     if (!token.startsWith(':')) continue
@@ -844,7 +858,14 @@ function parseRawDiffZ(stdout, { withCommit = false } = {}) {
     if (withCommit && path.startsWith(RAW_COMMIT_MARKER))
       throw new Error('raw diff 路径段错位(commit 段丢失)')
     i += 1
-    entries.push({ commit, status: m[5][0], blob: m[4], path })
+    entries.push({
+      commit,
+      ct,
+      status: m[5][0],
+      blob: m[4],
+      oldBlob: /^0+$/.test(m[3]) ? '' : m[3],
+      path,
+    })
   }
   return entries
 }
@@ -855,9 +876,24 @@ function parseRawDiffZ(stdout, { withCommit = false } = {}) {
  * 判据(取代原「整树逐字相等」):对悬空提交相对其 parent 的**每一个改动路径**——
  *   - A/M/T(路径存在):该提交在该路径上的 blob 必须能在**某个可达提交**(refs 面或 reflog 面)
  *     的**同一路径**上找到逐字同的 blob。少一条路径 ⇒ 不放行。
- *   - D(路径被删除):必须存在一个可达提交**该路径也不存在**(证据取可达面里该路径的 D 记录),
- *     而不是只看"HEAD 没有"—— HEAD 可能被别的会话复活。
+ *   - D(路径被删除):**两条同时成立**才放行 ——
+ *     ① 可达面里该路径的**最新一次改动**是一条删除记录(不是"存在"的 A/M/T);
+ *     ② 该删除记录的 **old blob 与本次 D 记录的 old blob 逐字相同**。
+ *     不再只看"某个可达提交里该路径不存在"(2026-11-04 收紧,缘由见下)。
+ *     也不是只看 "HEAD 没有":HEAD 可能被别的会话复活,所以取的是整条可达面历史。
  * 刻意**不做路径级豁免**:任何 `startsWith`/扩展名白名单都会把"未覆盖"读成"已覆盖"。
+ *
+ * 为什么 D 不能只要求"某个可达提交里该路径不存在"(2026-11-04 收紧):
+ *   旧判据下,可达面只要有**任意一条**该路径的删除记录,本次删除就被"作证"。具体假阴性:
+ *   T1 删 P(留下删除记录) → T2 重建 P → 悬空枚 T3 又删 P。此时 T1 的旧记录会给 T3 的新
+ *   删除意图作证,而 T3 删掉的那份内容**可能从未在可达面出现过**(它来自 T2 重建后的版本),
+ *   等于放行了一处真实删除损失。收紧后两条都必须成立,各自挡住一半:
+ *   - 只查 old blob 不够:T2 可能重建出**同内容**的 P,T3 删它时 old blob 与 T1 的旧记录相同,
+ *     但"该路径已被 T2 重新落地、删除这件事可达面还没做过"⇒ 删除仍是新决定,须判红;
+ *   - 只查"最新是删除"也不够:T3 删的可能是 T2 重建出的**另一份内容**(old blob 不同),
+ *     那版内容从未进过可达面 ⇒ 删它同样是新决定,须判红。
+ *   两条一起,才等价于"这次删除在可达历史里已经原样发生过,且之后没有任何改动把它撤销或改写"。
+ *   判法上没有引入路径白名单,也不是"一律判红"(合法删除仍能凭最新那条同内容删除记录放行)。
  *
  * 为什么不是"整树相等":并发提交夹带会让悬空提交的树与任何可达提交都不同,即便它的每条路径
  * 内容都已在可达面(2026-11-04 实测 4 枚悬空全部如此形态)—— 整树判据对它们永不命中。
@@ -869,7 +905,9 @@ function splitByPathCoverage({
   candidates = [],
   entriesByCommit = new Map(),
   coverage = new Map(),
-  deletions = new Map(),
+  // 每路径**最新一次可达改动** `{commit, surface, status, oldBlob, blob, ct}`(由 derive 派生)。
+  // D 类判据只认这一条:它必须是删除、且 old blob 与本次相同(见头注"搭便车"段)。
+  latestByPath = new Map(),
   problemsByCommit = new Map(),
   surfaceError = '',
 } = {}) {
@@ -897,23 +935,34 @@ function splitByPathCoverage({
     const missing = []
     for (const e of entries) {
       if (e.status === 'D') {
-        const hit = deletions.get(e.path)
-        if (hit) {
+        // 收紧后的 D 判据:只认该路径**最新那次可达改动**,且它必须删的是同一个 old blob。
+        // 早于最新改动的删除记录一律不作证 —— 这正是"删→重建→再删"里旧记录搭便车的口子。
+        const latest = latestByPath.get(e.path)
+        let reason = ''
+        if (!latest) {
+          reason = surfaceError
+            ? `删除意图未在可达面生效(${surfaceError})`
+            : '删除意图未在可达面生效(该路径在可达面无任何改动记录)'
+        } else if (latest.status !== 'D') {
+          reason =
+            `该路径在可达面的最新状态仍是"存在"(blob=${String(latest.blob || '').slice(0, SHORT_HASH_LEN)})` +
+            ' —— 更早的删除记录不能为新删除作证'
+        } else if (latest.oldBlob !== e.oldBlob) {
+          reason =
+            `可达面最新删除记录删的是另一份内容(old blob=${String(latest.oldBlob || '').slice(0, SHORT_HASH_LEN)}` +
+            ` ≠ ${String(e.oldBlob || '').slice(0, SHORT_HASH_LEN)}) —— 旧删除不能为新删除作证`
+        }
+        if (reason) {
+          missing.push({ path: e.path, status: 'D', blob: e.oldBlob || '', reason })
+        } else {
+          // 证据里的 blob 写的是"被删掉的那份内容"(= 本次的 old blob),判绿时一眼可见
+          // "同一条内容在可达面也删过一次",而不是只看到"这路径有删除记录"。
           evidence.push({
             path: e.path,
             status: 'D',
-            blob: '',
-            commit: hit.commit,
-            surface: hit.surface,
-          })
-        } else {
-          missing.push({
-            path: e.path,
-            status: 'D',
-            blob: '',
-            reason: surfaceError
-              ? `删除意图未在可达面生效(${surfaceError})`
-              : '删除意图未在可达面生效',
+            blob: e.oldBlob || '',
+            commit: latest.commit,
+            surface: latest.surface,
           })
         }
         continue
@@ -969,16 +1018,43 @@ function chunkPathspecs(paths) {
   return chunks
 }
 
-/** 单条 raw diff 记录 → 覆盖证据表。候选自身(以及所有悬空 commit)必须排除,否则自证循环。 */
-function absorbRawCoverage(entries, surface, coverage, deletions, excludedCommits) {
+/**
+ * 单条 raw diff 记录 → 覆盖证据表 / 每路径最新可达改动表。
+ * 候选自身(以及所有悬空 commit)必须排除,否则自证循环。
+ *
+ * `coverage`:A/M/T 的 `${path}\0${blob}` → {commit, surface}(任一同路径同 blob 命中即可)。
+ * `latestByPath`:该路径**最新一次可达改动** → {commit, surface, status, oldBlob, blob, ct}。
+ *   排序口径:
+ *   - **同一面内**:git log 自身按提交时间倒序输出,同一路径的第一条即最新改动 ⇒ 先到者赢。
+ *     这样同一秒内连续两次改动(测试与高频提交都常见)也能正确排序,不会把"时间戳并列"
+ *     误判成"无法判定";后到的旧改动不得覆盖先到的新改动(防时钟回拨把旧的读成最新)。
+ *   - **跨面**(ref → reflog):只有 reflog 面的记录**严格更新**(ct 更大)才替换。
+ */
+function absorbRawCoverage(entries, surface, coverage, latestByPath, excludedCommits) {
+  const remember = (e) => {
+    const rec = {
+      commit: e.commit,
+      surface,
+      status: e.status,
+      oldBlob: e.oldBlob || '',
+      blob: e.blob,
+      ct: e.ct,
+    }
+    const prev = latestByPath.get(e.path)
+    if (!prev) {
+      latestByPath.set(e.path, rec)
+      return
+    }
+    if (prev.surface === surface) return
+    if (e.ct > prev.ct) latestByPath.set(e.path, rec)
+  }
   for (const e of entries) {
     if (!e.commit || excludedCommits.has(e.commit)) continue
-    if (e.status === 'D') {
-      if (!deletions.has(e.path)) deletions.set(e.path, { commit: e.commit, surface })
-      continue
+    if (e.status !== 'D') {
+      const key = `${e.path}\0${e.blob}`
+      if (!coverage.has(key)) coverage.set(key, { commit: e.commit, surface })
     }
-    const key = `${e.path}\0${e.blob}`
-    if (!coverage.has(key)) coverage.set(key, { commit: e.commit, surface })
+    remember(e)
   }
 }
 
@@ -1030,16 +1106,17 @@ function derivePathCoverage(candidates, { excludedCommits = new Set() } = {}) {
   }
 
   const coverage = new Map()
-  const deletions = new Map()
+  const latestByPath = new Map()
   const queryPaths = [...new Set([...presentPaths, ...deletedPaths])].sort()
   if (queryPaths.length === 0)
-    return { entriesByCommit, coverage, deletions, problemsByCommit, surfaceError: '' }
+    return { entriesByCommit, coverage, latestByPath, problemsByCommit, surfaceError: '' }
 
   const walk = (baseArgs, paths) => {
     const out = []
     for (const chunk of chunkPathspecs(paths)) {
       const stdout = gitText(
-        [...baseArgs, `--format=${RAW_COMMIT_MARKER}%H`, '--', ...chunk],
+        // %ct 是 commit 的 committer 时刻,只用于**跨面**比较新旧(同面内按 git log 自身顺序)。
+        [...baseArgs, `--format=${RAW_COMMIT_MARKER}%H:%ct`, '--', ...chunk],
         { timeout: PATH_COVERAGE_TIMEOUT_MS },
       )
       out.push(...parseRawDiffZ(stdout, { withCommit: true }))
@@ -1063,12 +1140,12 @@ function derivePathCoverage(candidates, { excludedCommits = new Set() } = {}) {
       ],
       queryPaths,
     )
-    absorbRawCoverage(refEntries, 'ref', coverage, deletions, excludedCommits)
+    absorbRawCoverage(refEntries, 'ref', coverage, latestByPath, excludedCommits)
   } catch (e) {
     return {
       entriesByCommit,
       coverage: new Map(),
-      deletions: new Map(),
+      latestByPath: new Map(),
       problemsByCommit,
       surfaceError: `ref 面取不到:${firstLine(e)}`,
     }
@@ -1081,7 +1158,10 @@ function derivePathCoverage(candidates, { excludedCommits = new Set() } = {}) {
     if (!entries) continue
     for (const e of entries) {
       if (e.status === 'D') {
-        if (!deletions.has(e.path)) leftoverDeleted.add(e.path)
+        // 按收紧后的判据判"这条删除是否已被 ref 面作证":必须最新且 old blob 相同。
+        const latest = latestByPath.get(e.path)
+        const proven = latest && latest.status === 'D' && latest.oldBlob === (e.oldBlob || '')
+        if (!proven) leftoverDeleted.add(e.path)
       } else if (!coverage.has(`${e.path}\0${e.blob}`)) {
         leftoverPresent.add(e.path)
       }
@@ -1094,18 +1174,18 @@ function derivePathCoverage(candidates, { excludedCommits = new Set() } = {}) {
         ['log', '-g', '--all', '--raw', '--no-abbrev', '-z', '--no-renames', '--root'],
         reflogPaths,
       )
-      absorbRawCoverage(reflogEntries, 'reflog', coverage, deletions, excludedCommits)
+      absorbRawCoverage(reflogEntries, 'reflog', coverage, latestByPath, excludedCommits)
     } catch (e) {
       return {
         entriesByCommit,
         coverage,
-        deletions,
+        latestByPath,
         problemsByCommit,
         surfaceError: `reflog 面取不到(剩余路径按未覆盖判):${firstLine(e)}`,
       }
     }
   }
-  return { entriesByCommit, coverage, deletions, problemsByCommit, surfaceError: '' }
+  return { entriesByCommit, coverage, latestByPath, problemsByCommit, surfaceError: '' }
 }
 
 /**
@@ -2421,7 +2501,7 @@ async function main() {
             candidates: rest,
             entriesByCommit: derived.entriesByCommit,
             coverage: derived.coverage,
-            deletions: derived.deletions,
+            latestByPath: derived.latestByPath,
             problemsByCommit: derived.problemsByCommit,
             surfaceError: derived.surfaceError,
           })

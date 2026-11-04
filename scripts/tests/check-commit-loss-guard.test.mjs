@@ -399,7 +399,7 @@ test('真丢失对照: 树不在可达历史里 → 仍 blocking(判据没被摘
 
 // ─── 逐路径覆盖判据(2026-11-04,取代「整树相等」)────────────────
 
-test('逐路径覆盖解析: raw -z 记录解析(A/M/D)且截断/坏头必须抛', () => {
+test('逐路径覆盖解析: raw -z 记录解析(A/M/D)且 old blob 必须保留、截断/坏头必须抛', () => {
   const A = 'a'.repeat(40)
   const B = 'b'.repeat(40)
   const Z = '0'.repeat(40)
@@ -407,12 +407,14 @@ test('逐路径覆盖解析: raw -z 记录解析(A/M/D)且截断/坏头必须抛
   const entries = __test__.parseRawDiffZ(
     `${meta(Z, A, 'A')}\0add.txt\0${meta(A, B, 'M')}\0mod.txt\0${meta(B, Z, 'D')}\0del.txt\0`,
   )
+  // oldBlob 是收紧后 D 类判据的**唯一内容凭据**("删的确实是同一内容"),必须逐条保留;
+  // A / root 的全零 old sha 折成空串,免得把"没有旧内容"当成一个真实 blob。
   assert.deepEqual(
-    entries.map((e) => [e.status, e.path, e.blob]),
+    entries.map((e) => [e.status, e.path, e.blob, e.oldBlob]),
     [
-      ['A', 'add.txt', A],
-      ['M', 'mod.txt', B],
-      ['D', 'del.txt', Z],
+      ['A', 'add.txt', A, ''],
+      ['M', 'mod.txt', B, A],
+      ['D', 'del.txt', Z, B],
     ],
   )
   assert.throws(() => __test__.parseRawDiffZ(`:badheader\0x.txt\0`), /raw diff/)
@@ -420,7 +422,24 @@ test('逐路径覆盖解析: raw -z 记录解析(A/M/D)且截断/坏头必须抛
   assert.throws(() => __test__.parseRawDiffZ(meta(A, B, 'M')), /缺路径段/)
 })
 
-test('逐路径覆盖判定: 全覆盖放行 / 任一未覆盖点名 / 同内容不同路径不算 / 删除须见可达面删除记录', () => {
+test('逐路径覆盖解析: 可达面 commit 段必须带 committer 时刻(IHUI:<sha>:<ct>),缺时刻判"取不到"', () => {
+  const A = 'a'.repeat(40)
+  const B = 'b'.repeat(40)
+  const sha = 'c'.repeat(40)
+  const meta = `:100644 100644 ${A} ${B} M`
+  const parsed = __test__.parseRawDiffZ(`IHUI:${sha}:1700000000\0\0${meta}\0f.txt\0`, {
+    withCommit: true,
+  })
+  assert.equal(parsed[0].commit, sha, 'commit 段必须解析出完整 sha')
+  assert.equal(parsed[0].ct, 1700000000, 'committer 时刻用于跨面判"最新",取不到就无从判最新')
+  // 旧形态(只有 sha、没有时刻)不得继续被接受:否则"最新状态"无从确定,判定会静默降级。
+  assert.throws(
+    () => __test__.parseRawDiffZ(`IHUI:${sha}\0\0${meta}\0f.txt\0`, { withCommit: true }),
+    /commit 段非法/,
+  )
+})
+
+test('逐路径覆盖判定: 全覆盖放行 / 任一未覆盖点名 / 同内容不同路径不算 / D 类只认"最新且同 old blob"', () => {
   const A = 'a'.repeat(40)
   const B = 'b'.repeat(40)
   const C = 'c'.repeat(40)
@@ -429,38 +448,46 @@ test('逐路径覆盖判定: 全覆盖放行 / 任一未覆盖点名 / 同内容
     [
       'c-full',
       [
-        { status: 'M', path: 'x.txt', blob: A },
-        { status: 'A', path: 'y.txt', blob: B },
+        { status: 'M', path: 'x.txt', blob: A, oldBlob: B },
+        { status: 'A', path: 'y.txt', blob: B, oldBlob: '' },
       ],
     ],
     [
       'c-part',
       [
-        { status: 'M', path: 'x.txt', blob: A },
-        { status: 'A', path: 'z.txt', blob: C },
+        { status: 'M', path: 'x.txt', blob: A, oldBlob: B },
+        { status: 'A', path: 'z.txt', blob: C, oldBlob: '' },
       ],
     ],
-    ['c-same-content-other-path', [{ status: 'A', path: 'new.txt', blob: B }]],
-    ['c-del-ok', [{ status: 'D', path: 'gone.txt', blob: Z }]],
-    ['c-del-bad', [{ status: 'D', path: 'keep.txt', blob: Z }]],
+    ['c-same-content-other-path', [{ status: 'A', path: 'new.txt', blob: B, oldBlob: '' }]],
+    ['c-del-ok', [{ status: 'D', path: 'gone.txt', blob: Z, oldBlob: A }]],
+    ['c-del-no-record', [{ status: 'D', path: 'keep.txt', blob: Z, oldBlob: A }]],
+    ['c-del-present-latest', [{ status: 'D', path: 'rebuild.txt', blob: Z, oldBlob: A }]],
+    ['c-del-other-old', [{ status: 'D', path: 'other.txt', blob: Z, oldBlob: A }]],
     ['c-null', null],
   ])
   const coverage = new Map([
     [`x.txt\0${A}`, { commit: 'c1', surface: 'ref' }],
     [`y.txt\0${B}`, { commit: 'c2', surface: 'reflog' }],
   ])
-  const deletions = new Map([['gone.txt', { commit: 'c3', surface: 'ref' }]])
+  // 每路径**最新一次可达改动**:只有 gone.txt 的最新记录正好是"删 A"这一条 ⇒ 放行;
+  // 另外三条各差一个条件(无记录 / 最新是存在 / 最新删的是别的 old blob)⇒ 都必须判红。
+  const latestByPath = new Map([
+    ['gone.txt', { commit: 'c3', surface: 'ref', status: 'D', oldBlob: A, blob: Z, ct: 3 }],
+    ['rebuild.txt', { commit: 'c4', surface: 'ref', status: 'A', oldBlob: '', blob: A, ct: 4 }],
+    ['other.txt', { commit: 'c5', surface: 'ref', status: 'D', oldBlob: B, blob: Z, ct: 5 }],
+  ])
   const split = __test__.splitByPathCoverage({
     candidates: [...entriesByCommit.keys()],
     entriesByCommit,
     coverage,
-    deletions,
+    latestByPath,
     problemsByCommit: new Map([['c-null', 'diff-tree 取不到:boom']]),
   })
   assert.deepEqual(
     split.covered.map((x) => x.hash),
     ['c-full', 'c-del-ok'],
-    '每条路径都有同路径同 blob/删除记录的四舍五入才放行',
+    '每条路径都有同路径同 blob / 最新且同 old blob 的删除记录,才放行',
   )
   const gap = new Map(split.uncovered.map((u) => [u.hash, u]))
   assert.equal(gap.get('c-part').missing[0].path, 'z.txt', '未覆盖路径必须点名')
@@ -469,10 +496,30 @@ test('逐路径覆盖判定: 全覆盖放行 / 任一未覆盖点名 / 同内容
     'new.txt',
     '同内容只在别处文件名 ⇒ 不得放行(防重命名误判)',
   )
-  assert.equal(gap.get('c-del-bad').missing[0].reason, '删除意图未在可达面生效')
+  assert.equal(
+    gap.get('c-del-no-record').missing[0].reason,
+    '删除意图未在可达面生效(该路径在可达面无任何改动记录)',
+    '可达面从没改过该路径 ⇒ 本次删除无出处,必须判红',
+  )
+  // 删→重建之后最新状态是"存在":即便可达面确实有更早的删除记录,也不能为本次删除作证。
+  assert.match(
+    gap.get('c-del-present-latest').missing[0].reason,
+    /最新状态仍是"存在"[\s\S]*更早的删除记录不能为新删除作证/,
+    '旧删除记录不得给重建后的再次删除搭便车',
+  )
+  // 最新删除记录删的是另一份内容 ⇒ 本次删的那份从未入可达面,必须判红。
+  assert.match(
+    gap.get('c-del-other-old').missing[0].reason,
+    /另一份内容[\s\S]*旧删除不能为新删除作证/,
+    'old blob 不同 = 删的不是同一内容,旧删除记录不得作证',
+  )
   assert.equal(gap.get('c-null').reason, 'diff-tree 取不到:boom', '取材失败必须朝红')
   assert.equal(split.covered[0].evidence[0].surface, 'ref', '证据必须记录覆盖面')
   assert.equal(split.covered[0].evidence[1].surface, 'reflog', '证据必须记录覆盖面')
+  // D 类证据必须把"被删掉的那份内容"也带上,判绿时才能复核"删的确实是同一 blob"。
+  const delEvidence = split.covered.find((x) => x.hash === 'c-del-ok').evidence[0]
+  assert.equal(delEvidence.blob, A, 'D 证据的 blob 应为本次 old blob(被删内容)')
+  assert.equal(delEvidence.commit, 'c3', 'D 证据必须指向那条最新删除记录')
 })
 
 test('逐路径覆盖·端到端: 树与任何可达提交都不同,但每条改动路径同路径同 blob ⇒ 放行并逐条给证据', () => {
@@ -608,7 +655,213 @@ test('逐路径覆盖·端到端: 删除路径的意图未在可达面生效 ⇒
       1,
       `删除意图未在可达面生效必须判红,实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
     )
-    assert.match(r.stdout, /未覆盖:D keep\.txt — 删除意图未在可达面生效/, '必须点名删除路径')
+    // keep.txt 在可达面最新状态仍是"存在"(只被 add 过、从没被删过)⇒ 本次删除没有出处。
+    assert.match(
+      r.stdout,
+      /未覆盖:D keep\.txt blob=.*最新状态仍是"存在"/,
+      '必须点名删除路径,并说明"更早的删除记录不能作证"的判红依据',
+    )
+    assert.doesNotMatch(r.stdout, /已覆盖:D keep\.txt/, '不得把"可达面从没删过它"读成覆盖')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+// ─── D 类收紧(2026-11-04):删的必须是同一内容、且是该路径最新状态 ───────────
+
+test('D 类收紧①: 删 → 重建 → 再删 ⇒ 判红(旧删除记录不得为新的删除意图作证)', () => {
+  const dir = createTempRepo()
+  const git = (cmd) => execSync(cmd, { cwd: dir, stdio: 'ignore' })
+  try {
+    // 旁支提供 q.txt 的同路径同 blob 覆盖,并让悬空枚的树不等于任何可达树(否则会先落等价残留)
+    git('git checkout -b side')
+    writeFileSync(join(dir, 'q.txt'), 'q-content\n')
+    writeFileSync(join(dir, 'r.txt'), 'r-content\n')
+    git('git add q.txt r.txt')
+    git('git commit -m "side-q-r"')
+    git('git checkout main')
+    // 可达历史:p.txt 先落地 → 删掉(留下一条最早的删除记录)→ 用**同内容**重建
+    writeFileSync(join(dir, 'p.txt'), 'p-v1\n')
+    git('git add p.txt')
+    git('git commit -m "add-p"')
+    git('git rm p.txt')
+    git('git commit -m "delete-p-first"')
+    writeFileSync(join(dir, 'p.txt'), 'p-v1\n')
+    git('git add p.txt')
+    git('git commit -m "rebuild-p-same-content"')
+    // 悬空枚:删掉重建后的 p.txt。它的 old blob 与最早那次删除完全相同 ⇒ 宽判据会放行。
+    git('git checkout -b temp-dangle')
+    git('git rm p.txt')
+    writeFileSync(join(dir, 'q.txt'), 'q-content\n')
+    git('git add q.txt')
+    git('git commit -m "dangle-delete-p-after-rebuild"')
+    git('git checkout main')
+    git('git branch -D temp-dangle')
+    const r = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    // 为什么正确:该路径在可达面的**最新状态是"存在"**(重建后的那份),删除这件事从未落地;
+    // 最早那次删除的 old blob 虽然相同,但它早于重建,不能给本次删除作证。
+    assert.equal(
+      r.status,
+      1,
+      `删→重建→再删必须判红,实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
+    )
+    assert.match(r.stdout, /未覆盖:D p\.txt blob=[0-9a-f]{12}/, '必须点名删除路径与被删内容')
+    assert.match(r.stdout, /最新状态仍是"存在"/, '判红理由必须指出"最新状态是存在"')
+    assert.match(r.stdout, /更早的删除记录不能为新删除作证/, '必须写明搭便车被挡住的原因')
+    assert.doesNotMatch(r.stdout, /已覆盖:D p\.txt/, '旧删除记录不得被当成覆盖证据')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('D 类收紧②: 可达面最新改动就是删掉同一 old blob ⇒ 放行并给出该删除记录', () => {
+  const dir = createTempRepo()
+  const git = (cmd) => execSync(cmd, { cwd: dir, stdio: 'ignore' })
+  const rev = () =>
+    execSync('git rev-parse HEAD', { cwd: dir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
+  try {
+    git('git checkout -b side')
+    writeFileSync(join(dir, 'q.txt'), 'q-content\n')
+    writeFileSync(join(dir, 'r.txt'), 'r-content\n')
+    git('git add q.txt r.txt')
+    git('git commit -m "side-q-r"')
+    git('git checkout main')
+    writeFileSync(join(dir, 'p.txt'), 'p-v1\n')
+    git('git add p.txt')
+    git('git commit -m "add-p"')
+    const withP = rev()
+    git('git rm p.txt')
+    git('git commit -m "delete-p-latest"')
+    const deleteP = rev()
+    // 悬空枚从 add-p 分出(那时 p.txt 还在),删的正是同一份内容
+    git(`git checkout -b temp-dangle ${withP}`)
+    git('git rm p.txt')
+    writeFileSync(join(dir, 'q.txt'), 'q-content\n')
+    git('git add q.txt')
+    git('git commit -m "dangle-delete-p-same-old-blob"')
+    git('git checkout main')
+    git('git branch -D temp-dangle')
+    const r = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    // 为什么正确:可达面最新一次改动就是"删掉同一份内容",之后没有任何重建把该路径复活
+    // ⇒ 这次删除的意图已经在可达历史里原样发生过,放行不是降低标准。
+    assert.equal(
+      r.status,
+      0,
+      `最新状态即同内容删除应放行,实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
+    )
+    assert.match(r.stdout, /逐路径覆盖放行 1 个/, '放行必须点名,不得静默')
+    const line = (r.stdout.split('\n').find((l) => l.includes('D p.txt')) || '').trim()
+    assert.match(line, /D p\.txt blob=[0-9a-f]{12}/, '证据必须写明"被删掉的那份内容"(old blob)')
+    assert.ok(
+      line.includes(deleteP.slice(0, 12)),
+      `证据必须指向可达面那条最新删除记录 ${deleteP.slice(0, 12)},实际行: ${line}`,
+    )
+    assert.doesNotMatch(r.stdout, /未覆盖:D p\.txt/, '已证明的删除不得再判红')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('D 类收紧③: 最新删除记录删的 old blob 不同 ⇒ 判红(删的不是同一内容)', () => {
+  const dir = createTempRepo()
+  const git = (cmd) => execSync(cmd, { cwd: dir, stdio: 'ignore' })
+  try {
+    git('git checkout -b side')
+    writeFileSync(join(dir, 'q.txt'), 'q-content\n')
+    writeFileSync(join(dir, 'r.txt'), 'r-content\n')
+    git('git add q.txt r.txt')
+    git('git commit -m "side-q-r"')
+    git('git checkout main')
+    writeFileSync(join(dir, 'p.txt'), 'p-v1\n')
+    git('git add p.txt')
+    git('git commit -m "add-p-v1"')
+    const v1Commit = execSync('git rev-parse HEAD', {
+      cwd: dir,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).trim()
+    writeFileSync(join(dir, 'p.txt'), 'p-v2\n')
+    git('git add p.txt')
+    git('git commit -m "modify-p-v2"')
+    git('git rm p.txt')
+    git('git commit -m "delete-p-latest-v2"')
+    // 悬空枚从 v1 那个提交分出:它删的是 p-v1,而可达面最新那条删除删的是 p-v2
+    git(`git checkout -b temp-dangle ${v1Commit}`)
+    git('git rm p.txt')
+    writeFileSync(join(dir, 'q.txt'), 'q-content\n')
+    git('git add q.txt')
+    git('git commit -m "dangle-delete-p-old-v1"')
+    git('git checkout main')
+    git('git branch -D temp-dangle')
+    const r = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    // 为什么正确:悬空枚删掉的 v1 那版内容在"被删"这件事上从未进入可达面(可达面删的是 v2),
+    // 最新删除记录的 old blob 与本次不同 ⇒ 旧记录不能作证,必须判红。
+    assert.equal(
+      r.status,
+      1,
+      `old blob 不同的删除必须判红,实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
+    )
+    assert.match(r.stdout, /未覆盖:D p\.txt blob=[0-9a-f]{12}/, '必须点名删除路径与被删内容')
+    assert.match(r.stdout, /可达面最新删除记录删的是另一份内容/, '判红理由必须指出 old blob 不同')
+    assert.match(r.stdout, /旧删除不能为新删除作证/, '必须写明为什么旧记录不作证')
+    assert.doesNotMatch(r.stdout, /已覆盖:D p\.txt/, 'old blob 不同的旧记录不得被当成覆盖证据')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('D 类收紧④: 多次删除中只有最后一次同 old blob ⇒ 放行,且证据只指向最后一次', () => {
+  const dir = createTempRepo()
+  const git = (cmd) => execSync(cmd, { cwd: dir, stdio: 'ignore' })
+  const rev = () =>
+    execSync('git rev-parse HEAD', { cwd: dir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
+  try {
+    git('git checkout -b side')
+    writeFileSync(join(dir, 'q.txt'), 'q-content\n')
+    writeFileSync(join(dir, 'r.txt'), 'r-content\n')
+    git('git add q.txt r.txt')
+    git('git commit -m "side-q-r"')
+    git('git checkout main')
+    writeFileSync(join(dir, 'p.txt'), 'p-v1\n')
+    git('git add p.txt')
+    git('git commit -m "add-p-v1"')
+    git('git rm p.txt')
+    git('git commit -m "delete-p-v1"')
+    const firstDelete = rev()
+    writeFileSync(join(dir, 'p.txt'), 'p-v2\n')
+    git('git add p.txt')
+    git('git commit -m "rebuild-p-v2"')
+    const withV2 = rev()
+    git('git rm p.txt')
+    git('git commit -m "delete-p-v2"')
+    const lastDelete = rev()
+    // 悬空枚从 rebuild-p-v2 分出:删的也正是 p-v2(与最后一次删除同 old blob)
+    git(`git checkout -b temp-dangle ${withV2}`)
+    git('git rm p.txt')
+    writeFileSync(join(dir, 'q.txt'), 'q-content\n')
+    git('git add q.txt')
+    git('git commit -m "dangle-delete-p-v2"')
+    git('git checkout main')
+    git('git branch -D temp-dangle')
+    const r = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    // 为什么正确:第一次删除删的是 v1(既非最新状态、old blob 也不同),不作证;
+    // 最后一次删除既是该路径最新改动、old blob 又与本次逐字相同 ⇒ 本次删除意图已在可达面落地。
+    assert.equal(
+      r.status,
+      0,
+      `最新那次同内容删除应放行,实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
+    )
+    assert.match(r.stdout, /逐路径覆盖放行 1 个/, '放行必须点名')
+    const line = (r.stdout.split('\n').find((l) => l.includes('D p.txt')) || '').trim()
+    assert.ok(
+      line.includes(lastDelete.slice(0, 12)),
+      `证据必须指向最后一次删除 ${lastDelete.slice(0, 12)},实际行: ${line}`,
+    )
+    assert.ok(
+      !line.includes(firstDelete.slice(0, 12)),
+      `证据不得指向那次 old blob 不同的旧删除 ${firstDelete.slice(0, 12)}`,
+    )
+    assert.doesNotMatch(r.stdout, /未覆盖:D p\.txt/, '最新同内容删除已作证,不得判红')
   } finally {
     rmScratch(dir)
   }
