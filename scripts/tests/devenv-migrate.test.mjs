@@ -275,6 +275,39 @@ test('probeQuietWindow:全部字段可读且无占用 ⇒ 仍判 window(修过�
   assert.equal(r.unjudged.length, 0)
 })
 
+/**
+ * 形状锁(进程面空字段的行为锁之静态半边):注入面三跳必须逐跳在位 ——
+ * 臂把 activity 交给 probeFn(第三参)、probe 把 activity 交给 legacyActiveUse、
+ * 空字段行进 processes.unreadable。任一跳被摘掉,上面「空字段行 ⇒ undetermined」的
+ * 行为锁会失去注入路径(变异副本随之翻红),故此处逐跳钉住,并附摘除自证。
+ */
+test('形状锁:判② 注入面三跳传导 + 空字段行 fail-closed(摘任一跳即翻红)', () => {
+  const patrolBody = SRC.slice(SRC.indexOf('export function devenvMigratePatrol'), SRC.indexOf('function selfTest'))
+  assert.match(patrolBody, /probeFn\(io, now, activity\)/, '臂必须把 activity 透传给 probeFn(第三参)')
+  const probeBody = SRC.slice(SRC.indexOf('export function probeQuietWindow'), SRC.indexOf('function listDriveJunctions'))
+  assert.ok(probeBody.length > 200, '切不到 probeQuietWindow 函数体(锚点漂了 ⇒ 本条恒真)')
+  assert.match(probeBody, /legacyActiveUse\(io, activity\)/, 'probe 必须把 activity 交给 legacyActiveUse')
+  const useBody = SRC.slice(SRC.indexOf('export function legacyActiveUse'), SRC.indexOf('export function activityNotes'))
+  assert.ok(useBody.length > 800, '切不到 legacyActiveUse 函数体(锚点漂了 ⇒ 本条恒真)')
+  assert.match(useBody, /if \(!cmdline \|\| !exePath\)/, '空字段行必须单列判「读不出」')
+  assert.match(useBody, /processes\.unreadable\+\+/, '空字段行必须计入 unreadable(fail-closed)')
+  // 摘除自证:同一把尺子对旧形必须无感 —— 否则上面三条恒真。
+  const noArg = SRC.replace('probeFn(io, now, activity)', 'probeFn(io, now)')
+  assert.notEqual(noArg, SRC, '锚点漂了:实现已不再以 probeFn(io, now, activity) 调用')
+  assert.doesNotMatch(
+    noArg.slice(noArg.indexOf('export function devenvMigratePatrol'), noArg.indexOf('function selfTest')),
+    /probeFn\(io, now, activity\)/,
+    '摘掉第三参后锁仍匹配 ⇒ 该锁对旧形无感',
+  )
+  const noForward = SRC.replace('legacyActiveUse(io, activity)', 'legacyActiveUse(io, {})')
+  assert.notEqual(noForward, SRC, '锚点漂了:probe 已不再把 activity 透传给 legacyActiveUse')
+  assert.doesNotMatch(
+    noForward.slice(noForward.indexOf('export function probeQuietWindow'), noForward.indexOf('function listDriveJunctions')),
+    /legacyActiveUse\(io, activity\)/,
+    '摘掉传导后锁仍匹配 ⇒ 该锁对丢注入面无感',
+  )
+})
+
 test('assessSteps:S3 活代码命中 ⇒ todo,纯注释命中 ⇒ done(证据保留口径)', () => {
   const codeHit = assessSteps(fakeWith({ [SEAL_SCRIPT]: { text: "x = ['G:\\\\DevEnv\\\\secrets']\n" } })).find((s) => s.id === 3)
   assert.equal(codeHit.state, 'todo')
