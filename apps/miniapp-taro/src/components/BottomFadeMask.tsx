@@ -22,7 +22,7 @@ import { COLORS } from '@/constants/style'
  * tokens.css 的 surface.bg)经 hsl→rgba 手转,做带透明度的渐变停点,避免 `transparent`
  * 关键字在渐变里产生「透明黑」插值灰带(硬边同源病)。
  */
-const BOTTOM_FADE_HEIGHT_PX = 120
+const BOTTOM_FADE_HEIGHT_PX = 90
 
 /** `hsl(H S% L%)` → `rgba(r,g,b,a)`。微信内联 style 不解析 var(--color-*) 与斜杠 alpha,
  *  这里把 tokens 的 hsl 值手动转 rgba,以便渐变停点带正确透明度(同 hue/sat/light 保证无灰带)。 */
@@ -72,7 +72,7 @@ function hslToRgba(hsl: string, alpha: number): string {
 export interface BottomFadeMaskProps {
   /** 渐变段底边距屏幕底的距离(CSS 值):一般 = 胶囊顶沿(与 RN 的 capsuleTopOffset 等价) */
   bottomOffsetCss: string
-  /** 渐变段高度(px),默认 120 */
+  /** 渐变段高度(px),默认 90 */
   height?: number
 }
 

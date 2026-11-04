@@ -19,12 +19,12 @@ import { tokens } from '../theme/active-tokens'
  * 渐变在靠近胶囊的最后约 55% 高度内由透明平滑转实底(约 55% 处已达 0.7 不透明,
  * 比初版更早更猛),故胶囊上方 ~100px 处的「返回顶部」按钮仍落在透明区,不受影响。
  */
-const BOTTOM_FADE_HEIGHT_PX = 120
+const BOTTOM_FADE_HEIGHT_PX = 90
 
 export interface BottomFadeMaskProps {
   /** 渐变段底边距屏幕底的距离(px):一般 = 胶囊悬浮量 + 胶囊高(即胶囊顶沿) */
   offsetFromBottom: number
-  /** 渐变段高度(px),默认 120 */
+  /** 渐变段高度(px),默认 90 */
   height?: number
 }
 
