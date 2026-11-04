@@ -5,15 +5,13 @@
 /**
  * InputArea 多行输入区(mobile-rn)— 聊天 / 反馈 / 评论场景通用输入区
  *
- * 平台特有:本端的命中外扩(hitSlop)、安全区补偿(useSafeAreaInsets)、折叠 FAB 态、参数变量行、
- * 框内字符放大钮与波形条,都依赖 RN API,小程序端没有这些元素,故其档位天然只在本端取用(AGENTS §3)。
+ * 平台特有:本端的命中外扩(hitSlop)、框内字符放大钮与波形条,
+ * 都依赖 RN API,小程序端没有这些元素,故其档位天然只在本端取用(AGENTS §3)。
  *
  * 设计要点:
  * - 容器:浅色 surface.card 底 + 顶部 1px border,flex row,底部对齐
- * - 多行 TextInput:自动撑高(上限 120,放大后无上限),1px 边框 + 圆角 sm(4)
+ * - 多行 TextInput:自动撑高(上限 120),1px 边框 + 圆角 sm(4)
  * - 发送按钮:40×40(放大态 44×44),品牌色底,圆角 sm(4) —— 角色档 control;
- *   本文件唯一的正圆是 24dp 折叠「×」钮与 56dp 折叠 FAB,各自写成 边长/2:半径等于见方盒边长
- *   的一半就是几何真圆,守门按盒形定性即认,本项目不允许任何圆角标记
  * - 字数统计:输入框内右下角浮层,超过 90% 警告色
  *
  * 2026-07-30:对齐历史项目 InputArea(微信小程序 miniapp-taro 版本),
@@ -25,7 +23,6 @@
  * 3. 文本输入自动撑高 + 放大/缩小切换(handleFangda/handleFangdas,⤢/⤡)
  * 4. 添加文件按钮(search-box2,加号,functionHandle → onImageAdd)
  * 5. 发送按钮(search-box3)
- * 6. 参数变量输入区(pageAgentVariables,可选)
  *
  * 复刻约束:
  * - 保留原 props 契约(value/onChangeText/placeholder/maxLength/onSubmit/disabled/
@@ -35,7 +32,7 @@
  * - 图标用 emoji/文字替代原图片(原图在 D:\历史项目存档\...\src\static\images\,
  *   均已存在于 apps/mobile-rn/assets/images/common/,此处为免去颜色/背景不确定风险统一用 emoji)。
  * - 图片/文件真实上传、语音识别(STT)等需原生模块/后端 API 的功能,
- *   用回调 props 预留(onImageAdd/onVoiceToggle 等),组件内注释标注「待接后端/原生模块」。
+ *   用回调 props 预留(onImageAdd 等),组件内注释标注「待接后端/原生模块」。
  *   未引入 expo-image-picker 等新原生依赖。
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -54,7 +51,6 @@ import {
   View,
 } from 'react-native'
 import type { TextInput } from 'react-native'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useI18n } from '../i18n'
 import { useUiTextField } from '../lib/use-ui-text-field'
 import { tokens, currentRnTheme } from '../theme/active-tokens'
@@ -65,10 +61,8 @@ import {
   FileText,
   Film,
   Image as ImageIcon,
-  Keyboard,
   Mic,
   Play,
-  Plus,
   Send,
   SlidersHorizontal,
   X,
@@ -80,19 +74,12 @@ import { TextField } from '@ihui/rn-app'
 // @ihui/shared/ui/input-area-spec(与小程序端同档;上一轮只搬小程序侧的 6 造成台账 23→24,
 // 两侧必须同枚改指本文件)。机制通道(hitSlop 仅 RN 有)各端保留,数值不再端内自定。
 import {
-  INPUT_AREA_FANGDA_TOP_PX,
-  INPUT_AREA_CONTROL_HIT_SLOP_PX,
   INPUT_AREA_COUNTER_BOTTOM_PX,
-  INPUT_AREA_VOICE_BTN_GAP_PX,
-  INPUT_AREA_PARAM_FIELD_PADDING_V_PX,
   INPUT_AREA_INPUT_PADDING_TOP_PX,
   INPUT_AREA_DOC_NAME_FONT_PX,
   INPUT_AREA_ATTACHMENT_CLOSE_GLYPH_PX,
   // 票④:本文件剩余的可见几何档(裁决依据与"单端档"理由逐条写在 spec 的常数注释里)
   INPUT_AREA_DOC_NAME_STRIP_PX,
-  // O02 票④(2026-10-27):⤢/⤡ 切换钮的**定位盒边长** —— 与小程序 search-right / search-suo
-  // 同一枚档(收编前本端写裸 20、小程序写 rpx(40),同一控件两份真相);两端同枚提交改指。
-  INPUT_AREA_EXPAND_BTN_BOX_PX,
   INPUT_AREA_INPUT_FONT_PX,
   INPUT_AREA_CONTAINER_PADDING_X_PX,
   INPUT_AREA_CONTAINER_PADDING_V_PX,
@@ -106,7 +93,6 @@ import {
   INPUT_AREA_GLYPH_MD_PX,
   INPUT_AREA_THUMB_GLYPH_PX,
   INPUT_AREA_CONTROL_GLYPH_PX,
-  INPUT_AREA_VOICE_BTN_WIDTH_PX,
   INPUT_AREA_INPUT_MIN_HEIGHT_PX,
   INPUT_AREA_SHELL_PADDING_V_PX,
   INPUT_AREA_SHELL_BORDER_PX,
@@ -114,9 +100,7 @@ import {
   INPUT_AREA_VOICE_BARS_HEIGHT_PX,
   INPUT_AREA_VOICE_BAR_BASE_PX,
   INPUT_AREA_CLOSE_HIT_SLOP_PX,
-  INPUT_AREA_PARAM_FIELD_MIN_HEIGHT_PX,
   INPUT_AREA_IN_SHELL_BTN_PX,
-  INPUT_AREA_IN_SHELL_EXPAND_RIGHT_PX,
   INPUT_AREA_THUMB_PX,
   INPUT_AREA_LEGACY_SHADOW_OFFSET_PX,
   INPUT_AREA_LEGACY_GLYPH_LINE_PX,
@@ -136,20 +120,6 @@ export interface InputImageItem {
   videoUrl?: string
 }
 
-/** 参数变量组件项。对应原 uniapp pageAgentVariables[].components[] */
-export interface AgentVariableComponent {
-  name?: string
-  type?: 'text' | 'image'
-  description?: string
-  default_value?: string
-}
-
-/** 参数变量分组。对应原 uniapp pageAgentVariables[] */
-export interface AgentVariableGroup {
-  description?: string
-  components?: AgentVariableComponent[]
-}
-
 export interface InputAreaProps {
   /** 受控输入值 */
   value: string
@@ -163,6 +133,17 @@ export interface InputAreaProps {
   onSubmit: (text: string) => void
   /** 禁用输入(同时禁用发送按钮,变 muted 色) */
   disabled?: boolean
+  /** 自动聚焦输入框(对齐小程序端同名字段;RN 直通 TextField → TextInput autoFocus) */
+  autoFocus?: boolean
+  /** 聚焦回调(对齐小程序端同名字段;RN 直通 TextField → TextInput onFocus) */
+  onFocus?: () => void
+  /** 失焦回调(对齐小程序端同名字段;RN 直通 TextField → TextInput onBlur) */
+  onBlur?: () => void
+  /**
+   * 键盘高度变化(px,0=收起)。对齐小程序端 Textarea.onKeyboardHeightChange:
+   * RN 的 TextInput 不发该事件,由 Keyboard.keyboardDidShow/Hide 换算成同一契约;未传则不订阅。
+   */
+  onKeyboardHeightChange?: (height: number) => void
   /** 发送中:按钮显示 ActivityIndicator 替代 ➤ 图标 */
   loading?: boolean
   /** 停止回调:提供后,loading 时发送按钮切换为停止按钮(danger 色)。用于流式对话中断 */
@@ -179,45 +160,13 @@ export interface InputAreaProps {
   onImageRemove?: (index: number) => void
   /** 添加文件/图片回调。待接后端/原生模块(expo-image-picker / 文件选择) */
   onImageAdd?: () => void
-  /** 是否语音输入模式(切换 🎤/⌨️) */
-  voiceInput?: boolean
-  /** 是否语音激活(录音中,显示 30 线动画条 + 禁用文本输入) */
-  voiceActive?: boolean
-  /** 语音/键盘切换回调。待接后端/原生模块(STT 录音) */
-  onVoiceToggle?: () => void
-  /** 语音动画开始回调(按住说话按下)。待接后端/原生模块 */
-  onVoiceAnimationStart?: () => void
-  /** 语音动画结束回调(松开结束)。待接后端/原生模块 */
-  onVoiceAnimationStop?: () => void
-  /** 是否放大(受控);不传时组件内部自维护放大状态 */
-  expanded?: boolean
-  /** 放大/缩小切换回调 */
-  onExpandToggle?: () => void
-  /** 参数变量区(可选) */
-  pageAgentVariables?: AgentVariableGroup[]
-  /** 参数变量输入回调(value, componentIndex, groupIndex) */
-  onPageAgentVariablesChange?: (value: string, componentIndex: number, groupIndex: number) => void
-  /** 参数变量「图片类型」添加回调(groupIndex, componentIndex)。待接后端/原生模块 */
-  onParamImageAdd?: (groupIndex: number, componentIndex: number) => void
-
-  // ── collapsible 折叠态(可选,默认 false 不破坏现有调用方)─────────────────
-  /** 启用折叠态:首次进入折叠,FAB 浮动按钮位于右下角;点击 FAB 展开完整输入栏,
-   *  完整栏顶部右上角有「×」按钮可折叠回。HomeScreen 等场景用此获得默认隐藏 +
-   *  点击 + 滑出的交互(对齐历史 Uniapp 抽屉式输入)。 */
-  collapsible?: boolean
-  /** collapsible=true 时,初始是否折叠(默认 true)。HomeScreen 默认折叠让首屏更整洁 */
-  defaultCollapsed?: boolean
-  /** 折叠态切换通知(展开→true=折叠中 / false=展开中),非受控 */
-  onCollapsedChange?: (collapsed: boolean) => void
-  /** 折叠态 FAB 按钮的可访问标签(供 i18n 注入);未提供时回退「提问」 */
-  collapsedFabLabel?: string
-  /** 折叠按钮(完整态右上「×」)的可访问标签;未提供时回退「收起输入区」 */
-  collapseButtonLabel?: string
 
   // ── 内嵌语音(可选,HomeScreen 大输入框:麦克风+文本+发送同框)─────────────────
   /** 显示框内麦克风按钮(长按录音,松开转写)。传入后输入区渲染为「一个大输入框」:
    *  [🎤 长按] [TextInput/录音波形] [发送] 同处一个圆角边框内,发送按钮移入框内 */
   showVoiceMic?: boolean
+  /** 样式变体:default(独立语音钮 + 文本框)/ ai-home(大输入框,对齐小程序端同名 prop) */
+  variant?: 'default' | 'ai-home'
   /** 录音中(showVoiceMic=true 时生效):输入区显示波形 + 时长「松开结束」 */
   voiceRecording?: boolean
   /** 转写中(showVoiceMic=true 时生效):输入区显示「转写中…」 */
@@ -346,6 +295,10 @@ export function InputArea({
   maxLength = DEFAULT_MAX_LENGTH,
   onSubmit,
   disabled = false,
+  autoFocus = false,
+  onFocus,
+  onBlur,
+  onKeyboardHeightChange,
   loading = false,
   onStop,
   stopLabel,
@@ -353,22 +306,8 @@ export function InputArea({
   images,
   onImageRemove,
   onImageAdd,
-  voiceInput = false,
-  voiceActive = false,
-  onVoiceToggle,
-  onVoiceAnimationStart,
-  onVoiceAnimationStop,
-  expanded,
-  onExpandToggle,
-  pageAgentVariables,
-  onPageAgentVariablesChange,
-  onParamImageAdd,
-  collapsible = false,
-  defaultCollapsed = true,
-  onCollapsedChange,
-  collapsedFabLabel,
-  collapseButtonLabel,
   showVoiceMic = false,
+  variant = 'default',
   voiceRecording = false,
   voiceTranscribing = false,
   voiceDuration = 0,
@@ -383,7 +322,6 @@ export function InputArea({
   onOpenModelConfig,
   transparentBackground = false,
 }: InputAreaProps) {
-  const insets = useSafeAreaInsets()
   const { t } = useI18n()
   useUiTextField({
     label: placeholder ?? '',
@@ -392,6 +330,19 @@ export function InputArea({
     multiline: true,
     maxLength,
   })
+  // 键盘高度透出(对齐小程序端 Textarea.onKeyboardHeightChange):RN TextInput 无此事件,
+  // 由 Keyboard 的 didShow/didHide 换算成同一「px,0=收起」契约;未传回调时不订阅(零开销)。
+  useEffect(() => {
+    if (!onKeyboardHeightChange) return
+    const showSub = RNKeyboard.addListener('keyboardDidShow', (e) =>
+      onKeyboardHeightChange(e.endCoordinates.height),
+    )
+    const hideSub = RNKeyboard.addListener('keyboardDidHide', () => onKeyboardHeightChange(0))
+    return () => {
+      showSub.remove()
+      hideSub.remove()
+    }
+  }, [onKeyboardHeightChange])
   const isSendBlocked = disabled || loading
   const canSend = value.trim().length > 0 && !isSendBlocked
   const isOverWarning = value.length >= Math.floor(maxLength * WARNING_RATIO)
@@ -403,11 +354,7 @@ export function InputArea({
   useEffect(() => {
     if (value.length === 0) setContentHeight(MIN_INPUT_HEIGHT)
   }, [value])
-  const [expandedInternal, setExpandedInternal] = useState(false)
-  const isExpanded = expanded ?? expandedInternal
-  const inputHeight = isExpanded
-    ? Math.max(MIN_INPUT_HEIGHT, contentHeight)
-    : Math.min(Math.max(MIN_INPUT_HEIGHT, contentHeight), MAX_INPUT_HEIGHT)
+  const inputHeight = Math.min(Math.max(MIN_INPUT_HEIGHT, contentHeight), MAX_INPUT_HEIGHT)
   // 单/多行态同一阈值(与字数统计共用):内容高比单行最小高多出 10(≈一行余量)才算多行。
   // 取 MIN+10 而非 MIN:单行删到剩一行时 scrollHeight≈50(多行底距 24 撑的),按 MIN 判会
   // 卡在多行态 —— 文字比中轴偏上 6px 且底部空 24 不显示计数(2026-10-16 修)
@@ -420,10 +367,6 @@ export function InputArea({
     ? styles.inputBare
     : [styles.inputBare, styles.inputBareSingle]
 
-  // collapsible 折叠态:非受控(defaultCollapsed 默认 true → 首屏折叠)
-  const [internalCollapsed, setInternalCollapsed] = useState(defaultCollapsed)
-  const isCollapsed = collapsible ? internalCollapsed : false
-
   // showVoiceMic 大输入框:短按聚焦输入,长按 450ms 开始录音(2026-09-22 用户定稿:
   // 长按输入框直接语音,微信同款交互)。Pressable 恒挂载持有触摸序列,
   // 录音态内部切换波形/TextInput 不丢松开事件;TextInput 包 pointerEvents="none"
@@ -431,16 +374,8 @@ export function InputArea({
   const inputRef = useRef<TextInput | null>(null)
 
   const hasImages = (images?.length ?? 0) > 0
-  const hasParams = (pageAgentVariables?.length ?? 0) > 0
   const hasModelSelect = onOpenModelSelect !== undefined
-  const showVoiceBtn = onVoiceToggle !== null
   const showAddBtn = onImageAdd !== undefined
-  // 2026-10-15 修错位:原判 `onExpandToggle !== null` 对未传(undefined)恒真 —— 而全项目
-  // 无一处调用方传 onExpandToggle(prop 本就可选),于是有文字时这枚「⤢」必然渲染,以
-  // position:absolute 钉在 right:44 处压住单排的「+」(CDP 实测重叠 22×12)。
-  // 语义上「显不显示放大钮」应由调用方显式决定,与 hasModelSelect 同一判定形(undefined=不传=不出);
-  // 全项目调用方均不传 ⇒ 两端(框内/框外)的放大钮一并消失,⤢/⤡ 自动撑高(inputHeight)则原样保留。
-  const showExpandBtn = onExpandToggle !== undefined && value.length > 0
 
   const handleSubmit = useCallback((): void => {
     if (!canSend) return
@@ -449,45 +384,9 @@ export function InputArea({
     onSubmit(trimmed)
   }, [canSend, onSubmit, value])
 
-  const handleExpandToggle = useCallback((): void => {
-    if (onExpandToggle) onExpandToggle()
-    if (expanded === undefined) setExpandedInternal((v) => !v)
-  }, [expanded, onExpandToggle])
-
   const handleContentSizeChange = useCallback((_w: number, h: number): void => {
     setContentHeight(h)
   }, [])
-
-  // 折叠/展开切换(collapsible=true 时生效)
-  const handleCollapseToggle = useCallback((): void => {
-    setInternalCollapsed((v) => {
-      const next = !v
-      onCollapsedChange?.(next)
-      return next
-    })
-  }, [onCollapsedChange])
-
-  // 折叠态早返回:FAB 浮动按钮(底部中央,绝对定位),对齐历史 Uniapp 抽屉式输入
-  // P1-2:避开 HomeScreen 右下角 GlobalFloatBox(赚米/客服/反馈)遮挡,FAB 居中放
-  if (collapsible && isCollapsed) {
-    return (
-      <View style={[styles.collapsedWrap, { bottom: 24 + insets.bottom }]} pointerEvents="box-none">
-        <Tappable
-          style={styles.collapsedFab}
-          onPress={() => {
-            setInternalCollapsed(false)
-            onCollapsedChange?.(false)
-          }}
-          hitSlop={8}
-          accessibilityRole="button"
-          accessibilityLabel={collapsedFabLabel ?? t('iaa.expandFab')}
-          accessibilityState={{ expanded: false }}
-        >
-          <Plus size={INPUT_AREA_GLYPH_LG_PX} color={tokens.brand.ctaForeground} />
-        </Tappable>
-      </View>
-    )
-  }
 
   const renderThumb = (item: InputImageItem, index: number) => {
     const isDoc = item.type === 'document'
@@ -578,19 +477,6 @@ export function InputArea({
         },
       ]}
     >
-      {/* collapsible=true 时,完整态右上角加「×」按钮,折叠回 FAB 态 */}
-      {collapsible ? (
-        <TouchableOpacity
-          style={styles.collapseBtn}
-          onPress={handleCollapseToggle}
-          activeOpacity={0.7}
-          hitSlop={INPUT_AREA_CONTROL_HIT_SLOP_PX}
-          accessibilityRole="button"
-          accessibilityLabel={collapseButtonLabel ?? t('iaa.collapseArea')}
-        >
-          <X size={14} color={tokens.text.secondary} />
-        </TouchableOpacity>
-      ) : null}
       <View style={styles.main}>
         {/* 图片/视频/文档缩略图列表(imgs_list) */}
         {hasImages ? (
@@ -604,9 +490,9 @@ export function InputArea({
           </ScrollView>
         ) : null}
 
-        {/* 输入行:showVoiceMic 时为一个「大输入框」(麦克风+文本/语音+发送同框);
+        {/* 输入行:variant='ai-home'(或 showVoiceMic)时为一个「大输入框」(麦克风+文本/语音+发送同框);
             否则原布局(独立语音按钮 + 文本框 + 框外发送按钮) */}
-        {showVoiceMic ? (
+        {variant === 'ai-home' || showVoiceMic ? (
           <View
             style={[
               styles.fieldShell,
@@ -675,6 +561,9 @@ export function InputArea({
                     style={[inputBareStyle, { height: inputHeight }]}
                     value={value}
                     onChangeText={onChangeText}
+                    autoFocus={autoFocus}
+                    onFocus={onFocus}
+                    onBlur={onBlur}
                     onContentSizeChange={(e) =>
                       handleContentSizeChange(
                         e.nativeEvent.contentSize.width,
@@ -697,25 +586,6 @@ export function InputArea({
                 </View>
               )}
             </Pressable>
-
-            {/* 放大/缩小切换(移出 pointerEvents="none" 区域保持可点) */}
-            {showExpandBtn && !voiceRecording && !voiceTranscribing ? (
-              <TouchableOpacity
-                style={styles.expandBtnInShell}
-                onPress={handleExpandToggle}
-                activeOpacity={0.7}
-                hitSlop={{
-                  top: INPUT_AREA_CONTROL_HIT_SLOP_PX,
-                  bottom: INPUT_AREA_CONTROL_HIT_SLOP_PX,
-                  left: INPUT_AREA_CONTROL_HIT_SLOP_PX,
-                  right: INPUT_AREA_CONTROL_HIT_SLOP_PX,
-                }}
-                accessibilityRole="button"
-                accessibilityLabel={isExpanded ? t('iaa.zoomOut') : t('iaa.zoomIn')}
-              >
-                <Text style={styles.expandBtnIcon}>{isExpanded ? '⤡' : '⤢'}</Text>
-              </TouchableOpacity>
-            ) : null}
 
             {/* 模型钮 + 配置 + 「+」+ 发送:单排收齐(2026-10-15 用户定:一行,不换行排)。
                 模型钮镜像 web ModelSelector 触发钮形态(model-selector.tsx 内 h-8 rounded-sm
@@ -786,89 +656,33 @@ export function InputArea({
           </View>
         ) : (
           <View style={styles.inputRow}>
-            {showVoiceBtn ? (
-              <TouchableOpacity
-                style={styles.voiceBtn}
-                onPress={onVoiceToggle}
-                activeOpacity={0.7}
-                accessibilityRole="button"
-                accessibilityLabel={
-                  voiceActive || voiceInput ? t('iaa.switchKeyboard') : t('iaa.switchVoice')
-                }
-              >
-                {voiceActive || voiceInput ? (
-                  <Keyboard size={INPUT_AREA_GLYPH_MD_PX} color={tokens.text.secondary} />
-                ) : (
-                  <Mic size={INPUT_AREA_GLYPH_MD_PX} color={tokens.text.secondary} />
-                )}
-              </TouchableOpacity>
-            ) : null}
-
             <View style={styles.inputColumn}>
-              {voiceActive ? (
-                <Pressable
-                  style={styles.voiceWaveWrap}
-                  onPressIn={onVoiceAnimationStart}
-                  onPressOut={onVoiceAnimationStop}
-                  accessibilityLabel={t('iaa.holdEnd')}
-                >
-                  <VoiceWave />
-                </Pressable>
-              ) : voiceInput ? (
-                <Pressable
-                  style={styles.voiceWaveWrap}
-                  onPressIn={onVoiceAnimationStart}
-                  onPressOut={onVoiceAnimationStop}
-                  accessibilityLabel={t('iaa.holdEnd')}
-                >
-                  <Text style={styles.voiceHint}>{t('voice.holdToTalk')}</Text>
-                </Pressable>
-              ) : (
-                <TextField
-                  colorScheme={currentRnTheme()}
-                  style={[styles.input, { height: inputHeight }]}
-                  value={value}
-                  onChangeText={onChangeText}
-                  onContentSizeChange={(e) =>
-                    handleContentSizeChange(
-                      e.nativeEvent.contentSize.width,
-                      e.nativeEvent.contentSize.height,
-                    )
-                  }
-                  placeholder={placeholder}
-                  placeholderTextColor={tokens.text.tertiary}
-                  maxLength={maxLength}
-                  multiline
-                  textAlignVertical="top"
-                  editable={!disabled}
-                />
-              )}
+              <TextField
+                colorScheme={currentRnTheme()}
+                style={[styles.input, { height: inputHeight }]}
+                value={value}
+                onChangeText={onChangeText}
+                autoFocus={autoFocus}
+                onFocus={onFocus}
+                onBlur={onBlur}
+                onContentSizeChange={(e) =>
+                  handleContentSizeChange(
+                    e.nativeEvent.contentSize.width,
+                    e.nativeEvent.contentSize.height,
+                  )
+                }
+                placeholder={placeholder}
+                placeholderTextColor={tokens.text.tertiary}
+                maxLength={maxLength}
+                multiline
+                textAlignVertical="top"
+                editable={!disabled}
+              />
 
               {/* 字数统计(输入框内右下角浮层) */}
-              {!voiceActive && !voiceInput ? (
-                <Text style={[styles.counter, isOverWarning ? styles.counterWarning : null]}>
-                  {value.length}/{maxLength}
-                </Text>
-              ) : null}
-
-              {/* 放大/缩小切换(handleFangda/handleFangdas) */}
-              {showExpandBtn ? (
-                <TouchableOpacity
-                  style={styles.expandBtn}
-                  onPress={handleExpandToggle}
-                  activeOpacity={0.7}
-                  hitSlop={{
-                    top: INPUT_AREA_CONTROL_HIT_SLOP_PX,
-                    bottom: INPUT_AREA_CONTROL_HIT_SLOP_PX,
-                    left: INPUT_AREA_CONTROL_HIT_SLOP_PX,
-                    right: INPUT_AREA_CONTROL_HIT_SLOP_PX,
-                  }}
-                  accessibilityRole="button"
-                  accessibilityLabel={isExpanded ? t('iaa.zoomOut') : t('iaa.zoomIn')}
-                >
-                  <Text style={styles.expandBtnIcon}>{isExpanded ? '⤡' : '⤢'}</Text>
-                </TouchableOpacity>
-              ) : null}
+              <Text style={[styles.counter, isOverWarning ? styles.counterWarning : null]}>
+                {value.length}/{maxLength}
+              </Text>
             </View>
 
             {/* 添加文件按钮(search-box2,functionHandle;视觉统一走共享 PlusButton,
@@ -876,46 +690,6 @@ export function InputArea({
             {showAddBtn ? <PlusButton onPress={onImageAdd} label={t('iaa.addFile')} /> : null}
           </View>
         )}
-
-        {/* 参数变量输入区(pageAgentVariables,可选) */}
-        {hasParams ? (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.paramsList}
-            keyboardShouldPersistTaps="handled"
-          >
-            {(pageAgentVariables ?? []).map((group, gi) =>
-              (group.components ?? []).map((comp, ci) => {
-                const title = comp.name || group.description || ''
-                return (
-                  <View key={`${gi}-${ci}`} style={styles.paramItem}>
-                    {title ? <Text style={styles.paramTitle}>{title}</Text> : null}
-                    {comp.type === 'image' ? (
-                      <TouchableOpacity
-                        style={styles.paramAddBtn}
-                        onPress={() => onParamImageAdd?.(gi, ci)}
-                        accessibilityRole="button"
-                        accessibilityLabel={t('iaa.addParam')}
-                      >
-                        <Plus size={16} color={tokens.text.secondary} />
-                      </TouchableOpacity>
-                    ) : (
-                      <TextField
-                        colorScheme={currentRnTheme()}
-                        style={styles.paramInput}
-                        value={comp.default_value ?? ''}
-                        onChangeText={(t) => onPageAgentVariablesChange?.(t, ci, gi)}
-                        placeholder={comp.description}
-                        placeholderTextColor={tokens.text.tertiary}
-                      />
-                    )}
-                  </View>
-                )
-              }),
-            )}
-          </ScrollView>
-        ) : null}
       </View>
 
       {/* 发送按钮(search-box3,框外;showVoiceMic 时已移入大输入框内,不重复渲染) */}
@@ -1202,17 +976,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
   },
-  expandBtnInShell: {
-    position: 'absolute',
-    // 派生自同一表:发送钮盒 + 其左间距 + 让位档,改钮宽时不会忘了改让位
-    right: INPUT_AREA_IN_SHELL_EXPAND_RIGHT_PX,
-    top: 4,
-    width: 22,
-    height: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 2,
-  },
   sendInShell: {
     width: INPUT_AREA_IN_SHELL_BTN_PX,
     height: INPUT_AREA_IN_SHELL_BTN_PX,
@@ -1223,21 +986,9 @@ const styles = StyleSheet.create({
     // 主 CTA 实底走 brand.cta(明暗同值 #4A7A96,AGENTS §4);
     // 旧写法取 gray[900]=#171717 是端内自造的第三个色源 —— 它把"深色纯白刺眼"换成了
     // "浅色一大片黑"(用户实拍的那一处),两态各错一半,且不与 web/小程序同源。
-    backgroundColor: tokens.brand.cta, // 图标钮,前景在同一元素的 <Plus color={tokens.brand.ctaForeground}/>
+    backgroundColor: tokens.brand.cta, // 图标钮,前景在同一元素的 <Send color={tokens.brand.ctaForeground}/>
   },
 
-  voiceBtn: {
-    width: INPUT_AREA_VOICE_BTN_WIDTH_PX,
-    // 与输入行最小高同档(两者同排,上缘要对齐);小程序端这一处是原项目 50×44rpx,
-    // 行高由端内 CSS 80rpx 定,扩到本档会撑破那一行 —— 单端档,依据见 spec 注释
-    height: INPUT_AREA_INPUT_MIN_HEIGHT_PX,
-    marginRight: INPUT_AREA_VOICE_BTN_GAP_PX,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  voiceBtnIcon: {
-    fontSize: rnType.heading.size,
-  },
   inputColumn: {
     flex: 1,
     position: 'relative',
@@ -1256,17 +1007,6 @@ const styles = StyleSheet.create({
     fontSize: INPUT_AREA_INPUT_FONT_PX,
     color: tokens.text.primary,
   },
-  voiceWaveWrap: {
-    minHeight: MIN_INPUT_HEIGHT,
-    maxHeight: MAX_INPUT_HEIGHT,
-    // 角色档 control(与 input 同一槽位的语音态)→ sm(4)
-    borderRadius: rnRadiusFor.control,
-    borderWidth: 1,
-    borderColor: tokens.border.light,
-    backgroundColor: tokens.surface.card,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   voiceBars: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1283,10 +1023,6 @@ const styles = StyleSheet.create({
     // 不再用红色 danger 档。
     backgroundColor: tokens.text.primary,
   },
-  voiceHint: {
-    fontSize: INPUT_AREA_INPUT_FONT_PX,
-    color: tokens.text.secondary,
-  },
   counter: {
     position: 'absolute',
     right: INPUT_AREA_CONTROL_RIGHT_PX,
@@ -1299,66 +1035,6 @@ const styles = StyleSheet.create({
   },
   counterWarning: {
     color: tokens.warning.DEFAULT,
-  },
-  expandBtn: {
-    position: 'absolute',
-    right: INPUT_AREA_CONTROL_RIGHT_PX,
-    top: INPUT_AREA_FANGDA_TOP_PX,
-    // O02 票④(2026-10-27):盒边长收进共享 spec(与小程序 search-right / search-suo
-    // 同一枚档)—— 收编前本端写裸 20、小程序写 rpx(40),同一控件两份真相。
-    width: INPUT_AREA_EXPAND_BTN_BOX_PX,
-    height: INPUT_AREA_EXPAND_BTN_BOX_PX,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  expandBtnIcon: {
-    // 收编前是 15 —— 不在字号档上,规则 4 就近取小档 14
-    fontSize: INPUT_AREA_CONTROL_GLYPH_PX,
-    color: tokens.text.secondary,
-  },
-
-  // 参数变量区
-  paramsList: {
-    flexDirection: 'row',
-    gap: INPUT_AREA_STACK_GAP_PX,
-    paddingTop: INPUT_AREA_STACK_GAP_PX,
-    paddingBottom: rnSpacing['2xs'],
-  },
-  paramItem: {
-    flexDirection: 'column',
-    gap: rnSpacing.xs,
-    minWidth: 100,
-  },
-  paramTitle: {
-    fontSize: INPUT_AREA_SECONDARY_FONT_PX,
-    color: tokens.text.secondary,
-  },
-  paramInput: {
-    minHeight: INPUT_AREA_PARAM_FIELD_MIN_HEIGHT_PX,
-    paddingHorizontal: INPUT_AREA_STACK_GAP_PX,
-    paddingVertical: INPUT_AREA_PARAM_FIELD_PADDING_V_PX,
-    // 角色档 control(参数输入框)→ sm(4)
-    borderRadius: rnRadiusFor.control,
-    borderWidth: 1,
-    borderColor: tokens.border.light,
-    backgroundColor: tokens.surface.card,
-    fontSize: INPUT_AREA_SECONDARY_FONT_PX,
-    color: tokens.text.primary,
-  },
-  paramAddBtn: {
-    minHeight: INPUT_AREA_PARAM_FIELD_MIN_HEIGHT_PX,
-    // 角色档 control(按钮)→ sm(4),与同排 paramInput 输入框同档
-    borderRadius: rnRadiusFor.control,
-    borderWidth: 1,
-    borderColor: tokens.border.light,
-    borderStyle: 'dashed',
-    backgroundColor: tokens.surface.muted,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  paramAddIcon: {
-    fontSize: rnType.title.size,
-    color: tokens.text.secondary,
   },
   // 发送按钮
   sendButton: {
@@ -1384,45 +1060,6 @@ const styles = StyleSheet.create({
     // stopButton 红底配白色文字;原 brand.foreground 深色=#000000(黑)红底黑字不可读
     color: tokens.surface.light,
     fontWeight: '600',
-  },
-
-  // ── collapsible 折叠态(底部中央浮动 FAB,绝对定位,避开 GlobalFloatBox 右侧) ──
-  collapsedWrap: {
-    position: 'absolute',
-    // 屏幕水平居中,减去 FAB 一半宽度(28)使按钮中心对齐屏幕中线
-    left: '50%',
-    marginLeft: -28,
-    // bottom 在 JSX 内根据 insets.bottom 计算,这里只设兜底
-    bottom: 24,
-    // zIndex/elevation 必须高于 GlobalFloatBox,避免被遮挡
-    zIndex: 9999,
-    elevation: 24,
-  },
-  collapsedFab: {
-    width: 56,
-    height: 56,
-    borderRadius: rnRadiusFor.control, // 角色档 control(按钮)→ sm
-    backgroundColor: tokens.brand.cta, // 悬浮加号,前景在同一元素的 <Plus color={tokens.brand.ctaForeground}/>
-    alignItems: 'center',
-    justifyContent: 'center',
-    // shadow(iOS)
-    shadowColor: tokens.gray.black,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.18,
-    shadowRadius: 8,
-    // shadow(Android)
-  },
-  // 完整态右上角「×」折叠按钮(absolute 覆盖在 main 顶部右上)
-  collapseBtn: {
-    position: 'absolute',
-    top: 4,
-    right: INPUT_AREA_CONTROL_RIGHT_PX,
-    width: 24,
-    height: 24,
-    borderRadius: 24 / 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 2,
   },
 })
 

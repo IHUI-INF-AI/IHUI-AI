@@ -42,7 +42,17 @@ export interface SectionHeaderProps {
   showMore?: boolean
   onMore?: () => void
   extra?: ReactNode
+  /** 标题前导节点(图标等);间距由调用方节点自身样式负责 */
+  leading?: ReactNode
   className?: string
+  /** 容器样式(上下留白/内边距等由调用方传入,避免收成几何档) */
+  style?: CSSProperties
+  /** 标题文字样式覆盖 */
+  titleStyle?: CSSProperties
+  /** 副标题文字样式覆盖 */
+  subtitleStyle?: CSSProperties
+  /** 无障碍名称(与 RN 端同名 prop 同义,落到 ariaLabel) */
+  accessibilityLabel?: string
   /** 已解析主题,默认 'light' */
   colorScheme?: RnThemeMode
   /** i18n 翻译函数(可选);未传则用 I18nContext t,再降级硬编码中文 */
@@ -94,8 +104,13 @@ export function SectionHeader({
   moreText,
   showMore = true,
   onMore,
+  leading,
   extra,
   className,
+  style,
+  titleStyle: titleStyleProp,
+  subtitleStyle: subtitleStyleProp,
+  accessibilityLabel,
   colorScheme,
   t: tProp,
 }: SectionHeaderProps) {
@@ -118,10 +133,12 @@ export function SectionHeader({
   const titleStyle: CSSProperties = {
     ...textStyles.title(tk),
     fontSize: toRpx(SECTION_HEADER_TITLE_FONT_PX),
+    ...titleStyleProp,
   }
   const subtitleStyle: CSSProperties = {
     ...textStyles.subtitle(tk),
     fontSize: toRpx(SECTION_HEADER_SUBTITLE_FONT_PX),
+    ...subtitleStyleProp,
   }
   const moreLabelStyle: CSSProperties = {
     ...textStyles.moreLabel(tk),
@@ -129,8 +146,9 @@ export function SectionHeader({
   }
 
   return (
-    <View className={className} style={containerStyle()}>
+    <View className={className} style={{ ...containerStyle(), ...style }} ariaLabel={accessibilityLabel}>
       <View style={{ display: 'flex', alignItems: 'center', minWidth: 0, flex: 1 }}>
+        {leading}
         <Text style={titleStyle}>{title}</Text>
         {subtitle ? <Text style={subtitleStyle}>{subtitle}</Text> : null}
       </View>
