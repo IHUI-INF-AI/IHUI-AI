@@ -14,7 +14,7 @@
 5. **棘轮锚点 = 该文件 HEAD 自身的违规数**:只拦"本次改动把违规加回来",存量只报数。
 6. **单一真相源**:同类判据/清单/取值实现全仓只许一份,第二份必然漂移(§22c);测试 import 源脚本 `__test__`,禁止复制判据。
 7. **豁免必须"验过才免"且会到期**(守门 108):行内豁免标记必须带原因、逐行生效;豁免族必须登记存活期;已登记的豁免若被审面不再命中 ⇒ 清单腐烂判红。
-8. **文档不得写跑不通的出路**:给用户的每条命令必须真跑得通;应急跳过变量以 `scripts/guardian-runner.mjs` 注册条目现值为准,本文不逐枚罗列;本轮五门(285/289/290/291/292)的跳过变量并入 `docs/GATEKEEPERS.md §6.3`。
+8. **文档不得写跑不通的出路**:给用户的每条命令必须真跑得通;应急跳过变量以 `scripts/guardian-runner.mjs` 注册条目现值为准,本文不逐枚罗列;本轮五门(288/290/291/292/298)的跳过变量并入 `docs/GATEKEEPERS.md §6.3`。
 9. **判据必须在真跑它的那一刻才成立**:"造好没装车"= 没有;守门 89 R4:已接线而 AGENTS.md/README.md 通篇不点名 ⇒ 红。
 10. **失效方向必须是"多要一次定向说明",绝不能是"多放一次跳门"**(归因、豁免、跳门留痕同此禁令)。
 11. **必须永久中文回复,包括思考过程**(用户 2026-10-21 定案)。
@@ -32,7 +32,7 @@
 - **`deferred@` 到期由门 289 判**(`check-plan-deferred-expiry.mjs`):`deferred@YYYY-MM-DD(到期复评)` 到期即红,不再靠人记。
 - **小程序交互卫生由门 290 判**(`check-miniapp-interaction-hygiene.mjs`):A1 假可点/A2 空端口 blocking;A3 无按压反馈/A4 modal 误用只出 advisory(不进退出码);台账 `scripts/data/miniapp-interaction-allowlist.json` 到期即红;应急 `HUSKY_SKIP_MINIAPP_INTERACTION_HYGIENE=1`。A3 可挂账但非销账(条款见 §9),自查 `node scripts/check-miniapp-interaction-hygiene.mjs --gate`。
 - **web↔RN 措辞一致性由门 291 判**(`check-web-rn-copy-parity.mjs`):B1 同屏 web 已走 i18n、RN 仍硬编码同文案 ⇒ blocking;B2 同值异键只出 advisory;台账 `scripts/data/web-rn-copy-diffs.json` 到期即红;应急 `HUSKY_SKIP_WEB_RN_COPY_PARITY=1`。B1/B2 只比逐字相等是盲区,故补 B3 同义键异值;B1/B3 新增未挂账 ⇒ 红,自查 `node scripts/check-web-rn-copy-parity.mjs`。
-- **旧 blob 回写由门 292 判**(`scripts/check-staged-downgrade.mjs`):暂存内容**整 blob 逐字**等于该路径某枚祖先提交、而 HEAD 已有更新版本 ⇒ 红并点名「路径 + 祖先 sha + HEAD oid」;确属有意回滚须在提交正文写一行 `intentional-revert: <依据>`(≥8 字符)⇒ 放行并留痕 `.ihui-agent/state/intentional-revert.jsonl`;应急 `HUSKY_SKIP_STALE_DOWNGRADE=1`。写手侧同一判据(`scripts/lib/ancestor-downgrade.mjs`)已前置到 `gen-ui-mirror --apply`:派生结果若逐字等于祖先旧档,一律拒写并点名 `downgrade=`。
+- **旧 blob 回写由门 298 判**(`scripts/check-staged-downgrade.mjs`):暂存内容**整 blob 逐字**等于该路径某枚祖先提交、而 HEAD 已有更新版本 ⇒ 红并点名「路径 + 祖先 sha + HEAD oid」;确属有意回滚须在提交正文写一行 `intentional-revert: <依据>`(≥8 字符)⇒ 放行并留痕 `.ihui-agent/state/intentional-revert.jsonl`;应急 `HUSKY_SKIP_STALE_DOWNGRADE=1`。写手侧同一判据(`scripts/lib/ancestor-downgrade.mjs`)已前置到 `gen-ui-mirror --apply`:派生结果若逐字等于祖先旧档,一律拒写并点名 `downgrade=`。
 - **同题跨号禁止**:`{{NEXT_ID}}` 取号令牌 + 标题指纹查重(守门 203 `check-plan-task-duplicates.mjs` + `live-doc-edit` 写盘闸双接线);同号同题副本走 F4 归并。
 - **「重复登记副本」指针注记存量已清零、今后一条也不许再产生**(2026-10-13/14 收口,10-14 二次实测补因):自动档已停产指针注记(F4/F10 只报数);守门 13d 差值棘轮拦注记变多、全量档绝对零容忍;门 71 归档豁免射程已纳入清偿台账——**旁路落地(回捞器/自愈)不跑钩子,防它必须在判据源头接**。**回潮实测到三条通道,逐条都得有器物**:①*推送*清偿器落地后必须自带 `git-push-guard.mjs`;②*判据输入集*——守恒断言的输入若依赖它要消的形态就会自锁,两侧必须同基准归一化;③*活文档行级 union*——按整行字符串比份数,认不出"对侧改写过而本侧已按台账清掉"的行,正解是补回前按**复合主键**再问一次清偿台账,归在册票 G-32;兜底已装车在旁路落地自愈源头 `lib/post-merge-ledger-sync.mjs` 第二步(存量>0 才派生 `plan-pointer-purge --apply`,0 条一次都不派生),归并侧那半格仍未收口。分族键指纹优先(与门 203 同源),不要按复合主键分族。
 - **归档机制(2026-10-16 退役)**:现行口径 = 完成即整行删除,退役器物与旧命令**不得恢复**;原「归档机制」全条(含防误删防线与历史残余 tag)见 `.ihui-agent/archive/AGENTS_history_2026-11-03.md`。
@@ -155,7 +155,7 @@ pnpm dev                                      # 启动所有服务(端口见 doc
 - **12e 恒红门优先级(强制)**:与提交内容无关的红门唯一结局是人人 `--no-verify` 连带废掉全部守门——**修红不得顺手削判据**;存量未清时上 blocking = 恒红门;升档前置 = 存量归零。
 - **12f 恒红门优先级(同日三道实测)**:同型。判据失效的表现永远是安静;凡"文档写了出路"必须实测真跑得通。
 - **12g 派生 git 必须显式接管 stdio(2026-10-03 立,EBUSY 实测)**:本机任何派生 git 必须显式写 `stdio`(不写稳定 EBUSY;`shell:true` 经 cmd.exe 100% 复现;绝对路径不是豁免)。样板:`const stdio = opts.input === undefined ? ['ignore','pipe','pipe'] : ['pipe','pipe','pipe']`(带 input 必须 `['pipe','pipe','pipe']`)。判据门:`check-git-stdio-discipline.mjs`(193,括号配平取整个调用、只判属性名不判取值、禁行内豁免,豁免走具名台账)。反向门 `check-spawn-output-channel.mjs`(199):stdio 丢 stdout 又去读 ⇒ 结论恒 null,拦。任何"这行是否必要"的判断必须 ≥20 次成组对照,单次成功不构成"不需要"的证据。
-- **12i 暂存内容比 HEAD 更旧必须判红(旧 blob 回写,门 292,2026-11-03 立)**:暂存 blob 逐字等于该路径某枚祖先 blob、而 HEAD 已更新 ⇒ 红(点名路径+祖先 sha+HEAD oid),这是"`git add <file>` 交旧基线"的机器化;祖先窗口默认 80 枚,判据单源 `scripts/lib/ancestor-downgrade.mjs`。合法回滚唯一出口 = 提交正文行首 `intentional-revert: <依据>`(大小写不敏感、依据去空白 ≥8 字符),放行并留痕 `.ihui-agent/state/intentional-revert.jsonl`;自查 `node scripts/check-staged-downgrade.mjs --staged`,应急 `HUSKY_SKIP_STALE_DOWNGRADE=1`(跳门留痕)。
+- **12i 暂存内容比 HEAD 更旧必须判红(旧 blob 回写,门 298,2026-11-03 立)**:暂存 blob 逐字等于该路径某枚祖先 blob、而 HEAD 已更新 ⇒ 红(点名路径+祖先 sha+HEAD oid),这是"`git add <file>` 交旧基线"的机器化;祖先窗口默认 80 枚,判据单源 `scripts/lib/ancestor-downgrade.mjs`。合法回滚唯一出口 = 提交正文行首 `intentional-revert: <依据>`(大小写不敏感、依据去空白 ≥8 字符),放行并留痕 `.ihui-agent/state/intentional-revert.jsonl`;自查 `node scripts/check-staged-downgrade.mjs --staged`,应急 `HUSKY_SKIP_STALE_DOWNGRADE=1`(跳门留痕)。
 ### 12h. worktree 生命周期(强制,2026-10-21 立)
 - 落点 = 根直属 `.worktrees/`;收尾五步:①合并/裁决 → ②提交并推送 → ③回收检出 → ④删已并入分支 → ⑤`git worktree prune`。未合并的检出**不得静默删**:先打 `lost-commit/worktree-<名>-<sha7>` 标签保活;**合并与否由 agent 依证据自主裁决并执行**(能合即按五步合并→提交→推送,不能合则保活并在提交信息里写清理由),不再归人拍板。
 - 2026-10-21 撤装与 2026-10-30 补刀①③④(计划任务残留、TEMP 清扫三层、worktree 注册表 5 处产出点封口)的现场叙述全文见 `.ihui-agent/archive/AGENTS_history_2026-11-03.md`;规则结论不变:reap 不带 `--tag-lost`、超预算单列 `overBudget`、删 worktree 目录的每个出口必须补 prune。
