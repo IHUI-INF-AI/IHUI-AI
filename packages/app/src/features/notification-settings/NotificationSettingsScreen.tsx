@@ -62,8 +62,8 @@ export function NotificationSettingsScreen({
   const rows: Array<{ key: keyof NotificationSettingsItem; label: string }> = [
     { key: 'pushEnabled', label: t('notificationSettings.push') },
     { key: 'messageEnabled', label: t('notificationSettings.message') },
-    { key: 'emailEnabled', label: t('notificationSettings.email') },
-    { key: 'smsEnabled', label: t('notificationSettings.sms') },
+    { key: 'emailEnabled', label: t('settings.emailNotif') },
+    { key: 'smsEnabled', label: t('settings.smsNotif') },
     { key: 'marketingEnabled', label: t('notificationSettings.marketing') },
   ]
 
