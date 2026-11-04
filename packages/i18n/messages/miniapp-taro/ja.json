@@ -4832,7 +4832,16 @@
     "multiClass": "一覧に複数のクラスがあります。今回は {classId} のみ点呼します",
     "checkInAt": "登校時刻",
     "momentNow": "現在",
-    "backfillNeedsTime": "過去の日を登録するには、その日内の登校時刻が必要です"
+    "backfillNeedsTime": "過去の日を登録するには、その日内の登校時刻が必要です",
+    "statsTotalLabel": "記録数",
+    "statsAttendanceRate": "出席率",
+    "statusDistribution": "状態分布",
+    "trendChartTitle": "出席の推移",
+    "trendChartHint": "出席率 = 正常出席 ÷ 当該時間帯の出席記録数（未打刻の生徒は分母に含みません）",
+    "trendChartScope": "集計範囲：{scope}",
+    "trendWindow": "直近 {days} 日間",
+    "emptyTrend": "推移データがありません",
+    "statusOther": "その他"
   },
   "eduMgmt": {
     "attendanceTitle": "出席管理",

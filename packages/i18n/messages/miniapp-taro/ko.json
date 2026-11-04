@@ -4835,7 +4835,16 @@
     "multiClass": "목록에 여러 반이 있습니다，이번에는 {classId}만 처리합니다",
     "checkInAt": "등교 시각",
     "momentNow": "지금",
-    "backfillNeedsTime": "과거 날짜를 등록하려면 해당 날짜의 등교 시각이 필요합니다"
+    "backfillNeedsTime": "과거 날짜를 등록하려면 해당 날짜의 등교 시각이 필요합니다",
+    "statsTotalLabel": "기록 수",
+    "statsAttendanceRate": "출석률",
+    "statusDistribution": "상태 분포",
+    "trendChartTitle": "출석 추이",
+    "trendChartHint": "출석률 = 정상 출석 ÷ 해당 시간대의 출석 기록 수(체크인하지 않은 학생은 분모에 포함되지 않음)",
+    "trendChartScope": "집계 범위: {scope}",
+    "trendWindow": "최근 {days}일",
+    "emptyTrend": "추이 데이터가 없습니다",
+    "statusOther": "기타"
   },
   "eduMgmt": {
     "attendanceTitle": "출석 관리",
