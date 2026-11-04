@@ -2,20 +2,11 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-/** 几何档位名(与 geometry.js 的 GEOMETRY_PX 键一致;守门 128 G 维按单行解析本联合,不得换行拆档) */
-export type GeometryStep =
-  | 'tapBox'
-  | 'fabBox'
-  | 'glyphMd'
-  | 'controlBox'
-  | 'controlGlyph'
-  | 'glyphSm'
-  | 'textCaption'
-  | 'textLabel'
-  | 'textBody'
-  | 'textStrong'
-  | 'drawerWidth'
-  | 'previewShellWidth'
+/** 几何档位名(与 geometry.js 的 GEOMETRY_PX 键一致;守门 128 G 维按单行解析本联合,不得换行拆档)
+ * 下一行的 prettier-ignore 是为了把联合**冻在单行**:prettier 默认会把超宽联合按 | 拆行,一拆门 128 G 维就只认到第一档、判"表里有档而类型不认"。删它之前先读 scripts/check-cross-end-ui-parity.mjs 的 geometryDeclCheck。
+ */
+// prettier-ignore
+export type GeometryStep = 'tapBox' | 'fabBox' | 'glyphMd' | 'controlBox' | 'controlGlyph' | 'glyphSm' | 'textCaption' | 'textLabel' | 'textBody' | 'textStrong' | 'drawerWidth' | 'previewShellWidth'
 
 /** 档位 → 逻辑 px(与 web 端同量纲) */
 export declare const GEOMETRY_PX: Record<GeometryStep, number>
