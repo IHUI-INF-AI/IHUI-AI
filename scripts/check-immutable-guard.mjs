@@ -105,6 +105,10 @@ import {
   verifyExemption,
   judgeChanges,
   exemptPayload,
+  ACK_LEDGER_REL,
+  FULL_SHA_RE,
+  signAck,
+  parseAckLedger,
 } from './lib/immutable-guard.mjs'
 import { FACES, Undetermined, catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
@@ -117,6 +121,38 @@ export const SELF_SKIP = 'HUSKY_SKIP_IMMUTABLE_GUARD'
 
 /** 豁免留痕（§0.7）：`--record` 时逐条追加，落在 gitignored 的 state 目录。 */
 export const RECORD_REL = '.ihui-agent/state/immutable-guard-exemptions.jsonl'
+
+/**
+ * 追认台账取面：一律取**被审面的可见末端**（巡检/推送档 = HEAD blob，§0.4 同面同轮），不取工作树。
+ * 理由："本地先塞一行台账就能把历史某枚洗白"这件事结构上不成立——那一行必须先进仓，
+ * 而进仓本身要过本护栏（台账已登记进受保护面清单）。
+ * 文件不存在 ⇒ `rows=[] / absent=true`（现状=还没有任何追认，这不是"读不到"）；
+ * 坏行 ⇒ 进 `problems` 逐条点名，坏行不会被当成"没有追认"静默跳过（§0.7 清单腐烂要可见）。
+ */
+export function readAckRows(root, { rev = 'HEAD' } = {}) {
+  let text
+  try {
+    text = readFaceText(root, 'head', ACK_LEDGER_REL, rev)
+  } catch (e) {
+    return { rows: [], problems: [{ why: `台账取不到（${e?.message ?? e}）⇒ 本轮没有可用追认` }], absent: false }
+  }
+  if (text === null) return { rows: [], problems: [], absent: true }
+  const parsed = parseAckLedger(text)
+  return { rows: parsed.rows, problems: parsed.problems, absent: false }
+}
+
+/** head 面才有"被追认的那一枚"；解析不出 40 位 sha ⇒ null（不猜，也不拿 rev 字符串去比）。 */
+function ackShaOf(root, face, rev) {
+  if (face !== 'head') return null
+  const raw = String(rev ?? '')
+  if (FULL_SHA_RE.test(raw)) return raw
+  try {
+    const s = String(gitRaw(['rev-parse', raw], root) ?? '').trim()
+    return FULL_SHA_RE.test(s) ? s : null
+  } catch {
+    return null
+  }
+}
 
 /**
  * 验签密钥的三个来源（优先级从高到低），全部**在提交者可控范围之外**才有意义：
@@ -239,7 +275,7 @@ function readHeadMessage(root, rev = 'HEAD') {
  *   push 门给区间基点（origin/main）：被审者无法在自己提交里删掉/推后 `signatureRequiredFrom`
  *   来给自己放行；命中面 entries 仍取被审提交自己的清单（新增登记对当枚即生效）。
  */
-export function runAudit(root, face, { message = undefined, today = todayStr(), record = false, rev = 'HEAD', policyRev = null, key = undefined } = {}) {
+export function runAudit(root, face, { message = undefined, today = todayStr(), record = false, rev = 'HEAD', policyRev = null, key = undefined, ackRows = [] } = {}) {
   const keyRes =
     key === undefined
       ? resolveSigningKey(root)
@@ -327,6 +363,10 @@ export function runAudit(root, face, { message = undefined, today = todayStr(), 
     today,
     key: keyRes.key,
     signatureRequiredFrom: policyParsed.signatureRequiredFrom,
+    // 追认台账只在 face='head' 且能解析出 40 位 sha 时才问得到；--staged/--worktree 两档结构上
+    // 还没有"被追认的那一枚"，传空数组即保持原语义(不是放宽，是无输入)。
+    ackRows,
+    sha: ackShaOf(root, face, rev),
   })
   const result = {
     ...baseOut,
@@ -522,6 +562,7 @@ const AUDIT_BASE = {
   judged: 0,
   skippedMerges: 0,
   declared: 0,
+  retro: [],
   pending: 0,
   breaches: [],
   undetermined: [],
@@ -542,9 +583,12 @@ function judgeBatch(root, batch, { today = todayStr(), record = false, policyRev
   const breaches = []
   const undetermined = []
   const unsigned = []
+  const retro = []
   let declared = 0
   let skippedMerges = 0
   let judged = 0
+  // 追认台账整批读一次(同一末端),逐枚只查自己的 sha;坏行带出去点名,不静默。
+  const ack = readAckRows(root)
   for (const sha of batch) {
     if (parentCount(root, sha) > 1) {
       skippedMerges += 1
@@ -553,7 +597,7 @@ function judgeBatch(root, batch, { today = todayStr(), record = false, policyRev
     judged += 1
     let one
     try {
-      one = runAudit(root, 'head', { today, record, rev: sha, policyRev })
+      one = runAudit(root, 'head', { today, record, rev: sha, policyRev, ackRows: ack.rows })
     } catch (e) {
       one = { exit: 2, code: 'threw', detail: String(e?.message ?? e), hits: [], entryCount: 0, expired: [] }
     }
@@ -569,13 +613,18 @@ function judgeBatch(root, batch, { today = todayStr(), record = false, policyRev
       windowUntil: one.signatureRequiredFrom ?? null,
       expired: (one.expired ?? []).map((x) => `${x.path}@${x.reviewBy}`),
       detail: one.detail ?? '',
+      // 追认读数与 trailer 不同形:它必须带着"谁补的、到几时"一起出去,否则会被读成"当时就声明了"。
+      ackedBy: one.ack?.state === 'valid' ? `${one.ack.row.ackedBy}(到期 ${one.ack.row.expires})` : '',
+      substitutedFor: one.ack?.substitutedFor ?? '',
+      ackProblem: one.ack?.state === 'invalid' ? `${one.ack.code}:${one.ack.why}` : '',
     }
     if (one.exit === 1) breaches.push(brief)
     else if (one.exit === 2) undetermined.push(brief)
     else if (one.code === 'declared') declared += 1
+    else if (one.code === 'retro-declared') retro.push(brief)
     else if (one.code === 'declared-unsigned') unsigned.push(brief)
   }
-  return { breaches, undetermined, unsigned, declared, skippedMerges, judged }
+  return { breaches, undetermined, unsigned, retro, declared, skippedMerges, judged, ackProblems: ack.problems, ackAbsent: ack.absent }
 }
 
 /**
@@ -648,7 +697,7 @@ export function auditNewCommits(root, { limit = AUDIT_BATCH_DEFAULT, today = tod
     return { ...AUDIT_BASE, state: 'undetermined', head, cursorBefore: cursor, cursorAfter: cursor, detail: `游标之后枚举到 0 枚提交（cursor=${cursor.slice(0, 12)}）⇒ 未判定，不记绿` }
   }
 
-  const { breaches, undetermined, unsigned, declared, skippedMerges, judged } = judgeBatch(root, batch, { today, record })
+  const { breaches, undetermined, unsigned, retro, declared, skippedMerges, judged, ackProblems } = judgeBatch(root, batch, { today, record })
 
   const lastAudited = batch[batch.length - 1]
   // 判完 ⇒ 推进到本轮 HEAD；没判完 ⇒ 游标**原地不动**、本批已判 sha 进 `judged` 底账。
@@ -666,6 +715,7 @@ export function auditNewCommits(root, { limit = AUDIT_BATCH_DEFAULT, today = tod
       `区间长于本轮额度（limit=${limit}）⇒ 剩余 ${pending} 枚留下轮；游标保持 ${cursor.slice(0, 12)} 不推进，本批 ${batch.length} 枚 sha 记入 judged 集合（下轮只判差集，保证收敛）`,
     )
   if (cursorWriteWhy) notes.push(cursorWriteWhy)
+  if (ackProblems.length) notes.push(`追认台账坏行 ${ackProblems.length} 条(逐条点名:${ackProblems.map((p) => `L${p.line ?? '?'} ${p.why}`).join(' | ')})⇒ 这些行一律不生效`)
   return {
     exit: breaches.length > 0 ? 1 : undetermined.length > 0 ? 2 : 0,
     state,
@@ -674,6 +724,7 @@ export function auditNewCommits(root, { limit = AUDIT_BATCH_DEFAULT, today = tod
     judged,
     skippedMerges,
     declared,
+    retro,
     unsigned,
     pending,
     breaches,
@@ -720,7 +771,7 @@ export function auditRange(root, { range = 'origin/main..HEAD', today = todayStr
   } catch (e) {
     return { ...base, state: 'undetermined', range, detail: `区间 ${range} 的基点解析失败：${e?.message ?? e} ⇒ 未判定，不记绿` }
   }
-  const { breaches, undetermined, unsigned, declared, skippedMerges, judged } = judgeBatch(root, shas, {
+  const { breaches, undetermined, unsigned, retro, declared, skippedMerges, judged, ackProblems } = judgeBatch(root, shas, {
     today,
     record,
     policyRev: baseRev,
@@ -735,13 +786,14 @@ export function auditRange(root, { range = 'origin/main..HEAD', today = todayStr
     judged,
     skippedMerges,
     declared,
+    retro,
     unsigned,
     pending: 0,
     breaches,
     undetermined,
     cursorBefore: '',
     cursorAfter: '',
-    detail: '',
+    detail: ackProblems.length ? `追认台账坏行 ${ackProblems.length} 条 ⇒ 这些行一律不生效` : '',
   }
 }
 
@@ -800,7 +852,15 @@ export function formatAuditReport(out) {
     for (const r of u.reasons) lines.push(`     · 理由：${r}`)
   }
   for (const u of out.undetermined) lines.push(`   · 未判定 ${u.sha}「${u.subject}」code=${u.code} —— ${u.detail}`)
+  // 追认档必须逐枚点名"谁补的、到几时":它和 trailer 不同形,写成一粒计数就等于把事后补发
+  // 洗成了"当时就合规"(§0.10 失效方向要多要一次说明,不是少说一次)。
+  for (const u of out.retro ?? []) {
+    lines.push(`   ℹ️ ${u.sha}「${u.subject}」追认通过（提交当时${u.substitutedFor || '未声明'}，由 ${u.ackedBy} 事后具名补 ⇒ 不得读成当时就合规）`)
+    for (const h of u.hits) lines.push(`     · ${h.path}（${h.kind} / ${h.status}）`)
+    for (const r of u.reasons) lines.push(`     · 追认理由：${r}`)
+  }
   if (out.declared) lines.push(`   已声明且验签通过（--record 已留痕）：${out.declared} 枚`)
+  if ((out.retro ?? []).length) lines.push(`   事后追认通过（台账逐枚具名，到期即回到红）：${(out.retro ?? []).length} 枚`)
   if (out.detail) lines.push(`   注：${out.detail}`)
   lines.push(
     `[immutable-guard:audit] 判 ${out.audited} 枚(其中合并跳过 ${out.skippedMerges ?? 0} 枚) / 红 ${out.breaches.length} / 未判定 ${out.undetermined.length} / 无签名 ${unsigned.length} / 待判 ${out.pending} / 游标 ${String(out.cursorBefore || '').slice(0, 12) || '(无)'} → ${String(out.cursorAfter || '').slice(0, 12) || '(无)'}`,
@@ -1285,6 +1345,160 @@ export function selfTest() {
     )
   })
 
+  // ---------------------------------------------------------------------
+  // 事后追认台账（2026-11-04）：正反成对 + 每一档失效方向都往严里倒
+  // ---------------------------------------------------------------------
+
+  /** 造一条合法追认行（命中面由护栏自己算，这里只补签名与到期）。 */
+  const ackRowFor = (sha, paths, reason = '事后逐枚具名补说明，覆盖面与命中一致', opts = {}) => {
+    const row = { sha, paths, reason, ackedBy: opts.ackedBy ?? 'selftest', ackedAt: '2026-11-04T00:00:00.000Z', expires: opts.expires ?? '2099-01-01' }
+    return { ...row, sig: signAck({ sha, paths, reason, key: opts.key ?? ST_KEY }) }
+  }
+
+  // ST32 反向基准：未声明且无追认 ⇒ 照旧红（新增档不许把默认方向放松一格）
+  run((root) => {
+    writeIn(root, 'scripts/lib/face-reader.mjs', '// changed\n')
+    commitAll(root, 'refactor: silent')
+    const out = audit(root, 'head', { key: ST_KEY })
+    ok('ST32 未声明 + 台账空 ⇒ 仍 exit 1 / undeclared（不静默绿）', out.exit === 1 && out.code === 'undeclared', JSON.stringify({ exit: out.exit, code: out.code }))
+  })
+
+  // ST33 正：合法签名追认 ⇒ retro-declared / exit 0，且读数必须带着"谁补的"
+  run((root) => {
+    writeIn(root, 'scripts/lib/face-reader.mjs', '// changed\n')
+    commitAll(root, 'refactor: silent')
+    const sha = String(gitRaw(['rev-parse', 'HEAD'], root)).trim()
+    const rows = [ackRowFor(sha, ['scripts/lib/face-reader.mjs'])]
+    const out = audit(root, 'head', { key: ST_KEY, ackRows: rows })
+    ok(
+      'ST33 有效追认 ⇒ exit 0 / retro-declared 且带 ackedBy/expires',
+      out.exit === 0 && out.code === 'retro-declared' && out.ack.row.ackedBy === 'selftest' && out.ack.row.expires === '2099-01-01',
+      JSON.stringify({ exit: out.exit, code: out.code, ack: out.ack }),
+    )
+  })
+
+  // ST34 反向：签名是拿**别的 sha** 签的 ⇒ 验不过，红不变（抄行不划算）
+  run((root) => {
+    writeIn(root, 'scripts/lib/face-reader.mjs', '// changed\n')
+    commitAll(root, 'refactor: silent')
+    const sha = String(gitRaw(['rev-parse', 'HEAD'], root)).trim()
+    const rows = [ackRowFor(sha, ['scripts/lib/face-reader.mjs'], '事后逐枚具名补说明，覆盖面与命中一致', { key: ST_KEY_OTHER })]
+    const out = audit(root, 'head', { key: ST_KEY, ackRows: rows })
+    ok(
+      'ST34 追认签名验不过 ⇒ 仍 exit 1 且 ackProblem 点名 ack-sig-invalid',
+      out.exit === 1 && out.code === 'undeclared' && out.ack && out.ack.code === 'ack-sig-invalid',
+      JSON.stringify({ exit: out.exit, code: out.code, ack: out.ack && out.ack.code }),
+    )
+  })
+
+  // ST35 反向：追认到期 ⇒ 回到红（追认不是终身赦免，§0.7）
+  run((root) => {
+    writeIn(root, 'scripts/lib/face-reader.mjs', '// changed\n')
+    commitAll(root, 'refactor: silent')
+    const sha = String(gitRaw(['rev-parse', 'HEAD'], root)).trim()
+    const rows = [ackRowFor(sha, ['scripts/lib/face-reader.mjs'], '事后逐枚具名补说明，覆盖面与命中一致', { expires: '2020-01-01' })]
+    const out = audit(root, 'head', { key: ST_KEY, ackRows: rows, today: '2026-11-04' })
+    ok('ST35 追认到期 ⇒ 仍 exit 1 且点名 ack-expired', out.exit === 1 && out.ack && out.ack.code === 'ack-expired', JSON.stringify({ exit: out.exit, ack: out.ack && out.ack.code }))
+  })
+
+  // ST36 反向：追认漏列实际命中的那一面 ⇒ 不算说明到位
+  run((root) => {
+    writeIn(root, 'scripts/lib/face-reader.mjs', '// changed\n')
+    commitAll(root, 'refactor: silent')
+    const sha = String(gitRaw(['rev-parse', 'HEAD'], root)).trim()
+    const rows = [ackRowFor(sha, ['AGENTS.md'])]
+    const out = audit(root, 'head', { key: ST_KEY, ackRows: rows })
+    ok(
+      'ST36 追认 paths 未覆盖命中面 ⇒ 仍红并点名 ack-paths-incomplete',
+      out.exit === 1 && out.ack && out.ack.code === 'ack-paths-incomplete',
+      JSON.stringify({ exit: out.exit, ack: out.ack && { code: out.ack.code, why: out.ack.why } }),
+    )
+  })
+
+  // ST37 台账坏行 ⇒ 该行不生效且被逐条点名（不静默当成"没有追认"）；文件不存在 ⇒ absent 而非"读不到"。
+  run((root) => {
+    const bad = '{ not json\n{"sha":"deadbeef","paths":[],"reason":"短"}\n'
+    const r = parseAckLedger(bad)
+    const absent = readAckRows(root, { rev: 'HEAD' })
+    ok(
+      'ST37 台账坏行 ⇒ rows 空 + problems 逐条带行号；无文件档 absent=true（现状=还没有追认，不是读不到）',
+      r.rows.length === 0 && r.problems.length >= 1 && r.problems[0].line === 1 && absent.absent === true && absent.rows.length === 0,
+      JSON.stringify({ rows: r.rows.length, problems: r.problems, absent }),
+    )
+  })
+
+  // ST38 端到端（这一条才是"推送不再被历史顶死"的证据）：
+  //        未声明枚挡住 range ⇒ 追加签名追认并**提交进仓**后，同一区间判成 clean，红数归零。
+  run((root) => {
+    writeIn(root, 'scripts/lib/face-reader.mjs', '// changed\n')
+    commitAll(root, 'refactor: silent blocks push')
+    const sha = String(gitRaw(['rev-parse', 'HEAD'], root)).trim()
+    const base = String(gitRaw(['rev-parse', 'HEAD~1'], root)).trim()
+    const before = auditRange(root, { range: `${base}..${sha}`, today: '2026-11-04' })
+    const row = ackRowFor(sha, ['scripts/lib/face-reader.mjs'])
+    writeIn(root, ACK_LEDGER_REL, `${JSON.stringify(row)}\n`)
+    commitAll(root, 'chore(guard): 追认上述未声明枚\n\nimmutable-exempt: 追认台账自身在受保护面上，本枚即补发说明那一步')
+    // range/巡检两档的密钥只走**正式三源**(不接 key 注入参数)——自检用 env 那一档把夹具钥递进去,
+    // 与本仓真钥同一条路径,不许为了测试开后门。
+    process.env[KEY_ENV] = ST_KEY
+    let after
+    try {
+      after = auditRange(root, { range: `${base}..${sha}`, today: '2026-11-04' })
+    } finally {
+      delete process.env[KEY_ENV]
+    }
+    ok(
+      'ST38 range 先红 ⇒ 追认进仓后同区间 clean（追认只从**已提交面**取，工作树塞行不生效）',
+      before.exit === 1 && before.breaches.length === 1 && after.exit === 0 && after.state === 'clean' && after.retro.length === 1 && after.retro[0].ackedBy.startsWith('selftest'),
+      JSON.stringify({ before: { exit: before.exit, breaches: before.breaches.length }, after: { exit: after.exit, state: after.state, retro: after.retro.length, by: after.retro[0] && after.retro[0].ackedBy } }),
+    )
+    // 反向牙：把追认行**从提交面撤掉**（还原成没有台账的样子）⇒ 同区间必须再红。
+    // 这一条防的是"range 只读了工作树那份文件"——那会让本地随手塞一行永久洗白历史。
+    gitRaw(['rm', '-q', '-f', ACK_LEDGER_REL], root)
+    commitAll(root, 'chore(guard): 撤掉追认（反向夹具）')
+    const again = auditRange(root, { range: `${base}..${sha}`, today: '2026-11-04' })
+    ok('ST38b 追认被撤 ⇒ 同区间立刻回到红（可见性只认已提交面）', again.exit === 1 && again.breaches.length === 1, JSON.stringify({ exit: again.exit, breaches: again.breaches.length }))
+  })
+
+  // ST39 自带签名但验不过(拿别的钥匙签的)⇒ 无追认时仍红；有持钥方追认才转 retro-declared,
+  // 且读数必须点明"它替代的是哪一种失败",不许与"当时就签对了"混成同一句。
+  run((root) => {
+    const reason = '签名绑定标题与命中面，本单即受审对象'
+    const subject = 'refactor: signed with wrong key'
+    writeIn(root, 'scripts/lib/face-reader.mjs', '// changed\n')
+    commitAll(root, signedMessage(subject, reason, ['scripts/lib/face-reader.mjs'], ST_KEY_OTHER))
+    const sha = String(gitRaw(['rev-parse', 'HEAD'], root)).trim()
+    const without = audit(root, 'head', { key: ST_KEY })
+    const rows = [ackRowFor(sha, ['scripts/lib/face-reader.mjs'])]
+    const withAck = audit(root, 'head', { key: ST_KEY, ackRows: rows })
+    ok(
+      'ST39 假签名 + 无追认 ⇒ 红；假签名 + 有效追认 ⇒ retro-declared 且 substitutedFor 点名替代的是哪一格',
+      without.exit === 1 &&
+        without.code === 'undeclared-unsigned' &&
+        withAck.exit === 0 &&
+        withAck.code === 'retro-declared' &&
+        withAck.ack.substitutedFor === '自带签名验不过',
+      JSON.stringify({ without: { exit: without.exit, code: without.code }, withAck: { exit: withAck.exit, code: withAck.code, sub: withAck.ack && withAck.ack.substitutedFor } }),
+    )
+  })
+
+  // ST40 窗口关闭后（2026-11-11 起）只有文字理由 ⇒ 红；此时**唯一**前向出路就是持钥方追认。
+  // 这一条钉的是自治环的长期可行性：会话没有密钥 ⇒ 判据面那一格永远只能由人来结清（配合 auto-evolve 的整批拒收）。
+  run((root) => {
+    writeIn(root, 'scripts/lib/face-reader.mjs', '// changed\n')
+    commitAll(root, 'refactor: text only after window\n\nimmutable-exempt: 窗口关闭后只剩文字理由，按新语义不放行')
+    const sha = String(gitRaw(['rev-parse', 'HEAD'], root)).trim()
+    const today = '2027-01-01'
+    const before = audit(root, 'head', { key: ST_KEY, today })
+    const rows = [ackRowFor(sha, ['scripts/lib/face-reader.mjs'], '窗口关闭后由持钥方逐枚具名追认', { expires: '2099-01-01' })]
+    const after = audit(root, 'head', { key: ST_KEY, today, ackRows: rows })
+    ok(
+      'ST40 窗口后仅文字理由 ⇒ 红；同枚加有效追认 ⇒ retro-declared(substitutedFor=窗口已过)',
+      before.exit === 1 && before.code === 'undeclared-unsigned' && after.exit === 0 && after.code === 'retro-declared' && after.ack.substitutedFor.startsWith('窗口已过'),
+      JSON.stringify({ before: { exit: before.exit, code: before.code }, after: { exit: after.exit, code: after.code, sub: after.ack && after.ack.substitutedFor } }),
+    )
+  })
+
   const failed = cases.filter((c) => !c.ok)
   for (const c of cases) {
     console.log(`${c.ok ? 'ok  ' : 'FAIL'} ${c.name}${c.ok ? '' : ` —— ${c.detail}`}`)
@@ -1303,6 +1517,9 @@ function parseArgv(argv) {
     worktree: false,
     auditNew: false,
     signStaged: false,
+    ack: null,
+    by: null,
+    expires: null,
     range: null,
     subject: null,
     reason: null,
@@ -1322,6 +1539,9 @@ function parseArgv(argv) {
     else if (a === '--worktree') opts.worktree = true
     else if (a === '--audit-new') opts.auditNew = true
     else if (a === '--sign-staged') opts.signStaged = true
+    else if (a === '--ack') opts.ack = argv[++i]
+    else if (a === '--by') opts.by = argv[++i]
+    else if (a === '--expires') opts.expires = argv[++i]
     else if (a === '--range') opts.range = argv[++i]
     else if (a === '--subject') opts.subject = argv[++i]
     else if (a === '--reason') opts.reason = argv[++i]
@@ -1349,6 +1569,7 @@ const USAGE = [
   '用法: node scripts/check-immutable-guard.mjs [--staged|--worktree|--audit-new|--range <a..b>] [--message-file <f>|--message <s>] [--json] [--record] [--root <仓根>] [--today <YYYY-MM-DD>]',
   '      node scripts/check-immutable-guard.mjs --audit-new [--limit 50] [--record]   # 巡检轮档（游标之后每枚判一次）',
   '      node scripts/check-immutable-guard.mjs --range origin/main..HEAD            # push 门档（逐枚判"本次要推的"）',
+  '      node scripts/check-immutable-guard.mjs --ack <40位sha> --reason "<≥10字>" --by <席位> --expires <YYYY-MM-DD>  # 事后追认一档（详见 ACK 段）',
   '      node scripts/check-immutable-guard.mjs --sign-staged --subject "<提交标题>" --reason "<理由>" [--paths <a,b,c>]  # 生成签名行（stdout 可直接贴进提交信息）',
   '      node scripts/check-immutable-guard.mjs --self-test',
   '',
@@ -1381,6 +1602,51 @@ export function signStaged(root, { subject, reason, paths = [], today = todayStr
   }
 }
 
+/**
+ * 追认签发（2026-11-04 立）。写一行台账 = 给一枚**已入库**提交补发说明，所以每一道都往严里判：
+ *  - sha 必须 40 位全量且在仓里解析得到（短写、不存在的枚、非 commit 对象一律拒）；
+ *  - 命中面由护栏自己算，调用方不能自己挑几个面"部分追认"；
+ *  - 那枚当下必须是**被判红**的状态（`undeclared` / `undeclared-unsigned`）才准追认：
+ *    已经合规的枚不需要第二道出口，判不动的枚更不许签（不签判不动的东西）；
+ *  - 无密钥 ⇒ 拒（fail-closed，绝不写一条没人验得动的行冒充已追认）；
+ *  - `expires` 必填且晚于今天：追认不是终身赦免，到期即回到红（§0.7 豁免必须会到期）。
+ */
+export function ackCommit(root, { sha, reason, by, expires, today = todayStr() } = {}) {
+  if (!FULL_SHA_RE.test(String(sha ?? ''))) throw new Error(`--ack 必须是 40 位全量 sha（证据指针禁短写）：收到 ${String(sha ?? '').slice(0, 20)}`)
+  if (!reason || [...String(reason).trim()].length < MIN_REASON_CHARS) throw new Error(`--reason 必填且不短于 ${MIN_REASON_CHARS} 字`)
+  if (!by || !String(by).trim()) throw new Error('--by 必填（补发说明的席位/人名 ⇒ 追责从这里起）')
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(expires ?? ''))) throw new Error(`--expires 必须是 YYYY-MM-DD（追认必须会到期）：收到 ${String(expires ?? '').slice(0, 20)}`)
+  if (String(expires) <= today) throw new Error(`--expires(${expires}) 不得早于或等于本次判定期(${today})`)
+  let type = ''
+  try {
+    type = String(gitRaw(['cat-file', '-t', sha], root)).trim()
+  } catch (e) {
+    throw new Error(`sha 在仓里解析不到：${sha} —— ${e?.message ?? e}`)
+  }
+  if (type !== 'commit') throw new Error(`${sha} 不是 commit 对象（${type || '空'}）⇒ 不追认`)
+  const one = runAudit(root, 'head', { rev: sha, today })
+  if (one.exit === 0) throw new Error(`那枚本判就通过（code=${one.code}）⇒ 没有需要追认的东西`)
+  if (one.exit === 2) throw new Error(`那枚判不了（code=${one.code}：${one.detail || '无明细'}）⇒ 先修判定输入，不签判不动的追认`)
+  if (!one.hits.length) throw new Error('那枚没触及任何受保护面 ⇒ 无需追认（不追空集）')
+  const keyRes = resolveSigningKey(root)
+  if (!keyRes.key) throw new Error(`密钥不可得 ⇒ 拒签（${keyRes.why}）`)
+  const paths = one.hits.map((h) => h.path)
+  const row = {
+    sha,
+    paths,
+    reason: String(reason).trim(),
+    ackedBy: String(by).trim(),
+    ackedAt: new Date().toISOString(),
+    expires: String(expires),
+    sig: signAck({ sha, paths, reason, key: keyRes.key }),
+  }
+  const file = path.join(root, ACK_LEDGER_REL)
+  const line = `${JSON.stringify(row)}\n`
+  mkdirSync(path.dirname(file), { recursive: true })
+  appendFileSync(file, line, 'utf8')
+  return { row, line: line.trimEnd(), paths, keySource: keyRes.source, file: ACK_LEDGER_REL }
+}
+
 export function main(argv = process.argv.slice(2)) {
   let opts
   try {
@@ -1405,6 +1671,10 @@ export function main(argv = process.argv.slice(2)) {
     console.error('❌ --sign-staged 只对 staged 面签发，不得与 --staged/--worktree/--audit-new/--range 同用')
     return 2
   }
+  if (opts.ack !== null && (opts.staged || opts.worktree || opts.auditNew || opts.range || opts.signStaged)) {
+    console.error('❌ --ack 只针对**已入库的那一枚**签发追认，不得与判定档或 --sign-staged 同用（同用=两件事挤一条命令，读数必然含混）')
+    return 2
+  }
   if (opts.range && (opts.staged || opts.worktree || opts.auditNew)) {
     console.error('❌ --range 走显式区间（push 门专用），不得与 --staged/--worktree/--audit-new 同用')
     return 2
@@ -1427,6 +1697,28 @@ export function main(argv = process.argv.slice(2)) {
     for (const h of r.hits) console.error(`# 命中：${h}`)
     console.log(`${EXEMPT_TRAILER} ${String(opts.reason).trim()}`)
     console.log(`${SIG_TRAILER} ${r.sig}`)
+    return 0
+  }
+  if (opts.ack !== null) {
+    let r
+    try {
+      r = ackCommit(opts.root, {
+        sha: opts.ack,
+        reason: opts.reason,
+        by: opts.by,
+        expires: opts.expires,
+        ...(opts.today ? { today: opts.today } : {}),
+      })
+    } catch (e) {
+      console.error(`❌ 追认失败：${e?.message ?? e}`)
+      return 2
+    }
+    console.error(`# 已追认 ${r.paths.length} 条命中面，密钥来源：${r.keySource}`)
+    for (const p of r.paths) console.error(`# 命中：${p}`)
+    console.log(r.line)
+    console.error(
+      `# 台账已追加一行 → ${r.file}（工作树）。⚠️ 台账本身登记在受保护面上：把这一行提交进仓的那枚，自己也要带 immutable-exempt 声明。`,
+    )
     return 0
   }
   if (opts.range) {
@@ -1524,6 +1816,8 @@ export const __test__ = {
   auditNewCommits,
   auditRange,
   signStaged,
+  ackCommit,
+  readAckRows,
   resolveSigningKey,
   formatAuditReport,
   selfTest,

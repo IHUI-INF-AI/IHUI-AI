@@ -19,6 +19,7 @@
  *     节点就是第二次同一事故,只是换了个方向。
  */
 import { NextResponse } from 'next/server'
+import { getMainDomainOrigin } from '@/lib/auth-domains'
 
 import {
   githubDownloadUrl,
@@ -30,6 +31,7 @@ import { isSafeNavigationTarget } from '@/lib/sso-redirect-guard'
 import {
   assetNameFromHref,
   isSafeAssetName,
+  pageBaseOrigin,
   pickDesktopLeg,
   RELEASE_TARGET_ALLOWED_ORIGINS,
 } from '@/lib/desktop-download-leg'
@@ -58,10 +60,18 @@ function visitorCountry(request: Request): string {
 
 const FALLBACK_PAGE = '/download/desktop'
 
-function toPage(base: URL, reason: string): NextResponse {
-  // 必须用**请求自己的 origin** 拼绝对地址:NextResponse.redirect 只吃绝对 URL,而写死一个假域名
-  // 就等于造出一条指向不存在主机的回跳(预检时差点写进本枚)。
-  const res = NextResponse.redirect(new URL(FALLBACK_PAGE, base.origin), 302)
+function toPage(request: Request, reason: string): NextResponse {
+  // NextResponse.redirect 只吃绝对 URL,所以必须定一个"这台访客真能打开"的 origin。
+  // 直接拿 request.url 的 origin 是错的:蓝绿/路由把它转到内网 web 进程后那就是
+  // http://localhost:8852 —— 公网用户点兜底会得到一条打不开的跳转(2026-11-04 实测)。
+  // 取值次序与防伪造 Host 的规则都住在 pageBaseOrigin 里,本处只喂头、不复算(§0.6)。
+  const base = pageBaseOrigin({
+    requestOrigin: new URL(request.url).origin,
+    forwardedHost: request.headers.get('x-forwarded-host') ?? request.headers.get('forwarded'),
+    forwardedProto: request.headers.get('x-forwarded-proto'),
+    mainDomainOrigin: getMainDomainOrigin(),
+  })
+  const res = NextResponse.redirect(new URL(FALLBACK_PAGE, base), 302)
   res.headers.set('Cache-Control', 'private, no-store')
   res.headers.set('X-Desktop-Leg', `fallback:${reason.slice(0, 40)}`)
   return res
@@ -72,13 +82,13 @@ export async function GET(request: Request): Promise<NextResponse> {
   const wanted = String(url.searchParams.get('file') ?? '').trim()
   if (!wanted || !isSafeAssetName(wanted)) {
     // 文件名不合字符集 ⇒ 不猜、不拼 URL,交回下载页由页面自己给权威链接
-    return toPage(url, 'bad-file')
+    return toPage(request, 'bad-file')
   }
   const live = await resolveLiveDesktopFeed()
-  if (live.source !== 'live') return toPage(url, 'feed-not-live')
+  if (live.source !== 'live') return toPage(request, 'feed-not-live')
   const tag = live.data.tag
   const asset = (live.data.assets ?? []).find((a) => assetNameFromHref(a.href) === wanted)
-  if (!asset) return toPage(url, 'unknown-asset')
+  if (!asset) return toPage(request, 'unknown-asset')
 
   const expected = Number(asset.sizeBytes ?? 0) > 0 ? Number(asset.sizeBytes) : null
   const { verdict } = await giteeByteParity(tag, wanted, expected)
@@ -88,9 +98,11 @@ export async function GET(request: Request): Promise<NextResponse> {
     originUrl: githubDownloadUrl(tag, wanted),
     cnUrl: giteeDownloadUrl(tag, wanted),
   })
-  if (!picked) return toPage(url, 'no-leg')
-  if (!isSafeNavigationTarget(picked.url, { allowedOrigins: [...RELEASE_TARGET_ALLOWED_ORIGINS] })) {
-    return toPage(url, 'origin-rejected')
+  if (!picked) return toPage(request, 'no-leg')
+  if (
+    !isSafeNavigationTarget(picked.url, { allowedOrigins: [...RELEASE_TARGET_ALLOWED_ORIGINS] })
+  ) {
+    return toPage(request, 'origin-rejected')
   }
   const res = NextResponse.redirect(picked.url, 302)
   res.headers.set('Cache-Control', 'private, no-store')

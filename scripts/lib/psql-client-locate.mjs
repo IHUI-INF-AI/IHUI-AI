@@ -5,7 +5,7 @@
 import { existsSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { spawnSync } from 'node:child_process'
-import { devEnvRoot } from '../seal-c-root-stray.mjs'
+import { devEnvArtifactRoot } from '../seal-c-root-stray.mjs'
 
 // ════════════════════════════════════════════════════════════════════════════
 // psql 客户端定位 —— 全仓唯一一份实现(G-815987,2026-10-07)。
@@ -38,13 +38,18 @@ const LEGACY_DEVENV_PSQL = 'D:\\DevEnv\\runtimes\\pgsql\\bin\\psql.exe'
  * PG 二进制目录与备份目录的唯一推导(G-343):此前 pg-restore-drill / pg-backup-cadence-audit /
  * pg-restore-app-reads 各抄一份同式,pgsql 覆盖名先后顺序因此有漂开的风险。
  * 覆盖名优先于 DevEnv 推导是本仓的既有契约;DevEnv 根本身(盘符回退、仓内 .DevEnv、夹具闸)
- * 一律问 seal-c-root-stray 的 devEnvRoot(),本层不重复推导。
+ * 一律问 seal-c-root-stray,本层不重复推导。2026-11-04 起问的是**按件选根**的
+ * `devEnvArtifactRoot(<这个用途的子路径>)` 而不是粗出口 `devEnvRoot()`:本机是半搬迁态
+ * (仓内 `.DevEnv` 只有 Temp/backups,`backups/pg` 与 `runtimes` 仍在盘根 DevEnv),按粗出口
+ * 拼出来的目录不存在 ⇒ `pg-backup-cadence-audit` 天天报"备份目录不可读/未判定",
+ * 而真实备份每天都在落(现读 D:/DevEnv/backups/pg/ihui_dev_20261104_030003.dump)。
+ * 两侧都不存在该子目录时 devEnvArtifactRoot 回落第一候选 ⇒ 夹具行为逐字不变。
  */
 export function pgBinDir(env = process.env) {
-  return env.IHUI_PG_BIN_DIR || join(devEnvRoot(), 'runtimes', 'pgsql', 'bin')
+  return env.IHUI_PG_BIN_DIR || join(devEnvArtifactRoot('runtimes/pgsql/bin'), 'runtimes', 'pgsql', 'bin')
 }
 export function backupPgDir(env = process.env) {
-  return env.IHUI_BACKUP_PG_DIR || join(devEnvRoot(), 'backups', 'pg')
+  return env.IHUI_BACKUP_PG_DIR || join(devEnvArtifactRoot('backups/pg'), 'backups', 'pg')
 }
 /**
  * 自动探测根清单(2026-10-18 补第二档)。

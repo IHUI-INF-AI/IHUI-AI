@@ -38,6 +38,12 @@
       "reviewBy": "2027-06-30"
     },
     {
+      "path": "scripts/data/immutable-guard-acks.jsonl",
+      "kind": "gate-registry",
+      "why": "事后追认台账：往里加一行就等于给一枚已入库的未声明提交补发豁免。它必须与清单同档受保护——否则「悄悄补一行洗白历史」比「悄悄删一条清单」更省力，也更难被发现（逐枚具名、会到期、要签名，三条都在行内，不在文件外）",
+      "reviewBy": "2027-01-31"
+    },
+    {
       "path": "scripts/git-guardian.mjs",
       "kind": "gate-registry",
       "why": "巡检调度器本体：auditImmutableGuardNewCommits 住这里，改掉它巡检就永远 return，而巡检仍由被改过的代码执行",
