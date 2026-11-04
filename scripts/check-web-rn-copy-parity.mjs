@@ -134,6 +134,76 @@ export const ROLE_EXEMPTIONS = [
     webKeys: ['eduExamResultPage.retry'],
     reason: 'RN「重试」是重做本题,web「重新考试」是整场重考 —— 同字不同义',
   },
+  {
+    rn: 'packages/app/src/features/exam/ExamScreen.tsx',
+    rnKey: 'eduExamListPage.start',
+    webKeys: ['exam.startExam'],
+    reason:
+      'RN 考试列表的开始按钮;同一 RN 文件被 exam 与 edu/exam 两条 web 路由映射,web 两页各用一个同值键(开始考试),无单键可同时满足两条路由 —— 非 RN 漂移',
+  },
+  {
+    rn: 'packages/app/src/features/payment/PaymentScreen.tsx',
+    rnKey: 'learnPaymentConfirmPage.fields.payMethod',
+    webKeys: ['payment.checkout.paymentMethod'],
+    reason:
+      'RN 支付方式标签;同一 RN 文件被 payment 与 learn/payment/confirm 两条 web 路由映射,web 两页各用一个同值键,且 payment.checkout.paymentMethod 的 ja/ko 译文存量损坏 —— 非 RN 漂移',
+  },
+  {
+    rn: 'packages/app/src/features/subscriptions/SubscriptionsScreen.tsx',
+    rnKey: 'memberSubscriptionPage.cancelSubscription',
+    webKeys: ['subscriptions.cancel'],
+    reason:
+      'RN 取消订阅;同一 RN 文件被 subscriptions 与 member/subscription 两条 web 路由映射,web 两页各用一个同值键(取消订阅),无单键可同时满足两条路由 —— 非 RN 漂移',
+  },
+  {
+    rn: 'apps/mobile-rn/src/screens/PurchaseScreen.tsx',
+    rnKey: 'wallet.rechargeMethod',
+    webKeys: ['purchase.payMethod'],
+    reason:
+      'RN 充值支付方式;同一 RN 文件被 purchase 与 wallet/recharge 两条 web 路由映射,web 两页各用一个同值键(支付方式) —— 非 RN 漂移',
+  },
+  {
+    rn: 'packages/app/src/features/points/PointsScreen.tsx',
+    rnKey: 'points.levelLabel',
+    webKeys: ['points.level'],
+    reason:
+      'web points 屏内 PointsSummary 用 points.level、PointsLeaderboard 用 points.levelLabel,两键五语言同值;RN 采用 levelLabel 后另一键仍同值命中 —— web 屏内双键,非 RN 漂移',
+  },
+  {
+    rn: 'packages/app/src/features/points/PointsScreen.tsx',
+    rnKey: 'points.mallTitle',
+    webKeys: ['points.mallLink'],
+    reason:
+      'web points 屏内页签链接用 points.mallLink、商城页标题用 points.mallTitle,两键五语言同值;RN 采用 mallTitle 后另一键仍同值命中 —— web 屏内双键,非 RN 漂移',
+  },
+  {
+    rn: 'packages/app/src/features/points/PointsScreen.tsx',
+    rnKey: 'points.tasks.title',
+    webKeys: ['points.taskCenterLink'],
+    reason:
+      'web points 屏内页签链接用 points.taskCenterLink、任务页标题用 points.tasks.title,两键五语言同值;RN 采用 tasks.title 后另一键仍同值命中 —— web 屏内双键,非 RN 漂移',
+  },
+  {
+    rn: 'packages/app/src/features/vip/VipScreen.tsx',
+    rnKey: 'vip.duration',
+    webKeys: ['vip.durationDays'],
+    reason:
+      'RN 需插值渲染「{days} 天」;web/shared 合并面 vip.durationDays 在 shared 为无插值标签「有效天数」,直接统一会让 RN 丢失天数 —— 同键不同形态',
+  },
+  {
+    rn: 'packages/app/src/features/agent-create/AgentCreateScreen.tsx',
+    rnKey: 'agentCreate.categoryPlaceholder',
+    webKeys: ['agent.fieldCategoryPlaceholder'],
+    reason:
+      'RN 分类是自由文本输入(示例占位「如:办公助手」),web 分类是 Select(占位「请选择分类」) —— 同字不同义',
+  },
+  {
+    rn: 'packages/app/src/features/course-detail/CourseDetailScreen.tsx',
+    rnKey: 'learn.signedUp',
+    webKeys: ['learn.signUp', 'learn.signupCount'],
+    reason:
+      'web learn/[id] 同屏同义族并存 signUp(报名)与 signedUp(已报名);RN 采用 signedUp 后族内比较排除自身,余键取值不同 —— web 同族双值,非 RN 漂移',
+  },
 ]
 
 /**

@@ -58,7 +58,7 @@ export function StudyProgressScreen({
         </View>
         <View style={styles.statCard}>
           <Text style={styles.statValue}>{progress.weekMinutes ?? 0}</Text>
-          <Text style={styles.statLabel}>{t('studyProgress.weekMinutes')}</Text>
+          <Text style={styles.statLabel}>{t('eduProgressPage.weeklyHours')}</Text>
         </View>
         <View style={styles.statCard}>
           <Text style={styles.statValue}>{progress.streakDays}</Text>
