@@ -1593,8 +1593,13 @@ export function renderMixedStale(ms) {
 
 /**
  * `--message` / `IHUI_COMMIT_MSG_FILE` 的解析与"陈旧信息面"守卫。
- * 顺序:显式入参 → 环境变量 → `<gitdir>/COMMIT_EDITMSG`(**仅当它与 HEAD 的信息不同** ——
- * 与 HEAD 逐字相同的 COMMIT_EDITMSG 是上一次提交的残留,拿它当本次理由就是"没给理由"被读成"给了理由")。
+ * 顺序:显式入参 → 环境变量。
+ *
+ * 2026-11-04 立:第三档 `<gitdir>/COMMIT_EDITMSG` **删除**。立因:共用工作区里它是**单份**文件,
+ * 并发提交时 git 会把别席的消息写进去(26bc403762 / 67ed343 实测串号);而 pre-commit 阶段
+ * git 还没写本席消息(实测该文件不存在),所以这一档读到的要么是上一条残留、要么是**别席在途
+ * 消息** —— 两种都不该被当成本次的理由。旧档"与 HEAD 不同文 ⇒ 采用"正好把别席消息读成自己的。
+ * 要显式声明理由请用 `--message` 或 `IHUI_COMMIT_MSG_FILE`(指向本席私有文件)。
  * 磁盘读取一律经 lib 的 `readTextFileIfExists`(门体不得出现 `readFileSync` —— M-3 形状锁,
  * 它守的是"被审正文不许按盘读";这里的两个面是**人为声明的理由**,不是被审正文)。
  */
@@ -1604,17 +1609,7 @@ export function resolveCommitMessage(repoRoot, explicit = null) {
     const fromFile = readTextFileIfExists(resolve(repoRoot, v))
     return fromFile === null ? v : fromFile
   }
-  const direct = pick(explicit ?? process.env.IHUI_COMMIT_MSG_FILE)
-  if (direct !== null) return direct
-  try {
-    const text = readTextFileIfExists(join(gitDirOf(repoRoot), 'COMMIT_EDITMSG'))
-    if (typeof text !== 'string') return null
-    const head = headCommitMessage(repoRoot)
-    if (typeof head === 'string' && text.trim() === head.trim()) return null
-    return text
-  } catch {
-    return null
-  }
+  return pick(explicit ?? process.env.IHUI_COMMIT_MSG_FILE)
 }
 
 /**
