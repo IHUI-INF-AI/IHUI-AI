@@ -187,11 +187,58 @@ export function backupOrphanCommit({
   }
 }
 
+/**
+ * 中间轮次的**只记台账**出口(2026-11-04 立,第五单)。
+ *
+ * 立因:plan-tasks-merge / git-sync-converge 这类"每轮按当时 HEAD 现读重算"的 CAS 循环里,
+ * 中间轮次造出的 sha 结构上会被下一轮取代 —— 但它们的载荷**不是**同一批 blob(每轮重算),
+ * 所以不能照搬 object-space-land 的"内容必然被下一轮覆盖"论证。保守收法是把中间 sha 记进
+ * 同一本 jsonl 台账(**只记不 tag**),末枚才走 backupOrphanCommit 打 tag。
+ *
+ * 三条界线(不得漂):
+ *  ① 本函数**只追加台账**,不建 ref、不 pack-refs ⇒ 它对 30a 的 `--list-unbacked` 完全不可见;
+ *     30a 看到的仍是"这枚没有 tag ⇒ 未备份"。台账不是备份,不得据此放宽任何门(§12e)。
+ *  ② 台账字段带 `superseded:true` + `ref:null`,与真备份行(`ref:lost-commit/...`)可机读区分。
+ *  ③ 写不进台账不反过来说"已处理":返回 ok:false,调用方按告警出声。
+ */
+export function recordAbandonedCommit({
+  sha,
+  why = '中间轮次被下一轮取代',
+  kind = 'conv',
+  root = REPO_ROOT,
+  ledgerFile = resolve(root, '.ihui-agent', 'state', 'orphan-backup.jsonl'),
+  now = new Date(),
+} = {}) {
+  const s = String(sha || '').trim()
+  if (!/^[0-9a-f]{40}$/.test(s) || !orphanBackupRefName(s, kind)) {
+    return { ok: false, ref: null, why: 'bad-sha-or-kind' }
+  }
+  try {
+    mkdirSync(dirname(ledgerFile), { recursive: true })
+    appendFileSync(
+      ledgerFile,
+      JSON.stringify({
+        at: now.toISOString(),
+        sha: s,
+        kind,
+        why: String(why).slice(0, 200),
+        ref: null,
+        superseded: true,
+      }) + '\n',
+      'utf8',
+    )
+    return { ok: true, ref: null, why: 'ledger-only' }
+  } catch (e) {
+    return { ok: false, ref: null, why: `ledger-write-failed:${String(e?.message ?? e).slice(0, 120)}` }
+  }
+}
+
 /** §22c:镜像测试直接吃这份判据,不在测试里复制。 */
 export const __test__ = {
   orphanBackupRefName,
   backupOrphanCommit,
   findTreeAlreadyPresent,
+  recordAbandonedCommit,
   ORPHAN_TAG_PREFIX,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
