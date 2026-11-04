@@ -44,26 +44,26 @@ export default function EmptyIllustration({
   const tt = useTt()
   const imgSrc = ICON_IMAGES[type]
   return (
-    <View className="flex flex-col items-center justify-center py-12 px-4">
+    <View className="flex flex-col items-center justify-center py-5xl px-lg">
       {imgSrc ? (
-        <Image className="w-12 h-12 mb-3" src={imgSrc} mode="aspectFit" />
+        <Image className="w-12 h-12 mb-md" src={imgSrc} mode="aspectFit" />
       ) : (
         <LineIcon
           name={(ICON_EMOJIS[type] || 'inbox') as IconName}
           size="48px"
           color="var(--color-muted-foreground)"
-          className="mb-3"
+          className="mb-md"
         />
       )}
-      <Text className="text-sm text-muted-foreground mb-1">{text || DEFAULT_TEXTS(tt)[type]}</Text>
-      {desc && <Text className="text-xs text-muted-foreground text-center mb-3">{desc}</Text>}
+      <Text className="text-body text-muted-foreground mb-xs">{text || DEFAULT_TEXTS(tt)[type]}</Text>
+      {desc && <Text className="text-label text-muted-foreground text-center mb-md">{desc}</Text>}
       {actionText && onAction && (
         <View
-          className="px-4 py-2 rounded-md bg-primary/10"
+          className="px-lg py-sm rounded-md bg-primary/10"
           onClick={onAction}
           hoverClass="opacity-60"
         >
-          <Text className="text-sm text-primary">{actionText}</Text>
+          <Text className="text-body text-primary">{actionText}</Text>
         </View>
       )}
     </View>

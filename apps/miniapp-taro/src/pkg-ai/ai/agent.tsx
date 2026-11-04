@@ -316,7 +316,7 @@ export default function AgentPage() {
           ]}
         />
       </View>
-      <View className="bg-background pb-2 sticky top-0 z-10">
+      <View className="bg-background pb-sm sticky top-0 z-10">
         <SearchBar
           value={keyword}
           placeholder={t('ai.agent.searchPlaceholder')}
@@ -361,7 +361,7 @@ export default function AgentPage() {
           <>
             <ModelTypeButtonGroup activeType={activeType} onSelect={(tp) => setActiveType(tp)} />
             <ScrollView scrollX enhanced showScrollbar={false} className="whitespace-nowrap">
-              <View className="whitespace-nowrap px-3 pt-1">
+              <View className="whitespace-nowrap px-md pt-xs">
                 {categories.map((cat) => {
                   const active = activeCategory === cat.key
                   return (
@@ -382,8 +382,8 @@ export default function AgentPage() {
               </View>
             </ScrollView>
             {/* 排序选项 */}
-            <View className="flex items-center px-3 pt-2 pb-1">
-              <Text className="text-caption text-muted-foreground mr-2">
+            <View className="flex items-center px-md pt-sm pb-xs">
+              <Text className="text-caption text-muted-foreground mr-sm">
                 {t('ai.agentList.sortBy')}
               </Text>
               {sortOptions.map((opt) => {
@@ -391,7 +391,7 @@ export default function AgentPage() {
                 return (
                   <View
                     key={opt.key}
-                    className={`mr-3 text-caption ${active ? 'text-[var(--color-primary)] font-medium' : 'text-muted-foreground'}`}
+                    className={`mr-md text-caption ${active ? 'text-[var(--color-primary)] font-medium' : 'text-muted-foreground'}`}
                     onClick={() => setSortKey(opt.key)}
                     hoverClass="opacity-60"
                   >
@@ -406,8 +406,8 @@ export default function AgentPage() {
 
       {/* 顶部热门推荐 Banner(仅全部 Tab + 无筛选时显示) */}
       {hotBanner.length > 0 && (
-        <View className="px-3 pt-3">
-          <View className="flex items-center justify-between mb-2">
+        <View className="px-md pt-md">
+          <View className="flex items-center justify-between mb-sm">
             <Text className="text-body text-foreground font-semibold">
               {t('ai.agentList.hotRecommend')}
             </Text>
@@ -417,7 +417,7 @@ export default function AgentPage() {
             {hotBanner.map((agent, idx) => (
               <View
                 key={agent.id}
-                className="inline-flex flex-col items-center bg-card rounded-lg p-3 mr-3 align-top"
+                className="inline-flex flex-col items-center bg-card rounded-lg p-md mr-md align-top"
                 style={{ width: '200rpx' }}
                 onClick={() => goDetail(agent.id)}
                 hoverClass="opacity-60"
@@ -433,11 +433,11 @@ export default function AgentPage() {
                     <Text>NO.{idx + 1}</Text>
                   </View>
                 </View>
-                <Text className="block text-body-sm leading-[normal] text-foreground font-medium mt-2 truncate w-full text-center">
+                <Text className="block text-body-sm leading-[normal] text-foreground font-medium mt-sm truncate w-full text-center">
                   {agent.name}
                 </Text>
                 {agent.uses !== undefined && (
-                  <Text className="block text-caption text-[var(--color-primary)] mt-1">
+                  <Text className="block text-caption text-[var(--color-primary)] mt-xs">
                     {t('ai.agentList.useCount', { n: agent.uses })}
                   </Text>
                 )}
@@ -463,7 +463,7 @@ export default function AgentPage() {
         />
       ) : (
         <View className="px-[32rpx] py-[32rpx]">
-          <Text className="block text-xs text-muted-foreground mb-2">
+          <Text className="block text-label text-muted-foreground mb-sm">
             {t('ai.agent.count', { n: filtered.length })}
           </Text>
           {filtered.map((agent) => {
@@ -522,7 +522,7 @@ export default function AgentPage() {
 
       {/* 创建智能体悬浮按钮(对标原项目 dev_enter 入口) */}
       <View
-        className="fixed right-4 bg-[var(--color-primary)] text-primary-foreground rounded-lg px-3 py-2 shadow-lg"
+        className="fixed right-4 bg-[var(--color-primary)] text-primary-foreground rounded-lg px-md py-sm shadow-lg"
         style={{ bottom: '140rpx' }}
         onClick={onCreateAgent}
         hoverClass="opacity-60"

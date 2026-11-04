@@ -18,7 +18,7 @@ export interface MessageTabsProps {
 
 export default function MessageTabs({ tabs, active, onChange }: MessageTabsProps) {
   return (
-    <ScrollView scrollX className="mb-2" enhanced showScrollbar={false}>
+    <ScrollView scrollX className="mb-sm" enhanced showScrollbar={false}>
       {/* 对齐 RN MessageCenterScreen:胶囊 tab(paddingHorizontal 14/paddingVertical 6/radius 12 dp) */}
       <View className="flex flex-row items-center px-[20rpx] py-[16rpx] gap-[16rpx]">
         {tabs.map((tab) => {

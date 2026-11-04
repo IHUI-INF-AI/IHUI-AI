@@ -86,7 +86,7 @@
 
 /* 区块容器 — 对齐 RN section(透明底 + paddingHorizontal 10) */
 .rc-card {
-  padding: 0 20rpx;
+  padding: 0 var(--spacing-sm-loose);
   margin-bottom: var(--spacing-md);
   background: transparent;
   border: none;
@@ -138,7 +138,7 @@
 /* 自定义金额 — 对齐 RN customInput(bg muted/height 50/radius 12/fontSize 16) */
 .rc-input {
   height: 100rpx;
-  padding: 0 28rpx;
+  padding: 0 var(--spacing-md-loose);
   font-size: var(--text-title);
   border: 2rpx solid var(--color-border);
   border-radius: var(--radius-sm);
@@ -165,7 +165,7 @@
 
 /* 限时活动 — 复用 RN 卡片语言(白卡 + border.light 描边 + radius 12) */
 .rc-activity {
-  margin: 0 20rpx 24rpx;
+  margin: 0 var(--spacing-sm-loose) var(--spacing-md);
   border-radius: var(--radius-xl);
   overflow: hidden;
   background: var(--color-card);
@@ -271,7 +271,7 @@
 
 /* 提交按钮 — 对齐 RN submitBtn(marginHorizontal 10/height 50/radius 12/brand 底) */
 .rc-submit {
-  margin: var(--spacing-sm-loose) 20rpx 24rpx;
+  margin: var(--spacing-sm-loose) var(--spacing-sm-loose) var(--spacing-md);
   height: 100rpx;
   line-height: 100rpx;
   background: var(--color-cta);

@@ -101,7 +101,7 @@ export default function ShareCreationPage() {
       <View className="min-h-screen bg-background">
         <NavBar title={t('share.creation.title')} showBack />
         <View className="flex items-center justify-center py-20">
-          <Text className="text-sm text-muted-foreground">{t('share.creation.loading')}</Text>
+          <Text className="text-body text-muted-foreground">{t('share.creation.loading')}</Text>
         </View>
       </View>
     )

@@ -27,7 +27,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--spacing-md) 20rpx;
+  padding: var(--spacing-md) var(--spacing-sm-loose);
 }
 .nm-title {
   flex: 1;
@@ -41,7 +41,7 @@
   font-weight: 600;
   /* RN 文字色 surface.light(#FFF) 在暗色 brand(白底)上不可读,按语义修正为 primary-foreground */
   color: var(--color-cta-foreground);
-  padding: var(--spacing-xs-loose) 28rpx;
+  padding: var(--spacing-xs-loose) var(--spacing-md-loose);
   background: var(--color-cta);
   border-radius: var(--radius-sm);
 }
@@ -98,7 +98,7 @@
   display: block;
   font-size: var(--text-body-sm);
   color: var(--color-muted-foreground);
-  margin: var(--spacing-md) 0 8rpx;
+  margin: var(--spacing-md) 0 var(--spacing-xs);
 }
 /* 头像上传(RN 无对应;按 RN 输入语言推导: muted 底 + border light + 12dp=24rpx 方圆角档) */
 .nm-avatar-wrap {
@@ -121,14 +121,14 @@
   font-size: var(--text-caption); /* RN 小字档 11dp */
   color: var(--color-text-tertiary); /* RN text.tertiary */
   text-align: center;
-  padding: 0 16rpx;
+  padding: 0 var(--spacing-sm);
 }
 /* RN modalInput: border 1 border.light,radius 8dp=16rpx,px rpx(16)/py rpx(12),
    14dp=28rpx,text.primary,bg surface.muted,mb rpx(16);触控高度对齐 RN modalBtn rpx(88) */
 .nm-input {
   width: 100%;
   min-height: 88rpx;
-  padding: var(--spacing-xs-loose) 16rpx;
+  padding: var(--spacing-xs-loose) var(--spacing-sm);
   background: var(--color-muted);
   border-radius: var(--radius-sm);
   font-size: var(--text-body);
@@ -141,7 +141,7 @@
 .nm-textarea {
   width: 100%;
   min-height: 88rpx;
-  padding: var(--spacing-xs-loose) 16rpx;
+  padding: var(--spacing-xs-loose) var(--spacing-sm);
   background: var(--color-muted);
   border-radius: var(--radius-sm);
   font-size: var(--text-body);
@@ -172,7 +172,7 @@
   align-items: center;
   justify-content: space-between;
   margin-top: var(--spacing-sm);
-  padding: var(--spacing-xs-loose) 16rpx;
+  padding: var(--spacing-xs-loose) var(--spacing-sm);
   background: var(--color-muted);
   border-radius: var(--radius-lg);
 }
@@ -187,7 +187,7 @@
 .nm-file-remove {
   font-size: var(--text-label);
   color: var(--color-danger); /* RN danger.DEFAULT */
-  padding: 0 8rpx;
+  padding: 0 var(--spacing-xs);
   margin-left: var(--spacing-sm);
 }
 /* ===== 参数列表(RN 无对应;卡片语言对齐 RN card: padding 12dp=24rpx,radius 12dp=24rpx,border light) ===== */
@@ -215,7 +215,7 @@
 .nm-param-del {
   font-size: var(--text-body-sm); /* RN 次级文字 13dp 档 */
   color: var(--color-danger); /* RN danger.DEFAULT */
-  padding: var(--spacing-2xs) 12rpx;
+  padding: var(--spacing-2xs) var(--spacing-xs-loose);
 }
 .nm-param-field {
   margin-bottom: var(--spacing-sm-loose);
@@ -233,7 +233,7 @@
 .nm-field-input {
   width: 100%;
   min-height: 72rpx;
-  padding: var(--spacing-xs-loose) 16rpx;
+  padding: var(--spacing-xs-loose) var(--spacing-sm);
   background: var(--color-muted);
   border-radius: var(--radius-sm);
   font-size: var(--text-body-sm);
@@ -244,7 +244,7 @@
 .nm-field-textarea {
   width: 100%;
   min-height: 120rpx;
-  padding: var(--spacing-xs-loose) 16rpx;
+  padding: var(--spacing-xs-loose) var(--spacing-sm);
   background: var(--color-muted);
   border-radius: var(--radius-sm);
   font-size: var(--text-body-sm);
@@ -260,7 +260,7 @@
   gap: var(--spacing-xs-loose);
 }
 .nm-type {
-  padding: 10rpx 20rpx;
+  padding: 10rpx var(--spacing-sm-loose);
   background: var(--color-muted);
   border-radius: var(--radius-lg);
   font-size: var(--text-label);

@@ -35,7 +35,7 @@ export default function VipPayConfirm({
     <View className="fixed inset-0 z-[2000] flex items-end" onClick={onCancel}>
       <View className="absolute inset-0 bg-[var(--color-black-50)]" />
       <View
-        className="relative vip-surface rounded-t-2xl w-full px-6 pb-6 pt-lg"
+        className="relative vip-surface rounded-t-2xl w-full px-2xl pb-2xl pt-lg"
         onClick={(e) => e.stopPropagation()}
         hoverClass="opacity-60"
       >

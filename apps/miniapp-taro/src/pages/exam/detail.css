@@ -64,7 +64,7 @@
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
   border-radius: var(--radius-xl);
-  padding: var(--spacing-md-loose) 16rpx;
+  padding: var(--spacing-md-loose) var(--spacing-sm);
   margin-bottom: var(--spacing-sm-loose);
 }
 
@@ -180,7 +180,7 @@
 .exam-detail-history-status {
   font-size: var(--text-caption);
   font-weight: 600;
-  padding: var(--spacing-xs) 12rpx;
+  padding: var(--spacing-xs) var(--spacing-xs-loose);
   border-radius: var(--radius-sm);
 }
 
@@ -238,7 +238,7 @@
   bottom: 0;
   left: 0;
   right: 0;
-  padding: var(--spacing-sm-loose) 28rpx;
+  padding: var(--spacing-sm-loose) var(--spacing-md-loose);
   padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
   background: var(--color-card);
   z-index: 10;

@@ -84,7 +84,7 @@ export function Sheet({ open, onOpenChange, children, side = 'bottom' }: SheetPr
         onClick={(e) => e.stopPropagation()}
       >
         {/* 拖拽手柄:12rpx = RN h-1.5(6pt);`[12rpx]` 写法勿改回 rpx 裸值 */}
-        <View className="mb-4 items-center">
+        <View className="mb-lg items-center">
           <View className="h-[12rpx] w-10 rounded bg-border" />
         </View>
         {children}
