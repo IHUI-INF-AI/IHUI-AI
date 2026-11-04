@@ -167,7 +167,11 @@ export function PointsScreen({
     { key: 'current', label: t('points.current'), value: account?.points },
     { key: 'earned', label: t('points.totalEarned'), value: account?.totalEarned },
     { key: 'spent', label: t('points.totalSpent'), value: account?.totalSpent },
-    { key: 'level', label: t('points.level'), value: account ? `Lv.${account.level}` : undefined },
+    {
+      key: 'level',
+      label: t('points.levelLabel'),
+      value: account ? `Lv.${account.level}` : undefined,
+    },
   ]
 
   return (
@@ -203,7 +207,9 @@ export function PointsScreen({
             <View style={styles.card}>
               <View style={styles.cardHead}>
                 <Award size={16} color={tk.text.secondary} />
-                <Text style={styles.cardTitle}>{level?.current?.name ?? t('points.level')}</Text>
+                <Text style={styles.cardTitle}>
+                  {level?.current?.name ?? t('points.levelLabel')}
+                </Text>
                 <Text style={styles.cardMuted}>
                   {level?.next
                     ? t('points.nextLevel', { name: level.next.name, points: remaining })
@@ -305,20 +311,20 @@ export function PointsScreen({
                 onPress={onOpenMall}
                 activeOpacity={0.7}
                 accessibilityRole="button"
-                accessibilityLabel={t('points.mallLink')}
+                accessibilityLabel={t('points.mallTitle')}
               >
                 <ShoppingBag size={16} color={tk.text.primary} />
-                <Text style={styles.entryText}>{t('points.mallLink')}</Text>
+                <Text style={styles.entryText}>{t('points.mallTitle')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.entryBtn}
                 onPress={onOpenTasks}
                 activeOpacity={0.7}
                 accessibilityRole="button"
-                accessibilityLabel={t('points.taskCenterLink')}
+                accessibilityLabel={t('points.tasks.title')}
               >
                 <ListChecks size={16} color={tk.text.primary} />
-                <Text style={styles.entryText}>{t('points.taskCenterLink')}</Text>
+                <Text style={styles.entryText}>{t('points.tasks.title')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.entryBtn}

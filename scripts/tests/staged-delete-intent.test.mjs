@@ -296,7 +296,7 @@ function writeIntentLedger(dir, ts, paths = ['base.txt']) {
   )
 }
 
-test('到期档:TTL 内不恢复;超 TTL 回盘并把意图写回同一本账;时刻读不出不恢复', (t) => {
+test('到期档:TTL 内不恢复;超 TTL 也只报数不代裁(2026-11-04 堵反悔口);时刻读不出不恢复', (t) => {
   const H = 3600_000
   // ① TTL 内 ⇒ 照旧"只报数"(阳性对照:加了到期绝不能把在飞席位的东西抢回来)
   const a = scratchRepo(t)
@@ -308,30 +308,35 @@ test('到期档:TTL 内不恢复;超 TTL 回盘并把意图写回同一本账;�
   assert.deepEqual(fresh.intentExpired, [], 'TTL 内不得到期')
   assert.ok(!fresh.safe.includes('base.txt'), 'TTL 内不得进恢复清单')
 
-  // ② 超 TTL ⇒ 移入到期并随 safe 回盘;heal 落地成功后写新留痕,且新留痕不再被读侧消费
+  // ② 超 TTL ⇒ 移入到期档,**仍不回盘**(2026-11-04 改判)。
+  //    理由:那条 report-only 是"人主动暂存删除、标记却被 reset 摘掉"的**证据**,与"宿主误删"
+  //    不是同一件事;按 TTL 把证据作废 = 等 2 小时再替人删一次(2026-09-24 / 2026-11-04 两起事故)。
   const b = scratchRepo(t)
   git(b, 'rm', '-q', '--', 'base.txt')
   git(b, 'reset', 'HEAD')
   writeIntentLedger(b, new Date(Date.now() - 3 * H).toISOString())
   const expired = findOrphanedDeletions(b, { now: Date.now(), ttlHours: 2 })
   assert.deepEqual(expired.intentExpired, ['base.txt'], '超 TTL 必须识别成到期档')
-  assert.ok(expired.safe.includes('base.txt'), '到期档要随 safe 一起回盘')
+  assert.ok(
+    !expired.safe.includes('base.txt'),
+    '到期档不得再进 safe —— TTL 不是"替你删第二次"的许可证',
+  )
   const res = heal(b, {})
-  assert.equal(existsSync(join(b, 'base.txt')), true, '到期后文件必须回到盘上(内容恒等于 HEAD)')
-  assert.deepEqual(res.intentExpiredPaths, ['base.txt'], '结果里要看得见回盘的那几枚')
+  assert.equal(existsSync(join(b, 'base.txt')), false, '到期档不回盘:文件必须仍不在盘上')
+  assert.deepEqual(
+    res.intentExpiredPaths,
+    ['base.txt'],
+    '结果里要看得见这枚待裁决路径(不回盘不等于可以静默消失)',
+  )
   const ledgerAfter = readFileSync(
     join(b, '.ihui-agent', 'state', 'staged-delete-intent-ledger.jsonl'),
     'utf8',
   ).trim().split('\n')
-  const last = JSON.parse(ledgerAfter[ledgerAfter.length - 1])
-  assert.equal(last.event, 'staged-intent-expiry-restored', '意图清单要写回同一本账')
-  assert.deepEqual(last.clearedIntentLost, ['base.txt'], '路径逐字留着,归属会话可一句 git rm --cached 坐实')
-  // 反自我循环:回盘后再制造同样的缺失,新事件(report-only 之外)不得把它再判成"待裁决"
-  git(b, 'rm', '-q', '--', 'base.txt')
-  git(b, 'reset', 'HEAD')
+  assert.equal(ledgerAfter.length, 1, '"到期恢复"通道已撤,不得再写"已恢复"留痕(那是伪造已落地)')
+  // 反自我循环:再读一遍必须是同一档,不得在 intentLost/intentExpired 之间来回跳
   const again = findOrphanedDeletions(b, { now: Date.now(), ttlHours: 2 })
-  assert.deepEqual(again.intentLost, [], '到期留痕不得被读侧再消费成待裁决(自我循环)')
-  assert.ok(again.safe.includes('base.txt'), '无 report-only 证据时回到原判据:按外部删除恢复')
+  assert.deepEqual(again.intentLost, [], '到期档不得被读侧消费成待裁决')
+  assert.deepEqual(again.intentExpired, ['base.txt'], '到期档保持到期档')
 
   // ③ 账上时刻读不出 ⇒ 判不出那一档,不恢复(§0.3)
   const c = scratchRepo(t)
@@ -437,17 +442,21 @@ test('形状锁:safe-commit 必须在 reset 之前取样,只标记不代裁(不�
 
   // 取样必须**在** reset 之前:两个下标可比。
   // ⚠️ 两处定位纪律(都是本用例实测踩出来的):
-  //  ① reset 的定位用**未遮罩**的 src:它在源码里是 `gitStep(['reset', 'HEAD'], ...)`,
+  //  ① reset 的定位用**未遮罩**的 src:它在源码里是 `gitStep([...reset...], ...)`,
   //     而 `'HEAD'` 是字符串字面量,会被 maskCommentsAndStrings 抹掉(实测 masked 侧 indexOf = -1)。
+  //     2026-11-04 起 Step 1 是**路径作用域**形态(`gitStep(['reset','-q','HEAD',...pathspecArgs(...)])`),
+  //     逐字锚 `"gitStep(['reset', 'HEAD']"` 会恒 -1 ⇒ 改成锚函数名 + 首个实参,顺序判据的语义不变;
+  //     "reset 必须带 pathspec" 由 safe-commit.test.mjs SC9 单独钉(此处不复制第二条判据)。
   //  ② 三个函数名在文件顶部的 **import 段**里各出现一次,而 mask **保留标识符**
   //     ⇒ 只按裸名 indexOf 会命中 import(恒在 reset 之前),量出假的顺序。
   //     故一律锚在**带实参的调用文本**上。
   const iSnap = masked.indexOf('snapshotStagedDeleteIntent({ root: repoRoot })')
   const iJudge = masked.indexOf('judgeStagedDeleteIntent({')
   const iAfter = masked.indexOf('readCachedNameStatus({ root: repoRoot })')
-  const iReset = src.indexOf("gitStep(['reset', 'HEAD']")
+  const resetMatch = /gitStep\(\s*\['reset'/.exec(src)
+  const iReset = resetMatch ? resetMatch.index : -1
   assert.ok(iSnap > -1 && iReset > -1 && iJudge > -1, '三处调用点都要在')
-  assert.ok(iSnap < iReset, '取样必须早于 git reset HEAD —— 判据的唯一合法取样窗')
+  assert.ok(iSnap < iReset, '取样必须早于 git reset —— 判据的唯一合法取样窗')
   assert.ok(iAfter > iReset, '清空后的第二次取样必须晚于 reset(否则量的是清空前那一瞬,判据恒空)')
   assert.ok(iJudge > iReset, '判据必须跑在 reset 之后(它比的是清面前后两次观测)')
 
@@ -465,11 +474,11 @@ test('形状锁:存续自愈读的是同一份账,且判据面与既有 held 分
   assert.match(src, /intentLost\.push\(path\)/, '命中账的路径必须被移入 intentLost 而不是 safe')
   assert.match(
     src,
-    /return \{ safe, held, orphanIndex, intentLost, intentExpired \}/,
-    '必须单列一档,不折进 held;到期档也单列(2026-10-23)',
+    /return \{ safe, held, orphanIndex, intentLost, intentExpired, intentDeclared, noticeUndetermined \}/,
+    '必须单列一档,不折进 held;到期档也单列(2026-10-23);已声明删除再单列(2026-11-04)',
   )
-  // 到期档的三条纪律:①只按 TTL 分档,读不出时刻一律不恢复;②留痕必须排在落地成功之后;
-  // ③写进同一本账的新事件不得被自己的读侧再消费成"待裁决"(会自我循环)。
+  // 到期档的三条纪律:①只按 TTL 分档,读不出时刻一律不恢复;②到期只报数、**不再回盘**;
+  // ③到期不得再往账里写"已恢复"(那条通道已撤)。
   const masked = maskCommentsAndStrings(src)
   assert.match(src, /const age = Number\.isFinite\(seenAt\) \? now - seenAt : NaN/, '时刻解不出 ⇒ 年龄是 NaN,不是 0')
   assert.match(
@@ -477,16 +486,23 @@ test('形状锁:存续自愈读的是同一份账,且判据面与既有 held 分
     /if \(Number\.isFinite\(age\) && age > ttlHours \* 3600_000\) \{/,
     '只有"量得到年龄且确已超 TTL"才准进到期档(行为由上面③的夹具用例钉住)',
   )
+  const ttlStart = masked.indexOf('if (Number.isFinite(age) && age > ttlHours * 3600_000) {')
+  const ttlBranch = ttlStart < 0 ? '' : masked.slice(ttlStart, masked.indexOf('intentLost.push(path)'))
   assert.ok(
-    masked.indexOf('restoreToHead(g, safe)') < masked.indexOf('appendIntentExpiryLedger(repoRoot, expiredRestored'),
-    '留痕必须排在落地成功之后(先写后落会把"面上还在"说成"已删")',
+    ttlBranch.length > 0 && !ttlBranch.includes('safe.push('),
+    '到期分支里不得再出现 safe.push —— TTL 不是"替你删第二次"的许可证(2026-11-04)',
   )
   assert.match(
-    masked,
-    /expiredRestored = intentExpiredPaths\.filter\(\(p\) => done\.includes\(p\)\)/,
-    '留痕只能记真正回盘成功的那几枚',
+    src,
+    /intentExpired\.push\(path\)\s*\n\s*continue/,
+    '到期档 push 完必须直接 continue —— 只报数不代裁',
   )
-  assert.match(src, /actionTaken: 'restored-intent-expired'/, '新事件必须用非 report-only 的 actionTaken')
+  assert.match(
+    src,
+    /intentExpired: intentExpiredPaths\.length/,
+    '不回盘不等于静默:heal 必须把到期清单全量带回(与 done 求交会让整档恒空)',
+  )
+  assert.match(src, /actionTaken: 'restored-intent-expired'/, '历史留痕通道的函数仍在(既有账可读)')
   assert.doesNotMatch(src, /actionTaken: 'report-only'[\s\S]{0,40}restored-intent-expired/, '两者不得同形')
   const masked0 = maskCommentsAndStrings(src)
   assert.ok(
