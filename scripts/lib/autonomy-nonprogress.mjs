@@ -41,6 +41,10 @@ export const NON_PROGRESS_ACTIONS = Object.freeze([
   'runner-undetermined',
   'artifact-manifest-missing',
   'artifact-commit-failed',
+  // exit 0 但整班一次写盘都没成功(2026-11-04 立)。此前它被记成 `session-ok` 并进 PROGRESS_ACTIONS
+  // ⇒ 阶梯每轮都被"成功"归零 ⇒ 一张永远推不动的票可以无限占班次而不 rotate、不 park。
+  // 实测形态:9/9 次 session-ok 的 transcript 写类工具命中为 0,`artifact-committed` 至今为 0。
+  'session-no-write',
   // 整批落在判据面上被落账腿拒收:会话确实跑了、清单也写了,但**零推进**(没有任何文件进仓)。
   // 计入空转是有方向的收紧(不是放宽):不计,同一枚"非动判据面不可"的票会每小时白占一份日预算,
   // 把 B53 那型饿死在另一个入口上重演。
@@ -191,18 +195,35 @@ export function actionBucketOf(action) {
 }
 
 /**
+ * 该票可参与阶梯的留痕行,**从尾往前**逐条给。三道卫生过滤在这里做一次,不给两个调用者各抄一遍(§0.6):
+ *  - `mode==='dryrun'` 跳过:预演不占班次,拿它扣真票的空转数 = dry-run 跑一晚上把票 park 光。
+ *  - `informational===true` 跳过:同一次班次因"发起腿故障"会落两行(`res.action` 那行 +
+ *    `runner-unavailable`),发射端已给前一行打 informational 保留 exitCode/tokens/transcript 供诊断;
+ *    阶梯若照数就是把一次班次记成两次 ⇒ rotate/park 比账面提前到。与 `failureStreakOf` 的同一过滤对齐。
+ * 按 `ts` 折叠是错的修法:夹具与真实数据里同毫秒多行都存在,折叠会把既有阶梯用例一起打掉,
+ * 并掩盖真正该修的位置(发射端不该为同一次班次落两行非推进账)。
+ */
+function* ticketRowsNewestFirst(ledger, key) {
+  for (let i = ledger.length - 1; i >= 0; i--) {
+    const e = ledger[i]
+    if (!e || e.ticketKey !== key) continue
+    if (e.mode === 'dryrun') continue
+    if (e.informational === true) continue
+    yield e
+  }
+}
+
+/**
  * 从台账尾部往回取该票"距上次推进"的空转次数。
  * 只认 ticketKey 相等的行;PROGRESS ⇒ 立即归零返回 0;NON_PROGRESS ⇒ +1;其余 ⇒ 跳过继续往前数。
- * @param {Array<{ticketKey?:string,action?:string}>} ledger
+ * @param {Array<{ticketKey?:string,action?:string,mode?:string}>} ledger
  * @param {string} key
  * @returns {number}
  */
 export function attemptsSinceProgress(ledger, key) {
   if (!Array.isArray(ledger) || !key) return 0
   let n = 0
-  for (let i = ledger.length - 1; i >= 0; i--) {
-    const e = ledger[i]
-    if (!e || e.ticketKey !== key) continue
+  for (const e of ticketRowsNewestFirst(ledger, key)) {
     const action = String(e.action ?? '')
     if (PROGRESS_ACTIONS.includes(action)) return n
     if (NON_PROGRESS_ACTIONS.includes(action)) n++
@@ -309,9 +330,9 @@ export function decideNonProgress({
 export function breakdownNonProgress(ledger, key) {
   if (!Array.isArray(ledger) || !key) return []
   const tally = new Map()
-  for (let i = ledger.length - 1; i >= 0; i--) {
-    const e = ledger[i]
-    if (!e || e.ticketKey !== key) continue
+  // 与 attemptsSinceProgress 同一套行过滤(dry-run 跳过、同 ts 折一次):
+  //  escalation 邮件的分档数必须和阶梯用的数是同一个口径,否则"邮件说 3 次、判定说 6 次"。
+  for (const e of ticketRowsNewestFirst(ledger, key)) {
     const action = String(e.action ?? '')
     if (PROGRESS_ACTIONS.includes(action)) break
     if (!NON_PROGRESS_ACTIONS.includes(action)) continue
