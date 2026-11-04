@@ -344,36 +344,6 @@
       "evidence": "check-web-rn-style-tiers --json: apps/mobile-rn/src/components/ConfirmPurchasePopUp.tsx 的 radioDot 为 borderRadius=10(1 处);台账 scripts/data/cross-end-fork-decisions.json"
     },
     {
-      "component": "CourseCarousel.thumbIcon",
-      "key": "styleTier:fontSize:fontSize:36",
-      "platform": "rn",
-      "owner": "cross-end-ui",
-      "expires": "2027-03-27",
-      "count": 1,
-      "reason": "RN 用 fontSize 作图标/emoji/首字母的字形盒,web 侧同类元素由 SVG/图标组件承载,没有可对齐的排版档;登记为 RN 单侧展示元素,零观感改动。",
-      "evidence": "check-web-rn-style-tiers --json: apps/mobile-rn/src/components/CourseCarousel.tsx 的 thumbIcon 为 fontSize=36(1 处);台账 scripts/data/cross-end-fork-decisions.json"
-    },
-    {
-      "component": "CourseCarousel.thumbIcon",
-      "key": "styleTier:fontSize:fontSize:32",
-      "platform": "rn",
-      "owner": "cross-end-ui",
-      "expires": "2027-03-27",
-      "count": 1,
-      "reason": "RN 用 fontSize 作图标/emoji/首字母的字形盒,web 侧同类元素由 SVG/图标组件承载,没有可对齐的排版档;登记为 RN 单侧展示元素,零观感改动。",
-      "evidence": "check-web-rn-style-tiers --json: apps/mobile-rn/src/components/CourseCarousel.tsx 的 thumbIcon 为 fontSize=32(1 处);台账 scripts/data/cross-end-fork-decisions.json"
-    },
-    {
-      "component": "CourseCarousel.thumbIcon",
-      "key": "styleTier:fontSize:fontSize:28",
-      "platform": "rn",
-      "owner": "cross-end-ui",
-      "expires": "2027-03-27",
-      "count": 1,
-      "reason": "RN 用 fontSize 作图标/emoji/首字母的字形盒,web 侧同类元素由 SVG/图标组件承载,没有可对齐的排版档;登记为 RN 单侧展示元素,零观感改动。",
-      "evidence": "check-web-rn-style-tiers --json: apps/mobile-rn/src/components/CourseCarousel.tsx 的 thumbIcon 为 fontSize=28(1 处);台账 scripts/data/cross-end-fork-decisions.json"
-    },
-    {
       "component": "RN:spacing:marginLeft",
       "key": "styleTier:spacing:marginLeft:1",
       "platform": "rn",
@@ -947,8 +917,8 @@
       "platform": "both",
       "owner": "cross-end-props-parity",
       "expires": "2027-03-27",
-      "reason": "variant/courseMeta 是小程序端「课程专用轮播」叠层(标题+价格/免费标签);RN 端把课程形态拆成独立 CourseCarousel 组件承载,同名组件不承担叠加层 → 架构分工差异,登记而不复制渲染。",
-      "evidence": "check-cross-end-component-props-parity --json: Carousel onlyMini 含 variant/courseMeta;对照 apps/mobile-rn/src/components/CourseCarousel.tsx 独立承载课程叠加"
+      "reason": "variant/courseMeta 是小程序端「课程专用轮播」叠层(标题+价格/免费标签);RN 端同名 Carousel 不承担课程叠层,其课程轮播实现已于 2026-11-04 作为零消费死代码删除 → 架构分工差异,登记而不复制渲染。",
+      "evidence": "check-cross-end-component-props-parity --json: Carousel onlyMini 含 variant/courseMeta;RN 侧无同名课程叠层组件(2026-11-04 作为零消费死代码删除)"
     },
     {
       "component": "InputArea",
