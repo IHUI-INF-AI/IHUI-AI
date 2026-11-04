@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-04T04:22:33.537Z",
+  "generatedAt": "2026-11-04T05:31:36.562Z",
   "face": "head",
   "rule": "差值棘轮:在册集合只减不增;新键/新对未入账=红;undetermined=warn 点名(有效 not-applicable 裁决除外)。已能量出的整对不适用亦按 pair-level 裁决剔除存量。存差=未实现+未映射+未裁决,逐键 judged 台账仅移出存差、不入映射、逐条留审(owner/expires/evidence≥2/rationale),坏裁决/过期/一键两归/失效裁决=红且拒写。升绝对零前置=存差归零。",
   "pairs": {
@@ -13,12 +13,8 @@
     },
     "BackChevron": {
       "state": "ok",
-      "onlyRn": [
-        "label"
-      ],
-      "onlyMini": [
-        "color"
-      ],
+      "onlyRn": ["label"],
+      "onlyMini": ["color"],
       "reqDrift": [],
       "mapped": [
         {
@@ -116,13 +112,8 @@
     },
     "Carousel": {
       "state": "ok",
-      "onlyRn": [
-        "itemWidth"
-      ],
-      "onlyMini": [
-        "courseMeta",
-        "variant"
-      ],
+      "onlyRn": ["itemWidth"],
+      "onlyMini": ["courseMeta", "variant"],
       "reqDrift": [],
       "mapped": [
         {
@@ -198,10 +189,7 @@
         "voiceRecording",
         "voiceTranscribing"
       ],
-      "onlyMini": [
-        "onUpload",
-        "variant"
-      ],
+      "onlyMini": ["onUpload", "variant"],
       "reqDrift": [],
       "mapped": [
         {
@@ -244,9 +232,7 @@
     },
     "IntelligentAssistant": {
       "state": "ok",
-      "onlyRn": [
-        "robotImage"
-      ],
+      "onlyRn": ["robotImage"],
       "onlyMini": [],
       "reqDrift": [],
       "mapped": [
@@ -261,32 +247,20 @@
     "LoginPopUp": {
       "state": "ok",
       "onlyRn": [
-        "agreeChecked",
-        "avatarUrl",
         "description",
-        "nickname",
-        "onAgreeChange",
         "onBindPhone",
         "onLogout",
         "onPrimary",
         "onSave",
         "onSecondary",
-        "onUpgradeTrader",
-        "phone",
-        "phoneDisabled",
         "primaryLabel",
-        "role",
         "secondaryLabel",
         "title"
       ],
-      "onlyMini": [
-        "onOneClickLogin",
-        "onPasswordLogin",
-        "onWebAuthLogin"
-      ],
+      "onlyMini": ["onOneClickLogin", "onPasswordLogin", "onWebAuthLogin"],
       "reqDrift": [],
       "mapped": [],
-      "driftTotal": 20
+      "driftTotal": 12
     },
     "ModelConfigDialog": {
       "state": "ok",
@@ -314,24 +288,15 @@
         "selectedModelId",
         "videoUrl"
       ],
-      "onlyMini": [
-        "isVip"
-      ],
+      "onlyMini": ["isVip"],
       "reqDrift": [],
       "mapped": [],
       "driftTotal": 23
     },
     "ModelList": {
       "state": "ok",
-      "onlyRn": [
-        "groups",
-        "onEndReached"
-      ],
-      "onlyMini": [
-        "currentType",
-        "models",
-        "variant"
-      ],
+      "onlyRn": ["groups", "onEndReached"],
+      "onlyMini": ["currentType", "models", "variant"],
       "reqDrift": [],
       "mapped": [
         {
@@ -349,11 +314,7 @@
     },
     "NavBar": {
       "state": "ok",
-      "onlyRn": [
-        "leftActions",
-        "rightAction",
-        "rightActions"
-      ],
+      "onlyRn": ["leftActions", "rightAction", "rightActions"],
       "onlyMini": [
         "activeTitleIndex",
         "bgColor",
@@ -428,16 +389,8 @@
     },
     "UserInfoCard": {
       "state": "ok",
-      "onlyRn": [
-        "onCopyInviteCode",
-        "userInfo"
-      ],
-      "onlyMini": [
-        "desc",
-        "level",
-        "levelTitle",
-        "onOpenVip"
-      ],
+      "onlyRn": ["onCopyInviteCode", "userInfo"],
+      "onlyMini": ["desc"],
       "reqDrift": [],
       "mapped": [
         {
@@ -456,17 +409,12 @@
           "kind": "event"
         }
       ],
-      "driftTotal": 6
+      "driftTotal": 3
     },
     "VideoPlayer": {
       "state": "ok",
-      "onlyRn": [
-        "VideoComponent",
-        "title"
-      ],
-      "onlyMini": [
-        "controls"
-      ],
+      "onlyRn": ["VideoComponent", "title"],
+      "onlyMini": ["controls"],
       "reqDrift": [],
       "mapped": [
         {
@@ -489,15 +437,11 @@
     },
     "VoiceInput": {
       "state": "ok",
-      "onlyRn": [
-        "onImageSelected",
-        "showClear",
-        "showImagePicker"
-      ],
+      "onlyRn": ["showClear"],
       "onlyMini": [],
       "reqDrift": [],
       "mapped": [],
-      "driftTotal": 3
+      "driftTotal": 1
     }
   },
   "counts": {
@@ -508,7 +452,7 @@
     "notApplicable": 2,
     "maxKeyDrift": 0,
     "driftKeysTotal": 0,
-    "judgedKeysTotal": 166,
+    "judgedKeysTotal": 153,
     "rawDriftKeysTotal": 0,
     "adjudicatedDriftKeys": 7,
     "mappedKeysTotal": 54,
