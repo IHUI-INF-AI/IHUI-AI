@@ -5,12 +5,13 @@
 /**
  * check-staged-downgrade.mjs × gen-ui-mirror 的镜像测试(2026-11-03 立,§22c)。
  *
- * 钉什么(6 条判据 + 2 条写手闸,判据一律 import 生产出口,本文件零复制第二支判定):
+ * 钉什么(6 条判据 + 4 条写手闸,判据一律 import 生产出口,本文件零复制第二支判定):
  *  · T1 远祖先旧 blob 进索引 ⇒ 红并点名;
  *  · T2 父版本(HEAD 更新档)回写 ⇒ 红(30c 只看 merge-base 之前,这一格是它漏掉的);
  *  · T3 提交正文 `intentional-revert: <依据>` ⇒ 放行 + 留痕;
  *  · T4 全新内容 ⇒ 不判;T5 无暂存 ⇒ 不判;T6 空口声明(依据过短)⇒ 仍红;
- *  · T7/T8 写手闸 `downgradeGuardOf`:派生结果等于祖先旧档 ⇒ 拒写;等于 HEAD ⇒ 放行。
+ *  · T7/T8 写手闸 `downgradeGuardOf`:派生结果等于祖先旧档 ⇒ 拒写;新内容 ⇒ 放行;
+ *  · T9/T10 写手闸 HEAD 三态:取不到 ⇒ 未判定拒写;确实缺席 ⇒ 放行(新增文件)。
  *
  * 夹具纪律(§15b):一律 mkScratch 独立仓,不落仓库树;真实 ROOT 在本文件内**只读零写**。
  */
@@ -161,6 +162,30 @@ test('T8 写手闸:新内容不等于祖先 ⇒ 放行', () => {
     commitAs(dir, g, 'v2\n', 'v2')
     const guard = downgradeGuardOf(REL, 'brand-new-mirror\n', dir)
     assert.equal(guard.allow, true)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('T9 写手闸:HEAD 取不到(空仓)⇒ 未判定且拒写,不折成"新增文件"', () => {
+  const dir = mkScratch('staged-downgrade-')
+  try {
+    String(gitRaw(['init', '-q'], dir))
+    const guard = downgradeGuardOf(REL, 'brand-new-mirror\n', dir)
+    // §0.3:取不到 ≠ 路径缺席;失效方向必须是"不写并报未判定",不是静默放行。
+    assert.equal(guard.allow, false)
+    assert.equal(guard.undetermined, true)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('T10 写手闸:HEAD 可解析但路径确实不在 ⇒ 放行(新增文件)', () => {
+  const { dir } = makeRepo()
+  try {
+    const guard = downgradeGuardOf('new-shell.ts', 'brand-new-mirror\n', dir)
+    assert.equal(guard.allow, true)
+    assert.match(guard.why, /新增文件/)
   } finally {
     rmScratch(dir)
   }
