@@ -82,10 +82,10 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 <!-- BEGIN GENERATED NUMBERS (node scripts/gen-doc-numbers.mjs --markdown) -->
 | 指标 | 现值 | 取数键 |
 | ---- | ---- | ------ |
-| 数据库表 | 618 | `dbTables` |
-| schema 文件 | 239 | `dbSchemaFiles` |
-| API 路由 | 4685 | `apiRoutes` |
-| 路由文件 | 661 | `apiRouteFiles` |
+| 数据库表 | 621 | `dbTables` |
+| schema 文件 | 240 | `dbSchemaFiles` |
+| API 路由 | 4697 | `apiRoutes` |
+| 路由文件 | 662 | `apiRouteFiles` |
 | AI 服务路由 | 628 | `aiServiceRoutes` |
 | WebSocket 端点 | 25 | `wsEndpoints` |
 | 入库模型清单 | 100 | `llmModels` |
@@ -97,13 +97,13 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 4045 | `testFiles` |
+| 测试文件 | 4054 | `testFiles` |
 | CI 工作流 | 53 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 332 | `guardianGates` |
 | — blocking | 302 | `guardianBlocking` |
 | — warn | 32 | `guardianWarn` |
-| 跟踪文件 | 18969 | `trackedFiles` |
+| 跟踪文件 | 18998 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-04。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -1880,6 +1880,12 @@ IHUI-AI/
 - 7 个 FS 端点全部接入:`/fs/read` `/fs/write` `/fs/edit` `/fs/delete` `/fs/grep` `/fs/glob` `/fs/run`
 - WebSocket 实时推送权限请求,60s 不响应自动拒绝
 - workspace-ai-tasks schema 支持任务级权限隔离
+- **规则级审批引擎**(2026-11-04,`packages/shared/src/permission/`):
+  - 声明式规则 `{id,match,decision,priority}` 排序后判定,输出 `{decision:allow|ask|deny,matchedRule,reason}`;命令风险对接 `packages/shared/src/utils/command-risk.ts` 的 AST 判定(非 token 正则,字符串字面量不误判),规则族覆盖命令风险 / 路径越界 / 网络出口 / 凭据读取 / 批量删除
+  - 自动复核只对 `ask` 且 `autoReviewable` 的规则生效(同主体 + 同 workspace + 同规则 id + 同命令前缀的重复请求),结果留 `matchedRule` 与理由;**deny 不可降级为 allow**
+  - 授权记忆持久化在 `user_preferences(group='permission', key='grants')`,字段 `{tool,matchPattern,scope(workspace|agent|global),expiresAt,createdAt,grantedBy}`;判定侧校验 scope 与 expiresAt,过期即失效
+  - 接口(API 端,需登录):`GET/POST /api/agent-control/permission/grants`、`DELETE /api/agent-control/permission/grants/:id`
+  - computer-use 应用白名单:声明 `appName` 的 `/execute` 先过白名单闸门,未授权/过期/scope 不匹配一律 `PERMISSION_DENIED`
 - **AI 输入框权限模式切换器**(深度对标 OpenAI Codex CLI approvalMode):
   - 盾牌图标按钮 + 当前模式短名,点击弹 Codex 风格 popover(3 单选卡 + 完全访问快捷链接)
   - 键盘交互:`↑/↓` 循环切换焦点 · `Enter` 选中 · `1/2/3` 数字键直接选 ask/auto/full

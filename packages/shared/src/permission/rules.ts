@@ -17,17 +17,18 @@
  *  3. 兜底方向恒为**更严**:未知工具、未知路径、缺失应用名一律落到 `ask`。
  *
  * ── 命令风险:与另一路 AST 判定的对接位 ───────────────────────────────────
- * 命令风险规则的**权威输入**是另一路正在开发的「命令 AST 判定」。截至本文件落地时,
- * main 上尚无该实现(已 rg 确认无 tree-sitter / shell AST 判据;并行 worktree
- * `command-risk-1104` 亦无可读产物)。因此这里留出明确接口 `CommandRiskAnalyzer`,
- * 由消费方按依赖注入传入:
+ * 命令风险规则的**权威输入**是另一路的「命令 AST 判定」(`utils/command-risk.ts`,
+ * 2026-11-04 已进 main)。这里保留 `CommandRiskAnalyzer` 作为依赖注入位,默认注入
+ * `AST_COMMAND_RISK_ANALYZER`(薄适配器,只做档位映射与证据收敛):
  *
  *     decideApproval(request, { commandRiskAnalyzer: astCommandAnalyzer })
  *
- * 该实现落地后,**只需替换注入的 analyzer**,规则集与判定签名不变。
- * 本文件自带的 `DEFAULT_COMMAND_RISK_ANALYZER` 是 token 兜底实现,不是 AST;
- * 其注释与导出名都如实标明 fallback,不允许被当成 AST 判定对外声称。
+ * 若 AST 实现替换/升级,只需换注入的 analyzer,规则集与判定签名不变。
+ * `TOKEN_FALLBACK_COMMAND_RISK_ANALYZER` 是 token/正则兜底,导出名与注释都标明
+ * fallback,不得被当成 AST 判定对外声称。
  */
+
+import { analyzeCommandRisk } from '../utils/command-risk.js'
 
 // ===========================================================================
 // 基础类型
@@ -304,6 +305,20 @@ const BULK_DELETE_RES: readonly RegExp[] = [
   /\btruncate\s+table\b/i,
 ]
 
+/**
+ * AST 判据里等价于"批量/破坏性删除"的依据码。
+ * 有 `codes` 时**只认码**(AST 说了算);没有 `codes`(token 兜底/测试替身)才退回
+ * 原始串正则 —— 这样 `echo 'rm -rf /'` 不会被算成批量删除。
+ */
+const BULK_DELETE_CODES: ReadonlySet<string> = new Set([
+  'RM_RECURSIVE_FORCE',
+  'RM_ROOT_OR_HOME',
+  'RM_NO_PRESERVE_ROOT',
+  'SENSITIVE_FILE_DELETE',
+  'DD_WRITE_DEVICE',
+  'MKFS_DISK',
+])
+
 /** 凭据/密码类应用黑名单:这类应用里的输入动作永远不自动放行。 */
 export const BLOCKED_APP_PATTERNS: readonly RegExp[] = [
   /1password/i,
@@ -323,12 +338,18 @@ export interface CommandRiskFinding {
   evidence: string
   /** 命令前缀(前两个 token),供自动复核/授权记忆比较 */
   prefix: string
+  /**
+   * 结构化的判定依据码(AST 实现回填 `RiskCode`)。批量删除等"事实"必须按
+   * **可执行位置**的判定结论取,不能拿原始命令串扫正则 —— 否则 `echo 'rm -rf /'`
+   * 这种字符串字面量会被误判成真删除。
+   */
+  codes?: readonly string[]
 }
 
 /**
  * 命令风险分析器的**接口依赖位**。
- * 另一路 AST 判定落地后,按同一签名注入即可替换本文件的 fallback 实现。
- * 约定:返回 null 表示"未识别为命令",由规则层按未知处理(只会更严)。
+ * 默认注入 `AST_COMMAND_RISK_ANALYZER`;也可换成 `TOKEN_FALLBACK_COMMAND_RISK_ANALYZER`
+ * 或测试替身。约定:返回 null 表示"未识别为命令",由规则层按未知处理(只会更严)。
  */
 export interface CommandRiskAnalyzer {
   analyze(command: string): CommandRiskFinding | null
@@ -340,10 +361,11 @@ function commandPrefixOf(command: string): string {
 
 /**
  * ⚠️ fallback:token/正则级粗判,**不是 AST 判定**。
- * 单独命名并加注释的原因:若把它当 AST 用,`git "status"`、变量拼接、heredoc
- * 一类形态会被误判 —— 这正是另一路 AST 判定要解决的问题。
+ * 单独命名并加注释的原因:若把它当 AST 用,`git "status"`、字符串里的 `rm -rf`、
+ * `echo aGVsbG8= | base64 -d | bash` 一类形态会被误判/漏判 —— 因此默认档位是上面的
+ * `AST_COMMAND_RISK_ANALYZER`;本实现只作为离线对照与显式注入的降级选项。
  */
-export const DEFAULT_COMMAND_RISK_ANALYZER: CommandRiskAnalyzer = {
+export const TOKEN_FALLBACK_COMMAND_RISK_ANALYZER: CommandRiskAnalyzer = {
   analyze(command: string): CommandRiskFinding | null {
     const cmd = command.trim()
     if (!cmd) return null
@@ -385,6 +407,31 @@ export const DEFAULT_COMMAND_RISK_ANALYZER: CommandRiskAnalyzer = {
         return { level: 'medium', evidence: `medium:${re.source}`, prefix: commandPrefixOf(cmd) }
     }
     return { level: 'low', evidence: 'no-risk-token', prefix: commandPrefixOf(cmd) }
+  },
+}
+
+/**
+ * 权威命令风险判定:对接另一路的 AST 语义判定(`utils/command-risk.ts`)。
+ *
+ * 该实现按"可执行位置"判定,因此 `echo 'rm -rf /'` 这类**字符串里的危险词**不会再被误判,
+ * `echo aGVsbG8= | base64 -d | bash` 这类编码绕过也能命中 —— 这正是 token fallback 做不到的。
+ * 适配只做档位映射与证据收敛,不改 AST 判定本身的任何语义。
+ */
+export const AST_COMMAND_RISK_ANALYZER: CommandRiskAnalyzer = {
+  analyze(command: string): CommandRiskFinding | null {
+    const cmd = command.trim()
+    if (!cmd) return null
+    const report = analyzeCommandRisk(cmd)
+    const level: CommandRiskLevel =
+      report.level === 'blocked' ? 'high' : report.level === 'needs-approval' ? 'medium' : 'low'
+    const head = report.segments[0]?.commands[0]
+    const first = report.reasons[0]
+    return {
+      level,
+      evidence: first ? `${first.code}: ${first.message}` : 'AST:safe',
+      prefix: head ? [head.name, ...head.args.slice(0, 1)].join(' ') : commandPrefixOf(cmd),
+      codes: report.reasons.map((r) => r.code),
+    }
   },
 }
 
@@ -453,7 +500,7 @@ function stringArg(args: Record<string, unknown>, field: string): string | null 
 
 export function computeFacts(
   request: ApprovalRequest,
-  commandRiskAnalyzer: CommandRiskAnalyzer = DEFAULT_COMMAND_RISK_ANALYZER,
+  commandRiskAnalyzer: CommandRiskAnalyzer = AST_COMMAND_RISK_ANALYZER,
 ): ApprovalFacts {
   const tool = request.tool.trim()
   const args = request.args ?? {}
@@ -484,6 +531,18 @@ export function computeFacts(
     return typeof v === 'string' && v.trim().length > 0
   })
 
+  const bulkDeleteFromCommand =
+    risk === null
+      ? false
+      : risk.codes
+        ? risk.codes.some((c) => BULK_DELETE_CODES.has(c))
+        : command !== null && BULK_DELETE_RES.some((re) => re.test(command))
+  const bulkDeleteFromArgs =
+    typeof args.recursive === 'boolean' &&
+    args.recursive &&
+    toolFamilyOf(tool) === 'exec' &&
+    /delete|remove/i.test(tool)
+
   return {
     tool,
     toolFamily: toolFamilyOf(tool),
@@ -494,12 +553,7 @@ export function computeFacts(
     credentialPath: normalizedPaths.some((p) => CREDENTIAL_PATH_PATTERNS.some((re) => re.test(p))),
     systemPath: normalizedPaths.some((p) => SYSTEM_PATH_PATTERNS.some((re) => re.test(p))),
     networkEgress: networkArgHit || (command !== null && NETWORK_COMMAND_RE.test(command)),
-    bulkDelete:
-      (command !== null && BULK_DELETE_RES.some((re) => re.test(command))) ||
-      (typeof args.recursive === 'boolean' &&
-        args.recursive &&
-        toolFamilyOf(tool) === 'exec' &&
-        /delete|remove/i.test(tool)),
+    bulkDelete: bulkDeleteFromCommand || bulkDeleteFromArgs,
     commandRisk: risk?.level ?? null,
     commandPrefix: risk?.prefix ?? (command ? commandPrefixOf(command) : null),
     appName,
@@ -791,8 +845,7 @@ export function evaluateRules(
 ): ApprovalResult {
   const rules = sortRules(options.rules ?? APPROVAL_RULES)
   const facts =
-    options.facts ??
-    computeFacts(request, options.commandRiskAnalyzer ?? DEFAULT_COMMAND_RISK_ANALYZER)
+    options.facts ?? computeFacts(request, options.commandRiskAnalyzer ?? AST_COMMAND_RISK_ANALYZER)
   for (const rule of rules) {
     if (matchRule(rule.match, facts)) {
       return {
@@ -840,7 +893,7 @@ export function applyAutoReview(
   if (!principal) return base
   if (!context.workspaceId) return base
 
-  const facts = computeFacts(request, options.commandRiskAnalyzer ?? DEFAULT_COMMAND_RISK_ANALYZER)
+  const facts = computeFacts(request, options.commandRiskAnalyzer ?? AST_COMMAND_RISK_ANALYZER)
   const scopeKey = facts.commandPrefix ?? facts.appName ?? facts.tool
   const windowMs = options.windowMs ?? 10 * 60 * 1000
   const minRepeats = options.minRepeats ?? 1
@@ -882,8 +935,7 @@ export function decideApproval(
   if (base.decision !== 'ask') return base
 
   const facts =
-    options.facts ??
-    computeFacts(request, options.commandRiskAnalyzer ?? DEFAULT_COMMAND_RISK_ANALYZER)
+    options.facts ?? computeFacts(request, options.commandRiskAnalyzer ?? AST_COMMAND_RISK_ANALYZER)
   const grant = findMatchingGrant(request, facts)
   if (grant) {
     return {
