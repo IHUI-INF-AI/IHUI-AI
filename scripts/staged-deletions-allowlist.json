@@ -112,6 +112,16 @@
       "path": "scripts/tests/check-grafana-datasource-wiring.test.mjs",
       "reason": "2026-11-04 有意删除,但**宿主模块保留**:该测试 D7/D8 直接 scandir monitoring/grafana/dashboards(实测 ENOENT),随旧树退役后已不可运行;它测的 scripts/check-grafana-datasource-wiring.mjs 因独有逻辑(face 归一 head→HEAD,Linux 大小写敏感)本轮暂留待迁移,故本件删除属『测试先于宿主退役』而非宿主已亡。新镜像测试 scripts/tests/check-panel-datasource-wiring.test.mjs 覆盖 D1–D13(D13 锁死 legacy */grafana 树不得复活)。",
       "until": "2027-06-30"
+    },
+    {
+      "path": "scripts/check-grafana-datasource-wiring.mjs",
+      "reason": "2026-11-04 有意删除(grafana-* 旧族最后两枚收口):E1 点名的唯一引用方 scripts/data/retired-paths.json 不是消费者,而是退役锁的判据目标字面量(该清单断言本路径『裁决过必须退役』)。旧件唯一独有判据是 listFacePaths 的 face='head'→'HEAD' 归一(Linux 大小写敏感,直接把 'head' 当 rev 会 fatal: Not a valid object name,Windows 长期掩盖),该归一已按树内原实现语义迁进现役件 scripts/check-panel-datasource-wiring.mjs,并由新镜像测试 D14(scripts/tests/check-panel-datasource-wiring.test.mjs)锁住;旧件遂零独有逻辑。本条只记录『退役清单＝否定断言引用』这一形态,不改门 99 判据。问责复跑:node scripts/check-verbatim-resurrection.mjs 与 node --test scripts/tests/check-panel-datasource-wiring.test.mjs。",
+      "until": "2027-06-30"
+    },
+    {
+      "path": "scripts/sync-grafana-live-provisioning.mjs",
+      "reason": "2026-11-04 有意删除(同上族收口):E1 引用方同为 scripts/data/retired-paths.json 的退役锁字面量。splitBlocks 的唯一实现已完整住在现役件 scripts/sync-panel-live-provisioning.mjs(实现见该件 splitBlocks 定义,export 在第 255 行),守门 scripts/check-panel-datasource-wiring.mjs 在第 68 行 import 取用;旧件实测 19/11 差异全部落在镜像地址/文案/换名,零独有判据。本条不改门 99 判据。问责复跑:node scripts/check-panel-datasource-wiring.mjs --self-test。",
+      "until": "2027-06-30"
     }
   ]
 }
