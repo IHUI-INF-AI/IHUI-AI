@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
  * `scripts/lib/index-pin-guard.js` 镜像测试(2026-11-04 立)。钉五件事:
@@ -39,6 +40,21 @@ const cleanEnv = (extra = {}) => {
   delete env.GIT_DIR
   delete env.GIT_WORK_TREE
   return { ...env, ...extra }
+}
+
+/** ENOBUFS 会被 Node 杀掉子进程,Windows 下索引句柄可能短暂未释放 ⇒ 清理带重试。 */
+function cleanup(dir) {
+  let last
+  for (let i = 0; i < 6; i++) {
+    try {
+      rmScratch(dir)
+      return
+    } catch (e) {
+      last = e
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 300)
+    }
+  }
+  throw last
 }
 
 function git(dir, args, env = {}, allowFail = false) {
@@ -102,7 +118,7 @@ test('① 私有索引钉 A、工作树 B:git add 回灌后按快照复原成 A,
     assert.equal(blobInIndex(dir, pinIndex, A), blobA, '索引必须恢复为定版的 A 版')
     assert.equal(readFileSync(join(dir, A), 'utf8'), B_FORMATTED, '工作树一个字节都不许动')
   } finally {
-    rmScratch(dir)
+    cleanup(dir)
   }
 })
 
@@ -117,7 +133,7 @@ test('② 无改动 ⇒ 零写入(restored 为空)', () => {
     assert.deepEqual(r.changed, [])
     assert.deepEqual(r.missing, [])
   } finally {
-    rmScratch(dir)
+    cleanup(dir)
   }
 })
 
@@ -140,7 +156,7 @@ test('③ 复原只修开工前条目:钩子后来新加的条目不被顺手删
       '派生新增条目必须原样保留(保护不是"清空索引")',
     )
   } finally {
-    rmScratch(dir)
+    cleanup(dir)
   }
 })
 
@@ -157,7 +173,7 @@ test('④ 反向:索引读不到 ⇒ ok:false(调用方必须 fail-closed)', () 
     assert.equal(r.ok, false)
     assert.match(r.detail, /读不到索引/)
   } finally {
-    rmScratch(dir)
+    cleanup(dir)
   }
 })
 
@@ -263,6 +279,29 @@ test('⑤ 复现(问题 4):私有索引 A / 工作树 B,跑带 lint-staged 的�
   }
 })
 
+test('⑦ 上界语义:索引输出超过上界 ⇒ 未判定(exit 2 语义),不崩溃、不静默放行', () => {
+  const { dir, pinIndex } = makeRepo('pin-bound-')
+  const env = cleanEnv({ GIT_INDEX_FILE: pinIndex })
+  try {
+    const snap = pinGuard.capturePinnedIndex({ gitCwd: dir, env })
+    // 夹具:把上界压到 8 字节(远小于任意一条 ls-files 输出) ⇒ 必然超出上界。
+    assert.throws(
+      () => pinGuard.capturePinnedIndex({ gitCwd: dir, env, maxBytes: 8 }),
+      (e) =>
+        e.code === pinGuard.UNDETERMINED_CODE &&
+        /未判定/.test(e.message) &&
+        /上界/.test(e.message),
+      '超界必须是可识别的"未判定",不是普通异常',
+    )
+    const r = pinGuard.restorePinnedIndex({ gitCwd: dir, env, snapshot: snap, maxBytes: 8 })
+    assert.equal(r.ok, false, '未判定绝不能当成功(静默放行)')
+    assert.equal(r.undetermined, true)
+    assert.match(r.detail, /未判定/)
+  } finally {
+    cleanup(dir)
+  }
+})
+
 test('⑥ 接线锁:pre-commit-hook 与 .husky/pre-commit 的 sh 层留痕/泄漏放行', () => {
   const hook = readFileSync(HOOK, 'utf8')
   assert.match(hook, /require\('\.\/index-pin-guard\.js'\)/)
@@ -274,7 +313,12 @@ test('⑥ 接线锁:pre-commit-hook 与 .husky/pre-commit 的 sh 层留痕/泄�
   assert.match(shell, /hook-markers\.jsonl/)
   assert.match(shell, /next-index-\*\.lock/)
   assert.match(shell, /tr -cd/)
-  // 整份索引的 `ls-files -s -z` 输出在真实仓 >1MB(spawnSync 默认 maxBuffer)⇒ 必须显式抬高,
-  // 否则钩子开工就 ENOBUFS fail-closed(实测 2026-11-04 20:43:29 那一次提交)。
-  assert.match(readFileSync(PIN_MODULE, 'utf8'), /maxBuffer: 64 \* 1024 \* 1024/)
+  // 上界语义:不许再写死固定 maxBuffer(64MB 只是把地板抬高,超过照样 ENOBUFS 且无语义);
+  // 必须按索引实际大小推导,并在超界时走「未判定 ⇒ exit 2」,且 sh 层原样传播该退出码。
+  assert.match(readFileSync(PIN_MODULE, 'utf8'), /BOUND_MULTIPLIER \* indexSize/)
+  assert.doesNotMatch(readFileSync(PIN_MODULE, 'utf8'), /maxBuffer: 64 \* 1024 \* 1024/)
+  assert.match(hook, /process\.exit\(2\)/)
+  assert.match(hook, /UNDETERMINED_CODE/)
+  assert.match(shell, /exit "\$_hook_rc"/)
 })
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

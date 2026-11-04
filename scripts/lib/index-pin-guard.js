@@ -34,27 +34,102 @@
  * 或另起一笔专门提交格式化产物。
  */
 
+const fs = require('node:fs')
+const path = require('node:path')
 const { spawnSync } = require('node:child_process')
 
 /** git 自建的 `--only` 临时索引名:这类索引的格式化回写是**预期行为**,不保护。 */
 const GIT_TEMP_INDEX_RE = /^next-index-\d+\.lock$/
 
-function spawnGit(args, { cwd, env }) {
-  const full = { ...env, GIT_DIR: undefined, GIT_WORK_TREE: undefined }
-  // 只删自己塞进来的 GIT_DIR 覆盖;其余环境原样继承(含 GIT_INDEX_FILE)。
+/**
+ * 「未判定」判据(§0.3):读索引的输出**超过上界**时,我们既没有看到索引全貌(不能记绿:
+ * 可能正好漏掉被回灌的那一条),也没有证据说内容被改(不能记红)。这时只允许一种语义:
+ * **未判定 ⇒ 钩子以 exit 2 拒绝提交**。与仓内既有"未判定门"同一档(`[44] .fmt-tmp` 那次
+ * exit 2 就是先例),不折成 1(1 是"判过且判红",会把容量问题误报成内容违规)。
+ */
+const UNDETERMINED_CODE = 'PIN_GUARD_UNDETERMINED'
+
+/** 上界地板:空/极小索引也要留足余量(不是"固定 64MB",只是地板)。 */
+const MIN_BOUND_BYTES = 8 * 1024 * 1024
+/** 上界 = 索引文件实际大小的倍数 + 地板。依据见 `indexBound()` 的算术说明。 */
+const BOUND_MULTIPLIER = 3
+
+class PinGuardUndeterminedError extends Error {
+  /** @param {string} message @param {{limit:number,indexPath:string,indexSize:number}} meta */
+  constructor(message, meta) {
+    super(message)
+    this.name = 'PinGuardUndeterminedError'
+    this.code = UNDETERMINED_CODE
+    this.limit = meta.limit
+    this.indexPath = meta.indexPath
+    this.indexSize = meta.indexSize
+  }
+}
+
+function cleanGitEnv(env) {
+  const full = { ...env }
+  // 只删外部注入的 GIT_DIR/GIT_WORK_TREE 覆盖;其余环境原样继承(含 GIT_INDEX_FILE)。
   delete full.GIT_DIR
   delete full.GIT_WORK_TREE
+  return full
+}
+
+function spawnGit(args, { cwd, env }, maxBuffer) {
   return spawnSync('git', args, {
     cwd,
-    env: full,
+    env: cleanGitEnv(env),
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true,
-    // 实测(2026-11-04 20:43):整份 `git ls-files -s -z` 的输出远超 spawnSync 默认 1MB
-    // maxBuffer ⇒ 真实仓里抛 `spawnSync git ENOBUFS`,钩子当场 fail-closed(提交被阻止)。
-    // 本模块要读的就是**全索引**,所以显式抬到 64MB;超限仍会 ENOBUFS ⇒ 上层照旧 fail-closed。
-    maxBuffer: 64 * 1024 * 1024,
+    ...(maxBuffer ? { maxBuffer } : {}),
   })
+}
+
+/** 本次要读的索引文件的绝对路径:优先 GIT_INDEX_FILE,否则问 git(输出极小,默认上界足够)。 */
+function resolveIndexPath({ gitCwd, env }) {
+  const pointer = env?.GIT_INDEX_FILE ? path.resolve(gitCwd || process.cwd(), env.GIT_INDEX_FILE) : ''
+  if (pointer) return pointer
+  const r = spawnGit(['rev-parse', '--path-format=absolute', '--git-path', 'index'], {
+    cwd: gitCwd,
+    env,
+  })
+  return r.status === 0 && String(r.stdout || '').trim() ? String(r.stdout).trim() : ''
+}
+
+/**
+ * 计算本次读取的上界(字节)。**不写死固定值**,按索引实际大小推导:
+ *
+ * `git ls-files -s -z` 每条 = `<mode> <blob> <stage>\t<path>\0`(约 54 + path 字节),
+ * index 文件每条 = 62 字节元数据 + path。两者 path 都只出现一次 ⇒ 输出 ≤ index 大小 * ~1.05;
+ * 取 3 倍 + 8MiB 地板,对 index 头部、换行/引号差异、git 版本差异都有余量。
+ *
+ * 上界仍可能被超过(异常输出/未来格式变化)⇒ 抛「未判定」,由调用方 exit 2;绝不设成无穷大,
+ * 也不把地板抬成"够用就好"的固定值(那只是把同一个坑推到下一轮)。
+ *
+ * `maxBytes` 仅供测试**压低**上界(只能变小,不能变大),生产调用不传。
+ */
+function indexBound({ gitCwd, env, maxBytes }) {
+  const indexPath = resolveIndexPath({ gitCwd, env })
+  let indexSize = 0
+  if (indexPath) {
+    try {
+      indexSize = fs.statSync(indexPath).size
+    } catch {
+      /* 取不到大小 ⇒ 按地板 */
+    }
+  }
+  const derived = Math.max(MIN_BOUND_BYTES, BOUND_MULTIPLIER * indexSize + MIN_BOUND_BYTES)
+  const limit =
+    Number.isFinite(maxBytes) && maxBytes > 0 ? Math.min(derived, Math.floor(maxBytes)) : derived
+  return { limit, indexPath, indexSize }
+}
+
+function undeterminedError({ limit, indexPath, indexSize }) {
+  return new PinGuardUndeterminedError(
+    `整份索引输出超过上界(${limit} 字节;索引文件 ${indexPath || '<未知>'} ` +
+      `${indexSize} 字节)⇒ 未判定:无法确认索引全貌`,
+    { limit, indexPath, indexSize },
+  )
 }
 
 /** `git ls-files -s -z` 的逐条解析:`<mode> <blob> <stage>\t<path>\0`。 */
@@ -72,10 +147,21 @@ function parseLsFilesZ(text) {
 }
 
 /** 整份索引的条目快照(Map<path,{mode,blob,stage}>),空索引 ⇒ 空 Map(不退回"列举全仓")。 */
-function capturePinnedIndex({ gitCwd, env }) {
-  const res = spawnGit(['-c', 'core.quotepath=false', 'ls-files', '-s', '-z', '--'], { cwd: gitCwd, env })
-  if (res.error) throw res.error
-  if (res.status !== 0) throw new Error(`git ls-files 失败(exit ${res.status}): ${String(res.stderr || '').trim()}`)
+function capturePinnedIndex({ gitCwd, env, maxBytes }) {
+  const bound = indexBound({ gitCwd, env, maxBytes })
+  const res = spawnGit(
+    ['-c', 'core.quotepath=false', 'ls-files', '-s', '-z', '--'],
+    { cwd: gitCwd, env },
+    bound.limit,
+  )
+  if (res.error) {
+    // ENOBUFS = 输出超上界 ⇒ 未判定(exit 2),不是"读不到"(那才是不确定原因的失败)。
+    if (res.error.code === 'ENOBUFS') throw undeterminedError(bound)
+    throw res.error
+  }
+  if (res.signal && res.status === null) throw undeterminedError(bound)
+  if (res.status !== 0)
+    throw new Error(`git ls-files 失败(exit ${res.status}): ${String(res.stderr || '').trim()}`)
   const map = new Map()
   for (const e of parseLsFilesZ(res.stdout)) map.set(e.path, e)
   return { entries: map }
@@ -90,9 +176,9 @@ function isGitTempIndex(file) {
 
 /**
  * 把被钩子改写的条目按快照复原;只动**内容**(mode/blob/stage),工作树一个字节不碰。
- * @returns {{ok:boolean, restored:string[], missing:string[], changed:string[], detail:string}}
+ * @returns {{ok:boolean, undetermined?:boolean, restored:string[], missing:string[], changed:string[], detail:string}}
  */
-function restorePinnedIndex({ gitCwd, env, snapshot, log = console }) {
+function restorePinnedIndex({ gitCwd, env, snapshot, log = console, maxBytes }) {
   const restored = []
   const missing = []
   const changed = []
@@ -100,8 +186,10 @@ function restorePinnedIndex({ gitCwd, env, snapshot, log = console }) {
     return { ok: true, restored, missing, changed, detail: '' }
   let current
   try {
-    current = capturePinnedIndex({ gitCwd, env }).entries
+    current = capturePinnedIndex({ gitCwd, env, maxBytes }).entries
   } catch (e) {
+    if (e?.code === UNDETERMINED_CODE)
+      return { ok: false, undetermined: true, restored, missing, changed, detail: e.message }
     return { ok: false, restored, missing, changed, detail: `读不到索引(复原前): ${e?.message ?? e}` }
   }
   for (const [p, want] of snapshot.entries) {
@@ -125,8 +213,10 @@ function restorePinnedIndex({ gitCwd, env, snapshot, log = console }) {
   // 复核:复原后逐条与原快照相等(不接受"写了就算").
   let after
   try {
-    after = capturePinnedIndex({ gitCwd, env }).entries
+    after = capturePinnedIndex({ gitCwd, env, maxBytes }).entries
   } catch (e) {
+    if (e?.code === UNDETERMINED_CODE)
+      return { ok: false, undetermined: true, restored, missing, changed, detail: e.message }
     return { ok: false, restored, missing, changed, detail: `读不到索引(复原后): ${e?.message ?? e}` }
   }
   const bad = []
@@ -154,8 +244,13 @@ function restorePinnedIndex({ gitCwd, env, snapshot, log = console }) {
 
 module.exports = {
   GIT_TEMP_INDEX_RE,
+  UNDETERMINED_CODE,
+  MIN_BOUND_BYTES,
+  BOUND_MULTIPLIER,
+  PinGuardUndeterminedError,
   capturePinnedIndex,
   isGitTempIndex,
   parseLsFilesZ,
+  indexBound,
   restorePinnedIndex,
 }
