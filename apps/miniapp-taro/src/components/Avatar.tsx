@@ -2,52 +2,82 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-/**
- * react-native-webview 的 web 平台 stub(由 metro.config.cjs resolveRequest 注入,
- * 仅 platform === 'web' 时把 'react-native-webview' 重定向到本文件)。
- *
- * 平台特有:webview 原生模块在浏览器无意义(浏览器本身就是 web 环境),
- * 渲染占位提示。调用方:WebViewScreen / ChatToolsScreen(默认导出)。
- */
+import { View, Text, Image } from '@tarojs/components'
+import { cn } from '@ihui/design-tokens'
+import { type AvatarShape, type AvatarSize } from '@ihui/shared/ui/avatar-spec'
 
-import { View, Text, StyleSheet, type ViewStyle, type StyleProp } from 'react-native'
-import { rnTokens as tk, rnSpacing, rnType } from '@ihui/design-tokens'
-
-export interface WebViewStubProps {
-  source?: { uri?: string }
-  style?: StyleProp<ViewStyle>
+export interface AvatarProps {
+  src?: string
+  name?: string
+  size?: AvatarSize
+  shape?: AvatarShape
+  onClick?: () => void
 }
 
-/** 事件参数类型(web stub 中无真实导航事件,仅供调用方类型引用) */
-export type WebViewNavigation = Record<string, unknown>
+/**
+ * 类名表留在本端文件里是**必须的**,不是没做完:小程序 tailwind 的 content 只扫 `./src/**`
+ * (见 `apps/miniapp-taro/tailwind.config.ts:22`),类名写进 `packages/shared` 就进不了产物,
+ * 头像会静默失去尺寸。跨端唯一真相是数值表 `@ihui/shared/ui/avatar-spec` 的 `AVATAR_PX`,
+ * 这张表与它的对应关系由 `packages/shared/src/ui/__tests__/avatar-spec-wiring.test.ts` 钉住
+ * (任一端改数值而没改这张 ⇒ 测试红)。
+ * 2026-10-22 机主定档:取 web/RN 已同值的五档,小程序整体升一档(sm 24→32…xl 56→64)。
+ */
+const SIZES: Record<AvatarSize, string> = {
+  xs: 'h-6 w-6 text-xs',
+  sm: 'h-8 w-8 text-xs',
+  md: 'h-10 w-10 text-sm',
+  lg: 'h-12 w-12 text-base',
+  xl: 'h-16 w-16 text-xl',
+}
 
-const WebViewStub = function WebViewStub(props: WebViewStubProps) {
-  const uri = props.source?.uri ?? ''
+/** 形状 → 本端圆角类:键集直接取 spec 的 `AvatarShape`(= `AVATAR_SHAPE_STEP` 的键),spec 加形状而本端没给类名 ⇒ tsc 直接红。 */
+const SHAPE_CLASS: Record<AvatarShape, string> = { circle: 'rounded-md', square: 'rounded-lg' }
+
+export default function Avatar({
+  src,
+  name = '',
+  size = 'md',
+  shape = 'circle',
+  onClick,
+}: AvatarProps) {
+  const sizeClass = SIZES[size]
+  // 圆角档名取自跨端唯一表 AVATAR_SHAPE_STEP(circle→md / square→lg),类名留本端(扫描面);
+  // 项目规则:头像外层容器禁止 rounded-full,统一 rounded-md,故 circle 档 = rounded-md
+  const shapeClass = SHAPE_CLASS[shape]
+  // 首字母缩写对齐 RN:按空格分词、各词首字母、最多 2 个、大写(中文名无空格取首字;空名留空)
+  const initials = name
+    ? name
+        .split(' ')
+        .map((n) => n[0])
+        .slice(0, 2)
+        .join('')
+        .toUpperCase()
+    : ''
+
+  if (src) {
+    return (
+      <Image
+        className={cn(sizeClass, shapeClass, 'overflow-hidden bg-muted')}
+        src={src}
+        mode="aspectFill"
+        onClick={onClick}
+      />
+    )
+  }
+
   return (
-    <View style={[styles.container, props.style]}>
-      <Text style={styles.text}>内嵌网页暂不支持浏览器预览</Text>
-      {uri ? <Text style={styles.uri}>{uri}</Text> : null}
+    <View
+      className={cn(
+        'flex items-center justify-center overflow-hidden',
+        sizeClass,
+        shapeClass,
+        'bg-muted',
+      )}
+      onClick={onClick}
+      hoverClass="opacity-60"
+    >
+      <Text className="text-muted-foreground font-medium">{initials}</Text>
     </View>
   )
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: tk.gray[100],
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  text: {
-    color: tk.gray[500],
-    fontSize: 13,
-  },
-  uri: {
-    color: tk.gray[400],
-    fontSize: rnType.badge.size,
-    marginTop: rnSpacing.xs,
-  },
-})
-
-export default WebViewStub
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
