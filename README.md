@@ -1426,13 +1426,13 @@ cd IHUI-AI && docker compose up -d
 - 🟡 **核心场景级**:核心 Chat / WorkPanel / SSO 等关键路径已打通,但业务页面覆盖度低于 Web 端,适合二次开发补全
 **多端同步开发规则**:本项目 [AGENTS.md §9](./AGENTS.md) 强制要求“每一个任务默认全端连通”,任何新功能必须同步到所有受影响的端(平台独占豁免除外)。
 ### 8 端下载能力矩阵(2026-08-06 立)
-> 8 端下载元数据单一事实源(`PLATFORM_META`)+ 详情页(`/download/[platform]`)+ 下载量统计 API + 自动化构建同步脚本。下载中心 UI 为 web 专属,统计 API + 共享层类型 + api-client + hook 跨端复用。
+> 8 端下载元数据单一事实源(`PLATFORM_META`)+ 详情页(`/download/[platform]`)+ 下载量统计 API + 自动化构建同步脚本。**版本与大小两列不再手写** —— 此前这两列钉着一组固定值,而桌面实物在其后又连发了几十个版本、扩展包体积也与登记值差出三倍,手写列本身就成了假账;实时值看 `/downloads.json` 与详情页。下载中心 UI 为 web 专属,统计 API + 共享层类型 + api-client + hook 跨端复用。
 **下载状态矩阵**:
 | 端              | 下载形态                   | 版本   | 大小             | 状态        |
 | --------------- | -------------------------- | ------ | ---------------- | ----------- |
-| **Desktop**     | Windows NSIS `.exe` + MSI  | 0.1.15 | 226.8 / 234.9 MB | 🟢 已接入   |
-| **CLI**         | `npm install -g @ihui/cli` | 1.0.0  | -                | 🟢 已接入   |
-| **Extension**   | Chrome MV3 `.zip`          | 1.0.0  | 1.31 MB          | 🟢 已接入   |
+| **Desktop**     | Windows NSIS `.exe` + MSI  | 以 `/downloads.json` 为准 | 以 `/downloads.json` 为准 | 🟢 已接入   |
+| **CLI**         | `npm install -g ihui-cli` | 以 npm 上的 `ihui-cli` 为准 | -                | 🟢 已接入   |
+| **Extension**   | Chrome MV3 `.zip`          | 以 `/downloads.json` 为准 | 以 `/downloads.json` 为准 | 🟢 已接入   |
 | **Mobile RN**   | 源码构建(GitHub)           | -      | -                | 🟢 已接入   |
 | **Web**         | PWA / 浏览器访问           | -      | -                | 🟢 已接入   |
 | **iOS**         | App Store                  | -      | -                | 🟡 即将上线 |
@@ -2265,7 +2265,7 @@ IHUI-AI/
 | 后端单元   | Vitest        | 322 文件,~14839+ 用例        | `pnpm --filter @ihui/api test`    |
 | 前端 E2E   | Playwright    | 17 spec 文件                 | `pnpm test:e2e`                   |
 | AI 服务    | pytest        | 13 文件,400+ 用例            | `cd apps/ai-service && pytest`    |
-| CLI 单元   | Vitest        | 13 文件                      | `pnpm --filter @ihui/cli test`    |
+| CLI 单元   | Vitest        | 13 文件                      | `pnpm --filter ihui-cli test`    |
 | 压测       | Locust        | `scripts/locustfile.py`      | `locust -f scripts/locustfile.py` |
 | 性能预算   | Lighthouse CI | `apps/web/lighthouserc.json` | CI 自动跑                         |
 | 未使用代码 | Knip          | `knip.jsonc` + CI workflow   | `pnpm knip`                       |

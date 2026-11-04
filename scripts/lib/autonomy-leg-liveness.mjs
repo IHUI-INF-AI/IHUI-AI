@@ -34,6 +34,12 @@ export const SILENCE_MULTIPLIER = 4
 export const MIN_SILENCE_MS = 2 * 60 * 60 * 1000
 /** 登记表条目的存活期:超了就要求复确认(照 §0.7 豁免会到期同型)。 */
 export const ROTATE_DAYS = 90
+/**
+ * "新登记还没首跑"的宽限:实测一趟 tick 链要 7-12 分钟,而派发腿在链尾;
+ * 给到 24h 足够跨过一个完整周期(含守护重启/提交窗口让路)。宽限按条目 verifiedAt 计,
+ * 自己会过期 ⇒ 不会变成永久盲区(§0.10:豁免必须带终态)。
+ */
+export const FIRST_RUN_GRACE_MS = 24 * 60 * 60 * 1000
 
 /** 容忍窗 = max(名义节律 × 倍数, 下限)。名义节律坏 ⇒ null(调用方落 unjudged,不猜一个窗)。 */
 export function silenceWindowMs(nominalIntervalMs) {
@@ -69,7 +75,17 @@ export function classifyLegs({ legs, stamps, stampFilesOnDisk, now } = {}) {
     }
     const obs = stamps?.[id]
     if (!obs) {
-      rows.push({ id, state: 'rotting', why: `登记了但盘上没有这枚戳(${id})⇒ 清单腐烂或器物已被摘;要么补回要么摘条目`, windowMs })
+      // 登记了而戳不在,分两种:**新登记还是一次都没跑过** vs **跑过之后没了**。
+      // 前者是"挂上还没轮到"(首趟 tick 链实测要 7-12 分钟,一登记就判腐烂等于自造红),
+      // 后者才是清单腐烂。拿条目自己的 verifiedAt 当"新登记"时钟,宽限会自己过期 ⇒
+      // 不会变成永久盲区:超过 FIRST_RUN_GRACE_MS 仍无戳 ⇒ 照旧 rotting。
+      const ver = Date.parse(String(leg.verifiedAt ?? ''))
+      const inGrace = Number.isFinite(ver) && now - ver >= 0 && now - ver < FIRST_RUN_GRACE_MS
+      if (inGrace) {
+        rows.push({ id, state: 'pending', why: `登记未满 ${Math.round(FIRST_RUN_GRACE_MS / 3600_000)}h(verifiedAt=${leg.verifiedAt})⇒ 首跑可能还没轮到,暂不判腐烂`, windowMs })
+      } else {
+        rows.push({ id, state: 'rotting', why: `登记了但盘上没有这枚戳(${id})⇒ 清单腐烂或器物已被摘;要么补回要么摘条目`, windowMs })
+      }
       continue
     }
     if (obs.readable === false) {
@@ -124,7 +140,8 @@ export function classifyLegs({ legs, stamps, stampFilesOnDisk, now } = {}) {
   const state = bad > 0 ? 'drift' : count('unjudged') > 0 ? 'unjudged' : 'ok'
   const summary =
     `腿 ${rows.length} 枚:dark=${count('dark')} unregistered=${count('unregistered')} ` +
-    `rotting=${count('rotting')} stale=${count('stale-verification')} unjudged=${count('unjudged')} ok=${count('ok')}`
+    `rotting=${count('rotting')} stale=${count('stale-verification')} pending=${count('pending')} ` +
+    `unjudged=${count('unjudged')} ok=${count('ok')}`
   return { state, rows, summary }
 }
 
@@ -136,5 +153,5 @@ export function actionableRows(res) {
     .sort((a, b) => (b.silentMin ?? -1) - (a.silentMin ?? -1))
 }
 
-export const __test__ = { SILENCE_MULTIPLIER, MIN_SILENCE_MS, ROTATE_DAYS, silenceWindowMs, classifyLegs, actionableRows }
+export const __test__ = { SILENCE_MULTIPLIER, MIN_SILENCE_MS, ROTATE_DAYS, FIRST_RUN_GRACE_MS, silenceWindowMs, classifyLegs, actionableRows }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

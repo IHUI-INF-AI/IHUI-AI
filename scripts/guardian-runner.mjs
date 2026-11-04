@@ -6617,10 +6617,14 @@ const checks = [
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_ROOT_GUARD_CONSISTENCY',
     // 射程 = 清单本体 + 清单登记的每一个 target + 门体自身:漏一个就等于给那一路开后门。
+    // 2026-11-04 补 scripts/git-guardian.mjs:此前巡检本体不在射程里 ⇒ 改它(不重 seal)在本门
+    // 结构上永不触发,只能等部署侧 root-guard --check 红;它已是清单 target,补上即"改则必审封条",
+    // 不存在误伤面(正常改它本就该同笔重封,否则 --check 必红)。
     stagedTriggers: [
       'scripts/data/root-guard-manifest.json',
       'scripts/guardian-runner.mjs',
       'scripts/lib/judgement-libs.json',
+      'scripts/git-guardian.mjs',
       'AGENTS.md',
       'scripts/check-root-guard-consistency.mjs',
       'scripts/root-guard.mjs',
@@ -7109,6 +7113,30 @@ const pushGateChecks = [
       '     push 档只写工作区、不碰索引:inject 完仍红属正常(HEAD 面欠账只能由真正的提交销账)。',
       '     列出缺口:node scripts/watermark.mjs list-uncovered --files-from <清单>(清单即 PUSH_SCOPE_FILES)。',
       '     退出码 2 = 取不到判定面或 push scope 不可得时退回全量面,不是"没水印"。',
+      '',
+    ].join('\n'),
+  },
+  // 2026-11-04（中单：签名豁免）：判据面护栏此前只挂巡检游标档（auditImmutableGuardNewCommits），
+  // push 时一步都不判 ⇒ 未声明 / 仅文字理由的改动可以原样上 main（HEAD 1553af77 即实例）。
+  // 这里挂到 push 门：判**本次要推的每一枚**（origin/main..HEAD），红则整批不推。
+  // 不碰 .husky/pre-push 的 tag 分支（另一席在改）；只在本注册表里加一条 blocking。
+  {
+    id: 'IG',
+    label: '🧊  判据面不可变护栏(push 区间 origin/main..HEAD 逐枚判:未声明/签名缺失或验不过/清单到期 ⇒ 拦推)',
+    script: 'check-immutable-guard.mjs',
+    args: ['--range', 'origin/main..HEAD'],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_IMMUTABLE_GUARD',
+    onFailHint: [
+      '',
+      '  💡 判红三种形态:① 没有 immutable-exempt 理由;② 有理由但缺/验不过 immutable-exempt-sig;',
+      '     ③ 清单 reviewBy 到期。三种都不许"改判据让它变绿"。',
+      '  合法改法:先 `node scripts/check-immutable-guard.mjs --sign-staged --subject "<提交标题>"',
+      '     --reason "<与 immutable-exempt 同一句>" --paths <a,b,c>` 取签名行,再重写提交信息(会改 sha)。',
+      '  密钥来源(必须由 CI/机主注入,不在提交者可控范围):IHUI_IMMUTABLE_GUARD_KEY /',
+      '     IHUI_IMMUTABLE_GUARD_KEY_FILE / git config ihui.immutableGuardKeyPath。缺钥 ⇒ 一律判未豁免。',
+      '  迁移窗口:scripts/data/immutable-guard.json 的 signatureRequiredFrom(到期自动收紧,无静默放行)。',
+      '  单独复验:node scripts/check-immutable-guard.mjs --range origin/main..HEAD',
       '',
     ].join('\n'),
   },
