@@ -217,6 +217,57 @@ const UPDATE_FORM_RE = /\bupdate\s+[\w"`'.\]]+\s+set\b|\.update\s*\(|\bUPDATE\b[
  */
 const REPAIR_FAMILY_RE =
   /\b(?:[Rr]epair|[Hh]eal|[Bb]ackfill|[Rr]econcile)(?:[A-Z][A-Za-z0-9_]*|s|es|ed|ing)?\b/
+/* ── 候选面:写路径自己是否"自称维护性修复"(判定件,不是新能力) ──
+ * 文件级词共现太粗:修复族词住 import 路径(`x-reconcile.js`)、兄弟函数(只读状态名
+ * `isXxxBackfillApplied`)、或 Redis 侧回填标识符时,整份文件都会被拉进射程,而它自己那条
+ * UPDATE 恰恰是普通业务写 —— 那种"进射程"是噪声,不是判据(会把合规代码钉红,逼人改基线)。
+ * 收紧成:UPDATE **最近一层函数体(含签名行)**里出现修复族词才算自称。
+ *   · 按行缩进找最近一层"函数头行"(function / 箭头 / 方法签名,排除 if/for/while/catch),
+ *     再取该行到其块尾;try/if 等控制块不是函数头 ⇒ 会自动越过,不会把修复名丢掉。
+ *   · 只收紧不放开:更新在顶层(找不到函数头)⇒ 仍按整份文件判(保守,不因定位失败就放过)。
+ */
+
+const indentOf = (line) => line.length - line.trimStart().length
+
+/** 该行是否是函数/方法/箭头签名(多行签名的收尾行 `}): T {` 也算)。 */
+function looksLikeFunctionHeadLine(line) {
+  const t = line.trim()
+  if (!t) return false
+  if (/\bfunction\b/.test(t)) return true
+  if (/=>\s*(?:\{\s*)?$/.test(t)) return true
+  // 多行签名的收尾行:`}): Promise<T> {`
+  if (/^\}?\s*\)\s*(?::\s*[^;{}]+)?\s*\{\s*$/.test(t)) return true
+  // 单行签名 `name(args) [: T] {`;控制块不是函数头
+  if (/\b(?:if|for|while|switch|catch|with)\s*\(/.test(t)) return false
+  return /[^\s(]\s*\([^()]*\)\s*(?::\s*[^;{}]+)?\s*\{\s*$/.test(t)
+}
+
+/**
+ * 写路径的自称面:UPDATE 最近一层函数体(签名行 → 块尾)。找不到函数头 ⇒ 整份文件。
+ * @returns {string} 用于找修复族词的文本
+ */
+function writePathText(code, pos) {
+  const lines = code.split('\n')
+  const idx = code.slice(0, pos).split('\n').length - 1
+  const ind = indentOf(lines[idx])
+  for (let i = idx; i >= 0; i -= 1) {
+    const line = lines[i]
+    if (!line.trim()) continue
+    const headInd = indentOf(line)
+    if (headInd >= ind || !looksLikeFunctionHeadLine(line)) continue
+    let end = lines.length - 1
+    for (let j = i + 1; j < lines.length; j += 1) {
+      const lj = lines[j]
+      if (lj.trim() && indentOf(lj) <= headInd && lj.trimStart().startsWith('}')) {
+        end = j
+        break
+      }
+    }
+    return lines.slice(i, end + 1).join('\n')
+  }
+  return code
+}
+
 /** 旧值形态:`expectedDirectory` / `expectedPath` / `expectedX`。 */
 const EXPECTED_RE = /\bexpected[A-Za-z0-9_]*\b/
 /** CAS 未命中形态:受影响行数与 0 比较。 */
@@ -238,6 +289,18 @@ const THROW_RE = /\bthrow\b/
  */
 const TEMPLATE_IMPORT_RE = /from\s*['"][^'"]*lib\/db-row-narrow-cas\.mjs['"]/
 
+/** 是否有**任一** UPDATE 的写路径自称修复族(文件级共现不算,见 writePathText 头注)。 */
+function updateSelfClaimsRepair(code) {
+  const scan = new RegExp(UPDATE_FORM_RE.source, 'g')
+  let m = scan.exec(code)
+  while (m !== null) {
+    if (REPAIR_FAMILY_RE.test(writePathText(code, m.index))) return true
+    if (m[0].length === 0) scan.lastIndex += 1
+    m = scan.exec(code)
+  }
+  return false
+}
+
 /**
  * 一个文件(整份源码)是否"自称在做 DB 行面的维护性修复",以及它缺哪几条规矩。
  * @returns {{candidate:boolean,missing:string[],usesTemplate:boolean}}
@@ -245,7 +308,7 @@ const TEMPLATE_IMPORT_RE = /from\s*['"][^'"]*lib\/db-row-narrow-cas\.mjs['"]/
  */
 export function judgeTemplate(text) {
   const code = maskCode(text)
-  const candidate = UPDATE_FORM_RE.test(code) && REPAIR_FAMILY_RE.test(code)
+  const candidate = UPDATE_FORM_RE.test(code) && updateSelfClaimsRepair(code)
   const usesTemplate = TEMPLATE_IMPORT_RE.test(code)
   const missing = []
   // ① 旧值:走不走模板都得自己给 —— 模板不知道你那一行的旧值是什么
