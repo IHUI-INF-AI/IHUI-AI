@@ -6045,8 +6045,29 @@
       "present": "出席",
       "late": "遅刻",
       "absent": "欠席",
-      "leave": "休み"
-    }
+      "leave": "休み",
+      "early": "早退"
+    },
+    "actionDone": "操作に成功しました",
+    "actionFailed": "操作に失敗しました",
+    "batchResult": "点呼完了：新規 {created}、スキップ {skipped}、見落とし {missed}",
+    "batchTitle": "クラス一括点呼",
+    "chooseAction": "操作を選択",
+    "chooseClass": "点呼するクラスを選択",
+    "emptyTrend": "推移データがありません",
+    "loadStatsFailed": "出席統計の読み込みに失敗しました。後で再試行してください。",
+    "needClassId": "クラス情報がないため代理の登校・下校ができません",
+    "noClass": "現在のリストに選択できるクラスがありません",
+    "onlyTodayCheckIn": "代理チェックインは当日のみ：遡って記入するにはその日内の時刻が必要で、この画面では扱えません",
+    "qrEntry": "チェックインQRを表示",
+    "statsAttendanceRate": "出席率",
+    "statsTotalLabel": "考勤延べ人数",
+    "statusDistribution": "状態分布",
+    "statusOther": "その他",
+    "trendChartHint": "出席率 = 正常出席 ÷ 当該時間帯の出席記録数（未打刻の生徒は分母に含みません）",
+    "trendChartScope": "集計範囲：{scope}",
+    "trendChartTitle": "出席の推移",
+    "trendWindow": "直近 {days} 日間"
   },
   "eduGrades": {
     "title": "成績管理",
@@ -7273,5 +7294,31 @@
   },
   "activities": {
     "join": "今すぐ参加"
+  },
+  "eduAttendanceQr": {
+    "chooseClass": "クラスを選択",
+    "classLoadFailed": "クラス一覧の読み込みに失敗しました",
+    "expiresIn": "{s} 秒で有効期限切れ",
+    "needLogin": "ログインしてからスキャンしてください",
+    "nextStepHint": "出欠ルールを有効化しスキャン鍵(qrSecret)を設定してから再発行してください",
+    "noClass": "選択できるクラスがありません",
+    "pickClassFirst": "最初にクラスを選択してください",
+    "qrTip": "生徒はこのコードをスキャンしてチェックインで読み取ります",
+    "refresh": "再発行",
+    "scanDone": "チェックインしました",
+    "scanFailed": "チェックインに失敗しました",
+    "scanHint": "先生のチェックインQRコードを枠内に合わせてください",
+    "scanInvalidCode": "本システムのチェックインQRコードではありません",
+    "scanSubmitting": "チェックイン中...",
+    "scanTitle": "スキャンしてチェックイン",
+    "title": "チェックインQRコード"
+  },
+  "eduMyAttendance": {
+    "classByBackendHint": "クラスは在籍情報に基づいて自動的に決定されます",
+    "date": "日付",
+    "notLoggedIn": "ログインしていないため操作できません",
+    "scanCheckIn": "スキャンしてチェックイン",
+    "selfCheckIn": "自分で登校登録",
+    "title": "自分の出席"
   }
 }

@@ -15,6 +15,7 @@
  *   ⑥ 用户关掉的一次性提示,在新一轮查到更新时必须复位。
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type * as RangedDownloadModule from '../ranged-download'
 
 const h = vi.hoisted(() => ({
   checkAppVersion: vi.fn(),
@@ -72,7 +73,7 @@ vi.mock('../apk-download-legs', () => ({
  * 所以下面另有 `it.each` 逐类证明普通 Error 也会退回单流,不再只认那一个类。
  */
 vi.mock('../ranged-download', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../ranged-download')>()
+  const actual = await importOriginal<typeof RangedDownloadModule>()
   return {
     ...actual,
     downloadRanged: (options: unknown) =>
