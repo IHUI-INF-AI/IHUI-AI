@@ -235,8 +235,11 @@ function readHeadMessage(root, rev = 'HEAD') {
  * `rev` 只作用于 head 档：`--audit-new` 用它把判定面钉在**被审的那枚提交**上
  *   （清单、改动、提交信息三样都取 `${rev}` 那一轮，§0.4 同面同轮）。
  * `key` 只给自检/测试注入用；`undefined` ⇒ 走 `resolveSigningKey` 的正式三源。
+ * `policyRev`（2026-11-04 立，push 门专用）：**策略取自哪里**。默认空 = 与 `rev` 同轮（巡检语义）。
+ *   push 门给区间基点（origin/main）：被审者无法在自己提交里删掉/推后 `signatureRequiredFrom`
+ *   来给自己放行；命中面 entries 仍取被审提交自己的清单（新增登记对当枚即生效）。
  */
-export function runAudit(root, face, { message = undefined, today = todayStr(), record = false, rev = 'HEAD', key = undefined } = {}) {
+export function runAudit(root, face, { message = undefined, today = todayStr(), record = false, rev = 'HEAD', policyRev = null, key = undefined } = {}) {
   const keyRes =
     key === undefined
       ? resolveSigningKey(root)
@@ -261,9 +264,16 @@ export function runAudit(root, face, { message = undefined, today = todayStr(), 
     listProblems: [],
     detail: '',
   }
+  const useBasePolicy = Boolean(policyRev && policyRev !== rev)
   let listText
+  let policyText = null
   try {
-    listText = readFaceText(root, face, GUARD_DATA_REL, rev)
+    if (useBasePolicy) {
+      policyText = readFaceText(root, 'head', GUARD_DATA_REL, policyRev)
+      listText = readFaceText(root, 'head', GUARD_DATA_REL, rev)
+    } else {
+      listText = readFaceText(root, face, GUARD_DATA_REL, rev)
+    }
   } catch (e) {
     if (e instanceof Undetermined) return { ...baseOut, detail: e.message, code: 'list-missing' }
     throw e
@@ -271,14 +281,19 @@ export function runAudit(root, face, { message = undefined, today = todayStr(), 
   if (listText === null) {
     return { ...baseOut, code: 'list-missing', detail: `受保护面清单在 ${rev} 面不存在：${GUARD_DATA_REL}` }
   }
+  if (policyText === null && useBasePolicy) {
+    return { ...baseOut, code: 'list-missing', detail: `策略清单在 ${policyRev} 面不存在：${GUARD_DATA_REL}` }
+  }
   const parsed = parseGuardList(listText, { today })
-  if (parsed.problems.length) {
+  const policyParsed = policyText === null ? parsed : parseGuardList(policyText, { today })
+  const listProblems = [...parsed.problems, ...policyParsed.problems]
+  if (listProblems.length) {
     return {
       ...baseOut,
       exit: 2,
       code: 'list-bad',
       entryCount: parsed.entries.length,
-      listProblems: parsed.problems,
+      listProblems,
     }
   }
 
@@ -311,7 +326,7 @@ export function runAudit(root, face, { message = undefined, today = todayStr(), 
     message: msg,
     today,
     key: keyRes.key,
-    signatureRequiredFrom: parsed.signatureRequiredFrom,
+    signatureRequiredFrom: policyParsed.signatureRequiredFrom,
   })
   const result = {
     ...baseOut,
@@ -523,7 +538,7 @@ const AUDIT_BASE = {
  * 归桶顺序：exit 1 ⇒ breach；exit 2 ⇒ undetermined；exit 0 ⇒ declared（签名验过）
  * 或 unsigned（迁移窗口内仅文字理由）。合并提交跳过并计数（理由见调用处注释）。
  */
-function judgeBatch(root, batch, { today = todayStr(), record = false } = {}) {
+function judgeBatch(root, batch, { today = todayStr(), record = false, policyRev = null } = {}) {
   const breaches = []
   const undetermined = []
   const unsigned = []
@@ -538,7 +553,7 @@ function judgeBatch(root, batch, { today = todayStr(), record = false } = {}) {
     judged += 1
     let one
     try {
-      one = runAudit(root, 'head', { today, record, rev: sha })
+      one = runAudit(root, 'head', { today, record, rev: sha, policyRev })
     } catch (e) {
       one = { exit: 2, code: 'threw', detail: String(e?.message ?? e), hits: [], entryCount: 0, expired: [] }
     }
@@ -697,7 +712,19 @@ export function auditRange(root, { range = 'origin/main..HEAD', today = todayStr
   if (shas.length === 0) {
     return { ...base, exit: 0, state: 'empty-range', range, detail: `区间 ${range} 为空 ⇒ 本轮零输入（不等于"判过且干净"）` }
   }
-  const { breaches, undetermined, unsigned, declared, skippedMerges, judged } = judgeBatch(root, shas, { today, record })
+  // 策略基点：区间左端（三点区间取 merge-base）。签名要求日取**基点**的清单 ——
+  // 被审者在自己提交里删掉/推后开关也给自己放不了行；命中面仍取被审提交自己的清单。
+  let baseRev
+  try {
+    baseRev = rangeBaseRev(root, range)
+  } catch (e) {
+    return { ...base, state: 'undetermined', range, detail: `区间 ${range} 的基点解析失败：${e?.message ?? e} ⇒ 未判定，不记绿` }
+  }
+  const { breaches, undetermined, unsigned, declared, skippedMerges, judged } = judgeBatch(root, shas, {
+    today,
+    record,
+    policyRev: baseRev,
+  })
   return {
     ...base,
     exit: breaches.length > 0 ? 1 : undetermined.length > 0 ? 2 : 0,
@@ -716,6 +743,17 @@ export function auditRange(root, { range = 'origin/main..HEAD', today = todayStr
     cursorAfter: '',
     detail: '',
   }
+}
+
+/** 区间基点：`a..b` ⇒ a；`a...b` ⇒ merge-base(a,b)。解析失败抛错（调用方折 exit 2）。 */
+function rangeBaseRev(root, range) {
+  const three = String(range).includes('...')
+  const [left, right] = String(range).split(three ? '...' : '..')
+  if (!left || !right) throw new Error(`区间必须形如 a..b 或 a...b，收到：${range}`)
+  const args = three ? ['merge-base', left, right] : ['rev-parse', '--verify', `${left}^{commit}`]
+  const out = String(gitRaw(args, root)).trim()
+  if (!out) throw new Error(`无法解析区间左端：${left}`)
+  return out
 }
 
 /** 父数（>1 = 合并提交）。取不到按 1 处理 ⇒ 宁可多判一枚，不放过一枚。 */
