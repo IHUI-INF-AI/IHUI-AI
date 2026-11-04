@@ -101,6 +101,9 @@ Headline claims (same source as the table below, all live-computed): **619 table
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-04**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (08d41693f6)
+
+**2026-11-04**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (0cdb9c5adc)
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (cd5826f592)
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (3bd970724d)
@@ -389,12 +392,6 @@ Headline claims (same source as the table below, all live-computed): **619 table
 - 🔧 Chore/Other:活性散文数字对齐生成器实际读数(c9b69e6758 面) (dccd868650)
 - 🐞 Fix:从 COLORS_MAPPING 删除已废弃 tertiary 常量并重算 ui-routes 钉 (c9b69e6758)
 - 🔧 Chore/Other:数字块重算到 830eb717 + FAQ/头条断言对齐实际 (319213f532)
-
-**2026-11-03**
-- 🚀 Feature/Improvement:支付出口移入导航层 + Follow/VideoPlayer 语义登记 + 九屏端口自证测试 (830eb717a3)
-- 🚀 Feature/Improvement:校正 AigcList 薄壳对共享屏承接行号的引用 (b569c10672)
-- 🔧 Chore/Other:重算四语 README 数字块并刷新最近更新 (e647bf8ab5)
-- ♻️ Refactor:间距 rpx 字面量等值落档（CSS var / taroSpacing，weapp 像素零变化） (0ea20bbe01)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
