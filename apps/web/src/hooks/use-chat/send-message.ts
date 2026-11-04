@@ -77,6 +77,12 @@ import { isContextAtCompactionThreshold } from '@/lib/token-estimate'
 import { getBrowserWorkspaceHandle } from '@/lib/workspace-context-loader'
 import { executeWorkspaceTool } from '@/lib/workspace-tool-executor'
 import {
+  filePathOfArgs,
+  getFileAttribution,
+  saveFileAttribution,
+} from '@/lib/line-attribution-store'
+import type { AttributionRange } from '@ihui/shared/attribution'
+import {
   mapSpawnToTimelineEvent,
   mapProgressToTimelineUpdate,
   mapEndToTimelineUpdate,
@@ -1432,7 +1438,23 @@ export function createSendMessage(
             )
             return
           }
-          const execResult = await executeWorkspaceTool(event.tool_name, event.args, handle)
+          // 行级归因旁路:写入成功后由执行器按真实前后 diff 标记 AI 行(localStorage 持久化)
+          const attribution = {
+            origin: {
+              at: new Date().toISOString(),
+              sessionId: event.session_id,
+              toolCallId: event.tool_call_id,
+            },
+            records: getFileAttribution(ws.name, filePathOfArgs(event.args)),
+            onRecord: (ranges: AttributionRange[]) =>
+              saveFileAttribution(ws.name, filePathOfArgs(event.args), ranges),
+          }
+          const execResult = await executeWorkspaceTool(
+            event.tool_name,
+            event.args,
+            handle,
+            attribution,
+          )
           await postToolResult(
             event.session_id,
             event.tool_call_id,
