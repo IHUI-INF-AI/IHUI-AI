@@ -24,6 +24,15 @@
  * **只读对账**:决策账里"该产而信号账里没有"的条数 >0 ⇒ drift。它不是"没事故就报红"
  * 的恒红门 —— 全 pass 的决策账待产恒 0 ⇒ ok,量的是可整改的漏产(重跑摄入器即清)。
  *
+ * A12-leg-output-reconciliation(2026-11-04 立,/goal R3):A11 只给一条腿做产出对账,
+ * 其余 11 腿仍只有 A8 的戳龄。实测 dep-radar 戳照刷、A1-A11 全绿,而产出账停在 10-30、
+ * 守护日志连续 5 天自报「未判定」(pnpm audit 继承守护进程失效代理 ⇒ stdout 空)。
+ * 这一维按登记表 outputKind 三分类对账全部 12 腿:always 静默超窗 ⇒ drift;
+ * conditional 静默超窗且**该腿最近一条日志**自报未判定 ⇒ unjudged(点名输入面);
+ * 静默但无自报 ⇒ ok(合法静默,不许做成恒红门);none / coveredBy ⇒ n/a。
+ * 判据单一真源 scripts/lib/autonomy-leg-output.mjs,本层只搬运输入:登记表按被审面取,
+ * 产出台账/派发戳/守护日志是运行态只读盘上真值,日志 20MiB+ 只 tail 最近 4MiB。
+ *
  * 用法:node scripts/check-autonomy-leg-health.mjs [--json] [--self-test] [--repo-root <path>]
  *      [--api-base <url>] [--ai-base <url>] [--staged|--worktree]
  * 判定面纪律(§0.4):闸门配置按被审面取 —— 默认 HEAD blob,`--staged` 判索引,
