@@ -4,9 +4,10 @@
 
 """签到助手每日调度器(Phase1b,2026-10-03 立)。
 
-非 Qoder 账号每日 08:05(Asia/Shanghai)、Qoder 账号每日 10:05,分别遍历
-enabled 账号逐个执行(平台分发引擎),结果落 checkin_records;错误按引擎
-classify_error 的分类驱动冷却累积。
+非 Qoder 账号每日 00:05 与 08:05(Asia/Shanghai,2026-11-04 补零点窗口)、
+Qoder 账号每日 10:05,分别遍历 enabled 账号逐个执行(平台分发引擎),结果落
+checkin_records;错误按引擎 classify_error 的分类驱动冷却累积。08:05 保留为
+兜底:零点跑若撞上平台尚未重置(假 skip_already),主窗口会再补一次。
 
 Qoder 独立 10:05 窗口的原因:官方领取活动每日 10:00(UTC+8)才开放
 (docs.qoder.com/events/100credits),08:05 跑必然「活动未下发」且当天
@@ -93,6 +94,11 @@ _ERROR_COOLDOWN_THRESHOLD = 3
 _PERMANENT_COOLDOWN_DAYS = 3650
 
 _JOB_ID = "checkin_daily"
+# 零点窗口(2026-11-04 立):部分平台本地 0 点就刷新当日额度(WorkBuddy 00:00
+# UTC+8 后可领),等 08:05 等于白晚 8 小时。新增 00:05 job 复用 _daily_run
+# (partition_platforms 已把 Qoder 拆走,不会撞 10:00 窗口);08:05 主窗口保留
+# 当兜底,两者都不做「今日已结算就跳过」过滤(假 skip_already 会永久挡掉当天真签到)。
+_JOB_ID_MIDNIGHT = "checkin_daily_midnight"
 _CREDITS_JOB_ID = "checkin_credits_daily"
 # 平台化(2026-10-10):Qoder 领取窗口每日 10:00(UTC+8)才开放(官方 docs.qoder.com
 # /events/100credits),08:05 主 job 对 Qoder 账号必然「活动未下发」且当天不再重试
@@ -153,10 +159,10 @@ class CooldownActiveError(RuntimeError):
 def partition_platforms(
     accounts: list[dict[str, Any]],
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """按平台拆分账号列表,返回 (非 qoder 走 08:05 主窗口, qoder 走 10:05 窗口)。
+    """按平台拆分账号列表,返回 (非 qoder 走零点/主窗口, qoder 走 10:05 窗口)。
 
     platform 缺失按 'trae' 处理(存量账号语义,与 store 默认列值一致)。
-    workbuddy 随主窗口跑(2026-10-12:Buddy 加油站每日 00:00(UTC+8)后随时
+    workbuddy 随零点/主窗口跑(2026-10-12:Buddy 加油站每日 00:00(UTC+8)后随时
     可领,无需独立窗口;引擎分发在 checkin_one 按 platform 进行)。纯函数。
     """
     main_side: list[dict[str, Any]] = []
@@ -386,7 +392,7 @@ class CheckinScheduler:
     # ===== 启停(lifespan 钩子) =====
 
     async def start(self) -> None:
-        """启动每日 08:05(非 Qoder)/10:05(Qoder)/补跑(CHECKIN_QODER_RETRY_TIMES,
+        """启动每日 00:05/08:05(非 Qoder)/10:05(Qoder)/补跑(CHECKIN_QODER_RETRY_TIMES,
         默认 11:00、12:30)定时任务(CHECKIN_CRON_ENABLED 控制全部 job;代码缺省 false,
         部署入口默认注入 true)。
 
@@ -417,6 +423,11 @@ class CheckinScheduler:
             scheduler.add_job(func, trigger=trigger, id=job_id, replace_existing=True)
             registered.append(f"{job_id}={_job_cron_expr(trigger)}")
 
+        _add(
+            self._daily_run_midnight,
+            CronTrigger(hour=0, minute=5, timezone=_CN_TZ, jitter=_CRON_JITTER),
+            _JOB_ID_MIDNIGHT,
+        )
         _add(
             self._daily_run,
             CronTrigger(hour=8, minute=5, timezone=_CN_TZ, jitter=_CRON_JITTER),
@@ -472,8 +483,8 @@ class CheckinScheduler:
         retry_label = "/".join(f"{h:02d}:{m:02d}" for h, m in _qoder_retry_times())
         logger.info(
             "[checkin_scheduler] 已启动每日调度:注册 %d 个 job [%s]"
-            "(06:00 状态探针 / 08:05 签到 / 10:05 Qoder 签到 / Qoder 补跑 %s / 08:10 积分快照,"
-            "起批漂移 ≤%ds)",
+            "(06:00 状态探针 / 00:05 零点签到 / 08:05 签到 / 10:05 Qoder 签到 /"
+            " Qoder 补跑 %s / 08:10 积分快照,起批漂移 ≤%ds)",
             len(registered),
             ", ".join(registered),
             retry_label or "未配置",
@@ -529,9 +540,9 @@ class CheckinScheduler:
         """运行状态(公开只读视图,供 GET /api/checkin/scheduler/status)。
 
         enabled 与 start() 读同一环境变量(_cron_enabled 单一来源);started
-        为本单例是否已 start;next_run / next_run_qoder / next_run_qoder_retry /
-        next_run_probe / next_run_wb_tasks 仅已启动时有值(APScheduler job 的
-        next_run_time,带 Asia/Shanghai 时区的 ISO8601),未启动为 None。
+        为本单例是否已 start;next_run / next_run_midnight / next_run_qoder /
+        next_run_qoder_retry / next_run_probe / next_run_wb_tasks 仅已启动时有值
+        (APScheduler job 的 next_run_time,带 Asia/Shanghai 时区的 ISO8601),未启动为 None。
 
         next_run_qoder_retry(2026-11-01 补):补跑轮按 env 逐个注册 job,这里取
         这些 job 中**最近一次**触发时刻(job id 由 _qoder_retry_job_id 单一真源
@@ -557,6 +568,7 @@ class CheckinScheduler:
         没领到分。
         """
         next_run: str | None = None
+        next_run_midnight: str | None = None
         next_run_qoder: str | None = None
         next_run_qoder_retry: str | None = None
         next_run_probe: str | None = None
@@ -571,6 +583,12 @@ class CheckinScheduler:
                 # isoformat 的产出才有 str 看守(同 checkin_store :269 的钉法)。
                 next_run_time: datetime | None = job.next_run_time
                 next_run = next_run_time.isoformat() if next_run_time is not None else None
+            job_mid = self._scheduler.get_job(_JOB_ID_MIDNIGHT)
+            if job_mid is not None:
+                next_run_time_m: datetime | None = job_mid.next_run_time
+                next_run_midnight = (
+                    next_run_time_m.isoformat() if next_run_time_m is not None else None
+                )
             job_q = self._scheduler.get_job(_JOB_ID_QODER)
             if job_q is not None:
                 next_run_time_q: datetime | None = job_q.next_run_time
@@ -609,6 +627,7 @@ class CheckinScheduler:
             "cron_enabled": wb_cron_enabled,
             "started": self._started,
             "next_run": next_run,
+            "next_run_midnight": next_run_midnight,
             "next_run_qoder": next_run_qoder,
             "next_run_qoder_retry": next_run_qoder_retry,
             "next_run_probe": next_run_probe,
@@ -1164,13 +1183,25 @@ class CheckinScheduler:
             "; ".join(summary) if summary else "无可用账号",
         )
 
-    async def _daily_run(self) -> None:
-        """08:05 主窗口:遍历非 Qoder 账号(Qoder 账号走 10:05 独立窗口)。"""
-        loaded = await self._load_accounts_and_cooldowns("主窗口")
+    async def _daily_run(self, label: str = "主窗口") -> None:
+        """08:05 主窗口:遍历非 Qoder 账号(Qoder 账号走 10:05 独立窗口)。
+
+        label 只用于日志/文案(零点窗口复用同一腿时传「零点窗口」),不改业务逻辑。
+        """
+        loaded = await self._load_accounts_and_cooldowns(label)
         if loaded is None:
             return
         main_side, _ = partition_platforms(loaded[0])
-        await self._run_batch(main_side, loaded[1], "主窗口")
+        await self._run_batch(main_side, loaded[1], label)
+
+    async def _daily_run_midnight(self) -> None:
+        """00:05 零点窗口:与 08:05 主窗口同一条腿(复用 _daily_run),仅换轮次标签。
+
+        平台 0 点刷新当日额度(WorkBuddy 00:00 UTC+8 后可领);08:05 仍保留作兜底,
+        故这里**不筛「今日已结算」**——零点若撞上平台尚未重置(status 报昨日已签),
+        8:05 会再跑一次补上。
+        """
+        await self._daily_run("零点窗口")
 
     async def _daily_status_probe(self) -> None:
         """06:00 状态探针(2026-10-16 李总需求):把平台侧「今日已签到」提前同步落库。
@@ -1469,12 +1500,12 @@ class CheckinScheduler:
                     account["name"], account["jwt"], device_map, client=client
                 )
             elif platform == "workbuddy":
-                # WorkBuddy 每日 00:00(UTC+8)后随时可领,随 08:05 主窗口跑
+                # WorkBuddy 每日 00:00(UTC+8)后随时可领,随零点/主窗口跑
                 result = await checkin_workbuddy.workbuddy_checkin_account(
                     account["name"], account["jwt"], device_map, client=client
                 )
             elif platform == "minimax":
-                # MiniMax 每日随时可领(幂等),随 08:05 主窗口跑
+                # MiniMax 每日随时可领(幂等),随零点/主窗口跑
                 result = await checkin_minimax.minimax_checkin_account(
                     account["name"], account["jwt"], device_map, client=client
                 )
