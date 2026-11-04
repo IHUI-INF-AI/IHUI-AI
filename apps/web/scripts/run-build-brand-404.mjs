@@ -46,6 +46,7 @@ const result = spawnSync(process.execPath, [cli, script], {
   cwd: webRoot,
   stdio: 'inherit',
   env: process.env,
+  windowsHide: true,
 })
 if (result.error) {
   console.error('[brand-404] 启动 tsx 失败:', result.error)
