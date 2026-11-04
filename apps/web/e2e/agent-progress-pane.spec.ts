@@ -286,6 +286,21 @@ test.describe('AgentTaskProgressPane v11 交互流程', () => {
   })
 
   test('无 500 错误 / 无控制台异常', async ({ authenticatedPage }) => {
+    // 2026-11-04:CI 的 e2e 栈没有 ai-service(8803)与外部资讯源(见 .github/workflows/e2e.yml
+    // 「没有 ai-service(8803)、没有 python Chromium」注记),/api/llm/* 与
+    // /api/admin/news/status 必然 500/502 —— 它们是外部依赖探针,不属于本用例要守的
+    // 「聊天页自身不产生 500」。这里用 200 空载荷替身把外部依赖中性化,其余端点照常断言。
+    await authenticatedPage.route(/\/api\/llm\/(models|providers\/health|personas)/, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: '{"data":[],"models":[],"personas":[]}',
+      }),
+    )
+    await authenticatedPage.route('**/api/admin/news/status', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }),
+    )
+
     const errors: string[] = []
     const consoleErrors: string[] = []
     authenticatedPage.on('response', (resp) => {
