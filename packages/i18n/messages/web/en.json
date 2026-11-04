@@ -17097,6 +17097,7 @@
     },
     "codeEditor": {
       "lspStatus": "LSP",
+      "attributionToggle": "Toggle AI line attribution",
       "zoomIn": "Zoom in",
       "zoomOut": "Zoom out"
     },
@@ -23876,6 +23877,8 @@
     "agentSecuritySaveFailed": "Failed to save security config",
     "analyticsEnabled": "Usage analytics",
     "analyticsEnabledDesc": "When on, the platform records anonymous feature-usage events (clicks, page visits, timings) to improve the product. It never records the content, code, or file paths you enter. Turning this off stops reporting immediately and affects no feature.",
+    "rumEnabled": "Performance & error diagnostics (optional)",
+    "rumEnabledDesc": "Off by default. When enabled, only anonymous startup timing, AI first-token latency, streaming long-task counts, and redacted error summaries are reported to improve performance. File paths, workspace names, email addresses, and device fingerprints are never sent. Turning it off stops collection immediately, clears pending data, and sends no further requests.",
     "llmRawRetentionOptOut": "Don't Retain LLM Conversation Text",
     "llmRawRetentionOptOutDesc": "Your prompts and AI replies are never written to the database",
     "codeIndexEgressOptOut": "Don't Build Code Semantic Index",

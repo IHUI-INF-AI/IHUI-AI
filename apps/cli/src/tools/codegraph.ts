@@ -29,6 +29,11 @@ import {
   getDefaultCachePath,
   type FileEvent,
 } from '../codegraph/index.js';
+import {
+  assertWorkspaceIndexBudget,
+  clearWorkspaceIndex,
+  resolveWorkspaceIndexMode,
+} from '../codegraph/workspace-index.js';
 
 const CODE_EXTS = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs']);
 const IGNORED_DIRS = new Set([
@@ -198,12 +203,27 @@ let incrementalEnabled = false;
 
 /** 启用增量索引:加载缓存 + 全量索引一次(后续走增量) */
 export async function enableCodegraphIncremental(workspaceRoot: string): Promise<void> {
+  // 显式开关(2026-11-04):`IHUI_WORKSPACE_INDEX` 缺省 off ⇒ 不建任何本地索引;
+  // 只有显式 workspace 才允许在当前工作区内建索引(见 codegraph/workspace-index.ts)。
+  const decision = resolveWorkspaceIndexMode();
+  if (decision.mode === 'off') {
+    disableCodegraphIncremental();
+    return;
+  }
+  // 范围/体量硬闸门:越界或超限直接拒绝建索引,不写半份、不静默吃磁盘
+  assertWorkspaceIndexBudget(workspaceRoot);
   incrementalEnabled = true;
   const cachePath = getDefaultCachePath(workspaceRoot);
   incrementalIndex = (await loadCache(cachePath)) ?? new CodeGraphIndex();
   incrementalManager = new IndexManager(workspaceRoot, incrementalIndex);
   // 启动时全量索引一次(后续走增量)
   await incrementalManager.indexDirectory();
+}
+
+/** 一键清除当前工作区的本地索引产物(外部缓存),并清空内存态。 */
+export function clearCodegraphWorkspaceIndex(workspaceRoot: string): { removed: boolean; dir: string } {
+  disableCodegraphIncremental();
+  return clearWorkspaceIndex(workspaceRoot);
 }
 
 /** 禁用增量索引(清空模块级状态) */
