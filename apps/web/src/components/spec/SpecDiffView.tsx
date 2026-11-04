@@ -36,17 +36,23 @@ function changeStyle(ct: SpecDiffSection['changeType']): { label: string; cls: s
 /** Spec Diff 可视化组件:按 sections 显示变更类型 */
 export function SpecDiffView({ diff, loading }: SpecDiffViewProps) {
   if (loading) {
-    return <div className="text-sm text-muted-foreground">正在生成 diff…</div>
+    return (
+      <div className="font-[weight:inherit] text-body text-muted-foreground">正在生成 diff…</div>
+    )
   }
   if (!diff) {
-    return <div className="text-sm text-muted-foreground">点击「对比变更」查看与上一版本的差异</div>
+    return (
+      <div className="font-[weight:inherit] text-body text-muted-foreground">
+        点击「对比变更」查看与上一版本的差异
+      </div>
+    )
   }
 
   const { summary } = diff
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap gap-2 text-xs">
+      <div className="font-[weight:inherit] flex flex-wrap gap-2 text-label">
         <span className="rounded-md bg-emerald-100 px-2 py-0.5 text-emerald-700">
           新增 {summary.added}
         </span>
@@ -67,15 +73,15 @@ export function SpecDiffView({ diff, loading }: SpecDiffViewProps) {
           <div key={i} className={`rounded-md p-3 ${style.cls}`}>
             <div className="mb-1.5 flex items-center justify-between">
               <span className="text-body font-medium">{section.title}</span>
-              <span className="text-xs opacity-80">{style.label}</span>
+              <span className="font-[weight:inherit] text-label opacity-80">{style.label}</span>
             </div>
             {section.before !== undefined && (
-              <pre className="mb-1 overflow-x-auto rounded bg-background/50 p-2 text-xs whitespace-pre-wrap break-words">
+              <pre className="font-[weight:inherit] mb-1 overflow-x-auto rounded bg-background/50 p-2 text-label whitespace-pre-wrap break-words">
                 <code>- {section.before}</code>
               </pre>
             )}
             {section.after !== undefined && (
-              <pre className="overflow-x-auto rounded bg-background/50 p-2 text-xs whitespace-pre-wrap break-words">
+              <pre className="font-[weight:inherit] overflow-x-auto rounded bg-background/50 p-2 text-label whitespace-pre-wrap break-words">
                 <code>+ {section.after}</code>
               </pre>
             )}

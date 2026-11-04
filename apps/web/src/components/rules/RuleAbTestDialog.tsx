@@ -104,7 +104,7 @@ function RuleAbTestDialog({ rules, onClose }: RuleAbTestDialogProps) {
               id="rule-cmp-a"
               value={ruleIdA}
               onChange={(e) => setRuleIdA(e.target.value)}
-              className="w-full rounded-sm border border-border bg-background px-2 py-1 text-xs outline-none"
+              className="font-[weight:inherit] w-full rounded-sm border border-border bg-background px-2 py-1 text-label outline-none"
             >
               <option value="">{t('selectRuleA')}</option>
               {rules.map((r) => (
@@ -122,7 +122,7 @@ function RuleAbTestDialog({ rules, onClose }: RuleAbTestDialogProps) {
               id="rule-cmp-b"
               value={ruleIdB}
               onChange={(e) => setRuleIdB(e.target.value)}
-              className="w-full rounded-sm border border-border bg-background px-2 py-1 text-xs outline-none"
+              className="font-[weight:inherit] w-full rounded-sm border border-border bg-background px-2 py-1 text-label outline-none"
             >
               <option value="">{t('selectRuleB')}</option>
               {rules.map((r) => (
@@ -144,7 +144,7 @@ function RuleAbTestDialog({ rules, onClose }: RuleAbTestDialogProps) {
             onChange={(e) => setMessage(e.target.value)}
             placeholder={t('inputTestMessage')}
             rows={3}
-            className="thin-scroll w-full resize-none rounded-sm border border-border bg-background px-2 py-1.5 text-xs leading-relaxed outline-none focus:border-foreground/20"
+            className="font-[weight:inherit] thin-scroll w-full resize-none rounded-sm border border-border bg-background px-2 py-1.5 text-label leading-relaxed outline-none focus:border-foreground/20"
           />
         </div>
 
@@ -162,7 +162,7 @@ function RuleAbTestDialog({ rules, onClose }: RuleAbTestDialogProps) {
         </div>
 
         {error && (
-          <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+          <div className="font-[weight:inherit] rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-label text-destructive">
             {error}
           </div>
         )}

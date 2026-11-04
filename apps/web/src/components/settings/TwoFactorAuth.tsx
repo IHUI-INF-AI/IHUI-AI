@@ -189,7 +189,9 @@ export function TwoFactorAuth() {
               <span
                 className={`inline-flex h-2.5 w-2.5 rounded-sm ${enabled ? 'bg-emerald-500' : 'bg-muted-foreground/40'}`}
               />
-              <span className="text-sm">{enabled ? t('twofa.enabled') : t('twofa.disabled')}</span>
+              <span className="font-[weight:inherit] text-body">
+                {enabled ? t('twofa.enabled') : t('twofa.disabled')}
+              </span>
             </div>
             {enabled ? (
               confirmingDisable ? (
@@ -241,7 +243,9 @@ export function TwoFactorAuth() {
 
         {step === 'qr' && setup && (
           <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">{t('twofa.scanQR')}</p>
+            <p className="font-[weight:inherit] text-body text-muted-foreground">
+              {t('twofa.scanQR')}
+            </p>
             <div className="flex justify-center">
               <Image
                 src={toMediaImageUrl(setup.qrCodeUrl)}
@@ -252,14 +256,14 @@ export function TwoFactorAuth() {
                 className="h-40 w-40 rounded-lg border"
               />
             </div>
-            <div className="flex items-center gap-2 rounded-md bg-muted px-3 py-2 text-xs">
+            <div className="font-[weight:inherit] flex items-center gap-2 rounded-md bg-muted px-3 py-2 text-label">
               <span className="font-mono break-all">{setup.secret}</span>
               <Button variant="ghost" size="sm" onClick={copySecret} className="shrink-0">
                 {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
               </Button>
             </div>
             {previewCode && (
-              <p className="text-center text-xs text-muted-foreground">
+              <p className="font-[weight:inherit] text-center text-label text-muted-foreground">
                 {t('twofa.previewCode')}:{' '}
                 <code className="font-mono font-bold text-primary">{previewCode}</code>
               </p>
@@ -275,7 +279,7 @@ export function TwoFactorAuth() {
                 onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
               />
             </div>
-            {error && <p className="text-xs text-destructive">{error}</p>}
+            {error && <p className="font-[weight:inherit] text-label text-destructive">{error}</p>}
             <Button
               className="w-full"
               disabled={submitting || code.length !== 6}
@@ -289,10 +293,12 @@ export function TwoFactorAuth() {
 
         {step === 'backup' && setup && (
           <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">{t('twofa.backupDesc')}</p>
+            <p className="font-[weight:inherit] text-body text-muted-foreground">
+              {t('twofa.backupDesc')}
+            </p>
             <div className="grid grid-cols-2 gap-2 rounded-lg border p-3">
               {setup.backupCodes.map((c) => (
-                <code key={c} className="font-mono text-sm">
+                <code key={c} className="font-[weight:inherit] font-mono text-body">
                   {c}
                 </code>
               ))}

@@ -119,7 +119,7 @@ export function WorkspacePermissionRequestDialog({
             </DialogHeader>
 
             <div className="space-y-3 py-2">
-              <div className="flex items-center justify-between gap-3 text-sm">
+              <div className="font-[weight:inherit] flex items-center justify-between gap-3 text-body">
                 <span className="text-muted-foreground">{t('tool')}</span>
                 <span className="font-medium">
                   {t(TOOL_NAME_KEY[toolNameToI18nKey(current.tool)] ?? 'toolNames.unknown') ||
@@ -127,15 +127,20 @@ export function WorkspacePermissionRequestDialog({
                 </span>
               </div>
               {current.workspacePath && (
-                <div className="flex items-start justify-between gap-3 text-sm">
+                <div className="font-[weight:inherit] flex items-start justify-between gap-3 text-body">
                   <span className="shrink-0 text-muted-foreground">{t('workspace')}</span>
-                  <TruncatedText value={current.workspacePath} className="font-mono text-xs" />
+                  <TruncatedText
+                    value={current.workspacePath}
+                    className="font-[weight:inherit] font-mono text-label"
+                  />
                 </div>
               )}
               {argsSummary.length > 0 && (
                 <div className="rounded-md border bg-muted/30 p-3">
-                  <div className="mb-1 text-xs text-muted-foreground">{t('details')}</div>
-                  <div className="space-y-1 text-xs">
+                  <div className="font-[weight:inherit] mb-1 text-label text-muted-foreground">
+                    {t('details')}
+                  </div>
+                  <div className="font-[weight:inherit] space-y-1 text-label">
                     {argsSummary.map((a) => (
                       <div key={a.label} className="flex items-start gap-2">
                         <span className="shrink-0 font-medium text-muted-foreground">
@@ -148,7 +153,7 @@ export function WorkspacePermissionRequestDialog({
                 </div>
               )}
               {queueCount > 0 && (
-                <div className="text-xs text-muted-foreground">
+                <div className="font-[weight:inherit] text-label text-muted-foreground">
                   {t('queue', { count: queueCount })}
                 </div>
               )}

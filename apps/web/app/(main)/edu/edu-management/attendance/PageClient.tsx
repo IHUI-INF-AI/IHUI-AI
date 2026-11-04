@@ -856,7 +856,9 @@ export default function AttendancePage() {
                 />
               </div>
               <div className="flex items-center gap-2">
-                <Label className="text-xs text-muted-foreground">{t('classLabel')}</Label>
+                <Label className="font-[weight:inherit] text-label text-muted-foreground">
+                  {t('classLabel')}
+                </Label>
                 <ClassSelect value={selectedClassId} onChange={setSelectedClassId} />
               </div>
               {/* 「全部状态」只是 UI 哨兵值,不得进 query:后端按枚举精确匹配,把哨兵值当状态
@@ -1067,7 +1069,9 @@ export default function AttendancePage() {
                 ))}
               </div>
               <div className="flex items-center gap-2">
-                <Label className="text-xs text-muted-foreground">{t('classLabel')}</Label>
+                <Label className="font-[weight:inherit] text-label text-muted-foreground">
+                  {t('classLabel')}
+                </Label>
                 <ClassSelect value={selectedClassId} onChange={setSelectedClassId} />
               </div>
               <div className="flex items-center gap-2">

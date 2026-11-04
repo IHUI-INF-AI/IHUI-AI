@@ -166,7 +166,9 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
     >
       <div className="flex max-h-[85vh] w-full max-w-2xl flex-col space-y-3 rounded-lg border border-border bg-card p-3 shadow-lg">
         <div className="flex items-center justify-between">
-          <span className="text-body font-semibold">{t('ruleDetailTitle', { name: rule.name })}</span>
+          <span className="text-body font-semibold">
+            {t('ruleDetailTitle', { name: rule.name })}
+          </span>
           <CloseButton aria-label={tCommon('close')} onClick={onClose} />
         </div>
 
@@ -175,7 +177,7 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
             type="button"
             onClick={() => setTab('stats')}
             className={cn(
-              'rounded-sm px-2.5 py-1 text-xs transition-colors',
+              'font-[weight:inherit] rounded-sm px-2.5 py-1 text-label transition-colors',
               tab === 'stats'
                 ? 'bg-foreground/5 text-foreground'
                 : 'text-muted-foreground hover:bg-accent',
@@ -188,7 +190,7 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
             type="button"
             onClick={() => setTab('history')}
             className={cn(
-              'rounded-sm px-2.5 py-1 text-xs transition-colors',
+              'font-[weight:inherit] rounded-sm px-2.5 py-1 text-label transition-colors',
               tab === 'history'
                 ? 'bg-foreground/5 text-foreground'
                 : 'text-muted-foreground hover:bg-accent',
@@ -201,7 +203,7 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
             type="button"
             onClick={() => setTab('predict')}
             className={cn(
-              'rounded-sm px-2.5 py-1 text-xs transition-colors',
+              'font-[weight:inherit] rounded-sm px-2.5 py-1 text-label transition-colors',
               tab === 'predict'
                 ? 'bg-foreground/5 text-foreground'
                 : 'text-muted-foreground hover:bg-accent',
@@ -267,7 +269,7 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
         ) : tab === 'history' ? (
           <div className="thin-scroll space-y-2 overflow-y-auto">
             {history.length === 0 ? (
-              <p className="py-4 text-center text-xs text-muted-foreground">
+              <p className="font-[weight:inherit] py-4 text-center text-label text-muted-foreground">
                 {t('noVersionHistory')}
               </p>
             ) : (
@@ -323,7 +325,7 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
               onChange={(e) => setPredictPrompt(e.target.value)}
               placeholder={t('predictPromptPlaceholder')}
               rows={3}
-              className="thin-scroll w-full resize-none rounded-sm border border-border bg-background px-2 py-1.5 text-xs leading-relaxed outline-none focus:border-foreground/20"
+              className="font-[weight:inherit] thin-scroll w-full resize-none rounded-sm border border-border bg-background px-2 py-1.5 text-label leading-relaxed outline-none focus:border-foreground/20"
             />
             <div className="flex items-center justify-end gap-2">
               <Button

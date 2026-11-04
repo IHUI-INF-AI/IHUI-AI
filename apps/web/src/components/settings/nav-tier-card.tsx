@@ -46,12 +46,12 @@ export function NavTierCard() {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        <p className="text-sm text-muted-foreground">{t('desc')}</p>
+        <p className="font-[weight:inherit] text-body text-muted-foreground">{t('desc')}</p>
 
         <div className="flex items-start justify-between gap-3">
           <span className="min-w-0 flex-1">
-            <span className="block text-sm">{t('simpleMode')}</span>
-            <span className="mt-0.5 block text-xs text-muted-foreground">
+            <span className="font-[weight:inherit] block text-body">{t('simpleMode')}</span>
+            <span className="font-[weight:inherit] mt-0.5 block text-label text-muted-foreground">
               {t('simpleModeDesc')}
             </span>
           </span>
@@ -68,8 +68,8 @@ export function NavTierCard() {
           {ALL_NAV_TIERS.map((tier) => (
             <div key={tier} className="flex items-start justify-between gap-3">
               <span className="min-w-0 flex-1">
-                <span className="block text-sm">{t(tier)}</span>
-                <span className="mt-0.5 block text-xs text-muted-foreground">
+                <span className="font-[weight:inherit] block text-body">{t(tier)}</span>
+                <span className="font-[weight:inherit] mt-0.5 block text-label text-muted-foreground">
                   {t(`${tier as NavAdvancedTier}Desc`)}
                 </span>
               </span>
@@ -87,5 +87,4 @@ export function NavTierCard() {
     </Card>
   )
 }
-
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
