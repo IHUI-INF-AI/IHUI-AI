@@ -6130,6 +6130,136 @@ const LESSON_APPLY_COOLDOWN_MS = Number(process.env.IHUI_LESSON_APPLY_COOLDOWN_M
 /** 候选稿落点:gitignored(§15);写回面(AGENTS.md / memory)结构上不碰,只报候选。 */
 const LESSON_DRAFT_OUT_REL = '.ihui-agent/tmp/lesson-draft'
 
+// ── 格式对账尺巡检轮(2026-11-04 立)──
+const FORMAT_PARITY_INTERVAL_MS = Number(
+  process.env.IHUI_FORMAT_PARITY_INTERVAL_MS || 30 * 60 * 1000,
+)
+// 判过档与"这格瞎了"分开冷却:输入取不到时 5 分钟后再试一次毫无意义,给 1 小时(同 sweepLessonDraft 那档)
+const FORMAT_PARITY_COOLDOWN_MS = Number(
+  process.env.IHUI_FORMAT_PARITY_COOLDOWN_MS || 60 * 60 * 1000,
+)
+const FORMAT_PARITY_UNDET_HORIZON_MS = Number(
+  process.env.IHUI_FORMAT_PARITY_UNDET_HORIZON_MS || 6 * 60 * 60 * 1000,
+)
+
+/**
+ * 格式对账尺巡检轮(§0.9「判据在、工具在、没人调度」= 没有)。
+ *
+ * 立因:尺子 `scripts/check-format-support-parity.mjs` 判据齐全(自检 16 例 + 镜像 11 例)、具名
+ * 豁免台账在仓(`scripts/data/format-parity-waivers.json`),而全仓此前**零派发** —— 十面(上传白名单
+ * ↔ 六张文档实现面 + 三张媒体实现面)的漂移只能靠人想起来手动敲一次,而"没人敲"在盘面上不留任何
+ * 痕迹。同型收口先例:`sweepLessonDraft`、`auditCrossEndParityDrift`。本函数是它唯一的调度器。
+ *
+ * 只判不修:不改任何端上表,函数体内唯一写盘目标 = 节流戳;不改本守护退出码。按 §12e 与尺子头注
+ * 同一口径**刻意不进提交链**(判的是跨端十面漂移,单个提交结构上满足不了"十面同时对齐",存量非零时
+ * 挂上去即恒红门)。
+ *
+ * 三态绝不并桶(§0.3),读数只认尺子自己 `--json` 的结论,本层零复算:
+ *   ok       ⇒ 一行读数(常态不刷屏),并清掉在册的「这格瞎了」连击起点
+ *   drift    ⇒ 日志逐档点名 ②/③ 与生效豁免。出路归 agent 当场做(补白名单 + 魔数分支 + 夹具 /
+ *              摘消费面虚假承诺 / 出具名豁免),按 §5e-2「能自己做的不推回机主」⇒ 本档不寄信,
+ *              出声在日志与节流戳两处
+ *   未判定   ⇒ 面文件被改名/移动或枚举到 0 候选 ⇒ 这一格现在是瞎的(没有第二把尺看得见它),
+ *              走 notifyEnvUndetermined 的稳定身份,连满 horizon 才到人;单轮只报不寄
+ *   结论取不到(派生失败 / JSON 坏 / 没有 state 键)⇒ 同样按未判定处理,不记绿也不记 drift
+ */
+export function sweepFormatParity(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = FORMAT_PARITY_INTERVAL_MS,
+    cooldownMs = FORMAT_PARITY_COOLDOWN_MS,
+    tickFile = join(WORKTREE, '.ihui-agent', 'state', 'format-parity-sweep-last.json'),
+    undetFile = join(WORKTREE, '.ihui-agent', 'state', 'format-parity-undet-first.json'),
+    undetHorizonMs = FORMAT_PARITY_UNDET_HORIZON_MS,
+    logger = log,
+    notify = notifyGuardRed,
+    runner = null,
+    // 只为成对夹具开(测试不得依赖仓内真实尺子路径):生产调用一律走默认值
+    scriptFile = null,
+  } = opts
+  const script =
+    scriptFile ?? join(dirname(fileURLToPath(import.meta.url)), 'check-format-support-parity.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ 格式对账:尺子不在位(scripts/check-format-support-parity.mjs)⇒ 本轮跳过,不记为已探测')
+    return { ran: false, why: '尺子不在位' }
+  }
+  let tick = null
+  try {
+    tick = JSON.parse(readFileSync(tickFile, 'utf8'))
+  } catch {
+    /* 没跑过 */
+  }
+  const lastAt = tick ? Date.parse(String(tick.attemptAt ?? '').trim()) : NaN
+  const lastJudged = tick?.judged === true
+  if (Number.isFinite(lastAt) && now - lastAt < (lastJudged ? intervalMs : cooldownMs)) {
+    return { ran: false, why: lastJudged ? '未到节流窗口' : '未判定冷却中' }
+  }
+  const raw =
+    typeof runner === 'function' ? runner() : runLegChild(script, ['--json'], 5 * 60 * 1000)
+  // runner 两种契约都收:生产派生与镜像夹具(字符串 / {status,stdout,stderr} 对象)
+  const r = typeof raw === 'string' ? { status: 0, stdout: raw, stderr: '' } : raw
+  beatRoundLock()
+  const stdout = String(r?.stdout ?? '')
+  let parsed = null
+  try {
+    const a = stdout.indexOf('{')
+    const b = stdout.lastIndexOf('}')
+    if (a >= 0 && b > a) parsed = JSON.parse(stdout.slice(a, b + 1))
+  } catch {
+    /* 落到下面「结论不可用」那一支 */
+  }
+  const state = typeof parsed?.state === 'string' ? parsed.state : null
+  const judged = state === 'ok' || state === 'drift'
+  const hollow = Array.isArray(parsed?.buckets?.hollow) ? parsed.buckets.hollow : null
+  // ③ 只认**剔掉具名豁免后的有效集**(与尺子 verdict 同一份,不得一处 4 一处 3)
+  const unreg = Array.isArray(parsed?.waiver?.unregistered) ? parsed.waiver.unregistered : null
+  const reasonText = judged
+    ? null
+    : String(r?.stderr ?? stdout ?? '').slice(0, 160) || '未取到 state 键'
+  const tickBody = {
+    attemptAt: new Date(now).toISOString(),
+    judged,
+    state: state ?? 'no-result',
+    registry: typeof parsed?.registryCount === 'number' ? parsed.registryCount : null,
+    hollow: hollow?.length ?? null,
+    unregistered: unreg?.length ?? null,
+    reason: reasonText,
+  }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, JSON.stringify(tickBody), 'utf8')
+  } catch (e) {
+    logger(`⚠️ 格式对账:节流台账写入失败(${String(e?.message ?? e).slice(0, 90)})——下轮照旧派发`)
+  }
+  if (state === 'ok' || state === 'drift') {
+    if (existsSync(undetFile)) clearUndeterminedStreak(undetFile)
+    if (state === 'ok') {
+      logger(`✅ 格式对账:十面对齐(登记 ${tickBody.registry} 档,②0/③0)`)
+      return { ran: true, judged: true, ok: true, state }
+    }
+    logger(
+      `⚠️ 格式对账漂移:②空头 ${(hollow ?? []).join(',') || '无'} / ③有实现未登记 ${
+        (unreg ?? []).join(',') || '无'
+      } ⇒ 出路三选一:该档补进 apps/api/src/utils/file-type-validator.ts 的 EXT_MIME_MAP(同批改 checkMagicNumber 分支与 apps/api 夹具)、或摘掉消费面那条虚假承诺、或进 scripts/data/format-parity-waivers.json 出具名豁免(owner/reason/expires 三键齐备且会到期)`,
+    )
+    return { ran: true, judged: true, ok: false, state, hollow, unregistered: unreg }
+  }
+  logger(`⚠️ 格式对账:未判定(${reasonText})⇒ 本轮没判,不等于「十面都对齐」`)
+  const n = notifyEnvUndetermined(
+    '格式对账·这轮取不到结论',
+    `派生 rc=${r?.status ?? '?'};未取到 --json 的 state 键。这表示**十面格式对账这一格现在是瞎的**` +
+      `(某张面文件被改名/移动、或该面枚举到 0 个扩展名候选),不是「没有漂移」。\n` +
+      `出路:node scripts/check-format-support-parity.mjs --worktree 直接看它点名哪一面取不到`,
+    notify,
+    logger,
+    undetFile,
+    undetHorizonMs,
+    'format-parity-undet',
+  )
+  return { ran: true, judged: false, state: 'unjudged', mailed: n?.mailed === true }
+}
+
+
 /**
  * 经验提炼派发腿(2026-10-31 立,与 sweepBannedBuckets / sweepStaleClaimMarks 同型)。
  *
@@ -13152,6 +13282,9 @@ async function main() {
     if (!CHECK_ONLY) auditRootGuardManifestSync()
     if (!CHECK_ONLY) sweepDownloadsLiveHealth()
     if (!CHECK_ONLY) auditCrossEndParityDrift()
+    // 格式对账尺巡检轮(2026-11-04 立):十面漂移此前零派发,只挂 main() 会在 daemon 独占
+    // 轮级锁后永久不跑(与上面同一判据)⇒ 两处执行体同挂,共用一枚节流戳,先到者真跑。
+    if (!CHECK_ONLY) sweepFormatParity()
     if (!CHECK_ONLY) auditWebRnParity()
     if (!CHECK_ONLY) auditPushChannel()
     if (!CHECK_ONLY) healCrossEndMirror()
@@ -13388,6 +13521,8 @@ function startDaemon(bootGuard = null) {
         sweepLessonDraft()
         healMirrorPurgeLeg()
         sweepHandMirrorUpgrades()
+        // 格式对账尺(2026-11-04 立):只读一把尺 + 自带 30 分钟节流戳,不写工作树
+        sweepFormatParity()
         sweepDownloadsLiveHealth()
         auditLintStagedPins()
         // 反馈闭环六段巡检(2026-10-28 立;与 main() 单轮路径同一挂点语义,共用
@@ -14535,6 +14670,9 @@ export const __test__ = {
   // 经验提炼派发腿(2026-10-31 接线;镜像测试 lesson-draft-dispatch 按名 import,不复制判据 §22c;
   // 不登记进本台账 ⇒ 接线锁结构上打不到这一格)。
   sweepLessonDraft,
+  // 格式对账尺巡检腿(2026-11-04 接线;镜像测试 git-guardian-format-parity-sweep 按名 import,
+  // 不复制判据 §22c;不登记进本台账 ⇒ 接线锁结构上打不到这一格)。
+  sweepFormatParity,
   // 暴露凭据主动轮换派发腿(2026-10-30 接线;镜像测试 rotate-exposed-upstream-credentials
   // 按名 import 判据,不复制 §22c;不登记进本台账 ⇒ 接线锁打不到这一格)。
   sweepExposedCredentialRotation,
