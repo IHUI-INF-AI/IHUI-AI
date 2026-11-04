@@ -26,6 +26,13 @@
  *   面族(doc / media / any)与「档族」是两件事:档族由 R 面该档**首个 MIME 的 major**现推
  *   (image|video|audio ⇒ media,其余 ⇒ doc,major 取不到 ⇒ unknown ⇒ 退回并族判),
  *   不在本脚本另立第二张表(§0.6)。
+ *   **刻意不是面的一张表(2026-11-04 实测裁定,免得下一席再判一遍)**:
+ *   `apps/api/src/plugins/upload-scanner.ts` 的 `MAGIC_SIGNATURES` 是**内容嗅探表**不是**准入表** ——
+ *   它的作用是"这段字节真是什么"(拿 .zip 装了 gzip 就判不一致并拒),因此它列的档**不该**与
+ *   EXT_MIME_MAP 逐项对齐:`['gz','gzip']` 与 `['mpg','mpeg']` 两行有用例正向钉着
+ *   (`apps/api/tests/upload-scanner.test.ts:40` 断言 1f 8b 嗅出 application/gzip)。把这两行当成
+ *   "有实现未登记"去摘 ⇒ 检出能力变弱(漏报比慢更糟);把它加成本尺第 11 面 ⇒ 恒报两档假 ③,
+ *   与 2026-11-03 把九个媒体档误报成 ② 是同一型错(族/管道错位)。
  *
  * 三桶(②按族判:文档档必须文档面接住、媒体档必须媒体面接住;异族命中不算接住,
  *   但会在 hollowReasons 里点名"只被哪个族的面命中",便于逐档复核):
