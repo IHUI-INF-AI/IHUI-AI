@@ -45,7 +45,9 @@
  *     守护派发周期)无新增;枚举跳过重解析点(§26 头号危险:junction 穿透会把别的盘算进来)。
  *  ② 无「正在使用旧根」的并行会话 —— 只判搬迁会真正打断的那几类:
  *     ②-a 活进程面:运行中进程的 CommandLine / ExecutablePath 落在旧根的**路径段**内
- *          (进程面由 pwsh 的 Get-CimInstance Win32_Process 取值;取不到 ⇒ undetermined)。
+ *          (进程面由 pwsh 的 Get-CimInstance Win32_Process 取值;整表取不到 ⇒ undetermined)。
+ *          单行两字段读不出(受保护系统进程 / 无权限查询时 CommandLine 与 ExecutablePath 为 null)
+ *          ⇒ **该行**计入 unjudged,**不得**读成「这一行没在用旧根」;其余可读行照常判命中/未命中。
  *     ②-b 旧根锁面:旧根内有界枚举 `*.lock`,带 pid 且 pid 存活 ⇒ 占用;pid 读不出 ⇒ 也按
  *          占用(不确定即视为在用);pid 已死 ⇒ 陈旧锁只报数。git 正在刷备份仓时会出现
  *          空内容的 refs/heads/*.lock,正是「搬迁会打断 git 备份」的瞬时证据。
@@ -60,8 +62,10 @@
  *  由 re-home-junctions.repairOne 的「占用中目录改名失败 = 安全失败,不建 junction、不删源」兜底。
  *  前置可信度:git-guardian.log 末条 tick 距今 > GUARDIAN_FRESH_MINUTES(15 分钟)⇒ 守护
  *  失明期,「无新增」不可信 ⇒ 整体未判定(§0.3:取不到输入判未判定,绝不猜)。
- *  三态:window(两判据全过 ∧ 守护活着)/ pending(有活跃写入或占用,reasons 点名)/
- *  undetermined(输入取不到:枚举截断/单条读不到/进程表取不到/留痕过期等,显式点名原因)。
+ *  三态:window(两判据全过 ∧ 守护活着)/ pending(有可判定的活跃写入或占用,reasons 点名)/
+ *  undetermined(没有可判定否定、且输入取不到:枚举截断/单条读不到/进程表取不到/留痕过期等)。
+ *  未判定子项单列进 unjudged(--probe 逐条打印),不再一票把整条结论抹成 undetermined;
+ *  但只要没有可判定否定,undetermined 仍然保留(fail-closed,绝不把「没判」写成「静默」)。
  *
  * ══ 用法 ══
  *   node scripts/devenv-migrate.mjs              # 默认:探测 + 盘点 + 预演(零写盘)
@@ -77,7 +81,7 @@
  *  · 派生一律 windowsHide:true + 显式 stdio(§5b/§12g);改含载荷文件走水印三段
  *    clean → 受控替换 → inject(§5c 禁文本级批量改写毁零宽链)。
  *  · 路径由脚本自身位置推导(禁 process.cwd() 定根,守门 70);盘符不写死,parse(ROOT).root。
- *  · 枚举带预算(ENUM_BUDGET),截断 ⇒ undetermined 不假静默。
+ *  · 枚举带预算(ENUM_BUDGET),截断 ⇒ 该子项 unjudged 单列(未见 ≠ 不存在,不假静默)。
  *  · --apply 每步失败即停且如实报;repairOne 内建逐级回退,数据不可逆删除前有多道内容闸。
  */
 
@@ -121,11 +125,29 @@ export const GUARDIAN_FRESH_MINUTES = 15
 export const SESSION_IDLE_MINUTES = 30
 /** 判② 进程面:进程表派生超时。取不到 ⇒ undetermined(不猜「没人用」)。 */
 export const PROC_SCAN_TIMEOUT_MS = 20_000
-/** 判② 锁面有界枚举。2026-10-29 现读旧根 maxdepth 8 = 36,395 条目(36,395 远低于预算),
- *  8 层覆盖 backups/git/<repo>/refs/heads/*.lock 这类搬迁会打断的瞬时锁。 */
+/** 判② 锁面有界枚举。2026-10-29 曾读旧根 maxdepth 8 = 36,395 条目;2026-11-04 实测本机
+ *  同口径 1,389,790 条目 / *.lock 1,452 个(重解析点 26,049 个跳过),11.6× 预算,全量需 192 秒
+ *  —— 预算只是防跑飞护栏,超限按 unjudged 单列。8 层覆盖 backups/git/<repo>/refs/heads/*.lock
+ *  这类搬迁会打断的瞬时锁。 */
 export const LEGACY_LOCK_SCAN = { maxDepth: 8, entryBudget: 120_000 }
-/** 枚举预算:超过即截断 ⇒ 判定降级为 undetermined(未见 ≠ 不存在)。 */
+/** 枚举预算:超过即截断 ⇒ 该子项标 unjudged(未见 ≠ 不存在)。2026-11-04 实测本机旧根
+ *  全树 2,380,836 条目(重解析点 27,494 个全部跳过、零跟随 ⇒ 非重复计数),11.9× 预算;
+ *  不抬高预算:全量走完实测 433 秒,每次 probe 都全量 lstat 属「调阈值消灭超限」。 */
 export const ENUM_BUDGET = 200000
+/** 依赖清单类 `*.lock`(Cargo/poetry/uv 等):非运行时锁,不当占用证据;其余无 pid 锁仍按占用。 */
+export const DEPENDENCY_LOCK_NAMES = new Set([
+  'cargo.lock',
+  'poetry.lock',
+  'uv.lock',
+  'yarn.lock',
+  'pipfile.lock',
+  'gemfile.lock',
+  'composer.lock',
+  'flake.lock',
+  'podfile.lock',
+  'mix.lock',
+  'pubspec.lock',
+])
 
 /** 票面步骤 3 的硬编码面清单:5 个脚本 + 3 个复核位(G:\DevEnv 字面命中面,2026-10-25 实测)。 */
 export const HARD_CODED_FILES = [
@@ -247,14 +269,20 @@ export function latestWrite(io, dir, now) {
       junctions,
       why: `${unreadable} 个条目 lstat 失败(首个:${firstUnreadableCode}),漏看的可能正是最新写入`,
     }
-  if (truncated)
+  if (truncated) {
+    const partialQuietMinutes = Math.max(0, (now - maxMs) / 60000)
     return {
       kind: 'undetermined',
       quietMinutes: null,
       truncated,
       junctions,
-      why: `枚举超过预算 ${ENUM_BUDGET} 条被截断,未见 ≠ 不存在`,
+      entries,
+      partialQuietMinutes,
+      why: `枚举超过预算 ${ENUM_BUDGET} 条被截断(已扫 ${entries} 条,已扫部分最新写入 ${partialQuietMinutes.toFixed(
+        1,
+      )} 分钟前;剩余未见 ≠ 不存在)`,
     }
+  }
   return {
     kind: 'ok',
     quietMinutes: Math.max(0, (now - maxMs) / 60000),
@@ -384,6 +412,8 @@ export const PROCESS_TABLE_PS =
  * 纯函数:PowerShell `ConvertTo-Json -Compress` 的输出 → 归一进程行。
  * 单条结果时 PS 返回对象而非数组(实测),两种都认;空输出/非 JSON ⇒ 抛错
  * (调用方据此判 undetermined —— 绝不把「取不到」读成「没人用」)。
+ * 注意:null/缺失字段在此归一为空串,但**空串不是「未命中」**——单行缺字段的语义
+ * 由 legacyActiveUse 按 unjudged 处理(受保护进程的 CommandLine/ExecutablePath 常态为 null)。
  * @param {unknown} stdout
  * @returns {Array<{pid:number, cmdline:string, exePath:string}>}
  */
@@ -456,13 +486,14 @@ export function defaultPidAlive(pid) {
 /**
  * 旧根锁面:有界、不穿重解析点地找 `*.lock`,逐个判持有 pid 是否还活着。
  * 口径:活 pid ⇒ live(占用);pid 读不出 ⇒ live(不确定即视为占用,方向=多等一轮);
+ * 依赖清单(非空且名称在 DEPENDENCY_LOCK_NAMES)⇒ nonRuntime(点名留痕、不计占用);
  * pid 已死 ⇒ stale(陈旧锁只报数,不阻 —— 否则历史残留会把窗口永久锁死);
  * 个别条目读不到 ⇒ 报数不阻(它不是「有人在用」的证据,且永久阻 = 又一种停摆);
- * 枚举截断 ⇒ undetermined(未见 ≠ 不存在)。
+ * 枚举截断 ⇒ 该子项 undetermined(未见 ≠ 不存在)。
  * @param {{lstatSync:Function, readdirSync:Function, readFileSync:Function}} io
  * @param {string} root
  * @param {{maxDepth?:number, entryBudget?:number, pidAlive?:Function}} [opts]
- * @returns {{kind:'ok'|'undetermined', scanned:number, locks:number, live:Array<{path:string,pid:(number|null),why:string}>, stale:Array<{path:string,pid:number}>, truncated:boolean, unreadable:string[], why:(string|undefined)}}
+ * @returns {{kind:'ok'|'undetermined', scanned:number, locks:number, live:Array<{path:string,pid:(number|null),why:string}>, stale:Array<{path:string,pid:number}>, nonRuntime:Array<{path:string,why:string}>, truncated:boolean, unreadable:string[], why:(string|undefined)}}
  */
 export function scanLegacyLocks(io, root, opts = {}) {
   const maxDepth = opts.maxDepth ?? LEGACY_LOCK_SCAN.maxDepth
@@ -474,6 +505,7 @@ export function scanLegacyLocks(io, root, opts = {}) {
     locks: 0,
     live: /** @type {Array<{path:string,pid:(number|null),why:string}>} */ ([]),
     stale: /** @type {Array<{path:string,pid:number}>} */ ([]),
+    nonRuntime: /** @type {Array<{path:string,why:string}>} */ ([]),
     truncated: false,
     unreadable: /** @type {string[]} */ ([]),
     why: undefined,
@@ -522,6 +554,12 @@ export function scanLegacyLocks(io, root, opts = {}) {
       }
       const pid = pidFromLockText(text)
       if (pid === null) {
+        // 依赖清单(Cargo/poetry/uv…)与运行时锁同名 `.lock`,但无 pid 且非空 ⇒ 非运行时锁:
+        // 点名留痕、不计占用。空的 `index.lock`/`refs/…/*.lock` 仍按占用(不确定即视为在用)。
+        if (DEPENDENCY_LOCK_NAMES.has(String(name).toLowerCase()) && String(text).trim()) {
+          out.nonRuntime.push({ path: p, why: '依赖清单(*.lock),非运行时锁,不计占用' })
+          continue
+        }
         out.live.push({ path: p, pid: null, why: '锁内容读不出 pid,不确定即视为占用' })
         continue
       }
@@ -538,7 +576,7 @@ export function scanLegacyLocks(io, root, opts = {}) {
   walk(root, 1)
   if (out.truncated) {
     out.kind = 'undetermined'
-    out.why = `锁面枚举超过预算 ${entryBudget} 条被截断,未见 ≠ 不存在`
+    out.why = `锁面枚举超过预算 ${entryBudget} 条被截断(已扫 ${out.scanned} 条目 / *.lock ${out.locks} 个;剩余未见 ≠ 不存在)`
   }
   return out
 }
@@ -546,7 +584,10 @@ export function scanLegacyLocks(io, root, opts = {}) {
 /**
  * 判② 活使用面(票面 ② 的可满足口径):旧根上是否真有「搬迁会打断」的使用者。
  * 两面:②-a 活进程(命令行 / 可执行路径落在旧根路径段内)、②-b 旧根锁(活 pid 或读不出 pid)。
- * 三态:busy(有命中,reasons 点名)/ undetermined(进程表或锁面取不到)/ idle(可放行)。
+ * 三态:busy(有命中,reasons 点名)/ undetermined(进程表或锁面取不到,或单行字段读不出)/ idle(可放行)。
+ * 逐行口径:两字段都可读 ⇒ 照常判命中/未命中;命中优先(可判定否定)。
+ * 未命中且**任一字段为空/缺失** ⇒ 该行无法判定(受保护进程的 CommandLine/ExecutablePath
+ * 常态为 null),计入 unreadable,PID 留痕;**绝不**把这种行读成「它没在用旧根」。
  * 两面都可注入(§22c 构造面),生产默认面 = 进程表派生 + 真锁扫描。
  * @param {{lstatSync:Function, readdirSync:Function, readFileSync:Function, spawnSync:Function}} io
  * @param {{listProcesses?:Function, pidAlive?:Function, lockScan?:Object}} [opts]
@@ -560,6 +601,8 @@ export function legacyActiveUse(io, opts = {}) {
     kind: /** @type {'ok'|'undetermined'} */ ('ok'),
     total: 0,
     hits: /** @type {Array<{pid:(number|null), why:string}>} */ ([]),
+    unreadable: 0,
+    unreadablePids: /** @type {(number|null)[]} */ ([]),
     why: /** @type {(string|undefined)} */ (undefined),
   }
   try {
@@ -567,11 +610,19 @@ export function legacyActiveUse(io, opts = {}) {
     if (!Array.isArray(rows)) throw new Error(`进程表形态不对(${rows === null ? 'null' : typeof rows})`)
     processes.total = rows.length
     for (const row of rows) {
-      const cmdline = row && row.cmdline ? row.cmdline : ''
-      const exePath = row && row.exePath ? row.exePath : ''
-      if (!commandMentionsRoot(cmdline, LEGACY_ROOT) && !withinRoot(exePath, LEGACY_ROOT)) continue
+      const cmdline = row && row.cmdline ? String(row.cmdline) : ''
+      const exePath = row && row.exePath ? String(row.exePath) : ''
       const pid = row && Number.isFinite(Number(row.pid)) ? Number(row.pid) : null
-      processes.hits.push({ pid, why: String(cmdline || exePath).slice(0, 160) })
+      // 可读字段先判命中(命中是可判定否定,优先级高于「读不出」)
+      if (commandMentionsRoot(cmdline, LEGACY_ROOT) || withinRoot(exePath, LEGACY_ROOT)) {
+        processes.hits.push({ pid, why: String(cmdline || exePath).slice(0, 160) })
+        continue
+      }
+      // 未命中 + 任一字段读不出 ⇒ 无法排除它落在旧根内 ⇒ 该行进 unjudged
+      if (!cmdline || !exePath) {
+        processes.unreadable++
+        if (processes.unreadablePids.length < 8) processes.unreadablePids.push(pid)
+      }
     }
   } catch (e) {
     processes.kind = 'undetermined'
@@ -583,12 +634,12 @@ export function legacyActiveUse(io, opts = {}) {
   for (const h of processes.hits) reasons.push(`判② 活进程面:pid ${h.pid === null ? '?' : h.pid} 点名旧根 —— ${h.why}`)
   if (locks.kind === 'undetermined') reasons.push(`判② 旧根锁面:${locks.why}`)
   for (const h of locks.live) reasons.push(`判② 旧根锁面:${h.path} —— ${h.why}`)
-  const state =
-    processes.kind === 'undetermined' || locks.kind === 'undetermined'
+  // 命中/占用是可判定否定 ⇒ busy 优先;没有可判定否定时,读不出的行 + 取不到的面 ⇒ undetermined。
+  const state = reasons.length
+    ? 'busy'
+    : processes.kind === 'undetermined' || processes.unreadable > 0 || locks.kind === 'undetermined'
       ? 'undetermined'
-      : reasons.length
-        ? 'busy'
-        : 'idle'
+      : 'idle'
   return { state, reasons, facts: { processes, locks } }
 }
 
@@ -611,10 +662,19 @@ export function activityNotes(facts) {
   }
   return [
     p.kind === 'ok'
-      ? `判② 活进程面:已枚举 ${p.total} 个进程,命中旧根 ${p.hits.length} 个`
+      ? `判② 活进程面:已枚举 ${p.total} 个进程,命中旧根 ${p.hits.length} 个${
+          p.unreadable ? `;其中 ${p.unreadable} 个命令行/路径读不出(无法判定)` : ''
+        }`
       : `判② 活进程面:${p.why}`,
     `判② 旧根锁面:扫 ${l.scanned} 条目 / *.lock ${l.locks} 个(占用 ${l.live.length}、陈旧 ${l.stale.length}${
       l.unreadable.length ? `、读不到 ${l.unreadable.length}` : ''
+    }${
+      l.nonRuntime && l.nonRuntime.length
+        ? `;非运行时锁 ${l.nonRuntime.length} 个(依赖清单,不计占用):${l.nonRuntime
+            .slice(0, 8)
+            .map((x) => x.path)
+            .join(', ')}${l.nonRuntime.length > 8 ? ` …等 ${l.nonRuntime.length} 个` : ''}`
+        : ''
     })`,
     '判② 未覆盖面:旧根内打开句柄与进程 cwd(纯 Node 取不到)⇒ 由 repairOne 改名安全失败兜底(不建 junction、不删源)',
     `信息面(不参与三态):${SESSION_TMP} ${fmtQuiet(facts.sessionTmp)};${TMP_PROBE} ${fmtQuiet(
@@ -629,7 +689,7 @@ export function activityNotes(facts) {
  * @param {{lstatSync:Function, readdirSync:Function, readFileSync:Function, spawnSync:Function}} io
  * @param {number} [now]
  * @param {{listProcesses?:Function, pidAlive?:Function, lockScan?:Object}} [activity] 判② 注入面(测试用)
- * @returns {{state:'window'|'pending'|'undetermined', reasons:string[], facts:Object}}
+ * @returns {{state:'window'|'pending'|'undetermined', reasons:string[], unjudged:string[], facts:Object}}
  */
 export function probeQuietWindow(io, now = Date.now(), activity = {}) {
   const facts = {
@@ -640,18 +700,35 @@ export function probeQuietWindow(io, now = Date.now(), activity = {}) {
     guardian: guardianTickAlive(io, now),
   }
   const v1 = quietVerdict(facts.legacyRoot, QUIET_MINUTES, `判① 旧根 ${LEGACY_ROOT}`)
+  const p = facts.activeUse.facts.processes
+  const l = facts.activeUse.facts.locks
+  // 可判定否定(有写入 / 有占用)与输入未判定(截断/取不到/单行字段读不出)分开攒:
+  // 前者足以把结论钉成 pending;后者只在「没有可判定否定」时才让整条结论 undetermined。
+  // 这样截断与读不出的进程行不再把整条结论抹成未判定,但也没有把它们读成「静默」(两态方向不变)。
   const reasons = []
-  if (!v1.pass) reasons.push(v1.note)
-  for (const r of facts.activeUse.reasons) reasons.push(r)
-  const anyUndetermined =
-    facts.guardian.state !== 'alive' || v1.undetermined || facts.activeUse.state === 'undetermined'
-  if (facts.guardian.state !== 'alive') reasons.push(`守护存活:${facts.guardian.why}`)
-  const state = anyUndetermined ? 'undetermined' : reasons.length === 0 ? 'window' : 'pending'
+  const unjudged = []
+  if (!v1.pass) {
+    if (v1.undetermined) unjudged.push(v1.note)
+    else reasons.push(v1.note)
+  }
+  if (p.kind === 'undetermined') unjudged.push(`判② 活进程面:${p.why}`)
+  if (p.unreadable > 0)
+    unjudged.push(
+      `判② 活进程面:${p.unreadable} 个进程的命令行/路径读不出,无法判定(pid ${
+        p.unreadablePids.map((x) => (x === null ? '?' : x)).join(',') || '?'
+      }${p.unreadable > p.unreadablePids.length ? ' …' : ''})`,
+    )
+  for (const h of p.hits)
+    reasons.push(`判② 活进程面:pid ${h.pid === null ? '?' : h.pid} 点名旧根 —— ${h.why}`)
+  if (l.kind === 'undetermined') unjudged.push(`判② 旧根锁面:${l.why}`)
+  for (const h of l.live) reasons.push(`判② 旧根锁面:${h.path} —— ${h.why}`)
+  if (facts.guardian.state !== 'alive') unjudged.push(`守护存活:${facts.guardian.why}`)
+  const state = reasons.length ? 'pending' : unjudged.length ? 'undetermined' : 'window'
   if (state === 'window')
     reasons.unshift(
       `守护存活:末条 tick ${facts.guardian.lastIso}(距今 ${facts.guardian.ageMinutes !== null ? facts.guardian.ageMinutes.toFixed(1) : '?'} 分钟)`,
     )
-  return { state, reasons, facts }
+  return { state, reasons, unjudged, facts }
 }
 
 /**
@@ -853,7 +930,8 @@ export function assessSteps(io) {
  */
 export function planSteps(assessed, probe) {
   const lines = []
-  lines.push(`静默窗口:${probe.state}${probe.reasons.length ? `(${probe.reasons.join(' ; ')})` : ''}`)
+  const unjudged = probe.unjudged && probe.unjudged.length ? `;未判定子项:${probe.unjudged.join(' ; ')}` : ''
+  lines.push(`静默窗口:${probe.state}${probe.reasons.length ? `(${probe.reasons.join(' ; ')})` : ''}${unjudged}`)
   if (probe.state !== 'window') {
     lines.push('--apply 将被拒绝:非 window 态不执行任何搬迁动作。')
     return lines
@@ -1197,7 +1275,8 @@ export function devenvMigratePatrol(opts = {}) {
   const probe = probeFn(io, now, activity)
   if (probe.state === 'pending') return { ran: true, state: 'pending', actions: 0 }
   if (probe.state === 'undetermined') {
-    logger(`⚠️ G-50 DevEnv 搬迁:静默窗口未判定 ⇒ 本轮不搬(不记绿也不冒红)· ${probe.reasons.join(' ; ')}`)
+    const detail = [...(probe.reasons || []), ...(probe.unjudged || [])].join(' ; ')
+    logger(`⚠️ G-50 DevEnv 搬迁:静默窗口未判定 ⇒ 本轮不搬(不记绿也不冒红)· ${detail}`)
     return { ran: true, state: 'undetermined', ok: false, actions: 0 }
   }
   // window:还有没有待做 —— 复用既有盘点(assessSteps),本层不另写第二份判据。
@@ -1320,8 +1399,9 @@ function selfTest() {
   push('latestWrite:枚举截断 ⇒ undetermined(未见 ≠ 不存在)', (() => {
     const io2 = fakeIO({ '/big': { dir: ['x'] } })
     io2.readdirSync = () => Array.from({ length: ENUM_BUDGET + 1 }, (_, i) => `x${i}`)
+    io2.lstatSync = () => ({ isSymbolicLink: () => false, isDirectory: () => false, mtimeMs: NOW - 90 * MIN })
     const r = latestWrite(io2, '/big', NOW)
-    return r.kind === 'undetermined' && r.truncated === true
+    return r.kind === 'undetermined' && r.truncated === true && r.entries === ENUM_BUDGET + 1 && r.partialQuietMinutes >= 0
   })())
   push('latestWrite:单条 lstat 失败 ⇒ undetermined(漏看的可能正是最新写入)', (() => {
     const r = latestWrite(
@@ -1422,7 +1502,7 @@ function selfTest() {
     const r = probeQuietWindow(fakeIO(probeTree()), NOW, {
       listProcesses: () => [
         { pid: 4242, cmdline: `node "${join(LEGACY_ROOT, 'Temp', 'job.mjs')}"`, exePath: '' },
-        { pid: 11, cmdline: 'node app.js --cwd D:\\DevEnv\\Temp', exePath: 'D:\\DevEnv\\node.exe' },
+        { pid: 11, cmdline: `node app.js --cwd ${LEGACY_ROOT}-other\\Temp`, exePath: `${LEGACY_ROOT}-other\\node.exe` },
       ],
       pidAlive: () => false,
     })
@@ -1440,21 +1520,69 @@ function selfTest() {
     })
     const stale = probeQuietWindow(fakeIO(probeTree({ locks: { 'y.lock': '{"pid":999999}' } })), NOW, IDLE)
     const unknown = probeQuietWindow(fakeIO(probeTree({ locks: { 'z.lock': '' } })), NOW, IDLE)
+    const manifest = probeQuietWindow(fakeIO(probeTree({ locks: { 'Cargo.lock': '# generated\n[[package]]\n' } })), NOW, IDLE)
+    const unknownText = probeQuietWindow(fakeIO(probeTree({ locks: { 'weird.lock': 'not a pid, not a manifest\n' } })), NOW, IDLE)
     return (
       busy.state === 'pending' &&
       busy.reasons.some((s) => s.includes('判② 旧根锁面') && s.includes('4242')) &&
       stale.state === 'window' &&
-      unknown.state === 'pending'
+      unknown.state === 'pending' &&
+      manifest.state === 'window' &&
+      unknownText.state === 'pending'
     )
   })())
-  push('probe:进程表取不到 ⇒ undetermined(不把"没判"写成"没人用")', (() => {
+  push('probe:进程表取不到 ⇒ 未判定子项(unjudged 点名,不把"没判"写成"没人用")', (() => {
     const r = probeQuietWindow(fakeIO(probeTree()), NOW, {
       listProcesses: () => {
         throw new Error('pwsh 不在')
       },
       pidAlive: () => false,
     })
-    return r.state === 'undetermined' && r.reasons.some((s) => s.includes('进程表取不到'))
+    return r.state === 'undetermined' && r.unjudged.some((s) => s.includes('进程表取不到'))
+  })())
+  // 单行字段为空(null/缺失)⇒ 该行必须进 unjudged;不得因「读不出」被读成「这一行没在用旧根」。
+  const psRows = (arr) => parseProcessTable(JSON.stringify(arr))
+  push('probe:表内单行 CommandLine/ExecutablePath 为 null ⇒ 不得判 window(该行进 unjudged)', (() => {
+    const rows = psRows([{ ProcessId: 4, CommandLine: null, ExecutablePath: null }])
+    const r = probeQuietWindow(fakeIO(probeTree()), NOW, { listProcesses: () => rows, pidAlive: () => false })
+    return r.state === 'undetermined' && r.unjudged.some((s) => s.includes('读不出'))
+  })())
+  push('probe:空字段行 + 其余行已判无占用 ⇒ 仍 undetermined,unjudged 带条数与 pid', (() => {
+    const rows = psRows([
+      { ProcessId: 4, CommandLine: null, ExecutablePath: null },
+      { ProcessId: 88, CommandLine: 'notepad.exe', ExecutablePath: 'C:\\Windows\\System32\\notepad.exe' },
+    ])
+    const r = probeQuietWindow(fakeIO(probeTree()), NOW, { listProcesses: () => rows, pidAlive: () => false })
+    return (
+      r.state === 'undetermined' &&
+      r.reasons.length === 0 &&
+      r.unjudged.some((s) => s.includes('1 个进程的命令行/路径读不出') && s.includes('4'))
+    )
+  })())
+  push('probe:全部字段可读且无占用 ⇒ 仍判 window(修过头把正常路径堵死即翻红)', (() => {
+    const rows = psRows([
+      { ProcessId: 88, CommandLine: 'notepad.exe', ExecutablePath: 'C:\\Windows\\System32\\notepad.exe' },
+    ])
+    const r = probeQuietWindow(fakeIO(probeTree()), NOW, { listProcesses: () => rows, pidAlive: () => false })
+    return r.state === 'window' && r.unjudged.length === 0
+  })())
+  // 分级降噪:截断(未判定子项)遇到可判定否定(活进程)⇒ 结论钉 pending,未判定子项逐条单列。
+  const truncatedIO = (tree) => {
+    const io2 = fakeIO(tree)
+    io2.readdirSync = () => Array.from({ length: ENUM_BUDGET + 1 }, (_, i) => `x${i}`)
+    io2.lstatSync = () => ({ isSymbolicLink: () => false, isDirectory: () => false, mtimeMs: NOW - 90 * MIN })
+    return io2
+  }
+  push('probe:判①截断 + 活进程 ⇒ pending(可判定降级),未判定子项仍在 unjudged', (() => {
+    const r = probeQuietWindow(truncatedIO(probeTree()), NOW, {
+      listProcesses: () => [{ pid: 4242, cmdline: `node "${join(LEGACY_ROOT, 'Temp', 'job.mjs')}"`, exePath: '' }],
+      pidAlive: () => false,
+    })
+    return r.state === 'pending' && r.unjudged.some((s) => s.includes('枚举超过预算'))
+  })())
+  push('probe:判①截断 + 无任何占用 ⇒ undetermined 仍保留(fail-closed,截断不读成静默)', (() => {
+    const r = probeQuietWindow(truncatedIO(probeTree()), NOW, IDLE)
+    return r.state === 'undetermined' && r.unjudged.some((s) => s.includes('枚举超过预算'))
   })())
   push('probe:守护留痕过期(40 分钟)⇒ undetermined(不是 window 也不是 pending)', (() => {
     return probeQuietWindow(fakeIO(probeTree({ guardianAgeMin: 40 })), NOW, IDLE).state === 'undetermined'
@@ -1555,6 +1683,7 @@ async function main() {
   console.log(`[G-50 devenv-migrate] 旧根 ${LEGACY_ROOT} → 新根 ${NEW_ROOT}`)
   console.log(`静默窗口:${probe.state}`)
   for (const r of probe.reasons) console.log(`  · ${r}`)
+  for (const u of probe.unjudged || []) console.log(`  ⚠ 未判定子项:${u}`)
   for (const n of activityNotes(probe.facts)) console.log(`  ℹ ${n}`)
   if (probeOnly) process.exit(probe.state === 'window' ? 0 : probe.state === 'pending' ? 1 : 2)
   const assessed = assessSteps(io)

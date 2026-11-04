@@ -115,6 +115,7 @@ describe('RELAY_POOL_TASKS 注册表(单一源)', () => {
   it('签到调度注册项与实际注册的 job 齐(2026-10-31 补 WorkBuddy 任务巡检腿)', () => {
     const c = RELAY_POOL_TASKS.find((t) => t.id === 'checkin-scheduler')!
     expect(c.schedule).toMatch(/06:00/)
+    expect(c.schedule).toMatch(/00:05/)
     expect(c.schedule).toMatch(/WorkBuddy 任务巡检/)
   })
 })

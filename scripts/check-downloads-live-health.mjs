@@ -101,7 +101,7 @@ export function newestResolvedAtMs(doc) {
  * 纯判据:给定 payload 读数 + 当下时刻 + 上一轮读数(用于两轮确认),算出结论。
  * @returns {state:'ok'|'red'|'unjudged', findings:[{id,kind,platform,detail,immediate}], readings, at}
  */
-export function judge({ doc, now, prev, retried = false }) {
+export function judge({ doc, now, prev, retried = false, resolver = null }) {
   if (doc === null || doc === undefined || typeof doc !== 'object') {
     return { state: 'unjudged', findings: [], readings: [], reason: 'payload 取不到(两臂都无响应或不是 JSON)' }
   }
@@ -155,6 +155,15 @@ export function judge({ doc, now, prev, retried = false }) {
     readings.push({ platform: 'web', source: String(web.source ?? ''), version: web.version ?? null, reason: web.reason ?? null })
     push('web-design-changed', 'web', `web 那一格不再是「PWA 无安装包」(source=${web.source} reason=${web.reason ?? '-'}) ⇒ 有人改了判据,请人看图`)
   }
+  // 分流解析器这一维:只有"确证不在位"才报,且走两轮确认 —— 发版构建途中它本来就 404,
+  // 当轮喊人等于每天给自己寄一封假信;连续两轮都不在位才是真掉了(被人合并掉/路由改名)。
+  if (resolver && resolver.status === 'absent') {
+    push(
+      'resolver-absent',
+      'desktop',
+      `桌面分流解析器不在位(${resolverUrl(arms()[0], 'x').split('?')[0]} 返回 ${resolver.code})⇒ 下载页那颗按钮会 404`,
+    )
+  }
   if (!Number.isFinite(ref) || ref === 0) {
     push('no-timestamp', '(整体)', 'payload 里既没有 generatedAt 也没有 resolvedAt ⇒ 判不了新鲜度', true)
   } else if (now - ref > STALE_MS) {
@@ -198,6 +207,50 @@ export async function readPayload({ fetchImpl = fetch, wait: _wait = (ms) => new
   return { doc: null, tried }
 }
 
+/**
+ * 地域分流解析器的落点:与 payload **同一条臂**、只换路径 —— 站点原点只有一个口径(arms()),
+ * 在这里再写一个 https://www.aizhs.top 就等于允许两条腿各自漂到不同站点(§0.6)。
+ */
+export function resolverUrl(arm, fileName) {
+  const base = String(arm?.url ?? '').replace(/\/downloads\.json.*$/, '')
+  return `${base}/dl/desktop?file=${encodeURIComponent(String(fileName ?? ''))}`
+}
+
+/**
+ * 三态:ok(3xx 且带 X-Desktop-Leg 头)/ absent(404|405 = 路由不在这张面上)/ unjudged(其余一律)。
+ * 'unjudged' 绝不进 findings —— 把"没量到"报成"坏了"就是给自己造重复告警(§0.3/§5e)。
+ */
+export async function probeResolver({ fetchImpl = fetch, arm, fileName } = {}) {
+  if (!arm || !fileName) return { status: 'unjudged', why: '没有可试的臂或资产文件名' }
+  try {
+    const res = await fetchImpl(resolverUrl(arm, fileName), {
+      redirect: 'manual',
+      headers: arm.headers ?? {},
+      signal: AbortSignal.timeout(arm.timeoutMs ?? 5000),
+    })
+    const leg = res.headers?.get?.('x-desktop-leg') ?? null
+    if ([301, 302, 303, 307, 308].includes(res.status)) {
+      return { status: 'ok', code: res.status, leg, location: res.headers?.get?.('location') ?? null }
+    }
+    if (res.status === 404 || res.status === 405) return { status: 'absent', code: res.status }
+    return { status: 'unjudged', why: `status=${res.status} leg=${leg ?? '-'}` }
+  } catch (e) {
+    return { status: 'unjudged', why: String(e?.message ?? e).slice(0, 60) }
+  }
+}
+
+/** 从桌面资产直链反解文件名(与分流侧 assetNameFromHref 同形态,gitee 那份要先解百分号) */
+export function desktopAssetName(doc) {
+  const href = doc?.downloads?.desktop?.assets?.[0]?.href
+  if (typeof href !== 'string' || !href) return ''
+  const last = (String(href).split('/').pop() ?? '').split('?')[0]
+  try {
+    return decodeURIComponent(last)
+  } catch {
+    return last
+  }
+}
+
 /** 主判定:新鲜度先重试一次再判(ISR 的 SWR 会让第一次拿到旧副本) */
 export async function runCheck({ now = Date.now(), fetchImpl = fetch, readImpl = null, wait = (ms) => new Promise((r) => setTimeout(r, ms)), prev = null } = {}) {
   const read = readImpl ?? readPayload
@@ -217,8 +270,14 @@ export async function runCheck({ now = Date.now(), fetchImpl = fetch, readImpl =
       tried = second.tried
     }
   }
-  const verdict = judge({ doc, now, prev, retried })
-  return { ...verdict, tried, now }
+  let resolver = null
+  if (doc) {
+    const fileName = desktopAssetName(doc)
+    // 用第一条臂(站点原点本机直读那一条):它不通就整维不判,不去拿公网臂的结果冒充
+    resolver = await probeResolver({ fetchImpl, arm: arms()[0], fileName })
+  }
+  const verdict = judge({ doc, now, prev, retried, resolver })
+  return { ...verdict, tried, now, resolver }
 }
 
 async function selfTest() {
@@ -302,6 +361,50 @@ async function selfTest() {
   }
   const noTs = judge({ doc: noAnyTs, now, prev: null })
   t('12 无任何时刻字段 ⇒ no-timestamp 立即类(未判定不许当绿)', noTs.findings.some((f) => f.id === '(整体):no-timestamp' && f.immediate))
+
+  // ── 分流解析器那一维的成对夹具(每一档"该报"都配一档"不该报",摘掉判据即翻红) ──
+  const doc0 = goodDoc(now)
+  const absent = { status: 'absent', code: 404 }
+  const p1 = judge({ doc: doc0, now, prev: null, resolver: absent })
+  t('14 解析器单轮 404 ⇒ 只进 pending 不喊人(发版构建途中本来就 404)', p1.state === 'ok' && (p1.pending ?? []).includes('desktop:resolver-absent'))
+  const p2 = judge({
+    doc: doc0,
+    now,
+    prev: { findings: [{ id: 'desktop:resolver-absent' }] },
+    resolver: absent,
+  })
+  t('15 连续两轮 404 ⇒ 升级判红(路由真被合并掉/改名了)', p2.state === 'red' && p2.findings.some((f) => f.id === 'desktop:resolver-absent' && f.immediate))
+  const p3 = judge({
+    doc: doc0,
+    now,
+    prev: null,
+    resolver: { status: 'unjudged', why: 'timeout' },
+  })
+  t('16 探针取不到 ⇒ 整维不判(把「没量到」报成「坏了」就是每天假信)', p3.state === 'ok' && !(p3.pending ?? []).length)
+  const p4 = judge({
+    doc: doc0,
+    now,
+    prev: null,
+    resolver: { status: 'ok', code: 302, leg: 'origin' },
+  })
+  t('17 解析器 302 ⇒ 一维都不报', p4.state === 'ok' && p4.findings.length === 0)
+  t(
+    '18 落点与 payload 同臂只换路径 + 文件名要编码(gitee 那份是百分号形态)',
+    resolverUrl(
+      { url: 'http://127.0.0.1:80/downloads.json', headers: { host: 'www.aizhs.top' } },
+      'AI 0.1.77_x64-setup.exe',
+    ) === 'http://127.0.0.1:80/dl/desktop?file=AI%200.1.77_x64-setup.exe' &&
+      desktopAssetName({
+        downloads: {
+          desktop:
+            { assets: [{ href: 'https://gitee.com/o/r/releases/download/desktop-v0.1.77/AI_0.1.77_x64-setup.exe' }] },
+        },
+      }) === 'AI_0.1.77_x64-setup.exe',
+  )
+  t(
+    '19 judge 不传 resolver(旧调用形态)⇒ 行为与改前一字节相同',
+    judge({ doc: doc0, now, prev: null }).state === 'ok',
+  )
   const bad = out.filter((x) => !x.pass)
   for (const x of out) console.log(`${x.pass ? '✔' : '✘'} ${x.name}`)
   console.log(`自检 ${out.length - bad.length}/${out.length} 通过`)
@@ -331,7 +434,19 @@ export async function main(argv = process.argv.slice(2)) {
   return r.state === 'red' ? 1 : r.state === 'unjudged' ? 2 : 0
 }
 
-export const __test__ = { judge, runCheck, arms, END_EXPECTATIONS, WEB_REASON, STALE_MS, newestResolvedAtMs, readPayload }
+export const __test__ = {
+  judge,
+  runCheck,
+  arms,
+  END_EXPECTATIONS,
+  WEB_REASON,
+  STALE_MS,
+  newestResolvedAtMs,
+  readPayload,
+  resolverUrl,
+  probeResolver,
+  desktopAssetName,
+}
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 if (isDirectRun) {

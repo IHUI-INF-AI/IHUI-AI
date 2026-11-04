@@ -17,6 +17,9 @@
 #
 # 若本目录被单独搬到仓库之外(独立部署包形态),下面会明确报错并给出处置:
 # 把 nssm 的 AppParameters 直接改成入库源码路径,再重启服务。
+#
+# 本脚本不负责建服务: IHUI-MONITOR 由本机手工 nssm 直装,这里只是运行副本转发壳。
+# 建服/换机重建的出路见 scripts/data/service-provisioning-gaps.json 的 IHUI-MONITOR 条目。
 # =============================================================================
 $source = Join-Path $PSScriptRoot '..\win\ihui-monitor.ps1'
 if (-not (Test-Path -LiteralPath $source)) {

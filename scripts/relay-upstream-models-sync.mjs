@@ -267,7 +267,7 @@ export async function runMain(argv, env = process.env, deps = {}) {
     miss(dsn.error)
     return 2
   }
-  const guarded = guardDbDsn(dsn.dsn)
+  const guarded = guardDbDsn(dsn.dsn, env)
   if (!guarded.ok) {
     miss(`拒绝连库:${guarded.why} · DSN面=${dsnFace(dsn.dsn) ?? '(不可解析)'}`)
     return 2

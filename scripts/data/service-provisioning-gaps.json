@@ -55,6 +55,22 @@
       "reason": "同上型：名册在册、本机未装、扫描面零动词命中。IHUI-GIT-GUARD 与 IHUI-PG-BACKUP 的 nssm 配置在 AGENTS §5b/§5e 里被当成本机事实反复引用，但建服动作不在仓内任何脚本里 ⇒ 这一格和上面三枚在册服务是**同一个病**(装了/该装但没人建)，只是它们连本机都没装所以不报红只报数。",
       "exitRoute": "同 kind=installed-without-repo-provisioning-source 那条：补建服脚本或显式声明手工直装；换机后由 --snapshot 重算，不得照抄本条读数。",
       "reviewBy": "2027-01-31"
+    },
+    {
+      "services": ["IHUI-Firewall-Watchdog", "IHUI-MONITOR"],
+      "kind": "installed-without-repo-provisioning-source",
+      "hostScope": "本机(当前承载机)",
+      "reason": "两枚在本机注册表里活着且为 nssm 托管形态(ImagePath=C:\\Windows\\System32\\nssm.exe，Application/AppParameters/AppDirectory/AppStdout 四键齐全)，但全仓没有任何一条 nssm install / New-Service / sc create 能把它们造出来:IHUI-MONITOR 的仓内命中面全是『用/改』(deploy/scripts/prod-bundle/monitor.ps1 与 monitoring/alertbridge/README.md 的 nssm set 换机重建说明、deploy/win/ihui-monitor.ps1 的巡检使用点)，IHUI-Firewall-Watchdog 只有载荷 deploy/win/ihui-firewall-watchdog.ps1 与注册表里的 AppParameters，仓内零建服动词。据此判定两枚均为本机手工 nssm 直装(非仓内可重建)，属声明缺失，补登记而非放宽判据。",
+      "exitRoute": "维持『本机手工 nssm 直装』声明;若持有人要求换机可重建，再补 deploy/win/install-monitor-service.ps1 与 install-firewall-watchdog-service.ps1(参照 install-deploy-loop-service.ps1 的幂等写法:仓根从 $PSScriptRoot 推导、不写死盘符)，补上后删除本条。",
+      "reviewBy": "2026-12-31"
+    },
+    {
+      "services": ["IHUI-TMP-CHROME"],
+      "kind": "installed-without-repo-provisioning-source",
+      "hostScope": "本机(当前承载机)，瞬态",
+      "reason": "瞬态无头 Chrome:注册表现读 ImagePath=C:\\windows\\system32\\nssm.exe，AppParameters 指 C:\\Users\\Administrator\\.agent-browser\\...\\chrome.exe --headless=new --remote-debugging-port=9333 --user-data-dir=D:\\tmp\\cdp\\profile，Manual 启动(Start=3)。它由上游 agent 浏览器工具按需拉起/释放，不是仓内产品件:仓内零建服动词、零使用点，expected-stopped-services.json 已按『停着是设计内』登记。判定为本机手工 nssm 包装的临时件，仓内不应有建服源。",
+      "exitRoute": "无需补建服脚本;该瞬态件退役时删服务键，并把本条与 expected-stopped-services.json 的对应豁免同批移除。",
+      "reviewBy": "2026-12-31"
     }
   ]
 }

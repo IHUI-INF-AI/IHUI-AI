@@ -250,7 +250,7 @@ def _hello_argv() -> list[str]:
     return [sys.executable, "-c", "print('hello-sandbox')"]
 
 
-def test_sandbox_run_success(sandbox_client: TestClient) -> None:
+def test_sandbox_run_success(sandbox_client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     """缺省档位(最严档 read_only)下命令仍应跑通 —— 收紧的是"谁能定策略",不是可用性。
 
     2026-09-30 夹具翻转(G-258 B 组):原先本例带 ``policy: {"restrict_token": False}``,
@@ -258,7 +258,21 @@ def test_sandbox_run_success(sandbox_client: TestClient) -> None:
     由请求方自带等于给自己签发最宽松档。现改由服务端档位给出 ``restrict_token=True``;
     Windows 上受限令牌若导致 CreateProcessAsUserW 失败,WinJobBackend 有既有的降级回退
     (os_sandbox.py ``token_degraded`` 分支),断言面(rc=0 + stdout)因此不变。
+
+    2026-11-04:GitHub hosted ubuntu runner 上 bwrap 二进制存在但内核禁未特权
+    user namespace(rc=1),导致本用例把"环境缺能力"误判为产品回归。这里在本用例内把
+    ``shutil.which("bwrap")`` 摘掉,让 Linux 后端走"bwrap 不参与、仍应用 rlimit"的既有分支
+    (os_sandbox.LinuxSandboxBackend.run 的 else 分支);bwrap argv 构造本身由
+    test_os_sandbox 的专项用例覆盖,不在本条路由契约用例的靶面。
     """
+    import shutil
+
+    real_which = shutil.which
+    monkeypatch.setattr(
+        shutil,
+        "which",
+        lambda name, *a, **k: None if name == "bwrap" else real_which(name, *a, **k),
+    )
     res = sandbox_client.post("/api/sandbox/run", json={"cmd": _hello_argv()})
     assert res.status_code == 200
     data = res.json()["data"]

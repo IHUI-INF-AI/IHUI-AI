@@ -215,7 +215,12 @@ async function openPane(page: Page): Promise<void> {
 
   const trigger = page.locator(TRIGGER)
   await expect(trigger).toBeVisible({ timeout: 30000 })
-  await trigger.click()
+  // pane 的 open 状态持久化在 localStorage(agent-progress-pane.ts,200ms 防抖写),
+  // 同页重载会恢复为展开;trigger 是 toggle,盲目点击会把已展开的 pane 关掉。
+  // 以 data-popover-open(store 的镜像属性)判当前状态,仅在收起时点击 —— 幂等「确保打开」。
+  if ((await trigger.getAttribute('data-popover-open')) !== 'true') {
+    await trigger.click()
+  }
 
   const pane = page.locator(PANE)
   // 2026-09-14 CI 实锤(2-18):case 15 切语言后 openPane 触发 reload,CI 慢机
@@ -574,12 +579,13 @@ test.describe('Phase 21 Pane 面板实时响应 subagent SSE 事件', () => {
       localStorage.setItem('ihui-language', JSON.stringify(obj))
     })
     await openPane(page)
-    await expect(emptyTitle).toBeVisible()
+    // en 词典由 i18n-provider 动态 import 异步替换(重载后先渲染 zh-CN,取回后切换);
+    // 等到文案真变为目标语言再读,避免读到切换前的旧 locale。
+    await expect(emptyTitle).toHaveText(/waiting/i)
 
     const textAfter = (await emptyTitle.textContent()) ?? ''
     // zh-CN: "等待任务开始",en: "Waiting for tasks" → 文本应变化
     expect(textAfter).not.toBe(textBefore)
-    expect(textAfter.toLowerCase()).toContain('waiting')
   })
 
   test('16. Timeline 事件计数徽章', async () => {

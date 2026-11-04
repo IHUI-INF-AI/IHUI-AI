@@ -30,7 +30,16 @@
 import { readFileSync, existsSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { isExcludedDirName } from './lib/exclude-dirs.mjs'
-import { boxShape, boxDims, constsForLines, ownShortSidePx } from './lib/box-geometry.mjs'
+import {
+  boxShape,
+  boxDims,
+  constsForLines,
+  ownShortSidePx,
+  objectDims,
+  boxDimsOwn,
+  dimsFromText,
+  scopeDimTexts,
+} from './lib/box-geometry.mjs'
 import { radiusLookup, radiusPxInLine } from './lib/radius-tokens.mjs'
 import { catBatch, gitRaw } from './lib/face-reader.mjs'
 import { COLORS as C } from './lib/logger.mjs'
@@ -588,14 +597,52 @@ function capOfFullCircle(line, lines, idx) {
   // 全圆写的就是"半径 = 短边一半"(CSS 会把半径夹到半边,9999px 与 50% 在渲染上同值)。
   return { value: short / 2, unknown: false }
 }
+/**
+ * **正圆豁免的证据**(2026-11-04 用户裁定):全圆写法(`rounded-full` / `pill` / `50%` / `9999px`)
+ * 的等效半径恒为短边一半,所以"这是不是正圆"只差一条证据 —— **该处这个盒能不能证成宽 = 高**。
+ * 证明**只取归属明确的那一份**,按三档就地收窄(取材面与 `lib/box-geometry` 的 `ownShortSidePx` 同源):
+ *  ① 本行自己写下的尺寸(单行 JSX 的 `w-10 h-10` / 单行 CSS 声明);
+ *  ② 该元素**自己的属性区**(跨行 `className`/`style`,要求开标签闭合可确定);
+ *  ③ 本对象作用域(RN StyleSheet 条目 / CSS 规则块 —— 尺寸常与半径写在同一个对象里)。
+ * ②有结论就到此为止:读出不等于,就**不**再向外层的对象作用域借尺寸 —— 函数体里另一枚方盒
+ * 不能替这一枚胶囊作证。④ 字面口径兜底(与守门 77 的 `circleVerdict` / `isHalfOfDeclaredSide`
+ * 同一份证据):同一对象里两条边写成**同一个字面**(如 `width/height: rnGeometry.fabBox`),
+ * 不依赖数值解析与单位折算。
+ * 量不全 / 宽高不等 / 解不出等值关系 ⇒ 不豁免(宁可不豁免,也不把"任意表达式"放过)。
+ * @returns {number} >0 = 可证正圆(值为边长);0 = 不豁免
+ */
+function provenSquarePx(line, lines, idx) {
+  const c = constsForLines(lines)
+  /** 两条边都量到 ⇒ 同值返回边长、不等返回 0;缺一条边 ⇒ -1(允许继续向外找) */
+  const judge = (d) => (d.w > 0 && d.h > 0 ? (d.w === d.h ? d.w : 0) : -1)
+  const direct = judge(dimsFromText(String(lines[idx] ?? ''), c))
+  if (direct >= 0) return direct
+  if (/<[A-Za-z][\w.]*/.test(line) || /\b(?:className|style)\s*=/.test(line)) {
+    const own = boxDimsOwn(lines, idx, c)
+    return own.confident ? Math.max(0, judge(own)) : 0
+  }
+  const byObject = judge(objectDims(lines, idx, c))
+  if (byObject >= 0) return byObject
+  const sides = scopeDimTexts(lines, idx)
+  return sides.length >= 2 && new Set(sides).size === 1 ? 1 : 0
+}
 const checkCap = (line, lines, idx) => {
   if (MAX_CAP === null) return false
   const { value } = capOfFullCircle(line, lines, idx)
-  return value !== null && value > MAX_CAP
+  if (value === null) return false
+  /**
+   * 正圆不属于"圆角过大"的定档约束:几何可证的正圆在任何边长下都不是"过大的圆角",
+   * 它本来就是圆的形状本身。非正方(胶囊/卡片上的 9999px)照旧判上限。MAX_CAP 不动。
+   */
+  if (provenSquarePx(line, lines, idx) > 0) return false
+  return value > MAX_CAP
 }
 const capUndetermined = (line, lines, idx) => {
   const { value, unknown } = capOfFullCircle(line, lines, idx)
-  return unknown && !(MAX_CAP !== null && value !== null && value > MAX_CAP)
+  if (!unknown) return false
+  /** 已有"它是正圆"结论的站点不是尺子的盲区,不进未判定账(与 checkCap 同一份证明)。 */
+  if (provenSquarePx(line, lines, idx) > 0) return false
+  return !(MAX_CAP !== null && value !== null && value > MAX_CAP)
 }
 
 for (let fi = 0; fi < keptRel.length; fi++) {

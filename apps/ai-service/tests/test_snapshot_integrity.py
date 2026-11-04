@@ -43,6 +43,24 @@ def _write(path_key: str, blob: dict[str, object]) -> None:
     return target
 
 
+def _read_blob_text(path) -> str:
+    """按**写侧真实形态**读取快照:默认 gzip(魔数 \\x1f\\x8b),关压缩时明文。
+
+    2026-11-01 起 `_save_snapshot` 默认 gzip 落盘(读侧靠魔数双形态自识别)。
+    旧断言直接 `read_text` 把压缩字节当 UTF-8 ⇒ UnicodeDecodeError,不是产品坏,
+    而是测试没跟随"写侧多了一层压缩"。
+    """
+    import gzip
+    import pathlib
+
+    raw = pathlib.Path(path).read_bytes()
+    return gzip.decompress(raw).decode("utf-8") if raw[:2] == b"\x1f\x8b" else raw.decode("utf-8")
+
+
+def _read_saved(path) -> dict:
+    return json.loads(_read_blob_text(path))
+
+
 def _read(tmp_path) -> ci.SnapshotRead:
     return _idx()._load_snapshot_read("repo-x", tmp_path)
 
@@ -59,7 +77,7 @@ def test_roundtrip_v2_is_ok_and_carries_the_files(tmp_path):
 def test_saved_blob_is_self_describing(tmp_path):
     idx = _idx()
     idx._save_snapshot("repo-x", tmp_path, _files())
-    raw = json.loads(idx._snapshot_path("repo-x", tmp_path).read_text(encoding="utf-8"))
+    raw = _read_saved(idx._snapshot_path("repo-x", tmp_path))
     assert raw["schemaVersion"] == ci.SNAPSHOT_SCHEMA_VERSION
     assert raw["fileCount"] == 3, "条数必须自己声明,否则读侧无从判截断"
     assert raw["merkleRoot"] == ci._merkle_root(_files())
@@ -86,7 +104,7 @@ def test_count_mismatch_is_truncated_not_silently_accepted(tmp_path):
     idx = _idx()
     idx._save_snapshot("repo-x", tmp_path, _files())
     path = idx._snapshot_path("repo-x", tmp_path)
-    blob = json.loads(path.read_text(encoding="utf-8"))
+    blob = _read_saved(path)
     blob["files"].pop("c.ts")  # 条数与声明不符,merkle 也一起漂 ⇒ 两把尺都得拦得住
     path.write_text(json.dumps(blob), encoding="utf-8")
     out = idx._load_snapshot_read("repo-x", tmp_path)
@@ -98,7 +116,7 @@ def test_content_edit_with_matching_count_is_caught_by_recomputed_root(tmp_path)
     idx = _idx()
     idx._save_snapshot("repo-x", tmp_path, _files())
     path = idx._snapshot_path("repo-x", tmp_path)
-    blob = json.loads(path.read_text(encoding="utf-8"))
+    blob = _read_saved(path)
     blob["files"]["a.ts"] = "tampered"  # 条数没变,只有内容漂了
     path.write_text(json.dumps(blob), encoding="utf-8")
     out = idx._load_snapshot_read("repo-x", tmp_path)
@@ -110,7 +128,7 @@ def test_unparseable_blob_is_corrupt(tmp_path):
     idx = _idx()
     idx._save_snapshot("repo-x", tmp_path, _files())
     path = idx._snapshot_path("repo-x", tmp_path)
-    tail = path.read_text(encoding="utf-8")[:-18]
+    tail = _read_blob_text(path)[:-18]
     path.write_text(tail, encoding="utf-8")  # 真截尾:JSON 直接不成形
     out = idx._load_snapshot_read("repo-x", tmp_path)
     assert out.state == ci.SNAPSHOT_STATE_CORRUPT
@@ -120,7 +138,7 @@ def test_unknown_schema_version_is_corrupt_not_guessed(tmp_path):
     idx = _idx()
     idx._save_snapshot("repo-x", tmp_path, _files())
     path = idx._snapshot_path("repo-x", tmp_path)
-    blob = json.loads(path.read_text(encoding="utf-8"))
+    blob = _read_saved(path)
     blob["schemaVersion"] = 99
     path.write_text(json.dumps(blob), encoding="utf-8")
     out = idx._load_snapshot_read("repo-x", tmp_path)
@@ -146,7 +164,7 @@ async def test_index_repository_names_the_failed_self_proof_instead_of_cleaning_
     idx = _idx()
     idx._save_snapshot("repo-x", tmp_path, {"keep.ts": "stale-hash", "gone.ts": "hash-gone"})
     path = idx._snapshot_path("repo-x", tmp_path)
-    blob = json.loads(path.read_text(encoding="utf-8"))
+    blob = _read_saved(path)
     blob["fileCount"] = 99  # 自证失败
     path.write_text(json.dumps(blob), encoding="utf-8")
 

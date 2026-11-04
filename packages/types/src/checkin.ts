@@ -280,6 +280,8 @@ export interface CheckinSchedulerStatusResponse {
   started: boolean
   /** 下次执行时间(主窗口,非 Qoder 账号),ISO 8601 或 null */
   next_run: string | null
+  /** 下次零点窗口执行时间(00:05,非 Qoder 账号),ISO 8601 或 null;旧服务端不返回 */
+  next_run_midnight?: string | null
   /** 下次执行时间(Qoder 窗口,每日 10:05),ISO 8601 或 null */
   next_run_qoder: string | null
   /** 下次探针执行时间,ISO 8601 或 null */

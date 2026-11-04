@@ -205,8 +205,9 @@ export const RELAY_POOL_TASKS: RelayTaskDef[] = [
     id: 'checkin-scheduler',
     name: '签到调度(ai-service APScheduler,总开关默认关)',
     carrier: 'apscheduler',
-    // 与 checkin_scheduler.py start() 实际注册的四条 job 对齐(2026-10-31 补 WorkBuddy 巡检腿)
-    schedule: '每日 06:00 探针 / 08:05 主窗口 / 10:05 qoder / WorkBuddy 任务巡检每 180 分钟(可调)',
+    // 与 checkin_scheduler.py start() 实际注册的 job 对齐(2026-11-04 补零点窗口)
+    schedule:
+      '每日 06:00 探针 / 00:05 零点窗口 / 08:05 主窗口 / 10:05 qoder / WorkBuddy 任务巡检每 180 分钟(可调)',
     statusUrlPath: '/api/checkin/scheduler/status',
     triggerable: false,
     note: '出路:ai-service env CHECKIN_CRON_ENABLED=true 开总闸(改后需重启);WorkBuddy 任务巡检另需 WORKBUDDY_TASKS_ENABLED=true;或号池页单号「签到」按钮(O64)即时触发',

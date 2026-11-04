@@ -850,10 +850,20 @@ git branch -d hotfix/v1.2.4
      否则 Release 已经上线、而 `desktop-feed.json` 仍吐旧版本。
      下载页快照由 `resolve-desktop-download.mjs` 在 `release-desktop.yml` 与每日 `sync-downloads.yml` 两处
      **重生成**(2026-10-17 起 CI 只上传产物、不再自动提交回 main,入库需人工提交);
-     全部桌面平台(Windows / macOS x86_64 / macOS aarch64 / Linux)下载面**国内主通道 Gitee、境外兜底 GitHub**:
-     仅当 Gitee 资产存在且 Content-Length 与 GitHub 原件 size **逐字节对账一致**时才出 Gitee 直链,
-     否则保持 GitHub release 原始 URL 并写告警 ——
-     同名不等于同物(0.1.75 实锤:同名差 4,173 字节 ⇒ 客户端下载成功而验签必失败)。
+     桌面资产的两条腿**分两层**落地(2026-11-04 起,此前这段写的是意图、实现只做到一半):
+     1. **数据层(feed / `/downloads.json`)**:仅当 Gitee 资产存在且 Content-Length 与 GitHub 原件 size
+        **逐字节对账一致**时才把 `href` 换成 Gitee 直链,否则保持 GitHub release 原始 URL 并写告警 ——
+        同名不等于同物(0.1.75 实锤:同名差 4,173 字节 ⇒ 客户端下载成功而验签必失败)。
+        这一层的产物**必须仍是绝对直链**:更新器 host 白名单只认 `{github.com, gitee.com}`
+        (`scripts/lib/tauri-updater-platforms.mjs`),站点同源路径会把它判成不可用。
+     2. **地域层(人在下载页上点的那一下)**:桌面按钮指向同源解析器 `GET /dl/desktop?file=<资产文件名>`
+        (`apps/web/app/dl/desktop/route.ts` + 判据 `apps/web/src/lib/desktop-download-leg.ts`),
+        由它按访客地域 302:**确认在海外 ⇒ GitHub 权威腿;国内或地域信号取不到 ⇒ Gitee(且仍要过字节对账)**。
+        三条硬约束:① 请求里只有一个过字符集白名单的**文件名**,两条腿的 URL 全部由服务端从
+        live release 的 tag 构造 ⇒ 结构上没有开放重定向输入面,落点仍显式交 `allowedOrigins`(门 278);
+        ② 响应 `private, no-store` ⇒ 地域决策不进 CDN 缓存,不会把"国内腿"缓存到海外边缘;
+        ③ 地域信号取不到时**保持现状**(站点入口换过三层,只认 `cf-ipcountry` 会在换入口当天
+        把全部国内访客静默推去 GitHub 直连)。
      (原第 2 条 GitHub `desktop-updater-feed/latest.json` 回退端点已删除——它只由 CI 维护、
      本机发版通道无 GH_TOKEN,属"看似有兜底、实际随发布路径分叉"的假能力。)
 
