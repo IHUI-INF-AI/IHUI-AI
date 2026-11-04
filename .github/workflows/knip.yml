@@ -112,6 +112,29 @@ jobs:
         id: install
         run: pnpm install --frozen-lockfile --store-dir="${{ runner.temp }}/pnpm-store"
 
+      # 2026-11-04(插件配置加载失败第 6 处,与下面 wxt-prepare **同一型**:生成物缺失,判据没错):
+      # apps/mobile-rn/tailwind.config.js:8 无条件 require('@ihui/design-tokens/tailwind-preset'),
+      # 而该包的 exports["./tailwind-preset"] 指向 ./dist/tailwind-preset.js —— dist 是
+      # scripts/lib/atomic-build.mjs 的产物、在 .gitignore 里 ⇒ 干净检出 + pnpm install 之后
+      # 结构上不存在。knip 的 mobile-rn 面经 metro.config.cjs → tailwind.config.js 走到这条 require。
+      # 实测(run 41856933043 @ 7c2cc41a52,新判据把此前**完全静默**的降级点名了出来):
+      #   Error loading apps/mobile-rn/metro.config.cjs
+      #   (Cannot find module 'apps/mobile-rn/node_modules/@ihui/design-tokens/dist/tailwind-preset.js')
+      # 本机在"无 dist"的隔离探针上复现同一形态:该路径 MODULE_NOT_FOUND;把 dist 放回即
+      # presets 2 项(sharedPreset + nativewind/preset)—— 因果链闭合,变量只有"产物在不在"。
+      # 为什么只建这一个包、不写 `pnpm --filter "@ihui/mobile-rn^..." run build`:后者是闭包构建
+      # (api-client / app / i18n … 全建),对静态分析 job 是分钟级成本,还会引入与本门无关的失败面;
+      # 而"点名必落后于新增"这条风险已由棘轮的 detectConfigLoadFailures 兜住 —— 将来别的面再要
+      # 别的包的 dist,棘轮会 exit 2 并逐条点名「配置文件 + cause」,不会退回静默少算。
+      # 判据落在**产物**上而不是退出码(同 wxt-prepare):knip 要的是 dist/tailwind-preset.js,
+      # 故构建之后必须 test -f 自证,避免"步骤绿了而产物没落"。放在 wxt-prepare 之前是因为
+      # @ihui/design-tokens 正是 apps/extension 的直连依赖(wxt/vite 要解析它的入口)。
+      - name: Build design-tokens (knip 的 mobile-rn tailwind 面前置)
+        id: build-design-tokens
+        run: |
+          pnpm --filter @ihui/design-tokens build
+          test -f packages/design-tokens/dist/tailwind-preset.js
+
       # 2026-11-04:apps/extension 的 wxt.config.ts 与 vitest.config.ts 都读 .wxt/tsconfig.json,
       # 而 .wxt/ 是 wxt 的生成物、在 .gitignore 里 ⇒ 干净检出上这两个配置**必然加载失败**,
       # knip 于是静默丢掉 extension 这一整块面(实测:补上后 duplicates −7)。该包的
@@ -148,12 +171,13 @@ jobs:
         if: failure()
         env:
           TRIAGE_WORKFLOW_FILE: .github/workflows/knip.yml
-          TRIAGE_IDS: checkout setup-pnpm setup-node store-cache install wxt-prepare knip knip-full-report
+          TRIAGE_IDS: checkout setup-pnpm setup-node store-cache install build-design-tokens wxt-prepare knip knip-full-report
           O_CHECKOUT: ${{ steps.checkout.outcome }}
           O_SETUP_PNPM: ${{ steps.setup-pnpm.outcome }}
           O_SETUP_NODE: ${{ steps.setup-node.outcome }}
           O_STORE_CACHE: ${{ steps.store-cache.outcome }}
           O_INSTALL: ${{ steps.install.outcome }}
+          O_BUILD_DESIGN_TOKENS: ${{ steps.build-design-tokens.outcome }}
           O_WXT_PREPARE: ${{ steps.wxt-prepare.outcome }}
           O_KNIP: ${{ steps.knip.outcome }}
           O_KNIP_FULL_REPORT: ${{ steps.knip-full-report.outcome }}
