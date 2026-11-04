@@ -5449,6 +5449,9 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-04**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (a8f8227ad9)
+
+**2026-11-04**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (dde2283d8c)
 - 🐞 修复:恢复下载详情页被误删的三个展示组件,修复主干编译中断 (a7fc6138d3)
 - 🐞 修复:门291 C组32条挂账清零,RN改取web真源键并摘除旧键 (0605ec255d)
@@ -5641,22 +5644,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🚀 新功能/改进:校正 AigcList 薄壳对共享屏承接行号的引用 (b569c10672)
 - 🔧 工程/其他:重算四语 README 数字块并刷新最近更新 (e647bf8ab5)
 - ♻️ 重构:间距 rpx 字面量等值落档（CSS var / taroSpacing，weapp 像素零变化） (0ea20bbe01)
-
-**2026-11-03**
-- 🔧 工程/其他:扫码凭证用例确定化 2500ms 轮询触发,消除首轮计时抖动 (ad65d2b05f)
-- 🐞 修复:修掉 runner 两处撞号并重封根护栏 (73e64fd2e2)
-- ♻️ 重构:常量/条件字面量与手工收尾字号落档 (89831e5034)
-- 🚀 新功能/改进:Vip 支付链成功落 PayResult(replace),失败/取消留守;等级横幅入口走 VipUpgrade (2c37223cfd)
-- ♻️ 重构:发布/巡检脚本接入 mobile-download-leg 单源并补一致性断言 (5a9fcadb2e)
-- 🚀 新功能/改进:ConversationImport 选文件取消/失败经 onToast 明确反馈 (f778f2a752)
-- ♻️ 重构:字号任意值等值落具名档（className 字面量批，零视觉变化） (0fdda86798)
-- 🚀 新功能/改进:AigcList 切薄壳并给 AigcPublish 接真实上传进度 (ea9e0f60f7)
-- 🚀 新功能/改进:补 ExamDetail/VipUpgrade 路由并收口 Exam 两屏推送 (a514deeecc)
-- 🔧 工程/其他:refactor(web)!: 容器 hover 浮起回归 --lift-* 单源并立守门 285 防回潮 (13a919a708)
-- ♻️ 重构:发布/巡检脚本接入 mobile-download-leg 单源并补一致性断言 (4078b4afcd)
-- 🐞 修复:给 @ihui/rn-app 替身补出 AgentReview 列表/详情两屏与 props 捕获出口(与真身 154/278 行同步) (7ffcf16a68)
-- 🐞 修复:补录 ai-service memory.py 六个 MEMORY_* 兜底码到错误目录并补齐五语词包 (575a1bd2b7)
-- 🔧 工程/其他:分叉收敛后按 HEAD 面重生成 web/miniapp 两枚 ui-routes 产物(合并提交承诺的落地后重生成;门 105 stale→matched) (35bddefbd9)
 <!-- END RECENT UPDATES -->
 同轮收口(2026-10-21 下午，五枚已入库)：把上一段里"只存不拦"的部分接成实链，并把跨端剩下的三处半截补齐。① **IP 白名单生效链**：判定唯一出口 `apps/api/src/routes/user/ip-whitelist-guard.ts`，挂在 18 条新登录腿的"凭据已验证之后、签发之前"；空表 = 未启用（不另开开关），已在线会话不受影响（换网不掉线），最后一次修改白名单的来源 IP 恒被放行（自救出口，否则清错一次就永久锁死）；被拒回 403 并落 `security_logs` 事件 `login_blocked_by_ip_allowlist`（登录前无主体，故 `recordSecurityEvent` 新增由承载层显式传主体的口子）。覆盖率由 `tests/ip-whitelist-issuance-coverage.test.ts` 机器守：全仓 6 个签发原语的每个调用点要么挂闸门、要么在具名豁免清单里带理由登记，将来新腿漏挂当场响。② **RN 安全中心接上这张卡**（`src/components/IpWhitelistPanel.tsx`，端内不复制 IP 文法校验，400 只翻本地化提示）。③ **五项 agent 护栏开关改为按登录主体生效**：`apps/ai-service/app/services/agent_security_prefs.py` 直连同库读 `user_preferences`（进程默认 ⊕ 该用户显式表态，缺省与改动前逐字一致），危险命令硬门与全局 kill switch 不受用户档影响。④ **小程序关于页补齐**为与 web/RN 同构的六段 + 保留 10 条合规入口（三端同脸，§4）。⑤ 删掉 PDF `print` / `sign` 两条零消费方的假 pending 端点（改成 404 断言留在原地），`openapi.json` 同步摘除两条 path。
 - **2026-10-21 公网提速批次的四件器物(点名义务在此,判据细节住器物头注;`§0.9` 的口径是"已接线而文档不点名 ⇒ 红")**:
