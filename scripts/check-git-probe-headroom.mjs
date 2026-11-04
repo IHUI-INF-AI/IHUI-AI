@@ -39,7 +39,7 @@
  * 用法:node scripts/check-git-probe-headroom.mjs [--json] [--self-test] [--samples N]
  */
 import { spawnSync } from 'node:child_process'
-import { readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import { readFileSync, readdirSync, writeFileSync, statSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { devEnvArtifactRoot } from './seal-c-root-stray.mjs'
@@ -382,6 +382,108 @@ export function judgeExtensions({ monitorEnabled, untrackedEnabled, index, selfT
 }
 
 /**
+ * 应用侧(Qoder Desktop)自己那份 git 探测日志的根。
+ * 落点一律从 env 推(APPDATA / USERPROFILE),不写死盘符(§26);取不到 ⇒ 本维判「未判定」。
+ */
+export function appProbeLogRoot(env = process.env) {
+  const base = env.APPDATA || (env.USERPROFILE ? join(env.USERPROFILE, 'AppData', 'Roaming') : null)
+  if (!base) return null
+  return join(base, 'com.qodercn.app.stable', 'logs')
+}
+
+/**
+ * 读最新一枚 run 目录里 `GIT_PROCESS_CLEANUP_FAILED` 的 lifecycle。
+ * 立因(2026-11-04 实测):宿主一次 `read_worktree_status` 撞 5000ms 硬超时 ⇒ 强杀子进程的清理失败
+ * ⇒ 此后该工作区**每一次** git 读都重放同一条 commandId(durationMs 恒 0,本机一放就是 4 小时),
+ * 用户侧读作「git 还是有问题」,而同一时刻仓库侧 `git status` 实测 874ms。
+ * 所以这一维量的是「应用还卡在不在那个不自愈的态」,不是「git 慢不慢」——两件事必须分开判。
+ * fs 三件套走注入,自检可用假目录跑,不碰真日志。
+ */
+export function readAppProbeStall({
+  root = appProbeLogRoot(),
+  nowMs = Date.now(),
+  readFile = (p) => readFileSync(p, 'utf8'),
+  ls = (p) => readdirSync(p),
+  stat = (p) => statSync(p),
+} = {}) {
+  const MARKER = 'GIT_PROCESS_CLEANUP_FAILED'
+  if (!root) return { ok: false, why: '取不到 APPDATA/USERPROFILE ⇒ 应用侧读数未判定' }
+  let names
+  try {
+    names = ls(root)
+  } catch (e) {
+    return { ok: false, why: `日志根不可读(${String(e?.message ?? e).slice(0, 44)})` }
+  }
+  const dirs = []
+  for (const n of names) {
+    try {
+      dirs.push([n, stat(`${root}/${n}`).mtimeMs])
+    } catch {
+      /* 单枚目录问不到不动整体:还有别的候选 */
+    }
+  }
+  if (!dirs.length) return { ok: false, why: '日志根里没有可比对的 run 目录' }
+  dirs.sort((a, b) => b[1] - a[1])
+  const run = dirs[0][0]
+  let text
+  try {
+    text = readFile(`${root}/${run}/main.log`)
+  } catch (e) {
+    return { ok: false, why: `${run}/main.log 读不到(${String(e?.message ?? e).slice(0, 44)})` }
+  }
+  const events = []
+  for (const line of String(text).split('\n')) {
+    if (!line.includes(MARKER)) continue
+    const cid = line.match(/"commandId":(\d+)/)
+    const stt = line.match(/"startedAt":(\d+)/)
+    const op = line.match(/"operation":"([^"]+)"/)
+    events.push({
+      commandId: cid ? Number(cid[1]) : null,
+      startedAt: stt ? Number(stt[1]) : null,
+      operation: op ? op[1] : '(读不到)',
+    })
+  }
+  if (!events.length) return { ok: true, stalled: false, events: 0, run, why: '' }
+  const last = events[events.length - 1]
+  const replay = events.filter((e) => last.commandId !== null && e.commandId === last.commandId).length
+  return {
+    ok: true,
+    stalled: true,
+    events: events.length,
+    replayOfSameCommand: replay,
+    run,
+    commandId: last.commandId,
+    operation: last.operation,
+    startedAt: last.startedAt,
+    stalledMinutes: last.startedAt ? Math.round((nowMs - last.startedAt) / 60_000) : null,
+  }
+}
+
+export function judgeAppStall({ probe, statusMs = null }) {
+  const dim = 'app-probe-stall'
+  if (!probe || !probe.ok)
+    return {
+      dim,
+      state: 'unjudged',
+      readout: `应用侧探测日志取不到:${probe?.why ?? '无输入'}`,
+      next: '先确认 Qoder 的 run 日志目录在不在(判不到不记绿,也不冒红)',
+    }
+  if (!probe.stalled)
+    return { dim, state: 'ok', readout: `本轮 run(${String(probe.run).slice(0, 19)})内 0 条 blocked 重放`, next: '' }
+  return {
+    dim,
+    state: 'drift',
+    readout:
+      `应用侧还在校同一条卡死记录(重放 ${probe.replayOfSameCommand} 次,共 ${probe.events} 条 blocked):` +
+      `commandId=${probe.commandId} operation=${probe.operation} 起于 ${probe.stalledMinutes ?? '?'} 分钟前` +
+      (statusMs === null ? '' : ` —— 而仓库侧 git status 本次实测 ${statusMs}ms,不是 git 慢`),
+    next:
+      '清这个态只有一个动作:重载窗口 / 重启 Qoder(它不自愈,本机实测一放 4 小时);' +
+      '若重启后一轮内又卡回来看 status-latency 维,那才是真的慢',
+  }
+}
+
+/**
  * 报告维:把"扫描面变宽"与"整机在等"分开 —— -uno 与默认档同批采样。
  * 刻意不参与定级:比值高低都不是"谁该动手"的判据,只做归因证据。
  */
@@ -410,7 +512,7 @@ export function judgeWalkShare({ oneNo, full }) {
 export function alertIdentity(dims) {
   const st = (n) => (dims.find((d) => d.dim === n) || { state: 'missing' }).state
   const s = aggregate(dims).state
-  return `git-probe-headroom:${s}:latency=${st('status-latency')}:collectors=${st('collector-tailers')}:trust=${st('monitor-trust')}:accel=${st('accel-live')}`
+  return `git-probe-headroom:${s}:latency=${st('status-latency')}:collectors=${st('collector-tailers')}:trust=${st('monitor-trust')}:accel=${st('accel-live')}:stall=${st('app-probe-stall')}`
 }
 
 export function aggregate(dims) {
@@ -714,6 +816,39 @@ async function selfTest() {
       '读不出结构时判未判定(绝不判 drift)',
     )
   })
+  t('S21 应用侧卡死重放:同一 commandId 多条 blocked ⇒ drift,并点名"不是 git 慢"', () => {
+    const line = (cid, op, st) =>
+      `[2026-11-04T11:25:07.479Z] [WARN] [main] [GitBranchProjection] 读取失败 {"workspacePathHash":"35e5","operation":"read_branch","systemErrorCode":"GIT_PROCESS_CLEANUP_FAILED","lifecycle":{"commandId":${cid},"operation":"${op}","startedAt":${st}}}`
+    const nowMs = 1_793_790_000_000
+    const p = readAppProbeStall({
+      root: 'FAKE',
+      nowMs,
+      ls: () => ['run-old', 'run-new'],
+      stat: (x) => (x.endsWith('run-new') ? { mtimeMs: 5 } : { mtimeMs: 1 }),
+      readFile: (x) => {
+        if (!x.endsWith('run-new/main.log')) throw new Error('不该读旧 run')
+        return [line(1020, 'read_worktree_status', nowMs - 4 * 3600_000), line(1020, 'read_worktree_status', nowMs - 60_000)].join('\n')
+      },
+    })
+    eq(p.ok && p.stalled, true, '解析到 blocked')
+    eq(p.replayOfSameCommand, 2, `同一条 commandId 重放次数(实读 ${p.replayOfSameCommand})`)
+    eq(p.run, 'run-new', '只读最新一枚 run 目录')
+    const d = judgeAppStall({ probe: p, statusMs: 874 })
+    eq(d.state, 'drift', '卡死重放即 drift')
+    eq(d.readout.includes('874ms'), true, 'readout 必须把"仓库侧不慢"的读数并排给出')
+    eq(d.readout.includes('4 小时') || d.stalledMinutes === undefined || d.readout.includes('分钟前'), true, '必须说卡了多久')
+    eq(d.next.includes('重启'), true, '出路必须点名那个唯一动作')
+  })
+  t('S22 应用侧日志取不到 ⇒ 未判定(不记绿);本轮零 blocked ⇒ ok', () => {
+    const miss = judgeAppStall({ probe: readAppProbeStall({ root: null }), statusMs: null })
+    eq(miss.state, 'unjudged', '取不到不猜')
+    const clean = judgeAppStall({
+      probe: readAppProbeStall({ root: 'FAKE', ls: () => ['r'], stat: () => ({ mtimeMs: 1 }), readFile: () => 'no failure here' }),
+      statusMs: 900,
+    })
+    eq(clean.state, 'ok', '本轮没有 blocked ⇒ 绿')
+    eq(clean.next, '', '绿档不充数')
+  })
   t('S17 反向锁:判红必须给可执行 prime 命令,并写明"反复掉就该关而不是反复补"', () => {
     const d = judgeExtensions({
       monitorEnabled: true,
@@ -802,6 +937,7 @@ async function main(argv) {
       why: monFace.why || scanFace.why,
     }),
     judgeExtensions({ monitorEnabled: enabled === true, untrackedEnabled: utrace, index: idxExt, selfTest: utSelf }),
+    judgeAppStall({ probe: readAppProbeStall(), statusMs: full.samples.length ? Math.max(...full.samples) : null }),
     judgeWalkShare({ oneNo, full }),
   ]
   const agg = aggregate(dims)
@@ -846,6 +982,9 @@ export const __test__ = {
   gitIndexPath,
   readIndexExtensions,
   untrackedCacheSelfTest,
+  appProbeLogRoot,
+  readAppProbeStall,
+  judgeAppStall,
   judgeExtensions,
   judgeLatency,
   judgeCollectors,
