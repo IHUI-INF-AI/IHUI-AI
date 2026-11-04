@@ -547,7 +547,9 @@ const checks = [
     id: '45',
     label: '🛡️  C 盘路径硬编码扫描(warn-only,AGENTS.md §26)',
     script: 'check-c-drive-paths.mjs',
-    args: [],
+    // 2026-11-04:此前 args 为空 ⇒ 脚本无 --staged 直接返回空数组恒绿。补 --staged 使其真扫暂存区;
+    // 无输入/取不到/空暂存区时脚本以 exit 2 交付未判定(warn 档仍不阻断)。
+    args: ['--staged'],
     mode: 'warn',
     stagedTriggers: ["**/*"],
     onFailHint: [
