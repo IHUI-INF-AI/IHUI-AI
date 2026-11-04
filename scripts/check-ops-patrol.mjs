@@ -78,7 +78,7 @@ import {
   createReadStream,
   utimesSync,
 } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { devEnvArtifactRoot, devEnvRoot } from './seal-c-root-stray.mjs'
 import { scratchRoot } from './lib/scratch-dir.mjs'
@@ -156,6 +156,27 @@ const MAIL_PROBE_LAST = join(REPO, '.ihui-agent', 'state', 'mail-probe-last.json
 const MAIL_PROBE_TIMEOUT_MS = Number(process.env.IHUI_MAIL_PROBE_TIMEOUT_MS || 45_000)
 /** 告警身份"确证没送到"的宽限期 = 守护派发层的失败退避(30min)。超过它仍是 false ⇒ 欠账。 */
 const UNDELIVERED_GRACE_MS = 30 * 60 * 1000
+/**
+ * 欠账**清偿**台账(2026-11-04 立):只追加"这条未送达后来被证明条件已恢复"的注销记录。
+ * 生产者的 `git-guardian-notify-state.json` **一个字都不改** —— `parseNotifyState` 会把未知字段
+ * 整段剥掉,写进去的标注活不过守护下一轮;而且原 `delivered:false` 必须留在原处做可追溯审计
+ * (用户明令:不许直接删除痕迹)。所以"覆盖"发生在**判定面**,不是改写生产台账。
+ */
+const UNDELIVERED_SETTLEMENTS_SUFFIX = join('.ihui-agent', 'state', 'undelivered-debt-settlements.json')
+/**
+ * 通道"此刻可用"的证明有效期。真投递成功(台账 delivered:true)或邮件探针 ok 都算证明,
+ * 但只认 **24h 内** 的那一次:40 天前的成功只说明"当年通过",不得替此刻的清偿背书。
+ */
+const DEBT_CHANNEL_FRESH_MS = 24 * 3600_000
+/**
+ * "故障条件是否已恢复"的读数件登记表(只登记**确实有落盘读数**的告警身份)。
+ * 未登记的告警一律按 `unknown` 处理 ⇒ 照旧挂账:新机制不得变成"没查就默认已清"的新通道。
+ */
+const DEBT_CONDITION_READERS = [
+  { alert: 'Qoder 号池保活腿失效(本机会话不再回灌)', kind: 'qoder' },
+  { alert: 'WorkBuddy 号池保活腿失效(本机会话不再回灌)', kind: 'workbuddy' },
+]
+const CLIENT_SYNC_RULER = 'scripts/check-qoder-session-sync-task.mjs'
 
 function sha(buf) {
   return createHash('sha256').update(buf).digest('hex').slice(0, 16)
@@ -830,6 +851,99 @@ export function ackCoversDebt({ ack, name, fp, ts, now }) {
 }
 
 /**
+ * 清偿台账读取口。三态与裁决台账同规矩:文件不在位 = 零注销;坏 JSON = `readError`,
+ * 调用方按**零注销**继续问责(方向:宁可多报一条,不得凭坏文件静默洗掉欠账)。
+ */
+export function loadDebtSettlements(file) {
+  try {
+    const parsed = JSON.parse(readFileSync(file, 'utf8'))
+    const list = Array.isArray(parsed?.entries) ? parsed.entries : []
+    return { entries: list, readError: null }
+  } catch (e) {
+    if (e?.code === 'ENOENT') return { entries: [], readError: null }
+    return { entries: [], readError: `清偿台账取不到/解析失败:${e?.message || e}` }
+  }
+}
+
+/** 清偿台账的锚点(与裁决共用 `debtAnchor` 一份实现:身份 + 指纹 + 那一笔的时刻)。 */
+export function settlementAnchor(row) {
+  return debtAnchor(row?.alert, row?.fp, Number.isFinite(row?.debtTsMs) ? row.debtTsMs : row?.debtTs)
+}
+
+/**
+ * 追加一条注销记录(幂等:同锚点只留第一条;写前重读一次并合并,避免与并发巡检轮互相覆盖)。
+ * 返回是否真的新增 —— 调用方据此决定"这一轮算不算清偿"。
+ */
+export function appendDebtSettlement({ file, entry }) {
+  let entries = []
+  try {
+    const parsed = JSON.parse(readFileSync(file, 'utf8'))
+    if (Array.isArray(parsed?.entries)) entries = parsed.entries
+  } catch {
+    /* 文件不在位/坏了:从空台账起写,本条注销照样落盘(坏文件由读取口报名,不在这里静默) */
+  }
+  if (entries.some((e) => settlementAnchor(e) === settlementAnchor(entry))) return false
+  entries.push(entry)
+  mkdirSync(dirname(file), { recursive: true })
+  writeFileSync(
+    file,
+    JSON.stringify(
+      {
+        $howToRead:
+          '欠账清偿台账:每条 = 一次"delivered:false 的告警后来被证明故障条件已恢复且通道可用"的注销。原件仍在 .ihui-agent/state/*notify-state*.json 里(delivered:false 未改写),这里只是判定面的覆盖记录。',
+        entries,
+      },
+      null,
+      1,
+    ),
+    'utf8',
+  )
+  return true
+}
+
+/**
+ * 某条告警的"故障条件是否已恢复"(2026-11-04 立)。三态,且**只有 green 才允许清偿**:
+ *   · green   —— 读数件最近一次结论为全绿,且那次读数**晚于这笔欠账**(否则是"故障前就绿",证不了恢复);
+ *   · red     —— 读数件明确仍有 breach(条件未恢复);
+ *   · unknown —— 没登记读取器 / 读数件取不到 / 结论不是 ok / 读数早于欠账 ⇒ 一律不清偿。
+ * 未登记身份走 unknown 是刻意的:清偿能力只对"确实有判据读数"的告警开放,不做"人人默认已愈"。
+ */
+export function readDebtCondition({ name, repoRoot = REPO, debtTs }) {
+  const reader = DEBT_CONDITION_READERS.find((r) => String(name ?? '').trim() === r.alert)
+  if (!reader)
+    return { state: 'unknown', basis: '没有登记这条告警的"条件是否已恢复"读数件(不据此清偿)' }
+  const file = join(repoRoot, '.ihui-agent', 'state', `${reader.kind}-sync-task-last.json`)
+  let parsed
+  try {
+    parsed = JSON.parse(readFileSync(file, 'utf8'))
+  } catch (e) {
+    return {
+      state: 'unknown',
+      basis: `读数件 ${reader.kind}-sync-task-last.json 取不到(${e?.code || e?.message || '未知'})`,
+    }
+  }
+  const overall = String(parsed?.overall ?? '')
+  const checkedAt = String(parsed?.checkedAt ?? '')
+  const at = Date.parse(checkedAt)
+  const dims = Object.values(parsed?.dims ?? {})
+  if (overall === 'breach')
+    return { state: 'red', basis: `判据 ${CLIENT_SYNC_RULER} 仍为 breach @ ${checkedAt || '未知时刻'}` }
+  if (overall !== 'ok' || !Number.isFinite(at) || dims.length === 0)
+    return {
+      state: 'unknown',
+      basis: `判据 ${CLIENT_SYNC_RULER} 这一轮没有可判结论(overall=${overall || '空'})`,
+    }
+  if (dims.some((d) => String(d?.verdict) !== 'ok'))
+    return { state: 'unknown', basis: `判据 ${CLIENT_SYNC_RULER} 仍有维不是 ok(不是全绿)` }
+  if (!Number.isFinite(Number(debtTs)) || at < Number(debtTs))
+    return {
+      state: 'unknown',
+      basis: `最近一次全绿读数 ${checkedAt} 早于这笔欠账(${new Date(Number(debtTs)).toISOString()}) ⇒ 不能证明已恢复`,
+    }
+  return { state: 'green', basis: `判据 ${CLIENT_SYNC_RULER} ${dims.length} 维全绿 @ ${checkedAt}` }
+}
+
+/**
  * P10 未送达欠账(2026-10-01 立)。它问的不是"现在有没有挂账标记",而是
  * **"那些被记下过'没寄出去'的告警身份,后来到底有没有到人"** —— 两问不同:
  * P8 的标记文件会被**下一次任意成功投递**清掉,于是"某件事从来没送到人"可以在
@@ -842,6 +956,9 @@ export function ackCoversDebt({ ack, name, fp, ts, now }) {
  *   ③ 目录/文件/JSON 任一层取不到 ⇒ **未判定**并点名,绝不被"没有欠账"的措辞顺带洗成通过;
  *   ④ 有**逐条**出口(loadDebtAcks):免掉的条数照旧报名,到期或复发自动回红 ——
  *      一条永远修不动、又没有出处的红,结局和恒红门一样是"大家学会不看它"。
+ *   ⑤ **清偿三分支(2026-11-04 立)**:条件已恢复 + 通道此刻可用 ⇒ 写一条"已注销"记录并移出红档;
+ *      条件已恢复但通道仍坏 ⇒ 保留 `delivered:false` 并记"通道阻塞"(不许当已清偿);
+ *      条件仍未恢复(或判不出)⇒ 原样保留。原台账一字不改 ⇒ "曾未送达"的痕迹永久可追溯。
  * 措辞里只有绝对时刻,不写"已挂 N 分钟":指纹吃 detail,逐轮变动的数字 = 每轮一封新信。
  * 生产者不写死清单:扫 `.ihui-agent/state/*notify-state*.json`,谁的台账带 delivered 这一维就查谁 ——
  * 新增生产者自动进射程,而"手工登记一份生产者名单"必然腐烂(§4 对 RN_ONLY_BRAND_KEYS 同课)。
@@ -852,6 +969,14 @@ export function checkUndeliveredAlertDebt({
   graceMs = UNDELIVERED_GRACE_MS,
   acks = [],
   channelOkAtMs = null,
+  // 清偿用的"通道此刻可用"证明时刻(毫秒)。可注入:夹具里不许回落去读**真机**的探针件。
+  channelProvenOkAtMs = null,
+  // 条件三态的注入面(测试用):{ [告警身份]: { state:'green'|'red'|'unknown', basis } }。
+  // 未给的条目回落 `readDebtCondition` —— 生产面永远走读数件,不在巡检里硬编码结论。
+  conditions = null,
+  // 是否真的落盘注销记录。只读档(无 --apply)照旧把可清偿项计入欠账,不谎称已清。
+  apply = false,
+  settlementFile = null,
 } = {}) {
   const id = 'P10·未送达欠账'
   const dir = join(repoRoot, '.ihui-agent', 'state')
@@ -865,33 +990,27 @@ export function checkUndeliveredAlertDebt({
   }
   if (files.length === 0)
     return { id, state: 'ok', detail: '没有任何派发状态台账(这台机还没有守护发过信)——不是"欠账为零"' }
+  const settleFile = settlementFile || join(repoRoot, UNDELIVERED_SETTLEMENTS_SUFFIX)
+  const settlements = loadDebtSettlements(settleFile)
+  const settledByAnchor = new Map()
+  for (const r of settlements.entries) {
+    const a = settlementAnchor(r)
+    if (a) settledByAnchor.set(a, r)
+  }
   const debts = []
   const legacy = []
   const broken = []
   const usedAnchors = new Set()
+  const usedSettlements = new Set()
+  const settledRows = []
   let acked = 0
   let entriesSeen = 0
   let coveredByChannel = 0
-  // 通道最近一次"有收件人且投递成功"的时刻(毫秒,0 = 量不到/通道从未通)。
-  // 取径:邮件通道活性探针的落盘件(`.ihui-agent/state/mail-probe-last.json`,P9 同一个生产者写的),
-  // **只认 verdict==='ok' 且确实有收件人的那次** —— 探针说 ok 而台账一条都没寄出去,
-  // 那是"探针只验了握手、不代表真寄到人",此时 channelOkSinceMs 保持 0(不豁免任何欠账)。
-  // **必须可注入**(channelOkAtMs):夹具仓库里没有探针件,若让它回落去读**真机**的
-  // MAIL_PROBE_LAST,夹具造的台账(ts 更早)会被真机的探针时刻全数豁免 ⇒ 五态自检恒红,
-  // 而红的原因与被测逻辑无关。2026-10-03 实测踩过,判据自身没错是**取材没隔离**。
-  let channelOkSinceMs = Number.isFinite(channelOkAtMs) ? Number(channelOkAtMs) : 0
-  if (!Number.isFinite(channelOkAtMs)) {
-    try {
-      const probe = JSON.parse(readFileSync(MAIL_PROBE_LAST, 'utf8'))
-      const at = Number(probe?.atMs)
-      const smtp = probe?.probe?.channels?.smtp
-      const resend = probe?.probe?.channels?.resend
-      const anyOk = smtp?.verdict === 'ok' || resend?.verdict === 'ok'
-      if (anyOk && Number.isFinite(at) && at > 0) channelOkSinceMs = at
-    } catch {
-      /* 探针件取不到 ⇒ 视为"量不到通道何时好的" ⇒ 不豁免(方向:宁可多报,不得凭空洗掉欠账) */
-    }
-  }
+  let channelBlocked = 0
+  let settleableReadOnly = 0
+  let settledThisRun = 0
+  // 先解析全部台账(单遍读文件,但要在判欠账之前先算出"通道有没有被证明可用")。
+  const ledgers = []
   for (const f of files) {
     let parsed
     try {
@@ -904,6 +1023,46 @@ export function checkUndeliveredAlertDebt({
       broken.push(`${f}:顶层不是对象`)
       continue
     }
+    ledgers.push({ f, parsed })
+  }
+  // 通道最近一次"有收件人且投递成功"的时刻(毫秒,0 = 量不到/通道从未通)。
+  // 取径:邮件通道活性探针的落盘件(`.ihui-agent/state/mail-probe-last.json`,P9 同一个生产者写的),
+  // **只认 verdict==='ok' 且确实有收件人的那次** —— 探针说 ok 而台账一条都没寄出去,
+  // 那是"探针只验了握手、不代表真寄到人",此时 channelOkSinceMs 保持 0(不豁免任何欠账)。
+  // **必须可注入**(channelOkAtMs):夹具仓库里没有探针件,若让它回落去读**真机**的
+  // MAIL_PROBE_LAST,夹具造的台账(ts 更早)会被真机的探针时刻全数豁免 ⇒ 五态自检恒红,
+  // 而红的原因与被测逻辑无关。2026-10-03 实测踩过,判据自身没错是**取材没隔离**。
+  // 探针件路径由 repoRoot 推导(模块级常量会让夹具档去读真机)。
+  let channelOkSinceMs = Number.isFinite(channelOkAtMs) ? Number(channelOkAtMs) : 0
+  if (!Number.isFinite(channelOkAtMs)) {
+    try {
+      const probe = JSON.parse(readFileSync(join(dir, 'mail-probe-last.json'), 'utf8'))
+      const at = Number(probe?.atMs)
+      const smtp = probe?.probe?.channels?.smtp
+      const resend = probe?.probe?.channels?.resend
+      const anyOk = smtp?.verdict === 'ok' || resend?.verdict === 'ok'
+      if (anyOk && Number.isFinite(at) && at > 0) channelOkSinceMs = at
+    } catch {
+      /* 探针件取不到 ⇒ 视为"量不到通道何时好的" ⇒ 不豁免(方向:宁可多报,不得凭空洗掉欠账) */
+    }
+  }
+  // 清偿用的"通道此刻可用"证据:停写探针 ok 与**本台账里最晚一次真投递成功**取较晚者。
+  // 真投递成功比探针更强 —— 它证明"此刻经这条通道确实把信送到了收件人"。
+  let latestDeliveredMs = 0
+  for (const { parsed } of ledgers) {
+    for (const v of Object.values(parsed)) {
+      const t = Number(v?.ts)
+      if (v?.delivered === true && Number.isFinite(t)) latestDeliveredMs = Math.max(latestDeliveredMs, t)
+    }
+  }
+  const channelProvenMs = Number.isFinite(channelProvenOkAtMs)
+    ? Number(channelProvenOkAtMs)
+    : Math.max(channelOkSinceMs, latestDeliveredMs)
+  // 只认 24h 内的证明:更早的成功说明"当年通过",不得替此刻的清偿背书。
+  const channelOkNow = channelProvenMs > 0 && now - channelProvenMs <= DEBT_CHANNEL_FRESH_MS
+  const debtLine = (f, name, v, ts, suffix = '') =>
+    `${f} | 身份=${String(name).slice(0, 64)} | 指纹=${String(v.fp ?? '').slice(0, 12)} | 记于=${new Date(ts).toISOString()}${suffix}`
+  for (const { f, parsed } of ledgers) {
     for (const [name, v] of Object.entries(parsed)) {
       entriesSeen += 1
       const ts = Number(v?.ts)
@@ -914,6 +1073,15 @@ export function checkUndeliveredAlertDebt({
       if (v.delivered === true) continue
       if (!Number.isFinite(ts)) {
         broken.push(`${f}#${name}:ts 不是数字`)
+        continue
+      }
+      // ① 已注销:条件曾恢复且通道可用,由本巡检写过审计行。原件仍留在生产者台账里
+      // (delivered:false 未改写),这里只把它移出"仍在欠账"的红档。
+      const anchor = debtAnchor(name, v.fp, ts)
+      const settledRow = settledByAnchor.get(anchor)
+      if (settledRow) {
+        settledRows.push(settledRow)
+        usedSettlements.add(anchor)
         continue
       }
       // **通道故障期漏网 ⇒ 已被事实性覆盖,不计欠账(2026-10-03 立,P10 自我循环根治)**
@@ -936,20 +1104,61 @@ export function checkUndeliveredAlertDebt({
       if (waitMin < graceMs / 60000) continue
       if (acks.some((a) => ackCoversDebt({ ack: a, name, fp: v.fp, ts, now }))) {
         acked += 1
-        usedAnchors.add(debtAnchor(name, v.fp, ts))
+        usedAnchors.add(anchor)
+        continue
+      }
+      // ② 清偿三分支:条件已恢复才谈得上清偿;通道仍坏一律保留欠账并记"通道阻塞"。
+      const cond = conditions?.[String(name)] ?? readDebtCondition({ name, repoRoot, debtTs: ts })
+      if (cond?.state === 'green' && channelOkNow && apply) {
+        const entry = {
+          alert: String(name),
+          fp: String(v.fp ?? ''),
+          debtTs: new Date(ts).toISOString(),
+          debtTsMs: ts,
+          settledAt: new Date(now).toISOString(),
+          by: 'ops-patrol:P10',
+          basis: String(cond.basis || '条件已恢复'),
+          channelProofAt: new Date(channelProvenMs).toISOString(),
+          // 原件快照:就算生产者台账下一轮被真投递改写,这里也留得住"曾未送达"的事实。
+          original: { fp: v.fp, ts, delivered: false },
+        }
+        if (appendDebtSettlement({ file: settleFile, entry })) settledThisRun += 1
+        settledRows.push(entry)
+        usedSettlements.add(anchor)
         continue
       }
       // 只写**绝对时刻**:守护的发信指纹吃 detail,任何"距今/已挂 N 分钟"都会逐轮变动,
       // 于是同一件故障每轮生成一封新信(AGENTS §5e 与用户明令「一直在报警你干啥吃的」)。
-      debts.push(
-        `${f} | 身份=${String(name).slice(0, 64)} | 指纹=${String(v.fp ?? '').slice(0, 12)} | 记于=${new Date(ts).toISOString()}`,
-      )
+      let suffix = ''
+      if (cond?.state === 'green' && channelOkNow) {
+        settleableReadOnly += 1
+        suffix = ' | 可清偿(条件已恢复+通道可用),但本轮未 --apply 落盘 ⇒ 不计已注销'
+      } else if (cond?.state === 'green') {
+        channelBlocked += 1
+        suffix = ' | 通道阻塞:故障条件已恢复,但通道此刻未被证明可用 ⇒ 保留 delivered:false,不算已清偿'
+      }
+      debts.push(debtLine(f, name, v, ts, suffix))
     }
   }
   if (entriesSeen === 0 && !broken.length)
     return { id, state: 'ok', detail: '台账存在但没有任何告警身份条目(首次发信前)' }
   const tail = []
   if (acked) tail.push(`已逐条裁过 ${acked} 条(裁的是那一笔,到期或复发即回红)`)
+  // 注销必须逐条可见:只报一个数字等于让"已清偿"变成没人能复核的话。
+  if (settledRows.length)
+    tail.push(
+      `已注销 ${settledRows.length} 条(条件已恢复 + 通道此刻可用;原 delivered:false 逐字留在生产者台账,审计见 ${basename(settleFile)})${settledThisRun ? `,其中本轮新增 ${settledThisRun}` : ''}:` +
+        settledRows
+          .map(
+            (r) =>
+              `身份=${String(r?.alert ?? '').slice(0, 64)} | 指纹=${String(r?.fp ?? '').slice(0, 12)} | 记于=${String(r?.debtTs ?? '')} | 注销于=${String(r?.settledAt ?? '')} | 依据=${String(r?.basis ?? '')}`,
+          )
+          .join(' ; '),
+    )
+  // 通道阻塞与"只读档可清偿"都必须报名 —— 免掉/没免的东西都要能被复核。
+  if (channelBlocked)
+    tail.push(`通道阻塞 ${channelBlocked} 条(条件已恢复但通道此刻未被证明可用 ⇒ 保留欠账,不许当已清偿)`)
+  if (settleableReadOnly) tail.push(`可清偿 ${settleableReadOnly} 条但本轮未 --apply ⇒ 未落注销记录(照旧计入欠账)`)
   // 通道故障期漏网被事实性覆盖的条数也要报名 —— 免掉的东西必须可见,否则"欠账清零"会
   // 变成一句没人能复核的话(本仓最高频失效型:把没判/没查写成判过了)。
   if (coveredByChannel)
@@ -964,6 +1173,12 @@ export function checkUndeliveredAlertDebt({
   const unmatchedAcks = acks.filter((a) => !usedAnchors.has(debtAnchor(a?.alert, a?.fp, a?.atTs)))
   if (unmatchedAcks.length)
     tail.push(`另有 ${unmatchedAcks.length} 条裁决本轮找不到对应欠账(报名不判红:账可能已被真投递清偿,但清单不能悄悄胖起来)`)
+  const unmatchedSettlements = settlements.entries.filter((e) => !usedSettlements.has(settlementAnchor(e)))
+  if (unmatchedSettlements.length)
+    tail.push(
+      `另有 ${unmatchedSettlements.length} 条注销记录本轮找不到对应欠账(报名不判红:该条可能已被真投递覆盖,但清单不能悄悄胖起来)`,
+    )
+  if (settlements.readError) tail.push(`⚠️ ${settlements.readError} ⇒ 本轮按零注销判(该红的照旧红)`)
   if (legacy.length) tail.push(`旧形态条目 ${legacy.length} 条(无 delivered 键,只报数不判红)`)
   if (broken.length) tail.push(`解析不出 ${broken.length} 处:${broken.join(' ; ')}`)
   if (debts.length) {
@@ -2333,7 +2548,7 @@ export async function patrol({ now = Date.now(), apply = false, strict = false, 
   // 裁决台账在这里读、判据在下面判:读不到/坏 JSON 一律按"零裁决"继续问责,
   // 并把这一格落未判定 —— 静默当空台账等于让坏掉的裁决文件反而放宽判据。
   const debtAcks = loadDebtAcks()
-  const debtRow = checkUndeliveredAlertDebt({ repoRoot: REPO, now, acks: debtAcks.entries })
+  const debtRow = checkUndeliveredAlertDebt({ repoRoot: REPO, now, acks: debtAcks.entries, apply })
   if (debtAcks.readError) {
     debtRow.detail = `${debtRow.detail} | ⚠️ ${debtAcks.readError} ⇒ 本轮按零裁决判,不静默当空台账`
     if (debtRow.state === 'ok') debtRow.state = 'undetermined'
@@ -2739,6 +2954,42 @@ function undeliveredDebtFixture() {
   })
   if (unmatched.state !== 'ok' || !unmatched.detail.includes('本轮找不到对应欠账'))
     return { ok: false, why: '失效裁决未被点名(清单悄悄胖起来 = 替人做出"已想过"的判断)' }
+  // ── 清偿三分支(2026-11-04 立):"条件已恢复"是清偿的**前提**,通道可用是**必要条件** ──────
+  // 三档必须成对:只测"能清偿"那一臂,等于让另外两臂(通道坏 / 条件仍红)失去护栏。
+  const settleFile = join(wb, 'undelivered-debt-settlements.json')
+  const T0 = now - 6 * 3600_000
+  const FP_D = 'd'.repeat(40)
+  write({ 备份失败: { fp: FP_D, ts: T0, delivered: false } })
+  const condGreen = { 备份失败: { state: 'green', basis: '测试:判据已转绿 @ 2026-10-01T11:00:00Z' } }
+  const condRed = { 备份失败: { state: 'red', basis: '测试:判据仍红' } }
+  // ③ 条件仍未恢复 ⇒ 原样保留(既不清偿,也不许把 delivered:false 洗掉)
+  const cRed = checkUndeliveredAlertDebt({ repoRoot: repo, now, apply: true, conditions: condRed, channelProvenOkAtMs: now })
+  if (cRed.state !== 'finding' || !cRed.detail.includes('备份失败'))
+    return { ok: false, why: `条件仍红的欠账被放过:${cRed.detail}` }
+  if (existsSync(settleFile)) return { ok: false, why: '条件仍红却写了注销记录' }
+  // ② 条件已恢复 + 通道坏 ⇒ 保留 delivered:false 并记"通道阻塞",P10 仍红
+  const cBlocked = checkUndeliveredAlertDebt({ repoRoot: repo, now, apply: true, conditions: condGreen, channelProvenOkAtMs: 0 })
+  if (cBlocked.state !== 'finding') return { ok: false, why: '通道坏时未送达欠账被静默放过' }
+  if (!cBlocked.detail.includes('通道阻塞')) return { ok: false, why: '通道坏未点名"通道阻塞"' }
+  if (existsSync(settleFile)) return { ok: false, why: '通道坏也写了注销记录(把通道坏当已送达)' }
+  // ① 条件已恢复 + 通道 ok ⇒ 清偿且 P10 转绿;生产者台账的 delivered:false 必须一字不改
+  const cOk = checkUndeliveredAlertDebt({ repoRoot: repo, now, apply: true, conditions: condGreen, channelProvenOkAtMs: now })
+  if (cOk.state !== 'ok' || !cOk.detail.includes('已注销 1 条'))
+    return { ok: false, why: `条件恢复+通道可用仍未清偿/未转绿:${cOk.detail}` }
+  const ledgerAfter = JSON.parse(readFileSync(st, 'utf8'))
+  if (ledgerAfter.备份失败?.delivered !== false)
+    return { ok: false, why: '清偿时改写了生产者台账 —— "曾未送达"的痕迹被删除' }
+  const settleRows = JSON.parse(readFileSync(settleFile, 'utf8'))?.entries ?? []
+  if (settleRows.length !== 1) return { ok: false, why: '注销记录条数不是 1' }
+  if (settleRows[0]?.by !== 'ops-patrol:P10' || !String(settleRows[0]?.basis || '').includes('判据已转绿'))
+    return { ok: false, why: '注销审计行缺"谁 / 依据哪条判据转绿"' }
+  if (!Number.isFinite(settleRows[0]?.debtTsMs) || settleRows[0]?.original?.delivered !== false)
+    return { ok: false, why: '注销审计行缺欠账原时刻或原件快照' }
+  // 幂等:同一笔复跑不得再写一条(每轮一封新信的老毛病)
+  const cAgain = checkUndeliveredAlertDebt({ repoRoot: repo, now: now + 60_000, apply: true, conditions: condGreen, channelProvenOkAtMs: now + 60_000 })
+  if (cAgain.state !== 'ok') return { ok: false, why: `已注销的账下一轮又回红:${cAgain.detail}` }
+  if ((JSON.parse(readFileSync(settleFile, 'utf8'))?.entries ?? []).length !== 1)
+    return { ok: false, why: '同一笔欠账重复写注销记录' }
   return { ok: true, why: '' }
   } finally {
     rmSync(base, { recursive: true, force: true })
@@ -3248,7 +3499,7 @@ export async function selfTest() {
   const p9fix = await mailProbeFixture()
   t(`P9 通道活性四态成对(可用绿 / 失败红 / 双未配置未判定 / 输出解不出未判定)+ 节流派生与缓存复述${p9fix.ok ? '' : ` —— ${p9fix.why}`}`, p9fix.ok === true)
   const p10fix = undeliveredDebtFixture()
-  t(`P10 未送达欠账五态成对(挂账红 / 宽限内绿 / 旧形态只报数 / 已清偿回绿 / 坏台账未判定)${p10fix.ok ? '' : ` —— ${p10fix.why}`}`, p10fix.ok === true)
+  t(`P10 未送达欠账五态成对(挂账红 / 宽限内绿 / 旧形态只报数 / 已清偿回绿 / 坏台账未判定)+ 清偿三分支(条件恢复+通道 ok 清偿 / 通道坏仍红 / 条件仍红不动)${p10fix.ok ? '' : ` —— ${p10fix.why}`}`, p10fix.ok === true)
   // P11(2026-10-02 补):promtool 规则单测 —— "写完没人跑"那一格的尺子,三态与装车锁成对。
   const p11fix = promtoolFixture()
   t(`P11 promtool 三态成对(全过绿 / 任一失败红且点名文件 / promtool 或用例目录取不到未判定)${p11fix.ok ? '' : ` —— ${p11fix.why}`}`, p11fix.ok === true)
