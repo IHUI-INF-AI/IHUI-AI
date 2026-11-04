@@ -2218,6 +2218,38 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 ## 최근 업데이트 (자동 유지)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-04**
+- 🔧 기타:收编守护落档产出(5 件,凭落点账本) (cd17b5992d)
+- 🐞 수정:push-sync 读数改三态 —— rev-list 失败/取不到对象不再折算成 ahead=0 假绿,5 例钉三态 (03f58d1a29)
+- 🐞 수정:两处 git 派生补 windowsHide —— 门52 生产面两处判红清零,消除控制台闪窗;staged 面 3 文件 0 违规 (3f5a439b05)
+- 🐞 수정:git 派生调用显式接管 stdio —— 门193 三处判红清零(两枚测试文件),解除 pre-push 阻塞;两测试 14/14 通过 (38f420f6cb)
+- 🐞 수정:写盘闸 HEAD 三态 —— git 取不到不再折成「新增文件」放行 (860fc3e087)
+
+**2026-11-03**
+- 🔧 기타:285 judged 自检改临时夹具 —— 不再钉死真仓行号 (414db88c6b)
+- 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (6f77b0a629)
+- 📚 문서:285/289/290/291/292 语义与三条纪律入档 + 逃生变量并入 §6.3 (53cbd16b34)
+- 🚀 기능/개선:门285 引入逐键 judged 桶 —— 存差=未实现+未映射+未裁决 (0013f61827)
+- 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (1759854c49)
+- 🐞 수정:门290 判据纠偏 + A3 可挂账 + 修真缺陷 (9e6d7fedeb)
+- 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (eb67922536)
+- 🔧 기타:账本收敛为 C 组挂账与 A/B/E 裁决,统一 3 处可改调用点并登记 LearnScreen 4 处 web 无键文案 (7337b633c3)
+- 🐞 수정:证书基准拆为官网/Play 上传/Play 应用签名三值并互不校验 (c7274b7f66)
+- 🔧 기타:登记 9 对跨端 props 提案(等价 21 + 平台 141 + FloatBox 整对不适用) (582088f7cd)
+- 🐞 수정:新增 B3 同义键异值判据、common.* 白名单/同字不同义裁决与唯一键去重 (fcb2cc8570)
+- 🐞 수정:门291 P0 将 10 处 RN 硬编码文案改为 web 同源键并补齐 5 语言词包 (dc74afd1bb)
+- 🔧 기타:登记 9 对跨端 props 提案(等价 21 + 平台 141 + FloatBox 整对不适用) (8c63a3b963)
+- 🐞 수정:LoginPopUp 24→20 键 —— RN 补 visible 可选、userInfo 适配、defaultAvatar、onNicknameChange (c5b7f31ae9)
+- 🐞 수정:NavBar 25→23 键 —— 小程序补 subtitle/sticky 真实现，menuIcon 接渲染分支 (db8b3c8c06)
+- 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (ffbc1e83bd)
+- 🐞 수정:BottomActionBar 59→56 键 —— RN 真接 placeholder/disabled,小程序真接 isLoading (3356abdcd5)
+- 🐞 수정:VideoPlayer 补齐 autoplay/poster/loading/onPlay/onPause/startPosition (4c44c59a30)
+- 🐞 수정:ModelList 两端补齐选择/加载/动效/样式契约 (29f6d7e7d1)
+- 🐞 수정:ModelConfigDialog 对齐必填漂移 visible/config/onChange/modelType (46b2a8cf4a)
+- 🐞 수정:InputArea 补齐 RN 输入契约 autoFocus/onFocus/onBlur/onKeyboardHeightChange (60fa2ebbea)
+- 🔧 기타:摘除 ColorfulLoader 死副本并重算 ui-routes inputs —— 全仓静态/动态引用为 0,删除后经生成器重算(inputs 611→610、自述钉自洽);门105 保持绿、门285 258 键不变 (72eea3c5d5)
+- 📚 문서:派生块按生成器重算 —— 守门/跟踪文件读数对齐现算,最近更新补齐 48540f6..HEAD (4576ffade7)
+
 **2026-11-03**
 - 🔧 기타:ui-routes 派生件按 HEAD 面重生成(model-edit/apis 两枚输入补钉) (c6c90050fb)
 - 🐞 수정:小程序 model-edit 接上 RN 同一份只读清单,并补派生进程 windowsHide (5133f2817d)
@@ -2385,14 +2417,6 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 - 🐞 수정:收编器改路径白名单——业务代码/测试与规则文件不再自动入库 (f6e0ba44a9)
 - 🔧 기타:清偿旧版快照区数字 —— scrub --scope=all 用生成器同源现算值清 README 全量存量 54315 处(README.md/README.en.md 共 29820 行改写、5 行挂历史叙述豁免、manual 0)；同笔给 scrub 增显式维护档 archive|all(缺省行级棘轮不动,自检 21/21) (15f9293a7d)
 - 🔧 기타:补登 6 枚远端带入文件的溯源水印(门47 HEAD面欠账清偿) (c3c03c7da3)
-
-**2026-11-03**
-- 🔧 기타:收编停留≥3分钟的未提交改动 (34ba63607b)
-
-**2026-11-03**
-- 🔧 기타:收编停留≥3分钟的未提交改动 (9b60105652)
-- 🔧 기타:AgentReviewDetail 改判 not-applicable（无 RN 详情路由/入口） (4381683c20)
-- 🚀 기능/개선:CoursePlanet/MoreCourse/StudyIndex 接共享屏薄壳 (30a2725d76)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
