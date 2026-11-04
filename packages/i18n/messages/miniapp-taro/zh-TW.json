@@ -6989,5 +6989,34 @@
   "career": {
     "exportingReport": "匯出中...",
     "exportEmptyHint": "產生報告後可匯出"
+  },
+  "activities": {
+    "join": "立即參與"
+  },
+  "chatSettingsPage": {
+    "model": "模型"
+  },
+  "eduExamListPage": {
+    "start": "開始考試"
+  },
+  "eduExamPage": {
+    "prevQuestion": "上一題",
+    "nextQuestion": "下一題"
+  },
+  "eduProgressPage": {
+    "weeklyHours": "本週學習時長"
+  },
+  "learn": {
+    "signedUp": "已報名"
+  },
+  "learnMapPage": {
+    "completed": "已完成",
+    "empty": "暫無學習路徑"
+  },
+  "memberSubscriptionPage": {
+    "cancelSubscription": "取消訂閱"
+  },
+  "student": {
+    "myCertsTitle": "我的證書"
   }
 }
