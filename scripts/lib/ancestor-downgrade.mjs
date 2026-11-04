@@ -60,14 +60,44 @@ export function intentionalRevertOf(message, { min = REVERT_MIN_RATIONALE } = {}
   return { ok: false, rationale: '' }
 }
 
-/** HEAD 上该路径的 blob oid;路径不存在/取不到 ⇒ { judged:false, why }(不冒充"没有")。 */
+/**
+ * HEAD 上该路径的 blob oid,三态(§0.3:缺席与取不到不是同一件事):
+ *   { judged:true,  oid:'<40hex>', missing:false } —— 在位
+ *   { judged:true,  oid:null,      missing:true  } —— HEAD 可解析,但该路径**确实不在**
+ *   { judged:false, oid:null,      missing:false, why } —— HEAD/该路径取不到(不冒充"没有")
+ * 立因(2026-11-04 复核):写盘闸曾把"git 报错"与"新增文件"折成同一条 allow ⇒ 一过性
+ * git 失败会让祖先旧档**静默写盘**。故先验 HEAD 可解析,再用 `--quiet` 区分"缺席(exit 1)"
+ * 与"取不到(其他非零/超时)"。
+ */
 export function headBlobOf(rel, { root } = {}) {
   try {
-    const out = String(gitRaw(['rev-parse', '--verify', `HEAD:${rel}`], root)).trim()
-    if (!/^[0-9a-f]{40}$/i.test(out)) return { judged: false, oid: null, why: `HEAD:${rel} 取不到 oid` }
-    return { judged: true, oid: out.toLowerCase(), why: null }
+    const head = String(gitRaw(['rev-parse', '--verify', 'HEAD'], root)).trim()
+    if (!/^[0-9a-f]{40}$/i.test(head)) {
+      return { judged: false, oid: null, missing: false, why: 'HEAD 取不到 oid' }
+    }
   } catch (e) {
-    return { judged: false, oid: null, why: `HEAD:${rel} 取不到:${String(e?.message ?? e).split('\n')[0]}` }
+    return {
+      judged: false,
+      oid: null,
+      missing: false,
+      why: `HEAD 取不到:${String(e?.message ?? e).split('\n')[0]}`,
+    }
+  }
+  try {
+    const out = String(gitRaw(['rev-parse', '--verify', '--quiet', `HEAD:${rel}`], root)).trim()
+    if (!/^[0-9a-f]{40}$/i.test(out)) {
+      return { judged: false, oid: null, missing: false, why: `HEAD:${rel} 输出非 oid` }
+    }
+    return { judged: true, oid: out.toLowerCase(), missing: false, why: null }
+  } catch (e) {
+    // `--quiet` 下"路径不在 HEAD"是 exit 1 且无 stderr;其余非零 = 真取不到,不折成缺席。
+    if (e?.status === 1) return { judged: true, oid: null, missing: true, why: null }
+    return {
+      judged: false,
+      oid: null,
+      missing: false,
+      why: `HEAD:${rel} 取不到:${String(e?.message ?? e).split('\n')[0]}`,
+    }
   }
 }
 
