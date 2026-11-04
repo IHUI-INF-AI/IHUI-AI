@@ -23,7 +23,7 @@ export interface AgentTeamMemberRef {
   memberId: string
 }
 
-export interface CreateAgentTeamInput {
+interface CreateAgentTeamInput {
   ownerId: string
   name: string
 }
