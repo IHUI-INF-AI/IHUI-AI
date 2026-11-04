@@ -43,10 +43,7 @@ export function useWindowDimensions() {
 
 /** 小程序没有 iOS/Android 之分,但共享层用 Platform.select 选档位 —— 按移动端处理 */
 export const Platform = {
-  // 值域必须与下面 select 的 spec 同宽:spec 收 web/macos/windows,而 OS 只声明 ios|android,
-  // 会让共享层合法的 Platform.OS === 'web' 在本端编译面被 TS2367 判成"永假死分支"
-  // (运行时不变:这里仍然是 'ios',原生档照样命中)。2026-11-03 实测 ScreenStates.tsx:300 即此型。
-  OS: 'ios' as 'ios' | 'android' | 'web' | 'macos' | 'windows' | 'unknown',
+  OS: 'ios' as 'ios' | 'android' | 'web',
   Version: 0,
   isIOS: true,
   isAndroid: false,
