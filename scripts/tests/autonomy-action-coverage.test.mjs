@@ -27,12 +27,31 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { __test__ as NP } from '../lib/autonomy-nonprogress.mjs'
+// 取材面出口只认这一份(§0.4 / 守门 118):测试也不许自己回落工作树
+import { gitRaw } from '../lib/face-reader.mjs'
 import { ARTIFACT_MANIFEST_STATES } from '../lib/ticket-artifacts.mjs'
 import { VALVE_ACTIONS, PREFLIGHT_STATES } from '../lib/autonomy-runner.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(HERE, '..', '..')
-const SRC = readFileSync(join(ROOT, 'scripts', 'auto-evolve.mjs'), 'utf8')
+/**
+ * 取材面纪律(2026-11-05 修,立因是当次实测):本锁原先 `readFileSync` 读**工作树**那份调度器。
+ * 多会话共一棵树时盘上那份常是别席从旧基线改的半成品(今天实测:盘上 2851 行 vs HEAD 2263 行,
+ * 缺当天全部判据),于是 C4/C11 把"HEAD 里在位的豁免"读成"源码里收不到"⇒ 红指向的其实是别人的现场。
+ * 全量档判 HEAD blob(§0.4 / 守门 118);取不到就抛 —— 绝不回落另一个面(§0.3:没判不许当判过)。
+ */
+const SRC = (() => {
+  try {
+    const out = gitRaw(['show', 'HEAD:scripts/auto-evolve.mjs'], ROOT)
+    const text = typeof out === 'string' ? out : String(out?.stdout ?? '')
+    if (!text.trim()) throw new Error('HEAD 面读回来是空串')
+    return text
+  } catch (e) {
+    throw new Error(
+      `调度器 HEAD 面取不到 ⇒ 本锁未判定(不回落工作树):${String(e?.message ?? e).slice(0, 200)}`,
+    )
+  }
+})()
 
 /**
  * 取出 `action:` 的值表达式(扫到同深度的 `,`/换行/`}` 为止),再只取**三元式的分支**部分。
@@ -231,10 +250,13 @@ test('C9 阶梯读的是同一份表:PROGRESS/NON_PROGRESS/EXEMPT 三段都从�
   assert.equal(typeof NP.actionBucketOf, 'function', '分档判据必须是导出的那一份,测试不许自己抄')
 })
 
-test('C10 取样器必须认得赋值形态 `action = \'x\'`(这一格此前是永久盲区)', () => {
+test("C10 取样器必须认得赋值形态 `action = 'x'`(这一格此前是永久盲区)", () => {
   const fixture = "if (a) {\n  action = 'zzz-fixture-only'\n}\nreturn { action, why }\n"
   const got = harvestFromSource(fixture)
-  assert.ok(got.has('zzz-fixture-only'), '赋值形态收不到 ⇒ 凡是"先赋值再 return {action}"的档名都不在这把锁射程内')
+  assert.ok(
+    got.has('zzz-fixture-only'),
+    '赋值形态收不到 ⇒ 凡是"先赋值再 return {action}"的档名都不在这把锁射程内',
+  )
 })
 
 test('C11 调度器真源码里的 session-no-write 必须既被收到、又在分档集里(有人覆盖即红)', () => {
@@ -242,7 +264,14 @@ test('C11 调度器真源码里的 session-no-write 必须既被收到、又在�
   // 而"漏出分档集"的表现恰好是**静默**——阶梯照旧归零,谁也不知道档位退回了。
   const got = harvestFromSource(SRC)
   assert.ok(got.has('session-no-write'), '发射端必须被取样器收到(收不到 ⇒ C1 结构上判不了这一档)')
-  assert.ok(NP.NON_PROGRESS_ACTIONS.includes('session-no-write'), '分档端必须收这一枚,否则"exit 0 但零写盘"又回到 PROGRESS 语义之外')
-  assert.equal(NP.actionBucketOf('session-no-write'), 'non-progress', '分档桶必须是空转,不是豁免也不是未分类')
+  assert.ok(
+    NP.NON_PROGRESS_ACTIONS.includes('session-no-write'),
+    '分档端必须收这一枚,否则"exit 0 但零写盘"又回到 PROGRESS 语义之外',
+  )
+  assert.equal(
+    NP.actionBucketOf('session-no-write'),
+    'non-progress',
+    '分档桶必须是空转,不是豁免也不是未分类',
+  )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
