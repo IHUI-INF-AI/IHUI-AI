@@ -20,6 +20,18 @@ unset GIT_DIR GIT_WORK_TREE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIE
 wscript //nologo scripts/hook-run-hidden.vbs commit-msg-style scripts/check-style-verification.mjs "$1" || true
 tail -5 .ihui-agent/state/hook-logs/commit-msg-style.log >&2 || true
 
+# 判据面不可变护栏 · 提交链预警(2026-11-04 立;硬墙仍在 push 门)
+# 立因:`--range origin/main..HEAD` 那一档要在**提交已成历史之后**才响,而未声明的枚一旦落账,
+#   本仓(pre-rebase 硬拦 + 多席共享工作树)结构上没有重写出路 ⇒ 唯一的补救是持钥方追认台账,
+#   而补一行说明的成本远远高于提交前重写一次。本段把同一判据搬到"改还来得及"的那一刻报出来。
+# 档位:只报不拦(`|| true`),与 check-style-verification 同形——提交链档一旦被自己的取材失败顶住
+#   就是全仓冻结(§12e),而这条判据的强制面本来就注册在 push 门(blocking)。判红/未判定都在
+#   stderr 点名,不许被读成"通过":末行自带结论,`undeclared` 与 `未判定` 两词都会原样出现在回显里。
+# 跳过:HUSKY_SKIP_IMMUTABLE_GUARD=1(门体自读该变量,手动复跑同样生效)
+wscript //nologo scripts/hook-run-hidden.vbs commit-msg-immutable-guard scripts/check-immutable-guard.mjs --staged --message-file "$1" || true
+echo "[IG 预警] 判定面=索引:共享索引里他人暂存件也会入镜(本段只报不拦);提交自己的面由 push 门逐枚判,那里才是硬墙。" >&2 || true
+tail -8 .ihui-agent/state/hook-logs/commit-msg-immutable-guard.log >&2 || true
+
 # Commit scope 一致性预警(2026-07-26 立,AGENTS.md §16 配套)
 # 检测 commit message scope 与 staged 文件领域是否匹配,防止 git add -A 混入其他 agent 改动
 # 原语义:本 hook 的末命令,退出码即 hook 退出码(非零阻断);warn 输出回显保证可见
