@@ -26,6 +26,13 @@ import { execFileSync, spawn, spawnSync } from 'node:child_process'
 import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { gitRaw } from './face-reader.mjs'
+// 逐门进度日志的行格式(2026-11-04):只增观测字段,既有五列顺序不变。
+// 解析器与格式器同住该 lib ⇒ 红名单对账不再靠时间窗猜口径。
+import {
+  buildGateRunId,
+  formatGateProgressLine,
+  resolveGateProgressScope,
+} from './gates-progress-format.mjs'
 // 2026-10-16 [11e] 余量拉开:push-gate 缓存(指纹/命中早退/写入)与批次留痕 attest 各自外置成
 // 独立 lib(执行逻辑逐字搬,闭包引用改 ctx 参数);本文件只保留调用点与数组本体。
 import { pushGateCacheEarlyExit, writePushGateCache } from './guardian-pushgate-cache.mjs'
@@ -52,6 +59,11 @@ import {
 import { crashAdvisory, crashNextStep, decideGateOutcome, UNDETERMINED_EXIT_CODE } from './gate-failure-kind.mjs'
 
 export async function runGuardianBatch({ checks, pushGateChecks, effectiveChecks, passStaged, pushGate, showTiming, cliArgs }) {
+
+// 逐门进度日志的运行口径:只看本次 runner 实际收到的旗标(--push-gate / --staged),
+// 不看 IHUI_GATE_SCOPE(它在不传 --staged 时根本不生效,拿它猜会把口径标错)。
+// 注意:本文件从这一行起整体都在 runGuardianBatch 函数体内 ⇒ 必须先声明再赋值(TDZ)。
+const gateProgressScope = resolveGateProgressScope({ passStaged, pushGate })
 
 // === 颜色 ===
 const C = {
@@ -91,13 +103,23 @@ if (showTiming) {
 // 出路:每门收口时 append 一行可 tail 的进度,当场就能回答"卡在哪一门/跑到第几门"。
 // 纯观测旁路:写失败只吞掉,绝不改判据、不改退出码、不进提交面。
 const GATE_PROGRESS_FILE = resolve(process.cwd(), '.ihui-agent', 'state', 'hook-logs', 'gates-progress.log')
+// 同一进程 = 同一次 runner 启动 ⇒ 所有行共享这个短 id,红名单可按 runId 聚类。
+const GATE_PROGRESS_RUN_ID = buildGateRunId()
 function appendGateProgress(check, r, elapsedMs) {
   try {
     const status = r?.error ? 'error' : r?.status === 0 && r?.signal === null ? 'pass' : 'fail'
     mkdirSync(dirname(GATE_PROGRESS_FILE), { recursive: true })
     appendFileSync(
       GATE_PROGRESS_FILE,
-      `[${new Date().toISOString()}] ${status.padEnd(5)} ${String(check.id).padEnd(8)} ${String(elapsedMs).padStart(6)}ms ${check.script || ''}\n`,
+      formatGateProgressLine({
+        status,
+        id: check.id,
+        elapsedMs,
+        script: check.script,
+        scope: gateProgressScope,
+        runId: GATE_PROGRESS_RUN_ID,
+        stderr: r?.stderr,
+      }) + '\n',
     )
   } catch {
     /* 观测旁路:落盘失败不得影响守门结论 */
