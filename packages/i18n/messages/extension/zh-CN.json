@@ -192,7 +192,9 @@
     "toolStatusSuccess": "成功",
     "toolStatusError": "失败",
     "toolDetail": "调用详情",
-    "terminal": "终端",
+    "terminal": {
+      "title": "终端"
+    },
     "terminalStatusRunning": "运行中",
     "terminalStatusCompleted": "已完成",
     "terminalStatusFailed": "失败",

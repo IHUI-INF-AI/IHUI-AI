@@ -149,7 +149,20 @@
     "agentStallBudgetGovernance": "Budget governance",
     "agentStallHookPipeline": "Hook pipeline",
     "agentStallDoomLoopGuard": "Doom-loop guard",
-    "agentStallUndetermined": "Undetermined stage"
+    "agentStallUndetermined": "Undetermined stage",
+    "taskStatusLabels": {
+      "pending": "Pending",
+      "inProgress": "In Progress",
+      "completed": "Completed",
+      "cancelled": "Cancelled",
+      "blocked": "Blocked"
+    },
+    "tasksHelpCancel": "/tasks cancel <id>       Cancel a task",
+    "tasksHelpBlock": "/tasks block <id>         Block a task",
+    "tasksUsageCancel": "usage: /tasks cancel <id>",
+    "tasksUsageBlock": "usage: /tasks block <id>",
+    "taskCancelledFeedback": "✓ Task #{id} cancelled: {content}",
+    "taskBlockedFeedback": "✓ Task #{id} blocked: {content}"
   },
   "waiting": {
     "agent": {
