@@ -2214,7 +2214,8 @@
       "targetGroupEnterprise": "企业",
       "discountNone": "不参与",
       "discountPartial": "部分参与",
-      "discountFull": "全部参与"
+      "discountFull": "全部参与",
+      "saveSuccess": "保存成功"
     }
   },
   "devSpace": {

@@ -258,6 +258,49 @@ test('a4: missing working-directory => refuse to rerun, never fall back to repo 
   assert.equal(existsSync(join(dir, 'MARKER-wd.txt')), false)
 })
 
+// ── (a5) 小写 + 连字符的 id ⇒ env 键 O_<大写>_<下划线>;该行必须 bash 3.2 可解析 ────────
+// macOS runner 自带 /bin/bash 3.2.57,不支持 bash 4.0+ 的 case 修饰 ${ID^^};旧写法在那边报
+// "bad substitution" 让分诊在第 47 行中断(2026-11-04)。本机是 bash 5.x,运行时跑不出 3.2 的
+// 报错,所以本用例双管:运行时锁映射结果(映射错 ⇒ 读不到 O_MY_STEP ⇒ 落进 dump 分支),
+// 源码锁锁写法(退回 ${ID^^} ⇒ 即便本机全绿也翻红)。
+test('a5: lowercase hyphenated id maps to O_<UPPER>_<UNDERSCORE>, line stays bash-3.2 safe', () => {
+  const wf = [
+    'name: triage-fixture',
+    'jobs:',
+    '  fixture-job:',
+    '    runs-on: ubuntu-latest',
+    '    steps:',
+    '      - name: Hyphen step',
+    '        id: my-step',
+    '        run: echo MARKER-hyphen > MARKER-hyphen.txt',
+    '',
+  ].join('\n')
+  const { dir, wfPath } = setupCase('a5-hyphen-id', wf)
+  const r = runTriage(
+    { ...IDS_ENV, TRIAGE_WORKFLOW_FILE: wfPath, TRIAGE_IDS: 'my-step', O_MY_STEP: 'failure' },
+    dir,
+  )
+  assert.equal(r.status, 0, `triage must exit 0; stderr=${r.stderr}`)
+  assert.match(r.stdout, /first failing step is \[my-step\]/)
+  assert.doesNotMatch(r.stdout, /no known step reported outcome=failure/)
+  assert.equal(
+    existsSync(join(dir, 'MARKER-hyphen.txt')),
+    true,
+    'rerun must really execute under the mapped env key',
+  )
+
+  // 源码锁:bash 4.0+ 的 case 修饰在 bash 3.2(macOS /bin/bash)上是 bad substitution。
+  // 只判**代码行**(注释里为了记录事故原文会提到旧写法,不能把注释当实现)。
+  const src = readFileSync(SCRIPT, 'utf8')
+  const codeLines = src
+    .split('\n')
+    .filter((line) => !/^\s*#/.test(line))
+    .join('\n')
+  assert.equal(/\$\{[A-Za-z_][A-Za-z0-9_]*\^\^/.test(codeLines), false, 'must not use ${VAR^^}')
+  assert.equal(/\$\{[A-Za-z_][A-Za-z0-9_]*,,?\}/.test(codeLines), false, 'must not use ${VAR,,}')
+  assert.match(codeLines, /tr '\[:lower:\]' '\[:upper:\]'/, 'uppercase must come from tr')
+})
+
 // ── (d) 变异自证:把脚本判据改坏一份副本,对应断言必须翻红;原件逐字未动 ─────────────────
 test('d: mutations prove the assertions have teeth; original untouched', () => {
   const original = readFileSync(SCRIPT, 'utf8')

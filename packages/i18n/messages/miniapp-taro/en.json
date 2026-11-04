@@ -2214,7 +2214,8 @@
       "targetGroupEnterprise": "Enterprise",
       "discountNone": "Not eligible",
       "discountPartial": "Partially eligible",
-      "discountFull": "Fully eligible"
+      "discountFull": "Fully eligible",
+      "saveSuccess": "Saved successfully"
     }
   },
   "devSpace": {
