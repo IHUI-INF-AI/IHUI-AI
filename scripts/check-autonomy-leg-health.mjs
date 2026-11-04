@@ -187,7 +187,10 @@ export function judgeRange(events, ticketRows) {
 /** A4 白名单命中率:自开发射程有多宽(实测 25 轮 no-whitelist-hit 的对应维)。 */
 export function judgeWhitelist(events, whitelist) {
   const hits = events.filter((e) => e.action === 'no-whitelist-hit').length
-  const dispatched = events.filter((e) => e.action === 'session-ok' || e.action === 'session-failed').length
+  // "真派发"按 `session-` 前缀认,不按枚举个数(2026-11-04):调度器新增 `session-no-write`(exit 0 但整班
+  // 零写盘)之后,枚举个数的写法会把"跑了会话"读成"一次都没派"⇒ 本维由 ok 翻假红。前缀认法的失效方向
+  // 是"多算一次派发",与 §0.10"宁可多要一次说明"同向;真需要区分档位的是 A7,不是这里。
+  const dispatched = events.filter((e) => String(e.action ?? '').startsWith('session-')).length
   if (whitelist.length === 0) return { dim: 'A4-whitelist', state: 'drift', readout: '白名单空 ⇒ 结构上无票可派', next: '登记票类或显式置 dry-run' }
   return {
     dim: 'A4-whitelist',
@@ -613,7 +616,9 @@ export function judgeValveGate(events, { mode, headSource, valveListText, now = 
   if (headSource === null || headSource === undefined) {
     return { dim: 'A6-human-valve-gate', state: 'unjudged', readout: '派发器源码在被审面取不到 ⇒ 接线与否判不出(不用"取不到"冒充"没接线")', next: '核 scripts/auto-evolve.mjs 是否在被审面上' }
   }
-  const attempted = events.filter((e) => ['session-ok', 'session-failed', 'runner-unavailable', 'session-timeout'].includes(e.action)).length
+  // 同 A4:`session-` 前缀认派发尝试。这里若漏认新档,`attempted` 会掉到 0 ⇒ 下面那条
+  // "有派发尝试而零 valve 留痕 ⇒ 哑闸"的判据**结构上永远不触发** —— 那是把最危险的失效(假绿)留给尺子。
+  const attempted = events.filter((e) => String(e.action ?? '').startsWith('session-') || e.action === 'runner-unavailable').length
   const valveRows = events.filter((e) => String(e.action ?? '').startsWith('valve-'))
   const stopRows = valveRows.filter((e) => e.action === 'valve-observe-stop' || e.action === 'valve-block')
   const unjudged = valveRows.filter((e) => e.action === 'valve-unjudged' || e.action === 'valve-unjudged-block')
@@ -681,6 +686,20 @@ export function judgeValveGate(events, { mode, headSource, valveListText, now = 
 }
 
 /**
+ * 从**被审面**的派发器源码里取"哪些 action 欠着一个结算答案"(2026-11-04 立)。
+ * 为什么不 import `SESSION_RESULT_ACTIONS`:本尺判的是 HEAD/索引那一面,而 import 读的是**盘上那份**
+ * (§0.4 同面同轮);共享工作树里盘上那份常年落后 HEAD,拿它判 = 用别人的旧口径量我的新账。
+ * 解析不到 ⇒ null ⇒ 上层落未判定 —— 不回落"就只认 session-ok",那种默认会把新增的成功档
+ * 静默漏出射程(而"漏档"表现的正是 A7 要抓的那个洞)。
+ */
+export function sessionResultActionsOf(schedulerSource) {
+  const m = /SESSION_RESULT_ACTIONS\s*=\s*Object\.freeze\(\[([^\]]*)\]\)/.exec(String(schedulerSource ?? ''))
+  if (!m) return null
+  const list = [...m[1].matchAll(/'([^']+)'/g)].map((x) => x[1])
+  return list.length ? list : null
+}
+
+/**
  * A7 派发闭环:session-ok 到底等不等于"票推进了"(2026-11-01 立)。
  * 立因:台账里唯一一枚 session-ok 对一张大工程票只跑 45.5s 就 exit 0 —— 调度器原先把
  * "会话结束了"当成"这轮干成了"。AGENTS §10 要的是交付与产出一致,所以必须有第二问:
@@ -696,7 +715,11 @@ export function judgeDispatchClosure(
   if (!schedulerSource.includes('settlePriorDispatches({')) {
     return { dim: 'A7-dispatch-closure', state: 'drift', readout: '派发器里没有结算调用 ⇒ 成功判定仍等于 CLI 退出码', next: '取票后先结算上一轮的 session-ok,把 settled 记进台账' }
   }
-  const okRows = events.filter((e) => e.action === 'session-ok' && e.ticketKey)
+  const results = sessionResultActionsOf(schedulerSource)
+  if (!results) {
+    return { dim: 'A7-dispatch-closure', state: 'unjudged', readout: '被审面里解析不到 SESSION_RESULT_ACTIONS ⇒ 哪些成功档欠着结算答案判不出(不回落"只认 session-ok")', next: '核 scripts/auto-evolve.mjs 的 SESSION_RESULT_ACTIONS 是否仍以 `Object.freeze([...])` 直写字面量形态声明' }
+  }
+  const okRows = events.filter((e) => results.includes(e.action) && e.ticketKey)
   const settledRows = events.filter((e) => e.action === 'dispatch-settled')
   // 按票收敛(2026-11-03 收,治"A7 次生缺陷:历史行永久顶红"):
   // no-progress 只在**该票仍在册**时才算"现在还在零推进"。票已从派单面摘除(作废/删除/结清),
@@ -737,12 +760,12 @@ export function judgeDispatchClosure(
     }
   }
   if (dangling.length > 0) {
-    return { dim: 'A7-dispatch-closure', state: 'drift', readout: `${dangling.length} 枚超 ${windowHours}h 的 session-ok 在结算腿生效后仍无结算行 ⇒ 结算腿覆盖不全(尺子盲区)${legacy ? `;另有 ${legacy} 枚结算腿生效前的历史成功,只报数` : ''}`, next: '核结算循环是否每轮都跑、窗口取值是否小于调度存活期' }
+    return { dim: 'A7-dispatch-closure', state: 'drift', readout: `${dangling.length} 枚超 ${windowHours}h 的会话结果档(${results.join('|')})在结算腿生效后仍无结算行 ⇒ 结算腿覆盖不全(尺子盲区)${legacy ? `;另有 ${legacy} 枚结算腿生效前的历史成功,只报数` : ''}`, next: '核结算循环是否每轮都跑、窗口取值是否小于调度存活期' }
   }
   if (unjudgedS.length > 0) {
     return { dim: 'A7-dispatch-closure', state: 'unjudged', readout: `结算跑了但 ${unjudgedS.length} 枚落未判定(派单面当时取不到)⇒ 不冒充"推进了"`, next: '先修取票口(见 A3)' }
   }
-  return { dim: 'A7-dispatch-closure', state: 'ok', readout: `session-ok ${okRows.length} 枚 / 已结算 ${settledRows.length} 条,零"报成功而零推进"${legacy ? `;历史未结算存量 ${legacy} 枚(结算腿生效前的成功,只报数不顶红)` : ''}`, next: '' }
+  return { dim: 'A7-dispatch-closure', state: 'ok', readout: `会话结果档 ${okRows.length} 枚(射程=${results.join('|')})/ 已结算 ${settledRows.length} 条,零"报成功而零推进"${legacy ? `;历史未结算存量 ${legacy} 枚(结算腿生效前的成功,只报数不顶红)` : ''}`, next: '' }
 }
 
 async function selfTest() {
@@ -789,6 +812,7 @@ async function selfTest() {
     return r.dims.some((d) => d.state === 'unjudged')
   })())
   ok('H7 白名单空 ⇒ drift(结构上无票可派必须喊)', judgeWhitelist([], []).state === 'drift')
+  ok('H8b 零写盘班次也算"派过" ⇒ 新档不得被读成一次都没派(那样本维会假红,§12e)', judgeWhitelist([{ action: 'no-whitelist-hit' }, { action: 'session-no-write' }], ['a']).state === 'ok')
   ok('H8 只未命中零派发 ⇒ drift;有派发 ⇒ 不喊', judgeWhitelist([{ action: 'no-whitelist-hit' }], ['a']).state === 'drift' && judgeWhitelist([{ action: 'session-ok' }], ['a']).state === 'ok')
   ok('H9 身份稳定:同型不同明细同键(§5e-3 不掺时刻/sha)', (() => {
     const mk = (until) => ({ state: 'drift', dims: [{ dim: 'A2-attribution', state: 'drift', until }] })
@@ -959,9 +983,15 @@ async function selfTest() {
     const r = evaluateAll({ repoRoot: root, gatesText: g, events: { ok: true, events: [{ action: 'session-ok', ticketKey: 'k' }] }, ticketRows: [{ text: 'a', line: 1 }], valve: judgeValveGate([{ action: 'session-ok', ticketKey: 'k' }], { mode: 'observe', headSource: wiredSrc }) })
     return r.state === 'drift' && r.dims.some((d) => d.dim === 'A6-human-valve-gate')
   })())
-  const closureSrc = 'function runOnce(){ const settled = settlePriorDispatches({ ledger, currentRows: allRows }) }'
+  const closureSrc = "export const SESSION_RESULT_ACTIONS = Object.freeze(['session-ok', 'session-no-write'])\nfunction runOnce(){ const settled = settlePriorDispatches({ ledger, currentRows: allRows }) }"
   ok('H28 派发器里没有结算调用 ⇒ drift(成功判定仍等于退出码)', judgeDispatchClosure([], { schedulerSource: 'function runOnce(){ dispatchSession(gates, ticket) }' }).state === 'drift')
   ok('H29 被审面取不到 ⇒ unjudged,不冒充"闭环健康"', judgeDispatchClosure([], { schedulerSource: null }).state === 'unjudged')
+  ok('H29b 被审面有源码但解析不到 SESSION_RESULT_ACTIONS ⇒ unjudged,绝不回落"只认 session-ok"', judgeDispatchClosure([], { schedulerSource: 'function runOnce(){ settlePriorDispatches({}) }' }).state === 'unjudged')
+  ok('H29c 新增成功档(session-no-write)必须落进结算射程:它有行无结算 ⇒ 仍按"结算腿覆盖不全"翻红', (() => {
+    const ev = [{ action: 'session-no-write', ticketKey: 'kw', ts: '2026-10-29T04:00:00.000Z', ticketLine: 'B7 原样' }]
+    const r = judgeDispatchClosure(ev, { schedulerSource: closureSrc, now: Date.parse('2026-11-01T05:00:00.000Z') })
+    return r.state === 'drift' && String(r.readout).includes('session-no-write')
+  })())
   ok('H30 结算判出"报成功而票行零推进" ⇒ drift 并点名票面', (() => {
     const ev = [
       { action: 'session-ok', ticketKey: 'k1', ts: '2026-10-31T05:00:00.000Z', ticketLine: 'B9 **某票** 原文' },
@@ -1155,5 +1185,5 @@ async function main() {
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 if (isDirectRun) main()
 
-export const __test__ = { judgePreflight, judgeMisattribution, judgeRange, judgeWhitelist, judgeBackendTransit, judgeValveGate, judgeDispatchClosure, resolveTransitBases, readGatesFace, readFaceText, evaluateAll, alertIdentity, readLedgerEvents, judgeClosureOutput, judgeClosureOutputFace, CLOSURE_SIGNALS_REL, CLOSURE_STAMP_REL }
+export const __test__ = { judgePreflight, judgeMisattribution, judgeRange, judgeWhitelist, judgeBackendTransit, judgeValveGate, judgeDispatchClosure, sessionResultActionsOf, resolveTransitBases, readGatesFace, readFaceText, evaluateAll, alertIdentity, readLedgerEvents, judgeClosureOutput, judgeClosureOutputFace, CLOSURE_SIGNALS_REL, CLOSURE_STAMP_REL }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
