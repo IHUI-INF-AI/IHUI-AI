@@ -85,13 +85,15 @@ export interface BackChevronProps {
    * 「返回」的本地化文案。**只用于 accessibilityLabel,不参与渲染** ——
    * 可见侧是裸箭头,无障碍名称必须脱离上下文也成立(RN 的屏幕阅读器只会念这一个字符串)。
    */
-  label: string
+  label?: string
   /**
    * 必填而非 `= 'light'` 默认值:守门 91 的判据把"形参带 light 默认值"认作静默脱主题开关,
    * 而默认值一旦存在,漏传就静默锁死浅色档案且 typecheck 不红。必填让 `tsc` 直接接管这件事,
    * 比门更严格(门只审带默认值的那一类)。
    */
   colorScheme: AppThemeMode
+  /** 图标墨迹覆盖(与小程序端 `color` 同槽):传入则优先于主题档,不传沿用 `tk.text.medium` */
+  color?: string
   style?: StyleProp<ViewStyle>
   testID?: string
 }
@@ -105,15 +107,22 @@ export interface BackChevronProps {
  * 加各自的 `styles.back*`,于是"手机上返回键和网页长得不一样"。载体统一为零新素材
  * (`lucide-react-native` 已是本端图标库,`ChevronLeft` 亦在 7 个既有屏里这么用)。
  */
-export function BackChevron({ onPress, label, colorScheme, style, testID }: BackChevronProps) {
+export function BackChevron({
+  onPress,
+  label,
+  colorScheme,
+  color,
+  style,
+  testID,
+}: BackChevronProps) {
   const tk = getTokens(colorScheme)
 
   return (
     <BackChevronCore
       platform={RN_PLATFORM}
       onPress={onPress}
-      label={label}
-      glyphColor={tk.text.medium}
+      label={label ?? ''}
+      glyphColor={color ?? tk.text.medium}
       style={style}
       testID={testID}
     />

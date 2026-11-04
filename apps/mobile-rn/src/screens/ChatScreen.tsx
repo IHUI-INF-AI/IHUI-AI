@@ -61,8 +61,8 @@ import { useNavigation, useRoute, type RouteProp } from '@react-navigation/nativ
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { tokens } from '../theme/active-tokens'
 import {
-  Bot,
   BookOpen,
+  Bot,
   Clapperboard,
   Cpu,
   Download,
@@ -593,18 +593,11 @@ export function ChatScreen() {
   const previousModelRef = useRef(model)
   const [agents, setAgents] = useState<Agent[]>([])
 
-  // ── BottomActionBar 开关(对齐 Uniapp ToggleButtonGroup) ──
-  const [superAgentEnabled, setSuperAgentEnabled] = useState(false)
-  const [mcpEnabled, setMcpEnabled] = useState(false)
-  const [knowledgeBaseEnabled, setKnowledgeBaseEnabled] = useState(false)
-  const [permanentMemoryEnabled, setPermanentMemoryEnabled] = useState(false)
-  const [superAgentfuEnabled, setSuperAgentfuEnabled] = useState(false)
   const [fangdaVisible, setFangdaVisible] = useState(false)
   // 输入框键盘焦点状态(handleInputFocus/handleInputBlur 维护,供 SharedChatScreen isInputFocused 等 UI 调整)
   const [inputFocused, setInputFocused] = useState(false)
   // 功能面板/来源面板占位弹窗(对齐 Uniapp function-handle / source-handle,后续任务对接真实面板)
   const [functionPanelVisible, setFunctionPanelVisible] = useState<boolean>(false)
-  const [sourcePanelVisible, setSourcePanelVisible] = useState<boolean>(false)
   /** 输入区滑出面板(对齐 Uniapp isShowIcon:辅助按钮行 + 图标按钮组,默认隐藏,
    *  点输入行「+」toggle 滑出/收起;发送后自动收起) */
   const [inputPanelVisible, setInputPanelVisible] = useState<boolean>(false)
@@ -1468,31 +1461,6 @@ export function ChatScreen() {
     onInputVoiceToggle()
   }
 
-  /** toggle-super-agent:切换超级智能体 */
-  const toggleSuperAgent = (): void => {
-    setSuperAgentEnabled((prev) => !prev)
-  }
-
-  /** toggle-mcp:切换 MCP */
-  const toggleMCP = (): void => {
-    setMcpEnabled((prev) => !prev)
-  }
-
-  /** toggle-knowledge-base:切换知识库 */
-  const toggleKnowledgeBase = (): void => {
-    setKnowledgeBaseEnabled((prev) => !prev)
-  }
-
-  /** toggle-permanent-memory:切换永久记忆 */
-  const togglePermanentMemory = (): void => {
-    setPermanentMemoryEnabled((prev) => !prev)
-  }
-
-  /** toggle-super-agentfu:切换智能体辅(对齐 Uniapp ToggleChip '智能体辅') */
-  const toggleSuperAgentfu = (): void => {
-    setSuperAgentfuEnabled(!superAgentfuEnabled)
-  }
-
   /** showModelConfig:显示模型配置(对齐 Uniapp ai_index.vue 行 104 ModelConfigDialog) */
   const showModelConfig = (): void => {
     setModelConfigVisible(true)
@@ -1537,24 +1505,14 @@ export function ChatScreen() {
   }
 
   // ── BottomActionBar 其余事件 stub(对齐 Uniapp 30+ 事件,后续 H22 补全) ──
-  // 已挂载到 UI 的:handleInputFocus/handleInputBlur(TextInput)、textareaHeightChange(TextInput onContentSizeChange)
-  // H22 接线:handleInputFocus/handleInputBlur 记录键盘焦点状态 inputFocused(供 isInputFocused 等 UI 调整);
-  // textareaHeightChange 仅 BottomActionBar 接线(回调带 height 参数),Shared ChatScreen 未接线,保留空实现。
+  // H22 接线:handleInputFocus/handleInputBlur 记录键盘焦点状态 inputFocused(供 isInputFocused 等 UI 调整)。
   const handleInputFocus = (): void => setInputFocused(true)
   const handleInputBlur = (): void => setInputFocused(false)
-  const textareaHeightChange = (): void => {}
 
   /** function-handle:打开功能面板(对齐 Uniapp function-handle 子组件,6 项 AI 功能)。
    *  面板(BottomPops)与滑出区(isShowIcon)解耦:开一个面板时关另一个,互斥防叠加 */
   const handleFunctionHandle = (): void => {
     setFunctionPanelVisible(true)
-    setSourcePanelVisible(false)
-  }
-
-  /** source-handle:打开来源面板(对齐 Uniapp source-handle 子组件,4 项知识来源) */
-  const handleSourceHandle = (): void => {
-    setSourcePanelVisible(true)
-    setFunctionPanelVisible(false)
   }
 
   /** 文件上传(对齐 Uniapp source-handle 文件上传:DocumentPicker 选文件 → uploadFileMultipart 上传) */
@@ -1600,7 +1558,6 @@ export function ChatScreen() {
 
   /** 关闭功能/来源面板 */
   const closeFunctionPanel = (): void => setFunctionPanelVisible(false)
-  const closeSourcePanel = (): void => setSourcePanelVisible(false)
 
   /**
    * 2026-10-16 录音消息:长按录音松手 → 上传本地 m4a → 以「[语音] <url> <秒>」
@@ -1922,25 +1879,14 @@ export function ChatScreen() {
       Icon: Star,
       onPress: toggleFavorite,
     },
-  ]
-
-  /**
-   * source-handle 面板 5 项列表(对齐 Uniapp source-handle 子组件 + D43③ 语音笔记)。
-   * 1. 素材库 → 已接 MaterialList 弹窗(数据源 getMyCreation 我的创作;
-   *    后端无 /api/material 端点,素材库接口未开通,勿伪造)
-   * 2. 网页链接 → 已接 URL 输入 Modal(纯前端实现,作为消息发送)
-   * 3. 文件上传 → 已接 DocumentPicker + uploadFileMultipart 真实上传
-   * 4. 历史对话 → 复用 Drawer(setDrawerVisible)
-   * 5. 语音笔记 → 已接 NotesPanel(D43③:列表选一条回填输入框 / 新建录音走语音输入链路)
-   */
-  const sourcePanelItems: readonly PanelItem[] = [
+    // ── 素材/输入来源入口(2026-11-04 门285 收口:来源面板并入功能面板,
+    //     BottomActionBar 的 onSourceHandle 已删,两端 props 面对齐且入口不丢失) ──
     {
       key: 'material',
       label: t('chat.menuMaterial'),
       Icon: BookOpen,
       onPress: () => {
-        // P1.3:素材库弹窗(2026-10-18 起与「+」面板「我的创作」主入口共用 showMyCreation)
-        setSourcePanelVisible(false)
+        setFunctionPanelVisible(false)
         showMyCreation()
       },
     },
@@ -1949,8 +1895,7 @@ export function ChatScreen() {
       label: t('chat.menuVoiceNote'),
       Icon: Mic,
       onPress: () => {
-        // D43③:语音笔记面板(列表回填输入框 / 新建录音)
-        setSourcePanelVisible(false)
+        setFunctionPanelVisible(false)
         setNotesVisible(true)
       },
     },
@@ -1959,8 +1904,7 @@ export function ChatScreen() {
       label: t('quickNotes.menuEntry'),
       Icon: PenLine,
       onPress: () => {
-        // D03:快捷笔记面板(可建/可编/可归档/可搜索,选一条插入输入框)
-        setSourcePanelVisible(false)
+        setFunctionPanelVisible(false)
         setQuickNotesVisible(true)
       },
     },
@@ -1969,8 +1913,7 @@ export function ChatScreen() {
       label: t('chat.menuWebLink'),
       Icon: Link,
       onPress: () => {
-        // P1.4:打开 URL 输入 Modal
-        setSourcePanelVisible(false)
+        setFunctionPanelVisible(false)
         setUrlInputVisible(true)
       },
     },
@@ -1979,8 +1922,7 @@ export function ChatScreen() {
       label: t('chat.menuFileUpload'),
       Icon: Paperclip,
       onPress: () => {
-        // P1.5:打开文件选择 Modal(DocumentPicker + uploadFileMultipart 真实上传)
-        setSourcePanelVisible(false)
+        setFunctionPanelVisible(false)
         setFileUploadVisible(true)
       },
     },
@@ -1989,7 +1931,7 @@ export function ChatScreen() {
       label: t('chat.menuHistory'),
       Icon: MessageSquare,
       onPress: () => {
-        setSourcePanelVisible(false)
+        setFunctionPanelVisible(false)
         setDrawerVisible(true)
       },
     },
@@ -2018,7 +1960,6 @@ export function ChatScreen() {
     if (!inputPanelVisible) {
       Keyboard.dismiss()
       setFunctionPanelVisible(false)
-      setSourcePanelVisible(false)
     }
     setInputPanelVisible(!inputPanelVisible)
   }
@@ -2043,15 +1984,6 @@ export function ChatScreen() {
   const handleInputClick = (): void => {
     setInputFocused(true)
   }
-
-  /** start/stop-voice-animation:语音动画回调(BottomActionBar 内 voiceInputEnabled 变化触发)。
-      语音动画 UI 尚未建立,mic 高亮由 voiceInputEnabled prop 驱动,此处保留空实现。 */
-  const handleStartVoiceAnimation = (): void => {}
-  const handleStopVoiceAnimation = (): void => {}
-
-  /** keyboard-show / keyboard-hide:键盘监听回调(键盘避让由 KeyboardAvoidingView 处理,保留空实现) */
-  const handleKeyboardShow = (): void => {}
-  const handleKeyboardHide = (): void => {}
 
   /** model-config-change:模型名/配置按钮长按触发(对齐 Uniapp 长按进模型配置)→ 打开模型配置弹窗 */
   const handleModelConfigChange = (_config: unknown): void => {
@@ -3016,11 +2948,6 @@ export function ChatScreen() {
           modelName={models.find((m) => m.id === model)?.name}
           onShowModelList={showModelList}
           onShowModelConfig={showModelConfig}
-          onToggleSuperAgent={toggleSuperAgent}
-          onToggleSuperAgentfu={toggleSuperAgentfu}
-          onToggleMcp={toggleMCP}
-          onToggleKnowledgeBase={toggleKnowledgeBase}
-          onTogglePermanentMemory={togglePermanentMemory}
           onToggleVoiceInput={toggleVoiceInput}
           onRemoveImage={
             inputFiles.length > 0 ? () => onInputRemoveFile(inputFiles[0]!.id) : undefined
@@ -3028,7 +2955,6 @@ export function ChatScreen() {
           onInputFocus={handleInputFocus}
           onInputBlur={handleInputBlur}
           onFunctionHandle={handleFunctionHandle}
-          onSourceHandle={handleSourceHandle}
           // 附件按钮 → 真实 DocumentPicker + uploadFileMultipart(原占位 Alert 已移除)
           onAddFile={() => void handleFileUpload()}
           onIconClick={handleIconClick}
@@ -3074,21 +3000,12 @@ export function ChatScreen() {
           onFangda={handleFangda}
           onCompactContext={() => void handleCompactContext()}
           compactContextLoading={compacting}
-          onTextareaHeightChange={textareaHeightChange}
           onStartLongPress={handleStartLongPress}
           onEndLongPress={handleEndLongPress}
           recording={isRecording}
           recordingDuration={recordingDuration}
           onInputClick={handleInputClick}
-          onStartVoiceAnimation={handleStartVoiceAnimation}
-          onStopVoiceAnimation={handleStopVoiceAnimation}
-          onKeyboardShow={handleKeyboardShow}
-          onKeyboardHide={handleKeyboardHide}
           onModelConfigChange={handleModelConfigChange}
-          superAgentEnabled={superAgentEnabled}
-          mcpEnabled={mcpEnabled}
-          knowledgeBaseEnabled={knowledgeBaseEnabled}
-          permanentMemoryEnabled={permanentMemoryEnabled}
           voiceInputEnabled={isVoiceMode}
           images={inputFiles.filter((f) => f.type === 'image').map((f) => f.url)}
           isLoading={isStreaming}
@@ -3456,45 +3373,6 @@ export function ChatScreen() {
           accessibilityLabel={t('common.cancel')}
         >
           {({ pressed }) => (
-            <View style={[styles.panelCancelBtnFace, pressed && styles.panelItemPressed]}>
-              <Text style={styles.panelCancelText}>取消</Text>
-            </View>
-          )}
-        </Pressable>
-      </BottomPops>
-
-      {/* 来源面板(对齐 Uniapp source-handle 子组件,底部上滑 4 项知识来源) */}
-      <BottomPops
-        visible={sourcePanelVisible}
-        onClose={closeSourcePanel}
-        title={t('chat.sourceTitlePanel')}
-      >
-        {sourcePanelItems.map((item) => (
-          // 守门 131 改型:同功能面板 —— 外层不设 style,可视行盒 + pressed 落内层。
-          <Pressable
-            key={item.key}
-            onPress={item.onPress}
-            accessibilityRole="button"
-            accessibilityLabel={item.label}
-          >
-            {({ pressed }) => (
-              <View style={[styles.panelItem, pressed && styles.panelItemPressed]}>
-                <View style={styles.panelIconTile}>
-                  <item.Icon size={rnGeometry.glyphMd} color={tokens.text.primary} />
-                </View>
-                <Text style={styles.panelItemText}>{item.label}</Text>
-              </View>
-            )}
-          </Pressable>
-        ))}
-        <Pressable
-          onPress={closeSourcePanel}
-          style={styles.panelCancelBtnSlot}
-          accessibilityRole="button"
-          accessibilityLabel={t('common.cancel')}
-        >
-          {({ pressed }) => (
-            // 与功能面板同形:取消是"卡片式按钮"而非"列表行"(此前两个并排面板观感割裂)
             <View style={[styles.panelCancelBtnFace, pressed && styles.panelItemPressed]}>
               <Text style={styles.panelCancelText}>取消</Text>
             </View>

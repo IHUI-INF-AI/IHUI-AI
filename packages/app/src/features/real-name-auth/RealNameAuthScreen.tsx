@@ -84,13 +84,13 @@ export function RealNameAuthScreen({
               placeholder={t('realNameAuth.namePlaceholder')}
               placeholderTextColor={tk.text.tertiary}
             />
-            <Text style={styles.label}>{t('realNameAuth.idNumber')}</Text>
+            <Text style={styles.label}>{t('user.realname.form.idCard')}</Text>
             <TextField
               colorScheme={colorScheme}
               style={styles.input}
               value={idNumber}
               onChangeText={onIdNumberChange}
-              placeholder={t('realNameAuth.idNumberPlaceholder')}
+              placeholder={t('user.realname.form.idCardPlaceholder')}
               placeholderTextColor={tk.text.tertiary}
             />
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
