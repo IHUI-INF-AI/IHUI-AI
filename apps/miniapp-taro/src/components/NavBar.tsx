@@ -3,10 +3,11 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useTt, t } from '@/i18n'
-import { View, Text } from '@tarojs/components'
-import type { CSSProperties } from 'react'
+import { View, Text, Image } from '@tarojs/components'
+import type { CSSProperties, ReactNode } from 'react'
 import LineIcon from '@/components/LineIcon'
 import Taro from '@tarojs/taro'
+import type { AppIcon } from '@ihui/types'
 import { rnRadius, TARO_RPX_PER_PX } from '@ihui/design-tokens'
 import {
   NAVBAR_ACTION_GLYPH_PX,
@@ -46,6 +47,41 @@ const ACTION_LABEL_STYLE = {
   maxWidth: toUnit(NAVBAR_ACTION_LABEL_MAX_WIDTH_PX),
 } as const
 
+/// 数组式槽位的单项按钮:与 RN `NavBarActionButton` 同一语义(字符/图片 URL/组件引用三种载体)。
+/// 图片与组件走 ACTION_BOX_STYLE 的既有盒子档,不另立尺寸。
+function isImageUrl(icon: string): boolean {
+  return icon.startsWith('http') || icon.startsWith('/') || icon.startsWith('file:')
+}
+
+function NavBarActionButton({ action }: { action: NavBarAction }) {
+  const IconComp = typeof action.icon === 'function' ? (action.icon as AppIcon) : null
+  return (
+    <View style={ACTION_BOX_STYLE} onClick={action.onPress} hoverClass="opacity-60">
+      {IconComp ? (
+        <IconComp size={NAVBAR_ACTION_GLYPH_PX} color="var(--color-muted-foreground)" />
+      ) : isImageUrl(action.icon as string) ? (
+        <Image
+          src={action.icon as string}
+          mode="aspectFit"
+          style={{ width: ACTION_GLYPH_RPX_NUM, height: ACTION_GLYPH_RPX_NUM }}
+        />
+      ) : (
+        <Text style={{ color: 'var(--color-muted-foreground)', fontSize: ACTION_GLYPH_RPX_NUM }}>
+          {action.icon as string}
+        </Text>
+      )}
+      {action.label ? (
+        <Text
+          className="truncate"
+          style={{ color: 'var(--color-muted-foreground)', ...ACTION_LABEL_STYLE }}
+        >
+          {action.label}
+        </Text>
+      ) : null}
+    </View>
+  )
+}
+
 /// 骨架唯一源在 @ihui/shared/ui/navbar-core;本端只注入 Taro 原语与 rpx 样式/类名/内容槽。
 /// 状态栏实测、行高、绝对定位、hoverClass 与无障碍属性仍全部住在本文件,核心不重取数。
 function CoreBox({ style, className, children }: NavBarCoreBoxProps<CSSProperties, string>) {
@@ -71,6 +107,18 @@ export interface NavBarNotification {
   onClose?: () => void
 }
 
+/// 对齐 RN 端 `NavBarAction`(apps/mobile-rn/src/components/NavBar.tsx)。
+/// 门 285 存量收敛(B3 块):原本 mini 端用离散 prop(rightText/onRightClick/onMenuClick...)
+/// 表达右侧行为,现补数组式 actions 接口以对齐 RN 的 leftActions/rightActions。
+export interface NavBarAction {
+  /** emoji 字符 / 图片 URL(http:// / / 开头)/ lucide 图标组件引用(统一图标) */
+  icon: AppIcon | string
+  label?: string
+  /** 无障碍朗读标签(纯图标按钮无可见 label 时用它保留语义) */
+  a11yLabel?: string
+  onPress: () => void
+}
+
 /**
  * NavBar 顶部导航栏
  *
@@ -86,6 +134,12 @@ export interface NavBarProps {
   subtitle?: string
   /** 粘性顶栏(与 RN 端 sticky 同语义;仅影响定位,不影响配色/槽位) */
   sticky?: boolean
+  /** 左侧额外按钮(菜单/drawer),渲染在 back 之后(对齐 RN 端 leftActions) */
+  leftActions?: ReadonlyArray<NavBarAction>
+  /** 右侧多按钮(搜索/设置/分类等)(对齐 RN 端 rightActions) */
+  rightActions?: ReadonlyArray<NavBarAction>
+  /** 兼容旧 API:单个 rightAction ReactNode(对齐 RN 端 rightAction) */
+  rightAction?: ReactNode
   showBack?: boolean
   bgColor?: string
   textColor?: string
@@ -135,6 +189,9 @@ export default function NavBar({
   title = '',
   subtitle,
   sticky = false,
+  leftActions,
+  rightActions,
+  rightAction,
   showBack = true,
   bgColor = 'var(--color-background)',
   textColor = 'var(--color-foreground)',
@@ -205,6 +262,9 @@ export default function NavBar({
           <>
             {/* 返回首页按钮 + 菜单按钮(对齐原项目 navigation-bars: @pack + @menu-click) */}
             {onPack ? <BackChevron onTap={onPack} color={textColor} /> : null}
+            {leftActions?.map((action, index) => (
+              <NavBarActionButton key={index} action={action} />
+            ))}
             <View style={ACTION_BOX_STYLE} onClick={onMenuClick} hoverClass="opacity-60">
               {menuIcon ? (
                 <Text
@@ -277,6 +337,10 @@ export default function NavBar({
         right={
           <>
             {/* 右侧:反馈按钮 / 分类按钮 / 搜索按钮 / 加入社区群按钮(对齐原项目 navigationBars) */}
+            {rightActions?.map((action, index) => (
+              <NavBarActionButton key={index} action={action} />
+            ))}
+            {rightAction}
             {showFeedback ? (
               <View style={ACTION_BOX_STYLE} onClick={onFeedbackClick} hoverClass="opacity-60">
                 <LineIcon
@@ -381,7 +445,14 @@ export default function NavBar({
       rowStyle={{ height: px(rowHeight) }}
       leftClassName="absolute left-2 flex items-center"
       leftStyle={rowBoxStyle}
-      left={showBack ? <BackChevron onTap={handleBack} color={textColor} /> : null}
+      left={
+        <>
+          {showBack ? <BackChevron onTap={handleBack} color={textColor} /> : null}
+          {leftActions?.map((action, index) => (
+            <NavBarActionButton key={index} action={action} />
+          ))}
+        </>
+      }
       centerClassName={
         subtitle
           ? 'flex w-full flex-col items-center justify-center'
@@ -395,21 +466,27 @@ export default function NavBar({
       rightClassName="absolute right-3 flex items-center"
       rightStyle={rowBoxStyle}
       right={
-        rightText ? (
-          /* 侧按钮盒子 = navbarActionBoxStyle(最小宽 28 + 定高 32 + 行内居中),与 RN 的 actionBtn
-             同一条出口、同一份尺寸;端内只加自己的水平留白 px-2。 */
-          <View
-            className="px-2"
-            style={ACTION_BOX_STYLE}
-            onClick={onRightClick}
-            hoverClass="opacity-60"
-          >
-            {/* 侧按钮文字宽度上限与 RN 的 actionLabel 同一档(spec 60);truncate = RN 的 numberOfLines={1} */}
-            <Text className="truncate" style={{ color: textColor, ...ACTION_LABEL_STYLE }}>
-              {rightText}
-            </Text>
-          </View>
-        ) : null
+        <>
+          {rightActions?.map((action, index) => (
+            <NavBarActionButton key={index} action={action} />
+          ))}
+          {rightAction}
+          {rightText ? (
+            /* 侧按钮盒子 = navbarActionBoxStyle(最小宽 28 + 定高 32 + 行内居中),与 RN 的 actionBtn
+               同一条出口、同一份尺寸;端内只加自己的水平留白 px-2。 */
+            <View
+              className="px-2"
+              style={ACTION_BOX_STYLE}
+              onClick={onRightClick}
+              hoverClass="opacity-60"
+            >
+              {/* 侧按钮文字宽度上限与 RN 的 actionLabel 同一档(spec 60);truncate = RN 的 numberOfLines={1} */}
+              <Text className="truncate" style={{ color: textColor, ...ACTION_LABEL_STYLE }}>
+                {rightText}
+              </Text>
+            </View>
+          ) : null}
+        </>
       }
       trailing={
         notification ? (

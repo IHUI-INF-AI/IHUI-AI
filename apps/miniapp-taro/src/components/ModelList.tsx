@@ -89,7 +89,7 @@ export interface ModelListProps {
   /** 分组模型数据(与 RN 端同名同义;本端历史用扁平 models + 内部 splitModelCatalog 分组)。
    *  需后手改必填 + 补调用点(RN 端为必填,本块看不到全部调用点故先置可选占位)。 */
   groups?: ModelListGroup[]
-  models: ModelItem[]
+  models?: ModelItem[]
   selectedId?: string | number
   onSelect?: (model: ModelItem) => void
   loading?: boolean
@@ -126,7 +126,7 @@ const TYPE_LABELS = (tt: TtFn): Record<string, string> => ({
 })
 
 export default function ModelList({
-  models,
+  models = [],
   selectedId,
   onSelect,
   loading = false,

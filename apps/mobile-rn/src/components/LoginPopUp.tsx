@@ -77,6 +77,7 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  TextInput,
   View,
   type ViewStyle,
 } from 'react-native'
@@ -130,6 +131,16 @@ export interface LoginPopUpProps {
   onSave?: (payload: LoginPopUpSavePayload) => void
   onLogout?: () => void
   onUpgrade?: () => void
+  // ===== 登录方式(与小程序端同槽;全部"传入才渲染",不传即零增量) =====
+  /**
+   * 一键登录结果回传。小程序端来源是微信 getPhoneNumber(loginCode + phoneCode);
+   * 本端来源是运营商 carrierLogin,`loginCode` 承载运营商 accessToken、`phoneCode` 承载本机号码。
+   */
+  onOneClickLogin?: (result: { loginCode: string; phoneCode: string }) => Promise<void> | void
+  /** 账号密码兜底(传入才渲染收起态入口,点开才出两个字段) */
+  onPasswordLogin?: (account: string, password: string) => Promise<void> | void
+  /** 网页授权登录入口(导航由宿主页接管,本组件只回调) */
+  onWebAuthLogin?: () => void
 }
 
 // 可见几何数字唯一源在 @ihui/shared/ui/login-popup-spec(与小程序端同表,逐档裁决见该文件注释);
@@ -186,8 +197,51 @@ export function LoginPopUp({
   onSave,
   onLogout,
   onUpgrade,
+  onOneClickLogin,
+  onPasswordLogin,
+  onWebAuthLogin,
 }: LoginPopUpProps) {
   const { t } = useI18n()
+  const [oneClickLoading, setOneClickLoading] = useState(false)
+  const [loginError, setLoginError] = useState('')
+  const [pwdOpen, setPwdOpen] = useState(false)
+  const [account, setAccount] = useState('')
+  const [password, setPassword] = useState('')
+  const [pwdSubmitting, setPwdSubmitting] = useState(false)
+
+  // 一键登录 = 运营商取号(A 端能力) → 与小程序端同一回调槽位,
+  // loginCode 承载运营商 accessToken,phoneCode 承载本机号码。
+  const handleOneClickLogin = async () => {
+    if (!onOneClickLogin || oneClickLoading) return
+    setOneClickLoading(true)
+    setLoginError('')
+    try {
+      const res = await carrierLogin()
+      await onOneClickLogin({ loginCode: res.accessToken ?? '', phoneCode: res.phone ?? '' })
+    } catch {
+      setLoginError(t('lp.oneLoginFail'))
+    } finally {
+      setOneClickLoading(false)
+    }
+  }
+
+  const handlePasswordLogin = async () => {
+    if (!onPasswordLogin || pwdSubmitting) return
+    const acc = account.trim()
+    if (!acc || !password) {
+      setLoginError(t('login.accountPlaceholder'))
+      return
+    }
+    setPwdSubmitting(true)
+    setLoginError('')
+    try {
+      await onPasswordLogin(acc, password)
+    } catch (err) {
+      setLoginError(err instanceof Error && err.message ? err.message : t('login.loginFailed'))
+    } finally {
+      setPwdSubmitting(false)
+    }
+  }
   const handleAgreeToggle = () => {
     onAgreeChange?.(!agreeChecked)
   }
@@ -258,6 +312,73 @@ export function LoginPopUp({
                   </View>
                 )}
               </Pressable>
+              {/* 登录方式(与小程序端同槽;传入才渲染):一键登录 / 网页授权 / 账号密码兜底 */}
+              {onOneClickLogin ? (
+                <Pressable
+                  style={styles.primaryButton}
+                  onPress={() => void handleOneClickLogin()}
+                  disabled={oneClickLoading}
+                >
+                  {({ pressed }) => (
+                    <View style={[styles.face, pressed ? styles.primaryButtonPressed : null]}>
+                      {oneClickLoading ? (
+                        <ActivityIndicator size="small" color={tokens.brand.ctaForeground} />
+                      ) : (
+                        <Text style={styles.primaryButtonLabel}>{t('login.wechatOneClick')}</Text>
+                      )}
+                    </View>
+                  )}
+                </Pressable>
+              ) : null}
+              {onWebAuthLogin ? (
+                <Tappable style={styles.methodLink} onPress={onWebAuthLogin}>
+                  <Text style={styles.methodLinkText}>{t('login.webAuthLogin')}</Text>
+                </Tappable>
+              ) : null}
+              {onPasswordLogin ? (
+                <View style={styles.pwdBlock}>
+                  {pwdOpen ? (
+                    <>
+                      <TextInput
+                        style={styles.pwdInput}
+                        value={account}
+                        onChangeText={setAccount}
+                        placeholder={t('login.accountPlaceholder')}
+                        placeholderTextColor={tokens.text.tertiary}
+                        autoCapitalize="none"
+                      />
+                      <TextInput
+                        style={styles.pwdInput}
+                        value={password}
+                        onChangeText={setPassword}
+                        placeholder={t('login.passwordPlaceholder')}
+                        placeholderTextColor={tokens.text.tertiary}
+                        secureTextEntry
+                      />
+                      <Pressable
+                        style={styles.primaryButton}
+                        onPress={() => void handlePasswordLogin()}
+                        disabled={pwdSubmitting}
+                      >
+                        {({ pressed }) => (
+                          <View style={[styles.face, pressed ? styles.primaryButtonPressed : null]}>
+                            {pwdSubmitting ? (
+                              <ActivityIndicator size="small" color={tokens.brand.ctaForeground} />
+                            ) : (
+                              <Text style={styles.primaryButtonLabel}>{t('login.login')}</Text>
+                            )}
+                          </View>
+                        )}
+                      </Pressable>
+                    </>
+                  ) : (
+                    <Tappable style={styles.methodLink} onPress={() => setPwdOpen(true)}>
+                      <Text style={styles.methodLinkText}>{t('login.passwordLogin')}</Text>
+                    </Tappable>
+                  )}
+                </View>
+              ) : null}
+              {loginError ? <Text style={styles.loginErrorText}>{loginError}</Text> : null}
               {showAgreementRow ? (
                 <Tappable style={styles.agreementRow} onPress={handleAgreeToggle}>
                   <View style={[styles.checkbox, agreeChecked ? styles.checkboxChecked : null]}>
@@ -621,6 +742,35 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  // ===== 登录方式(一键 / 网页授权 / 账号密码兜底) =====
+  methodLink: {
+    alignItems: 'center',
+    marginBottom: LOGIN_POPUP_SECTION_GAP_PX,
+  },
+  methodLinkText: {
+    fontSize: LOGIN_POPUP_NOTE_FONT_PX,
+    color: tokens.text.secondary,
+  },
+  pwdBlock: {
+    marginBottom: LOGIN_POPUP_SECTION_GAP_PX,
+  },
+  pwdInput: {
+    height: LOGIN_POPUP_BUTTON_HEIGHT_PX,
+    borderRadius: rnRadius.sm,
+    borderWidth: 1,
+    borderColor: tokens.border.light,
+    backgroundColor: tokens.surface.card,
+    paddingHorizontal: LOGIN_POPUP_ROW_PADDING_X_PX,
+    marginBottom: LOGIN_POPUP_SECTION_GAP_PX,
+    fontSize: LOGIN_POPUP_BODY_FONT_PX,
+    color: tokens.text.primary,
+  },
+  loginErrorText: {
+    fontSize: LOGIN_POPUP_NOTE_FONT_PX,
+    color: tokens.danger.DEFAULT,
+    textAlign: 'center',
+    marginBottom: LOGIN_POPUP_SECTION_GAP_PX,
   },
   checkbox: {
     width: LOGIN_POPUP_CHECKBOX_SIZE_PX,

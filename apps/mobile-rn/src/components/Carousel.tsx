@@ -43,9 +43,21 @@ export interface CarouselSlide {
   link?: string
 }
 
+/** 课程轮播叠加元数据(与小程序端 CourseMetaItem 同构,按 slide 下标对齐) */
+export interface CourseMetaItem {
+  title?: string
+  price?: number
+  isFree?: boolean
+  tag?: string
+}
+
 export interface CarouselProps {
   banner: ReadonlyArray<CarouselSlide>
   height?: number
+  /** 样式变体(与小程序端同名同义):'default' 通用 / 'course' 叠加课程标题与价格 */
+  variant?: 'default' | 'course'
+  /** course 变体叠加数据(与小程序端同名同义,与 banner 同长) */
+  courseMeta?: ReadonlyArray<CourseMetaItem>
   /** 单张 slide 宽度(分页步长)。缺省用应用框架实际宽;
    *  容器有左右边距时必须传容器实际宽,否则 slide 比可视区宽、左右被裁切。 */
   itemWidth?: number
@@ -98,6 +110,28 @@ const DEFAULT_HEIGHT = carouselDefaultHeightPx()
 /** 失败图源集合的初始值:模块级常量,避免每次 render 造一个新 Set 打穿 useMemo 依赖。 */
 const NO_FAILED_SOURCES: ReadonlySet<string> = new Set<string>()
 
+const styles = StyleSheet.create({
+  /** course 叠加条:位置贴底,数值取小程序端叠加层同档(p-3 → 12) */
+  courseOverlay: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: 12,
+    paddingBottom: 12,
+    backgroundColor: tokens.surface.muted,
+  },
+  courseTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: tokens.text.primary,
+  },
+  coursePrice: {
+    fontSize: 12,
+    color: tokens.brand.cta,
+  },
+})
+
 export default function Carousel({
   banner,
   height = DEFAULT_HEIGHT,
@@ -105,6 +139,8 @@ export default function Carousel({
   autoplayInterval = 3000,
   autoplay = true,
   onItemPress,
+  variant = 'default',
+  courseMeta,
 }: CarouselProps) {
   /**
    * 图源加载失败的项**整项不渲染**(内容级降级),而不是在营销位摆一枚故障图形。
@@ -126,7 +162,11 @@ export default function Carousel({
     [banner, failedSources],
   )
 
-  const { current, setCurrent } = useAutoPlay(slides.length, autoplayInterval, autoplay && slides.length > 1)
+  const { current, setCurrent } = useAutoPlay(
+    slides.length,
+    autoplayInterval,
+    autoplay && slides.length > 1,
+  )
   const scrollRef = useRef<ScrollView>(null)
   // slide 步长:调用方传了 itemWidth(容器实际宽)用它,否则退回应用框架实际宽
   const appFrameWidth = useAppFrameWidth()
@@ -198,6 +238,19 @@ export default function Carousel({
               onError={() => markSourceFailed(slideKey(item.img))}
               style={{ width: slideWidth, height, resizeMode: 'cover' }}
             />
+            {/* course 变体:底部叠加课程标题 + 价格/免费(与小程序端同一语义槽位) */}
+            {variant === 'course' && courseMeta?.[index] ? (
+              <View style={styles.courseOverlay} pointerEvents="none">
+                {courseMeta[index].title ? (
+                  <Text style={styles.courseTitle} numberOfLines={1}>
+                    {courseMeta[index].title}
+                  </Text>
+                ) : null}
+                <Text style={styles.coursePrice}>
+                  {courseMeta[index].isFree ? '免费' : `¥${courseMeta[index].price ?? ''}`}
+                </Text>
+              </View>
+            ) : null}
           </TouchableOpacity>
         ))}
       </ScrollView>
