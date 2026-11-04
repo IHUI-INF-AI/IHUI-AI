@@ -2016,8 +2016,10 @@ function main() {
 
   /**
    * 收敛成功后顺手对齐工作区幻影漂移(2026-09-23 立)。
-   * 本器走 merge-tree/commit-tree/update-ref,只推进 HEAD 与 index、**从不 checkout**(§12d
-   * "零触碰他人未提交文件"),于是每收敛一次,工作区就多一批落后文件 —— 实测本仓曾累计
+   * 本器走 merge-tree/commit-tree/update-ref,**只推进 HEAD —— 不动 index、也不动工作树**
+   * (§12d "零触碰他人未提交文件";2026-11-04 更正:旧注释写"推进 HEAD 与 index"与实现不符,
+   * 实现只有 update-ref,索引仍停在旧 HEAD,靠下面这一步 heal 收尾对齐),于是每收敛一次,
+   * 工作区就多一批落后文件 —— 实测本仓曾累计
    * 503 个文件落后 486 个提交,任何会话 `git add <file>` 都会把别人的改动静默回滚。
    * 对齐判据在 scripts/heal-worktree-tracked.mjs:索引==HEAD 且 工作区内容==该路径某祖先版本
    * 才动,任一不成立即放过 ⇒ 会话的真实未提交改动与有暂存的路径都不被覆盖。
