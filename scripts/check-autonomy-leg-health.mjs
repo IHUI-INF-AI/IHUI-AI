@@ -30,7 +30,7 @@
  *   `--worktree` 只给人工现场诊断;取不到 ⇒ exit 2 未判定,**不回落另一个面**。
  * 退出码:0=ok / 1=drift(点名可整改项)/ 2=unjudged(取不到输入,不记绿也不冒红)
  */
-import { readFileSync, existsSync, readdirSync } from 'node:fs'
+import { readFileSync, existsSync, readdirSync, statSync, openSync, readSync, closeSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { spawnSync } from 'node:child_process'
@@ -38,6 +38,8 @@ import { preflightSessionRunner, classifySessionFailure, resolveSessionCommand }
 import { quarantinedUntilOf, LEDGER, DISPATCH_ARGS, parseTicketRows, PLAN_TASKS } from './auto-evolve.mjs'
 import { ticketKeyOf } from './lib/ticket-key.mjs'
 import { classifyLegs, actionableRows } from './lib/autonomy-leg-liveness.mjs'
+// A12 全腿产出对账(2026-11-04 /goal R3):判据独立成库,本层只搬运输入 + 包成维度。
+import { classifyLegOutputs } from './lib/autonomy-leg-output.mjs'
 import { UNKNOWN_RULE_ID, classifyAction, parseValveList, BUCKETS } from './lib/human-valve.mjs'
 import { judgeCarrierParity, judgeRoadmapClaims } from './lib/guardian-carrier-parity.mjs'
 // A11 判据零复算(§0.6):闭环有没有产出,由摄入器自己的 planIntake() 说了算,
@@ -476,7 +478,140 @@ export function judgeClosureOutputFace({ root = ROOT, now = Date.now(), minutes 
   })
 }
 
-export function evaluateAll({ repoRoot = ROOT, gatesText, events, ticketRows, transit, valve, closure, liveness, parity, claims, output } = {}) {
+/**
+ * A12-leg-output-reconciliation —— 全 12 条自治腿「戳刷了,到底有没有产出」(2026-11-04 /goal R3)。
+ *
+ * 立因:A11 只给 deploy-outcome-intake 一条腿做精确对账,其余 11 腿仍只有 A8 的戳龄。
+ * 实测 dep-radar 戳照刷、A1-A11 全绿,而产出账停在 10-30、守护日志连续 5 天自报
+ * 「未判定」(pnpm audit 继承守护进程失效代理 ⇒ stdout 空)。这一维把产出对账泛化。
+ *
+ * 取材面纪律(同 A8/A11):登记表 = 仓内文件 ⇒ 按被审面 readFaceText 取,取不到整维
+ * unjudged;产出台账 / 派发戳 / 守护日志 = 运行态(gitignored)⇒ 只读盘上真值,不按 git 面取。
+ * 全程只读,绝不 append、绝不重跑器物改被量的东西。日志 20MiB+ ⇒ 只 tail 最近一段。
+ */
+export const GUARDIAN_LOG_REL = join('.ihui-agent', 'state', 'git-guardian.log')
+export const LOG_TAIL_BYTES = 4 << 20
+
+/** 只读尾部:全量 readFileSync 20MiB+ 日志会把 30min 巡检轮拖进长尾。 */
+export function readGuardianLogTail(path) {
+  const { size } = statSync(path)
+  const len = Math.min(size, LOG_TAIL_BYTES)
+  if (len <= 0) return ''
+  const fd = openSync(path, 'r')
+  try {
+    const buf = Buffer.alloc(len)
+    readSync(fd, buf, 0, len, size - len)
+    return buf.toString('utf8')
+  } finally {
+    closeSync(fd)
+  }
+}
+
+/**
+ * 守护日志里「整条腿没判出来」的稳定措辞 ⇒ 近窗自报。
+ * 只认登记表 selfReportToken 显式配了的腿:auto-triage 的「未判定 2 处」是两个数据源的
+ * 局部缺口、整腿仍有结论,配进来就会造恒红门,故刻意不配。
+ *
+ * 量的是**该腿最近一条日志**的状态,不是「近窗内有没有过一条红的」:后者会让一条
+ * 陈年失败行把已修好的腿继续顶红整整一个窗口(48h),等于用红字惩罚修复。成功行
+ * (`✅ 依赖安全通告轮:...`)一出现即自愈,这才是可闭环的量具。
+ */
+export function selfReportsFromLog(text, legs, now = Date.now()) {
+  const wanted = (Array.isArray(legs) ? legs : []).filter(
+    (l) => typeof l?.selfReportToken === 'string' && l.selfReportToken.length > 0 && typeof l?.stamp === 'string',
+  )
+  if (!wanted.length) return {}
+  const last = Object.fromEntries(wanted.map((l) => [l.stamp, { t: 0, failed: false, seen: false }]))
+  for (const line of String(text ?? '').split(/\r?\n/)) {
+    const m = /^\[(\d{4}-\d{2}-\d{2}T[^\]]+Z)\]/.exec(line)
+    if (!m) continue
+    const t = Date.parse(m[1])
+    if (!Number.isFinite(t) || t > now) continue
+    for (const l of wanted) {
+      const prefix = typeof l.logLegPrefix === 'string' && l.logLegPrefix ? l.logLegPrefix : l.selfReportToken
+      if (!line.includes(prefix)) continue
+      const s = last[l.stamp]
+      if (!s.seen || t >= s.t) {
+        s.t = t
+        s.seen = true
+        // 「结论不可解析」是同族失败措辞,与 selfReportToken 并列(派发器两种失败出口)。
+        s.failed = line.includes(l.selfReportToken) || line.includes('结论不可解析')
+      }
+    }
+  }
+  return Object.fromEntries(
+    wanted.map((l) => {
+      const s = last[l.stamp]
+      const ceiling = Number.isInteger(l.silenceCeilingMs) && l.silenceCeilingMs > 0 ? l.silenceCeilingMs : 24 * 3600_000
+      return [l.stamp, s.seen && s.failed && now - s.t <= ceiling]
+    }),
+  )
+}
+
+export function judgeLegOutputs(res) {
+  const dim = 'A12-leg-output-reconciliation'
+  if (!res || typeof res.state !== 'string') {
+    return { dim, state: 'unjudged', readout: '全腿产出对账判据取不到输入 ⇒ 不冒充判过', next: '先让量的人拿得到登记表与运行态台账(§0.3)' }
+  }
+  const named = res.rows.filter((r) => r.state === 'drift' || r.state === 'unjudged')
+  const points = named.slice(0, 4).map((r) => `${r.id.replace(/-dispatch-last\.json$/, '')}(${r.state}:${r.why})`)
+  // 全绿时也要把「哪几条是条件产腿的合法静默」写进读数:否则运维分不清
+  // "真有产出" 与 "本来就不该产",下一次就会被诱导去整片放宽判据。
+  const silentOk = res.rows.filter((r) => r.state === 'ok' && /合法静默/.test(r.why)).length
+  const silentTail = res.state === 'ok' && silentOk > 0 ? ` ｜ 条件产腿合法静默 ${silentOk} 条(不顶红)` : ''
+  return {
+    dim,
+    state: res.state,
+    readout: `${res.summary}${silentTail}${points.length ? ` ｜ ${points.join(' / ')}${named.length > 4 ? ` …共 ${named.length} 条` : ''}` : ''}`,
+    next:
+      res.state === 'ok'
+        ? ''
+        : res.state === 'drift'
+          ? '出路:① always 腿每轮必写却零产出 ⇒ 查器物写盘分支/守护派发点是否真跑到;② 与 A8 戳龄对照(戳新账静默 = 写入面断,戳也停 = 腿整体停摆);③ 不得删台账或调大 silenceCeilingMs 抹绿。登记表 = scripts/data/autonomy-leg-liveness.json'
+          : '出路:条件产腿「静默 + 近窗自报未判定」= 采集输入面断了,不是合法静默 ⇒ 先让器物拿得到输入(如 pnpm audit 被继承代理掐断 ⇒ 显式注入干净 env),再看下一轮自报是否消失;登记表字段腐烂/坏行则先修形状。不得删台账或整片放宽判据。',
+  }
+}
+
+export function judgeLegOutputsFace({ face = FACE_SEL.face, root = ROOT, now = Date.now() } = {}) {
+  let legs
+  try {
+    const reg = JSON.parse(readFaceText(LIVENESS_REGISTRY_REL, face, root))
+    if (!Array.isArray(reg.legs)) throw new Error('登记表没有 legs 数组 ⇒ 形状坏')
+    legs = reg.legs
+  } catch (e) {
+    return judgeLegOutputs({ state: 'unjudged', rows: [], summary: `登记表取不到/形状坏(${String(e?.message ?? e).slice(0, 90)})⇒ 产出对账没量` })
+  }
+  const dir = join(root, LIVENESS_STATE_DIR_REL)
+  const ledgers = {}
+  for (const rel of new Set(legs.map((l) => l?.outputRel).filter((r) => typeof r === 'string' && r.length > 0))) {
+    try {
+      ledgers[rel] = readFileSync(join(dir, rel), 'utf8')
+    } catch (e) {
+      // ENOENT = 一次都没产过,是合法输入(可能正是漏产);其它读失败才判未判定。
+      ledgers[rel] = e?.code === 'ENOENT' ? '' : null
+    }
+  }
+  const stamps = {}
+  for (const l of legs) {
+    if (typeof l?.stamp !== 'string') continue
+    try {
+      const j = JSON.parse(readFileSync(join(dir, l.stamp), 'utf8'))
+      const at = Date.parse(String(j.attemptAt ?? '').trim())
+      stamps[l.stamp] = Number.isFinite(at) ? { attemptAtMs: at } : {}
+    } catch {
+      stamps[l.stamp] = {}
+    }
+  }
+  let logText = ''
+  try {
+    logText = readGuardianLogTail(join(root, GUARDIAN_LOG_REL))
+  } catch {
+    logText = ''
+  }
+  return judgeLegOutputs(classifyLegOutputs({ legs, ledgers, stamps, selfReports: selfReportsFromLog(logText, legs, now), now }))
+}
+
+export function evaluateAll({ repoRoot = ROOT, gatesText, events, ticketRows, transit, valve, closure, liveness, parity, claims, output, outputAll } = {}) {
   const dims = []
   let gates
   try {
@@ -492,6 +627,7 @@ export function evaluateAll({ repoRoot = ROOT, gatesText, events, ticketRows, tr
   if (parity) dims.push(parity)
   if (claims) dims.push(claims)
   if (output) dims.push(output)
+  if (outputAll) dims.push(outputAll)
   if (!events.ok) { /* 台账缺失只影响 A2/A3/A4 */
     dims.push({ dim: 'A2-attribution', state: 'unjudged', readout: events.why, next: '台账取不到 ⇒ 不冒充"没失败过"' })
     dims.push({ dim: 'A3-range', state: 'unjudged', readout: '无台账输入 ⇒ 封票数判不出', next: '' })
@@ -1104,6 +1240,75 @@ async function selfTest() {
   })())
   const healthSrc = readFileSync(join(ROOT, 'scripts', 'check-autonomy-leg-health.mjs'), 'utf8')
   ok('H52 A11 已装进 main 与 evaluateAll(有定义无接线 = 判据没装车)', healthSrc.includes('const output = judgeClosureOutputFace({ root: repoRoot })') && /if \(output\) dims\.push\(output\)/.test(healthSrc))
+  // —— A12 全腿产出对账(2026-11-04 /goal R3):戳刷但账不产必须被量出来 ——
+  const N12 = Date.parse('2026-11-04T15:00:00.000Z')
+  // 覆盖面锁读工作树登记表:落地前 HEAD 面还是旧表,用被审面会把「刚装的新字段」判成腐烂。
+  const REG12 = () => JSON.parse(readFileSync(join(ROOT, LIVENESS_REGISTRY_REL), 'utf8'))
+  const L12 = (o = {}) => ({ stamp: 'x-dispatch-last.json', outputKind: 'conditional', outputRel: 'x.jsonl', outputTimeField: 'ts', silenceCeilingMs: 24 * 3600_000, ...o })
+  const R12 = (ts, extra = {}) => JSON.stringify({ ts, ...extra }) + '\n'
+  const dep12 = L12({ stamp: 'dep-radar-dispatch-last.json', outputRel: 'dep-advisory-ledger.jsonl', silenceCeilingMs: 48 * 3600_000 })
+  const depLedger12 = { 'dep-advisory-ledger.jsonl': R12('2026-10-30T01:04:21.776Z') }
+  const a12Unjudged = judgeLegOutputs(classifyLegOutputs({
+    legs: [dep12], ledgers: depLedger12,
+    selfReports: { 'dep-radar-dispatch-last.json': true }, now: N12,
+  }))
+  ok('H53 dep-radar 真况回放:静默 + 自报未判定 ⇒ A12 unjudged 点名输入面', (() => {
+    return a12Unjudged.dim === 'A12-leg-output-reconciliation' && a12Unjudged.state === 'unjudged' &&
+      a12Unjudged.readout.includes('dep-radar') && a12Unjudged.readout.includes('采集输入面断链') &&
+      a12Unjudged.next.includes('干净 env')
+  })())
+  const a12Drift = judgeLegOutputs(classifyLegOutputs({
+    legs: [L12({ outputKind: 'always', silenceCeilingMs: 6 * 3600_000 })],
+    ledgers: { 'x.jsonl': R12('2026-10-01T00:00:00.000Z') }, now: N12,
+  }))
+  ok('H54 变异:always 腿零产出 ⇒ A12 drift 且顶起整尺', (() => {
+    const g = JSON.stringify({ sessionCommandTemplate: `node \${REPO_ROOT}/apps/cli/dist/index.js`, ticketWhitelist: ['a'] })
+    const r = evaluateAll({ repoRoot: root, gatesText: g, events: { ok: true, events: [] }, ticketRows: [{ text: 'a', line: 1 }], outputAll: a12Drift })
+    return a12Drift.state === 'drift' && r.state === 'drift' && r.dims.some((d) => d.dim === 'A12-leg-output-reconciliation')
+  })())
+  ok('H55 恒红门反向锁:条件产腿合法静默 ⇒ A12 ok 且不顶红', (() => {
+    const a12Ok = judgeLegOutputs(classifyLegOutputs({
+      legs: [dep12], ledgers: depLedger12, selfReports: {}, now: N12,
+    }))
+    const g = JSON.stringify({ sessionCommandTemplate: `node \${REPO_ROOT}/apps/cli/dist/index.js`, ticketWhitelist: ['a'] })
+    const r = evaluateAll({ repoRoot: root, gatesText: g, events: { ok: true, events: [] }, ticketRows: [{ text: 'a', line: 1 }], outputAll: a12Ok })
+    return a12Ok.state === 'ok' && a12Ok.readout.includes('合法静默') && r.state !== 'drift'
+  })())
+  ok('H56 登记表字段腐烂 / 账读不到 ⇒ unjudged,不冒充绿', (() => {
+    const bad = judgeLegOutputs(classifyLegOutputs({ legs: [L12({ outputRel: '' })], ledgers: {}, now: N12 }))
+    const missing = judgeLegOutputs(classifyLegOutputs({ legs: [L12()], ledgers: { 'x.jsonl': null }, now: N12 }))
+    return bad.state === 'unjudged' && missing.state === 'unjudged'
+  })())
+  ok('H57 日志自报:近窗命中 / 过期不计 / 无关腿不误配 / 修好后成功行立即自愈', (() => {
+    const K = 'dep-radar-dispatch-last.json'
+    const legs12 = [L12({ stamp: K, selfReportToken: '依赖安全通告轮:未判定', logLegPrefix: '依赖安全通告轮:', silenceCeilingMs: 48 * 3600_000 })]
+    const fresh = `[2026-11-04T01:38:21.893Z] ❓ 依赖安全通告轮:未判定 —— x\n`
+    const old = `[2026-10-30T01:04:21.776Z] ❓ 依赖安全通告轮:未判定 —— x\n`
+    const unrelated = `[2026-11-04T01:38:21.893Z] ✅ 感知层分诊轮:登记 0 枚 / 未判定 2 处\n`
+    const recovered = fresh + `[2026-11-04T14:00:00.000Z] ✅ 依赖安全通告轮:通告 100 条 / 可修候选 42 枚 / 本轮票 3 枚\n`
+    const a = selfReportsFromLog(fresh, legs12, N12)
+    const b = selfReportsFromLog(old, legs12, N12)
+    const c = selfReportsFromLog(unrelated, legs12, N12)
+    const d = selfReportsFromLog(recovered, legs12, N12)
+    return a[K] === true && b[K] === false && c[K] === false && d[K] === false
+  })())
+  ok('H58 日志 tail 真跑:读得到 UTC 行且有字节上限', (() => {
+    const p = join(ROOT, GUARDIAN_LOG_REL)
+    if (!existsSync(p)) return false
+    const t = readGuardianLogTail(p)
+    return t.length > 0 && t.length <= LOG_TAIL_BYTES && /\[\d{4}-\d{2}-\d{2}T[^\]]+Z\]/.test(t)
+  })())
+  ok('H59 A12 取料层真跑给三态之一且覆盖全 12 腿(装车自证)', (() => {
+    const r = judgeLegOutputsFace({ root: ROOT, now: N12 })
+    return ['ok', 'drift', 'unjudged'].includes(r.state) && r.dim === 'A12-leg-output-reconciliation' &&
+      classifyLegOutputs({ legs: REG12().legs, ledgers: {}, now: N12 }).rows.length === 12
+  })())
+  ok('H60 A12 已装进 main 与 evaluateAll(有定义无接线 = 判据没装车)', healthSrc.includes('const outputAll = judgeLegOutputsFace({ face: FACE_SEL.face, root: repoRoot })') && /if \(outputAll\) dims\.push\(outputAll\)/.test(healthSrc))
+  ok('H61 登记表 12 腿全覆盖且产出字段齐备(A12 覆盖面锁)', (() => {
+    const reg = REG12()
+    return reg.legs.length === 12 && new Set(reg.legs.map((l) => l.stamp)).size === 12 &&
+      reg.legs.every((l) => ['always', 'conditional', 'none'].includes(l.outputKind) && Number.isInteger(l.silenceCeilingMs))
+  })())
   console.log(fail === 0 ? `autonomy-leg-health self-test: ${pass} 例全绿` : `autonomy-leg-health self-test: ${pass} 绿 / ${fail} 红`)
   return fail === 0 ? 0 : 1
 }
@@ -1171,7 +1376,9 @@ async function main() {
   const parity = judgeCarrierParityFace({ face: FACE_SEL.face, root: repoRoot })
   const claims = judgeRoadmapClaimsFace({ face: FACE_SEL.face, root: repoRoot })
   const output = judgeClosureOutputFace({ root: repoRoot })
-  const result = evaluateAll({ repoRoot, gatesText, events, ticketRows: ticketRows ?? [], transit, valve, closure, liveness, parity, claims, output })
+  const outputAll = judgeLegOutputsFace({ face: FACE_SEL.face, root: repoRoot })
+  // output 必须留在末位:A11 的镜像接线锁是字面串锁(/claims, output })/),插队会把它判成"判据没装车"。
+  const result = evaluateAll({ repoRoot, gatesText, events, ticketRows: ticketRows ?? [], transit, valve, closure, liveness, parity, outputAll, claims, output })
   if (asJson) {
     console.log(JSON.stringify({ verdict: result.state, face: FACE_SEL.face, ...result, identity: alertIdentity(result) }, null, 1))
   } else {
@@ -1185,5 +1392,5 @@ async function main() {
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 if (isDirectRun) main()
 
-export const __test__ = { judgePreflight, judgeMisattribution, judgeRange, judgeWhitelist, judgeBackendTransit, judgeValveGate, judgeDispatchClosure, sessionResultActionsOf, resolveTransitBases, readGatesFace, readFaceText, evaluateAll, alertIdentity, readLedgerEvents, judgeClosureOutput, judgeClosureOutputFace, CLOSURE_SIGNALS_REL, CLOSURE_STAMP_REL }
+export const __test__ = { judgePreflight, judgeMisattribution, judgeRange, judgeWhitelist, judgeBackendTransit, judgeValveGate, judgeDispatchClosure, sessionResultActionsOf, resolveTransitBases, readGatesFace, readFaceText, evaluateAll, alertIdentity, readLedgerEvents, judgeClosureOutput, judgeClosureOutputFace, CLOSURE_SIGNALS_REL, CLOSURE_STAMP_REL, judgeLegOutputs, judgeLegOutputsFace, selfReportsFromLog, readGuardianLogTail, GUARDIAN_LOG_REL, LOG_TAIL_BYTES, classifyLegOutputs }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
