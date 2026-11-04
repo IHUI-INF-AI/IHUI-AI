@@ -1074,4 +1074,58 @@ test('T26 活文档面只认共享清单:README 必须进活文档闸(旧口径�
     rmScratch(dir, { bestEffort: true })
   }
 })
+
+test('T27 活文档拒收只重发一次:三道闸各自成立才重发,别类拦路者一律不重发(不是跳门)', () => {
+  const plan = auto.liveDocRetryPlan
+  // ① 拦路者不是活文档闸 ⇒ 连 merge 都不许问(重发只会掩盖别处的红,或变成重试轰炸)
+  let calls = []
+  const mergeSpy = (f) => {
+    calls.push(f)
+    return { ok: true }
+  }
+  let p = plan({ blocker: 'safe-commit-lock-exhausted', paths: ['README.md'], merge: mergeSpy })
+  assert.deepEqual(p, { retry: false, docs: [], notReady: [] })
+  assert.deepEqual(calls, [], '非活文档拦路者不得触发任何重备')
+
+  // ② 活文档拦路者 + 批内没有活文档路径 ⇒ 不重发、不问 merge(红来自别处)
+  calls = []
+  p = plan({ blocker: 'live-doc-line-loss', paths: ['apps/demo/a.tsx', 'docs/notes.md'], merge: mergeSpy })
+  assert.equal(p.retry, false, '批内没有活文档 ⇒ 重发只会掩盖别处的红')
+  assert.deepEqual(p.docs, [])
+  assert.deepEqual(calls, [], '没有活文档就不许问 merge')
+
+  // ②b 嵌套件也算活文档(本器射程刻意**宽于** 3e:失效方向恒为"多准备一次",不是"多放一次")
+  calls = []
+  p = plan({ blocker: 'live-doc-line-loss', paths: ['apps/web/AGENTS.md'], merge: mergeSpy })
+  assert.deepEqual(calls, ['apps/web/AGENTS.md'], '嵌套 AGENTS.md 必须被备到')
+  assert.equal(p.retry, true)
+
+  // ③ 批内有活文档且重备全绿 ⇒ 只重发一次(retry=true 由调用方发一次令),docs 逐枚点名
+  calls = []
+  p = plan({
+    blocker: 'live-doc-line-loss',
+    paths: ['README.md', 'AGENTS.md', 'PROJECT_PLAN.md', 'apps/demo/a.tsx'],
+    merge: mergeSpy,
+  })
+  assert.deepEqual(calls, ['README.md', 'AGENTS.md', 'PROJECT_PLAN.md'], '三枚活文档都必须被问过')
+  assert.equal(p.retry, true)
+  assert.equal(p.docs.length, 3)
+
+  // ④ 重备未达标 ⇒ 不重发,并把未达标逐枚点名(不得用重试掩盖真丢失)
+  calls = []
+  p = plan({
+    blocker: 'live-doc-line-loss',
+    paths: ['README.md', 'AGENTS.md'],
+    merge: (f) => ({ ok: false, why: `夹具:${f} 仍判 lost` }),
+  })
+  assert.equal(p.retry, false)
+  assert.equal(p.notReady.length, 2)
+  assert.match(p.notReady.join(' '), /README\.md:夹具:README\.md 仍判 lost/, `未达标要能点名:${p.notReady}`)
+
+  // ⑤ 形状锁:白名单族的调用点必须真的接上这条判据(否则判据只是"造好没装车")
+  const wl = bodyOf(SRC, 'function runWhitelistFamily(')
+  assert.ok(wl.includes('live-doc-line-loss'), '白名单族必须认出这一类拦路者')
+  assert.ok(wl.includes('retryPlan('), '白名单族必须走这条判据出口(注入面)')
+  assert.match(SRC, /r = commit\(list, msg\)/, '重发只有一次(不得写成循环)')
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

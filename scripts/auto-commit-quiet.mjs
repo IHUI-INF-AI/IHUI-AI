@@ -166,6 +166,10 @@ function partitionCollectible(paths, predicate = isCollectible) {
  * **含 `README.md`** —— 于是本器从不给 README 做归并准备,README 工作树副本滞后时(实测吃掉
  * HEAD 已入库行 438 条)3e 每次都拒整批,白名单族 13 枚/轮原地空转。两处对"哪些是活文档"
  * 给出不同答案,受害的只有自动化那一侧(人是 agent,会自己去跑 merge-live-doc --apply)。
+ *
+ * 形状刻意取**宽于 3e**(`(^|\/)<名>$`,连 `apps/web/AGENTS.md` 这类同名嵌套件也一起备):
+ * 3e 的射程只有根级三枚,宽一档的结果只会是"本器多归并、多让路",不会出现"本器不收编而 3e 照收"
+ * 之外的反向漏洞(把嵌套件放过去才真会吃掉别人已入库的行 —— §0.10:失效方向恒为多要一次准备)。
  */
 const HUMAN_LEDGER_RE = new RegExp(
   `(^|/)(${DEFAULT_LIVE_DOCS.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})$`,
@@ -1297,7 +1301,48 @@ function main() {
 }
 
 /** 白名单族(既有收编链,判据与顺序一字未改;只是从 main 拆出来,并向下族交回本轮计数)。 */
-function runWhitelistFamily(tally = { collected: 0, paths: new Set(), held: 0, reasons: [], blocked: 0, blocker: null, hint: null }) {
+/**
+ * 活文档拒收后的**唯一**再发令判据(2026-11-05 立,现读实证)。
+ *
+ * 事故形态不是"判据太严",是**准备与发令之间的窗**:本器 22:01:31 刚把 README 归并到
+ * `lost=0 / 长行重复新增 0`(机读行就在同一份日志里),22:02:29 safe-commit Step 3e 复跑
+ * 同一把尺却判红 —— 这 58 秒里别的席位又推进了 HEAD。活文档的"已准备好"天然是**会过期的凭据**。
+ * 人是 agent 会"再 merge 一次再提交",器物此前不会 ⇒ 同一批 13 枚连续多轮原地空转。
+ *
+ * 纪律三条:① 只对 `live-doc-line-loss` 这一类生效(别的拦路者一律不重发,更不是跳门);
+ * ② 批内没有活文档路径 ⇒ 不重发(说明红来自别处,重发只会掩盖);
+ * ③ 重备未达标(lost≠0 / 长行重复新增≠0)⇒ **不重发**并逐枚点名,不得用重试掩盖真丢失。
+ * 通过三条才允许**再一次**发令(调用方拿到 retry=true 后只 commit 一次,不做循环)。
+ */
+export function liveDocRetryPlan({
+  blocker = null,
+  paths = [],
+  root = ROOT,
+  merge = mergeLiveDoc,
+} = {}) {
+  if (blocker !== 'live-doc-line-loss') return { retry: false, docs: [], notReady: [] }
+  const docs = (paths ?? []).filter((p) => HUMAN_LEDGER_RE.test(normSlashes(p)))
+  if (docs.length === 0) return { retry: false, docs, notReady: [] }
+  const notReady = []
+  for (const f of docs) {
+    const g = merge(f, root)
+    if (!g?.ok) notReady.push(`${f}:${g?.why ?? '未给出原因'}`)
+  }
+  return { retry: notReady.length === 0, docs, notReady }
+}
+
+function runWhitelistFamily(
+  tally = {
+    collected: 0,
+    paths: new Set(),
+    held: 0,
+    reasons: [],
+    blocked: 0,
+    blocker: null,
+    hint: null,
+  },
+  { root = ROOT, commit = commitBatch, retryPlan = liveDocRetryPlan, logLine = log } = {},
+) {
   const rawChanges = listChanges().filter((c) => !isExcluded(c.path))
   // 路径白名单(2026-11-02,fail-safe):白名单外的改动一律不收编,只记日志留给人清;
   // 无法判定归属的路径同样落进 held —— 宁可悬挂,也不再替别的席位提交业务代码/测试。
@@ -1541,7 +1586,21 @@ function runWhitelistFamily(tally = { collected: 0, paths: new Set(), held: 0, r
     [restPaths, msgs.rest],
   ]) {
     if (!list.length) continue
-    const r = commitBatch(list, msg) ?? {}
+    let r = commit(list, msg) ?? {}
+    // 活文档拒收 ⇒ 就地重备一次(判据与副作用分开,便于镜像测试钉住"只做一次")。
+    if (r.blocker === 'live-doc-line-loss') {
+      const plan = retryPlan({ blocker: r.blocker, paths: list, root })
+      if (plan.retry) {
+        logLine(
+          `白名单族活文档拒收 ⇒ 已就地重备 ${plan.docs.length} 枚(merge-live-doc --apply)并重试一次:${plan.docs.join(', ')}`,
+        )
+        r = commit(list, msg) ?? {}
+      } else if (plan.notReady.length > 0) {
+        logLine(
+          `白名单族活文档重备未达标 ⇒ 不重试(不得用重试掩盖真丢失):${plan.notReady.join(' / ')}`,
+        )
+      }
+    }
     const done = typeof r.landed === 'number' ? r.landed : 0
     const tried = typeof r.attempted === 'number' ? r.attempted : list.length
     wlLanded += done
@@ -1683,6 +1742,7 @@ export const __test__ = {
   // 账本收编族(2026-11-03):判据住在 lib/cross-end-landing-ledger.mjs,这里只暴露本器的段。
   collectLedgerEntries,
   headBlobOidsOf,
+  liveDocRetryPlan,
   runLedgerFamily,
   guardLedgerLiveDocPath,
   ledgerCommitMessage,
