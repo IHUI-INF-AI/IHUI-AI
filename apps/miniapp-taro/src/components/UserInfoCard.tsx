@@ -100,6 +100,8 @@ export interface UserInfoCardProps extends UserInfoCardMinimalProps {
   identityType?: 0 | 1 | 2
   /** 充值回调(跳充值页) */
   onWallet?: () => void
+  /** 是否显示充值入口(默认 true,仅在 onWallet 存在时生效;对齐 RN 显式布尔位) */
+  showRechargeBtn?: boolean
   /** 退订回调(仅 isVip 显示) */
   onUnsubscribe?: () => void
   /** 开通会员回调(仅非 isVip 显示) */
@@ -133,6 +135,7 @@ export default function UserInfoCard({
   tokenValue,
   identityType = 0,
   onWallet,
+  showRechargeBtn = true,
   onUnsubscribe,
   onOpenVip,
   onOpenLevel,
@@ -144,6 +147,8 @@ export default function UserInfoCard({
   const isLogged = !!avatar || nickname !== tt('profileEdit.notLoggedIn', '未登录')
   // 智汇值格式化:tokenValue 优先,无则回退 desc
   const tokenDisplay = tokenValue !== undefined ? formatTokenValue(tokenValue) : desc
+  // 充值入口:显式开关 ∧ 回调在场(默认开 → 现有调用方行为不变)
+  const showRecharge = showRechargeBtn && Boolean(onWallet)
   // 成长值进度比例(对齐原项目 growth-bar)
   const showGrowthBar = typeof growthValue === 'number' && typeof growthMax === 'number'
   const growthPercent =
@@ -252,10 +257,10 @@ export default function UserInfoCard({
                     className="flex items-center gap-1 flex-1 min-w-0"
                     hoverClass="opacity-85"
                     onClick={
-                      onWallet
+                      showRecharge
                         ? (e) => {
                             e.stopPropagation()
-                            onWallet()
+                            onWallet?.()
                           }
                         : undefined
                     }
@@ -268,7 +273,7 @@ export default function UserInfoCard({
                     <Text className="text-muted-foreground truncate" style={TOKEN_FONT_STYLE}>
                       {tokenDisplay}
                     </Text>
-                    {onWallet ? (
+                    {showRecharge ? (
                       /* 此前这里是一枚 24×20 的位图按钮(把「充值智汇值」四个汉字烘进金色渐变图):
                          既不随主题反色、也不走 i18n 与字号缩放。换成与本卡其余操作钮同一档位的
                          文字按钮(规格档 ACTION_PADDING_X/Y + SMALL_FONT),与 RN 端 rechargeBtn 同形。 */
@@ -356,13 +361,13 @@ export default function UserInfoCard({
                   </View>
                 ) : null}
                 {/* 充值按钮(onWallet 且智汇值行未显示时兜底) */}
-                {onWallet && !tokenDisplay ? (
+                {showRecharge && !tokenDisplay ? (
                   <View
                     className="rounded-sm bg-primary"
                     style={ACTION_PAD_STYLE}
                     onClick={(e) => {
                       e.stopPropagation()
-                      onWallet()
+                      onWallet?.()
                     }}
                     hoverClass="opacity-85"
                   >
