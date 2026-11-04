@@ -54,7 +54,7 @@
 
 import { spawnSync } from 'node:child_process'
 // 取材面纪律(§0.4/门 118):取 blob 正文一律经统一取材层,不在本门内自起 git show。
-import { catBatch } from './lib/face-reader.mjs'
+import { catBatch, gitBinary } from './lib/face-reader.mjs'
 import { createHash } from 'node:crypto'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
@@ -190,7 +190,7 @@ function gitShow(rel, repoRoot = ROOT) {
 }
 
 function currentHead(repoRoot = ROOT) {
-  const proc = spawnSync('git', ['rev-parse', 'HEAD'], {
+  const proc = spawnSync(gitBinary(), ['rev-parse', 'HEAD'], {
     cwd: repoRoot,
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],

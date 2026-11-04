@@ -117,6 +117,8 @@ import {
   gitdirArchivePath,
   brokenRefsFromSnapshot,
 } from './lib/gitdir.mjs'
+// 二进制解析的单一出口在取材层(绝对路径优先,兜底只留在层内一处):本文件不再自拼 'git' 兜底。
+import { gitBinary } from './lib/face-reader.mjs'
 // 凭据形状脱敏的**唯一实现**住在 lib(G-334 / G-400):本文件原先自带一份逐字相同的副本,
 // 两份实现必漂移是本仓记过最多次的失效型,而这一族的失败形态是安静的 —— 漂了的一侧只会让
 // 某些告警少打码或多打码,没有任何门会喊。`redactChildOutput` 在本文件里已不再有实现。
@@ -2262,8 +2264,8 @@ function auditGitFilterResidue() {
     } catch {
       /* tick 写不下去也要判一次:否则一次盘错就永久失明 */
     }
-    // git 不可用时退到 PATH 上的 git;真取不到结论由 probeGitFilterKeys 回 null(不猜)
-    const bin = resolveGitBin() || 'git'
+    // 二进制名走层出口 gitBinary();真取不到结论由 probeGitFilterKeys 回 null(不猜)
+    const bin = gitBinary()
     const out = probeGitFilterKeys(bin)
     if (out === null) {
       log('ℹ️ git filter 配置巡检:未判定(git 取不到结论)⇒ 不记绿,下轮重试')
