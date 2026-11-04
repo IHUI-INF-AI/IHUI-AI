@@ -70,6 +70,24 @@ const ROOT = resolve(__dirname, '..')
 const DRY_RUN = process.argv.includes('--dry-run')
 const SELF_TEST = process.argv.includes('--self-test')
 
+/**
+ * 无文件面档判据(2026-11-04 立)。env 契约的唯一产出方是 `.husky/pre-push`:
+ * 本次推送零 blob 变更(纯删除远端分支 / 分支推进到同一棵树)时它逐条 ref 复核后导出
+ * `PUSH_NO_FILE_FACE=1` + `PUSH_NO_FILE_FACE_BASIS`。
+ *
+ * 改前病理:空 scope 被当成「取不到面」⇒ 退回暂存区/head-diff 兜底并跑全量 tsc,
+ * 于是一次不携带任何文件的 `git push origin --delete` 被他人的暂存面 + 另一枚在飞的
+ * 全量 typecheck 串行锁拦死(2026-11-04 实测:串行等待 20min 超时判红)。
+ * 只认带依据的那一对值:值不是 1 或缺依据 ⇒ 不启用,原路径(全量 tsc + scope 降级)一字不变。
+ * @returns {{ok:boolean, basis:string, reason?:string} | null} null = 本档未启用(走原路径)
+ */
+function noFileFaceVerdict(env = process.env) {
+  if (env.PUSH_NO_FILE_FACE !== '1') return null
+  const basis = String(env.PUSH_NO_FILE_FACE_BASIS || '').trim()
+  if (!basis) return { ok: false, basis: '', reason: 'PUSH_NO_FILE_FACE=1 但缺判定依据' }
+  return { ok: true, basis }
+}
+
 /** 取暂存文件列表(仓库根相对路径,统一为 /);git 不可用返回 null(降级路径不可用,维持原失败行为) */
 function getStagedFiles() {
   try {
@@ -378,6 +396,18 @@ if (SELF_TEST) {
     '样例18b 加宽后:B 的报错命中 scope ⇒ 不降级(改契约会红 importer,病根闭合)',
   )
 
+  // 样例19(2026-11-04):无文件面档 —— 只认「flag=1 + 依据」这一对值,缺依据不得启用。
+  assert(
+    noFileFaceVerdict({ PUSH_NO_FILE_FACE: '1', PUSH_NO_FILE_FACE_BASIS: 'push refs=1 条全部删除' })?.ok ===
+      true,
+    '样例19a flag=1 且带依据 ⇒ 启用无文件面档',
+  )
+  assert(
+    noFileFaceVerdict({ PUSH_NO_FILE_FACE: '1' })?.ok === false,
+    '样例19b flag=1 但缺依据 ⇒ 不启用(防残留 env 变成静默 skip)',
+  )
+  assert(noFileFaceVerdict({}) === null, '样例19c flag 未置位 ⇒ 原路径(全量门不被跳过)')
+
   process.env.PUSH_SCOPE_FILES = prevEnv
 
   if (failedCount > 0) {
@@ -386,6 +416,22 @@ if (SELF_TEST) {
   }
   console.log('[self-test] ✅ 全部断言通过(解析/匹配/降级判定逻辑正常)')
   process.exit(0)
+}
+
+// ─── 无文件面档(2026-11-04):本次推送零 blob 变更 ⇒ 没有可判的文件面 ─────────
+// 判据在门层再校验一次(不信裸 env):必须 flag=1 且带 hook 的推导依据,缺一则走原路径。
+// 这不是"skip":判据本身是"零文件 ⇒ 无对象可检查",依据会打印出来;有文件变更时
+// PUSH_SCOPE_FILES 非空,走下面的 push-scope 逐级推导 + 全量门,行为一字未改。
+const _noFileFace = noFileFaceVerdict()
+if (_noFileFace) {
+  if (_noFileFace.ok) {
+    console.log(`[check-typecheck] ✅ 无文件面,按通过 —— 判定依据: ${_noFileFace.basis}`)
+    console.log(
+      '[check-typecheck] 本次推送不携带任何 blob ⇒ 无文件面可 typecheck;有文件变更时仍走 push-scope / 全量门(判据未放宽)。',
+    )
+    process.exit(0)
+  }
+  console.error(`[check-typecheck] ⚠️ ${_noFileFace.reason} ⇒ 不启用无文件面档,按原路径判定`)
 }
 
 // ─── 主流程 ───
