@@ -2532,19 +2532,26 @@ async function main() {
       `  ${C.dim}tag 直接指向 ${tagBackup.tagPointedTotal} 枚;其中去掉隔离 tag 后不可达(盲区候选)` +
         `${tagBackup.candidates.length} 枚${C.reset}`,
     )
+    // 只把**真有未覆盖路径**的算作缺口;merge / 空提交按现有判据也落 uncovered(理由
+    // "无改动路径,逐路径面无法证明覆盖"),但它们没有"路径"可清偿,单独列,不和真缺口混算。
+    const unpledgedGaps = tagBackup.uncovered.filter((u) => u.missing.length > 0)
+    const unpledgedNoDiff = tagBackup.uncovered.length - unpledgedGaps.length
     console.log(
       `  ${tagBackup.uncovered.length === 0 ? C.green : C.yellow}↳ 逐路径覆盖:已清偿 ${tagBackup.covered.length}` +
         ` / 未清偿 ${tagBackup.uncovered.length}` +
+        (tagBackup.uncovered.length > 0
+          ? `${C.dim}(其中有未覆盖路径 ${unpledgedGaps.length} / 无改动路径 merge或空提交 ${unpledgedNoDiff})${C.reset}`
+          : '') +
         `${tagBackup.undetermined.length > 0 ? ` / 未判定 ${tagBackup.undetermined.length}` : ''}${C.reset}`,
     )
-    if (tagBackup.uncovered.length > 0) {
+    if (unpledgedGaps.length > 0) {
       console.log(
         `  ${C.yellow}⚠️  已备份但缺口仍在(tag 只防 gc,不等于内容已落地):${C.reset}`,
       )
-      // 展示按 committer 时刻**新→旧**排序:缺口存量近万枚,按 oid 字母序取样只会永远
+      // 展示按 committer 时刻**新→旧**排序:缺口存量数千枚,按 oid 字母序取样只会永远
       // 展示一批最老的（现案 b96a9dc2 这类"刚产生"的缺口反而看不到）。只影响展示,不改判定。
-      const times = committerUnixFor(tagBackup.uncovered.map((u) => u.hash)).map
-      const shown = [...tagBackup.uncovered]
+      const times = committerUnixFor(unpledgedGaps.map((u) => u.hash)).map
+      const shown = [...unpledgedGaps]
         .sort((a, b) => (times.get(b.hash) || 0) - (times.get(a.hash) || 0))
         .slice(0, 10)
       const subj = subjectsForHashes(shown.map((u) => u.hash))
@@ -2561,9 +2568,13 @@ async function main() {
           console.log(`        ${C.dim}…另 ${u.missing.length - 3} 条未覆盖路径${C.reset}`)
         }
       }
-      if (tagBackup.uncovered.length > 10) {
-        console.log(`     ${C.dim}…另有 ${tagBackup.uncovered.length - 10} 枚${C.reset}`)
+      if (unpledgedGaps.length > 10) {
+        console.log(`     ${C.dim}…另有 ${unpledgedGaps.length - 10} 枚${C.reset}`)
       }
+    } else if (tagBackup.uncovered.length > 0) {
+      console.log(
+        `  ${C.dim}${unpledgedNoDiff} 枚 merge/空提交无改动路径可核对(逐路径面无法作证,不计入缺口)${C.reset}`,
+      )
     } else if (tagBackup.undetermined.length === 0) {
       console.log(
         `  ${C.green}✅ 候选提交的每条改动路径均已在交付面同路径同 blob 出现(已备份且已清偿)${C.reset}`,
@@ -3076,10 +3087,11 @@ async function main() {
   // 3b 维:已备份但未清偿的缺口必须进 issues —— 否则本轮会打印"✅ 无风险"并通过句,
   // 而那正是盲区的原形(门说绿,缺口还在)。本维暂不置 blocking,是否转 blocking 属用户级决定
   // (见本单交付说明);但必须**报出来**,不得静默。
-  if (tagBackup.uncovered.length > 0) {
+  const tagBackupGaps = tagBackup.uncovered.filter((u) => u.missing.length > 0).length
+  if (tagBackupGaps > 0) {
     issues.push(
-      `${tagBackup.uncovered.length} 个 lost-commit/* tag 备份的提交仍有未清偿路径` +
-        `(已备份但未落地,见 3b;缺口未转 blocking,待拍板)`,
+      `${tagBackupGaps} 个 lost-commit/* tag 备份的提交仍有未覆盖路径` +
+        `(已备份但未落地,见 3b;未转 blocking 属待定项)`,
     )
   }
 
