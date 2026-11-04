@@ -72,7 +72,24 @@ const STATIC_EXCLUDED_TOP_FILES = ['proxy.ts']
  * **真实** slug 清单(例如发布侧生成 manifest),再把本行从移出面移除;不要用假 slug
  * 骗过 generateStaticParams 的空数组断言。
  */
-const STATIC_EXCLUDED_ROUTE_FILES = ['app/(main)/docs/[slug]/page.tsx']
+const STATIC_EXCLUDED_ROUTE_FILES = [
+  'app/(main)/docs/[slug]/page.tsx',
+  /**
+   * `app/dl/desktop/route.ts`(2026-11-04 立)是桌面安装包的**逐请求地域分流器**:
+   * `GET /dl/desktop?file=<资产名>` → 读 `cf-ipcountry` 等地域头 + 拉当前 live release
+   * 比字节等值 → `private, no-store` 302 到 Gitee 或 GitHub 其中一条腿。
+   *
+   * 它在静态导出下没有任何"构建期可定值"的输入:Next 对 `output: 'export'` 里用到
+   * `request.url` / `request.headers` 的 route handler 硬报错
+   *   'export const dynamic = "force-static"/export const revalidate not configured
+   *    on route "/dl/desktop" with "output: export"'
+   * 而 `force-static` 会把它固化成一个对**所有访客都相同**的 302 —— 这正是本仓
+   * 2026-11-04 那条 route 头注里明令禁止的旧事故形态(把国内腿缓存/固化给海外)。
+   * 静态产物(GH Pages / Tauri 壳)没有请求期,与 docs/[slug]、cdn/uploads 同类,
+   * 故沿用既有"构建期移出、finally 恢复"机制,只移出该 route 入口文件。
+   */
+  'app/dl/desktop/route.ts',
+]
 /**
  * proxy.ts 的**反向依赖闭包**(直接/间接 import 它的源码,相对 apps/web/),静态导出期与 proxy 同批移出。
  *
