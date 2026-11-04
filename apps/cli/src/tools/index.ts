@@ -21,6 +21,7 @@
 
 import { redactSecrets } from '../redact.js';
 import { checkFolderTrust, type FolderTrustMap } from '../sandbox/index.js';
+import { evaluateFileAccess, toAclPath } from '../sandbox/file-access-policy.js';
 // 79 号票运行时的唯一装配点(判定本体在 @ihui/types,本文件只消费).
 import {
   authorizeWritePath,
@@ -1959,6 +1960,24 @@ export function checkPathWritePermission(
   }
   if (level === 'read-only') {
     return { allowed: false, reason: `路径 ${filePath} 被 folder_trust 标记为 read-only,禁止修改` };
+  }
+  // 3. 文件访问裁决(goal-b49 复现对侧 per-op ACL,见 sandbox/file-access-policy.ts):
+  //    守护件/凭据族走这一层。folder_trust 的结构性意图已经赢在前面,本层只会更严不会更松。
+  const aclWrite = evaluateFileAccess(
+    'write',
+    toAclPath(ctx.workspacePath, filePath),
+    ctx.workspacePath,
+  );
+  if (aclWrite.blocked) {
+    return { allowed: false, reason: aclWrite.note ?? `路径 ${filePath} 被文件访问裁决标记为不可写` };
+  }
+  // advisory 命中也要出声:静默放行等于"判了但不语"(§5e 那条禁令的反面)。
+  if (aclWrite.note) {
+    try {
+      process.stderr.write(`${aclWrite.note}\n`);
+    } catch {
+      // 报名通道不可用不改判据结论
+    }
   }
   return { allowed: true };
 }

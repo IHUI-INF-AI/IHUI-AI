@@ -23,6 +23,9 @@ import * as fs from 'node:fs';
 // ASCII 机器码前缀(spawn_error / output_limit / unattributed / fs_probe_unavailable /
 // fs_exhausted.*)留在模板里、不进词表 —— 取词失败时行仍读得出"没配上",不是"没发生"。
 import { t } from '../i18n/index.js';
+// glob 匹配原语(单一真相源):checkFolderTrust 与 file-access-policy 共用同一把尺,
+// 不得在任一消费点内联再抄一份 glob→正则(两处必漂移是本仓记过最多次的失败型)。
+import { globMatches, globWildcardCount, normalizeWorkspacePath } from './glob-pattern.js';
 // b75-4#9:kill(-pgid,0) 探组存活性(ESRCH=已消亡 / EPERM=存活但无权),升级 SIGKILL 前先探
 import { isPosixProcessGroupAlive } from '../util/spawn-isolated.js';
 
@@ -158,7 +161,7 @@ export type FolderTrustMap = Record<string, FolderTrustLevel>;
 export function checkFolderTrust(filePath: string, trustMap: FolderTrustMap | undefined): FolderTrustLevel {
   if (!trustMap) return 'trusted';
 
-  const normalized = filePath.replace(/\\/g, '/').replace(/^\.\//, '');
+  const normalized = normalizeWorkspacePath(filePath);
 
   if (trustMap[normalized]) return trustMap[normalized]!;
 
@@ -167,13 +170,8 @@ export function checkFolderTrust(filePath: string, trustMap: FolderTrustMap | un
     if (pattern === normalized) {
       return level;
     }
-    const regexStr = pattern
-      .replace(/[.+^${}()|[\]\\]/g, '\\$&')
-      .replace(/\*\*/g, '<<<GLOBSTAR>>>')
-      .replace(/\*/g, '[^/]*')
-      .replace(/<<<GLOBSTAR>>>/g, '.*');
-    if (new RegExp(`^${regexStr}$`).test(normalized)) {
-      const specificity = (pattern.match(/[*/]/g) ?? []).length;
+    if (globMatches(pattern, normalized)) {
+      const specificity = globWildcardCount(pattern);
       if (!bestMatch || specificity < bestMatch.specificity) {
         bestMatch = { level, specificity };
       }
