@@ -60,6 +60,11 @@ const DIMENSIONS = [
   { id: 'miniapp-tokens-sync', script: 'check-miniapp-tokens-sync.mjs', ends: ['miniapp-taro'], warnOnly: false },
   { id: 'cross-store-parity', script: 'check-cross-store-parity.mjs', ends: ['*'], warnOnly: false },
   { id: 'adapter-style-parity', script: 'check-adapter-style-parity.mjs', ends: ['*'], warnOnly: false },
+  // 2026-11-05 接线:fork 元素级归类台账(`scripts/data/cross-end-fork-decisions.json`)的**新鲜度**。
+  // 此前该器只被 `scripts/tests/measure-cross-end-fork-elements.test.mjs` 调到纯函数,没有任何门跑它 ——
+  // 台账停在 2026-11-02 的 316 处而实测 183 处,两天无人发现(器自己头注写着"过期 ⇒ exit 1",实现却没比过)。
+  // 本维跑的就是它的默认核对:台账与本面读数不同源即 FAIL。
+  { id: 'cross-end-fork-elements', script: 'measure-cross-end-fork-elements.mjs', ends: ['*'], warnOnly: false },
   { id: 'multi-end-sync-baseline', script: 'check-multi-end-sync.mjs', ends: ['*'], warnOnly: true },
 ]
 
