@@ -43,7 +43,7 @@ export function TopupSuccessScreen({
       </View>
       <View style={styles.body}>
         <CheckCircle2 size={64} color={tk.success.deep} />
-        <Text style={styles.titleText}>充值成功</Text>
+        <Text style={styles.titleText}>{t('wallet.rechargeSuccess')}</Text>
         <View style={styles.card}>
           <Row label="充值金额" value={`¥${amount.toFixed(2)}`} tk={tk} styles={styles} />
           <Row label="订单编号" value={orderId} tk={tk} styles={styles} />
