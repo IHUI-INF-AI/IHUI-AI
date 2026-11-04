@@ -5233,11 +5233,26 @@ const checks = [
     id: '220',
     label:
       '监控大屏指标名对账(大屏查询的每个指标必须有代码发射点或台账登记)',
-    script: 'check-grafana-metric-exists.mjs',
+    // 2026-11-04 改道:旧 `scripts/check-grafana-metric-exists.mjs` 读的是已退役的
+    // `<root>/grafana/dashboards` 三棵树与旧台账,现读实测三树全空 ⇒ 每次跑都是 exit 2
+    // 「枚举到 0 个大屏」,门在扫一个不存在的目录、实际永不判定。判据本体在改名契约
+    // (a7ced7411c)下早已落在 `check-panel-metric-exists.mjs` + `panel-defs/` 真值面,
+    // 本门改指那一份;触发器同步收到真值面,不再靠宽前缀 `monitoring`/`deploy` 兜。
+    script: 'check-panel-metric-exists.mjs',
     args: [],
     mode: 'blocking',
-    skipEnv: 'HUSKY_SKIP_GRAFANA_METRIC_EXISTS',
-    stagedTriggers: ['monitoring', 'deploy', 'apps/ai-service/app', 'apps/api/src', 'packages', 'scripts/'],
+    skipEnv: 'HUSKY_SKIP_PANEL_METRIC_EXISTS',
+    stagedTriggers: [
+      'monitoring/panel-defs/',
+      'deploy/observability/panel-defs/',
+      'deploy/saas/panel-defs/',
+      'apps/ai-service/app/',
+      'apps/api/src/',
+      'packages/',
+      'monitoring/alertbridge/',
+      'scripts/check-panel-metric-exists.mjs',
+      'scripts/data/panel-external-metrics.json',
+    ],
     onFailHint: [
       '',
       '',
@@ -5249,15 +5264,27 @@ const checks = [
     id: '222',
     label:
       '监控大屏 ↔ 数据源 接线对账(面板引用的 uid 必须在 provisioning 里;声明了却零面板使用的源只报数不判红——未部署的基建是合法状态)',
-    script: 'check-grafana-datasource-wiring.mjs',
+    // 2026-11-04 改道:旧 `scripts/check-grafana-datasource-wiring.mjs` 的三棵树
+    // `monitoring/grafana/dashboards` / `deploy/{observability,saas}/grafana/dashboards`
+    // 已按改名契约退役(3778408c 删 38 枚、a7ced7411c 搬进 panel-defs),旧门现读实测
+    // 三棵树全部「取不到 provisioning ⇒ 未判定」⇒ 一道只报未判定、从不判红的空门。
+    // 真值面消费方 = `sync-panel-live-provisioning.mjs` 的 splitBlocks,判据本体在
+    // `check-panel-datasource-wiring.mjs`;触发器按三棵 panel-defs 树逐棵登记。
+    script: 'check-panel-datasource-wiring.mjs',
     args: [],
     mode: 'blocking',
-    skipEnv: 'HUSKY_SKIP_GRAFANA_DATASOURCE_WIRING',
-    stagedTriggers: ['monitoring', 'scripts/sync-grafana-live-provisioning.mjs'],
+    skipEnv: 'HUSKY_SKIP_PANEL_DATASOURCE_WIRING',
+    stagedTriggers: [
+      'monitoring/panel-defs/',
+      'deploy/observability/panel-defs/',
+      'deploy/saas/panel-defs/',
+      'scripts/check-panel-datasource-wiring.mjs',
+      'scripts/sync-panel-live-provisioning.mjs',
+    ],
     onFailHint: [
       '面板引用的数据源 uid 不在 monitoring/panel-defs/provisioning/datasources/datasources.yml 里 ——',
       '这样的面板只会静静显示 "Datasource not found",和"这业务本来没流量"长得一模一样。',
-      '要么把 uid 改成已声明的源,要么先在 provisioning 里声明这个源(并跑 sync-grafana-live-provisioning.mjs 派生到线上副本)。',
+      '要么把 uid 改成已声明的源,要么先在 provisioning 里声明这个源(并跑 sync-panel-live-provisioning.mjs 派生到线上副本)。',
     ].join('\n'),
   },
 
