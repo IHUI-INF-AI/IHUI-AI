@@ -93,7 +93,7 @@ function isolatedFiles(dir) {
   }
 }
 
-test('① 正常提交语义:hook 照跑、只交声明集、共享索引零写入、私有索引已清理', () => {
+test('① 正常提交语义:hook 照跑、只交声明集、共享索引收敛、私有索引已清理', () => {
   const dir = makeRepo()
   try {
     const log = join(dir, '.hook.log')
@@ -123,9 +123,14 @@ test('① 正常提交语义:hook 照跑、只交声明集、共享索引零写�
       'a.txt',
       '载荷只应含声明集',
     )
-    assert.equal(indexDigest(dir), beforeIndex, '共享索引字节不得被本通道写入')
     assert.equal(
-      git(dir, ['status', '--porcelain', '--', 'b.txt']).stdout.trim(),
+      git(dir, ['diff', '--cached', '--name-only']).stdout.trim(),
+      '',
+      '干净时共享索引应被 CAS 推进到新 HEAD',
+    )
+    assert.notEqual(indexDigest(dir), beforeIndex, 'CAS 刷新应真的写入了共享索引')
+    assert.equal(
+      git(dir, ['status', '--porcelain', '--', 'a.txt', 'b.txt']).stdout.trim(),
       'M b.txt',
       '未声明文件应保持未暂存',
     )
@@ -166,7 +171,6 @@ test('② 两个并发进程各用独立索引:钩子各看各的,最终两枚�
     )
     writeFileSync(join(dir, 'a.txt'), 'a-conc\n')
     writeFileSync(join(dir, 'b.txt'), 'b-conc\n')
-    const beforeIndex = indexDigest(dir)
 
     const runOne = (tag, other) =>
       new Promise((end) => {
@@ -230,7 +234,16 @@ test('② 两个并发进程各用独立索引:钩子各看各的,最终两枚�
 
     assert.equal(git(dir, ['show', 'HEAD:a.txt']).stdout.trim(), 'a-conc', 'A 的改动不得被 B 覆盖')
     assert.equal(git(dir, ['show', 'HEAD:b.txt']).stdout.trim(), 'b-conc', 'B 的改动不得被 A 覆盖')
-    assert.equal(indexDigest(dir), beforeIndex, '并发提交也不得写入共享索引')
+    assert.equal(
+      git(dir, ['diff', '--cached', '--name-only']).stdout.trim(),
+      '',
+      '共享索引最终应与新 HEAD 一致',
+    )
+    assert.equal(
+      git(dir, ['status', '--porcelain', '--', 'a.txt', 'b.txt']).stdout.trim(),
+      '',
+      '两席声明的文件都应是干净态',
+    )
     assert.deepEqual(isolatedFiles(dir), [], '并发结束后两份索引都应清理')
   } finally {
     rmScratch(dir)
@@ -277,7 +290,7 @@ test('④ 硬杀异常退出:索引残留,下一次运行由 sweep 清掉', asyn
   try {
     writeHook(
       dir,
-      '#!/bin/sh\ntouch "$IHUI_TEST_SYNC/started"\ni=0\nwhile [ "$i" -lt 2000 ]; do sleep 0.1; i=$((i+1)); done\n',
+      '#!/bin/sh\ntouch "$IHUI_TEST_SYNC/started"\necho $$ > "$IHUI_TEST_SYNC/hook.pid"\ni=0\nwhile [ ! -f "$IHUI_TEST_SYNC/stop" ] && [ "$i" -lt 100 ]; do sleep 0.1; i=$((i+1)); done\nexit 1\n',
     )
     writeFileSync(join(dir, 'a.txt'), 'a-kill\n')
     const child = spawn(
@@ -302,17 +315,19 @@ test('④ 硬杀异常退出:索引残留,下一次运行由 sweep 清掉', asyn
     }
     assert.ok(residue.length > 0, '硬杀前私有索引必须已落盘')
 
-    // Windows 下 taskkill /T /F 模拟"断电/强杀":node、git、sh 全树不跑 exit 钩子。
-    const killed = spawnSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], {
-      stdio: 'ignore',
-      windowsHide: true,
-    })
-    if (killed.status !== 0) child.kill('SIGKILL')
+    // Windows 下 SIGKILL = TerminateProcess,node 来不及跑 exit/finally ⇒ 模拟"断电/强杀"。
+    child.kill('SIGKILL')
     await closed
     assert.ok(
       isolatedFiles(dir).some((n) => n.endsWith('.idx')),
       '硬杀应留下残留,否则本测试无意义',
     )
+    // 收掉被杀 node 留下的 git/sh 孤儿:放 stop 让钩子 exit 1,git 立即中止并释放目录。
+    writeFileSync(join(sync, 'stop'), '')
+    for (let i = 0; i < 30 && isolatedFiles(dir).some((n) => n.endsWith('.idx.lock')); i += 1) {
+      await new Promise((r) => setTimeout(r, 100))
+    }
+    await new Promise((r) => setTimeout(r, 500))
 
     writeHook(dir, '#!/bin/sh\nexit 0\n')
     const r = spawnSync(
@@ -390,6 +405,42 @@ test('⑥ 单元:命名唯一、只按死 pid/超龄 sweep、子进程 env 剥 G
     assert.equal('GIT_DIR' in env, false)
     assert.equal('GIT_WORK_TREE' in env, false)
     assert.equal(env.KEEP, '1')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('⑦ 共享索引里有别人的 staged 内容时,本通道一个字节都不覆盖', () => {
+  const dir = makeRepo('iso-git-dirty-')
+  try {
+    writeFileSync(join(dir, 'c.txt'), 'c1\n')
+    git(dir, ['add', '--', 'c.txt']) // 模拟另一席已 staged 的活
+    const before = indexDigest(dir)
+    writeFileSync(join(dir, 'a.txt'), 'a-dirty\n')
+
+    const r = spawnSync(
+      process.execPath,
+      [SCRIPT, '-C', dir, 'commit', '-m', 't7', '--', 'a.txt'],
+      {
+        cwd: dir,
+        env: cleanEnv(),
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+        windowsHide: true,
+      },
+    )
+    assert.equal(r.status, 0, `提交应成功: ${r.stderr}`)
+    assert.equal(indexDigest(dir), before, '共享索引不干净时不得 CAS 覆盖别人的 staged')
+    assert.equal(
+      git(dir, ['ls-files', '--stage', '--', 'c.txt']).stdout.includes('c.txt'),
+      true,
+      '别人的 staged 必须原样保留',
+    )
+    assert.equal(
+      git(dir, ['show', '--name-only', '--format=', 'HEAD']).stdout.trim(),
+      'a.txt',
+      '载荷仍只含声明集',
+    )
   } finally {
     rmScratch(dir)
   }
