@@ -353,7 +353,9 @@ function createStyles(tk: AppThemeTokens) {
     progressFill: {
       height: '100%',
       borderRadius: rnRadius.sm,
-      backgroundColor: tk.brand.DEFAULT,
+      // 进度条按 HomeScreen/PlanList 既有写法走语义色:brand.DEFAULT 只保留墨色/文字色两义,
+      // 不作大色块底(§4),否则深色档案下是一整条纯白(实测 17.4:1 刺眼)。
+      backgroundColor: tk.success.DEFAULT,
     },
     fileGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing['sm-loose'] },
     fileItem: {

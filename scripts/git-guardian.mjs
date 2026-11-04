@@ -12023,6 +12023,8 @@ export function sweepCrossEndLandingLeg(opts = {}) {
   // 会落进原来的静默分支,把唯一需要喊的那一刻变成安静(§0.9 判据失效的表现永远是安静)。
   const blocked = num('blocked')
   const blocker = /blocker=(\S+)/.exec(line)?.[1] ?? null
+  // hint 只供人读(含路径/文案,会抖),身份仍用稳定的 blocker 类别去重 ⇒ 不会寄信风暴(§5e-3)。
+  const blockerHint = /hint=(\S+)/.exec(line)?.[1] ?? null
   const out = {
     ran: true,
     ok: true,
@@ -12035,18 +12037,23 @@ export function sweepCrossEndLandingLeg(opts = {}) {
     held: num('held'),
     blocked,
     blocker,
+    blockerHint,
   }
   if (blocked > 0) {
     logger(
-      `❌ 跨端落库:本轮挑中 ${blocked} 枚但一枚未入库,拦路者=${blocker ?? 'unidentified'} ⇒ ` +
-        `账本申报仍在盘上,下一轮仍会重来(不是"没有待收").${line.slice(0, 200)}`,
+      `❌ 跨端落库:本轮挑中 ${blocked} 枚但一枚未入库,拦路者=${blocker ?? 'unidentified'}${
+        blockerHint ? ` 摘要=${blockerHint}` : ''
+      } ⇒ 账本申报仍在盘上,下一轮仍会重来(不是"没有待收").${line.slice(0, 200)}`,
     )
     try {
       notify(
         `跨端收编被拦:拦路者 ${blocker ?? 'unidentified'}`,
         `COLLECT-RESULT 现读:${line.slice(0, 300)}\n\n` +
           '这不是"没有待收编",是整批被一道与跨端无关的门拦死(它判的是索引/工作树全局面 ⇒ 全仓提交都被堵)。' +
-          '整改下一步:按上面点名的门修它自己的红(或等它红被消除),不要给收编器加跳门旗。',
+          '整改下一步:按上面点名的门修它自己的红(或等它红被消除),不要给收编器加跳门旗。' +
+          (blocker === 'unidentified' && blockerHint
+            ? `\n\n拦路者未归类,摘要已附 —— 先看 hint 再决定归到哪一族。`
+            : ''),
         { severity: 'warning', dedupKey: `cross-end-collect-blocked:${blocker ?? 'unidentified'}` },
       )
     } catch {

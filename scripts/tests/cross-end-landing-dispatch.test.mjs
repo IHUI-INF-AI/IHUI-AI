@@ -113,7 +113,7 @@ test('T2b 被门整批拦下(collected=0 ∧ blocked>0)⇒ 必须出声并到人
     logger,
     notify: (title, detail, opts) => mails.push({ title, dedup: opts?.dedupKey }),
     runner: runnerOf(
-      collectLine({ held: 451, blocked: 35, blocker: 'check-capability-matrix' }),
+      collectLine({ held: 451, blocked: 35, blocker: 'check-capability-matrix', hint: '复活检测命中_87_枚暂存件' }),
     ),
   })
   assert.equal(r.blocked, 35)
@@ -125,6 +125,9 @@ test('T2b 被门整批拦下(collected=0 ∧ blocked>0)⇒ 必须出声并到人
   )
   assert.equal(mails.length, 1, '被拦要到人(不是只写一行日志)')
   assert.equal(mails[0].dedup, 'cross-end-collect-blocked:check-capability-matrix')
+  // hint 只进正文,绝不进身份:身份里塞会抖的摘要 ⇒ 每轮一封邮件(§5e-3 量与拦必须同批)
+  assert.ok(logs.some((l) => /摘要=复活检测命中_87_枚暂存件/.test(l)), '摘要要给人看得见')
+  assert.ok(!mails[0].dedup.includes('复活检测'), '去重身份必须只用稳定类别')
   // 反向对照:同一行去掉 blocked ⇒ 回到 T2 的静默形态(证明这条响是由 blocked 触发的,不是恒响)
   const q = logsOf()
   const r2 = sweepCrossEndLandingLeg({ ...fixture(), logger: q.logger, runner: runnerOf(collectLine({ held: 451 })) })

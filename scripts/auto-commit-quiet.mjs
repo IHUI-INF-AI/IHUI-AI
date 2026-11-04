@@ -787,7 +787,10 @@ export function ledgerConclusionLine(r) {
     `dry=${r.dry ? 'true' : 'false'}`,
   ]
   if (r.reason) parts.push(`reason=${r.reason}`)
+  // 身份位 blocker 必须是稳定类别(§5e-3 寄信去重按它);认不出精确门名时,摘要走 hint
+  // —— 摘要含路径/文案,进身份会造成寄信风暴,所以只作附列供人读。
   if (r.blocker) parts.push(`blocker=${r.blocker}`)
+  if (r.hint) parts.push(`hint=${r.hint}`)
   return parts.join(' ')
 }
 
@@ -833,6 +836,7 @@ function baseConclusion(over = {}) {
     held: 0,
     blocked: 0,
     blocker: null,
+    hint: null,
     dry: DRY,
     reason: null,
     ...over,
@@ -957,6 +961,7 @@ export function runLedgerFamily(opts = {}) {
     whitelistReasons = [],
     whitelistBlocked = 0,
     whitelistBlocker = null,
+    whitelistHint = null,
     commit = commitBatch,
     logLine = log,
     busyCheck = guardBusy,
@@ -979,6 +984,7 @@ export function runLedgerFamily(opts = {}) {
     // 语义是归属未明/活文档让路,与"门把整批拦死"是两回事,合并就读不回成因)。
     blocked: whitelistBlocked,
     blocker: whitelistBlocker,
+    hint: whitelistHint,
   }
   // 轮级结论行的 reason = 白名单族形态码 + 本族形态码(无空格 '+' 连接;取不到任何
   // 让路形态 ⇒ null,行内不写 reason 键,与既有形态同形)。held 同样两族合计。
@@ -1107,6 +1113,7 @@ export function runLedgerFamily(opts = {}) {
   let landed = 0
   let blocked = 0
   let blocker = null
+  let hint = null
   for (const [list, tag] of [
     [i18n, 'i18n'],
     [rest, 'rest'],
@@ -1119,11 +1126,12 @@ export function runLedgerFamily(opts = {}) {
     if (tried - done > 0) {
       blocked += tried - done
       blocker ??= r.blocker ?? 'unidentified'
+      hint ??= r.hint ?? null
     }
   }
   if (blocked)
     logLine(
-      `⛔ 账本族本轮被拦 ${blocked} 枚(拦路者=${blocker})⇒ 这些枚仍在盘上未入库,下一轮仍会重来`,
+      `⛔ 账本族本轮被拦 ${blocked} 枚(拦路者=${blocker}${hint ? ` 摘要=${hint}` : ''})⇒ 这些枚仍在盘上未入库,下一轮仍会重来`,
     )
   logLine(`账本族已交 safe-commit:${landed} 枚(推送交 post-commit 的 git-push-guard,本器不带 push 腿)`)
   return withCounts({
@@ -1132,6 +1140,7 @@ export function runLedgerFamily(opts = {}) {
     held,
     blocked: whitelistBlocked + blocked,
     blocker: whitelistBlocker ?? blocker,
+    hint: whitelistHint ?? hint,
   })
 }
 
@@ -1150,7 +1159,7 @@ function main() {
     return emitConclusion(baseConclusion({ ledger: 'unjudged', reason: classifyBusy(busy) }))
   }
 
-  const tally = { collected: 0, paths: new Set(), held: 0, reasons: [], blocked: 0, blocker: null }
+  const tally = { collected: 0, paths: new Set(), held: 0, reasons: [], blocked: 0, blocker: null, hint: null }
   try {
     runWhitelistFamily(tally)
   } finally {
@@ -1161,12 +1170,13 @@ function main() {
       whitelistReasons: [...tally.reasons],
       whitelistBlocked: tally.blocked,
       whitelistBlocker: tally.blocker,
+      whitelistHint: tally.hint,
     })
   }
 }
 
 /** 白名单族(既有收编链,判据与顺序一字未改;只是从 main 拆出来,并向下族交回本轮计数)。 */
-function runWhitelistFamily(tally = { collected: 0, paths: new Set(), held: 0, reasons: [], blocked: 0, blocker: null }) {
+function runWhitelistFamily(tally = { collected: 0, paths: new Set(), held: 0, reasons: [], blocked: 0, blocker: null, hint: null }) {
   const rawChanges = listChanges().filter((c) => !isExcluded(c.path))
   // 路径白名单(2026-11-02,fail-safe):白名单外的改动一律不收编,只记日志留给人清;
   // 无法判定归属的路径同样落进 held —— 宁可悬挂,也不再替别的席位提交业务代码/测试。
@@ -1404,6 +1414,7 @@ function runWhitelistFamily(tally = { collected: 0, paths: new Set(), held: 0, r
   let wlLanded = 0
   let wlBlocked = 0
   let wlBlocker = null
+  let wlHint = null
   for (const [list, msg] of [
     [i18nPaths, msgs.i18n],
     [restPaths, msgs.rest],
@@ -1416,13 +1427,15 @@ function runWhitelistFamily(tally = { collected: 0, paths: new Set(), held: 0, r
     if (tried - done > 0) {
       wlBlocked += tried - done
       wlBlocker ??= r.blocker ?? 'unidentified'
+      wlHint ??= r.hint ?? null
     }
   }
   if (wlBlocked)
-    log(`⛔ 白名单族本轮被拦 ${wlBlocked} 枚(拦路者=${wlBlocker})⇒ 仍在盘上,下一轮仍会重来`)
+    log(`⛔ 白名单族本轮被拦 ${wlBlocked} 枚(拦路者=${wlBlocker}${wlHint ? ` 摘要=${wlHint}` : ''})⇒ 仍在盘上,下一轮仍会重来`)
   tally.collected = wlLanded
   tally.blocked = wlBlocked
   tally.blocker = wlBlocker
+  tally.hint = wlHint
 }
 
 /**
@@ -1439,7 +1452,29 @@ export function blockerFromOutput(text) {
   }
   const c = /^❌\s*(check-[a-z0-9-]+)/m.exec(s)
   if (c) return c[1]
+  // 以下三类都是 safe-commit **本身**的整轮拒(不是某道门判红),现读都真实发生过:
+  // 复活暂存件回流被拦(本仓另一席的删除意图被带回)、声明集不符、并发锁耗尽。
+  if (/中止 commit[^\n]*回流/.test(s)) return 'resurrected-deletion-refusal'
+  if (/heal-worktree-tracked|revoke-deletion|intentional-file-deletions/.test(s)) return 'resurrected-deletion-refusal'
+  if (/声明集|本任务文件|pathspec 只提交/.test(s)) return 'safe-commit-scope-refusal'
+  if (/并发锁|锁争用|index\.lock/.test(s)) return 'safe-commit-lock-exhausted'
   return 'unidentified'
+}
+
+/**
+ * 认不出精确门名时给一行**可归因摘要**(§5e-1:红了要能给出下一步,不能只说 unidentified)。
+ * 只进日志/邮件正文,不进 `blocker` 身份位 —— 身份里塞会抖动的路径/计数会造成寄信风暴(§5e-3)。
+ */
+export function blockerHint(text) {
+  const lines = String(text ?? '')
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean)
+  const bad =
+    [...lines].reverse().find((l) => l.startsWith('❌')) ??
+    lines.find((l) => /error|失败|拒|中止/.test(l)) ??
+    ''
+  return bad.replace(/["`$\\]/g, '').slice(0, 90).replace(/\s+/g, '_')
 }
 
 /**
@@ -1471,11 +1506,11 @@ function commitBatch(paths, message, root = ROOT) {
       },
     )
     log(`✅ safe-commit 成功(${message})\n${String(out).trim().split('\n').slice(-4).join('\n')}`)
-    return { attempted, landed: attempted, blocker: null }
+    return { attempted, landed: attempted, blocker: null, hint: null }
   } catch (e) {
     const body = String(e.stdout || e.message)
     log(`❌ safe-commit 失败(下一轮再试):${body.trim().split('\n').slice(-6).join('\n')}`)
-    return { attempted, landed: 0, blocker: blockerFromOutput(body) }
+    return { attempted, landed: 0, blocker: blockerFromOutput(body), hint: blockerHint(body) }
   }
 }
 
@@ -1505,6 +1540,7 @@ if (isDirectRun) {
 export const __test__ = {
   isExcluded,
   blockerFromOutput,
+  blockerHint,
   isCollectible,
   partitionCollectible,
   COLLECT_WHITELIST,

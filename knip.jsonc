@@ -813,6 +813,16 @@
     },
     "packages/app": {
       "project": ["src/**/*.{ts,tsx}"],
+      // 2026-11-05:src/components/NavBar.tsx 产品侧零 import,但它是跨端拓扑判据的**读取靶子**:
+      // packages/shared/src/ui/__tests__/navbar-wiring.test.ts:997 以 readFileSync 读该文件,
+      // 断言「骨架只经共享 core、恰好两条腿、packages/app 的 DOM 副本不是腿」。
+      // 删文件会让该断言 ENOENT 直接红 —— 实测:本仓 2026-11-05 的首笔误删使 CI gate-test
+      // shard 4 报 `ENOENT ... packages/app/src/components/NavBar.tsx` 而整条 required check 红。
+      // knip 只沿静态 import 图走,结构上看不见 fs 读取 ⇒ 与 miniapp-taro 的 Avatar/Tooltip、
+      // apps/web 的 py-line-count 完全同族,属误报而非死代码。故保留文件 + 在此登记。
+      // 边界:本行只免「未引用文件」这一维;该文件若真有未用导出,exports 判据仍照常红。
+      // 到期复核:若 navbar-wiring 改为运行时组件断言(不再读源码),删本条。
+      "ignore": ["src/components/NavBar.tsx"],
       // lucide-react 与 lucide-react-native 双包并存:NavBar/PayButton 等同构组件在 web/RNW 侧
       // import lucide-react(真 SVG),native 侧用 -native;这些组件随 TabBar 液态玻璃接入(068af74ddf)、
       // 尚未挂到静态可达入口,knip 因而把真依赖误报为未用。
