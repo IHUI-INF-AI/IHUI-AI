@@ -83,17 +83,113 @@ test('P9 变异档:在前面插 7 行注释后,dark 集必须一模一样(证明
   assert.equal(b.state, a.state)
 })
 
-test('P8 现读 HEAD 的 git-guardian:这格是真的,且迁移一条计数就减一', () => {
+test('P8 现读 git-guardian:已迁移的腿不得再被判黑(回归锁,不钉会变的计数)', () => {
   const head = execSync('git show HEAD:scripts/git-guardian.mjs', { maxBuffer: 1 << 26, stdio: ['ignore', 'pipe', 'pipe'] }).toString()
   const r = cp.judgeCarrierParity({ source: head })
-  assert.equal(r.state, 'drift', `现读应为 drift,实为 ${r.state}:${r.why}`)
-  assert.ok(r.darkCount >= 10, `只在 main 里的腿应被量出来,现读 ${r.darkCount}`)
-  // 部署自学族是 A8 独立量到 dark 的那三条 ⇒ 这里必须同时出现在承载面缺口里
-  for (const n of ['dispatchDeployFeedback', 'dispatchDeployOutcomeIntake', 'dispatchE2eAutofill']) {
-    assert.ok(r.dark.includes(n), `${n} 应在黑腿清单里(两把尺子必须互证)`)
+  assert.notEqual(r.state, 'unjudged', `本维必须判得出,实为 unjudged:${r.why}`)
+  // 2026-11-04 承载面补齐那枚搬进 daemon tick 的,逐条抽查:搬了就不许再算黑腿
+  for (const n of [
+    'dispatchDeployFeedback',
+    'dispatchDeployOutcomeIntake',
+    'dispatchE2eAutofill',
+    'sweepStaleClosedRows',
+    'sweepExposedCredentialRotation',
+    'healCrossEndMirror',
+    'auditLandedReverts',
+  ]) {
+    assert.ok(!r.dark.includes(n), `${n} 已挂常驻面,不得再被判黑腿`)
   }
-  // 反向对照:常驻面确实在跑的腿不得被误列
-  assert.ok(!r.dark.includes('dispatchRelayCapacity'), 'relay-capacity 在 daemon tick 里跑,不得算黑腿')
-  assert.ok(!r.dark.includes('auditOpsPatrol'), 'auditOpsPatrol 在 daemon tick 里跑,不得算黑腿')
+  // 反向对照:原本就在常驻面上的也不得被误列
+  assert.ok(!r.dark.includes('dispatchRelayCapacity'), 'relay-capacity 一直在 daemon tick 里')
+  assert.ok(!r.dark.includes('auditOpsPatrol'), 'auditOpsPatrol 一直在 daemon tick 里')
+  // 残余是"待逐条裁决"的债,必须是小额且可数的;不许回到几十条(那说明有人新挂了个只走 main 的腿)
+  assert.ok(r.darkCount <= 10, `残余黑腿应是个位数量级,现读 ${r.darkCount}:${r.dark.join(', ')}`)
 })
+
+test('P10 腿与助手的区分按定义签名,不按调用点写法(摘掉即漏计/误计)', () => {
+  const F = cp.isLegDefinition
+  const L = (n) => `sweep${n}` // 用合前缀的名字单测签名判定,名字维由 P12 单独管
+  // 腿:无形参 或 形参全带默认值 ⇒ 可以在调度位上裸调
+  assert.ok(F(`function ${L('A')}() {`), '无参 = 腿')
+  assert.ok(F(`export function ${L('B')}(opts = {}) {`), 'opts={} = 腿')
+  assert.ok(F(`function ${L('C')}({ logger = log } = {}) {`), '解构+整参带默认 = 腿(深度 0 的 = 才算)')
+  assert.ok(F(`function ${L('D')}(...args) {`), 'rest 形参天然可省 = 腿')
+  // 助手:必需的解构形参(调用方必须交值)⇒ 不是调度点
+  assert.ok(!F(`function ${L('E')}({ title, desp, severity, dryRun = false }) {`), '必需解构形参 = 助手')
+  assert.ok(!F(`function ${L('F')}(a, b) {`), '必需形参 = 助手')
+  // 名字不匹配腿前缀 ⇒ 不判为"前缀腿"(但可能是 unclassified,见 P12)
+  assert.ok(!F('function helperA(opts = {}) {'), '非腿前缀不进 legs 集')
+  assert.ok(!F('function broken(opts {'), '签名括号不配平 ⇒ 不认')
+})
+
+test('P12 不合腿名前缀但是真腿的,必须走 unclassified 点名(假绿最贵)', () => {
+  const src = [
+    'async function main() {',
+    '  devenvMigratePatrol({ logger: log })',
+    '  auditResident(opts)',
+    '}',
+    'function startDaemon() {',
+    '  auditResident(opts)',
+    '}',
+    'function auditResident(opts = {}) {}',
+    'function devenvMigratePatrol({ logger = log } = {}) {}',
+  ].join('\n')
+  const r = cp.judgeCarrierParity({ source: src })
+  assert.deepEqual(r.unclassifiedDark, ['devenvMigratePatrol'], '名字不合规的真腿只挂 main ⇒ 必须被点名')
+  assert.ok(r.dark.includes('~devenvMigratePatrol'), 'dark 集里要带 ~ 前缀显式区分"未归类"')
+  assert.equal(r.state, 'drift')
+  // 反向成对:两面都挂 ⇒ 不许进 unclassifiedDark
+  const both = [
+    'async function main() {',
+    '  devenvMigratePatrol({ logger: log })',
+    '  auditResident(opts)',
+    '}',
+    'function startDaemon() {',
+    '  auditResident(opts)',
+    '  devenvMigratePatrol({ logger: log })',
+    '}',
+    'function auditResident(opts = {}) {}',
+    'function devenvMigratePatrol({ logger = log } = {}) {}',
+  ].join('\n')
+  const r2 = cp.judgeCarrierParity({ source: both })
+  assert.deepEqual(r2.unclassifiedDark, [], '两面都有 ⇒ 不该被列')
+  // 谓词位/取值位的调用不算排班(否则 if(!taskActionOk(c)) 这类会淹掉真信号)
+  const predicate = [
+    'async function main() {',
+    '  if (!taskActionOk(c)) return 1',
+    '  const s = statusFormatter(x)',
+    '  auditResident(opts)',
+    '}',
+    'function startDaemon() {',
+    '  auditResident(opts)',
+    '}',
+    'function auditResident(opts = {}) {}',
+    'function taskActionOk(c = 1) { return true }',
+    'function statusFormatter(x = 1) { return x }',
+  ].join('\n')
+  const r3 = cp.judgeCarrierParity({ source: predicate })
+  assert.deepEqual(r3.unclassifiedDark, [], '谓词位/赋值位的调用不得被当成腿')
+})
+
+test('P11 定义不在本文件的腿必须照算(宁可多报,绝不把真腿洗成不计)', () => {
+  // dispatchFromElsewhere 在本文件里没有定义 ⇒ 取不到签名,必须仍按腿算
+  const src = [
+    'async function main() {',
+    '  dispatchFromElsewhere()',
+    '  sweepLocal(opts)',
+    '  auditResident(opts = {})',
+    '}',
+    'function startDaemon() {',
+    '  auditResident(opts)',
+    '}',
+    'function auditResident(opts = {}) {}', // 整参带默认 ⇒ 是腿,且两面都调 ⇒ 不该进 dark
+    'function sweepLocal(a, b) {}', // 必需形参 ⇒ 判为助手
+  ].join('\n')
+  const r = cp.judgeCarrierParity({ source: src })
+  assert.equal(r.state, 'drift', r.why)
+  assert.ok(r.dark.includes('dispatchFromElsewhere'), '定义不在本文件 ⇒ 必须保守当腿')
+  assert.ok(!r.dark.includes('sweepLocal'), '本文件定义且形参必需 ⇒ 判为助手')
+  assert.ok(!r.dark.includes('auditResident'), '两面都调的真腿不得被列')
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
