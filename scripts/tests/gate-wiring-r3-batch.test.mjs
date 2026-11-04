@@ -95,6 +95,7 @@ const tracked = spawnSync(GIT, ['-c', 'safe.directory=*', 'ls-files'], {
   cwd: ROOT,
   encoding: 'utf8',
   windowsHide: true,
+  stdio: ['ignore', 'pipe', 'pipe'],
 })
   .stdout.split(/\r?\n/)
   .map((s) => s.trim())
