@@ -7196,7 +7196,17 @@
     "bundleOta": "핫 업데이트",
     "readyBody": "업데이트 다운로드가 완료되었습니다. 「업데이트」를 누르면 바로 적용됩니다.",
     "installingHint": "앱이 자동으로 다시 시작되며 보통 몇 초면 됩니다.",
-    "restartNow": "지금 다시 시작"
+    "restartNow": "지금 다시 시작",
+    "apkTitle": "새 버전 {{version}} 사용 가능",
+    "apkBody": "현재 {{current}} → 최신 {{latest}}",
+    "apkAction": "다운로드 및 설치",
+    "apkActionBrowser": "다운로드로 이동",
+    "apkDownloading": "설치 파일 다운로드 중 {{progress}}%",
+    "apkEta": "약 {{eta}} 남음",
+    "apkInstalling": "설치 프로그램을 여는 중…",
+    "apkBrowserOpening": "브라우저로 넘겼습니다. 안내에 따라 설치하세요",
+    "apkCancel": "취소",
+    "apkHint": "설치 파일이 크므로 Wi-Fi 사용을 권장합니다"
   },
   "cloudRuns": {
     "title": "클라우드 에이전트 실행",
