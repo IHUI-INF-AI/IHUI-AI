@@ -120,6 +120,36 @@
       "path": "apps/web/app/(main)/plugins/plugins-data/types.ts",
       "reason": "死副本:与 packages/shared/src/plugins-data/types.ts 逐字节相同(同一 blob);判死枚 3570d3d29cf51b3bf43f4f376f236a0fb5a5c8cb、718f74180db9ce7f979cb1cd1819abf23bf00e1d、f2402b15035871544ee25cee9a67c7c77ba22970,又被 9fdbc207ba2ea5536812f8b965d7a9218bb28785 收编通道原样带回;全仓零本地导入。",
       "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/check-grafana-metric-exists.mjs",
+      "reason": "grafana-* 旧族(8 枚)之指标名门:a7ced7411c 以 R79 把它改名为 check-panel-metric-exists.mjs(改名契约),0932d2e0af 的『文件面零丢失 union』又原样 A 回,于是新旧两套并存。现读实测旧件指向的三棵 <root>/grafana/dashboards 树已全部退役(3778408c 删 38 枚),跑它只得 exit 2『枚举到 0 个大屏』;新件是旧件的严格超集(+106/−22 全部是路径/台账/跳过变量换名,另加改名连续性折身份),旧件零独有判据。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/tests/check-grafana-metric-exists.test.mjs",
+      "reason": "上一条那份门体的镜像测试,与本体同批退役(a7ced7411c 改名成 check-panel-metric-exists.test.mjs,0932d2e0af 原样带回)。新件是旧件的严格超集(+2/−2 只有 import/门体路径换名),本体既去则旧测试只剩自指,留着就是给下一枚 union 合并当复活锚点。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/verify-grafana-logql-panels.mjs",
+      "reason": "grafana-* 旧族之 LogQL 巡检器:a7ced7411c 改名为 verify-panel-logql.mjs,0932d2e0af 原样带回。现读 diff 仅 +8/−8,全部是文件名/注释措辞与 `monitoring/grafana/dashboards` → `monitoring/panel-defs/panels` 的取材面换址;旧件指向的目录已退役,零独有逻辑。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/verify-grafana-panel-data.mjs",
+      "reason": "grafana-* 旧族之面板取数巡检器:a7ced7411c 改名为 verify-panel-data.mjs,0932d2e0af 原样带回。现读 diff 仅 +14/−14,全部是文件名/措辞与取材目录换址;新件 import 的是 check-panel-* 两份判据(单一真相源),旧件指向的平稳监控树已退役,零独有逻辑。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/data/grafana-external-metrics.json",
+      "reason": "grafana-* 旧族之外部导出器台账:a7ced7411c 改名为 scripts/data/panel-external-metrics.json,0932d2e0af 原样带回。旧件唯一多出的 `grafana_` 前缀条目已被新件按清单腐烂判据(§0.7)删除 —— 现读审面零面板引用该前缀,不是新件缺失逻辑;唯一消费者 check-metric-existence.mjs 的路径已同笔改指新台账。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/tests/check-grafana-datasource-wiring.test.mjs",
+      "reason": "grafana-* 旧族之接线门镜像测试:a7ced7411c 改名为 check-panel-datasource-wiring.test.mjs,0932d2e0af 原样带回。新件是旧件的严格超集(+36/−5:覆盖锁换址、saas 树换址,并新增 D13 退役锁),旧件零独有夹具。",
+      "reviewBy": "2027-06-30"
     }
   ]
 }
