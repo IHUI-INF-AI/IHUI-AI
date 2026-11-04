@@ -47,8 +47,11 @@
  *   ① 初装存量必然非零(②③当前就有货),升 blocking 的前置是存量归零 ⇒ 本尺永不 blocking;
  *   ② 它判的是**跨端十张表的漂移**——单个提交者改一端一行登记,结构上满足不了"十面同时对齐",
  *      挂提交链即恒红门;⇒ 刻意不进提交链,当前为人工档直跑(runner 现读未登记本尺)。
- *   接线现状:**未接任何调度器**(本头注不自称已接线,门 89 R1/R2 安全);候选挂点 =
- *   scripts/git-guardian.mjs 巡检轮(只写日志/台账,clean 即零喊人)。
+ *   接线现状(2026-11-04 起):唯一调度器 = `scripts/git-guardian.mjs` 的 `sweepFormatParity()`
+ *   (两处执行体同挂:main() 健康轮次与 daemon tick,共用一枚节流戳,先到者真跑;30 分钟节流、
+ *   ok/drift 只写日志不寄信 —— 补白名单/摘虚假承诺/出具名豁免都是 agent 当场能做的活,按 §5e-2
+ *   不推回机主;未判定走稳定身份,连满 6 小时才到人)。人工档仍在(本头注不自称进提交链)。
+ *   镜像:`scripts/tests/git-guardian-format-parity-sweep.test.mjs`(调度腿 8 例)。
  *
  * 取材面(§0.4):默认判 **HEAD blob**(`git show HEAD:<path>`);`--worktree` 仅人工逃生舱;
  *   本尺无索引档 —— `--staged` 当场 exit 2 点名"未接提交链、不回落另一个面"。
