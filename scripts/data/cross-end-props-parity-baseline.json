@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-04T06:20:40.346Z",
+  "generatedAt": "2026-11-04T06:35:05.876Z",
   "face": "head",
   "rule": "差值棘轮:在册集合只减不增;新键/新对未入账=红;undetermined=warn 点名(有效 not-applicable 裁决除外)。已能量出的整对不适用亦按 pair-level 裁决剔除存量。存差=未实现+未映射+未裁决,逐键 judged 台账仅移出存差、不入映射、逐条留审(owner/expires/evidence≥2/rationale),坏裁决/过期/一键两归/失效裁决=红且拒写。升绝对零前置=存差归零。",
   "pairs": {
@@ -27,7 +27,7 @@
     },
     "BottomActionBar": {
       "state": "ok",
-      "onlyRn": [],
+      "onlyRn": ["onSourceHandle"],
       "onlyMini": [
         "iconButtons",
         "inputAreaProps",
@@ -71,7 +71,7 @@
           "kind": "content"
         }
       ],
-      "driftTotal": 8
+      "driftTotal": 9
     },
     "Carousel": {
       "state": "ok",
@@ -345,7 +345,7 @@
     "notApplicable": 2,
     "maxKeyDrift": 0,
     "driftKeysTotal": 0,
-    "judgedKeysTotal": 45,
+    "judgedKeysTotal": 46,
     "rawDriftKeysTotal": 0,
     "adjudicatedDriftKeys": 7,
     "mappedKeysTotal": 49,
