@@ -86,8 +86,7 @@ export const STALE_AGE_MS = 24 * 60 * 60 * 1000
  * 让 git 把 COMMIT_EDITMSG 写进本席目录,别人够不到。
  */
 export const PRIVATE_GITDIR_SUFFIX = '.gitdir'
-const INDEX_NAME_RE =
-  /^(\d+)-(\d+)-([0-9a-f]{8})(\.idx(\.lock|\.snap|\.derived\.json)?|\.gitdir)$/
+const INDEX_NAME_RE = /^(\d+)-(\d+)-([0-9a-f]{8})(\.idx(\.lock|\.snap|\.derived\.json)?|\.gitdir)$/
 const LOCK_BUSY_RE = /cannot lock ref|Unable to create|index\.lock|Another git process/i
 const FORBIDDEN_COMMIT_ARGS = [
   '--no-verify',
@@ -510,7 +509,9 @@ export function extractCommitMessage(commitOpts, { baseCwd = process.cwd(), gitD
     const abs = resolve(baseCwd, file)
     // 硬线:任何站点都不许把共享 `.git/COMMIT_EDITMSG` 当成消息源(并发下它就是别人的消息)。
     if (gitDir && abs === resolve(gitDir, 'COMMIT_EDITMSG')) {
-      throw new Error('禁止复用共享 .git/COMMIT_EDITMSG 作为提交消息源:请改用 -m 或本席私有临时文件')
+      throw new Error(
+        '禁止复用共享 .git/COMMIT_EDITMSG 作为提交消息源:请改用 -m 或本席私有临时文件',
+      )
     }
     text = readFileSync(abs, 'utf8')
   } else {
@@ -624,11 +625,54 @@ export function commitWithIndex({ gitCwd, env, gitDir, commitOpts, paths, log = 
     const privateCommit = preparePrivateCommitContext({ gitCwd, gitDir, indexFile, commitOpts })
     let res
     try {
-      res = rawGit(['commit', ...privateCommit.commitOpts], {
-        gitCwd,
-        env: { ...hookedEnv, ...privateCommit.env },
-        allowFail: true,
-      })
+      // 受保护面申报预检(2026-11-05 立):同一份判据(`check-immutable-guard --staged --message-file`),
+      // 只是从 `.husky/commit-msg` 那一层挪到**做决定的这一层**。立因不是设计错了,是可见性错了:
+      // 当次实测 03:54:33 那道预警**确实响了并点名了缺什么**,但 `hook-run-hidden.vbs …  || true`
+      // 让它的 rc 被吞,输出只以"末 8 行"回流,而调用方(我本人)截尾读了 `tail -6` ⇒ 带着
+      // `code=undeclared` 的提交照样落地,事后只能由持钥方追认(而本机没有追认钥 ⇒ 无人能清)。
+      // 失效方向刻意是"多要一次定向说明":rc=1(未申报)与 rc=2(未判定)都在提交前拒,rc=0 静默放行。
+      const msgIdx = privateCommit.commitOpts.indexOf('-F')
+      const msgFile = msgIdx >= 0 ? privateCommit.commitOpts[msgIdx + 1] : null
+      let denial = null
+      if (msgFile) {
+        const g = spawnSync(
+          process.execPath,
+          [
+            join(ROOT, 'scripts', 'check-immutable-guard.mjs'),
+            '--staged',
+            '--message-file',
+            msgFile,
+          ],
+          {
+            cwd: gitCwd,
+            windowsHide: true,
+            stdio: ['ignore', 'pipe', 'pipe'],
+            encoding: 'utf8',
+            maxBuffer: 32 * 1024 * 1024,
+            timeout: 300_000,
+            env: { ...hookedEnv, ...privateCommit.env },
+          },
+        )
+        const gOut = `${String(g.stdout ?? '')}${String(g.stderr ?? '')}`
+        if (g.status === 1 || g.status === 2) {
+          denial = {
+            status: 1,
+            stdout: '',
+            stderr:
+              `受保护面申报预检不过(判据 = check-immutable-guard,与 commit-msg 同一份;rc=${g.status})⇒ 本枚不提交\n` +
+              gOut.trimEnd() +
+              '\n出路:在提交信息里补一行 `immutable-exempt: <≥10 字理由>`(需要签名时先 `--sign-staged` 再原样带上),' +
+              'rc=2 则先修清单/索引面取不到的那一项 —— 不许用跳门变量绕过。',
+          }
+        }
+      }
+      res =
+        denial ??
+        rawGit(['commit', ...privateCommit.commitOpts], {
+          gitCwd,
+          env: { ...hookedEnv, ...privateCommit.env },
+          allowFail: true,
+        })
     } finally {
       privateCommit.dispose()
     }
@@ -819,7 +863,17 @@ export function advanceSharedIndexPaths({
     writeFileSync(staging, readFileSync(sharedIndex))
     const tree = String(
       rawGit(
-        ['-c', 'core.quotepath=false', 'ls-tree', '-r', '-z', '--full-tree', committedSha, '--', ...declared],
+        [
+          '-c',
+          'core.quotepath=false',
+          'ls-tree',
+          '-r',
+          '-z',
+          '--full-tree',
+          committedSha,
+          '--',
+          ...declared,
+        ],
         { gitCwd, env: cleanGitEnv() },
       ).stdout || '',
     )
@@ -1098,7 +1152,7 @@ export async function main(argv = process.argv.slice(2)) {
       }
       return 0
     }
-    return typeof outcome === 'number' ? outcome : outcome?.code ?? 2
+    return typeof outcome === 'number' ? outcome : (outcome?.code ?? 2)
   } catch (e) {
     console.error(`❌ ${e?.message ?? e}`)
     return 2
