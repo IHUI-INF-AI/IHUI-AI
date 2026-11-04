@@ -23,6 +23,7 @@ const {
 const { sanitizeGitEnv } = require('./hook-git-env.js')
 const indexContext = require('./index-context.js')
 const derivedArtifacts = require('./derived-artifacts.js')
+const indexPinGuard = require('./index-pin-guard.js')
 
 /**
  * ⛔ 被 require()/import() 时必须**立即返回**,不得执行下面任何一步(§22d 的 CJS 对应形态:
@@ -82,6 +83,30 @@ const SHARED_VIEW_PATHS = (() => {
   }
 })()
 const SHARED_VIEW_BEFORE = indexContext.captureSharedView(INDEX_CTX, SHARED_VIEW_PATHS)
+
+// ─── 定版索引基线(2026-11-04 立,漏点 A 的第四个出口)──────────────────────────
+// 病灶:调用方用私有索引 `git update-index --cacheinfo` 把某文件钉成**旧版本**(意图撤掉
+// 被夹带进 HEAD 的半成品),而 lint-staged 的「Staging changes from tasks」用 `git add` 把
+// **工作树版本**写回同一个 GIT_INDEX_FILE ⇒ 定版在钩子内部被静默取消,提交反向入库他人增量。
+// 与 `AD`(复活已删件)/`MM`(共享索引挂旧 blob)/`git reset HEAD`(清空共享索引)同根:
+// 钩子没有尊重调用方给出的索引上下文;本例是同一病灶在**私有索引内容**上的出口。
+// 判据:只在调用方自带私有索引时启用;git 自己为 `--only/--amend -- <路径>` 建的
+// `next-index-<pid>.lock` 不保护(那份索引的格式化回写正是 git 的提交面语义)。
+const PIN_SNAPSHOT = (() => {
+  if (INDEX_CTX.mode !== 'private') return null
+  if (indexPinGuard.isGitTempIndex(INDEX_CTX.entry)) return null
+  // 指针若就是共享索引本身(IDE 显式设 GIT_INDEX_FILE=<gitdir>/index),它就是"共享索引提交",
+  // 格式化结果进提交是预期语义 ⇒ 不保护。只有"真的另一份索引"才保护。
+  const norm = (p) => String(p || '').replace(/\\/g, '/').toLowerCase()
+  if (INDEX_CTX.sharedIndex && norm(INDEX_CTX.entry) === norm(INDEX_CTX.sharedIndex)) return null
+  try {
+    return indexPinGuard.capturePinnedIndex({ gitCwd: INDEX_CTX.cwd, env: process.env })
+  } catch (e) {
+    console.error(`❌ 定版索引基线读取失败:${e?.message ?? e}`)
+    console.error('   提交已阻止:无法在钩子开工前留住调用方定版的索引内容,就不能保证它不被回灌。')
+    process.exit(1)
+  }
+})()
 
 // ─── 私有索引内容护栏调用点(2026-11-04 立)──────────────────────────────────
 // 治什么:isolated-git 现有的"查声明集外条目"只看**路径集合**;而 lint-staged 对声明路径
@@ -399,9 +424,36 @@ setupRestoreOnExit(INITIAL_STAGED_SNAPSHOT, {
   skip: process.env.HUSKY_SKIP_STAGING_RESTORE === '1',
 })
 
+// ─── 定版索引退出网(2026-11-04 立)──────────────────────────────────────────
+// 位置:在 staging area 还原之后、`.lock` 回写之前 —— 前者可能按快照重排索引条目,
+// 后者必须读到复原后的内容。runLintStaged 内已做过一次(挡住「Staging changes from tasks」);
+// 这里兜住 lint-staged **之后**的任何腿再次回灌同一批条目。
+if (PIN_SNAPSHOT) {
+  process.on('exit', () => {
+    const pin = indexPinGuard.restorePinnedIndex({
+      gitCwd: INDEX_CTX.cwd,
+      env: process.env,
+      snapshot: PIN_SNAPSHOT,
+    })
+    if (!pin.ok) {
+      try {
+        require('node:fs').writeSync(
+          2,
+          `❌ 定版索引保护失败:${pin.detail}\n   提交已阻止:调用方定版的私有索引内容无法复原。\n`,
+        )
+      } catch {
+        console.error(`❌ 定版索引保护失败:${pin.detail}`)
+      }
+      if (process.exitCode === 0 || process.exitCode === null || process.exitCode === undefined)
+        process.exitCode = 1
+    }
+  })
+}
+
 // ─── 索引上下文收尾(2026-11-04 立)──────────────────────────────────────────
 // 必须**最后注册**:Node 的 'exit' 监听器按注册顺序执行,所以这里的顺序是
-//   ① 私有索引内容护栏(文件顶部,最先注册)→ ② staging area 还原(上一段)→ ③ 这里回写 .lock。
+//   ① 私有索引内容护栏(文件顶部,最先注册)→ ② staging area 还原 → ③ 定版索引退出网
+//   (上一段)→ ④ 这里回写 .lock。
 // 回写只在钩子整体成功时做(失败时父 git 会丢弃自己那份临时索引),随后删掉本次副本。
 process.on('exit', () => {
   try {
@@ -607,6 +659,24 @@ function runLintStaged() {
       console.error(`   改前:${sharedCheck.before.replace(/\n/g, ' | ')}`)
       console.error(`   改后:${sharedCheck.after.replace(/\n/g, ' | ')}`)
       return false
+    }
+    // ③ 定版保护:lint-staged 的 `git add` 把**工作树版本**写回 GIT_INDEX_FILE 指向的索引;
+    //    对调用方用 `--cacheinfo` 钉过的私有索引,这是通用破坏面(路径未变、blob 被换)。
+    //    按开工前的整份索引快照逐条复原(只写索引内容,工作树一个字节不碰),复原后仍不一致
+    //    ⇒ fail-closed —— 绝不把"定版被回灌"当作成功。
+    if (PIN_SNAPSHOT) {
+      const pin = indexPinGuard.restorePinnedIndex({
+        gitCwd: INDEX_CTX.cwd,
+        env: process.env,
+        snapshot: PIN_SNAPSHOT,
+      })
+      if (!pin.ok) {
+        console.error(`❌ 定版索引保护失败:${pin.detail}`)
+        console.error(
+          '   提交已阻止:钩子不得用工作树版本覆盖调用方显式定版的私有索引,且这里复原失败。',
+        )
+        return false
+      }
     }
     if (res.status === 0) return true
     last = res
