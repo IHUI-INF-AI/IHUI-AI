@@ -25880,8 +25880,7 @@
     "empty": "No activities",
     "startTime": "Start time",
     "endTime": "End time",
-    "participants": "Participants",
-    "joinNow": "Join now"
+    "participants": "Participants"
   },
   "agentReviewDetail": {
     "title": "Review details",
@@ -26132,8 +26131,6 @@
     "unverifiedDesc": "Your identity is not yet verified. Please complete the information below.",
     "name": "Full name",
     "namePlaceholder": "Enter your full name",
-    "idNumber": "ID number",
-    "idNumberPlaceholder": "Enter your ID number",
     "submitting": "Submitting…",
     "submit": "Submit"
   },
@@ -26145,7 +26142,6 @@
     "title": "Study progress",
     "courses": "Courses",
     "totalMinutes": "Total study time",
-    "weekMinutes": "This week",
     "streak": "Streak",
     "courseProgress": "Course progress"
   },
@@ -26815,11 +26811,8 @@
   },
   "agentCreate": {
     "title": "Create Agent",
-    "name": "Name",
     "namePlaceholder": "Enter a name",
-    "category": "Category",
     "categoryPlaceholder": "Select a category",
-    "description": "Description",
     "descPlaceholder": "Enter a description",
     "systemPrompt": "System Prompt",
     "promptPlaceholder": "Enter the system prompt",
@@ -26886,7 +26879,6 @@
     "remove": "Remove"
   },
   "certList": {
-    "title": "My Certificates",
     "empty": "No certificates",
     "issuer": "Issuer",
     "issuedAt": "Issued at"
@@ -26938,7 +26930,6 @@
   },
   "courseQAList": {
     "title": "Course Q&A",
-    "ask": "Ask",
     "empty": "No Q&A",
     "asker": "Asker",
     "answers": "Answers"
@@ -27015,7 +27006,6 @@
     "actionEdit": "Edit"
   },
   "notificationSettings": {
-    "title": "Notification Settings",
     "push": "Push notifications",
     "message": "Message alerts",
     "email": "Email notifications",
@@ -27116,9 +27106,7 @@
   "withdraw": {
     "title": "Withdraw",
     "availableBalance": "Withdrawable balance",
-    "amount": "Amount",
     "amountPlaceholder": "Enter the withdrawal amount",
-    "bankCard": "Bank card",
     "bankCardPlaceholder": "Enter the bank card number",
     "submitting": "Withdrawing...",
     "submit": "Confirm withdrawal",
@@ -27513,7 +27501,6 @@
   },
   "team": {
     "retry": "Retry",
-    "title": "My Team",
     "subtitle": "Team Management",
     "totalMembers": "Total Members",
     "activeMembers": "Active Members",

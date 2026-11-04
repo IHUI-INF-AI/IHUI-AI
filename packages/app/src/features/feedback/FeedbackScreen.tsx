@@ -136,7 +136,7 @@ export function FeedbackScreen({
             style={styles.textarea}
           />
 
-          <Text style={styles.label}>{t('feedback.contact')}</Text>
+          <Text style={styles.label}>{t('feedback.field_contact')}</Text>
           <TextField
             colorScheme={colorScheme}
             value={contact}
