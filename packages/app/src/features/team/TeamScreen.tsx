@@ -92,7 +92,7 @@ export function TeamScreen({
   onRetryTree,
   onPressTreeMember,
   onRetry,
-  colorScheme = 'light'
+  colorScheme = 'light',
 }: TeamScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
@@ -136,7 +136,7 @@ export function TeamScreen({
           colorScheme={colorScheme}
           style={styles.backBtn}
         />
-        <Text style={styles.title}>{t('team.title')}</Text>
+        <Text style={styles.title}>{t('distribution.teamTitle')}</Text>
         <Text style={styles.subtitle}>{t('team.subtitle')}</Text>
       </View>
 
