@@ -16,6 +16,8 @@ import { maskComments } from '../lib/code-mask.mjs'
 // 单独起 import 语句而不是改上面既有那行 —— 既有用例的字节面不许被我动了。
 import { createHash } from 'node:crypto'
 import { utimesSync } from 'node:fs'
+// 清偿三分支用例需要判"注销台账有没有被写"(存在性 != 内容,读不出就当没写)
+import { existsSync } from 'node:fs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = resolve(HERE, '..', '..')
@@ -764,6 +766,55 @@ test('TP6 P10 三态与出口:挂账红 / 逐条裁过绿且报名 / 台账坏 J
     assert.equal(loadDebtAcks(join(base, 'no-such.json')).readError, null, '文件不在位应是"零裁决"而非错误')
     writeFileSync(join(base, 'bad.json'), '{', 'utf8')
     assert.match(String(loadDebtAcks(join(base, 'bad.json')).readError), /解析失败|Cannot|JSON/, '坏台账必须带回原因')
+  } finally {
+    rmSync(base, { recursive: true, force: true })
+  }
+})
+
+/**
+ * TP6b(2026-11-04 补):"未送达"不许变成永久欠账,但清偿只能走**条件已恢复 + 通道可用**这一条路。
+ * 三臂成对:只知道"能清偿"那一臂,等于让通道坏 / 条件仍红两臂失去护栏。
+ */
+test('TP6b P10 清偿三分支:条件恢复+通道 ok ⇒ 注销转绿 / 通道坏 ⇒ 通道阻塞仍红 / 条件仍红 ⇒ 不动', () => {
+  const base = mkdtempSync(join(scratchRoot(), 'ops-p10-settle-'))
+  try {
+    const now = Date.parse('2026-10-01T12:00:00.000Z')
+    const repo = join(base, 'repo')
+    const wb = join(repo, '.ihui-agent', 'state')
+    mkdirSync(wb, { recursive: true })
+    const st = join(wb, 'git-guardian-notify-state.json')
+    const settleFile = join(wb, 'undelivered-debt-settlements.json')
+    const FP = 'd'.repeat(40)
+    const TS = now - 6 * 3600_000
+    writeFileSync(st, JSON.stringify({ 备份失败: { fp: FP, ts: TS, delivered: false } }), 'utf8')
+    // 条件注入:生产面走读数件,夹具只造"判据结论"这一维,不连库不启服务。
+    const green = { 备份失败: { state: 'green', basis: '测试:判据已转绿 @ 2026-10-01T11:00:00Z' } }
+    const red = { 备份失败: { state: 'red', basis: '测试:判据仍红' } }
+    // ③ 条件仍红 ⇒ 不清偿,台账与注销台账都不许动
+    const stillRed = checkUndeliveredAlertDebt({ repoRoot: repo, now, apply: true, conditions: red, channelProvenOkAtMs: now })
+    assert.equal(stillRed.state, 'finding', `条件仍红却转绿:${stillRed.detail}`)
+    assert.ok(stillRed.detail.includes('备份失败'), '条件仍红必须照旧点名身份')
+    assert.equal(existsSync(settleFile), false, '条件仍红却写了注销记录')
+    // ② 条件恢复 + 通道坏 ⇒ 保留 delivered:false,记"通道阻塞",P10 仍红
+    const blocked = checkUndeliveredAlertDebt({ repoRoot: repo, now, apply: true, conditions: green, channelProvenOkAtMs: 0 })
+    assert.equal(blocked.state, 'finding', '通道坏时未送达欠账被静默放过')
+    assert.match(blocked.detail, /通道阻塞/, '通道坏必须点名"通道阻塞",不许当已清偿')
+    assert.equal(existsSync(settleFile), false, '通道坏也写了注销记录 = 把通道坏当已送达')
+    assert.equal(JSON.parse(readFileSync(st, 'utf8')).备份失败.delivered, false, '"通道阻塞"时 delivered:false 被改写')
+    // ① 条件恢复 + 通道 ok ⇒ 清偿并转绿;生产者台账原样,审计行带"谁/何时/依据"
+    const settled = checkUndeliveredAlertDebt({ repoRoot: repo, now, apply: true, conditions: green, channelProvenOkAtMs: now })
+    assert.equal(settled.state, 'ok', `条件恢复+通道可用仍未清偿/未转绿:${settled.detail}`)
+    assert.match(settled.detail, /已注销 1 条/, '清偿了却不报名 = 没人能复核')
+    assert.equal(JSON.parse(readFileSync(st, 'utf8')).备份失败.delivered, false, '清偿时删掉了"曾未送达"的痕迹')
+    const rows = JSON.parse(readFileSync(settleFile, 'utf8')).entries
+    assert.equal(rows.length, 1)
+    assert.equal(rows[0].by, 'ops-patrol:P10')
+    assert.match(String(rows[0].basis), /转绿/, '注销审计行必须写明依据哪条判据转绿')
+    assert.equal(rows[0].original.delivered, false, '注销审计行缺原件快照')
+    // 幂等:同一笔复跑不得再写一条(每轮一封新信的老毛病)
+    const again = checkUndeliveredAlertDebt({ repoRoot: repo, now: now + 60_000, apply: true, conditions: green, channelProvenOkAtMs: now + 60_000 })
+    assert.equal(again.state, 'ok', `已注销的账下一轮又回红:${again.detail}`)
+    assert.equal(JSON.parse(readFileSync(settleFile, 'utf8')).entries.length, 1, '同一笔欠账重复写注销记录')
   } finally {
     rmSync(base, { recursive: true, force: true })
   }
