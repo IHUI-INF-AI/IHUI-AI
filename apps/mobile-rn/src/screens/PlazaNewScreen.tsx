@@ -184,7 +184,7 @@ function makeStyles() {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tokens.surface.bg },
     body: { padding: rnSpacing.lg, gap: rnSpacing.xs, paddingBottom: rnSpacing['4xl'] },
-    hint: { fontSize: 13, color: tokens.text.secondary, marginBottom: rnSpacing['xs-loose'] },
+    hint: { fontSize: rnType.bodySm.size, color: tokens.text.secondary, marginBottom: rnSpacing['xs-loose'] },
     label: {
       fontSize: rnType.body.size,
       color: tokens.text.secondary,

@@ -77,7 +77,6 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  TextInput,
   View,
   type ViewStyle,
 } from 'react-native'
@@ -339,7 +338,8 @@ export function LoginPopUp({
                 <View style={styles.pwdBlock}>
                   {pwdOpen ? (
                     <>
-                      <TextInput
+                      <TextField
+                        colorScheme={currentRnTheme()}
                         style={styles.pwdInput}
                         value={account}
                         onChangeText={setAccount}
@@ -347,7 +347,8 @@ export function LoginPopUp({
                         placeholderTextColor={tokens.text.tertiary}
                         autoCapitalize="none"
                       />
-                      <TextInput
+                      <TextField
+                        colorScheme={currentRnTheme()}
                         style={styles.pwdInput}
                         value={password}
                         onChangeText={setPassword}

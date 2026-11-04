@@ -372,7 +372,7 @@ function createStyles() {
       borderColor: tokens.border.light,
       backgroundColor: tokens.surface.muted,
     },
-    chipText: { flex: 1, fontSize: 13, color: tokens.text.primary },
+    chipText: { flex: 1, fontSize: rnType.bodySm.size, color: tokens.text.primary },
     chipStatus: { fontSize: rnType.caption.size, color: tokens.text.secondary },
     backdrop: { flex: 1, backgroundColor: rnCssLight.black45, justifyContent: 'flex-end' },
     // 门 217:sheet 是 bounded 容器 ⇒ 内部唯一弹性块是 body(ScrollView),固定 chrome 显式 flexShrink:0。
@@ -441,7 +441,7 @@ function createStyles() {
     reject: {},
     approve: { backgroundColor: tokens.brand.cta, borderColor: tokens.brand.cta },
     actionDisabled: { opacity: 0.5 },
-    actionText: { fontSize: 13, color: tokens.text.primary },
+    actionText: { fontSize: rnType.bodySm.size, color: tokens.text.primary },
     approveText: { color: tokens.brand.ctaForeground },
   })
 }

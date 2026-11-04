@@ -22,7 +22,7 @@
   flex-shrink: 0;
   display: flex;
   gap: var(--spacing-sm);
-  padding: var(--spacing-sm-loose) 24rpx;
+  padding: var(--spacing-sm-loose) var(--spacing-md);
   background: var(--color-background);
 }
 .refund-tab {
@@ -135,7 +135,7 @@
 /* ===== 预计到账提示 ===== */
 .refund-tip {
   margin-top: var(--spacing-sm);
-  padding: var(--spacing-sm) 20rpx;
+  padding: var(--spacing-sm) var(--spacing-sm-loose);
   background: var(--color-success-tint);
   border: 2rpx solid var(--color-success-tint-strong);
   border-radius: var(--radius-sm);
@@ -152,7 +152,7 @@
   gap: var(--spacing-sm);
 }
 .refund-action-btn {
-  padding: 10rpx 24rpx;
+  padding: 10rpx var(--spacing-md);
   font-size: var(--text-body);
   color: var(--color-muted-foreground);
   background: var(--color-background);

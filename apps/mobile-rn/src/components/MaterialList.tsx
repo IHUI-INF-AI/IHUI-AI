@@ -429,12 +429,12 @@ const styles = StyleSheet.create({
   },
   loadingMore: {
     textAlign: 'center',
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
     color: tokens.text.secondary,
   },
   noMore: {
     textAlign: 'center',
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
     color: tokens.text.tertiary,
   },
 })

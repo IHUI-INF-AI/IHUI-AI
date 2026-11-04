@@ -7260,6 +7260,12 @@
       }
     }
   },
+  "NavBar": {
+    "text1": "데일리 뉴스",
+    "z1": "커뮤니티 가입",
+    "feedback": "피드백",
+    "fenlei": "카테고리"
+  },
   "chatSettingsPage": {
     "model": "모델"
   },

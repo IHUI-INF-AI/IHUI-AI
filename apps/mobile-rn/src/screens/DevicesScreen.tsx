@@ -444,7 +444,7 @@ function makeStyles() {
     cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing['xs-loose'] },
     cardTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tokens.text.primary },
     muted: { fontSize: 13, color: tokens.text.secondary, lineHeight: 19 },
-    error: { fontSize: 13, color: tokens.danger.DEFAULT },
+    error: { fontSize: rnType.bodySm.size, color: tokens.danger.DEFAULT },
     loading: { paddingVertical: rnSpacing.lg },
     centerBox: { alignItems: 'center', gap: rnSpacing.sm, paddingVertical: rnSpacing.lg },
     emptyTitle: { fontSize: rnType.body.size, fontWeight: '600', color: tokens.text.primary },
@@ -513,8 +513,8 @@ function makeStyles() {
       marginTop: rnSpacing['2xs'],
     },
     actionRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.xs },
-    link: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
-    dangerLink: { fontSize: 13, fontWeight: '600', color: tokens.danger.DEFAULT },
+    link: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.text.primary },
+    dangerLink: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.danger.DEFAULT },
     panel: {
       marginTop: rnSpacing.xs,
       padding: rnSpacing['sm-loose'],
@@ -535,7 +535,7 @@ function makeStyles() {
       gap: rnSpacing.sm,
       paddingVertical: rnSpacing['xs-loose'],
     },
-    convTitle: { flex: 1, fontSize: 13, color: tokens.text.primary },
+    convTitle: { flex: 1, fontSize: rnType.bodySm.size, color: tokens.text.primary },
     taskRow: { gap: rnSpacing['2xs'], paddingVertical: rnSpacing['xs-loose'] },
     taskSession: {
       flex: 1,

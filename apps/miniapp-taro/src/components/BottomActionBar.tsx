@@ -433,7 +433,7 @@ export default function BottomActionBar(props: BottomActionBarProps) {
 
   // ===== 默认模式:兼容旧调用 =====
   return (
-    <View className={cn('flex items-center px-3 py-2 bg-card mt-2')}>
+    <View className={cn('flex items-center px-md py-sm bg-card mt-sm')}>
       {/* 附件入口:载体是 lucide `plus`(与 RN 端同名同形)。此前是把 `+` 这个字符当图标(Text 字形),
           与 RN 端的 lucide `Plus` 同名不同载体 —— 这正是"两端图标不一样"的直接成因
           (AGENTS §4:UI 图标一律用矢量图标库)。方块与墨迹与 RN 端同读
@@ -443,11 +443,11 @@ export default function BottomActionBar(props: BottomActionBarProps) {
         boxPx={BOTTOM_ACTION_BAR_CONTROL_BOX_PX}
         glyphPx={BOTTOM_ACTION_BAR_CONTROL_GLYPH_PX}
         glyph="plus"
-        className="flex items-center justify-center mr-2 rounded-sm bg-muted"
+        className="flex items-center justify-center mr-sm rounded-sm bg-muted"
         onActivate={onAttach}
       />
       <FocusInput
-        className="flex-1 px-3 py-2 leading-5 bg-muted rounded-sm"
+        className="flex-1 px-md py-sm leading-5 bg-muted rounded-sm"
         // 正文字号走跨端单一源(与 RN 端同读 BOTTOM_ACTION_BAR_TEXT_FONT_PX = 14);
         // 字号档 `text-sm` 编译出来是 `--text-sm: 28rpx`(rem2rpx),与本档同值,故换出处后零视觉差。
         // 行高仍留 Tailwind:`text-sm` 的 1.42857 × 28rpx = 40rpx,`leading-5`(= --spacing 8rpx × 5)同值。
@@ -471,7 +471,7 @@ export default function BottomActionBar(props: BottomActionBarProps) {
           value && !isLoading ? 'var(--color-cta-foreground)' : 'var(--color-muted-foreground)'
         }
         className={cn(
-          'flex items-center justify-center ml-2 rounded-sm',
+          'flex items-center justify-center ml-sm rounded-sm',
           value && !isLoading ? 'bg-cta text-cta-foreground' : 'bg-muted',
         )}
         disabled={isLoading}
