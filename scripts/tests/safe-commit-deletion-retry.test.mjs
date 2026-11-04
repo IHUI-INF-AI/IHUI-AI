@@ -119,3 +119,53 @@ test('兜底分支真的存在且带方向:retry 失败时走 rm --cached,而不
   )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+// ── 复活闸取材面收口(2026-11-05)────────────────────────────────────────────
+// 现读实证:跨端落库腿连续多轮 `collected=0 … blocked=105 blocker=resurrected-deletion-refusal`
+// —— 105 枚「已在落点账本逐字申报且 blob 相符」的自动产出,被一批**与本枚 pathspec 无关**的
+// 他席暂存复活件连坐中止。判据本身不许削:本票声明面里真有复活件必须照样拦。
+// 本器无 isDirectRun 守卫(import 即跑 CLI),故按本文件既有惯例**取生产源码文本求值**,
+// 不复制第二份判据(§22c)。
+const scSrc = readFileSync(join(REPO, 'scripts', 'safe-commit.mjs'), 'utf8')
+const scopeStart = scSrc.indexOf('export function resurrectionAddedPaths(')
+const scopeBody = scopeStart < 0 ? '' : scSrc.slice(scopeStart, scSrc.indexOf('\n}\n', scopeStart) + 3)
+
+const BS = String.fromCharCode(92) // 反斜杠,避开 shell 写入时被吞的坑
+const normImpl = (f) => String(f).split(BS).join('/').replace(/^\.\//, '')
+const scopeFn = new Function(
+  'normalize',
+  `${scopeBody.replace('export ', '')}\nreturn resurrectionAddedPaths`,
+)(normImpl)
+
+test('收口有牙:复活件在他席暂存面而不在本枚声明面 ⇒ 不进判定输入(不再连坐)', () => {
+  assert.ok(scopeBody.length > 0, 'resurrectionAddedPaths 必须存在')
+  const idx = [
+    { status: 'A', path: 'apps/web/ghost.tsx' }, // 别席暂存的复活件(本枚不带它)
+    { status: 'M', path: 'scripts/x.mjs' },
+    { status: 'A', path: 'scripts/y.mjs' }, // 本枚声明的新增
+  ]
+  assert.deepEqual(scopeFn(idx, ['scripts/y.mjs']), ['scripts/y.mjs'])
+})
+
+test('收口不削判据:复活件确实落在本枚声明面 ⇒ 必须进判定输入(拦住,不静默放行)', () => {
+  const idx = [{ status: 'A', path: 'apps/web/ghost.tsx' }]
+  assert.deepEqual(scopeFn(idx, ['apps/web/ghost.tsx']), ['apps/web/ghost.tsx'])
+  // 反斜杠形态(Windows 索引面)必须与声明面同解,否则收口会假放行
+  const winPath = ['apps', 'web', 'ghost.tsx'].join(BS)
+  assert.deepEqual(scopeFn([{ status: 'A', path: winPath }], ['apps/web/ghost.tsx']), [winPath])
+  // 非 A 态(修改/删除)不参与复活判定 —— 收口不得顺手扩面
+  assert.deepEqual(scopeFn([{ status: 'D', path: 'apps/web/ghost.tsx' }], ['apps/web/ghost.tsx']), [])
+})
+
+test('形状锁:调用点必须走收口,旧"整索引 A 面"形态不得回潮', () => {
+  assert.match(
+    scSrc,
+    /addedPaths:\s*resurrectionAddedPaths\(\s*statusEntries,\s*expectedFiles\s*\)/,
+    '复活闸调用点必须交声明面参与判定',
+  )
+  assert.doesNotMatch(
+    scSrc,
+    /addedPaths:\s*statusEntries[\s\S]{0,40}\.filter\(\(e\)\s*=>\s*e\.status === 'A'\)/,
+    '旧形态(直接取整个索引新增面)会把他席暂存件连坐进本枚,必须已消失',
+  )
+})

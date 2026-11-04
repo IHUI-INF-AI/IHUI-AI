@@ -171,6 +171,25 @@ const INVOCATION_CWD = process.cwd()
 /** 路径归一化:统一正斜杠(Windows 路径兼容)+ 去掉 `./` 前缀。声明侧与 git 侧共用这一份。 */
 const normalize = (f) => f.replace(/\\/g, '/').replace(/^\.\//, '')
 
+/**
+ * 复活闸的取材面收口(2026-11-05):只看**本枚提交真会带走的新增路径**。
+ *
+ * 与本文件 Step 3a 的既有原则同源("别人本来暂存着的是别人的工作面,不是意外涌入")。
+ * 此前这里取的是**整个索引 ∖ HEAD** 的 A 面 ⇒ 共享工作区里另一席暂存的复活件(不在本枚
+ * pathspec 内、根本不会进这枚提交)能把每一笔 pathspec 提交连坐中止 —— 现读实证:跨端落库腿
+ * 连续多轮 `collected=0 … blocked=105 blocker=resurrected-deletion-refusal`,105 枚已申报且
+ * blob 逐字相符的自动产出被一批与它无关的暂存件扣住,每轮重演。
+ * 这不是削判据:本票声明面里若真出现被登记删除的复活件,照旧逐条点名并中止
+ * (该闸的原始成因正是"healer 捞回 + 别席 git add -A 收编"——那条路径当时就在声明面里)。
+ * 声明集为空不构成本函数放行口子:safe-commit 段 0.2 起强制非空(空 ⇒ exit 2)。
+ */
+export function resurrectionAddedPaths(statusEntries, expectedFiles) {
+  const declared = new Set((expectedFiles ?? []).map(normalize))
+  return (statusEntries ?? [])
+    .filter((e) => e?.status === 'A' && declared.has(normalize(String(e.path ?? ''))))
+    .map((e) => e.path)
+}
+
 const C = {
   red: '\x1b[31m',
   green: '\x1b[32m',
@@ -1123,9 +1142,14 @@ log('ok', `暂存区精确匹配预期 ${C.cyan}${stagedFiles.length}${C.reset} 
       // 与上面 broken 同取向:取不到就只是"判不出",不拿它当中止理由。
       log('warn', `读不到索引面 name-status ⇒ 复活闸本轮${C.bold}跳过${C.reset}(判不出≠没回流)`)
     } else {
+      /**
+       * 判据面收口到本枚声明面(见模块顶部 `resurrectionAddedPaths` 的头注)。
+       * 收口前这里是 `statusEntries.filter(e => e.status === 'A')` = 整个索引的新增面 ⇒ 别席
+       * 暂存的复活件会连坐中止每一笔 pathspec 提交(跨端自动写回被扣 105 枚/轮即此型)。
+       */
       const judgement = judgeResurrection({
         notices,
-        addedPaths: statusEntries.filter((e) => e.status === 'A').map((e) => e.path),
+        addedPaths: resurrectionAddedPaths(statusEntries, expectedFiles),
         today: todayIso(),
       })
       if (judgement.verdict === 'resurrected') {
