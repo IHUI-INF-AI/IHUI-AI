@@ -164,6 +164,30 @@ export const TRANSPORT_FAILURE_SIGNS = [
   'proxyconnect',
 ]
 
+/**
+ * 判据侧「我量不动」签名(2026-11-04 /goal R2 立)。
+ *
+ * 立因:`.ihui-agent/state/auto-evolve-ledger.jsonl` 219/222/223 行 ——
+ * 安全审查因 git 派生 ENOBUFS/ETIMEDOUT(或 untracked 超 30 文件上限)落
+ * `status=undetermined`,本应只说明「调度器量不动」,却被本函数兜底成
+ * `kind:'session'`("会话自身失败 exit=3"),于是 `isNonTicketFailure` 为假、
+ * `informational` 标记没打,同一次班车写了 `session-failed` 与 `dispatched`,
+ * 空转阶梯把工具故障算成票不推进 ⇒ rotate/cooldown/park 提前触顶,真票被冤封。
+ *
+ * 分型必须早于 `status` 兜底,但**不能**变成恒真门:只认判据自报的未判定令牌,
+ * 不认泛化的 failed/error。真会话失败(exit≠0 且无这些令牌)仍归 session,
+ * 由 T16/T23/T24 成对反向锁钉住。
+ */
+export const UNDETERMINED_FAILURE_SIGNS = [
+  'ENOBUFS',
+  'status=undetermined',
+  'not-judged-safe',
+  'git-diff-HEAD-unavailable',
+  'git-ls-files-others-unavailable',
+  'untracked-files-over-cap',
+  'scan-budget-exhausted',
+]
+
 export function classifySessionFailure({ status, stderr, error }) {
   const blob = `${String(stderr ?? '')}\n${String(error ?? '')}`
   const env = ENV_FAILURE_SIGNS.find((s) => blob.includes(s))
@@ -179,6 +203,13 @@ export function classifySessionFailure({ status, stderr, error }) {
       kind: 'transport',
       sign: transport,
       why: `通路级失败(${transport})⇒ 服务面/上游依赖,不计票连败`,
+    }
+  const undetermined = UNDETERMINED_FAILURE_SIGNS.find((s) => blob.includes(s))
+  if (undetermined)
+    return {
+      kind: 'undetermined',
+      sign: undetermined,
+      why: `判据取不到输入(${undetermined})⇒ "我量不动"不是"没推进",不记票连败、不触空转阶梯`,
     }
   if (status === null || status === undefined)
     return { kind: 'undetermined', sign: null, why: '退出码取不到 ⇒ 不判成功也不记票失败' }

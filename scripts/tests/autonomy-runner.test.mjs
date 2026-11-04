@@ -22,6 +22,8 @@ import {
   extractAbsPathTokens,
   preflightSessionRunner,
   classifySessionFailure,
+  isNonTicketFailure,
+  UNDETERMINED_FAILURE_SIGNS,
   REPO_ROOT_TOKEN,
 } from '../lib/autonomy-runner.mjs'
 
@@ -119,6 +121,53 @@ ok('T19 活配置自证:gates.json 的模板经 preflight 必须 ready(病灶真
   const pf = preflightSessionRunner(gates.sessionCommandTemplate, liveRootBack)
   if (pf.state !== 'ready') console.log(`     现读 state=${pf.state} missing=${pf.missing.join(',')} why=${pf.why}`)
   return pf.state === 'ready'
+})())
+
+// ---------------------------------------------------------------------------
+// /goal R2(2026-11-04):判据「我量不动」不得被读成「票没推进」
+// ---------------------------------------------------------------------------
+// 立因:.ihui-agent/state/auto-evolve-ledger.jsonl 219/222/223 行 —— 安全审查
+// 因 git 派生 ENOBUFS/ETIMEDOUT(或 untracked 超上限)落 status=undetermined,
+// 旧分型兜底成 session ⇒ informational 没打 ⇒ 同班次 session-failed + dispatched
+// 双写,空转阶梯把工具故障算成票不推进。下列 T23/T24/T25 是成对反向锁:
+// 摘掉新分型 T20 必须红,而真会话失败必须仍归 session,否则封票机制形同虚设。
+const LEDGER_222 =
+  'workspace-aggregate-diff|status=undetermined | not-judged-safe | ' +
+  'missing=untracked-files-over-cap(total=75, scanned=30);' +
+  'git-diff-HEAD-unavailable: spawnSync git ENOBUFS'
+
+ok('T20 /goal R2:台账 222 行原文回放 ⇒ undetermined(不是 session)', (() => {
+  const c = classifySessionFailure({ status: 3, stderr: LEDGER_222 })
+  return c.kind === 'undetermined' && c.sign === 'ENOBUFS'
+})())
+
+ok('T21 /goal R2:签名表逐枚归 undetermined 且一律 nonTicketFailure', (() => {
+  return UNDETERMINED_FAILURE_SIGNS.every((s) => {
+    const c = classifySessionFailure({ status: 3, stderr: `scan: ${s}` })
+    return c.kind === 'undetermined' && isNonTicketFailure(c.kind)
+  })
+})())
+
+ok('T22 /goal R2:ETIMEDOUT 仍归 transport(既有分型不回归)', (() => {
+  const c = classifySessionFailure({ status: 3, stderr: 'spawnSync git ETIMEDOUT' })
+  return c.kind === 'transport' && c.sign === 'ETIMEDOUT' && isNonTicketFailure(c.kind)
+})())
+
+ok('T23 变异反向锁①:泛化 failed/error 不得被免掉,仍归 session', (() => {
+  const a = classifySessionFailure({ status: 3, stderr: 'ERROR: task failed' })
+  const b = classifySessionFailure({ status: 3, stderr: 'exit 3: command failed' })
+  return a.kind === 'session' && b.kind === 'session' && !isNonTicketFailure(a.kind)
+})())
+
+ok('T24 变异反向锁②:真会话失败仍归 session,封票机制不得形同虚设', (() => {
+  const c = classifySessionFailure({ status: 3, stderr: 'typecheck failed in 3 files' })
+  return c.kind === 'session' && !isNonTicketFailure(c.kind)
+})())
+
+ok('T25 变异反向锁③:签名表不空且不含泛化词(防恒真门 / 防收 0 枚记绿)', (() => {
+  const generic = ['failed', 'error', 'exit', 'no_progress', 'session']
+  return UNDETERMINED_FAILURE_SIGNS.length >= 5 &&
+    !UNDETERMINED_FAILURE_SIGNS.some((s) => generic.includes(s.toLowerCase()))
 })())
 
 console.log(fail === 0 ? `autonomy-runner: ${pass} 例全绿` : `autonomy-runner: ${pass} 绿 / ${fail} 红`)
