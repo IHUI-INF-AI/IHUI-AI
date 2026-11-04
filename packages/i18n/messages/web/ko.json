@@ -11695,7 +11695,9 @@
     "addMenuDesc": "추가 메뉴(템플릿/참조/Skill/첨부/플러그인/압축)",
     "addMenuLabel": "추가",
     "backToMenu": "메뉴로 돌아가기",
-    "quickSettings": "빠른 설정",
+    "quickSettings": "세션 설정",
+    "composerSectionContent": "콘텐츠",
+    "composerSectionCapability": "기능",
     "moreTools": "더 많은 도구",
     "artifactCode": "코드",
     "artifactPreview": "미리보기",
@@ -11852,6 +11854,7 @@
       "branch": "여기에서 분기"
     },
     "contextUsage": {
+      "rowLabel": "컨텍스트 사용량",
       "breakdownTitle": "토큰 분류",
       "budgetRow": "오늘의 할당량",
       "categoryFiles": "파일",
@@ -12037,6 +12040,7 @@
     "modeTaskAria": "{mode} 작업",
     "taskProgressAria": "작업 진행 상황 {status}",
     "taskProgressOpen": "작업 진행 상황",
+    "taskProgressIdle": "대기 중",
     "toolsPanelOpen": "도구 패널 열기",
     "toolsPanelClose": "도구 패널 숨기기",
     "model": "모델",
@@ -12549,6 +12553,7 @@
       "moreItems": "외 {count}건"
     },
     "agentPicker": {
+      "label": "에이전트",
       "triggerAria": "대화 내 에이전트 / 전문가 선택",
       "default": "기본 어시스턴트",
       "defaultDesc": "전문가 없음",

@@ -1,0 +1,27 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​​​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * Composer「+」菜单内的统一设置行形态(2026-11-04 第三轮设计收敛)。
+ *
+ * 问题:第二轮把权限 / 模式 / Agent 直接塞进 + 菜单第一层后,三枚控件保留了底栏的
+ * 三种原始形态(32px 纯图标块 / 灰底胶囊 / 白底描边胶囊),在 240px 菜单里并排成
+ * 一排「迷你工具栏」—— 形态不统一、档位名看不到、点击区参差。
+ *
+ * 形态:菜单里的会话控件一律降级为**全宽设置行** —— 左图标 / 中标签 / 右当前值 /
+ * 尾箭头,行高 32px,与菜单项同节奏。控件各自的弹层与状态机不变,只换触发器的外壳,
+ * 因此 e2e 的 testid / aria / 点击路径全部保留。
+ */
+export const COMPOSER_MENU_ROW_CLASS =
+  'flex h-8 w-full min-w-0 items-center gap-2 rounded-sm px-2.5 text-left text-label font-normal text-popover-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50'
+
+/** 设置行左侧图标(与菜单项图标同规格 14px,muted) */
+export const COMPOSER_MENU_ROW_ICON_CLASS = 'h-3.5 w-3.5 shrink-0 text-muted-foreground'
+
+/** 设置行右侧「当前值」:单行截断,不吃掉标签宽度 */
+export const COMPOSER_MENU_ROW_VALUE_CLASS =
+  'ml-auto min-w-0 max-w-[52%] truncate text-label font-normal text-muted-foreground'
+
+/** 设置行尾部箭头(与菜单项的进入箭头同规格) */
+export const COMPOSER_MENU_ROW_CHEVRON_CLASS = 'h-2.5 w-2.5 shrink-0 text-muted-foreground/60'

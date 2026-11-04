@@ -11692,7 +11692,9 @@
     "addMenuDesc": "添加菜單(模板/引用/Skill/附件/插件/壓縮)",
     "addMenuLabel": "添加",
     "backToMenu": "返回選單",
-    "quickSettings": "快捷設定",
+    "quickSettings": "會話設定",
+    "composerSectionContent": "內容",
+    "composerSectionCapability": "能力",
     "moreTools": "更多工具",
     "artifactCode": "程式碼",
     "artifactPreview": "預覽",
@@ -11852,6 +11854,7 @@
       "branch": "從此處分支"
     },
     "contextUsage": {
+      "rowLabel": "上下文用量",
       "breakdownTitle": "Token 分類明細",
       "budgetRow": "今日額度",
       "categoryFiles": "檔案/附件",
@@ -12037,6 +12040,7 @@
     "modeTaskAria": "{mode}任務",
     "taskProgressAria": "任務進度 {status}",
     "taskProgressOpen": "任務進度",
+    "taskProgressIdle": "空閒",
     "toolsPanelOpen": "展開工具面板",
     "toolsPanelClose": "收起工具面板",
     "model": "模型",
@@ -12549,6 +12553,7 @@
       "moreItems": "等 {count} 條"
     },
     "agentPicker": {
+      "label": "Agent",
       "triggerAria": "選擇對話內 Agent / 專家",
       "default": "預設助手",
       "defaultDesc": "無專家",

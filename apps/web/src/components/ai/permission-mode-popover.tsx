@@ -10,6 +10,7 @@ import { useTranslations } from 'next-intl'
 import { toast } from '@/components/common'
 import {
   Check,
+  ChevronDown,
   Compass,
   ExternalLink,
   Hand,
@@ -36,6 +37,12 @@ import {
 } from '@/hooks/use-workspace-permissions'
 
 import { Tooltip } from '@/components/feedback'
+import {
+  COMPOSER_MENU_ROW_CHEVRON_CLASS,
+  COMPOSER_MENU_ROW_CLASS,
+  COMPOSER_MENU_ROW_ICON_CLASS,
+  COMPOSER_MENU_ROW_VALUE_CLASS,
+} from '@/lib/composer-menu-row'
 // 2026-09-15 治理:定位/portal/外点关闭逻辑统一收敛到 PortalPanel(此前手写一套
 // createPortal + 坐标 + scroll/resize/RO 监听 + 外点关闭;Escape 关闭因需归还
 // 焦点到 trigger 的特殊语义,仍由本组件自理)
@@ -120,8 +127,11 @@ const INFO_TOAST_DURATION = 3000
 export function PermissionModePopover({
   disabled,
   onExplainMode,
+  variant = 'icon',
 }: {
   disabled?: boolean
+  /** icon = 底栏 32px 图标块(默认);row = + 菜单内的统一设置行(图标+档位名+当前值) */
+  variant?: 'icon' | 'row'
   /** 当前(高危)模式的详细说明回调(2026-09-30 底栏单行化):原标题栏 ⓘ 按钮退役,
    *  移入弹层头部;宿主(message-input)用它唤起 PermissionModeInfoModal */
   onExplainMode?: (mode: WorkspacePermissionMode) => void
@@ -393,58 +403,101 @@ export function PermissionModePopover({
 
   return (
     <div className="flex min-w-0">
-      <Tooltip content={currentTitle}>
+      {variant === 'row' ? (
+        /* + 菜单内的统一设置行(2026-11-04 第三轮):不再与模式/Agent 混排成迷你工具栏,
+           左图标 + 「权限模式」标签 + 当前档位名 + 尾箭头;档位色彩语义仍保留 */
         <button
           ref={triggerRef}
           type="button"
           disabled={disabled}
-          aria-label={`${t('buttonLabel')} · ${t('buttonHintShortcut')}`}
+          aria-label={`${t('buttonLabel')} · ${currentTitle}`}
           aria-haspopup="dialog"
           aria-expanded={isOpen}
-          // 与 Radix trigger 行为对齐(2026-09-02):本组件自写 popover 而非 Radix,
-          // 需手动加 data-state 才能命中 globals.css:1090 的
-          // `button[data-state='closed']:focus-visible { box-shadow: none }` 抑制规则,
-          // 否则 Esc 关闭后 triggerRef.current?.focus() 触发 focus-visible ring(本组件
-          // 无显式 focus-visible:ring,但 globals.css 规则对未来扩展可主动失效 ring)。
+          data-testid="permission-mode-trigger"
+          data-variant="row"
           data-state={isOpen ? 'open' : 'closed'}
           className={cn(
-            // icon-only(2026-09-30 底栏单行化):原"图标+档名"文字按钮改为纯图标方块,
-            // 档名由 Tooltip 承载;档位色彩语义(琥珀=高危/翡翠=替我审批)保留在底色上
-            'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-sm px-0 text-label font-medium leading-none',
-            'relative duration-150 ease-out',
-            currentMode === 'bypass-permissions'
-              ? cn(
-                  'bg-amber-500/10 text-amber-700 dark:text-amber-400',
-                  !disabled && 'hover:bg-amber-500/15',
-                )
-              : currentMode === 'accept-edits'
-                ? cn(
-                    'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
-                    !disabled && 'hover:bg-emerald-500/15',
-                  )
-                : cn(
-                    'bg-muted text-muted-foreground',
-                    !disabled && 'hover:bg-accent hover:text-accent-foreground',
-                  ),
+            COMPOSER_MENU_ROW_CLASS,
+            currentMode === 'bypass-permissions' &&
+              'text-amber-700 hover:bg-amber-500/10 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-400',
+            currentMode === 'accept-edits' &&
+              'text-emerald-700 hover:bg-emerald-500/10 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-400',
           )}
           onClick={() => setIsOpen((prev) => !prev)}
         >
           <CurrentIcon
             className={cn(
-              'h-4 w-4 shrink-0 transition-colors duration-200',
+              COMPOSER_MENU_ROW_ICON_CLASS,
               currentMode === 'bypass-permissions' && 'text-amber-500',
               currentMode === 'accept-edits' && 'text-emerald-500',
-              currentMode === 'default' && 'text-muted-foreground',
             )}
           />
-          {currentMode === 'bypass-permissions' && (
-            <TriangleAlert
-              className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 text-amber-500"
-              aria-hidden="true"
-            />
-          )}
+          <span className="min-w-0 flex-1 truncate">{t('buttonLabel')}</span>
+          <span
+            className={cn(
+              COMPOSER_MENU_ROW_VALUE_CLASS,
+              currentMode === 'bypass-permissions' && 'text-amber-700 dark:text-amber-400',
+              currentMode === 'accept-edits' && 'text-emerald-700 dark:text-emerald-400',
+            )}
+          >
+            {currentTitle}
+          </span>
+          <ChevronDown className={COMPOSER_MENU_ROW_CHEVRON_CLASS} aria-hidden />
         </button>
-      </Tooltip>
+      ) : (
+        <Tooltip content={currentTitle}>
+          <button
+            ref={triggerRef}
+            type="button"
+            disabled={disabled}
+            aria-label={`${t('buttonLabel')} · ${t('buttonHintShortcut')}`}
+            aria-haspopup="dialog"
+            aria-expanded={isOpen}
+            // 与 Radix trigger 行为对齐(2026-09-02):本组件自写 popover 而非 Radix,
+            // 需手动加 data-state 才能命中 globals.css:1090 的
+            // `button[data-state='closed']:focus-visible { box-shadow: none }` 抑制规则,
+            // 否则 Esc 关闭后 triggerRef.current?.focus() 触发 focus-visible ring(本组件
+            // 无显式 focus-visible:ring,但 globals.css 规则对未来扩展可主动失效 ring)。
+            data-state={isOpen ? 'open' : 'closed'}
+            className={cn(
+              // icon-only(2026-09-30 底栏单行化):原"图标+档名"文字按钮改为纯图标方块,
+              // 档名由 Tooltip 承载;档位色彩语义(琥珀=高危/翡翠=替我审批)保留在底色上
+              'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-sm px-0 text-label font-medium leading-none',
+              'relative duration-150 ease-out',
+              currentMode === 'bypass-permissions'
+                ? cn(
+                    'bg-amber-500/10 text-amber-700 dark:text-amber-400',
+                    !disabled && 'hover:bg-amber-500/15',
+                  )
+                : currentMode === 'accept-edits'
+                  ? cn(
+                      'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
+                      !disabled && 'hover:bg-emerald-500/15',
+                    )
+                  : cn(
+                      'bg-muted text-muted-foreground',
+                      !disabled && 'hover:bg-accent hover:text-accent-foreground',
+                    ),
+            )}
+            onClick={() => setIsOpen((prev) => !prev)}
+          >
+            <CurrentIcon
+              className={cn(
+                'h-4 w-4 shrink-0 transition-colors duration-200',
+                currentMode === 'bypass-permissions' && 'text-amber-500',
+                currentMode === 'accept-edits' && 'text-emerald-500',
+                currentMode === 'default' && 'text-muted-foreground',
+              )}
+            />
+            {currentMode === 'bypass-permissions' && (
+              <TriangleAlert
+                className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 text-amber-500"
+                aria-hidden="true"
+              />
+            )}
+          </button>
+        </Tooltip>
+      )}
       {/* 首次启用高风险模式确认弹窗(2026-07-25 深化,深度对标 Codex CLI safety guard)
           - 统一由 message-input 渲染 FullAccessConfirmDialog(共享 store,Slash/Popover/Shift+Tab 共用)
           - 本组件只负责 setPendingFullAccess(true) 触发弹窗 */}

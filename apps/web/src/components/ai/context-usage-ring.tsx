@@ -8,6 +8,7 @@ import * as React from 'react'
 import {
   ChevronDown,
   ChevronRight,
+  Gauge,
   Loader2,
   Minimize2,
   CheckCircle2,
@@ -17,6 +18,12 @@ import { useTranslations } from 'next-intl'
 import { toast } from '@/components/common'
 
 import { cn } from '@/lib/utils'
+import {
+  COMPOSER_MENU_ROW_CHEVRON_CLASS,
+  COMPOSER_MENU_ROW_CLASS,
+  COMPOSER_MENU_ROW_ICON_CLASS,
+  COMPOSER_MENU_ROW_VALUE_CLASS,
+} from '@/lib/composer-menu-row'
 import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 import { IconButton } from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
@@ -362,7 +369,11 @@ interface ContextUsageRingProps {
   isStreaming?: boolean
 }
 
-export function ContextUsageRing({ model, isStreaming = false }: ContextUsageRingProps) {
+export function ContextUsageRing({
+  model,
+  isStreaming = false,
+  variant = 'ring',
+}: ContextUsageRingProps & { /** row = + 菜单内的统一设置行 */ variant?: 'ring' | 'row' }) {
   // 票60 步序四:窗格寻址。根窗格无 Provider ⇒ 单例;非根窗格读各自实例。
   const chatStore = usePaneChatStore()
   const t = useTranslations('chat.contextUsage')
@@ -585,30 +596,67 @@ export function ContextUsageRing({ model, isStreaming = false }: ContextUsageRin
 
   return (
     <div>
-      <Tooltip content={triggerLabel} side="top">
-        <IconButton
+      {variant === 'row' ? (
+        /* + 菜单内的统一设置行(2026-11-04 第三轮):圆环降级为行内图标,右侧给百分比,
+           详细归因仍在同一个弹层里 */
+        <button
           ref={triggerRef}
+          type="button"
           onClick={() => setIsOpen((prev) => !prev)}
-          // E2E 锚点(2026-09-14 补回):aria-label 是百分比动态插值,floating-panel-viewport
-          // 等 e2e 需要稳定 testid 选中触发按钮
           data-testid="context-usage-trigger"
+          data-variant="row"
           aria-label={triggerLabel}
           aria-haspopup="dialog"
           aria-expanded={isOpen}
-          // 2026-09-02 治理:自写 popover trigger 加 data-state,让 globals.css:1090
-          // `button[data-state='closed']:focus-visible { box-shadow: none }` 抑制关闭后
-          // 焦点环常驻(此文件未显式 triggerRef.focus 归还,但 click-outside 关闭后 trigger
-          // 仍可能短暂持有焦点,加 data-state 是零成本防御)。
           data-state={isOpen ? 'open' : 'closed'}
+          className={COMPOSER_MENU_ROW_CLASS}
         >
-          <TriggerRing
-            ratio={ratio}
-            usedTokens={usedTokens}
-            maxTokens={maxTokens}
-            level={triggerLevel}
+          <Gauge
+            className={cn(
+              COMPOSER_MENU_ROW_ICON_CLASS,
+              triggerLevel === 'high' && 'text-amber-500',
+              triggerLevel === 'critical' && 'text-destructive',
+            )}
+            aria-hidden
           />
-        </IconButton>
-      </Tooltip>
+          <span className="min-w-0 flex-1 truncate">{t('rowLabel')}</span>
+          <span
+            className={cn(
+              COMPOSER_MENU_ROW_VALUE_CLASS,
+              triggerLevel === 'high' && 'text-amber-600 dark:text-amber-400',
+              triggerLevel === 'critical' && 'text-destructive',
+            )}
+          >
+            {Math.round(ratio * 100)}%
+          </span>
+          <ChevronDown className={COMPOSER_MENU_ROW_CHEVRON_CLASS} aria-hidden />
+        </button>
+      ) : (
+        <Tooltip content={triggerLabel} side="top">
+          <IconButton
+            ref={triggerRef}
+            onClick={() => setIsOpen((prev) => !prev)}
+            // E2E 锚点(2026-09-14 补回):aria-label 是百分比动态插值,floating-panel-viewport
+            // 等 e2e 需要稳定 testid 选中触发按钮
+            data-testid="context-usage-trigger"
+            aria-label={triggerLabel}
+            aria-haspopup="dialog"
+            aria-expanded={isOpen}
+            // 2026-09-02 治理:自写 popover trigger 加 data-state,让 globals.css:1090
+            // `button[data-state='closed']:focus-visible { box-shadow: none }` 抑制关闭后
+            // 焦点环常驻(此文件未显式 triggerRef.focus 归还,但 click-outside 关闭后 trigger
+            // 仍可能短暂持有焦点,加 data-state 是零成本防御)。
+            data-state={isOpen ? 'open' : 'closed'}
+          >
+            <TriggerRing
+              ratio={ratio}
+              usedTokens={usedTokens}
+              maxTokens={maxTokens}
+              level={triggerLevel}
+            />
+          </IconButton>
+        </Tooltip>
+      )}
       {isOpen &&
         createPortal(
           <div

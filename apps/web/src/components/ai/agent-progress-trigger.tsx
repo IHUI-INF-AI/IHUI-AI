@@ -5,7 +5,21 @@
 'use client'
 
 import * as React from 'react'
-import { BookOpen, FileText, Hammer, MessageCircle, Search, Loader2 } from 'lucide-react'
+import {
+  BookOpen,
+  ChevronDown,
+  FileText,
+  Hammer,
+  MessageCircle,
+  Search,
+  Loader2,
+} from 'lucide-react'
+import {
+  COMPOSER_MENU_ROW_CHEVRON_CLASS,
+  COMPOSER_MENU_ROW_CLASS,
+  COMPOSER_MENU_ROW_ICON_CLASS,
+  COMPOSER_MENU_ROW_VALUE_CLASS,
+} from '@/lib/composer-menu-row'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
@@ -53,12 +67,15 @@ export function AgentProgressTrigger({
   leftIcon,
   leftIconText,
   iconOnly,
+  variant = 'bar',
 }: {
   className?: string
   onTriggerClick?: () => void
   leftIcon?: React.ComponentType<{ className?: string }>
   leftIconText?: string
   iconOnly?: boolean
+  /** bar = 底栏按钮(默认);row = + 菜单内的统一设置行 */
+  variant?: 'bar' | 'row'
 } = {}) {
   const t = useTranslations('chat')
 
@@ -138,6 +155,7 @@ export function AgentProgressTrigger({
   // e2e 又把混血串钉成了基线。现整串经 chat.taskProgressAria / chat.modeTaskAria
   // 五语言词包取形(ICU {status}/{mode}),zh-CN 形态逐字不变。锁定用例:
   // apps/web/tests/agent-progress-trigger-aria-i18n.test.tsx。
+  const RowIcon = leftIcon ?? ModeIcon
   const triggerButton = (
     <button
       type="button"
@@ -153,31 +171,58 @@ export function AgentProgressTrigger({
       aria-expanded={paneOpen}
       aria-haspopup="dialog"
       className={cn(
-        INPUT_ATTACHMENT_BAR_BTN_BASE,
-        'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground duration-150 ease-out',
+        variant === 'row'
+          ? COMPOSER_MENU_ROW_CLASS
+          : cn(
+              INPUT_ATTACHMENT_BAR_BTN_BASE,
+              'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground duration-150 ease-out',
+              iconOnly && 'h-8 w-8 justify-center p-0',
+            ),
         hasLiveActivity && 'text-primary',
-        iconOnly && 'h-8 w-8 justify-center p-0',
         className,
       )}
       data-testid="agent-progress-trigger"
+      data-variant={variant}
       data-popover-open={paneOpen}
       data-live-activity={hasLiveActivity}
       data-mode={currentMode}
     >
-      <ModeIcon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-      {!iconOnly && <span>{modeLabel}</span>}
-      {hasLiveActivity && (
-        <Loader2
-          className="h-3 w-3 shrink-0 animate-spin"
-          aria-hidden="true"
-          data-testid="agent-progress-live-spinner"
-        />
+      {variant === 'row' ? (
+        <>
+          <RowIcon className={COMPOSER_MENU_ROW_ICON_CLASS} aria-hidden="true" />
+          <span className="min-w-0 flex-1 truncate">{t('taskProgressOpen')}</span>
+          {hasLiveActivity && (
+            <Loader2
+              className="h-3 w-3 shrink-0 animate-spin text-primary"
+              aria-hidden="true"
+              data-testid="agent-progress-live-spinner"
+            />
+          )}
+          <span className={COMPOSER_MENU_ROW_VALUE_CLASS}>
+            {hasLiveActivity || totalSteps > 0 ? liveStatusText : t('taskProgressIdle')}
+          </span>
+          <ChevronDown className={COMPOSER_MENU_ROW_CHEVRON_CLASS} aria-hidden />
+        </>
+      ) : (
+        <>
+          <ModeIcon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          {!iconOnly && <span>{modeLabel}</span>}
+          {hasLiveActivity && (
+            <Loader2
+              className="h-3 w-3 shrink-0 animate-spin"
+              aria-hidden="true"
+              data-testid="agent-progress-live-spinner"
+            />
+          )}
+        </>
       )}
     </button>
   )
 
   // hover/focus 显示项目统一 Tooltip:实时任务名 + 快捷键提示,样式与项目全站一致
-  return (
+  return variant === 'row' ? (
+    triggerButton
+  ) : (
     <Tooltip content={`${liveStatusText} (Ctrl+Shift+J)`} side="bottom">
       {triggerButton}
     </Tooltip>
