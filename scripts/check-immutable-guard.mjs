@@ -549,24 +549,33 @@ export function runAudit(
     key = undefined,
     ackKey = undefined,
     ackRows = [],
+    keyRes = undefined,
+    ackKeyRes = undefined,
   } = {},
 ) {
-  const keyRes =
-    key === undefined
-      ? resolveSigningKey(root)
-      : key === null
-        ? { key: null, source: '', why: '密钥不存在（调用方显式置空 ⇒ 按 fail-closed 处理）' }
-        : { key: String(key), source: 'caller', why: '' }
-  const ackKeyRes =
-    ackKey === undefined
-      ? resolveAckKey(root)
-      : ackKey === null
-        ? {
-            key: null,
-            source: '',
-            why: '独立追认密钥不存在（调用方显式置空 ⇒ 按 fail-closed 处理）',
-          }
-        : { key: String(ackKey), source: 'caller', why: '' }
+  // 批档(judgeBatch)整批解析一次两把密钥再逐枚透传:密钥来源的**文字**必须与逐枚解析时一致,
+  // 所以这里透传的是整个结果对象(而不是把 key 塞进去、让 source 变成 'caller')。
+  const keyResFinal =
+    keyRes !== undefined
+      ? keyRes
+      : key === undefined
+        ? resolveSigningKey(root)
+        : key === null
+          ? { key: null, source: '', why: '密钥不存在（调用方显式置空 ⇒ 按 fail-closed 处理）' }
+          : { key: String(key), source: 'caller', why: '' }
+  const ackKeyResFinal =
+    ackKeyRes !== undefined
+      ? ackKeyRes
+      : ackKey === undefined
+        ? resolveAckKey(root)
+        : ackKey === null
+          ? {
+              key: null,
+              source: '',
+              why: '独立追认密钥不存在（调用方显式置空 ⇒ 按 fail-closed 处理）',
+            }
+          : { key: String(ackKey), source: 'caller', why: '' }
+  const keySource = keyResFinal.source
   const baseOut = {
     face,
     rev,
@@ -579,8 +588,8 @@ export function runAudit(
     exempt: { present: false, reasons: [], problems: [] },
     signature: { present: false, ok: false, code: 'sig-missing', reasons: [], problems: [] },
     signatureRequiredFrom: null,
-    keySource: keyRes.source,
-    keyWhy: keyRes.key ? '' : keyRes.why,
+    keySource: keyResFinal.source,
+    keyWhy: keyResFinal.key ? '' : keyResFinal.why,
     expired: [],
     listProblems: [],
     detail: '',
@@ -689,13 +698,13 @@ export function runAudit(
     changes,
     message: msg,
     today,
-    key: keyRes.key,
+    key: keyResFinal.key,
     signatureRequiredFrom: policyParsed.signatureRequiredFrom,
     // 追认台账只在 face='head' 且能解析出 40 位 sha 时才问得到；--staged/--worktree 两档结构上
     // 还没有"被追认的那一枚"，传空数组即保持原语义(不是放宽，是无输入)。
     ackRows,
     sha: ackSha,
-    ackKey: ackKeyRes.key,
+    ackKey: ackKeyResFinal.key,
     legacyA1,
     hitsByBase,
     blobs,
@@ -1012,15 +1021,30 @@ function judgeBatch(root, batch, { today = todayStr(), record = false, policyRev
   let judged = 0
   // 追认台账整批读一次(同一末端),逐枚只查自己的 sha;坏行带出去点名,不静默。
   const ack = readAckRows(root)
+  // 整批一次读齐父辈/标题/正文 + 一次解析两把密钥(2026-11-05;读不到就逐枚回落原路径,判定不变)
+  const metas = batchCommitMeta(root, batch)
+  const sharedKeyRes = resolveSigningKey(root)
+  const sharedAckKeyRes = resolveAckKey(root)
   for (const sha of batch) {
-    if (parentCount(root, sha) > 1) {
+    const meta = metas.get(sha) ?? null
+    const parents = meta ? meta.parentCount : parentCount(root, sha)
+    if (parents > 1) {
       skippedMerges += 1
       continue
     }
     judged += 1
     let one
     try {
-      one = runAudit(root, 'head', { today, record, rev: sha, policyRev, ackRows: ack.rows })
+      one = runAudit(root, 'head', {
+        today,
+        record,
+        rev: sha,
+        policyRev,
+        ackRows: ack.rows,
+        message: meta ? meta.message : undefined,
+        keyRes: sharedKeyRes,
+        ackKeyRes: sharedAckKeyRes,
+      })
     } catch (e) {
       one = {
         exit: 2,
@@ -1034,7 +1058,7 @@ function judgeBatch(root, batch, { today = todayStr(), record = false, policyRev
     const brief = {
       sha,
       code: one.code,
-      subject: safeSubject(root, sha),
+      subject: meta ? meta.subject : safeSubject(root, sha),
       hits: (one.hits ?? []).map((h) => ({
         path: h.path,
         kind: h.entry?.kind ?? '',
@@ -1294,6 +1318,58 @@ function rangeBaseRev(root, range) {
 }
 
 /** 父数（>1 = 合并提交）。取不到按 1 处理 ⇒ 宁可多判一枚，不放过一枚。 */
+/**
+ * 一批提交的父辈/标题/正文**一次读齐**(2026-11-05 立,只为削派生,不改判序)。
+ *
+ * 立因(当次实测):`--range HEAD~30..HEAD` 花 86.6 秒 ≈ 2.9 秒/枚。推送门要判的是
+ * `origin/main..HEAD`(当次现读 147 枚)⇒ 约 425 秒,必然被 300 秒看门狗砍掉 ——
+ * 也就是"专抓未声明改判据面"的那道审计**在推送时静默不发生**(§0.9:没跑=没有;§0.3:被砍掉不等于判过)。
+ * 每枚提交原本要 3 次独立派生只为拿"父辈数 / 标题 / 正文",而这四样 git 一次就能全给。
+ *
+ * 失效方向(不许变成"少判一次"):
+ *  · 整批读不到 ⇒ 返回空 Map ⇒ 调用处逐枚回落原来的逐次派生(变慢,但绝不判错);
+ *  · 某枚在批输出里对不上号/字段数不对 ⇒ 该枚不进气表,同样逐枚回落;
+ *  · 正文里出现分隔符导致拆段数量不对 ⇒ 按"对不上"处理,不猜。
+ */
+const META_RECORD_SEP = '\x1e'
+const META_FIELD_SEP = '\x1f'
+function batchCommitMeta(root, shas) {
+  const out = new Map()
+  if (!Array.isArray(shas) || shas.length === 0) return out
+  try {
+    const raw = String(
+      gitRaw(
+        [
+          'log',
+          '--no-walk=unsorted',
+          `--format=%H${META_FIELD_SEP}%P${META_FIELD_SEP}%s${META_FIELD_SEP}%B${META_RECORD_SEP}`,
+          ...shas,
+        ],
+        root,
+      ),
+    )
+    for (const rec of raw.split(META_RECORD_SEP)) {
+      const body = rec.replace(/^\n/, '')
+      if (!body.trim()) continue
+      const parts = body.split(META_FIELD_SEP)
+      if (parts.length !== 4) continue
+      const [sha, parents, subject, message] = parts
+      if (!/^[0-9a-f]{40}$/.test(sha.trim())) continue
+      out.set(sha.trim(), {
+        parentCount: parents.trim() === '' ? 0 : parents.trim().split(/\s+/).length,
+        subject: subject.trim(),
+        // git 每条记录本来自带的收尾换行,被这里的记录分隔符 %x1e 顶掉了;
+        // 逐枚读法(`git log -1 --format=%B`)会带那个换行。补回来才叫**逐字等值**,
+        // 否则本枚的等价锁 ST49b 会差一个换行 —— 差别看着无害,但判据面不许"差不多"。
+        message: message + '\n',
+      })
+    }
+  } catch {
+    /* 一次读不到就整批回落逐枚 —— 报数与判定都不许因此变化 */
+  }
+  return out
+}
+
 function parentCount(root, sha) {
   try {
     return String(gitRaw(['show', '-s', '--format=%P', sha], root))
@@ -2801,6 +2877,52 @@ export function selfTest() {
       'ST48 改 ackedBy 而签名不变 ⇒ exit 1 / ack-sig-invalid（署名已签进载荷）',
       out.exit === 1 && out.code === 'undeclared' && out.ack && out.ack.code === 'ack-sig-invalid',
       JSON.stringify({ exit: out.exit, code: out.code, ack: out.ack && out.ack.code }),
+    )
+  })
+
+  // ST49 整批元信息通道(batchCommitMeta)不得改变任何一次判定:
+  // ① 拿到的 parentCount/subject/message 必须与逐枚 gitRaw 读回的逐字一致;
+  // ② 同一枚提交,注入 message 与让 runAudit 自己读 message ⇒ 归桶码必须相同。
+  // 立因:这一档只为削派生而存在(实测 --range HEAD~30..HEAD 86.6s→72.2s)。派生可以省,判定一枚都不许多省或少省。
+  run((root) => {
+    writeIn(root, 'scripts/lib/face-reader.mjs', '// one\n')
+    commitAll(root, 'refactor: 批档一致性第一枚')
+    const sha1 = String(gitRaw(['rev-parse', 'HEAD'], root)).trim()
+    writeIn(root, 'scripts/lib/face-reader.mjs', '// two\n')
+    commitAll(root, 'fix: 批档一致性第二枚\n\n带正文第二行,验证 %B 逐字等值')
+    const sha2 = String(gitRaw(['rev-parse', 'HEAD'], root)).trim()
+    const metas = batchCommitMeta(root, [sha1, sha2])
+    const m1 = metas.get(sha1)
+    const m2 = metas.get(sha2)
+    ok(
+      'ST49a 批档拿到的 parentCount/subject 与逐枚读法逐字一致',
+      !!m1 &&
+        !!m2 &&
+        m1.parentCount === parentCount(root, sha1) &&
+        m2.parentCount === parentCount(root, sha2) &&
+        m1.subject === String(gitRaw(['log', '-1', '--format=%s', sha1], root)).trim(),
+      JSON.stringify({ m1, m2: m2 && { pc: m2.parentCount, sub: m2.subject } }),
+    )
+    ok(
+      'ST49b %B 逐字等值(含正文第二行与尾换行)',
+      !!m2 && m2.message === String(gitRaw(['log', '-1', '--format=%B', sha2], root)),
+      JSON.stringify({
+        batch: m2 && m2.message,
+        single: String(gitRaw(['log', '-1', '--format=%B', sha2], root)),
+      }),
+    )
+    const viaBatch = runAudit(root, 'head', { message: m2.message, key: ST_KEY, rev: sha2 })
+    const viaSingle = runAudit(root, 'head', { key: ST_KEY, rev: sha2 })
+    ok(
+      'ST49c 注入正文与自己读正文 ⇒ 归桶码逐字相同(等价性锁)',
+      viaBatch.code === viaSingle.code && viaBatch.exit === viaSingle.exit,
+      JSON.stringify({ viaBatch: viaBatch.code, viaSingle: viaSingle.code }),
+    )
+    const blind = batchCommitMeta(root, ['0000000000000000000000000000000000000000'])
+    ok(
+      'ST49d 批档对不上的 sha 不进表(调用处因此逐枚回落,而不是当成"父辈 0 / 无正文")',
+      blind.size === 0,
+      `size=${blind.size}`,
     )
   })
 
