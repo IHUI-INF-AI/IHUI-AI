@@ -7182,7 +7182,17 @@
     "bundleOta": "热更",
     "readyBody": "更新已下载完成，点「更新」立即生效",
     "installingHint": "应用会自动重启，通常只需几秒",
-    "restartNow": "立即重启"
+    "restartNow": "立即重启",
+    "apkTitle": "发现新版本 {{version}}",
+    "apkBody": "当前 {{current}} → 最新 {{latest}}",
+    "apkAction": "下载并安装",
+    "apkActionBrowser": "前往下载",
+    "apkDownloading": "正在下载安装包 {{progress}}%",
+    "apkEta": "剩余约 {{eta}}",
+    "apkInstalling": "正在打开安装程序…",
+    "apkBrowserOpening": "已交给浏览器下载，按提示安装即可",
+    "apkCancel": "取消",
+    "apkHint": "安装包较大，建议在 Wi-Fi 下更新"
   },
   "cloudRuns": {
     "title": "云托管 Agent 运行",
