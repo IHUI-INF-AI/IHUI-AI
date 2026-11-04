@@ -1007,9 +1007,9 @@ export const userLlmConfigV2Routes: FastifyPluginAsync = async (server) => {
     const userId = request.userId!
     try {
       const res = await db.execute(sql`
-        SELECT id, label, sort_order, created_at, updated_at
+        SELECT id, group_label AS label, sort_order, created_at
         FROM ai_model_config_groups
-        WHERE owner_uuid = ${userId}
+        WHERE user_uuid = ${userId}
         ORDER BY sort_order ASC, id ASC
       `)
       const rows = Array.isArray(res)
@@ -1035,8 +1035,8 @@ export const userLlmConfigV2Routes: FastifyPluginAsync = async (server) => {
     const userId = request.userId!
     try {
       const res = await db.execute(sql`
-        INSERT INTO ai_model_config_groups (owner_uuid, label, sort_order, created_at, updated_at)
-        VALUES (${userId}, ${parsed.data.label}, ${parsed.data.sortOrder}, NOW(), NOW())
+        INSERT INTO ai_model_config_groups (user_uuid, group_code, group_label, sort_order, created_at)
+        VALUES (${userId}, ${parsed.data.label}, ${parsed.data.label}, ${parsed.data.sortOrder}, NOW())
         RETURNING id
       `)
       const rows = Array.isArray(res)
@@ -1066,15 +1066,14 @@ export const userLlmConfigV2Routes: FastifyPluginAsync = async (server) => {
     }
     const userId = request.userId!
     const sets: ReturnType<typeof sql>[] = []
-    if (body.data.label !== undefined) sets.push(sql`label = ${body.data.label}`)
+    if (body.data.label !== undefined) sets.push(sql`group_label = ${body.data.label}`)
     if (body.data.sortOrder !== undefined) sets.push(sql`sort_order = ${body.data.sortOrder}`)
     if (sets.length === 0) return reply.send(success({ id: p.data.id, updated: false, noop: true }))
-    sets.push(sql`updated_at = NOW()`)
     try {
       const res = await db.execute(sql`
         UPDATE ai_model_config_groups
         SET ${sql.join(sets, sql`, `)}
-        WHERE id = ${p.data.id} AND owner_uuid = ${userId}
+        WHERE id = ${p.data.id} AND user_uuid = ${userId}
         RETURNING id
       `)
       const rows = Array.isArray(res)
@@ -1102,8 +1101,8 @@ export const userLlmConfigV2Routes: FastifyPluginAsync = async (server) => {
     try {
       // 先查 group label
       const groupRes = await db.execute(sql`
-        SELECT id, label FROM ai_model_config_groups
-        WHERE id = ${p.data.id} AND owner_uuid = ${userId}
+        SELECT id, group_label AS label FROM ai_model_config_groups
+        WHERE id = ${p.data.id} AND user_uuid = ${userId}
         LIMIT 1
       `)
       const groupRows = Array.isArray(groupRes)
@@ -1128,7 +1127,7 @@ export const userLlmConfigV2Routes: FastifyPluginAsync = async (server) => {
 
       const delRes = await db.execute(sql`
         DELETE FROM ai_model_config_groups
-        WHERE id = ${p.data.id} AND owner_uuid = ${userId}
+        WHERE id = ${p.data.id} AND user_uuid = ${userId}
         RETURNING id
       `)
       const delRows = Array.isArray(delRes)
