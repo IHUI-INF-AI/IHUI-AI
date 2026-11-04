@@ -57,6 +57,8 @@ import {
   collectiblePaths,
   ledgerPathFor,
 } from './lib/cross-end-landing-ledger.mjs'
+// 活文档清单的唯一出处(§0.6):本器不再自己抄一份"哪些文件算活文档"。
+import { DEFAULT_LIVE_DOCS } from './lib/content-loss-gate.mjs'
 
 // 测试注入面(2026-11-03,"结论行纪律"的镜像测试要直跑子进程于临时仓夹具):
 // 仅 IHUI_AUTO_COMMIT_QUIET_TEST_ROOT 显式设置时改钉 ROOT;守护/生产派发从不设置该变量
@@ -155,8 +157,19 @@ function partitionCollectible(paths, predicate = isCollectible) {
 }
 
 
-/** 活文档:收编前必须归并(工作树副本可能滞后于 HEAD,直接提交会吞掉别人已入库的行)。 */
-const HUMAN_LEDGER_RE = /(^|\/)(PROJECT_PLAN|AGENTS)\.md$/
+/**
+ * 活文档:收编前必须归并(工作树副本可能滞后于 HEAD,直接提交会吞掉别人已入库的行)。
+ *
+ * **清单向 `lib/content-loss-gate` 的 `DEFAULT_LIVE_DOCS` 问,不在本器抄第四份**(§0.6;
+ * 同口径另有 union-converge-judgments 的 LIVE_DOCS 与 safe-commit 3e 的 LIVE_DOCS)。
+ * 现读实证(2026-11-05):旧写法只认 `PROJECT_PLAN|AGENTS`,而 safe-commit Step 3e 的闸
+ * **含 `README.md`** —— 于是本器从不给 README 做归并准备,README 工作树副本滞后时(实测吃掉
+ * HEAD 已入库行 438 条)3e 每次都拒整批,白名单族 13 枚/轮原地空转。两处对"哪些是活文档"
+ * 给出不同答案,受害的只有自动化那一侧(人是 agent,会自己去跑 merge-live-doc --apply)。
+ */
+const HUMAN_LEDGER_RE = new RegExp(
+  `(^|/)(${DEFAULT_LIVE_DOCS.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})$`,
+)
 /** README 生成数字块(由 sync-readme-numbers.mjs 独占写入)。 */
 const README_FILES = ['README.md', 'README.en.md', 'README.ko.md', 'README.ja.md']
 
@@ -1560,10 +1573,13 @@ export function blockerFromOutput(text) {
   }
   const c = /^❌\s*(check-[a-z0-9-]+)/m.exec(s)
   if (c) return c[1]
-  // 以下三类都是 safe-commit **本身**的整轮拒(不是某道门判红),现读都真实发生过:
-  // 复活暂存件回流被拦(本仓另一席的删除意图被带回)、声明集不符、并发锁耗尽。
+  // 以下四类都是 safe-commit **本身**的整轮拒(不是某道门判红),现读都真实发生过:
+  // 复活暂存件回流被拦(本仓另一席的删除意图被带回)、活文档工作树副本吃掉 HEAD 已入库的行、
+  // 声明集不符、并发锁耗尽。
   if (/中止 commit[^\n]*回流/.test(s)) return 'resurrected-deletion-refusal'
   if (/heal-worktree-tracked|revoke-deletion|intentional-file-deletions/.test(s)) return 'resurrected-deletion-refusal'
+  // Step 3e 的活文档闸(README/AGENTS/PROJECT_PLAN):工作树副本少了 HEAD 已入库的行 ⇒ 整轮拒。
+  if (/活文档对账判红/.test(s)) return 'live-doc-line-loss'
   if (/声明集|本任务文件|pathspec 只提交/.test(s)) return 'safe-commit-scope-refusal'
   if (/并发锁|锁争用|index\.lock/.test(s)) return 'safe-commit-lock-exhausted'
   return 'unidentified'

@@ -337,8 +337,10 @@ test('T5 白名单族命中的同路径 ⇒ 账本族去重让路,绝不重复�
     assert.equal(spy.calls.length, 0, '已归白名单族的路径不得再交账本族通道')
     assert.equal(commitCount(dir), before)
 
-    // 阳性对照:同一枚不给 whitelistPaths ⇒ 通道被走到(证明去重真起作用,不是路径本身被别的闸拦下)
-    const open = runLedger(dir)
+    // 阳性对照:同一枚不给 whitelistPaths ⇒ 通道被走到(证明去重真起作用,不是路径本身被别的闸拦下)。
+    // README 自 2026-11-05 起也是活文档面(与 PROJECT_PLAN/AGENTS 同一把尺),所以这一臂要把闸判绿:
+    // 要验的是"去重基准来自 whitelistPaths",不是"活文档闸放不放行"(后者由 T26 单独钉)。
+    const open = runLedger(dir, { liveDocGuard: () => ({ ok: true }) })
     assert.equal(open.r.ledgerCollected, 1)
   } finally {
     rmScratch(dir, { bestEffort: true })
@@ -779,6 +781,12 @@ test('T23 拦路者认得出:喂真实 safe-commit 输出必须认出那道门,�
   )
   assert.equal(f('❌ Step 3: 暂存清单与本任务声明集不符'), 'safe-commit-scope-refusal')
   assert.equal(f('❌ 并发锁争用耗尽 ⇒ 不落地'), 'safe-commit-lock-exhausted')
+  // Step 3e 活文档闸(2026-11-05 现读:白名单族 13 枚/轮就是被它整轮拒)
+  assert.equal(
+    f('活文档对账判红:README.md 的工作树副本吃掉 HEAD 已入库的行'),
+    'live-doc-line-loss',
+    '活文档拒收必须认得出类别(§5e-3 寄信身份按稳定类别,不能落 unidentified)',
+  )
   // hint:认不出精确门名时必须给一行可归因摘要(§5e-1),且去掉引号/反引号/美元符防注入形态
   assert.match(
     auto.blockerHint('前一行\n❌ 复活检测命中 scripts/data/x.json 与 87 枚暂存件'),
@@ -995,6 +1003,73 @@ test('T25 结清维取不到 ⇒ 一条都不剔(unjudged 上机读面),失效�
     // 白名单族那一类结论没有这一维 ⇒ 整键缺席(缺席 = 没测,不用 settled=0 冒充测过)
     const plain = auto.ledgerConclusionLine(auto.baseConclusion({ dry: false }))
     assert.ok(!plain.includes('settled='), plain)
+  } finally {
+    rmScratch(dir, { bestEffort: true })
+  }
+})
+
+test('T26 活文档面只认共享清单:README 必须进活文档闸(旧口径漏它 ⇒ 白名单族 13 枚/轮被 3e 整轮拒)', () => {
+  const dir = newRepo()
+  try {
+    put(dir, 'README.md', '# demo 改写\n')
+    declare(dir, 'README.md', '# demo 改写\n')
+    put(dir, BUSINESS_PATH, 'export const a = 1\n')
+    declare(dir, BUSINESS_PATH, 'export const a = 1\n')
+
+    // 反例先跑:此时 README 还没入库,红档才有得判(先绿后红会被 settled 维剔掉,判不出这一臂)
+    const red = runLedger(dir, {
+      liveDocGuard: () => ({ ok: false, why: '工作树吃掉 HEAD 已入库的行(夹具)' }),
+    })
+    assert.deepEqual(
+      red.spy.calls.flatMap((c) => c.paths).filter((p) => p === 'README.md'),
+      [],
+      '活文档闸红 ⇒ README 一枚都不许交通道',
+    )
+    assert.ok(red.r.held >= 1, `红档必须落进 held,实得 held=${red.r.held}`)
+    assert.ok(
+      red.lines.some((l) => l.includes('账本族不收编活文档(README.md)')),
+      `让路必须点名,实得:${red.lines.join(' | ')}`,
+    )
+
+    // 正例:闸绿 ⇒ README 照常收编,且**必须被问过**(旧口径根本不问它,才是 3e 整轮拒的成因)
+    // 独立夹具:上一臂的红档轮已经把业务件真提交入库了,同一枚在下一轮会落 settled 桶 ⇒ 判不出这一臂
+    const dir2 = newRepo()
+    try {
+      put(dir2, 'README.md', '# demo 改写\n')
+      declare(dir2, 'README.md', '# demo 改写\n')
+      put(dir2, BUSINESS_PATH, 'export const a = 1\n')
+      declare(dir2, BUSINESS_PATH, 'export const a = 1\n')
+      const asked = []
+      const green = runLedger(dir2, {
+        liveDocGuard: (p) => {
+          asked.push(String(p))
+          return { ok: true }
+        },
+      })
+      assert.ok(
+        asked.includes('README.md'),
+        `README 必须过活文档闸(与 PROJECT_PLAN/AGENTS 同一把尺),实得:${asked}`,
+      )
+      assert.ok(!asked.includes(BUSINESS_PATH), '非活文档不得进这道闸')
+      assert.equal(green.r.ledgerCollected, 2, '两枚都该交出(README + 业务件)')
+    } finally {
+      rmScratch(dir2, { bestEffort: true })
+    }
+
+    // 形状锁:清单向 lib/content-loss-gate 问,不再本地抄一份两枚形态;两族共用同一个谓词
+    assert.match(
+      SRC,
+      /import \{ DEFAULT_LIVE_DOCS \} from '\.\/lib\/content-loss-gate\.mjs'/,
+      '活文档清单必须来自唯一出处(§0.6)',
+    )
+    assert.match(SRC, /const HUMAN_LEDGER_RE = new RegExp\(/, '正则必须由共享清单派生')
+    assert.doesNotMatch(
+      SRC,
+      /const HUMAN_LEDGER_RE = \/[^/]*PROJECT_PLAN\|AGENTS/,
+      '旧的两枚字面量写法不得回潮(README 被漏掉即本轮实测事故)',
+    )
+    const wl = bodyOf(SRC, 'function runWhitelistFamily(')
+    assert.ok(wl.includes('HUMAN_LEDGER_RE.test('), '白名单族必须走同一个谓词(不得两套口径)')
   } finally {
     rmScratch(dir, { bestEffort: true })
   }
