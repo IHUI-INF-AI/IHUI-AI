@@ -3,496 +3,15 @@
   "entries": [
     {
       "pair": "BackChevron",
-      "key": "label",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN 共享组件没有端内 i18n 钩子,label 作为无障碍名称必填、由调用方传入本地化字面量;小程序端组件内以 tt('common.back') 兜底,调用方无需必传,故不设必填腿。两端无障碍名称同源,属承载方式差异。",
-      "evidence": [
-        "packages/app/src/components/BackChevron.tsx:88",
-        "apps/miniapp-taro/src/components/BackChevron.tsx:104",
-        "packages/app/src/components/BackChevron.tsx:82"
-      ]
-    },
-    {
-      "pair": "BackChevron",
       "key": "color",
       "side": "mini",
       "owner": "cross-end-props-parity",
       "expires": "2027-06-30",
       "rationale": "小程序端没有主题模式注入,颜色以 CSS token 字符串 color 传入(默认 var(--color-foreground));RN 端颜色由注入的 colorScheme(INJECTABLE)决定,故无同名 color 腿。",
       "evidence": [
-        "apps/miniapp-taro/src/components/BackChevron.tsx:89",
-        "packages/app/src/components/BackChevron.tsx:94",
-        "apps/miniapp-taro/src/components/BackChevron.tsx:80"
-      ]
-    },
-    {
-      "pair": "BottomActionBar",
-      "key": "compactContextLoading",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "小程序端未接上下文压缩(✂)能力,本组件接口无该入口;登记为在期分叉,到期复核补实现或清理 RN 侧腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:180",
-        "apps/miniapp-taro/src/components/BottomActionBar.tsx:66",
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
-      ]
-    },
-    {
-      "pair": "BottomActionBar",
-      "key": "images",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN BottomActionBar 直接吃预览图列表;小程序端已选附件走 inputAreaProps.imgsList 交给 InputArea 渲染,本组件无同名列表腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:205",
-        "apps/miniapp-taro/src/components/BottomActionBar.tsx:90",
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
-      ]
-    },
-    {
-      "pair": "BottomActionBar",
-      "key": "isShowIcon",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN isShowIcon 控制「+」滑出区(辅助行+图标组)显隐;小程序端用 showIconButtons 控制图标卡行,前者含展开态、后者纯显示,粒度不同故无同名腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:211",
-        "apps/miniapp-taro/src/components/BottomActionBar.tsx:86",
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
-      ]
-    },
-    {
-      "pair": "BottomActionBar",
-      "key": "knowledgeBaseEnabled",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN 每档开关是独立布尔腿;小程序端把知识库开关收进 toggleButtons 数组里 key=knowledgeBase 项的 active,状态表达同源、入参聚合方式不同。",
-      "evidence": [
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:196",
-        "apps/miniapp-taro/src/components/BottomActionBar.tsx:165",
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
-      ]
-    },
-    {
-      "pair": "BottomActionBar",
-      "key": "mcpEnabled",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN 每档开关是独立布尔腿;小程序端把 MCP 开关收进 toggleButtons 数组里 key=mcp 项的 active,状态表达同源、入参聚合方式不同。",
-      "evidence": [
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:195",
-        "apps/miniapp-taro/src/components/BottomActionBar.tsx:164",
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
-      ]
-    },
-    {
-      "pair": "BottomActionBar",
-      "key": "onCompactContext",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "小程序端未接上下文压缩(✂)动作,无对应回调腿;登记为在期分叉,到期复核补实现或清理 RN 侧腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:178",
-        "apps/miniapp-taro/src/components/BottomActionBar.tsx:66",
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
-      ]
-    },
-    {
-      "pair": "BottomActionBar",
-      "key": "onEndLongPress",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN 长按结束由 BottomActionBar 覆盖层回调;小程序端松手由 InputArea 的 onVoiceRelease 承担,本组件无长按腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:155",
-        "apps/miniapp-taro/src/components/InputArea.tsx:78",
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
-      ]
-    },
-    {
-      "pair": "BottomActionBar",
-      "key": "onFangda",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN BottomActionBar 自带放大/缩小回调;小程序端放大由 InputArea 的 onFangdaChange 上报、页面切换全屏浮层,本组件不重复暴露。",
-      "evidence": [
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:176",
-        "apps/miniapp-taro/src/components/InputArea.tsx:92",
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
-      ]
-    },
-    {
-      "pair": "BottomActionBar",
-      "key": "onFunctionHandle",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN「+」工具栏由 onFunctionHandle 打开;小程序端 ai-home 变体只渲染固定四图标卡(相机/相册/文件/微信文件),无工具栏入口腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:168",
-        "apps/miniapp-taro/src/components/BottomActionBar.tsx:172",
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
-      ]
-    },
-    {
-      "pair": "BottomActionBar",
-      "key": "onInputBlur",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN 输入行自持失焦回调;小程序端失焦由 InputArea 的 onBlur 上报,本组件不重复挂焦点腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:164",
-        "apps/miniapp-taro/src/components/InputArea.tsx:89",
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
-      ]
-    },
-    {
-      "pair": "BottomActionBar",
-      "key": "onInputClick",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN 把输入行点击单独暴露;小程序端点击即聚焦,焦点语义已由 InputArea 的 onFocus 覆盖,无独立点击腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:165",
-        "apps/miniapp-taro/src/components/InputArea.tsx:88",
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
-      ]
-    },
-    {
-      "pair": "BottomActionBar",
-      "key": "onInputFocus",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN 输入行自持焦点回调;小程序端焦点由 InputArea 的 onFocus 上报,本组件不重复挂焦点腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:163",
-        "apps/miniapp-taro/src/components/InputArea.tsx:88",
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
-      ]
-    },
-    {
-      "pair": "BottomActionBar",
-      "key": "onKeyboardHide",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN 输入行自持键盘显隐回调;小程序端键盘收起同样经 InputArea 的 onKeyboardHeightChange(高度归零)感知,本组件无键盘腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:187",
-        "apps/miniapp-taro/src/components/InputArea.tsx:90",
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
-      ]
-    },
-    {
-      "pair": "BottomActionBar",
-      "key": "onKeyboardShow",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN 输入行自持键盘显隐回调;小程序端键盘高度由 InputArea 的 textarea 事件 onKeyboardHeightChange 上报,本组件无键盘腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:186",
-        "apps/miniapp-taro/src/components/InputArea.tsx:90",
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
-      ]
-    },
-    {
-      "pair": "BottomActionBar",
-      "key": "onModelConfigChange",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "小程序端模型配置变更由 ModelList/配置页回写并把结果作为 modelName 展示,不向输入条暴露变更回调;RN 以回调腿把变更冒泡到宿主。",
-      "evidence": [
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:175",
-        "apps/miniapp-taro/src/components/BottomActionBar.tsx:84",
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
-      ]
-    },
-    {
-      "pair": "BottomActionBar",
-      "key": "onPlusToggle",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN「+」切换由宿主回调;小程序端图标卡行直接由 showIconButtons 布尔驱动,无切换回调腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:183",
-        "apps/miniapp-taro/src/components/BottomActionBar.tsx:86",
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
-      ]
-    },
-    {
-      "pair": "BottomActionBar",
-      "key": "onRemoveImage",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RNA BottomActionBar 自持图片删除;小程序端附件删除由 InputArea 的 onRemoveImage 承担(经 inputAreaProps 注入),本组件无同名腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:153",
-        "apps/miniapp-taro/src/components/BottomActionBar.tsx:90",
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
-      ]
-    },
-    {
-      "pair": "BottomActionBar",
-      "key": "onShowModelConfig",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "小程序端模型配置入口在 InputArea 的模型行与页面(本组件只显示 modelName),没有同名回调腿;RN 在 BottomActionBar 内直接暴露模型配置回调。",
-      "evidence": [
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:173",
-        "apps/miniapp-taro/src/components/BottomActionBar.tsx:84",
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
-      ]
-    },
-    {
-      "pair": "BottomActionBar",
-      "key": "onShowModelList",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "小程序端模型列表由页面 ModelList 弹出层打开,本组件只显示 modelName 提示,无同名回调腿;RN 把入口提升到 BottomActionBar 契约。",
-      "evidence": [
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:188",
-        "apps/miniapp-taro/src/components/BottomActionBar.tsx:84",
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
-      ]
-    },
-    {
-      "pair": "BottomActionBar",
-      "key": "onShowMyCreation",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN「我的创作」入口由回调腿驱动;小程序端图标卡不含我的创作入口,无同名腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:191",
-        "apps/miniapp-taro/src/components/BottomActionBar.tsx:172",
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
-      ]
-    },
-    {
-      "pair": "BottomActionBar",
-      "key": "onSourceHandle",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN 来源处理入口由回调腿驱动;小程序端图标卡固定四种来源,无「来源处理」入口腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:169",
-        "apps/miniapp-taro/src/components/BottomActionBar.tsx:172",
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
-      ]
-    },
-    {
-      "pair": "BottomActionBar",
-      "key": "onStartLongPress",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN 长按录音由 BottomActionBar 覆盖层自持并回调;小程序端录音长按由 InputArea 的 onVoicePress 承担,本组件无长按腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:154",
-        "apps/miniapp-taro/src/components/InputArea.tsx:77",
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
-      ]
-    },
-    {
-      "pair": "BottomActionBar",
-      "key": "onStartVoiceAnimation",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN 语音波形起播由宿主驱动回调;小程序端波形动画在 InputArea/VoiceInput 内部自持,不向调用方暴露起停腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:166",
-        "apps/miniapp-taro/src/components/InputArea.tsx:77",
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
-      ]
-    },
-    {
-      "pair": "BottomActionBar",
-      "key": "onStopVoiceAnimation",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN 语音波形收停由宿主驱动回调;小程序端波形动画随录音流程在 InputArea/VoiceInput 内部收停,不向调用方暴露起停腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:167",
-        "apps/miniapp-taro/src/components/InputArea.tsx:78",
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
-      ]
-    },
-    {
-      "pair": "BottomActionBar",
-      "key": "onTextareaHeightChange",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN 自持输入行高度变化;小程序端 textarea 自动撑高由 InputArea 内部处理,只有键盘高度回调外露,本组件无高度腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:174",
-        "apps/miniapp-taro/src/components/InputArea.tsx:90",
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
-      ]
-    },
-    {
-      "pair": "BottomActionBar",
-      "key": "onToggleKnowledgeBase",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN 每档一个具名回调;小程序端统一走 onToggle(item),按 item.key=knowledgeBase 分派,行为等价、仅回调粒度不同。",
-      "evidence": [
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:150",
-        "apps/miniapp-taro/src/components/BottomActionBar.tsx:165",
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
-      ]
-    },
-    {
-      "pair": "BottomActionBar",
-      "key": "onToggleMcp",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN 每档一个具名回调;小程序端统一走 onToggle(item),按 item.key=mcp 分派,行为等价、仅回调粒度不同。",
-      "evidence": [
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:149",
-        "apps/miniapp-taro/src/components/BottomActionBar.tsx:164",
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
-      ]
-    },
-    {
-      "pair": "BottomActionBar",
-      "key": "onTogglePermanentMemory",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN 每档一个具名回调;小程序端统一走 onToggle(item),按 item.key=permanentMemory 分派,行为等价、仅回调粒度不同。",
-      "evidence": [
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:151",
-        "apps/miniapp-taro/src/components/BottomActionBar.tsx:166",
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
-      ]
-    },
-    {
-      "pair": "BottomActionBar",
-      "key": "onToggleSuperAgent",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN 每档一个具名回调;小程序端统一走 onToggle(item),按 item.key=superAgent 分派,回调数由数组长度决定,行为等价。",
-      "evidence": [
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:147",
-        "apps/miniapp-taro/src/components/BottomActionBar.tsx:163",
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
-      ]
-    },
-    {
-      "pair": "BottomActionBar",
-      "key": "onToggleSuperAgentfu",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN 该腿与 onToggleSuperAgent 同一超级智能体开关槽位(历史别名);小程序端由 toggleButtons 里 key=superAgent 的项经 onToggle 统一分派,行为等价。",
-      "evidence": [
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:148",
-        "apps/miniapp-taro/src/components/BottomActionBar.tsx:163",
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
-      ]
-    },
-    {
-      "pair": "BottomActionBar",
-      "key": "permanentMemoryEnabled",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN 每档开关是独立布尔腿;小程序端把长期记忆开关收进 toggleButtons 数组里 key=permanentMemory 项的 active,状态表达同源、入参聚合方式不同。",
-      "evidence": [
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:197",
-        "apps/miniapp-taro/src/components/BottomActionBar.tsx:166",
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
-      ]
-    },
-    {
-      "pair": "BottomActionBar",
-      "key": "plusActive",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN「+」有受控展开态 plusActive;小程序端图标卡行由 showIconButtons 直接控制,不区分「+」激活态,故无同名腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:185",
-        "apps/miniapp-taro/src/components/BottomActionBar.tsx:86",
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
-      ]
-    },
-    {
-      "pair": "BottomActionBar",
-      "key": "recording",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN 录音态由 BottomActionBar 受控;小程序端录音态在 InputArea 内随 onVoicePress/onVoiceRelease 自持,本组件无同名状态腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:160",
-        "apps/miniapp-taro/src/components/InputArea.tsx:77",
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
-      ]
-    },
-    {
-      "pair": "BottomActionBar",
-      "key": "recordingDuration",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN 录音时长由 BottomActionBar 受控展示;小程序端时长在 InputArea 的录音浮层内自持,本组件无同名数字腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:162",
-        "apps/miniapp-taro/src/components/InputArea.tsx:77",
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
-      ]
-    },
-    {
-      "pair": "BottomActionBar",
-      "key": "showToggleChips",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN 用显式布尔决定开关行是否渲染;小程序端以 toggleButtons.length > 0 表达同一开关行的渲染条件,判定同源、无需额外布尔腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:201",
-        "apps/miniapp-taro/src/components/BottomActionBar.tsx:210",
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
-      ]
-    },
-    {
-      "pair": "BottomActionBar",
-      "key": "superAgentEnabled",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN 每档开关是独立布尔腿;小程序端把四档开关收进 toggleButtons: ToggleButtonItem[] 的 item.active(同一老板键 superAgent/mcp/knowledgeBase/permanentMemory),由调用方构造数组表达同一状态。",
-      "evidence": [
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:194",
-        "apps/miniapp-taro/src/components/BottomActionBar.tsx:163",
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:138"
+        "apps/miniapp-taro/src/components/BackChevron.tsx:96",
+        "packages/app/src/components/BackChevron.tsx:77",
+        "apps/miniapp-taro/src/components/BackChevron.tsx:96"
       ]
     },
     {
@@ -501,11 +20,11 @@
       "side": "mini",
       "owner": "cross-end-props-parity",
       "expires": "2027-06-30",
-      "rationale": "小程序端图标卡列表可注入;RN 端图标组固定为 ICON_GROUP_ITEMS 常量,无注入腿。",
+      "rationale": "RN 图标按钮是模块级常量 ICON_GROUP_ITEMS(固定 5 项,由 showIconButtons 显隐);小程序以 iconButtons 数组逐项注入并渲染。承载方式不同(固定常量 vs 调用方数组),非平台 API 差异。",
       "evidence": [
-        "apps/miniapp-taro/src/components/BottomActionBar.tsx:92",
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:172",
-        "apps/miniapp-taro/src/components/BottomActionBar.tsx:66"
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:275",
+        "apps/miniapp-taro/src/components/BottomActionBar.tsx:97",
+        "apps/miniapp-taro/src/components/BottomActionBar.tsx:97"
       ]
     },
     {
@@ -516,9 +35,9 @@
       "expires": "2027-06-30",
       "rationale": "小程序端以 Partial<InputAreaProps> 聚合透传输入区;RN 端在 BottomActionBar 内直接铺输入行并逐腿受控,无聚合透传腿。",
       "evidence": [
-        "apps/miniapp-taro/src/components/BottomActionBar.tsx:90",
+        "apps/miniapp-taro/src/components/BottomActionBar.tsx:95",
         "apps/mobile-rn/src/components/BottomActionBar.tsx:142",
-        "apps/miniapp-taro/src/components/BottomActionBar.tsx:66"
+        "apps/miniapp-taro/src/components/BottomActionBar.tsx:95"
       ]
     },
     {
@@ -529,9 +48,9 @@
       "expires": "2027-06-30",
       "rationale": "小程序端开关行统一回调 (item) 按 key 分派;RN 端每档一个具名回调,无聚合回调腿。",
       "evidence": [
-        "apps/miniapp-taro/src/components/BottomActionBar.tsx:96",
+        "apps/miniapp-taro/src/components/BottomActionBar.tsx:55",
         "apps/mobile-rn/src/components/BottomActionBar.tsx:147",
-        "apps/miniapp-taro/src/components/BottomActionBar.tsx:66"
+        "apps/miniapp-taro/src/components/BottomActionBar.tsx:55"
       ]
     },
     {
@@ -540,11 +59,11 @@
       "side": "mini",
       "owner": "cross-end-props-parity",
       "expires": "2027-06-30",
-      "rationale": "小程序端用显式布尔控制附件键渲染;RN 端由 onAddFile/onIconClick 等回调在场与否隐式决定,无同名布尔腿。",
+      "rationale": "小程序以 showAttach 布尔显式控制附件键;RN 无该显隐腿,附件键由 onAddFile/onIconClick 是否在场决定(未传则不渲染该键/该组)。",
       "evidence": [
-        "apps/miniapp-taro/src/components/BottomActionBar.tsx:71",
-        "apps/mobile-rn/src/components/BottomActionBar.tsx:144",
-        "apps/miniapp-taro/src/components/BottomActionBar.tsx:66"
+        "apps/miniapp-taro/src/components/BottomActionBar.tsx:76",
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:478",
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:480"
       ]
     },
     {
@@ -555,9 +74,9 @@
       "expires": "2027-06-30",
       "rationale": "小程序端用纯显示布尔控制图标卡行;RN 端用 isShowIcon 驱动同一组按钮但含「+」展开态,粒度不同故无同名腿。",
       "evidence": [
-        "apps/miniapp-taro/src/components/BottomActionBar.tsx:86",
+        "apps/miniapp-taro/src/components/BottomActionBar.tsx:91",
         "apps/mobile-rn/src/components/BottomActionBar.tsx:211",
-        "apps/miniapp-taro/src/components/BottomActionBar.tsx:66"
+        "apps/miniapp-taro/src/components/BottomActionBar.tsx:91"
       ]
     },
     {
@@ -568,9 +87,9 @@
       "expires": "2027-06-30",
       "rationale": "小程序端用显式布尔控制发送键渲染;RN 端由 onSend 回调在场与否隐式决定,无同名布尔腿。",
       "evidence": [
-        "apps/miniapp-taro/src/components/BottomActionBar.tsx:72",
+        "apps/miniapp-taro/src/components/BottomActionBar.tsx:77",
         "apps/mobile-rn/src/components/BottomActionBar.tsx:144",
-        "apps/miniapp-taro/src/components/BottomActionBar.tsx:66"
+        "apps/miniapp-taro/src/components/BottomActionBar.tsx:77"
       ]
     },
     {
@@ -581,9 +100,9 @@
       "expires": "2027-06-30",
       "rationale": "小程序端把四档开关收进 toggleButtons 数组;RN 端是四个独立 *Enabled 布尔加四个 onToggleX 回调,无同名数组腿。",
       "evidence": [
-        "apps/miniapp-taro/src/components/BottomActionBar.tsx:88",
+        "apps/miniapp-taro/src/components/BottomActionBar.tsx:93",
         "apps/mobile-rn/src/components/BottomActionBar.tsx:194",
-        "apps/miniapp-taro/src/components/BottomActionBar.tsx:66"
+        "apps/miniapp-taro/src/components/BottomActionBar.tsx:93"
       ]
     },
     {
@@ -594,22 +113,9 @@
       "expires": "2027-06-30",
       "rationale": "小程序端 ai-home 与 default 两种版式由 variant 切换;RN 端用 prompt 是否提供区分完整聊天输入 UI,无同名版式腿。",
       "evidence": [
-        "apps/miniapp-taro/src/components/BottomActionBar.tsx:80",
+        "apps/miniapp-taro/src/components/BottomActionBar.tsx:41",
         "apps/mobile-rn/src/components/BottomActionBar.tsx:142",
-        "apps/miniapp-taro/src/components/BottomActionBar.tsx:66"
-      ]
-    },
-    {
-      "pair": "Carousel",
-      "key": "itemWidth",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN 需要调用方给单张 slide 宽(分页步长)以免容器边距裁切;小程序端由 Taro swiper 按容器宽自算,无同名腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/Carousel.tsx:51",
-        "apps/miniapp-taro/src/components/Carousel.tsx:61",
-        "apps/mobile-rn/src/components/Carousel.tsx:46"
+        "apps/miniapp-taro/src/components/BottomActionBar.tsx:41"
       ]
     },
     {
@@ -620,9 +126,9 @@
       "expires": "2027-06-30",
       "rationale": "小程序端把课程版式(标题+价格叠层)并入 Carousel 的 course 变体,用与 items 同长的 courseMeta 提供覆盖数据;RN 端课程轮播是独立 CourseCarousel,Carousel 只做通用图轮播。",
       "evidence": [
-        "apps/miniapp-taro/src/components/Carousel.tsx:45",
+        "apps/miniapp-taro/src/components/Carousel.tsx:47",
         "apps/mobile-rn/src/components/Carousel.tsx:47",
-        "apps/miniapp-taro/src/components/Carousel.tsx:35"
+        "apps/miniapp-taro/src/components/Carousel.tsx:47"
       ]
     },
     {
@@ -633,113 +139,9 @@
       "expires": "2027-06-30",
       "rationale": "小程序端用 variant=default|course 切换课程叠层;RN 端把课程版式拆成独立 CourseCarousel 组件,通用 Carousel 无版式开关。",
       "evidence": [
-        "apps/miniapp-taro/src/components/Carousel.tsx:43",
+        "apps/miniapp-taro/src/components/Carousel.tsx:45",
         "apps/mobile-rn/src/components/Carousel.tsx:47",
-        "apps/miniapp-taro/src/components/Carousel.tsx:35"
-      ]
-    },
-    {
-      "pair": "InputArea",
-      "key": "collapseButtonLabel",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN 折叠/展开按钮无障碍文案;小程序端放大按钮在页面浮层且文案由页面 i18n 提供,InputArea 无同名腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/InputArea.tsx:226",
-        "apps/miniapp-taro/src/components/InputArea.tsx:92",
-        "apps/mobile-rn/src/components/InputArea.tsx:153"
-      ]
-    },
-    {
-      "pair": "InputArea",
-      "key": "collapsedFabLabel",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN 折叠态 FAB 无障碍文案;小程序端无折叠 FAB(放大走页面浮层),该文案槽位在小程序侧不存在对应可访问元素。",
-      "evidence": [
-        "apps/mobile-rn/src/components/InputArea.tsx:224",
-        "apps/miniapp-taro/src/components/InputArea.tsx:92",
-        "apps/mobile-rn/src/components/InputArea.tsx:153"
-      ]
-    },
-    {
-      "pair": "InputArea",
-      "key": "collapsible",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN InputArea 自带折叠态;小程序端收起/放大由页面级 fangda 浮层承担(InputArea 仅上报 onFangdaChange),无折叠开关腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/InputArea.tsx:218",
-        "apps/miniapp-taro/src/components/InputArea.tsx:92",
-        "apps/mobile-rn/src/components/InputArea.tsx:153"
-      ]
-    },
-    {
-      "pair": "InputArea",
-      "key": "defaultCollapsed",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN 折叠初值由输入区自持;小程序端无内嵌折叠态,放大态由页面 fangda 浮层决定,无同义初值腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/InputArea.tsx:220",
-        "apps/miniapp-taro/src/components/InputArea.tsx:92",
-        "apps/mobile-rn/src/components/InputArea.tsx:153"
-      ]
-    },
-    {
-      "pair": "InputArea",
-      "key": "expanded",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN 展开态受控入参;小程序端展开态在页面浮层自持,InputArea 只上报 onFangdaChange,无同名受控腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/InputArea.tsx:204",
-        "apps/miniapp-taro/src/components/InputArea.tsx:92",
-        "apps/mobile-rn/src/components/InputArea.tsx:153"
-      ]
-    },
-    {
-      "pair": "InputArea",
-      "key": "loading",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN 发送键有 loading 态;小程序端发送键只有单一发送动作(onSend),由页面渲染等待态,输入区无 loading 腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/InputArea.tsx:178",
-        "apps/miniapp-taro/src/components/InputArea.tsx:76",
-        "apps/mobile-rn/src/components/InputArea.tsx:153"
-      ]
-    },
-    {
-      "pair": "InputArea",
-      "key": "onClearModel",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "小程序端模型条在 BottomActionBar(modelName 行)且无清除动作;RN InputArea 内建模型条并暴露清除回调,故本组件无同名腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/InputArea.tsx:258",
-        "apps/miniapp-taro/src/components/BottomActionBar.tsx:84",
-        "apps/mobile-rn/src/components/InputArea.tsx:153"
-      ]
-    },
-    {
-      "pair": "InputArea",
-      "key": "onCollapsedChange",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN 折叠态变更回调;小程序端展开/收起由 onFangdaChange 上报并交页面浮层处理,语义同一槽位但命名与承载页不同。",
-      "evidence": [
-        "apps/mobile-rn/src/components/InputArea.tsx:222",
-        "apps/miniapp-taro/src/components/InputArea.tsx:92",
-        "apps/mobile-rn/src/components/InputArea.tsx:153"
+        "apps/miniapp-taro/src/components/Carousel.tsx:45"
       ]
     },
     {
@@ -748,297 +150,11 @@
       "side": "rn",
       "owner": "cross-end-props-parity",
       "expires": "2027-06-30",
-      "rationale": "RN onImageAdd 是预留占位(源注自证待接 expo-image-picker,全站未接线);小程序端已用 Taro.chooseImage 取临时文件并经 onUpload 真回调,两端能力落点不同,登记为在期分叉。",
+      "rationale": "RN 由宿主在 onImageAdd 回调里打开加号面板(AiAssistantN8nScreen 真实传入);小程序方向相反,组件内 Taro.chooseImage 选文件后经 onUpload 回传。方向不同,非平台 API 差异。",
       "evidence": [
-        "apps/mobile-rn/src/components/InputArea.tsx:192",
-        "apps/miniapp-taro/src/components/InputArea.tsx:79",
-        "apps/mobile-rn/src/components/InputArea.tsx:153"
-      ]
-    },
-    {
-      "pair": "InputArea",
-      "key": "onOpenModelConfig",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "小程序端模型配置由 BottomActionBar/配置对话框承担,InputArea 不暴露配置打开回调;RN 在输入区暴露该腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/InputArea.tsx:260",
-        "apps/miniapp-taro/src/components/BottomActionBar.tsx:84",
-        "apps/mobile-rn/src/components/InputArea.tsx:153"
-      ]
-    },
-    {
-      "pair": "InputArea",
-      "key": "onOpenModelSelect",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "小程序端模型选择由页面 ModelList 弹出层打开,入口不在 InputArea;RN 把打开回调挂在输入区,故无同名腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/InputArea.tsx:254",
-        "apps/miniapp-taro/src/components/ModelList.tsx:82",
-        "apps/mobile-rn/src/components/InputArea.tsx:153"
-      ]
-    },
-    {
-      "pair": "InputArea",
-      "key": "onPageAgentVariablesChange",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN 页面智能体参数变量变更回调;小程序端未接参数变量能力,无同名回调腿,登记为在期分叉。",
-      "evidence": [
-        "apps/mobile-rn/src/components/InputArea.tsx:210",
-        "apps/miniapp-taro/src/components/InputArea.tsx:70",
-        "apps/mobile-rn/src/components/InputArea.tsx:153"
-      ]
-    },
-    {
-      "pair": "InputArea",
-      "key": "onParamImageAdd",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN 参数变量图片槽添加回调;小程序端未接参数变量能力(无图片槽),无同名回调腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/InputArea.tsx:212",
-        "apps/miniapp-taro/src/components/InputArea.tsx:70",
-        "apps/mobile-rn/src/components/InputArea.tsx:153"
-      ]
-    },
-    {
-      "pair": "InputArea",
-      "key": "onPlusToggle",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN 输入区「+」切换回调;小程序端图标卡行在 BottomActionBar 直接由布尔驱动,InputArea 无同名回调腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/InputArea.tsx:244",
-        "apps/miniapp-taro/src/components/BottomActionBar.tsx:86",
-        "apps/mobile-rn/src/components/InputArea.tsx:153"
-      ]
-    },
-    {
-      "pair": "InputArea",
-      "key": "onStop",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN 发送键可切换为停止生成;小程序端输入区无停止键(停止入口在回答气泡上),无同名回调腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/InputArea.tsx:180",
-        "apps/miniapp-taro/src/components/InputArea.tsx:76",
-        "apps/mobile-rn/src/components/InputArea.tsx:153"
-      ]
-    },
-    {
-      "pair": "InputArea",
-      "key": "onVoiceAnimationStart",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN 语音波形起播回调;小程序端波形在 VoiceInput/InputArea 内随录音自持起播,不向调用方暴露起停腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/InputArea.tsx:200",
-        "apps/miniapp-taro/src/components/InputArea.tsx:77",
-        "apps/mobile-rn/src/components/InputArea.tsx:153"
-      ]
-    },
-    {
-      "pair": "InputArea",
-      "key": "onVoiceAnimationStop",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN 语音波形收停回调;小程序端波形随录音流程在组件内收停,不向调用方暴露起停腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/InputArea.tsx:202",
-        "apps/miniapp-taro/src/components/InputArea.tsx:78",
-        "apps/mobile-rn/src/components/InputArea.tsx:153"
-      ]
-    },
-    {
-      "pair": "InputArea",
-      "key": "onVoiceToggle",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN 语音/键盘切换回调;小程序端切换由组件内在 onVoicePress/onVoiceRelease 流程完成,无独立切换回调腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/InputArea.tsx:198",
-        "apps/miniapp-taro/src/components/InputArea.tsx:77",
-        "apps/mobile-rn/src/components/InputArea.tsx:153"
-      ]
-    },
-    {
-      "pair": "InputArea",
-      "key": "pageAgentVariables",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "参数变量组件(文本/图片槽)是 RN 页面智能体专属能力;小程序端未接该能力,输入区接口无同名腿,登记为在期分叉。",
-      "evidence": [
-        "apps/mobile-rn/src/components/InputArea.tsx:208",
-        "apps/miniapp-taro/src/components/InputArea.tsx:70",
-        "apps/mobile-rn/src/components/InputArea.tsx:153"
-      ]
-    },
-    {
-      "pair": "InputArea",
-      "key": "plusActive",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN 输入区「+」有受控激活态;小程序端「+」图标卡行在 BottomActionBar 由 showIconButtons 控制,InputArea 无同名腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/InputArea.tsx:246",
-        "apps/miniapp-taro/src/components/BottomActionBar.tsx:86",
-        "apps/mobile-rn/src/components/InputArea.tsx:153"
-      ]
-    },
-    {
-      "pair": "InputArea",
-      "key": "selectedModelName",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "小程序端当前模型名由 BottomActionBar 的 modelName 展示(与输入区解耦);RN 由输入区自渲染模型条并吃该名字,故无同名腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/InputArea.tsx:256",
-        "apps/miniapp-taro/src/components/BottomActionBar.tsx:84",
-        "apps/mobile-rn/src/components/InputArea.tsx:153"
-      ]
-    },
-    {
-      "pair": "InputArea",
-      "key": "sendLabel",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN 发送键可配文案;小程序端发送键固定为矢量图标不带文案,无同名腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/InputArea.tsx:184",
-        "apps/miniapp-taro/src/components/InputArea.tsx:76",
-        "apps/mobile-rn/src/components/InputArea.tsx:153"
-      ]
-    },
-    {
-      "pair": "InputArea",
-      "key": "showVoiceMic",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN 麦克风键显隐可配;小程序端麦克风键是固定渲染(默认模式必有),无同名显隐腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/InputArea.tsx:231",
-        "apps/miniapp-taro/src/components/InputArea.tsx:77",
-        "apps/mobile-rn/src/components/InputArea.tsx:153"
-      ]
-    },
-    {
-      "pair": "InputArea",
-      "key": "stopLabel",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN 停止键文案可配;小程序端不渲染停止键,文案槽位在回答气泡侧,输入区无同名腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/InputArea.tsx:182",
-        "apps/miniapp-taro/src/components/InputArea.tsx:76",
-        "apps/mobile-rn/src/components/InputArea.tsx:153"
-      ]
-    },
-    {
-      "pair": "InputArea",
-      "key": "transparentBackground",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN 透明底用于浮层叠在内容上;小程序端 ai-home 版式底色固定在组件样式内,无同名开关腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/InputArea.tsx:268",
-        "apps/miniapp-taro/src/components/InputArea.tsx:87",
-        "apps/mobile-rn/src/components/InputArea.tsx:153"
-      ]
-    },
-    {
-      "pair": "InputArea",
-      "key": "voiceActive",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN 语音激活态受控;小程序端激活态随 onVoicePress/onVoiceRelease 在组件内切换,无同名受控腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/InputArea.tsx:196",
-        "apps/miniapp-taro/src/components/InputArea.tsx:77",
-        "apps/mobile-rn/src/components/InputArea.tsx:153"
-      ]
-    },
-    {
-      "pair": "InputArea",
-      "key": "voiceDuration",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN 录音时长受控;小程序端时长在录音浮层内按计时器自持,无同名受控腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/InputArea.tsx:237",
-        "apps/miniapp-taro/src/components/InputArea.tsx:77",
-        "apps/mobile-rn/src/components/InputArea.tsx:153"
-      ]
-    },
-    {
-      "pair": "InputArea",
-      "key": "voiceInput",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN 语音/键盘模式是受控腿;小程序端模式由 InputArea 内部按 onVoicePress 切换,不向调用方暴露同名受控腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/InputArea.tsx:194",
-        "apps/miniapp-taro/src/components/InputArea.tsx:77",
-        "apps/mobile-rn/src/components/InputArea.tsx:153"
-      ]
-    },
-    {
-      "pair": "InputArea",
-      "key": "voiceNoteNode",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN 允许注入语音笔记节点(ReactNode);小程序端语音区固定渲染 VoiceInput,不开放节点注入腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/InputArea.tsx:249",
-        "apps/miniapp-taro/src/components/InputArea.tsx:77",
-        "apps/mobile-rn/src/components/InputArea.tsx:153"
-      ]
-    },
-    {
-      "pair": "InputArea",
-      "key": "voiceRecording",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN 录音态受控;小程序端录音态在 InputArea 录音浮层内自持,无同名受控腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/InputArea.tsx:233",
-        "apps/miniapp-taro/src/components/InputArea.tsx:77",
-        "apps/mobile-rn/src/components/InputArea.tsx:153"
-      ]
-    },
-    {
-      "pair": "InputArea",
-      "key": "voiceTranscribing",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN 转写态受控;小程序端转写由 VoiceInput 的识别器流程自持并回报结果,无同名受控腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/InputArea.tsx:235",
-        "apps/miniapp-taro/src/components/InputArea.tsx:78",
-        "apps/mobile-rn/src/components/InputArea.tsx:153"
+        "apps/mobile-rn/src/components/InputArea.tsx:24",
+        "apps/mobile-rn/src/screens/AiAssistantN8nScreen.tsx:2048",
+        "apps/miniapp-taro/src/components/InputArea.tsx:97"
       ]
     },
     {
@@ -1047,11 +163,11 @@
       "side": "mini",
       "owner": "cross-end-props-parity",
       "expires": "2027-06-30",
-      "rationale": "小程序端用 Taro.chooseImage 取临时文件后经 onUpload 真回调;RN 对应 onImageAdd 是预留占位未接线,无同粒度回调腿。",
+      "rationale": "小程序组件内 Taro.chooseImage 选文件后经 onUpload 回传(source);RN 方向相反,由宿主 onImageAdd 打开面板后再走上传链路。方向不同,非平台 API 差异。",
       "evidence": [
         "apps/miniapp-taro/src/components/InputArea.tsx:79",
-        "apps/mobile-rn/src/components/InputArea.tsx:192",
-        "apps/miniapp-taro/src/components/InputArea.tsx:70"
+        "apps/miniapp-taro/src/components/InputArea.tsx:79",
+        "apps/mobile-rn/src/screens/AiAssistantN8nScreen.tsx:2048"
       ]
     },
     {
@@ -1064,137 +180,7 @@
       "evidence": [
         "apps/miniapp-taro/src/components/InputArea.tsx:87",
         "apps/mobile-rn/src/components/InputArea.tsx:155",
-        "apps/miniapp-taro/src/components/InputArea.tsx:70"
-      ]
-    },
-    {
-      "pair": "IntelligentAssistant",
-      "key": "robotImage",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN 机器人形象可注入位图 robotImage;小程序端按「不同媒介」裁决使用 LineIcon bot 矢量字形(随主题换色),不渲染位图,无同名腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/IntelligentAssistant.tsx:52",
-        "apps/miniapp-taro/src/components/IntelligentAssistant.tsx:90",
-        "apps/mobile-rn/src/components/IntelligentAssistant.tsx:44"
-      ]
-    },
-    {
-      "pair": "LoginPopUp",
-      "key": "description",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "小程序端说明文案由组件内 i18n 固定;RN 端把说明提升为必填受控腿,以便外层定制。",
-      "evidence": [
-        "apps/mobile-rn/src/components/LoginPopUp.tsx:112",
-        "apps/miniapp-taro/src/components/LoginPopUp.tsx:73",
-        "apps/mobile-rn/src/components/LoginPopUp.tsx:109"
-      ]
-    },
-    {
-      "pair": "LoginPopUp",
-      "key": "onBindPhone",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "小程序端绑定手机由登录回执流程承担(onOneClickLogin 返回 phoneCode,由页面完成绑定),弹窗无独立绑定腿;RN 弹窗保留独立绑定回调(当前无调用方,属预留)。",
-      "evidence": [
-        "apps/mobile-rn/src/components/LoginPopUp.tsx:129",
-        "apps/miniapp-taro/src/components/LoginPopUp.tsx:55",
-        "apps/miniapp-taro/src/components/LoginPopUp.tsx:73"
-      ]
-    },
-    {
-      "pair": "LoginPopUp",
-      "key": "onLogout",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "小程序登录弹窗只承担登录引导(onClose/onOneClickLogin/onPasswordLogin/onWebAuthLogin,接口无退出腿),退出在设置/资料页;RN 弹窗保留 onLogout 腿(当前无调用方,属预留)。",
-      "evidence": [
-        "apps/mobile-rn/src/components/LoginPopUp.tsx:131",
-        "apps/miniapp-taro/src/components/LoginPopUp.tsx:55",
-        "apps/miniapp-taro/src/components/LoginPopUp.tsx:89"
-      ]
-    },
-    {
-      "pair": "LoginPopUp",
-      "key": "onPrimary",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN 端主按钮动作由父组件以 onPrimary 注入;小程序端登录动作是本组件职责,以 onOneClickLogin/onPasswordLogin 具名回调表达。",
-      "evidence": [
-        "apps/mobile-rn/src/components/LoginPopUp.tsx:114",
-        "apps/miniapp-taro/src/components/LoginPopUp.tsx:73",
-        "apps/mobile-rn/src/components/LoginPopUp.tsx:109"
-      ]
-    },
-    {
-      "pair": "LoginPopUp",
-      "key": "onSave",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "小程序登录弹窗只承担登录引导,资料保存由页面/登录流程完成(接口无保存腿);RN 弹窗保留 onSave(当前无调用方,属预留)。",
-      "evidence": [
-        "apps/mobile-rn/src/components/LoginPopUp.tsx:130",
-        "apps/miniapp-taro/src/components/LoginPopUp.tsx:55",
-        "apps/miniapp-taro/src/components/LoginPopUp.tsx:89"
-      ]
-    },
-    {
-      "pair": "LoginPopUp",
-      "key": "onSecondary",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN 端次按钮动作由父组件以 onSecondary 注入;小程序端 webview 鉴权由本组件 onWebAuthLogin 具名回调表达。",
-      "evidence": [
-        "apps/mobile-rn/src/components/LoginPopUp.tsx:116",
-        "apps/miniapp-taro/src/components/LoginPopUp.tsx:88",
-        "apps/mobile-rn/src/components/LoginPopUp.tsx:109"
-      ]
-    },
-    {
-      "pair": "LoginPopUp",
-      "key": "primaryLabel",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "小程序端主按钮文案由登录流程固定(传对应回调才渲染入口);RN 端主按钮文案是必填受控腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/LoginPopUp.tsx:113",
-        "apps/miniapp-taro/src/components/LoginPopUp.tsx:73",
-        "apps/mobile-rn/src/components/LoginPopUp.tsx:109"
-      ]
-    },
-    {
-      "pair": "LoginPopUp",
-      "key": "secondaryLabel",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "小程序端次按钮文案由登录流程固定;RN 端次按钮文案是必填受控腿,故本端无同名腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/LoginPopUp.tsx:115",
-        "apps/miniapp-taro/src/components/LoginPopUp.tsx:73",
-        "apps/mobile-rn/src/components/LoginPopUp.tsx:109"
-      ]
-    },
-    {
-      "pair": "LoginPopUp",
-      "key": "title",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "小程序端弹窗标题由组件内 i18n 固定(不暴露文案腿);RN 端是可配置受控弹窗,title 必填。",
-      "evidence": [
-        "apps/mobile-rn/src/components/LoginPopUp.tsx:111",
-        "apps/miniapp-taro/src/components/LoginPopUp.tsx:73",
-        "apps/mobile-rn/src/components/LoginPopUp.tsx:109"
+        "apps/miniapp-taro/src/components/InputArea.tsx:87"
       ]
     },
     {
@@ -1205,9 +191,9 @@
       "expires": "2027-06-30",
       "rationale": "小程序端一键登录是本弹窗职责(取 loginCode+phoneCode);RN 端登录动作由父组件 onPrimary/onSecondary 注入,无同名三腿。",
       "evidence": [
-        "apps/miniapp-taro/src/components/LoginPopUp.tsx:73",
+        "apps/miniapp-taro/src/components/LoginPopUp.tsx:81",
         "apps/mobile-rn/src/components/LoginPopUp.tsx:114",
-        "apps/miniapp-taro/src/components/LoginPopUp.tsx:55"
+        "apps/miniapp-taro/src/components/LoginPopUp.tsx:81"
       ]
     },
     {
@@ -1218,9 +204,9 @@
       "expires": "2027-06-30",
       "rationale": "小程序端密码登录是本弹窗职责(账号+密码);RN 端登录动作由父组件注入,无同名回调腿。",
       "evidence": [
-        "apps/miniapp-taro/src/components/LoginPopUp.tsx:79",
+        "apps/miniapp-taro/src/components/LoginPopUp.tsx:87",
         "apps/mobile-rn/src/components/LoginPopUp.tsx:114",
-        "apps/miniapp-taro/src/components/LoginPopUp.tsx:55"
+        "apps/miniapp-taro/src/components/LoginPopUp.tsx:87"
       ]
     },
     {
@@ -1231,334 +217,9 @@
       "expires": "2027-06-30",
       "rationale": "小程序端 webview 鉴权是本弹窗职责;RN 端兜底动作走 onSecondary,无同名回调腿。",
       "evidence": [
-        "apps/miniapp-taro/src/components/LoginPopUp.tsx:88",
+        "apps/miniapp-taro/src/components/LoginPopUp.tsx:96",
         "apps/mobile-rn/src/components/LoginPopUp.tsx:116",
-        "apps/miniapp-taro/src/components/LoginPopUp.tsx:55"
-      ]
-    },
-    {
-      "pair": "ModelConfigDialog",
-      "key": "audioUrl",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN indexa 变体含首尾帧/参考音色/数字人视频上传与录音克隆链路;小程序端 ModelConfigDialog 只有 default/aigc 参数配置版式,未接该媒体链路,无同名腿,登记为在期分叉。",
-      "evidence": [
-        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:135",
-        "apps/miniapp-taro/src/components/ModelConfigDialog.tsx:76",
-        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:117"
-      ]
-    },
-    {
-      "pair": "ModelConfigDialog",
-      "key": "firstFrameUrl",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN indexa 变体含首尾帧/参考音色/数字人视频上传与录音克隆链路;小程序端 ModelConfigDialog 只有 default/aigc 参数配置版式,未接该媒体链路,无同名腿,登记为在期分叉。",
-      "evidence": [
-        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:131",
-        "apps/miniapp-taro/src/components/ModelConfigDialog.tsx:76",
-        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:117"
-      ]
-    },
-    {
-      "pair": "ModelConfigDialog",
-      "key": "isRecording",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN indexa 变体含首尾帧/参考音色/数字人视频上传与录音克隆链路;小程序端 ModelConfigDialog 只有 default/aigc 参数配置版式,未接该媒体链路,无同名腿,登记为在期分叉。",
-      "evidence": [
-        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:155",
-        "apps/miniapp-taro/src/components/ModelConfigDialog.tsx:76",
-        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:117"
-      ]
-    },
-    {
-      "pair": "ModelConfigDialog",
-      "key": "lastFrameUrl",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN indexa 变体含首尾帧/参考音色/数字人视频上传与录音克隆链路;小程序端 ModelConfigDialog 只有 default/aigc 参数配置版式,未接该媒体链路,无同名腿,登记为在期分叉。",
-      "evidence": [
-        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:133",
-        "apps/miniapp-taro/src/components/ModelConfigDialog.tsx:76",
-        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:117"
-      ]
-    },
-    {
-      "pair": "ModelConfigDialog",
-      "key": "models",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN selecter 变体在对话框内选模型;小程序端模型列表由独立 ModelList 弹出层承担,对话框无同名选型数据腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:161",
-        "apps/miniapp-taro/src/components/ModelList.tsx:82",
-        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:117"
-      ]
-    },
-    {
-      "pair": "ModelConfigDialog",
-      "key": "onCloneVoice",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN indexa 变体含首尾帧/参考音色/数字人视频上传与录音克隆链路;小程序端 ModelConfigDialog 只有 default/aigc 参数配置版式,未接该媒体链路,无同名腿,登记为在期分叉。",
-      "evidence": [
-        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:149",
-        "apps/miniapp-taro/src/components/ModelConfigDialog.tsx:76",
-        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:117"
-      ]
-    },
-    {
-      "pair": "ModelConfigDialog",
-      "key": "onConfigChange",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "小程序端 onChange 的联合类型已把动态配置变更语义合并进单一回调;RN 另设 onConfigChange 专腿,两端粒度不同。",
-      "evidence": [
-        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:171",
-        "apps/miniapp-taro/src/components/ModelConfigDialog.tsx:82",
-        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:117"
-      ]
-    },
-    {
-      "pair": "ModelConfigDialog",
-      "key": "onDeleteAudio",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN indexa 变体含首尾帧/参考音色/数字人视频上传与录音克隆链路;小程序端 ModelConfigDialog 只有 default/aigc 参数配置版式,未接该媒体链路,无同名腿,登记为在期分叉。",
-      "evidence": [
-        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:178",
-        "apps/miniapp-taro/src/components/ModelConfigDialog.tsx:76",
-        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:117"
-      ]
-    },
-    {
-      "pair": "ModelConfigDialog",
-      "key": "onDeleteFirstFrame",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN indexa 变体含首尾帧/参考音色/数字人视频上传与录音克隆链路;小程序端 ModelConfigDialog 只有 default/aigc 参数配置版式,未接该媒体链路,无同名腿,登记为在期分叉。",
-      "evidence": [
-        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:176",
-        "apps/miniapp-taro/src/components/ModelConfigDialog.tsx:76",
-        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:117"
-      ]
-    },
-    {
-      "pair": "ModelConfigDialog",
-      "key": "onDeleteLastFrame",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN indexa 变体含首尾帧/参考音色/数字人视频上传与录音克隆链路;小程序端 ModelConfigDialog 只有 default/aigc 参数配置版式,未接该媒体链路,无同名腿,登记为在期分叉。",
-      "evidence": [
-        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:177",
-        "apps/miniapp-taro/src/components/ModelConfigDialog.tsx:76",
-        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:117"
-      ]
-    },
-    {
-      "pair": "ModelConfigDialog",
-      "key": "onDeleteVideo",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN indexa 变体含首尾帧/参考音色/数字人视频上传与录音克隆链路;小程序端 ModelConfigDialog 只有 default/aigc 参数配置版式,未接该媒体链路,无同名腿,登记为在期分叉。",
-      "evidence": [
-        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:179",
-        "apps/miniapp-taro/src/components/ModelConfigDialog.tsx:76",
-        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:117"
-      ]
-    },
-    {
-      "pair": "ModelConfigDialog",
-      "key": "onSelectModel",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN 对话框内选模型回调;小程序端选模型动作在 ModelList 弹出层完成,对话框无同名回调腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:165",
-        "apps/miniapp-taro/src/components/ModelList.tsx:82",
-        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:117"
-      ]
-    },
-    {
-      "pair": "ModelConfigDialog",
-      "key": "onSelectVoice",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN indexa 变体含首尾帧/参考音色/数字人视频上传与录音克隆链路;小程序端 ModelConfigDialog 只有 default/aigc 参数配置版式,未接该媒体链路,无同名腿,登记为在期分叉。",
-      "evidence": [
-        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:147",
-        "apps/miniapp-taro/src/components/ModelConfigDialog.tsx:76",
-        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:117"
-      ]
-    },
-    {
-      "pair": "ModelConfigDialog",
-      "key": "onStartRecording",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN indexa 变体含首尾帧/参考音色/数字人视频上传与录音克隆链路;小程序端 ModelConfigDialog 只有 default/aigc 参数配置版式,未接该媒体链路,无同名腿,登记为在期分叉。",
-      "evidence": [
-        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:151",
-        "apps/miniapp-taro/src/components/ModelConfigDialog.tsx:76",
-        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:117"
-      ]
-    },
-    {
-      "pair": "ModelConfigDialog",
-      "key": "onStopRecording",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN indexa 变体含首尾帧/参考音色/数字人视频上传与录音克隆链路;小程序端 ModelConfigDialog 只有 default/aigc 参数配置版式,未接该媒体链路,无同名腿,登记为在期分叉。",
-      "evidence": [
-        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:153",
-        "apps/miniapp-taro/src/components/ModelConfigDialog.tsx:76",
-        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:117"
-      ]
-    },
-    {
-      "pair": "ModelConfigDialog",
-      "key": "onUploadAudio",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN indexa 变体含首尾帧/参考音色/数字人视频上传与录音克隆链路;小程序端 ModelConfigDialog 只有 default/aigc 参数配置版式,未接该媒体链路,无同名腿,登记为在期分叉。",
-      "evidence": [
-        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:143",
-        "apps/miniapp-taro/src/components/ModelConfigDialog.tsx:76",
-        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:117"
-      ]
-    },
-    {
-      "pair": "ModelConfigDialog",
-      "key": "onUploadFirstFrame",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN indexa 变体含首尾帧/参考音色/数字人视频上传与录音克隆链路;小程序端 ModelConfigDialog 只有 default/aigc 参数配置版式,未接该媒体链路,无同名腿,登记为在期分叉。",
-      "evidence": [
-        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:139",
-        "apps/miniapp-taro/src/components/ModelConfigDialog.tsx:76",
-        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:117"
-      ]
-    },
-    {
-      "pair": "ModelConfigDialog",
-      "key": "onUploadLastFrame",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN indexa 变体含首尾帧/参考音色/数字人视频上传与录音克隆链路;小程序端 ModelConfigDialog 只有 default/aigc 参数配置版式,未接该媒体链路,无同名腿,登记为在期分叉。",
-      "evidence": [
-        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:141",
-        "apps/miniapp-taro/src/components/ModelConfigDialog.tsx:76",
-        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:117"
-      ]
-    },
-    {
-      "pair": "ModelConfigDialog",
-      "key": "onUploadVideo",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN indexa 变体含首尾帧/参考音色/数字人视频上传与录音克隆链路;小程序端 ModelConfigDialog 只有 default/aigc 参数配置版式,未接该媒体链路,无同名腿,登记为在期分叉。",
-      "evidence": [
-        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:145",
-        "apps/miniapp-taro/src/components/ModelConfigDialog.tsx:76",
-        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:117"
-      ]
-    },
-    {
-      "pair": "ModelConfigDialog",
-      "key": "recordDuration",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN indexa 变体含首尾帧/参考音色/数字人视频上传与录音克隆链路;小程序端 ModelConfigDialog 只有 default/aigc 参数配置版式,未接该媒体链路,无同名腿,登记为在期分叉。",
-      "evidence": [
-        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:157",
-        "apps/miniapp-taro/src/components/ModelConfigDialog.tsx:76",
-        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:117"
-      ]
-    },
-    {
-      "pair": "ModelConfigDialog",
-      "key": "selectedModelId",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN selecter 变体在对话框内持有选中模型 id;小程序端选中态在 ModelList 弹出层内维护,对话框无同名腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:163",
-        "apps/miniapp-taro/src/components/ModelList.tsx:82",
-        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:117"
-      ]
-    },
-    {
-      "pair": "ModelConfigDialog",
-      "key": "videoUrl",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN indexa 变体含首尾帧/参考音色/数字人视频上传与录音克隆链路;小程序端 ModelConfigDialog 只有 default/aigc 参数配置版式,未接该媒体链路,无同名腿,登记为在期分叉。",
-      "evidence": [
-        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:137",
-        "apps/miniapp-taro/src/components/ModelConfigDialog.tsx:76",
-        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:117"
-      ]
-    },
-    {
-      "pair": "ModelConfigDialog",
-      "key": "isVip",
-      "side": "mini",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "小程序端 aigc 变体用 isVip 决定水印/高级参数可见性;RN 端由外层会员态与 modelName 条件渲染承担,无同名腿。",
-      "evidence": [
-        "apps/miniapp-taro/src/components/ModelConfigDialog.tsx:90",
-        "apps/mobile-rn/src/components/ModelConfigDialog.tsx:129",
-        "apps/miniapp-taro/src/components/ModelConfigDialog.tsx:72"
-      ]
-    },
-    {
-      "pair": "ModelList",
-      "key": "groups",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN 按类别分组的 groups 入参;小程序端 popup 变体按 currentType 只渲染单类模型的平铺 models 数组,分组由多个 ModelList 实例表达。",
-      "evidence": [
-        "apps/mobile-rn/src/components/ModelList.tsx:116",
-        "apps/miniapp-taro/src/components/ModelList.tsx:77",
-        "apps/mobile-rn/src/components/ModelList.tsx:115"
-      ]
-    },
-    {
-      "pair": "ModelList",
-      "key": "onEndReached",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN 列表是虚拟化分页加载(onEndReached);小程序端 ModelList 一次性渲染完整 models 数组(无分页腿)。",
-      "evidence": [
-        "apps/mobile-rn/src/components/ModelList.tsx:126",
-        "apps/miniapp-taro/src/components/ModelList.tsx:77",
-        "apps/mobile-rn/src/components/ModelList.tsx:115"
+        "apps/miniapp-taro/src/components/LoginPopUp.tsx:96"
       ]
     },
     {
@@ -1569,9 +230,9 @@
       "expires": "2027-06-30",
       "rationale": "小程序端 popup 变体用 currentType 决定渲染哪类模型;RN 端 groups 已按类别分组渲染,无同名类型筛选腿。",
       "evidence": [
-        "apps/miniapp-taro/src/components/ModelList.tsx:84",
+        "apps/miniapp-taro/src/components/ModelList.tsx:100",
         "apps/mobile-rn/src/components/ModelList.tsx:116",
-        "apps/miniapp-taro/src/components/ModelList.tsx:76"
+        "apps/miniapp-taro/src/components/ModelList.tsx:100"
       ]
     },
     {
@@ -1582,9 +243,9 @@
       "expires": "2027-06-30",
       "rationale": "小程序端平铺 models + currentType;RN 端分组 groups 已含各类模型,无同名平铺腿。",
       "evidence": [
-        "apps/miniapp-taro/src/components/ModelList.tsx:77",
-        "apps/mobile-rn/src/components/ModelList.tsx:116",
-        "apps/miniapp-taro/src/components/ModelList.tsx:76"
+        "apps/miniapp-taro/src/components/ModelList.tsx:65",
+        "apps/mobile-rn/src/components/ModelList.tsx:109",
+        "apps/miniapp-taro/src/components/ModelList.tsx:65"
       ]
     },
     {
@@ -1595,48 +256,9 @@
       "expires": "2027-06-30",
       "rationale": "小程序端有 list/popup 两种版式;RN 端单一列表版式(弹层由宿主容器提供),无同名版式腿。",
       "evidence": [
-        "apps/miniapp-taro/src/components/ModelList.tsx:82",
+        "apps/miniapp-taro/src/components/ModelList.tsx:79",
         "apps/mobile-rn/src/components/ModelList.tsx:116",
-        "apps/miniapp-taro/src/components/ModelList.tsx:76"
-      ]
-    },
-    {
-      "pair": "NavBar",
-      "key": "leftActions",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN 用泛型动作数组注入左侧按钮;小程序端左侧是固定菜单槽位 + onMenuClick 具名回调,无数组腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/NavBar.tsx:62",
-        "apps/miniapp-taro/src/components/NavBar.tsx:99",
-        "apps/mobile-rn/src/components/NavBar.tsx:57"
-      ]
-    },
-    {
-      "pair": "NavBar",
-      "key": "rightAction",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN 兼容旧 API 接受单个 ReactNode;小程序端右侧固定为文字/通知槽位,无节点注入腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/NavBar.tsx:66",
-        "apps/miniapp-taro/src/components/NavBar.tsx:93",
-        "apps/mobile-rn/src/components/NavBar.tsx:57"
-      ]
-    },
-    {
-      "pair": "NavBar",
-      "key": "rightActions",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
-      "expires": "2027-06-30",
-      "rationale": "RN 用泛型动作数组注入右侧按钮;小程序端右侧是固定槽位(分类/搜索/反馈/加入/通知)各配具名回调,无数组腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/NavBar.tsx:64",
-        "apps/miniapp-taro/src/components/NavBar.tsx:109",
-        "apps/mobile-rn/src/components/NavBar.tsx:57"
+        "apps/miniapp-taro/src/components/ModelList.tsx:79"
       ]
     },
     {
@@ -1647,9 +269,9 @@
       "expires": "2027-06-30",
       "rationale": "小程序端首页标题切换(每日资讯/排行榜)由本组件自持;RN 页头无标题切换,无同名索引腿。",
       "evidence": [
-        "apps/miniapp-taro/src/components/NavBar.tsx:121",
+        "apps/miniapp-taro/src/components/NavBar.tsx:140",
         "apps/mobile-rn/src/components/NavBar.tsx:58",
-        "apps/miniapp-taro/src/components/NavBar.tsx:83"
+        "apps/miniapp-taro/src/components/NavBar.tsx:140"
       ]
     },
     {
@@ -1660,8 +282,8 @@
       "expires": "2027-06-30",
       "rationale": "小程序端顶栏底色由 bgColor prop 直传(containerStyle/页面配置两处消费);RN 端顶栏容器 StyleSheet 不设 backgroundColor(跟随父级/主题),标题与副标题色由模块级 tokens 决定,故无同名配色腿。",
       "evidence": [
-        "apps/miniapp-taro/src/components/NavBar.tsx:90",
-        "apps/miniapp-taro/src/components/NavBar.tsx:195",
+        "apps/miniapp-taro/src/components/NavBar.tsx:109",
+        "apps/miniapp-taro/src/components/NavBar.tsx:109",
         "apps/mobile-rn/src/components/NavBar.tsx:203"
       ]
     },
@@ -1673,9 +295,9 @@
       "expires": "2027-06-30",
       "rationale": "小程序端「加入社区群」固定按钮文案;RN 端由 rightActions 项承载。",
       "evidence": [
-        "apps/miniapp-taro/src/components/NavBar.tsx:105",
+        "apps/miniapp-taro/src/components/NavBar.tsx:124",
         "apps/mobile-rn/src/components/NavBar.tsx:11",
-        "apps/miniapp-taro/src/components/NavBar.tsx:83"
+        "apps/miniapp-taro/src/components/NavBar.tsx:124"
       ]
     },
     {
@@ -1686,9 +308,9 @@
       "expires": "2027-06-30",
       "rationale": "小程序端菜单按钮字形可配;RN 端图标由 leftActions 的 item.icon 承载。",
       "evidence": [
-        "apps/miniapp-taro/src/components/NavBar.tsx:103",
+        "apps/miniapp-taro/src/components/NavBar.tsx:122",
         "apps/mobile-rn/src/components/NavBar.tsx:9",
-        "apps/miniapp-taro/src/components/NavBar.tsx:83"
+        "apps/miniapp-taro/src/components/NavBar.tsx:122"
       ]
     },
     {
@@ -1699,9 +321,9 @@
       "expires": "2027-06-30",
       "rationale": "小程序端通知条(文本+关闭)是顶栏内固定槽位;RN 端通知由 App 级全局覆盖层 NotificationPanel 承载(RootNavigator 单点挂载,不在顶栏内),故顶栏无同名腿。",
       "evidence": [
-        "apps/miniapp-taro/src/components/NavBar.tsx:95",
-        "apps/miniapp-taro/src/components/NavBar.tsx:337",
-        "apps/mobile-rn/src/navigation/RootNavigator.tsx:1390"
+        "apps/miniapp-taro/src/components/NavBar.tsx:114",
+        "apps/miniapp-taro/src/components/NavBar.tsx:114",
+        "apps/mobile-rn/src/navigation/RootNavigator.tsx:19"
       ]
     },
     {
@@ -1712,9 +334,9 @@
       "expires": "2027-06-30",
       "rationale": "小程序端标题切换回调由本组件自持;RN 页头无标题切换,无同名回调腿。",
       "evidence": [
-        "apps/miniapp-taro/src/components/NavBar.tsx:123",
+        "apps/miniapp-taro/src/components/NavBar.tsx:142",
         "apps/mobile-rn/src/components/NavBar.tsx:58",
-        "apps/miniapp-taro/src/components/NavBar.tsx:83"
+        "apps/miniapp-taro/src/components/NavBar.tsx:142"
       ]
     },
     {
@@ -1725,9 +347,9 @@
       "expires": "2027-06-30",
       "rationale": "小程序端反馈点击;RN 端由 rightActions 项动作承载。",
       "evidence": [
-        "apps/miniapp-taro/src/components/NavBar.tsx:117",
+        "apps/miniapp-taro/src/components/NavBar.tsx:136",
         "apps/mobile-rn/src/components/NavBar.tsx:11",
-        "apps/miniapp-taro/src/components/NavBar.tsx:83"
+        "apps/miniapp-taro/src/components/NavBar.tsx:136"
       ]
     },
     {
@@ -1738,9 +360,9 @@
       "expires": "2027-06-30",
       "rationale": "小程序端分类点击;RN 端由 rightActions 项动作承载。",
       "evidence": [
-        "apps/miniapp-taro/src/components/NavBar.tsx:109",
+        "apps/miniapp-taro/src/components/NavBar.tsx:128",
         "apps/mobile-rn/src/components/NavBar.tsx:11",
-        "apps/miniapp-taro/src/components/NavBar.tsx:83"
+        "apps/miniapp-taro/src/components/NavBar.tsx:128"
       ]
     },
     {
@@ -1751,9 +373,9 @@
       "expires": "2027-06-30",
       "rationale": "小程序端「加入社区群」点击;RN 端由 rightActions 项的动作承载。",
       "evidence": [
-        "apps/miniapp-taro/src/components/NavBar.tsx:101",
+        "apps/miniapp-taro/src/components/NavBar.tsx:120",
         "apps/mobile-rn/src/components/NavBar.tsx:11",
-        "apps/miniapp-taro/src/components/NavBar.tsx:83"
+        "apps/miniapp-taro/src/components/NavBar.tsx:120"
       ]
     },
     {
@@ -1764,9 +386,9 @@
       "expires": "2027-06-30",
       "rationale": "小程序端 ai-home 菜单按钮具名回调;RN 端由 leftActions 项的 onPress 承载,无同名回调腿。",
       "evidence": [
-        "apps/miniapp-taro/src/components/NavBar.tsx:99",
+        "apps/miniapp-taro/src/components/NavBar.tsx:118",
         "apps/mobile-rn/src/components/NavBar.tsx:9",
-        "apps/miniapp-taro/src/components/NavBar.tsx:83"
+        "apps/miniapp-taro/src/components/NavBar.tsx:118"
       ]
     },
     {
@@ -1777,9 +399,9 @@
       "expires": "2027-06-30",
       "rationale": "小程序端 @pack 返回首页语义;RN 端由 leftActions 项直接给动作,无专腿。",
       "evidence": [
-        "apps/miniapp-taro/src/components/NavBar.tsx:119",
+        "apps/miniapp-taro/src/components/NavBar.tsx:138",
         "apps/mobile-rn/src/components/NavBar.tsx:9",
-        "apps/miniapp-taro/src/components/NavBar.tsx:83"
+        "apps/miniapp-taro/src/components/NavBar.tsx:138"
       ]
     },
     {
@@ -1790,9 +412,9 @@
       "expires": "2027-06-30",
       "rationale": "小程序端右侧文字点击回调;RN 端把动作绑在 rightAction/rightActions 的节点上。",
       "evidence": [
-        "apps/miniapp-taro/src/components/NavBar.tsx:94",
+        "apps/miniapp-taro/src/components/NavBar.tsx:113",
         "apps/mobile-rn/src/components/NavBar.tsx:66",
-        "apps/miniapp-taro/src/components/NavBar.tsx:83"
+        "apps/miniapp-taro/src/components/NavBar.tsx:113"
       ]
     },
     {
@@ -1803,9 +425,9 @@
       "expires": "2027-06-30",
       "rationale": "小程序端搜索点击;RN 端由 rightActions 项动作承载。",
       "evidence": [
-        "apps/miniapp-taro/src/components/NavBar.tsx:113",
+        "apps/miniapp-taro/src/components/NavBar.tsx:132",
         "apps/mobile-rn/src/components/NavBar.tsx:11",
-        "apps/miniapp-taro/src/components/NavBar.tsx:83"
+        "apps/miniapp-taro/src/components/NavBar.tsx:132"
       ]
     },
     {
@@ -1816,9 +438,9 @@
       "expires": "2027-06-30",
       "rationale": "小程序端右侧文字槽;RN 端用 rightAction/rightActions 的节点承载。",
       "evidence": [
-        "apps/miniapp-taro/src/components/NavBar.tsx:93",
-        "apps/mobile-rn/src/components/NavBar.tsx:66",
-        "apps/miniapp-taro/src/components/NavBar.tsx:83"
+        "apps/miniapp-taro/src/components/NavBar.tsx:112",
+        "apps/mobile-rn/src/components/NavBar.tsx:268",
+        "apps/miniapp-taro/src/components/NavBar.tsx:112"
       ]
     },
     {
@@ -1829,9 +451,9 @@
       "expires": "2027-06-30",
       "rationale": "小程序端可显式隐藏返回键;RN 端返回键由 leftActions/onBack 组合控制,无显式布尔腿。",
       "evidence": [
-        "apps/miniapp-taro/src/components/NavBar.tsx:89",
+        "apps/miniapp-taro/src/components/NavBar.tsx:108",
         "apps/mobile-rn/src/components/NavBar.tsx:60",
-        "apps/miniapp-taro/src/components/NavBar.tsx:83"
+        "apps/miniapp-taro/src/components/NavBar.tsx:108"
       ]
     },
     {
@@ -1842,9 +464,9 @@
       "expires": "2027-06-30",
       "rationale": "小程序端反馈槽位开关;RN 端由 rightActions 数组项承载。",
       "evidence": [
-        "apps/miniapp-taro/src/components/NavBar.tsx:115",
+        "apps/miniapp-taro/src/components/NavBar.tsx:134",
         "apps/mobile-rn/src/components/NavBar.tsx:11",
-        "apps/miniapp-taro/src/components/NavBar.tsx:83"
+        "apps/miniapp-taro/src/components/NavBar.tsx:134"
       ]
     },
     {
@@ -1855,9 +477,9 @@
       "expires": "2027-06-30",
       "rationale": "小程序端分类槽位开关;RN 端由 rightActions 数组项承载。",
       "evidence": [
-        "apps/miniapp-taro/src/components/NavBar.tsx:107",
+        "apps/miniapp-taro/src/components/NavBar.tsx:126",
         "apps/mobile-rn/src/components/NavBar.tsx:11",
-        "apps/miniapp-taro/src/components/NavBar.tsx:83"
+        "apps/miniapp-taro/src/components/NavBar.tsx:126"
       ]
     },
     {
@@ -1868,9 +490,9 @@
       "expires": "2027-06-30",
       "rationale": "小程序端搜索槽位开关;RN 端由 rightActions 数组项承载。",
       "evidence": [
-        "apps/miniapp-taro/src/components/NavBar.tsx:111",
+        "apps/miniapp-taro/src/components/NavBar.tsx:130",
         "apps/mobile-rn/src/components/NavBar.tsx:11",
-        "apps/miniapp-taro/src/components/NavBar.tsx:83"
+        "apps/miniapp-taro/src/components/NavBar.tsx:130"
       ]
     },
     {
@@ -1881,8 +503,8 @@
       "expires": "2027-06-30",
       "rationale": "小程序端字色由 textColor prop 直传(titleStyle/subtitleStyle/动作文字);RN 端 title/subtitle 在模块级 StyleSheet 取 tokens.text.primary/secondary(不走 props 注入),故无同名腿。",
       "evidence": [
-        "apps/miniapp-taro/src/components/NavBar.tsx:91",
-        "apps/miniapp-taro/src/components/NavBar.tsx:273",
+        "apps/miniapp-taro/src/components/NavBar.tsx:110",
+        "apps/miniapp-taro/src/components/NavBar.tsx:110",
         "apps/mobile-rn/src/components/NavBar.tsx:229"
       ]
     },
@@ -1894,22 +516,9 @@
       "expires": "2027-06-30",
       "rationale": "小程序端有 ai-home/default 两种版式;RN 端用 leftActions/rightActions 拼装,无版式开关腿。",
       "evidence": [
-        "apps/miniapp-taro/src/components/NavBar.tsx:97",
+        "apps/miniapp-taro/src/components/NavBar.tsx:116",
         "apps/mobile-rn/src/components/NavBar.tsx:64",
-        "apps/miniapp-taro/src/components/NavBar.tsx:83"
-      ]
-    },
-    {
-      "pair": "UserInfoCard",
-      "key": "onCopyInviteCode",
-      "side": "rn",
-      "owner": "ihui-mobile-props",
-      "expires": "2027-06-30",
-      "rationale": "小程序端资料卡没有邀请码复制入口(该入口在别的页面);RN 卡内自带复制回调腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/UserInfoCard.tsx:106",
-        "apps/miniapp-taro/src/components/UserInfoCard.tsx:88",
-        "apps/mobile-rn/src/components/UserInfoCard.tsx:97"
+        "apps/miniapp-taro/src/components/NavBar.tsx:116"
       ]
     },
     {
@@ -1921,8 +530,8 @@
       "rationale": "RN 以 userInfo 容器为主入参(扁平字段为覆盖);小程序端只接受扁平字段(avatar/nickname/isVip 等,声明在共享 UserInfoCardMinimalProps),无容器腿。",
       "evidence": [
         "apps/mobile-rn/src/components/UserInfoCard.tsx:98",
-        "apps/miniapp-taro/src/components/UserInfoCard.tsx:88",
-        "apps/mobile-rn/src/components/UserInfoCard.tsx:97"
+        "apps/miniapp-taro/src/components/UserInfoCard.tsx:103",
+        "apps/mobile-rn/src/components/UserInfoCard.tsx:22"
       ]
     },
     {
@@ -1933,8 +542,8 @@
       "expires": "2027-06-30",
       "rationale": "小程序端 desc 是智汇值缺失时的兜底展示槽(唯一调用方传脱敏手机号);RN 端卡片无 desc 腿,智汇值仅取 tokenQuantity,故该槽只在 Taro 承载。",
       "evidence": [
-        "apps/miniapp-taro/src/components/UserInfoCard.tsx:134",
-        "apps/miniapp-taro/src/pages/user/index.tsx:876",
+        "apps/miniapp-taro/src/components/UserInfoCard.tsx:85",
+        "apps/miniapp-taro/src/pages/user/index.tsx:878",
         "apps/mobile-rn/src/components/UserInfoCard.tsx:97"
       ]
     },
@@ -1953,41 +562,28 @@
     },
     {
       "pair": "VideoPlayer",
-      "key": "title",
-      "side": "rn",
-      "owner": "mobile-rn-video",
-      "expires": "2027-06-30",
-      "rationale": "RN 播放舞台自绘标题覆盖层;小程序端标题由页面/NavBar 承担,VideoPlayerProps 无 title 腿。",
-      "evidence": [
-        "apps/mobile-rn/src/components/VideoPlayer.tsx:61",
-        "apps/miniapp-taro/src/components/VideoPlayer.tsx:30",
-        "apps/mobile-rn/src/components/VideoPlayer.tsx:292"
-      ]
-    },
-    {
-      "pair": "VideoPlayer",
       "key": "controls",
       "side": "mini",
       "owner": "mobile-rn-video",
       "expires": "2027-06-30",
       "rationale": "小程序端原生 Video 以 controls prop 开关控件;RN 端固定 controls={false} 走自绘控制条,无同名开关腿。",
       "evidence": [
-        "apps/miniapp-taro/src/components/VideoPlayer.tsx:24",
+        "apps/miniapp-taro/src/components/VideoPlayer.tsx:26",
         "apps/mobile-rn/src/components/VideoPlayer.tsx:265",
-        "apps/miniapp-taro/src/components/VideoPlayer.tsx:79"
+        "apps/miniapp-taro/src/components/VideoPlayer.tsx:26"
       ]
     },
     {
-      "pair": "VoiceInput",
-      "key": "showClear",
-      "side": "rn",
-      "owner": "cross-end-props-parity",
+      "pair": "InputArea",
+      "key": "onFangdaChange",
+      "side": "mini",
+      "owner": "ihui-mobile-props",
       "expires": "2027-06-30",
-      "rationale": "RN 语音输入持有本地结果并在有结果时渲染清除键;小程序端结果以流式 partial 展示、由页面消费不落本地态,故无同名显隐腿。",
+      "rationale": "小程序把「放大输入区」做成 InputArea 受控回调 onFangdaChange(宿主 chat.tsx:2309 用它收起导航栏),RN 的放大入口在 BottomActionBar.onFangda,两者不在同一组件槽位,无法登记为同槽等价。",
       "evidence": [
-        "apps/mobile-rn/src/components/VoiceInput.tsx:48",
-        "apps/miniapp-taro/src/components/VoiceInput.tsx:37",
-        "apps/mobile-rn/src/components/VoiceInput.tsx:262"
+        "apps/miniapp-taro/src/components/InputArea.tsx:92",
+        "apps/miniapp-taro/src/pkg-ai/ai/chat.tsx:2309",
+        "apps/mobile-rn/src/components/BottomActionBar.tsx:162"
       ]
     }
   ]

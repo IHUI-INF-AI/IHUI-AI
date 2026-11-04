@@ -57,7 +57,7 @@
       "owner": "cross-end-props-parity",
       "evidence": {
         "rn": "apps/mobile-rn/src/components/Carousel.tsx:52",
-        "mini": "apps/miniapp-taro/src/components/Carousel.tsx:38"
+        "mini": "apps/miniapp-taro/src/components/Carousel.tsx:40"
       },
       "rationale": "同一轮播节拍槽位(毫秒),两端都只把它喂给各自自动轮播定时器,不参与可见取值,命名随端历史词汇(autoplayInterval/interval)。"
     },
@@ -69,7 +69,7 @@
       "owner": "cross-end-props-parity",
       "evidence": {
         "rn": "apps/mobile-rn/src/components/Carousel.tsx:55",
-        "mini": "apps/miniapp-taro/src/components/Carousel.tsx:40"
+        "mini": "apps/miniapp-taro/src/components/Carousel.tsx:42"
       },
       "rationale": "同一项点击槽位(参数均为 item + index):RN 按 Pressable 惯例命名 onItemPress,小程序按 Taro/Web 惯例命名 onItemClick,触发时机与载荷同形。"
     },
@@ -81,8 +81,8 @@
       "owner": "cross-end-props-parity",
       "rationale": "同一语义槽位:附件/文件选取入口回调,两端均无参数;仅命名不同(onAddFile ↔ onAttach),建议进等价映射表。",
       "evidence": {
-        "rn": "apps/mobile-rn/src/components/BottomActionBar.tsx:171",
-        "mini": "apps/miniapp-taro/src/components/BottomActionBar.tsx:75"
+        "rn": "apps/mobile-rn/src/components/BottomActionBar.tsx:158",
+        "mini": "apps/miniapp-taro/src/components/BottomActionBar.tsx:80"
       }
     },
     {
@@ -93,8 +93,8 @@
       "owner": "cross-end-props-parity",
       "rationale": "同一图标组点击槽位:小程序回调参数 item.key 就是 RN 的 BottomActionBarIconType(camera/album/file/wxfile),仅载荷类型不同;建议进等价映射表。",
       "evidence": {
-        "rn": "apps/mobile-rn/src/components/BottomActionBar.tsx:16",
-        "mini": "apps/miniapp-taro/src/components/BottomActionBar.tsx:94"
+        "rn": "apps/mobile-rn/src/components/BottomActionBar.tsx:159",
+        "mini": "apps/miniapp-taro/src/components/BottomActionBar.tsx:99"
       }
     },
     {
@@ -105,8 +105,8 @@
       "owner": "cross-end-props-parity",
       "rationale": "同一受控输入文本变更槽位(参数均为 string);仅命名不同(onPromptChange ↔ onInput),建议进等价映射表。",
       "evidence": {
-        "rn": "apps/mobile-rn/src/components/BottomActionBar.tsx:14",
-        "mini": "apps/miniapp-taro/src/components/BottomActionBar.tsx:73"
+        "rn": "apps/mobile-rn/src/components/BottomActionBar.tsx:137",
+        "mini": "apps/miniapp-taro/src/components/BottomActionBar.tsx:78"
       }
     },
     {
@@ -117,8 +117,8 @@
       "owner": "cross-end-props-parity",
       "rationale": "同一语音模式切换槽位(无参数);仅命名不同(onToggleVoiceInput ↔ onVoiceInputToggle),建议进等价映射表。",
       "evidence": {
-        "rn": "apps/mobile-rn/src/components/BottomActionBar.tsx:152",
-        "mini": "apps/miniapp-taro/src/components/BottomActionBar.tsx:100"
+        "rn": "apps/mobile-rn/src/components/BottomActionBar.tsx:141",
+        "mini": "apps/miniapp-taro/src/components/BottomActionBar.tsx:105"
       }
     },
     {
@@ -141,8 +141,8 @@
       "owner": "cross-end-props-parity",
       "rationale": "同一语音输入模式激活态(boolean);仅命名不同(voiceInputEnabled ↔ isVoiceInput),建议进等价映射表。",
       "evidence": {
-        "rn": "apps/mobile-rn/src/components/BottomActionBar.tsx:18",
-        "mini": "apps/miniapp-taro/src/components/BottomActionBar.tsx:98"
+        "rn": "apps/mobile-rn/src/components/BottomActionBar.tsx:178",
+        "mini": "apps/miniapp-taro/src/components/BottomActionBar.tsx:103"
       }
     },
     {
@@ -153,7 +153,7 @@
       "owner": "cross-end-props-parity",
       "rationale": "与小程端 imgsList（apps/miniapp-taro/src/components/InputArea.tsx:81）同槽位：已选附件列表。形状不同（RN InputImageItem{id,url,type,filename,videoUrl} vs 小程序 InputFileItem{imgUrl,fileType,filename}），集中收口建 content 映射时须在调用点做形状适配，不能直接同名复用。",
       "evidence": {
-        "rn": "apps/mobile-rn/src/components/InputArea.tsx:35",
+        "rn": "apps/mobile-rn/src/components/InputArea.tsx:158",
         "mini": "apps/miniapp-taro/src/components/InputArea.tsx:81"
       }
     },
@@ -165,20 +165,8 @@
       "owner": "cross-end-props-parity",
       "rationale": "与小程端 onInput（apps/miniapp-taro/src/components/InputArea.tsx:74）同槽位：文本变化回写。RN 侧必填、小程序可选（可选性另由集中收口处理）。",
       "evidence": {
-        "rn": "apps/mobile-rn/src/components/InputArea.tsx:31",
+        "rn": "apps/mobile-rn/src/components/InputArea.tsx:127",
         "mini": "apps/miniapp-taro/src/components/InputArea.tsx:74"
-      }
-    },
-    {
-      "pair": "InputArea",
-      "ours": "onExpandToggle",
-      "theirs": "onFangdaChange",
-      "kind": "event",
-      "owner": "cross-end-props-parity",
-      "rationale": "与小程端 onFangdaChange（apps/miniapp-taro/src/components/InputArea.tsx:92）同槽位：放大/缩小切换。RN 为无参 toggle（受控 expanded），小程序为 (active) 通知；适配层同值直传/取反即可收敛。",
-      "evidence": {
-        "rn": "apps/mobile-rn/src/components/InputArea.tsx:206",
-        "mini": "apps/miniapp-taro/src/components/InputArea.tsx:92"
       }
     },
     {
@@ -189,7 +177,7 @@
       "owner": "cross-end-props-parity",
       "rationale": "与小程端 onRemoveImage（apps/miniapp-taro/src/components/InputArea.tsx:80）同槽位：删除第 index 个附件，两端均为 (index)=>void。",
       "evidence": {
-        "rn": "apps/mobile-rn/src/components/InputArea.tsx:190",
+        "rn": "apps/mobile-rn/src/components/InputArea.tsx:160",
         "mini": "apps/miniapp-taro/src/components/InputArea.tsx:80"
       }
     },
@@ -201,7 +189,7 @@
       "owner": "cross-end-props-parity",
       "rationale": "与小程端 onSend（apps/miniapp-taro/src/components/InputArea.tsx:76）同槽位：点击发送且文本非空、已 trim（小程序 :298-304 同判据）。",
       "evidence": {
-        "rn": "apps/mobile-rn/src/components/InputArea.tsx:31",
+        "rn": "apps/mobile-rn/src/components/InputArea.tsx:133",
         "mini": "apps/miniapp-taro/src/components/InputArea.tsx:76"
       }
     },
@@ -213,7 +201,7 @@
       "owner": "cross-end-props-parity",
       "rationale": "与小程端 onVoiceRelease(filePath)（apps/miniapp-taro/src/components/InputArea.tsx:78）同槽位：松手结束录音。RN 无参、小程序回传音频路径；适配层可忽略该参（RN 录制由宿主模块自持）。",
       "evidence": {
-        "rn": "apps/mobile-rn/src/components/InputArea.tsx:241",
+        "rn": "apps/mobile-rn/src/components/InputArea.tsx:177",
         "mini": "apps/miniapp-taro/src/components/InputArea.tsx:78"
       }
     },
@@ -225,7 +213,7 @@
       "owner": "cross-end-props-parity",
       "rationale": "与小程端 onVoicePress（apps/miniapp-taro/src/components/InputArea.tsx:77）同槽位：按下开始录音。",
       "evidence": {
-        "rn": "apps/mobile-rn/src/components/InputArea.tsx:239",
+        "rn": "apps/mobile-rn/src/components/InputArea.tsx:175",
         "mini": "apps/miniapp-taro/src/components/InputArea.tsx:77"
       }
     },
@@ -238,7 +226,7 @@
       "rationale": "同一语义槽位(Agent 模式选中态),小程序端命名为 agentActive(apps/miniapp-taro/src/components/ModelList.tsx:86);两端均为布尔、均驱动同一行选中样式。",
       "evidence": {
         "rn": "apps/mobile-rn/src/components/ModelList.tsx:15",
-        "mini": "apps/miniapp-taro/src/components/ModelList.tsx:86"
+        "mini": "apps/miniapp-taro/src/components/ModelList.tsx:102"
       }
     },
     {
@@ -250,7 +238,7 @@
       "rationale": "同一语义槽位(Agent 行点击),小程序端命名为 onAgentSelect(apps/miniapp-taro/src/components/ModelList.tsx:260),均无参回调、均挂在 Agent 行。",
       "evidence": {
         "rn": "apps/mobile-rn/src/components/ModelList.tsx:15",
-        "mini": "apps/miniapp-taro/src/components/ModelList.tsx:88"
+        "mini": "apps/miniapp-taro/src/components/ModelList.tsx:105"
       }
     },
     {
@@ -274,7 +262,7 @@
       "rationale": "同一语义槽位(播放结束回调),小程序端命名为 onEnded(apps/miniapp-taro/src/components/VideoPlayer.tsx:29);两端均无参回调。",
       "evidence": {
         "rn": "apps/mobile-rn/src/components/VideoPlayer.tsx:12",
-        "mini": "apps/miniapp-taro/src/components/VideoPlayer.tsx:29"
+        "mini": "apps/miniapp-taro/src/components/VideoPlayer.tsx:31"
       }
     },
     {
@@ -286,7 +274,7 @@
       "rationale": "同一语义槽位(播放进度回调),小程序端命名为 onTimeUpdate(apps/miniapp-taro/src/components/VideoPlayer.tsx:28);两端均回传 (currentTime, duration)。",
       "evidence": {
         "rn": "apps/mobile-rn/src/components/VideoPlayer.tsx:11",
-        "mini": "apps/miniapp-taro/src/components/VideoPlayer.tsx:28"
+        "mini": "apps/miniapp-taro/src/components/VideoPlayer.tsx:30"
       }
     },
     {
@@ -298,7 +286,7 @@
       "rationale": "同一资料编辑入口:RN 弹层内编辑(onEdit),小程序跳资料页(onClick→goProfile);点位不同,语义同源。",
       "evidence": {
         "rn": "apps/mobile-rn/src/components/UserInfoCard.tsx:100",
-        "mini": "apps/miniapp-taro/src/components/UserInfoCard.tsx:116"
+        "mini": "apps/miniapp-taro/src/components/UserInfoCard.tsx:221"
       }
     },
     {
