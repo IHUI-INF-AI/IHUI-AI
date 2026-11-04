@@ -118,10 +118,12 @@ const STAGES = [
   {
     name: 'land-rn',
     kind: 'land',
-    desc: 'RN 端非色档落档自愈',
+    desc: 'RN 端非色档落档自愈(字号腿同开,与守护逐字同口径)',
     script: 'land-rn-style-tiers.mjs',
     base: [],
-    apply: ['--apply'],
+    // 2026-11-05:与守护 RN 腿同口径补 --include-font-size(器物有三条子腿而两处都只传 --apply ⇒
+    // 字号轴永不跟随;可证零变化的预演面见 git-guardian 该腿头注)。成对字号/圆角两腿实测 0 可落,不开。
+    apply: ['--apply', '--include-font-size'],
     write: true,
     timeoutMs: 20 * 60 * 1000,
   },
