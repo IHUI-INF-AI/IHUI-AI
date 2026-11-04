@@ -81,3 +81,9 @@ AGENTS.md
 # 于是 lint-staged 每次 commit 一跑 --write,`--check` 就永远红 —— 与上面 openapi.json /
 # capabilities.json 的 O8 判据同一形态。格式化对这份机器产物没有价值,对可比性有破坏。
 apps/ai-service/app/data/tool_name_sets.json
+
+# fork 元素级归类台账(scripts/measure-cross-end-fork-elements.mjs --write 的产物):
+# 生成器按 JSON.stringify 展开短数组,prettier 会把 ["补表","落最近档"] 折回一行 ⇒ 每次重生成都制造
+# 纯格式 diff,并把"台账变了"和"排版变了"混在同一次读数里。生成物同 drizzle meta / desktop-feed 策略:
+# 不进格式门禁,形状以生成器为准(新鲜度由 measure 自己的判据核对,不靠 prettier)。
+scripts/data/cross-end-fork-decisions.json
