@@ -55,6 +55,28 @@ export const MATCHERS = Object.freeze({
     /(?:补|加|写|新增)[^,。；;\n]{0,10}(?:函数|方法|模块|脚本|接口)/,
     /改文档|文档更新|注释|台账登记|登记一条|plan\.md/i,
     /git\s+commit|本地提交/,
+    // 2026-11-04 实测后加的三条。原四条全靠**动词短语**(改代码/补测试/写函数),而台账里的
+    // 工程票标题是**名词短语**(「P86 提交链缺一道拦闸」「P84 …索引枚举仍未过 ignore_rules」
+    // 「RP-91 给旁路收敛器物补『未知旗标 ⇒ 用法错』」)—— 一个动词都不含 ⇒ 四条全不命中
+    // ⇒ 落 unknown ⇒ 停机。现读 12 枚可派单候选里 11 枚落 unknown、只有 1 枚自决,
+    // 这才是"自主开发"真正的天花板(比票类白名单还窄)。
+    // 安全性靠判定顺序保证:classifyAction 先扫 stop 命中,命中即停 ⇒ 自决侧加宽**不可能**
+    // 覆盖掉任何一条停机类(成对反向锁见 check-human-valve.test.mjs)。
+    /^\s*(?:[a-z]{1,4}-?\d{1,6}|p\d{1,3}\b|t\d{1,3}\b|rp-\d+|g-\d+|y-\d+|o\d+)\b/,
+    /(?:缺|未有|仍未|尚未|没有|漏了)[^。；;\n]{0,20}(?:判据|守门|闸|拦闸|测试|用例|校验|断言|覆盖|接线|点名)/,
+    /(?:新增|补|装|加)[^。；;\n]{0,12}(?:守门|判据|闸门|尺子|镜像测试|自检|夹具|回归锁)|(?:修|治)[^。；;\n]{0,8}假红/,
+  ],
+  // 2026-11-04 新装的停机类:**放宽**既有的闸与自决侧加宽是一对相反动作,前者必须等人。
+  // 立因:上面对 code-and-docs 加宽之后,"改守门把某档调松/摘掉豁免"这类票也会被
+  // 名词形态的自决匹配器接住 ⇒ 自治环可以自己去拆自己的刹车。本仓的刹车一旦被拆掉,
+  // 后面所有门都不再可信(§12e:恒红门的唯一结局是逼人跳门,而恒绿的假门更糟)。
+  // 所以:加闸 = 自决;减闸 = 停机等人。immutable-guard 只要求"声明",声明不等于批准,
+  // 事后审计也不能把已经推上去的拆闸撤回来 ⇒ 必须前置拦。
+  'guardrail-loosen': [
+    /(?:放宽|调松|放松|降低|下调|取消|摘掉|摘除|删除|删掉|去掉|停用|关掉|注释掉)[^。；;\n]{0,16}(?:守门|判据|闸门|门\s*\d+|拦截|拦闸|校验|阻断|棘轮|豁免|白名单|基线|镜像测试|回归锁|接线锁|用例|断言)/,
+    /(?:改成|改为|降为|降级为)[^。；;\n]{0,8}(?:warn|告警|只报数|不判红|观察|off|关闭)/i,
+    /(?:新增|补)[^。；;\n]{0,12}(?:豁免条目|跳过变量|skipenv|no-verify)|常态化[^。；;\n]{0,8}跳门|默认跳门/i,
+    /(?:上调|放宽)[^。；;\n]{0,12}(?:阈值|预算|上限|额度)|(?:摘掉|删除)[^。；;\n]{0,12}(?:镜像测试|回归锁|接线锁)/i,
   ],
   'local-verification': [
     /跑(?:一遍)?守门|guardian-runner|typecheck|lint|--self-test|自检|self-test/,
@@ -67,6 +89,10 @@ export const MATCHERS = Object.freeze({
   'api-key-change': [
     /api[\s_-]?key|apikey|密钥|密钥对|secret|dsn|凭据泄露/,
     /换(?:一)?(?:个)?\s*key|补(?:一个)?\s*key|吊销\s*key|新增\s*key/,
+    // 2026-11-04 实测补:上面那条只认"换 key"这个语序。探针「把 DEEPSEEK key 换成新的」
+    // 当时判成 unknown ⇒ 危险动作为什么会漏,是因为票面习惯把对象写在动词前面。
+    // 停机侧漏判 = 该停的没停,这是本清单里唯一会**放大** AI 自决范围的错,必须先补这一侧。
+    /key\s*(?:换|更换|改成|更新|失效)|密钥\s*(?:换|更换|改成|更新)|(?:换|更换|吊销)[^。；;\n]{0,12}(?:key|密钥|凭据|secret)/i,
   ],
   'credential-rotation': [
     /轮换|rotate|rotation|重新签发|续签/,
@@ -84,6 +110,16 @@ export const MATCHERS = Object.freeze({
   'production-deploy': [
     /生产机|生产环境|线上环境|线上部署|部署到(?:生产|线上)|上线部署|发版上线/,
     /重启\s*(?:线上|生产|api|web|ai-service)|\bnssm\b|停服|停机维护/,
+    // 下面两条是 2026-11-04 按**实测量**补的,不是推测:阀在 observe 档留痕 25 条,
+    // 全部落 `unknown-fail-closed`,而它们的原文都是部署自愈票的措辞
+    // ("B53 [deploy-feedback] … rollback /deploy/rollback 部署异常 ⇒ 排查链路并…")。
+    // 本条规则的标题本来就写着"部署、重启、停服与配置变更" ⇒ 匹配器没盖住自己声明的范围,
+    // 于是"该停机等人"被判对了,却报成"分类器没有规则" —— 这两件事的出路完全相反
+    // (前者是该类票根本不该进自动派单面,后者是补匹配器),混在一起 A6 永远给不出可执行下一步,
+    // 而 enforce 放量前置"未判定率归零"也因此结构性不可满足。
+    // 方向纪律:本处只**加** stop 覆盖面 ⇒ 减少 AI 可自决的范围,不放宽任何一道闸。
+    /回滚|回退到|rollback|revert\s*(?:生产|线上|main|上一)/i,
+    /部署异常|部署失败|发布失败|切流失败|构建失败|建包失败|金丝雀[^。；;\n]{0,8}(?:异常|回退|失败|熔断)/,
   ],
   'destructive-git-or-data': [
     /删[^,。；;\n]{0,16}分支|branch\s+-[dD]\b|删\s*worktree/,
@@ -222,8 +258,27 @@ export function auditValveList(rules, { now = new Date() } = {}) {
 }
 
 /**
+ * 剥掉台账行上的**机器注记**(认领租约牌 / 释放牌 / 登记牌 / 反引号号码段外的注记括号)。
+ * 立因:现读 12 枚可派单候选里 7 枚的标题以「（认领已释放@2026-11-04/stale-claim-strip#…）」开头,
+ * 那是兜底清扫器加上去的,不是票面内容 ⇒ 任何按票面开头形态写的匹配器都被它挡掉。
+ *
+ * ⚠ 只在**并集**里用它,绝不用它替换原文(见 classifyAction):注记里万一混进危险词,
+ *   拿剥完的文本单判就会把危险动作读成 self-serve —— 那是把 fail-closed 反向用。
+ *   并集判定下剥文本只可能**增加** self 命中,而 stop 命中仍由原文保证 ⇒ 结果只会更严或持平。
+ */
+export function stripTicketAnnotations(text) {
+  return String(text ?? '')
+    .replace(/（[^（）]{0,80}?(?:认领已释放|进行中|登记|租约|待并入|副本)[^（）]{0,80}?）/g, ' ')
+    .replace(/\([^()]{0,80}?(?:认领已释放|进行中|登记@|stale-claim-strip)[^()]{0,80}?\)/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+/**
  * 判定入口。返回形状固定 {bucket, ruleId, reason}。
  * 判定顺序 = 先停机后自决:一段话里同时出现"改代码"和"换 API key"时必须停,不能因为先匹配到自决类就放行。
+ * 匹配面 = 原文 ∪ 剥注记后的文本(两个形态各扫一遍,取并集)——理由见 stripTicketAnnotations:
+ * 并集只会让 stop 更容易命中、让 self 有机会命中被注记挡掉的普通工程票,不会反过来放宽停机。
  */
 export function classifyAction(actionText, { rules, now = new Date() } = {}) {
   if (!Array.isArray(rules) || rules.length === 0) {
@@ -234,12 +289,14 @@ export function classifyAction(actionText, { rules, now = new Date() } = {}) {
   if (text === '') {
     return stopVerdict(UNKNOWN_RULE_ID, '动作描述为空,无法判定 ⇒ 安全停机等人工补全描述')
   }
-  const normalized = normalizeActionText(text)
+  const faces = [normalizeActionText(text), normalizeActionText(stripTicketAnnotations(text))].filter(
+    (t, i, a) => t && a.indexOf(t) === i,
+  )
   const today = todayIso(now)
   const hits = []
   for (const rule of rules) {
     if (!hasMatcher(rule.id)) continue
-    if (MATCHERS[rule.id].some((re) => re.test(normalized))) hits.push(rule)
+    if (MATCHERS[rule.id].some((re) => faces.some((f) => re.test(f)))) hits.push(rule)
   }
   const stopHit = hits.find((rule) => rule.bucket === BUCKETS.STOP_FOR_HUMAN)
   if (stopHit) {
@@ -282,6 +339,7 @@ export const __test__ = {
   parseValveList,
   classifyAction,
   normalizeActionText,
+  stripTicketAnnotations,
   auditValveList,
   hasMatcher,
   todayIso,
