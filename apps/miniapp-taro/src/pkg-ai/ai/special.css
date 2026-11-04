@@ -53,7 +53,7 @@
   align-items: center;
   gap: var(--spacing-xs);
   margin-top: var(--spacing-md);
-  padding: var(--spacing-xs-loose) 20rpx;
+  padding: var(--spacing-xs-loose) var(--spacing-sm-loose);
   background: var(--color-border);
   border: 2rpx solid var(--color-ring);
   border-radius: var(--radius-sm);
@@ -68,7 +68,7 @@
 
 /* ===== 精选推荐 ===== */
 .special-featured {
-  margin: 0 24rpx 24rpx;
+  margin: 0 var(--spacing-md) var(--spacing-md);
 }
 .special-section-title {
   display: block;
@@ -87,7 +87,7 @@
   align-items: center;
   width: 200rpx;
   margin-right: var(--spacing-sm);
-  padding: var(--spacing-md) 16rpx;
+  padding: var(--spacing-md) var(--spacing-sm);
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -124,7 +124,7 @@
 /* ===== 分类 Tab ===== */
 .special-tabs {
   white-space: nowrap;
-  padding: 0 24rpx;
+  padding: 0 var(--spacing-md);
   margin-bottom: var(--spacing-sm);
 }
 .special-tab {
@@ -132,7 +132,7 @@
   align-items: center;
   gap: 6rpx;
   height: var(--spacing-3xl);
-  padding: 0 24rpx;
+  padding: 0 var(--spacing-md);
   margin-right: var(--spacing-xs-loose);
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
@@ -157,7 +157,7 @@
 
 /* ===== 应用列表 ===== */
 .special-list {
-  padding: 0 24rpx;
+  padding: 0 var(--spacing-md);
   display: flex;
   flex-direction: column;
   gap: var(--spacing-sm);
@@ -218,7 +218,7 @@
 .special-card-btn {
   align-self: flex-start;
   margin-top: var(--spacing-sm);
-  padding: 10rpx 28rpx;
+  padding: 10rpx var(--spacing-md-loose);
   background: var(--color-border);
   border: 2rpx solid var(--color-ring);
   border-radius: var(--radius-sm);

@@ -11,7 +11,7 @@
 }
 
 .table-title {
-  padding: var(--spacing-lg) 32rpx 0;
+  padding: var(--spacing-lg) var(--spacing-lg) 0;
 }
 .table-title text {
   font-size: var(--text-strong);
@@ -27,7 +27,7 @@
 .table-row {
   display: flex;
   align-items: flex-start;
-  padding: var(--spacing-md-loose) 32rpx;
+  padding: var(--spacing-md-loose) var(--spacing-lg);
 }
 .table-row + .table-row {
   margin-top: var(--spacing-sm);

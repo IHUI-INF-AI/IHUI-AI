@@ -52,7 +52,7 @@
 /* 状态 tab */
 .status-tabs {
   display: flex;
-  margin: 0 20rpx;
+  margin: 0 var(--spacing-sm-loose);
   padding: var(--spacing-xs);
   background: var(--color-muted);
   border-radius: var(--radius-md);
@@ -75,7 +75,7 @@
 /* 子 tab */
 .sub-tabs {
   display: flex;
-  margin: 0 20rpx 12rpx;
+  margin: 0 var(--spacing-sm-loose) var(--spacing-xs-loose);
   gap: 36rpx;
 }
 .sub-tab {
@@ -92,7 +92,7 @@
 .agent-scroll {
   flex: 1;
   height: 0;
-  padding: 0 20rpx 20rpx;
+  padding: 0 var(--spacing-sm-loose) var(--spacing-sm-loose);
 }
 .agent-item {
   display: flex;
@@ -147,7 +147,7 @@
 }
 .agent-status {
   font-size: var(--text-label);
-  padding: var(--spacing-2xs) 16rpx;
+  padding: var(--spacing-2xs) var(--spacing-sm);
   border-radius: var(--radius-sm);
   color: var(--color-muted-foreground);
   background: var(--color-muted);
@@ -174,7 +174,7 @@
 }
 .agent-action {
   font-size: var(--text-label);
-  padding: 6rpx 20rpx;
+  padding: 6rpx var(--spacing-sm-loose);
   border-radius: var(--radius-sm);
 }
 .agent-action.edit {

@@ -137,7 +137,7 @@ export default function PayPopup({
     <View className="fixed inset-0 z-[2000] flex items-end" onClick={onClose}>
       <View className="absolute inset-0 bg-[var(--color-black-50)]" />
       <View
-        className="relative bg-card ui-card rounded-t-lg w-full px-6 pb-6 pt-lg"
+        className="relative bg-card ui-card rounded-t-lg w-full px-2xl pb-2xl pt-lg"
         onClick={(e) => e.stopPropagation()}
         hoverClass="opacity-60"
       >

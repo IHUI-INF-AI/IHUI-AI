@@ -33,57 +33,55 @@ export default function MessageDetail({
   const tt = useTt()
   return (
     <View className="flex flex-col h-full bg-muted">
-      <View className="flex-1 px-3 py-3 overflow-y-auto">
+      <View className="flex-1 px-md py-md overflow-y-auto">
         {messages.length === 0 && (
-          <View className="flex items-center justify-center py-12">
-            <Text className="text-sm text-muted-foreground">
+          <View className="flex items-center justify-center py-5xl">
+            <Text className="text-body text-muted-foreground">
               {tt('message.startConversation', '开始你们的对话')}
             </Text>
           </View>
         )}
         {messages.map((msg) => (
-          <View key={msg.id} className={`flex mb-3 ${msg.self ? 'flex-row-reverse' : 'flex-row'}`}>
+          <View key={msg.id} className={`flex mb-md ${msg.self ? 'flex-row-reverse' : 'flex-row'}`}>
             {!msg.self &&
               (userAvatar ? (
                 <Image
                   src={userAvatar}
-                  className="w-8 h-8 rounded-lg mr-2 bg-muted"
+                  className="w-8 h-8 rounded-lg mr-sm bg-muted"
                   mode="aspectFill"
                 />
               ) : (
-                <View className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center mr-2">
-                  <Text className="text-xs text-muted-foreground">{userName.charAt(0)}</Text>
+                <View className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center mr-sm">
+                  <Text className="text-label text-muted-foreground">{userName.charAt(0)}</Text>
                 </View>
               ))}
             <View className={`max-w-[70%] ${msg.self ? 'items-end' : 'items-start'}`}>
               <View
-                className={`px-3 py-2 rounded-2xl ${
+                className={`px-md py-sm rounded-2xl ${
                   msg.self
                     ? 'bg-cta text-cta-foreground rounded-tr-sm'
                     : 'bg-card text-foreground rounded-tl-sm'
                 }`}
               >
-                <Text className="text-sm">{msg.content}</Text>
+                <Text className="text-body">{msg.content}</Text>
               </View>
-              <Text className="text-badge text-muted-foreground mt-1">
-                {msg.createdAt}
-              </Text>
+              <Text className="text-badge text-muted-foreground mt-xs">{msg.createdAt}</Text>
             </View>
           </View>
         ))}
       </View>
 
-      <View className="flex items-center px-3 py-2 bg-card mt-2">
+      <View className="flex items-center px-md py-sm bg-card mt-sm">
         <FocusTextarea
           value={inputValue}
           onInput={(e) => onInput(e.detail.value)}
           placeholder={tt('message.inputPlaceholder', '输入消息...')}
-          className="flex-1 bg-muted rounded-sm px-4 py-2 text-sm"
+          className="flex-1 bg-muted rounded-sm px-lg py-sm text-body"
           maxlength={500}
           autoHeight
         />
         <View
-          className={`ml-2 px-4 py-2 rounded-md text-sm ${
+          className={`ml-sm px-lg py-sm rounded-md text-body ${
             inputValue.trim() ? 'bg-cta text-cta-foreground' : 'bg-muted text-muted-foreground'
           }`}
           onClick={() => inputValue.trim() && onSend()}

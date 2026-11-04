@@ -7,7 +7,7 @@
 /* 任务进度状态条 — 对齐 web 端 TaskStatusBar(compact);样式全部 rpx + var(--color-*),深浅色自动适配 */
 
 .task-status-bar {
-  margin: 0 24rpx 12rpx;
+  margin: 0 var(--spacing-md) var(--spacing-xs-loose);
 }
 
 .tsb-hover {
@@ -29,7 +29,7 @@
   display: flex;
   align-items: center;
   gap: var(--spacing-xs-loose);
-  padding: var(--spacing-sm) 20rpx;
+  padding: var(--spacing-sm) var(--spacing-sm-loose);
 }
 
 .task-status-bar-headline {
@@ -64,7 +64,7 @@
   display: flex;
   flex-direction: column;
   gap: 10rpx;
-  padding: 0 20rpx 16rpx;
+  padding: 0 var(--spacing-sm-loose) var(--spacing-sm);
 }
 
 .task-status-step {

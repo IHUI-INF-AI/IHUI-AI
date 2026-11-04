@@ -378,23 +378,23 @@ export default function AgentDetailPage() {
     <View className="min-h-screen bg-background">
       <View className="flex bg-card">
         <View
-          className={`flex-1 py-3 text-center ${tab === 'info' ? 'bg-muted' : ''}`}
+          className={`flex-1 py-md text-center ${tab === 'info' ? 'bg-muted' : ''}`}
           onClick={() => setTab('info')}
           hoverClass="opacity-60"
         >
           <Text
-            className={`text-sm ${tab === 'info' ? 'text-[var(--color-primary)] font-medium' : 'text-muted-foreground'}`}
+            className={`text-body ${tab === 'info' ? 'text-[var(--color-primary)] font-medium' : 'text-muted-foreground'}`}
           >
             {t('ai.agentDetail.promptLabel')}
           </Text>
         </View>
         <View
-          className={`flex-1 py-3 text-center ${tab === 'runtime' ? 'bg-muted' : ''}`}
+          className={`flex-1 py-md text-center ${tab === 'runtime' ? 'bg-muted' : ''}`}
           onClick={() => setTab('runtime')}
           hoverClass="opacity-60"
         >
           <Text
-            className={`text-sm ${tab === 'runtime' ? 'text-[var(--color-primary)] font-medium' : 'text-muted-foreground'}`}
+            className={`text-body ${tab === 'runtime' ? 'text-[var(--color-primary)] font-medium' : 'text-muted-foreground'}`}
           >
             {t('ai.agentDetail.tabRuntime')}
           </Text>
