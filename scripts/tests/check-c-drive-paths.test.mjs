@@ -5,7 +5,8 @@
 /**
  * @file check-c-drive-paths.test.mjs 集成测试
  * @description 端到端覆盖 scripts/check-c-drive-paths.mjs 的核心规则 (AGENTS.md §26):
- *   - 默认调用 → exit 0 (无 staged 文件)
+ *   - 默认调用 = 扫描暂存区:空暂存区 → exit 0(不适用);暂存违规 → exit 1
+ *   - 非 git(git 取面失败)/ 文件读不到 → exit 2(未判定)
  *   - 含 C:\temp\ / C:\Users\*\AppData\Local\Temp\ / c:/temp/ / AppData\Local\Temp\
  *     的 .ts/.mjs staged → exit 1
  *   - 仅在 .md 中提及 → exit 0 (扩展名排除)
@@ -22,7 +23,7 @@
 import { test, describe } from 'node:test'
 import assert_ from 'node:assert/strict'
 import { execSync, spawnSync } from 'node:child_process'
-import { writeFileSync, mkdirSync, readFileSync } from 'node:fs'
+import { writeFileSync, mkdirSync, readFileSync, rmSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { fileURLToPath } from 'node:url'
@@ -84,13 +85,52 @@ function runScript(args = [], opts = {}) {
 
 describe('check-c-drive-paths.mjs 集成测试 (AGENTS.md §26)', () => {
 
-  // ─── 测试 1: 默认调用 (无 --staged) → exit 0 (无 staged 扫描) ─
-  test('默认调用 (无 --staged) → exit 0 (仅报告模式)', () => {
+  // ─── 测试 1: 默认调用 (无 --staged) → 真扫暂存区;空暂存区 = 0(不适用) ─
+  test('默认调用 (无 --staged): 空暂存区 → exit 0 (不适用)', () => {
     const root = createTempProject()
     try {
       initGitRepo(root)
       const r = runScript([], { cwd: root })
-      assert_.equal(r.status, 0, `默认调用应 exit 0, 实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`)
+      assert_.equal(r.status, 0, `空暂存区应 exit 0(不适用), 实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`)
+      assert_.match(r.stdout + r.stderr, /不适用|暂存区为空/)
+    } finally {
+      rmScratch(root)
+    }
+  })
+
+  // ─── 测试 1d: 默认调用 (无 --staged) 也必须真扫到违规 → exit 1 ─
+  test('默认调用 (无 --staged): 暂存 C 盘路径文件 → exit 1 (不再空转报绿)', () => {
+    const root = createTempProject()
+    try {
+      initGitRepo(root)
+      writeAndStage(root, 'apps/web/src/bad.ts', "export const p = 'C:\\temp\\file.txt'\n")
+      const r = runScript([], { cwd: root })
+      assert_.equal(r.status, 1, `默认调用应真扫并 exit 1, 实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`)
+    } finally {
+      rmScratch(root)
+    }
+  })
+
+  // ─── 测试 1b: --staged + 非 git 目录 → exit 2(取不到暂存区) ─
+  test('--staged: 非 git 目录 → exit 2 (git 失败,未判定)', () => {
+    const root = createTempProject()
+    try {
+      const r = runScript(['--staged'], { cwd: root })
+      assert_.equal(r.status, 2, `非 git 目录应 exit 2, 实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`)
+      assert_.match(r.stdout + r.stderr, /未判定|取不到 git 暂存区/)
+    } finally {
+      rmScratch(root)
+    }
+  })
+
+  // ─── 测试 1c: --staged + git 仓库但暂存区为空 → exit 0 (不适用) ─
+  test('--staged: 暂存区为空 → exit 0 (不适用,对齐 check-file-size)', () => {
+    const root = createTempProject()
+    try {
+      initGitRepo(root)
+      const r = runScript(['--staged'], { cwd: root })
+      assert_.equal(r.status, 0, `空暂存区应 exit 0(不适用), 实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`)
+      assert_.match(r.stdout + r.stderr, /不适用|暂存区为空/)
     } finally {
       rmScratch(root)
     }
@@ -316,6 +356,24 @@ describe('check-c-drive-paths.mjs 集成测试 (AGENTS.md §26)', () => {
       assert_.equal(report.ok, true)
       // 只扫了 .ts (1 个),.json 被扩展名排除
       assert_.equal(report.filesScanned, 1, `filesScanned 应为 1 (仅 .ts), 实际 ${report.filesScanned}`)
+    } finally {
+      rmScratch(root)
+    }
+  })
+
+  // ─── 测试 15: --staged + 目标文件读不到 → exit 2 (未判定) ─────
+  test('--staged: 目标文件读不到(EISDIR) → exit 2 (未判定)', () => {
+    const root = createTempProject()
+    try {
+      initGitRepo(root)
+      writeAndStage(root, 'apps/web/src/ghost.ts', 'export const x = 1\n')
+      // 让同名路径变成目录:existsSync 为真但 readFileSync 抛 EISDIR ⇒ 读不到
+      const abs = join(root, 'apps/web/src/ghost.ts')
+      rmSync(abs)
+      mkdirSync(abs)
+      const r = runScript(['--staged'], { cwd: root })
+      assert_.equal(r.status, 2, `读不到目标文件应 exit 2(未判定), 实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`)
+      assert_.match(r.stdout + r.stderr, /未判定|读不到/)
     } finally {
       rmScratch(root)
     }
