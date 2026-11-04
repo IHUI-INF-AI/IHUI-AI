@@ -32,6 +32,7 @@
  * 两面旗同给⇒未判定);清单 = `scripts/data/autonomy-invariants.json`。
  * 应急:`HUSKY_SKIP_AUTONOMY_INVARIANTS=1`,须与 `..._REASON="<定向说明>"` 同给。
  */
+import { readFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
@@ -179,6 +180,7 @@ export function runAudit(root = ROOT, { face = 'head', rev = 'HEAD' } = {}) {
   const out = decideInvariants(parsed.entries, faces)
   return {
     ...base,
+    anchorCount: parsed.entries.reduce((n, e) => n + e.anchors.length, 0),
     exit: out.state === 'drift' ? 1 : out.state === 'unjudged' ? 2 : 0,
     code: out.state,
     entryCount: parsed.entries.length,
@@ -201,7 +203,7 @@ export function printResult(r) {
   }
   if (r.state === 'drift') {
     console.error(
-      `❌ 自主环判据不变量被抹掉(判 ${r.entryCount} 条,失 ${r.lost.length} 条;判定面=${r.face})`,
+      `❌ 自主环判据不变量被抹掉(判 ${r.entryCount} 份文件 / ${r.anchorCount} 条锚点,失 ${r.lost.length} 份;判定面=${r.face})`,
     )
     for (const l of r.lost) {
       console.error(`   · ${l.path} —— ${l.why}`)
@@ -216,15 +218,18 @@ export function printResult(r) {
     return
   }
   console.log(
-    `✅ 自主环判据不变量守卫:${r.checked} 份文件、${r.entryCount} 条锚点全部在被审面(${r.face})上实有`,
+    `✅ 自主环判据不变量守卫:${r.checked}/${r.entryCount} 份文件、${r.anchorCount} 条锚点全部在被审面(${r.face})上实有`,
   )
 }
 
 function selfTest() {
   let failed = 0
+  let passed = 0
   const ok = (name, cond) => {
-    if (cond) console.log(`  ✅ ${name}`)
-    else {
+    if (cond) {
+      passed += 1
+      console.log(`  ✅ ${name}`)
+    } else {
       console.error(`  ❌ ${name}`)
       failed++
     }
@@ -259,6 +264,13 @@ function selfTest() {
       return r.state === 'unjudged' && r.unreadable[0].why === 'boom'
     })(),
   )
+  // I10 接线锁(2026-11-05 实测到自己踩的坑):`selectFace` 返回的是 `{face, error}` 对象。
+  // 曾把它整个当 face 传下去 ⇒ 读数印成 `[object Object]`,更糟的是 `--staged` 静默失效、
+  // 门退化成"永远按 HEAD 判" —— 那正是本门要抓的"清单落后自己那一枚"形态,而它自己先瞎了。
+  ok('I10 接线锁:面从 selectFace 的 .face 取,.error 走未判定退出', () => {
+    const self = readFileSync(new URL(import.meta.url), 'utf8')
+    return self.includes('const face = sel.face') && self.includes('if (sel.error)')
+  })
   ok('I5 清单坏 ⇒ problems 非空', parseInvariants('{ 不是合法 JSON').problems.length === 1)
   ok(
     'I6 清单空 entries ⇒ 未判定(不许把"没有条目"读成"没有约束")',
@@ -289,7 +301,9 @@ function selfTest() {
       return r.state === 'drift' && r.lost.length === 1 && r.lost[0].path === 'b.mjs'
     })(),
   )
-  console.log(`autonomy-invariants self-test: ${failed === 0 ? `全通过(9 例)` : `${failed} 例红`}`)
+  console.log(
+    `autonomy-invariants self-test: 通过 ${passed} 例 / 红 ${failed} 例(例数现算,不硬编码)`,
+  )
   process.exitCode = failed === 0 ? 0 : 1
 }
 
@@ -305,7 +319,13 @@ function main(argv) {
     selfTest()
     return
   }
-  const face = selectFace({ staged, worktree, def: 'head' })
+  const sel = selectFace({ staged, worktree, def: 'head' })
+  if (sel.error) {
+    console.error(`❌ 自主环不变量守卫【未判定】:${sel.error}`)
+    process.exitCode = 2
+    return
+  }
+  const face = sel.face
   const revIdx = argv.indexOf('--rev')
   const r = runAudit(ROOT, { face, rev: revIdx >= 0 ? String(argv[revIdx + 1] ?? 'HEAD') : 'HEAD' })
   printResult(r)
