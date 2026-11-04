@@ -76,19 +76,37 @@ describe('候选腿', () => {
   })
 })
 
-describe('Content-Range 总长', () => {
+describe('探针总量:206 取 Content-Range,200 无 Range 才退 Content-Length', () => {
   it(`bytes 0-${APK_PROBE_BYTES - 1}/${TOTAL} ⇒ ${TOTAL}`, () => {
     expect(parseProbeTotal(`bytes 0-${APK_PROBE_BYTES - 1}/${TOTAL}`)).toBe(TOTAL)
   })
-  it.each([null, '', 'bytes 0-1/*', 'bytes 0-1/0', 'bytes 0-1/not-a-number'])(
-    '%s ⇒ null,不许拿 Content-Length 猜',
-    (v) => expect(parseProbeTotal(v)).toBeNull(),
+  it.each([null, '', 'bytes 0-1/0', 'bytes 0-1/not-a-number'])('%s ⇒ null', (v) =>
+    expect(parseProbeTotal(v)).toBeNull(),
+  )
+  it('Content-Range 读不懂 ⇒ null,不拿分片长度冒充总量', () => {
+    expect(parseProbeTotal('bytes 0-1/*', String(TOTAL))).toBeNull()
+  })
+  it.each([String(TOTAL), ` ${TOTAL} `])(
+    '没有 Content-Range、Content-Length=%s ⇒ 总量(不认 Range 的整包腿)',
+    (v) => expect(parseProbeTotal(null, v)).toBe(TOTAL),
+  )
+  it.each([null, '', 'not-a-number', '0', '-1'])('Content-Length=%s ⇒ null', (v) =>
+    expect(parseProbeTotal(null, v)).toBeNull(),
   )
 })
 
 describe('pickLeg:国内腿要同时满足「更快 ∧ 体积对账 ∧ 真读到字节」', () => {
   it('两条腿同包、国内腿更快 ⇒ 走国内腿', () => {
     const out = pickLeg([probe({ elapsedMs: 5000 }), cnProbe()], SITE)
+    expect(out.leg).toBe('cn')
+    expect(out.url).toBe(APK_CN_LEG_URL)
+    expect(out.reason).toContain('体积对账 same')
+  })
+  it('国内腿是 200 整包腿(Gitee 不认 Range)也能选中', () => {
+    const out = pickLeg(
+      [probe({ elapsedMs: 5000 }), cnProbe({ status: 200, elapsedMs: 900 })],
+      SITE,
+    )
     expect(out.leg).toBe('cn')
     expect(out.url).toBe(APK_CN_LEG_URL)
     expect(out.reason).toContain('体积对账 same')

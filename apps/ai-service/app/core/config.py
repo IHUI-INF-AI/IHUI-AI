@@ -342,6 +342,10 @@ class Settings(BaseSettings):
     # 证据充分 ⇒ 填入默认值,使 WORKBUDDY_TASKS_ENABLED + LIVE_RUN 打开即生效;
     # 仍保留 live_run 默认 false 双门控(写侧有副作用,须显式开启)。
     workbuddy_tasks_accept_field: str = "task_codes"  # accept body 字段名(README 实证 task_codes)
+    # 行为规划驱动器总开关(2026-11-05 立):开启后 growth 族用默认行为计分回调
+    # (workbuddy_behaviors.build_default_activity_reporter)——可自动则自动,不可自动则如实登记
+    # 为「待用户在客户端实操」。关闭 ⇒ 保持旧语义(reporter=None,行为任务不动作)。
+    workbuddy_tasks_behavior_driver_enabled: bool = False
     workbuddy_tasks_claim_path: str = "/activity/growth/tasks/{code}/claim"  # 领奖路径模板({code} 占位);强制 Web 域 + x-client-platform: web
     workbuddy_tasks_activity_path: str = "/v2/report"  # 活动行为上报计分端点(README 实证)
     workbuddy_tasks_activity_hosts: str = (
