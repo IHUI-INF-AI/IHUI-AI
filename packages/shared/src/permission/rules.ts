@@ -28,7 +28,7 @@
  * fallback,不得被当成 AST 判定对外声称。
  */
 
-import { analyzeCommandRisk } from '../utils/command-risk.js'
+import { analyzeCommandRisk } from '../utils/command-risk'
 
 // ===========================================================================
 // 基础类型

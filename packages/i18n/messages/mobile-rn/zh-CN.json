@@ -6045,8 +6045,29 @@
       "present": "正常",
       "late": "迟到",
       "absent": "缺勤",
-      "leave": "请假"
-    }
+      "leave": "请假",
+      "early": "早退"
+    },
+    "actionDone": "操作成功",
+    "actionFailed": "操作失败",
+    "batchResult": "点名完成：新增 {created}、跳过 {skipped}、遗漏 {missed}",
+    "batchTitle": "整班点名",
+    "chooseAction": "选择操作",
+    "chooseClass": "选择要点名的班级",
+    "emptyTrend": "暂无趋势数据",
+    "loadStatsFailed": "加载考勤统计失败，请稍后重试",
+    "needClassId": "缺少班级信息，无法代签到/签退",
+    "noClass": "当前列表没有可选班级",
+    "onlyTodayCheckIn": "仅可为当日考勤代签到：跨日回填需给出该日内时刻，本屏未提供",
+    "qrEntry": "出示签到码",
+    "statsAttendanceRate": "出勤率",
+    "statsTotalLabel": "考勤总人次",
+    "statusDistribution": "状态分布",
+    "statusOther": "其他",
+    "trendChartHint": "出勤率 = 正常出勤人次 ÷ 该时段有考勤记录人次（未打卡的学生不在分母内）",
+    "trendChartScope": "统计范围：{scope}",
+    "trendChartTitle": "出勤趋势",
+    "trendWindow": "近 {days} 天"
   },
   "eduGrades": {
     "title": "成绩管理",
@@ -7273,5 +7294,31 @@
   },
   "activities": {
     "join": "立即参与"
+  },
+  "eduAttendanceQr": {
+    "chooseClass": "选择班级",
+    "classLoadFailed": "班级清单加载失败",
+    "expiresIn": "{s} 秒后过期",
+    "needLogin": "请先登录后再扫码",
+    "nextStepHint": "请先到考勤规则为该班启用规则并设置扫码密钥(qrSecret),再重新出码",
+    "noClass": "暂无可选班级",
+    "pickClassFirst": "请先选择班级",
+    "qrTip": "让学生用「扫码签到」扫描此码",
+    "refresh": "重新出码",
+    "scanDone": "签到成功",
+    "scanFailed": "签到失败",
+    "scanHint": "将老师的签到二维码放入框内",
+    "scanInvalidCode": "这不是本系统的签到二维码",
+    "scanSubmitting": "正在签到…",
+    "scanTitle": "扫码签到",
+    "title": "签到二维码"
+  },
+  "eduMyAttendance": {
+    "classByBackendHint": "班级由后端按在册学籍自动确定",
+    "date": "日期",
+    "notLoggedIn": "未登录，无法操作",
+    "scanCheckIn": "扫码签到",
+    "selfCheckIn": "我要签到",
+    "title": "我的考勤"
   }
 }
