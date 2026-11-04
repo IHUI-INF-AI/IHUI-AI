@@ -19,21 +19,26 @@ if [ -z "$GIT_INDEX_FILE" ] || [ ! -f "$GIT_INDEX_FILE" ]; then
   unset GIT_INDEX_FILE
 fi
 
-# ─── sh 层机器可读留痕(2026-11-04 立)─────────────────────────────────────
-# 本层任何 exit 1 都发生在 node 启动**之前** ⇒ 没有 vbs 轮次标记、没有 pre-commit-rounds.jsonl
-# 轮次,失败只剩 git 侧 stderr(实测:别单 `git commit --only -- <7 路径>` 钩子阶段 exit 1,
-# pre-commit.log 无 `==== <Now> :: <script> ====`,rounds 无本轮,无 COMMIT_EDITMSG/index.lock)。
-# 因此本层所有拒绝路径都必须**先落一行机器可读记录**再 exit。
-# ⚠ 该文件必须 ASCII-only:它被 wscript 侧读取,非 ASCII 会在 wscript 编译期报 Syntax error。
-#    故这里用 tr 只保留可打印 ASCII(含 TAB),中文/全角字符一律丢弃。
+# --- sh-layer machine-readable evidence (2026-11-04) -------------------------
+# Any exit 1 in this layer happens BEFORE node starts => there is no vbs round
+# marker and no pre-commit-rounds.jsonl row; the only trace would be git's
+# stderr. Every rejection path below must therefore write one machine-readable
+# row first, then exit.
+# The writer lives in scripts/lib/hook-marker.sh:
+#   - size-based rotation of hook-markers.jsonl (generations kept, no line lost);
+#   - every append is serialized by an atomic mkdir lock, so concurrent hooks
+#     cannot interleave half-lines; a lock timeout falls back to per-process
+#     shards under hook-markers.d/ (same shape as the hook-run-hidden.vbs fix).
+# ASCII-ONLY: this chain is shared with wscript wrappers; non-ASCII text has
+# already caused a compile-time "Syntax error" there. Keep new text ASCII.
+# -----------------------------------------------------------------------------
 IHUI_MARKER_DIR=.ihui-agent/state/hook-logs
-hook_marker() {
-  mkdir -p "$IHUI_MARKER_DIR" 2>/dev/null || return 0
-  _m_ts=$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null)
-  printf '{"hook":"pre-commit","stage":"sh","event":"%s","ts":"%s","expected":"%s","got":"%s"}\n' \
-    "$1" "$_m_ts" "$2" "$3" \
-    | tr -cd '\11\12\15\40-\176' >>"$IHUI_MARKER_DIR/hook-markers.jsonl" 2>/dev/null || true
-}
+if [ -f scripts/lib/hook-marker.sh ]; then
+  . scripts/lib/hook-marker.sh
+else
+  # A missing evidence writer must never block a commit; it just stays silent.
+  hook_marker() { :; }
+fi
 
 # ─── 私有索引上下文 fail-closed(2026-11-04 立)─────────────────────────────
 # 2026-11-03 的修法只保住了"非空且文件存在"的指针,但它对**调用方声明过私有索引**的场景
