@@ -100,12 +100,12 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 测试文件 | 4025 | `testFiles` |
 | CI 工作流 | 52 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
-| 工程守门 | 325 | `guardianGates` |
-| — blocking | 296 | `guardianBlocking` |
+| 工程守门 | 326 | `guardianGates` |
+| — blocking | 297 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
-| 跟踪文件 | 18967 | `trackedFiles` |
+| 跟踪文件 | 18971 | `trackedFiles` |
 
-上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-03。
+上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-04。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
 
 <!-- END GENERATED NUMBERS -->
@@ -5448,6 +5448,38 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - **所属端**:后端 `apps/api`;消费端见上表"所属端 / 消费方"一列(web / mobile-rn / 小程序)。
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-04**
+- 🔧 工程/其他:收编守护落档产出(5 件,凭落点账本) (cd17b5992d)
+- 🐞 修复:push-sync 读数改三态 —— rev-list 失败/取不到对象不再折算成 ahead=0 假绿,5 例钉三态 (03f58d1a29)
+- 🐞 修复:两处 git 派生补 windowsHide —— 门52 生产面两处判红清零,消除控制台闪窗;staged 面 3 文件 0 违规 (3f5a439b05)
+- 🐞 修复:git 派生调用显式接管 stdio —— 门193 三处判红清零(两枚测试文件),解除 pre-push 阻塞;两测试 14/14 通过 (38f420f6cb)
+- 🐞 修复:写盘闸 HEAD 三态 —— git 取不到不再折成「新增文件」放行 (860fc3e087)
+
+**2026-11-03**
+- 🔧 工程/其他:285 judged 自检改临时夹具 —— 不再钉死真仓行号 (414db88c6b)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (6f77b0a629)
+- 📚 文档:285/289/290/291/292 语义与三条纪律入档 + 逃生变量并入 §6.3 (53cbd16b34)
+- 🚀 新功能/改进:门285 引入逐键 judged 桶 —— 存差=未实现+未映射+未裁决 (0013f61827)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (1759854c49)
+- 🐞 修复:门290 判据纠偏 + A3 可挂账 + 修真缺陷 (9e6d7fedeb)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (eb67922536)
+- 🔧 工程/其他:账本收敛为 C 组挂账与 A/B/E 裁决,统一 3 处可改调用点并登记 LearnScreen 4 处 web 无键文案 (7337b633c3)
+- 🐞 修复:证书基准拆为官网/Play 上传/Play 应用签名三值并互不校验 (c7274b7f66)
+- 🔧 工程/其他:登记 9 对跨端 props 提案(等价 21 + 平台 141 + FloatBox 整对不适用) (582088f7cd)
+- 🐞 修复:新增 B3 同义键异值判据、common.* 白名单/同字不同义裁决与唯一键去重 (fcb2cc8570)
+- 🐞 修复:门291 P0 将 10 处 RN 硬编码文案改为 web 同源键并补齐 5 语言词包 (dc74afd1bb)
+- 🔧 工程/其他:登记 9 对跨端 props 提案(等价 21 + 平台 141 + FloatBox 整对不适用) (8c63a3b963)
+- 🐞 修复:LoginPopUp 24→20 键 —— RN 补 visible 可选、userInfo 适配、defaultAvatar、onNicknameChange (c5b7f31ae9)
+- 🐞 修复:NavBar 25→23 键 —— 小程序补 subtitle/sticky 真实现，menuIcon 接渲染分支 (db8b3c8c06)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (ffbc1e83bd)
+- 🐞 修复:BottomActionBar 59→56 键 —— RN 真接 placeholder/disabled,小程序真接 isLoading (3356abdcd5)
+- 🐞 修复:VideoPlayer 补齐 autoplay/poster/loading/onPlay/onPause/startPosition (4c44c59a30)
+- 🐞 修复:ModelList 两端补齐选择/加载/动效/样式契约 (29f6d7e7d1)
+- 🐞 修复:ModelConfigDialog 对齐必填漂移 visible/config/onChange/modelType (46b2a8cf4a)
+- 🐞 修复:InputArea 补齐 RN 输入契约 autoFocus/onFocus/onBlur/onKeyboardHeightChange (60fa2ebbea)
+- 🔧 工程/其他:摘除 ColorfulLoader 死副本并重算 ui-routes inputs —— 全仓静态/动态引用为 0,删除后经生成器重算(inputs 611→610、自述钉自洽);门105 保持绿、门285 258 键不变 (72eea3c5d5)
+- 📚 文档:派生块按生成器重算 —— 守门/跟踪文件读数对齐现算,最近更新补齐 48540f6..HEAD (4576ffade7)
+
 **2026-11-03**
 - 🔧 工程/其他:ui-routes 派生件按 HEAD 面重生成(model-edit/apis 两枚输入补钉) (c6c90050fb)
 - 🐞 修复:小程序 model-edit 接上 RN 同一份只读清单,并补派生进程 windowsHide (5133f2817d)
