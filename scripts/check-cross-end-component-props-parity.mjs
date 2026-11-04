@@ -4,7 +4,7 @@
 
 /* eslint-disable no-console */
 /**
- * check-cross-end-component-props-parity.mjs —— 守门 285:两端同名组件 props 键集/必选性的
+ * check-cross-end-component-props-parity.mjs —— 守门 288:两端同名组件 props 键集/必选性的
  * **台账制差值棘轮**(判据引擎 = scripts/lib/component-props-parity.mjs,本文件零复算)。
  *
  * 立因:跨端对账族的最后一格零尺 —— 同名组件对的 props 行为对称性(键集缺失/必选性漂移)
@@ -661,7 +661,7 @@ async function main() {
   }
   if (jsonMode) console.log(JSON.stringify({ face, counts, bad, warn, shrunk, adjudicated, judged: judgedApply.applied }, null, 1))
   else {
-    log(`🧩 两端同名组件 props 对账(守门 285,差值棘轮;面=${face})`)
+    log(`🧩 两端同名组件 props 对账(守门 288,差值棘轮;面=${face})`)
     log(
       `  配对 ${counts.pairs} · 存差 ${counts.drifted} 对/${counts.driftKeysTotal} 键 · 已裁决 judged ${counts.judgedKeysTotal} 键 · 映射等价 ${counts.mappedKeysTotal} 键(表 ${counts.equivalenceEntries} 条) · 未判定 ${counts.undetermined}${counts.notApplicable ? ` · 已裁决不适用 ${counts.notApplicable}(另 ${counts.adjudicatedDriftKeys} 键整对外置)` : ''} · 本轮新增退化 ${bad.length}`,
     )
