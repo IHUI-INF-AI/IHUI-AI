@@ -19,7 +19,7 @@ import type {
   AppUiActionType,
 } from '@ihui/types'
 
-import { WS_BASE_URL } from '../lib/config'
+import { APP_VERSION, WS_BASE_URL } from '../lib/config'
 import {
   configureRnUiBridge,
   executeRnUiAction,
@@ -51,7 +51,6 @@ import {
 /** api 侧 ENDPOINT_TTL_MS=5min,保活周期必须显著短于它 */
 const CAPABILITY_INTERVAL_MS = 60_000
 const PROCESSED_IDS_MAX = 100
-const VERSION = '1.0.0'
 const LOG_TAG = '[rn-ui]'
 
 const APP_UI_ACTIONS: readonly AppUiActionType[] = [
@@ -129,7 +128,8 @@ export function buildCapability(instanceId = INSTANCE_ID): AgentControlCapabilit
     endpoint: 'rn',
     instanceId,
     appUiActions: [...APP_UI_ACTIONS],
-    version: VERSION,
+    // 版本走 RN 既有单源(EXPO_PUBLIC_IHUI_MOBILE_VERSION ‖ package.json),与原生 versionName 同批计算
+    version: APP_VERSION,
     reportedAt: new Date().toISOString(),
   }
 }

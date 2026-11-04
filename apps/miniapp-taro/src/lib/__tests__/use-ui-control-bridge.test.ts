@@ -21,6 +21,9 @@ interface FakeWsClient {
 
 const mocks = vi.hoisted(() => ({
   token: 'test-token',
+  // 端上账号信息里的版本号(线上版非空、开发/体验版空串)—— 桩成与 package.json 不可能相等的号,
+  // 才看得出上报取的是运行时值而不是手抄常量
+  accountVersion: '9.9.9',
   onAppShowCb: null as ((res?: unknown) => void) | null,
   onAppHideCb: null as ((res?: unknown) => void) | null,
   showRegistered: 0,
@@ -51,6 +54,7 @@ vi.mock('@tarojs/taro', () => {
     reLaunch: mocks.reLaunch,
     getCurrentPages: () => mocks.stack,
     getCurrentInstance: () => ({ router: undefined }),
+    getAccountInfoSync: () => ({ miniProgram: { version: mocks.accountVersion } }),
   }
   return { default: Taro, ...Taro }
 })
@@ -184,11 +188,25 @@ describe('能力上报与保活', () => {
     expect(calls[0]).toMatchObject({
       endpoint: 'miniapp',
       taroUiActions: ['describe', 'navigate', 'read', 'invoke', 'click', 'fill', 'submit'],
-      version: '1.0.0',
+      version: '9.9.9',
     })
     expect(typeof calls[0]?.instanceId).toBe('string')
     expect(String(calls[0]?.instanceId)).toMatch(/^taro-/)
     expect(new Date(String(calls[0]?.reportedAt)).toISOString()).toBe(String(calls[0]?.reportedAt))
+  })
+
+  it('取不到端上版本号(开发/体验版空串)时**不带** version 字段,不编一个号', async () => {
+    const saved = mocks.accountVersion
+    mocks.accountVersion = ''
+    try {
+      bridge.startUiControlBridge()
+      await flush()
+      const calls = capabilityCalls()
+      expect(calls).toHaveLength(1)
+      expect('version' in Object(calls[0])).toBe(false)
+    } finally {
+      mocks.accountVersion = saved
+    }
   })
 
   it('60s 保活:初始 1 次 + 5s/20s 冷启补报 + 60s 定时 = 4 次', async () => {
