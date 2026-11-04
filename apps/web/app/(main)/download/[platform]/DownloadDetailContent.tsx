@@ -19,9 +19,9 @@ import {
 } from '@/config/downloads.config'
 import { DOWNLOAD_ENTRY_BY_PLATFORM } from './platformEntries'
 import { PlatformNotLaunched } from './PlatformNotLaunched'
-import { DownloadDetailHeader } from './DownloadDetailHeader'
-import { DownloadAssetCard } from './DownloadAssetCard'
-import { InstallGuideContent } from './InstallGuideContent'
+import { DownloadDetailHeader } from '@/components/download/DownloadDetailHeader'
+import { DownloadAssetCard } from '@/components/download/DownloadAssetCard'
+import { InstallGuideContent } from '@/components/download/InstallGuideContent'
 
 /**
  * 详情页主内容(client component,使用 useTranslations + useParams)
@@ -32,8 +32,11 @@ import { InstallGuideContent } from './InstallGuideContent'
  * 拿不到运行期值,于是"包已发出去、页面还写旧号"对它们长期成立。合并挪到服务端还顺带
  * 保证客户端包里不出现 `node:fs`(扩展端要枚举实物文件)。
  *
- * 2026-11-03:拆出 DownloadDetailHeader / DownloadAssetCard / InstallGuideContent 三个同目录
- * 组件(本文件此前 442 行,超出本仓"每页面 < 250 行"的约束);同一批把认不出的平台段
+ * 2026-11-03:拆出 DownloadDetailHeader / DownloadAssetCard / InstallGuideContent 三个展示组件
+ * (本文件此前 442 行,超出本仓"每页面 < 250 行"的约束)。
+ * 2026-11-04:三者移到 `@/components/download/` —— 105a55a4 把它们当"零消费"删掉时本文件仍
+ * import 它们(漏改),远端主干因此编译不过;移出 `[platform]` 目录后该删除不再命中它们。
+ * 同一批把认不出的平台段
  * 从"静默回落 desktop"改成显式 PlatformNotLaunched 态。
  */
 export function DownloadDetailContent({

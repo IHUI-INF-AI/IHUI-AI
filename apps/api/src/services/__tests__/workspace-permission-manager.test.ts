@@ -292,7 +292,9 @@ describe('PermissionManager.checkWorkspace', () => {
         userId: USER,
         workspacePath: WORKSPACE,
         tool: 'fs.run',
-        args: { command: 'rm -rf /' },
+        // 2026-11-04:规则级闸门把 `rm -rf /` 一类批量删除直接 deny(不再占用 60s 人工窗口)。
+        // 本用例验证的是**超时路径**,故改用不触 deny 规则的普通命令。
+        args: { command: 'npm run build' },
       })
       // 推进到 60s 临界点
       await vi.advanceTimersByTimeAsync(60_000)

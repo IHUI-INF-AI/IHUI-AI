@@ -96,7 +96,7 @@
 import { execFileSync, spawn } from 'node:child_process'
 import { existsSync, appendFileSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { catBatch, FACE_LABEL, gitBinary, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
 // 旁路落地通道(commit-tree + CAS)**结构上不跑钩子** ⇒ 必须留痕,写口只有一份:
 // `lib/bypass-git.mjs` 的 `attestBypassCommit`(2026-10-11 立)。此前本器的 `--heal --commit`
@@ -1409,8 +1409,8 @@ export function runCheck(isStaged, faceOverride, { root = ROOT, strict = false }
      * 独立计数 + `--strict` 才判红。`--staged` 走不到这里 —— 那一档的基线就是 HEAD,
      * 少一行必然是**本次提交**造成的,照旧判红(镜像用例端到端钉着)。
      */
-    const auto = all.filter((e) => !e.multiSlot)
-    const manual = all.filter((e) => e.multiSlot)
+    // 与 --heal 档的三档点名共用同一份分流(§0.6/§22c),不再在这里与渲染层各写一遍 filter。
+    const { real: auto, variant: manual } = splitByMultiSlot(all)
     lost = strict ? all : auto
     reportOnly = manual
     // 人工档与工作树同问"磁盘 vs HEAD";HEAD 档另把同一差值作为**旁证**报数(不参与判定):
@@ -1938,6 +1938,26 @@ export function healLegs(seen, { disk, head, index }) {
 }
 
 /**
+ * multiSlot 分流的**唯一判据出口**(§0.6/§22c,2026-11-04 立)。
+ *
+ * `multiSlot` 是判活层 `resolveRegistrationLoss` 打在条目上的标记(同编号在目标面仍占行首名额
+ * ⇒ 少的那一行既可能是被吞、也可能是正当改号/归并,机器不可区分)。本函数只**分流**、不重算:
+ * runCheck 的 auto/manual(原 1412–1415 内联两行 filter)、healLegRoster 三档点名、镜像测试
+ * 都从这里取,渲染层不得再写第二份 `e.multiSlot` 判据(两处实现必漂移)。
+ * `list == null`(索引面取不到)⇒ `real` 原样透传为 null,由调用方报"未判定"而不是"缺 0 条"(§0.3)。
+ *
+ * @param {Array|null} list 判丢条目集
+ * @returns {{real:Array|null, variant:Array}} real=真缺行(非 multiSlot),variant=同号变体(只报数不判缺)
+ */
+export function splitByMultiSlot(list) {
+  if (list == null) return { real: null, variant: [] }
+  const real = []
+  const variant = []
+  for (const e of list) (e && e.multiSlot ? variant : real).push(e)
+  return { real, variant }
+}
+
+/**
  * 三档读数 ⇒ 逐档点名(纯渲染,不再判一次;`healLegs` 是唯一判据出口)。
  *
  * 为什么点名必须上 **stdout**:G-816708 之后自愈被落地器就地补跑,而派生层
@@ -1963,25 +1983,54 @@ export function healLegRoster(seenSize, legs, loop = null) {
     const doable = list.filter((m) => !trippedSet.has(m.marker)).length
     return doable === list.length ? '' : `(可回捞 ${doable} / 熔断 ${list.length - doable})`
   }
+  /**
+   * 三档一律按同一份 multiSlot 分流(§0.6/§22c):真缺行进「缺 N 条」计数,同号变体单列一行
+   * 「只报数不判缺」。失效方向恒为**多要一次定向说明**(§0.10):变体不是被静音,而是被点名 +
+   * 写明为何不判缺 —— B31 那种同号就地改写的旧形变体若照旧打进「缺 1 条」,会诱使下一席
+   * 去补同号双行(当场触守门 203/130)。真缺行(非 multiSlot)的计数与退出码一字不改。
+   * 单列行**含「登记行」三字**:派生层 `post-merge-ledger-sync` 按 `includes('登记行')` 回读
+   * stdout,名字不上那一行,落地那一刻的账面就少了证据(= "只报数不报名"换个通道重演);
+   * 前缀用 `[同号变体/]` 与真缺的 `[点名/]` 分开,免得被读成"真缺行"。
+   * `real` 为空时不打「缺 0 条」点名行(§0.3:枚举到 0 不写成"没问题")。
+   */
+  const parts = {
+    disk: splitByMultiSlot(legs.disk),
+    head: splitByMultiSlot(legs.head),
+    index: splitByMultiSlot(legs.index),
+  }
   const lines = [
-    `   [分档] 历史登记行 ${seenSize} 条 ⇒ 工作树副本缺 ${count(legs.disk)}${tag(legs.disk)} / HEAD 提交树缺 ${count(legs.head)}${tag(legs.head)} / 索引副本缺 ${count(legs.index)}` +
+    `   [分档] 历史登记行 ${seenSize} 条 ⇒ 工作树副本缺 ${count(parts.disk.real)}${tag(parts.disk.real)} / HEAD 提交树缺 ${count(parts.head.real)}${tag(parts.head.real)} / 索引副本缺 ${count(parts.index.real)}` +
       `(三档含义不同:前者多为滞后的在飞副本,HEAD 才是已入库行被合掉,索引是下一次提交真要带走的那份)`,
   ]
-  for (const [label, list] of [
-    ['工作树', legs.disk],
-    ['HEAD', legs.head],
-    ['索引', legs.index],
+  for (const [label, key] of [
+    ['工作树', 'disk'],
+    ['HEAD', 'head'],
+    ['索引', 'index'],
   ]) {
-    if (!list || list.length === 0) continue
-    const shown = list
-      .slice(0, 10)
-      .map((m) => m.marker)
-      .join(' / ')
-    lines.push(
-      `   [点名/${label}] 缺 ${list.length} 条登记行:${shown}${
-        list.length > 10 ? ` …另有 ${list.length - 10} 条(逐条见本门 stderr 详情)` : ''
-      }`,
-    )
+    const { real, variant } = parts[key]
+    if (!real) continue // 索引面未判定 ⇒ 由下方 indexUndetermined 那一行单列"未判定",不进点名循环
+    if (real.length) {
+      const shown = real
+        .slice(0, 10)
+        .map((m) => m.marker)
+        .join(' / ')
+      lines.push(
+        `   [点名/${label}] 缺 ${real.length} 条登记行:${shown}${
+          real.length > 10 ? ` …另有 ${real.length - 10} 条(逐条见本门 stderr 详情)` : ''
+        }`,
+      )
+    }
+    if (variant.length) {
+      const vshown = variant
+        .slice(0, 10)
+        .map((m) => m.marker)
+        .join(' / ')
+      lines.push(
+        `   [同号变体/${label}] （同号变体 ${variant.length} 条登记行,只报数不判缺）:${vshown}${
+          variant.length > 10 ? ` …另有 ${variant.length - 10} 条` : ''
+        }`,
+      )
+    }
   }
   if (legs.indexUndetermined)
     lines.push('   [点名/索引] 索引面取不到 ⇒ 该档**未判定**(未判定不是"缺 0 条",更不是"无缺失")')
@@ -4061,9 +4110,18 @@ function heal(commit, picks = new Map()) {
    * 提交真要带走**的内容,而它此前从不被比 —— 账面读起来像"每一轮都比过了、什么都没缺"。
    */
   const legs = healLegs(seen, { disk, head, index })
-  const diskMissing = legs.disk
-  const headMissing = legs.head
-  const indexMissing = legs.index
+  /**
+   * 回捞侧与点名器共用同一份 multiSlot 分流(§0.6/§22c,2026-11-04/w8 补刀):三档一律经
+   * splitByMultiSlot 取 real(真缺行)喂判缺计数/回捞/规模闸/早退/退出码/写盘;同号变体
+   * (variant)不进「缺 N 条」也不进任何自动动作,只由 healLegRoster(下方仍传原始 legs)在 stdout
+   * 单列点名「只报数不判缺」(§0.10 多要一次定向说明)。改前这里直接拿 legs.X ⇒ HEAD/索引两处
+   * ⚠️「缺 1 条登记行」把 B31 那类同号变体当真缺行报出,且把变体算进 diskDoable/headDoable/
+   * 规模闸/早退/--commit 的同源输入。真缺行(非 multiSlot)的计数、回捞行为、退出码一字不改。
+   * 渲染层(下方三处 warn)不得再写第二份 e.multiSlot 判据;index 面取不到时 real 透传 null。
+   */
+  const diskMissing = splitByMultiSlot(legs.disk).real
+  const headMissing = splitByMultiSlot(legs.head).real
+  const indexMissing = splitByMultiSlot(legs.index).real
   /**
    * ── 循环熔断(G-307 票一③)──
    * 同一 marker 在近若干枚提交里被**两个自动层**反复触碰 ⇒ 这不是"行丢了",而是两层互咬:
@@ -4388,8 +4446,8 @@ function heal(commit, picks = new Map()) {
   return refusedRows > 0 ? 1 : 0
 }
 
-const isDirectRun =
-  process.argv[1] && import.meta.url === new URL(`file://${path.resolve(process.argv[1])}`).href
+// §22d:入口守卫只认 pathToFileURL(AGENTS.md 22d 红线),禁手拼 `file://` + 盘符反斜杠。
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 
 if (isDirectRun) {
   const args = process.argv.slice(2)
@@ -4691,6 +4749,8 @@ export const __test__ = {
   healLegs,
   healLegRoster,
   healContent,
+  // multiSlot 分流唯一出口(§22c):镜像测试 import 它,不得在测试里抄第二份 filter
+  splitByMultiSlot,
   // 同号多候选刹车(2026-11-03 立):变体差异摘要与 --pick 解析,镜像测试直接用生产实现
   variantDiffSummary,
   parseHealPicks,
