@@ -50,9 +50,119 @@ const EQUIV_KINDS = new Set(['event', 'content', 'style'])
 
 /**
  * 语义等价映射表体检(只认「同一槽位两端命名不同」;行为缺口由人审不入表):
- * 必填字段齐 + kind 合法 + 重复条目 + evidence 双端 `文件:行` 真实存在且该行确实是声明。
+ * 必填字段齐 + kind 合法 + 重复条目 + evidence 双端落点。
+ * evidence 两种写法:
+ *   · `文件:行`(旧写法,兼容保留):该行真含符号 ⇒ 通过;行号因插注释/挪块漂移 ⇒ 按符号名
+ *     在文件内**按声明形态**重定位(上移/下移/中间插注释不再误红),重定位不到 ⇒ 判红;
+ *   · `文件#符号名`(新写法):直接按声明形态定位,不写死行号 —— 根治"加注释即红"。
+ * 强度不打折:文件不存在/读不到、符号真的不存在(只在注释里出现也不算)一律判红;
+ * 读不到按门的三态纪律点名,不冒充"没有差"。
  * 任何一条不合格 ⇒ 门判红(映射表是判据输入,坏表 = 静默洗白通道)。
  */
+const EVIDENCE_SPEC_RE = /^([^\s:#]+)(?:#([A-Za-z_$][\w$]*)|:(\d+))$/
+
+const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+/** 逐行剥注释(保留行结构与字符串内的 `//`);块注释状态跨行推进。 */
+export function stripComments(lines) {
+  const out = []
+  let inBlock = false
+  for (const raw of lines) {
+    let text = ''
+    let quote = null
+    for (let i = 0; i < raw.length; i++) {
+      const ch = raw[i]
+      if (inBlock) {
+        if (ch === '*' && raw[i + 1] === '/') {
+          inBlock = false
+          i++
+        }
+        continue
+      }
+      if (quote) {
+        text += ch
+        if (ch === '\\') {
+          if (i + 1 < raw.length) text += raw[++i]
+        } else if (ch === quote) quote = null
+        continue
+      }
+      if (ch === '/' && raw[i + 1] === '/') break
+      if (ch === '/' && raw[i + 1] === '*') {
+        inBlock = true
+        i++
+        continue
+      }
+      if (ch === '"' || ch === "'" || ch === '`') {
+        quote = ch
+        text += ch
+        continue
+      }
+      text += ch
+    }
+    out.push(text)
+  }
+  return out
+}
+
+/**
+ * 按"声明形态"在文件内找符号,返回 1-based 行号(找不到 = 0)。
+ * 认的形态:类型/接口字段(`name?: T`)、类型/函数/常量声明(`type|interface|function|const|let|var|class name`)、
+ * 方法签名(`name(`)、解构/简写字段(`name,` `name =` `name }`)。
+ * 注释里出现的同名不算声明(防注释洗白);按行取第一个命中。
+ */
+export function findDeclarationLine(lines, symbol) {
+  if (typeof symbol !== 'string' || !symbol) return 0
+  const s = escapeRe(symbol)
+  const shapes = [
+    new RegExp(`^\\s*(?:readonly\\s+|public\\s+|private\\s+|protected\\s+|static\\s+|declare\\s+)*${s}\\s*[?!]?\\s*:`),
+    new RegExp(
+      `^\\s*(?:export\\s+)?(?:declare\\s+)?(?:default\\s+)?(?:async\\s+)?(?:function|const|let|var|type|interface|class|enum|namespace)\\s+${s}\\b`,
+    ),
+    new RegExp(`^\\s*(?:public\\s+|private\\s+|protected\\s+|static\\s+|async\\s+|get\\s+|set\\s+)*${s}\\s*(?:<[^>]*>)?\\s*\\(`),
+    new RegExp(`^\\s*${s}\\s*[,\\}=]`),
+    new RegExp(`(?:const|let|var)\\s*\\{[^}]*\\b${s}\\b`),
+  ]
+  const code = stripComments(lines)
+  for (let i = 0; i < code.length; i++) {
+    if (!code[i].trim()) continue
+    if (shapes.some((re) => re.test(code[i]))) return i + 1
+  }
+  return 0
+}
+
+/**
+ * 单条证据落点解析。返回 {ok, rel, line, moved} 或 {ok:false, problem}。
+ * 旧 `文件:行` 先按原行匹配(与旧判据强度一致),未命中再按声明形态重定位并回报 moved。
+ */
+export function resolveEvidence(rootDir, raw, symbol) {
+  const m = typeof raw === 'string' ? raw.trim().match(EVIDENCE_SPEC_RE) : null
+  if (!m) return { ok: false, problem: '必须形如 文件:行 或 文件#符号名' }
+  const rel = m[1]
+  const abs = join(rootDir, rel)
+  if (!existsSync(abs)) return { ok: false, problem: `文件不存在 ${rel}` }
+  let lines
+  try {
+    lines = readFileSync(abs, 'utf8').split(/\r?\n/)
+  } catch {
+    return { ok: false, problem: `文件读不到 ${rel}(不记绿)` }
+  }
+  const token = typeof symbol === 'string' ? symbol : ''
+  const code = stripComments(lines)
+  if (m[2]) {
+    const ln = findDeclarationLine(lines, m[2])
+    if (!ln) return { ok: false, problem: `全文件按声明形态未找到 ${m[2]}(${rel}#${m[2]})` }
+    return { ok: true, rel, line: ln, moved: false }
+  }
+  const ln = Number(m[3])
+  if (ln >= 1 && ln <= lines.length && token && new RegExp(`\\b${escapeRe(token)}\\b`).test(code[ln - 1]))
+    return { ok: true, rel, line: ln, moved: false }
+  const hit = token ? findDeclarationLine(lines, token) : 0
+  if (hit) return { ok: true, rel, line: hit, moved: true }
+  if (ln < 1 || ln > lines.length)
+    return { ok: false, problem: `行号越界 ${rel}:${ln}(共 ${lines.length} 行),且全文件未找到 ${token} 声明` }
+  return { ok: false, problem: `${rel}:${ln} 未见 ${token} 声明,全文件按声明形态亦未命中(符号真不存在)` }
+}
+
 export function validateEquivalence(table, rootDir = ROOT) {
   const bad = []
   if (!table || !Array.isArray(table.entries)) return ['映射表结构坏:缺少 entries 数组']
@@ -66,26 +176,9 @@ export function validateEquivalence(table, rootDir = ROOT) {
     if (seen.has(key)) bad.push(`${at}: 重复条目 ${key}`)
     seen.add(key)
     for (const side of ['rn', 'mini']) {
-      const ev = e?.evidence?.[side]
-      const m = typeof ev === 'string' ? ev.match(/^(.+):(\d+)$/) : null
-      if (!m) {
-        bad.push(`${at}: evidence.${side} 必须形如 文件:行`)
-        continue
-      }
-      const abs = join(rootDir, m[1])
-      if (!existsSync(abs)) {
-        bad.push(`${at}: evidence.${side} 文件不存在 ${m[1]}`)
-        continue
-      }
-      const lines = readFileSync(abs, 'utf8').split(/\r?\n/)
-      const ln = Number(m[2])
-      if (ln < 1 || ln > lines.length) {
-        bad.push(`${at}: evidence.${side} 行号越界 ${m[1]}:${ln}(共 ${lines.length} 行)`)
-        continue
-      }
       const token = side === 'rn' ? e.ours : e.theirs
-      if (typeof token !== 'string' || !new RegExp(`\\b${token}\\b`).test(lines[ln - 1]))
-        bad.push(`${at}: evidence.${side} ${m[1]}:${ln} 未见 ${token} 声明(证据行漂移,先修证据)`)
+      const r = resolveEvidence(rootDir, e?.evidence?.[side], token)
+      if (!r.ok) bad.push(`${at}: evidence.${side} ${r.problem}`)
     }
   })
   return bad
@@ -614,6 +707,19 @@ function selfTest() {
     const v = verifyAgainstBaseline([d('Foo', { mappedStale: [{ ours: 'a', theirs: 'b', why: 'declaration-missing' }] })], { pairs: base.pairs })
     return v.bad.length === 0 && v.warn.some((w) => w.kind === 'equivalence-stale')
   })())
+  // 证据按符号名定位:声明形态命中真实行;注释里提及同名不算声明;符号真删 ⇒ 0
+  const declFile = [
+    'export interface X {',
+    '  /** 文档注释(不是声明) */',
+    '  // banner: 注释里提一嘴',
+    '  /** 字段注释 */',
+    '  banner: ReadonlyArray<string>',
+    '  autoplayInterval?: number',
+    '}',
+  ]
+  t('证据定位:按声明形态命中实际行(上下注释不干扰)', findDeclarationLine(declFile, 'banner') === 5)
+  t('证据定位:注释里出现同名 ⇒ 不算声明', findDeclarationLine(['// banner: 已废弃', '/* banner */'], 'banner') === 0)
+  t('证据定位:符号真删 ⇒ 0', findDeclarationLine(['export interface X {', '  other: string', '}'], 'banner') === 0)
   // not-applicable 裁决:四件齐全 + 证据落点 ⇒ undetermined 转已裁决;缺字段 ⇒ 裁决无效仍点名
   const ruling = {
     state: 'not-applicable',
@@ -677,6 +783,9 @@ export const __test__ = {
   validateJudged,
   applyJudged,
   updateGuard,
+  findDeclarationLine,
+  resolveEvidence,
+  stripComments,
   JUDGED_REL,
 }
 if (isDirectRun) {

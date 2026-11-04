@@ -22,7 +22,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const { __test__: lib } = await import(pathToFileURL(join(ROOT, 'scripts/lib/component-props-parity.mjs')).href)
 const { __test__: gate } = await import(pathToFileURL(join(ROOT, 'scripts/check-cross-end-component-props-parity.mjs')).href)
 const { pairDelta } = lib
-const { verifyAgainstBaseline, buildBaselineEntry, validateEquivalence, validateJudged, applyJudged, updateGuard } = gate
+const { verifyAgainstBaseline, buildBaselineEntry, validateEquivalence, validateJudged, applyJudged, updateGuard, resolveEvidence } = gate
 
 const d = (name, extra = {}) => ({ name, state: 'ok', onlyRn: [], onlyMini: [], reqDrift: [], driftTotal: 0, ...extra })
 const mk = (name, optional = false) => ({ name, optional })
@@ -206,8 +206,73 @@ describe('285 语义等价映射(生产判据直用)', () => {
     }
     assert.equal(validateEquivalence(good).length, 0)
     assert.ok(validateEquivalence({ entries: [{ ...good.entries[0], kind: 'behavior' }] }).some((x) => x.includes('kind')))
-    assert.ok(validateEquivalence({ entries: [{ ...good.entries[0], evidence: { rn: 'packages/app/src/components/ScrollJumpButton.tsx:5', mini: good.entries[0].evidence.mini } }] }).some((x) => x.includes('未见 label')))
+    // 旧写法行号漂移(声明实际在 51 行 ⇒ 证据写 5):按符号名重定位通过,不再"加注释即红"
+    assert.equal(
+      validateEquivalence({
+        entries: [{ ...good.entries[0], evidence: { rn: 'packages/app/src/components/ScrollJumpButton.tsx:5', mini: good.entries[0].evidence.mini } }],
+      }).length,
+      0,
+    )
+    // 符号真的不存在 ⇒ 仍判红(重定位不放行死符号)
+    assert.ok(
+      validateEquivalence({
+        entries: [{ ...good.entries[0], ours: 'noSuchLabel', evidence: { rn: 'packages/app/src/components/ScrollJumpButton.tsx:5', mini: good.entries[0].evidence.mini } }],
+      }).some((x) => x.includes('noSuchLabel')),
+    )
     assert.ok(validateEquivalence({ entries: [good.entries[0], good.entries[0]] }).some((x) => x.includes('重复条目')))
+  })
+})
+
+describe('285 证据定位:按符号名解析(五种漂移情形)', () => {
+  const root = mkdtempSync(join(tmpdir(), 'gate285-evidence-'))
+  const rel = 'apps/mobile-rn/src/components/Fixture.tsx'
+  mkdirSync(join(root, 'apps/mobile-rn/src/components'), { recursive: true })
+  const write = (lines) => writeFileSync(join(root, rel), lines.join('\n'))
+  it('符号上移:旧行号落空,按声明形态重定位并通过', () => {
+    write(['export interface P {', '  banner: ReadonlyArray<string>', '  height?: number', '}'])
+    const r = resolveEvidence(root, `${rel}:4`, 'banner')
+    assert.equal(r.ok, true)
+    assert.equal(r.line, 2)
+    assert.equal(r.moved, true)
+  })
+  it('符号下移:旧行号落空,重定位到新行', () => {
+    write(['export interface P {', '  /** 说明 */', '  /** 说明 2 */', '  height?: number', '  banner: ReadonlyArray<string>', '}'])
+    const r = resolveEvidence(root, `${rel}:2`, 'banner')
+    assert.equal(r.ok, true)
+    assert.equal(r.line, 5)
+    assert.equal(r.moved, true)
+  })
+  it('中间插注释:注释行不干扰定位', () => {
+    write(['export interface P {', '  // 与小程序端同名同义', '  /** 轮播数据 */', '  banner: ReadonlyArray<string>', '}'])
+    const r = resolveEvidence(root, `${rel}:2`, 'banner')
+    assert.equal(r.ok, true)
+    assert.equal(r.line, 4)
+  })
+  it('注释插在声明内部:字段仍被识别', () => {
+    write(['export interface P {', '  /** 新增说明 */', '  // 临时注释', '  banner: ReadonlyArray<string>', '  /* 尾注 */', '}'])
+    const r = resolveEvidence(root, `${rel}:1`, 'banner')
+    assert.equal(r.ok, true)
+    assert.equal(r.line, 4)
+  })
+  it('符号真删(只在注释里出现)⇒ 红,不因重定位放行', () => {
+    write(['export interface P {', '  // banner: 已移除', '  /* banner */', '  height?: number', '}'])
+    assert.equal(resolveEvidence(root, `${rel}:2`, 'banner').ok, false)
+    assert.equal(resolveEvidence(root, `${rel}#banner`, 'banner').ok, false)
+  })
+  it('新写法 文件#符号名 通过;文件不存在 ⇒ 红(不记绿)', () => {
+    write(['export interface P {', '  banner: ReadonlyArray<string>', '}'])
+    const okEntry = {
+      pair: 'P',
+      ours: 'banner',
+      theirs: 'banner',
+      kind: 'content',
+      owner: 'o',
+      rationale: 'r',
+      evidence: { rn: `${rel}#banner`, mini: `${rel}#banner` },
+    }
+    assert.equal(validateEquivalence({ entries: [okEntry] }, root).length, 0)
+    const missing = { ...okEntry, evidence: { rn: 'apps/mobile-rn/src/components/Nope.tsx:1', mini: `${rel}#banner` } }
+    assert.ok(validateEquivalence({ entries: [missing] }, root).some((x) => x.includes('文件不存在')))
   })
 })
 
