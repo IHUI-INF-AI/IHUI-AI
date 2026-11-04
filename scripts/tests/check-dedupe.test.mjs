@@ -372,6 +372,17 @@ test('D8 解析 pnpm 真实报告形态(要摘掉的那几行 = 碎片身份)', 
   assert.equal(D.parseFragments('dedupe\nRun pnpm dedupe to apply the changes above.'), null)
   // 真的没碎片(报告里没有 apply 行)⇒ []
   assert.deepEqual(D.parseFragments('dedupe --check\nnothing to dedupe'), [])
+  // 2026-11-04 实测:pnpm 11.18 干净收尾输出里没有 "dedupe" 字样 ⇒ 必须认成 [],否则恒红/恒未判定
+  assert.deepEqual(
+    D.parseFragments([
+      '✓ Lockfile passes supply-chain policies (verified 1m ago)',
+      'Progress: resolved 4445, reused 4049, downloaded 0, added 0, done',
+      '[WARN] Issues with peer dependencies found. Run "pnpm peers check" to list them.',
+    ].join('\n')),
+    [],
+  )
+  // 没有收尾 done 的残缺进度不得折成"没有碎片"
+  assert.equal(D.parseFragments('Progress: resolved 1, reused 0, downloaded 0, added 0'), null)
 })
 
 test('D10 pnpm 非零退出却解析不到碎片 ⇒ 未判定(绝不折成"通过")', () => {
