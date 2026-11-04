@@ -53,6 +53,18 @@ import {
 
 export type ModelItem = LlmModel
 
+/** 与 RN 端 ModelListGroup 同形分组结构(RN 端预分组传入;本端历史用扁平 models + 内部 splitModelCatalog 分组)。
+ *  对齐门 285 存量收敛占位:先补可选 prop,后手再决定是否接分组渲染路径(需改为必填 + 补调用点 —— RN 端为必填)。 */
+export interface ModelListGroup {
+  /** 旧字段:vendor 分组名(无 type/title 时作为分组标题回退) */
+  vendor?: string
+  /** 类型分组标题(0-5,优先于 vendor 显示) */
+  type?: number
+  /** 自定义分组标题(最高优先级) */
+  title?: string
+  models: ModelItem[]
+}
+
 /**
  * 会显形的字号与留白不在本文件取数 —— 单一源是
  * `packages/shared/src/ui/model-list-spec`(模式同 IntelligentAssistant / BackChevron);
@@ -74,10 +86,14 @@ const toUnit = (px: number) => rpx(px * TARO_RPX_PER_PX)
  *   - 模型行:80rpx 高 + 15rpx 圆角 + 4rpx 边框 + 左侧 logo + 中间名称 + 右侧选中圆点
  */
 export interface ModelListProps {
+  /** 分组模型数据(与 RN 端同名同义;本端历史用扁平 models + 内部 splitModelCatalog 分组)。
+   *  需后手改必填 + 补调用点(RN 端为必填,本块看不到全部调用点故先置可选占位)。 */
+  groups?: ModelListGroup[]
   models: ModelItem[]
   selectedId?: string | number
   onSelect?: (model: ModelItem) => void
   loading?: boolean
+  // 2026-11-04 审计返工:onEndReached 两端 0 调用方,删声明(死腿不当平台档)
   /** 列表模式:'list' 普通 / 'popup' 弹出分类(首页专用)*/
   variant?: 'list' | 'popup'
   /** popup 模式:当前模型类型(用于决定渲染哪一类模型)*/
