@@ -45,7 +45,9 @@
  *     守护派发周期)无新增;枚举跳过重解析点(§26 头号危险:junction 穿透会把别的盘算进来)。
  *  ② 无「正在使用旧根」的并行会话 —— 只判搬迁会真正打断的那几类:
  *     ②-a 活进程面:运行中进程的 CommandLine / ExecutablePath 落在旧根的**路径段**内
- *          (进程面由 pwsh 的 Get-CimInstance Win32_Process 取值;取不到 ⇒ undetermined)。
+ *          (进程面由 pwsh 的 Get-CimInstance Win32_Process 取值;整表取不到 ⇒ undetermined)。
+ *          单行两字段读不出(受保护系统进程 / 无权限查询时 CommandLine 与 ExecutablePath 为 null)
+ *          ⇒ **该行**计入 unjudged,**不得**读成「这一行没在用旧根」;其余可读行照常判命中/未命中。
  *     ②-b 旧根锁面:旧根内有界枚举 `*.lock`,带 pid 且 pid 存活 ⇒ 占用;pid 读不出 ⇒ 也按
  *          占用(不确定即视为在用);pid 已死 ⇒ 陈旧锁只报数。git 正在刷备份仓时会出现
  *          空内容的 refs/heads/*.lock,正是「搬迁会打断 git 备份」的瞬时证据。
@@ -410,6 +412,8 @@ export const PROCESS_TABLE_PS =
  * 纯函数:PowerShell `ConvertTo-Json -Compress` 的输出 → 归一进程行。
  * 单条结果时 PS 返回对象而非数组(实测),两种都认;空输出/非 JSON ⇒ 抛错
  * (调用方据此判 undetermined —— 绝不把「取不到」读成「没人用」)。
+ * 注意:null/缺失字段在此归一为空串,但**空串不是「未命中」**——单行缺字段的语义
+ * 由 legacyActiveUse 按 unjudged 处理(受保护进程的 CommandLine/ExecutablePath 常态为 null)。
  * @param {unknown} stdout
  * @returns {Array<{pid:number, cmdline:string, exePath:string}>}
  */
@@ -580,7 +584,10 @@ export function scanLegacyLocks(io, root, opts = {}) {
 /**
  * 判② 活使用面(票面 ② 的可满足口径):旧根上是否真有「搬迁会打断」的使用者。
  * 两面:②-a 活进程(命令行 / 可执行路径落在旧根路径段内)、②-b 旧根锁(活 pid 或读不出 pid)。
- * 三态:busy(有命中,reasons 点名)/ undetermined(进程表或锁面取不到)/ idle(可放行)。
+ * 三态:busy(有命中,reasons 点名)/ undetermined(进程表或锁面取不到,或单行字段读不出)/ idle(可放行)。
+ * 逐行口径:两字段都可读 ⇒ 照常判命中/未命中;命中优先(可判定否定)。
+ * 未命中且**任一字段为空/缺失** ⇒ 该行无法判定(受保护进程的 CommandLine/ExecutablePath
+ * 常态为 null),计入 unreadable,PID 留痕;**绝不**把这种行读成「它没在用旧根」。
  * 两面都可注入(§22c 构造面),生产默认面 = 进程表派生 + 真锁扫描。
  * @param {{lstatSync:Function, readdirSync:Function, readFileSync:Function, spawnSync:Function}} io
  * @param {{listProcesses?:Function, pidAlive?:Function, lockScan?:Object}} [opts]
@@ -594,6 +601,8 @@ export function legacyActiveUse(io, opts = {}) {
     kind: /** @type {'ok'|'undetermined'} */ ('ok'),
     total: 0,
     hits: /** @type {Array<{pid:(number|null), why:string}>} */ ([]),
+    unreadable: 0,
+    unreadablePids: /** @type {(number|null)[]} */ ([]),
     why: /** @type {(string|undefined)} */ (undefined),
   }
   try {
@@ -601,11 +610,19 @@ export function legacyActiveUse(io, opts = {}) {
     if (!Array.isArray(rows)) throw new Error(`进程表形态不对(${rows === null ? 'null' : typeof rows})`)
     processes.total = rows.length
     for (const row of rows) {
-      const cmdline = row && row.cmdline ? row.cmdline : ''
-      const exePath = row && row.exePath ? row.exePath : ''
-      if (!commandMentionsRoot(cmdline, LEGACY_ROOT) && !withinRoot(exePath, LEGACY_ROOT)) continue
+      const cmdline = row && row.cmdline ? String(row.cmdline) : ''
+      const exePath = row && row.exePath ? String(row.exePath) : ''
       const pid = row && Number.isFinite(Number(row.pid)) ? Number(row.pid) : null
-      processes.hits.push({ pid, why: String(cmdline || exePath).slice(0, 160) })
+      // 可读字段先判命中(命中是可判定否定,优先级高于「读不出」)
+      if (commandMentionsRoot(cmdline, LEGACY_ROOT) || withinRoot(exePath, LEGACY_ROOT)) {
+        processes.hits.push({ pid, why: String(cmdline || exePath).slice(0, 160) })
+        continue
+      }
+      // 未命中 + 任一字段读不出 ⇒ 无法排除它落在旧根内 ⇒ 该行进 unjudged
+      if (!cmdline || !exePath) {
+        processes.unreadable++
+        if (processes.unreadablePids.length < 8) processes.unreadablePids.push(pid)
+      }
     }
   } catch (e) {
     processes.kind = 'undetermined'
@@ -617,12 +634,12 @@ export function legacyActiveUse(io, opts = {}) {
   for (const h of processes.hits) reasons.push(`判② 活进程面:pid ${h.pid === null ? '?' : h.pid} 点名旧根 —— ${h.why}`)
   if (locks.kind === 'undetermined') reasons.push(`判② 旧根锁面:${locks.why}`)
   for (const h of locks.live) reasons.push(`判② 旧根锁面:${h.path} —— ${h.why}`)
-  const state =
-    processes.kind === 'undetermined' || locks.kind === 'undetermined'
+  // 命中/占用是可判定否定 ⇒ busy 优先;没有可判定否定时,读不出的行 + 取不到的面 ⇒ undetermined。
+  const state = reasons.length
+    ? 'busy'
+    : processes.kind === 'undetermined' || processes.unreadable > 0 || locks.kind === 'undetermined'
       ? 'undetermined'
-      : reasons.length
-        ? 'busy'
-        : 'idle'
+      : 'idle'
   return { state, reasons, facts: { processes, locks } }
 }
 
@@ -645,7 +662,9 @@ export function activityNotes(facts) {
   }
   return [
     p.kind === 'ok'
-      ? `判② 活进程面:已枚举 ${p.total} 个进程,命中旧根 ${p.hits.length} 个`
+      ? `判② 活进程面:已枚举 ${p.total} 个进程,命中旧根 ${p.hits.length} 个${
+          p.unreadable ? `;其中 ${p.unreadable} 个命令行/路径读不出(无法判定)` : ''
+        }`
       : `判② 活进程面:${p.why}`,
     `判② 旧根锁面:扫 ${l.scanned} 条目 / *.lock ${l.locks} 个(占用 ${l.live.length}、陈旧 ${l.stale.length}${
       l.unreadable.length ? `、读不到 ${l.unreadable.length}` : ''
@@ -683,9 +702,9 @@ export function probeQuietWindow(io, now = Date.now(), activity = {}) {
   const v1 = quietVerdict(facts.legacyRoot, QUIET_MINUTES, `判① 旧根 ${LEGACY_ROOT}`)
   const p = facts.activeUse.facts.processes
   const l = facts.activeUse.facts.locks
-  // 可判定否定(有写入 / 有占用)与输入未判定(截断/取不到)分开攒:
+  // 可判定否定(有写入 / 有占用)与输入未判定(截断/取不到/单行字段读不出)分开攒:
   // 前者足以把结论钉成 pending;后者只在「没有可判定否定」时才让整条结论 undetermined。
-  // 这样截断不再把整条结论抹成未判定,但也没有把未判定读成「静默」(两态方向不变)。
+  // 这样截断与读不出的进程行不再把整条结论抹成未判定,但也没有把它们读成「静默」(两态方向不变)。
   const reasons = []
   const unjudged = []
   if (!v1.pass) {
@@ -693,6 +712,12 @@ export function probeQuietWindow(io, now = Date.now(), activity = {}) {
     else reasons.push(v1.note)
   }
   if (p.kind === 'undetermined') unjudged.push(`判② 活进程面:${p.why}`)
+  if (p.unreadable > 0)
+    unjudged.push(
+      `判② 活进程面:${p.unreadable} 个进程的命令行/路径读不出,无法判定(pid ${
+        p.unreadablePids.map((x) => (x === null ? '?' : x)).join(',') || '?'
+      }${p.unreadable > p.unreadablePids.length ? ' …' : ''})`,
+    )
   for (const h of p.hits)
     reasons.push(`判② 活进程面:pid ${h.pid === null ? '?' : h.pid} 点名旧根 —— ${h.why}`)
   if (l.kind === 'undetermined') unjudged.push(`判② 旧根锁面:${l.why}`)
@@ -1514,6 +1539,32 @@ function selfTest() {
       pidAlive: () => false,
     })
     return r.state === 'undetermined' && r.unjudged.some((s) => s.includes('进程表取不到'))
+  })())
+  // 单行字段为空(null/缺失)⇒ 该行必须进 unjudged;不得因「读不出」被读成「这一行没在用旧根」。
+  const psRows = (arr) => parseProcessTable(JSON.stringify(arr))
+  push('probe:表内单行 CommandLine/ExecutablePath 为 null ⇒ 不得判 window(该行进 unjudged)', (() => {
+    const rows = psRows([{ ProcessId: 4, CommandLine: null, ExecutablePath: null }])
+    const r = probeQuietWindow(fakeIO(probeTree()), NOW, { listProcesses: () => rows, pidAlive: () => false })
+    return r.state === 'undetermined' && r.unjudged.some((s) => s.includes('读不出'))
+  })())
+  push('probe:空字段行 + 其余行已判无占用 ⇒ 仍 undetermined,unjudged 带条数与 pid', (() => {
+    const rows = psRows([
+      { ProcessId: 4, CommandLine: null, ExecutablePath: null },
+      { ProcessId: 88, CommandLine: 'notepad.exe', ExecutablePath: 'C:\\Windows\\System32\\notepad.exe' },
+    ])
+    const r = probeQuietWindow(fakeIO(probeTree()), NOW, { listProcesses: () => rows, pidAlive: () => false })
+    return (
+      r.state === 'undetermined' &&
+      r.reasons.length === 0 &&
+      r.unjudged.some((s) => s.includes('1 个进程的命令行/路径读不出') && s.includes('4'))
+    )
+  })())
+  push('probe:全部字段可读且无占用 ⇒ 仍判 window(修过头把正常路径堵死即翻红)', (() => {
+    const rows = psRows([
+      { ProcessId: 88, CommandLine: 'notepad.exe', ExecutablePath: 'C:\\Windows\\System32\\notepad.exe' },
+    ])
+    const r = probeQuietWindow(fakeIO(probeTree()), NOW, { listProcesses: () => rows, pidAlive: () => false })
+    return r.state === 'window' && r.unjudged.length === 0
   })())
   // 分级降噪:截断(未判定子项)遇到可判定否定(活进程)⇒ 结论钉 pending,未判定子项逐条单列。
   const truncatedIO = (tree) => {
