@@ -82,6 +82,14 @@
       "miniapp": "pkg-ai/ai-assistant/index"
     },
     {
+      "shared": "packages/app/src/features/ai-career/AiCareerScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AiCareerScreen.tsx",
+      "miniapp": "pkg-ai/ai-career/index",
+      "status": "known-gap",
+      "reason": "跨端镜像假声明纠正(§12e/恒红门禁令): RN 端 AiCareer 为「问卷+报告导出」屏(提交学业问卷→getCareerAdvice 取 AI 建议→exportCareerReport 导出 PDF/Word/PPT);小程序端 pkg-ai/ai-career/index 实为「智能体列表」屏(api.getAgentList 拉取智能体、点击进 agent-dialogue 对话)。两者非同一功能,未在镜像射程内,原登记『已镜像(RN↔小程序一致)』为假声明。本条目仅保留三元组以不破坏 R1 标记链核验,并显式登记 known-gap;不得据此在小程序端伪造问卷屏,亦不得删除 RN 端功能。",
+      "evidence": "RN 问卷+报告导出: apps/mobile-rn/src/screens/AiCareerScreen.tsx:10 (import getCareerAdvice/exportCareerReport), :84 (getCareerAdvice 调用), :137 (exportCareerReport 调用); 小程序智能体列表: apps/miniapp-taro/src/pkg-ai/ai-career/index.tsx:53 (api.getAgentList), :68 (navigateTo /pkg-ai/agent-dialogue/index)"
+    },
+    {
       "shared": "packages/app/src/features/ai-group/AiGroupScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/AiGroupScreen.tsx",
       "miniapp": "pkg-mirror/ai-group/index"
