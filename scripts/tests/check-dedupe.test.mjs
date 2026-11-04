@@ -63,7 +63,9 @@ function runScript(dir, args = []) {
     encoding: 'utf8',
     // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
     stdio: ['ignore', 'pipe', 'pipe'],
-    timeout: 30000,
+    // pnpm dedupe --check 在本机冷启动可超 30s;超时先杀进程会让 rmScratch 撞 EBUSY,
+    // 表现为"夹具失败"而非判据失败(2026-11-04 假绿专项复跑时确认)。
+    timeout: 120000,
   })
 }
 
@@ -72,12 +74,13 @@ function stripAnsi(s) {
   return s.replace(/\x1B\[[0-9;]*m/g, '')
 }
 
-// ─── 1. --staged 非 git 目录 → exit 0(git 命令失败,catch 跳过) ──────
-test('--staged: 非 git 目录 → exit 0(git 命令抛错,catch 块退出)', () => {
+// ─── 1. --staged 非 git 目录 → exit 2(取不到 staged 面,不得空转绿灯) ──────
+test('--staged: 非 git 目录 → exit 2(取不到 staged 面即未判定)', () => {
   const dir = createTempProject()
   try {
     const r = runScript(dir, ['--staged'])
-    assert.equal(r.status, 0, `非 git 目录应 exit 0,实际 ${r.status}`)
+    assert.equal(r.status, 2, `非 git 目录应 exit 2,实际 ${r.status}`)
+    assert.match(r.stderr, /staged 面取不到|未判定/, '必须点名未判定原因')
   } finally {
     rmScratch(dir)
   }
@@ -111,8 +114,8 @@ test('--staged: 暂存其他文件(非 pnpm-lock.yaml)→ exit 0(跳过)', () =>
   }
 })
 
-// ─── 4. --staged pnpm-lock.yaml 已暂存但工作树删除 → exit 0(LOCKFILE 不存在) ─
-test('--staged: pnpm-lock.yaml 已暂存但工作树删除 → exit 0(LOCKFILE 不存在)', () => {
+// ─── 4. --staged pnpm-lock.yaml 已暂存但工作树删除 → exit 2(判定面缺失) ─
+test('--staged: pnpm-lock.yaml 已暂存但工作树删除 → exit 2(判定面缺失)', () => {
   const dir = createTempProject()
   try {
     initGitRepo(dir)
@@ -121,21 +124,20 @@ test('--staged: pnpm-lock.yaml 已暂存但工作树删除 → exit 0(LOCKFILE �
     // 从工作树删除但保留 staged 状态
     rmSync(join(dir, 'pnpm-lock.yaml'))
     const r = runScript(dir, ['--staged'])
-    assert.equal(r.status, 0, `LOCKFILE 不存在应 exit 0,实际 ${r.status}`)
-    assert.match(r.stdout, /未找到 pnpm-lock\.yaml/)
+    assert.equal(r.status, 2, `LOCKFILE 缺失应 exit 2,实际 ${r.status}`)
+    assert.match(r.stderr, /pnpm-lock\.yaml.*判定面缺失|未判定/)
   } finally {
     rmScratch(dir)
   }
 })
 
-// ─── 5. 无 --staged 无 pnpm-lock.yaml → exit 0(跳过) ─────────────────
-test('无 --staged: 无 pnpm-lock.yaml → exit 0(跳过)', () => {
+// ─── 5. 无 --staged 无 pnpm-lock.yaml → exit 2(判定面缺失) ─────────────────
+test('无 --staged: 无 pnpm-lock.yaml → exit 2(判定面缺失)', () => {
   const dir = createTempProject()
   try {
     const r = runScript(dir, [])
-    assert.equal(r.status, 0, `无 lockfile 应 exit 0,实际 ${r.status}`)
-    assert.match(r.stdout, /未找到 pnpm-lock\.yaml/)
-    assert.match(r.stdout, /跳过/)
+    assert.equal(r.status, 2, `无 lockfile 应 exit 2,实际 ${r.status}`)
+    assert.match(r.stderr, /pnpm-lock\.yaml.*判定面缺失|未判定/)
   } finally {
     rmScratch(dir)
   }
@@ -190,8 +192,8 @@ test('输出: 消息包含 [check:dedupe] 前缀', () => {
   const dir = createTempProject()
   try {
     const r = runScript(dir, [])
-    assert.equal(r.status, 0)
-    assert.match(r.stdout, /\[check:dedupe\]/)
+    assert.equal(r.status, 2, `无 lockfile 已改判未判定(exit 2),实际 ${r.status}`)
+    assert.match(r.stderr, /\[check:dedupe\]/, '未判定诊断仍须带门名前缀')
   } finally {
     rmScratch(dir)
   }
