@@ -80,9 +80,8 @@ from datetime import UTC
 from pathlib import Path, PurePosixPath
 from typing import Any, cast
 
-from app.core.agents_md_state import AgentsMdState  # 批58:AGENTS.md 状态机(对标 codex agents_md.rs)
-
 from app import __version__
+from app.core.agents_md_state import AgentsMdState  # 批58:AGENTS.md 状态机(对标 codex agents_md.rs)
 
 # 守门 247(2026-11-01 收口):fire-and-forget 后台任务唯一出口 —— 事件循环只握弱引用,
 # 裸 create_task 的返回值一丢,任务可能被 GC 静默回收且零报错。
