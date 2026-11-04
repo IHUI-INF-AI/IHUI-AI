@@ -286,11 +286,12 @@ test('形状锁:判② 注入面三跳传导 + 空字段行 fail-closed(摘任�
   assert.match(patrolBody, /probeFn\(io, now, activity\)/, '臂必须把 activity 透传给 probeFn(第三参)')
   const probeBody = SRC.slice(SRC.indexOf('export function probeQuietWindow'), SRC.indexOf('function listDriveJunctions'))
   assert.ok(probeBody.length > 200, '切不到 probeQuietWindow 函数体(锚点漂了 ⇒ 本条恒真)')
-  assert.match(probeBody, /legacyActiveUse\(io, activity\)/, 'probe 必须把 activity 交给 legacyActiveUse')
+  assert.match(probeBody, /legacyActiveUse\(io, \{ \.\.\.activity, exemptions \}\)/, 'probe 必须把 activity 交给 legacyActiveUse')
   const useBody = SRC.slice(SRC.indexOf('export function legacyActiveUse'), SRC.indexOf('export function activityNotes'))
   assert.ok(useBody.length > 800, '切不到 legacyActiveUse 函数体(锚点漂了 ⇒ 本条恒真)')
   assert.match(useBody, /if \(!cmdline \|\| !exePath\)/, '空字段行必须单列判「读不出」')
-  assert.match(useBody, /processes\.unreadable\+\+/, '空字段行必须计入 unreadable(fail-closed)')
+  assert.match(useBody, /processes\.unreadableRows\.push/, '空字段行必须先记入 unreadableRows(fail-closed)')
+  assert.match(useBody, /processes\.unreadable = leftovers\.length/, '未被登记豁免的读不出行必须仍计入 unreadable')
   // 摘除自证:同一把尺子对旧形必须无感 —— 否则上面三条恒真。
   const noArg = SRC.replace('probeFn(io, now, activity)', 'probeFn(io, now)')
   assert.notEqual(noArg, SRC, '锚点漂了:实现已不再以 probeFn(io, now, activity) 调用')
@@ -299,11 +300,11 @@ test('形状锁:判② 注入面三跳传导 + 空字段行 fail-closed(摘任�
     /probeFn\(io, now, activity\)/,
     '摘掉第三参后锁仍匹配 ⇒ 该锁对旧形无感',
   )
-  const noForward = SRC.replace('legacyActiveUse(io, activity)', 'legacyActiveUse(io, {})')
+  const noForward = SRC.replace('legacyActiveUse(io, { ...activity, exemptions })', 'legacyActiveUse(io, {})')
   assert.notEqual(noForward, SRC, '锚点漂了:probe 已不再把 activity 透传给 legacyActiveUse')
   assert.doesNotMatch(
     noForward.slice(noForward.indexOf('export function probeQuietWindow'), noForward.indexOf('function listDriveJunctions')),
-    /legacyActiveUse\(io, activity\)/,
+    /legacyActiveUse\(io, \{ \.\.\.activity, exemptions \}\)|processes\.unreadableRows\.push/,
     '摘掉传导后锁仍匹配 ⇒ 该锁对丢注入面无感',
   )
 })

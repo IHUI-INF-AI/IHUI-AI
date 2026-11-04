@@ -58,6 +58,16 @@
  *  关系(scratch 根已随 G-158 迁到新根内),故降为**信息面**(facts.sessionTmp/tmpProbe,
  *  --probe 打印,不参与三态)。覆盖面没有降低:旧口径测不到「有进程正在用旧根」,
  *  新 ②-a/②-b 正是补上这一格,且每次 probe 都能量、能复跑。
+ *  ②-c 显式登记面(2026-11-04,**结构性读不出**的正解):受保护系统进程的 CommandLine/
+ *      ExecutablePath 恒为 null、无 pid 的依赖清单类 `*.lock` 永远没有 pid —— 这两类此前会把
+ *      结论恒钉在 undetermined,迁移窗口理论上拿不到。现改为
+ *      scripts/data/devenv-migrate-exemptions.json **逐条显式登记**,每条必须有
+ *      kind(process/lock/path)、identity(**进程名+会话 或 旧根相对路径**,禁裸 pid)、
+ *      why(为什么它永远读不出)、reviewBy(≤90 天)。
+ *      只有「登记命中 ∧ 条目合法 ∧ 未过 reviewBy ∧ 命中数 ≤ maxRows」的**读不出子项**才豁免;
+ *      未登记一律保持 fail-closed。表级超限/非法、单条非法、过期条目都进 unjudged ⇒ 自动回红,
+ *      不许静默续期。**生产栈真占用旧根不得登记**——那是真实阻塞,如实保留 undetermined/blocked,
+ *      登记只解释「读不出」,不发放「允许占用」的许可。
  *  未覆盖面:旧根内**打开的文件句柄**与**进程 cwd**(Windows 纯 Node 取不到,不假装覆盖),
  *  由 re-home-junctions.repairOne 的「占用中目录改名失败 = 安全失败,不建 junction、不删源」兜底。
  *  前置可信度:git-guardian.log 末条 tick 距今 > GUARDIAN_FRESH_MINUTES(15 分钟)⇒ 守护
@@ -134,6 +144,15 @@ export const LEGACY_LOCK_SCAN = { maxDepth: 8, entryBudget: 120_000 }
  *  全树 2,380,836 条目(重解析点 27,494 个全部跳过、零跟随 ⇒ 非重复计数),11.9× 预算;
  *  不抬高预算:全量走完实测 433 秒,每次 probe 都全量 lstat 属「调阈值消灭超限」。 */
 export const ENUM_BUDGET = 200000
+/**
+ * 显式登记面(2026-11-04):只登记「为什么它永远读不出」,不登记「允许它占用」。
+ * 未登记读不出的行一律保持 fail-closed;登记过期自动回红;条目数与每条 maxRows 双上限防扩张。
+ */
+export const EXEMPTIONS_FILE = join(ROOT, 'scripts', 'data', 'devenv-migrate-exemptions.json')
+/** 登记表条目硬上限(超过 = 整表非法 ⇒ 回红),防止把它扩张成万能豁免面。 */
+export const EXEMPTIONS_MAX_ENTRIES = 24
+/** reviewBy 最远不得超过登记时刻 +90 天;到点未复核即自动回红,不许静默续期。 */
+export const EXEMPTION_MAX_REVIEW_DAYS = 90
 /** 依赖清单类 `*.lock`(Cargo/poetry/uv 等):非运行时锁,不当占用证据;其余无 pid 锁仍按占用。 */
 export const DEPENDENCY_LOCK_NAMES = new Set([
   'cargo.lock',
@@ -404,9 +423,11 @@ export function commandMentionsRoot(cmdline, root = LEGACY_ROOT) {
   return false
 }
 
-/** 进程表取数命令(只在本机 probe 时派生一次;不写盘根、不引凭据)。 */
+/** 进程表取数命令(只在本机 probe 时派生一次;不写盘根、不引凭据)。
+ *  2026-11-04 增 Name/SessionId:登记面要按「进程名 + 会话」稳定定位受保护进程
+ *  (它们的 CommandLine/ExecutablePath 恒为 null,只有名字与会话可读),禁登记裸 pid。 */
 export const PROCESS_TABLE_PS =
-  'Get-CimInstance Win32_Process | Select-Object ProcessId,CommandLine,ExecutablePath | ConvertTo-Json -Compress'
+  'Get-CimInstance Win32_Process | Select-Object ProcessId,Name,SessionId,CommandLine,ExecutablePath | ConvertTo-Json -Compress'
 
 /**
  * 纯函数:PowerShell `ConvertTo-Json -Compress` 的输出 → 归一进程行。
@@ -414,8 +435,9 @@ export const PROCESS_TABLE_PS =
  * (调用方据此判 undetermined —— 绝不把「取不到」读成「没人用」)。
  * 注意:null/缺失字段在此归一为空串,但**空串不是「未命中」**——单行缺字段的语义
  * 由 legacyActiveUse 按 unjudged 处理(受保护进程的 CommandLine/ExecutablePath 常态为 null)。
+ * name/sessionId 用于登记面匹配;缺 Name 的行 name='' ⇒ 不可能登记命中(仍 fail-closed)。
  * @param {unknown} stdout
- * @returns {Array<{pid:number, cmdline:string, exePath:string}>}
+ * @returns {Array<{pid:number, name:string, sessionId:(number|null), cmdline:string, exePath:string}>}
  */
 export function parseProcessTable(stdout) {
   const text = String(stdout === null || stdout === undefined ? '' : stdout).trim()
@@ -429,6 +451,11 @@ export function parseProcessTable(stdout) {
   const rows = Array.isArray(data) ? data : [data]
   return rows.map((r) => ({
     pid: Number(r && r.ProcessId),
+    name: r && r.Name !== null && r.Name !== undefined ? String(r.Name) : '',
+    sessionId:
+      r && r.SessionId !== null && r.SessionId !== undefined && Number.isFinite(Number(r.SessionId))
+        ? Number(r.SessionId)
+        : null,
     cmdline: r && r.CommandLine !== null && r.CommandLine !== undefined ? String(r.CommandLine) : '',
     exePath:
       r && r.ExecutablePath !== null && r.ExecutablePath !== undefined ? String(r.ExecutablePath) : '',
@@ -482,6 +509,110 @@ export function defaultPidAlive(pid) {
     return Boolean(e && e.code === 'EPERM')
   }
 }
+
+const DAY_MS = 24 * 60 * 60 * 1000
+
+/** 登记条目校验。返回 '' = 合法;否则返回非法原因(调用方把它进 rejected,由 probe 点名回红)。
+ *  过期不在此判(过期条目保留在册、由 probe 如实报红),这里只拦「字段缺失 / identity 裸 pid /
+ *  reviewBy 越界 / maxRows 越界」这类结构性非法。 */
+function exemptionProblem(raw, nowMs) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return '条目不是对象'
+  if (!['process', 'lock', 'path'].includes(raw.kind)) return `kind 非法(${String(raw.kind)})`
+  const identity = typeof raw.identity === 'string' ? raw.identity.trim() : ''
+  if (!identity) return 'identity 缺失'
+  // 裸 pid(含 pid=4 / pid:4 / 4)一律非法:pid 会漂,登记裸 pid 等于把豁免面绑在一个会变的数上。
+  if (/^(?:pid\s*[:=]\s*)?\d+$/i.test(identity)) return 'identity 是裸 pid(pid 会漂,禁止)'
+  if (raw.kind === 'process' && !/^name=[^|]+(?:\|session=(?:\d+|\*))?$/.test(identity))
+    return 'process identity 需形如 name=<进程名>[|session=<会话号|*>]'
+  if (raw.kind === 'lock' && !/^lock=[^|]+$/.test(identity)) return 'lock identity 需形如 lock=<旧根相对路径>'
+  if (raw.kind === 'path' && !/^path=[^|]+$/.test(identity)) return 'path identity 需形如 path=<旧根相对路径>'
+  if (typeof raw.why !== 'string' || raw.why.trim().length < 10) return 'why 缺失或过短(需说明为什么它永远读不出/为什么不是占用)'
+  if (typeof raw.reviewBy !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(raw.reviewBy)) return 'reviewBy 需 YYYY-MM-DD'
+  const reviewMs = Date.parse(`${raw.reviewBy}T00:00:00Z`)
+  if (!Number.isFinite(reviewMs)) return 'reviewBy 不是合法日期'
+  if (reviewMs - nowMs > EXEMPTION_MAX_REVIEW_DAYS * DAY_MS)
+    return `reviewBy 超过 ${EXEMPTION_MAX_REVIEW_DAYS} 天上限(不许一次续太久)`
+  const maxRows = raw.maxRows === undefined ? 1 : raw.maxRows
+  if (!Number.isInteger(maxRows) || maxRows < 1 || maxRows > 32) return 'maxRows 需为 1..32 的整数'
+  return ''
+}
+
+/** 归一旧根相对路径:统一正斜杠 + 小写(NTFS 大小写不敏感,比较面同形)。 */
+function relUnderLegacy(p) {
+  const abs = String(p)
+  if (abs.toLowerCase().startsWith(String(LEGACY_ROOT).toLowerCase() + sep))
+    return abs.slice(String(LEGACY_ROOT).length + 1).split(/[\\/]+/).join('/').toLowerCase()
+  return abs.split(/[\\/]+/).join('/').toLowerCase()
+}
+
+/**
+ * 读取显式登记表(纯注入面,零写盘)。三态:
+ *  absent  —— 文件不在位:零豁免,行为与未引入登记面时逐字相同(不是错误);
+ *  ok      —— 表级合法,entries = 可用条目(entries 里仍保留 expired 标记,由 probe 报红);
+ *  invalid —— 整表拒用(不可解析 / 形状不对 / 条目数超上限)⇒ entries=[],probe 必回红。
+ * 单条非法不拖垮整表,但进 rejected 且**一律不豁免**,由 probe 逐条点名回红。
+ * @param {{readFile?:Function, now?:number, path?:string, maxEntries?:number}} [opts]
+ * @returns {{kind:'absent'|'ok'|'invalid', entries:Array<Object>, rejected:Array<{identity:string, why:string}>, why:(string|undefined)}}
+ */
+export function loadDevenvMigrateExemptions({
+  readFile = (p) => readFileSync(p, 'utf8'),
+  now = Date.now(),
+  path = EXEMPTIONS_FILE,
+  maxEntries = EXEMPTIONS_MAX_ENTRIES,
+} = {}) {
+  let text
+  try {
+    text = readFile(path)
+  } catch (e) {
+    if (e && e.code === 'ENOENT')
+      return { kind: 'absent', entries: [], rejected: [], why: `登记表不在位:${path}` }
+    return { kind: 'invalid', entries: [], rejected: [], why: `登记表读不到(${(e && e.code) || e})` }
+  }
+  let parsed
+  try {
+    parsed = JSON.parse(String(text))
+  } catch (e) {
+    return { kind: 'invalid', entries: [], rejected: [], why: `登记表不可解析:${String((e && e.message) || e).slice(0, 80)}` }
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed) || !Array.isArray(parsed.entries))
+    return { kind: 'invalid', entries: [], rejected: [], why: '登记表形状不对(需 {"entries": [...]})' }
+  if (parsed.entries.length > maxEntries)
+    return {
+      kind: 'invalid',
+      entries: [],
+      rejected: [],
+      why: `登记表条目 ${parsed.entries.length} 超过上限 ${maxEntries}(防扩张成万能豁免面)`,
+    }
+  const entries = []
+  const rejected = []
+  for (const raw of parsed.entries) {
+    const problem = exemptionProblem(raw, now)
+    if (problem) {
+      rejected.push({ identity: raw && typeof raw.identity === 'string' ? raw.identity : '?', why: problem })
+      continue
+    }
+    const reviewByMs = Date.parse(`${raw.reviewBy}T00:00:00Z`)
+    entries.push({
+      kind: raw.kind,
+      identity: raw.identity.trim(),
+      why: raw.why.trim(),
+      reviewBy: raw.reviewBy,
+      reviewByMs,
+      maxRows: raw.maxRows === undefined ? 1 : raw.maxRows,
+      // 过 reviewBy 当日即过期(次日零点 UTC 之后);过期条目不再豁免,由 probe 点名回红。
+      expired: now >= reviewByMs + DAY_MS,
+      relPath: raw.kind === 'process' ? '' : relUnderLegacy(raw.identity.slice(raw.identity.indexOf('=') + 1)),
+    })
+  }
+  return { kind: 'ok', entries, rejected, why: undefined }
+}
+
+/** process identity → {name, session('*'|'<n>')};形态已由 exemptionProblem 校验过。 */
+function parseProcessIdentity(identity) {
+  const m = /^name=([^|]+)(?:\|session=(\d+|\*))?$/.exec(identity)
+  return m ? { name: m[1].trim(), session: m[2] || '*' } : null
+}
+
 
 /**
  * 旧根锁面:有界、不穿重解析点地找 `*.lock`,逐个判持有 pid 是否还活着。
@@ -588,21 +719,31 @@ export function scanLegacyLocks(io, root, opts = {}) {
  * 逐行口径:两字段都可读 ⇒ 照常判命中/未命中;命中优先(可判定否定)。
  * 未命中且**任一字段为空/缺失** ⇒ 该行无法判定(受保护进程的 CommandLine/ExecutablePath
  * 常态为 null),计入 unreadable,PID 留痕;**绝不**把这种行读成「它没在用旧根」。
+ * 2026-11-04 登记面(opts.exemptions):只对「读不出」的行/锁生效,且必须同时满足
+ * 登记命中 ∧ 条目合法 ∧ 未过 reviewBy ∧ 命中数 ≤ maxRows;真命中/真 pid 占用永不豁免。
+ * 未登记读不出的行保持 fail-closed。过期/超限/非法条目进 blockedExemptions,由 probe 回红。
  * 两面都可注入(§22c 构造面),生产默认面 = 进程表派生 + 真锁扫描。
  * @param {{lstatSync:Function, readdirSync:Function, readFileSync:Function, spawnSync:Function}} io
- * @param {{listProcesses?:Function, pidAlive?:Function, lockScan?:Object}} [opts]
- * @returns {{state:'idle'|'busy'|'undetermined', reasons:string[], facts:{processes:Object, locks:Object}}}
+ * @param {{listProcesses?:Function, pidAlive?:Function, lockScan?:Object, exemptions?:Object}} [opts]
+ * @returns {{state:'idle'|'busy'|'undetermined', reasons:string[], facts:{processes:Object, locks:Object, exemptions:Object, blockedExemptions:string[]}}}
  */
 export function legacyActiveUse(io, opts = {}) {
   const listProcesses = opts.listProcesses || (() => defaultProcessTable(io))
   const pidAlive = opts.pidAlive || defaultPidAlive
   const lockScan = opts.lockScan || {}
+  const exemptions =
+    opts.exemptions && typeof opts.exemptions === 'object'
+      ? opts.exemptions
+      : { kind: 'absent', entries: [], rejected: [] }
+  const exEntries = Array.isArray(exemptions.entries) ? exemptions.entries : []
   const processes = {
     kind: /** @type {'ok'|'undetermined'} */ ('ok'),
     total: 0,
     hits: /** @type {Array<{pid:(number|null), why:string}>} */ ([]),
     unreadable: 0,
     unreadablePids: /** @type {(number|null)[]} */ ([]),
+    unreadableRows: /** @type {Array<{pid:(number|null), name:string, sessionId:(number|null), why:string}>} */ ([]),
+    exempted: 0,
     why: /** @type {(string|undefined)} */ (undefined),
   }
   try {
@@ -613,15 +754,24 @@ export function legacyActiveUse(io, opts = {}) {
       const cmdline = row && row.cmdline ? String(row.cmdline) : ''
       const exePath = row && row.exePath ? String(row.exePath) : ''
       const pid = row && Number.isFinite(Number(row.pid)) ? Number(row.pid) : null
+      const name = row && row.name ? String(row.name) : ''
+      const sessionId =
+        row && row.sessionId !== null && row.sessionId !== undefined && Number.isFinite(Number(row.sessionId))
+          ? Number(row.sessionId)
+          : null
       // 可读字段先判命中(命中是可判定否定,优先级高于「读不出」)
       if (commandMentionsRoot(cmdline, LEGACY_ROOT) || withinRoot(exePath, LEGACY_ROOT)) {
         processes.hits.push({ pid, why: String(cmdline || exePath).slice(0, 160) })
         continue
       }
-      // 未命中 + 任一字段读不出 ⇒ 无法排除它落在旧根内 ⇒ 该行进 unjudged
+      // 未命中 + 任一字段读不出 ⇒ 无法排除它落在旧根内 ⇒ 该行先记「读不出」,稍后只按登记面豁免
       if (!cmdline || !exePath) {
-        processes.unreadable++
-        if (processes.unreadablePids.length < 8) processes.unreadablePids.push(pid)
+        processes.unreadableRows.push({
+          pid,
+          name,
+          sessionId,
+          why: String(cmdline || exePath ? '单字段可读、另一字段读不出' : '命令行与路径都读不出').slice(0, 160),
+        })
       }
     }
   } catch (e) {
@@ -629,6 +779,82 @@ export function legacyActiveUse(io, opts = {}) {
     processes.why = `进程表取不到(${(e && e.message) || e})`
   }
   const locks = scanLegacyLocks(io, LEGACY_ROOT, { pidAlive, ...lockScan })
+  const exempted = { processes: [], locks: [], paths: [] }
+  const blocked = /** @type {string[]} */ ([])
+
+  // ②-a 读不出的进程行:按登记条目分组;命中数超 maxRows 或无登记 ⇒ 全部退回 unreadable(fail-closed)。
+  const groups = new Map()
+  const leftovers = []
+  for (const row of processes.unreadableRows) {
+    const entry = row.name
+      ? exEntries.find((e) => {
+          if (e.kind !== 'process' || e.expired) return false
+          const id = parseProcessIdentity(e.identity)
+          if (!id || id.name !== row.name) return false
+          return id.session === '*' || id.session === String(row.sessionId)
+        })
+      : undefined
+    if (!entry) {
+      leftovers.push(row)
+      continue
+    }
+    if (!groups.has(entry)) groups.set(entry, [])
+    groups.get(entry).push(row)
+  }
+  for (const [entry, rows] of groups) {
+    if (rows.length > entry.maxRows) {
+      leftovers.push(...rows)
+      blocked.push(`${entry.identity} 命中 ${rows.length} 行,超过 maxRows=${entry.maxRows}(不豁免)`)
+      continue
+    }
+    exempted.processes.push({ identity: entry.identity, pids: rows.map((r) => r.pid) })
+  }
+  processes.unreadableRows = leftovers
+  processes.unreadable = leftovers.length
+  processes.unreadablePids = leftovers.slice(0, 8).map((r) => r.pid)
+  processes.exempted = exempted.processes.reduce((n, g) => n + g.pids.length, 0)
+
+  // ②-b 无 pid 的锁:只有「根相对路径逐字命中登记且未过期未超限」才豁免;
+  // 带活 pid 的锁是可判定占用,登记永远不豁免(登记解释「读不出」,不发放占用许可)。
+  const lockCounts = new Map()
+  const liveLocks = []
+  for (const h of locks.live) {
+    if (h.pid !== null) {
+      liveLocks.push(h)
+      continue
+    }
+    const rel = relUnderLegacy(h.path)
+    const entry = exEntries.find((e) => e.kind === 'lock' && !e.expired && e.relPath === rel)
+    if (!entry) {
+      liveLocks.push(h)
+      continue
+    }
+    const n = (lockCounts.get(entry) || 0) + 1
+    if (n > entry.maxRows) {
+      liveLocks.push(h)
+      blocked.push(`${entry.identity} 命中 ${n} 个锁,超过 maxRows=${entry.maxRows}(不豁免)`)
+      continue
+    }
+    lockCounts.set(entry, n)
+    exempted.locks.push({ path: h.path, identity: entry.identity })
+  }
+  locks.live = liveLocks
+
+  // path 类:登记只清理「枚举/stat 读不到」的信息面(该面本来就不阻,不能把红变绿)。
+  if (Array.isArray(locks.unreadable) && locks.unreadable.length) {
+    const keep = []
+    for (const item of locks.unreadable) {
+      const abs = String(item).replace(/\([A-Z0-9_]+\)$/i, '')
+      const rel = relUnderLegacy(abs)
+      const entry = exEntries.find(
+        (e) => e.kind === 'path' && !e.expired && (rel === e.relPath || rel.startsWith(`${e.relPath}/`)),
+      )
+      if (entry) exempted.paths.push({ path: abs, identity: entry.identity })
+      else keep.push(item)
+    }
+    locks.unreadable = keep
+  }
+
   const reasons = []
   if (processes.kind === 'undetermined') reasons.push(`判② 活进程面:${processes.why}`)
   for (const h of processes.hits) reasons.push(`判② 活进程面:pid ${h.pid === null ? '?' : h.pid} 点名旧根 —— ${h.why}`)
@@ -640,7 +866,7 @@ export function legacyActiveUse(io, opts = {}) {
     : processes.kind === 'undetermined' || processes.unreadable > 0 || locks.kind === 'undetermined'
       ? 'undetermined'
       : 'idle'
-  return { state, reasons, facts: { processes, locks } }
+  return { state, reasons, facts: { processes, locks, exemptions: exempted, blockedExemptions: blocked } }
 }
 
 /**
@@ -654,6 +880,7 @@ export function activityNotes(facts) {
   const a = facts.activeUse
   const p = a.facts.processes
   const l = a.facts.locks
+  const x = a.facts.exemptions || { processes: [], locks: [], paths: [] }
   const fmtQuiet = (f) => {
     if (!f) return '取不到'
     if (f.kind === 'absent') return '不存在'
@@ -664,11 +891,11 @@ export function activityNotes(facts) {
     p.kind === 'ok'
       ? `判② 活进程面:已枚举 ${p.total} 个进程,命中旧根 ${p.hits.length} 个${
           p.unreadable ? `;其中 ${p.unreadable} 个命令行/路径读不出(无法判定)` : ''
-        }`
+        }${p.exempted ? `;按登记豁免 ${p.exempted} 个` : ''}`
       : `判② 活进程面:${p.why}`,
     `判② 旧根锁面:扫 ${l.scanned} 条目 / *.lock ${l.locks} 个(占用 ${l.live.length}、陈旧 ${l.stale.length}${
       l.unreadable.length ? `、读不到 ${l.unreadable.length}` : ''
-    }${
+    }${x.locks.length ? `、按登记豁免 ${x.locks.length}` : ''}${
       l.nonRuntime && l.nonRuntime.length
         ? `;非运行时锁 ${l.nonRuntime.length} 个(依赖清单,不计占用):${l.nonRuntime
             .slice(0, 8)
@@ -686,18 +913,25 @@ export function activityNotes(facts) {
 /**
  * 静默窗口三态(票面判据 ①② + 守护存活前置)。
  * 判② 走 legacyActiveUse(活使用面),两探针目录的静默读数只作信息面。
+ * 登记面(activity.exemptions 可注入;缺省读 EXEMPTIONS_FILE,零写盘):只豁免登记命中的
+ * 「读不出」子项;表级非法 / 单条非法 / 过期条目一律进 unjudged ⇒ 回红(fail-closed)。
  * @param {{lstatSync:Function, readdirSync:Function, readFileSync:Function, spawnSync:Function}} io
  * @param {number} [now]
- * @param {{listProcesses?:Function, pidAlive?:Function, lockScan?:Object}} [activity] 判② 注入面(测试用)
+ * @param {{listProcesses?:Function, pidAlive?:Function, lockScan?:Object, exemptions?:Object}} [activity] 判② 注入面(测试用)
  * @returns {{state:'window'|'pending'|'undetermined', reasons:string[], unjudged:string[], facts:Object}}
  */
 export function probeQuietWindow(io, now = Date.now(), activity = {}) {
+  const exemptions =
+    activity.exemptions && typeof activity.exemptions === 'object'
+      ? activity.exemptions
+      : loadDevenvMigrateExemptions({ readFile: (p) => io.readFileSync(p, 'utf8'), now })
   const facts = {
     legacyRoot: latestWrite(io, LEGACY_ROOT, now),
-    activeUse: legacyActiveUse(io, activity),
+    activeUse: legacyActiveUse(io, { ...activity, exemptions }),
     sessionTmp: latestWrite(io, SESSION_TMP, now),
     tmpProbe: latestWrite(io, TMP_PROBE, now),
     guardian: guardianTickAlive(io, now),
+    exemptions,
   }
   const v1 = quietVerdict(facts.legacyRoot, QUIET_MINUTES, `判① 旧根 ${LEGACY_ROOT}`)
   const p = facts.activeUse.facts.processes
@@ -722,6 +956,12 @@ export function probeQuietWindow(io, now = Date.now(), activity = {}) {
     reasons.push(`判② 活进程面:pid ${h.pid === null ? '?' : h.pid} 点名旧根 —— ${h.why}`)
   if (l.kind === 'undetermined') unjudged.push(`判② 旧根锁面:${l.why}`)
   for (const h of l.live) reasons.push(`判② 旧根锁面:${h.path} —— ${h.why}`)
+  // 登记表自身的账:表级非法 / 单条非法 / 过期 / 命中超 maxRows 一律回红,不许静默续期或静默扩张。
+  if (exemptions.kind === 'invalid') unjudged.push(`判② 登记表:${exemptions.why}`)
+  for (const r of exemptions.rejected || []) unjudged.push(`判② 登记表:非法条目 ${r.identity} —— ${r.why}`)
+  for (const e of exemptions.entries || [])
+    if (e.expired) unjudged.push(`判② 登记表:过期条目 ${e.identity}(reviewBy ${e.reviewBy} 已过,须复核,不豁免)`)
+  for (const b of facts.activeUse.facts.blockedExemptions || []) unjudged.push(`判② 登记表:${b}`)
   if (facts.guardian.state !== 'alive') unjudged.push(`守护存活:${facts.guardian.why}`)
   const state = reasons.length ? 'pending' : unjudged.length ? 'undetermined' : 'window'
   if (state === 'window')
@@ -1566,6 +1806,91 @@ function selfTest() {
     const r = probeQuietWindow(fakeIO(probeTree()), NOW, { listProcesses: () => rows, pidAlive: () => false })
     return r.state === 'window' && r.unjudged.length === 0
   })())
+
+  // ── 显式登记面(2026-11-04):只登记「为什么永远读不出」;过期/非法/超限一律回红 ──
+  const exTable = (entries) => loadDevenvMigrateExemptions({ readFile: () => JSON.stringify({ entries }), now: NOW })
+  const protectedRows = psRows([
+    { ProcessId: 4, Name: 'System', SessionId: 0, CommandLine: null, ExecutablePath: null },
+    { ProcessId: 88, Name: 'notepad.exe', SessionId: 1, CommandLine: 'notepad.exe', ExecutablePath: 'C:\\Windows\\System32\\notepad.exe' },
+  ])
+  const SYSTEM_EX = {
+    kind: 'process',
+    identity: 'name=System|session=0',
+    why: 'Windows 内核伪进程(Name/会话可读,CommandLine 与 ExecutablePath 恒为 null),纯用户态永久读不出',
+    reviewBy: '2027-02-10',
+    maxRows: 1,
+  }
+  push('登记①:登记命中的读不出行 ⇒ 该条不再阻挡,结论 window', (() => {
+    const r = probeQuietWindow(fakeIO(probeTree()), NOW, {
+      listProcesses: () => protectedRows,
+      pidAlive: () => false,
+      exemptions: exTable([SYSTEM_EX]),
+    })
+    const p = r.facts.activeUse.facts.processes
+    return r.state === 'window' && p.exempted === 1 && p.unreadable === 0 && r.unjudged.length === 0
+  })())
+  push('登记②:同类读不出的行未登记 ⇒ 仍 undetermined(fail-closed 未被放宽)', (() => {
+    const r = probeQuietWindow(fakeIO(probeTree()), NOW, { listProcesses: () => protectedRows, pidAlive: () => false })
+    return r.state === 'undetermined' && r.unjudged.some((s) => s.includes('读不出')) && r.facts.activeUse.facts.processes.exempted === 0
+  })())
+  push('登记③:登记过期(超 reviewBy)⇒ 不豁免且整条回红(不许静默续期)', (() => {
+    const r = probeQuietWindow(fakeIO(probeTree()), NOW, {
+      listProcesses: () => protectedRows,
+      pidAlive: () => false,
+      exemptions: exTable([{ ...SYSTEM_EX, reviewBy: '2026-12-01' }]),
+    })
+    return (
+      r.state === 'undetermined' &&
+      r.facts.activeUse.facts.processes.exempted === 0 &&
+      r.unjudged.some((s) => s.includes('过期条目') && s.includes('name=System'))
+    )
+  })())
+  push('登记④:条目字段缺失 / identity 用裸 pid ⇒ 判非法登记并回红', (() => {
+    const ex = exTable([
+      { kind: 'process', identity: '4', why: '裸 pid 会漂,不该被接受', reviewBy: '2027-02-10' },
+      { kind: 'lock', identity: 'lock=index.lock', reviewBy: '2027-02-10' },
+    ])
+    const r = probeQuietWindow(fakeIO(probeTree()), NOW, {
+      listProcesses: () => protectedRows,
+      pidAlive: () => false,
+      exemptions: ex,
+    })
+    return (
+      ex.kind === 'ok' &&
+      ex.entries.length === 0 &&
+      ex.rejected.length === 2 &&
+      r.state === 'undetermined' &&
+      r.unjudged.some((s) => s.includes('裸 pid')) &&
+      r.unjudged.some((s) => s.includes('why 缺失'))
+    )
+  })())
+  push('登记⑤:条目数超过上限 ⇒ 整表非法回红(防扩张成万能豁免面)', (() => {
+    const many = Array.from({ length: EXEMPTIONS_MAX_ENTRIES + 1 }, (_, i) => ({
+      ...SYSTEM_EX,
+      identity: `name=x${i}.exe`,
+    }))
+    const ex = exTable(many)
+    const r = probeQuietWindow(fakeIO(probeTree()), NOW, { listProcesses: () => protectedRows, pidAlive: () => false, exemptions: ex })
+    return ex.kind === 'invalid' && r.state === 'undetermined' && r.unjudged.some((s) => s.includes('超过上限'))
+  })())
+  push('登记⑥:无 pid 的占位 *.lock 登记后不阻;未登记仍按占用(fail-closed 方向不变)', (() => {
+    const tree = probeTree({ locks: { '.lock': '' } })
+    const idle = probeQuietWindow(fakeIO(tree), NOW, {
+      listProcesses: () => [],
+      pidAlive: () => false,
+      exemptions: exTable([
+        {
+          kind: 'lock',
+          identity: 'lock=.lock',
+          why: 'uv 工具链的空占位锁:永不写 pid、也不是依赖清单,结构上永远判不出「占用」的真假',
+          reviewBy: '2027-02-10',
+          maxRows: 1,
+        },
+      ]),
+    })
+    const raw = probeQuietWindow(fakeIO(tree), NOW, IDLE)
+    return idle.state === 'window' && idle.facts.activeUse.facts.exemptions.locks.length === 1 && raw.state === 'pending'
+  })())
   // 分级降噪:截断(未判定子项)遇到可判定否定(活进程)⇒ 结论钉 pending,未判定子项逐条单列。
   const truncatedIO = (tree) => {
     const io2 = fakeIO(tree)
@@ -1736,6 +2061,8 @@ export const __test__ = {
   scanLegacyLocks,
   legacyActiveUse,
   activityNotes,
+  // 显式登记面(2026-11-04):镜像测试直接取生产判据,零复制(§22c)。
+  loadDevenvMigrateExemptions,
   // 巡检派发臂(2026-10-28):镜像测试直接取生产判据,零复制(§22c)。
   devenvArmDue,
   loadDevenvMigrateArm,
