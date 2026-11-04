@@ -5,7 +5,9 @@
 /**
  * mobile-rn hooks 统一入口。
  *
- * 平台独占 hook(use-biometrics / use-push)保留本地实现。
+ * 平台独占 hook 一律不进本 barrel;2026-11-04 收口:原 use-biometrics / use-push 取证为
+ * 全仓零消费者(自创建起从未被任何文件 import,且 app.config.js 的 plugins 里也没有对应
+ * 原生插件)⇒ 已整文件删除,不再有"保留本地实现"的例外面。
  * use-clipboard / use-paginated-list / use-websocket 已 re-export shared。
  *
  * 本文件统一 re-export shared 工具 hook,各 Screen 可按需 import:
