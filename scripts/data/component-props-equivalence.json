@@ -324,6 +324,18 @@
         "rn": "apps/mobile-rn/src/components/UserInfoCard.tsx:111",
         "mini": "apps/miniapp-taro/src/components/UserInfoCard.tsx:110"
       }
+    },
+    {
+      "pair": "Carousel",
+      "ours": "banner",
+      "theirs": "items",
+      "kind": "content",
+      "owner": "cross-end-props-parity",
+      "rationale": "同一轮播数据槽位:两端都只吃「一组 slide」(图片地址 + 标题 + 点击目标),RN 命名 banner(ReadonlyArray 包装)、小程序命名 items,渲染与点击语义一致,仅命名与只读修饰差异。",
+      "evidence": {
+        "rn": "apps/mobile-rn/src/components/Carousel.tsx:47",
+        "mini": "apps/miniapp-taro/src/components/Carousel.tsx:36"
+      }
     }
   ]
 }
