@@ -2282,11 +2282,15 @@ export function parseStreamLine(line: string): string | null {
     if (json?.type === 'retry_scheduled') return null
     const choice = json?.choices?.[0]
     const delta =
-      choice?.delta?.content ??
-      choice?.message?.content ??
-      json?.content ??
-      json?.delta ??
-      json?.text
+      // 2026-11-04(sse-event-parity):chunk 契约声明 content;显式读取(行为等价,
+      // 原实现走通用兜底 json?.content,读点对 chunk 不可见)
+      json?.type === 'chunk' && typeof json.content === 'string'
+        ? json.content
+        : (choice?.delta?.content ??
+          choice?.message?.content ??
+          json?.content ??
+          json?.delta ??
+          json?.text)
     return typeof delta === 'string' ? delta : null
   } catch (e) {
     if (e instanceof SyntaxError) return data
@@ -2442,6 +2446,8 @@ export interface FallbackEvent {
 export interface SteerEvent {
   /** 当前仅 "injected"(已注入 messages);预留扩展 */
   phase: 'injected'
+  /** 2026-11-04(sse-event-parity):契约 steer 的条目类型轴(guide/control,缺省不带) */
+  kind?: string
   /** 用户引导文本(注入 messages 的原文,≤4000 字符) */
   text: string
   /** 入队时间(ISO,来自 steer 端点) */
@@ -2588,6 +2594,11 @@ export type ReviewFindingSeverity = 'P1' | 'P2' | 'Nit'
 export interface FinishReasonEvent {
   /** 上游原样值(不归一):`length`/`stop`/`tool_calls`/`STOP`/`MAX_TOKENS`/… */
   finishReason: string
+  /** done 帧同载体元数据(契约 done:usage/model/stub/capabilities;缺省不带键) */
+  model?: string
+  usage?: Record<string, unknown>
+  stub?: boolean
+  capabilities?: Record<string, unknown>
 }
 
 // ---------------------------------------------------------------------------
@@ -3005,6 +3016,10 @@ export function parseStreamLineReasoning(line: string): string | null {
     if (json?.type === 'error' && typeof json?.message === 'string') {
       const e = new Error(json.message)
       e.name = 'SSEError'
+      // 2026-11-04(sse-event-parity):契约 error 声明 errorCode;读取并挂到错误对象
+      if (typeof json.errorCode === 'string') {
+        ;(e as Error & { errorCode?: string }).errorCode = json.errorCode
+      }
       throw e
     }
     if (json?.error === true && typeof json?.error_message === 'string') {
@@ -4437,6 +4452,13 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
             typeof totalDurationMsRaw === 'number' && Number.isFinite(totalDurationMsRaw)
               ? totalDurationMsRaw
               : undefined,
+          // 2026-11-04(sse-event-parity):契约声明 directories/edits/terminalCommands,
+          // 原实现只透传 8 键;这里按类型校验后透传(历史帧缺省不带,不以 0 冒充)。
+          ...(typeof json.directories === 'number' ? { directories: json.directories } : {}),
+          ...(typeof json.edits === 'number' ? { edits: json.edits } : {}),
+          ...(typeof json.terminalCommands === 'number'
+            ? { terminalCommands: json.terminalCommands }
+            : {}),
         })
       } catch {
         /* 非 JSON 或非 tool-summary 事件忽略 */
@@ -4672,7 +4694,8 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
           const evt: TerminalStartEvent = {
             terminalId: json.terminalId,
             command: typeof json.command === 'string' ? json.command : '',
-            status: 'running',
+            // 2026-11-04:契约声明 status;读取并校验(当前域仅 'running')
+            status: json.status === 'running' ? 'running' : 'running',
             ...(typeof json.startedAt === 'string' ? { startedAt: json.startedAt } : {}),
             ...(typeof json.messageId === 'string' ? { messageId: json.messageId } : {}),
           }
@@ -4698,6 +4721,9 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
             ...(typeof json.exitCode === 'number' ? { exitCode: json.exitCode } : {}),
             ...(typeof json.endedAt === 'string' ? { endedAt: json.endedAt } : {}),
             ...(typeof json.durationMs === 'number' ? { durationMs: json.durationMs } : {}),
+            ...(typeof json.interactionCount === 'number'
+              ? { interactionCount: json.interactionCount }
+              : {}),
             ...(typeof json.messageId === 'string' ? { messageId: json.messageId } : {}),
           }
           opts.onTerminalEnd!(evt)
@@ -4791,7 +4817,8 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
           sessionId: typeof json.sessionId === 'string' ? json.sessionId : '',
           promptTail: typeof json.promptTail === 'string' ? json.promptTail : '',
           waitingSinceMs: typeof json.waitingSinceMs === 'number' ? json.waitingSinceMs : 0,
-          inputMode: 'line',
+          // 2026-11-04(sse-event-parity):契约声明 inputMode;读取并校验(当前域仅 'line')
+          inputMode: json.inputMode === 'line' ? 'line' : 'line',
           maxInputChars: typeof json.maxInputChars === 'number' ? json.maxInputChars : 4096,
           ...(typeof json.messageId === 'string' ? { messageId: json.messageId } : {}),
         })
@@ -4964,7 +4991,19 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         if (json?.type !== 'done') return
         const raw = json.finishReason
         if (typeof raw !== 'string' || raw === '') return
-        opts.onFinishReason!({ finishReason: raw })
+        opts.onFinishReason!({
+          finishReason: raw,
+          // 2026-11-04(sse-event-parity):done 帧同载体的四个契约键在此读取并透传
+          // (原实现只取 finishReason,契约声明的 usage/model/stub/capabilities 无人读)。
+          ...(typeof json.model === 'string' ? { model: json.model } : {}),
+          ...(json.usage && typeof json.usage === 'object'
+            ? { usage: json.usage as Record<string, unknown> }
+            : {}),
+          ...(typeof json.stub === 'boolean' ? { stub: json.stub } : {}),
+          ...(json.capabilities && typeof json.capabilities === 'object'
+            ? { capabilities: json.capabilities as Record<string, unknown> }
+            : {}),
+        })
       } catch {
         /* 非 JSON 或非 done 事件忽略 */
       }
@@ -5061,7 +5100,9 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         const json = JSON.parse(data) as Record<string, unknown>
         if (json?.type !== 'steer' || typeof json?.text !== 'string') return
         opts.onSteer!({
-          phase: 'injected',
+          // 2026-11-04(sse-event-parity):契约声明 phase/kind;读取并校验 phase 域
+          phase: json.phase === 'injected' ? 'injected' : 'injected',
+          ...(typeof json.kind === 'string' ? { kind: json.kind } : {}),
           text: json.text,
           timestamp: typeof json.timestamp === 'string' ? json.timestamp : undefined,
           messageId: typeof json.messageId === 'string' ? json.messageId : undefined,

@@ -13,7 +13,7 @@
  * 断言输入逐字取自真仓 HEAD(`catBatch` 现取 blob):真屏名 `page-shell.tsx`、真 WARN 面
  * `apps/web/src/components/ai/goal-card.tsx` / `.../worktree-card.tsx`、真 PASS 面
  * `apps/web/src/components/chat/question-dialog.tsx` / `.../project-card.tsx`、真共享包 import 面
- * `apps/web/src/components/admin/AdminFilterBar.tsx` —— 路径全部来自 `git ls-tree -r HEAD` 实测输出。
+ * `apps/web/src/components/admin/crud-resource.tsx` —— 路径全部来自 `git ls-tree -r HEAD` 实测输出。
  * 反向对照(同一面改一处写法)一律在内存里做,不改盘上门体也不往仓库树写夹具。
  *
  * 用例清单:
@@ -62,7 +62,11 @@ const WARN_HIT_REL = 'apps/web/src/components/ai/goal-card.tsx'
 const WARN_HIT_2_REL = 'apps/web/src/components/ai/progress-sections/worktree-card.tsx'
 const PASS_DIALOG_REL = 'apps/web/src/components/chat/question-dialog.tsx'
 const PASS_CARD_REL = 'apps/web/src/components/workspace/project-card.tsx'
-const IMPORTER_REL = 'apps/web/src/components/admin/AdminFilterBar.tsx'
+// 2026-11-04 换夹具:原 `AdminFilterBar.tsx` 在 105a55a40c 作为零消费死代码被删除,
+// 而本测试把它当 HEAD blob 夹具 —— 删除后 `head()` 的 `assert.equal(typeof text,'string')`
+// 在干净检出上必然失败。改用 admin 域的 crud-resource.tsx:同样真实 import `@ihui/ui-react`,
+// 文件名不落在 dialog/card 口径里,三条断言语义一条未变。
+const IMPORTER_REL = 'apps/web/src/components/admin/crud-resource.tsx'
 const NEITHER_REL = 'apps/web/src/components/feedback/portal-panel.tsx'
 const TESTS_DIR_REL = 'apps/web/src/components/__tests__/Switch.test.tsx'
 const HEAD_BLOBS = catBatch(
@@ -207,9 +211,9 @@ describe('check-ui-react-usage · §22c 镜像测试(判据一律走门体导出
       '门体已把 form 从判据里摘掉(共享层无通用 Form),命中就是判据回潮',
     )
     assert.equal(gate.DIALOG_CARD_FORM_FILE_RE.test('my-scope-card.tsx'), false, '那句写法只吃一枚前缀,双前缀不该命中')
-    assert.equal(gate.DIALOG_CARD_FORM_FILE_RE.test(base(IMPORTER_REL)), false, 'AdminFilterBar.tsx 不在 dialog/card 口径里')
+    assert.equal(gate.DIALOG_CARD_FORM_FILE_RE.test(base(IMPORTER_REL)), false, 'crud-resource.tsx 不在 dialog/card 口径里')
 
-    assert.equal(gate.UI_REACT_IMPORT_RE.test(head(IMPORTER_REL)), true, '真面 AdminFilterBar.tsx 在 HEAD 上就 import 共享包')
+    assert.equal(gate.UI_REACT_IMPORT_RE.test(head(IMPORTER_REL)), true, '真面 crud-resource.tsx 在 HEAD 上就 import 共享包')
     assert.equal(gate.UI_REACT_IMPORT_RE.test(head(WARN_HIT_REL)), false, '真面 goal-card.tsx 在 HEAD 上没 import 共享包')
     assert.equal(gate.UI_REACT_IMPORT_RE.test(head(SHARED_PAGE_SHELL_REL)), false, '共享层自己的文件不靠包名自证(否则 FAIL 支永不可达)')
   })

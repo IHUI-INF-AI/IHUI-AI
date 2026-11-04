@@ -163,7 +163,7 @@ export function hasCustomTabBar(configText) {
   return /custom\s*:\s*true/.test(clean.slice(at))
 }
 
-export function buildEntries(configText, rncAliases = new Map()) {
+export function buildEntries(configText, rncAliases = new Map(), rnShellTargets = new Set()) {
   const pages = parseTaroPages(configText)
   if (!pages) return null
   const set = new Set(['src/app.tsx'])
@@ -175,6 +175,18 @@ export function buildEntries(configText, rncAliases = new Map()) {
   }
   // 构建 alias 的目标文件是"共享层 import 的模块根",静态面不可达 ⇒ 必须作为 entry 才可达
   for (const target of rncAliases.values()) set.add(resolveRncFile(target))
+  // 2026-11-04:rn-shell-replace 的落点同样必须可达。它与 alias 是**两条独立通道** ——
+  // alias 换的是"共享层对已安装包的请求",而 RnShellReplacePlugin 换的是"发起方在
+  // apps/mobile-rn/src/ 里时对 RN 真相源模块的请求"(config/index.ts:457 那段 plugin 装载)。
+  // 之前只解析 alias 块,于是 rn-compat/i18n.ts、rn-compat/theme.tsx 这类**纯替换落点**
+  // 从未进过 entry,长期被判未引用文件 —— 这是判据缺口,不是死代码。
+  for (const target of rnShellTargets) set.add(target)
+  // 2026-11-04:Taro 构建配置本身是框架约定入口 —— @tarojs/helper 的 PROJECT_CONFIG 常量
+  // 写死 'config/index',`taro build --type weapp`(package.json:22)不传 --config,
+  // CLI 直接在 ctx.paths.configPath 读它。knip 看不见"框架按约定加载配置"这一形态,
+  // 于是 config/index.ts 连同它静态 import 的 dev.ts/prod.ts/rn-shell-replace-plugin.ts
+  // 一起被判未引用文件。加到 entry 后 knip 会正常分析它们的 import(那正是判据想要的)。
+  set.add('config/index.ts')
   // custom-tab-bar:app.config.ts 的 tabBar.custom:true 时,平台按目录约定装载这两个文件
   let customTabBar = false
   if (hasCustomTabBar(configText)) {
@@ -186,6 +198,26 @@ export function buildEntries(configText, rncAliases = new Map()) {
     }
   }
   return { entries: [...set].sort(), unresolved, pageCount: pages.length, customTabBar }
+}
+
+/**
+ * 解析 `rnShellReplacements` 的落点(`to: path.resolve(..., 'rn-compat', 'x.ts')`)。
+ *
+ * 与 parseRncAliases 分开:那条走 `alias: { key: path.resolve(...) }` 的**键值**形态,
+ * 这条走 `{ base, to }` 的**对象数组**形态,两者语义不同(前者映射包名,后者映射发起方模块),
+ * 合在一个函数里会让 alias 键集自检被污染的合成键撑大。
+ */
+export function parseRnShellTargets(text) {
+  const clean = stripLineComments(text)
+  const out = new Set()
+  const re = /to\s*:\s*path\.resolve\(([^)]*)\)/g
+  let m
+  while ((m = re.exec(clean)) !== null) {
+    const parts = [...m[1].matchAll(/'([^']+)'/g)].map((x) => x[1])
+    if (!parts.includes('rn-compat')) continue
+    out.add(`src/rn-compat/${parts[parts.length - 1]}`)
+  }
+  return out
 }
 
 /** 受管 paths = config/index.ts 的 rn-compat alias(按原键,保留 `$` 语义) + tsconfig 的非别名映射 */
@@ -273,7 +305,7 @@ function main() {
     console.error('[gen-knip-taro-entries] 未判定:config/index.ts 里解析不到 rn-compat alias')
     process.exit(2)
   }
-  const built = buildEntries(faces.configText, rncAliases)
+  const built = buildEntries(faces.configText, rncAliases, parseRnShellTargets(faces.buildConfigText))
   if (!built) {
     console.error('[gen-knip-taro-entries] 未判定:app.config.ts 里找不到 pages 数组')
     process.exit(2)

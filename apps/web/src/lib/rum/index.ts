@@ -2,34 +2,54 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import Taro from '@tarojs/taro'
+/**
+ * RUM 单例与对外门面。
+ *
+ * 单例只在首次调用时构造，避免模块加载期读 localStorage / 建定时器。
+ * transport 唯一走既有 telemetry ingest 端点（见 transport.ts 头注）。
+ */
 
-export * from './api-bridge'
-export * from './auth'
-export * from './voice-recorder'
-export * from './upload-image'
-export * from './share'
-export * from './save-album'
-export * from './time'
-export * from './streaming-recognizer'
-export * from './pay'
+import { RumCollector, type RumEventName } from './collector'
+import { isRumConsentGranted } from './consent'
+import { rumTelemetryTransport } from './transport'
 
-export { default as voiceRecorder } from './voice-recorder'
-export { default as streamingRecognizer } from './streaming-recognizer'
+let instance: RumCollector | null = null
 
-// 纯工具函数复用 @ihui/shared/utils(单一来源)
-export { debounce, throttle, sleep } from '@ihui/shared/utils/async'
-export { deepClone, isEmpty } from '@ihui/shared/utils/object'
-
-export function getStorageSync(key: string): unknown {
-  return Taro.getStorageSync(key)
+export function getRumCollector(): RumCollector {
+  if (!instance) {
+    instance = new RumCollector({
+      transport: rumTelemetryTransport,
+      consent: isRumConsentGranted,
+    })
+  }
+  return instance
 }
 
-export function setStorageSync(key: string, data: unknown): void {
-  Taro.setStorageSync(key, data)
+export function recordRumAiCompletion(input: {
+  key?: string
+  firstTokenMs?: number | null
+  durationMs: number
+  longTasks?: number
+}): void {
+  getRumCollector().recordAiCompletion(input)
 }
 
-export function removeStorageSync(key: string): void {
-  Taro.removeStorageSync(key)
+export function recordRumRequestFailure(path: string, status?: number): void {
+  getRumCollector().recordRequestFailure(path, status)
 }
+
+export function recordRumError(kind: 'error' | 'unhandledrejection', error: unknown): void {
+  getRumCollector().recordError(kind, error)
+}
+
+export function recordRumEvent(name: RumEventName, props?: Record<string, unknown>): boolean {
+  return getRumCollector().record(name, props)
+}
+
+export type { RumEvent, RumEventName, RumCollectorStats } from './collector'
+export type { RumProps } from './privacy'
+export { RUM_FLUSH_INTERVAL_MS, RUM_MAX_BUFFERED_EVENTS, RUM_MAX_BATCH_SIZE } from './collector'
+export { installStartupRum, readStartupTiming } from './startup'
+export { startRumLongTaskWindow } from './collector'
+export { setRumConsent, isRumConsentGranted } from './consent'
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
