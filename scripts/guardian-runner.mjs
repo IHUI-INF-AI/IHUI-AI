@@ -6259,7 +6259,7 @@ const checks = [
   {
     id: '298',
     label:
-      '🧊 旧 blob 回写守门(blocking:暂存内容逐字等于该路径祖先 blob 而 HEAD 已有更新档 ⇒ 拦提交;有意回滚须写 intentional-revert: 依据)',
+      '🧊 旧 blob 回写守门(blocking:暂存内容等于该路径祖先 blob 有**三档**——逐字 / 去空白等值 / 标识符集合等值——而 HEAD 已有更新档 ⇒ 拦提交;后两档射程=本票声明集 IHUI_DECLARED_FILES;另按"疑退形态"报数不判红(§12e);有意回滚须写 intentional-revert: 依据)',
     script: 'check-staged-downgrade.mjs',
     args: [],
     mode: 'blocking',
