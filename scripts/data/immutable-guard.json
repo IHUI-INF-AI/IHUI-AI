@@ -36,6 +36,84 @@
       "kind": "gate-registry",
       "why": "本护栏自己的受保护面清单：删掉一条就等于悄悄缩小护栏射程，所以改清单本身也必须显式声明",
       "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/git-guardian.mjs",
+      "kind": "gate-registry",
+      "why": "巡检调度器本体：auditImmutableGuardNewCommits 住这里，改掉它巡检就永远 return，而巡检仍由被改过的代码执行",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/safe-commit.mjs",
+      "kind": "gate-registry",
+      "why": "提交边界执行器：跳钩/按 pathspec 落地/清空暂存都经它，改一处就能让提交绕过钩子且不留跳门痕迹",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/live-doc-edit.mjs",
+      "kind": "gate-body",
+      "why": "活文档唯一安全改写器：结构等值/幂等判据住这里，改掉判据等于放开把旧态整批写回 HEAD 的自伤",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/object-space-land.mjs",
+      "kind": "gate-body",
+      "why": "旁路落地器：结构上不跑钩子，冲突标记/水印/落地后复跑判据全由它自带",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".husky/pre-commit",
+      "kind": "gate-registry",
+      "why": "提交链入口薄壳：改成 exit 0 后 226 及整条 pre-commit 门链再不会被调用",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".husky/commit-msg",
+      "kind": "gate-registry",
+      "why": "提交信息门链入口薄壳：改成 exit 0 后提交信息阶段判据全部失效",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".husky/pre-push",
+      "kind": "gate-registry",
+      "why": "推送链入口薄壳：改成 exit 0 后推送前的代码门与 push guard 全部不再触发",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".husky/reference-transaction",
+      "kind": "gate-registry",
+      "why": "引用更新守卫入口薄壳：改成 exit 0 后可绕过 ref 写入拦截",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".husky/post-commit",
+      "kind": "gate-registry",
+      "why": "提交后链入口薄壳：改成 exit 0 后推送守卫与台账自愈不再跑，账面只剩提交成功",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".husky/post-merge",
+      "kind": "gate-registry",
+      "why": "合并后链入口薄壳：改成 exit 0 后台账同步等收尾判据不再跑",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "deploy/win/ihui-deploy.ps1",
+      "kind": "gate-registry",
+      "why": "部署执行器本体：ff 后的 root-guard --check 与构建切流都挂在这一支，短路调用等于生产侧护栏不执行",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "deploy/win/ihui-deploy-loop.ps1",
+      "kind": "gate-registry",
+      "why": "部署环调度器：决定何时 fetch/ff/调部署脚本，改弱它等于让被审面永远不被构建",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "deploy/win/lib/*.mjs",
+      "kind": "judgement-lib",
+      "why": "部署侧准入判据库：被部署脚本与测试同时 import；该 glob 只覆盖 lib 顶层模块，__tests__ 显式不在射程",
+      "reviewBy": "2027-06-30"
     }
   ]
 }

@@ -329,6 +329,7 @@ function fixtureFiles(overrides = {}) {
     [MANIFEST_REL]: manifestDoc([]),
     'scripts/guardian-runner.mjs': '// baseline runner\n',
     'scripts/lib/judgement-libs.json': '{"libs":["x"]}\n',
+    'scripts/git-guardian.mjs': '// baseline guardian\n',
     'AGENTS.md': MD_BASE,
     ...overrides,
   }
@@ -358,6 +359,21 @@ function baseManifestEntries() {
   ]
 }
 
+/**
+ * 必备目标 git-guardian 的夹具条目(2026-11-04 扩容:root-guard 把巡检本体纳入必备集)。
+ * 仍产出 `baseManifestEntries()` 的原三枚,是因为镜像测试 ⑦ 用那份基线核对门 267 的射程;
+ * 本单不扩门 267 的 stagedTriggers(会改到 root-guard 目标本体,与本单纪律冲突),
+ * 故新目标的夹具只在本门自检/对账夹具里显式追加,不改 ⑦ 的基线口径。
+ */
+function gitGuardianFixtureEntry() {
+  return {
+    id: 'git-guardian',
+    path: 'scripts/git-guardian.mjs',
+    mode: 'file',
+    sha256: sha256Of('// baseline guardian\n'),
+  }
+}
+
 export function selfTest() {
   const cases = []
   const ok = (name, cond, detail = '') => cases.push({ name, ok: Boolean(cond), detail })
@@ -381,7 +397,9 @@ export function selfTest() {
     }
   }
 
-  const good = fixtureFiles({ [MANIFEST_REL]: manifestDoc(baseManifestEntries()) })
+  const good = fixtureFiles({
+    [MANIFEST_REL]: manifestDoc([...baseManifestEntries(), gitGuardianFixtureEntry()]),
+  })
 
   // ST1 清单与被审面逐条一致 ⇒ 绿
   run((root) => {
@@ -415,6 +433,7 @@ export function selfTest() {
         ...baseManifestEntries().map((t) =>
           t.id === 'guardian-runner' ? { ...t, sha256: sha256Of(newRunner) } : t,
         ),
+        gitGuardianFixtureEntry(),
       ]),
     })
     const out = judged(root)
@@ -543,11 +562,12 @@ export function selfTest() {
     writeIn(
       root,
       MANIFEST_REL,
-      manifestDoc(
-        baseManifestEntries().map((t) =>
+      manifestDoc([
+        ...baseManifestEntries().map((t) =>
           t.id === 'guardian-runner' ? { ...t, sha256: sha256Of(stagedRunner) } : t,
         ),
-      ),
+        gitGuardianFixtureEntry(),
+      ]),
     )
     gitRaw(['add', '-A'], root)
     const out = judged(root, 'staged')
@@ -698,6 +718,7 @@ export const __test__ = {
   MD_BASE,
   manifestDoc,
   baseManifestEntries,
+  gitGuardianFixtureEntry,
   fixtureFiles,
   seedRepo,
   commitTree,
