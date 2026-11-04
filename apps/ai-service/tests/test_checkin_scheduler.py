@@ -1153,6 +1153,60 @@ async def test_qoder_retry_skips_when_previous_round_still_running(monkeypatch):
     assert sched._qoder_retry_running is False  # finally 解锁
 
 
+async def test_midnight_job_registered_reuses_daily_run(monkeypatch):
+    """零点窗口(2026-11-04):00:05 job 存在、复用 _daily_run、8:05 主窗口未动。"""
+    monkeypatch.setenv("CHECKIN_CRON_ENABLED", "true")
+    monkeypatch.setattr(cs, "AsyncIOScheduler", _FakeAsyncIOScheduler)
+    monkeypatch.setattr(cs.checkin_store, "ensure_tables", _noop_async)
+    sched = cs.CheckinScheduler()
+    monkeypatch.setattr(sched, "_restore_outbound_pause", _noop_async)
+    await sched.start()
+
+    jobs = sched._scheduler.jobs  # type: ignore[union-attr]
+    # ① 0:05 job 真注册,且与主窗口同一 jitter;主窗口仍是 8:05(不许被挪成 0:05)
+    mid = jobs[cs._JOB_ID_MIDNIGHT]
+    assert cs._job_cron_expr(mid["trigger"]) == "5 0 * * *"
+    assert mid["trigger"].jitter == cs._CRON_JITTER
+    assert mid["func"] == sched._daily_run_midnight
+    main = jobs[cs._JOB_ID]
+    assert cs._job_cron_expr(main["trigger"]) == "5 8 * * *"
+    # 复用同一腿:零点入口只是带标签调用 _daily_run(不改业务逻辑)
+    labels: list[str] = []
+
+    async def _fake_daily_run(label: str = "主窗口") -> None:
+        labels.append(label)
+
+    monkeypatch.setattr(sched, "_daily_run", _fake_daily_run)
+    await sched._daily_run_midnight()
+    assert labels == ["零点窗口"]
+    # ③ status() 暴露下次零点窗口时刻(与 next_run 同级)
+    st = sched.status()
+    assert st["next_run_midnight"] is not None
+    assert datetime.fromisoformat(st["next_run_midnight"]).hour == 0
+    await sched.stop()
+    assert sched.status()["next_run_midnight"] is None
+
+
+async def test_midnight_run_excludes_qoder(monkeypatch):
+    """② 零点窗口的目标集不含 Qoder(Qoder 只走 10:05/补跑),轮次标签为「零点窗口」。"""
+    sched = cs.CheckinScheduler()
+    seen: dict[str, Any] = {}
+
+    async def _fake_load(label: str) -> tuple[list[dict[str, Any]], dict[int, datetime]]:
+        return [_acc(1, "trae"), _acc(2, "qoder"), _acc(3, "workbuddy")], {}
+
+    async def _fake_run(accounts: list[dict[str, Any]], cooldowns: Any, label: str) -> None:
+        seen["ids"] = [a["id"] for a in accounts]
+        seen["label"] = label
+
+    monkeypatch.setattr(sched, "_load_accounts_and_cooldowns", _fake_load)
+    monkeypatch.setattr(sched, "_run_batch", _fake_run)
+    await sched._daily_run_midnight()
+    assert 2 not in seen["ids"]  # Qoder 绝不进零点窗口
+    assert seen["ids"] == [1, 3]
+    assert seen["label"] == "零点窗口"
+
+
 async def test_qoder_retry_jobs_registered_and_status_exposed(monkeypatch):
     """start() 按 env 逐个注册补跑 job(带同一 jitter),status() 暴露下次补跑时刻。"""
     monkeypatch.setenv("CHECKIN_CRON_ENABLED", "true")
