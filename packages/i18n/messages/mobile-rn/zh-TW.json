@@ -7196,7 +7196,17 @@
     "bundleOta": "熱更新",
     "readyBody": "更新已下載完成，點「更新」立即生效",
     "installingHint": "應用程式會自動重新啟動，通常只需幾秒",
-    "restartNow": "立即重新啟動"
+    "restartNow": "立即重新啟動",
+    "apkTitle": "發現新版本 {{version}}",
+    "apkBody": "目前 {{current}} → 最新 {{latest}}",
+    "apkAction": "下載並安裝",
+    "apkActionBrowser": "前往下載",
+    "apkDownloading": "正在下載安裝檔 {{progress}}%",
+    "apkEta": "剩餘約 {{eta}}",
+    "apkInstalling": "正在開啟安裝程式…",
+    "apkBrowserOpening": "已交給瀏覽器下載，依提示安裝即可",
+    "apkCancel": "取消",
+    "apkHint": "安裝檔較大，建議在 Wi-Fi 下更新"
   },
   "cloudRuns": {
     "title": "雲託管 Agent 運行",

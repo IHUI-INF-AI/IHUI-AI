@@ -52,6 +52,10 @@ export * from './traceparent.js'
 // 开发者 API Key 跨端契约(2026-07-22 立,统一权限点枚举 + 鉴权类型 + /v1/* 响应格式)
 export * from './api-key.js'
 export * from './capability-catalog.js'
+// 声明式扩展 manifest 契约(2026-11-04 立):schema/逐字段校验类型 + 已注册扩展查询类型
+export * from './capability-extensions.js'
+// 技能按模型能力分档契约(2026-11-04 立):模型画像 + 档位声明 + 选档结果类型
+export * from './skill-tiers.js'
 
 // /v1/* 对外开放 API 端点请求/响应类型契约(2026-07-22 立,27 权限点 + 97 端点全功能覆盖)
 export * from './v1-endpoints.js'

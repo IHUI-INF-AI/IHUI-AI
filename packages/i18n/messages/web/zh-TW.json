@@ -17101,6 +17101,7 @@
     },
     "codeEditor": {
       "lspStatus": "LSP",
+      "attributionToggle": "AI 行歸屬標記",
       "zoomIn": "放大字號",
       "zoomOut": "縮小字號"
     },
@@ -23851,6 +23852,8 @@
     "agentSecuritySaveFailed": "儲存安全設定失敗",
     "analyticsEnabled": "使用情況分析",
     "analyticsEnabledDesc": "開啟後,平臺會記錄功能使用統計(點擊、頁面造訪、耗時等匿名事件),用於改進產品;不記錄您輸入的內容、程式碼或檔案路徑。關閉後立即停止回報,不影響任何功能。",
+    "rumEnabled": "效能與錯誤診斷(選用)",
+    "rumEnabledDesc": "預設關閉。開啟後僅回報匿名的啟動耗時、AI 首字延遲、串流長任務數與去識別化後的錯誤摘要,用於改進效能;不回報檔案路徑、工作空間名稱、電子郵件或裝置指紋。關閉後立即停止並清空待回報資料,不再發出任何請求。",
     "llmRawRetentionOptOut": "不保留 LLM 調用原文",
     "llmRawRetentionOptOutDesc": "你的提問與 AI 回答正文不會寫入資料庫",
     "codeIndexEgressOptOut": "不建程式碼語義索引",
