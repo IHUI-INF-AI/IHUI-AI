@@ -82,11 +82,14 @@ for (const sha of git(['rev-list', baseSha]).split('\n')) {
 if (reachable.size === 0) die(2, `基线 ${BASE} 的可达集为 0，未判定`)
 
 // ── 2. 枚举 tag ─────────────────────────────────────────────────
+// 2026-11-04 性能票:`%(refname:short)` 的短名消歧 O(n²)(912 ref 315ms / 23,115 ref 28,591ms);
+// 命名空间写死在 ROOTS 里 ⇒ 取全名后本地剥 `refs/tags/`。
+const TAG_REF_PREFIX = 'refs/tags/'
 let raw
 try {
   raw = git([
     'for-each-ref',
-    '--format=%(refname:short)%09%(objecttype)%09%(objectname)%09%(*objectname)',
+    '--format=%(refname)%09%(objecttype)%09%(objectname)%09%(*objectname)',
     ...ROOTS,
   ])
 } catch (e) {
@@ -104,7 +107,8 @@ const unclassified = []
 
 for (const line of raw.split('\n')) {
   if (!line.trim()) continue
-  const [name, objType, objName, peeled] = line.split('\t')
+  const [fullName, objType, objName, peeled] = line.split('\t')
+  const name = fullName?.startsWith(TAG_REF_PREFIX) ? fullName.slice(TAG_REF_PREFIX.length) : fullName
   const target = (peeled && peeled.trim()) || objName
   if (!name || !target) {
     unclassified.push({ name, reason: 'no-target' })
@@ -234,7 +238,7 @@ for (let i = 0; i < redundant.length; i += CHUNK_L) {
   try {
     git(['tag', '-d', ...chunk], { timeout: 300_000 })
     localDeleted += chunk.length
-  } catch (e) {
+  } catch {
     // 部分失败：逐条再来一次，只跳过已不存在的
     for (const n of chunk) {
       try {
