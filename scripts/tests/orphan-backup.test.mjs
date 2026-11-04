@@ -27,6 +27,7 @@ import { __test__ as lib } from '../lib/orphan-backup.mjs'
 import { __test__ as LAND } from '../object-space-land.mjs'
 import { __test__ as CONV } from '../git-sync-converge.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+import { git as bypassGit } from '../lib/bypass-git.mjs'
 
 const SHA = '947ef34a88a2b4c1d2e3f4a5b6c7d8e9f0a1b2c3'
 const OTHER = 'b'.repeat(40)
@@ -255,6 +256,37 @@ test('⑧ 同 tree 去重:命中只记台账不打 tag;判据失灵必须照打(
     }
     // ⑤ 判据本体:形状不对的 tree 不判定(返回 null)
     assert.equal(lib.findTreeAlreadyPresent('.', 'zzz', () => ''), null)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('⑨ recordAbandonedCommit 只记台账:不建任何 ref,行上带 superseded:true / ref:null(30a 仍按"无 tag = 未备份"判)', () => {
+  const dir = mkScratch('orphan-ledger-only-')
+  try {
+    bypassGit(['init', '-q', '.'], { root: dir })
+    const sha = 'a'.repeat(40)
+    const r = lib.recordAbandonedCommit({
+      sha,
+      why: '中间轮次被下一轮取代',
+      kind: 'conv',
+      root: dir,
+      now: new Date('2026-11-04T00:00:00Z'),
+    })
+    assert.equal(r.ok, true)
+    assert.equal(r.ref, null, '台账出口不得返回任何 ref')
+    assert.equal(r.why, 'ledger-only')
+    assert.equal(bypassGit(['for-each-ref', 'refs/tags'], { root: dir }).trim(), '', '只记台账不许建 tag')
+    const line = JSON.parse(
+      readFileSync(join(dir, '.ihui-agent', 'state', 'orphan-backup.jsonl'), 'utf8').trim(),
+    )
+    assert.equal(line.ref, null)
+    assert.equal(line.superseded, true)
+    assert.equal(line.sha, sha)
+    assert.equal(line.kind, 'conv')
+    // 形状不对必须出声(ok:false),不得静默吞成"已处理"
+    assert.equal(lib.recordAbandonedCommit({ sha: 'nope', kind: 'conv', root: dir }).ok, false)
+    assert.equal(lib.recordAbandonedCommit({ sha, kind: 'B', root: dir }).ok, false)
   } finally {
     rmScratch(dir)
   }

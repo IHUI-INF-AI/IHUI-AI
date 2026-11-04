@@ -142,7 +142,7 @@ import { git as bypassGit } from './lib/bypass-git.mjs'
 // G-800(承 G-725):旁路留痕的**唯一出口**。键名与落点都住在 lib,本器不得另拼一份 JSON、
 // 不得另写 schema、不得再拼一次台账路径 —— 那是"两处算同一件事必漂移"的本家形态。
 import { recordBypassLanding } from './lib/commit-attestation.mjs'
-import { backupOrphanCommit } from './lib/orphan-backup.mjs'
+import { backupOrphanCommit, recordAbandonedCommit } from './lib/orphan-backup.mjs'
 // 〈原 9 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#plan-merge-l148(门 103 C1 收口)〉首意: 次序判据要在**代码面**上找"哪一段代码真的正向落了地"(见 landingAttestationStructure:
 import { maskCommentsStringsAndRegex } from './lib/code-mask.mjs'
 // 〈原 3 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#plan-merge-l158(门 103 C1 收口)〉首意: 漂开族折叠档的**分族键**与门 203 同源(§0.6):同一段"什么算同题"的归一化只许一份实现。
@@ -162,6 +162,70 @@ import { runSelfTest } from './lib/plan-tasks-merge-selftest.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const PLAN_REL = 'PROJECT_PLAN.md'
+
+/**
+ * CAS 输家臂的统一收口(2026-11-04 立,第五单 · 承接 object-space-land 第 1 笔)。
+ *
+ * 口径:本文件有 5 个"造 commit → CAS 失败 → 按新 HEAD 重算重提交"的循环,以及 3 处
+ * 单发 `update-ref` 落地。此前它们**一枚孤儿都不备份**(审计实测悬空枚 785ff8c54816 即
+ * plan-tasks-merge 形态),而 object-space-land 那条已收口 ⇒ 本文件成了新的单向增长源。
+ *
+ * 为什么**不**复用 object-space-land 的"中间 sha 内容必然被下一轮覆盖"论证:
+ * 那边 `mine`/声明 blob 映射在循环前**一次算定**,每轮 entries 用同一批 blob,所以中间提交的
+ * 树内容全在下一轮可达面内。本文件每一轮都按**当时 HEAD 现读**重算载荷(计划文本随 HEAD 变),
+ * blob 集合**不是**一次算定的,中间 sha 的树也就不必然被下一轮覆盖 ⇒ 结构论证不成立。
+ *
+ * 保守收法(按用户第 1 笔给的第二档):
+ *  · 中间轮次:只 `recordAbandonedCommit` 记 jsonl 台账(`superseded:true`,`ref:null`,不建 tag);
+ *  · **最终失败的那一枚**:照打 `lost-commit/wip-merge-<sha7>`(否则 30a 窗内恒红 ⇒ §12e);
+ *  · 已落地又被回退的那一枚(验收不过 ⇒ 回退):它是货真价实的孤儿,直接照打。
+ */
+function backupUnlandedOrphan(sha, why, root = ROOT) {
+  if (!sha) return { ok: false, ref: null, why: 'no-sha' }
+  return backupOrphanCommit({
+    sha,
+    why,
+    kind: 'merge',
+    root,
+    logger: (m) => (String(m).startsWith('⚠️') ? console.error(m) : console.log(m)),
+  })
+}
+
+function noteSupersededRound(sha, why, root = ROOT) {
+  if (!sha) return { ok: false, ref: null, why: 'no-sha' }
+  const r = recordAbandonedCommit({ sha, why, kind: 'merge', root })
+  if (!r.ok) console.error(`⚠️ 中间轮次台账写不进(${r.why}):${sha.slice(0, 9)} 仍按未备份处理`)
+  return r
+}
+
+/**
+ * 测试注入点:CAS 前消耗 N 次"必然失败",用来在夹具里制造赢家臂。
+ * 只被 `scripts/tests/plan-tasks-merge-cas-loser.test.mjs` 调用;生产路径默认 0,不读任何 env,
+ * 不存在"设个环境变量就跳门"的通道(它只让 CAS 多失败一次,方向是**更保守**)。
+ */
+let __casFailInject = 0
+let __onCasFail = null
+export function setCasFailuresForTest(n, onFail = null) {
+  __casFailInject = Math.max(0, Math.floor(Number(n) || 0))
+  __onCasFail = typeof onFail === 'function' ? onFail : null
+  return __casFailInject
+}
+function casForward(commit, parent, opts) {
+  if (__casFailInject > 0) {
+    __casFailInject -= 1
+    // 夹具回调(例如"在 CAS 前把 HEAD 推进一枚")必须先于 CAS 生效,否则模拟的不是并发争用。
+    // 回调异常不改变本函数的语义:注入点只让 CAS 多失败一次,方向永远是更保守。
+    if (__onCasFail) {
+      try {
+        __onCasFail(commit, parent, opts?.root || ROOT)
+      } catch {
+        /* 夹具推进失败 ⇒ 退化成"HEAD 没动的纯 CAS 失败",调用方照常重试 */
+      }
+    }
+    return false
+  }
+  return casUpdateRef(commit, parent, opts)
+}
 
 /**
  * 本次运行使用的 F3「归档出口」索引(由 `readArchivedIndex` 按**当次被审面**填一次)。
@@ -394,7 +458,7 @@ export const BYPASS_LANDING_SITES = [
   {
     fn: 'restoreTerminalsAndLand',
     source: 'plan-tasks-merge:restore-terminals',
-    cas: 'casUpdateRef(landed.commit, parent',
+    cas: 'casForward(landed.commit, parent',
     guard: 'if (recheck.problems.length) {',
     rollback: 'casUpdateRef(parent,',
     before: 'alignSharedIndex(',
@@ -402,7 +466,7 @@ export const BYPASS_LANDING_SITES = [
   {
     fn: 'rowsDedupeAndLand',
     source: 'plan-tasks-merge:dedupe-rows',
-    cas: 'casUpdateRef(landed.commit, parent',
+    cas: 'casForward(landed.commit, parent',
     guard: 'if (leftAfter.length > 0) {',
     rollback: 'casUpdateRef(parent,',
     before: 'alignSharedIndex(',
@@ -410,7 +474,7 @@ export const BYPASS_LANDING_SITES = [
   {
     fn: 'openRowsDedupeOnce',
     source: 'plan-tasks-merge:dedupe-open-rows',
-    cas: 'casUpdateRef(landed.commit, parent',
+    cas: 'casForward(landed.commit, parent',
     guard: 'if (leftAfter.length > 0 || after.claimable !== c0.claimable) {',
     rollback: 'casUpdateRef(parent,',
     before: 'alignSharedIndex(',
@@ -418,7 +482,7 @@ export const BYPASS_LANDING_SITES = [
   {
     fn: 'twinFoldAndLand',
     source: 'plan-tasks-merge:fold-twins',
-    cas: 'casUpdateRef(landed.commit, parent',
+    cas: 'casForward(landed.commit, parent',
     guard: 'if (recheck.problems.length) {',
     rollback: 'casUpdateRef(parent,',
     before: 'alignSharedIndex(',
@@ -460,7 +524,7 @@ export const BYPASS_LANDING_SITES = [
     //(复验不过即回退),区别只在判据面与触发方式(必须 --keeper 人工点名持有行)。
     fn: 'driftedMergeAndLand',
     source: 'plan-tasks-merge:merge-drifted',
-    cas: 'casUpdateRef(landed.commit, parent',
+    cas: 'casForward(landed.commit, parent',
     guard: 'if (problems.length) {',
     rollback: 'casUpdateRef(parent,',
     before: 'alignSharedIndex(',
@@ -469,7 +533,7 @@ export const BYPASS_LANDING_SITES = [
 // 〈原 4 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#plan-merge-l484(门 103 C1 收口)〉首意: 第 9 站(2026-10-25 立,--fold-drifted-families 的落地腿):CAS/复验/回退形状同 twinFoldAndLand。
     fn: 'foldDriftedFamiliesAndLand',
     source: 'plan-tasks-merge:fold-drifted-families',
-    cas: 'casUpdateRef(landed.commit, parent',
+    cas: 'casForward(landed.commit, parent',
     guard: 'if (recheck.problems.length) {',
     rollback: 'casUpdateRef(parent,',
     before: 'alignSharedIndex(',
@@ -1439,16 +1503,7 @@ export function restoreTerminalsAndLand(maxAttempts = 8) {
   // 声明面同一份台账),内容不丢,丢的只是 commit 对象 ⇒ 中间轮次不打 tag;
   // **最终失败的那一枚必须照打**,否则 30a 恒红会逼全仓跳门(§12e)。
   let lastMadeCommit = ''
-  const backupUnlanded = (sha, why) => {
-    if (!sha) return { ok: false, ref: null, why: 'no-sha' }
-    return backupOrphanCommit({
-      sha,
-      why,
-      kind: 'merge',
-      root: ROOT,
-      logger: (m) => (String(m).startsWith('⚠️') ? console.error(m) : console.log(m)),
-    })
-  }
+  const backupUnlanded = (sha, why) => backupUnlandedOrphan(sha, why, ROOT)
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     const spec = `HEAD:${PLAN_REL}`
     const src = catBatch(ROOT, [spec], { maxBuffer: 1 << 28 }).get(spec)
@@ -1500,7 +1555,7 @@ export function restoreTerminalsAndLand(maxAttempts = 8) {
       console.log(`❌ 恢复档停手 —— 候选树建不出来:${String(e?.message ?? e).slice(0, 160)}`)
       return 1
     }
-    if (!casUpdateRef(landed.commit, parent, { root: ROOT })) {
+    if (!casForward(landed.commit, parent, { root: ROOT })) {
       console.log(`↻ 第 ${attempt} 次 CAS 失败(HEAD 被并发推进),整轮按新 HEAD 现取重算行号再来`)
       continue
     }
@@ -1917,6 +1972,7 @@ export function verifyRowDedupeCore(srcText, outText, deletedCount, match, findT
  * 现读重算行号,绝不复用上一次的位置(§12 那型:行号在 append 后必挪位)。
  */
 export function rowsDedupeAndLand(match = null, maxAttempts = 8) {
+  let lastMadeCommit = ''
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     const spec = `HEAD:${PLAN_REL}`
     const src = catBatch(ROOT, [spec], { maxBuffer: 1 << 28 }).get(spec)
@@ -1976,15 +2032,21 @@ export function rowsDedupeAndLand(match = null, maxAttempts = 8) {
       console.log(`❌ 单行副本档停手 —— 候选树建不出来:${String(e?.message ?? e).slice(0, 160)}`)
       return 1
     }
-    if (!casUpdateRef(landed.commit, parent, { root: ROOT })) {
+    if (!casForward(landed.commit, parent, { root: ROOT })) {
+      lastMadeCommit = landed.commit
+      // 末轮失败不记"被取代"台账:它马上会在耗尽出口被照打 tag,再记一行 superseded 会把
+      // "已打 tag 的那枚"写成"只是被取代",台账与事实相反。
+      if (attempt < maxAttempts) noteSupersededRound(lastMadeCommit, `dedupe-rows 第 ${attempt} 轮 CAS 失败:中间轮次仅记台账,不打 tag`, ROOT)
       console.log(`↻ 第 ${attempt} 次 CAS 失败(HEAD 被并发推进),整轮按新 HEAD 重算副本位置再来`)
       continue
     }
+    lastMadeCommit = landed.commit
     const landedSpec = `${landed.commit}:${PLAN_REL}`
     const landedText = catBatch(ROOT, [landedSpec], { maxBuffer: 1 << 28 }).get(landedSpec)
     if (landedText === null || landedText === undefined) {
       console.log(`❌ 落地后回读不到 ${landed.commit.slice(0, 11)} 的台账 ⇒ 不记为已修,回退`)
       casUpdateRef(parent, landed.commit, { root: ROOT, allowNonFastForward: 'rollback:回退本器刚落地且复验不过的那枚(G-939 守卫显式档)' })
+      backupUnlanded(landed.commit, 'dedupe-rows 落地后回读不到台账,已回退:该枚为真孤儿')
       return 1
     }
     const after = audit(landedText).counts
@@ -1992,6 +2054,7 @@ export function rowsDedupeAndLand(match = null, maxAttempts = 8) {
     if (leftAfter.length > 0) {
       console.log(`❌ 落地后回读仍有 ${leftAfter.length} 组等值副本,回退到 ${parent.slice(0, 11)}`)
       casUpdateRef(parent, landed.commit, { root: ROOT, allowNonFastForward: 'rollback:回退本器刚落地且复验不过的那枚(G-939 守卫显式档)' })
+      backupUnlanded(landed.commit, 'dedupe-rows 落地后复验仍有副本,已回退:该枚为真孤儿')
       return 1
     }
     // G-800 留痕:回读闭合之后、共享索引对齐之前(次序判据见 BYPASS_LANDING_SITES)。
@@ -2021,6 +2084,7 @@ export function rowsDedupeAndLand(match = null, maxAttempts = 8) {
     return 0
   }
   console.log(`❌ ${maxAttempts} 轮都没抢到 CAS,放弃`)
+  backupUnlanded(lastMadeCommit, `dedupe-rows ${maxAttempts} 轮均未抢到 CAS(末枚兜底)`)
   return 1
 }
 
@@ -2353,6 +2417,7 @@ function openRowsDedupeOnce(match = null, maxAttempts = 8, opts = {}) {
   const identical = !!opts.identical
   const finder = identical ? findIdenticalOpenRowGroups : findOpenRowTwins
   const flagName = identical ? '--fold-identical-open-rows' : '--dedupe-open-rows'
+  let lastMadeCommit = ''
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     const spec = `HEAD:${PLAN_REL}`
     const src = catBatch(root, [spec], { maxBuffer: 1 << 28 }).get(spec)
@@ -2504,15 +2569,19 @@ function openRowsDedupeOnce(match = null, maxAttempts = 8, opts = {}) {
         remainingRows: 0,
       }
     }
-    if (!casUpdateRef(landed.commit, parent, { root })) {
+    if (!casForward(landed.commit, parent, { root })) {
+      lastMadeCommit = landed.commit
+      if (attempt < maxAttempts) noteSupersededRound(lastMadeCommit, `${flagName} 第 ${attempt} 轮 CAS 失败:中间轮次仅记台账,不打 tag`, root)
       console.log(`↻ 第 ${attempt} 次 CAS 失败(HEAD 被并发推进),整轮按新 HEAD 重算副本位置再来`)
       continue
     }
+    lastMadeCommit = landed.commit
     const landedSpec = `${landed.commit}:${PLAN_REL}`
     const landedText = catBatch(root, [landedSpec], { maxBuffer: 1 << 28 }).get(landedSpec)
     if (landedText === null || landedText === undefined) {
       console.log(`❌ 落地后回读不到 ${landed.commit.slice(0, 11)} 的台账 ⇒ 不记为已修,回退`)
       casUpdateRef(parent, landed.commit, { root, allowNonFastForward: 'rollback:回退本器刚落地且复验不过的那枚(G-939 守卫显式档)' })
+      backupUnlandedOrphan(landed.commit, `${flagName} 落地后回读不到台账,已回退:该枚为真孤儿`, root)
       return { kind: 'failed', deletedCount: 0, sha: null, remainingGroups: 0, remainingRows: 0 }
     }
     const leftAll = finder(landedText)
@@ -2528,6 +2597,7 @@ function openRowsDedupeOnce(match = null, maxAttempts = 8, opts = {}) {
         `❌ 落地后回读不闭合(本轮认领的组残留 ${leftAfter.length} 组 / 活数 ${c0.claimable}→${after.claimable}),回退到 ${parent.slice(0, 11)}`,
       )
       casUpdateRef(parent, landed.commit, { root, allowNonFastForward: 'rollback:回退本器刚落地且复验不过的那枚(G-939 守卫显式档)' })
+      backupUnlandedOrphan(landed.commit, `${flagName} 落地后复验不闭合,已回退:该枚为真孤儿`, root)
       return { kind: 'failed', deletedCount: 0, sha: null, remainingGroups: 0, remainingRows: 0 }
     }
     // G-800 留痕:本轮认领的组已清零(回读闭合)之后、共享索引对齐之前。
@@ -2568,6 +2638,7 @@ function openRowsDedupeOnce(match = null, maxAttempts = 8, opts = {}) {
     }
   }
   console.log(`❌ ${maxAttempts} 轮都没抢到 CAS,放弃`)
+  backupUnlandedOrphan(lastMadeCommit, `${flagName} ${maxAttempts} 轮均未抢到 CAS(末枚兜底)`, root)
   return { kind: 'failed', deletedCount: 0, sha: null, remainingGroups: 0, remainingRows: 0 }
 }
 
@@ -3008,6 +3079,7 @@ export function verifyTwinFold(srcText, outText, edits, refused = []) {
 /** 折叠档的落地:临时索引 + commit-tree + CAS(走 lib/bypass-git 那一份 plumbing,绝不碰共享工作树)。 */
 export function twinFoldAndLand(maxAttempts = 8) {
   const today = new Date().toISOString().slice(0, 10)
+  let lastMadeCommit = ''
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     const spec = `HEAD:${PLAN_REL}`
     const src = catBatch(ROOT, [spec], { maxBuffer: 1 << 28 }).get(spec)
@@ -3058,21 +3130,26 @@ export function twinFoldAndLand(maxAttempts = 8) {
       console.log(`❌ 折叠档停手 —— 候选树建不出来:${String(e?.message ?? e).slice(0, 160)}`)
       return 1
     }
-    if (!casUpdateRef(landed.commit, parent, { root: ROOT })) {
+    if (!casForward(landed.commit, parent, { root: ROOT })) {
+      lastMadeCommit = landed.commit
+      if (attempt < maxAttempts) noteSupersededRound(lastMadeCommit, `折叠档 第 ${attempt} 轮 CAS 失败:中间轮次仅记台账,不打 tag`, ROOT)
       console.log(`↻ 第 ${attempt} 次 CAS 失败(HEAD 被并发推进),整轮按新 HEAD 现取重算折叠位置再来`)
       continue
     }
+    lastMadeCommit = landed.commit
     const landedSpec = `${landed.commit}:${PLAN_REL}`
     const landedText = catBatch(ROOT, [landedSpec], { maxBuffer: 1 << 28 }).get(landedSpec)
     if (landedText === null || landedText === undefined) {
       console.log(`❌ 落地后回读不到 ${landed.commit.slice(0, 11)} 的台账 ⇒ 不记为已修,回退`)
       casUpdateRef(parent, landed.commit, { root: ROOT, allowNonFastForward: 'rollback:回退本器刚落地且复验不过的那枚(G-939 守卫显式档)' })
+      backupUnlandedOrphan(landed.commit, '折叠档 落地后回读不到台账,已回退:该枚为真孤儿', ROOT)
       return 1
     }
     const recheck = verifyTwinFold(src, landedText, f.edits, f.refused)
     if (recheck.problems.length) {
       console.log(`❌ 落地后复验不过(${recheck.problems[0]}),回退到 ${parent.slice(0, 11)}`)
       casUpdateRef(parent, landed.commit, { root: ROOT, allowNonFastForward: 'rollback:回退本器刚落地且复验不过的那枚(G-939 守卫显式档)' })
+      backupUnlandedOrphan(landed.commit, '折叠档 落地后复验不过,已回退:该枚为真孤儿', ROOT)
       return 1
     }
     // G-800 留痕:折叠复验通过之后、共享索引对齐之前(次序判据见 BYPASS_LANDING_SITES)。
@@ -3096,6 +3173,7 @@ export function twinFoldAndLand(maxAttempts = 8) {
     return 0
   }
   console.log(`❌ ${maxAttempts} 轮都没抢到 CAS,放弃`)
+  backupUnlandedOrphan(lastMadeCommit, `折叠档 ${maxAttempts} 轮均未抢到 CAS(末枚兜底)`, ROOT)
   return 1
 }
 
@@ -3477,6 +3555,7 @@ export function verifyDriftedMerge(srcText, outText, edits, refused = [], anchor
 /** 漂开归并的落地:与 twinFoldAndLand 同一套对象空间 plumbing(临时索引 + commit-tree + CAS)。 */
 export function driftedMergeAndLand(anchor, keeperLine, maxAttempts = 8) {
   const today = new Date().toISOString().slice(0, 10)
+  let lastMadeCommit = ''
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     const spec = `HEAD:${PLAN_REL}`
     const src = catBatch(ROOT, [spec], { maxBuffer: 1 << 28 }).get(spec)
@@ -3527,21 +3606,26 @@ export function driftedMergeAndLand(anchor, keeperLine, maxAttempts = 8) {
       console.log(`❌ 漂开归并档停手 —— 候选树建不出来:${String(e?.message ?? e).slice(0, 160)}`)
       return 1
     }
-    if (!casUpdateRef(landed.commit, parent, { root: ROOT })) {
+    if (!casForward(landed.commit, parent, { root: ROOT })) {
+      lastMadeCommit = landed.commit
+      if (attempt < maxAttempts) noteSupersededRound(lastMadeCommit, `漂开归并档 第 ${attempt} 轮 CAS 失败:中间轮次仅记台账,不打 tag`, ROOT)
       console.log(`↻ 第 ${attempt} 次 CAS 失败(HEAD 被并发推进),按新 HEAD 现取重算再来`)
       continue
     }
+    lastMadeCommit = landed.commit
     const landedSpec = `${landed.commit}:${PLAN_REL}`
     const landedText = catBatch(ROOT, [landedSpec], { maxBuffer: 1 << 28 }).get(landedSpec)
     if (landedText === null || landedText === undefined) {
       console.log(`❌ 落地后回读不到 ${landed.commit.slice(0, 11)} 的台账 ⇒ 不记为已修,回退`)
       casUpdateRef(parent, landed.commit, { root: ROOT, allowNonFastForward: 'rollback:回退本器刚落地且复验不过的那枚(G-939 守卫显式档)' })
+      backupUnlandedOrphan(landed.commit, '漂开归并档 落地后回读不到台账,已回退:该枚为真孤儿', ROOT)
       return 1
     }
     const recheck = verifyDriftedMerge(src, landedText, f.edits, f.refused, anchor, keeperLine)
     if (recheck.problems.length) {
       console.log(`❌ 落地后复验不过(${recheck.problems[0]}),回退到 ${parent.slice(0, 11)}`)
       casUpdateRef(parent, landed.commit, { root: ROOT, allowNonFastForward: 'rollback:回退本器刚落地且复验不过的那枚(G-939 守卫显式档)' })
+      backupUnlandedOrphan(landed.commit, '漂开归并档 落地后复验不过,已回退:该枚为真孤儿', ROOT)
       return 1
     }
     // G-800 留痕:复验通过之后、共享索引对齐之前(次序判据见 BYPASS_LANDING_SITES)。
@@ -3561,6 +3645,7 @@ export function driftedMergeAndLand(anchor, keeperLine, maxAttempts = 8) {
     return 0
   }
   console.log(`❌ ${maxAttempts} 轮都没抢到 CAS,放弃`)
+  backupUnlandedOrphan(lastMadeCommit, `漂开归并档 ${maxAttempts} 轮均未抢到 CAS(末枚兜底)`, ROOT)
   return 1
 }
 
@@ -3853,6 +3938,7 @@ export function verifyDriftedFamilyFold(srcText, outText, plan) {
 export function foldDriftedFamiliesAndLand(maxAttempts = 8, opts = {}) {
   // root 可注入(镜像/端到端测试跑 scratch 仓);生产面缺省 = 本仓。
   const root = opts.root || ROOT
+  let lastMadeCommit = ''
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     const spec = `HEAD:${PLAN_REL}`
     const src = catBatch(root, [spec], { maxBuffer: 1 << 28 }).get(spec)
@@ -3909,21 +3995,26 @@ export function foldDriftedFamiliesAndLand(maxAttempts = 8, opts = {}) {
       console.log(`❌ 漂开族折叠档停手 —— 候选树建不出来:${String(e?.message ?? e).slice(0, 160)}`)
       return 1
     }
-    if (!casUpdateRef(landed.commit, parent, { root })) {
+    if (!casForward(landed.commit, parent, { root })) {
+      lastMadeCommit = landed.commit
+      if (attempt < maxAttempts) noteSupersededRound(lastMadeCommit, `漂开族折叠档 第 ${attempt} 轮 CAS 失败:中间轮次仅记台账,不打 tag`, root)
       console.log(`↻ 第 ${attempt} 次 CAS 失败(HEAD 被并发推进),按新 HEAD 现取重算再来`)
       continue
     }
+    lastMadeCommit = landed.commit
     const landedSpec = `${landed.commit}:${PLAN_REL}`
     const landedText = catBatch(root, [landedSpec], { maxBuffer: 1 << 28 }).get(landedSpec)
     if (landedText === null || landedText === undefined) {
       console.log(`❌ 落地后回读不到 ${landed.commit.slice(0, 11)} 的台账 ⇒ 不记为已修,回退`)
       casUpdateRef(parent, landed.commit, { root, allowNonFastForward: 'rollback:回退本器刚落地且复验不过的那枚(G-939 守卫显式档)' })
+      backupUnlandedOrphan(landed.commit, '漂开族折叠档 落地后回读不到台账,已回退:该枚为真孤儿', root)
       return 1
     }
     const recheck = verifyDriftedFamilyFold(src, landedText, plan)
     if (recheck.problems.length) {
       console.log(`❌ 落地后复验不过(${recheck.problems[0]}),回退到 ${parent.slice(0, 11)}`)
       casUpdateRef(parent, landed.commit, { root, allowNonFastForward: 'rollback:回退本器刚落地且复验不过的那枚(G-939 守卫显式档)' })
+      backupUnlandedOrphan(landed.commit, '漂开族折叠档 落地后复验不过,已回退:该枚为真孤儿', root)
       return 1
     }
     // 留痕必须排在**落地成功之后**(凭据是 HEAD 已推进,不是退出码;先写后落会把"面上还在"说成"已删")
@@ -3950,6 +4041,7 @@ export function foldDriftedFamiliesAndLand(maxAttempts = 8, opts = {}) {
     return 0
   }
   console.log(`❌ ${maxAttempts} 轮都没抢到 CAS,放弃`)
+  backupUnlandedOrphan(lastMadeCommit, `漂开族折叠档 ${maxAttempts} 轮均未抢到 CAS(末枚兜底)`, root)
   return 1
 }
 
@@ -4168,8 +4260,17 @@ export function healAndLand() {
     gitIn(idx, ['update-index', '--add', '--cacheinfo', `100644,${blob},${PLAN_REL}`])
     const tree = gitIn(idx, ['write-tree'])
     const commit = gitIn(idx, ['commit-tree', tree, '-p', head, '-F', msgFile])
-    gitIn(null, ['update-ref', 'HEAD', commit, head])
+    try {
+      gitIn(null, ['update-ref', 'HEAD', commit, head])
+    } catch {
+      // git update-ref 在 old 值已不是当前值时以非零退出(不是"什么都没造"):这枚 commit-tree
+      // 已经没有 ref 会指向它 ⇒ 必须走 lost-commit 备份,否则就是一笔"一个都不打"的孤儿出口。
+      backupUnlandedOrphan(commit, 'heal 自愈 CAS 抛出(HEAD 被并发抢进):该枚仅由 commit-tree 造出', ROOT)
+      console.log('❌ CAS 失败(HEAD 被并发抢进),本次自愈放弃 —— 下一次提交会再试')
+      return 1
+    }
     if (gitIn(null, ['rev-parse', 'HEAD']) !== commit) {
+      backupUnlandedOrphan(commit, 'heal 自愈 CAS 未胜出(update-ref 后 HEAD 已被再推进):该枚成孤儿', ROOT)
       console.log('❌ CAS 失败(HEAD 被并发抢进),本次自愈放弃 —— 下一次提交会再试')
       return 1
     }
@@ -4336,8 +4437,15 @@ function healWithPrefixHolder(holderFragment, { commit }) {
     gitIn(idx, ['update-index', '--add', '--cacheinfo', `100644,${blob},${PLAN_REL}`])
     const tree = gitIn(idx, ['write-tree'])
     const commitSha = gitIn(idx, ['commit-tree', tree, '-p', head0, '-F', msgFile])
-    gitIn(null, ['update-ref', 'HEAD', commitSha, head0])
+    try {
+      gitIn(null, ['update-ref', 'HEAD', commitSha, head0])
+    } catch {
+      backupUnlandedOrphan(commitSha, 'prefix-holder CAS 抛出(HEAD 被并发抢进):该枚仅由 commit-tree 造出', ROOT)
+      console.log('❌ CAS 失败(HEAD 被并发抢进),本次放弃 —— 重新取面再跑')
+      return 1
+    }
     if (gitIn(null, ['rev-parse', 'HEAD']) !== commitSha) {
+      backupUnlandedOrphan(commitSha, 'prefix-holder CAS 未胜出(update-ref 后 HEAD 已被再推进):该枚成孤儿', ROOT)
       console.log('❌ CAS 失败(HEAD 被并发抢进),本次放弃 —— 重新取面再跑')
       return 1
     }
@@ -4372,6 +4480,7 @@ function healWithPrefixHolder(holderFragment, { commit }) {
  * 就等于按一张过期地图删行。CAS 输了就整轮重算,绝不拿上一轮的行号再试一次。
  */
 export function dedupeAndLand(maxAttempts = 8) {
+  let lastMadeCommit = ''
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     const head = gitIn(null, ['rev-parse', 'HEAD'])
     const spec = `HEAD:${PLAN_REL}`
@@ -4435,19 +4544,25 @@ export function dedupeAndLand(maxAttempts = 8) {
       try {
         gitIn(null, ['update-ref', 'HEAD', commit, head])
       } catch {
+        lastMadeCommit = commit
+        if (attempt < maxAttempts) noteSupersededRound(lastMadeCommit, `dedupe-blocks 第 ${attempt} 轮 CAS 抛出:中间轮次仅记台账,不打 tag`, ROOT)
         console.log(`↻ 第 ${attempt} 次 CAS 失败(HEAD 被并发推进),整轮重算块位置再来`)
         continue
       }
       if (gitIn(null, ['rev-parse', 'HEAD']) !== commit) {
+        lastMadeCommit = commit
+        if (attempt < maxAttempts) noteSupersededRound(lastMadeCommit, `dedupe-blocks 第 ${attempt} 轮 CAS 未胜出:中间轮次仅记台账,不打 tag`, ROOT)
         console.log(`↻ 第 ${attempt} 次 CAS 未胜出,重算再来`)
         continue
       }
+      lastMadeCommit = commit
       const after = audit(
         gitIn(null, ['show', `${commit}:${PLAN_REL}`], { encoding: 'utf8' }),
       ).counts
       if (after.dupBlocks >= b0.dupBlocks) {
         console.log(`❌ 落地后回读块数没降(${b0.dupBlocks}→${after.dupBlocks}),回退`)
         gitIn(null, ['update-ref', 'HEAD', head, commit])
+        backupUnlandedOrphan(commit, 'dedupe-blocks 落地后回读块数没降,已回退:该枚为真孤儿', ROOT)
         return 1
       }
       // G-800 留痕:回读已证块数下降(复验通过)之后、共享索引写回之前。
@@ -4476,6 +4591,7 @@ export function dedupeAndLand(maxAttempts = 8) {
     }
   }
   console.log(`❌ ${maxAttempts} 轮都没抢到 CAS,放弃`)
+  backupUnlandedOrphan(lastMadeCommit, `dedupe-blocks ${maxAttempts} 轮均未抢到 CAS(末枚兜底)`, ROOT)
   return 1
 }
 
