@@ -82,30 +82,32 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 <!-- BEGIN GENERATED NUMBERS (node scripts/gen-doc-numbers.mjs --markdown) -->
 | 指标 | 现值 | 取数键 |
 | ---- | ---- | ------ |
-| 数据库表 | 619 | `dbTables` |
-| schema 文件 | 240 | `dbSchemaFiles` |
-| API 路由 | 4682 | `apiRoutes` |
-| 路由文件 | 658 | `apiRouteFiles` |
+| 数据库表 | 622 | `dbTables` |
+| schema 文件 | 241 | `dbSchemaFiles` |
+| API 路由 | 4699 | `apiRoutes` |
+| 路由文件 | 663 | `apiRouteFiles` |
 | AI 服务路由 | 628 | `aiServiceRoutes` |
 | WebSocket 端点 | 25 | `wsEndpoints` |
 | 入库模型清单 | 100 | `llmModels` |
 | 发布平台 | 38 | `publishPlatforms` |
 | 端应用包 | 9 | `appPackages` |
 | 共享包 | 16 | `sharedPackages` |
-| CLI 命令文件 | 69 | `cliCommandFiles` |
+| CLI 命令文件 | 70 | `cliCommandFiles` |
 | CLI 工具文件 | 73 | `cliToolFiles` |
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 4007 | `testFiles` |
-| CI 工作流 | 51 | `ciWorkflows` |
+| 测试文件 | 4078 | `testFiles` |
+| CI 工作流 | 53 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
-| 工程守门 | 316 | `guardianGates` |
-| — blocking | 287 | `guardianBlocking` |
-| — warn | 31 | `guardianWarn` |
-| 跟踪文件 | 18862 | `trackedFiles` |
-上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-03。
+| 工程守门 | 333 | `guardianGates` |
+| — blocking | 303 | `guardianBlocking` |
+| — warn | 32 | `guardianWarn` |
+| 跟踪文件 | 19119 | `trackedFiles` |
+
+上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-04。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
+
 <!-- END GENERATED NUMBERS -->
 **一句话口径**:数字一律现读,文档里不写「约 N 个」——那种写法必然腐烂。
 ---
@@ -42297,3 +42299,4 @@ A: Yes. ~14839+ tests / 4078 test files / 67 e2e spec / 4699 API 路由 / 622 �
 - 📚 文档:门 287 号位现读回灌两枚残留 —— hover 门入库时与同批 props 对账门撞 288,落地腿已把 runner 注册块与门体头注顺延为 287(HEAD 面在位);本枚对齐其余两处字面:README 点名条 runner id 与 UI/样式尾注、镜像⑦形状锁号位 regex+文案(prettier 归位后水印已复验完整)。README 盘上派生块(跟踪文件 18947/收编行,可重算件)随本枚带落;props 门自身与其 285 条目未触碰。盘面 scripts/guardian-runner.mjs 为已落地历史拷贝的幻影漂移(§5b 形态,P1 对账尺当轮点名),已按 30c 出路②单文件 checkout HEAD 对齐——零丢失(盘 blob 系上一枚落地态,本票文字全部已入 HEAD)。 (1c9cdb39c2)
 - 🚀 新功能/改进:落语义等价映射表 + 门288 mapped 分类与棘轮 —— 3 条命名等价(onPress↔onTap×2、label↔labelKey)归 mapped 4 键,漂移 277→273;表扩容须同轮收敛 (2ccede4e8e)
 - 🐞 修复:ColorfulLoader 两端同源收口 —— RN 补 visible(不渲染即 null)、小程序适配层补 duration(默认共享档),门288 消 2 键 (657b9ed59f)
+| 跟踪文件 | 19097 | `trackedFiles` |

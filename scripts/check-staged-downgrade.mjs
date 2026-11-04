@@ -4,7 +4,7 @@
 
 /* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出点名与出路 */
 /**
- * check-staged-downgrade.mjs —— 「旧 blob 回写」守门(2026-11-03 立,守门 292)。
+ * check-staged-downgrade.mjs —— 「旧 blob 回写」守门(2026-11-03 立,守门 298)。
  *
  * 立因(实测):apps/miniapp-taro 的 4 个组件(Badge/Input/Tooltip/VipBadge)被 guardian 的
  * `sweepUiMirrorLeg` → `gen-ui-mirror.mjs --apply` 反复以**旧档**写回工作树:
@@ -27,7 +27,8 @@
  * 取材纪律(门 118):只判**索引 blob**(`git diff --cached` + `:path`),不读工作区;
  * 所有 git 子进程经 `scripts/lib/face-reader.mjs`(stdio / timeout / batch 统一在层内)。
  *
- * 退出码(§0.3):0 = 无回写或合法回滚;1 = 有幻影回写;2 = 该跑没跑成(未判定)。
+ * 退出码(§0.3):0 = 无回写/合法回滚/索引面暂无改动(不适用,**不是判绿**);1 = 有幻影回写;
+ *   2 = 该跑没跑成(未判定)。空索引不折成 pass(上一轮"判 0 个暂存改动文件"报绿即此型假绿)。
  * 应急放行:`HUSKY_SKIP_STALE_DOWNGRADE=1 git commit ...`(不推荐;跳过会留痕)。
  *
  * 用法:
@@ -49,7 +50,7 @@ import {
 } from './lib/ancestor-downgrade.mjs'
 
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-export const GATE_ID = '292'
+export const GATE_ID = '298'
 const SKIP_ENV = 'HUSKY_SKIP_STALE_DOWNGRADE'
 const REVERT_LEDGER_REL = '.ihui-agent/state/intentional-revert.jsonl'
 
@@ -69,8 +70,9 @@ export function stagedModifiedPaths(root = ROOT) {
 }
 
 /**
- * 判一轮。返回四态对象(调用方不得把 undetermined 折成 pass):
+ * 判一轮。返回五态对象(调用方不得把 undetermined / not-applicable 折成 pass):
  *   { state:'pass', judged, paths }
+ *   { state:'not-applicable', judged:0, paths:[] }   ← 索引面无暂存改动,没东西可判,不记绿
  *   { state:'waived', judged, stale:[...], rationale }
  *   { state:'fail', judged, stale:[...] }
  *   { state:'undetermined', judged, why }
@@ -82,7 +84,8 @@ export function judge({ root = ROOT, message = '', windowSize = ANCESTOR_WINDOW_
   } catch (e) {
     return { state: 'undetermined', judged: 0, why: `索引面取不到:${String(e?.message ?? e).split('\n')[0]}` }
   }
-  if (paths.length === 0) return { state: 'pass', judged: 0, stale: [], paths: [] }
+  // 空索引 = 没有判据对象,不是"判过且通过"(§0.3:枚举到 0 个候选判死不记绿)。
+  if (paths.length === 0) return { state: 'not-applicable', judged: 0, stale: [], paths: [] }
   let oids
   try {
     const specs = []
@@ -188,6 +191,8 @@ function main(argv = process.argv.slice(2)) {
     console.log(JSON.stringify(result, null, 2))
   } else if (result.state === 'pass') {
     console.log(`✅ [${GATE_ID}] 旧 blob 回写守门通过(判 ${result.judged} 个暂存改动文件,无历史版本回写)`)
+  } else if (result.state === 'not-applicable') {
+    console.log(`⏭️ [${GATE_ID}] 不适用:索引面 0 个暂存改动文件(没有判据对象,未判绿也未判红)`)
   } else if (result.state === 'waived') {
     console.log(`⚠️ [${GATE_ID}] 有意回滚放行(${result.stale.length} 个路径),依据:${result.rationale}`)
     for (const s of result.stale) console.log(`   - ${describeMatch(s.path, { commit: s.ancestor })}`)
@@ -198,7 +203,9 @@ function main(argv = process.argv.slice(2)) {
   } else {
     console.error(`? [${GATE_ID}] 未判定:${result.why}`)
   }
-  return result.state === 'pass' || result.state === 'waived' ? 0 : result.state === 'fail' ? 1 : 2
+  if (result.state === 'fail') return 1
+  if (result.state === 'undetermined') return 2
+  return 0 // pass / waived / not-applicable:不适用不等于判绿,但也不拦提交
 }
 
 // ---------- 自检(临时仓夹具,不碰真仓) ----------
@@ -269,7 +276,7 @@ function selfTest() {
       const { dir } = makeRepo()
       cleanup.push(dir)
       const r = judge({ root: dir })
-      ok('T5 无暂存不判', r.state === 'pass' && r.judged === 0)
+      ok('T5 无暂存 ⇒ not-applicable(不记绿)', r.state === 'not-applicable' && r.judged === 0 && r.paths.length === 0)
     }
     // T6 空口声明(依据过短)⇒ 仍红
     {
