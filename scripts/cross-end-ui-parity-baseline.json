@@ -1,6 +1,6 @@
 {
   "counts": {
-    "BottomActionBar": 13,
+    "BottomActionBar": 12,
     "Carousel": 6,
     "DrawerComponent": 12,
     "InputArea": 15,
@@ -8,11 +8,12 @@
     "LoginPopUp": 9,
     "ModelConfigDialog": 6,
     "ModelList": 6,
-    "NavBar": 7,
+    "NavBar": 4,
     "UserInfoCard": 4,
     "VideoPlayer": 5,
     "VoiceInput": 6,
-    "SectionHeader": 1
+    "SectionHeader": 1,
+    "ScreenStates": 1
   },
   "radiusCounts": {
     "BottomActionBar": 3,
