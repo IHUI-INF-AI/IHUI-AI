@@ -110,6 +110,9 @@ $BrandNotifyMsgDir   = Join-Path $Root '.ihui-agent\tmp\monitor-notify'
 # 且这些是运行态,不是产物。
 $MonitorStateFile    = EnvOr 'IHUI_MONITOR_STATE_FILE' 'D:\DevEnv\state\ihui-monitor-state.json'
 $UndelFile           = EnvOr 'IHUI_MONITOR_UNDEL_FILE' 'D:\DevEnv\state\ihui-monitor-UNDELIVERED.json'
+# 族级窗口状态(2026-11-03 立):与部署环共用同一份(族名带「监控告警:」/「部署告警:」前缀,天然分槽)。
+# 判据在 scripts/lib/alert-family-gate.mjs;本文件只产族名与调用 PS 桥 alert-dedup.ps1。
+$AlertFamilyStateFile = EnvOr 'IHUI_MONITOR_FAMILY_STATE_FILE' (Join-Path $Root '.ihui-agent\state\alert-family-window.json')
 $MailDryRun          = (EnvOr 'IHUI_MONITOR_MAIL_DRY_RUN' '') -eq '1'
 if ($DryRun) { $MailDryRun = $true }
 # 同一告警身份的重发周期(小时)。这是**按身份去重**,不是总量封顶 —— 没有任何"每日 N 封"
@@ -357,6 +360,34 @@ function Get-MonitorAlertIdentity {
   # 配平从本文件抽函数原文离线喂输入)。
   param([string]$Item)
   return Get-AlertIdentitySig -Message $Item
+}
+
+function Get-MonitorAlertFamily {
+  # ── 监控告警的**族名**(2026-11-03 立)────────────────────────────────────────────
+  # 立因(取证席实测):此前 Send-Alert 只按 Get-MonitorAlertIdentity 的**全串 URL** 去重,
+  # `<URL> 访问异常 → 档=…` 里 URL 的 query/协议/连续确认次数每轮都在变,同一 path 状态一翻面
+  # 就换身份 ⇒ 4h 窗结构上永不命中;最近 1h 实测寄出 6 封,24h 12 封。
+  # 族名口径(与任务口径一致):
+  #   · URL 项 ⇒ 「监控告警:地址=<host><path>」:只留 host+path,**query/状态词/确认次数一律丢掉**;
+  #     带 host 是为了不让 aizhs.top/ 与 bsm.aizhs.top/ 这两个不同入口在根路径上互相误伤
+  #     (只取 path 会把两者都折成 '/',一处坏压住另一处)。
+  #   · 非 URL 项 ⇒ 「监控告警:」+ 既有身份签名去掉病因(类别+归一化骨架),磁盘卷/端口名/
+  #     备份类别仍各自成族 —— 不同故障不互相误伤。
+  # 纯函数纪律同上面那批:不取盘、不打日志、无副作用;函数体注释里不出现花括号。
+  param([string]$Item)
+  $s = ($Item -replace '\s+', ' ').Trim()
+  if ($s -match '^https?://([^/\s|]+)(/[^\s|?]*)?') {
+    $hostName = $matches[1].ToLowerInvariant()
+    $path = $matches[2]
+    if (-not $path) { $path = '/' }
+    $path = ($path -replace '[)\]>]+$', '')
+    if ($path.Length -gt 120) { $path = $path.Substring(0, 120) }
+    return "监控告警:地址=$hostName$path"
+  }
+  $sig = Get-MonitorAlertIdentity -Item $s
+  $sig = ($sig -replace '\|病因=.*$', '')
+  if ($sig.Length -gt 200) { $sig = $sig.Substring(0, 200) }
+  return "监控告警:$sig"
 }
 
 function Write-Undelivered {
@@ -652,6 +683,7 @@ function Send-Alert($msg, $detail = '') {
   $graceNotes = @()
   $itemNotes  = @()
   $dueItems   = @()
+  $familyDue  = @()
   foreach ($item in $items) {
     # [2026-10-26 票 G-44 监控腿] 展示面与身份面**分家**(旧形只有一把:整条文案既寄给人看、
     # 又直接当去重身份 ⇒ 文案里混进读数就换槽,而收信人需要的恰好就是那条文案)。
@@ -676,9 +708,24 @@ function Send-Alert($msg, $detail = '') {
         $graceNotes += "[$itemTxt] $($g.Note)"
       }
     }
+    # [2026-11-03 族窗口] 必须先判族窗口、再做 Test-AlertDue:后者在判"该寄"时会登记本项
+    # 4h 去重槽,若族窗口随后压住,24h 届满那一次就会被这格新时间戳再压 4h(自家窗杀自家恢复)。
+    # dry-run 不读写生产族状态(否则自检会替服务记账)。
+    $fam = Get-MonitorAlertFamily -Item $itemTxt
+    if (-not $MailDryRun) {
+      $fg = Test-AlertFamilyWindow -Family $fam -RepoRoot $Root -StateFile $AlertFamilyStateFile
+      if ($fg.Suppressed) {
+        $itemNotes += "[$itemTxt] 族级窗口抑制(族=$fam, 首封距今 $($fg.AgeHours)h < 上限 $($fg.CooldownHours)h): 不登记本项 4h 去重槽"
+        continue
+      }
+      if (-not $fg.Ok) {
+        $itemNotes += "[$itemTxt] 族窗口判据未判定,按 fail-open 放行: $($fg.Error)"
+      }
+    }
     $due = Test-AlertDue -Sig $isig
     if ($due.Due) {
       $dueItems += $itemTxt
+      $familyDue += $fam
       $itemNotes += "[$itemTxt] 放行($($due.Decision)·身份=$($due.Key)): $($due.Note)"
     } else {
       $itemNotes += "[$itemTxt] 身份去重跳过: $($due.Note)"
@@ -697,7 +744,17 @@ function Send-Alert($msg, $detail = '') {
   # 实时读数进正文(收信人照旧看得到账,只是它不参与身份判定)
   if ($detail) { $full = "$full`n[实时读数(不进身份)] $detail" }
   "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') [ALERT] 放行($($dueItems.Count)/$($items.Count)项): $subject | 诊断: $($diag -replace "`r?`n", ' | ')" | Add-Content $alertLog -Encoding utf8
-  Send-MailAlert -Subject "[IHUI-AI 监控告警] $subject" -BodyText $full | Out-Null
+  $familyVerdict = Send-MailAlert -Subject "[IHUI-AI 监控告警] $subject" -BodyText $full
+  # [2026-11-03 族窗口] 只在这封**确认真送达**后才记每族首封时间;失败不记 ⇒ 下一轮首封还能重试
+  # (Send-MailAlert 的 UNDELIVERED 分支已把响声留在盘上,族窗口不许替它把响声关掉)。
+  if ($familyVerdict -and -not $MailDryRun) {
+    foreach ($f in ($familyDue | Select-Object -Unique)) {
+      $fc = Confirm-AlertFamilyDelivery -Family $f -RepoRoot $Root -StateFile $AlertFamilyStateFile
+      if (-not $fc.Ok) {
+        "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') [WARN] 族窗口首封未记账(族=$f): $($fc.Error)" | Add-Content $alertLog -Encoding utf8
+      }
+    }
+  }
 }
 
 Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] 监控服务启动 — 通知唯一出口:品牌邮件 $NotifyEmailTo(按告警身份去重,每 $AlertRepeatHours 小时重发一次,无每日总量封顶)"

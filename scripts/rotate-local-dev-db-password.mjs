@@ -345,10 +345,16 @@ export function collectConsumers(root = ROOT, exists = existsSync) {
   return CONSUMERS.map((rel) => join(root, rel)).filter((abs) => exists(abs))
 }
 
+// netstat 必须是绝对路径(§5b 同型):受限 PATH 下裸名派生只会得到 `spawn netstat ENOENT`。
+// 推导优先 + 硬编码兜底 + 按当次存在性选在位者,与 check-tunnel-leg-health.mjs 的 NETSTAT_BIN 同一范式。
+const SYSTEM_ROOT = (process.env.SystemRoot || process.env.windir || 'C:\\Windows').replace(/[\\/]+$/, '')
+const pickBin = (candidates) => candidates.find((p) => existsSync(p)) ?? candidates[candidates.length - 1]
+const NETSTAT_BIN = pickBin([SYSTEM_ROOT + '\\System32\\netstat.exe', 'C:\\Windows\\System32\\netstat.exe'])
+
 export function liveServicePorts(ports = SERVICE_PORTS) {
   let out = ''
   try {
-    out = execFileSync('netstat', ['-ano'], { encoding: 'utf8', windowsHide: true, timeout: 20000 })
+    out = execFileSync(NETSTAT_BIN, ['-ano'], { encoding: 'utf8', windowsHide: true, timeout: 20000 })
   } catch {
     return { ok: false, live: [] }
   }

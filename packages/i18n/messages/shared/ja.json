@@ -2832,5 +2832,14 @@
         "eventD": "オフライン限定イベント"
       }
     }
+  },
+  "career": {
+    "fillField": "入力してください：{name}",
+    "submitFail": "送信に失敗しました。後で再試行",
+    "doneTitle": "送信完了",
+    "doneBody": "アンケート送信済み。AI 学習プランはこのページに表示されます.",
+    "exportingReport": "エクスポート中...",
+    "exportEmptyHint": "レポート生成後にエクスポートできます",
+    "exportLoginRequired": "エクスポートするにはログインしてください"
   }
 }

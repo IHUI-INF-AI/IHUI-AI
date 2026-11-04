@@ -105,7 +105,7 @@ test('自检本体真跑通(交付前置):--self-test 全过且点名例数', ()
 function newRepo(prefix) {
   const dir = mkScratch(prefix)
   const git = (args) =>
-    execFileSync('git', args, { cwd: dir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true })
+    execFileSync('git', args, { cwd: dir, encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
   git(['init', '-q'])
   return { dir, git }
 }

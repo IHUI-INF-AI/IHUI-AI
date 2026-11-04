@@ -57,6 +57,9 @@ vi.mock('react-native', () => {
     RefreshControl: () => createElement('div', { 'data-testid': 'rn-refresh' }),
     StyleSheet: { create: (s: unknown) => s, flatten: (s: unknown) => s },
     PixelRatio: { getFontScale: () => 1 },
+    Dimensions: { get: () => ({ width: 390, height: 844 }) },
+    // 共享屏间距按面锁值(web 18 / 原生 lg):桩按原生面(ios),避免把 web 锁值当默认
+    Platform: { OS: 'ios', select: (o: Record<string, unknown>) => o.ios ?? o.default },
   }
 })
 

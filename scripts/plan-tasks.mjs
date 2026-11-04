@@ -911,16 +911,19 @@ function report(a, face) {
 function listRows(rows, face, ages = null) {
   console.log(`── ${rows.length} 行(判定面:${LABEL[face]})──`)
   // ages 传入时(时间排序档)逐行带上锚点,让"按时间排"这件事在出单面上可核;
-  // 不传时输出与旧档**逐字节相同** —— 下游有按行解析这份输出的消费者,默认档格式不许动。
+  // 行首形状(`  L<行号>  ` [+ 锚点 + `  `])保持逐字节不变 —— 下游有按行解析这份输出的消费者。
+  // 派单面必须逐字节保留整行:下游 `parseTicketRows`(auto-evolve) 直接把这一行当票面文本,
+  // 截断会把验收面斩成半句(2026-11-03 实测 7 次派发同一张票、会话 exit 0 但票行未动)。
+  // 两侧同源同口径:派单时记账与结算比较都走 `parseTicketRows`,这里不再做任何长度裁剪。
   for (const r of rows) {
     if (!ages) {
-      console.log(`  L${r.line}  ${clip(r.raw)}`)
+      console.log(`  L${r.line}  ${r.raw}`)
       continue
     }
     const ts = ages.get(r.line)?.anchorTs
     const anchor =
       typeof ts === 'number' ? new Date(ts).toISOString().slice(0, 16).replace('T', ' ') : '锚点未判定'
-    console.log(`  L${r.line}  ${anchor}  ${clip(r.raw)}`)
+    console.log(`  L${r.line}  ${anchor}  ${r.raw}`)
   }
 }
 

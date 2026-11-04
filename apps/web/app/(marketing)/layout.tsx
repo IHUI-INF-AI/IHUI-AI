@@ -5,6 +5,10 @@
 import * as React from 'react'
 import type { Metadata } from 'next'
 
+// 营销首页窄子集字体(2026-11-03 FEO 落地):@font-face('HarmonyOS Sans SC Home')+
+// .font-scope-marketing 作用域类。只在本路由组生效,后台/用户路由仍用 globals.css 的全量子集。
+import './marketing-fonts.css'
+
 /**
  * Marketing 路由组布局
  *
@@ -108,7 +112,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
     // 2026-08-12 回退:pb-0 → pb-2(用户反馈"工作展示区不应贴屏底,应保留 8px 呼吸空";
     // 上一版改 pb-0 是为了强行让 footer 贴屏底,破坏了卡片底部 8px 呼吸空。
     // 正确策略:让 footer 在 page-7 内部自然紧跟内容,外层 8px padding 保留视觉舒适度)
-    <div className="flex min-h-0 flex-1 flex-col pb-2 pl-[var(--topbar-content-left)] pr-2">
+    <div className="font-scope-marketing flex min-h-0 flex-1 flex-col pb-2 pl-[var(--topbar-content-left)] pr-2">
       <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl bg-shell-panel">
         {children}
       </div>

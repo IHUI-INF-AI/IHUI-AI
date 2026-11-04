@@ -183,11 +183,14 @@ import { classifyAction, parseValveList, BUCKETS, HumanValveDataError } from './
 export const VALVE_MODES = ['observe', 'enforce']
 
 /**
- * 派发前问一次人工阀。返回 action:
- *  - `allow`         命中自决类(且未过期)⇒ 可派
- *  - `block`         enforce 档命中停机类 ⇒ 本轮不派这张票
- *  - `observe-stop`  observe 档命中停机类 ⇒ 照派,但记账(这就是"放量前先看清会拦谁")
- *  - `unjudged`      档位非法/清单坏/取不到规则 ⇒ 不猜。enforce 档由调用方 fail-closed 停派。
+ * 派发前问一次人工阀。返回 action(返回值语义):
+ *  - `allow`         未命中停机类(自决类未过期,或不受管)⇒ 放行
+ *  - `block`         enforce 档命中停机类 ⇒ 本张票不派(单票跳过,不重试、不绕行)
+ *  - `observe-stop`  observe 档命中停机类 ⇒ 本张票不派:派发侧 decideValveDispatch 折成
+ *                    `skip-observe-stop` —— 跳过该票、继续本轮(不是照派)
+ *  - `unjudged`      档位非法(合法档仅 observe|enforce,on-warn/allow 同属非法)/清单坏/
+ *                    分类器拒判 ⇒ 不猜。enforce 档由调用方 fail-closed 整轮停;
+ *                    非 enforce 档沿用既有行为照派。
  */
 export function gateTicketByHumanValve({ ticketText, mode, valveListText, now = new Date() } = {}) {
   if (!VALVE_MODES.includes(mode)) {

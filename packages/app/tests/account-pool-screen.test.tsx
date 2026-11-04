@@ -55,6 +55,8 @@ vi.mock('react-native', () => {
       roundToNearestPixel: (n: number) => n,
     },
     Dimensions: { get: () => ({ width: 390, height: 844 }) },
+    // 共享屏间距按面锁值(web 18 / 原生 lg):桩按原生面(ios),避免把 web 锁值当默认
+    Platform: { OS: 'ios', select: (o: Record<string, unknown>) => o.ios ?? o.default },
     TouchableOpacity: ({ children, disabled }: { children?: ReactNode; disabled?: boolean }) =>
       createElement('button', { disabled: disabled === true }, children),
     ActivityIndicator: () => createElement('i', { 'data-test': 'spinner' }),

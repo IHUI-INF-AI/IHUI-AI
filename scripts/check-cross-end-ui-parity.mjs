@@ -3959,6 +3959,12 @@ const ALLOWED_DIFF_KEYS = ['geometry', 'radius', 'elementRadius', 'webRnGeometry
 const ALLOWED_DIFF_PLATFORMS = new Set(['miniapp', 'rn', 'web', 'both'])
 const ALLOWED_PLATFORM_KEY_RE = /^platform:[a-z0-9]+(?:-[a-z0-9]+)*$/
 /**
+ * 逐键 props 差异族(`platform:props:<mini|rn|web|both>:<Prop>`,2026-11-04 立):
+ * 消费方是门 285 的 judged 台账,本门只核形状与到期。缺这条正则会把门 285 自己落的
+ * 台账整批读成"条目坏",把两本账的正确分工折成互相指控。
+ */
+const PROPS_PLATFORM_KEY_RE = /^platform:props:(?:mini|rn|web|both):[A-Za-z][A-Za-z0-9]*$/
+/**
  * 非色档允许差异(`styleTier:<kind>:<prop>:<value>`,2026-11-02 Phase 4 立)。
  * 本门只核**到期**(消费方是 `check-web-rn-style-tiers.mjs` 的分叉桶);样式档分叉不是本门
  * 的 findings,所以不参与 component×key 计数核销,但**到期必须回红**(白名单不得腐化)。
@@ -3983,7 +3989,12 @@ export function allowedDiffProblem(e) {
   if (typeof e.component !== 'string' || !e.component.trim()) return 'component 缺失'
   if (
     typeof e.key !== 'string' ||
-    !(ALLOWED_DIFF_KEYS.includes(e.key) || ALLOWED_PLATFORM_KEY_RE.test(e.key) || STYLE_TIER_KEY_RE.test(e.key))
+    !(
+      ALLOWED_DIFF_KEYS.includes(e.key) ||
+      ALLOWED_PLATFORM_KEY_RE.test(e.key) ||
+      PROPS_PLATFORM_KEY_RE.test(e.key) ||
+      STYLE_TIER_KEY_RE.test(e.key)
+    )
   )
     return `key 非法:${e.key ?? '(空)'}`
   if (!ALLOWED_DIFF_PLATFORMS.has(e.platform)) return `platform 非法:${e.platform ?? '(空)'}`

@@ -107,6 +107,12 @@ const META_SCRIPT_RE = new RegExp(
       // 改工具代码时把它拉进来,元门档就永远进不了 60 秒。
       'check-doc-', // 文档数字/引用
       'check-root-dir-clean', // 根目录整洁(44)
+      // 2026-11-04 收 267:根护栏清单 ↔ 被审面内容对账。它判的是"规则文件与封条是否同源",
+      // 属"守门自身健康度"这一档;此前不在元门档 ⇒ 本地只跑元门档时它被整体裁掉,
+      // 门 267 的 stagedTriggers 补上 git-guardian 也不会在提交口触发(照旧等部署侧 --check 红)。
+      // 用**精确名**而非 `check-root-` 前缀:后者会把未来同类业务门一并拉进 60s 预算。
+      // 成本:只在射程命中时跑(cat-file 读 4 个 blob,亚秒级),与本次改动无关的提交零开销。
+      'check-root-guard-consistency',
       'check-staged-', // 暂存面
       'check-lock-', // 锁清单
       'check-skip-env-', // 逃生舱承诺

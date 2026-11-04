@@ -647,23 +647,16 @@ test('T-PICK 凭据窄出口三态 + 生产腿接线(自检 109 条里那三句�
   assert.equal(pickKey('0'.repeat(31), re), '', '差一位也不算')
   // 第三臂:形状合 ⇒ 去空白取原值
   assert.equal(pickKey(' 0123456789abcdef0123456789abcdef\n', re), '0123456789abcdef0123456789abcdef')
-  // 能力必须有人消费(§0.9 造好没装车=没有):gitee 腿裸读原文时,纯函数测试全绿而生产照旧
-  // 把垃圾串拼进 GET 的 query —— 访问日志会原样记下,所以这一条是源码级接线锁而不是装饰。
-  assert.match(
-    SRC,
-    /const giteeToken = pickKey\(giteeRaw, \/\^\[0-9a-f\]\{32\}\$\/\)/,
-    'gitee 腿没接窄出口 ⇒ 判据写好了但没人吃',
-  )
+  // 2026-11-03 复活:Gitee 为国内主通道 ⇒ 生产路径必须读取并探活 Gitee token;
+  // 探活只准走 Authorization 头,不得把 token 拼进 URL query(访问日志会原样记下)。
+  assert.match(SRC, /const giteeToken = pickKey\(/, 'Gitee 国内主通道必须读取/探活 token')
+  assert.match(SRC, /Authorization: 'token ' \+ giteeToken/, 'Gitee 探活必须走 Authorization 头')
   assert.doesNotMatch(
     SRC,
-    /access_token=' \+ encodeURIComponent\(giteeRaw\)/,
-    '原始文件内容被拼进 URL query ⇒ 形状不合的垃圾串会进 Gitee 访问日志',
+    /access_token=' \+ encodeURIComponent\(/,
+    '任何 token 都不得拼进 URL query(访问日志会原样记下)',
   )
-  assert.match(
-    SRC,
-    /if \(giteeRaw && !giteeToken\) \{[\s\S]{0,320}level: 'fail'/,
-    '取到东西但形状不合必须落一条 fail(静默跳过=把"没判"写成"判过",§0.3)',
-  )
+  assert.match(SRC, /name: 'Gitee token 有效性'/, 'Gitee 主通道必须上报 token 有效性')
 })
 
 function askedHasRepoNext(askedList) {

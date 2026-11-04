@@ -44,7 +44,11 @@ annotate() {
 FAILED_ID=""
 DUMP=""
 for ID in $TRIAGE_IDS; do
-  VAR="O_${ID^^}"
+  # 大写化只用 POSIX tr,不用 bash 4.0+ 的 `${ID^^}`:macOS runner 自带 /bin/bash 是 3.2.57,
+  # 遇到 case 修饰直接 "bad substitution" 并在本行中断(2026-11-04 实测:
+  #   scripts/ci-failure-triage.sh: line 47: O_${ID^^}: bad substitution),
+  # 分诊信息在 macOS 侧因此失真。映射结果与输出格式逐字不变(id 转大写、连字符转下划线)。
+  VAR="O_$(printf '%s' "$ID" | tr '[:lower:]' '[:upper:]')"
   VAR="${VAR//-/_}"
   OUTCOME="${!VAR:-}"
   DUMP="$DUMP $ID=$OUTCOME"

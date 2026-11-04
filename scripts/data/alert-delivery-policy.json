@@ -25,5 +25,131 @@
     "owner": "git-guardian",
     "reviewBy": "2026-11-16",
     "evidence": ".ihui-agent/state/mail-send-ledger.jsonl 24h 同族 8 封 / node scripts/git-guardian.mjs 反馈闭环巡检段"
+  },
+  {
+    "id": "repo-divergence-true",
+    "prefix": "本地与 origin/main 分叉(true-divergence)",
+    "cooldownMs": 86400000,
+    "reason": "本地与 origin/main 真分叉是 6 席并发 + 本仓 ahead 18/behind 65 的结构性状态,不是每小时都在变的新故障;台账实测 7d 14 封、身份 1 个、间隔 438 分钟(24h 2 封)。按 §5e-1「收信人当场不可整改」的仓库结构类处理:族级 24h 只留首封 + 正文带累计抑制计数。别型分叉(local-backlog / remote-ahead-stale)是各自独立告警名,不在本前缀内 ⇒ 不会被本窗口吃掉。判据与 severity 一字未动。",
+    "owner": "git-guardian",
+    "reviewBy": "2026-11-16",
+    "evidence": ".ihui-agent/state/mail-send-ledger.jsonl: 7d 14 封 / 1 个 alertId;24h 2 封(05:44Z、13:02Z)"
+  },
+  {
+    "id": "prod-checkout-foreign-work",
+    "prefix": "生产签出有只活在盘上的外来改动(正在丢失的边缘)",
+    "cooldownMs": 86400000,
+    "reason": "身份里塞了「外来文件路径集合」⇒ 路径每变一枚就是新 alertId:7d 实测 137 封 / 123 个身份,历史累计 172 个 alertId / 278 封。这不是 172 个独立新故障,而是同一处「生产签出有只活在盘上的改动」的读数漂移。族级 24h 只留首封,正文仍逐条列出最新路径清单并带累计抑制计数;判据、severity、收件人一字未动。",
+    "owner": "git-guardian",
+    "reviewBy": "2026-11-16",
+    "evidence": ".ihui-agent/state/mail-send-ledger.jsonl: 7d 137 封 / 123 个 alertId;24h 1 封"
+  },
+  {
+    "id": "push-channel-failed",
+    "prefix": "push-channel",
+    "cooldownMs": 86400000,
+    "reason": "`push-state status=failed` 未被清是持续态(推一次失败后状态一直留着),不是每次推送的新故障:台账 7d 19 封 / 5 个身份、24h 3 封,最短间隔 454 分钟。族级 24h 只留首封 + 累计抑制计数;修复判定与 severity 不动,恢复后本窗口自然不再触发。",
+    "owner": "git-guardian",
+    "reviewBy": "2026-11-16",
+    "evidence": ".ihui-agent/state/mail-send-ledger.jsonl: 7d 19 封 / 5 个 alertId;24h 3 封(17:30Z、05:43Z、13:18Z)"
+  },
+  {
+    "id": "immutable-surface-undeclared",
+    "prefix": "判据面被静默改动(无 immutable-exempt 声明)",
+    "cooldownMs": 86400000,
+    "reason": "该告警的告警身份本就是固定 dedupKey=`undeclared`(同一笔未补声明的改动),台账 7d 20 封却只有 1 个身份、节奏 281 分钟(24h 5 封)。未整改期间只是同一状态重报,不是每 4 小时一个新故障;族级 24h 只留首封,正文仍给最近一枚 sha 与命中面。severity 仍 critical、判据仍逐轮判红 —— 不把红判成绿。",
+    "owner": "git-guardian",
+    "reviewBy": "2026-11-16",
+    "evidence": ".ihui-agent/state/mail-send-ledger.jsonl: 7d 20 封 / 1 个 alertId(d14d6aa3e245);24h 5 封"
+  },
+  {
+    "id": "client-sync-leg-workbuddy",
+    "prefix": "WorkBuddy 号池保活腿失效(本机会话不再回灌)",
+    "cooldownMs": 604800000,
+    "reason": "2026-11-03 临时止血:本机回灌腿计划任务 IHUI-WorkBuddy-Session-Sync 已 /DISABLE(只停腿、未删任务),腿不再跑也不再产生新的 breach 读数;保活不依赖此腿(续期走 server 端 5 分钟 sweep、空闲 7 天续票、API 签到)。窗口由 720 分钟临时拉长到 7 天(168h),仅为存量 breach 共振降噪。guardian 审计 auditWorkbuddySessionSyncTask 仍保留(scripts/git-guardian.mjs 正由他人修改,本轮不碰),故本条目必须保留不删——先删条目会退回默认 4h 窗口、反而更吵;等 guardian 审计摘除后再删条目。恢复腿时须把 cooldownMs 改回 43200000。Qoder 腿是另一条腿、另一个告警名,不受影响。",
+    "owner": "git-guardian",
+    "reviewBy": "2026-11-16",
+    "evidence": ".ihui-agent/state/mail-send-ledger.jsonl: 7d 7 封 / 1 个 alertId(3f77e5cb15ec);24h 5 封(间隔 601/256/263/293 分钟)"
+  },
+  {
+    "id": "public-entry-tunnel-leg",
+    "prefix": "公网入口隧道腿异常:",
+    "cooldownMs": 28800000,
+    "reason": "该族各后缀腿(leg-count 等)是本机到公网入口的环境/结构类读数,不是每次一个新故障;未整改前只是同一读数的逐轮重报。族级 8h（480 分钟）上限只留首封 + 累计抑制计数。restart-churn 有更长的独立前缀(仍 24h),按长前缀优先不受影响;判据与 severity 一字未动。",
+    "owner": "git-guardian",
+    "reviewBy": "2026-11-16",
+    "evidence": "git-guardian.mjs:6679 名字模板 `公网入口隧道腿异常:${dim}` / node scripts/check-tunnel-leg-health.mjs --json"
+  },
+  {
+    "id": "merge-swallow-red",
+    "prefix": "合并吞并对账判红",
+    "cooldownMs": 28800000,
+    "reason": "同一笔并集丢失在修好前是持续态(修法固定为 union-converge --apply),逐轮重报不产生新信息。族级 8h（480 分钟）上限只留首封 + 累计抑制计数,正文仍给丢失路径数;判据与 severity 不动。",
+    "owner": "git-guardian",
+    "reviewBy": "2026-11-16",
+    "evidence": "git-guardian.mjs:2346-2349 notify('合并吞并对账判红') / .ihui-agent/state/mail-send-ledger.jsonl 同族历史 2 封"
+  },
+  {
+    "id": "cross-end-alignment-regress",
+    "prefix": "跨端对齐倒退",
+    "cooldownMs": 28800000,
+    "reason": "倒退的维度集合会变,原先维度名进正文/身份 ⇒ 每次漂移都是一枚新身份,同一笔未对齐状态被拆成多封。族级 8h（480 分钟）上限只留首封 + 累计抑制计数,正文仍列最新维度;**不把红判绿**,判据逐轮判。",
+    "owner": "git-guardian",
+    "reviewBy": "2026-11-16",
+    "evidence": "git-guardian.mjs:9863-9870 notify('跨端对齐倒退', detail) / .ihui-agent/state/mail-send-ledger.jsonl 同族历史 2 封(身份漂移)"
+  },
+  {
+    "id": "stray-root-outflow",
+    "prefix": "盘根外流",
+    "cooldownMs": 28800000,
+    "reason": "`盘根外流:项目产物出现在声明白名单之外` 在产物清运/补声明前是持续态,同一批产物逐轮命中;历史 24h 3 封但只有 1 个 alertId(3928e14fcdec)。族级 8h（480 分钟）上限只留首封 + 累计抑制计数,正文仍给最新路径;判据与 severity 不动。",
+    "owner": "git-guardian",
+    "reviewBy": "2026-11-16",
+    "evidence": "git-guardian.mjs:2100/2115 / .ihui-agent/state/mail-send-ledger.jsonl 24h 3 封 / 1 个 alertId(3928e14fcdec)"
+  },
+  {
+    "id": "ops-patrol-red",
+    "prefix": "元运维巡检红",
+    "cooldownMs": 28800000,
+    "reason": "22 格巡检的告警名固定,但 dedupKey 含 cells0/new/tier/held 四段读数(4521-4538),读数漂移就换身份:24h 实测 7 封 / 5 个 alertId,红格还是 P5b/P12 同一批已入库对象。族级 8h（480 分钟）上限只留首封 + 正文带累计抑制计数;零红只清 episode 文件(4542-4546)不动本窗口,判据与 severity 一字未动。",
+    "owner": "git-guardian",
+    "reviewBy": "2026-11-16",
+    "evidence": ".ihui-agent/state/mail-send-ledger.jsonl: 24h 7 封 / 5 个 alertId(5aab×2、a8bf×2、b8cb、e480、188c);git-guardian.mjs:4515-4538"
+  },
+  {
+    "id": "root-guard-manifest-drift",
+    "prefix": "根护栏清单与规则文件脱钩",
+    "cooldownMs": 28800000,
+    "reason": "dedupKey 恒为 manifest-drift(9687-9694)、24h 只有 1 个身份(a0d205689515),253/257/247 分钟的间隔不是新脱钩而是同一笔未整改状态按默认 240min 窗口重报。族级 8h（480 分钟）上限只留首封,首报仍立即出 + 累计抑制计数;severity 仍 critical、判据仍逐轮判红。",
+    "owner": "git-guardian",
+    "reviewBy": "2026-11-16",
+    "evidence": ".ihui-agent/state/mail-send-ledger.jsonl: 24h 4 封 / 1 个 alertId(a0d205689515);git-guardian.mjs:9687-9694,9733"
+  },
+  {
+    "id": "monitor-alert-family",
+    "prefix": "监控告警:",
+    "cooldownMs": 86400000,
+    "reason": "监控告警的族名取 URL 的 host+path(丢弃 query/协议/连续确认次数)或非 URL 项的稳定类别骨架;此前身份吃 URL 全串,同一 path 状态翻面/query 漂移就换身份,4h 逐项窗结构上永不命中。实测最近 1h 6 封、24h 12 封。族级 24h 只留首封,首封仍立即出;判据/severity/正文不动,累计抑制数只进窗口状态。",
+    "owner": "ihui-monitor",
+    "reviewBy": "2026-11-17",
+    "evidence": "deploy/win/ihui-monitor.ps1 Send-Alert 逐项循环 / .ihui-agent/state/mail-send-ledger.jsonl 24h 12 封、最近 1h 6 封"
+  },
+  {
+    "id": "credential-health-alert-family",
+    "prefix": "凭据巡检:",
+    "cooldownMs": 86400000,
+    "reason": "凭据巡检分『失效项集合』与『已恢复』两类告警,24h 实测 2 封。族级按类别分槽:credential-fail 与 recovered 各自 24h 至多一封(恢复通知不得被失效窗压住);首封仍立即出,逐项去重判据/正文不动。",
+    "owner": "credential-health",
+    "reviewBy": "2026-11-17",
+    "evidence": "scripts/check-credential-health.mjs maybeAlert / .ihui-agent/state/mail-send-ledger.jsonl 24h 2 封"
+  },
+  {
+    "id": "deployloop-alert-family",
+    "prefix": "部署告警:",
+    "cooldownMs": 86400000,
+    "reason": "部署失败族名:已知类只到类别(同类别 24h 一条,病因漂移不再多寄);归不进枚举的 generic 保留含病因的完整签名(骨架同、病因不同的两次失败仍分族,绝不吞真新故障,守住 D3)。24h 实测 3 封。族级 24h 只留首封,首封仍立即出;切流宽限窗/夜间静默判据不动。",
+    "owner": "ihui-deployloop",
+    "reviewBy": "2026-11-17",
+    "evidence": "deploy/win/ihui-deploy.ps1 Invoke-FailNotify / .ihui-agent/state/mail-send-ledger.jsonl 24h 3 封"
   }
 ]

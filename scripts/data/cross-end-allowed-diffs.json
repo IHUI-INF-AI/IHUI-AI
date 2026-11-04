@@ -58,9 +58,9 @@
       "platform": "both",
       "owner": "cross-end-ui",
       "expires": "2027-03-27",
-      "count": 15,
+      "count": 18,
       "reason": "两端盒档读数仍有差;本批只登记为允许差异,不改 UI 结构与视觉取值;到期前必须由 owner 复核收敛或续期。",
-      "evidence": "check-cross-end-ui-parity --json: InputArea diffCount=15(onlyMiniapp=10 / onlyRn=5)"
+      "evidence": "check-cross-end-ui-parity --json: InputArea diffCount=18(onlyMiniapp=10 / onlyRn=8;2026-11-04 merge 面重读)"
     },
     {
       "component": "InputArea",
@@ -2226,6 +2226,16 @@
       "expires": "2027-03-31",
       "reason": "RN 用 prompt 是否存在隐式切换聊天/按钮两种模式(RN:328-332),小程序用显式 variant(default/ai-home)。模式判别机制不同,能力齐全。",
       "evidence": "check-cross-end-component-props-parity --json: BottomActionBar mini 侧独有键 variant(2026-11-03 提案复核登记);提案证据 apps/mobile-rn/src/components/BottomActionBar.tsx:328"
+    },
+    {
+      "component": "ModelConfigDialog",
+      "key": "radius",
+      "platform": "both",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 3,
+      "reason": "两端圆角档集合仍有差;属文件级读数差异,本批不调视觉取值;到期前必须复核收敛或续期。",
+      "evidence": "check-cross-end-ui-parity --json: ModelConfigDialog radiusCount=3(2026-11-04 merge 面重读)"
     }
   ]
 }

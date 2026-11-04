@@ -680,6 +680,13 @@ export function MessageList({
       data-window-padding-bottom={paddingBottom}
     >
       <div className="mx-auto flex max-w-3xl flex-col gap-0.5 px-4 py-6">
+        {/* D181 电脑使用画中画(2026-11-04 结构性调整):会话面设置节从固定头部移入滚动内容。
+            原实现挂在消息面板外的固定头部:会话面变矮(排队条出现/输入区增高)时,固定块
+            整体溢出面板盒,画中画空态卡会盖到输入区,`[data-queue-ops]` 的点击被
+            `pip-empty-state` 命中拦截(e2e queue-interactions 模式切换实证)。
+            移入滚动内容后该节随消息流滚动,不再与输入区共享层叠/命中区域;
+            不用 pointer-events 或父级裁剪掩盖 —— 命中区域由结构本身分离。 */}
+        <PictureInPictureSection conversationId={conversationId} />
         {/* P4-2: fallback 通知横幅(主模型失败切换到备用模型时展示,amber 警告色) */}
         {fallbackNotice && (
           <FallbackBanner
@@ -791,8 +798,6 @@ export function MessageList({
       ) : null}
       {/* D45 档位切换胶囊(2026-09-24 立):消息流顶部工具区,紧凑三选一,持久化 */}
       <DetailModeSwitcher />
-      {/* D181 电脑使用画中画(2026-10-23 立项落地):会话面设置节,开关+持久化+空态占位 */}
-      <PictureInPictureSection conversationId={conversationId} />
       {inlinePanelNode}
       {/* W18 对话流缩略导航(2026-09-13 立):右侧 Query 刻度条,点击跳转任一提问。
           2026-09-21 归一:并入 D3 定位器的滚动联动高亮,删除 ConversationLocatorRail,

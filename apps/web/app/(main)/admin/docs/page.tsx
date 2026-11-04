@@ -7,11 +7,28 @@
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
-import { FileText, Plus, Edit, Trash2, Loader2 } from 'lucide-react'
+import { FileText, Plus, Edit, Trash2, Loader2, Eye } from 'lucide-react'
 import { apiOrThrow } from '@/lib/api'
 import { slugify } from '@/lib/content'
-import { Button, Input, Label, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui-react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@ihui/ui-react'
+import { MarkdownBody } from '@/components/docs/markdown-body'
+import {
+  Button,
+  Input,
+  Label,
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+} from '@ihui/ui-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { BackButton } from '@/components/common'
 import { useConfirm } from '@/hooks/use-confirm'
@@ -50,11 +67,20 @@ async function fetchList(): Promise<Doc[]> {
   return Array.isArray(d) ? d : (d.list ?? [])
 }
 
-const EMPTY = { title: '', slug: '', category: 'guide' as DocCategory, content: '', status: 'draft' as DocStatus }
-const selectClass = 'h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+const EMPTY = {
+  title: '',
+  slug: '',
+  category: 'guide' as DocCategory,
+  content: '',
+  status: 'draft' as DocStatus,
+}
+const selectClass =
+  'h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
 export default function AdminDocsPage() {
   const t = useTranslations('admin.docs')
+  // 复用 publish.editor 既有五语言键(markdown / preview),不新增 i18n 条目(AGENTS.md §19)
+  const te = useTranslations('publish.editor')
   const tc = useTranslations('common')
   const locale = useLocale()
   const qc = useQueryClient()
@@ -64,17 +90,34 @@ export default function AdminDocsPage() {
   const [slugTouched, setSlugTouched] = React.useState(false)
   const [form, setForm] = React.useState(EMPTY)
   const [err, setErr] = React.useState<string | null>(null)
+  /** 正文区「编辑 / 预览」单栏切换(纯视图态,不参与保存与校验) */
+  const [contentMode, setContentMode] = React.useState<'markdown' | 'preview'>('markdown')
 
-  const { data: list = [], isLoading } = useQuery({ queryKey: ['admin', 'docs'], queryFn: fetchList })
+  const { data: list = [], isLoading } = useQuery({
+    queryKey: ['admin', 'docs'],
+    queryFn: fetchList,
+  })
 
   const saveMut = useMutation({
     mutationFn: () => {
-      const body = { title: form.title, slug: form.slug || slugify(form.title), category: form.category, content: form.content, status: form.status }
+      const body = {
+        title: form.title,
+        slug: form.slug || slugify(form.title),
+        category: form.category,
+        content: form.content,
+        status: form.status,
+      }
       return editing
-        ? apiOrThrow<void>(`/api/admin/docs/${editing.id}`, { method: 'PATCH', body: JSON.stringify(body) })
+        ? apiOrThrow<void>(`/api/admin/docs/${editing.id}`, {
+            method: 'PATCH',
+            body: JSON.stringify(body),
+          })
         : apiOrThrow<void>('/api/admin/docs', { method: 'POST', body: JSON.stringify(body) })
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin', 'docs'] }); close() },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'docs'] })
+      close()
+    },
     onError: (e: Error) => setErr(e.message),
   })
   const delMut = useMutation({
@@ -82,20 +125,50 @@ export default function AdminDocsPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'docs'] }),
   })
 
-  function openCreate() { setEditing(null); setForm(EMPTY); setSlugTouched(false); setErr(null); setOpen(true) }
+  function openCreate() {
+    setEditing(null)
+    setForm(EMPTY)
+    setSlugTouched(false)
+    setErr(null)
+    setContentMode('markdown')
+    setOpen(true)
+  }
   function openEdit(d: Doc) {
     setEditing(d)
-    setForm({ title: d.title, slug: d.slug, category: d.category, content: d.content, status: d.status })
-    setSlugTouched(true); setErr(null); setOpen(true)
+    setForm({
+      title: d.title,
+      slug: d.slug,
+      category: d.category,
+      content: d.content,
+      status: d.status,
+    })
+    setSlugTouched(true)
+    setErr(null)
+    setContentMode('markdown')
+    setOpen(true)
   }
-  function close() { if (saveMut.isPending) return; setOpen(false); setEditing(null); setSlugTouched(false); setErr(null) }
+  function close() {
+    if (saveMut.isPending) return
+    setOpen(false)
+    setEditing(null)
+    setSlugTouched(false)
+    setErr(null)
+  }
   function submit(e: React.FormEvent) {
-    e.preventDefault(); setErr(null)
-    if (!form.title.trim()) { setErr(t('titleRequired')); return }
+    e.preventDefault()
+    setErr(null)
+    if (!form.title.trim()) {
+      setErr(t('titleRequired'))
+      return
+    }
     saveMut.mutate()
   }
 
-  const dateFmt = new Intl.DateTimeFormat(locale, { year: 'numeric', month: '2-digit', day: '2-digit' })
+  const dateFmt = new Intl.DateTimeFormat(locale, {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  })
   const th = 'px-4 py-2.5 font-medium'
 
   return (
@@ -104,11 +177,15 @@ export default function AdminDocsPage() {
       <div className="flex items-start justify-between">
         <div>
           <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
-            <FileText className="h-6 w-6 text-primary" />{t('title')}
+            <FileText className="h-6 w-6 text-primary" />
+            {t('title')}
           </h1>
           <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
         </div>
-        <Button size="sm" onClick={openCreate}><Plus className="h-4 w-4" />{t('create')}</Button>
+        <Button size="sm" onClick={openCreate}>
+          <Plus className="h-4 w-4" />
+          {t('create')}
+        </Button>
       </div>
 
       <div className="overflow-x-auto rounded-lg border">
@@ -126,32 +203,76 @@ export default function AdminDocsPage() {
           </thead>
           <tbody>
             {isLoading ? (
-              <tr><td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
-                <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />{t('loading')}
-              </td></tr>
+              <tr>
+                <td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
+                  <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
+                  {t('loading')}
+                </td>
+              </tr>
             ) : list.length === 0 ? (
-              <tr><td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">{t('noData')}</td></tr>
+              <tr>
+                <td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
+                  {t('noData')}
+                </td>
+              </tr>
             ) : (
               list.map((d) => (
                 <tr key={d.id} className="transition-colors hover:bg-muted/30">
                   <td className="px-4 py-2.5 font-medium">{d.title}</td>
                   <td className="px-4 py-2.5">
-                    <span className="inline-flex rounded-md bg-muted px-2 py-0.5 text-label font-medium text-muted-foreground">{t(DOC_CATEGORY_KEY[d.category as keyof typeof DOC_CATEGORY_KEY] ?? 'categories.unknown')}</span>
+                    <span className="inline-flex rounded-md bg-muted px-2 py-0.5 text-label font-medium text-muted-foreground">
+                      {t(
+                        DOC_CATEGORY_KEY[d.category as keyof typeof DOC_CATEGORY_KEY] ??
+                          'categories.unknown',
+                      )}
+                    </span>
                   </td>
-                  <td className="px-4 py-2.5 font-mono text-label text-muted-foreground">{d.slug}</td>
+                  <td className="px-4 py-2.5 font-mono text-label text-muted-foreground">
+                    {d.slug}
+                  </td>
                   <td className="px-4 py-2.5">
-                    <span className={cn('inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-label font-medium', d.status === 'published' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500' : 'bg-muted text-muted-foreground')}>
-                      <span className={cn('h-1.5 w-1.5 rounded-sm', d.status === 'published' ? 'bg-emerald-500' : 'bg-muted-foreground/50')} />
+                    <span
+                      className={cn(
+                        'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-label font-medium',
+                        d.status === 'published'
+                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500'
+                          : 'bg-muted text-muted-foreground',
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          'h-1.5 w-1.5 rounded-sm',
+                          d.status === 'published' ? 'bg-emerald-500' : 'bg-muted-foreground/50',
+                        )}
+                      />
                       {t(DOC_STATUS_KEYS[d.status as keyof typeof DOC_STATUS_KEYS]!)}
                     </span>
                   </td>
                   <td className="px-4 py-2.5 text-muted-foreground">{d.viewCount ?? 0}</td>
-                  <td className="px-4 py-2.5 text-muted-foreground">{d.updatedAt ? dateFmt.format(new Date(d.updatedAt)) : '-'}</td>
+                  <td className="px-4 py-2.5 text-muted-foreground">
+                    {d.updatedAt ? dateFmt.format(new Date(d.updatedAt)) : '-'}
+                  </td>
                   <td className="px-4 py-2.5 text-right">
                     <div className="flex justify-end gap-1">
-                      <Button size="sm" variant="ghost" onClick={() => openEdit(d)}><Edit className="h-4 w-4" />{t('edit')}</Button>
-                      <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" disabled={delMut.isPending} onClick={() => { void confirm({ title: t('deleteConfirm'), variant: 'destructive' }).then((ok) => { if (ok) delMut.mutate(d.id) }) }}>
-                        <Trash2 className="h-4 w-4" />{t('delete')}
+                      <Button size="sm" variant="ghost" onClick={() => openEdit(d)}>
+                        <Edit className="h-4 w-4" />
+                        {t('edit')}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-destructive hover:text-destructive"
+                        disabled={delMut.isPending}
+                        onClick={() => {
+                          void confirm({ title: t('deleteConfirm'), variant: 'destructive' }).then(
+                            (ok) => {
+                              if (ok) delMut.mutate(d.id)
+                            },
+                          )
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        {t('delete')}
                       </Button>
                     </div>
                   </td>
@@ -169,50 +290,124 @@ export default function AdminDocsPage() {
               <DialogTitle>{editing ? t('editTitle') : t('createTitle')}</DialogTitle>
               <DialogDescription>{t('createDesc')}</DialogDescription>
             </DialogHeader>
-            {err && <div className="rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">{err}</div>}
+            {err && (
+              <div className="rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">
+                {err}
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="d-title">{t('fieldTitle')}</Label>
-              <Input id="d-title" value={form.title} onChange={(e) => { const title = e.target.value; setForm({ ...form, title, slug: slugTouched ? form.slug : slugify(title) }) }} placeholder={t('titlePlaceholder')} />
+              <Input
+                id="d-title"
+                value={form.title}
+                onChange={(e) => {
+                  const title = e.target.value
+                  setForm({ ...form, title, slug: slugTouched ? form.slug : slugify(title) })
+                }}
+                placeholder={t('titlePlaceholder')}
+              />
             </div>
             <div className="grid grid-cols-1 gap-4 min-[768px]:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="d-slug">{t('fieldSlug')}</Label>
-                <Input id="d-slug" value={form.slug} onChange={(e) => { setSlugTouched(true); setForm({ ...form, slug: e.target.value }) }} placeholder={t('slugPlaceholder')} className="font-mono text-label" />
+                <Input
+                  id="d-slug"
+                  value={form.slug}
+                  onChange={(e) => {
+                    setSlugTouched(true)
+                    setForm({ ...form, slug: e.target.value })
+                  }}
+                  placeholder={t('slugPlaceholder')}
+                  className="font-mono text-label"
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="d-category">{t('fieldCategory')}</Label>
-                <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v as DocCategory })}>
-  <SelectTrigger className={selectClass}>
-    <SelectValue />
-  </SelectTrigger>
-  <SelectContent>
-    <SelectItem value="api">{t('categories.api')}</SelectItem>
-    <SelectItem value="guide">{t('categories.guide')}</SelectItem>
-    <SelectItem value="development">{t('categories.development')}</SelectItem>
-    <SelectItem value="faq">{t('categories.faq')}</SelectItem>
-  </SelectContent>
-</Select>
+                <Select
+                  value={form.category}
+                  onValueChange={(v) => setForm({ ...form, category: v as DocCategory })}
+                >
+                  <SelectTrigger className={selectClass}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="api">{t('categories.api')}</SelectItem>
+                    <SelectItem value="guide">{t('categories.guide')}</SelectItem>
+                    <SelectItem value="development">{t('categories.development')}</SelectItem>
+                    <SelectItem value="faq">{t('categories.faq')}</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="d-status">{t('fieldStatus')}</Label>
-              <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v as DocStatus })}>
-  <SelectTrigger className={selectClass}>
-    <SelectValue />
-  </SelectTrigger>
-  <SelectContent>
-    <SelectItem value="draft">{t('status_draft')}</SelectItem>
-    <SelectItem value="published">{t('status_published')}</SelectItem>
-  </SelectContent>
-</Select>
+              <Select
+                value={form.status}
+                onValueChange={(v) => setForm({ ...form, status: v as DocStatus })}
+              >
+                <SelectTrigger className={selectClass}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="draft">{t('status_draft')}</SelectItem>
+                  <SelectItem value="published">{t('status_published')}</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="d-content">{t('fieldContent')}</Label>
-              <textarea id="d-content" value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })} placeholder={t('contentPlaceholder')} rows={6} className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 font-mono text-body shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" />
+              <div className="flex items-center justify-between gap-2">
+                <Label htmlFor={contentMode === 'markdown' ? 'd-content' : undefined}>
+                  {t('fieldContent')}
+                </Label>
+                <div className="flex gap-1">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={contentMode === 'markdown' ? 'outline' : 'ghost'}
+                    onClick={() => setContentMode('markdown')}
+                  >
+                    {te('markdown')}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={contentMode === 'preview' ? 'outline' : 'ghost'}
+                    onClick={() => setContentMode('preview')}
+                  >
+                    <Eye className="h-4 w-4" />
+                    {te('preview')}
+                  </Button>
+                </div>
+              </div>
+              {contentMode === 'markdown' ? (
+                <textarea
+                  id="d-content"
+                  value={form.content}
+                  onChange={(e) => setForm({ ...form, content: e.target.value })}
+                  placeholder={t('contentPlaceholder')}
+                  rows={6}
+                  className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 font-mono text-body shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                />
+              ) : (
+                // 单栏全宽预览:弹窗固定 max-w-lg,挤两栏会把 prose 表格/代码块压出裁切(§4 读数不得断行)
+                // max-h + overflow-y-auto 保证长文档不撑破弹窗(DialogContent 自身不滚)
+                <div className="max-h-64 overflow-y-auto rounded-lg border border-input bg-muted/30 p-3">
+                  {form.content.trim() ? (
+                    <MarkdownBody content={form.content} />
+                  ) : (
+                    <p className="text-body text-muted-foreground">{t('noData')}</p>
+                  )}
+                </div>
+              )}
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={close} disabled={saveMut.isPending}>{tc('cancel')}</Button>
-              <Button type="submit" disabled={saveMut.isPending}>{saveMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}{t('save')}</Button>
+              <Button type="button" variant="outline" onClick={close} disabled={saveMut.isPending}>
+                {tc('cancel')}
+              </Button>
+              <Button type="submit" disabled={saveMut.isPending}>
+                {saveMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+                {t('save')}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>

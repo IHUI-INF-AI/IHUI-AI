@@ -55,7 +55,8 @@
     "SearchBar": 4,
     "Tooltip": 0,
     "BusinessFormCard": 0,
-    "VideoPlayer": 6
+    "VideoPlayer": 6,
+    "Button": 12
   },
   "webRadiusCounts": {
     "AgentRuntimePanel": 1,
@@ -65,7 +66,8 @@
     "SearchBar": 2,
     "Tooltip": 0,
     "BusinessFormCard": 0,
-    "VideoPlayer": 1
+    "VideoPlayer": 1,
+    "Button": 2
   },
   "webElementRadiusCounts": {
     "AgentRuntimePanel": 0,

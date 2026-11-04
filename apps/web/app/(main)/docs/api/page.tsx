@@ -155,29 +155,38 @@ data: [DONE]`}
       {/* Agent API */}
       <section id="agent-api" className="mt-16 space-y-6">
         <h2 className="text-display font-bold tracking-tight">Agent 管理 API</h2>
-        <div className="space-y-2">
-          <div className="grid grid-cols-[4rem_minmax(0,1fr)] gap-2 rounded bg-muted/60 p-3 text-label font-semibold min-[768px]:grid-cols-[4rem_minmax(145px,1fr)_minmax(0,1fr)]">
-            <div>方法</div>
-            <div>路径</div>
-            <div className="col-span-2 min-[768px]:col-span-1">说明</div>
-          </div>
-          {[
-            ['GET', '/v1/agents', '列表(分页 + 筛选)'],
-            ['POST', '/v1/agents', '创建 Agent'],
-            ['GET', '/v1/agents/:id', '详情'],
-            ['PATCH', '/v1/agents/:id', '更新'],
-            ['POST', '/v1/agents/:id/publish', '发布到市场'],
-            ['DELETE', '/v1/agents/:id', '删除'],
-          ].map(([method, path, desc], i) => (
-            <div
-              key={`${method}-${path}`}
-              className={`grid grid-cols-[4rem_minmax(0,1fr)] gap-2 rounded p-3 text-sm min-[768px]:grid-cols-[4rem_minmax(145px,1fr)_minmax(0,1fr)] ${i % 2 === 0 ? 'bg-card' : 'bg-muted/40'}`}
-            >
-              <div className="font-mono text-xs">{method}</div>
-              <div className="font-mono text-xs">{path}</div>
-              <div className="col-span-2 text-muted-foreground min-[768px]:col-span-1">{desc}</div>
-            </div>
-          ))}
+        <div className="overflow-x-auto rounded-lg border bg-card">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-muted/60 text-left text-label font-semibold">
+                <th scope="col" className="p-3">
+                  方法
+                </th>
+                <th scope="col" className="p-3">
+                  路径
+                </th>
+                <th scope="col" className="p-3">
+                  说明
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                ['GET', '/v1/agents', '列表(分页 + 筛选)'],
+                ['POST', '/v1/agents', '创建 Agent'],
+                ['GET', '/v1/agents/:id', '详情'],
+                ['PATCH', '/v1/agents/:id', '更新'],
+                ['POST', '/v1/agents/:id/publish', '发布到市场'],
+                ['DELETE', '/v1/agents/:id', '删除'],
+              ].map(([method, path, desc], i) => (
+                <tr key={`${method}-${path}`} className={i % 2 === 0 ? 'bg-card' : 'bg-muted/40'}>
+                  <td className="p-3 font-mono text-xs whitespace-nowrap">{method}</td>
+                  <td className="p-3 font-mono text-xs whitespace-nowrap">{path}</td>
+                  <td className="p-3 text-muted-foreground">{desc}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </section>
 
@@ -194,32 +203,39 @@ data: [DONE]`}
   "data": { ... }     // 成功时的数据
 }`}
           />
-          <div className="mt-4 space-y-2">
-            <div className="grid grid-cols-2 gap-2 rounded bg-muted/60 p-3 text-label font-semibold min-[768px]:grid-cols-3">
-              <div>HTTP</div>
-              <div>code</div>
-              <div className="col-span-2 min-[768px]:col-span-1">说明</div>
-            </div>
-            {[
-              ['200', '0', '成功'],
-              ['400', '1001', '参数错误'],
-              ['401', '1002', '未认证'],
-              ['403', '1003', '无权限'],
-              ['404', '1004', '资源不存在'],
-              ['429', '1005', '速率超限'],
-              ['500', '5000', '服务器错误'],
-            ].map(([http, code, desc], i) => (
-              <div
-                key={`${http}-${code}`}
-                className={`grid grid-cols-2 gap-2 rounded p-3 text-sm min-[768px]:grid-cols-3 ${i % 2 === 0 ? 'bg-card' : 'bg-muted/40'}`}
-              >
-                <div>{http}</div>
-                <div className="text-muted-foreground">{code}</div>
-                <div className="col-span-2 text-muted-foreground min-[768px]:col-span-1">
-                  {desc}
-                </div>
-              </div>
-            ))}
+          <div className="mt-4 overflow-x-auto rounded-lg border">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-muted/60 text-left text-label font-semibold">
+                  <th scope="col" className="p-3">
+                    HTTP
+                  </th>
+                  <th scope="col" className="p-3">
+                    code
+                  </th>
+                  <th scope="col" className="p-3">
+                    说明
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  ['200', '0', '成功'],
+                  ['400', '1001', '参数错误'],
+                  ['401', '1002', '未认证'],
+                  ['403', '1003', '无权限'],
+                  ['404', '1004', '资源不存在'],
+                  ['429', '1005', '速率超限'],
+                  ['500', '5000', '服务器错误'],
+                ].map(([http, code, desc], i) => (
+                  <tr key={`${http}-${code}`} className={i % 2 === 0 ? 'bg-card' : 'bg-muted/40'}>
+                    <td className="p-3 font-mono text-xs whitespace-nowrap">{http}</td>
+                    <td className="p-3 font-mono text-xs text-muted-foreground">{code}</td>
+                    <td className="p-3 text-muted-foreground">{desc}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       </section>
@@ -230,10 +246,7 @@ data: [DONE]`}
         <div className="grid gap-4 min-[768px]:grid-cols-3">
           <div className="rounded-lg border bg-card p-3">
             <h3 className="text-lg font-semibold">JavaScript</h3>
-            <CodeBlock
-              language="bash"
-              code={`npm i @ihui/api-client`}
-            />
+            <CodeBlock language="bash" code={`npm i @ihui/api-client`} />
             <CodeBlock
               language="ts"
               code={`import { chat } from '@ihui/api-client'
@@ -242,10 +255,7 @@ await chat({ message: '你好' })`}
           </div>
           <div className="rounded-lg border bg-card p-3">
             <h3 className="text-lg font-semibold">Python</h3>
-            <CodeBlock
-              language="bash"
-              code={`pip install ihui-ai`}
-            />
+            <CodeBlock language="bash" code={`pip install ihui-ai`} />
             <CodeBlock
               language="python"
               code={`from ihui import IHUI
@@ -255,10 +265,7 @@ client.chat(message='你好')`}
           </div>
           <div className="rounded-lg border bg-card p-3">
             <h3 className="text-lg font-semibold">Go</h3>
-            <CodeBlock
-              language="bash"
-              code={`go get github.com/ihui/ihui-go`}
-            />
+            <CodeBlock language="bash" code={`go get github.com/ihui/ihui-go`} />
             <CodeBlock
               language="go"
               code={`client := ihui.New("key")

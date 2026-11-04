@@ -97,9 +97,12 @@ async function assertTooltipArrowNotClipped(page: Page, tag: string, theme: 'lig
   await firstNavLink.waitFor({ state: 'visible', timeout: 20000 })
   await firstNavLink.scrollIntoViewIfNeeded()
   await firstNavLink.hover()
-  // 只认 feedback/Tooltip 产出的那枚 Radix tooltip(内容盒带 text-xs px-2 特征类);
-  // 侧栏/页脚里一直挂着的 CSS 二维码提示框也带 role="tooltip" 但无箭头,必须排除。
-  const tip = page.locator('[role="tooltip"].text-xs.px-2').first()
+  // 只认 feedback/Tooltip 产出的那枚 Radix tooltip(Radix Content 带 data-side/data-state);
+  // 侧栏/页脚里一直挂着的 CSS 二维码提示框也带 role="tooltip" 但没有这些 popper 属性,必须排除。
+  // 2026-11-03:原判据 `.text-xs.px-2` 是内容盒的字号档特征类,45525b8354(字号档收口)
+  // 已把 text-xs 换成 text-label ⇒ 选择器恒零命中(Tooltip 其实已弹出)。改锚 Radix 自身
+  // 的 data-side/data-state,不随样式档位漂移。
+  const tip = page.locator('[role="tooltip"][data-side][data-state]').first()
   await expect(tip, `${tag}: feedback Tooltip 应出现`).toBeVisible({ timeout: 10000 })
 
   await page.waitForTimeout(300) // 等箭头定位稳定

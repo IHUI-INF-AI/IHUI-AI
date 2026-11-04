@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-04T06:20:40.346Z",
+  "generatedAt": "2026-11-04T06:54:10.305Z",
   "face": "head",
   "rule": "差值棘轮:在册集合只减不增;新键/新对未入账=红;undetermined=warn 点名(有效 not-applicable 裁决除外)。已能量出的整对不适用亦按 pair-level 裁决剔除存量。存差=未实现+未映射+未裁决,逐键 judged 台账仅移出存差、不入映射、逐条留审(owner/expires/evidence≥2/rationale),坏裁决/过期/一键两归/失效裁决=红且拒写。升绝对零前置=存差归零。",
   "pairs": {
@@ -13,7 +13,7 @@
     },
     "BackChevron": {
       "state": "ok",
-      "onlyRn": [],
+      "onlyRn": ["label"],
       "onlyMini": ["color"],
       "reqDrift": [],
       "mapped": [
@@ -23,7 +23,7 @@
           "kind": "event"
         }
       ],
-      "driftTotal": 1
+      "driftTotal": 2
     },
     "BottomActionBar": {
       "state": "ok",
@@ -119,7 +119,25 @@
     },
     "InputArea": {
       "state": "ok",
-      "onlyRn": ["onImageAdd"],
+      "onlyRn": [
+        "loading",
+        "onClearModel",
+        "onImageAdd",
+        "onOpenModelConfig",
+        "onOpenModelSelect",
+        "onPlusToggle",
+        "onStop",
+        "plusActive",
+        "selectedModelName",
+        "sendLabel",
+        "showVoiceMic",
+        "stopLabel",
+        "transparentBackground",
+        "voiceDuration",
+        "voiceNoteNode",
+        "voiceRecording",
+        "voiceTranscribing"
+      ],
       "onlyMini": ["onFangdaChange", "onUpload", "variant"],
       "reqDrift": [],
       "mapped": [
@@ -154,11 +172,11 @@
           "kind": "event"
         }
       ],
-      "driftTotal": 4
+      "driftTotal": 20
     },
     "IntelligentAssistant": {
       "state": "ok",
-      "onlyRn": [],
+      "onlyRn": ["robotImage"],
       "onlyMini": [],
       "reqDrift": [],
       "mapped": [
@@ -168,15 +186,25 @@
           "kind": "content"
         }
       ],
-      "driftTotal": 0
+      "driftTotal": 1
     },
     "LoginPopUp": {
       "state": "ok",
-      "onlyRn": [],
+      "onlyRn": [
+        "description",
+        "onBindPhone",
+        "onLogout",
+        "onPrimary",
+        "onSave",
+        "onSecondary",
+        "primaryLabel",
+        "secondaryLabel",
+        "title"
+      ],
       "onlyMini": ["onOneClickLogin", "onPasswordLogin", "onWebAuthLogin"],
       "reqDrift": [],
       "mapped": [],
-      "driftTotal": 3
+      "driftTotal": 12
     },
     "ModelConfigDialog": {
       "state": "ok",
@@ -282,7 +310,7 @@
     },
     "UserInfoCard": {
       "state": "ok",
-      "onlyRn": ["userInfo"],
+      "onlyRn": ["onCopyInviteCode", "userInfo"],
       "onlyMini": ["desc"],
       "reqDrift": [],
       "mapped": [
@@ -302,7 +330,7 @@
           "kind": "event"
         }
       ],
-      "driftTotal": 2
+      "driftTotal": 3
     },
     "VideoPlayer": {
       "state": "ok",
@@ -330,23 +358,23 @@
     },
     "VoiceInput": {
       "state": "ok",
-      "onlyRn": [],
+      "onlyRn": ["showClear"],
       "onlyMini": [],
       "reqDrift": [],
       "mapped": [],
-      "driftTotal": 0
+      "driftTotal": 1
     }
   },
   "counts": {
     "pairs": 18,
-    "drifted": 0,
-    "aligned": 16,
+    "drifted": 6,
+    "aligned": 10,
     "undetermined": 0,
     "notApplicable": 2,
-    "maxKeyDrift": 0,
-    "driftKeysTotal": 0,
+    "maxKeyDrift": 16,
+    "driftKeysTotal": 29,
     "judgedKeysTotal": 45,
-    "rawDriftKeysTotal": 0,
+    "rawDriftKeysTotal": 29,
     "adjudicatedDriftKeys": 7,
     "mappedKeysTotal": 49,
     "equivalenceEntries": 27

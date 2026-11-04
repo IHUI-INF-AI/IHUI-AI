@@ -31,6 +31,26 @@ def _workspace_is_app_root(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("MCP_WORKSPACE_ROOTS", str(APP_ROOT))
 
 
+@pytest.fixture(autouse=True)
+def _ensure_runtime_credential_files() -> None:
+    """补齐三份运行期落盘文件的**路径**(CI 干净检出里它们还不存在)。
+
+    判据是目录级 denylist(按相对根第一段命中 `data`),与文件内容无关;
+    但"真实存在"是这条用例的前提,否则在 CI 上会以"夹具前提不成立"红掉。
+    只补路径、不写真实密钥;本轮新建的文件在用例后删除,不污染工作树。
+    """
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    created: list[Path] = []
+    for name in ("credentials_key", "checkin_fernet_key", "sessions.db"):
+        target = DATA_DIR / name
+        if not target.exists():
+            target.write_text("test-fixture-placeholder", encoding="utf-8")
+            created.append(target)
+    yield
+    for target in created:
+        target.unlink(missing_ok=True)
+
+
 @pytest.mark.parametrize(
     "rel",
     ["data/credentials_key", "data/checkin_fernet_key", "data/sessions.db"],

@@ -18,6 +18,8 @@ const STAGE_STYLE: CSSProperties = { height: rpx(vpStageHeightRpx()) }
 export interface VideoPlayerProps {
   src?: string
   poster?: string
+  /** 标题(与 RN 端同名同义):显示在控制条上方 */
+  title?: string
   /** 起始播放位置(秒)(与 RN 端同名同义):喂给原生 Video 的 initialTime */
   startPosition?: number
   autoplay?: boolean

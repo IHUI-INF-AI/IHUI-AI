@@ -1,0 +1,77 @@
+[
+  {
+    "path": "apps/extension/lib/agent-control-bridge.ts",
+    "source": "chrome.runtime.getManifest().version(源头 = apps/extension/package.json)",
+    "why": "能力上报给服务端的版本,曾写死 1.0.0"
+  },
+  {
+    "path": "apps/extension/entrypoints/sidepanel/pages/AboutPage.tsx",
+    "source": "chrome.runtime.getManifest().version(源头 = apps/extension/package.json)",
+    "why": "用户可见的「当前版本号」,曾写死 1.0.0"
+  },
+  {
+    "path": "apps/miniapp-taro/src/utils/app-version.ts",
+    "source": "Taro.getAccountInfoSync().miniProgram.version(小程序端唯一出口)",
+    "why": "本端版本号的唯一实现;其余三处都 import 它"
+  },
+  {
+    "path": "apps/miniapp-taro/src/pkg-user/user/settings.tsx",
+    "source": "@/utils/app-version getMiniappVersion()",
+    "why": "用户可见设置页版本行,曾写死 1.0.0"
+  },
+  {
+    "path": "apps/miniapp-taro/src/hooks/use-ui-control-bridge.ts",
+    "source": "@/utils/app-version getMiniappVersion()",
+    "why": "能力上报版本,曾写死 1.0.0"
+  },
+  {
+    "path": "apps/miniapp-taro/src/api/index.ts",
+    "source": "@/utils/app-version getMiniappVersion()",
+    "why": "关于页版本号"
+  },
+  {
+    "path": "apps/mobile-rn/src/hooks/use-ui-control-bridge.ts",
+    "source": "../lib/config APP_VERSION(EXPO_PUBLIC_IHUI_MOBILE_VERSION ‖ package.json)",
+    "why": "能力上报版本,曾写死 1.0.0 而不走本端既有单源"
+  },
+  {
+    "path": "apps/web/src/hooks/use-agent-control.ts",
+    "source": "不报(宁缺不编)",
+    "why": "web 端无可追溯版本源头:apps/web/package.json 恒占位 0.0.0、NEXT_PUBLIC_APP_VERSION 全仓无注入方"
+  },
+  {
+    "path": "apps/web/src/hooks/use-ui-control-bridge.ts",
+    "source": "不报(宁缺不编)",
+    "why": "同 use-agent-control.ts"
+  },
+  {
+    "path": "apps/api/src/routes/public-status.ts",
+    "source": "apps/api/package.json 的 version;等于占位 0.0.0 时如实 null",
+    "why": "公开状态页 v<x> 曾写死 1.0.0"
+  },
+  {
+    "path": "packages/api-client/src/endpoints/status.ts",
+    "source": "契约面:version: string | null",
+    "why": "nullable 契约必须与发信侧同步,否则前端按非空解构会静默崩"
+  },
+  {
+    "path": "apps/web/app/status/page.tsx",
+    "source": "渲染面:version 为 null 时整段不渲染",
+    "why": "同上,消费侧不得为了过类型检查而编一个号"
+  },
+  {
+    "path": "apps/cli/src/tools/mcp-runtime.ts",
+    "source": "util/pkg-version readCliPackage(import.meta.url)",
+    "why": "MCP initialize 的 clientInfo.version 曾三处各写死 1.0.0"
+  },
+  {
+    "path": "apps/ai-service/app/routers/mcp_official.py",
+    "source": "app/__init__.py __version__",
+    "why": "MCP serverInfo 版本,曾写死 1.0.0 与本服务另一条腿(mcp_export)各报一套"
+  },
+  {
+    "path": "apps/ai-service/app/services/agent_engine.py",
+    "source": "app/__init__.py __version__",
+    "why": "同上"
+  }
+]

@@ -408,7 +408,8 @@
     "totalRecharge": "累計チャージ",
     "totalWithdraw": "累計出金",
     "withdraw": "出金",
-    "points": "トークン"
+    "points": "トークン",
+    "rechargeSuccess": "チャージ"
   },
   "community": {
     "posts": "投稿",
@@ -2989,6 +2990,10 @@
     "text6": "レベル紹介ページ未設定",
     "menu": {
       "subscriptions": "マイ購読"
+    },
+    "security": {
+      "code": "認証コード",
+      "sendCode": "コード取得"
     }
   },
   "vipScreen": {
@@ -3244,7 +3249,8 @@
     "contactPlaceholder": "連絡先を入力してください(任意)",
     "contentPlaceholder": "フィードバックの詳細を入力してください",
     "submit": "フィードバックを送信",
-    "type": "タイプ"
+    "type": "タイプ",
+    "success": "送信しました"
   },
   "comment": {
     "loading": "読み込み中...",

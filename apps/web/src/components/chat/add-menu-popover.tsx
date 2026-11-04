@@ -238,7 +238,9 @@ export function AddMenuPopover(props: {
           disabled={isStreaming}
           onClick={() => onOpenChange(!open)}
           className={cn(
-            'inline-flex h-8 min-w-0 items-center gap-1.5 rounded-sm px-2 text-label font-medium leading-none',
+            // min-w-8(2026-11-03):纯 + 图标态自然宽 30px,桌面端点击区需 ≥32px;移动端由
+            // @media(max-width:639px) 的 40px 规则覆盖。
+            'inline-flex h-8 min-w-8 items-center gap-1.5 rounded-sm px-2 text-label font-medium leading-none',
             'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
             'disabled:cursor-not-allowed disabled:opacity-50',
             'hover:-translate-y-px',

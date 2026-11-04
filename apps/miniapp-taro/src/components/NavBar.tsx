@@ -4,9 +4,10 @@
 
 import { useTt, t } from '@/i18n'
 import { View, Text } from '@tarojs/components'
-import type { CSSProperties } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import LineIcon from '@/components/LineIcon'
 import Taro from '@tarojs/taro'
+import type { AppIcon } from '@ihui/types'
 import { rnRadius, TARO_RPX_PER_PX } from '@ihui/design-tokens'
 import {
   NAVBAR_ACTION_GLYPH_PX,
@@ -71,6 +72,18 @@ export interface NavBarNotification {
   onClose?: () => void
 }
 
+/// 对齐 RN 端 `NavBarAction`(apps/mobile-rn/src/components/NavBar.tsx)。
+/// 门 285 存量收敛(B3 块):原本 mini 端用离散 prop(rightText/onRightClick/onMenuClick...)
+/// 表达右侧行为,现补数组式 actions 接口以对齐 RN 的 leftActions/rightActions。
+export interface NavBarAction {
+  /** emoji 字符 / 图片 URL(http:// / / 开头)/ lucide 图标组件引用(统一图标) */
+  icon: AppIcon | string
+  label?: string
+  /** 无障碍朗读标签(纯图标按钮无可见 label 时用它保留语义) */
+  a11yLabel?: string
+  onPress: () => void
+}
+
 /**
  * NavBar 顶部导航栏
  *
@@ -86,6 +99,12 @@ export interface NavBarProps {
   subtitle?: string
   /** 粘性顶栏(与 RN 端 sticky 同语义;仅影响定位,不影响配色/槽位) */
   sticky?: boolean
+  /** 左侧额外按钮(菜单/drawer),渲染在 back 之后(对齐 RN 端 leftActions) */
+  leftActions?: ReadonlyArray<NavBarAction>
+  /** 右侧多按钮(搜索/设置/分类等)(对齐 RN 端 rightActions) */
+  rightActions?: ReadonlyArray<NavBarAction>
+  /** 兼容旧 API:单个 rightAction ReactNode(对齐 RN 端 rightAction) */
+  rightAction?: ReactNode
   showBack?: boolean
   bgColor?: string
   textColor?: string

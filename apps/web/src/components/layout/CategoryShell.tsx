@@ -67,6 +67,13 @@ export interface CategoryShellProps {
   className?: string
   /** 可选:侧边栏宽度,默认 w-fit(自适应文字宽度) */
   sidebarWidth?: string
+  /**
+   * 内容区是否自带主题 H1(2026-11-03 立,治「文档中心每页两个 H1」)。
+   * true ⇒ 模块标题降级为非标题元素(class 原样保留,视觉零变化),把唯一的 H1 让给
+   * 内容页自己的 hero 标题(a11y + SEO:一页只能有一个 H1,且必须是该页主题)。
+   * 默认 false = 模块标题继续充当该页 H1(正文没有 hero 标题的模块保持原行为)。
+   */
+  contentOwnsH1?: boolean
 }
 
 /**
@@ -87,6 +94,7 @@ export function CategoryShell({
   children,
   className,
   sidebarWidth = 'w-fit',
+  contentOwnsH1 = false,
 }: CategoryShellProps) {
   const pathname = usePathname()
   const t = useTranslations('a11y')
@@ -114,6 +122,10 @@ export function CategoryShell({
     }
     return null
   }, [navGroups, pathname])
+
+  // 内容页自带主题 H1 时,模块标题降级为普通段落(取用的 class 一字不改,视觉零变化)——
+  // 保证「一页只有一个 H1,且它是本页主题」(a11y + SEO)。默认仍渲染 <h1>。
+  const TitleTag: React.ElementType = contentOwnsH1 ? 'p' : 'h1'
 
   const renderNavItems = (items: CategoryNavItem[]) =>
     items.map((item) => {
@@ -180,7 +192,7 @@ export function CategoryShell({
             </Sheet>
           )}
           <div className="min-w-0 flex-1">
-            <h1 className="text-heading font-bold tracking-tight">{title}</h1>
+            <TitleTag className="text-heading font-bold tracking-tight">{title}</TitleTag>
             {description && (
               <p className="mt-0.5 text-label text-muted-foreground">{description}</p>
             )}

@@ -3,47 +3,317 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 // 对齐目标(RN 共享屏): apps/mobile-rn/src/screens/EduAttendanceScreen.tsx
+// 声明式薄壳:列表渲染归 ChildRecordsView,本页只配列定义 + 取数 + 三个动作槽。
+// 动作一律「服务端为准」:成功后 bump reloadToken 重新取列表,不做本地乐观更新。
+// 写接口入参见 ./contract.ts —— status 已从契约里删除(状态由服务端按该班考勤规则现算),
+// 回填非当日必须同批给出该日内时刻,否则本端拒发请求。
+import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Text, View } from '@tarojs/components'
+import Taro from '@tarojs/taro'
 import { useI18n } from '@/i18n'
 import ThemeRoot from '@/components/ThemeRoot'
-import { get } from '@/api'
+import Button from '@/components/Button'
+import { get, post, put } from '@/api'
+import { formatDate, nowDate } from '@/utils/time'
 import { ChildRecordsView, type ChildRecordRow } from '../edu-child/records-page'
+import DayBar from './day-bar'
+import {
+  TONE_CLASS,
+  backfillBlocked,
+  buildBatchPayload,
+  buildCheckInPayload,
+  buildCheckOutPayload,
+  statusLabelOf,
+  statusTally,
+  statusToneOf,
+} from './contract'
+import StatsPanel from './stats-panel'
+import { attendanceStatsUrl, firstClassIdOf, type AttendanceStatsPayload } from './stats'
 
 interface Row {
   id: string
   studentId: string
+  classId: string
+  /** 服务端回带的考勤日:写动作以此为准,不被页顶选择带跑 */
+  date: string
   status: string
   checkInTime: string | null
   checkOutTime: string | null
   remark: string | null
 }
+
+interface BatchOutcome {
+  created: number
+  skipped: number
+  missedIds: string[]
+}
+
+/**
+ * 行内动作可见性判据(唯一实现,用例直接钉它)。
+ * 签到只看「无 checkInTime」,签退只看「有 checkInTime ∧ 无 checkOutTime」——
+ * 签退**绝不按 checkInMethod 挡**:学生自签过的行教师同样必须能签退
+ * (web 侧踩过该缺陷并已修,此处不得回潮)。
+ */
+export function actionAvailability(r: {
+  checkInTime: string | null
+  checkOutTime: string | null
+}): { canCheckIn: boolean; canCheckOut: boolean } {
+  return {
+    canCheckIn: !r.checkInTime,
+    canCheckOut: Boolean(r.checkInTime) && !r.checkOutTime,
+  }
+}
+
 export default function Page() {
   const { t } = useI18n()
-  const today = new Date().toISOString().slice(0, 10)
-  const st = (s: string) => {
-    const k = `eduAttendance.status.${s}`
-    const v = t(k)
-    return v === k ? s : v
-  }
+  /** 今日业务日(Asia/Shanghai,单源 @/utils/time;此前用 toISOString() 取 UTC 日 ⇒ 早八点前错一天) */
+  const today = nowDate()
+  /** 取数与写动作的业务日,默认当日;可经 DayBar 选到历史日(回填) */
+  const [date, setDate] = useState(today)
+  /** 签到时刻 HH:mm;'' = 未选 ⇒ 由服务器落 now(仅当日合法) */
+  const [hm, setHm] = useState('')
+  /** 行 id → 后端原始行(壳只给 cells,动作需要的 classId/date/时刻留在本页) */
+  const [meta, setMeta] = useState<Record<string, Row>>({})
+  /** 进行中的动作键(行内动作 = in:<id> / out:<id>,头部 = batch) */
+  const [busy, setBusy] = useState('')
+  /** 失败与点名结果的常驻回显:后端 message 必须上屏,不许静默 */
+  const [notice, setNotice] = useState('')
+  const [tick, setTick] = useState(0)
+
+  /**
+   * 壳的取数回调是**首帧闭包**(其 useCallback 依赖为 []),所以业务日绝不能靠闭包捕获;
+   * 经 ref 传递,壳在 reloadToken 变化时读到的才是新日。
+   * 赋值必须写在 render 体内:子组件的 effect 早于父组件 effect 执行,放 useEffect 里会晚一帧。
+   */
+  const dateRef = useRef(date)
+  dateRef.current = date
+
+  /** 换日 = 换 token ⇒ 壳重取数;动作成功只进 tick 段 */
+  const reloadToken = `${date}#${tick}`
+
+  /**
+   * 统计区 + 趋势区的那一次 stats 取数(端点/参数见 ./stats.ts)。
+   * 刻意挂在壳的 load 回调里而不是独立 effect:壳在 useDidShow 与 reloadToken 变化两处重取,
+   * 同批触发才能保证「列表是新的、统计也是新的」—— 两处各自取数必然出现两个不同时刻的分母。
+   */
+  const statsSeq = useRef(0)
+  const [stats, setStats] = useState<AttendanceStatsPayload | null>(null)
+  const [statsLoading, setStatsLoading] = useState(false)
+  const [statsError, setStatsError] = useState('')
+
+  /** seq 吃掉换日竞态:回来的不是当前业务日 ⇒ 整批丢弃,不把旧日读数挂到新日页面上。 */
+  const loadStats = useCallback(
+    async (list: Row[]): Promise<void> => {
+      const day = dateRef.current
+      const seq = ++statsSeq.current
+      const settle = (next: AttendanceStatsPayload | null, err: string): void => {
+        if (statsSeq.current !== seq) return
+        setStats(next)
+        setStatsError(err)
+        setStatsLoading(false)
+      }
+      setStatsLoading(true)
+      setStatsError('')
+      // 窗口起点算不出来(日键形状不合契约)⇒ 连请求都不发,只落一条常驻回显
+      const url = attendanceStatsUrl({ date: day, classId: firstClassIdOf(list) })
+      if (!url) {
+        settle(null, t('common.loadFailed'))
+        return
+      }
+      try {
+        const res = await get<AttendanceStatsPayload>(url)
+        settle(res ?? null, '')
+      } catch (e) {
+        // 传输层已 toast 过一次;这里只落常驻回显,不拦列表渲染
+        settle(null, (e as Error)?.message || t('common.loadFailed'))
+      }
+    },
+    [t],
+  )
+
+  /** 状态取词单源 contract.statusLabelOf(与统计面板同一把尺;词表外的码原样回显) */
+  const st = (s: string) => statusLabelOf(s, t)
+
+  /** 时刻按上海墙钟渲染(此前 slice(11,16) 取的是 ISO 里的 UTC 时段,早八点后一律少 8 小时) */
+  const clock = (v: string | null) => (v ? formatDate(v, 'HH:mm') || '—' : '—')
+
+  const rows = useMemo(() => Object.values(meta), [meta])
+  const classIds = useMemo(
+    () => Array.from(new Set(rows.map((r) => r.classId).filter(Boolean))),
+    [rows],
+  )
+  const targetClassId = classIds[0] ?? ''
+  const tally = useMemo(() => statusTally(rows), [rows])
+
+  /** 回填未给时刻 ⇒ 一切「签到」类写动作禁用(签退不受影响:时刻由服务器落) */
+  const momentMissing = backfillBlocked(date, today, hm)
+
+  const run = useCallback(
+    async (key: string, action: () => Promise<void>) => {
+      setBusy(key)
+      setNotice('')
+      try {
+        await action()
+      } catch (e) {
+        // 传输层已 toast 过一次,这里再落一条常驻回显:toast 会消失,失败不能消失
+        const msg = (e as Error)?.message || t('common.loadFailed')
+        setNotice(msg)
+        Taro.showToast({ title: msg, icon: 'none' })
+      } finally {
+        setBusy('')
+      }
+    },
+    [t],
+  )
+
+  const onCheckIn = (r: Row) =>
+    run(`in:${r.id}`, async () => {
+      const payload = buildCheckInPayload({
+        studentId: r.studentId,
+        classId: r.classId,
+        date: r.date || date,
+        hm,
+        today,
+      })
+      // 载荷构造不出来 = 回填缺该日内时刻:请求一律不发出去,并把原因常驻上屏
+      if (!payload) {
+        setNotice(t('eduAttendance.backfillNeedsTime'))
+        return
+      }
+      await post('/edu-ai-management/attendance/check-in', payload)
+      Taro.showToast({ title: t('eduAttendance.checkedInToast'), icon: 'success' })
+      setTick((n) => n + 1)
+    })
+
+  const onCheckOut = (r: Row) =>
+    run(`out:${r.id}`, async () => {
+      await put(
+        '/edu-ai-management/attendance/check-out',
+        buildCheckOutPayload({ studentId: r.studentId, classId: r.classId, date: r.date || date }),
+      )
+      Taro.showToast({ title: t('eduAttendance.checkedOutToast'), icon: 'success' })
+      setTick((n) => n + 1)
+    })
+
+  const onBatch = () =>
+    run('batch', async () => {
+      const payload = buildBatchPayload({ classId: targetClassId, date, hm, today })
+      if (!payload) {
+        setNotice(t('eduAttendance.backfillNeedsTime'))
+        return
+      }
+      const res = await post<BatchOutcome>('/edu-ai-management/attendance/batch-check-in', payload)
+      const created = res?.created ?? 0
+      const skipped = res?.skipped ?? 0
+      const missed = res?.missedIds?.length ?? 0
+      setNotice(t('eduAttendance.batchResult', { created, skipped, missed }))
+      Taro.showToast({ title: t('eduAttendance.batchDoneToast'), icon: 'success' })
+      setTick((n) => n + 1)
+    })
+
+  const rowActions = useCallback(
+    (row: ChildRecordRow): ReactNode => {
+      const r = meta[row.id]
+      if (!r) return null
+      const { canCheckIn, canCheckOut } = actionAvailability(r)
+      if (!canCheckIn && !canCheckOut) return null
+      return (
+        <>
+          {canCheckIn ? (
+            <Button
+              size="sm"
+              loading={busy === `in:${r.id}`}
+              disabled={Boolean(busy) || !r.classId || momentMissing}
+              onClick={() => void onCheckIn(r)}
+            >
+              {t('eduAttendance.checkInFor')}
+            </Button>
+          ) : null}
+          {canCheckOut ? (
+            <Button
+              size="sm"
+              variant="outline"
+              loading={busy === `out:${r.id}`}
+              disabled={Boolean(busy) || !r.classId}
+              onClick={() => void onCheckOut(r)}
+            >
+              {t('eduAttendance.checkOut')}
+            </Button>
+          ) : null}
+        </>
+      )
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [meta, busy, momentMissing, t],
+  )
+
+  const noClass = classIds.length === 0
+  const headerAction = (
+    <>
+      <DayBar date={date} hm={hm} today={today} onDate={setDate} onHm={setHm} />
+      <Button
+        size="sm"
+        loading={busy === 'batch'}
+        disabled={noClass || Boolean(busy) || momentMissing}
+        onClick={onBatch}
+      >
+        {t('eduAttendance.batchCheckIn')}
+      </Button>
+      {noClass ? (
+        <Text className="text-xs text-muted-foreground">{t('eduAttendance.noClassReason')}</Text>
+      ) : classIds.length > 1 ? (
+        <Text className="text-xs text-muted-foreground">
+          {t('eduAttendance.multiClass', { classId: targetClassId })}
+        </Text>
+      ) : null}
+      {/* 状态构成:壳的 tone 是按列生效的,逐行色档要等壳补 rowCellTone —— 这一行先把真色档给出来 */}
+      {tally.length > 0 ? (
+        <View className="w-full flex flex-wrap items-center justify-end gap-2">
+          {tally.map((x) => (
+            <Text key={x.code} className={`text-xs ${TONE_CLASS[statusToneOf(x.code)]}`}>
+              {`${st(x.code)} ${x.count}`}
+            </Text>
+          ))}
+        </View>
+      ) : null}
+      {notice ? <Text className="w-full text-xs text-foreground">{notice}</Text> : null}
+      {/* 统计区 + 趋势区:整块 w-full 换到标题行之下,与上面的当日 tally 同一档挂载形态。
+          口径不同不互相替代 —— tally 是「本页当前清单」的当日计数,面板是 stats 端点的窗口读数。 */}
+      <StatsPanel payload={stats} loading={statsLoading} error={statsError} />
+    </>
+  )
+
   return (
     <ThemeRoot>
       <ChildRecordsView
         titleKey="eduMgmt.attendanceTitle"
+        reloadToken={reloadToken}
         columns={[
           { key: 'student', title: t('eduAttendance.student') },
-          { key: 'status', title: t('eduAttendance.statusTitle'), tone: 'ok' },
+          // 刻意不挂 tone:状态逐行不同,按列着色会把迟到/缺勤一起染绿(账面造假那一型的另一半)
+          { key: 'status', title: t('eduAttendance.statusTitle') },
           { key: 'checkIn', title: t('eduAttendance.checkIn') },
           { key: 'checkOut', title: t('eduAttendance.checkOut') },
           { key: 'remark', title: t('eduChildMeals.ingredients') },
         ]}
+        headerAction={headerAction}
+        rowActions={rowActions}
         load={async (): Promise<ChildRecordRow[]> => {
-          const res = await get<{ list: Row[] }>(`/edu-ai-management/attendance?date=${today}`)
-          return ((res as { list?: Row[] } | null)?.list ?? []).map((r) => ({
+          const res = await get<{ list: Row[] }>(
+            `/edu-ai-management/attendance?date=${dateRef.current}`,
+          )
+          const list = (res as { list?: Row[] } | null)?.list ?? []
+          setMeta(Object.fromEntries(list.map((r) => [r.id, r])))
+          // 统计/趋势与列表同批触发,但**不 await**:列表先上屏,stats 到货再补两个卡片。
+          // 串行只会让首屏多等一个往返;失败也只由面板自己常驻回显,不把整页拖成 loadFailed。
+          void loadStats(list)
+          return list.map((r) => ({
             id: r.id,
             cells: {
               student: r.studentId,
               status: st(r.status),
-              checkIn: r.checkInTime?.slice(11, 16) ?? '—',
-              checkOut: r.checkOutTime?.slice(11, 16) ?? '—',
+              checkIn: clock(r.checkInTime),
+              checkOut: clock(r.checkOutTime),
               remark: r.remark ?? '',
             },
           }))

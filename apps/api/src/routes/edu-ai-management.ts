@@ -333,19 +333,48 @@ const updatePlanItemSchema = createPlanItemSchema.partial().extend({
 // 8. 签到记录 (edu_attendance_record)
 // =============================================================================
 
+/**
+ * 考勤 status 筛选闸的合法值(2026-11-04 收口,本文件唯一一份取值表,§0.6)。
+ *
+ * 立因:`GET /attendance` 的 status 此前是 `z.string().max(20)` ⇒ 任意字符串都被当成一个
+ * 合法筛选值,后端按 `eq(status, 'all')` **精确匹配**,于是 web「全部状态」档直传
+ * `status=all` 时恒查空列表、且不报错(用户看到的是"今天没人考勤")。前端已于 41d5da91ec8
+ * 归一成"不传";本票补后端那一半 —— 非法枚举值必须是可整改的 400,不能静默放行。
+ *
+ * 值集来源(现读,不另立共享档位常量文件):`edu_attendance_record.status` 的词表
+ * = present/late/early/absent/leave,见 packages/database/src/schema/edu-ai-management.ts
+ * 的列注释;其中前四档由 services/edu-attendance-rule.ts 的 `judgeStatus` 现算,
+ * leave 由请假审批流写入(本文件 `eq(eduAttendanceRecord.status, 'leave')`)。
+ *
+ * 写法照同文件 `attendanceStatsQuerySchema.period` 的既有形态(就地写 z.enum);
+ * 一枚实例被三处考勤读端点共用(GET /attendance、GET /parent/child/:id/attendance、
+ * GET /parent/children/:childId/attendance),免得同一取值表在同文件抄两份必然漂移。
+ * 错误文案点名合法值,让"该改成什么"当场可知(§0.10:失效方向恒为多要一次定向说明)。
+ */
+const attendanceStatusFilter = z.enum(
+  ['present', 'late', 'early', 'absent', 'leave'],
+  'status 仅支持 present/late/early/absent/leave',
+)
+
 const attendanceListQuerySchema = z.object({
   studentId: z.transform(emptyToUndefined).pipe(z.string().uuid().optional()),
   classId: z.transform(emptyToUndefined).pipe(z.string().uuid().optional()),
   date: z.transform(emptyToUndefined).pipe(z.string().optional()),
-  status: z.transform(emptyToUndefined).pipe(z.string().max(20).optional()),
+  /** 空串经 emptyToUndefined 归一为"不筛选";非五档值 ⇒ 400(不再静默当合法筛选值)。 */
+  status: z.transform(emptyToUndefined).pipe(attendanceStatusFilter.optional()),
 })
 
+/**
+ * 教师代签入参(2026-11 收口:status 字段已删 —— 状态一律服务端按该班规则 + judgeStatus 现算,
+ * 不接受客户端自报;zod 默认 strip 未知键,老客户端继续传 status 只会被静默忽略,不会 400)。
+ * checkInTime 为可选 ISO 时刻:当日签到可不传(取服务器 now);回填历史日期必须显式提供且落在该日内。
+ */
 const checkInSchema = z.object({
   studentId: z.string().uuid(),
   classId: z.string().uuid(),
   date: z.string().optional(),
   checkInMethod: z.string().max(20).optional(),
-  status: z.string().max(20).optional(),
+  checkInTime: z.transform(emptyToUndefined).pipe(z.string().optional()),
   remark: z.string().optional(),
 })
 
@@ -356,8 +385,25 @@ const checkOutSchema = z.object({
   checkOutMethod: z.string().max(20).optional(),
 })
 
+/**
+ * 考勤记录修订入参(2026-11-04 收口:**status 字段已删,与教师代签/批量点名同一条口径**)。
+ *
+ * 取证(现读调用方,不是推断):全仓 `apps/web` / `apps/miniapp-taro/src` / `apps/mobile-rn/src` /
+ * `packages/app|shared|api-client` 对 `PUT /attendance/:id` 的调用数 = **0**
+ * (web 只有 `DELETE /attendance/${id}`,见 edu-management/attendance/PageClient.tsx;
+ * RN 的 `attendance/${kind}` 是 check-in / check-out 两条具名路由;小程序只有 check-in /
+ * check-out / batch-check-in;e2e 桩也没登记这条 PUT)。⇒ 这一枚 `status` 是无主死面。
+ *
+ * 为什么删而不是收成枚举:死字段收成枚举等于给一条没人走的路由再养一份契约;而按 2026-11
+ * 已定的口径,`edu_attendance_record.status` 只能由服务端现算
+ * (services/edu-attendance-rule.ts 的 `judgeStatus` + 请假审批写 'leave'),
+ * 端上自报状态本身就是越权面 —— 留着它,任何拿到 edu:manage 的人都能把 absent 改成 present,
+ * 且脏值会长期留在库里、让前端五档取词/色档落到默认档。
+ *
+ * zod 默认 strip 未知键 ⇒ 老客户端继续传 `status` 只会被静默丢弃(与 checkInSchema 同形),
+ * 不会 400 打断既有集成;真正的持久化路径(签退/请假)各自带自己的重判逻辑。
+ */
 const updateAttendanceSchema = z.object({
-  status: z.string().max(20).optional(),
   checkInTime: z.string().optional(),
   checkOutTime: z.string().optional(),
   checkInMethod: z.string().max(20).optional(),
@@ -386,11 +432,13 @@ const attendanceDateSchema = z.transform(emptyToUndefined).pipe(
  * 批量点名入参。
  * 刻意**不含 studentIds**:名单唯一来源是「该班在册学生」(见 batchCheckIn 端点)。
  * 让客户端自报"给谁记账"等于把归属判定交给调用方,与 AGENTS §5「不得信客户端自报」同一条纪律。
+ * 2026-11 收口(与教师代签同口径):status 字段已删,状态服务端现算;
+ * checkInTime 同 checkInSchema —— 当日可不传,回填历史日必须显式提供且落在该日内。
  */
 const batchCheckInSchema = z.object({
   classId: z.string().uuid(),
   date: attendanceDateSchema,
-  status: z.transform(emptyToUndefined).pipe(z.string().max(20).optional()),
+  checkInTime: z.transform(emptyToUndefined).pipe(z.string().optional()),
   remark: z.string().max(500).optional(),
 })
 
@@ -517,7 +565,16 @@ const bindingListQuerySchema = z.object({
 // =============================================================================
 
 const childAttendanceQuerySchema = z.object({
-  status: z.transform(emptyToUndefined).pipe(z.string().max(20).optional()),
+  /**
+   * 家长侧「按状态筛选孩子的考勤」与 `GET /attendance` 同一张脸(2026-11-04 同批收口):
+   * 此前同样是 `z.string().max(20)`,非法值被静默当合法筛选条件 ⇒ 恒空且不报错。
+   * 共用同一枚 `attendanceStatusFilter` 实例,不在这里抄第二份取值表(§0.6)。
+   * 2026-11-04 补:这枚 schema 现由**两条**家长读端点共用
+   * (`/parent/child/:id/attendance` 与 `/parent/children/:childId/attendance`)
+   * —— 后者此前没有任何 query 闸,传 status 被静默忽略;同一条查询形状两条端点判得不一样
+   * 就是缺陷,所以不复抄新表、直接复用这一枚。
+   */
+  status: z.transform(emptyToUndefined).pipe(attendanceStatusFilter.optional()),
   startDate: z.transform(emptyToUndefined).pipe(z.string().optional()),
   endDate: z.transform(emptyToUndefined).pipe(z.string().optional()),
 })
@@ -1009,6 +1066,54 @@ async function loadEnabledAttendanceRule(classId: string): Promise<{
     earlyBefore: rule.earlyBefore ?? null,
     qrSecret: rule.qrSecret ?? null,
   }
+}
+
+/**
+ * 教师侧签到两入口(单人代签 / 批量点名)的统一前置(2026-11 本票立,推广 checkInByStudent
+ * 已定档的正确口径,不新造判据):
+ *   ① checkInTime 与记录 date 必须落在同一个上海业务日(bizDayKey 单源口径,守门 246):
+ *        未显式给时刻 ⇒ 只有当日业务日才取服务器 now,回填历史日一律拒收;
+ *        显式给时刻 ⇒ 解析失败或跨业务日同样拒收(§0.3,不静默回落成 now);
+ *   ② status 一律由 judgeStatus + 该班 edu_attendance_rule 现算,入参 schema 已删 status,
+ *        客户端自报值被 zod strip 后结构上进不了库。
+ * 本函数体内不出现任何阈值比较 —— 迟到的那把尺始终在 judgeStatus(§0.6 单一真相源)。
+ */
+async function resolveTeacherCheckIn(params: {
+  classId: string
+  date: string
+  checkInTimeRaw?: string | undefined
+  now: Date
+}): Promise<{ ok: true; checkInTime: Date; status: string } | { ok: false; message: string }> {
+  const { classId, date, checkInTimeRaw, now } = params
+  let checkInTime: Date
+  if (checkInTimeRaw === undefined) {
+    if (bizDayKey(now) !== date)
+      return { ok: false, message: '回填非当日的考勤必须显式提供该日内的签到时刻 checkInTime' }
+    checkInTime = now
+  } else {
+    const d = new Date(checkInTimeRaw)
+    if (Number.isNaN(d.getTime())) return { ok: false, message: 'checkInTime 不是合法时刻' }
+    if (bizDayKey(d) !== date) return { ok: false, message: 'checkInTime 必须与考勤日期 date 同日' }
+    checkInTime = d
+  }
+  const rule = await loadEnabledAttendanceRule(classId)
+  const status = judgeStatus({
+    lateAfter: rule?.lateAfter ?? null,
+    earlyBefore: rule?.earlyBefore ?? null,
+    checkInTime,
+    checkOutTime: null,
+  })
+  return { ok: true, checkInTime, status }
+}
+
+/**
+ * 签退重判的优先级保护(2026-11 本票②):leave(请假审批联动写入)与 absent(日终补录/
+ * 判定写入)都比 present/late/early 三档的"当日在场结论"优先级高,
+ * 签退重判绝不把这两态洗回去;其余状态才交 judgeStatus 现判(早退维自此真能落库)。
+ * 本函数只答"原态是否保留",不答"该判成什么"——判定阈值仍单源在 judgeStatus。
+ */
+function statusPreservedOnCheckOut(status: string): boolean {
+  return status === 'leave' || status === 'absent'
 }
 
 /** edu_attendance_rule 的行形态(随表定义走,不在端点里各抄一份字段清单)。 */
@@ -2562,8 +2667,19 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
 
     const now = new Date()
-    const today = now.toISOString().split('T')[0]!
-    const date = parsed.data.date || today
+    // 缺省日期改走 bizDayKey(与批量点名/自签同一上海业务日口径;此前用 UTC 日键,
+    // 上海 00:00–08:00 之间会把"今天"错认成昨天,守门 246 单源要求)
+    const date = parsed.data.date || bizDayKey(now)
+
+    // status 服务端现算(本票①):judgeStatus + 该班规则,不接受客户端自报;
+    // checkInTime 与 date 强制同日,回填历史日必须显式带该日内时刻。
+    const resolved = await resolveTeacherCheckIn({
+      classId: parsed.data.classId,
+      date,
+      checkInTimeRaw: parsed.data.checkInTime,
+      now,
+    })
+    if (!resolved.ok) return reply.status(400).send(error(400, resolved.message))
 
     try {
       const [row] = await db.transaction(async (tx) => {
@@ -2588,13 +2704,13 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
             studentId: parsed.data.studentId,
             classId: parsed.data.classId,
             date,
-            checkInTime: now,
+            checkInTime: resolved.checkInTime,
             // 人脸档(checkInMethod='face')本票裁决**明确不做**,也不建空壳端点:
             // 本仓当前既没有人脸特征库/1:N 比对服务,也没有活体检测与摄像头推流链路 ——
             // 先摆一个 `/attendance/face-check-in` 只会产出"接口在、判定是假的"的虚假安全感,
             // 而考勤是要落到免责链条上的记录。等真有比对服务时,应作为 checkInMethod 的新档位
             // 接进本端点(载体的列已存在),而不是另立一条无人守的入口。
-            status: parsed.data.status || 'present',
+            status: resolved.status,
             checkInMethod: parsed.data.checkInMethod || 'manual',
             operatedBy: request.userId,
             remark: parsed.data.remark,
@@ -2634,11 +2750,27 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
         if (!existing) throw new Error('NOT_FOUND')
         if (existing.checkOutTime) throw new Error('ALREADY_CHECKED_OUT')
 
+        // 本票②:签退后以 judgeStatus + 该班规则重判 status,early 自此有了唯一写入路径。
+        // 优先级保护:leave/absent 是审批联动与补录写入的高优先态,重判不得洗成 present/early。
+        // 判据零内联(§0.6):阈值比较只在 judgeStatus 里,这里只决定"要不要问它"。
+        const checkOutTime = new Date()
+        let nextStatus = existing.status
+        if (!statusPreservedOnCheckOut(existing.status)) {
+          const rule = await loadEnabledAttendanceRule(parsed.data.classId)
+          nextStatus = judgeStatus({
+            lateAfter: rule?.lateAfter ?? null,
+            earlyBefore: rule?.earlyBefore ?? null,
+            checkInTime: existing.checkInTime,
+            checkOutTime,
+          })
+        }
+
         return tx
           .update(eduAttendanceRecord)
           .set({
-            checkOutTime: new Date(),
+            checkOutTime,
             checkOutMethod: parsed.data.checkOutMethod || 'manual',
+            status: nextStatus,
             updatedAt: new Date(),
           })
           .where(eq(eduAttendanceRecord.id, existing.id))
@@ -2668,9 +2800,18 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
 
     const classId = parsed.data.classId
-    const date = parsed.data.date ?? bizDayKey(new Date())
-    const status = parsed.data.status ?? 'present'
     const now = new Date()
+    const date = parsed.data.date ?? bizDayKey(now)
+    // 本票③:与教师代签同口径 —— status 服务端现算(judgeStatus + 该班规则),
+    // 入参 schema 已删 status;zod strip 后客户端自报值结构上进不了库。
+    const resolved = await resolveTeacherCheckIn({
+      classId,
+      date,
+      checkInTimeRaw: parsed.data.checkInTime,
+      now,
+    })
+    if (!resolved.ok) return reply.status(400).send(error(400, resolved.message))
+    const status = resolved.status
 
     const outcome = await db.transaction(async (tx) => {
       // 在册口径**复用**缺勤补录 job 已登记的那一条(eduEnrollment.status='enrolled' ∧ 未软删),
@@ -2720,7 +2861,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
             studentId,
             classId,
             date,
-            checkInTime: now,
+            checkInTime: resolved.checkInTime,
             status,
             checkInMethod: 'manual',
             operatedBy: request.userId,
@@ -3918,6 +4059,15 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     if (!authed) return
     const childId = (request.params as { childId: string }).childId
     if (!childId) return reply.status(400).send(error(400, '无效的孩子ID'))
+    // 查询形状闸(2026-11-04 补):此前这条端点**根本没有 query 闸**,传任何 status 都被
+    // 静默忽略 ⇒ 客户端以为筛了、服务端按全量回,与同族 GET /parent/child/:id/attendance
+    // 的「非法值 400 点名 + 合法值真筛」两张脸对不上。取证(现读 web 家长子页 PageClient 与
+    // 小程序/RN 的家长侧取数)⇒ 目前**没有任何调用方发 status**,所以缺的是筛选能力而不是
+    // 已发生的静默失效缺陷;能力是否接线归前端票,本票只做"不再静默忽略"这一半。
+    // 复用同枚 `childAttendanceQuerySchema` 实例(§0.6:取值表全文件只有一份)。
+    const parsed = childAttendanceQuerySchema.safeParse(request.query)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const userId = request.userId!
 
     const [binding] = await db
@@ -3934,10 +4084,22 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
       .limit(1)
     if (!binding) return reply.status(403).send(error(403, '无权查看该学生数据'))
 
+    const conds: SQL[] = [
+      eq(eduAttendanceRecord.studentId, childId),
+      isNull(eduAttendanceRecord.deletedAt),
+    ]
+    if (parsed.data.status) conds.push(eq(eduAttendanceRecord.status, parsed.data.status))
+    if (parsed.data.startDate && parsed.data.endDate) {
+      conds.push(between(eduAttendanceRecord.date, parsed.data.startDate, parsed.data.endDate))
+    } else if (parsed.data.startDate) {
+      conds.push(gte(eduAttendanceRecord.date, parsed.data.startDate))
+    } else if (parsed.data.endDate) {
+      conds.push(lte(eduAttendanceRecord.date, parsed.data.endDate))
+    }
     const list = await db
       .select()
       .from(eduAttendanceRecord)
-      .where(and(eq(eduAttendanceRecord.studentId, childId), isNull(eduAttendanceRecord.deletedAt)))
+      .where(and(...conds))
       .orderBy(desc(eduAttendanceRecord.date))
     return reply.send(success({ list }))
   })
@@ -6698,6 +6860,12 @@ export const __test__ = {
   generateFeeScheduleSchema,
   feeReminderStatsSchema,
   buildLegacySegment,
+  // 2026-11-04 考勤 status 枚举闸(§22c:镜像测试直接 import 源件实例,不在测试里抄取值表)
+  attendanceStatusFilter,
+  attendanceListQuerySchema,
+  childAttendanceQuerySchema,
+  // 2026-11-04 写面收口:status 已从入参删除 ⇒ 必须能被测试直接 import 钉住(不靠跑 HTTP 看形状)
+  updateAttendanceSchema,
 }
 
 export default eduAiManagementRoutes

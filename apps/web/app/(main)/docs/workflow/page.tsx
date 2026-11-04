@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import type { Metadata } from 'next'
+import { getTranslations } from 'next-intl/server'
 import Link from 'next/link'
 import {
   Zap,
@@ -51,26 +52,28 @@ const workflowJsonLd = {
   ],
 }
 
-export const metadata: Metadata = {
-  title: '工作流编排 — 智汇 AI 文档',
-  description:
-    '智汇 AI 工作流编排完整指南:n8n 风格节点画布,触发器(定时/Webhook/消息),条件分支,循环,并行,子流程,Agent 编排可视化。',
-  alternates: {
-    canonical: '/docs/workflow',
-    // hreflang 死链已删(2026-11-02 实测):/zh-cn /zh-tw /ko /ja 目录与 /en 子页均 404,只留 canonical + x-default
-    languages: {
-      'x-default': '/docs/workflow',
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('docs')
+  return {
+    title: t('meta.workflow.title'),
+    description: t('meta.workflow.description'),
+    alternates: {
+      canonical: '/docs/workflow',
+      // hreflang 死链已删(2026-11-02 实测):/zh-cn /zh-tw /ko /ja 目录与 /en 子页均 404,只留 canonical + x-default
+      languages: {
+        'x-default': '/docs/workflow',
+      },
     },
-  },
-  openGraph: {
-    title: '工作流编排 — 智汇 AI',
-    description: 'n8n 风格节点画布,可视化编排复杂 AI 流程。',
-    url: `${SITE_URL}/docs/workflow`,
-    type: 'article',
-    images: [
-      { url: '/images/logo.png?v=20261021', width: 1200, height: 630, alt: '智汇 AI 工作流' },
-    ],
-  },
+    openGraph: {
+      title: t('meta.workflow.title'),
+      description: t('meta.workflow.description'),
+      url: `${SITE_URL}/docs/workflow`,
+      type: 'article',
+      images: [
+        { url: '/images/logo.png?v=20261021', width: 1200, height: 630, alt: '智汇 AI 工作流' },
+      ],
+    },
+  }
 }
 
 export default function WorkflowDocsPage() {

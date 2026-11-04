@@ -408,7 +408,8 @@
     "totalRecharge": "Total recharge",
     "totalWithdraw": "Total withdrawal",
     "withdraw": "Withdraw",
-    "points": "Points"
+    "points": "Points",
+    "rechargeSuccess": "Recharge Successful"
   },
   "community": {
     "posts": "Posts",
@@ -2989,6 +2990,10 @@
     "text6": "Level intro page not configured",
     "menu": {
       "subscriptions": "My subscriptions"
+    },
+    "security": {
+      "code": "Verification code",
+      "sendCode": "Send Code"
     }
   },
   "vipScreen": {
@@ -3244,7 +3249,8 @@
     "contactPlaceholder": "Please enter contact information (optional)",
     "contentPlaceholder": "Please enter feedback details",
     "submit": "Submit Feedback",
-    "type": "Type"
+    "type": "Type",
+    "success": "Submitted successfully"
   },
   "comment": {
     "loading": "Loading...",

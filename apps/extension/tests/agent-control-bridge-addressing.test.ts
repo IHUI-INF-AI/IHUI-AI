@@ -26,6 +26,8 @@ import { shouldExecuteAssignment, initAgentControlBridge } from '../lib/agent-co
 // 桥内实例 id 恒为 `ext-${chrome.runtime.id}`:桩 runtime.id 不带 ext- 前缀
 const CHROME_PROFILE_ID = 'test-profile'
 const SELF_INSTANCE_ID = `ext-${CHROME_PROFILE_ID}`
+// 上报版本必须取自运行时 manifest;桩一个与 package.json 不可能相等的号,才看得出它没被手抄
+const MANIFEST_VERSION = '9.9.9'
 
 // 捕获桥注册的 runtime.onMessage 监听器(init 幂等,只此一次)
 let onMessage: (msg: unknown) => void = () => {
@@ -35,6 +37,7 @@ let onMessage: (msg: unknown) => void = () => {
 ;(globalThis as unknown as { chrome: unknown }).chrome = {
   runtime: {
     id: CHROME_PROFILE_ID,
+    getManifest: () => ({ version: MANIFEST_VERSION }),
     onMessage: {
       addListener: (fn: (msg: unknown) => void) => {
         onMessage = fn

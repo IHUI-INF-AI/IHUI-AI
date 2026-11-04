@@ -195,12 +195,39 @@ describe('O59⑤ chat:prompt-history 桌面端走加密通道', () => {
     usePromptHistory = (await import('@/hooks/use-prompt-history')).usePromptHistory
     storage = (await import('@/lib/chat-draft-storage')).getPromptHistoryStorage()
 
+    // 2026-11-04(CI run 41740208496):落盘底下跑的是真 WebCrypto,原来靠 settle() 的
+    // 固定 6 拍宏任务等它完成 —— 并行负载下拍数不够,盘上仍是 null,本条读成红。
+    // 真实完成信号 = 通道的 read/write promise 全部落地且期间不再触发新的 IO:
+    // 逐轮 await 它们,无固定拍数、无时长上限、无轮询。
+    const io: Promise<unknown>[] = []
+    const realRead = storage.read.bind(storage)
+    const realWrite = storage.write.bind(storage)
+    vi.spyOn(storage, 'read').mockImplementation((k: string) => {
+      const p = realRead(k)
+      io.push(p)
+      return p
+    })
+    vi.spyOn(storage, 'write').mockImplementation((k: string, t: string) => {
+      const p = realWrite(k, t)
+      io.push(p)
+      return p
+    })
+    async function drainIo(): Promise<void> {
+      for (;;) {
+        const pending = io.splice(0)
+        if (pending.length === 0) return
+        await act(async () => {
+          await Promise.all(pending)
+        })
+      }
+    }
+
     render(<Harness />)
-    await settle()
+    await drainIo()
     act(() => {
       screen.getByTestId('push').click()
     })
-    await settle()
+    await drainIo()
 
     // 盘上必须是合规信封,且不得含明文残留
     const raw = window.localStorage.getItem(KEY_A) as string
