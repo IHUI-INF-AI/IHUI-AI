@@ -187,6 +187,11 @@ const failedGates = []
 /** 跑不起来的门(崩溃指纹 / 被兜底弄死的 error.code ⇒ 都是"未判定")。仍计入 failed(不放行),但**不进** failedGates,免得被当"判据判红"。 */
 const crashedGates = []
 /**
+ * 被单门硬超时终止的门(2026-11-04 立):串行/并行两条路径共用 gateTimeoutMs,超时即 SIGKILL。
+ * 单独成段列出(票面要求"超时门单独列出"),但仍进 crashedGates ⇒ 未判定、逐道点名、批量非零退出。
+ */
+const timedOutGates = []
+/**
  * 门自己按 §0.3 交付「未判定」的那几道(exit 2 + 显式点名了取不到什么)。
  * 与 crashedGates 的区分:那一档是"整套门没跑起来",这一档是"门跑完了,但这一次它取不到被审面"。
  * 两档都**不等于通过**,但只有 `failedGates`(red)才是"判出了违规" —— 三者一个都不许并桶。
@@ -446,6 +451,13 @@ const parMaxRaw = Number.parseInt(process.env.GUARDIAN_PAR || '', 10)
 // 2026-10-21:12 并发实测更慢(check-dangling-local-imports 从秒级涨到 32.8s,CPU 竞争反噬),
 // 回到 8;达标靠"快档"而不是堆并发。
 const parMax = Number.isFinite(parMaxRaw) && parMaxRaw >= 1 ? parMaxRaw : 8
+// 单门硬超时(两条执行路径共用同一枚旋钮;2026-11-04 补串行档):
+// 此前只有**并行池**有 300s 看门狗,串行档 `spawnSync` 无 timeout ⇒ 任一串行门卡在子进程里
+// 就把整批无界挂住。2026-11-04 实测单跑全量面(无并发):门 242 check-identity-principal-source
+// 736s、门 243 check-guarded-write-affected 458s,两道都在串行档且原样跑完,整批 2472s;
+// 5 个实例并跑时被拖到 72.5 分钟 ⇒ 本档必须与并行池同尺封顶。
+// 0 = 关闭(仅排障用),默认 300s(正常门实测秒级)。
+const gateTimeoutMs = Number(process.env.GUARDIAN_GATE_TIMEOUT_MS ?? 300_000)
 const parPending = [] // 按派发序(checks 原序)排队的在途任务;flush 只消费队头
 const parLive = new Set() // 在飞子进程句柄;exit 钩子统一收割,防孤儿门进程
 let parSlots = parMax // 并发信号量:限制同时在飞的子进程数
@@ -577,7 +589,7 @@ async function dispatchPar(check, cmdArgs) {
   //   另:shouldPropagateAsInterrupt(lib/signal-exit.mjs)对这两个 code 实测返回 false
   //   (它只看 status/signal)⇒ 不会被误传播成 exit 75 重试,这正是"后果不变"要的那一格,**不得**扩。
   // 旋钮:GUARDIAN_GATE_TIMEOUT_MS=0 关闭(仅排障用),默认 300s(正常门实测均在秒级)。
-  const gateTimeoutMs = Number(process.env.GUARDIAN_GATE_TIMEOUT_MS ?? 300_000)
+  // gateTimeoutMs 住函数顶部(串行档共用同一枚旋钮),此处只读不重声明。
   if (Number.isFinite(gateTimeoutMs) && gateTimeoutMs > 0) {
     gateTimer = setTimeout(() => {
       if (finished) return
@@ -723,6 +735,16 @@ function applyGateResult(check, r, checkStart, cmdArgs = []) {
       const kind = kindPre
       if (kind.kind === 'crash') {
         crashedGates.push({ id: check.id, label: check.label, script: check.script, reason: kind.reason })
+        if (e?.code === 'ETIMEDOUT') {
+          // 单独成段列出(票面要求):但仍进 crashedGates ⇒ 未判定、非零退出,不是绿也不是红。
+          timedOutGates.push({
+            id: check.id,
+            label: check.label,
+            script: check.script,
+            ms: elapsed,
+            timeoutMs: gateTimeoutMs,
+          })
+        }
         console.error(
           `${C.yellow}⚠️ [${check.id}] ${check.label} ${kind.reason}${C.reset} —— 跑不起来(未判定),不是检查结论;` +
             `提交仍被阻止,但**请勿把它读成"这道门发现了缺陷"**。${crashNextStep(kind.reason)}` +
@@ -868,13 +890,22 @@ for (const check of effectiveChecks) {
   // 更糟的回归(判据失效的表现永远是安静)。stdout 仍 'inherit' 实时输出,观感与逐门进度一字不变;
   // 失败路径合成一个带 status/signal 的 Error,使下方 shouldPropagateAsInterrupt(G-611 的中断传播)
   // 与所有旧分支的读法保持同形 —— 退出码语义不因这次改动而变化:崩溃仍然计失败,不静默放行。
-  const r = spawnSync(process.execPath, [`scripts/${check.script}`, ...cmdArgs], {
+  // 串行档同样必须封顶(2026-11-04):并行池的 300s 看门狗**管不到**同步 spawnSync ⇒ 门卡在
+  // 自己的 git 子进程里时整批无界挂起(单跑实测门 242 736s / 门 243 458s,均为串行档)。
+  // 超时 ⇒ spawnSync 回 {error:{code:'ETIMEDOUT'}, status:null, signal:'SIGKILL'}
+  // ⇒ applyGateResult 的 r.error 分支 ⇒ decideGateOutcome 按 crash/未判定点名,绝不静默绿。
+  const serialOpts = {
     cwd: process.cwd(),
     windowsHide: true,
     stdio: ['ignore', 'inherit', 'pipe'],
     maxBuffer: 20 * 1024 * 1024,
     encoding: 'utf8',
-  })
+  }
+  if (Number.isFinite(gateTimeoutMs) && gateTimeoutMs > 0) {
+    serialOpts.timeout = gateTimeoutMs
+    serialOpts.killSignal = 'SIGKILL'
+  }
+  const r = spawnSync(process.execPath, [`scripts/${check.script}`, ...cmdArgs], serialOpts)
   applyGateResult(check, r, checkStart, cmdArgs)
 }
 
@@ -887,12 +918,25 @@ printSummary(false)
 // 跑完的批次(不论有无 blocking 失败)都落一行 kind=gate-batch-run:统计器靠它的 treeDigest
 // 把"门确实跑过、但有 N 道按名字自跳"这一枚与"整批根本没跑"分开(§12f 的 unknown 拆格)。
 attestGateBatchRun(true)
-if (crashedGates.length > 0) {
+if (timedOutGates.length > 0) {
   console.error('')
   console.error(
-    `${C.bold}${C.yellow}⚠️ ${crashedGates.length} 道门**跑不起来(未判定)**—— 与"判据判红"分开列,别按缺陷派单:${C.reset}`,
+    `${C.bold}${C.yellow}⏱ ${timedOutGates.length} 道门**硬超时终止(未判定)**—— 不是判红,也不是通过;` +
+      `旋钮 GUARDIAN_GATE_TIMEOUT_MS=${gateTimeoutMs}(>0 时串行/并行两条路径共用):${C.reset}`,
   )
-  for (const g of crashedGates)
+  for (const g of timedOutGates)
+    console.error(
+      `   · [${g.id}] ${g.label} —— ${g.ms}ms ≥ ${g.timeoutMs}ms(复现:node scripts/${g.script};` +
+        `先查它在等哪个子进程/锁,不要靠调大超时消红)`,
+    )
+}
+if (crashedGates.length > 0) {
+  console.error('')
+  const otherCrashes = crashedGates.filter((g) => !timedOutGates.some((t) => String(t.id) === String(g.id)))
+  console.error(
+    `${C.bold}${C.yellow}⚠️ ${otherCrashes.length} 道门**跑不起来(未判定)**—— 与"判据判红"分开列,别按缺陷派单:${C.reset}`,
+  )
+  for (const g of otherCrashes)
     console.error(
       `   · [${g.id}] ${g.label} —— ${g.reason}(复现:node scripts/${g.script};下一步:${crashNextStep(g.reason)})`,
     )
