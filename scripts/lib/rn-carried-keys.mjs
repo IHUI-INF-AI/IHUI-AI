@@ -16,8 +16,27 @@
  */
 import { createRequire } from 'node:module'
 import { join } from 'node:path'
-import ts from 'typescript'
 import { walkClosure } from './rn-shell-closure.mjs'
+
+/**
+ * typescript **惰性加载**(2026-11-04 立,与 rn-shell-closure.mjs 同一判据)。
+ * 立因:本模块的静态 import 把 typescript 传染给整条扫描器 import 图 ⇒ 8-End Consistency Cert
+ * 的零 `pnpm install` job 在模块加载期就 ERR_MODULE_NOT_FOUND(run 41786625799 判红的真实形态)。
+ * 只有 `buildBarrelMap`(以及它服务的 miniapp-taro 承载闭包)需要 AST;web/mobile-rn/extension/cli
+ * 面从不调用它。改成调用点取值后,有依赖时判据一分不差,无依赖时不走闭包也能照常出结论。
+ */
+const requireHere = createRequire(import.meta.url)
+let cachedTs = null
+function getTs() {
+  if (cachedTs === null) {
+    try {
+      cachedTs = requireHere('typescript')
+    } catch (e) {
+      throw new Error(`typescript 未安装或不可解析(AST 解析面不可用):${e?.message ?? e}`)
+    }
+  }
+  return cachedTs
+}
 
 const TS_EXTS = ['.tsx', '.ts', '.jsx', '.js']
 
@@ -55,6 +74,7 @@ export function subsetMissing(haveRoots, keys, rnPack) {
 
 /** packages/app 桶口:名字 → 特性文件(仓库相对)。星号再导出单独记,遇到就整支入图。 */
 export function buildBarrelMap(readFile, barrelRel = 'packages/app/src/index.ts') {
+  const ts = getTs()
   const text = readFile(barrelRel) ?? ''
   const named = new Map()
   const stars = []
