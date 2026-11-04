@@ -41,6 +41,11 @@ const ROOT = resolve(HERE, '..', '..')
  * 全量档判 HEAD blob(§0.4 / 守门 118);取不到就抛 —— 绝不回落另一个面(§0.3:没判不许当判过)。
  */
 const SRC = (() => {
+  // 人工逃生舱(§0.4 明写的那一档):隔离闭包夹具里没有 git 仓,只能用盘上那份。
+  // 默认仍按 HEAD blob —— 换面必须由调用方显式举旗,不许悄悄发生(悄悄换面正是今天这次假红的成因)。
+  if (process.env.IHUI_GATE_FACE === 'worktree') {
+    return readFileSync(join(ROOT, 'scripts', 'auto-evolve.mjs'), 'utf8')
+  }
   try {
     const out = gitRaw(['show', 'HEAD:scripts/auto-evolve.mjs'], ROOT)
     const text = typeof out === 'string' ? out : String(out?.stdout ?? '')
