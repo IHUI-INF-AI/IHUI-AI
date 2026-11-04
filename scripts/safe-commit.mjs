@@ -109,6 +109,16 @@ import {
 } from './lib/staged-delete-intent.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 import { formatUndeclaredLine, partitionUndeclaredStaged } from './lib/staged-ownership.mjs'
+// 2026-11-04(P0「第二条复活路径」的提交侧闸):`8331e5460a` 的父提交正是修好 healer 的
+// `54feeb4011`,却把 `105a55a40c` 删掉的 3 件当**新增**提交回来 —— 并发 agent 的工作树里
+// healer 已把那 3 件 restore 回去,它 `git add -A` 时便收编成"新文件"。healer 侧的通知书
+// 闸只管「恢复」,结构上管不到「提交」,所以这条路径必须在提交器这里补。
+// 台账解析/三态判据**只有 lib 那一份**(§22c),本器只做交集与放行口,不重写解析。
+import {
+  judgeResurrection,
+  readFileDeletionNotices,
+  todayIso,
+} from './lib/intentional-file-deletion.mjs'
 // 2026-10-26:提交身份的唯一出口(与旁路落地器同源)。本机实测:`user.name/user.email` 只配在
 // 交互账户的 .gitconfig 里,而本脚本常由计划任务/服务/另一身份的会话派生 ⇒ git 报
 // `Author identity unknown` + exit 128;旧分诊把它当"索引锁争用",连跑 10 轮整条守门链
@@ -1080,6 +1090,72 @@ if (agentScope) {
 }
 
 log('ok', `暂存区精确匹配预期 ${C.cyan}${stagedFiles.length}${C.reset} 个文件`)
+
+// ─── 3b-2. 删除意图台账 · 复活闸(2026-11-04 立,P0「第二条复活路径」)────────────
+// 事故形态(实证):`8331e5460a` 的父提交正是修好 healer 的 `54feeb4011`,它却把
+// `105a55a40c` 删掉的 3 件(`download/[platform]` 的三份未用副本)当**新增**提交回来。
+// 成因是 healer 在我们改好它之前/之后的一轮里把那 3 件 restore 回了并发 agent 的工作树,
+// 于是该 agent 的 `git add -A` 把它们收编成"新文件",提交面看起来完全正常。
+// ⇒ healer 侧的通知书闸管「恢复」,`git add` 这一步它结构上够不到,必须在这里补一道。
+//
+// 判据:**本枚提交里相对 HEAD 为 `A` 的路径** ∩ 台账中**未过期**的通知书。
+// 只拦新增、不拦修改 —— 修改一件"台账里有、但仍被别处 import"的文件不是回流。
+//
+// 一个文件被有意删掉之后又要用回来,是**允许**的 —— 但必须显式撤回通知书,即
+// `--revoke-deletion`。这正是 §0.10 的失效方向:多要一次定向说明,不是多放一次回流。
+{
+  const notices = readFileDeletionNotices(repoRoot)
+  const entryCount = notices?.entries?.length ?? 0
+  if (notices?.broken) {
+    // 三态纪律:文本在但解不开 ⇒ 判不出。判不出不是拦提交的理由(没有证据指向回流),
+    // 也绝不能读成"台账是空的、所以没声明"(§0.3)。报出来,让台账被修。
+    log(
+      'warn',
+      `删除意图台账存在但解不开(${C.yellow}${notices.broken}${C.reset})⇒ 复活闸本轮${C.bold}跳过${C.reset};台账修好后本闸自动生效`,
+    )
+  } else if (notices?.absent || entryCount === 0) {
+    // 缺席/空表:无判据可用。只在 verbose 下点名,避免每次提交都刷一行噪音。
+    if (process.env.SAFE_COMMIT_VERBOSE === '1')
+      log('info', `删除意图台账${notices?.absent ? '不存在' : '无条目'} ⇒ 复活闸本轮无判据`)
+  } else {
+    const statusEntries = readCachedNameStatus({ root: repoRoot })
+    if (statusEntries === null) {
+      // 与上面 broken 同取向:取不到就只是"判不出",不拿它当中止理由。
+      log('warn', `读不到索引面 name-status ⇒ 复活闸本轮${C.bold}跳过${C.reset}(判不出≠没回流)`)
+    } else {
+      const judgement = judgeResurrection({
+        notices,
+        addedPaths: statusEntries.filter((e) => e.status === 'A').map((e) => e.path),
+        today: todayIso(),
+      })
+      if (judgement.verdict === 'resurrected') {
+        log(
+          'err',
+          `${C.red}${judgement.hits.length}${C.reset} 个文件**已被登记为有意删除**,却出现在本枚提交的新增面:`,
+        )
+        for (const { path: f, entry } of judgement.hits) {
+          console.log(`     ${C.red}+ ${f}${C.reset}`)
+          console.log(
+            `       ${C.dim}通知书理由:${entry?.reason ?? '(无)'}${entry?.until ? ` · until ${entry.until}` : ' · 长期有效'}${C.reset}`,
+          )
+        }
+        log('err', `中止 commit —— 这是「有意删除被复活后又收编进提交」的回流,不是正常新增`)
+        log('warn', `两种出路,必须显式选一种(不允许靠重跑碰运气):`)
+        log(
+          'warn',
+          `  ① 确实要把它用回来 ⇒ node scripts/heal-worktree-tracked.mjs --revoke-deletion <path>(撤回通知书,下一次提交即放行)`,
+        )
+        log('warn', `  ② 确认是误带进来 ⇒ git restore --staged -- <path>,把工作树副本交给 healer 判据处置`)
+        log(
+          'warn',
+          `台账:scripts/data/intentional-file-deletions.jsonl(写入只走 CLI,不要手改)`,
+        )
+        process.exit(1)
+      }
+    }
+  }
+}
+
 
 // ─── 3g. 索引面基线取样(G-920 前置护栏的 T1 端)────────────────────────────
 // 只取样、不裁决。裁决在 Step 4 发令前那一瞬做(4-pre),且只认 **相对本快照的新增量**。
