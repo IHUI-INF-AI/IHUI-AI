@@ -19,8 +19,8 @@ import { useI18n } from '../i18n'
  * 已如实登记在 spec 文件末差异登记第 3 条,由下一票决定去留。
  *
  * 共享类型 UserInfo 已下沉到 @ihui/types,消除两端数据类型重复定义。
- * 本地 Props 用 `userInfo: UserInfo` 对象结构,与 miniapp-taro 扁平 props 结构不同,
- * 不 extends UserInfoCardMinimalProps(该 Minimal 仅作语义参考)。
+ * 本地 Props 用 `userInfo?: UserInfo` 对象结构(同小程序端可选,扁平字段可单独承载),
+ * 与 miniapp-taro 扁平 props 结构不同,不 extends UserInfoCardMinimalProps(该 Minimal 仅作语义参考)。
  */
 import { useState } from 'react'
 import { tokens } from '../theme/active-tokens'
@@ -95,7 +95,7 @@ function formatDateTime(dateStr: string): string {
 }
 
 export interface UserInfoCardProps {
-  userInfo: UserInfo
+  userInfo?: UserInfo
   showRechargeBtn?: boolean
   onEdit?: () => void
   onRecharge?: () => void
@@ -109,6 +109,30 @@ export interface UserInfoCardProps {
    * 未传入时点击成长值条无响应;传入则由调用方决定打开等级介绍弹窗等行为。
    */
   onLevelIntro?: () => void
+  /** 开通会员回调(仅非 isVip 显示;与小程序端 onOpenVip 同槽) */
+  onOpenVip?: () => void
+  // ===== 扁平字段(miniapp-taro 的承载形态;与 userInfo 容器同源,显式值优先)=====
+  /** 头像 URL(覆盖 userInfo.avatarUrl) */
+  avatar?: string
+  /** 昵称(覆盖 userInfo.username) */
+  nickname?: string
+  /** 是否会员(覆盖 userInfo.isVip) */
+  isVip?: boolean
+  /** VIP 等级标题(覆盖 userInfo.vipLevel) */
+  vipTitle?: string
+  /** 智汇值(覆盖 userInfo.tokenQuantity) */
+  tokenValue?: number
+  /** 成长值(覆盖 userInfo.growthValue) */
+  growthValue?: number
+  /** 成长值上限(覆盖 userInfo.growthMax) */
+  growthMax?: number
+  /** 身份类型:0=普通用户 / 1=会员 / 2=操盘手(覆盖 userInfo.identityType) */
+  identityType?: number
+  /**
+   * 智汇值行的文本兜底(与小程序端 `desc` 同槽):
+   * `userInfo.tokenQuantity` 是数字时以数字为准,否则显示本字段。
+   */
+  desc?: string
 }
 
 export default function UserInfoCard(props: UserInfoCardProps) {
@@ -118,7 +142,7 @@ export default function UserInfoCard(props: UserInfoCardProps) {
 // ===== 用户信息卡(对齐历史项目 UserInfoCard.vue)=====
 
 function UserInfoCardNew({
-  userInfo,
+  userInfo: userInfoProp,
   showRechargeBtn = true,
   onEdit,
   onRecharge,
@@ -126,9 +150,32 @@ function UserInfoCardNew({
   onUnsubscribe,
   onCopyInviteCode,
   onLevelIntro,
+  onOpenVip,
+  avatar: avatarProp,
+  nickname: nicknameProp,
+  isVip: isVipProp,
+  vipTitle,
+  tokenValue,
+  growthValue: growthValueProp,
+  growthMax: growthMaxProp,
+  identityType,
+  desc,
 }: UserInfoCardProps) {
   const { t } = useI18n()
   const [levelModalVisible, setLevelModalVisible] = useState(false)
+  // 扁平字段与 userInfo 容器同一数据源:显式扁平值优先覆盖容器同字段
+  // (与 LoginPopUp 的 resolvedAvatarUrl/resolvedRole 先例同构),容器键与扁平键语义对齐。
+  const userInfo: UserInfo = {
+    ...(userInfoProp ?? {}),
+    ...(avatarProp !== undefined ? { avatarUrl: avatarProp } : {}),
+    ...(nicknameProp !== undefined ? { username: nicknameProp } : {}),
+    ...(isVipProp !== undefined ? { isVip: isVipProp ? 1 : 0 } : {}),
+    ...(vipTitle !== undefined ? { vipLevel: vipTitle } : {}),
+    ...(tokenValue !== undefined ? { tokenQuantity: tokenValue } : {}),
+    ...(growthValueProp !== undefined ? { growthValue: growthValueProp } : {}),
+    ...(growthMaxProp !== undefined ? { growthMax: growthMaxProp } : {}),
+    ...(identityType !== undefined ? { identityType } : {}),
+  }
 
   // 未登录态:显示一键登录按钮
   if (!userInfo.uuid) {
@@ -143,7 +190,11 @@ function UserInfoCardNew({
 
   const role = getRoleLabel(userInfo.isVip, userInfo.identityType)
   const isVip = userInfo.isVip === 1
-  const tokenStr = formatTokenValue(userInfo.tokenQuantity)
+  // 智汇值展示:数字优先;无数字时用调用方传入的 desc 文本兜底(与小程序端同一槽位)
+  const tokenStr =
+    typeof userInfo.tokenQuantity === 'number'
+      ? formatTokenValue(userInfo.tokenQuantity)
+      : (desc ?? '')
   const hasAvatarUrl = Boolean(userInfo.avatarUrl)
   // 无头像 URL 时走下方 initials 兜底(原 DEFAULT_AVATAR_URL 指向已失效的 file.aizhs.top,2026-10-21 摘除)
   const avatar = userInfo.avatarUrl ?? ''
@@ -247,6 +298,18 @@ function UserInfoCardNew({
             <Text style={newStyles.copyBtnText}>复制</Text>
           </TouchableOpacity>
         </View>
+      ) : null}
+
+      {/* 开通会员入口(仅非 VIP 且传了回调;对齐小程序端 openIntroduce) */}
+      {!isVip && onOpenVip ? (
+        <TouchableOpacity
+          style={[newStyles.rechargeBtn, newStyles.openVipBtn]}
+          activeOpacity={0.7}
+          onPress={onOpenVip}
+          accessibilityRole="button"
+        >
+          <Text style={newStyles.rechargeBtnText}>{t('vipTrader.openTitle')}</Text>
+        </TouchableOpacity>
       ) : null}
 
       {/* 智汇值 + 充值按钮(背景色对比分隔,非分割线) */}
@@ -490,6 +553,10 @@ const newStyles = StyleSheet.create({
     fontSize: USER_INFO_CARD_SMALL_FONT_PX,
     color: tokens.brandAccent.foreground,
     fontWeight: '500',
+  },
+  openVipBtn: {
+    alignSelf: 'flex-end',
+    marginTop: USER_INFO_CARD_ROW_MARGIN_TOP_PX,
   },
   unsubscribeBtn: {
     alignSelf: 'flex-end',

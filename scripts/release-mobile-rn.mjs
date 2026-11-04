@@ -14,9 +14,12 @@
  * 本文件把「有哪几条腿 / 每腿要什么前置 / 跑什么命令 / 怎么算真落地」收成一处,并且每次都现读
  * 凭据在不在位:取不到落 unjudged 并点名原因,绝不冒绿(§0.3),也不写跑不通的出路(§0.8)。
  *
- * 签名一致性是 Play 腿的命脉:EAS 云端 2026-10-19 那枚 production AAB 用的是 EAS 自动生成的
- * keystore(证书 SHA256 `62:0C:C9:58…`),官网包用的是 `ihui-release.keystore`(`62:B0:FF:0E…`)
- * ⇒ 两条渠道互斥。故 AAB 一律**本机以正式 keystore 出**、EAS 只负责提交。
+ * 签名身份分三层,**不可互校**(2026-11-03 取证):官网包用 `ihui-release.keystore`
+ * (`62:B0:FF:0E…`),这是**官网安装身份**;EAS 10-19 那枚 production AAB 携带的是**上传密钥**
+ * 证书(`62:0C:C9:58…`,EAS 只登记 8 位前缀);Play 最终交付 APK 由**应用签名证书**签发,
+ * 当前无记录且公开 Android Publisher v3 无读取方法(`appSigningInfo` 不是官方方法)⇒ 未测即 unjudged。
+ * 上传 key 本该可以不同,只有应用签名证书决定 `zh.ai.sq` 能否跨渠道覆盖升级;故 AAB 一律
+ * **本机以正式 keystore 出**、EAS 只负责提交,且上传/应用签名两值未登记前 `play-aab` 不得判 ready。
  *
  * 用法:
  *   node scripts/release-mobile-rn.mjs                        # 体检所有腿(只读,不发包)
@@ -37,6 +40,7 @@ import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 import { STATUS, fp, expoToken, playServiceKey, androidSigning, easEntry, storeCredential, androidArtifacts, STORE_VENDORS } from './lib/rn-release-credentials.mjs'
+import { LEG_CERT_BASELINES, PLAY_CERT_MEASURED_AT, PLAY_CERT_SOURCE } from './lib/mobile-download-leg.mjs'
 import { resolveSecretsRoot } from './lib/key-dir.mjs'
 import { siteLegPlan } from './publish-mobile-apk.mjs'
 
@@ -65,6 +69,26 @@ export function foldStatus(states) {
   if (states.includes(STATUS.UNJUDGED)) return 'unjudged'
   if (states.includes(STATUS.MISSING)) return 'blocked'
   return 'ready'
+}
+
+/**
+ * Play 腿签名身份判据:上传密钥证书 / 应用签名证书分列,与官网 `62:B0:FF:0E…` **不互校**。
+ * 两值任一未实测 ⇒ UNJUDGED 并点名"待 Play Console 量取",绝不冒 ready(2026-11-03 取证)。
+ */
+export function playCertBasis() {
+  const upload = LEG_CERT_BASELINES.playUploadKey
+  const appSigning = LEG_CERT_BASELINES.playAppSigning
+  const unmeasured = [upload, appSigning].filter((b) => !b.sha256).map((b) => b.label)
+  if (unmeasured.length) {
+    return {
+      status: STATUS.UNJUDGED,
+      detail: `${unmeasured.join('、')}未测(playCertSource=${PLAY_CERT_SOURCE})⇒ 待 Play Console 量取(发布 → 设置 → 应用签名)或下载 Play 签名 APK 跑 apksigner；上传 key ≠ 安装身份，62:B0:FF:0E… 与 62:0C:C9:58… 不可互校`,
+    }
+  }
+  return {
+    status: STATUS.FOUND,
+    detail: `上传证书=${upload.display} 应用签名证书=${appSigning.display}(量于 ${PLAY_CERT_MEASURED_AT},源=${PLAY_CERT_SOURCE});两值分层,不得互校`,
+  }
 }
 
 /**
@@ -371,10 +395,8 @@ export function buildLegs(ev) {
         { k: '凭据槽位被忽略', ...ev.slot },
         { k: 'Expo 身份', ...ev.whoami },
         {
-          k: '签名一致性',
-          status: STATUS.UNJUDGED,
-          detail:
-            '官网包=ihui-release.keystore(证书 SHA256 62:B0:FF:0E…),EAS 云端那枚 production AAB=EAS 自动 keystore(62:0C:C9:58…),二者不同源;Play 现网签名身份未取到(appSigningInfo 在本应用形态下回 HTML 404)⇒ 以本机 key 提交会不会被拒未判定,提交前必须先量一次',
+          k: '签名一致性(上传/应用签名分层)',
+          ...playCertBasis(),
         },
         { k: 'Play 应用/授权', status: STATUS.UNJUDGED, detail: '默认体检不发外网请求 ⇒ 跑 --diagnose-play(实测已授权:alpha 轨挂着 0.0.6/26101921)' },
       ],

@@ -61,6 +61,7 @@ const NO_FAILED_SOURCES: ReadonlySet<string> = new Set<string>()
  */
 export default function Carousel({
   items = [],
+  itemWidth,
   autoplay = true,
   interval = 3000,
   height = carouselDefaultHeightPx(),
@@ -151,7 +152,13 @@ export default function Carousel({
         className="h-full"
         style={{ height: heightStyle }}
       >
-        <View style={{ display: 'flex', width: `${total * 100}%` }}>
+        {/* itemWidth 提供时按固定分页步长排版(与 RN 端 itemWidth 同义);未提供时仍按整屏等分 */}
+        <View
+          style={{
+            display: 'flex',
+            width: itemWidth ? toUnit(itemWidth * total) : `${total * 100}%`,
+          }}
+        >
           {slides.map(({ item, sourceIndex }, index) => {
             // courseMeta / onItemClick 的入参下标语义 = 调用方传进来的那个数组的下标,
             // 所以一律用 sourceIndex —— 前面某项因图失败被摘掉后,叠加层与点击回调
@@ -179,7 +186,7 @@ export default function Carousel({
                       )
                 }
                 style={{
-                  width: `${100 / total}%`,
+                  width: itemWidth ? toUnit(itemWidth) : `${100 / total}%`,
                   // 修复:H5 ScrollView 内 h-full (100%) 继承高度不稳定,导致渐变背景 h=0。
                   // 显式设置高度,保证 banner 的渐变/纯色完整铺满可见区域。
                   // 背景色/渐变全部由 className 的 .carousel-fallback-* 提供(亮色 token),
