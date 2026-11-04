@@ -8,8 +8,8 @@
 
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/miniapp-taro/scripts/generate-ui-routes.mjs
-// sourceCommit: 17e305d180359ef53e1992d1fdd7394d39025458
-// inputsSha256: b6e0970ee9805e3f1495708c98c4732dae5bb215fb0c8418fba61675f4f2fb88
+// sourceCommit: 86aa75fd30923b5c79ad62d91137cf1484a3c2f9
+// inputsSha256: a3bc1ad5acf9c8ee9f727f36e46743fcee79f3f03a9e5860de76ea1056d47eee
 // input: apps/miniapp-taro/src/api/index.ts e62d7695551265df9b141f83d284c7741aafdd33bd26ae92d69e37681d1fb915
 // input: apps/miniapp-taro/src/api/social.ts fd88850ce0063cb633cf6aec38b9b982a1f11406481a5032a36227a3ea87dec4
 // input: apps/miniapp-taro/src/app.config.ts 6f6d4de4d24a7055c04079ac1a999cf19666ed414bd22a471cac31770b0a47f1
@@ -615,9 +615,11 @@
 // input: apps/miniapp-taro/src/pkg-user/edu-child/study-plans/index.tsx 30d0c73f42b34166b3bd8567f945d6d0504e37036ed76e44dbd99e253e378cb0
 // input: apps/miniapp-taro/src/pkg-user/edu-dashboard/index.tsx 683b7d85e551cb832dcd5326b0a3505d2a3c3802792dbd12e0b7946c4248e7c0
 // input: apps/miniapp-taro/src/pkg-user/edu-grade-trend/index.tsx b836df835889988a167c25c2d385c9495a301dfefb8c30eae23156021bbea563
-// input: apps/miniapp-taro/src/pkg-user/edu-mgmt-attendance/contract.ts bffa55fbcccfc0f317e6a1ae09438c7a8c3e5e03b0b747675af4b020f85f8ab2
+// input: apps/miniapp-taro/src/pkg-user/edu-mgmt-attendance/contract.ts ae26457168e42031c67328e1e7e639b1f3dad4afb6391ac3cf6cb1fd2d28211a
 // input: apps/miniapp-taro/src/pkg-user/edu-mgmt-attendance/day-bar.tsx 26ee314248dd7ad46b4f5557d69ea80f659dce60deb1988719ce5518664a380d
-// input: apps/miniapp-taro/src/pkg-user/edu-mgmt-attendance/index.tsx b346eb7aa89e3e0649d2c55bf615812a7e83e0e6916bee029c0481a2e51663ea
+// input: apps/miniapp-taro/src/pkg-user/edu-mgmt-attendance/index.tsx 5859aa77da20e1e9cf15e4ca7775629bf4b56caf22874d2f57c737f5b0b53363
+// input: apps/miniapp-taro/src/pkg-user/edu-mgmt-attendance/stats-panel.tsx d33b0910fa01b50c2000ac21eb41fbf0073655ebac5a153b9d42d2c28f7801fa
+// input: apps/miniapp-taro/src/pkg-user/edu-mgmt-attendance/stats.ts 855075afde1ee43bf2ac572a3c9279ac93d6c6dce16a50596a46cbaa13bc3b61
 // input: apps/miniapp-taro/src/pkg-user/edu-mgmt-finance/index.tsx da71fae05b635dea4267674307659c37469b4ffc6a41461c9781ac73b4f4ab68
 // input: apps/miniapp-taro/src/pkg-user/edu-mgmt-grades/index.tsx 9dd6a7f3c5428b0724c732699f39f1cbc4f0ba9852b339acc0e8d35569c79677
 // input: apps/miniapp-taro/src/pkg-user/edu-my-attendance/index.tsx 2ff3cb6e9a169de0af87a889f5e211154716d2e9042b8b5f925808c580db2e70
@@ -748,9 +750,9 @@
 // input: apps/miniapp-taro/src/utils/voice-recorder.ts f3405919e3d130c52be0c105153f70c9bfad426ceb8e081adf65badc15580e5a
 // input: apps/miniapp-taro/src/utils/webview-trust.ts 6cfd058e107011b5e3c1037c3fc0b92d4600e178d96d4882e8d4dca690ab1fdc
 // input: apps/miniapp-taro/src/utils/wechat-login.ts 08992a45fbbfb70b37f5a3518c5a82d2c55b9337f6ece0e0192b3c8d9c29470e
-// scanned: 614 source files(navigateTo url 参数探测,requiresParams 的依据)
+// scanned: 616 source files(navigateTo url 参数探测,requiresParams 的依据)
 // skipped: pagesWithoutOwnConfig=206(标题回落 app window / tabBar 文案)
-// generatedAt: 2026-11-03T17:01:40.620Z
+// generatedAt: 2026-11-04T05:31:54.965Z
 // IHUI-GEN-PIN-END
 
 /** AI 可导航页面条目:path 为 Taro 导航全路径(含前导斜杠,分包已拼 root) */
