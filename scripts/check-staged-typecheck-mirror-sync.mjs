@@ -3,7 +3,6 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-
 /* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
 /**
  * check-staged-typecheck-mirror-sync.mjs — 源/测 export 锚点回归测试
@@ -62,7 +61,8 @@
  *   node scripts/check-staged-typecheck-mirror-sync.mjs --json    # 输出 JSON 报告
  *   node scripts/check-staged-typecheck-mirror-sync.mjs --help
  */
-import { readFileSync, existsSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
+import { readFileSync, existsSync, copyFileSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -86,11 +86,7 @@ const C = {
 // === 期望的 export 锚点(三个核心函数键名) ===
 // 修改源脚本核心函数体允许, 但 export 键名不允许重命名。
 // 修改源脚本允许重命名键时, 必须同步更新本常量 + 测试 import + AGENTS.md §22b + §22c。
-const EXPECTED_KEYS = [
-  'getOriginalInclude',
-  'normalizePath',
-  'filterTscOutputForStagedFiles',
-]
+const EXPECTED_KEYS = ['getOriginalInclude', 'normalizePath', 'filterTscOutputForStagedFiles']
 
 // === CLI 参数解析 ===
 const argv = process.argv.slice(2)
@@ -100,8 +96,7 @@ const SHOW_HELP = argv.includes('--help') || argv.includes('-h')
 
 // §22d(G-239)双形态入口:此前顶层直接点火 main(),任何 import 都会真的去读源/测文件并 process.exit。
 // 守卫只决定何时点火,不改判什么;须经 pathToFileURL():Windows 下 argv[1] 带反斜杠,手拼永不相等。
-const isDirectRun =
-  process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 
 if (isDirectRun && SHOW_HELP) {
   console.log(`
@@ -222,13 +217,7 @@ function extractKeyNames(keysBlock) {
   let m
   while ((m = re.exec(keysBlock)) !== null) {
     // 过滤掉 JS 关键字 (虽然 export const __test__ = { ... } 内不会有, 但稳妥)
-    if (
-      m[0] === 'true' ||
-      m[0] === 'false' ||
-      m[0] === 'null' ||
-      m[0] === 'undefined'
-    )
-      continue
+    if (m[0] === 'true' || m[0] === 'false' || m[0] === 'null' || m[0] === 'undefined') continue
     names.push(m[0])
   }
   return names
@@ -282,8 +271,7 @@ function main() {
   }
 
   // 2) 阶段 A: 源脚本 export const __test__ 关键字存在性
-  const hasExportConstTest =
-    /export\s+const\s+__test__\b/.test(sourceText)
+  const hasExportConstTest = /export\s+const\s+__test__\b/.test(sourceText)
   report.checks.sourceHasExportConstTest = hasExportConstTest
   if (!hasExportConstTest) {
     report.ok = false
@@ -321,8 +309,7 @@ function main() {
     report.ok = false
     report.drift.push({
       kind: 'test_import_missing',
-      needle:
-        "import { __test__ as sourceFns } from '../check-staged-typecheck.mjs'",
+      needle: "import { __test__ as sourceFns } from '../check-staged-typecheck.mjs'",
       hint: '测试文件未 import __test__ 别名; 测试已退化为不可解析',
     })
   }
@@ -332,15 +319,15 @@ function main() {
   //   if (import.meta.url === pathToFileURL(process.argv[1] || '').href) { main() ... }
   // 用途: 测试 `import { __test__ }` 时, 守护条件必须为 false, 否则 main() 副作用
   //       (扫 staged / 调 tsc) 会被触发, 测试无法在隔离环境跑通。
-  const hasIsDirectRunAnchor =
-    /pathToFileURL\s*\(\s*process\.argv\[1\][^)]*\)\.href/.test(sourceText)
+  const hasIsDirectRunAnchor = /pathToFileURL\s*\(\s*process\.argv\[1\][^)]*\)\.href/.test(
+    sourceText,
+  )
   report.checks.sourceHasIsDirectRunAnchor = hasIsDirectRunAnchor
   if (!hasIsDirectRunAnchor) {
     report.ok = false
     report.drift.push({
       kind: 'source_isDirectRun_missing',
-      needle:
-        "if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {",
+      needle: "if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {",
       hint: '源脚本丢失 isDirectRun 入口守护; 测试 import 时会触发 main() 副作用 (扫 staged / 调 tsc)',
     })
   }
@@ -385,7 +372,118 @@ function main() {
   process.exit(1)
 }
 
-if (isDirectRun) {
+/**
+ * `--self-test`:用一个临时仓(scratch)复刻本门的目录布局,把**本脚本自身**复制过去当被测门,
+ * 由子进程真点 main() 的 exit 码;夹具只造源/测两个文件。不读仓库活面、不联网、不写生产路径。
+ * 判据本体(main 内的四阶段锚点比对)一行未改。
+ */
+async function runSelfTest() {
+  // 动态导入:本门自检会把"本脚本自身"复制进 scratch 当被测门,若静态依赖 lib,
+  // 复制件会因找不到 lib 而启动失败。自检才需要这两支,正常门路径不加载。
+  const { mkScratch, rmScratch } = await import('./lib/scratch-dir.mjs')
+  const { makeRegistrar } = await import('./lib/selftest-registrant.mjs')
+  const { t, report } = makeRegistrar()
+  const dir = mkScratch('typecheck-mirror-sync-selftest-')
+  try {
+    const scriptsDir = join(dir, 'scripts')
+    const testsDir = join(scriptsDir, 'tests')
+    mkdirSync(testsDir, { recursive: true })
+    const selfPath = fileURLToPath(import.meta.url)
+    const copyPath = join(scriptsDir, 'check-staged-typecheck-mirror-sync.mjs')
+    copyFileSync(selfPath, copyPath)
+    const sourcePath = join(scriptsDir, 'check-staged-typecheck.mjs')
+    const testPath = join(testsDir, 'check-staged-typecheck.test.mjs')
+
+    const buildSource = (keys, withAnchor) =>
+      [
+        'export const __test__ = {',
+        ...keys.map((k) => `  ${k},`),
+        '}',
+        withAnchor
+          ? "if (import.meta.url === pathToFileURL(process.argv[1] || '').href) { main() }"
+          : 'main()',
+      ].join('\n') + '\n'
+    const TEST_BODY = "import { __test__ as sourceFns } from '../check-staged-typecheck.mjs'\n"
+
+    const runCli = () => {
+      const r = spawnSync(process.execPath, [copyPath, '--json'], {
+        cwd: dir,
+        encoding: 'utf8',
+        windowsHide: true,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
+      let json = null
+      try {
+        json = JSON.parse(String(r.stdout || '').trim())
+      } catch {
+        json = null
+      }
+      return { code: r.status, json }
+    }
+
+    writeFileSync(sourcePath, buildSource(EXPECTED_KEYS, true), 'utf8')
+    writeFileSync(testPath, TEST_BODY, 'utf8')
+    const ok = runCli()
+
+    writeFileSync(sourcePath, buildSource(EXPECTED_KEYS.slice(0, 2), true), 'utf8')
+    const keyDrift = runCli()
+
+    writeFileSync(sourcePath, buildSource(EXPECTED_KEYS, false), 'utf8')
+    const anchorDrift = runCli()
+
+    rmSync(sourcePath)
+    const srcMissing = runCli()
+
+    writeFileSync(sourcePath, buildSource(EXPECTED_KEYS, true), 'utf8')
+    rmSync(testPath)
+    const testMissing = runCli()
+
+    const kinds = (r) =>
+      r.json && Array.isArray(r.json.drift) ? r.json.drift.map((d) => d.kind) : []
+
+    t(
+      '①正例:三枚 export 键 + import + isDirectRun 齐全 ⇒ exit 0',
+      () => ok.code === 0 && ok.json && ok.json.ok === true,
+      `code=${ok.code} ok=${ok.json && ok.json.ok}`,
+    )
+    t(
+      '②反例:filterTscOutputForStagedFiles 被改名(删键)⇒ exit 1 且点名 source_key_missing',
+      () => keyDrift.code === 1 && kinds(keyDrift).includes('source_key_missing'),
+      `code=${keyDrift.code} drift=${kinds(keyDrift).join(',')}`,
+    )
+    t(
+      '③反例:isDirectRun 入口守护丢失 ⇒ exit 1 且点名 source_isDirectRun_missing',
+      () => anchorDrift.code === 1 && kinds(anchorDrift).includes('source_isDirectRun_missing'),
+      `code=${anchorDrift.code} drift=${kinds(anchorDrift).join(',')}`,
+    )
+    t(
+      '④反例:源脚本缺失 ⇒ exit 2 未判定(source_missing)',
+      () => srcMissing.code === 2 && srcMissing.json && srcMissing.json.error === 'source_missing',
+      `code=${srcMissing.code} error=${srcMissing.json && srcMissing.json.error}`,
+    )
+    t(
+      '⑤反例:镜像测试文件缺失 ⇒ exit 2 未判定(test_missing)',
+      () => testMissing.code === 2 && testMissing.json && testMissing.json.error === 'test_missing',
+      `code=${testMissing.code} error=${testMissing.json && testMissing.json.error}`,
+    )
+
+    const { fail, cases } = report()
+    for (const c of cases)
+      console.log(`${c.pass ? '✅' : '❌'} ${c.name}${c.pass ? '' : ` —— 实得:${c.got}`}`)
+    console.log(
+      fail
+        ? `self-test: 未通过(${fail}/${cases.length} 组失败)`
+        : `self-test: 全绿(${cases.length} 组)`,
+    )
+    return fail ? 1 : 0
+  } finally {
+    rmScratch(dir)
+  }
+}
+
+if (isDirectRun && argv.includes('--self-test')) {
+  runSelfTest().then((code) => process.exit(code))
+} else if (isDirectRun) {
   try {
     main()
   } catch (err) {
