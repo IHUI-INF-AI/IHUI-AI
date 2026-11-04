@@ -44,8 +44,6 @@ export interface VoiceInputProps extends VoiceInputMinimalProps {
   aiServiceUrl?: string
   /** 语言提示(默认 zh) */
   language?: string
-  /** 是否显示清除按钮(默认 true,清除最近一次语音结果) */
-  showClear?: boolean
 }
 
 const RECORD_MAX_SECONDS = 60
@@ -61,7 +59,6 @@ export function VoiceInput({
   placeholder,
   aiServiceUrl = 'http://localhost:8803',
   language = 'zh',
-  showClear = true,
 }: VoiceInputProps) {
   const { t } = useI18n()
   const [recording, setRecording] = useState(false)
@@ -259,7 +256,7 @@ export function VoiceInput({
       </Pressable>
 
       {/* 清除按钮(有结果时显示,对齐原版 clearIcon) */}
-      {showClear && lastResult !== '' ? (
+      {lastResult !== '' ? (
         <Tappable
           style={styles.clearBtn}
           onPress={handleClear}
