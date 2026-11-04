@@ -11130,6 +11130,14 @@ const CROSS_END_SHELL_INTERVAL_MS = Number(
  *
  * 三态:器物不在位 ⇒ 跳过且不记为已探测;取不到结论行 ⇒ 未判定(不记绿);有改动/零改动各记一行。
  * held 是"工作树脏、归属未知不猜"的跳过面,不是失败 —— 它会自己随着他席提交而回落。
+ *
+ * 2026-11-05 补 `--include-font-size`(**造好没装车**那一格,§0.9):器物本有三条子腿
+ * (字号 / 字号成对 / 圆角),而本腿此前恒只传 `--apply` ⇒ 只有间距腿在自动跑,字号轴结构上永远不会
+ * 跟随 web。现读实测该旗的预演面:`--include-font-size` = 263 处改写 / 96 文件 / **verifyFailed=0**
+ * (器物自验:写成 token 后取值逐枚与原数字相等 ⇒ 零视觉变化),并把 75 处"带 lineHeight 的成对字号"
+ * 主动让给成对腿(`--include-font-size-pair` 预演实测 0 可落:75 处 pairMismatch + 293 处无行高 ⇒
+ * 那两条要等成对档表补齐才能动,不是把判据削窄);`--include-radius` 预演 0 处可落(圆角已单源收口)。
+ * 与 web 腿的 `--only-weight-locked --pin-inherit-weight` 同一条纪律:**只放行可证零变化的那一档**。
  */
 const RN_STYLE_TIERS_INTERVAL_MS = Number(
   process.env.IHUI_RN_STYLE_TIERS_INTERVAL_MS || 30 * 60 * 1000,
@@ -11166,7 +11174,7 @@ export function sweepRnStyleTiers(opts = {}) {
       ? runner
       : () => {
           try {
-            const out = execFileSync(process.execPath, [script, '--apply'], {
+            const out = execFileSync(process.execPath, [script, '--apply', '--include-font-size'], {
               cwd: WORKTREE,
               encoding: 'utf8',
               windowsHide: true, // §5b 派生进程纪律
