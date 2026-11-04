@@ -39,9 +39,11 @@
  * 用法:node scripts/check-git-probe-headroom.mjs [--json] [--self-test] [--samples N]
  */
 import { spawnSync } from 'node:child_process'
-import { readFileSync, readdirSync } from 'node:fs'
+import { readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { devEnvArtifactRoot } from './seal-c-root-stray.mjs'
+import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 export const BUDGET_MS = 5000
@@ -49,7 +51,8 @@ export const WARN_MS = 3500
 export const DEFAULT_SAMPLES = 3
 export const PRIME_CMD = 'git update-index --untracked-cache'
 export const PROMTAIL_METRICS_URL = 'http://127.0.0.1:9080/metrics'
-export const LOG_DIR = 'D:/DevEnv/logs'
+/** 活日志目录:本机是半搬迁态,落点一律问共用出口(与 prune-rotated-nssm-logs 同一条路,§22c) */
+export const LOG_DIR = join(devEnvArtifactRoot('logs'), 'logs')
 /** 轮转副本形态:组件名后紧跟 nssm 时间戳(活文件名里没有这一段) */
 export const ROTATION_RE = /-nssm(-err)?-20\d{6}T[\d.]+\.log$/
 /** 活文件形态:svc-<组件>-nssm.log / svc-<组件>-nssm-err.log */
@@ -265,43 +268,113 @@ export function judgeMonitorTrust({ enabled, monitorOut, fullOut, failed, why })
   }
 }
 
-/** 读索引尾区的扩展签名(扩展写在条目之后,只看文件头是量不到它的) */
-export function readIndexSignatures(indexPath, tailBytes = 65536) {
+/**
+ * 读索引扩展块名(**倒着按块走,不按窗口扫子串**)。
+ * 立因(2026-11-04 自伤实测):本机索引 2,397,366 字节,UNTR 块负载约 131KB 且写在 FSMN **之前**,
+ * 旧实现只看文件末 64KB ⇒ 扫不到 UNTR ⇒ 把"其实生效"喊成 drift。天天假红 = 把真红一起废掉(§12e)。
+ * 块格式:`签名(4) + 长度(4) + 负载(长度)`,最后一个块尾对齐 = 文件末 - 20(末 20 字节是索引校验和);
+ * 靠这个等式倒着剥,剥不动就停(落在条目区),绝不靠"文件里出现过这四个字节"来判存在。
+ */
+export function readIndexExtensions(indexPath) {
   try {
     const b = readFileSync(indexPath)
-    if (b.length < 24 || b.subarray(0, 4).toString('latin1') !== 'DIRC')
-      return { ok: false, why: `索引头不是 DIRC(${indexPath})`, hasFSMN: false, hasUNTR: false }
-    const tail = b.subarray(Math.max(0, b.length - tailBytes)).toString('latin1')
-    return { ok: true, why: '', hasFSMN: tail.includes('FSMN'), hasUNTR: tail.includes('UNTR'), entries: b.readUInt32BE(8) }
+    if (b.length < 32 || b.subarray(0, 4).toString('latin1') !== 'DIRC')
+      return { ok: false, why: `索引头不是 DIRC(${indexPath})`, names: [], hasFSMN: false, hasUNTR: false }
+    const names = []
+    let end = b.length - 20
+    for (let hop = 0; hop < 16; hop++) {
+      let found = -1
+      for (let off = 8; off <= Math.min(end - 8, 262_144); off++) {
+        const o = end - 8 - off
+        if (o < 12) break
+        const size = b.readUInt32BE(o + 4)
+        if (size !== off || o + 8 + size !== end) continue
+        const sig = b.subarray(o, o + 4).toString('latin1')
+        // 结构等式会被**负载里的数字串**偶然满足(本机实测 '973\0' 在 off=388 撞等式)
+        // ⇒ 签名不是四个字母就继续往前找,不能在此 break(那样会把"扩展明明在"读成"剥不动")
+        if (!/^[A-Za-z]{4}$/.test(sig)) continue
+        found = o
+        names.push(sig)
+        break
+      }
+      if (found < 0) break
+      end = found
+    }
+    return {
+      ok: names.length > 0,
+      why: names.length ? '' : '倒着剥不出任何扩展块(该索引没写扩展,或结构不是已知形态)',
+      names,
+      hasFSMN: names.includes('FSMN'),
+      hasUNTR: names.includes('UNTR'),
+      entries: b.readUInt32BE(8),
+      bytes: b.length,
+    }
   } catch (e) {
-    return { ok: false, why: `读不到索引(${e.message.slice(0, 60)})`, hasFSMN: false, hasUNTR: false }
+    return { ok: false, why: `读不到索引(${e.message.slice(0, 60)})`, names: [], hasFSMN: false, hasUNTR: false }
   }
 }
 
 /**
- * 第四维:加速档是否**真的还在生效**。
- * 立因(2026-11-04 实测):本机多席位会整份替换索引(isolated-git / object-space-land /
+ * 第二路读数:直接问 git 自己 —— `git update-index --test-untracked-cache` 退 0 才算缓存真可用。
+ * 它要拿 `index.lock`,本机多席位常态争用 ⇒ 拿不到锁 rc≠0 **不是**缓存坏了,一律记「取不到」不记「掉」(§0.3)。
+ */
+export function untrackedCacheSelfTest(repoRoot, spawn = spawnSync) {
+  const r = spawn('git', ['update-index', '--test-untracked-cache'], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 60_000,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  if (r.error) return { ok: false, inUse: null, why: String(r.error.message).slice(0, 70) }
+  const err = String(r.stderr || '')
+  if (/unable to lock index|index\.lock/i.test(err)) return { ok: false, inUse: null, why: '拿不到 index.lock(多席位争用)' }
+  if (r.signal) return { ok: false, inUse: null, why: `被信号 ${r.signal} 打断` }
+  if (typeof r.status !== 'number') return { ok: false, inUse: null, why: '取不到退出码' }
+  return { ok: true, inUse: r.status === 0, why: r.status === 0 ? '' : `rc=${r.status}` }
+}
+
+/**
+ * 第四维:加速档是否**真的还在生效**。 * 立因(2026-11-04 实测):本机多席位会整份替换索引(isolated-git / object-space-land /
  * read-tree 那几条通道写出来的临时索引不带这两枚扩展),把 FSMN/UNTR 抹掉;
  * 而 git 只在"索引内容有变"时才写回 ⇒ `git status` 连跑 5 次也**不会自愈**,
  * `preload/sum_lstat` 直接回到全量 19033(生效时是 2333)。
  * 静默退化比不装更坏:账面写着"已启用 fsmonitor",实际每次都在全量扫。
+ * 两路读数(块面 + git 自测)互相不一致时判「未判定」而不是挑一个信。
  */
-export function judgeExtensions({ monitorEnabled, untrackedEnabled, index, primeCmd = PRIME_CMD }) {
+export function judgeExtensions({ monitorEnabled, untrackedEnabled, index, selfTest = null, primeCmd = PRIME_CMD }) {
   if (!monitorEnabled && !untrackedEnabled)
     return { dim: 'accel-live', state: 'report', readout: '两档加速均未启用 ⇒ 无需核(全量扫描由 status-latency 量)', next: '' }
-  if (!index.ok) return { dim: 'accel-live', state: 'unjudged', readout: `索引读不到:${index.why}`, next: '先确认 gitdir 可达;取不到不判' }
-  const want = []
-  if (monitorEnabled && !index.hasFSMN) want.push('FSMN(fsmonitor token)')
-  if (untrackedEnabled && !index.hasUNTR) want.push('UNTR(untracked cache)')
+  if (!index.ok) return { dim: 'accel-live', state: 'unjudged', readout: `索引扩展读不到:${index.why}`, next: '先确认 gitdir 可达;取不到不判' }
   const at = `FSMN=${index.hasFSMN ? '在' : '掉'} UNTR=${index.hasUNTR ? '在' : '掉'}`
-  if (want.length)
+  const selfTxt = selfTest && selfTest.ok ? `git 自测=${selfTest.inUse ? '通过' : '不通过'}` : 'git 自测未取到'
+  const blockTxt = (Array.isArray(index.names) ? index.names : []).join('/') || '无'
+  if (untrackedEnabled && index.hasUNTR && selfTest && selfTest.ok && !selfTest.inUse)
     return {
       dim: 'accel-live',
       state: 'drift',
-      readout: `config 说开着,索引里却缺 ${want.join(' 与 ')}(${at};条目 ${index.entries})⇒ 每次 status 仍在 ${index.hasFSMN ? '全量 stat + ' : ''}全量扫目录,加速已失效`,
+      readout: `${at}(${selfTxt}:缓存块在而 git 自己说它不成立;块 ${blockTxt},条目 ${index.entries})⇒ 每次 status 仍走全量扫目录`,
       next: `重新 prime:${primeCmd}(会被别席整份换索引再抹一次;反复掉就说明该在这台机关掉这两档,而不是反复补)`,
     }
-  return { dim: 'accel-live', state: 'ok', readout: `${at} 与 config 同事实存 ⇒ 加速在生效`, next: '' }
+  const want = []
+  if (monitorEnabled && !index.hasFSMN) want.push('FSMN(fsmonitor token)')
+  if (untrackedEnabled && !index.hasUNTR) want.push('UNTR(untracked cache)')
+  if (want.length) {
+    if (untrackedEnabled && !index.hasUNTR && selfTest && selfTest.ok && selfTest.inUse)
+      return {
+        dim: 'accel-live',
+        state: 'unjudged',
+        readout: `两路读数不一致:块面说缺 ${want.join(' 与 ')}(${at}),而 git 自测说缓存在用(${selfTxt})⇒ 不挑一个信`,
+        next: '先复核读法(块面按扩展块倒剥 / 自测按退出码),再谈改判据',
+      }
+    return {
+      dim: 'accel-live',
+      state: 'drift',
+      readout: `config 说开着,索引里却缺 ${want.join(' 与 ')}(${at};块 ${blockTxt};${selfTxt};条目 ${index.entries})⇒ 每次 status 仍在 ${index.hasFSMN ? '全量 stat + ' : ''}全量扫目录,加速已失效`,
+      next: `重新 prime:${primeCmd}(会被别席整份换索引再抹一次;反复掉就说明该在这台机关掉这两档,而不是反复补)`,
+    }
+  }
+  return { dim: 'accel-live', state: 'ok', readout: `${at} 与 config 同事实存(${selfTxt};块 ${blockTxt})⇒ 加速在生效`, next: '' }
 }
 
 /**
@@ -539,16 +612,23 @@ async function selfTest() {
     )
   })
   t('S16 accel-live 四态:齐全绿 / config 开着但扩展掉了判红 / 都没开不判 / 索引读不到未判定', () => {
-    const both = { ok: true, why: '', hasFSMN: true, hasUNTR: true, entries: 19033 }
+    const both = { ok: true, why: '', names: ['TREE', 'UNTR', 'FSMN'], hasFSMN: true, hasUNTR: true, entries: 19033 }
     eq(judgeExtensions({ monitorEnabled: true, untrackedEnabled: true, index: both }).state, 'ok', '两枚都在 ⇒ 绿')
     eq(
-      judgeExtensions({ monitorEnabled: true, untrackedEnabled: true, index: { ...both, hasUNTR: false } }).state,
+      judgeExtensions({
+        monitorEnabled: true,
+        untrackedEnabled: true,
+        index: { ...both, names: ['TREE', 'FSMN'], hasUNTR: false },
+      }).state,
       'drift',
       'UNTR 掉 ⇒ 红(账面说开着)',
     )
     eq(
-      judgeExtensions({ monitorEnabled: true, untrackedEnabled: true, index: { ...both, hasFSMN: false, hasUNTR: false } })
-        .state,
+      judgeExtensions({
+        monitorEnabled: true,
+        untrackedEnabled: true,
+        index: { ...both, names: [], hasFSMN: false, hasUNTR: false },
+      }).state,
       'drift',
       '两枚都掉 ⇒ 红',
     )
@@ -557,6 +637,77 @@ async function selfTest() {
       judgeExtensions({ monitorEnabled: true, untrackedEnabled: false, index: { ok: false, why: '读不到' } }).state,
       'unjudged',
       '索引取不到 ⇒ 未判定',
+    )
+  })
+  t('S18 两路读数之二:块在而 git 自测不通过 ⇒ drift(不能因为"块在"就记绿)', () => {
+    const idx = { ok: true, why: '', names: ['TREE', 'UNTR', 'FSMN'], hasFSMN: true, hasUNTR: true, entries: 19033 }
+    const d = judgeExtensions({
+      monitorEnabled: true,
+      untrackedEnabled: true,
+      index: idx,
+      selfTest: { ok: true, inUse: false, why: 'rc=1' },
+    })
+    eq(d.state, 'drift', '自测不通过即红')
+    eq(d.readout.includes('缓存块在而 git 自己说它不成立'), true, 'readout 必须点名是哪一路说的')
+  })
+  t('S19 两路读数不一致 ⇒ 未判定(不挑一个信;§0.3)', () => {
+    const d = judgeExtensions({
+      monitorEnabled: true,
+      untrackedEnabled: true,
+      index: { ok: true, why: '', names: ['TREE', 'FSMN'], hasFSMN: true, hasUNTR: false, entries: 19033 },
+      selfTest: { ok: true, inUse: true, why: '' },
+    })
+    eq(d.state, 'unjudged', '块面说掉、自测说在 ⇒ 不判')
+    eq(d.readout.includes('不挑一个信'), true, '必须把"为什么不判"写出来')
+    const g = judgeExtensions({
+      monitorEnabled: true,
+      untrackedEnabled: true,
+      index: { ok: true, why: '', names: ['TREE', 'UNTR', 'FSMN'], hasFSMN: true, hasUNTR: true, entries: 1 },
+      selfTest: { ok: false, inUse: null, why: '拿不到 index.lock(多席位争用)' },
+    })
+    eq(g.state, 'ok', '自测取不到不拖后腿(块面两枚都在)')
+    eq(g.readout.includes('git 自测未取到'), true, 'readout 必须说清这一路没量到')
+  })
+  t('S20 回归锁:大 UNTR 块(本机实测 ~131KB)写在 FSMN 之前,按块倒剥仍要认出来(旧 64KB 尾窗把生效读成掉档)', () => {
+    const mkBlock = (sig, payload) => {
+      const head = Buffer.alloc(8)
+      head.write(sig, 0, 'latin1')
+      head.writeUInt32BE(payload.length, 4)
+      return Buffer.concat([head, payload])
+    }
+    const header = Buffer.alloc(12)
+    header.write('DIRC', 0, 'latin1')
+    header.writeUInt32BE(3, 4)
+    header.writeUInt32BE(19021, 8)
+    const entries = Buffer.alloc(4096, 0x41)
+    const untr = mkBlock('UNTR', Buffer.alloc(131_072, 0x33))
+    const fsmn = mkBlock('FSMN', Buffer.from('0'.repeat(64), 'latin1'))
+    const buf = Buffer.concat([header, entries, untr, fsmn, Buffer.alloc(20, 7)])
+    // 故意在 FSMN 负载里造一次「结构等式偶然成立」(本机实测:'973\0' 撞 off=388):
+    // 旧实现在这里 break ⇒ 把"扩展明明在"读成"剥不动"⇒ 天天假 drift
+    const collide = buf.length - 20 - 8 - 12
+    buf.write('973', collide, 'latin1')
+    buf.writeUInt32BE(12, collide + 4)
+    const dir = mkScratch('accel-block')
+    const file = join(dir, 'index')
+    writeFileSync(file, buf)
+    const r = readIndexExtensions(file)
+    rmScratch(dir)
+    eq(r.ok, true, `结构可判:${r.why}`)
+    eq(r.hasUNTR, true, '131KB 的 UNTR 块必须认出来')
+    eq(r.hasFSMN, true, 'FSMN 块必须认出来')
+    eq(r.names.join(','), 'FSMN,UNTR', '块名按倒剥顺序')
+    const junk = Buffer.concat([header, entries, Buffer.alloc(20, 7)])
+    const dir2 = mkScratch('accel-block2')
+    const file2 = join(dir2, 'index')
+    writeFileSync(file2, junk)
+    const r2 = readIndexExtensions(file2)
+    rmScratch(dir2)
+    eq(r2.ok, false, '剥不出块 ⇒ 未判定,不猜"两枚都掉"')
+    eq(
+      judgeExtensions({ monitorEnabled: true, untrackedEnabled: true, index: r2 }).state,
+      'unjudged',
+      '读不出结构时判未判定(绝不判 drift)',
     )
   })
   t('S17 反向锁:判红必须给可执行 prime 命令,并写明"反复掉就该关而不是反复补"', () => {
@@ -619,7 +770,10 @@ async function main(argv) {
   const enabled = isMonitorEnabled(ROOT)
   const utrace = cfgFlag('core.untrackedCache', ROOT) === true
   const idxPath = gitIndexPath(ROOT)
-  const idxSign = idxPath ? readIndexSignatures(idxPath) : { ok: false, why: '取不到 git-path index', hasFSMN: false, hasUNTR: false }
+  const idxExt = idxPath
+    ? readIndexExtensions(idxPath)
+    : { ok: false, why: '取不到 git-path index', names: [], hasFSMN: false, hasUNTR: false }
+  const utSelf = utrace ? untrackedCacheSelfTest(ROOT) : { ok: false, inUse: null, why: '未启用,不测' }
   const monFace = statusFace(ROOT, false)
   const scanFace = statusFace(ROOT, true)
   const dims = [
@@ -637,7 +791,7 @@ async function main(argv) {
       failed: monFace.failed || scanFace.failed,
       why: monFace.why || scanFace.why,
     }),
-    judgeExtensions({ monitorEnabled: enabled === true, untrackedEnabled: utrace, index: idxSign }),
+    judgeExtensions({ monitorEnabled: enabled === true, untrackedEnabled: utrace, index: idxExt, selfTest: utSelf }),
     judgeWalkShare({ oneNo, full }),
   ]
   const agg = aggregate(dims)
@@ -680,7 +834,8 @@ export const __test__ = {
   isMonitorEnabled,
   cfgFlag,
   gitIndexPath,
-  readIndexSignatures,
+  readIndexExtensions,
+  untrackedCacheSelfTest,
   judgeExtensions,
   judgeLatency,
   judgeCollectors,
