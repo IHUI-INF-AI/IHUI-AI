@@ -667,6 +667,31 @@ function worktreeBlobOid(path, root = ROOT) {
 }
 
 /**
+ * 一批路径在 **HEAD 面**的 blob oid:`Map<path, oid|null>`(null = HEAD 上没有这一枚)。
+ *
+ * 一次 `cat-file --batch-check` 问完整批:逐路径 spawn 在 188 枚这批上就是 188 个进程。
+ * `--batch-check` 对每条输入**恰好输出一行**(解不开的那行形如 `HEAD:<path> missing`),
+ * 所以按输入序对齐下标即可;解不出 40 位 + `blob` ⇒ null,不猜。
+ * 整批取不到 ⇒ 抛给调用方(由调用方记「未判定」,绝不把"读不到"当成"都不在 HEAD")。
+ */
+function headBlobOidsOf(paths, root = ROOT) {
+  const out = new Map()
+  if (paths.length === 0) return out
+  const specs = paths.map((p) => `HEAD:${normSlashes(p)}`)
+  const raw = String(
+    gitRaw(['cat-file', '--batch-check=%(objectname) %(objecttype)'], root, {
+      input: `${specs.join('\n')}\n`,
+    }),
+  )
+  const lines = raw.split(/\r?\n/)
+  paths.forEach((p, i) => {
+    const m = /^([0-9a-f]{40}) blob\b/.exec(lines[i] ?? '')
+    out.set(p, m ? m[1].toLowerCase() : null)
+  })
+  return out
+}
+
+/**
  * 账本收编族的准入判据(2026-11-03 立;§0.6 —— 四条准入全在库里,本函数零复算)。
  *
  * 与白名单族的关系是**并列的第二条来源通道**,不是放宽白名单:
@@ -679,11 +704,19 @@ function worktreeBlobOid(path, root = ROOT) {
  *     不等 ⇒ 剔出本批并计入 contested(绝不"改过了也照收")。
  *
  * @returns {{ledger:'ok'|'unjudged', reason:string|null, collectible:object[],
+ *            settled:object[], settledCheck:'ok'|'unjudged', settledCheckReason:string|null,
  *            quiet:object[], contested:object[], incomplete:object[], ignored:object[],
  *            deduped:object[]}}
  */
 export function collectLedgerEntries(now = Date.now(), opts = {}) {
-  const { quietMs = LEDGER_QUIET_MS, root = ROOT, face = 'worktree', whitelistPaths = new Set() } = opts
+  const {
+    quietMs = LEDGER_QUIET_MS,
+    root = ROOT,
+    face = 'worktree',
+    whitelistPaths = new Set(),
+    // 测试注入面(与 commit/logLine/busyCheck 同一取向):结清维的取数函数。生产默认走 git 一次批量问。
+    headOidsOf = headBlobOidsOf,
+  } = opts
   const res = collectiblePaths(now, { quietMs, face, root })
   if (!res.ok) {
     // §0.3:账本不存在 / 为空 / git 取不到 ⇒ **未判定**,不得把"取不到"当成"没有待收",
@@ -692,6 +725,9 @@ export function collectLedgerEntries(now = Date.now(), opts = {}) {
       ledger: 'unjudged',
       reason: String(res.reason ?? '未给出原因'),
       collectible: [],
+      settled: [],
+      settledCheck: 'unjudged',
+      settledCheckReason: `账本未判定:${String(res.reason ?? '')}`,
       quiet: [],
       contested: [],
       incomplete: [],
@@ -728,7 +764,56 @@ export function collectLedgerEntries(now = Date.now(), opts = {}) {
       stage: 'recheck-before-commit',
     })
   }
-  return { ledger: 'ok', reason: null, collectible, quiet, contested, incomplete, ignored, deduped }
+  /**
+   * 第三道:申报内容**已在主干上**(HEAD 面 blob == 申报 blob)⇒ 这一条已经结清,
+   * 不再交给提交通道(2026-11-05 立,现读实证见下面 settled 的成因)。
+   *
+   * 为什么必须在这里判,而不是等 safe-commit 报错:收编器把批交给 safe-commit 后,后者
+   * Step 2 的 `git add -A -- <声明集>` 对这些枚**零暂存**(内容与 HEAD 一致,无 diff 可暂),
+   * Step 3b 就按"预期文件未暂存"整枚退出 ⇒ **一批里混进一条已结清的,整轮 0 入库**。
+   * 现读:账本 229 行 / 可收编 188 枚里 **113 枚已在 HEAD**、单轮批预算只有 100 枚 ⇒
+   * 死行长期占满队列头部,真活(75 枚)永远排不进本轮 —— 这是"最后一公里冻结"的第二层
+   * 根因(第一层是别席暂存件连坐的复活闸,已同日收口)。
+   *
+   * 失效方向(§0.10):HEAD 面整批取不到 ⇒ 一条也不剔(`settledCheck='unjudged'` 进结论行),
+   * 宁可让这一轮继续撞 safe-commit 的显式报错,也不"读不到就当已结清"把真活静默丢掉。
+   */
+  const settled = []
+  let settledCheck = 'ok'
+  let settledCheckReason = null
+  let headOids = null
+  try {
+    headOids = headOidsOf(
+      collectible.map((c) => c.path),
+      root,
+    )
+  } catch (e) {
+    settledCheck = 'unjudged'
+    settledCheckReason = String(e?.message ?? e).split('\n')[0]
+  }
+  if (headOids) {
+    const stillOpen = []
+    for (const it of collectible) {
+      const head = headOids.get(it.path) ?? null
+      if (head && head === String(it.blobOid).toLowerCase()) settled.push(it)
+      else stillOpen.push(it)
+    }
+    collectible.length = 0
+    collectible.push(...stillOpen)
+  }
+  return {
+    ledger: 'ok',
+    reason: null,
+    collectible,
+    settled,
+    settledCheck,
+    settledCheckReason,
+    quiet,
+    contested,
+    incomplete,
+    ignored,
+    deduped,
+  }
 }
 
 /**
@@ -791,6 +876,14 @@ export function ledgerConclusionLine(r) {
   // —— 摘要含路径/文案,进身份会造成寄信风暴,所以只作附列供人读。
   if (r.blocker) parts.push(`blocker=${r.blocker}`)
   if (r.hint) parts.push(`hint=${r.hint}`)
+  /**
+   * 结清维(2026-11-05 立,同 `blocked/blocker/hint` 的先例只加行尾、不动前缀):
+   * `settled=N` 存在即证明本轮**量过**"申报内容是否已在 HEAD";白名单族那一类结论没有这一维
+   * 就整键缺席(缺席 = 没测,不得用 settled=0 冒充"测过且都还活着")。
+   * HEAD 面取不到时额外写 `settledCheck=unjudged`(§0.3:未判定要有机读面)。
+   */
+  if (typeof r.settled === 'number') parts.push(`settled=${r.settled}`)
+  if (r.settledCheck === 'unjudged') parts.push('settledCheck=unjudged')
   return parts.join(' ')
 }
 
@@ -980,6 +1073,9 @@ export function runLedgerFamily(opts = {}) {
     incomplete: entries.incomplete.length,
     ignored: entries.ignored.length,
     deduped: entries.deduped.length,
+    // 已在主干上的申报(结清件):它们**不占批预算**、也不该再交通道(见 collectLedgerEntries 第三道)。
+    settled: entries.settled.length,
+    settledCheck: entries.settledCheck,
     // 两族合计的"被拦枚数 + 拦路者"(挑了 N 枚 ≠ 入库 N 枚;被拦不许并进 held —— held 的既有
     // 语义是归属未明/活文档让路,与"门把整批拦死"是两回事,合并就读不回成因)。
     blocked: whitelistBlocked,
@@ -1044,13 +1140,25 @@ export function runLedgerFamily(opts = {}) {
     )
   if (counts.ignored)
     logLine(`账本族 ignored(被 .gitignore 覆盖)逐条点名:${named(entries.ignored)}${counts.ignored > 8 ? ' …' : ''}`)
+  // 结清件也要点名:它们从批里出去了,读结论行的人必须能看出"少交的那些枚去哪了",
+  // 而不是把它们当成"本轮没排到"。
+  if (counts.settled)
+    logLine(
+      `账本族 settled(申报内容已在 HEAD ⇒ 已结清,不再交通道)逐条点名:${named(entries.settled)}${counts.settled > 8 ? ' …' : ''}`
+    )
+  if (counts.settledCheck === 'unjudged')
+    logLine(
+      `账本族结清维未判定(${entries.settledCheckReason ?? 'HEAD 面 blob 取不到'})⇒ 本轮一条都不剔,照旧交给通道(§0.10:读不到不许当已结清)`,
+    )
 
   if (entries.collectible.length === 0) {
     return withCounts({
       collected: whitelistCollected,
       ledgerCollected: 0,
       held: 0,
-      reason: 'no-ledger-collectible',
+      // "整批都已在 HEAD"与"账本里根本没有可收的申报"是两件事:前者说明守护腿这一轮的产出
+      // 已全部入库(好消息),后者说明无人申报(要查派发)。合并成一个码就读不回成因。
+      reason: counts.settled ? 'ledger-all-settled' : 'no-ledger-collectible',
     })
   }
 
@@ -1558,6 +1666,7 @@ export const __test__ = {
   autoCommitMessages,
   // 账本收编族(2026-11-03):判据住在 lib/cross-end-landing-ledger.mjs,这里只暴露本器的段。
   collectLedgerEntries,
+  headBlobOidsOf,
   runLedgerFamily,
   guardLedgerLiveDocPath,
   ledgerCommitMessage,
