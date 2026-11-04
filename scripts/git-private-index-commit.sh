@@ -32,6 +32,19 @@ export GIT_INDEX_FILE="$(git rev-parse --absolute-git-dir)/ihui-bypass-idx"
 TREE=""
 OLD=""
 NEW=""
+# 2026-11-04 门 30a 根因票(会话 10b5dcce 实测):CAS 输家臂此前**一个都不备份** ——
+# 每次「重来」都会把上一枚 commit-tree 对象丢成无引用,5 轮全败则一次红跑最多留 5 枚无 tag 孤儿。
+# 与 object-space-land 同一条判据:每轮 `read-tree` 的都是**当时 HEAD** + 同一份声明集,中间轮次
+# 被下一轮结构上取代(内容不丢、丢的只是 commit 对象)⇒ 中间轮次不打 tag;
+# **最终失败的那一枚必须照打**,否则门 30a 逐枚判红,§12e 的结局是全仓被逼跳门。
+# 用 EXIT trap 兜住所有退出路径(含 read-tree/add/write-tree/commit-tree 失败),成功落地时清空。
+LAST_NEW=""
+backup_last_orphan() {
+  [ -n "${LAST_NEW:-}" ] || return 0
+  node -e "import('./scripts/lib/orphan-backup.mjs').then((m) => m.backupOrphanCommit({ sha: process.argv[1], why: 'git-private-index-commit.sh 5 轮均未抢到 CAS(末枚兜底)', kind: 'priv', root: process.cwd(), logger: (s) => console.error(s) })).catch((e) => console.error('⚠️ 孤儿备份腿异常:' + e.message))" "$LAST_NEW" || true
+  LAST_NEW=""
+}
+trap backup_last_orphan EXIT
 for attempt in 1 2 3 4 5; do
   OLD=$(git rev-parse HEAD)
   git read-tree "$OLD" || { echo "read-tree 失败"; exit 1; }
@@ -45,8 +58,10 @@ for attempt in 1 2 3 4 5; do
   fi
   TREE=$(git write-tree) || { echo "write-tree 失败"; exit 1; }
   NEW=$(git commit-tree "$TREE" -p "$OLD" -m "$SUBJ" -m "$BODY") || { echo "commit-tree 失败"; exit 1; }
+  LAST_NEW="$NEW"
   if git update-ref refs/heads/main "$NEW" "$OLD" 2>/dev/null; then
     echo "CAS_OK attempt=$attempt new=$NEW old=$OLD"
+    LAST_NEW=""
     break
   fi
   echo "⟳ HEAD 在第 $attempt 轮被并发推进,重来(不硬写)"
