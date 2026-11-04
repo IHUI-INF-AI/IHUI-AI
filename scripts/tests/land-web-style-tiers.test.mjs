@@ -8,7 +8,7 @@
  * 判据全部 import 源脚本(`__test__` 的 `rewriteSource` / `MAP` / `findClassRegions` / `inScope`),
  * 本文件不复制正则,也不复制映射表的档值。
  *
- * 钉八件事:
+ * 钉九件事:
  *   ① 四组等值映射各自命中;
  *   ② 表外档(text-base / lg / 3xl / 任意值)一律不动;
  *   ③ 变体前缀 `sm:` / `hover:` / `md:` 保留,只换后缀;
@@ -16,7 +16,9 @@
  *   ⑤ className **之外**的同形文本不动(注释 / 普通字符串 / 测试断言 / 其它属性);
  *   ⑥ 幂等(改完再跑 0 处);
  *   ⑦ 归属避让在位(ownershipDirtyPaths 库出口 / held 分支的结构断言);
- *   ⑧ 权重锁档只改"已有 font-* 伴随"的类名串。
+ *   ⑧ 权重锁档只改"已有 font-* 伴随"的类名串;
+ *   ⑨ 继承钉档(2026-11-04):无权重串补 `font-[weight:inherit]` 后可证恒等地改档,
+ *      cn 条件实参逐枚自带钉、已有其它权重不误钉、绝不退化成 `font-[inherit]`、重跑幂等。
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -147,6 +149,42 @@ test('T12 本文件是测试本体,不是落档器的整文件副本', () => {
   assert.ok(target.length > self.length)
   const copyMarker = ['export', 'function', 'rewriteSource'].join(' ')
   assert.equal(self.includes(copyMarker), false)
+})
+
+test('T13 继承钉档:无权重串补钉可证恒等,条件实参逐枚自带钉,重跑幂等', () => {
+  const pin = land.INHERIT_WEIGHT_CLASS
+  assert.equal(
+    pin,
+    'font-[weight:inherit]',
+    'weight: 类型提示不可省;font-[inherit] 会被 Tailwind 4 解析成 font-family',
+  )
+  const opts = { requireWeightCompanion: true, pinInheritWeight: true }
+  // ① 无权重串补钉;已有 font-bold 的串不误钉(误钉会把 700 覆盖成 inherit)
+  const src = '<a className="text-xl" /><b className="font-bold text-sm" />'
+  const r = land.rewriteSource(src, opts)
+  assert.equal(r.out, `<a className="${pin} ${to('xl')}" /><b className="font-bold ${to('sm')}" />`)
+  assert.equal(r.changes, 2)
+  assert.equal(r.pinned, 1)
+  // ② cn 条件实参:每个含可改档的实参都必须自带钉,否则条件为假时档位回落会重新生效
+  const cond = "<a className={cn('text-xs', ok && 'text-sm')} />"
+  const rc = land.rewriteSource(cond, opts)
+  assert.equal(rc.changes, 2)
+  assert.equal(rc.out.split(pin).length - 1, 2, '两个实参必须逐枚带钉')
+  assert.equal(land.rewriteSource(rc.out, opts).changes, 0, '钉档结果重跑必须 0 处')
+  assert.equal(land.rewriteSource(r.out, opts).pinned, 0, '已带钉的串不得重复补钉')
+  // ③ 另一实参的 font-bold 按整个 className 属性合并判定,不算"无权重"
+  const other = "<a className={cn('text-sm', 'font-bold')} />"
+  assert.equal(
+    land.rewriteSource(other, opts).out,
+    `<a className={cn('${to('sm')}', 'font-bold')} />`,
+  )
+  assert.equal(land.rewriteSource(other, opts).pinned, 0)
+  // ④ 不补钉时旧口径仍在:无权重串跳过
+  const legacy = land.rewriteSource('<a className="text-xl" />', { requireWeightCompanion: true })
+  assert.equal(legacy.changes, 0)
+  assert.equal(legacy.skippedNoWeight, 1)
+  // ⑤ 自检用例表必须真的含钉档形态(防止器物改了、自检表没跟着改)
+  assert.match(land.SELF_TEST_CASES.map((c) => c.name).join('|'), /钉档/)
 })
 
 // ─── 写盘凭据账本接线(2026-11-03,治 R1 无凭据 / R2 不可续跑;三端同形)────────────
