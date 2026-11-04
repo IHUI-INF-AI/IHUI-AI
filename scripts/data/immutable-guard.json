@@ -1,38 +1,119 @@
-[
-  {
-    "path": "scripts/guardian-runner.mjs",
-    "kind": "gate-registry",
-    "why": "全部守门的注册表：改一行就能把任何一道门降档/换脚本/放宽 skipEnv/整条抹掉，而没有任何一道门读自己（2026-10-21 core.hooksPath 指向不存在目录、静默跑 0 个钩子两天即此型）",
-    "reviewBy": "2027-06-30"
-  },
-  {
-    "path": "AGENTS.md",
-    "kind": "rule-doc",
-    "why": "全仓规则正文：铁律段被悄悄改写等于把判据连同判据的解释一起换掉，存量门只判代码不判规则文本",
-    "reviewBy": "2027-06-30"
-  },
-  {
-    "path": "scripts/lib/",
-    "kind": "judgement-lib",
-    "why": "判据库一族（含 scripts/lib/judgement-libs.json 与全部共享纯函数实现）：多道门 import 同一份判据，改一处等于同时改掉所有调用方的尺子，而各门自己的输出看不见这次改动",
-    "reviewBy": "2027-06-30"
-  },
-  {
-    "path": "scripts/data/*-exemptions.json",
-    "kind": "judgement-lib",
-    "why": "豁免台账一族：往里面加一条就等于让某道门对某个文件放行，而门本身仍全绿（§0.7 豁免必须验过才免、且会到期）",
-    "reviewBy": "2027-06-30"
-  },
-  {
-    "path": "scripts/check-*.mjs",
-    "kind": "gate-body",
-    "why": "门体一族：删判据、把断言改成空、或整枚删除脚本，注册表要么仍指向它、要么只留下一条失效注册，提交链上没有任何门喊",
-    "reviewBy": "2027-06-30"
-  },
-  {
-    "path": "scripts/data/immutable-guard.json",
-    "kind": "gate-registry",
-    "why": "本护栏自己的受保护面清单：删掉一条就等于悄悄缩小护栏射程，所以改清单本身也必须显式声明",
-    "reviewBy": "2027-06-30"
-  }
-]
+{
+  "signatureRequiredFrom": "2026-11-11",
+  "entries": [
+    {
+      "path": "scripts/guardian-runner.mjs",
+      "kind": "gate-registry",
+      "why": "全部守门的注册表：改一行就能把任何一道门降档/换脚本/放宽 skipEnv/整条抹掉，而没有任何一道门读自己（2026-10-21 core.hooksPath 指向不存在目录、静默跑 0 个钩子两天即此型）",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "AGENTS.md",
+      "kind": "rule-doc",
+      "why": "全仓规则正文：铁律段被悄悄改写等于把判据连同判据的解释一起换掉，存量门只判代码不判规则文本",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/lib/",
+      "kind": "judgement-lib",
+      "why": "判据库一族（含 scripts/lib/judgement-libs.json 与全部共享纯函数实现）：多道门 import 同一份判据，改一处等于同时改掉所有调用方的尺子，而各门自己的输出看不见这次改动",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/data/*-exemptions.json",
+      "kind": "judgement-lib",
+      "why": "豁免台账一族：往里面加一条就等于让某道门对某个文件放行，而门本身仍全绿（§0.7 豁免必须验过才免、且会到期）",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/check-*.mjs",
+      "kind": "gate-body",
+      "why": "门体一族：删判据、把断言改成空、或整枚删除脚本，注册表要么仍指向它、要么只留下一条失效注册，提交链上没有任何门喊",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/data/immutable-guard.json",
+      "kind": "gate-registry",
+      "why": "本护栏自己的受保护面清单：删掉一条就等于悄悄缩小护栏射程，所以改清单本身也必须显式声明",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/git-guardian.mjs",
+      "kind": "gate-registry",
+      "why": "巡检调度器本体：auditImmutableGuardNewCommits 住这里，改掉它巡检就永远 return，而巡检仍由被改过的代码执行",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/safe-commit.mjs",
+      "kind": "gate-registry",
+      "why": "提交边界执行器：跳钩/按 pathspec 落地/清空暂存都经它，改一处就能让提交绕过钩子且不留跳门痕迹",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/live-doc-edit.mjs",
+      "kind": "gate-body",
+      "why": "活文档唯一安全改写器：结构等值/幂等判据住这里，改掉判据等于放开把旧态整批写回 HEAD 的自伤",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/object-space-land.mjs",
+      "kind": "gate-body",
+      "why": "旁路落地器：结构上不跑钩子，冲突标记/水印/落地后复跑判据全由它自带",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".husky/pre-commit",
+      "kind": "gate-registry",
+      "why": "提交链入口薄壳：改成 exit 0 后 226 及整条 pre-commit 门链再不会被调用",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".husky/commit-msg",
+      "kind": "gate-registry",
+      "why": "提交信息门链入口薄壳：改成 exit 0 后提交信息阶段判据全部失效",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".husky/pre-push",
+      "kind": "gate-registry",
+      "why": "推送链入口薄壳：改成 exit 0 后推送前的代码门与 push guard 全部不再触发",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".husky/reference-transaction",
+      "kind": "gate-registry",
+      "why": "引用更新守卫入口薄壳：改成 exit 0 后可绕过 ref 写入拦截",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".husky/post-commit",
+      "kind": "gate-registry",
+      "why": "提交后链入口薄壳：改成 exit 0 后推送守卫与台账自愈不再跑，账面只剩提交成功",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".husky/post-merge",
+      "kind": "gate-registry",
+      "why": "合并后链入口薄壳：改成 exit 0 后台账同步等收尾判据不再跑",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "deploy/win/ihui-deploy.ps1",
+      "kind": "gate-registry",
+      "why": "部署执行器本体：ff 后的 root-guard --check 与构建切流都挂在这一支，短路调用等于生产侧护栏不执行",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "deploy/win/ihui-deploy-loop.ps1",
+      "kind": "gate-registry",
+      "why": "部署环调度器：决定何时 fetch/ff/调部署脚本，改弱它等于让被审面永远不被构建",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "deploy/win/lib/*.mjs",
+      "kind": "judgement-lib",
+      "why": "部署侧准入判据库：被部署脚本与测试同时 import；该 glob 只覆盖 lib 顶层模块，__tests__ 显式不在射程",
+      "reviewBy": "2027-06-30"
+    }
+  ]
+}

@@ -22,7 +22,7 @@ import {
   unlinkSync,
   writeFileSync,
 } from 'node:fs'
-import { basename, dirname, join } from 'node:path'
+import { basename, dirname, join, relative } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { buildAlertIdentity, watchPushDivergence } from './lib/push-divergence-watch.mjs'
@@ -245,6 +245,25 @@ const BRAND_MAIL_SCRIPT = join(WORKTREE, 'apps', 'api', 'scripts', 'notify-deplo
 const NOTIFY_MSG_DIR = join(WORKTREE, '.ihui-agent', 'tmp', 'git-guardian-notify')
 /** 派发器单次调用墙上时钟上限:tsx 冷启 + SMTP 握手最坏叠加(同 check-credential-health 实测值) */
 const NOTIFY_DISPATCH_TIMEOUT_MS = 90_000
+
+// —— 自陈述版本(2026-11-04 立)——
+// 失效形态(只读审计实证):守护是常驻内存进程,`startDaemon` 的 setTimeout 链从不重读本文件;
+// 盘上 `scripts/git-guardian.mjs` / `devenv-migrate.mjs` / `check-relay-capacity-zero.mjs` 都已改过,
+// 进程却还是十几小时前启动的那一枚 —— 全仓此前**没有任何判据**比对「进程启动时刻 vs 源文件 mtime」,
+// 于是修复一条都没加载,而且没有任何人会知道。本格让「代码比进程新」自己喊出来。
+/** 自身进程启动时刻:uptime 口径(不依赖任何被改文件,也不依赖外部 WMI 查询)。 */
+const SELF_START_AT_MS = Date.now() - Math.floor(process.uptime() * 1000)
+const SELF_SCAN_ROOT = join(WORKTREE, 'scripts')
+/** 扫描排除面:测试夹具与 scripts/data(配置/台账恒定在变,算进"代码"会天天假红)。 */
+const SELF_SCAN_SKIP_DIRS = new Set(['tests', 'data', 'node_modules'])
+/** 熔断:每窗口最多 1 次自重启;**失败同样占坑**(失败不重试)。可用 env 覆盖。 */
+const SELF_RESTART_BREAKER_MS = Number(
+  process.env.IHUI_GUARDIAN_SELF_RESTART_BREAKER_MS || 60 * 60 * 1000,
+)
+const SELF_RESTART_STATE = join(WORKTREE, '.ihui-agent', 'state', 'guardian-self-restart-last.json')
+const SELF_RESTART_AUDIT = join(WORKTREE, '.ihui-agent', 'state', 'guardian-self-restart-audit.jsonl')
+/** 温和重启的执行器:本机既有托管是 nssm(`sc` 只认 nssm.exe 包装器)⇒ 只走 `nssm restart`。 */
+const NSSM_EXE = process.env.IHUI_NSSM_EXE || 'C:\\Windows\\System32\\nssm.exe'
 
 // —— 收敛器收尾对齐停摆 → 到人(2026-09-25 票 O74)——
 // git-sync-converge 的 alignWorktreeAfterHeadMove 失败原先"只记日志":锁被长期占用时,
@@ -9956,7 +9975,8 @@ export function auditImmutableGuardNewCommits(opts = {}) {
     )
     return { ran: true, state: 'undetermined', why: '结论不可用' }
   }
-  const tail = `判 ${parsed.audited ?? 0} 枚(合并跳过 ${parsed.skippedMerges ?? 0})/ 红 ${(parsed.breaches ?? []).length} / 未判定 ${(parsed.undetermined ?? []).length} / 待判 ${parsed.pending ?? 0} / 游标 ${String(parsed.cursorBefore || '(无)').slice(0, 12)}→${String(parsed.cursorAfter || '').slice(0, 12)}`
+  const unsigned = parsed.unsigned ?? []
+  const tail = `判 ${parsed.audited ?? 0} 枚(合并跳过 ${parsed.skippedMerges ?? 0})/ 红 ${(parsed.breaches ?? []).length} / 未判定 ${(parsed.undetermined ?? []).length} / 无签名 ${unsigned.length} / 待判 ${parsed.pending ?? 0} / 游标 ${String(parsed.cursorBefore || '(无)').slice(0, 12)}→${String(parsed.cursorAfter || '').slice(0, 12)}`
   if (parsed.state === 'breach') {
     const first = (parsed.breaches ?? [])[0] ?? {}
     const paths = (first.hits ?? []).map((h) => h.path).join(', ')
@@ -9991,6 +10011,16 @@ export function auditImmutableGuardNewCommits(opts = {}) {
     return { ran: true, state: 'no-new-head' }
   }
   logger(`✅ 判据面护栏巡检:游标之后 ${(parsed.breaches ?? []).length} 枚静默改动 —— ${tail}`)
+  if (unsigned.length > 0) {
+    // 迁移窗口内的"仅文字理由"不再静默：逐枚点名 + 指向台账（2026-11-04 签名豁免立）。
+    logger(
+      `⚠️ 判据面护栏巡检:无签名豁免 ${unsigned.length} 枚(迁移窗口内,已记台账 .ihui-agent/state/immutable-guard-unsigned-ledger.jsonl):`,
+    )
+    for (const u of unsigned.slice(0, 10))
+      logger(
+        `   ⚠ ${u.sha ?? '?'}「${String(u.subject ?? '').slice(0, 60)}」${u.signatureCode || 'sig-missing'} 命中 ${(u.hits ?? []).map((h) => h.path).join(', ') || '(见 --json)'} 窗口至 ${u.windowUntil ?? '(未设置)'}`,
+      )
+  }
   return { ran: true, state: 'clean', detail: parsed }
 }
 
@@ -12512,6 +12542,247 @@ function acquireSingleInstance(pidFile = GUARDIAN_PID_FILE) {
   return { ok: true }
 }
 
+// ─── 自陈述版本:扫描 + 判红 + 温和自重启(2026-11-04 立)─────────────────────────
+
+/** 绝对路径压成相对 WORKTREE 的可读路径(日志/审计行不写死盘符,换机也可读)。 */
+function selfRel(p) {
+  if (!p) return ''
+  return (relative(WORKTREE, p) || p).replace(/\\/g, '/')
+}
+
+/**
+ * 扫描守护自身的源码面:scripts 下全部 .mjs + `scripts/lib` 全量,排除 tests / data / node_modules。
+ * `ok:false` = **扫不出来**(调用方必须按未判定处理,不得当成"没有新文件")。
+ */
+export function scanGuardianSources({ root = SELF_SCAN_ROOT, skipDirs = SELF_SCAN_SKIP_DIRS } = {}) {
+  const unreadable = []
+  const files = []
+  const walk = (dir, underLib) => {
+    let entries
+    try {
+      entries = readdirSync(dir, { withFileTypes: true })
+    } catch (e) {
+      unreadable.push(`${selfRel(dir)} :: ${e?.code ?? String(e)}`)
+      return
+    }
+    for (const d of entries) {
+      if (d.isSymbolicLink()) continue // 重解析点不穿透(§26)
+      const q = join(dir, d.name)
+      if (d.isDirectory()) {
+        if (skipDirs.has(d.name)) continue
+        walk(q, underLib || d.name === 'lib')
+      } else if (d.isFile() && (underLib || d.name.endsWith('.mjs'))) {
+        try {
+          files.push({ path: q, mtimeMs: statSync(q).mtimeMs })
+        } catch (e) {
+          unreadable.push(`${selfRel(q)} :: ${e?.code ?? String(e)}`)
+        }
+      }
+    }
+  }
+  walk(root, false)
+  let maxSourceMtime = 0
+  let maxSourceFile = ''
+  for (const f of files) {
+    if (f.mtimeMs > maxSourceMtime) {
+      maxSourceMtime = f.mtimeMs
+      maxSourceFile = f.path
+    }
+  }
+  // 一枚都扫不到 = 未判定(不是"没有新文件")
+  return { ok: files.length > 0, scanned: files.length, files, maxSourceMtime, maxSourceFile, unreadable }
+}
+
+/** 重启前把轮级锁让出去:否则新进程会被旧锁按 staleMs(46min)挡在门外,温重启变成温停摆。 */
+function releaseRoundLockForRestart() {
+  if (!activeRoundLock) return
+  try {
+    releaseGuardianLock(activeRoundLock)
+  } catch {
+    /* 让不出也照旧重启 */
+  }
+  activeRoundLock = null
+}
+
+/**
+ * 默认温和重启:只派生 `nssm restart <服务>`,**不 taskkill、不强杀**。
+ * 派生失败(找不到 nssm / spawn 报错)⇒ 返回 ok:false,调用方保持旧进程存活且本窗口内不重试。
+ */
+export function restartGuardianService({
+  service = GUARD_SERVICE_NAME,
+  exe = NSSM_EXE,
+  logger = log,
+} = {}) {
+  if (!existsSync(exe)) return { ok: false, why: `nssm 不在位(${exe})⇒ 不自杀了断,旧进程继续存活` }
+  try {
+    const child = spawn(exe, ['restart', service], {
+      detached: true,
+      stdio: 'ignore',
+      windowsHide: true,
+    })
+    // 异步派生错误必须挂 handler:否则 unhandled 'error' 会把旧进程直接带走
+    child.on('error', (e) =>
+      logger(`⚠️ 守护自重启派生失败(${String(e?.message || e)})⇒ 旧进程继续存活`),
+    )
+    child.unref()
+    return { ok: true, pid: child.pid }
+  } catch (e) {
+    return { ok: false, why: String(e?.message || e) }
+  }
+}
+
+/**
+ * 轮末自陈述版本。三件事一件都不许省:
+ *  ① 报读数(processStartAt / maxSourceMtime / newerThanProcess) —— 绿也报,否则"没喊"与"没量"分不开;
+ *  ② 有文件比进程新 ⇒ 判红,走既有 notifyGuardRed(身份去重 + 邮件出口);
+ *  ③ 允许重启的执行体里温和自重启一次,带熔断(每窗口 1 次、失败不重试、动作写审计行)。
+ * 全部依赖可注入(scan / notify / doRestart / stateFile / auditFile),测试用替身取证,绝不真重启。
+ */
+export function auditGuardianCodeFreshness(opts = {}) {
+  const {
+    now = Date.now(),
+    processStartAt = SELF_START_AT_MS,
+    scan = scanGuardianSources,
+    stateFile = SELF_RESTART_STATE,
+    auditFile = SELF_RESTART_AUDIT,
+    breakerMs = SELF_RESTART_BREAKER_MS,
+    logger = log,
+    notify = notifyGuardRed,
+    doRestart = restartGuardianService,
+    beforeRestart = releaseRoundLockForRestart,
+    daemon = DAEMON,
+    checkOnly = CHECK_ONLY,
+    enabled = process.env.IHUI_GUARDIAN_SELF_FRESHNESS !== '0',
+  } = opts
+  // --check 是 CI 口径零副作用;env 开关可整体回滚(回滚后不量也不喊,与锁模式 off 同一条语义)。
+  if (checkOnly || !enabled)
+    return { ran: false, state: 'skipped', why: checkOnly ? 'check-only' : 'disabled' }
+  let scanned
+  try {
+    scanned = scan()
+  } catch (e) {
+    scanned = { ok: false, why: String(e?.message || e) }
+  }
+  if (!scanned || scanned.ok === false) {
+    logger(
+      `❓ 守护自陈述版本:源码面扫不出来(${String(scanned?.why || '空结果')})⇒ 本轮未判定,不记绿也不冒红`,
+    )
+    return { ran: true, state: 'undetermined' }
+  }
+  const newer = (Array.isArray(scanned.files) ? scanned.files : [])
+    .filter((f) => Number(f?.mtimeMs) > processStartAt)
+    .sort((a, b) => b.mtimeMs - a.mtimeMs)
+  const iso = (ms) => (Number.isFinite(ms) && ms > 0 ? new Date(ms).toISOString() : 'n/a')
+  const list = newer
+    .slice(0, 8)
+    .map((f) => `${selfRel(f.path)}@${iso(f.mtimeMs)}`)
+    .join(', ')
+  const head =
+    `processStartAt=${iso(processStartAt)} maxSourceMtime=${iso(scanned.maxSourceMtime)}` +
+    `(${selfRel(scanned.maxSourceFile)}) scanned=${scanned.scanned ?? 0}`
+  if (newer.length === 0) {
+    logger(`🧾 守护自陈述版本:✅ ok ${head} newerThanProcess=[]`)
+    return { ran: true, state: 'ok' }
+  }
+  logger(
+    `🧾 守护自陈述版本:❌ STALE ${head} newerThanProcess=[${list}${newer.length > 8 ? `, …(共 ${newer.length})` : ''}]` +
+      ' ⇒ 这些改动**没有加载**进当前进程',
+  )
+  const top = newer[0]
+  try {
+    notify(
+      '守护代码比进程新(旧进程未加载)',
+      `${newer.length} 个源文件 mtime 晚于进程启动时刻(processStartAt=${iso(processStartAt)}):\n` +
+        `${newer.slice(0, 12).map((f) => `  ${selfRel(f.path)} @ ${iso(f.mtimeMs)}`).join('\n')}` +
+        `${newer.length > 12 ? `\n  …另有 ${newer.length - 12} 个` : ''}\n` +
+        '最老一枚的修复同样没生效 —— 常驻守护不重读本文件,只认重启。\n' +
+        `处置:确认这些改动无在途冲突后 nssm restart ${GUARD_SERVICE_NAME}(本守护在允许的执行体里会自动试一次)。`,
+      { severity: 'warning', dedupKey: `guardian-code-stale:${newer.length > 3 ? 'many' : newer.length}` },
+    )
+  } catch (e) {
+    logger(`⚠️ 守护自陈述版本:判红发信失败(${String(e?.message || e).slice(0, 120)})⇒ 判据结论不变`)
+  }
+  // 熔断先读后写:失败也占坑 —— 每窗口最多 1 次动作,绝不重试。
+  let prev = null
+  try {
+    prev = JSON.parse(readFileSync(stateFile, 'utf8'))
+  } catch {
+    prev = null
+  }
+  const lastAt = Number(prev?.lastRestartAtMs)
+  if (Number.isFinite(lastAt) && now - lastAt < breakerMs) {
+    logger(
+      `🛑 守护自重启熔断:${Math.round(breakerMs / 60000)} 分钟窗口内已动作过(上次 ${iso(lastAt)},触发 ${prev?.triggerFile || '?'})` +
+        ' ⇒ 本轮只判红不重启(失败不重试)',
+    )
+    return { ran: true, state: 'stale', restarted: false, breaker: true }
+  }
+  if (!daemon) {
+    logger('ℹ️ 守护自重启:非 daemon 执行体(一次性轮次重启没有意义)⇒ 本轮只判红')
+    return { ran: true, state: 'stale', restarted: false, why: 'not-daemon' }
+  }
+  const record = {
+    at: iso(now),
+    action: 'restart-self',
+    service: GUARD_SERVICE_NAME,
+    triggerFile: selfRel(top.path),
+    triggerMtime: iso(top.mtimeMs),
+    processStartAt: iso(processStartAt),
+    maxSourceMtime: iso(scanned.maxSourceMtime),
+    newerThanProcess: newer.map((f) => `${selfRel(f.path)}@${iso(f.mtimeMs)}`),
+  }
+  // 审计行**先落盘再动作**:重启会把本进程带走,动作前的留痕不能只靠内存/日志缓冲。
+  try {
+    mkdirSync(dirname(auditFile), { recursive: true })
+    appendFileSync(auditFile, JSON.stringify(record) + '\n')
+  } catch (e) {
+    logger(
+      `⚠️ 守护自重启审计行写入失败(${String(e?.message || e).slice(0, 100)})⇒ 仍继续(日志行是第二道留痕)`,
+    )
+  }
+  try {
+    mkdirSync(dirname(stateFile), { recursive: true })
+    writeFileSync(
+      stateFile,
+      JSON.stringify(
+        {
+          lastRestartAtMs: now,
+          lastRestartAt: iso(now),
+          triggerFile: record.triggerFile,
+          triggerMtime: record.triggerMtime,
+          processStartAt: record.processStartAt,
+        },
+        null,
+        1,
+      ),
+      'utf8',
+    )
+  } catch (e) {
+    logger(
+      `⚠️ 守护自重启熔断台账写入失败(${String(e?.message || e).slice(0, 100)})⇒ 仍继续,本窗口内不再动作`,
+    )
+  }
+  logger(
+    `♻️ 守护自重启:代码比进程新 ⇒ 温和重启 ${GUARD_SERVICE_NAME}(触发 ${record.triggerFile}@${record.triggerMtime})`,
+  )
+  try {
+    beforeRestart()
+  } catch {
+    /* 让锁失败不阻断重启 */
+  }
+  let r
+  try {
+    r = doRestart({ service: GUARD_SERVICE_NAME, trigger: { path: record.triggerFile, mtimeMs: top.mtimeMs } })
+  } catch (e) {
+    r = { ok: false, why: String(e?.message || e) }
+  }
+  if (!r || r.ok !== true) {
+    logger(`⚠️ 守护自重启未能拉起(${String(r?.why || '未知')})⇒ 旧进程继续存活;本窗口内不再重试`)
+    return { ran: true, state: 'stale', restarted: false, why: String(r?.why || 'restart-failed') }
+  }
+  return { ran: true, state: 'stale', restarted: true, pid: r.pid ?? null }
+}
+
 async function main() {
   // --status 是只读入口(2026-11-03):必须先于轮级锁返回。常驻守护(--daemon)长期持有生产锁,
   // 旧路径让 --status 去抢锁,抢不到就把"上一轮巡检仍在跑…"写进 stdout ⇒ 机器消费者 JSON.parse 失败;
@@ -12919,6 +13190,8 @@ async function main() {
     if (!CHECK_ONLY) healUiRoutesLeg()
     // 幂等确保自身是 S4U(已是则内部秒退,不重建任务、不产生抖动)
     if (!CHECK_ONLY) ensureS4u()
+    // 轮末自陈述版本(2026-11-04 立):让「代码比进程新」自己喊出来。--check 已由函数内部跳过。
+    if (!CHECK_ONLY) auditGuardianCodeFreshness()
     if (CHECK_ONLY)
       console.log('✅ .git 健康(pointer + gitdir + git 可用 + 工作树可用 + 嵌套 ref 完整)')
     return 0
@@ -12947,6 +13220,8 @@ async function main() {
   const ok =
     after.pointerOk && after.gitdirOk && after.gitUsable && after.refsOk && after.worktreeUsable
   log(ok ? `✅ 自愈成功(HEAD=${after.head})` : '❌ 自愈失败,需人工介入')
+  // 轮末自陈述版本:与健康轮次同一挂点语义 —— 不健康轮次同样要报"我是哪一刻的代码"。
+  if (!CHECK_ONLY) auditGuardianCodeFreshness()
   return ok ? 0 : 1
 }
 
@@ -13201,9 +13476,27 @@ function startDaemon(bootGuard = null) {
         sweepStaleClosedRows()
         sweepUiMirrorLeg()
         sweepWebStyleTiers()
+        // ---- 第二批:原先整条链无节流的 4 条,用调用点 legThrottle 补上后才敢上常驻面 ----
+        // 节流戳一律落 `.ihui-agent/state/<腿>-dispatch-last.json`,与 A8(check-autonomy-leg-health
+        // 的腿在位尺)读的是同一族文件 ⇒ 这四条从"挂上"那一刻起就是**被量着**的,不是挂了就算数。
+        // 间隔取的是"这条腿自己那一步有多重":auditMergeAdditionLoss/refreshRecoverySource 各带
+        // 240s 超时的派生、rotateRunLogs 会动在写的日志面 ⇒ 30 分钟;reportBaselineFreshness 只读 ⇒ 1 小时。
+        if (legThrottle(join(dirname(LOG), 'merge-addition-loss-dispatch-last.json'), 30 * 60 * 1000, Date.now(), log)) auditMergeAdditionLoss()
+        if (legThrottle(join(dirname(LOG), 'recovery-source-dispatch-last.json'), 30 * 60 * 1000, Date.now(), log)) refreshRecoverySource()
+        if (legThrottle(join(dirname(LOG), 'run-log-rotate-dispatch-last.json'), 30 * 60 * 1000, Date.now(), log)) rotateRunLogs()
+        if (legThrottle(join(dirname(LOG), 'baseline-freshness-dispatch-last.json'), 60 * 60 * 1000, Date.now(), log)) reportBaselineFreshness()
       }
     } catch (e) {
       log('巡检异常(忽略): ' + String(e.message || e))
+    } finally {
+      // 轮末自陈述版本(2026-11-04 立):**必须挂 tick** —— startDaemon 是内存常驻的
+      // setTimeout 链,不重读本文件;只挂 main() 一次性路径的话,「代码比进程新」这件事
+      // 常驻守护永远看不见,今天这场"12 小时修复零加载"就会继续无名地发生。
+      try {
+        auditGuardianCodeFreshness()
+      } catch (e) {
+        log('自陈述版本异常(忽略): ' + String(e.message || e))
+      }
     }
     setTimeout(tick, intervalMs)
   }

@@ -27,6 +27,15 @@
  *   - 报警线 3500ms = 健康档实测上界(2226)与病害档下界(5104)之间,并对 5000 留 30% 余量;
  *   - tailer 线 = 活日志文件数 × 2(实测健康 40/40、病害 4531/40=113 倍,×2 两者都够远)。
  *
+ * 第三维 monitor-trust 是给本机 2026-11-04 开的两档加速兜底的:
+ *   `core.fsmonitor=true` + `core.untrackedCache=true`(写在活 gitdir 的 config 里,不入仓、
+ *   换机即丢)。实测效果:`index;preload` 的 lstat 从 19064 掉到 2333、阶段自身耗时 2130ms→101ms,
+ *   `git status` 墙钟 1284ms。省下的每一次 lstat 都是"少看一眼磁盘",而**漏报比慢更糟** ——
+ *   真漏一次,面板与门 281(全工作树口径)就一起拿着假净账跑,且没有任何判据会响。
+ *   所以本维不看速度,只看同一时刻"带缓存的面"与"关掉缓存全量扫描的面"是否逐字相同。
+ *   启用前后已验:新建单文件/新建目录/删除 各 5 轮全部立刻可见;linked worktree
+ *   add→remove --force→prune 未被 daemon 句柄挡住(注册表 4→3 回落)。
+ *
  * 用法:node scripts/check-git-probe-headroom.mjs [--json] [--self-test] [--samples N]
  */
 import { spawnSync } from 'node:child_process'
@@ -69,6 +78,41 @@ export function sampleStatusMs(repoRoot, n = DEFAULT_SAMPLES, opts = {}, spawn =
     out.push(Date.now() - t)
   }
   return { samples: out, failed: false, why: '' }
+}
+
+/**
+ * 取一份 status 的输出面;disableMonitor=true 时把两档缓存一起关掉,得到"全量扫描"的真相面。
+ * 两侧同命令同参数,只差缓存 —— 否则对账就是在比两件不同的事。
+ */
+export function statusFace(repoRoot, disableMonitor, spawn = spawnSync) {
+  const pre = disableMonitor
+    ? ['-c', 'core.fsmonitor=false', '-c', 'core.untrackedCache=false']
+    : []
+  const r = spawn('git', [...pre, 'status', '--porcelain=v1', '-z'], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 60_000,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  if (r.error || r.status !== 0)
+    return {
+      failed: true,
+      why: r.error ? String(r.error.message) : `git status rc=${r.status}`,
+      out: null,
+    }
+  return { failed: false, why: '', out: r.stdout || '' }
+}
+
+/** 配置读取:取不到一律按"未启用"处理,不当成错误(本维据此不判) */
+export function isMonitorEnabled(repoRoot, spawn = spawnSync) {
+  const r = spawn('git', ['config', '--get', 'core.fsmonitor'], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+    windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  return (r.stdout || '').trim() === 'true'
 }
 
 export function judgeLatency({ samples, failed, why, warnMs = WARN_MS, budgetMs = BUDGET_MS }) {
@@ -150,6 +194,49 @@ export function judgeCollectors({ metricsText, faces, tailers = null, goroutines
 }
 
 /**
+ * 监控面可信度:fsmonitor / untracked cache 每省下一次 lstat,代价就是"少看一眼磁盘"。
+ * 漏报比慢更糟 —— 所以本维不看速度,只看**同一时刻**监控面与全量扫描面是否逐字一致。
+ * 不一致 ⇒ 缓存在对着一份已经不存在的事实说话(事件丢失/token 腐烂),当场 drift 并给关回出口。
+ * 未启用 fsmonitor 时本维不判(report):"慢"已由 status-latency 兜住,不该为配置选择再造一枚红。
+ */
+export function judgeMonitorTrust({ enabled, monitorOut, fullOut, failed, why }) {
+  if (!enabled)
+    return {
+      dim: 'monitor-trust',
+      state: 'report',
+      readout: 'core.fsmonitor 未启用 ⇒ 本维无从判(慢由 status-latency 兜)',
+      next: '',
+    }
+  if (failed || monitorOut === null || fullOut === null)
+    return {
+      dim: 'monitor-trust',
+      state: 'unjudged',
+      readout: `两侧取不到(${why || '未知'})`,
+      next: '先确认 git 可执行与仓库根可达;取不到不判',
+    }
+  const a = String(monitorOut).split('\0').filter(Boolean)
+  const b = String(fullOut).split('\0').filter(Boolean)
+  const same = a.length === b.length && a.every((l, i) => l === b[i])
+  if (same)
+    return {
+      dim: 'monitor-trust',
+      state: 'ok',
+      readout: `监控面与全量扫描面逐字一致(${a.length} 条)`,
+      next: '',
+    }
+  const missing = b.filter((l) => !a.includes(l))
+  const extra = a.filter((l) => !b.includes(l))
+  return {
+    dim: 'monitor-trust',
+    state: 'drift',
+    readout: `监控面比全量少 ${missing.length} 条 / 多 ${extra.length} 条 —— 缓存正对着一份已不成立的账面`,
+    next: '先关再查因:`git config --unset core.fsmonitor` + `git config --unset core.untrackedCache` + `git fsmonitor--daemon stop`;漏报的代价是面板与门 281 拿着假净账跑,不能等',
+    missing: missing.slice(0, 6),
+    extra: extra.slice(0, 6),
+  }
+}
+
+/**
  * 报告维:把"扫描面变宽"与"整机在等"分开 —— -uno 与默认档同批采样。
  * 刻意不参与定级:比值高低都不是"谁该动手"的判据,只做归因证据。
  */
@@ -178,7 +265,7 @@ export function judgeWalkShare({ oneNo, full }) {
 export function alertIdentity(dims) {
   const st = (n) => (dims.find((d) => d.dim === n) || { state: 'missing' }).state
   const s = aggregate(dims).state
-  return `git-probe-headroom:${s}:latency=${st('status-latency')}:collectors=${st('collector-tailers')}`
+  return `git-probe-headroom:${s}:latency=${st('status-latency')}:collectors=${st('collector-tailers')}:trust=${st('monitor-trust')}`
 }
 
 export function aggregate(dims) {
@@ -348,6 +435,57 @@ async function selfTest() {
       '60×2=120 > 90 ⇒ 基线跟着日志面走',
     )
   })
+  t('S14 monitor-trust 四态成对:一致绿 / 少一条红 / 关着不判 / 取不到未判定', () => {
+    const A = 'A\x00B\x00'
+    const B = 'A\x00'
+    eq(
+      judgeMonitorTrust({ enabled: true, monitorOut: A, fullOut: A, failed: false }).state,
+      'ok',
+      '逐字一致 ⇒ 绿',
+    )
+    eq(
+      judgeMonitorTrust({ enabled: true, monitorOut: B, fullOut: A, failed: false }).state,
+      'drift',
+      '监控面少一条 ⇒ 红',
+    )
+    eq(
+      judgeMonitorTrust({ enabled: true, monitorOut: A, fullOut: B, failed: false }).state,
+      'drift',
+      '监控面多一条(已删的还在报)⇒ 红',
+    )
+    eq(
+      judgeMonitorTrust({ enabled: false, monitorOut: A, fullOut: A, failed: false }).state,
+      'report',
+      '没启用 ⇒ 不判,不为配置选择造红',
+    )
+    eq(
+      judgeMonitorTrust({
+        enabled: true,
+        monitorOut: null,
+        fullOut: A,
+        failed: true,
+        why: 'rc=128',
+      }).state,
+      'unjudged',
+      '取不到 ⇒ 未判定',
+    )
+  })
+  t('S15 反向锁:漏报必须点名少/多几条并给出关回出口', () => {
+    const d = judgeMonitorTrust({
+      enabled: true,
+      monitorOut: 'A\x00',
+      fullOut: 'A\x00B\x00C\x00',
+      failed: false,
+    })
+    eq(d.missing.length, 2, '少报条数点名')
+    eq(d.next.includes('core.fsmonitor'), true, '出路必须是能直接执行的关回命令')
+    eq(
+      judgeMonitorTrust({ enabled: true, monitorOut: 'A\x00', fullOut: 'A\x00', failed: false })
+        .next,
+      '',
+      '绿档不许带出路充数',
+    )
+  })
 
   console.log(
     `\n[git-probe-headroom --self-test] ${pass}/${pass + fail} 例${fail ? ' 有失败' : ' 全绿'}`,
@@ -379,6 +517,9 @@ async function main(argv) {
   const oneNo = sampleStatusMs(ROOT, 1, { uno: true })
   const metricsText = await fetchText(PROMTAIL_METRICS_URL)
   const faces = countLogFaces(LOG_DIR)
+  const enabled = isMonitorEnabled(ROOT)
+  const monFace = statusFace(ROOT, false)
+  const scanFace = statusFace(ROOT, true)
   const dims = [
     judgeLatency({ ...full, warnMs: WARN_MS, budgetMs: BUDGET_MS }),
     judgeCollectors({
@@ -386,6 +527,13 @@ async function main(argv) {
       faces,
       tailers: parseGauge(metricsText, 'promtail_files_active_total'),
       goroutines: parseGauge(metricsText, 'go_goroutines'),
+    }),
+    judgeMonitorTrust({
+      enabled,
+      monitorOut: monFace.out,
+      fullOut: scanFace.out,
+      failed: monFace.failed || scanFace.failed,
+      why: monFace.why || scanFace.why,
     }),
     judgeWalkShare({ oneNo, full }),
   ]
@@ -425,8 +573,11 @@ if (isDirectRun) main(process.argv.slice(2))
 
 export const __test__ = {
   sampleStatusMs,
+  statusFace,
+  isMonitorEnabled,
   judgeLatency,
   judgeCollectors,
+  judgeMonitorTrust,
   judgeWalkShare,
   aggregate,
   alertIdentity,
