@@ -1147,7 +1147,11 @@ export function LoginScreen() {
 
   // welcome 品牌文字图(对齐 web AuthShell welcome.svg/baiwelcome.svg)
   // 浅色主题用黑字,深色主题用白字;SvgXml 渲染,width 280 等比缩放(447×67 → 280×42)
-  const welcomeXml = resolvedTheme === 'dark' ? WELCOME_SVG_DARK : WELCOME_SVG_LIGHT
+  // 2026-11-04: 该 SVG 模板字面量把源码水印(</svg> 之后的零宽注释)也纳入了字符串,
+  // 它会作为 Svg 的裸文本子节点触发 RN 开发态 "Text strings must be rendered within a <Text> component"。
+  // 按最后一个 </svg> 截断后再交给 SvgXml,水印本体仍留在源文件里不动。
+  const welcomeXmlRaw = resolvedTheme === 'dark' ? WELCOME_SVG_DARK : WELCOME_SVG_LIGHT
+  const welcomeXml = welcomeXmlRaw.slice(0, welcomeXmlRaw.lastIndexOf('</svg>') + '</svg>'.length)
 
   return (
     <View style={styles.container}>

@@ -21,7 +21,9 @@
  *   T8 css-tokens 腿三态:零字节写回⇒clean 无日志 / 已写回⇒written 有日志 / 乱输出⇒未判定;
  *   T9 装车顺序锁:sweepCssTokensSourceLeg() 与 sweepCrossEndLandingLeg() 两行必须排在
  *      sweepHandMirrorUpgrades() 之后、sweepParityCockpit() 之前(源头先补、再收编、最后汇总面);
- *   C1 契约锁:两条腿匹配的结论文案必须真存在于生产方源码(不手抄形状)。
+ *   C1 契约锁:两条腿匹配的结论文案必须真存在于生产方源码(不手抄形状);
+ *   U7/U8 两态分道:拒写(downgrade>0)落 tick 的 downgrade 字段并进告警面;
+ *      未判定(exit 2)落 undetermined 字段、走 ⚠️ 且不喊人,不合成一个 red。
  *
  * 取材面说明:被测两条腿系主 agent 本轮新写入工作树(HEAD 尚无),形状锁按 §0.4 取"与被测实现
  * 同面"的工作树副本(readFileSync),与同族样板 cross-end-mirror-heal-dispatch.test.mjs 一致;
@@ -35,6 +37,7 @@ import test from 'node:test'
 import {
   sweepCrossEndLandingLeg,
   sweepCssTokensSourceLeg,
+  sweepMiniappMessageKeysLeg,
   sweepRnColorLiteralLeg,
   sweepRnCompatLeg,
   sweepUiMirrorLeg,
@@ -331,6 +334,60 @@ test('U4 落档腿:held>0 ⇒ 必须点名(拦截不能静默)', () => {
   assert.ok(seen.length > 0, 'held=6 是"本应落档却被归属闸拦下",不点名等于静默放过')
 })
 
+test('U7 落档腿:downgrade>0 落 tick 字段并进告警面,与未判定分道', () => {
+  const tickFile = tick('u7.json')
+  const logs = []
+  const alerts = []
+  const r = sweepUiMirrorLeg({
+    tickFile,
+    logger: (s) => logs.push(String(s)),
+    notify: (title, body, opts) => alerts.push({ title, body, opts }),
+    runner: () => ({
+      status: 1,
+      stdout:
+        '配对 3 · ✅一致 1 · 🔴漂移 2 · ?未判定 0\n' +
+        '  ⛔ downgrade(派生结果=祖先旧档,拒写)2 枚:a/Badge.tsx, b/Input.tsx\n' +
+        '结论 landing=0(新登记 0/在册去重 0) skipLanded=0 held=0 downgrade=2 写出=0 landingPath=x',
+      stderr: '',
+    }),
+  })
+  const t = JSON.parse(readFileSync(tickFile, 'utf8'))
+  assert.equal(t.downgrade, 2, '拒写枚数必须落 tick(可 grep 的字段)')
+  assert.equal(t.undetermined, 0, '未判定是另一条字段,不得把拒写折进去')
+  assert.equal(t.state, 'refused-downgrade')
+  assert.equal(r.state, 'refused-downgrade')
+  assert.equal(r.ok, false, '拒写=该写却没写,不能报 ok')
+  assert.match(logs.join('\n'), /downgrade=2/, '日志必须点名拒写枚数')
+  assert.equal(alerts.length, 1, '非 0 必须进告警面')
+  assert.match(alerts[0].title, /拒写 2 枚/)
+})
+
+test('U8 落档腿:未判定(exit 2)走另一条字段与另一条文案,不混成拒写', () => {
+  const tickFile = tick('u8.json')
+  const logs = []
+  const alerts = []
+  const r = sweepUiMirrorLeg({
+    tickFile,
+    logger: (s) => logs.push(String(s)),
+    notify: (title, body, opts) => alerts.push({ title, body, opts }),
+    runner: () => ({
+      status: 2,
+      stdout:
+        '配对 3 · ✅一致 1 · 🔴漂移 0 · ?未判定 2\n' +
+        '结论 landing=0(新登记 0/在册去重 0) skipLanded=0 held=0 downgrade=0 写出=0 landingPath=x',
+      stderr: '',
+    }),
+  })
+  const t = JSON.parse(readFileSync(tickFile, 'utf8'))
+  assert.equal(t.downgrade, 0)
+  assert.equal(t.undetermined, 2, '未判定进自己的字段,不借 downgrade 的槽')
+  assert.equal(t.state, 'undetermined')
+  assert.equal(r.state, 'undetermined')
+  assert.equal(r.ok, false, '未判定不得报 ok(§0.3)')
+  assert.match(logs.join('\n'), /未判定 2/)
+  assert.equal(alerts.length, 0, '未判定不喊人(与拒写的告警面分道)')
+})
+
 test('U5 落档腿顺序锁:两件在写盘腿之后、在落库腿之前,且 tickFile 可被 opts 覆盖', () => {
   const src = readFileSync(GUARDIAN, 'utf8')
   const at = (needle) => src.indexOf(needle)
@@ -407,4 +464,68 @@ test('U8 RN兼容层腿挂载与器内契约锁(改措辞即点名,防腿静默�
   assert.match(gen, /ledger=\$\{ledgerState\}/, 'ledger 维缺失 ⇒ "写了盘没申报上"会被读成 clean')
   // 未知旗必须拒绝:静默忽略会让周期腿把 --apply 当成"预演不写盘"而每轮报绿(空转守卫)
   assert.match(gen, /未知参数 \$\{unknown\.join\(' '\)\}/, '本器不得静默忽略未知旗')
+})
+
+// ── 第四批:小程序词包整块缺口首次有器物并上链(sweepMiniappMessageKeysLeg)──────────────
+// 立因:驾驶舱的 mirror-pack-namespace-missing 红连日按同身份复发(2026-11-03 现读 09:20 / 10:32 两轮),
+// 尺子(check-miniapp-mirror-fidelity 的 packAbsent 维)把出路写成"人工从 messages/mobile-rn 逐字搬",
+// 而全仓零器物 ⇒ 每复发一次都要人当场手抄五语言 JSON(§0.9:判据在、器物缺 = 没有)。
+const MSG_KEYS_CONCLUSION =
+  '结论 landing=5(新登记 5/在册去重 0) 计划=35 held=0 写出=5 leg=miniapp-message-keys ledger=ok 基准侧查无=0 landingPath=.ihui-agent/state/cross-end-landing.jsonl'
+
+test('U9 词包搬运腿:按本器真实结论行解析 landing/写出,且 clean 一声不出', () => {
+  const seen = []
+  const r = sweepMiniappMessageKeysLeg({
+    tickFile: tick('u9.json'),
+    logger: (s) => seen.push(String(s)),
+    runner: () => ({ status: 0, stdout: MSG_KEYS_CONCLUSION, stderr: '' }),
+  })
+  assert.deepEqual(
+    { ran: r.ran, ok: r.ok, state: r.state, landed: r.landed, held: r.held },
+    { ran: true, ok: true, state: 'ok', landed: 5, held: 0 },
+  )
+  assert.ok(seen.some((s) => s.includes('词包整块缺口搬运')), '有产出必须点名到哪条腿')
+  // 反向对照:本端词包无缺口(幂等常态)⇒ 零落地零日志
+  const hits = []
+  const clean = sweepMiniappMessageKeysLeg({
+    tickFile: tick('u9-clean.json'),
+    logger: (s) => hits.push(String(s)),
+    runner: () => ({
+      status: 0,
+      stdout: '结论 landing=0 无变化=0 held=0 写出=0 leg=miniapp-message-keys ledger=ok needs=0 未判定=0(本端词包无整块缺口)',
+      stderr: '',
+    }),
+  })
+  assert.equal(clean.landed, 0)
+  assert.equal(clean.held, 0)
+  assert.equal(hits.length, 0, 'clean 档必须零输出(每 30 分钟一行"没问题"会把守护日志淹成噪声)')
+})
+
+test('U10 词包搬运腿:结论行缺失 ⇒ 未判定,不得折成"无缺口可搬"', () => {
+  const r = sweepMiniappMessageKeysLeg({
+    tickFile: tick('u10.json'),
+    logger: () => {},
+    runner: () => ({ status: 2, stdout: '', stderr: '还原度门取不到' }),
+  })
+  assert.equal(r.ok, false, '取不到结论不得记绿(§0.3)')
+  assert.equal(r.state, 'undetermined')
+})
+
+test('U11 词包搬运腿挂载与器内契约锁(改措辞即点名,防腿静默失明)', () => {
+  const src = readFileSync(GUARDIAN, 'utf8')
+  const iMsg = src.indexOf('if (!CHECK_ONLY) sweepMiniappMessageKeysLeg()')
+  const iLand = src.indexOf('if (!CHECK_ONLY) sweepCrossEndLandingLeg()')
+  const iBundle = src.indexOf('if (!CHECK_ONLY) healI18nBundleLeg()')
+  assert.ok(iMsg > 0, '本腿必须真挂在主串上(不是只在文件里出现过函数名)')
+  assert.ok(iMsg < iLand, '写盘腿排在落库腿之前,否则本轮产出收编不到')
+  assert.ok(iBundle > iMsg, '离线建包腿必须排在搬运之后,否则搬进来的词进不了本轮包')
+  const tool = readFileSync(join(dirname(GUARDIAN), 'sync-miniapp-message-keys.mjs'), 'utf8')
+  assert.match(tool, /结论 landing=\$\{landing\}/, '本器结论行前缀变了 ⇒ 派发体再也量不到产出')
+  assert.match(tool, /held=\$\{held\.length\}/, 'held 维缺失 ⇒ 归属闸拦了几枚无人知道')
+  assert.match(tool, /ledger=\$\{ledgerState\}/, 'ledger 维缺失 ⇒ "写了盘没申报上"会被读成 clean')
+  assert.match(tool, /未知参数 \$\{unknown\.join\(' '\)\}/, '本器不得静默忽略未知旗')
+  assert.match(tool, /ownershipGate\(\{ root: ROOT \}\)/, '写盘前必须有归属闸(共享工作区不覆盖他席现场)')
+  // 零复算(§0.6):"缺哪些命名空间"必须取自还原度门的 --json,而不是本器另写一把取词尺
+  assert.match(tool, /check-miniapp-mirror-fidelity\.mjs/, '缺口口径必须 import/调用既有尺子')
+  assert.doesNotMatch(tool, /function consumedKeys|MARK_RE/, '本器不得自带第二份取词判据')
 })

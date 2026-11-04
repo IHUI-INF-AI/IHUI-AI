@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useI18n } from '@/i18n'
-import { View, Text } from '@tarojs/components'
+import { View, Text, Image } from '@tarojs/components'
 import type { CSSProperties } from 'react'
 import { TARO_RPX_PER_PX } from '@ihui/design-tokens'
 import {
@@ -71,11 +71,7 @@ export interface IntelligentAssistantProps {
   isLoggedIn?: boolean
   /** 点击充值按钮回调 */
   onRecharge?: () => void
-  /**
-   * 机器人装饰图(对齐 RN 端同名可选 prop;原 xiaofang.png)。
-   * 小程序端装饰走 LineIcon "bot" 矢量墨迹(与 RN 位图不同媒介,见文件头注释),
-   * 故本 prop 仅作接口对齐保留,渲染接线为后手。
-   */
+  /** 机器人装饰图(与 RN 端同名同义;传入则替代默认行内矢量墨迹,缺省零增量) */
   robotImage?: string
 }
 
@@ -88,18 +84,29 @@ export default function IntelligentAssistant({
   tokenBalance = 0,
   isLoggedIn = false,
   onRecharge,
+  robotImage,
 }: IntelligentAssistantProps) {
   const { t } = useI18n()
   return (
     <View className="ia-card" style={CARD_BOX_STYLE}>
-      <LineIcon
-        name="bot"
-        // 行内矢量墨迹单端档(与 RN 位图装饰是不同媒介,不构成同一元素;依据见 spec)
-        // × TARO_RPX_PER_PX 后仍是 LineIcon 的 rpx 数值通道,与收编前 size={64} 逐位同值
-        size={IA_ROBOT_ICON_INK_PX * TARO_RPX_PER_PX}
-        color="var(--color-muted-foreground)"
-        className="ia-robot ia-float"
-      />
+      {/* 装饰层:优先用调用方给的位图(RN 同槽),缺省回退行内矢量墨迹 */}
+      {robotImage ? (
+        <Image
+          src={robotImage}
+          mode="widthFix"
+          className="ia-robot ia-float"
+          style={{ width: toUnit(IA_ROBOT_ICON_INK_PX) }}
+        />
+      ) : (
+        <LineIcon
+          name="bot"
+          // 行内矢量墨迹单端档(与 RN 位图装饰是不同媒介,不构成同一元素;依据见 spec)
+          // × TARO_RPX_PER_PX 后仍是 LineIcon 的 rpx 数值通道,与收编前 size={64} 逐位同值
+          size={IA_ROBOT_ICON_INK_PX * TARO_RPX_PER_PX}
+          color="var(--color-muted-foreground)"
+          className="ia-robot ia-float"
+        />
+      )}
       <View className="ia-content" style={CONTENT_STYLE}>
         <Text className="ia-greeting" style={GREETING_STYLE}>
           {t('ai.intelligentAssistant.greeting')}
