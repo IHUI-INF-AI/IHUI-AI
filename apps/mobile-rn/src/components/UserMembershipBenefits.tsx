@@ -336,7 +336,7 @@ const styles = StyleSheet.create({
   colTitle: {
     width: '40%',
     textAlign: 'center',
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
     fontWeight: '600',
     color: tokens.text.primary,
   } as TextStyle,
@@ -346,7 +346,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   } as ViewStyle,
   headerCell: {
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
     fontWeight: '700',
     textAlign: 'center',
   } as TextStyle,

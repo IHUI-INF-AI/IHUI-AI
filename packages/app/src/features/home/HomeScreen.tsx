@@ -308,7 +308,7 @@ function createStyles(tk: AppThemeTokens) {
     headerLeft: { flex: 1 },
     headerRight: { flexDirection: 'row', alignItems: 'center' },
     greeting: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
-    welcome: { marginTop: rnSpacing['xs-loose'], fontSize: 13, color: tk.text.secondary },
+    welcome: { marginTop: rnSpacing['xs-loose'], fontSize: rnType.bodySm.size, color: tk.text.secondary },
     dot: { marginRight: rnSpacing.sm, width: 8, height: 8, borderRadius: rnRadius.xs },
     dotOn: { backgroundColor: tk.success.DEFAULT },
     dotOff: { backgroundColor: tk.text.tertiary },
@@ -336,7 +336,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.lg,
       backgroundColor: tk.error.bg,
     },
-    errorText: { flex: 1, fontSize: 13, color: tk.danger.DEFAULT },
+    errorText: { flex: 1, fontSize: rnType.bodySm.size, color: tk.danger.DEFAULT },
     errorRetry: {
       marginLeft: rnSpacing.md,
       paddingHorizontal: rnSpacing['sm-loose'],
@@ -374,7 +374,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing.xl,
       gap: rnSpacing['xs-loose'],
     },
-    emptyHint: { fontSize: 13, color: tk.text.secondary },
+    emptyHint: { fontSize: rnType.bodySm.size, color: tk.text.secondary },
     cardSpacing: { marginTop: rnSpacing['sm-loose'] },
     cardHeaderRow: {
       flexDirection: 'row',
@@ -392,7 +392,7 @@ function createStyles(tk: AppThemeTokens) {
     tagUpcoming: { backgroundColor: tk.warning.DEFAULT },
     tagText: { fontSize: rnType.label.size, fontWeight: '600', color: '#FFFFFF' },
     tagUpcomingText: { color: '#1A1A1A' },
-    metaText: { marginTop: rnSpacing.xs, fontSize: 13, color: tk.text.secondary },
+    metaText: { marginTop: rnSpacing.xs, fontSize: rnType.bodySm.size, color: tk.text.secondary },
     metaTertiary: { marginTop: rnSpacing.xs, fontSize: rnType.label.size, color: tk.text.tertiary },
     priceText: {
       marginLeft: rnSpacing.sm,
@@ -415,7 +415,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
-    primaryBtnText: { fontSize: 13, fontWeight: '600', color: tk.brand.ctaForeground },
+    primaryBtnText: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.brand.ctaForeground },
     menuGrid: { flexDirection: 'row', flexWrap: 'wrap' },
     menuCell: {
       width: '33.333%',
@@ -426,7 +426,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.sm,
     },
     menuIcon: { fontSize: 22, lineHeight: 26 },
-    menuLabel: { fontSize: 13, color: tk.text.secondary, textAlign: 'center' },
+    menuLabel: { fontSize: rnType.bodySm.size, color: tk.text.secondary, textAlign: 'center' },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

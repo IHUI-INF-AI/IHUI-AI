@@ -64,7 +64,7 @@ export function createQuickNotesStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.card,
     },
     archivedDotOn: { backgroundColor: tk.brandAccent.deep, borderColor: tk.brandAccent.deep },
-    archivedToggleText: { fontSize: 13, color: tk.text.secondary },
+    archivedToggleText: { fontSize: rnType.bodySm.size, color: tk.text.secondary },
     list: { flex: 1, paddingHorizontal: rnSpacing.md },
     empty: { paddingVertical: rnSpacing['4xl'], alignItems: 'center' },
     emptyText: { fontSize: rnType.body.size, color: tk.text.tertiary },
@@ -102,7 +102,7 @@ export function createQuickNotesStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
-    insertBtnText: { color: tk.brand.ctaForeground, fontSize: 13, fontWeight: '500' },
+    insertBtnText: { color: tk.brand.ctaForeground, fontSize: rnType.bodySm.size, fontWeight: '500' },
     iconBtn: {
       width: 32,
       height: 32,

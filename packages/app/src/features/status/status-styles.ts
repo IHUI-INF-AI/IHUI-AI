@@ -84,7 +84,7 @@ export function createStatusStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing['sm-loose'],
       borderRadius: rnRadius.md,
     },
-    noticeText: { flex: 1, fontSize: 13, color: STATUS_PALETTE.degraded.fg },
+    noticeText: { flex: 1, fontSize: rnType.bodySm.size, color: STATUS_PALETTE.degraded.fg },
     errorBox: { alignItems: 'center', gap: rnSpacing.sm, paddingVertical: rnSpacing['2xl'] },
     errorText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.text.primary },
     errorSub: { fontSize: rnType.label.size, color: tk.text.secondary },

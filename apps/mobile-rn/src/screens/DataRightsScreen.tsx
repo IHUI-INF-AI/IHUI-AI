@@ -384,16 +384,16 @@ function makeStyles() {
     cardTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tokens.text.primary },
     dangerTitle: { fontSize: rnType.strong.size, fontWeight: '600', color: tokens.danger.DEFAULT },
     subTitle: {
-      fontSize: 13,
+      fontSize: rnType.bodySm.size,
       fontWeight: '600',
       color: tokens.text.primary,
       marginTop: rnSpacing.xs,
     },
-    label: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
+    label: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.text.primary },
     muted: { fontSize: 13, color: tokens.text.secondary, lineHeight: 19 },
     meta: { fontSize: rnType.label.size, color: tokens.text.tertiary },
     value: { fontSize: rnType.body.size, color: tokens.text.primary },
-    error: { fontSize: 13, color: tokens.danger.DEFAULT },
+    error: { fontSize: rnType.bodySm.size, color: tokens.danger.DEFAULT },
     button: {
       height: 44,
       borderRadius: rnRadius.sm,
@@ -466,7 +466,7 @@ function makeStyles() {
       gap: rnSpacing.sm,
       paddingVertical: rnSpacing.xs,
     },
-    receiptName: { flex: 1, fontSize: 13, color: tokens.text.primary },
+    receiptName: { flex: 1, fontSize: rnType.bodySm.size, color: tokens.text.primary },
     receiptStatus: { fontSize: rnType.label.size, fontWeight: '600' },
   })
 }

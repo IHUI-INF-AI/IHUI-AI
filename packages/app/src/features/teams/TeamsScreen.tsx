@@ -250,7 +250,7 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
     },
-    formTitle: { fontSize: 13, color: tk.text.secondary },
+    formTitle: { fontSize: rnType.bodySm.size, color: tk.text.secondary },
     fieldLabel: { fontSize: rnType.label.size, fontWeight: '600', color: tk.text.medium },
     input: {
       height: 44,
@@ -317,7 +317,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.light,
     },
     cardTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
-    cardDesc: { fontSize: 13, color: tk.text.secondary },
+    cardDesc: { fontSize: rnType.bodySm.size, color: tk.text.secondary },
     cardMeta: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     cardFoot: {
       flexDirection: 'row',
@@ -331,7 +331,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brandAccent.light,
     },
-    enterBtnText: { fontSize: 13, fontWeight: '600', color: tk.brandAccent.deep },
+    enterBtnText: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.brandAccent.deep },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

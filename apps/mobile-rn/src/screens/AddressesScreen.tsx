@@ -409,12 +409,12 @@ function makeStyles() {
       gap: rnSpacing.sm,
       paddingVertical: rnSpacing['4xl'],
     },
-    muted: { fontSize: 13, color: tokens.text.secondary },
-    errorText: { fontSize: 13, color: tokens.danger.DEFAULT },
-    retry: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
+    muted: { fontSize: rnType.bodySm.size, color: tokens.text.secondary },
+    errorText: { fontSize: rnType.bodySm.size, color: tokens.danger.DEFAULT },
+    retry: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.text.primary },
     itemHead: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
     itemName: { fontSize: rnType.strong.size, fontWeight: '600', color: tokens.text.primary },
-    itemPhone: { fontSize: 13, color: tokens.text.secondary },
+    itemPhone: { fontSize: rnType.bodySm.size, color: tokens.text.secondary },
     badge: {
       paddingHorizontal: rnSpacing['xs-loose'],
       paddingVertical: 1,
@@ -429,8 +429,8 @@ function makeStyles() {
       gap: rnSpacing.lg,
       paddingTop: rnSpacing['2xs'],
     },
-    actionText: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
-    dangerText: { fontSize: 13, fontWeight: '600', color: tokens.danger.DEFAULT },
+    actionText: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.text.primary },
+    dangerText: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.danger.DEFAULT },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
