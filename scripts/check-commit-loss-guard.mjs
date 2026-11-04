@@ -21,6 +21,9 @@
  *       删除路径必须见到可达面里该路径的**最新一次改动就是删除、且删的是同一个 old blob**
  *       (不能只看 HEAD,也不能拿更早的删除记录为新的删除意图作证 —— 见 splitByPathCoverage
  *       头注的"删→重建→再删"搭便车案例)。少一条路径 ⇒ 判红。
+ *       同秒并列(并列的两条可达改动状态不同,或都是删但 old blob 不同)⇒ "最新"不存在:
+ *       实测 git log --all 的第一条会随 ref 名翻转(夹具反例),不能拿先到者冒充最新 ⇒
+ *       **未判定 → exit 2**(不打印通过句、不写结论缓存);同秒且结论相同仍按先到者。
  *       原「整树逐字相等」判据只是本判据的特例,对并发夹带导致的"树不同但内容全在"永不命中。
  *   3. 列出所有 lost-commit/* tag(防止 git gc 清理)
  *   4. 校验远程 lost-commit/backup tag 完整性 + tag 对象可达性
@@ -330,8 +333,10 @@ const PATHSPEC_ARGV_BUDGET = 16_000
  * 缓存判据面版本:判据本体变化 ⇒ 旧缓存件不可复用(否则修复后仍被旧红结论卡住 ≤30min)。
  * 2026-11-04 升到 2:D 类判据从"任意删除记录"收紧为"old blob 相同 且 是该路径最新状态",
  * 旧缓存件里的绿结论是按宽判据得出的,不得复用。
+ * 同日再升到 3:同秒并列(取谁都会改变 D 判定)改判「未判定 → exit 2」,旧缓存里的绿结论
+ * 可能是拿"git log 先到者"冒充"最新"得出的,同样不得复用。
  */
-const COVERAGE_FACE_VERSION = 2
+const COVERAGE_FACE_VERSION = 3
 /**
  * `git diff-tree --raw -z` / `git log --raw -z` 的单条记录头:
  * `:<oldmode> <newmode> <oldsha> <newsha> <status>`,其后紧跟 NUL + 路径 + NUL。
@@ -910,9 +915,13 @@ function splitByPathCoverage({
   latestByPath = new Map(),
   problemsByCommit = new Map(),
   surfaceError = '',
+  // 同秒并列、取谁都会改变 D 判定的路径(derive 派生;见 absorbRawCoverage 头注)。
+  // 命中这些路径的 D 改动**既不能判绿也不能判红**:判绿要靠"最新是删",而"最新"不存在。
+  ambiguousPaths = new Set(),
 } = {}) {
   const covered = []
   const uncovered = []
+  const undetermined = []
   for (const c of candidates) {
     const entries = entriesByCommit.get(c)
     if (!entries) {
@@ -933,8 +942,15 @@ function splitByPathCoverage({
     }
     const evidence = []
     const missing = []
+    const ambiguous = []
     for (const e of entries) {
       if (e.status === 'D') {
+        // 同秒并列且取谁都会改变 D 判定 ⇒ "最新状态"不存在,这条删除的判定悬空。
+        // 不往 missing 里塞(它不是"已判红"):整枚若没有别的真缺口 ⇒ 落 undetermined → exit 2。
+        if (ambiguousPaths.has(e.path)) {
+          ambiguous.push(e.path)
+          continue
+        }
         // 收紧后的 D 判据:只认该路径**最新那次可达改动**,且它必须删的是同一个 old blob。
         // 早于最新改动的删除记录一律不作证 —— 这正是"删→重建→再删"里旧记录搭便车的口子。
         const latest = latestByPath.get(e.path)
@@ -993,10 +1009,19 @@ function splitByPathCoverage({
     }
     // 证据与缺口一并向判红档返回:判红输出要能同时看到"这条已覆盖 / 这条没覆盖",
     // 否则读的人无法分辨"整枚都没覆盖"与"只差一条路径"。
-    if (missing.length === 0) covered.push({ hash: c, evidence })
-    else uncovered.push({ hash: c, missing, evidence })
+    if (missing.length > 0) uncovered.push({ hash: c, missing, evidence })
+    else if (ambiguous.length > 0)
+      undetermined.push({
+        hash: c,
+        paths: ambiguous,
+        reason:
+          '同秒并列、且并列的两条可达改动状态不同(取谁都会改变"最新是否删除"),' +
+          '"最新状态"不存在 ⇒ 该删除意图无法判定(不打印通过句、不写结论缓存)',
+        evidence,
+      })
+    else covered.push({ hash: c, evidence })
   }
-  return { covered, uncovered }
+  return { covered, uncovered, undetermined }
 }
 
 /** 把路径按 argv 预算切块(`:(literal)` 前缀也计入),避免 Windows 32KB 命令行上限。 */
@@ -1028,9 +1053,29 @@ function chunkPathspecs(paths) {
  *   - **同一面内**:git log 自身按提交时间倒序输出,同一路径的第一条即最新改动 ⇒ 先到者赢。
  *     这样同一秒内连续两次改动(测试与高频提交都常见)也能正确排序,不会把"时间戳并列"
  *     误判成"无法判定";后到的旧改动不得覆盖先到的新改动(防时钟回拨把旧的读成最新)。
- *   - **跨面**(ref → reflog):只有 reflog 面的记录**严格更新**(ct 更大)才替换。
+ *
+ *     **例外(2026-11-04 实测补):同秒并列且"取谁都会改变 D 判定"时,先到者不可信**。
+ *     实测夹具(两条分支同秒改同一路径,一条 D 一条 M):只改 ref 名,`git log --all --raw`
+ *     的第一条就从 M 翻成 D —— 顺序由 ref 名而非拓扑决定(反例与读数见镜像用例
+ *     「同秒并列……」)。此时"最新状态"不存在确定答案,记进 `ambiguousPaths`,由判定层
+ *     落「未判定 → exit 2」,绝不拿先到者冒充最新。同秒且结论相同(两枚 A/M,或两枚删
+ *     同一 old blob 的 D)仍按先到者:取谁都不改变判定。
+ *   - **跨面**(ref → reflog):只有 reflog 面的记录**严格更新**(ct 更大)才替换;ct 相同同样
+ *     记为并列歧义(同一提交在两面重复不会触发:状态与 old blob 都一样才算同形)。
  */
-function absorbRawCoverage(entries, surface, coverage, latestByPath, excludedCommits) {
+function absorbRawCoverage(
+  entries,
+  surface,
+  coverage,
+  latestByPath,
+  excludedCommits,
+  ambiguousPaths,
+) {
+  // 同秒并列 + (至少一枚是 D) + (状态不同 / 两枚 D 的 old blob 不同) ⇒ 取谁都会改变判定
+  const isAmbiguous = (a, b) =>
+    a.ct === b.ct &&
+    (a.status === 'D' || b.status === 'D') &&
+    (a.status !== b.status || (a.status === 'D' && a.oldBlob !== b.oldBlob))
   const remember = (e) => {
     const rec = {
       commit: e.commit,
@@ -1045,7 +1090,11 @@ function absorbRawCoverage(entries, surface, coverage, latestByPath, excludedCom
       latestByPath.set(e.path, rec)
       return
     }
-    if (prev.surface === surface) return
+    if (prev.surface === surface) {
+      if (isAmbiguous(prev, rec)) ambiguousPaths.add(e.path)
+      return
+    }
+    if (isAmbiguous(prev, rec)) ambiguousPaths.add(e.path)
     if (e.ct > prev.ct) latestByPath.set(e.path, rec)
   }
   for (const e of entries) {
@@ -1082,6 +1131,8 @@ function derivePathCoverage(candidates, { excludedCommits = new Set() } = {}) {
   const problemsByCommit = new Map()
   const presentPaths = new Set()
   const deletedPaths = new Set()
+  // 同秒并列、取谁都会改变 D 判定的路径(见 absorbRawCoverage 头注)。判定层据此落 exit 2。
+  const ambiguousPaths = new Set()
   const firstLine = (e) =>
     String((e && (e.stderr || e.message)) || e)
       .split('\n')[0]
@@ -1109,7 +1160,7 @@ function derivePathCoverage(candidates, { excludedCommits = new Set() } = {}) {
   const latestByPath = new Map()
   const queryPaths = [...new Set([...presentPaths, ...deletedPaths])].sort()
   if (queryPaths.length === 0)
-    return { entriesByCommit, coverage, latestByPath, problemsByCommit, surfaceError: '' }
+    return { entriesByCommit, coverage, latestByPath, problemsByCommit, surfaceError: '', ambiguousPaths }
 
   const walk = (baseArgs, paths) => {
     const out = []
@@ -1140,7 +1191,7 @@ function derivePathCoverage(candidates, { excludedCommits = new Set() } = {}) {
       ],
       queryPaths,
     )
-    absorbRawCoverage(refEntries, 'ref', coverage, latestByPath, excludedCommits)
+    absorbRawCoverage(refEntries, 'ref', coverage, latestByPath, excludedCommits, ambiguousPaths)
   } catch (e) {
     return {
       entriesByCommit,
@@ -1148,6 +1199,7 @@ function derivePathCoverage(candidates, { excludedCommits = new Set() } = {}) {
       latestByPath: new Map(),
       problemsByCommit,
       surfaceError: `ref 面取不到:${firstLine(e)}`,
+      ambiguousPaths,
     }
   }
 
@@ -1174,7 +1226,7 @@ function derivePathCoverage(candidates, { excludedCommits = new Set() } = {}) {
         ['log', '-g', '--all', '--raw', '--no-abbrev', '-z', '--no-renames', '--root'],
         reflogPaths,
       )
-      absorbRawCoverage(reflogEntries, 'reflog', coverage, latestByPath, excludedCommits)
+      absorbRawCoverage(reflogEntries, 'reflog', coverage, latestByPath, excludedCommits, ambiguousPaths)
     } catch (e) {
       return {
         entriesByCommit,
@@ -1182,10 +1234,11 @@ function derivePathCoverage(candidates, { excludedCommits = new Set() } = {}) {
         latestByPath,
         problemsByCommit,
         surfaceError: `reflog 面取不到(剩余路径按未覆盖判):${firstLine(e)}`,
+        ambiguousPaths,
       }
     }
   }
-  return { entriesByCommit, coverage, latestByPath, problemsByCommit, surfaceError: '' }
+  return { entriesByCommit, coverage, latestByPath, problemsByCommit, surfaceError: '', ambiguousPaths }
 }
 
 /**
@@ -2342,6 +2395,9 @@ async function main() {
 
   let blocking = false
   const issues = []
+  // 逐路径覆盖的「未判定」档必须活到最外层出口:它决定 exit 2,且优先级高于判红档。
+  // (下面的放行分档在 `if (unreachable.length > 0)` 块内,块内 const 到不了 2832 的出口。)
+  let undeterminedCoverage = new Map()
 
   if (resets.length > 0) {
     issues.push(`reflog 检测到 ${resets.length} 次 reset 操作`)
@@ -2418,6 +2474,7 @@ async function main() {
       treeEquivalentResidual,
       pathCovered,
       pathCoverageGaps,
+      pathCoverageUndetermined,
       subjectByHash,
     } = (() => {
       const candidates = unreachable.filter((c) => !backedUp.has(c))
@@ -2437,6 +2494,7 @@ async function main() {
       const treeEquivalentResidual = []
       const pathCovered = []
       const pathCoverageGaps = new Map()
+      const pathCoverageUndetermined = new Map()
       if (survivors.length === 0)
         return {
           unbacked: survivors,
@@ -2444,6 +2502,7 @@ async function main() {
           treeEquivalentResidual,
           pathCovered,
           pathCoverageGaps,
+          pathCoverageUndetermined,
           subjectByHash,
         }
       // ② tree 等价放行(stash WIP/index commit 树与 base 恒等)
@@ -2504,11 +2563,15 @@ async function main() {
             latestByPath: derived.latestByPath,
             problemsByCommit: derived.problemsByCommit,
             surfaceError: derived.surfaceError,
+            ambiguousPaths: derived.ambiguousPaths,
           })
           pathCovered.push(...splitPaths.covered)
+          // 未判定(=同秒并列导致"最新状态"不存在)的**既不进放行也不进判红**:
+          // 它们留在外面单独成档,由主链落 exit 2(没判完 ≠ 判红,也绝不许折成绿)。
+          for (const u of splitPaths.undetermined) pathCoverageUndetermined.set(u.hash, u)
           for (const u of splitPaths.uncovered) pathCoverageGaps.set(u.hash, u)
           rest = splitPaths.uncovered.map((u) => u.hash)
-          mark(`path-coverage-done(covered=${pathCovered.length})`)
+          mark(`path-coverage-done(covered=${pathCovered.length},undetermined=${pathCoverageUndetermined.size})`)
         }
       }
       return {
@@ -2517,9 +2580,11 @@ async function main() {
         treeEquivalentResidual,
         pathCovered,
         pathCoverageGaps,
+        pathCoverageUndetermined,
         subjectByHash,
       }
     })()
+    undeterminedCoverage = pathCoverageUndetermined
     if (whitelistedSameContent.length > 0) {
       console.log(
         `  ${C.dim}↳ 同内容副本放行 ${whitelistedSameContent.length} 个(树+题与可达历史逐字同:并发重写留下的旧对象,非丢失风险):${C.reset}`,
@@ -2574,14 +2639,19 @@ async function main() {
         whitelistedSameContent.length -
         treeEquivalentResidual.length -
         pathCovered.length -
-        unbacked.length
+        unbacked.length -
+        // 未判定档必须先扣掉:否则它会以余项形态被算进"已备份"(那是把它读成有出处 =
+        // 往绿折),而它真实的语义是"没判完"。
+        undeterminedCoverage.size
       // 只有真的出现逐路径覆盖档才加这一桶:老仓的存量账(0 枚)保持原有行形状,
       // 免得下游按行解析的消费者(以及镜像测试)因为多一个 0 而读不到。
       const coverageBucket = pathCovered.length > 0 ? ` / 逐路径覆盖 ${pathCovered.length}` : ''
+      const undeterminedBucket =
+        undeterminedCoverage.size > 0 ? ` / 未判定 ${undeterminedCoverage.size}` : ''
       console.log(
         `  ${C.dim}↳ 悬空分档:已备份 ${backedOut} / 同内容副本 ${whitelistedSameContent.length}` +
           ` / 等价残留 ${treeEquivalentResidual.length}${coverageBucket}` +
-          ` / 待处置 ${unbacked.length}${C.reset}`,
+          `${undeterminedBucket} / 待处置 ${unbacked.length}${C.reset}`,
       )
     }
     if (unbacked.length > 0) {
@@ -2694,7 +2764,7 @@ async function main() {
           `${win.outOfWeek.length} 个未 tag 备份的悬空 commit 全部超出 ${winDim.days} 天窗` +
             `(§29 人工 GC 存量,默认档只报数;问责 --strict / 全量 --window-days 0)`,
         )
-      } else if (unreachable.length > 0) {
+      } else if (unreachable.length > 0 && undeterminedCoverage.size === 0) {
         // 全部有出处时的措辞按档分流:纯 tag 备份那档保留原句(dangling-commit-autotag
         // 认档吃这句);含等价残留时点名,避免把"内容已入库、只是提交身份没入库"
         // 读成"tag 备份了"。分档明细另有一行恒打印(见上方「悬空分档」)。
@@ -2764,13 +2834,37 @@ async function main() {
     )
   }
 
-  if (issues.length === 0) {
+  // 未判定项存在时**绝不打印通过句**:issues 为空不代表"判完了"(§0.3 未判定≠通过)。
+  if (issues.length === 0 && undeterminedCoverage.size === 0) {
     console.log(`  ${C.green}✅ ${GREEN_MARKERS.noRisk}${C.reset}`)
     process.exit(0)
   }
 
   for (const i of issues) {
     console.log(`  ${C.yellow}⚠  ${i}${C.reset}`)
+  }
+
+  // 未判定档(2026-11-04 立):逐路径覆盖遇到"同秒并列、取谁都会改变 D 判定"的路径。
+  // 实测 `git log --all --raw` 的第一条会随 ref 名改变(夹具反例见镜像用例),所以"先到者"
+  // 不是拓扑结论。这一档**既不打印通过句、也不写结论缓存**,并且优先于判红档落 exit 2:
+  // 有未判定项时,整道门就是"没判完"(§12e),不能因为恰好还有别的判红项就把它读成已判红。
+  if (undeterminedCoverage.size > 0) {
+    console.log(
+      `\n${C.red}${C.bold}❌ UNDETERMINED: 同秒并列的删除判定不可判定(` +
+        `${undeterminedCoverage.size} 个悬空 commit)${C.reset}`,
+    )
+    for (const [h, u] of [...undeterminedCoverage].slice(0, 10)) {
+      console.log(
+        `   ${C.yellow}↳ 未判定:${C.cyan}${h.slice(0, SHORT_HASH_LEN)}${C.reset}` +
+          ` 路径=${u.paths.join(', ')}${C.reset}`,
+      )
+      console.log(`     ${C.dim}${u.reason}${C.reset}`)
+    }
+    console.log(
+      `   ${C.dim}这不是判红,也不是放行:"最新状态"因同秒并列不存在。` +
+        `人工核对这两条同一路径的改动(或把它们各自 tag 备份)后重跑;本轮不写结论缓存${C.reset}`,
+    )
+    process.exit(2)
   }
 
   // 2026-07-25 升级:isBlocking 模式(guardian-runner 30a 注册)直接 exit 1
