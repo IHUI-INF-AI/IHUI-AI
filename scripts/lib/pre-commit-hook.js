@@ -50,6 +50,45 @@ if (require.main !== module) {
 // 父 git 正持锁的共享 index.lock(exit 128),或 restore --worktree 掉别人的未暂存改动。
 sanitizeGitEnv(process.env)
 
+// ─── 私有索引内容护栏调用点(2026-11-04 立)──────────────────────────────────
+// 治什么:isolated-git 现有的"查声明集外条目"只看**路径集合**;而 lint-staged 对声明路径
+// 执行的 `git add` 会用**工作树整份内容**替换索引条目 —— 路径没变、内容被整份换掉,
+// 路径集合校验完全看不见(实测:AGENTS.md 提交前 numstat 1/0,钩子跑完变 8/12)。
+// isolated-git 在 commit 前把每条声明路径的索引 (mode, blob, stage) 落成快照,这里在
+// 钩子退出前(含 SIGINT/SIGTERM 转成的 exit)调 restore-index 逐条比对:blob 变了就用
+// `git update-index --cacheinfo` 复原回快照(不 checkout/reset/restore,工作树一个字节不动),
+// 复核仍不一致、或出现声明集外条目 ⇒ 抬 exit code 让父 git 拒绝落地。
+// 取舍(明写):lint-staged --fix 对**声明路径**的自动格式化会被复原掉 —— 本通道优先保证
+// "提交内容 = 作者声明时那一刻的索引内容";要保留格式化结果,请另起一笔专门提交格式化产物。
+const ISOLATED_SNAPSHOT = process.env.IHUI_ISOLATED_INDEX_SNAPSHOT
+if (ISOLATED_SNAPSHOT) {
+  process.on('exit', (code) => {
+    const r = spawnSync(
+      process.execPath,
+      [
+        require('node:path').join(__dirname, '..', 'isolated-git.mjs'),
+        '-C',
+        process.cwd(),
+        'restore-index',
+        '--snapshot',
+        ISOLATED_SNAPSHOT,
+      ],
+      { stdio: ['ignore', 'inherit', 'inherit'], windowsHide: true },
+    )
+    if (r.status !== 0) {
+      try {
+        require('node:fs').writeSync(
+          2,
+          '❌ 私有索引内容护栏失败:声明路径的索引内容被钩子改动且无法复原,提交已阻止\n',
+        )
+      } catch {
+        console.error('❌ 私有索引内容护栏失败:声明路径的索引内容被钩子改动且无法复原,提交已阻止')
+      }
+      if (code === 0 || code === null || code === undefined) process.exitCode = 1
+    }
+  })
+}
+
 // ── 专项段档位判据(2026-10-22 立,与 scripts/lib/gate-scope.mjs 同口径)───────────
 // **必须定义在文件顶部**:下方 13 处专项守门(footer / portal / button / credential /
 // agent / capability / miniapp parity / auth refresh / staged typecheck / tokens sync …)
