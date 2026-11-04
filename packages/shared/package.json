@@ -118,6 +118,11 @@
       "import": "./src/reports/index.ts",
       "default": "./src/reports/index.ts"
     },
+    "./local-registry": {
+      "types": "./src/local-registry/index.ts",
+      "import": "./src/local-registry/index.ts",
+      "default": "./src/local-registry/index.ts"
+    },
     "./reports/*": {
       "types": "./src/reports/*.ts",
       "import": "./src/reports/*.ts",
