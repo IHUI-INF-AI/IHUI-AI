@@ -1,0 +1,119 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+name: Gates Full CI
+
+# ── 全量门交给 CI(2026-11-04 立)─────────────────────────────────────────────
+#
+# 落地的口径(本机实测,不是推断):
+#   · 全仓面(`GATE_SCOPE=full`)331 门:1785.9s ≈ 29.8 分钟;300 通过 / 6 警告 /
+#     23 失败 / 2 跳过。而且这 29.8 分钟是**强行跳过 2 道跑不完的门(251 / 244)**
+#     之后才拿到的 —— 真正跑不完的门在 CI 上同样跑不完,只会以「未判定」收口。
+#   · 有效并发只有 2.55(parMax=8):墙钟被 I/O、git 锁、生产服务压制;
+#     全部门耗时之和约 4553s ⇒ 调大并发不解决问题,只能换机器跑。
+#   · 分档实测:pre-commit 元门档 49.1s;staged 全量面 453.0s / 157 门;
+#     push 面 4 门 158.4s(其中 T1 独占 141.3s)。
+# 已定分工:pre-commit 只跑元门档 → pre-push 保持 4 门 → 其余约 290 门由本文件承担。
+#
+# 与既有 .github/workflows/guardian-full.yml 的关系:那份是"手动全量 + 失败给指引",
+# 本文件是"PR / main push 上自动跑全量"的独立执行面;本单未改任何既有 workflow。
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# 只做 checkout + 装依赖 + 跑门:不建 PR、不发 release、不调 GITHUB_TOKEN 写接口。
+permissions:
+  contents: read
+
+jobs:
+  gates-full:
+    runs-on: ubuntu-latest
+    # 实测 29.8 分钟(本机,且已跳过 2 道门);CI runner 冷缓存 ⇒ 留余量。
+    # 超时=job 失败,与判红同等处置 —— 不用 timeout 当兜底掩盖卡死。
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          # 部分门读 git 历史(reflog / lost-commit / git log 派生),
+          # 浅克隆会让它们取不到输入 ⇒ 未判定。full history 是硬需求。
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: 安装依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 全仓面守门(331 门)
+        # 确切命令口径 —— 逐条对过 scripts/guardian-runner.mjs:7288-7328 与 scripts/lib/gate-scope.mjs:
+        #
+        #   · **不传 --staged**:passStaged=false ⇒
+        #       ① 各门不追加 --staged(判 HEAD / 磁盘全量面,而不是索引面);
+        #       ② 档位裁剪那段 `if (passStaged && !pushGate)` 整段不进入 ⇒ resolveGateScope
+        #          根本不被调用,所以 `IHUI_GATE_SCOPE` 在这条命令上**无效**
+        #          (它不是"全量开关";"不传 --staged"才是全量开关本身)。
+        #   · **不传 --push-gate**:跑 checks 注册表(全仓面),而不是 push 的 4 门集。
+        #   · 显式 IHUI_GATE_FAST=0:快档只在 ==='1' 时开(guardian-executor.mjs:147),
+        #     这里置 0 防继承。这不是逃生舱,恰好相反 —— 它是"不许降级成快档"的承诺。
+        #   · --timing:runner **没有** --json / --out 参数(CLI 只认 --staged / --timing /
+        #     --push-gate / --help),逐门机读结果只能走 --timing 的旁路,
+        #     落 .ihui-agent/tmp/guardian-timing.json(见 guardian-executor.mjs:67-84)。
+        #     故本单如实按"JSON + 文本日志"双留存,不假装有 runner 级 JSON 输出。
+        env:
+          IHUI_GATE_FAST: '0'
+        shell: bash
+        run: |
+          # pipefail:否则管道退出码取 tee 的 0 ⇒ 判红被吞成假绿。
+          set -o pipefail
+          # 干净 checkout 没有 .ihui-agent/tmp;不建目录,exit 钩子的 timing JSON 会静默落不了盘。
+          mkdir -p .ihui-agent/tmp
+          node scripts/guardian-runner.mjs --timing 2>&1 | tee .ihui-agent/tmp/gates-full.log
+        # 失败即 job 失败。**没有** continue-on-error,也不做任何降级:
+        #   · exit 1 = 有 blocking 门判红(或门崩溃 / 被 GUARDIAN_GATE_TIMEOUT_MS=300s 看门狗杀);
+        #   · exit 2 = §0.3「未判定」(取不到输入,不记绿也不冒红;guardian-executor.mjs:924-943);
+        #   两者都是非零 ⇒ 本 step 红 ⇒ job 红。禁止用 HUSKY_SKIP_* / continue-on-error 洗掉。
+
+      - name: 上传逐门结果(JSON + 全量日志)
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: gates-full-${{ github.run_id }}
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            .ihui-agent/tmp/guardian-timing.json
+            .ihui-agent/tmp/gates-full.log
+            .ihui-agent/state/hook-logs/gates-progress.log
+            .ihui-agent/state/hook-logs/gates-deferred.json
+
+# ── CI 上预期「未判定」的门(未判定 ≠ 通过,谁都不许当绿)────────────────────
+#
+# timing JSON 的每行只有 {id, label, script, mode, ms, ok},`ok:false` 把
+# 「判红」和「未判定」混在一档 —— 要区分必须回看 gates-full.log 末尾的
+# ❓ 未判定名单 / 🚫 判红名单,或看 gates-progress.log 的 status 列。
+#
+# (a) 实测档(本单前序,同一台机):
+#     251 check-rn-compat-coverage、244 check-readout-and-timer-hygiene —— 本机两轮全量
+#     都跑不完,最终靠"跳过这两门"才收口 ⇒ CI 上大概率被 300s 看门狗杀掉、落未判定。
+#     (未在 CI 实跑验证,故此处只作预期,不当作已知结论。)
+#
+# (b) 结构档(按取数面推断:干净 runner 上没有这些输入):
+#     35  check-mypy —— 需要 python + mypy 工具链;本 job 不装 python ⇒ 未判定。
+#                      (刻意不装:装了也未必与 apps/ai-service 的 pin 一致,装错只会换一种假绿。)
+#     76  check-migration-ledger-drift —— DSN 优先级 --dsn > IHUI_LEDGER_DSN > DATABASE_URL;
+#                      本 job 不提供任何 DSN ⇒ 脚本按设计降级 SKIP/warn,不假装通过。
+#     本机状态类门(本机 dev 端口 8801/8802/8803、nvm 安装态、装机盘读数)—— runner 上
+#                      这些读数根本不存在 ⇒ 未判定。这类门判的是"这台机器此刻能不能干活",
+#                      CI 上没有意义,红/未判定都不算对代码的结论。
+#
+# (c) 历史实测记录(前轮手动全量,2026-10-22 run 39787486152,见 guardian-full.yml 头注):
+#     4 / 33 / 98 / 226 / 228 / 187 / 170 属"干净 checkout 结构上无输入"档。
+#     本单不逐一复验;若本 job 因它们而红,先读日志确认是"缺输入"而不是"判据判红"。
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
