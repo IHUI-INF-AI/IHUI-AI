@@ -28,8 +28,7 @@
  *        → 合规示例/规范文档
  *
  * 检测模式:
- *   - --staged: 扫描 git 暂存区文件(pre-commit / guardian 唯一有效输入面)
- *   - 无 --staged: 无扫描面 ⇒ 未判定 exit 2(不得再"空数组报绿")
+ *   - 默认(含 --staged 兼容别名): 扫描 git 暂存区文件(pre-commit / guardian 唯一输入面)
  *   - --json: 以 JSON 格式输出报告 (机器可读,接入 CI)
  *   - --quiet: 仅返回 exit code,不打印诊断 (--quiet + 成功 → stdout 空)
  *   - --help / -h: 打印帮助
@@ -37,7 +36,7 @@
  * 退出码(三态,AGENTS.md §0.3):
  *   0 = 通过 (暂存区有在范围内的文件且无违规;暂存区为空 ⇒ 不适用,同样 0)
  *   1 = 失败 (检测到硬编码 C 盘路径)
- *   2 = 未判定 (未给 --staged / git 取面失败 / 目标文件读不到)
+ *   2 = 未判定 (git 取面失败 / 目标文件读不到)
  *
  * 集成位置:
  *   guardian-runner.mjs id 'check-c-drive-paths' (warn-only 起步,AGENTS.md §26)
@@ -62,7 +61,7 @@ const ROOT = process.cwd()
 
 // === CLI 参数 ===
 const argv = process.argv.slice(2)
-const isStaged = argv.includes('--staged')
+// 默认输入面 = git 暂存区(--staged 兼容别名;无参也真扫暂存区,不再空转报绿)
 const JSON_OUT = argv.includes('--json')
 const QUIET = argv.includes('--quiet')
 const SHOW_HELP = argv.includes('--help') || argv.includes('-h')
@@ -115,15 +114,15 @@ check-c-drive-paths.mjs — C 盘路径硬编码扫描守门 (AGENTS.md §26)
   node scripts/check-c-drive-paths.mjs [选项]
 
 选项:
-  --staged   扫描 git 暂存区文件 (pre-commit 模式,违规 exit 1)
+  --staged   兼容别名(默认即扫描 git 暂存区,违规 exit 1)
   --json     以 JSON 格式输出报告 (机器可读,接入 CI)
   --quiet    仅返回 exit code,不打印诊断
   --help     打印此帮助
 
 退出码:
-  0  通过 (无违规)
+  0  通过 (无违规 / 暂存区为空不适用)
   1  失败 (检测到硬编码 C 盘路径)
-  2  异常 (用法错误 / 文件缺失)
+  2  未判定 (git 取面失败 / 目标文件读不到)
 
 检测目标 (硬编码 Windows 路径):
   C:\\temp\\     C:\\Users\\   C:\\Program Files\\
@@ -185,12 +184,8 @@ const PATTERNS = [
   { id: 'appdata-local-temp', re: /appdata\\local\\temp\\/i, desc: 'AppData\\Local\\Temp\\' },
 ]
 
-// === 收集 staged 文件 ===
+// === 收集暂存区文件(默认且唯一输入面) ===
 function collectFiles() {
-  if (!isStaged) {
-    // 无 --staged 即无输入面:由 main 判定为未判定(exit 2),不得静默返回空数组报绿
-    return []
-  }
   // 2026-10-26 G-54:git 派生收口到 face-reader(绝对路径二进制 + safe.directory + stdio/windowsHide 统一)。
   // 失败向上抛,由 main 转成 exit 2(取不到输入 != 通过)
   const out = gitRaw(['diff', '--cached', '--name-only', '--diff-filter=ACM'], ROOT)
@@ -245,16 +240,6 @@ function scanFile(relPath) {
 }
 
 function main() {
-  // 无 --staged ⇒ 无输入面:未判定,不得空转报绿
-  if (!isStaged) {
-    if (JSON_OUT) {
-      console.log(JSON.stringify({ ok: false, undetermined: true, filesScanned: 0, violations: [], message: 'no --staged: no scan surface' }, null, 2))
-    } else {
-      log('err', 'C 盘路径扫描未判定:未提供 --staged,无扫描面 (exit 2)')
-    }
-    process.exit(2)
-  }
-
   let files
   try {
     files = collectFiles()

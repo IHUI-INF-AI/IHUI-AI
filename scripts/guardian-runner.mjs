@@ -547,8 +547,8 @@ const checks = [
     id: '45',
     label: '🛡️  C 盘路径硬编码扫描(warn-only,AGENTS.md §26)',
     script: 'check-c-drive-paths.mjs',
-    // 2026-11-04:此前 args 为空 ⇒ 脚本无 --staged 直接返回空数组恒绿。补 --staged 使其真扫暂存区;
-    // 无 --staged / git 取面失败 / 文件读不到 = exit 2 未判定;空暂存区 = 0 不适用(对齐 check-file-size);warn 档不阻断。
+    // 2026-11-04:此前无输入面直接返回空数组恒绿。现默认即真扫暂存区(--staged 为兼容别名);
+    // git 取面失败 / 文件读不到 = exit 2 未判定;空暂存区 = 0 不适用(对齐 check-file-size);warn 档不阻断。
     args: ['--staged'],
     mode: 'warn',
     stagedTriggers: ["**/*"],

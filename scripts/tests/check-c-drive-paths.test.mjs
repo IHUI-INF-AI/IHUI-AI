@@ -5,8 +5,8 @@
 /**
  * @file check-c-drive-paths.test.mjs 集成测试
  * @description 端到端覆盖 scripts/check-c-drive-paths.mjs 的核心规则 (AGENTS.md §26):
- *   - 默认调用 (无 --staged) → exit 2 (无扫描面,未判定)
- *   - --staged + 空暂存区 / 非 git / 文件读不到 → exit 2 (未判定)
+ *   - 默认调用 = 扫描暂存区:空暂存区 → exit 0(不适用);暂存违规 → exit 1
+ *   - 非 git(git 取面失败)/ 文件读不到 → exit 2(未判定)
  *   - 含 C:\temp\ / C:\Users\*\AppData\Local\Temp\ / c:/temp/ / AppData\Local\Temp\
  *     的 .ts/.mjs staged → exit 1
  *   - 仅在 .md 中提及 → exit 0 (扩展名排除)
@@ -85,14 +85,27 @@ function runScript(args = [], opts = {}) {
 
 describe('check-c-drive-paths.mjs 集成测试 (AGENTS.md §26)', () => {
 
-  // ─── 测试 1: 默认调用 (无 --staged) → exit 2 (无扫描面) ─
-  test('默认调用 (无 --staged) → exit 2 (无扫描面,未判定)', () => {
+  // ─── 测试 1: 默认调用 (无 --staged) → 真扫暂存区;空暂存区 = 0(不适用) ─
+  test('默认调用 (无 --staged): 空暂存区 → exit 0 (不适用)', () => {
     const root = createTempProject()
     try {
       initGitRepo(root)
       const r = runScript([], { cwd: root })
-      assert_.equal(r.status, 2, `无 --staged 应 exit 2(未判定), 实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`)
-      assert_.match(r.stdout + r.stderr, /未判定|无扫描面/)
+      assert_.equal(r.status, 0, `空暂存区应 exit 0(不适用), 实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`)
+      assert_.match(r.stdout + r.stderr, /不适用|暂存区为空/)
+    } finally {
+      rmScratch(root)
+    }
+  })
+
+  // ─── 测试 1d: 默认调用 (无 --staged) 也必须真扫到违规 → exit 1 ─
+  test('默认调用 (无 --staged): 暂存 C 盘路径文件 → exit 1 (不再空转报绿)', () => {
+    const root = createTempProject()
+    try {
+      initGitRepo(root)
+      writeAndStage(root, 'apps/web/src/bad.ts', "export const p = 'C:\\temp\\file.txt'\n")
+      const r = runScript([], { cwd: root })
+      assert_.equal(r.status, 1, `默认调用应真扫并 exit 1, 实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`)
     } finally {
       rmScratch(root)
     }
