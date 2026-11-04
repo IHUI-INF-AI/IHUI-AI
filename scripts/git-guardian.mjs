@@ -11985,6 +11985,9 @@ export function sweepCrossEndLandingLeg(opts = {}) {
     tickFile = join(dirname(LOG), 'cross-end-landing-last.json'),
     logger = log,
     runner = null,
+    // 与其余跨端腿同一注入面(被别的 sweepXxx 用同名默认):漏了这一行就是运行期 ReferenceError,
+    // 而 node --check 查不出来(模块能加载 ≠ 能调用)。
+    notify = notifyGuardRed,
   } = opts
   const script = join(dirname(fileURLToPath(import.meta.url)), 'auto-commit-quiet.mjs')
   if (!existsSync(script)) {
@@ -12015,6 +12018,11 @@ export function sweepCrossEndLandingLeg(opts = {}) {
   const num = (k) => Number(new RegExp(`${k}=(\\d+)`).exec(line)?.[1]) || 0
   const ledger = /ledger=(\w+)/.exec(line)?.[1] ?? 'unknown'
   const landed = num('collected')
+  // 2026-11-05 与收编器同日改口径:`collected` 现在只算**真入库**的枚数,被门拦下的走 blocked/blocker。
+  // 必须同时改下面那条"什么时候出声"的条件 —— 否则"整批被无关红门拦死"的轮次 collected=0,
+  // 会落进原来的静默分支,把唯一需要喊的那一刻变成安静(§0.9 判据失效的表现永远是安静)。
+  const blocked = num('blocked')
+  const blocker = /blocker=(\S+)/.exec(line)?.[1] ?? null
   const out = {
     ran: true,
     ok: true,
@@ -12025,6 +12033,26 @@ export function sweepCrossEndLandingLeg(opts = {}) {
     contested: num('contested'),
     incomplete: num('incomplete'),
     held: num('held'),
+    blocked,
+    blocker,
+  }
+  if (blocked > 0) {
+    logger(
+      `❌ 跨端落库:本轮挑中 ${blocked} 枚但一枚未入库,拦路者=${blocker ?? 'unidentified'} ⇒ ` +
+        `账本申报仍在盘上,下一轮仍会重来(不是"没有待收").${line.slice(0, 200)}`,
+    )
+    try {
+      notify(
+        `跨端收编被拦:拦路者 ${blocker ?? 'unidentified'}`,
+        `COLLECT-RESULT 现读:${line.slice(0, 300)}\n\n` +
+          '这不是"没有待收编",是整批被一道与跨端无关的门拦死(它判的是索引/工作树全局面 ⇒ 全仓提交都被堵)。' +
+          '整改下一步:按上面点名的门修它自己的红(或等它红被消除),不要给收编器加跳门旗。',
+        { severity: 'warning', dedupKey: `cross-end-collect-blocked:${blocker ?? 'unidentified'}` },
+      )
+    } catch {
+      /* 到人通道异常不改本轮结论(与既有各腿同形) */
+    }
+    return out
   }
   if (landed === 0 && out.contested === 0 && out.incomplete === 0) return out
   logger(`📦 跨端落库:${line.slice(0, 220)}`)
