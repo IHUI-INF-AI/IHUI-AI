@@ -20,8 +20,11 @@
  *   正当形态只有一条:**import 那份模板**(四态与拒猜由模板给出,不要求调用方再抄一遍 ——
  *   判据必须认自己给出的出口,否则"按规矩写"反被自己的门钉红)。
  *
- * 射程(刻意窄,扩面须先立票量存量 §12e):`apps/api/src` 的 TS/JS 里"自称在做维护性修复"
- * (代码面同时有 UPDATE 形态与 repair/heal/backfill/reconcile 族词)的文件。
+ * 射程(刻意窄,扩面须先立票量存量 §12e):`apps/api/src` 的 TS/JS 里"写路径自己声称在做
+ * 维护性修复"的写:UPDATE 形态所在**函数体(含签名行)**里出现 repair/heal/backfill/reconcile
+ * 族词。文件级词共现不算自称 —— 修复词只住 import 路径 / 兄弟函数 / 只读状态名时不进射程
+ * (2026-11-04 实测:四枚"新进射程"全是这种共现噪声;收紧后判据仍认路由路径名里的族词,
+ * 见 `--self-test` 两向用例,不是"什么都通过")。
  *   · `apps/ai-service/app`(Python)**不在射程**:模板本体是 ESM,Python 侧结构性走不了
  *     "import 模板"这一条正当形态 ⇒ 拉进来等于造一台恒红门(§12f)。要扩面须先立票。
  *   · 测试面(`/tests/`、`.test.`)不进射程(夹具里的 SQL 不是生产写路径)。
@@ -77,7 +80,7 @@ function readFiles(face, files) {
   if (face === 'worktree') {
     for (const f of files) {
       const t = readWorktreeFile(ROOT, f)
-      if (t != null) out.set(f, t)
+      if (t !== null && t !== undefined) out.set(f, t)
     }
     return out
   }
@@ -86,7 +89,7 @@ function readFiles(face, files) {
   const blobs = catBatch(ROOT, specs, { maxBuffer: 1 << 28 })
   for (const f of files) {
     const t = blobs.get(`${prefix}${f}`)
-    if (t != null) out.set(f, t)
+    if (t !== null && t !== undefined) out.set(f, t)
   }
   return out
 }
@@ -226,6 +229,45 @@ export async function repairThing(id, next) {
 }`,
       wantCandidate: false,
       wantMissing: [],
+    },
+    {
+      name: '修复词只在 import 路径 + 普通业务写 ⇒ 不是候选(路径名不是自称)',
+      text: `import { reconcileCheckinSync } from './relay-account-pool-reconcile.js'
+export async function updateThing(id, next) {
+  await db.update(t).set({ name: next }).where(eq(t.id, id))
+  return true
+}`,
+      wantCandidate: false,
+      wantMissing: [],
+    },
+    {
+      name: '修复词住兄弟函数、写路径自己没自称 ⇒ 不是候选(文件级共现不算)',
+      text: `function repairMeta(x) { return x }
+export async function updateThing(id, next) {
+  await db.update(t).set({ name: next }).where(eq(t.id, id))
+  return true
+}`,
+      wantCandidate: false,
+      wantMissing: [],
+    },
+    {
+      name: '路由路径名里的 backfill 与写同一行 ⇒ 仍算候选(收紧不得滑成什么都通过)',
+      text: `server.post('/backfill', async (_req, reply) => {
+  await db.update(t).set({ s: 'ok' }).where(eq(t.id, 'x'))
+})`,
+      wantCandidate: true,
+      wantMissing: ['expected', 'fourState'],
+    },
+    {
+      name: 'repair 名函数内 try 块里盲写 ⇒ 仍算候选(越控制块认签名)',
+      text: `export async function repairRow(id, expectedDirectory) {
+  try {
+    await db.execute(sql\`update t set directory = 'x' where id = \${id} and directory = \${expectedDirectory}\`)
+  } catch {}
+  return true
+}`,
+      wantCandidate: true,
+      wantMissing: ['fourState'],
     },
     {
       name: '未命中直接返回(发 UPDATE 的 execute 不算重读)⇒ 缺 reread',

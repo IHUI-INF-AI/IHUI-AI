@@ -279,6 +279,68 @@ export async function repairRemoteSessionPaths(input) {
   for (const m of [...ok.missing, ...bad.missing]) assert.ok(lib.TEMPLATE_PARTS.includes(m))
 })
 
+/* ───────────────── M6b 判据有牙:真违规仍判红(两向) ───────────────── */
+
+test('M6b 真违规判红:修复名函数里的盲写 ⇒ 候选且缺项非空', () => {
+  const blind = lib.judgeTemplate(`export async function repairThing(id, next) {
+  await db.update(t).set({ directory: next }).where(eq(t.id, id))
+  return true
+}`)
+  assert.equal(blind.candidate, true, '修复名函数内的盲写必须进射程')
+  assert.ok(blind.missing.includes('expected'), '无旧值 ⇒ 缺 expected')
+  assert.ok(blind.missing.includes('fourState'), '无四态 ⇒ 缺 fourState')
+
+  // 判定层同向:新候选带缺项 ⇒ new-candidate(门体 exit 1 走的就是这条)
+  const red = gate.judgeAgainstBaseline(
+    new Map([['apps/api/src/db/__violation__.ts', blind.missing]]),
+    { perFile: {} },
+  )
+  assert.equal(red.red.length, 1)
+  assert.equal(red.red[0].kind, 'new-candidate')
+  assert.deepEqual(red.red[0].missing.slice().sort(), ['expected', 'fourState'])
+
+  // 越控制块也不放过:try 块里的写仍归属 repair 名函数
+  const inTry = lib.judgeTemplate(`export async function repairRow(id, expectedDirectory) {
+  try {
+    await db.execute(sql\`update t set directory = 'x' where id = \${id} and directory = \${expectedDirectory}\`)
+  } catch {}
+  return true
+}`)
+  assert.equal(inTry.candidate, true, 'try 块不能把修复名函数的自称面遮掉')
+})
+
+/* ───────────── M6c 合规不误伤:修复词不在写路径自称面 ⇒ 非候选 ───────────── */
+
+test('M6c 合规不误伤:import 路径 / 兄弟函数 / 只读状态名都不得把文件拉进射程', () => {
+  const byImport = lib.judgeTemplate(`import { reconcileCheckinSync } from './relay-account-pool-reconcile.js'
+export async function updateThing(id, next) {
+  await db.update(t).set({ name: next }).where(eq(t.id, id))
+  return true
+}`)
+  assert.equal(byImport.candidate, false, 'import 路径名不是"自称在做修复"')
+
+  const bySibling = lib.judgeTemplate(`function repairMeta(x) { return x }
+export async function updateThing(id, next) {
+  await db.update(t).set({ name: next }).where(eq(t.id, id))
+  return true
+}`)
+  assert.equal(bySibling.candidate, false, '兄弟函数的修复名不是本写路径的自称')
+
+  const byReadOnlyState = lib.judgeTemplate(`export async function publishThing(id, publish) {
+  const applied = isThingBackfillApplied()
+  await db.update(t).set({ status: publish ? 'on' : 'off' }).where(eq(t.id, id))
+  return applied
+}`)
+  assert.equal(byReadOnlyState.candidate, false, '只读状态名不是写路径的自称')
+
+  // 反控(证伪):同一份文本把修复名放回写路径签名 ⇒ 立刻进射程
+  const control = lib.judgeTemplate(`export async function repairThing(id, publish) {
+  await db.update(t).set({ status: publish ? 'on' : 'off' }).where(eq(t.id, id))
+  return true
+}`)
+  assert.equal(control.candidate, true, '反控必须红 —— 收紧不得滑成"什么都通过"')
+})
+
 /* ───────────────────────────── M7 门体真跑 ───────────────────────────── */
 
 test('M7 门体 --self-test 真跑且全绿', () => {
