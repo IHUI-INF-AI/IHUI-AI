@@ -7260,6 +7260,12 @@
       }
     }
   },
+  "NavBar": {
+    "text1": "Daily News",
+    "z1": "Join Community",
+    "feedback": "Feedback",
+    "fenlei": "Categories"
+  },
   "chatSettingsPage": {
     "model": "Model"
   },
