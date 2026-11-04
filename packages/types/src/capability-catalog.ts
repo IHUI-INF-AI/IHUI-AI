@@ -19,8 +19,10 @@
  */
 import { API_KEY_PERMISSIONS, type ApiKeyPermission } from './api-key.js'
 import {
+  EXTENSION_CONTRIBUTION_KINDS,
   validateExtensionManifest,
   type ExtensionActivationEvent,
+  type ExtensionContributionKind,
   type ExtensionContributions,
   type ExtensionManifest,
   type ExtensionManifestIssue,
@@ -1300,11 +1302,18 @@ function deepFreeze<T>(value: T): T {
   return value
 }
 
+/**
+ * 遍历一份 manifest 的全部贡献。
+ *
+ * **档名一律取自 EXTENSION_CONTRIBUTION_KINDS,不得在此硬编码三元组**:词表扩档后这里若仍写死
+ * `['tools','commands','views']`,新档的贡献名就绕过了 `EXTENSION_CONTRIBUTION_OWNER` 冲突登记 ——
+ * "注册表说没占用、其实被占着"比不注册更糟(§0.3「没判」不得写成「判过」)。
+ */
 function eachContribution(
   manifest: ExtensionManifest,
-  visit: (kind: 'tools' | 'commands' | 'views', name: string) => void,
+  visit: (kind: ExtensionContributionKind, name: string) => void,
 ): void {
-  for (const kind of ['tools', 'commands', 'views'] as const) {
+  for (const kind of EXTENSION_CONTRIBUTION_KINDS) {
     for (const item of manifest.contributes[kind] ?? []) visit(kind, item.name)
   }
 }
@@ -1387,6 +1396,68 @@ export function listExtensionManifests(): ExtensionManifest[] {
 /** 按激活事件查询扩展(catalog 查询面;未注册任何扩展时返回空数组)。 */
 export function extensionsByActivationEvent(event: ExtensionActivationEvent): ExtensionManifest[] {
   return listExtensionManifests().filter((manifest) => manifest.activationEvents.includes(event))
+}
+
+/** 逐 scope 的数据类判定依据(可 diff、可入库审计的正面凭据)。 */
+export interface ExtensionDataClassBasis {
+  scope: string
+  dataClass: CapabilityDataClass
+}
+
+/**
+ * 权限声明 → 数据类切分(**默认拒绝**)。
+ *
+ * 为什么要这一格(超越轴,取证 `docs/benchmark-evidence/2026-11/qoder-trae-workbuddy-rea-20261105/`
+ * `Q1-qoder-cn-main-bundle.md` §3 #8 与 §4「插件贡献/权限词表 + 激活事件(#8)」行):
+ * 对侧 `catalog.v1.json` 只有 33 条 `permissions[]` **声明**,没有任何运行期数据类切分 ——
+ * 声明与"实际能碰到什么数据"之间没有机器可证的绑定。我方把每条**已声明**权限经本目录的
+ * `dataClass` 求并集,得到该扩展/插件**可达**的数据类集合。三条边界,缺一不算实现:
+ *  1. 未声明任何权限 ⇒ 集合为空 ⇒ 一切数据类均拒(默认拒,不是默认放行);
+ *  2. 声明了但目录里没登记的 scope ⇒ 不贡献任何数据类,并逐条点名进 `unregistered` ——
+ *     "没登记"绝不写成"没限制"(§0.3);
+ *  3. 结果按 scope 声明顺序去重,保证同一输入同一输出(入库对账的前提)。
+ *
+ * 生产消费方 = `apps/cli/src/plugins/loader.ts`(装载器据此决定"声明了贡献却没权限"的插件
+ * 到底能不能拿到数据面);刻意不写进 `buildManifest()` 产物,以免动 `export-capabilities --check`
+ * 的逐字节基线。
+ */
+export interface ExtensionDataClassGrant {
+  /** 可达的数据类集合;空数组 = 默认拒全部 */
+  allowed: readonly CapabilityDataClass[]
+  /** 逐 scope 的判定依据(正面凭据:为什么这几个数据类是它应得的) */
+  byScope: readonly ExtensionDataClassBasis[]
+  /** 声明了但未在目录登记的 scope(逐条点名;一律不贡献数据类) */
+  unregistered: readonly string[]
+}
+
+export function extensionDataClassGrant(input: {
+  readonly permissions: readonly string[]
+}): ExtensionDataClassGrant {
+  const byScope: ExtensionDataClassBasis[] = []
+  const unregistered: string[] = []
+  const allowed = new Set<CapabilityDataClass>()
+  for (const scope of input.permissions) {
+    const entry = INDEX.get(scope as ApiKeyPermission)
+    if (!entry) {
+      unregistered.push(scope)
+      continue
+    }
+    const dataClass = effectiveDataClass(entry)
+    byScope.push({ scope, dataClass })
+    allowed.add(dataClass)
+  }
+  return { allowed: [...allowed], byScope, unregistered }
+}
+
+/**
+ * 这组权限能否触达某数据类。**空 permissions ⇒ 恒 false**(默认拒的谓词形态)。
+ * 判定全部走 `extensionDataClassGrant`,不在此复算(§0.6 单一真相源)。
+ */
+export function extensionMayTouchDataClass(
+  input: { readonly permissions: readonly string[] },
+  dataClass: CapabilityDataClass,
+): boolean {
+  return extensionDataClassGrant(input).allowed.includes(dataClass)
 }
 
 /** 扩展贡献的工具名 → scope(与静态目录同形的反向索引)。 */
