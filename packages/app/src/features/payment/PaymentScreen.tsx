@@ -145,7 +145,7 @@ export function PaymentScreen({
               </View>
               {item.paymentMethod ? (
                 <Text style={styles.metaText}>
-                  {t('payment.method')}:{item.paymentMethod}
+                  {t('learnPaymentConfirmPage.fields.payMethod')}:{item.paymentMethod}
                 </Text>
               ) : null}
               {item.paidAtText ? (
