@@ -251,8 +251,8 @@
 | 217 | 📐 mobile-rn sheet/弹窗 flex 弹性契约(bounded 容器内列表必须唯一弹性块,固定 chrome 不被压扁) | check-sheet-flex-contract.mjs | — | — |
 | 218 | 🎨 RN 端硬编码 hex 基线棘轮(基线之外新增 #hex 即 BLOCK,存量只减不增) | check-mobile-rn-style-parity.mjs | — | 有 |
 | 219 | 🧬 端内共享类型重声明对账(共享对外类型名不得在端内再写一份;差值棘轮锚点=该文件 HEAD 自身违规数,存量只报数) | check-shared-type-not-redeclared.mjs | — | 有 |
-| 220 | 监控大屏指标名对账(大屏查询的每个指标必须有代码发射点或台账登记) | check-grafana-metric-exists.mjs | — | 有 |
-| 222 | 监控大屏 ↔ 数据源 接线对账(面板引用的 uid 必须在 provisioning 里;声明了却零面板使用的源只报数不判红——未部署的基建是合法状态) | check-grafana-datasource-wiring.mjs | — | 有 |
+| 220 | 监控大屏指标名对账(大屏查询的每个指标必须有代码发射点或台账登记) | check-panel-metric-exists.mjs | — | 有 |
+| 222 | 监控大屏 ↔ 数据源 接线对账(面板引用的 uid 必须在 provisioning 里;声明了却零面板使用的源只报数不判红——未部署的基建是合法状态) | check-panel-datasource-wiring.mjs | — | 有 |
 | 221 | 🧾 .mjs 语法对账(被审面全量纯解析,只解析不执行;--staged 差值棘轮只拦本次带进来的,存量只报数——上线当刻 HEAD 面实测 1 枚存量,定级与清偿见门体头注) | check-mjs-syntax.mjs | — | 有 |
 | 223 | 桌面端(Tauri)事件链路三层接线守门:Rust emit→use-desktop listen/case→CustomEvent→web addEventListener 消费方闭环;含 G8 整页导航先复位深链闸门、G9 整页导航发起点必须先触发存草稿(desktop-before-close) | check-desktop-event-wiring.mjs | — | 有 |
 | 224 | 告警身份抖动对账(到人邮件的去重身份不得含逐轮抖动的 sha/时刻/原始计数/异常原文;差值棘轮:只拦本次加回来的) | check-alert-identity-volatility.mjs | — | 有 |
@@ -3324,8 +3324,8 @@ warn-only 起步，无明确升级计划，需触发条件。
 | 217 | `—（待补充）` | 📐 mobile-rn sheet/弹窗 flex 弹性契约(bounded 容器内列表必须唯一弹性块,固定 chrome 不被压扁) | check-sheet-flex-contract.mjs |
 | 218 | `—（待补充）` | 🎨 RN 端硬编码 hex 基线棘轮(基线之外新增 #hex 即 BLOCK,存量只减不增) | check-mobile-rn-style-parity.mjs |
 | 219 | `—（待补充）` | 🧬 端内共享类型重声明对账(共享对外类型名不得在端内再写一份;差值棘轮锚点=该文件 HEAD 自身违规数,存量只报数) | check-shared-type-not-redeclared.mjs |
-| 220 | `—（待补充）` | 监控大屏指标名对账(大屏查询的每个指标必须有代码发射点或台账登记) | check-grafana-metric-exists.mjs |
-| 222 | `—（待补充）` | 监控大屏 ↔ 数据源 接线对账(面板引用的 uid 必须在 provisioning 里;声明了却零面板使用的源只报数不判红——未部署的基建是合法状态) | check-grafana-datasource-wiring.mjs |
+| 220 | `—（待补充）` | 监控大屏指标名对账(大屏查询的每个指标必须有代码发射点或台账登记) | check-panel-metric-exists.mjs |
+| 222 | `—（待补充）` | 监控大屏 ↔ 数据源 接线对账(面板引用的 uid 必须在 provisioning 里;声明了却零面板使用的源只报数不判红——未部署的基建是合法状态) | check-panel-datasource-wiring.mjs |
 | 221 | `—（待补充）` | 🧾 .mjs 语法对账(被审面全量纯解析,只解析不执行;--staged 差值棘轮只拦本次带进来的,存量只报数——上线当刻 HEAD 面实测 1 枚存量,定级与清偿见门体头注) | check-mjs-syntax.mjs |
 | 223 | `—（待补充）` | 桌面端(Tauri)事件链路三层接线守门:Rust emit→use-desktop listen/case→CustomEvent→web addEventListener 消费方闭环;含 G8 整页导航先复位深链闸门、G9 整页导航发起点必须先触发存草稿(desktop-before-close) | check-desktop-event-wiring.mjs |
 | 225 | `—（待补充）` | 生成器资源释放对账(warn;持有事务/句柄/订阅的 async 生成器,消费方提前 break/抛错时不得只靠退出作用域与 GC) | check-generator-resource-release.mjs |
