@@ -21,7 +21,7 @@
     {
       "script": "check-ignore-todos.mjs",
       "type": "standalone-tool",
-      "reason": "头部如实写「退出码: 始终 0 (warn-only)」,代码三处 exit(0)、无 exit 1 路径 ⇒ 接线零收益。且 IGNORE_FILE 按 process.cwd() 推导,钩子工作目录不保证是仓库根 ⇒ 读不到就静默\"跳过\",接线只会制造假绿。"
+      "reason": "纯监控 CLI:无\"违规\"判据(有 TODO 也只是报告),故无 exit 1。2026-11-04 三态化后:读到并报告 = exit 0,IGNORE_FILE 读不到/解析失败 = exit 2 并点名(不再静默\"跳过\"报绿)。仍为手动 `pnpm check:routes:ignore`,不挂提交链 ⇒ 接线零收益且 IGNORE_FILE 按 process.cwd() 推导,钩子工作目录不保证是仓库根。"
     },
     {
       "script": "check-lock.mjs",
