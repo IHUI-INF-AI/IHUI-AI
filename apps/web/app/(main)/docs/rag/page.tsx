@@ -104,13 +104,13 @@ export default function RagDocsPage() {
       <section id="what-is-rag" className="mt-16 space-y-6">
         <h2 className="text-display font-bold tracking-tight">什么是 RAG?</h2>
         <div className="rounded-lg border bg-card p-3 space-y-3">
-          <p className="text-sm text-muted-foreground">
+          <p className="font-[weight:inherit] text-body text-muted-foreground">
             <strong>RAG(Retrieval-Augmented Generation,检索增强生成)</strong>
             是大模型与外部知识结合的核心技术: 用户提问 → 先从知识库检索相关片段 → 把片段塞入 Prompt
             → LLM 基于片段生成答案。
           </p>
-          <p className="text-sm text-muted-foreground">解决三大痛点:</p>
-          <ul className="ml-4 list-disc space-y-1 text-sm text-muted-foreground">
+          <p className="font-[weight:inherit] text-body text-muted-foreground">解决三大痛点:</p>
+          <ul className="font-[weight:inherit] ml-4 list-disc space-y-1 text-body text-muted-foreground">
             <li>
               <strong>知识过时</strong>:LLM 训练数据截止到某时间,RAG 可挂载最新文档
             </li>
@@ -141,7 +141,7 @@ export default function RagDocsPage() {
 │ [doc:p3] │   │ +引用    │   │ Encoder  │   │ Recipro  │   │ +知识图谱│
 └──────────┘   └──────────┘   └──────────┘   └──────────┘   └──────────┘`}
           />
-          <ol className="ml-4 list-decimal space-y-2 text-sm text-muted-foreground">
+          <ol className="font-[weight:inherit] ml-4 list-decimal space-y-2 text-body text-muted-foreground">
             <li>
               <strong>文档上传</strong>:解析面支持 PDF / Word / Markdown / TXT / HTML / PPT / Excel
               / EPUB(网页端上传入口实际可选的扩展名见下文「支持的文档类型」口径说明),单文件最大
@@ -185,7 +185,7 @@ export default function RagDocsPage() {
       <section id="create-kb" className="mt-16 space-y-6">
         <h2 className="text-display font-bold tracking-tight">创建第一个知识库</h2>
         <div className="rounded-lg border bg-card p-3 space-y-4">
-          <ol className="ml-4 list-decimal space-y-2 text-sm text-muted-foreground">
+          <ol className="font-[weight:inherit] ml-4 list-decimal space-y-2 text-body text-muted-foreground">
             <li>
               访问{' '}
               <a href="https://aizhs.top/knowledge-base" className="text-primary underline">
@@ -227,26 +227,26 @@ curl -X POST https://api.aizhs.top/v1/knowledge-bases/$KB_ID/documents \\
       <section id="hybrid-search" className="mt-16 space-y-6">
         <h2 className="text-display font-bold tracking-tight">三路混合检索(核心优势)</h2>
         <div className="rounded-lg border bg-card p-3 space-y-4">
-          <p className="text-sm text-muted-foreground">
+          <p className="font-[weight:inherit] text-body text-muted-foreground">
             纯向量检索对"专有名词 / 代码 / 型号"等关键词不敏感,纯 BM25
             对"语义相似但措辞不同"的问题失效。 智汇 AI 采用三路并发 + RRF 融合,兼顾语义与关键词:
           </p>
           <div className="grid grid-cols-1 gap-4 min-[768px]:grid-cols-3">
             <div className="rounded-lg border bg-background p-3">
               <p className="text-body font-semibold">① 向量检索</p>
-              <p className="mt-1 text-sm text-muted-foreground">
+              <p className="font-[weight:inherit] mt-1 text-body text-muted-foreground">
                 bge-m3 编码 query → pgvector HNSW 查询 → 返回 Top-20 语义相似片段
               </p>
             </div>
             <div className="rounded-lg border bg-background p-3">
               <p className="text-body font-semibold">② BM25 关键词</p>
-              <p className="mt-1 text-sm text-muted-foreground">
+              <p className="font-[weight:inherit] mt-1 text-body text-muted-foreground">
                 jieba 中文分词 + ts_vector → PostgreSQL 全文检索 → 返回 Top-20 关键词匹配片段
               </p>
             </div>
             <div className="rounded-lg border bg-background p-3">
               <p className="text-body font-semibold">③ 知识图谱</p>
-              <p className="mt-1 text-sm text-muted-foreground">
+              <p className="font-[weight:inherit] mt-1 text-body text-muted-foreground">
                 LLM 抽取实体 + 关系 → Neo4j 图查询 → 返回关联实体片段(解决多跳推理)
               </p>
             </div>
@@ -257,7 +257,7 @@ curl -X POST https://api.aizhs.top/v1/knowledge-bases/$KB_ID/documents \\
               language="text"
               code={`score(d) = Σ 1 / (k + rank_i(d))    # k=60, rank_i = 文档在第 i 路结果中的排名`}
             />
-            <p className="mt-2 text-xs text-muted-foreground">
+            <p className="font-[weight:inherit] mt-2 text-label text-muted-foreground">
               三路结果按 RRF 重新排序 → 取 Top-20 给 Reranker
             </p>
           </div>
@@ -268,7 +268,7 @@ curl -X POST https://api.aizhs.top/v1/knowledge-bases/$KB_ID/documents \\
       <section id="file-types" className="mt-16 space-y-6">
         <h2 className="text-display font-bold tracking-tight">支持的文档类型</h2>
         <div className="overflow-x-auto rounded-lg border bg-card">
-          <table className="w-full text-sm">
+          <table className="font-[weight:inherit] w-full text-body">
             <thead>
               <tr className="bg-muted/60 text-left text-label font-semibold">
                 <th scope="col" className="p-3">
@@ -299,15 +299,15 @@ curl -X POST https://api.aizhs.top/v1/knowledge-bases/$KB_ID/documents \\
               ].map(([fmt, ext, desc, size], i) => (
                 <tr key={fmt} className={i % 2 === 0 ? 'bg-card' : 'bg-muted/40'}>
                   <td className="p-3 font-medium whitespace-nowrap">{fmt}</td>
-                  <td className="p-3 font-mono text-xs whitespace-nowrap">{ext}</td>
+                  <td className="font-[weight:inherit] p-3 font-mono text-label whitespace-nowrap">{ext}</td>
                   <td className="p-3 text-muted-foreground">{desc}</td>
-                  <td className="p-3 text-xs text-muted-foreground whitespace-nowrap">{size}</td>
+                  <td className="font-[weight:inherit] p-3 text-label text-muted-foreground whitespace-nowrap">{size}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-        <div className="rounded-lg border bg-card p-3 text-xs text-muted-foreground">
+        <div className="font-[weight:inherit] rounded-lg border bg-card p-3 text-label text-muted-foreground">
           <Lightbulb className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
           <strong>口径说明(上表是解析能力,不等于每个入口都能选到)</strong>:
           网页端知识库上传入口的可选文件当前只列出{' '}
@@ -325,7 +325,7 @@ curl -X POST https://api.aizhs.top/v1/knowledge-bases/$KB_ID/documents \\
       <section id="embedding-models" className="mt-16 space-y-6">
         <h2 className="text-display font-bold tracking-tight">支持的 Embedding 模型</h2>
         <div className="overflow-x-auto rounded-lg border bg-card">
-          <table className="w-full text-sm">
+          <table className="font-[weight:inherit] w-full text-body">
             <thead>
               <tr className="bg-muted/60 text-left text-label font-semibold">
                 <th scope="col" className="p-3">
@@ -356,17 +356,17 @@ curl -X POST https://api.aizhs.top/v1/knowledge-bases/$KB_ID/documents \\
                 ['m3e-base', '开源', '768', '中文', '本地部署可选'],
               ].map(([model, vendor, dim, lang, note], i) => (
                 <tr key={model} className={i % 2 === 0 ? 'bg-card' : 'bg-muted/40'}>
-                  <td className="p-3 font-mono text-xs whitespace-nowrap">{model}</td>
+                  <td className="font-[weight:inherit] p-3 font-mono text-label whitespace-nowrap">{model}</td>
                   <td className="p-3 text-muted-foreground">{vendor}</td>
-                  <td className="p-3 font-mono text-xs">{dim}</td>
+                  <td className="font-[weight:inherit] p-3 font-mono text-label">{dim}</td>
                   <td className="p-3 text-muted-foreground whitespace-nowrap">{lang}</td>
-                  <td className="p-3 text-xs text-muted-foreground">{note}</td>
+                  <td className="font-[weight:inherit] p-3 text-label text-muted-foreground">{note}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-        <div className="rounded-lg border bg-card p-3 text-sm text-muted-foreground">
+        <div className="font-[weight:inherit] rounded-lg border bg-card p-3 text-body text-muted-foreground">
           <Lightbulb className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
           <strong>选型建议</strong>:中文为主选 bge-m3(默认);中英混合选
           text-embedding-3-large;成本敏感选 bge-large-zh-v1.5; 本地部署选 m3e-base + Ollama。
@@ -377,7 +377,7 @@ curl -X POST https://api.aizhs.top/v1/knowledge-bases/$KB_ID/documents \\
       <section id="citation" className="mt-16 space-y-6">
         <h2 className="text-display font-bold tracking-tight">引用溯源(防幻觉关键)</h2>
         <div className="rounded-lg border bg-card p-3 space-y-3">
-          <p className="text-sm text-muted-foreground">
+          <p className="font-[weight:inherit] text-body text-muted-foreground">
             智汇 AI 的每个 RAG 回答都附引用编号 [1] [2] [3],点击跳转到原文位置并高亮:
           </p>
           <CodeBlock
@@ -392,7 +392,7 @@ LLM 答:产品 X 的标准保修期为 24 个月 [1],若购买延保服务可延
 [2] extended-warranty.docx 第 2 页
 [3] faq.docx 第 8 行`}
           />
-          <p className="text-sm text-muted-foreground">
+          <p className="font-[weight:inherit] text-body text-muted-foreground">
             <strong>反幻觉机制</strong>:LLM
             被系统提示约束为"只能基于检索片段回答,无关内容回答'文档中未提及'",
             若检索片段为空或相关性低,会直接告知"未在知识库中找到答案"而非编造。
@@ -409,7 +409,7 @@ LLM 答:产品 X 的标准保修期为 24 个月 [1],若购买延保服务可延
               <Ruler className="mr-1.5 inline h-4 w-4" />
               切块策略
             </p>
-            <ul className="mt-2 ml-4 list-disc space-y-1 text-xs text-muted-foreground">
+            <ul className="font-[weight:inherit] mt-2 ml-4 list-disc space-y-1 text-label text-muted-foreground">
               <li>说明文档:按段落切(chunk_size=512)</li>
               <li>FAQ:按问答对切(每对独立 chunk)</li>
               <li>代码:按函数/类切(保留完整逻辑)</li>
@@ -421,7 +421,7 @@ LLM 答:产品 X 的标准保修期为 24 个月 [1],若购买延保服务可延
               <Target className="mr-1.5 inline h-4 w-4" />
               文档质量
             </p>
-            <ul className="mt-2 ml-4 list-disc space-y-1 text-xs text-muted-foreground">
+            <ul className="font-[weight:inherit] mt-2 ml-4 list-disc space-y-1 text-label text-muted-foreground">
               <li>避免扫描件(OCR 易出错,优先用原生 PDF)</li>
               <li>删除页眉页脚(避免污染检索)</li>
               <li>保留标题层级(帮助切块)</li>
@@ -433,7 +433,7 @@ LLM 答:产品 X 的标准保修期为 24 个月 [1],若购买延保服务可延
               <RefreshCw className="mr-1.5 inline h-4 w-4" />
               定期更新
             </p>
-            <ul className="mt-2 ml-4 list-disc space-y-1 text-xs text-muted-foreground">
+            <ul className="font-[weight:inherit] mt-2 ml-4 list-disc space-y-1 text-label text-muted-foreground">
               <li>开启 Webhook:文档库变更自动重新向量化</li>
               <li>每月跑一次"知识库体检"(检测失效链接)</li>
               <li>版本化:旧版文档保留 90 天后归档</li>
@@ -444,7 +444,7 @@ LLM 答:产品 X 的标准保修期为 24 个月 [1],若购买延保服务可延
               <Coins className="mr-1.5 inline h-4 w-4" />
               成本控制
             </p>
-            <ul className="mt-2 ml-4 list-disc space-y-1 text-xs text-muted-foreground">
+            <ul className="font-[weight:inherit] mt-2 ml-4 list-disc space-y-1 text-label text-muted-foreground">
               <li>用 bge-m3(免费)而非 OpenAI embedding</li>
               <li>chunk_overlap 不要超过 25%(浪费存储)</li>
               <li>大文档先去重再上传(节省向量化费用)</li>
@@ -459,27 +459,27 @@ LLM 答:产品 X 的标准保修期为 24 个月 [1],若购买延保服务可延
         <div className="mt-3 grid grid-cols-1 gap-3 min-[768px]:grid-cols-3">
           <Link
             href="/docs/agent"
-            className="rounded-lg border bg-card p-3 text-sm hover:bg-accent"
+            className="font-[weight:inherit] rounded-lg border bg-card p-3 text-body hover:bg-accent"
           >
             <Bot className="mr-1 inline h-4 w-4" aria-hidden />
             <span>Agent 开发 →</span>
             <br />
-            <span className="text-xs text-muted-foreground">把知识库挂载到 Agent</span>
+            <span className="font-[weight:inherit] text-label text-muted-foreground">把知识库挂载到 Agent</span>
           </Link>
           <Link
             href="/docs/models"
-            className="rounded-lg border bg-card p-3 text-sm hover:bg-accent"
+            className="font-[weight:inherit] rounded-lg border bg-card p-3 text-body hover:bg-accent"
           >
             <Brain className="mr-1 inline h-4 w-4" aria-hidden />
             <span>多模型调度 →</span>
             <br />
-            <span className="text-xs text-muted-foreground">选合适的 LLM 配 RAG</span>
+            <span className="font-[weight:inherit] text-label text-muted-foreground">选合适的 LLM 配 RAG</span>
           </Link>
-          <Link href="/docs/api" className="rounded-lg border bg-card p-3 text-sm hover:bg-accent">
+          <Link href="/docs/api" className="font-[weight:inherit] rounded-lg border bg-card p-3 text-body hover:bg-accent">
             <Wrench className="mr-1 inline h-4 w-4" aria-hidden />
             <span>API 参考 →</span>
             <br />
-            <span className="text-xs text-muted-foreground">通过 API 操作知识库</span>
+            <span className="font-[weight:inherit] text-label text-muted-foreground">通过 API 操作知识库</span>
           </Link>
         </div>
       </section>

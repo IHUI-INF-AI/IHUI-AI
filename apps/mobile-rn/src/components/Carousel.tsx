@@ -31,6 +31,7 @@ import {
   carouselDotStyle,
 } from '@ihui/shared/ui/carousel-spec'
 
+import { rnSpacing } from '@ihui/design-tokens'
 /**
  * 轮播图源:远端 URL(string)或打包进应用的本地资源(require 返回 number)。
  * bspapp 云存储 CDN 已整体不可达,外链图本地化后经 require 引入(2026-10-15);
@@ -117,8 +118,8 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    paddingHorizontal: 12,
-    paddingBottom: 12,
+    paddingHorizontal: rnSpacing.md,
+    paddingBottom: rnSpacing.md,
     backgroundColor: tokens.surface.muted,
   },
   courseTitle: {
