@@ -533,6 +533,88 @@ class TestBehaviorDriver:
         # dry-run 不得发写侧调用(accept/claim)
         assert all(m == "GET" for m in rec.methods())
 
+    def test_parse_task_row_web_shape_normalizes_accept_status_and_nested_progress(self):
+        """WEB 域行无顶层 status、progress 为嵌套对象 ⇒ 必须归一化,否则 18 行全丢。"""
+        row, understood = wt.parse_task_row(
+            {
+                "task_code": "Expert_lighthouse",
+                "title": "体验「腾讯轻量云」专家",
+                "accept_status": "claimed",
+                "progress": {"current": 3, "target": 5},
+            }
+        )
+        assert understood is True
+        assert row["task_code"] == "Expert_lighthouse"
+        assert row["status"] == "claimed"  # 归一化自 accept_status(无顶层 status)
+        assert row["accept_status"] == "claimed"
+        assert row["progress"] == 3
+        assert row["target"] == 5
+
+    def test_parse_task_row_web_shape_without_status_is_understood(self):
+        """WEB 域缺省 status 字段 ⇒ 回退读 accept_status,读懂(不整行丢弃)。"""
+        row, understood = wt.parse_task_row(
+            {"task_code": "wb_wechat_oa_subscribe_task", "title": "关注官方", "accept_status": "accepted"}
+        )
+        assert understood is True
+        assert row["status"] == "accepted"
+
+    async def test_growth_web_domain_merge_surfaces_accepted_and_skips_claimed(
+        self, monkeypatch: pytest.MonkeyPatch
+    ):
+        """WEB 域并域扫描:行为任务中 `accepted`(动作做完待领奖)如实报待实操,
+        `claimed`(已闭环)正确跳过;CLI 域 5 项照常合并,不重不漏。零真实网络。"""
+        monkeypatch.setattr(settings, "workbuddy_tasks_claim_path", "/activity/growth/tasks/{code}/claim")
+        monkeypatch.setattr(settings, "workbuddy_tasks_behavior_driver_enabled", True)
+
+        cli_tasks = [
+            task_row(code=c, status="available")
+            for c in (
+                "first_chat",
+                "skill_installed",
+                "wechat_linked",
+                "expert_summoned",
+                "template_used",
+            )
+        ]
+        # WEB 域真形态:task_code + accept_status(无顶层 status)+ 嵌套 progress
+        web_tasks = [
+            {"task_code": "wb_wechat_oa_subscribe_task", "title": "关注官方", "accept_status": "accepted", "progress": {"current": 1, "target": 1}},
+            {"task_code": "WorkBuddy_Valorant", "title": "体验无畏契约", "accept_status": "accepted", "progress": {"current": 1, "target": 1}},
+            {"task_code": "Expert_lighthouse", "title": "体验轻量云", "accept_status": "claimed", "progress": {"current": 1, "target": 1}},
+        ]
+        # WEB 列表 URL 含 www.workbuddy.cn/v2;放在 PATH_GROWTH_TASKS 之前以精确区分两域。
+        rec = Recorder(
+            {
+                "www.workbuddy.cn/v2/activity/growth/tasks": ok_envelope({"tasks": web_tasks}),
+                PATH_GROWTH_TASKS_ACCEPT: ok_envelope({}),
+                PATH_GROWTH_STREAK: ok_envelope({}),
+                "/billing/meter/checkin-status": ok_envelope({"total_credits": 10}),
+                PATH_GROWTH_TASKS: ok_envelope({"tasks": cli_tasks}),
+            }
+        )
+        dm = {"web_cookie": "session=abc"}
+        async with rec.client() as client:
+            out = await wt.run_growth(TOKEN, dm, dry_run=False, client=client)
+
+        assert out["ok"] is True
+        uar = out["user_action_required"] or []
+        # CLI 5 项 + WEB 两项 accepted,均如实上报
+        for expected in (
+            "first_chat",
+            "skill_installed",
+            "wechat_linked",
+            "expert_summoned",
+            "template_used",
+            "wb_wechat_oa_subscribe_task",
+            "WorkBuddy_Valorant",
+        ):
+            assert expected in uar, f"缺少待实操项: {expected}"
+        # WEB 域已 claimed 的 Expert_lighthouse 不得误报为待实操
+        assert "Expert_lighthouse" not in uar
+        assert out["unjudged"] is False
+        # 不得对 WEB 域行为任务发起写侧 claim(它们非可领态)
+        assert out["claimed"] == []
+
 
 # ---------------------------------------------------------------------------
 # travel

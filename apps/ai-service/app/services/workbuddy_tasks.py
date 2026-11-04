@@ -475,13 +475,17 @@ def _failure_reason(status: int, payload: Any, mode: str) -> str | None:
 def parse_task_row(raw: Any) -> tuple[dict[str, Any] | None, bool]:
     """单行解析。返回 (合同行|None, 是否读懂)。
 
-    判据按 2026-10-28 真机 GET 实测形态(非竞品二进制字段表):
-    `{"tasks":[{"task_id":1,"code":"first_chat","title":"完成一次对话",
+    判据按 2026-10-28 / 2026-11-05 真机 GET 实测形态(非竞品二进制字段表):
+    CLI 域  `{"tasks":[{"task_id":1,"code":"first_chat","title":"完成一次对话",
       "description":"…","icon_url":"","level_name":"养虾尝试","status":"available","url":""}]}`
+    WEB 域   `{"task_code":"Expert_lighthouse","title":"…","accept_status":"claimed",
+      "progress":{"current":1,"target":1}, …}` —— 注意 WEB 域**没有顶层 status**,
+      状态全在 `accept_status`(取值 `accepted`/`claimed` 等),且 `progress` 是
+      嵌套对象 `{current,target}` 而非整数。
     —— 读懂 = `code`(兼容旧取证名 task_code)与 title(兼容 task_desc/description)
-    与 status 三者齐。真形态**根本没有** progress/target/accept_status/reward_*/valid_to
-    这五族字段 ⇒ 一律 None,不拿 0 冒充"没量到"(§0.3);旧实现"缺字段按 0"会把
-    "上游没给奖励字段"说成"奖励为 0",是假账。
+    与 status 三者齐;`status` 缺失时回退读 `accept_status`(WEB 域),使两域共用同一解析器。
+    真形态**根本没有** reward_*/valid_to 这族字段 ⇒ 一律 None,不拿 0 冒充"没量到"(§0.3);
+    旧实现"缺字段按 0"会把"上游没给奖励字段"说成"奖励为 0",是假账。
     """
     if not isinstance(raw, dict):
         return None, False
@@ -489,11 +493,18 @@ def parse_task_row(raw: Any) -> tuple[dict[str, Any] | None, bool]:
     title = _as_str(raw.get("title")) or _as_str(raw.get("task_desc")) or _as_str(
         raw.get("description")
     )
-    status = _as_str(raw.get("status"))
+    # WEB 域无顶层 status,状态落在 accept_status ⇒ 缺失时回退;两域统一归一化到 status 键。
+    status = _as_str(raw.get("status")) or _as_str(raw.get("accept_status"))
     if code is None or title is None or status is None:
         return None, False
-    progress = _as_int(raw.get("progress"))
-    target = _as_int(raw.get("limit_num")) or _as_int(raw.get("target"))
+    # progress 兼容两种真形态:CLI 域整数 / WEB 域嵌套 {current,target}。
+    progress_raw = raw.get("progress")
+    if isinstance(progress_raw, dict):
+        progress = _as_int(progress_raw.get("current"))
+        target = _as_int(progress_raw.get("target")) or _as_int(raw.get("target"))
+    else:
+        progress = _as_int(progress_raw)
+        target = _as_int(raw.get("limit_num")) or _as_int(raw.get("target"))
     return (
         {
             "task_code": code,
@@ -966,7 +977,12 @@ async def _run_growth_inner(
     try:
         wl = await list_growth_tasks(jwt, device_map, client=client, timeout=timeout, web=True)
         if wl["ok"]:
-            claimable = _status_set(settings.workbuddy_tasks_claimable_statuses)
+            # 已完成判定面:CLI 域用配置 claimable 集(默认 completed);WEB 域状态落在
+            # accept_status,终态为 claimed(已完成)/accepted(已接受、动作做完待领奖)等,
+            # 与 CLI 的 completed 不同字,故并域一并认作"已闭环"以免把已领任务误报待实操。
+            done_vals = _status_set(settings.workbuddy_tasks_claimable_statuses) | frozenset(
+                {"claimed", "done", "finished", "completed"}
+            )
             for t in wl["tasks"]:
                 tcode = str(t.get("task_code") or "")
                 if not tcode:
@@ -974,7 +990,8 @@ async def _run_growth_inner(
                 plan = classify_growth_task_automation(tcode)
                 if plan is None or plan.can_automate:
                     continue
-                if str(t.get("status") or "") in claimable:
+                raw_status = str(t.get("status") or t.get("accept_status") or "")
+                if raw_status in done_vals:
                     continue  # 已完成/已领,不列为待实操
                 if tcode not in web_behavior_codes:
                     web_behavior_codes.append(tcode)
