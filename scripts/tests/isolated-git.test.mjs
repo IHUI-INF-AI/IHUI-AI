@@ -205,15 +205,11 @@ test('② 两个并发进程各用独立索引:钩子各看各的,最终两枚�
     for (let i = 0; i < 100 && !existsSync(join(sync, 'a.ready')); i += 1) {
       await new Promise((r) => setTimeout(r, 50))
     }
+    // A 先起 ⇒ 它先拿到仓级写锁、先进入钩子;B 此刻被写锁挡在钩子之外(提交已串行化,
+    // 这是治「旧索引把别席改动退回去」的本意),所以**不能再要求两个钩子同时在场**。
+    // 仍在并发:两个进程同时起步,只是第二个在锁上排队。
+    assert.ok(existsSync(join(sync, 'a.ready')), 'A 必须已进入钩子(证明并发起跑生效)')
     const b = runOne('b', 'a')
-    for (let i = 0; i < 100 && !existsSync(join(sync, 'b.ready')); i += 1) {
-      await new Promise((r) => setTimeout(r, 50))
-    }
-    // 两个钩子都已进入并在等发令 ⇒ 此刻各自跑 git diff,HEAD 仍稳定在基线上。
-    assert.ok(
-      existsSync(join(sync, 'a.ready')) && existsSync(join(sync, 'b.ready')),
-      '两进程必须同时进入钩子',
-    )
     writeFileSync(join(sync, 'go'), '')
     const [ra, rb] = await Promise.all([a, b])
 
