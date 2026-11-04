@@ -85,7 +85,7 @@ export interface BackChevronProps {
    * 「返回」的本地化文案。**只用于 accessibilityLabel,不参与渲染** ——
    * 可见侧是裸箭头,无障碍名称必须脱离上下文也成立(RN 的屏幕阅读器只会念这一个字符串)。
    */
-  label: string
+  label?: string
   /**
    * 必填而非 `= 'light'` 默认值:守门 91 的判据把"形参带 light 默认值"认作静默脱主题开关,
    * 而默认值一旦存在,漏传就静默锁死浅色档案且 typecheck 不红。必填让 `tsc` 直接接管这件事,
@@ -112,7 +112,7 @@ export function BackChevron({ onPress, label, colorScheme, style, testID }: Back
     <BackChevronCore
       platform={RN_PLATFORM}
       onPress={onPress}
-      label={label}
+      label={label ?? ''}
       glyphColor={tk.text.medium}
       style={style}
       testID={testID}

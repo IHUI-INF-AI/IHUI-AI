@@ -109,6 +109,25 @@ export interface UserInfoCardProps {
    * 未传入时点击成长值条无响应;传入则由调用方决定打开等级介绍弹窗等行为。
    */
   onLevelIntro?: () => void
+  /** 开通会员回调(仅非 isVip 显示;与小程序端 onOpenVip 同槽) */
+  onOpenVip?: () => void
+  // ===== 扁平字段(miniapp-taro 的承载形态;与 userInfo 容器同源,显式值优先)=====
+  /** 头像 URL(覆盖 userInfo.avatarUrl) */
+  avatar?: string
+  /** 昵称(覆盖 userInfo.username) */
+  nickname?: string
+  /** 是否会员(覆盖 userInfo.isVip) */
+  isVip?: boolean
+  /** VIP 等级标题(覆盖 userInfo.vipLevel) */
+  vipTitle?: string
+  /** 智汇值(覆盖 userInfo.tokenQuantity) */
+  tokenValue?: number
+  /** 成长值(覆盖 userInfo.growthValue) */
+  growthValue?: number
+  /** 成长值上限(覆盖 userInfo.growthMax) */
+  growthMax?: number
+  /** 身份类型:0=普通用户 / 1=会员 / 2=操盘手(覆盖 userInfo.identityType) */
+  identityType?: number
 }
 
 export default function UserInfoCard(props: UserInfoCardProps) {
@@ -118,7 +137,7 @@ export default function UserInfoCard(props: UserInfoCardProps) {
 // ===== 用户信息卡(对齐历史项目 UserInfoCard.vue)=====
 
 function UserInfoCardNew({
-  userInfo,
+  userInfo: userInfoProp,
   showRechargeBtn = true,
   onEdit,
   onRecharge,
@@ -126,9 +145,31 @@ function UserInfoCardNew({
   onUnsubscribe,
   onCopyInviteCode,
   onLevelIntro,
+  onOpenVip,
+  avatar: avatarProp,
+  nickname: nicknameProp,
+  isVip: isVipProp,
+  vipTitle,
+  tokenValue,
+  growthValue: growthValueProp,
+  growthMax: growthMaxProp,
+  identityType,
 }: UserInfoCardProps) {
   const { t } = useI18n()
   const [levelModalVisible, setLevelModalVisible] = useState(false)
+  // 扁平字段与 userInfo 容器同一数据源:显式扁平值优先覆盖容器同字段
+  // (与 LoginPopUp 的 resolvedAvatarUrl/resolvedRole 先例同构),容器键与扁平键语义对齐。
+  const userInfo: UserInfo = {
+    ...userInfoProp,
+    ...(avatarProp !== undefined ? { avatarUrl: avatarProp } : {}),
+    ...(nicknameProp !== undefined ? { username: nicknameProp } : {}),
+    ...(isVipProp !== undefined ? { isVip: isVipProp ? 1 : 0 } : {}),
+    ...(vipTitle !== undefined ? { vipLevel: vipTitle } : {}),
+    ...(tokenValue !== undefined ? { tokenQuantity: tokenValue } : {}),
+    ...(growthValueProp !== undefined ? { growthValue: growthValueProp } : {}),
+    ...(growthMaxProp !== undefined ? { growthMax: growthMaxProp } : {}),
+    ...(identityType !== undefined ? { identityType } : {}),
+  }
 
   // 未登录态:显示一键登录按钮
   if (!userInfo.uuid) {
@@ -247,6 +288,18 @@ function UserInfoCardNew({
             <Text style={newStyles.copyBtnText}>复制</Text>
           </TouchableOpacity>
         </View>
+      ) : null}
+
+      {/* 开通会员入口(仅非 VIP 且传了回调;对齐小程序端 openIntroduce) */}
+      {!isVip && onOpenVip ? (
+        <TouchableOpacity
+          style={[newStyles.rechargeBtn, newStyles.openVipBtn]}
+          activeOpacity={0.7}
+          onPress={onOpenVip}
+          accessibilityRole="button"
+        >
+          <Text style={newStyles.rechargeBtnText}>{t('vipTrader.openTitle')}</Text>
+        </TouchableOpacity>
       ) : null}
 
       {/* 智汇值 + 充值按钮(背景色对比分隔,非分割线) */}
@@ -490,6 +543,10 @@ const newStyles = StyleSheet.create({
     fontSize: USER_INFO_CARD_SMALL_FONT_PX,
     color: tokens.brandAccent.foreground,
     fontWeight: '500',
+  },
+  openVipBtn: {
+    alignSelf: 'flex-end',
+    marginTop: USER_INFO_CARD_ROW_MARGIN_TOP_PX,
   },
   unsubscribeBtn: {
     alignSelf: 'flex-end',

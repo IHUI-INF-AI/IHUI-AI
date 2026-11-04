@@ -15,7 +15,7 @@
  * - Agent 模式选项(showAgentMode + agentModeSelected + onAgentModeClick,可选)
  * - 逐项 slideUp 入场动画(animateEntrance,默认开启,反向 stagger)
  * - 单选 / 多选:selectionMode = 'single' | 'multiple'
- * - 加载更多:onEndReached
+ * - 加载态占位
  * - 浅色优雅风,无霓虹 / 无渐变 / 无 ttf;颜色走 theme/active-tokens 的主题 token
  * - 类型零 any,精确标注
  *
@@ -43,6 +43,7 @@ import {
 } from 'react-native'
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { Loading } from '@ihui/ui-native'
 import {
   MODEL_LIST_AGENT_GLYPH_PX,
   MODEL_LIST_BADGE_FONT_PX,
@@ -112,11 +113,16 @@ export interface ModelListGroup {
 export type ModelListSelectionMode = 'single' | 'multiple'
 
 export interface ModelListProps {
-  groups: ModelListGroup[]
+  groups?: ModelListGroup[]
   selectionMode?: ModelListSelectionMode
   selectedIds?: string[]
+  /** 单选便利入参(与小程序端同名同义):未给 selectedIds 时作为唯一选中项 */
+  selectedId?: string
   onSelectChange?: (ids: string[]) => void
-  onEndReached?: () => void
+  /** 单项选中回调(与小程序端同名同义):回传被点的模型条目 */
+  onSelect?: (item: ModelListItem) => void
+  /** 加载态(与小程序端同名同义):true 时只渲染加载占位,不铺列表 */
+  loading?: boolean
   /** Agent 模式选项(对齐 Uniapp showAgentMode,可选) */
   showAgentMode?: boolean
   /** Agent 模式选中态(对齐 Uniapp pitch === -1) */
@@ -283,9 +289,11 @@ function AgentModeRow({
 export default function ModelList({
   groups,
   selectionMode = 'single',
-  selectedIds = [],
+  selectedIds,
+  selectedId,
+  onSelect,
   onSelectChange,
-  onEndReached,
+  loading = false,
   showAgentMode = false,
   agentModeSelected = false,
   onAgentModeClick,
@@ -293,27 +301,38 @@ export default function ModelList({
   style,
 }: ModelListProps): React.ReactElement {
   const { t } = useI18n()
-  const selectedSet = new Set(selectedIds)
+  /** 选择态:selectedIds(复数)优先,退化到单值 selectedId */
+  const effectiveSelectedIds = selectedIds ?? (selectedId === undefined ? [] : [selectedId])
+  const selectedSet = new Set(effectiveSelectedIds)
+
+  if (loading) {
+    return (
+      <View style={[styles.empty, style]}>
+        <Loading color={tokens.text.secondary} />
+      </View>
+    )
+  }
 
   /** 列表分组 section 数据(组内按 isTop 排序,RN SectionList 要求 data 字段为 ItemT[]) */
-  const sections: SectionListData<ModelListItem, { title: string }>[] = groups
+  const sections: SectionListData<ModelListItem, { title: string }>[] = (groups ?? [])
     .filter((g) => g.models.length > 0)
     .map((g) => {
       const models = [...g.models].sort((a, b) => (b.isTop ? 1 : 0) - (a.isTop ? 1 : 0))
       return { title: resolveTitle(g, t), data: models }
     })
 
-  const handlePress = (id: string): void => {
+  const handlePress = (item: ModelListItem): void => {
+    onSelect?.(item)
     if (!onSelectChange) return
     if (selectionMode === 'single') {
-      onSelectChange([id])
+      onSelectChange([item.id])
       return
     }
     const next = new Set(selectedSet)
-    if (next.has(id)) {
-      next.delete(id)
+    if (next.has(item.id)) {
+      next.delete(item.id)
     } else {
-      next.add(id)
+      next.add(item.id)
     }
     onSelectChange(Array.from(next))
   }
@@ -329,7 +348,7 @@ export default function ModelList({
       total={section.data.length}
       selected={selectedSet.has(item.id)}
       animate={animateEntrance}
-      onPress={() => handlePress(item.id)}
+      onPress={() => handlePress(item)}
     />
   )
 
@@ -362,8 +381,6 @@ export default function ModelList({
       // (rowSelected surface.card vs listBody surface.bg)承担 —— §4 允许的两条,不新增数值档。
       ListHeaderComponent={renderAgentHeader}
       stickySectionHeadersEnabled
-      onEndReached={onEndReached}
-      onEndReachedThreshold={0.4}
       ListEmptyComponent={EmptyState}
       contentContainerStyle={styles.listBody}
     />

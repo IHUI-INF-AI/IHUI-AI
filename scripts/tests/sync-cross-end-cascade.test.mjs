@@ -126,8 +126,8 @@ test('A9 css-tokens 写腿:--apply 档实派 argv 恰为 ["--write"],且排在�
   }
 })
 
-test('A10 --only=<stageId> 对全部 20 段严格只跑指定段;段类选择不扩成全量', () => {
-  assert.equal(C.STAGES.length, 20, '段数变了 ⇒ A10 的全覆盖断言必须同步改')
+test('A10 --only=<stageId> 对全部 21 段严格只跑指定段;段类选择不扩成全量', () => {
+  assert.equal(C.STAGES.length, 21, '段数变了 ⇒ A10 的全覆盖断言必须同步改')
   for (const s of C.STAGES) {
     const sel = C.selectStages(C.STAGES, C.parseArgs([`--only=${s.name}`]))
     assert.deepEqual(

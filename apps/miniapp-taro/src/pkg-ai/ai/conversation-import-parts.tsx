@@ -122,7 +122,7 @@ export function ImportPreviewList({
                 <LineIcon name="check-success" size={24} color="var(--color-foreground)" />
               ) : null}
             </View>
-            <View className="flex-1 min-w-0" onClick={() => onToggle(r.id)}>
+            <View className="flex-1 min-w-0" hoverClass="opacity-60" onClick={() => onToggle(r.id)}>
               <Text className="block text-body-sm leading-[normal] text-foreground truncate">
                 {r.title || tt('conversationImport.conversationUntitled', '未命名会话')}
               </Text>
