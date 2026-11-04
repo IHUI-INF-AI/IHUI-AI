@@ -130,6 +130,18 @@ export const ACTION_EXEMPTIONS = Object.freeze({
     reason: '轮级:仓根取不到判不出在位 ⇒ 本轮不派并点名,不冒充票级空转',
     site: 'auto-evolve.mjs 派发前闸',
   },
+  // 自我面闸的两枚(2026-11-05 立):它们**带 ticketKey**(要说清是哪张票没派成)但打
+  // `informational:true` ⇒ 阶梯按标记跳过。不跳过的后果很具体:多会话共树下盘上副本常年不等于
+  // HEAD,若这两行照计空转,每张票都会在几个班次内被推到 park —— 那是"环境常态"伪装成"票干不动",
+  // 与 runner-unavailable 那型同一个洞(不计连败却计空转)。
+  'runner-face-stale-disk': {
+    reason: '盘上这份缺 HEAD 已有判据(有席从旧基线改调度器)⇒ 停派一轮,属环境常态,不计该票空转',
+    site: 'auto-evolve.mjs 自我面闸',
+  },
+  'runner-face-undetermined': {
+    reason: '自我面三面之一取不到 ⇒ 未判定不派,不冒充票级空转(§0.3)',
+    site: 'auto-evolve.mjs 自我面闸',
+  },
   // 占班次/轮级这一族:不属于任何一枚票(行内无 ticketKey,或它只是"将要派"的标记)。
   // 登记在此是为了让覆盖锁能证明"不计数"是有理由的决定,而不是又一次静默漏计。
   dispatched: {
