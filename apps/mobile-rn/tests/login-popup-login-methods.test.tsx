@@ -6,7 +6,7 @@
 // 由「仅小程序声明」收口为两端真实现。分别断言三个回调都被真实交互触发并收到入参。
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import type { ReactNode } from 'react'
+import { createElement, type ReactNode } from 'react'
 
 const carrierLogin = vi.fn()
 vi.mock('../src/lib/carrier-one-click', () => ({
@@ -17,8 +17,22 @@ vi.mock('../src/lib/carrier-one-click', () => ({
 vi.mock('../src/i18n', () => ({
   useI18n: () => ({ t: (key: string) => key }),
 }))
+// TextField 是共享输入框(单源),这里只替成受控 DOM input —— 判据在登录回调,不在它身上
 vi.mock('@ihui/rn-app', () => ({
-  TextField: () => null,
+  TextField: ({
+    placeholder,
+    value,
+    onChangeText,
+  }: {
+    placeholder?: string
+    value?: string
+    onChangeText?: (t: string) => void
+  }) =>
+    createElement('input', {
+      placeholder,
+      value,
+      onChange: (e: { target: { value: string } }) => onChangeText?.(e.target.value),
+    }),
 }))
 vi.mock('@ihui/ui-native', () => ({
   Tappable: ({ children, onPress }: { children: ReactNode; onPress?: () => void }) => (
