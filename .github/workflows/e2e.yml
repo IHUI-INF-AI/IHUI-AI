@@ -55,9 +55,11 @@ permissions:
 #
 # 为什么不用第三方限流 action:GitHub 原生没有"全仓并发上限",第三方 action 会新增一条
 # 失败面(其 token/网络抖动会让 e2e 直接红);单队列是确定性的、零依赖。
+# 2026-11-04:workflow_dispatch 独立 group(按 run_id 唯一),避免被后续 push 的
+# 同 group run 取消 —— 手动取证才拿得到终态;push 侧取消行为保持原样(仅 main/develop 取消)。
 concurrency:
-  group: "e2e-${{ (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop') && github.ref || 'pr-queue' }}"
-  cancel-in-progress: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' }}
+  group: ${{ github.event_name == 'workflow_dispatch' && format('e2e-dispatch-{0}', github.run_id) || format('e2e-{0}', (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop') && github.ref || 'pr-queue') }}
+  cancel-in-progress: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop') }}
 
 env:
   NODE_VERSION: '22'
