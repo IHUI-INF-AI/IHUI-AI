@@ -5,8 +5,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execSync, spawnSync } from 'node:child_process'
-import { writeFileSync, mkdirSync } from 'node:fs'
-import { join } from 'node:path'
+import { writeFileSync, mkdirSync, chmodSync } from 'node:fs'
+import { join, delimiter } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
@@ -299,6 +299,36 @@ test('push-state: done 但 headSha 不在 HEAD 祖先线上 → 仍 exit 1(不�
   const { work, origin } = createSyncedRepoWithOrigin()
   try {
     makeLocalCommit(work, 'unpushed with unrelated done')
+    // 用**真实存在但不在 HEAD 祖先线上**的提交(另一条分支的提交),
+    // 让 merge-base --is-ancestor 明确 exit 1(= 明确不是祖先),而不是对象缺失的 128。
+    execSync('git checkout -q -b other-history', {
+      cwd: work,
+      /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    makeLocalCommit(work, 'commit on another history')
+    const otherSha = execSync('git rev-parse HEAD', {
+      cwd: work,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).trim()
+    execSync('git checkout -q main', {
+      cwd: work,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    writePushState(work, { status: 'done', headSha: otherSha, ts: Date.now(), pid: process.pid })
+    const r = runScript([], { cwd: work })
+    assert.equal(r.status, 1, `祖先不成立必须仍红,实际 ${r.status}`)
+    assert.match(stripAnsi(r.stdout), /不在本次 HEAD 的祖先线上/)
+  } finally {
+    rmScratch(work)
+    rmScratch(origin)
+  }
+})
+
+test('push-state: done 的 headSha 取不到对象(merge-base 调用失败)→ exit 2 未判定(不得当"不是祖先")', () => {
+  const { work, origin } = createSyncedRepoWithOrigin()
+  try {
+    makeLocalCommit(work, 'unpushed with a missing done headSha')
     writePushState(work, {
       status: 'done',
       headSha: '0000000000000000000000000000000000000000',
@@ -306,8 +336,11 @@ test('push-state: done 但 headSha 不在 HEAD 祖先线上 → 仍 exit 1(不�
       pid: process.pid,
     })
     const r = runScript([], { cwd: work })
-    assert.equal(r.status, 1, `祖先不成立必须仍红,实际 ${r.status}`)
-    assert.match(stripAnsi(r.stdout), /不在本次 HEAD 的祖先线上/)
+    const out = stripAnsi(r.stdout + r.stderr)
+    assert.equal(r.status, 2, `祖先关系读不出必须 exit 2 未判定,实际 ${r.status}\n${out}`)
+    assert.match(out, /未判定/, `必须显式说"未判定",实际:${out}`)
+    assert.match(out, /merge-base|祖先关系读不出/, `必须点名读不出的那一步,实际:${out}`)
+    assert.doesNotMatch(out, /不在本次 HEAD 的祖先线上/, '不得把"读不出"写成"明确不是祖先"')
   } finally {
     rmScratch(work)
     rmScratch(origin)
@@ -489,7 +522,7 @@ test('push-state: remote-ref-race 但远端已推进(真分叉)→ 仍 exit 1(�
   }
 })
 
-test('push-state: failed 新鲜 → exit 0 并把话说响(2026-09-26 改判:实测拦我的那记 failed 来自死 worker 终态自愈,与本次提交无因果)', () => {
+test('push-state: failed 新鲜 → exit 1,warn 只说一次(2026-11-04 本票①:窗口只降文案,不降退出码)', () => {
   const { work, origin } = createSyncedRepoWithOrigin()
   try {
     makeLocalCommit(work, 'unpushed while push failed')
@@ -501,17 +534,34 @@ test('push-state: failed 新鲜 → exit 0 并把话说响(2026-09-26 改判:实
       kind: 'dead-worker-self-heal',
     })
     const r = runScript([], { cwd: work })
+    const out = stripAnsi(r.stdout + r.stderr)
     assert.equal(
       r.status,
-      0,
-      `新鲜 failed 应放行(拦提交修不好推送,只会逼人跳门),实际 ${r.status}:${stripAnsi(r.stdout)}`,
+      1,
+      `新鲜 failed 也必须按真实读数(ahead>0)阻塞;窗口只能降级文案,实际 ${r.status}\n${out}`,
     )
-    assert.match(stripAnsi(r.stdout), /拦提交修不好推送/)
-    assert.match(
-      stripAnsi(r.stdout),
-      /dead-worker-self-heal/,
-      '来源要一起打出来,否则下一次又要从头猜',
-    )
+    assert.match(out, /warn/, '避免重复告警只允许降级为 warn 文案,不得降退出码')
+    assert.match(out, /dead-worker-self-heal/, '来源要一起打出来,否则下一次又要从头猜')
+    assert.match(out, /新鲜窗口不再吞成通过/, '要把改判理由说出口')
+    assert.match(stripAnsi(r.stderr), /未 push 的 commit/)
+  } finally {
+    rmScratch(work)
+    rmScratch(origin)
+  }
+})
+
+test('push-state: failed 新鲜但真 0/0(HEAD 与远端相同)→ exit 0(窗口不得把真同步判红)', () => {
+  const { work, origin } = createSyncedRepoWithOrigin()
+  try {
+    writePushState(work, {
+      status: 'failed',
+      headSha: 'deadbeef',
+      ts: Date.now(),
+      pid: process.pid,
+    })
+    const r = runScript([], { cwd: work })
+    assert.equal(r.status, 0, `真 0/0 必须 exit 0,实际 ${r.status}:${stripAnsi(r.stdout + r.stderr)}`)
+    assert.match(stripAnsi(r.stdout), /已同步/, '真 0/0 应给"已同步",不是"未 push"')
   } finally {
     rmScratch(work)
     rmScratch(origin)
@@ -556,7 +606,7 @@ test('push-state: running 但持有者 pid 已死 → exit 1(2026-09-19 记录�
   }
 })
 
-test('push-state: diverged 新鲜 → exit 0 并点名收敛器(guard 自己不能收敛,一律拦=每次提交都跳门)', () => {
+test('push-state: diverged 新鲜 → exit 1 + warn(2026-11-04 本票①:non-fast-forward 就是真分叉,不得判绿)', () => {
   const { work, origin } = createSyncedRepoWithOrigin()
   try {
     makeLocalCommit(work, 'unpushed while diverged')
@@ -568,12 +618,15 @@ test('push-state: diverged 新鲜 → exit 0 并点名收敛器(guard 自己不�
       nextCommand: 'node scripts/git-sync-converge.mjs',
     })
     const r = runScript([], { cwd: work })
+    const out = stripAnsi(r.stdout + r.stderr)
     assert.equal(
       r.status,
-      0,
-      `新鲜 diverged 应放行,实际 ${r.status}:${stripAnsi(r.stdout)}${stripAnsi(r.stderr)}`,
+      1,
+      `新鲜 diverged 必须按真实读数(ahead>0)阻塞;窗口只能降级文案,实际 ${r.status}\n${out}`,
     )
-    assert.match(stripAnsi(r.stdout), /git-sync-converge/, '放行也必须把唯一出路说出口,不能静默')
+    assert.match(out, /warn/, '避免重复告警只允许降级为 warn 文案')
+    assert.match(out, /git-sync-converge/, '必须把唯一出路说出口,不能静默')
+    assert.match(out, /真分叉/, '必须点名这是真分叉,不是"忘了推"')
   } finally {
     rmScratch(work)
     rmScratch(origin)
@@ -731,7 +784,7 @@ test('本地无 tracking ref 但 origin 可达 → 按 ls-remote 真值判定(�
   }
 })
 
-test('两条通道都取不到(origin 不可达 + 无本地 ref)→ exit 0 并如实说"无法确定"', () => {
+test('两条通道都取不到(origin 不可达 + 无本地 ref)→ exit 2 未判定(不折算成跳过)', () => {
   const { work, origin } = createSyncedRepoWithOrigin()
   try {
     execSync('git remote remove origin', {
@@ -753,9 +806,10 @@ test('两条通道都取不到(origin 不可达 + 无本地 ref)→ exit 0 并�
       ],
     })
     const r = runScript([], { cwd: work })
-    assert.equal(r.status, 0, `取不到远端 HEAD 应跳过而非阻塞,实际 ${r.status}\n${r.stdout}`)
-    assert.match(r.stdout, /无法判定|无法确定|未 fetch|跳过/, `应说明未判定原因,实际:${r.stdout}`)
-    assert.doesNotMatch(r.stdout, /已同步/, '绝不允许在什么都没比对到时打印"已同步"(那是假保证)')
+    const out = stripAnsi(r.stdout + r.stderr)
+    assert.equal(r.status, 2, `取不到远端位置应 exit 2 未判定(不记绿也不冒红),实际 ${r.status}\n${out}`)
+    assert.match(out, /未判定|无法判定/, `应说明未判定原因,实际:${out}`)
+    assert.doesNotMatch(out, /已同步/, '绝不允许在什么都没比对到时打印"已同步"(那是假保证)')
   } finally {
     rmScratch(work)
     rmScratch(origin)
@@ -777,9 +831,9 @@ test('残值==本地而 ls-remote 不可达 ⇒ 报未判定,绝不打印"已同
       stdio: ['ignore', 'pipe', 'pipe'],
     })
     const r = runScript([], { cwd: work })
-    const out = stripAnsi(r.stdout)
-    assert.equal(r.status, 0, `无法判定应放行而非阻塞,实际 ${r.status}\n${out}`)
-    assert.match(out, /无法判定/, `必须如实报未判定,实际:${out}`)
+    const out = stripAnsi(r.stdout + r.stderr)
+    assert.equal(r.status, 2, `无法判定应 exit 2 未判定(不记绿也不冒红),实际 ${r.status}\n${out}`)
+    assert.match(out, /未判定/, `必须如实报未判定,实际:${out}`)
     assert.match(out, /残值/, '必须把"只剩跟踪 ref 残值"这一档点名出来(射程要跟读数一起说)')
     assert.doesNotMatch(out, /已同步/, '残值等于本地时不得给出"已同步"结论')
   } finally {
@@ -809,13 +863,13 @@ test('残值落后而 ls-remote 不可达 ⇒ 不得据残值判"未 push"阻塞
       stdio: ['ignore', 'pipe', 'pipe'],
     })
     const r = runScript([], { cwd: work })
-    const out = stripAnsi(r.stdout)
+    const out = stripAnsi(r.stdout + r.stderr)
     assert.equal(
       r.status,
-      0,
-      `拿不到当次真值时不得用残值算出 ahead 再拦提交,实际 ${r.status}\n${out}`,
+      2,
+      `拿不到当次真值时不得用残值算出 ahead,也不得记绿(未判定 exit 2),实际 ${r.status}\n${out}`,
     )
-    assert.match(out, /无法判定/, out)
+    assert.match(out, /未判定/, out)
     assert.doesNotMatch(
       out,
       /未 push 的 commit|阻塞本次/,
@@ -835,18 +889,311 @@ test('阳性对照:同一仓把 origin 指回真 bare ⇒ 未判定档必须消�
       cwd: work,
       stdio: ['ignore', 'pipe', 'pipe'],
     })
-    const before = stripAnsi(runScript([], { cwd: work }).stdout)
-    assert.match(before, /无法判定/, `断链时本应未判定,实际:${before}`)
+    const beforeRun = runScript([], { cwd: work })
+    const before = stripAnsi(beforeRun.stdout + beforeRun.stderr)
+    assert.equal(beforeRun.status, 2, `断链时应 exit 2 未判定,实际 ${beforeRun.status}:${before}`)
+    assert.match(before, /未判定/, `断链时本应未判定,实际:${before}`)
     execSync(`git remote set-url origin "${origin.replace(/\\/g, '/')}"`, {
       cwd: work,
       stdio: ['ignore', 'pipe', 'pipe'],
     })
     const after = stripAnsi(runScript([], { cwd: work }).stdout)
-    assert.doesNotMatch(after, /无法判定/, '服务器可达时"未判定"这一档必须消失(否则它是恒不判)')
+    assert.doesNotMatch(after, /未判定/, '服务器可达时"未判定"这一档必须消失(否则它是恒不判)')
     assert.match(after, /已同步/, `可达时应给出真判定,实际:${after}`)
   } finally {
     rmScratch(work)
     rmScratch(origin)
+  }
+})
+
+// ─── 11c. rev-list 读数三态(2026-11-04 修假绿)────────────────────────
+// 立因:远端推进而本地未 fetch 时 `git rev-list --count <远端sha>..HEAD` exit 128
+// (ambiguous argument / unknown revision)。旧写法 allowFail ⇒ null ⇒ ahead=0 ⇒
+// 打印"无 ahead commit(可能 behind,跳过)" exit 0 —— 真分叉/真落后被报成通过。
+// 下面 5 条成对钉住:真 0/0 与真领先的既有结论不变;三种"读不到"一律 exit 2 并点名。
+
+/** 让远端前进一枚本地没有的提交(不在 work 里 fetch,制造"远端对象本地缺失")。 */
+function advanceOriginWithoutFetch(work, origin) {
+  const other = createTempRepo()
+  const second = join(other, 'second')
+  execSync(`git clone -q "${origin.replace(/\\/g, '/')}" "${second}"`, {
+    cwd: other,
+    /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  makeLocalCommit(second, 'someone else pushed this')
+  execSync('git push -q origin HEAD:refs/heads/main', {
+    cwd: second,
+    /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  return other
+}
+
+/** 造一个 PATH 前置的 git 垫片:只把指定子命令变成非零退出,其余原样转发真 git。 */
+function installGitSubcommandFailureShim(subcommand, exitCode = 128) {
+  const dir = mkScratch(`ihui-gitshim-${subcommand}-`)
+  const realGit =
+    process.platform === 'win32'
+      ? execSync('where git', { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
+          .split(/\r?\n/)
+          .map((s) => s.trim())
+          .filter(Boolean)[0]
+      : execSync('command -v git', {
+          encoding: 'utf8',
+          shell: '/bin/sh',
+          stdio: ['ignore', 'pipe', 'pipe'],
+        }).trim()
+  if (process.platform === 'win32') {
+    writeFileSync(
+      join(dir, 'git.cmd'),
+      [
+        '@echo off',
+        `if "%~1"=="${subcommand}" (`,
+        `  echo fatal: simulated ${subcommand} failure 1>&2`,
+        `  exit /b ${exitCode}`,
+        ')',
+        `"${realGit}" %*`,
+        '',
+      ].join('\r\n'),
+    )
+  } else {
+    const p = join(dir, 'git')
+    writeFileSync(
+      p,
+      [
+        '#!/bin/sh',
+        `if [ "$1" = "${subcommand}" ]; then`,
+        `  echo "fatal: simulated ${subcommand} failure" >&2`,
+        `  exit ${exitCode}`,
+        'fi',
+        `exec "${realGit}" "$@"`,
+        '',
+      ].join('\n'),
+    )
+    chmodSync(p, 0o755)
+  }
+  return dir
+}
+
+test('三态①: 真 0/0(HEAD 相同)⇒ exit 0(真同步仍是绿)', () => {
+  const { work, origin } = createSyncedRepoWithOrigin()
+  try {
+    const r = runScript([], { cwd: work })
+    assert.equal(r.status, 0, `真同步应 exit 0,实际 ${r.status}:${stripAnsi(r.stdout + r.stderr)}`)
+    assert.match(stripAnsi(r.stdout), /已同步/, '真同步要给出"已同步"结论,不是"未判定"')
+  } finally {
+    rmScratch(work)
+    rmScratch(origin)
+  }
+})
+
+test('三态②: 真领先 1 枚 ⇒ 仍 exit 1(改判据不放宽既有结论)', () => {
+  const { work, origin } = createSyncedRepoWithOrigin()
+  try {
+    makeLocalCommit(work, 'unpushed commit 1')
+    const r = runScript([], { cwd: work })
+    assert.equal(r.status, 1, `真领先应 exit 1,实际 ${r.status}:${stripAnsi(r.stdout + r.stderr)}`)
+    assert.match(stripAnsi(r.stderr), /1 个未 push/)
+  } finally {
+    rmScratch(work)
+    rmScratch(origin)
+  }
+})
+
+test('三态③: rev-list 非零失败 ⇒ exit 2 并点名(绝不折算成 ahead=0 / 跳过)', () => {
+  const { work, origin } = createSyncedRepoWithOrigin()
+  const shim = installGitSubcommandFailureShim('rev-list')
+  try {
+    // 制造 HEAD ≠ 远端(diff 需要真的走到 rev-list),但远端对象在本地存在
+    makeLocalCommit(work, 'unpushed commit 1')
+    const r = runScript([], {
+      cwd: work,
+      env: { PATH: `${shim}${delimiter}${process.env.PATH ?? ''}` },
+    })
+    const out = stripAnsi(r.stdout + r.stderr)
+    assert.equal(r.status, 2, `rev-list 失败必须 exit 2 未判定,实际 ${r.status}\n${out}`)
+    assert.match(out, /未判定/, `必须显式说"未判定",实际:${out}`)
+    assert.match(out, /rev-list/, `必须点名是哪一步读不到数,实际:${out}`)
+    assert.doesNotMatch(out, /无 ahead commit|已同步/, `不得把读不到数写成 0/同步:\n${out}`)
+  } finally {
+    rmScratch(work)
+    rmScratch(origin)
+    rmScratch(shim)
+  }
+})
+
+test('三态④: origin ref 缺失(远端分支已删且本地无跟踪 ref)⇒ exit 2', () => {
+  const { work, origin } = createSyncedRepoWithOrigin()
+  try {
+    execSync('git update-ref -d refs/heads/main', {
+      cwd: origin,
+      /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    execSync('git update-ref -d refs/remotes/origin/main', {
+      cwd: work,
+      /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    const r = runScript([], { cwd: work })
+    const out = stripAnsi(r.stdout + r.stderr)
+    assert.equal(r.status, 2, `origin ref 缺失必须 exit 2 未判定,实际 ${r.status}\n${out}`)
+    assert.match(out, /未判定/, `必须显式说"未判定",实际:${out}`)
+    assert.doesNotMatch(out, /已同步/, `不得在取不到 origin ref 时报"已同步":\n${out}`)
+  } finally {
+    rmScratch(work)
+    rmScratch(origin)
+  }
+})
+
+test('三态⑤: 远端对象在本地缺失(远端已推进但未 fetch)⇒ exit 2,不得绿', () => {
+  const { work, origin } = createSyncedRepoWithOrigin()
+  let other = null
+  try {
+    other = advanceOriginWithoutFetch(work, origin)
+    // 前提自证:远端 tip 的对象**确实**不在本地(否则本用例什么都没有测)
+    const remoteTip = execSync('git ls-remote origin refs/heads/main', {
+      cwd: work,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+      .trim()
+      .split('\t')[0]
+    let missing = false
+    try {
+      execSync(`git cat-file -e ${remoteTip}`, { cwd: work, stdio: ['ignore', 'pipe', 'pipe'] })
+    } catch (e) {
+      missing = e.status === 1
+    }
+    assert.ok(missing, '夹具不成立:远端对象竟已在本地存在,本用例证不到"取不到对象"')
+    const r = runScript([], { cwd: work })
+    const out = stripAnsi(r.stdout + r.stderr)
+    assert.equal(r.status, 2, `远端对象缺失必须 exit 2,实际 ${r.status}\n${out}`)
+    assert.match(out, /未判定/, `必须显式说"未判定",实际:${out}`)
+    assert.match(out, /本地不存在|未 fetch/, `必须点名"远端对象本地不存在",实际:${out}`)
+    assert.doesNotMatch(out, /无 ahead commit|已同步/, `不得把取不到对象写成 0/同步:\n${out}`)
+  } finally {
+    rmScratch(work)
+    rmScratch(origin)
+    if (other) rmScratch(other)
+  }
+})
+
+// ─── 11d. 四个"折算成 0 / 折绿"分支的收口(2026-11-04 本票后半)──────────
+// ① push-state failed/diverged 的新鲜窗口:窗口只降文案,退出码按真实读数
+// ② isAncestorOfHead 调用失败:不得当"不是祖先"
+// ③ HEAD 读不到:真空仓库=不适用(exit 0),HEAD/ref 损坏=未判定(exit 2)
+// ④ 未 push commit 清单读取失败:未判定(exit 2),不得静默
+
+test('①窗口内真分叉(远端已推进且对象已 fetch)⇒ exit 1,不得判绿', () => {
+  const { work, origin } = createSyncedRepoWithOrigin()
+  let other = null
+  try {
+    other = advanceOriginWithoutFetch(work, origin)
+    // fetch 补齐对象,让"真分叉"可读:远端 B 与本地新提交 C 各自独有
+    execSync('git fetch -q origin', {
+      cwd: work,
+      /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    makeLocalCommit(work, 'local side of a real divergence')
+    writePushState(work, {
+      status: 'diverged',
+      headSha: 'deadbeef',
+      ts: Date.now(),
+      pid: process.pid,
+      nextCommand: 'node scripts/git-sync-converge.mjs',
+    })
+    const r = runScript([], { cwd: work })
+    const out = stripAnsi(r.stdout + r.stderr)
+    assert.equal(r.status, 1, `真分叉必须 exit 1,实际 ${r.status}\n${out}`)
+    assert.match(out, /真分叉/, `必须点名真分叉,实际:${out}`)
+    assert.match(stripAnsi(r.stderr), /未 push 的 commit/)
+  } finally {
+    rmScratch(work)
+    rmScratch(origin)
+    if (other) rmScratch(other)
+  }
+})
+
+test('② merge-base --is-ancestor 调用失败 ⇒ exit 2 未判定(不得当"不是祖先")', () => {
+  const { work, origin } = createSyncedRepoWithOrigin()
+  const shim = installGitSubcommandFailureShim('merge-base')
+  try {
+    makeLocalCommit(work, 'ahead while policy block')
+    writePushState(work, {
+      status: 'failed',
+      kind: 'protected-branch',
+      headSha: 'deadbeef',
+      ts: Date.now() - 3600_000,
+      pid: process.pid,
+    })
+    const r = runScript([], {
+      cwd: work,
+      env: { PATH: `${shim}${delimiter}${process.env.PATH ?? ''}` },
+    })
+    const out = stripAnsi(r.stdout + r.stderr)
+    assert.equal(r.status, 2, `祖先关系读不出必须 exit 2,实际 ${r.status}\n${out}`)
+    assert.match(out, /未判定/, `必须显式说"未判定",实际:${out}`)
+    assert.match(out, /merge-base|祖先关系读不出/, `必须点名读不出的那一步,实际:${out}`)
+  } finally {
+    rmScratch(work)
+    rmScratch(origin)
+    rmScratch(shim)
+  }
+})
+
+test('③ 真空仓库(尚无提交)⇒ exit 0 不适用(不得误判为绿同步)', () => {
+  const dir = mkScratch('ihui-empty-repo-')
+  try {
+    execSync('git init -q -b main', {
+      cwd: dir,
+      /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    execSync('git remote add origin "D:/no-such-remote-for-empty-repo"', {
+      cwd: dir,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    const r = runScript([], { cwd: dir })
+    const out = stripAnsi(r.stdout + r.stderr)
+    assert.equal(r.status, 0, `空仓库应 exit 0 不适用,实际 ${r.status}\n${out}`)
+    assert.match(out, /空仓库/, `必须点名"空仓库"这一型,实际:${out}`)
+    assert.doesNotMatch(out, /未判定|已同步/, `空仓库不是未判定,也不是已同步:\n${out}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('③ HEAD / 分支 ref 指向缺失对象 ⇒ exit 2 未判定(不得当"空仓库"跳过)', () => {
+  const { work, origin } = createSyncedRepoWithOrigin()
+  try {
+    // 把 refs/heads/main 写成一个本地不存在的对象 sha
+    writeFileSync(join(work, '.git', 'refs', 'heads', 'main'), '0'.repeat(40) + '\n')
+    const r = runScript([], { cwd: work })
+    const out = stripAnsi(r.stdout + r.stderr)
+    assert.equal(r.status, 2, `HEAD/ref 损坏必须 exit 2,实际 ${r.status}\n${out}`)
+    assert.match(out, /未判定/, `必须显式说"未判定",实际:${out}`)
+    assert.match(out, /HEAD|ref 损坏|指向缺失对象/, `必须点名损坏型,实际:${out}`)
+    assert.doesNotMatch(out, /空仓库/, '损坏不得被当成"空仓库"跳过')
+  } finally {
+    rmScratch(work)
+    rmScratch(origin)
+  }
+})
+
+test('④ 未 push commit 清单读取失败 ⇒ exit 2 未判定(不得静默只报 ahead)', () => {
+  const { work, origin } = createSyncedRepoWithOrigin()
+  const shim = installGitSubcommandFailureShim('log')
+  try {
+    makeLocalCommit(work, 'ahead with unreadable commit list')
+    const r = runScript([], {
+      cwd: work,
+      env: { PATH: `${shim}${delimiter}${process.env.PATH ?? ''}` },
+    })
+    const out = stripAnsi(r.stdout + r.stderr)
+    assert.equal(r.status, 2, `清单读不出必须 exit 2,实际 ${r.status}\n${out}`)
+    assert.match(out, /未判定/, `必须显式说"未判定",实际:${out}`)
+    assert.match(out, /清单|git log/, `必须点名清单这一步,实际:${out}`)
+  } finally {
+    rmScratch(work)
+    rmScratch(origin)
+    rmScratch(shim)
   }
 })
 

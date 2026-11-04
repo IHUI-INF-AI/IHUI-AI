@@ -23317,6 +23317,8 @@
     "accountDeletionResend": "{seconds}s 後重新發送",
     "accountDeletionSendCode": "發送驗證碼",
     "accountDeletionSubmit": "確認注銷",
+    "accountDeletionConfirmLabel": "確認注銷",
+    "accountDeletionConfirmTitle": "確認注銷",
     "accountDeletionSuccess": "賬號已注銷，正在跳轉登錄頁",
     "accountDeletionTitle": "賬號注銷",
     "accountDeletionWarning": "此操作不可逆，所有數據將永久丟失。",
