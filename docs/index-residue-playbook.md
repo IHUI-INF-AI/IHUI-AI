@@ -513,6 +513,15 @@ git status --porcelain=v1 -- $p
 
 核验口径:提交内容 = 声明集;`AD` 路径未复活;`MM` 路径的提交树 blob = 定版 blob;`D ` + `??` 路径要么未动、要么按三条判据清掉且工作树无损;并复跑 §2B 只读扫描,确认 `R` / `T` / `U` 为零;本席声明路径若显示 ` M` 按判据 17 只 `git restore -- <本席路径>`,他席条目只报数(红线 C)。
 
+### 落地留痕(最小台账)
+
+| 提交 | 通道 | gatesRun | 后置核验(2026-11-04,内容面) |
+|---|---|---|---|
+| `5599fd8` | `live-doc-edit` 锚点插入 | `false` | 水印 verify=0(该提交内容单独复核也=0);`--self-test`=0(37/37);duplicates=0;dead-script-refs=0;docs-public-health=0;live-doc-pathspec=0(本文不在其三份名单);orphan-deletion-refs=0;agents-doc-size=0(不覆盖本文);file-size=0(不覆盖 docs);**live-doc-references=1**(本文点名的 `scripts/tests/check-i18n-parity.test.mjs` 在共享索引呈 `D `+`??`,属他席索引残留而非文档内容);**live-doc-archive-reinflation=1**(命中在 AGENTS.md,与本文无关) |
+| `5af5c3d` | `live-doc-edit` 整行改写 | `false` | 同上 |
+
+**attest 口径**:这两笔只能记为 `bypass-landing(gatesRun=false)` + 上表后置核验,不得写成「已过钩子」;两条判红均非本文内容问题,也未被「改断言/加豁免」消掉。
+
 ## 附录:本文与 AGENTS.md 的边界
 
 - 本文只补「可照做的操作口径」,**不改**任何脚本、不改 `AGENTS.md`、不新增/不改门判据。
