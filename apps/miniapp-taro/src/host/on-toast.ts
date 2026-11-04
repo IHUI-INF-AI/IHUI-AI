@@ -13,7 +13,7 @@
  * 避免迁移后轻提示时长发生观感变化。
  */
 import type { OnToast } from '@ihui/types'
-import { showHostToast } from '../../../mobile-rn/src/host/host-toast'
+import { showHostToast } from '@ihui/shared/utils/host-toast'
 
 const DEFAULT_DURATION = 1500
 
