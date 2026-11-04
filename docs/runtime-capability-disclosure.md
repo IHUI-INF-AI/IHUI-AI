@@ -727,7 +727,12 @@ oem11.inf，gamevieweridddriver.inf_amd64_9586929572de2d1b"）——即"彻底�
   仓库配置里的 `gitee` / `gitcode` 远端也已移除，`git remote -v` 现只有 `origin`（GitHub）一个。
   ⇒ **进 git 的内容不会再按提交历史同步到第三方托管平台。** 2026-11-03 起 Gitee 仓
   `JLSLSSZWHYXGS_0/IHUI-AI` 只保留一份与 `origin/main` 树逐字相等的**快照提交**（供国内浏览），
-  不逐提交同步历史与 LFS；快照更新属机主侧手动/脚本操作。
+  不逐提交同步历史与 LFS；快照更新属机主侧手动/脚本操作，**按发版节奏刷新**，因此
+  任意时刻都可能落后 `origin/main` 若干提交（2026-11-04 实测：快照基点 `d692fdff79`
+  距当时的 `origin/main` 落后 189 个提交、255 个文件有差异）。
+  ⇒ 国内用户看到的 Gitee main 是**某个发版时点的只读快照**，不是最新开发代码。
+  需要最新代码请以 GitHub 的 `main` 为准；Gitee 的价值是「仓库在国内可访问 + 发布包下载」，
+  不做代码实时镜像（2026-10-23 的历史镜像作业因 Gitee 1024MB 配额已整体下线，不恢复）。
   桌面端安装包上传到第三方平台的出站已于 2026-11-03 **复活为国内主通道**：Gitee 发布目标
   默认启用（`sync-gitee` / `backfill-gitee-assets.yml`），把**构建产物**（安装包 + `.sig` +
   `latest.json`）上传到 Gitee Release；GitHub Release 作为境外/兜底。它只承载**构建产物**，
