@@ -41,13 +41,14 @@
  * 退出码:0 = 报告已产出(有未判定也是 0 —— 量算仪不阻断任何东西);1 = --self-test 有失败例;
  *         2 = 脚本自身异常(取数层抛出,不是业务结论)。
  */
-import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { git } from './lib/bypass-git.mjs'
 import { requireFlagValue } from './lib/flag-value.mjs'
 import { readLedgerRecords } from './lib/commit-attestation.mjs'
+import { listHookLogFamily } from './lib/hook-log-read.mjs'
 import {
   classifyAll,
   indexLedger,
@@ -62,7 +63,6 @@ const REPO_ROOT = resolve(HERE, '..')
 /** 作者本地日(%aI 带作者时区偏移,切前 10 位即作者本地日;与统计器同一形态)。 */
 const dayKey = (iso) => String(iso ?? '').slice(0, 10)
 
-const HOOK_LOG_REL = '.ihui-agent/state/hook-logs'
 const DEFAULT_SINCE = '2026-09-29'
 const DEFAULT_WINDOW_MIN = 30
 const LOG_LIMIT_DEFAULT = 20_000
@@ -89,20 +89,15 @@ export function parseVbsTimestamp(s) {
   return new Date(Number(t[1]), Number(t[2]) - 1, Number(t[3]), Number(t[4]), Number(t[5]), Number(t[6]))
 }
 
-/** 轮转副本排序:`.log` 最新在最后,`.N` 数字越大越旧(本仓现只有 .1,写成通用形态)。 */
+/**
+ * 轮转副本排序 + 未合并 run 文件:统一由 lib/hook-log-read 给出(旧 → 新)。
+ * canonical 在前、pending 在后 —— 与 scripts/hook-run-hidden.vbs 的合并语义同源。
+ */
 export function hookLogFiles(root) {
-  const dir = resolve(root, HOOK_LOG_REL)
-  if (!existsSync(dir)) return { ok: false, state: 'missing', why: `${dir} 不存在`, files: [] }
-  const all = readdirSync(dir).filter((f) => /^pre-commit\.log(\.\d+)?$/.test(f))
-  const sorted = all.sort((a, b) => {
-    const na = /^\.(\d+)$/.exec(a.slice('pre-commit.log'.length))
-    const nb = /^\.(\d+)$/.exec(b.slice('pre-commit.log'.length))
-    if (na && nb) return Number(nb[1]) - Number(na[1])
-    if (na) return -1
-    if (nb) return 1
-    return 0
-  })
-  return { ok: true, state: 'read', files: sorted.map((f) => resolve(dir, f)) }
+  const fam = listHookLogFamily(root, 'pre-commit')
+  if (!fam.ok) return { ok: false, state: fam.state, why: fam.why, files: [] }
+  // 旧调用方只认 'read'/'missing':目录在但一份都没有仍算"读到了空族"。
+  return { ok: true, state: 'read', why: '', files: fam.files.map((f) => f.path) }
 }
 
 /**
