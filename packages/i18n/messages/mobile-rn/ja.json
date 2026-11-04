@@ -7182,7 +7182,17 @@
     "bundleOta": "ホットアップデート",
     "readyBody": "更新のダウンロードが完了しました。「更新」をタップするとすぐに反映されます。",
     "installingHint": "アプリは自動的に再起動します（通常は数秒）。",
-    "restartNow": "今すぐ再起動"
+    "restartNow": "今すぐ再起動",
+    "apkTitle": "新しいバージョン {{version}} があります",
+    "apkBody": "現在 {{current}} → 最新 {{latest}}",
+    "apkAction": "ダウンロードしてインストール",
+    "apkActionBrowser": "ダウンロードへ",
+    "apkDownloading": "インストーラーをダウンロード中 {{progress}}%",
+    "apkEta": "残り約 {{eta}}",
+    "apkInstalling": "インストーラーを起動しています…",
+    "apkBrowserOpening": "ブラウザに引き継ぎました。案内に従ってインストールしてください",
+    "apkCancel": "キャンセル",
+    "apkHint": "パッケージが大きいため、Wi-Fi での更新を推奨します"
   },
   "cloudRuns": {
     "title": "クラウドエージェント実行",
