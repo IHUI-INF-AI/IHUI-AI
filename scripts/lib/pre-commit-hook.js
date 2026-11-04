@@ -62,12 +62,49 @@ sanitizeGitEnv(process.env)
 //     `.lock` 结尾的 activeIndexFile 会**额外**写默认索引(index.lock),实测把 8 个路径整份
 //     索引写进去、父 git 收尾后变成共享索引上的 MM 残留。换名后那条分支结构上不可达。
 //     钩子退出时再把副本回写原 .lock(仅当钩子整体成功),父 git 读到的仍是它自己那一份。
+// ─── 钩子开工期(索引上下文/定版基线)失败的机器可读留痕(2026-11-04 立)────────
+// 病灶(实测归因事故):下面三处 guard exit 都发生在 `process.on('exit', writeRoundRecord)` 注册
+// 之前,于是轮次记录里**没有这一轮**;而 pre-gate 的 lint-staged/派生腿失败又因为 ROUND 字段
+// 直到 L1213 才填,落成 `{"stagedFiles":[],"headBefore":"","gatesRan":false,"exitCode":1}`
+// —— 两种完全不同的失败长得一模一样,被别席读成"索引上下文被并发抢面"(2026-11-04 21:19:12)。
+// 修法:开工期 guard 失败也写一条同形状记录,用 `earlyExit` 字段标明是哪一格(ASCII-only),
+// 让"未判定/索引上下文/定版基线"三类失败从此可区分。
+function writeEarlyMarker(reason, exitCode) {
+  try {
+    const { appendFileSync, mkdirSync } = require('fs')
+    const path = require('path')
+    const file = path.join(process.cwd(), '.ihui-agent/state/hook-logs/pre-commit-rounds.jsonl')
+    mkdirSync(path.dirname(file), { recursive: true })
+    appendFileSync(
+      file,
+      JSON.stringify({
+        ts: new Date().toISOString(),
+        headBefore: '',
+        stagedFiles: [],
+        declaredFiles: [],
+        gatesRan: false,
+        gatesPassed: false,
+        failed: null,
+        total: null,
+        gatesTimedOut: false,
+        stagedMode: true,
+        exitCode,
+        earlyExit: reason,
+      }) + '\n',
+      'utf8',
+    )
+  } catch {
+    /* 记录写不出去 ≠ 提交该失败(同 writeRoundRecord 的失效方向) */
+  }
+}
+
 let INDEX_CTX
 try {
   INDEX_CTX = indexContext.prepareIndexContext(process.env)
 } catch (e) {
   console.error(`❌ ${e?.message ?? e}`)
   console.error('   提交已阻止:钩子拒绝在没有正确索引上下文的情况下继续(绝不落回共享索引)。')
+  writeEarlyMarker('index-context', 1)
   process.exit(1)
 }
 // 共享索引视图基线:只取本次声明路径(index + 若存在的 index.lock),用于 lint-staged 前后比对。
@@ -97,7 +134,10 @@ const PIN_SNAPSHOT = (() => {
   if (indexPinGuard.isGitTempIndex(INDEX_CTX.entry)) return null
   // 指针若就是共享索引本身(IDE 显式设 GIT_INDEX_FILE=<gitdir>/index),它就是"共享索引提交",
   // 格式化结果进提交是预期语义 ⇒ 不保护。只有"真的另一份索引"才保护。
-  const norm = (p) => String(p || '').replace(/\\/g, '/').toLowerCase()
+  const norm = (p) =>
+    String(p || '')
+      .replace(/\\/g, '/')
+      .toLowerCase()
   if (INDEX_CTX.sharedIndex && norm(INDEX_CTX.entry) === norm(INDEX_CTX.sharedIndex)) return null
   try {
     return indexPinGuard.capturePinnedIndex({ gitCwd: INDEX_CTX.cwd, env: process.env })
@@ -108,10 +148,12 @@ const PIN_SNAPSHOT = (() => {
         '   提交已阻止(exit 2):索引内容读不全 ⇒ 既不能记绿(等于假装没被回灌),' +
           '也不能按"内容被改"记红(没有证据);按 §0.3 只能是未判定。',
       )
+      writeEarlyMarker('pin-undetermined', 2)
       process.exit(2)
     }
     console.error(`❌ 定版索引基线读取失败:${e?.message ?? e}`)
     console.error('   提交已阻止:无法在钩子开工前留住调用方定版的索引内容,就不能保证它不被回灌。')
+    writeEarlyMarker('pin-baseline', 1)
     process.exit(1)
   }
 })()
@@ -418,6 +460,31 @@ function writeRoundRecord(exitCode) {
 // 记录缺失只意味着那一轮拿不到正证 —— 与"把没判写成判过了"相比,这是可接受的失效方向。
 process.on('exit', writeRoundRecord)
 
+// ─── 轮次记录的取证面提前填(2026-11-04 立)──────────────────────────────────
+// 病灶(实测归因事故):下面 `if (!runLintStaged()) process.exit(1)` 以及派生腿的失败出口都在
+// L1213(`ROUND.headBefore = ...`)之前 ⇒ 记录永远是 `stagedFiles:[],headBefore:""`,与
+// "索引上下文拒绝"无法区分;实测 21:19:12 一轮 lint-staged eslint 红被别席读成"并发抢索引"。
+// 修法:在**任何会失败的腿开跑之前**先把 HEAD 与暂存面填进记录(同一条命令、同一时刻的真相),
+// lint-staged 之后的 L1213 仍会覆盖成门看到的那一份 —— 失败留下的则是"开跑时"那一份。
+try {
+  const gitOutEarly = (cmd) =>
+    execSync(cmd, {
+      encoding: 'utf8',
+      cwd: process.cwd(),
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      timeout: 30_000,
+    }).trim()
+  ROUND.headBefore = ROUND.headBefore || gitOutEarly('git rev-parse HEAD')
+  ROUND.stagedFiles = ROUND.stagedFiles.length
+    ? ROUND.stagedFiles
+    : gitOutEarly('git diff --cached --name-only')
+        .split(/\r?\n/)
+        .map((s) => s.trim())
+        .filter(Boolean)
+} catch {
+  /* 取不到就保持空 —— 失效方向是"记录少",与写失败同向 */
+}
 // ─── staging area 入口快照(2026-07-26 立) ──────────────────
 // 背景:多 agent 并行时曾出现非本任务文件被 commit 的事故(IDE 自动 stage / 未察觉的
 //       git add / lint-staged 副作用)。本机制在 pre-commit 入口快照 staging area,
@@ -1111,6 +1178,88 @@ if (!TOOL_ONLY && process.env.HUSKY_SKIP_TOKENS_SYNC !== '1') {
   console.log(
     `⏭  design-tokens → 各端 CSS 副本自动同步(${skipCause('HUSKY_SKIP_TOKENS_SYNC')}, 跳过)`,
   )
+}
+
+// ── i18n 离线包 → 提交时强制重生成(2026-11-04 立)────────────────────────────────────
+// 病灶(实测,2026-11-03 夜间):`4dc42b03` 删了 `miniapp-taro/ko.json` 两枚野键、另一席改了
+//   `shared/zh-TW.json`,两处输入都进了提交,而 7 份离线包产物没有任何环节跟着重生成 ⇒
+//   守门 105 G5 在 HEAD 上挂 blocking 红门(`94fd2f6a ≠ 455aaebe`),直到 21:2x 被另一单偶然
+//   撞见才清偿。自愈腿在这期间明明返回 `state=written` —— 检测能力一直有,缺的是**提交时强制调用**。
+// 判据与重生成全部复用 `healI18nFamily({ face:'staged' })`(单一实现,不在这里写第二把尺):
+//   clean  ⇒ 零写盘。判的是 `inputsSha256`,不是产物字节差 ⇒ 只改 generatedAt/sourceCommit 类
+//            元数据不会触发重写(否则每笔提交都会重写 4 份,制造无限脏面)。
+//   healed ⇒ 已走派生申报通道 + `git add` + **复判 clean**;产物路径登记进入口快照,
+//            防止 setupRestoreOnExit 把钩子窗口内新增的产物当"非预期 staged"unstage。
+//   refused / undetermined / blocked ⇒ 一律阻断,绝不冒绿(§0.3 未判定就报未判定)。
+// 无 skip 变量:这不是"可绕过的同步",是"输入变了产物必须跟上"的硬约束。
+const I18N_INPUT_PREFIX = 'packages/i18n/messages/'
+const I18N_GENERATOR_REL = 'scripts/gen-i18n-compressed.mjs'
+try {
+  const stagedForI18n = execSync('git diff --cached --name-only', {
+    encoding: 'utf8',
+    cwd: process.cwd(),
+    windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  const i18nStaged = stagedForI18n
+    .split('\n')
+    .map((f) => f.trim().replace(/\\/g, '/'))
+    .filter(Boolean)
+  const i18nTouched = i18nStaged.some(
+    (p) => p.startsWith(I18N_INPUT_PREFIX) || p === I18N_GENERATOR_REL,
+  )
+  if (!i18nTouched) {
+    console.log('⏭  i18n 离线包派生同步(本次 staged 不含 i18n 输入/生成器, 跳过)')
+  } else {
+    console.log('🌐 i18n 离线包 → 提交时强制重生成判定')
+    const r = spawnSync(
+      process.execPath,
+      ['scripts/hook-i18n-bundle-sync.mjs', '--staged', '--json'],
+      {
+        cwd: process.cwd(),
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 30 * 60 * 1000,
+        maxBuffer: 1 << 26,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      },
+    )
+    const raw = String(r.stdout || '').trim()
+    let res = null
+    try {
+      const lastLine = raw.split(/\r?\n/).filter(Boolean).pop()
+      res = lastLine ? JSON.parse(lastLine) : null
+    } catch {
+      res = null
+    }
+    if (r.status !== 0 || !res) {
+      const detail = [r.stderr, raw, r.error ? String(r.error.message || r.error) : '']
+        .map((s) => String(s || '').trim())
+        .filter(Boolean)
+        .join('\n')
+      console.error(`❌ i18n 离线包派生同步失败(exit=${r.status}):${res?.why || detail || '无输出'}`)
+      process.exit(1)
+    }
+    if (res.state === 'clean') {
+      console.log(`  ✅ 钉与本次输入一致(inputsSha256 ${String(res.digest).slice(0, 12)}…),零写盘`)
+    } else if (res.state === 'healed') {
+      for (const f of res.files || []) {
+        if (INITIAL_STAGED_SNAPSHOT && typeof INITIAL_STAGED_SNAPSHOT.add === 'function') {
+          INITIAL_STAGED_SNAPSHOT.add(f.path)
+        }
+      }
+      console.log(
+        `  ✅ 已按本次输入重生成 ${(res.files || []).length} 份离线包产物并入索引(复判 clean)`,
+      )
+      for (const f of res.files || []) console.log(`   + ${f.path}`)
+    } else {
+      console.error(`❌ i18n 离线包派生同步未通过:${res.state}${res.why ? ` —— ${res.why}` : ''}`)
+      process.exit(1)
+    }
+  }
+} catch (e) {
+  console.error(`❌ i18n 离线包派生同步无法判定,提交已阻止:${e?.message ?? e}`)
+  process.exit(1)
 }
 
 // ── README 数字生成块自动同步(2026-10-19 立 · 李总诉求:项目改动自动更新文档)────

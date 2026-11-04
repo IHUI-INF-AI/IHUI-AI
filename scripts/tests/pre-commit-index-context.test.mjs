@@ -17,7 +17,7 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { spawnSync } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
@@ -263,4 +263,79 @@ test('⑤ 接线锁:pre-commit-hook 与 .husky/pre-commit 必须走同一份实�
   const shell = readFileSync(join(REPO, '.husky', 'pre-commit'), 'utf8')
   assert.match(shell, /IHUI_EXPECTED_PRIVATE_INDEX/)
   assert.match(shell, /索引上下文丢失/)
+})
+
+test('⑥ 取证面:开工期 guard 失败可区分,且并发私有索引不被"索引上下文"拒', async () => {
+  // (a) 开工期(索引上下文/定版基线)失败发生在 writeRoundRecord 注册之前 ⇒ 必须自己落一格
+  //     `earlyExit`,否则与 pre-gate 的 lint-staged 红同形(实测 2026-11-04 21:19:12 被误归因)。
+  const hook = readFileSync(join(REPO, 'scripts', 'lib', 'pre-commit-hook.js'), 'utf8')
+  assert.match(hook, /writeEarlyMarker\('index-context', 1\)/)
+  assert.match(hook, /writeEarlyMarker\('pin-undetermined', 2\)/)
+  assert.match(hook, /writeEarlyMarker\('pin-baseline', 1\)/)
+  assert.match(hook, /earlyExit: reason/)
+
+  // (b) ROUND.headBefore/stagedFiles 必须在任何会失败的腿之前填(否则记录退化成空集)。
+  const early = hook.indexOf('ROUND.headBefore = ROUND.headBefore ||')
+  assert.ok(early > 0, '必须新增开工期填充')
+  assert.ok(early < hook.indexOf('function runLintStaged()'), '填充必须在 lint-staged 之前')
+  assert.ok(early < hook.lastIndexOf('if (!runLintStaged())'), '填充必须在 lint-staged 失败出口之前')
+
+  // (c) 并发夹具:两份私有索引、两个进程同时 prepareIndexContext ⇒ 双方都不被"索引上下文"拒,
+  //     且共享索引字节不变(证明并发下不是"抢面")。
+  const dir = mkScratch('ix-conc-')
+  try {
+    git(dir, ['init', '-b', 'main'])
+    git(dir, ['config', 'user.email', 'ix-test@example.invalid'])
+    git(dir, ['config', 'user.name', 'ix-test'])
+    git(dir, ['config', 'core.autocrlf', 'false'])
+    git(dir, ['config', 'commit.gpgsign', 'false'])
+    writeFileSync(join(dir, 'a.txt'), 'v0\n')
+    writeFileSync(join(dir, 'b.txt'), 'v0\n')
+    git(dir, ['add', '--', '.'])
+    git(dir, ['commit', '-m', 'init', '--no-verify'])
+
+    const sharedIndex = join(dir, '.git', 'index')
+    const sharedDigest = digest(sharedIndex)
+    const priv1 = join(dir, '.git', 'p1.idx')
+    const priv2 = join(dir, '.git', 'p2.idx')
+    copyFileSync(sharedIndex, priv1)
+    copyFileSync(sharedIndex, priv2)
+
+    const stage = `const m = require(process.env.IX_MODULE)
+const ctx = m.prepareIndexContext(process.env, { cwd: process.env.IX_CWD })
+process.stdout.write(JSON.stringify({ mode: ctx.mode, entry: ctx.entry }))
+`
+    writeFileSync(join(dir, 'stage.cjs'), stage)
+
+    const run = (priv) =>
+      new Promise((res) => {
+        const child = spawn(process.execPath, [join(dir, 'stage.cjs')], {
+          cwd: dir,
+          windowsHide: true,
+          env: cleanEnv({
+            GIT_INDEX_FILE: priv,
+            IHUI_EXPECTED_PRIVATE_INDEX: priv,
+            IX_MODULE: join(REPO, 'scripts', 'lib', 'index-context.js'),
+            IX_CWD: dir,
+          }),
+        })
+        let out = ''
+        let err = ''
+        child.stdout.on('data', (d) => (out += d))
+        child.stderr.on('data', (d) => (err += d))
+        child.on('close', (code) => res({ code, out, err }))
+      })
+
+    const [r1, r2] = await Promise.all([run(priv1), run(priv2)])
+    assert.equal(r1.code, 0, `并发私有索引 A 被拒:${r1.err}`)
+    assert.equal(r2.code, 0, `并发私有索引 B 被拒:${r2.err}`)
+    const j1 = JSON.parse(r1.out)
+    const j2 = JSON.parse(r2.out)
+    assert.equal(j1.mode, 'private')
+    assert.equal(j2.mode, 'private')
+    assert.notEqual(j1.entry, j2.entry, '两份上下文必须各指各的索引')
+    assert.equal(digest(sharedIndex), sharedDigest, '并发期间共享索引字节不许变')
+  } finally {
+    rmScratch(dir)
+  }
 })
