@@ -25,6 +25,9 @@
  *   node scripts/heal-worktree-tracked.mjs --json       # 供 git-guardian 巡检读取
  *   node scripts/heal-worktree-tracked.mjs --check      # 只判不改 + 有可恢复项即 exit 1(CI/巡检口径)
  *   node scripts/heal-worktree-tracked.mjs --align-drift # 对齐"幻影漂移" + 恢复"旁路提交孤儿路径"(第四层)
+ *   node scripts/heal-worktree-tracked.mjs --declare-deletion <path>... --reason "<≥10字>" [--until YYYY-MM-DD]
+ *                                                       # 记一张"整文件有意删除"通知书(只写台账,不删不恢复)
+ *   node scripts/heal-worktree-tracked.mjs --revoke-deletion <path>...   # 撤回通知书(其余行逐字保留)
  * 紧急跳过:IHUI_SKIP_WORKTREE_HEAL=1
  * 活工作保护窗:IHUI_ALIGN_DRIFT_FRESH_GUARD_SEC(默认 600,0=关闭 —— 最近被写过的文件不判不还原)
  * 活工作二审(2026-10-29 立,与上一条**互补**):即使内容逐字节等于某祖先版本,只要工作树那一份
@@ -80,6 +83,16 @@ import { BYPASS_KIND, ledgerPath, readLedgerRecords } from './lib/commit-attesta
 // §26:新增临时夹具唯一落点(mkScratch 不落 os.tmpdir、不落仓库树内)。第四层取证用。
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 import { makeRegistrar } from './lib/selftest-registrant.mjs'
+// 2026-11-04:整文件有意删除的**通知书**通道。判据与三态解析只许有一份实现(§0.6),
+// 本器只消费 `readFileDeletionNotices` / `isDeletionDeclared`,不在这里另造解析器。
+import {
+  INTENTIONAL_FILE_DELETION_FILE,
+  NOTICE_REASON_MIN,
+  isDeletionDeclared,
+  normalizeNoticePath,
+  readFileDeletionNotices,
+} from './lib/intentional-file-deletion.mjs'
+import { flagValue } from './lib/flag-value.mjs'
 
 export const SKIP_ENV = 'IHUI_SKIP_WORKTREE_HEAL'
 
@@ -650,6 +663,10 @@ export function intentExpiryTtlHours(env = process.env) {
  * 到期恢复后把意图逐字写回同一本账(新事件名 + `actionTaken` 非 report-only ⇒ 读侧不再当它
  * 是"待裁决",也不会自我循环)。这一步必须排在**落地成功之后**:先写后落会把"面上还在"
  * 说成"已删"。写失败只喊一行,不撤销已经成功的恢复。
+ *
+ * ⚠️ 2026-11-04 起 `heal()` **不再调用**本函数:到期档已改为"只报数不代裁"(见
+ * findOrphanedDeletions),没有"到期恢复"这个动作,也就没有"恢复后留痕"。保留导出只为
+ * 读取既有账本/既有测试的形状锁;不要把它当成一条在用的恢复通道。
  */
 export function appendIntentExpiryLedger(repoRoot, paths, { ttlHours, headSha = '' } = {}) {
   const line = JSON.stringify({
@@ -675,6 +692,9 @@ export function appendIntentExpiryLedger(repoRoot, paths, { ttlHours, headSha = 
 export function findOrphanedDeletions(repoRoot, { now = Date.now(), ttlHours = intentExpiryTtlHours() } = {}) {
   const g = makeGit(repoRoot)
   const st = g(['status', '--porcelain', '-z'])
+  // 通知书台账一轮只读一次(§0.6:同一份证据只解析一次 —— 逐路径重读在每 2 分钟一轮的守护下
+  // 会把台账读成 N 次热点,更会把"读到哪一版"变成时序问题)。
+  const notices = readFileDeletionNotices(repoRoot)
   const intentTsByPath = stagedIntentLatestTsByPath(repoRoot)
   const safe = []
   const held = []
@@ -685,8 +705,22 @@ export function findOrphanedDeletions(repoRoot, { now = Date.now(), ttlHours = i
    * (索引面已被覆盖,标记已经不在了)——折进同一格会让账面读起来像"标记还在,只是没碰"。
    */
   const intentLost = []
-  /** 同一档的**到期分支**(2026-10-23 立):账上有点名、但摘标已超 TTL ⇒ 回盘 + 意图转留痕 */
+  /** 同一档的**到期分支**(2026-10-23 立):账上有点名、但摘标已超 TTL。2026-11-04 起**只报数**,
+   * 不再回盘 —— 理由见下面 `intentExpired.push(path)` 那一处。 */
   const intentExpired = []
+  /**
+   * 2026-11-04 新增档:**已声明删除**(通知书在册且未过期)⇒ 不恢复。
+   *
+   * 它与 `intentLost` / `intentExpired` **语义独立**,不可折进任何既有桶:
+   *   · `intentLost` 的证据是"暂存标记被 reset 摘掉"的**推断**(账上有 report-only 事件);
+   *   · `intentDeclared` 的证据是**人写下来的整句理由**(`reason` ≥10 字 + 可选 `until`),
+   *     它直接回答"这次删除是有意的",不需要从时间窗反推。
+   * 台账**坏档**(`verdict === 'undetermined'`)也进本档:判不出 ≠ 可以恢复(§0.3),
+   * 但单独记进 `noticeUndetermined`,便于结论面点名"这一枚是台账坏了,不是有通知书"。
+   */
+  const intentDeclared = []
+  /** `intentDeclared` 里因台账坏档而落进来的路径(布尔判不出 ⇒ 具名才可处置)。 */
+  const noticeUndetermined = []
   /**
    * **只报不修**的一类:`git status` 首列 `D ` —— 索引里没有、磁盘也没有,而 HEAD 有该路径。
    * 两种成因在机器上分不开:① 会话有意 `git rm`(暂存删除,尚未提交);② 旁路提交
@@ -745,14 +779,27 @@ export function findOrphanedDeletions(repoRoot, { now = Date.now(), ttlHours = i
       //
       // ⚠️ 这一档**只把该路径从 safe 移到 intentLost(报数)**,不改任何既有判据:
       // 索引/HEAD/工作树三条的算法、其余分支、退出码面全部逐字未动。
+      //
+      // 2026-11-04(先于上面那条问句):**通知书是更硬的证据,先判**。有有效通知书 ⇒
+      // 这次缺失就是人主动删的,恢复它等于抹掉别人的删除。坏档(`undetermined`)同样不恢复:
+      // 判不出的时候,恢复一枚有意删除比留下它更危险(§0.3)。
+      const decl = isDeletionDeclared(notices, path)
+      if (decl.declared || decl.verdict === 'undetermined') {
+        intentDeclared.push(path)
+        if (decl.verdict === 'undetermined') noticeUndetermined.push(path)
+        continue
+      }
       if (intentTsByPath.has(normRepoPath(path))) {
         const seenAt = Date.parse(intentTsByPath.get(normRepoPath(path)) || '')
         const age = Number.isFinite(seenAt) ? now - seenAt : NaN
         if (Number.isFinite(age) && age > ttlHours * 3600_000) {
-          // 超 TTL 仍缺 ⇒ 归属会话已不在(本仓班次硬上限 60 分钟,2h 已是三倍),
-          // 而内容恒等于 HEAD、回盘零丢失 ⇒ 走恢复,意图逐字转进新留痕(见 appendIntentExpiryLedger)。
+          // 2026-11-04 改判:**只报数,不回盘**。
+          // 旧行为是"超 TTL ⇒ safe.push(path) ⇒ 文件回盘 + 意图转留痕",理由是"归属会话已不在,
+          // 拖久了整仓验不动"。但那条 report-only 是「人主动暂存删除、标记却被 reset 摘掉」的
+          // **证据** —— 与"宿主误删"不是同一件事。按 TTL 把证据当过期作废,等于"等 2 小时再替你
+          // 删一次",重启 2026-09-24 / 2026-11-04 那两起自动复活事故。故本档降为纯报数:
+          // 要坐实就 `git rm --cached`,要留就 checkout 回来 —— 代裁这一步不再由本器做。
           intentExpired.push(path)
-          safe.push(path)
           continue
         }
         // TTL 内、或账上时刻根本读不出 ⇒ 照旧"只报数不代裁"(§0.3:判不出不是恢复的许可证)
@@ -762,7 +809,7 @@ export function findOrphanedDeletions(repoRoot, { now = Date.now(), ttlHours = i
       safe.push(path)
     } else if (!indexBlob) held.push(path) // 索引里也没有:他人已暂存删除,不碰
   }
-  return { safe, held, orphanIndex, intentLost, intentExpired }
+  return { safe, held, orphanIndex, intentLost, intentExpired, intentDeclared, noticeUndetermined }
 }
 
 /**
@@ -1591,6 +1638,11 @@ export function alignDrifts(repoRoot, { dryRun = false } = {}) {
     orphanRestored,
     orphanSafe: orphan.safe.length,
     orphanIntentLost: orphan.intentLost.length,
+    // 2026-11-04:已声明删除必须与"意图丢失/到期"分字段读出 —— 前者有整句理由,后两者只是推断。
+    orphanIntentExpired: orphan.intentExpired.length,
+    orphanIntentDeclared: orphan.intentDeclared.length,
+    orphanIntentDeclaredPaths: orphan.intentDeclared,
+    orphanNoticeUndetermined: orphan.noticeUndetermined.length,
     orphanDeferred,
   })
   /** 因"最近被写过"而本轮跳过判定的路径(活工作保护窗;见 alignFreshGuardMs 头注) */
@@ -2178,11 +2230,17 @@ export function heal(repoRoot, { dryRun = false } = {}) {
       intentLostPaths: [],
       intentExpired: 0,
       intentExpiredPaths: [],
+      // 2026-11-04:合并让路时也保持形状一致(缺键会被读侧当成 undefined,那是把形状不一致推给消费者)
+      intentDeclared: 0,
+      intentDeclaredPaths: [],
+      noticeUndetermined: 0,
+      noticeUndeterminedPaths: [],
       layerSkips: [mergeSkipEntry(mh, '工作区存续自愈整轮(存续恢复/陈旧索引孤儿对齐)')],
       mergeInProgress: true,
     }
   }
-  const { safe, held, orphanIndex, intentLost, intentExpired } = findOrphanedDeletions(repoRoot)
+  const { safe, held, orphanIndex, intentLost, intentExpired, intentDeclared, noticeUndetermined } =
+    findOrphanedDeletions(repoRoot)
   const rec = reconcileStaleIndexOrphans(repoRoot, { dryRun })
   // 让路原因必须随返回值走:reconcile 跳过 ≠ 无事发生(G-794 —— 旧形状里这一层的跳过只剩
   // 一个 reconciled:0,读报告的人无从知道它是"被锁挡了"还是"本来就没有"。)
@@ -2191,6 +2249,9 @@ export function heal(repoRoot, { dryRun = false } = {}) {
   // 折进 paths 会让读日志的人以为这些文件已回到盘上,而它们**恰恰没有**(那正是本票的事故)。
   const intentLostPaths = [...intentLost]
   const intentExpiredPaths = [...intentExpired]
+  // 2026-11-04:已声明删除不进 restored/paths(它们恰恰不该回到盘上),单列一档逐条点名。
+  const intentDeclaredPaths = [...intentDeclared]
+  const noticeUndeterminedPaths = [...noticeUndetermined]
   if (!safe.length)
     return {
       restored: 0,
@@ -2202,6 +2263,10 @@ export function heal(repoRoot, { dryRun = false } = {}) {
       intentLostPaths,
       intentExpired: intentExpiredPaths.length,
       intentExpiredPaths,
+      intentDeclared: intentDeclaredPaths.length,
+      intentDeclaredPaths,
+      noticeUndetermined: noticeUndeterminedPaths.length,
+      noticeUndeterminedPaths,
       layerSkips,
     }
   if (dryRun)
@@ -2215,25 +2280,18 @@ export function heal(repoRoot, { dryRun = false } = {}) {
       intentLostPaths,
       intentExpired: intentExpiredPaths.length,
       intentExpiredPaths,
+      intentDeclared: intentDeclaredPaths.length,
+      intentDeclaredPaths,
+      noticeUndetermined: noticeUndeterminedPaths.length,
+      noticeUndeterminedPaths,
       dryRun: true,
       layerSkips,
     }
   const g = makeGit(repoRoot)
   const { done, deferred, viaIndex } = restoreToHead(g, safe)
-  // 留痕必须排在落地成功之后(先写后落会把"面上还在"说成"已删",复洁器就会误剔)。
-  const expiredRestored = intentExpiredPaths.filter((p) => done.includes(p))
-  if (expiredRestored.length) {
-    appendIntentExpiryLedger(repoRoot, expiredRestored, {
-      ttlHours: intentExpiryTtlHours(),
-      headSha: (() => {
-        try {
-          return g(['rev-parse', 'HEAD']).trim()
-        } catch {
-          return ''
-        }
-      })(),
-    })
-  }
+  // 2026-11-04:到期档不再回盘 ⇒ 这里没有"到期后要写回留痕"的动作了。
+  // 旧实现会在落地成功后调 appendIntentExpiryLedger;现在 safe 里根本不含到期路径,
+  // 那个调用只会是一条恒不命中的死路(留着会让人以为有一条在用的恢复通道)。
   return {
     restored: done.length,
     held: held.length,
@@ -2248,9 +2306,15 @@ export function heal(repoRoot, { dryRun = false } = {}) {
     // G-1018292:报数档(删除意图被共享索引清空摘掉标记 ⇒ 分不清是宿主误删还是有意删除,不代裁)。
     intentLost: intentLostPaths.length,
     intentLostPaths,
-    // 2026-10-23 到期档:摘标超 TTL 且此刻仍缺 ⇒ 回盘(内容==HEAD)+ 意图逐字转进新留痕
-    intentExpired: expiredRestored.length,
-    intentExpiredPaths: expiredRestored,
+    // 2026-10-23 到期档。2026-11-04 起**只报数不回盘**(见 findOrphanedDeletions 的注释):
+    // 因此这里报的是"账上到期仍缺"的全量清单,不再与 done 求交 —— 恒空会让整档静默消失。
+    intentExpired: intentExpiredPaths.length,
+    intentExpiredPaths,
+    // 2026-11-04 已声明删除档:通知书在册(或台账坏档判不出)⇒ 不恢复,逐条点名。
+    intentDeclared: intentDeclaredPaths.length,
+    intentDeclaredPaths,
+    noticeUndetermined: noticeUndeterminedPaths.length,
+    noticeUndeterminedPaths,
     layerSkips,
     // 延后的原因不能只留一个数字:锁在位 / 疑似悬挂 / 此刻无锁(⇒ 前提复核不成立)是三种结论
     ...(deferred.length ? { lockStateAtReport: probeIndexLock(repoRoot, g) } : {}),
@@ -3432,10 +3496,119 @@ function printSkipsAndLoss(o) {
   }
 }
 
+/**
+ * 取 `flag` 之后、下一个 `-` 开头 token 之前的**全部**实参。
+ * 多路径子命令必须一次收完:`--declare-deletion a b c` 是三条通知书,不是一条带空格的路径。
+ * 返回 `null` 表示没给该旗标(与"给了但零路径"区分开 —— 后者是用法规错)。
+ */
+function collectPathArgs(argv, flag) {
+  const i = argv.indexOf(flag)
+  if (i < 0) return null
+  const out = []
+  for (let j = i + 1; j < argv.length; j++) {
+    const t = argv[j]
+    if (!t || t.startsWith('-')) break
+    out.push(t)
+  }
+  return out
+}
+
+/** 通知书子命令的用法(两条子命令共用;错一次就把"该怎么写"完整说一遍,不让人再猜)。 */
+function printDeletionNoticeUsage() {
+  console.log(
+    '用法: node scripts/heal-worktree-tracked.mjs --declare-deletion <path>... --reason "<≥' +
+      NOTICE_REASON_MIN +
+      ' 字理由>" [--until YYYY-MM-DD]',
+  )
+  console.log(
+    '      node scripts/heal-worktree-tracked.mjs --revoke-deletion <path>...',
+  )
+  console.log(
+    '  --reason 必填且 ≥' +
+      NOTICE_REASON_MIN +
+      ' 字:通知书是"人写下为什么删"的证据,不接受一句空话顶替(判据见 lib/intentional-file-deletion.mjs)',
+  )
+  console.log('  --until 可选(ISO 日期);省略 ⇒ 长期有效,可用 --revoke-deletion 撤回')
+  console.log('  两条子命令只写台账,不触发任何恢复/删除动作')
+}
+
+/** `--declare-deletion`:追加通知书。只写台账,不进恢复逻辑。 */
+function runDeclareDeletion(repoRoot, argv) {
+  const rawPaths = collectPathArgs(argv, '--declare-deletion') || []
+  const paths = rawPaths.map(normalizeNoticePath).filter(Boolean)
+  const reason = flagValue(argv, '--reason')
+  const until = flagValue(argv, '--until')
+  const reasonText = reason.valid ? reason.value.trim() : ''
+  const untilText = until.valid ? until.value.trim() : ''
+  if (
+    !paths.length ||
+    reasonText.length < NOTICE_REASON_MIN ||
+    (until.present && !until.valid) ||
+    (untilText && !/^\d{4}-\d{2}-\d{2}$/.test(untilText))
+  ) {
+    printDeletionNoticeUsage()
+    return 2
+  }
+  const abs = join(repoRoot, INTENTIONAL_FILE_DELETION_FILE)
+  mkdirSync(dirname(abs), { recursive: true })
+  // 行尾显式写 '\n':os.EOL 在 Windows 是 CRLF,而台账的解析按 '\n' 切分后再 trim ——
+  // 混用会让"逐字保留"变成"逐字带 \r",撤销时无法按行原样比对。
+  const rows = paths.map((p) =>
+    JSON.stringify({ path: p, reason: reasonText, ...(untilText ? { until: untilText } : {}) }),
+  )
+  appendFileSync(abs, rows.join('\n') + '\n', 'utf8')
+  console.log(`DECLARED ${rows.length}`)
+  return 0
+}
+
+/**
+ * `--revoke-deletion`:按 path 删除台账行,**其余行逐字保留、行尾顺序不变**。
+ * 因此这里不做 parse→reserialize(那会重排键序、丢掉注释行),只做逐行分流:
+ * 解不开的行一律保留(坏行不该因为撤销一枚路径被顺手抹掉)。
+ */
+function runRevokeDeletion(repoRoot, argv) {
+  const rawPaths = collectPathArgs(argv, '--revoke-deletion') || []
+  const paths = rawPaths.map(normalizeNoticePath).filter(Boolean)
+  if (!paths.length) {
+    printDeletionNoticeUsage()
+    return 2
+  }
+  const abs = join(repoRoot, INTENTIONAL_FILE_DELETION_FILE)
+  if (!existsSync(abs)) {
+    console.log('REVOKED 0')
+    return 0
+  }
+  const target = new Set(paths)
+  const kept = []
+  let revoked = 0
+  for (const line of readFileSync(abs, 'utf8').split('\n')) {
+    let row = null
+    if (line.trim() && !line.trimStart().startsWith('//')) {
+      try {
+        row = JSON.parse(line)
+      } catch {
+        row = null
+      }
+    }
+    if (row && typeof row === 'object' && !Array.isArray(row) && target.has(normalizeNoticePath(row.path))) {
+      revoked++
+      continue
+    }
+    kept.push(line)
+  }
+  // split('\n') 会把文件末尾的换行折成最后一个空串,join 回去即原样(含 CRLF 行的 '\r')。
+  writeFileSync(abs, kept.join('\n'), 'utf8')
+  console.log(`REVOKED ${revoked}`)
+  return 0
+}
+
 async function main() {
   const argv = process.argv.slice(2)
   if (argv.includes('--self-test')) return selfTestRun()
   const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+  // 通知书子命令只写台账,必须排在 SKIP_ENV 之前:跳过自愈不等于禁止记账。
+  if (argv.includes('--declare-deletion')) return runDeclareDeletion(repoRoot, argv)
+  if (argv.includes('--revoke-deletion')) return runRevokeDeletion(repoRoot, argv)
   if (process.env[SKIP_ENV]) return 0
   // `--check` 必须是**只判不改**的巡检口径(AGENTS.md §5b 承诺"零副作用"):
   // 旧实现只认 `--dry-run`,`--check` 会一路落到真恢复分支,把他人**有意**的未暂存删除
@@ -3482,6 +3655,14 @@ async function main() {
         console.log(`[check] ${d.orphanSafe} 个可还原(未执行)`)
       if (d.orphanIntentLost)
         console.log(`ℹ️ ${d.orphanIntentLost} 个删除意图刚被 safe-commit 清空,只报数不代裁`)
+      if (d.orphanIntentExpired)
+        console.log(`ℹ️ ${d.orphanIntentExpired} 个删除意图摘标已超 TTL —— 2026-11-04 起不再回盘,只报数(要坐实请 git rm --cached)`)
+      if (d.orphanIntentDeclared)
+        console.log(
+          `🚫 ${d.orphanIntentDeclared} 个路径已声明删除(通知书在册)⇒ 不恢复` +
+            (d.orphanNoticeUndetermined ? `;其中 ${d.orphanNoticeUndetermined} 个因台账坏档判不出` : ''),
+        )
+      for (const p of (d.orphanIntentDeclaredPaths || []).slice(0, 10)) console.log('   🚫 已声明删除 ' + p)
       for (const p of (d.orphanDeferred || []).slice(0, 10))
         console.log('   ⚠️ state A 延后(撞锁/前提复核不成立) ' + p)
       if (d.landingAligned) {
@@ -3547,13 +3728,17 @@ async function main() {
   const res = heal(repoRoot, { dryRun })
   if (argv.includes('--json')) {
     console.log(JSON.stringify(res))
-    return checkOnly && (res.paths.length || res.orphanIndex) ? 1 : 0
+    // 已声明删除同样是"可判定的问题",--check 必须非零(沿用 paths/orphanIndex 的既有口径):
+    // 它不写盘,但它代表工作树与 HEAD 的差异**经人工声明**,巡检不该报绿。
+    return checkOnly && (res.paths.length || res.orphanIndex || (res.intentDeclaredPaths?.length || 0)) ? 1 : 0
   }
   if (
     !res.restored &&
     !res.paths.length &&
     !res.held &&
     !res.intentLost &&
+    !res.intentExpired &&
+    !res.intentDeclared &&
     !res.orphanIndex &&
     !res.deferred?.length &&
     !res.layerSkips?.length
@@ -3603,17 +3788,30 @@ async function main() {
       (res.orphanIndex
         ? `;⚠️ ${res.orphanIndex} 个路径 HEAD 有而索引+磁盘都无(旁路提交孤儿或有意 git rm;恢复走 --align-drift 第四层,四判据可证才修,其余只报数)`
         : '') +
-      // 2026-10-23 到期档:摘标超 TTL 的删除意图不再无限期拖着整仓验不动(实测拖了 10 小时,
-      // web/api typecheck 恒红、门 236 门体不在面上)。回盘零丢失(内容==HEAD),
-      // 意图逐字转进同一本账的新事件 ⇒ 归属会话照样能坐实那次删除。
-      (res.intentExpired ? `;另有 ${res.intentExpired} 个删除意图摘标已超 TTL ⇒ 文件回盘、意图转入留痕` : ''),
+      // 2026-10-23 到期档。2026-11-04 改判:**不再回盘** —— 缩标账上的 report-only 是"人主动
+      // 删除、标记被 reset 摘掉"的证据,按 TTL 作废等于"等 2 小时替你删一次"。只报数,不代裁。
+      (res.intentExpired ? `;另有 ${res.intentExpired} 个删除意图摘标已超 TTL(按纪律不再代裁恢复)` : '') +
+      // 2026-11-04 已声明删除档:通知书在手 ⇒ 这就是人主动删的,不恢复。
+      (res.intentDeclared
+        ? `;🚫 ${res.intentDeclared} 个已声明删除(不恢复)` +
+          (res.noticeUndetermined ? `(其中 ${res.noticeUndetermined} 个因台账坏档判不出)` : '')
+        : ''),
   )
+  if (res.intentDeclaredPaths?.length) {
+    console.log(
+      '   已声明删除(不恢复):' +
+        res.intentDeclaredPaths.slice(0, 10).join(', ') +
+        `${res.intentDeclaredPaths.length > 10 ? ' …' : ''}`,
+    )
+    console.log(
+      '   出口:要撤回声明 ⇒ node scripts/heal-worktree-tracked.mjs --revoke-deletion <path>(文件随即恢复由下一轮判据决定)',
+    )
+  }
   if (res.intentExpiredPaths?.length) {
     console.log(
-      '   意图清单已逐字写回 .ihui-agent/state/staged-delete-intent-ledger.jsonl(event=staged-intent-expiry-restored)' +
-        ` —— 归属会话要坐实删除: git rm --cached -- ${res.intentExpiredPaths.slice(0, 3).join(' ')}${res.intentExpiredPaths.length > 3 ? ' …' : ''}`,
+      `   ⏳ 超 TTL 仍缺 ${res.intentExpiredPaths.length} 个 —— 本器不再代裁;要坐实删除: git rm --cached -- <path>,要留: git checkout HEAD -- <path>`,
     )
-    for (const p of res.intentExpiredPaths.slice(0, 20)) console.log('   ↩ 到期回盘 ' + p)
+    for (const p of res.intentExpiredPaths.slice(0, 20)) console.log('   ⏳ 待裁决 ' + p)
   }
   for (const p of res.paths.slice(0, 20)) console.log('   - ' + p)
   if (res.intentLostPaths?.length) {
@@ -3634,7 +3832,7 @@ async function main() {
           ' —— 出口:node scripts/heal-worktree-tracked.mjs --align-drift(第四层按四判据可证才恢复);确属删除则由归属会话提交',
       )
   }
-  return checkOnly && (res.paths.length || res.orphanIndex) ? 1 : 0
+  return checkOnly && (res.paths.length || res.orphanIndex || (res.intentDeclaredPaths?.length || 0)) ? 1 : 0
 }
 
 export const healTrackedFiles = heal
