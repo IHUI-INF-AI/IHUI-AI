@@ -18,7 +18,7 @@ import type {
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { TextField } from '../../components/TextField'
 import { assertRequiredPort } from '../../host/ports'
-import { MODEL_EDIT_READ_ONLY_FIELDS } from './model-edit-save'
+import { MODEL_EDIT_READ_ONLY_FIELDS } from '@ihui/shared/constants'
 
 /** 模型编辑共享屏 — props 注入式表单型跨端组件 */
 export type {
@@ -125,7 +125,11 @@ export function ModelEditScreen({
             return (
               <TouchableOpacity
                 key={c.id}
-                style={[styles.chip, active && styles.chipActive, isCategoryReadOnly && styles.chipDisabled]}
+                style={[
+                  styles.chip,
+                  active && styles.chipActive,
+                  isCategoryReadOnly && styles.chipDisabled,
+                ]}
                 onPress={isCategoryReadOnly ? undefined : () => onToggleCategory(c.id)}
                 disabled={isCategoryReadOnly}
                 accessibilityState={{ disabled: isCategoryReadOnly }}
@@ -147,7 +151,11 @@ export function ModelEditScreen({
             return (
               <TouchableOpacity
                 key={d.id}
-                style={[styles.chip, active && styles.chipActive, isDeptReadOnly && styles.chipDisabled]}
+                style={[
+                  styles.chip,
+                  active && styles.chipActive,
+                  isDeptReadOnly && styles.chipDisabled,
+                ]}
                 onPress={isDeptReadOnly ? undefined : () => onChange('dept', d.id)}
                 disabled={isDeptReadOnly}
                 accessibilityState={{ disabled: isDeptReadOnly }}
@@ -190,7 +198,11 @@ export function ModelEditScreen({
                 return (
                   <TouchableOpacity
                     key={c.id}
-                    style={[styles.chip, active && styles.chipActive, isCycleReadOnly && styles.chipDisabled]}
+                    style={[
+                      styles.chip,
+                      active && styles.chipActive,
+                      isCycleReadOnly && styles.chipDisabled,
+                    ]}
                     onPress={isCycleReadOnly ? undefined : () => onChange('cycle', c.id)}
                     disabled={isCycleReadOnly}
                     accessibilityState={{ disabled: isCycleReadOnly }}
@@ -230,7 +242,11 @@ export function ModelEditScreen({
                     return (
                       <TouchableOpacity
                         key={d}
-                        style={[styles.chip, active && styles.chipActive, isFreeDurReadOnly && styles.chipDisabled]}
+                        style={[
+                          styles.chip,
+                          active && styles.chipActive,
+                          isFreeDurReadOnly && styles.chipDisabled,
+                        ]}
                         onPress={isFreeDurReadOnly ? undefined : () => onChange('freeDur', d)}
                         disabled={isFreeDurReadOnly}
                         accessibilityState={{ disabled: isFreeDurReadOnly }}
@@ -253,8 +269,16 @@ export function ModelEditScreen({
                 return (
                   <TouchableOpacity
                     key={d.id}
-                    style={[styles.chip, active && styles.chipActive, isDiscountReadOnly && styles.chipDisabled]}
-                    onPress={isDiscountReadOnly ? undefined : () => onChange('discount', active ? '' : d.id)}
+                    style={[
+                      styles.chip,
+                      active && styles.chipActive,
+                      isDiscountReadOnly && styles.chipDisabled,
+                    ]}
+                    onPress={
+                      isDiscountReadOnly
+                        ? undefined
+                        : () => onChange('discount', active ? '' : d.id)
+                    }
                     disabled={isDiscountReadOnly}
                     accessibilityState={{ disabled: isDiscountReadOnly }}
                     activeOpacity={0.8}
@@ -279,7 +303,11 @@ export function ModelEditScreen({
             return (
               <TouchableOpacity
                 key={a.id}
-                style={[styles.chip, active && styles.chipActive, isAudienceReadOnly && styles.chipDisabled]}
+                style={[
+                  styles.chip,
+                  active && styles.chipActive,
+                  isAudienceReadOnly && styles.chipDisabled,
+                ]}
                 onPress={isAudienceReadOnly ? undefined : () => onChange('audience', a.id)}
                 disabled={isAudienceReadOnly}
                 accessibilityState={{ disabled: isAudienceReadOnly }}
