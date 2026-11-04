@@ -5636,10 +5636,20 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
         })
         notified += 1
       } catch (_err) {
-        await db
-          .update(eduFeeReminder)
-          .set({ status: 'failed', updatedAt: new Date() })
+        // 先取现值、按键比较:只有状态真的不是 failed 才写(守门 161 出口形态)。
+        // 无条件盖 updatedAt 会把「没变」伪装成「变过」,污染 tasks.ts 的 since 补拉窗口。
+        const [current] = await db
+          .select({ status: eduFeeReminder.status })
+          .from(eduFeeReminder)
           .where(eq(eduFeeReminder.id, row.id))
+          .limit(1)
+        const changed = current && current.status !== 'failed' ? { status: 'failed' as const } : {}
+        if (Object.keys(changed).length > 0) {
+          await db
+            .update(eduFeeReminder)
+            .set({ ...changed, updatedAt: new Date() })
+            .where(eq(eduFeeReminder.id, row.id))
+        }
       }
     }
     return reply.status(201).send(
