@@ -50,8 +50,9 @@ vi.mock('expo-file-system/legacy', () => ({
  * 分片腿的调度细节在 `ranged-download.test.ts` 里单独钉。这一份只钉**选腿**:
  * 默认让分片腿回 RangeUnsupported ⇒ 落到单流,下面三个用例判的就是这条降级腿的老行为;
  * 需要验"分片腿成功"的用例用 `ranged.impl` 临时接管。
- * 用 importOriginal 保留真实的错误类:`instanceof RangeUnsupportedError` 是选腿分支的
- * 唯一判据,替身里另造一个类会让它永远不命中,于是"降级腿"用例测的其实是分片腿。
+ * 用 importOriginal 保留真实的错误类:默认实现抛 `RangeUnsupportedError` 让普通用例
+ * 落到单流腿;而选腿判据是「除取消外任何分片失败都降级」(2026-11-04 真机教训),
+ * 所以下面另有 `it.each` 逐类证明普通 Error 也会退回单流,不再只认那一个类。
  */
 vi.mock('../ranged-download', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../ranged-download')>()
@@ -307,14 +308,14 @@ describe('下载 + 安装', () => {
     expect(mod.apkSnapshot().progress).toBe(100)
   })
 
-  it('分片腿可用 ⇒ 走分片,绝不回到单流那条 16KB/s 的老路', async () => {
+  it('分片腿可用 ⇒ 走分片,不回到单流', async () => {
     h.checkAppVersion.mockResolvedValue(updateResponse())
     h.getContentUriAsync.mockResolvedValue('content://zh.ai.sq.FileSystemFileProvider/apk')
     h.startActivity.mockResolvedValue(undefined)
     ranged.impl = async () => ({
       uri: 'file:///cache/ihui-ai-0.0.9.apk',
       bytes: 84915649,
-      connections: 8,
+      connections: 4,
     })
     setNativeLauncher(true)
 
@@ -331,6 +332,30 @@ describe('下载 + 安装', () => {
     })
     expect(mod.apkSnapshot().installMode).toBe('in-app')
     expect(mod.apkSnapshot().progress).toBe(100)
+  })
+
+  it.each([
+    ['首片停滞', '分片腿 45s 内 0 字节到货'],
+    ['普通网络错误', '网络错误'],
+    ['落盘不完整', '下载不完整:期望 84915649 字节'],
+  ])('分片腿 %s ⇒ 立刻退回原生单流,绝不把 0%% 伪装成下载中', async (_label, message) => {
+    h.checkAppVersion.mockResolvedValue(updateResponse())
+    h.downloadAsync.mockResolvedValue({ uri: 'file:///cache/ihui-ai-0.0.9.apk' })
+    h.createDownloadResumable.mockReturnValue({ downloadAsync: h.downloadAsync })
+    h.getContentUriAsync.mockResolvedValue('content://zh.ai.sq.FileSystemFileProvider/apk')
+    h.startActivity.mockResolvedValue(undefined)
+    ranged.impl = async () => {
+      throw new Error(message)
+    }
+    setNativeLauncher(true)
+
+    const mod = await freshModule()
+    await mod.checkApkUpdate()
+    await expect(mod.applyApkUpdate()).resolves.toBe('installing')
+
+    expect(h.createDownloadResumable).toHaveBeenCalledTimes(1)
+    expect(h.getContentUriAsync).toHaveBeenCalledWith('file:///cache/ihui-ai-0.0.9.apk')
+    expect(mod.apkSnapshot().installMode).toBe('in-app')
   })
 
   it('服务端没给下载地址时点了也不炸,落 error', async () => {
