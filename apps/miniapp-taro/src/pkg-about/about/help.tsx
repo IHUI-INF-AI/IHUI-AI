@@ -65,8 +65,8 @@ export default function HelpPage() {
   })
   useUiField({
     kind: 'textarea',
-    label: tt('about.help.contextPlaceholder', '请输入反馈详情'),
-    placeholder: tt('about.help.contextPlaceholder', '请输入反馈详情'),
+    label: tt('feedback.contentPlaceholder', '请输入反馈详情'),
+    placeholder: tt('feedback.contentPlaceholder', '请输入反馈详情'),
     readValue: () => form.context,
     setValue: (next) => updateField('context', next),
   })
@@ -213,7 +213,7 @@ export default function HelpPage() {
             <FocusTextarea
               className="w-full min-h-[180rpx] px-[24rpx] py-[16rpx] box-border bg-muted border-[length:2rpx] border-border rounded-sm text-body text-foreground"
               value={form.context}
-              placeholder={tt('about.help.contextPlaceholder', '请输入反馈详情')}
+              placeholder={tt('feedback.contentPlaceholder', '请输入反馈详情')}
               onInput={(e) => updateField('context', e.detail.value)}
             />
           </View>
@@ -227,11 +227,11 @@ export default function HelpPage() {
           >
             {feedbackState === 'submitting'
               ? tt('about.help.submitting', '提交中...')
-              : tt('about.help.submit', '提交反馈')}
+              : tt('feedback.submit', '提交反馈')}
           </Button>
           {feedbackState === 'success' ? (
             <Text className="block text-center text-body mt-[16rpx] text-success">
-              {tt('about.help.submitSuccess', '反馈提交成功')}
+              {tt('feedback.success', '反馈提交成功')}
             </Text>
           ) : null}
           {feedbackState === 'failed' ? (
