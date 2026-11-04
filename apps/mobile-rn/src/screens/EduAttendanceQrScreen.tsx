@@ -225,7 +225,7 @@ export function EduAttendanceQrScreen() {
                   style={[styles.classChip, on ? styles.classChipOn : null]}
                 >
                   <Text
-                    style={[styles.classChipText, on ? styles.classChipTextOn : null]}
+                    style={[styles.classChipText, on ? styles.classChipOnText : null]}
                     numberOfLines={1}
                   >
                     {c.grade ? `${c.name}·${c.grade}` : c.name}
@@ -459,7 +459,7 @@ function createQrStyles(tk: ReturnType<typeof getTokens>) {
     },
     classChipOn: { backgroundColor: tk.brand.cta, borderColor: tk.brandAccent.deep },
     classChipText: { color: tk.text.primary, fontSize: rnType.caption.size, maxWidth: 180 },
-    classChipTextOn: { color: tk.brand.ctaForeground, fontWeight: '600' },
+    classChipOnText: { color: tk.brand.ctaForeground, fontWeight: '600' },
     qrArea: {
       flex: 1,
       alignItems: 'center',
