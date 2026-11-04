@@ -23,6 +23,8 @@
  * 本层零 IO、零 git、零 process：行为只能靠构造面证明（§22c），所以镜像测试不必赌本机状态。
  */
 
+import { createHmac, timingSafeEqual } from 'node:crypto'
+
 /** 受保护面清单的唯一路径（清单自身也在受保护面里，见清单 why）。 */
 export const GUARD_DATA_REL = 'scripts/data/immutable-guard.json'
 
@@ -32,14 +34,49 @@ export const EXEMPT_TRAILER = 'immutable-exempt:'
 /** 理由最小长度（字符数，不是字节）：中文按字算，`[...s].length`。 */
 export const MIN_REASON_CHARS = 10
 
+/**
+ * 签名声明的唯一形态（2026-11-04 立，第二 trailer 行）：
+ *
+ *     immutable-exempt:     <≥10 字理由>
+ *     immutable-exempt-sig: v1:<HMAC-SHA256 hex>
+ *
+ * 签名串覆盖 `{subject, hits, reason}`（见 `exemptPayload`）——它**不是**理由的复述，
+ * 而是把这枚豁免钉在「这条提交标题 + 这批被改的受保护路径 + 这条理由」上：
+ * 把别的提交的签名抄过来、或改一处路径后复用同一签名，都会验不过。
+ * 算法与密钥来源：HMAC-SHA256（复用 node:crypto，不自创原语）；密钥由 CI/机主经
+ * 环境变量或仓外路径注入（见 `check-immutable-guard.mjs` 的 `resolveSigningKey`）。
+ */
+export const SIG_TRAILER = 'immutable-exempt-sig:'
+
+/** 签名串版本前缀（换算法时必须换版本，验签侧按版本判，不静默降级）。 */
+export const SIG_VERSION = 'v1'
+
+/** `v1:<64 位 hex>`。形状坏 ⇒ 不进 `sigs`，进 `problems` 点名。 */
+export const SIG_HEX_RE = /^v1:[a-f0-9]{64}$/i
+
+/** 密钥最短长度（字符）。短于此按「密钥不存在」处理 ⇒ fail-closed 未豁免。 */
+export const MIN_KEY_CHARS = 32
+
+/** 清单里的迁移窗口开关名：该日期**当天起**必须有验得过的签名。 */
+export const SIGNATURE_REQUIRED_KEY = 'signatureRequiredFrom'
+
+/** 「无签名豁免」绕过台账（迁移窗口内仅文字理由时**必须**留痕，现状是完全静默）。 */
+export const UNSIGNED_LEDGER_REL = '.ihui-agent/state/immutable-guard-unsigned-ledger.jsonl'
+
 /** 受保护面的四类。kind 是分类不是匹配模式（匹配模式由 path 形态决定）。 */
 export const PROTECTED_KINDS = Object.freeze(['gate-body', 'rule-doc', 'judgement-lib', 'gate-registry'])
 
 /** 结论码 → 人话。输出层只查这一张表，不逐处拼字符串。 */
 export const CODE_LABEL = Object.freeze({
   pass: '通过：本次改动未触及受保护面',
-  declared: '通过：触及受保护面且提交信息已显式声明理由',
+  declared: '通过：触及受保护面且提交信息带验签通过的 immutable-exempt-sig 签名',
+  'declared-unsigned':
+    '通过（迁移窗口内）：触及受保护面，仅文字理由、无有效签名 ⇒ 已记「无签名豁免」绕过台账',
   undeclared: '判红：触及受保护面但提交信息里没有可用的 immutable-exempt: 声明',
+  'retro-declared':
+    '通过（事后追认）：提交当时**没有**声明，由持钥方在台账里逐枚具名补了签名说明 ⇒ 读数必须打「追认@ackedBy」，不得当"当时就声明了"',
+  'undeclared-unsigned':
+    '判红：触及受保护面且有文字理由，但缺少/验不过 immutable-exempt-sig（签名豁免未生效）',
   expired: '判红：受保护面清单里有 reviewBy 已到期的条目（清单腐烂，§0.7）',
   'list-bad': '未判定：受保护面清单形状坏（坏行/重复/非法 kind/reviewBy 不合法）',
   'list-empty': '未判定：受保护面清单枚举到 0 条（枚举到 0 个候选判死不记绿，§0.3）',
@@ -108,23 +145,64 @@ function pathProblem(p) {
 
 /**
  * 清单校验。**形状坏不猜**：坏行逐条收集进 `problems`，调用方折成 exit 2。
+ *
+ * 支持两种顶层形态（2026-11-04 起）：
+ *   旧形态：`[ {path,kind,why,reviewBy}, … ]`（无迁移窗口 ⇒ 按 fail-closed **立即**要求签名）；
+ *   新形态：`{ "signatureRequiredFrom": "YYYY-MM-DD", "entries": [ … ] }`。
+ * 缺 `signatureRequiredFrom` ⇒ 返回 `null` = 立即要求签名（绝不"没写开关就默认放行"）。
  * @param {string} text 清单 JSON 正文
- * @returns {{entries: Array<object>, problems: Array<{code:string,message:string}>, expired: Array<object>}}
+ * @returns {{entries: Array<object>, problems: Array<{code:string,message:string}>, expired: Array<object>, signatureRequiredFrom: string|null}}
  */
 export function parseGuardList(text, { today = todayStr() } = {}) {
   const problems = []
-  let rows
+  let raw
   try {
-    rows = JSON.parse(String(text ?? ''))
+    raw = JSON.parse(String(text ?? ''))
   } catch (e) {
     return {
       entries: [],
       problems: [{ code: 'json-parse', message: `清单不是合法 JSON：${e.message}` }],
       expired: [],
+      signatureRequiredFrom: null,
     }
   }
-  if (!Array.isArray(rows)) {
-    return { entries: [], problems: [{ code: 'not-array', message: '清单顶层必须是数组' }], expired: [] }
+  let rows
+  let signatureRequiredFrom = null
+  if (Array.isArray(raw)) {
+    rows = raw
+  } else if (raw && typeof raw === 'object') {
+    rows = raw.entries
+    if (!Array.isArray(rows)) {
+      return {
+        entries: [],
+        problems: [{ code: 'entries-not-array', message: '清单对象的 entries 必须是数组' }],
+        expired: [],
+        signatureRequiredFrom: null,
+      }
+    }
+    if (raw.signatureRequiredFrom !== undefined && raw.signatureRequiredFrom !== null) {
+      if (!isValidDateStr(raw.signatureRequiredFrom)) {
+        return {
+          entries: [],
+          problems: [
+            {
+              code: 'bad-signature-required-from',
+              message: `signatureRequiredFrom 必须是合法 YYYY-MM-DD，收到：${JSON.stringify(raw.signatureRequiredFrom)}`,
+            },
+          ],
+          expired: [],
+          signatureRequiredFrom: null,
+        }
+      }
+      signatureRequiredFrom = raw.signatureRequiredFrom
+    }
+  } else {
+    return {
+      entries: [],
+      problems: [{ code: 'not-array', message: '清单顶层必须是数组或 {entries:[…], signatureRequiredFrom}' }],
+      expired: [],
+      signatureRequiredFrom: null,
+    }
   }
   const entries = []
   const seen = new Set()
@@ -167,7 +245,7 @@ export function parseGuardList(text, { today = todayStr() } = {}) {
     })
   })
   const expired = entries.filter((e) => isExpired(e.reviewBy, today))
-  return { entries, problems, expired }
+  return { entries, problems, expired, signatureRequiredFrom }
 }
 
 /**
@@ -218,6 +296,100 @@ export function parseExemptTrailer(message) {
 }
 
 /**
+ * 解析 `immutable-exempt-sig:` 行。逐行生效、trailer 名大小写不敏感、空值/坏形状进 `problems`。
+ * @returns {{present:boolean, sigs:Array<string>, problems:Array<object>}}
+ */
+export function parseSigTrailer(message) {
+  const sigs = []
+  const problems = []
+  const re = /^\s*immutable-exempt-sig\s*:\s*(.*)$/i
+  for (const line of String(message ?? '').split(/\r?\n/)) {
+    const m = re.exec(line)
+    if (!m) continue
+    const raw = m[1].trim()
+    if (raw.length === 0) {
+      problems.push({ code: 'sig-empty', message: 'immutable-exempt-sig: 后面没有签名串' })
+      continue
+    }
+    if (!SIG_HEX_RE.test(raw)) {
+      problems.push({
+        code: 'sig-bad-format',
+        message: `immutable-exempt-sig 形状必须为 ${SIG_VERSION}:<64 位 hex>，收到：「${raw.slice(0, 80)}」`,
+      })
+      continue
+    }
+    sigs.push(raw.toLowerCase())
+  }
+  return { present: sigs.length + problems.length > 0, sigs, problems }
+}
+
+/** 提交标题：第一行非空且非 `#` 注释行（COMMIT_EDITMSG 里的注释行不算标题）。 */
+export function subjectOf(message) {
+  for (const line of String(message ?? '').split(/\r?\n/)) {
+    const t = line.trim()
+    if (t && !t.startsWith('#') && !t.startsWith(';')) return t
+  }
+  return ''
+}
+
+/**
+ * 签名覆盖的规范串。绑定三样、缺一不可：
+ *   ① 提交标题 —— 换个标题就复用不了签名；
+ *   ② 本次命中的受保护路径（排序去重）—— 改一处路径就复用不了签名；
+ *   ③ 理由原文 —— 换个理由（哪怕同长度）也复用不了签名。
+ * 用 JSON 序列化而非分隔符拼接：路径里出现任何字符都不会造成歧义。
+ */
+export function exemptPayload({ subject, hits, reason }) {
+  const paths = [...new Set((Array.isArray(hits) ? hits : []).map((h) => normalizeRel(h?.path ?? h ?? '')))]
+    .filter(Boolean)
+    .sort()
+  return JSON.stringify({ v: SIG_VERSION, subject: String(subject ?? '').trim(), paths, reason: String(reason ?? '').trim() })
+}
+
+/** 签发：`v1:<hex>`。只有持钥方（CI / 机主注入的环境变量或仓外路径）能算得出来。 */
+export function signExemption({ subject, hits, reason, key }) {
+  const k = String(key ?? '')
+  if (k.length < MIN_KEY_CHARS) throw new Error(`签名密钥长度不足 ${MIN_KEY_CHARS} 字符（按无效密钥处理）`)
+  const mac = createHmac('sha256', k).update(exemptPayload({ subject, hits, reason })).digest('hex')
+  return `${SIG_VERSION}:${mac}`
+}
+
+function hmacEqual(expectedHex, actualHex) {
+  const a = Buffer.from(expectedHex, 'hex')
+  const b = Buffer.from(actualHex, 'hex')
+  if (a.length !== b.length || a.length === 0) return false
+  return timingSafeEqual(a, b)
+}
+
+/**
+ * 验签（纯函数，不做 IO）。结论码：
+ *   sig-verified   至少一条签名与某条理由对得上 ⇒ ok
+ *   sig-missing    消息里没有 sig 行（迁移窗口内按旧语义放行并留痕，窗口后判红）
+ *   sig-malformed  有 sig 行但形状坏
+ *   key-unavailable 需要验签但密钥不存在（**fail-closed**，绝不"没钥匙就放行"）
+ *   sig-invalid    形状对但验不过（密钥不对 / 内容被改 / 抄了别的提交的签名）
+ * @returns {{present:boolean, ok:boolean, code:string, reasons:Array<object>, problems:Array<object>}}
+ */
+export function verifyExemption({ message, hits, key }) {
+  const reasonRes = parseExemptTrailer(message)
+  const sigRes = parseSigTrailer(message)
+  const problems = [...reasonRes.problems, ...sigRes.problems]
+  const base = { present: sigRes.present, ok: false, reasons: reasonRes.reasons, problems }
+  if (!sigRes.sigs.length) return { ...base, code: sigRes.present ? 'sig-malformed' : 'sig-missing' }
+  const k = String(key ?? '')
+  if (k.length < MIN_KEY_CHARS) return { ...base, code: 'key-unavailable' }
+  const subject = subjectOf(message)
+  for (const sig of sigRes.sigs) {
+    const actual = sig.slice(SIG_VERSION.length + 1)
+    for (const r of reasonRes.reasons) {
+      const expected = createHmac('sha256', k).update(exemptPayload({ subject, hits, reason: r.reason })).digest('hex')
+      if (hmacEqual(expected, actual)) return { ...base, ok: true, code: 'sig-verified' }
+    }
+  }
+  return { ...base, code: 'sig-invalid' }
+}
+
+/**
  * 逐改动判命中。改名/复制（R/C）**两侧都判**：把受保护面搬走也是改判据面。
  * @param {{changes:Array<{status:string,path:string,oldPath?:string}>, entries:Array<object>, message?:string, today?:string}} input
  */
@@ -245,20 +417,66 @@ export function judgeChanges({ changes, entries, message = '', today = todayStr(
 /**
  * 三态判定（0 通过 / 1 判红 / 2 未判定）。顺序即语义：
  *   清单坏 ⇒ 2；清单空 ⇒ 2；清单到期 ⇒ 1（确定的腐烂，不依赖本次改动）；
- *   未触及 ⇒ 0；触及但拿不到消息 ⇒ 2；触及且有有效声明 ⇒ 0；触及无声明 ⇒ 1。
+ *   未触及 ⇒ 0；触及但拿不到消息 ⇒ 2；触及无理由 ⇒ 1；
+ *   触及有理由 ∧ 签名验过 ⇒ 0（declared）；
+ *   触及有理由 ∧ **有签名行但验不过** ⇒ 1（undeclared-unsigned，无窗口例外：声称签过却验不过 =
+ *     篡改/钥匙不对，绝不降级成"没签名"再借窗口放行）；
+ *   触及有理由 ∧ **没有签名行** ∧ 迁移窗口内 ⇒ 0（declared-unsigned，**必须留痕**）；
+ *   触及有理由 ∧ **没有签名行** ∧ 迁移窗口已到 ⇒ 1（undeclared-unsigned）。
+ *
+ * `signatureRequiredFrom === null`（清单里没写开关 / 旧形态清单）= **旧语义**（开关尚未引入）：
+ *   无签名按旧语义放行并留痕。这不是"没写开关就默认放行"的漏洞 —— 开关一旦随策略落在
+ *   origin/main，push 门按**区间基点**取策略，被审者在自己提交里删掉/推后开关也放不了行；
+ *   而"密钥不存在"永远按 `key-unavailable` fail-closed，与开关有无无关。
+ * `key === null`（密钥不存在）⇒ 需要验签时按 `key-unavailable` 处理，绝不默认放行。
  * `message === null` 表示"结构上拿不到消息"（pre-commit 阶段的索引面），与"消息为空"不同。
  */
-export function decide({ listProblems = [], entries = [], changes = [], message = null, today = todayStr() }) {
-  const base = { hits: [], untouched: [], exempt: { present: false, reasons: [], problems: [] }, expired: [] }
+export function decide({
+  listProblems = [],
+  entries = [],
+  changes = [],
+  message = null,
+  today = todayStr(),
+  key = null,
+  signatureRequiredFrom = null,
+  ackRows = [],
+  sha = null,
+}) {
+  const base = {
+    hits: [],
+    untouched: [],
+    exempt: { present: false, reasons: [], problems: [] },
+    expired: [],
+    signature: { present: false, ok: false, code: 'sig-missing', reasons: [], problems: [] },
+    signatureRequiredFrom,
+  }
   if (listProblems.length) return { ...base, exit: 2, code: 'list-bad', listProblems }
   if (!entries.length) return { ...base, exit: 2, code: 'list-empty', listProblems }
   const judged = judgeChanges({ changes, entries, message: message ?? '', today })
-  const out = { ...judged, listProblems }
+  const signature = verifyExemption({ message: message ?? '', hits: judged.hits, key })
+  const out = { ...judged, signature, signatureRequiredFrom, listProblems }
   if (judged.expired.length) return { ...out, exit: 1, code: 'expired' }
   if (!judged.hits.length) return { ...out, exit: 0, code: 'pass' }
   if (message === null) return { ...out, exit: 2, code: 'message-missing' }
-  if (judged.exempt.reasons.length) return { ...out, exit: 0, code: 'declared' }
-  return { ...out, exit: 1, code: 'undeclared' }
+  // 追认台账只在"这一枚当下被判红"时才问;命中面交给 lookupAck,paths 未覆盖即不算点名到位。
+  const rows = Array.isArray(ackRows) ? ackRows : []
+  const ack = sha && rows.length > 0 ? lookupAck({ rows, sha, hits: judged.hits, today, key }) : { state: 'none', why: '' }
+  const ackOr = (substitutedFor, redCode) =>
+    ack.state === 'valid'
+      ? { ...out, exit: 0, code: 'retro-declared', ack: { ...ack, substitutedFor } }
+      : { ...out, exit: 1, code: redCode, ack: ack.state === 'invalid' ? ack : null }
+  if (!judged.exempt.reasons.length) return ackOr('无 trailer 声明', 'undeclared')
+  if (signature.ok) return { ...out, exit: 0, code: 'declared' }
+  // 有签名行却验不过（含密钥取不到）⇒ 一律判红：它是对"已签名"的**正向声明**，
+  // 不能因为窗口还开着就当成"没签名"放行（否则伪造签名 = 比不签更划算）。
+  // 唯一可替代它的仍然是**持钥方的追认**（控制点是那把钥匙，不是正文里的字）；
+  // 追认生效时读数会带 substitutedFor=sig 验不过，绝不与"当时就签对了"混成同一句。
+  if (signature.present) return ackOr('自带签名验不过', 'undeclared-unsigned')
+  // 开关缺席 = 旧语义（窗未引入/历史提交）⇒ 窗口视为开；非法日期在 parseGuardList 已按 list-bad 拦下。
+  // 开关一旦存在，日期到期即 windowOpen=false ⇒ 判红（到期自动收紧，无需再改代码）。
+  const windowOpen = signatureRequiredFrom === null || (isValidDateStr(String(signatureRequiredFrom)) && today < signatureRequiredFrom)
+  if (!windowOpen) return ackOr('窗口已过而只有文字理由', 'undeclared-unsigned')
+  return { ...out, exit: 0, code: 'declared-unsigned' }
 }
 
 /**
@@ -305,5 +523,138 @@ export function probeEntry(entry) {
   else if (pat.includes('*')) probe = pat.replaceAll('*', '__probe__')
   else probe = pat
   return { entry, probe, ok: matchProtected(probe, [entry]) !== null }
+}
+
+/**
+ * ── 追认台账（retro-declaration，2026-11-04 立）────────────────────────────
+ *
+ * 要解决的问题是护栏自己造出来的一格死区：`--range origin/main..HEAD` 逐枚判"本次要推的每一枚"，
+ * 而**已落在区间里的未声明提交**只有一个合法出路——重写提交信息（会改 sha）。本仓 `.husky/pre-rebase`
+ * 硬拦 rebase（2026-10-24 事故根治），共享工作树里也没人能动别人已经落账的历史 ⇒ 前向无解。
+ * 后果不是"那一枚红"，而是**每一次推送都被它顶住**（包括自治环落账腿与部署环），按 §12e 就是恒红门：
+ * 红的原因与被拦的人无关，而他又没有任何合规手段把它消掉。
+ *
+ * 出口方向必须是"多要一次定向说明"，绝不能是"多放一次跳门"（§0.10）。所以本档不是开关、不是豁免名单，
+ * 而是一条**逐枚、具名、签名、会到期**的事后声明：
+ *   - 一行一条 JSON，键固定为 sha/paths/reason/ackedBy/ackedAt/expires/sig；
+ *   - `sha` 必须 40 位全量（短 sha 在本仓的腐烂率实测 30.2%，证据指针禁用缩写）；
+ *   - `paths` 必须逐条列出被追认那枚**实际改动到的文件路径**（= 判定输出里 `hits[].path` 那个形态，
+ *     不是清单里的 `scripts/lib/` 这类匹配模式）——写"整批都追认"或拿模式凑数都不算点名；
+ *   - `reason` ≥ `MIN_REASON_CHARS`，与提交内 trailer 同一量纲；
+ *   - `expires` 必填且会到期：到期后该枚回到红（"追认"不是终身赦免，长期无人复核=判据腐烂，§0.7）；
+ *   - `sig` 由持钥方签发，签名串覆盖 `{v:'a1', sha, paths, reason}`，与提交内 `v1:` 的载荷不同形
+ *     ⇒ 提交签名与追认签名互不可挪用（把别的 sha 的签名抄过来必然验不过）。
+ * 台账本身落在受保护面上（清单已登记 `scripts/data/immutable-guard-acks.jsonl`）：往里面塞一行
+ * 就等于给某枚已入库提交补发豁免，所以**改台账这件事本身也要显式声明**——这才是"多要一次说明"。
+ *
+ * 判定顺序仍只在 `decide()` 一处：未声明时先问有没有效追认，有效 ⇒ `retro-declared`（exit 0，
+ * 输出层必须打 `追认@ackedBy`，绝不允许读成"当时就声明了"）；形状坏/到期/验不过/理由不足 ⇒
+ * 一律保持 `undeclared`，并把失败原因带在 `ack` 里点名（§0.3：拿不准就拦，不冒绿）。
+ */
+export const ACK_LEDGER_REL = 'scripts/data/immutable-guard-acks.jsonl'
+
+/** 追认签名版本前缀（与提交内 `v1:` 载荷不同形，互不可挪用）。 */
+export const ACK_SIG_VERSION = 'a1'
+
+/** 证据指针的形态闸：40 位全量 sha，短写一律不收。 */
+export const FULL_SHA_RE = /^[0-9a-f]{40}$/
+
+/** 追认签名串形状 `a1:<64 hex>`（复用长度规则，只换版本前缀）。 */
+export const ACK_SIG_RE = /^a1:[a-f0-9]{64}$/i
+
+/** 追认签名载荷：`{v,sha,paths,reason}`，paths 去重排序，与 `exemptPayload` 不同键集。 */
+export function ackPayload({ sha, paths, reason }) {
+  const uniq = [...new Set((Array.isArray(paths) ? paths : []).map((p) => normalizeRel(p ?? '')))].filter(Boolean).sort()
+  return JSON.stringify({ v: ACK_SIG_VERSION, sha: String(sha ?? '').trim().toLowerCase(), paths: uniq, reason: String(reason ?? '').trim() })
+}
+
+/** 签发追认行（只有持钥方算得出来）。密钥不足 ⇒ 抛，不静默产出可用假签名。 */
+export function signAck({ sha, paths, reason, key }) {
+  const k = String(key ?? '')
+  if (k.length < MIN_KEY_CHARS) throw new Error(`签名密钥长度不足 ${MIN_KEY_CHARS} 字符（按无效密钥处理）`)
+  return `${ACK_SIG_VERSION}:${createHmac('sha256', k).update(ackPayload({ sha, paths, reason })).digest('hex')}`
+}
+
+/**
+ * 逐行解析台账。返回 `{rows, problems}`：
+ *  - 空行跳过（JSONL 文件尾换行是形态，不是内容）；
+ *  - 坏行/缺键/短 sha/理由过短 ⇒ 进 `problems` 并**带行号点名**，不进 `rows`；
+ *  - 到期行仍进 `rows`（由 `lookupAck` 判 `expired`，输出层要能分清"没这条"与"这条过期了"）。
+ */
+export function parseAckLedger(text) {
+  const rows = []
+  const problems = []
+  const lines = String(text ?? '').split(/\r?\n/)
+  lines.forEach((line, i) => {
+    if (!line.trim()) return
+    let o
+    try {
+      o = JSON.parse(line)
+    } catch (e) {
+      problems.push({ line: i + 1, why: `不是合法 JSON：${e.message}` })
+      return
+    }
+    if (!o || typeof o !== 'object' || Array.isArray(o)) {
+      problems.push({ line: i + 1, why: '一行必须是对象' })
+      return
+    }
+    const missing = ['sha', 'paths', 'reason', 'ackedBy', 'expires', 'sig'].filter((k) => o[k] === undefined || o[k] === null || o[k] === '')
+    if (missing.length) {
+      problems.push({ line: i + 1, why: `缺必填键：${missing.join(',')}` })
+      return
+    }
+    if (!FULL_SHA_RE.test(String(o.sha))) {
+      problems.push({ line: i + 1, why: `sha 必须 40 位全量（证据指针禁短写）：${String(o.sha).slice(0, 20)}` })
+      return
+    }
+    if (!Array.isArray(o.paths) || o.paths.length === 0) {
+      problems.push({ line: i + 1, why: 'paths 必须逐条列出被追认的受保护面（空数组=模糊范围，不算说明）' })
+      return
+    }
+    if ([...String(o.reason).trim()].length < MIN_REASON_CHARS) {
+      problems.push({ line: i + 1, why: `理由不足 ${MIN_REASON_CHARS} 字` })
+      return
+    }
+    if (!isValidDateStr(String(o.expires))) {
+      problems.push({ line: i + 1, why: `expires 必须是 YYYY-MM-DD：${String(o.expires).slice(0, 20)}` })
+      return
+    }
+    if (!ACK_SIG_RE.test(String(o.sig))) {
+      problems.push({ line: i + 1, why: `sig 形状坏（应为 a1:<64hex>）：${String(o.sig).slice(0, 8)}` })
+      return
+    }
+    rows.push({ ...o, sha: String(o.sha).toLowerCase(), line: i + 1 })
+  })
+  return { rows, problems }
+}
+
+/**
+ * 取该 sha 的追认并验签。四档绝不并桶：
+ *  - `none`     台账里没有这一枚（⇒ 判定不变，仍按未声明）；
+ *  - `valid`    形状齐、未到期、签名对得上 ⇒ `decide` 走 retro-declared；
+ *  - `invalid`  有这一枚但过期/验不过/paths 不含实际命中面 ⇒ 保持红，并把 why 带出去点名；
+ *  - `duplicate-…` 同 sha 多行：取**最后一行**为准（台账可追加更正），其余行只报数不静默。
+ * `hits` 传被审提交实际改动的**文件路径**（判定输出里的 `hits[].path`，不是清单匹配模式）：
+ * 追认的 paths 必须覆盖它们——"追认整枚但漏掉一个改过的文件"不算说明到位。
+ */
+export function lookupAck({ rows, sha, hits = [], today = todayStr(), key = null }) {
+  const target = String(sha ?? '').toLowerCase()
+  if (!target) return { state: 'none', why: '无 sha 可查' }
+  const mine = (Array.isArray(rows) ? rows : []).filter((r) => r.sha === target)
+  if (mine.length === 0) return { state: 'none', why: '' }
+  const row = mine[mine.length - 1]
+  const extra = mine.length > 1 ? { superseded: mine.length - 1 } : {}
+  if (String(row.expires) <= today) return { state: 'invalid', code: 'ack-expired', row, why: `追认已到期（${row.expires}）`, ...extra }
+  const hitPaths = [...new Set((Array.isArray(hits) ? hits : []).map((h) => normalizeRel(h?.path ?? h ?? '')))]
+  const ackPaths = [...new Set((row.paths || []).map((p) => normalizeRel(p)))]
+  const uncovered = hitPaths.filter((p) => !ackPaths.includes(p))
+  if (uncovered.length) return { state: 'invalid', code: 'ack-paths-incomplete', row, why: `追认未列出：${uncovered.join(',')}`, ...extra }
+  const k = String(key ?? '')
+  if (k.length < MIN_KEY_CHARS) return { state: 'invalid', code: 'ack-key-unavailable', row, why: '密钥不可得 ⇒ 无法验签（fail-closed）', ...extra }
+  const expected = createHmac('sha256', k).update(ackPayload({ sha: row.sha, paths: row.paths, reason: row.reason })).digest('hex')
+  if (!hmacEqual(expected, String(row.sig).slice(ACK_SIG_VERSION.length + 1))) {
+    return { state: 'invalid', code: 'ack-sig-invalid', row, why: '追认签名验不过（内容被改 / 抄自别处）', ...extra }
+  }
+  return { state: 'valid', code: 'ack-verified', row, why: '', ...extra }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

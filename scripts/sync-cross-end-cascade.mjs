@@ -75,6 +75,22 @@ const STAGES = [
     timeoutMs: 30 * 60 * 1000,
   },
   {
+    // 2026-11-04 补链:这一腿是「小程序对齐 RN」里**唯一能机械做对**的那一半 ——
+    // spec 绑定块(import + 映射声明)由 RN 壳单方持有、逐字派生到小程序壳。
+    // 此前它只有人肉入口,于是"改完 RN 壳忘了镜像映射"只能等 check-ui-spec-mirror 在提交链上抓,
+    // 抓到时已经是两处不一致的现场。器物自带归属闸(他席在飞的壳文件 held 不写),
+    // 所以挂进级联不会覆盖任何人的未提交工作(失效方向恒为"少写一次")。
+    name: 'mirror-spec-blocks',
+    kind: 'derive',
+    desc: '小程序 spec 绑定块 ← RN 壳派生(gen-ui-mirror;只写 import 与映射声明,不改 JSX 体)',
+    script: 'gen-ui-mirror.mjs',
+    base: [],
+    apply: ['--apply'],
+    write: true,
+    timeoutMs: 10 * 60 * 1000,
+    note: '归属闸:脏集里的壳一律 held 不写;landing 账本命中则本轮 skipLanded(幂等)',
+  },
+  {
     name: 'rn-token-pairs',
     kind: 'derive',
     desc: 'RN 色档同源入表(色值档补进跨端映射)',
@@ -236,6 +252,40 @@ const STAGES = [
     timeoutMs: 10 * 60 * 1000,
   },
   {
+    // 2026-11-04 补链(功能维):原 verify 段只判样式(几何/圆角/镜像还原度),
+    // 「web 有这屏、RN 有没有对应屏」「两端同名组件的 props 差哪些」「同屏文案是否同措辞」
+    // 三格全在链外 —— 于是"样式全绿"很容易被读成"功能也对齐了"。
+    // 三枚器物都是既有守门/报告器的同源件,本层零判据、只派发与如实分档。
+    name: 'verify-web-rn-screens',
+    kind: 'verify',
+    desc: '校验:web 路由 ↔ RN 屏承载 + 侧栏入口可达性(功能维,报告器档)',
+    script: 'check-web-rn-screen-parity.mjs',
+    base: ['--json'],
+    redOnFail: true,
+    redName: 'web-rn-screens',
+    timeoutMs: 10 * 60 * 1000,
+  },
+  {
+    name: 'verify-props-parity',
+    kind: 'verify',
+    desc: '校验:两端同名组件 props 对账(门 285 同源器物)',
+    script: 'check-cross-end-component-props-parity.mjs',
+    base: ['--json'],
+    redOnFail: true,
+    redName: 'props-parity',
+    timeoutMs: 10 * 60 * 1000,
+  },
+  {
+    name: 'verify-copy-parity',
+    kind: 'verify',
+    desc: '校验:同屏 web↔RN 措辞一致性(门 291 同源器物;B2 同值异键只出 advisory)',
+    script: 'check-web-rn-copy-parity.mjs',
+    base: ['--json'],
+    redOnFail: true,
+    redName: 'copy-parity',
+    timeoutMs: 10 * 60 * 1000,
+  },
+  {
     name: 'verify-fidelity',
     kind: 'verify',
     desc: '校验:小程序镜像还原度(文案键未覆盖面)',
@@ -287,7 +337,10 @@ export function parseArgs(argv) {
   // --only 令牌既认段 id 也认段类(混给亦可;全不命中 ⇒ usageError,防"打错字静默空跑")
   if (opts.only !== null) {
     if (opts.only.length === 0)
-      return { ...opts, usageError: `--only= 后没有段 id ⇒ 未执行任何段(可用 stageId=${STAGE_IDS.join('/')})` }
+      return {
+        ...opts,
+        usageError: `--only= 后没有段 id ⇒ 未执行任何段(可用 stageId=${STAGE_IDS.join('/')})`,
+      }
     const hit = opts.only.filter((t) => STAGE_IDS.includes(t) || KINDS.includes(t))
     if (hit.length !== opts.only.length) {
       const bad = opts.only.filter((t) => !hit.includes(t))
@@ -379,7 +432,7 @@ function runStage(stage, opts, logger) {
       .join(' / ')
     const detail =
       state === 'red'
-        ? `尺子判红:${summarize(out) || errText}`
+        ? `尺子判红:${redReason(out, errText)}`
         : state === 'failed'
           ? `器物失败 rc=${rc}:${errText}`
           : `未能判定:${errText.slice(0, 160)}`
@@ -423,6 +476,20 @@ function clip(s) {
   return s.length > 220 ? `${s.slice(0, 220)}…` : s
 }
 
+/**
+ * 判红理由的可读性(2026-11-04 立,实测型):
+ * 有器物把结论写 **stderr**、stdout 留空(门 285 现读即此型)。旧式 `summarize(out) || errText`
+ * 里 summarize 对空串返回的是字面量「无输出」——非空字符串,`||` 因此**永远短路**,
+ * 真实红因被"无输出"顶掉。这不是措辞问题:级联的全部价值就是让人一眼看见哪一维真分叉,
+ * 显示"无输出"等于把"没判"与"判红"折成同一行(§0.3 禁止的形态)。
+ */
+export function redReason(rawOut, errText) {
+  const out = String(rawOut ?? '')
+  const err = String(errText ?? '').trim()
+  if (out.trim().length > 0) return summarize(out)
+  return err || '无输出(器物流程既未写 stdout 也未写 stderr)'
+}
+
 /** 自检:判序零副作用 —— 不 spawn、不落盘,只用夹具验三态裁决与旗标闸(§0.9 造好没装车=没有) */
 async function selfTestRun() {
   const { test } = await import('node:test')
@@ -448,8 +515,11 @@ async function selfTestRun() {
     assert.match(parseArgs(['--apply', '--dry-run']).usageError, /互斥/)
     assert.match(parseArgs(['--nope']).usageError, /未知旗标/)
   })
-  await test('S4 --only=<stageId> 对全部 20 段严格只跑指定段', () => {
-    assert.equal(STAGES.length, 20, '段数变了 ⇒ 本自检的 20 段全覆盖断言必须同步改')
+  await test(`S4 --only=<stageId> 对全部 ${STAGES.length} 段严格只跑指定段`, () => {
+    // 原断言把段数写成字面量 20 ⇒ 2026-11-04 实测现值 21(写腿 15 + 校验 7)时自检自身先炸,
+    // 而它炸的形态与"选择器失效"完全同形,等于让判序自证长期不可信。
+    // 改为从 STAGES 派生 + 下限守卫:段被误删会撞下限,新增段则天然被下面的循环全覆盖。
+    assert.ok(STAGES.length >= 20, `段数坍缩到 ${STAGES.length} ⇒ 链条被误删,自检拒绝通过`)
     for (const s of STAGES) {
       const sel = selectStages(STAGES, parseArgs([`--only=${s.name}`]))
       assert.deepEqual(
@@ -496,14 +566,26 @@ async function selfTestRun() {
     assert.ok(kinds.at(-1) === 'verify' && kinds.at(0) === 'derive')
   })
   await test('S9 器物在位锁:每段脚本都真实存在,段 id 唯一且不与段类撞名', () => {
-    assert.equal(new Set(STAGE_IDS).size, STAGE_IDS.length, '段 id 出现重复 ⇒ --only 选择器无法严格命中')
+    assert.equal(
+      new Set(STAGE_IDS).size,
+      STAGE_IDS.length,
+      '段 id 出现重复 ⇒ --only 选择器无法严格命中',
+    )
     assert.ok(!KINDS.includes('reconcile'), '段类里出现 reconcile ⇒ 段注/选择器需重新对齐')
     for (const s of STAGES) {
       assert.ok(existsSync(join(HERE, s.script)), `${s.script} 不在位`)
       assert.ok(!KINDS.includes(s.name), `段 id ${s.name} 与段类同名 ⇒ --only 选择器歧义`)
     }
   })
-  console.log('✅ self-test 9 例全绿')
+  await test('S10 判红理由:stdout 空时必须落到 stderr,"无输出"不得盖掉真红因', () => {
+    // 门 285 现读就是这型:结论打 stderr、stdout 空。旧式 `summarize(out) || errText` 恒短路。
+    assert.match(redReason('', '❌ 映射表体检失败 3 处:证据行漂移'), /映射表体检失败 3 处/)
+    assert.match(redReason('   \n ', '❌ 真的红因'), /真的红因/)
+    // stdout 有读数时仍优先读数,不被 stderr 噪声抢走
+    assert.match(redReason('noise\n结论:state=clean', 'warn: something'), /state=clean/)
+    assert.match(redReason('', ''), /未写 stdout/)
+  })
+  console.log('✅ self-test 10 例全绿')
 }
 
 async function main() {
@@ -555,6 +637,7 @@ export const __test__ = {
   classifyStage,
   chainExit,
   summarize,
+  redReason,
   selfTestRun,
 }
 

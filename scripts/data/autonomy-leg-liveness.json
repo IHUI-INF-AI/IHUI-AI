@@ -65,6 +65,38 @@
       "nominalIntervalMs": 86400000,
       "verifiedAt": "2026-11-04",
       "ruler": "scripts/dep-radar.mjs"
+    },
+    {
+      "stamp": "merge-addition-loss-dispatch-last.json",
+      "owner": "startDaemon tick 的 legThrottle 调用点(2026-11-04 承载面第二批)",
+      "envVar": "(无独立 env;间隔写死在调用点)",
+      "nominalIntervalMs": 1800000,
+      "verifiedAt": "2026-11-04",
+      "ruler": "scripts/check-merge-addition-loss.mjs"
+    },
+    {
+      "stamp": "recovery-source-dispatch-last.json",
+      "owner": "startDaemon tick 的 legThrottle 调用点(2026-11-04 承载面第二批)",
+      "envVar": "(无独立 env;间隔写死在调用点)",
+      "nominalIntervalMs": 1800000,
+      "verifiedAt": "2026-11-04",
+      "ruler": "scripts/git-backup-refresh.mjs"
+    },
+    {
+      "stamp": "run-log-rotate-dispatch-last.json",
+      "owner": "startDaemon tick 的 legThrottle 调用点(2026-11-04 承载面第二批)",
+      "envVar": "(无独立 env;间隔写死在调用点)",
+      "nominalIntervalMs": 1800000,
+      "verifiedAt": "2026-11-04",
+      "ruler": "本文件 rotateRunLogs"
+    },
+    {
+      "stamp": "baseline-freshness-dispatch-last.json",
+      "owner": "startDaemon tick 的 legThrottle 调用点(2026-11-04 承载面第二批)",
+      "envVar": "(无独立 env;间隔写死在调用点)",
+      "nominalIntervalMs": 3600000,
+      "verifiedAt": "2026-11-04",
+      "ruler": "本文件 reportBaselineFreshness"
     }
   ]
 }
