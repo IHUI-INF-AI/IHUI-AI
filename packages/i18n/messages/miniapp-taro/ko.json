@@ -7101,5 +7101,9 @@
     "exportingReport": "내보내는 중...",
     "exportEmptyHint": "리포트를 생성한 후 내보낼 수 있습니다",
     "exportLoginRequired": "내보내려면 로그인하세요"
+  },
+  "learnMapPage": {
+    "completed": "완료됨",
+    "empty": "학습 경로가 없습니다"
   }
 }

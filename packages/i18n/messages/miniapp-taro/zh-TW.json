@@ -7098,5 +7098,9 @@
     "exportingReport": "匯出中...",
     "exportEmptyHint": "產生報告後可匯出",
     "exportLoginRequired": "請先登入後再匯出"
+  },
+  "learnMapPage": {
+    "completed": "已完成",
+    "empty": "暫無學習路徑"
   }
 }
