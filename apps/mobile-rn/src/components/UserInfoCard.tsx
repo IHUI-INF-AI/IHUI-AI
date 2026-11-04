@@ -109,6 +109,8 @@ export interface UserInfoCardProps {
    * 未传入时点击成长值条无响应;传入则由调用方决定打开等级介绍弹窗等行为。
    */
   onLevelIntro?: () => void
+  /** 开通会员回调(仅非 isVip 显示;与小程序端 onOpenVip 同槽) */
+  onOpenVip?: () => void
   // ===== 扁平字段(miniapp-taro 的承载形态;与 userInfo 容器同源,显式值优先)=====
   /** 头像 URL(覆盖 userInfo.avatarUrl) */
   avatar?: string
@@ -143,6 +145,7 @@ function UserInfoCardNew({
   onUnsubscribe,
   onCopyInviteCode,
   onLevelIntro,
+  onOpenVip,
   avatar: avatarProp,
   nickname: nicknameProp,
   isVip: isVipProp,
@@ -285,6 +288,18 @@ function UserInfoCardNew({
             <Text style={newStyles.copyBtnText}>复制</Text>
           </TouchableOpacity>
         </View>
+      ) : null}
+
+      {/* 开通会员入口(仅非 VIP 且传了回调;对齐小程序端 openIntroduce) */}
+      {!isVip && onOpenVip ? (
+        <TouchableOpacity
+          style={[newStyles.rechargeBtn, newStyles.openVipBtn]}
+          activeOpacity={0.7}
+          onPress={onOpenVip}
+          accessibilityRole="button"
+        >
+          <Text style={newStyles.rechargeBtnText}>{t('vipTrader.openTitle')}</Text>
+        </TouchableOpacity>
       ) : null}
 
       {/* 智汇值 + 充值按钮(背景色对比分隔,非分割线) */}
@@ -528,6 +543,10 @@ const newStyles = StyleSheet.create({
     fontSize: USER_INFO_CARD_SMALL_FONT_PX,
     color: tokens.brandAccent.foreground,
     fontWeight: '500',
+  },
+  openVipBtn: {
+    alignSelf: 'flex-end',
+    marginTop: USER_INFO_CARD_ROW_MARGIN_TOP_PX,
   },
   unsubscribeBtn: {
     alignSelf: 'flex-end',
