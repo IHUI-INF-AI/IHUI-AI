@@ -108,12 +108,12 @@ export interface LoginPopUpUserInfo {
 
 export interface LoginPopUpProps {
   visible?: boolean
-  title: string
-  description: string
-  primaryLabel: string
-  onPrimary: () => void
-  secondaryLabel: string
-  onSecondary: () => void
+  title?: string
+  description?: string
+  primaryLabel?: string
+  onPrimary?: () => void
+  secondaryLabel?: string
+  onSecondary?: () => void
   onClose: () => void
   agreeChecked?: boolean
   onAgreeChange?: (value: boolean) => void
