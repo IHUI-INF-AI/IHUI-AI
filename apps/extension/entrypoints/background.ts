@@ -26,6 +26,8 @@ import { getApiBaseUrl } from '../lib/config'
 import { PENDING_ROUTE_STORAGE_KEY } from '@ihui/shared/constants'
 import { dispatchAgentActionRequest } from '../lib/ext-ui-forwarder'
 import { initAgentControlBridge } from '../lib/agent-control-bridge'
+import { registerWorkPanelMessageHandler } from '../lib/browser-tab'
+import { hydrateAuth } from '../src/stores/auth-store'
 import { createChromePlatform } from '@ihui/browser-platform'
 import { translate, mergeMessages, isLocale, type Locale, type Messages } from '@ihui/i18n'
 import sharedZhCN from '@ihui/i18n/messages/shared/zh-CN.json'
@@ -531,6 +533,7 @@ export default defineBackground(() => {
 
   startAutoRefresh()
   registerMessageListener()
+  registerWorkPanelMessageHandler()
   registerInstallHook()
   registerActionClick()
   registerContextMenuClickHandler()
@@ -576,6 +579,9 @@ export default defineBackground(() => {
   // 判不出就当没判，绝不允许把"判不出"实现成"删用户数据"。
   void ensureApiReady()
     .then(() => {
+      // 启动时同步扩展端 zustand auth store 的 token 镜像(stores/auth-store 的 hydrateAuth)。
+      // 与 web/desktop 同款契约:initApi 落定后再调用,确保读到的是回填后的 token。
+      hydrateAuth()
       const t = getToken()
       if (t && getRefreshToken()) {
         scheduleRefreshAlarm(t)
