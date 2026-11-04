@@ -34,9 +34,22 @@
  * ## 用法
  *
  *   node scripts/worktree-isolate.mjs new <slug> [--dest <目录>] [--branch <名>] [--base <ref>]
+ *   node scripts/worktree-isolate.mjs land <slug|绝对路径>
  *   node scripts/worktree-isolate.mjs drop <slug|绝对路径>
  *   node scripts/worktree-isolate.mjs list [--json]
  *   node scripts/worktree-isolate.mjs --self-test
+ *
+ * ## land 为什么只能是 `merge --ff-only`(不是 cherry-pick / CAS)
+ *
+ * 隔离树里已经有一串**完整提交对象**(父链、树、签名、钩子都已跑过)。把这些提交搬回主线,
+ * 正确的动作只有"让主线 ref 前进到那个对象":`git merge --ff-only <分支>` 就是这件事,
+ * 且不产生新提交、不重跑钩子、不改写历史。
+ * - cherry-pick 禁止:它会**重建**提交(新 SHA、钩子重跑、可能改消息),等于把已验收的
+ *   对象再加工一次;事故里"消息串号"正是重加工链上的一环。
+ * - `update-ref` CAS 禁止:只动 `refs/heads/main` 会让主树的 HEAD/index/worktree 与 ref
+ *   脱节,下一条提交必然把差异写成反向暂存(AD),正是本单要消灭的那一型。
+ * - 主线已前进(非快进)时,在该隔离树内 `git merge <主线 HEAD>`(普通 merge,不是 rebase),
+ *   把主线并进来后再从主线侧 ff-only。冲突则 `merge --abort` 回滚并拒 land,绝不强推。
  *
  * 退出码: 0 成功 / 1 拒绝或业务失败 / 2 用法错或无法判定。
  */
@@ -62,7 +75,9 @@ function git(args, { root = ROOT, allowFail = false, timeout = null } = {}) {
     // gitRaw 回吐原始 stdout;末尾换行必须剥掉 —— 否则 `rev-parse --show-toplevel` 的返回值
     // 拿去当下一个调用的 cwd 会变成非法路径(实测 ENOENT,而 Node 只点名 git.exe 误导排查)。
     // 只剥尾部换行,不动行首(porcelain 的 " M"/"MM" 首列是语义,不能用 trim)。
-    const out = gitRaw(args, root, timeout ? { timeout } : {}).replace(/^\uFEFF/, '').replace(/[\r\n]+$/, '')
+    const out = gitRaw(args, root, timeout ? { timeout } : {})
+      .replace(/^\uFEFF/, '')
+      .replace(/[\r\n]+$/, '')
     return { ok: true, status: 0, out, err: '' }
   } catch (e) {
     const res = {
@@ -123,10 +138,12 @@ function treePathOf(row, repoRoot) {
 }
 
 function branchExists(repoRoot, branch) {
-  return git(['show-ref', '--verify', '--quiet', `refs/heads/${branch}`], {
-    root: repoRoot,
-    allowFail: true,
-  }).status === 0
+  return (
+    git(['show-ref', '--verify', '--quiet', `refs/heads/${branch}`], {
+      root: repoRoot,
+      allowFail: true,
+    }).status === 0
+  )
 }
 
 /** 大仓检出/回收的派生超时:默认 60s 只够读,不够 1.8 万文件的 checkout(实测 60s 会在
@@ -139,11 +156,125 @@ function registeredRows(repoRoot) {
   return parseWorktreePorcelain(r.out)
 }
 
+/** slug 或绝对/含分隔符的路径 ⇒ 绝对落点(drop 与 land 共用这一份推导,避免两处漂移)。 */
+function resolveTargetPath(repoRoot, target) {
+  const looksPath =
+    isAbsolute(target) || String(target).includes('/') || String(target).includes('\\')
+  return looksPath ? resolve(target) : defaultDest(repoRoot, String(target))
+}
+
+/** git 的逐行路径输出 ⇒ 集合(空输出是空集合,不是"未判定")。 */
+function pathSetOf(out) {
+  return new Set(
+    String(out ?? '')
+      .split(/\r?\n/)
+      .map((s) => s.trim())
+      .filter(Boolean),
+  )
+}
+
+const LAND_LOCK_BUSY_RE =
+  /cannot lock ref|Unable to create|index\.lock|Another git process|file exists/i
+
+/** 同进程内的短退避(land 抢主线 ref/index 锁失败时用;不引入异步,调用方都是同步派生)。 */
+function sleepSync(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
+}
+
+function pidAlive(pid) {
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch (e) {
+    return e?.code === 'EPERM'
+  }
+}
+
+/** land 的互斥锁落在 git common dir(跨 worktree 共享);锁内把"查脏 → ff → 校验"做成一个事务。 */
+function landLockPath(repoRoot) {
+  const r = git(['rev-parse', '--path-format=absolute', '--git-common-dir'], {
+    root: repoRoot,
+    allowFail: true,
+  })
+  return r.ok && r.out ? join(r.out, 'ihui-worktree-land.lock') : null
+}
+
+/**
+ * 两个会话同时 land 是**主线侧**的 race:两个 ff 都会去改主树的 index/worktree,ref 只有一个
+ * 能推进成功,失败那支的 worktree 写入可能留下半更新(实测:B 连续多轮 land 后在主树看到
+ * `M i18n/input.js`,之后每次 land 都被"主线脏重叠"拒)。故 land 必须串行化。
+ * 锁文件只有 `<gitcommondir>/ihui-worktree-land.lock` 一份;宿主已死或超过 60s 视为残留才清。
+ */
+function acquireLandLock(repoRoot, { attempts = 200, delayMs = 50 } = {}) {
+  const lockPath = landLockPath(repoRoot)
+  if (!lockPath) {
+    return {
+      ok: false,
+      refusal: {
+        exit: EXIT_UNKNOWN,
+        out: ['❌ 拒绝 land:定位不到 git common dir,不对主线做任何写入'],
+      },
+    }
+  }
+  for (let i = 0; i < attempts; i++) {
+    try {
+      writeFileSync(lockPath, `${process.pid} ${Date.now()}\n`, { flag: 'wx', encoding: 'utf8' })
+      return {
+        ok: true,
+        path: lockPath,
+        release() {
+          try {
+            unlinkSync(lockPath)
+          } catch {
+            /* 已被清掉不算失败 */
+          }
+        },
+      }
+    } catch (e) {
+      if (e?.code !== 'EEXIST') {
+        return {
+          ok: false,
+          refusal: { exit: EXIT_REFUSED, out: [`❌ 拒绝 land:建锁失败(${e?.code || e})`] },
+        }
+      }
+      let stale = false
+      try {
+        const [pid, at] = readFileSync(lockPath, 'utf8').trim().split(/\s+/)
+        stale = !pidAlive(Number(pid)) || Date.now() - Number(at) > 60_000
+      } catch {
+        stale = true
+      }
+      if (stale) {
+        try {
+          unlinkSync(lockPath)
+        } catch {
+          /* 别人先清了,继续抢 */
+        }
+        continue
+      }
+      sleepSync(delayMs)
+    }
+  }
+  return {
+    ok: false,
+    refusal: {
+      exit: EXIT_REFUSED,
+      out: ['❌ 拒绝 land:另一个 land 正在推进主线(等待 10s 仍未释放);稍后重试,不要绕过锁。'],
+    },
+  }
+}
+
 /**
  * 开一棵隔离工作树。返回 `{exit, out[], path?, branch?}`;调用方只负责打印。
  * 所有拒绝分支都在**写入前**判定:目标已存在 / 已注册 / 在仓内 / 分支已占用 / 基线取不到。
  */
-export function newWorktree({ repoRoot = ROOT, slug, dest = null, branch = null, base = 'HEAD' } = {}) {
+export function newWorktree({
+  repoRoot = ROOT,
+  slug,
+  dest = null,
+  branch = null,
+  base = 'HEAD',
+} = {}) {
   let name
   try {
     name = normalizeSlug(slug)
@@ -167,7 +298,10 @@ export function newWorktree({ repoRoot = ROOT, slug, dest = null, branch = null,
     }
   }
   const rows = registeredRows(repoRoot)
-  if (rows.some((w) => samePath(w.path, target)) || rows.some((w) => samePath(treePathOf(w, repoRoot), target))) {
+  if (
+    rows.some((w) => samePath(w.path, target)) ||
+    rows.some((w) => samePath(treePathOf(w, repoRoot), target))
+  ) {
     return { exit: EXIT_REFUSED, out: [`❌ 拒绝创建:目标已是活动检出 ${target}`] }
   }
   const br = branch ? String(branch).trim() : makeBranch(name)
@@ -180,7 +314,10 @@ export function newWorktree({ repoRoot = ROOT, slug, dest = null, branch = null,
   if (rows.some((w) => w.branch === br)) {
     return { exit: EXIT_REFUSED, out: [`❌ 拒绝创建:分支已被其他检出占用 ${br}`] }
   }
-  const baseRef = git(['rev-parse', '--verify', `${base}^{commit}`], { root: repoRoot, allowFail: true })
+  const baseRef = git(['rev-parse', '--verify', `${base}^{commit}`], {
+    root: repoRoot,
+    allowFail: true,
+  })
   if (!baseRef.ok || !baseRef.out) {
     return { exit: EXIT_REFUSED, out: [`❌ 拒绝创建:基线 ref 取不到(${base})`] }
   }
@@ -193,8 +330,12 @@ export function newWorktree({ repoRoot = ROOT, slug, dest = null, branch = null,
     const out = [`❌ 创建失败:${(add.err || 'git worktree add 非零退出').trim()}`]
     const after = registeredRows(repoRoot).find((w) => samePath(treePathOf(w, repoRoot), target))
     if (after && after.locked) {
-      out.push(`⚠ ${target} 已被注册且仍是 locked(initializing):add 被中断后的半成品,不要当成品用。`)
-      out.push(`   确认里面没有你的改动后按序收尾: git worktree unlock "${target}" → 删除该目录 → git worktree prune → git branch -d ${br}`)
+      out.push(
+        `⚠ ${target} 已被注册且仍是 locked(initializing):add 被中断后的半成品,不要当成品用。`,
+      )
+      out.push(
+        `   确认里面没有你的改动后按序收尾: git worktree unlock "${target}" → 删除该目录 → git worktree prune → git branch -d ${br}`,
+      )
       out.push('   本工具不自动删半成品(避免把"未完成"直接当"可丢")。')
     }
     return { exit: EXIT_REFUSED, out }
@@ -212,7 +353,9 @@ export function newWorktree({ repoRoot = ROOT, slug, dest = null, branch = null,
       `   基线: ${base} (${baseRef.out.slice(0, 8)})`,
       `   进入: cd "${realPath}"`,
       `         PowerShell: Set-Location -LiteralPath "${realPath}"`,
-      `   在树内提交: node scripts/isolated-git.mjs commit -m "<标题>" -- <相对路径...>`,
+      '   在树内提交: git add -- <本席路径...>; git commit -m "<标题>" -- <本席路径...>',
+      '             (该树 index 与 COMMIT_EDITMSG 都在它自己的 admin 目录,别席物理上碰不到)',
+      `   回主线: node scripts/worktree-isolate.mjs land "${realPath}"`,
       `   收尾: node scripts/worktree-isolate.mjs drop "${realPath}"`,
       '   提示: 新树没有 node_modules / 构建产物;要跑全量门先在该树 pnpm install。',
     ],
@@ -224,22 +367,24 @@ export function newWorktree({ repoRoot = ROOT, slug, dest = null, branch = null,
  */
 export function dropWorktree({ repoRoot = ROOT, target } = {}) {
   if (!target) return { exit: EXIT_UNKNOWN, out: ['❌ drop 需要一个 slug 或绝对路径'] }
-  const looksPath = isAbsolute(target) || String(target).includes('/') || String(target).includes('\\')
   let path
   try {
-    path = looksPath ? resolve(target) : defaultDest(repoRoot, String(target))
+    path = resolveTargetPath(repoRoot, target)
   } catch (e) {
     return { exit: EXIT_UNKNOWN, out: [`❌ ${e.message}`] }
   }
   if (samePath(path, repoRoot) || isInsidePath(path, repoRoot)) {
     return {
       exit: EXIT_REFUSED,
-      out: [`❌ 拒绝删除:目标在主树或仓库树内(${path})。仓内检出按 AGENTS §12h 走 agent-worktree 生命周期。`],
+      out: [
+        `❌ 拒绝删除:目标在主树或仓库树内(${path})。仓内检出按 AGENTS §12h 走 agent-worktree 生命周期。`,
+      ],
     }
   }
   const rows = registeredRows(repoRoot)
   const entry =
-    rows.find((w) => samePath(w.path, path)) || rows.find((w) => samePath(treePathOf(w, repoRoot), path))
+    rows.find((w) => samePath(w.path, path)) ||
+    rows.find((w) => samePath(treePathOf(w, repoRoot), path))
   if (!entry) {
     return {
       exit: EXIT_REFUSED,
@@ -266,7 +411,10 @@ export function dropWorktree({ repoRoot = ROOT, target } = {}) {
   }
   const st = git(['status', '--porcelain'], { root: realPath, allowFail: true })
   if (!st.ok) {
-    return { exit: EXIT_REFUSED, out: [`❌ 拒绝删除:读不到 ${realPath} 的 status(${st.err.trim()})`] }
+    return {
+      exit: EXIT_REFUSED,
+      out: [`❌ 拒绝删除:读不到 ${realPath} 的 status(${st.err.trim()})`],
+    }
   }
   const c = parseStatusPorcelain(st.out)
   const dirty = c.staged + c.unstaged + c.untracked + c.conflicts
@@ -293,7 +441,10 @@ export function dropWorktree({ repoRoot = ROOT, target } = {}) {
   if (!rm.ok) {
     return {
       exit: EXIT_REFUSED,
-      out: [`❌ 移除失败:${(rm.err || 'git worktree remove 非零退出').trim()}`, '   未加 --force,失败即停手;现场原样保留。'],
+      out: [
+        `❌ 移除失败:${(rm.err || 'git worktree remove 非零退出').trim()}`,
+        '   未加 --force,失败即停手;现场原样保留。',
+      ],
     }
   }
   git(['worktree', 'prune'], { root: repoRoot, allowFail: true })
@@ -314,6 +465,229 @@ export function dropWorktree({ repoRoot = ROOT, target } = {}) {
 }
 
 /**
+ * 把隔离树已提交的成果搬回主线:**主线侧 `merge --ff-only`**,不 cherry-pick、不 CAS。
+ *
+ * 失败处理分三层(全部 fail-closed,绝不 force):
+ *  ① 隔离树有 staged/unstaged/conflict ⇒ 拒 land(未跟踪只告警:它不可能被 land,drop 会拒删);
+ *  ② 要更新的路径与主线当前脏路径重叠 ⇒ 在**写入前**拒(否则 ff 会覆盖别人的未提交改动);
+ *  ③ 主线已前进(非快进)⇒ 在该隔离树内普通 `git merge <主线 HEAD>`,再回主线侧 ff;
+ *     合并冲突 ⇒ `git merge --abort` 回滚后拒,隔离树回到合并前状态。
+ * 锁竞争(index.lock / ref 锁)按 120ms×n 退避重试,最多 maxAttempts 次。
+ */
+export function landWorktree({ repoRoot = ROOT, target, maxAttempts = 5 } = {}) {
+  if (!target) return { exit: EXIT_UNKNOWN, out: ['❌ land 需要一个 slug 或绝对路径'] }
+  let path
+  try {
+    path = resolveTargetPath(repoRoot, target)
+  } catch (e) {
+    return { exit: EXIT_UNKNOWN, out: [`❌ ${e.message}`] }
+  }
+  if (samePath(path, repoRoot) || isInsidePath(path, repoRoot)) {
+    return { exit: EXIT_REFUSED, out: [`❌ 拒绝 land:目标是主树或仓库树内(${path})`] }
+  }
+  const rows = registeredRows(repoRoot)
+  const index = rows.findIndex(
+    (w) => samePath(w.path, path) || samePath(treePathOf(w, repoRoot), path),
+  )
+  if (index < 0) {
+    return {
+      exit: EXIT_REFUSED,
+      out: [`❌ 拒绝 land:${path} 不是已注册的 worktree(先跑 list 看占用情况)`],
+    }
+  }
+  const entry = rows[index]
+  if (index === 0) return { exit: EXIT_REFUSED, out: [`❌ 拒绝 land:${path} 是主树本身`] }
+  const realPath = treePathOf(entry, repoRoot)
+  if (entry.locked) {
+    return { exit: EXIT_REFUSED, out: [`❌ 拒绝 land:${realPath} 被 lock(先确认锁定方是否还在用)`] }
+  }
+  if (entry.detached || !entry.branch) {
+    return {
+      exit: EXIT_REFUSED,
+      out: [
+        `❌ 拒绝 land:${realPath} 是 detached 检出,没有可合并的分支。`,
+        `   先把提交收进分支: git switch -c wt/<名> ${entry.head.slice(0, 8)}`,
+      ],
+    }
+  }
+  const st = git(['status', '--porcelain'], { root: realPath, allowFail: true })
+  if (!st.ok) {
+    return {
+      exit: EXIT_REFUSED,
+      out: [`❌ 拒绝 land:读不到 ${realPath} 的 status(${st.err.trim()})`],
+    }
+  }
+  const c = parseStatusPorcelain(st.out)
+  if (c.staged + c.unstaged + c.conflicts > 0) {
+    const lines = st.out.split(/\r?\n/).filter(Boolean)
+    const out = [
+      `❌ 拒绝 land:工作区还有未提交内容(staged=${c.staged} unstaged=${c.unstaged} conflict=${c.conflicts})`,
+      `   现场清单(前 ${Math.min(30, lines.length)} 条,共 ${lines.length} 条):`,
+    ]
+    for (const line of lines.slice(0, 30)) out.push(`   ${line}`)
+    out.push('   land 只搬**已提交**的提交;先在该树提交(或明确放弃这些改动)再试。')
+    return { exit: EXIT_REFUSED, out }
+  }
+  const warn = c.untracked
+    ? [`⚠ 该树有 ${c.untracked} 个未跟踪文件:不会被 land(但 drop 会因此拒删,收尾前需处理)`]
+    : []
+  const mergeHead = git(['rev-parse', '--verify', '--quiet', 'MERGE_HEAD'], {
+    root: repoRoot,
+    allowFail: true,
+  })
+  if (mergeHead.ok && mergeHead.out) {
+    return {
+      exit: EXIT_REFUSED,
+      out: [...warn, '❌ 拒绝 land:主线正处在 merge 中(先处理 MERGE_HEAD)'],
+    }
+  }
+
+  const branch = entry.branch
+  const lock = acquireLandLock(repoRoot)
+  if (!lock.ok) return lock.refusal
+  try {
+    return landUnderLock({ repoRoot, realPath, branch, warn, maxAttempts })
+  } finally {
+    lock.release()
+  }
+}
+
+/** 持锁执行:主线查脏 → ff-only → 校验;非快进则先在隔离树普通 merge 主线,再 ff。 */
+function landUnderLock({ repoRoot, realPath, branch, warn, maxAttempts }) {
+  const failures = []
+  let mergedMain = null
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const mainHead = git(['rev-parse', 'HEAD'], { root: repoRoot, allowFail: true })
+    const tip = git(['rev-parse', `refs/heads/${branch}`], { root: repoRoot, allowFail: true })
+    if (!mainHead.ok || !tip.ok || !tip.out) {
+      return { exit: EXIT_REFUSED, out: [...warn, `❌ 拒绝 land:取不到主线或分支尖端(${branch})`] }
+    }
+    if (
+      git(['merge-base', '--is-ancestor', tip.out, mainHead.out], {
+        root: repoRoot,
+        allowFail: true,
+      }).ok
+    ) {
+      return {
+        exit: EXIT_OK,
+        mode: 'already',
+        path: realPath,
+        branch,
+        sha: tip.out,
+        out: [...warn, `✅ 主线已包含 ${branch}(${tip.out.slice(0, 8)}),无需快进`],
+      }
+    }
+    // ③ 的前置:要更新的路径若与主线脏路径重叠,ff 会覆盖别人的未提交改动 ⇒ 写入前拒。
+    const changed = pathSetOf(
+      git(['-c', 'core.quotepath=false', 'diff', '--name-only', `${mainHead.out}...${branch}`], {
+        root: repoRoot,
+        allowFail: true,
+      }).out,
+    )
+    const dirty = pathSetOf(
+      git(['-c', 'core.quotepath=false', 'diff', '--name-only', 'HEAD'], {
+        root: repoRoot,
+        allowFail: true,
+      }).out,
+    )
+    for (const p of pathSetOf(
+      git(['-c', 'core.quotepath=false', 'ls-files', '--others', '--exclude-standard'], {
+        root: repoRoot,
+        allowFail: true,
+      }).out,
+    )) {
+      dirty.add(p)
+    }
+    const overlap = [...changed].filter((p) => dirty.has(p))
+    if (overlap.length) {
+      return {
+        exit: EXIT_REFUSED,
+        out: [
+          ...warn,
+          `❌ 拒绝 land:主线有 ${overlap.length} 条路径未提交,而本次要更新它们(ff 会覆盖别人的改动):`,
+          ...overlap.slice(0, 30).map((p) => `   ${p}`),
+          `   共 ${overlap.length} 条${overlap.length > 30 ? '(只列前 30)' : ''};先让主线侧处理这些路径,或等对方收口。`,
+        ],
+      }
+    }
+    const ff = git(['merge', '--ff-only', branch], { root: repoRoot, allowFail: true })
+    if (ff.ok) {
+      const now = git(['rev-parse', 'HEAD'], { root: repoRoot, allowFail: true })
+      if (now.ok && now.out === tip.out) {
+        return {
+          exit: EXIT_OK,
+          mode: mergedMain ? 'merge-then-ff' : 'ff',
+          path: realPath,
+          branch,
+          sha: tip.out,
+          out: [
+            ...warn,
+            `✅ 主线已快进到 ${branch} (${tip.out.slice(0, 8)})`,
+            mergedMain
+              ? `   方式: 先在该树并入主线 ${mergedMain.slice(0, 8)}(普通 merge),再主线侧 ff-only`
+              : '   方式: 主线侧 git merge --ff-only(无新提交、未重跑钩子)',
+            `   收尾: node scripts/worktree-isolate.mjs drop "${realPath}"(分支已并入,会用 -d 删除)`,
+          ],
+        }
+      }
+      failures.push(
+        `ff 后 HEAD 与分支尖端不一致(${String(now.out).slice(0, 8)} != ${tip.out.slice(0, 8)})`,
+      )
+      continue
+    }
+    const err = String(ff.err || '')
+    if (LAND_LOCK_BUSY_RE.test(err)) {
+      failures.push(`主线锁竞争:${err.split(/\r?\n/)[0]}`)
+      sleepSync(120 * (attempt + 1))
+      continue
+    }
+    const behind = git(['rev-list', '--count', `${branch}..HEAD`], {
+      root: repoRoot,
+      allowFail: true,
+    })
+    const divergence =
+      /not possible to fast-forward|non-fast-forward|Need to specify how to reconcile/i.test(err) ||
+      (behind.ok && Number(behind.out) > 0)
+    if (!divergence) {
+      failures.push(`ff 被拒:${err.split(/\r?\n/)[0] || '原因未识别'}`)
+      continue
+    }
+    // 主线前进过 ⇒ 在隔离树内把主线并进来(普通 merge,不是 rebase/cherry-pick)。
+    const mb = git(['merge', '--no-edit', mainHead.out], { root: realPath, allowFail: true })
+    if (!mb.ok) {
+      const conflicted = pathSetOf(
+        git(['-c', 'core.quotepath=false', 'diff', '--name-only', '--diff-filter=U'], {
+          root: realPath,
+          allowFail: true,
+        }).out,
+      )
+      git(['merge', '--abort'], { root: realPath, allowFail: true })
+      return {
+        exit: EXIT_REFUSED,
+        out: [
+          ...warn,
+          `❌ 拒绝 land:该树并入主线 ${mainHead.out.slice(0, 8)} 时失败,已 merge --abort 回滚。`,
+          ...(conflicted.size
+            ? ['   冲突路径:', ...[...conflicted].slice(0, 30).map((p) => `   ${p}`)]
+            : []),
+          `   隔离树已回到合并前;请在该树内人工解决后重新提交,再 land。`,
+        ],
+      }
+    }
+    mergedMain = mainHead.out
+  }
+  return {
+    exit: EXIT_REFUSED,
+    out: [
+      ...warn,
+      `❌ land 未完成(${maxAttempts} 次尝试,最后 ${failures.length} 条失败原因):`,
+      ...failures.slice(-5).map((f) => `   ${f}`),
+      '   主线与隔离树都保持原样;不要用 rebase / force push 绕过。',
+    ],
+  }
+}
+
+/**
  * 列全部工作树 + 脏度。计数口径与门 281 同一实现(`parseStatusPorcelain`),
  * 所以这里的读数与 `check-worktree-status.mjs` 逐字段可比。
  */
@@ -329,7 +703,9 @@ export function listWorktrees({ repoRoot = ROOT } = {}) {
       locked: row.locked,
       isMain: i === 0,
       measured: st.ok,
-      counts: st.ok ? parseStatusPorcelain(st.out) : { staged: 0, unstaged: 0, untracked: 0, conflicts: 0 },
+      counts: st.ok
+        ? parseStatusPorcelain(st.out)
+        : { staged: 0, unstaged: 0, untracked: 0, conflicts: 0 },
     }
   })
   const out = []
@@ -346,9 +722,13 @@ export function listWorktrees({ repoRoot = ROOT } = {}) {
     )
   }
   const dirtyCount = trees.filter(
-    (t) => t.measured && t.counts.staged + t.counts.unstaged + t.counts.untracked + t.counts.conflicts > 0,
+    (t) =>
+      t.measured &&
+      t.counts.staged + t.counts.unstaged + t.counts.untracked + t.counts.conflicts > 0,
   ).length
-  out.push(`总计 ${trees.length} 棵工作树 | 脏 ${dirtyCount} 棵 | 干净 ${trees.length - dirtyCount} 棵`)
+  out.push(
+    `总计 ${trees.length} 棵工作树 | 脏 ${dirtyCount} 棵 | 干净 ${trees.length - dirtyCount} 棵`,
+  )
   // 列是"读现场"的动作,脏不脏不影响它成功与否;只有量不到 status 才是未判定(exit 2)。
   return { exit: trees.some((t) => !t.measured) ? EXIT_UNKNOWN : EXIT_OK, trees, out }
 }
@@ -385,7 +765,8 @@ async function selfTest() {
     const listA = listWorktrees({ repoRoot: repo })
     ok(
       'A 列(2 棵)',
-      listA.trees.length === 2 && listA.out.some((l) => l.includes('wt-clean') && l.includes('clean')),
+      listA.trees.length === 2 &&
+        listA.out.some((l) => l.includes('wt-clean') && l.includes('clean')),
       `trees=${listA.trees.length} exit=${listA.exit}`,
     )
 
@@ -396,7 +777,9 @@ async function selfTest() {
     const b = dropWorktree({ repoRoot: repo, target: cleanDest })
     ok(
       'B 脏拒删',
-      b.exit === EXIT_REFUSED && b.out.some((l) => l.includes('unstaged=1')) && b.out.some((l) => l.includes('untracked=1')),
+      b.exit === EXIT_REFUSED &&
+        b.out.some((l) => l.includes('unstaged=1')) &&
+        b.out.some((l) => l.includes('untracked=1')),
       `exit=${b.exit} ${b.out[0]}`,
     )
 
@@ -419,15 +802,82 @@ async function selfTest() {
     const dupDest = join(dir, 'wt-dup')
     mkdirSync(dupDest)
     const d = newWorktree({ repoRoot: repo, slug: 'dup', dest: dupDest })
-    ok('D 同名冲突', d.exit === EXIT_REFUSED && d.out.some((l) => l.includes('已存在')), `exit=${d.exit} ${d.out[0]}`)
+    ok(
+      'D 同名冲突',
+      d.exit === EXIT_REFUSED && d.out.some((l) => l.includes('已存在')),
+      `exit=${d.exit} ${d.out[0]}`,
+    )
 
     // E 已占用分支
     git(['branch', 'wt/taken'], { root: repo })
-    const e = newWorktree({ repoRoot: repo, slug: 'taken-occ', dest: join(dir, 'wt-taken'), branch: 'wt/taken' })
-    ok('E 已占用分支', e.exit === EXIT_REFUSED && e.out.some((l) => l.includes('分支已存在')), `exit=${e.exit} ${e.out[0]}`)
+    const e = newWorktree({
+      repoRoot: repo,
+      slug: 'taken-occ',
+      dest: join(dir, 'wt-taken'),
+      branch: 'wt/taken',
+    })
+    ok(
+      'E 已占用分支',
+      e.exit === EXIT_REFUSED && e.out.some((l) => l.includes('分支已存在')),
+      `exit=${e.exit} ${e.out[0]}`,
+    )
+
+    // G land 快进:隔离树提交 → 主线侧 ff-only;主线 HEAD 必须等于分支尖端
+    const landDest = join(dir, 'wt-land')
+    const g0 = newWorktree({ repoRoot: repo, slug: 'land', dest: landDest })
+    ok(
+      'G0 开(land 用)',
+      g0.exit === EXIT_OK && existsSync(landDest),
+      `exit=${g0.exit} branch=${g0.branch}`,
+    )
+    writeFileSync(join(landDest, 'land.txt'), 'land\n', 'utf8')
+    git(['add', '--', 'land.txt'], { root: landDest })
+    git(['commit', '-q', '-m', 'land commit'], { root: landDest })
+    const g = landWorktree({ repoRoot: repo, target: landDest })
+    const mainHead = git(['rev-parse', 'HEAD'], { root: repo }).out
+    const tip = git(['rev-parse', `refs/heads/${g0.branch}`], { root: repo }).out
+    ok(
+      'G land 快进成功',
+      g.exit === EXIT_OK && mainHead === tip,
+      `exit=${g.exit} mode=${g.mode} main=${mainHead.slice(0, 8)} tip=${tip.slice(0, 8)}`,
+    )
+    const gd = dropWorktree({ repoRoot: repo, target: landDest })
+    ok(
+      'G2 land 后可干净回收',
+      gd.exit === EXIT_OK && gd.branchDeleted === true,
+      `exit=${gd.exit} branchDeleted=${gd.branchDeleted}`,
+    )
+
+    // H 主线脏路径与待更新路径重叠 ⇒ 写入前拒;清掉脏面后可恢复 land
+    const hDest = join(dir, 'wt-land2')
+    newWorktree({ repoRoot: repo, slug: 'land2', dest: hDest })
+    writeFileSync(join(hDest, 'land2.txt'), 'x\n', 'utf8')
+    git(['add', '--', 'land2.txt'], { root: hDest })
+    git(['commit', '-q', '-m', 'land2 commit'], { root: hDest })
+    writeFileSync(join(hDest, 'a.txt'), 'branch side\n', 'utf8')
+    git(['add', '--', 'a.txt'], { root: hDest })
+    git(['commit', '-q', '-m', 'land2 touch a.txt'], { root: hDest })
+    const mainOriginalA = readFileSync(join(repo, 'a.txt'))
+    writeFileSync(join(repo, 'a.txt'), 'someone else editing\n', 'utf8')
+    const h = landWorktree({ repoRoot: repo, target: hDest })
+    ok(
+      'H 主线脏重叠拒',
+      h.exit === EXIT_REFUSED && h.out.some((l) => l.includes('路径未提交')),
+      `exit=${h.exit} ${h.out.join(' / ').slice(0, 160)}`,
+    )
+    writeFileSync(join(repo, 'a.txt'), mainOriginalA)
+    const h2 = landWorktree({ repoRoot: repo, target: hDest })
+    ok(
+      'H2 清脏后 land 恢复',
+      h2.exit === EXIT_OK,
+      `exit=${h2.exit} mode=${h2.mode} out=${h2.out.join(' / ')}`,
+    )
+    dropWorktree({ repoRoot: repo, target: hDest })
 
     const realRowsAfter = registeredRows(ROOT).length
-    const leaked = registeredRows(ROOT).filter((r) => samePath(r.path, dir) || isInsidePath(r.path, dir))
+    const leaked = registeredRows(ROOT).filter(
+      (r) => samePath(r.path, dir) || isInsidePath(r.path, dir),
+    )
     ok(
       'F 零真实仓足迹',
       leaked.length === 0,
@@ -445,7 +895,7 @@ async function selfTest() {
 
 function usage() {
   console.error(
-    '用法: new <slug> [--dest <目录>] [--branch <名>] [--base <ref>] | drop <slug|绝对路径> | list [--json] | --self-test',
+    '用法: new <slug> [--dest <目录>] [--branch <名>] [--base <ref>] | land <slug|绝对路径> | drop <slug|绝对路径> | list [--json] | --self-test',
   )
   return EXIT_UNKNOWN
 }
@@ -469,6 +919,13 @@ async function main(argv) {
     for (const l of r.out) console.log(l)
     return r.exit
   }
+  if (cmd === 'land') {
+    const target = argv[1] && !String(argv[1]).startsWith('-') ? argv[1] : null
+    if (!target) return usage()
+    const r = landWorktree({ target })
+    for (const l of r.out) console.log(l)
+    return r.exit
+  }
   if (cmd === 'drop') {
     const target = argv[1] && !String(argv[1]).startsWith('-') ? argv[1] : null
     if (!target) return usage()
@@ -478,7 +935,8 @@ async function main(argv) {
   }
   if (cmd === 'list') {
     const r = listWorktrees()
-    if (argv.includes('--json')) console.log(JSON.stringify({ trees: r.trees, exit: r.exit }, null, 2))
+    if (argv.includes('--json'))
+      console.log(JSON.stringify({ trees: r.trees, exit: r.exit }, null, 2))
     else for (const l of r.out) console.log(l)
     return r.exit
   }
@@ -492,6 +950,7 @@ export const __test__ = {
   samePath,
   isInsidePath,
   newWorktree,
+  landWorktree,
   dropWorktree,
   listWorktrees,
 }
