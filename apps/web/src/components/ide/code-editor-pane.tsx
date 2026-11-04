@@ -95,7 +95,10 @@ export function CodeEditorPane() {
   const attributionSources = React.useMemo(() => {
     if (!attributionEnabled || !activeTab || !activeTab.content) return undefined
     const lineCount = activeTab.content.split('\n').length
-    return getLineAttributionSources(workspacePath ?? '', activeTab.path, lineCount)
+    const sources = getLineAttributionSources(workspacePath ?? '', activeTab.path, lineCount)
+    // attributionVersion 是外部快照的失效键:渲染与 memo 执行之间若发生落盘/AI 写入(版本推进),
+    // 上面读到的快照可能已过期 ⇒ 本拍不返回,交给版本驱动的下一次渲染重算。
+    return getLineAttributionVersion() === attributionVersion ? sources : undefined
   }, [attributionEnabled, activeTab, workspacePath, attributionVersion])
 
   // 最新选区 ref(供 'global-shortcut:inline-edit' 事件读取)
