@@ -56,15 +56,17 @@
 
 | 残余 | 归属 | 为什么本枚没做完 | 谁解锁 |
 | --- | --- | --- | --- |
-| 删除保护链(回收站 + 批量两阶段护栏) | 下一执行席 | 本枚只吃 ACL 一格 | 按 W1 §3-① 派单 |
+| 删除保护链(回收站 + 批量两阶段护栏) | **已落地** `cf1e7f9efe`(主席统一落地,B1 席产物) | 判据层住在 `packages/shared/src/delete-guard/`,三个消费点已接线;未竟 = 回收站的"到期清理"节拍与跨端展示面 | B1-impl.md |
+| 技能目录缓存的廉价判脏 + 自描述 scope | **已落地** `79597fd9fc`(B4 席产物) | 未竟两条:`readSkillCatalog` 尚未挂 `/skills` 命令;watch 失效受 `fsWatcher.enabled=false` 那一端限制 | B4-impl.md |
+| 分享页去 CDN 外链(离线可读) | **已落地** `2beafada173`(B3 席产物) | 渲染器为受控子集(标题/列表/代码块/链接/粗斜体/表格),不声称全 CommonMark;阳性对照已插回旧 CDN 验证会被抓 | B3-impl.md |
+| 摘掉"我方 git 可用性取决于别人装没装 WorkBuddy" | **已落地** `420e3c3c7a`(主席件,cargo 27 passed 实跑) | 兜底位改指我方 `.ihui` 目录 + 新增 `IHUI_PORTABLE_GIT` 显式登记(与 `gitdir.mjs` 同键名) | W1 §3 第⑩行 |
 | 子进程网络出口(DNS + TCP 代理双引擎) | 下一执行席 | 同上 | W1 §3-③ |
 | Job Object 随父而终(TS 侧) | 下一执行席 | 需 Win32 作业对象封装,与 `os_sandbox.py` 那半不同栈 | W2 §3 末条 + W1 §3-④ |
 | 文件 ACL 的 delete 轴消费点 | 下一执行席 | 写侧已接,delete 散在 `fs.rmSync`/`unlinkSync` 多处,需逐点接线并带回归 | 本枚落地件的自然续集 |
 | 守护面 advisory 升 blocking | 机主/下一批 | 升档前置 = 并行席改动工作流先有「带理由声明」的出口(§12e) | 存量归零后升 |
-| drizzle journal ↔ sql 双向对账尺 | 主席待落地(B2 已交付) | 尺已建成并自证:`scripts/check-drizzle-journal-sync.mjs`(三态 + `--self-test` 15 例)+ 镜像测试 11 例 + guardian 只读轮 `auditDrizzleJournalSync()`(30min 节流、warn-only、不进提交链);因判据面受保护,由主席带 `immutable-exempt:` trailer 落 | B2-impl.md |
-| 摘掉"我方 git 可用性取决于别人装没装 WorkBuddy" | 主席(本批进行中) | 桌面 crate 的候选表曾写死第三方安装目录且该路径根本命不中;已改为 `IHUI_PORTABLE_GIT` 显式登记(与 `scripts/lib/gitdir.mjs` 同键名)+ 兜底位挪进我方 `.ihui` 目录,并加反向牙用例 | W1 §3 第⑩行 |
-| `share.ts` marked.js CDN 外链改内联 | 下一执行席 | 独立小债 | W2 §3 |
-| Trae 面增量 | 未开 | 本批三席全压在 WorkBuddy/Qoder 两个新靶 | goal-b44—b48 残余见 `docs/benchmark-evidence/2026-11/qoder-trae-rea-20261101/` |
+| drizzle journal ↔ sql 双向对账尺 | **已落地** `e38aad1c2c`(含两面分判改造) | 尺 warn-only 挂守护巡检轮,不进提交链;真 drift 那枚提交再同批接到人通道才谈可整改性 | B2-impl.md |
+| Trae 面增量 | 未开 | 本批四席全压在 WorkBuddy/Qoder 两个新靶 | goal-b44—b48 残余见 `docs/benchmark-evidence/2026-11/qoder-trae-rea-20261101/` |
+| 两道**机器状态门**常年红(门 25 项目外路径违规 / 门 26 父目录污染) | 主席下一轮(不在本目标射程,但会堵 `safe-commit`) | 现读定位:门 25 命中的是别席留在 `.ihui-agent/tmp/gate-audit-1104/deps-web-nm/` 里**第三方压缩 JS 内部的一条字符串**(该目录 mtime 是刚刚 ⇒ 可能仍被使用,不删陌生活现场);门 26 命中的是仓库父目录里他人 scratch。两者与提交内容无关却 `stagedTriggers` 极宽,属 §12e 恒红门型。旁路落地通道不受它拦,故本轮不修不拖 | 出路二选一:①确认 `gate-audit-1104` 无主后按 §15 清理;②把该尺的射程收窄到"我方源码文件",对 vendored 压缩件不判(带反证用例) |
 | **推送未落地** | 主席(下一轮) | 本地与 `origin/main` 分叉,`git-sync-converge.mjs`(含 `--take-theirs-doc`)拒推进:自证把本侧继承的 README 派生数字行与已退役归档注释算成「被吞」;远端 5 分钟内推进三次 | 按 §16b 收敛一轮:fetch → converge → `gen-doc-numbers --markdown` 重生成派生件 → 再 push |
 
 ## 5. 复验命令
