@@ -20,7 +20,9 @@
  *   T3 非祖先提交上的普通 tag ⇒ 拦;
  *   T4 发布 tag(desktop-v*)+ 工作树脏 ⇒ 拦;
  *   T5 分支推送 ⇒ 判据不触发(回归,既有行为不变);
- *   T6 annotated tag 解引用后仍按 commit 判祖先 ⇒ 过。
+ *   T6 annotated tag 解引用后仍按 commit 判祖先 ⇒ 过;
+ *   T7 `HUSKY_SKIP_TYPECHECK=1` + 非祖先 tag ⇒ 仍拦(判据必须在 env 判断之前,2026-11-04 解耦);
+ *   T8 `HUSKY_SKIP_TYPECHECK=1` + 分支推送 ⇒ 判据不触发(隔离后分支行为一字未变)。
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -67,13 +69,13 @@ function extractBlock() {
 }
 const BLOCK = extractBlock()
 
-/** 在夹具仓里跑判据块:status 0 = 放行/未触发,1 = 拦下。 */
-function runGate(repo, refs) {
+/** 在夹具仓里跑判据块:status 0 = 放行/未触发,1 = 拦下。extraEnv 用于验证 env 变量无法旁路判据。 */
+function runGate(repo, refs, extraEnv = {}) {
   assert.ok(BLOCK, '钩子里抠不到 tag-ancestor-gate 块 —— 判据被改写,锁必须响')
   const r = spawnSync(SHELL, ['-c', BLOCK], {
     cwd: repo,
     encoding: 'utf8',
-    env: { ...process.env, PUSH_REFS: refs },
+    env: { ...process.env, PUSH_REFS: refs, ...extraEnv },
     stdio: ['ignore', 'pipe', 'pipe'],
   })
   assert.ok(r.status === 0 || r.status === 1, `sh 跑钩子块异常退出(${r.status}):${r.stderr}`)
@@ -181,4 +183,29 @@ test('T6 annotated tag 解引用后仍按 commit 判祖先 ⇒ 过;发布 tag �
   git(work, ['tag', 'cli-v0.0.1', a])
   const r2 = runGate(work, `refs/tags/cli-v0.0.1 ${a} refs/tags/cli-v0.0.1 ${ZERO}`)
   assert.equal(r2.code, 0, `干净工作树 + 祖先提交的发布 tag 被误拦:${r2.stderr}`)
+})
+
+test('T7 HUSKY_SKIP_TYPECHECK=1 + 非祖先 tag ⇒ 仍拦(判据必须在 env 判断之前)', (t) => {
+  // 结构锁:判据块必须整体位于 `HUSKY_SKIP_TYPECHECK` 判断之前,否则 export 该变量即可整段跳过
+  const lines = HOOK.split(/\r?\n/)
+  const begin = lines.findIndex((l) => l.includes(BEGIN_MARK))
+  const end = lines.findIndex((l) => l.includes(END_MARK))
+  const envIf = lines.findIndex((l) => l.includes('HUSKY_SKIP_TYPECHECK:-0'))
+  assert.ok(begin >= 0 && end > begin, '判据块起止标记缺失')
+  assert.ok(envIf > end, `tag 判据仍在 HUSKY_SKIP_TYPECHECK 之后(env 行 ${envIf + 1},判据止于 ${end + 1})⇒ 应急阀会重新打开释放面`)
+
+  // 行为锁:带 env 跑同一段判据,非祖先 tag 照样拦下(env 不得构成旁路)
+  const { work, b } = makeFixture(t)
+  git(work, ['tag', 'draft-only', b])
+  const r = runGate(work, `refs/tags/draft-only ${b} refs/tags/draft-only ${ZERO}`, { HUSKY_SKIP_TYPECHECK: '1' })
+  assert.equal(r.code, 1, `HUSKY_SKIP_TYPECHECK=1 下非祖先 tag 被放行 ⇒ 判据被旁路:${r.stderr}`)
+  assert.match(r.stderr, /不在 origin\/main 的祖先链上/)
+})
+
+test('T8 HUSKY_SKIP_TYPECHECK=1 + 分支推送 ⇒ 判据不触发(与移动前一致)', (t) => {
+  const { work, a } = makeFixture(t)
+  const r = runGate(work, `refs/heads/main ${a} refs/heads/main ${ZERO}`, { HUSKY_SKIP_TYPECHECK: '1' })
+  assert.equal(r.code, 0, '分支推送不得被 tag 判据改写')
+  assert.ok(!r.stderr.includes('本次只推 tag'), '分支推送不得走进 tag 豁免分支')
+  assert.ok(!r.stderr.includes('tag 推送校验未通过'), '分支推送不得触发 tag 校验')
 })
