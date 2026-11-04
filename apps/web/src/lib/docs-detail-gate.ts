@@ -97,6 +97,17 @@ export function isDocsGateDocumentRequest(headers: Headers): boolean {
   return !accept.includes('text/x-component')
 }
 
+/** 硬状态码响应的公共头:404(品牌资产/兜底)与 500(故障页)必须同一组缓存与索引语义。 */
+export function docsGateResponseHeaders(csp?: string | null): Headers {
+  const headers = new Headers({
+    'content-type': 'text/html; charset=utf-8',
+    'cache-control': 'no-store',
+    'x-robots-tag': 'noindex',
+  })
+  if (csp) headers.set('content-security-policy', csp)
+  return headers
+}
+
 /** 硬状态码响应体:自包含 HTML(零脚本、零外链),404 与 500 文案分开且互不冒充。 */
 export function renderDocsGateHtml(status: 404 | 500): string {
   const [title, heading, detail] =
