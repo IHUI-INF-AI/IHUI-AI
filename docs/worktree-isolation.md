@@ -67,6 +67,13 @@ node scripts/worktree-isolation-stress.mjs --rounds 20 --json
 - 仓内 `wt/*` 分支数 **0**(本轮工具只建仓外临时树,用完即收);
 - 本轮**没有**删除任何既有 worktree,也没有 `worktree remove --force`。
 
+**22:49 提交前复核**(别席仍在推进,与 22:38 快照不同,以现读为准):
+
+- 主树 HEAD 已由 `1c3d44d4bc` 前移到 `09f2d95b10`(别席 4 枚),本单提交后为 `6994aadf9f`;
+- 主树脏面 **152 条**,共享索引里 **2 条** staged(`PROJECT_PLAN.md`、`scripts/lib/autonomy-nonprogress.mjs`)属别席,本单一个字节未动;
+- worktree 仍 **3 棵**(主树 / `homefont-wt` / `mergefix-wt`),数量与各自 HEAD 未变,未删任何一棵;
+- 本单三个路径提交后 `git status --porcelain` 为空(无 `AD`/`MM` 反向暂存残留)。
+
 ## 1. 安全边界(代码级硬约束)
 
 | 约束 | 实现 |
@@ -275,21 +282,27 @@ node scripts/worktree-isolation-stress.mjs --rounds 20
 | 指标 | 共用工作树(对照) | 两棵 worktree(方案) |
 |---|---|---|
 | 提交成功 | 20/40(失败率 50.0%) | **40/40** |
-| 挟带(提交含非本席路径) | **20 笔 / 20 笔成功提交** | **0 / 40** |
-| 串号(subject ≠ 写入消息) | **9 / 20** | **0 / 40** |
+| 挟带(提交含非本席路径) | **17 笔 / 20 笔成功提交** | **0 / 40** |
+| 串号(subject ≠ 写入消息) | **12 / 20** | **0 / 40** |
 | fail-closed 阻塞 | **1 笔**(B r1) | **0** |
 | 落主线的提交 | 20/20(本就写在 main) | **40/40** |
 | 别席未提交探针进主线 | 不适用 | **否(PASS)** |
-| 失败分型 | `lock=19, fail-closed=1` | 无 |
+| 失败分型 | `lock=18, other=1, fail-closed=1` | 无 |
 
-阻塞窗口读数:接线可见(t=1793803174208)→ 执行体落地(t=1793803175344),
-span=**1136ms**,被挡 **1 笔**(B 第 1 轮);隔离组同一夹具 **0 笔、0 窗口**。
+阻塞窗口读数:接线可见(t=1793803588503)→ 执行体落地(t=1793803589296),
+span=**793ms**,被挡 **1 笔**(B 第 1 轮);隔离组同一夹具 **0 笔、0 窗口**。
+
+两次独立运行的漂移(同一夹具、同样 40 笔):挟带 `20 → 17`、串号 `9 → 12`、
+窗口 `1136ms → 793ms`、失败分型 `lock=19 → lock=18+other=1`。**结论不变**:
+对照组每笔成功提交 100% 挟带、隔离组 0 挟带 / 0 串号 / 0 fail-closed;绝对值随竞态漂移,
+所以样本量写明(40 笔),不把单次读数当成固定属性。
 
 样本(对照组的真实输出):
 
 ```
-Ar1 多带 [i18n/input.js] | Ar5 想写「stress shared A r05」实得「stress shared B r05」
-Br2 多带 [feature/fix.js] | Br3 想写「stress shared B r03」实得「stress shared A r03」
+Ar1 多带 [i18n/input.js] | Br2 多带 [feature/fix.js]
+Ar2 想写「stress shared A r02 8e5731」实得「stress shared B r02 8e5731」
+Ar11 / Ar13 / Ar14 同型串号(两席同时写同一个 COMMIT_EDITMSG)
 ```
 
 方法说明(避免误读):
