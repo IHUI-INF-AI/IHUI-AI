@@ -309,7 +309,91 @@ grep -rn 'DESKTOP_ALLOW_UNSIGNED' .github/workflows/ | grep -v '#' || echo 'CI �
 
 ---
 
-## 8. 相关文档
+## 8. 填表操作单(填进去就能发版)
+
+### 8.0 前置自检(fail-fast)
+
+`release-desktop.yml` 的 build job 在**建链审计之后、编译之前**跑一步
+`Preflight desktop signing credentials`(`id: signing-preflight`),执行
+`node scripts/desktop-signing-preflight.mjs --platform "${{ runner.os }}"`:
+
+- 只判"在不在"(trim 后非空),**绝不打印任何值**,连长度/前缀都不打;
+- 缺项时一次性列出**全部**缺失的 secret 名,`::error::签名凭据缺口(平台=windows,缺 6/6): ...`,随后 job 红;
+- 齐备时打印 `签名凭据已就绪 N/N(平台=windows)` 继续走。
+
+平台口径:Windows 要 SignPath 四件 + Tauri 两枚;macOS 要 Apple 证书三件 + 公证通道**整组**三件 + Tauri 两枚;
+Linux 无代码签名,只要 Tauri 两枚(只影响 updater `.sig`)。本地复跑:
+
+```bash
+node scripts/desktop-signing-preflight.mjs --platform windows   # 缺项 → rc 1
+node scripts/desktop-signing-preflight.mjs --self-test          # 判据自检 → rc 0
+```
+
+### 8.1 每个 secret:谁产生 / 前置条件 / 缺它失败在哪 / 放哪
+
+| secret | 产生方 | 前置条件(账号/资质/费用) | 缺它时失败在哪 | 放哪 |
+| --- | --- | --- | --- | --- |
+| `SIGNPATH_API_TOKEN` | SignPath 用户设置 → API Tokens(submitter) | SignPath 账号 + 已加入 Organization | `signing-preflight` 立即红;配了别的三项也签不了 | repo secret |
+| `SIGNPATH_ORGANIZATION_ID` | SignPath Organization settings(UUID) | 同上 | 同上;`Submit SignPath signing request` 403 | repo secret |
+| `SIGNPATH_PROJECT_SLUG` | SignPath Project slug | 申请通过(公开仓库 + Apache-2.0,人工审核数周) | 同上;请求 404 | repo secret |
+| `SIGNPATH_SIGNING_POLICY_SLUG` | SignPath Signing Policy slug(Restricted) | 同上 | 同上;请求 404 | repo secret |
+| `DESKTOP_WIN_SIGNER_SUBJECT`(可选) | 自己填证书主体子串 | 无 | 签名者断言失败(`签名者主体与期望不符`) | repo secret |
+| `APPLE_CERTIFICATE` | Apple Developer → Certificates(Developer ID Application → 导出 .p12 → 单行 base64) | Apple Developer Program **$99/年**;公司号需 D-U-N-S | `signing-preflight` 立即红;`Export Apple signing credentials` 不跑 | repo secret |
+| `APPLE_CERTIFICATE_PASSWORD` | 导出 .p12 时自设 | 同上 | 同上 | repo secret |
+| `APPLE_SIGNING_IDENTITY` | `security find-identity -v -p codesigning` 整串 | 同上 | 同上;`codesign` 报身份不符 | repo secret |
+| `APPLE_ID` / `APPLE_PASSWORD` / `APPLE_TEAM_ID`(通道 A) | appleid.apple.com → App 专用密码 | 同上 | preflight 报"两组通道全缺";公证 401 | repo secret |
+| `APPLE_API_KEY` / `APPLE_API_ISSUER` / `APPLE_API_KEY_PATH`(通道 B) | App Store Connect → Users and Access → Keys | 同上 | 同上 | repo secret |
+| `DESKTOP_TAURI_PRIVATE_KEY` / `DESKTOP_TAURI_KEY_PASSWORD` | **已存在**(2026-09-16 建,勿轮换) | 无 | preflight 红;`.sig` 无法重算 | repo secret(已有) |
+
+Windows 与 macOS 各自独立:只填 SignPath → Windows 能签、macOS 照旧"未公证"红;只填 Apple → 反之。
+`signature-gate` 是硬阻断(`publish-updater-json.needs: [build, signature-gate]`),任一平台没签/没公证都不出 `latest.json`。
+
+### 8.2 填入命令(占位符,别把真值写进任何文件)
+
+```bash
+gh secret set SIGNPATH_API_TOKEN           --body "<VALUE>"
+gh secret set SIGNPATH_ORGANIZATION_ID     --body "<VALUE>"
+gh secret set SIGNPATH_PROJECT_SLUG        --body "<VALUE>"
+gh secret set SIGNPATH_SIGNING_POLICY_SLUG --body "<VALUE>"
+gh secret set APPLE_CERTIFICATE            --body "<VALUE>"   # .p12 单行 base64
+gh secret set APPLE_CERTIFICATE_PASSWORD   --body "<VALUE>"
+gh secret set APPLE_SIGNING_IDENTITY       --body "<VALUE>"
+gh secret set APPLE_ID                   --body "<VALUE>"   # 通道 A(每条各设一次)
+gh secret set APPLE_PASSWORD             --body "<VALUE>"
+gh secret set APPLE_TEAM_ID              --body "<VALUE>"
+gh secret set APPLE_API_KEY              --body "<VALUE>"   # 通道 B(与 A 二选一)
+gh secret set APPLE_API_ISSUER           --body "<VALUE>"
+gh secret set APPLE_API_KEY_PATH         --body "<VALUE>"
+```
+
+### 8.3 两条路径与解锁范围
+
+- **最小可行路径**:SignPath 四件 → Windows 安装包 Authenticode 签名(解 SmartScreen);Apple 证书三件 + 通道 A 三件 → macOS 签名+公证+staple。
+  解锁:Windows `-setup.exe` 与 macOS `.dmg`/`.app.tar.gz` 全部可发布,`latest.json` 恢复更新。
+- **完全路径**:另建 `release` environment,把上述 secret 放进 environment 并要求人工审批,配合 SignPath 的 Restricted policy 形成"双人可见"的发版闸。
+  解锁:同一批产物 + 每次发版多一道环境审批;不改变产物字节,只改变"谁有权触发"。
+
+### 8.4 怎么验证接线(不需要真的发版)
+
+1. `gh workflow run release-desktop.yml --ref main -f tag=desktop-v<TEST>`(用临时 tag,事后删 release/tag)。
+2. 看 `Build Desktop (windows-x64)` 最上面的 `Preflight desktop signing credentials`:
+   未配齐时**1 分钟内**就红,日志是 `签名凭据缺口(平台=windows,缺 N/6): <名字列表>`;
+   配齐后是 `签名凭据已就绪 6/6`。
+3. 再往下看 `Submit SignPath signing request` 进入 waiting(去 SignPath UI 批准)、
+   `Install signed installer, verify Authenticode` 打印"签名前/签名后 SHA256 与字节数"且两值不同。
+4. 最后看 `Signature Gate (windows-x64)` / `(macos-universal)`:这两格才是发布判据。
+
+### 8.5 常见坑
+
+- **p12 密码**:`APPLE_CERTIFICATE_PASSWORD` 是导出 .p12 时设的密码,不是 Apple ID 密码,也不是 App 专用密码。
+- **证书类型**:必须是 `Developer ID Application`;Apple Development / 自签会让 `codesign` 过而 Gatekeeper 仍拦。
+- **identity 字符串**:`APPLE_SIGNING_IDENTITY` 要含 `(TEAMID)`,多一个空格就"身份不符"。
+- **Team ID vs bundle id**:`APPLE_TEAM_ID` 是 10 位团队号;`tauri.conf.json` 的 `identifier`(`com.ihui.desktop`)是 bundle id,两者别混。
+- **SignPath 两个 slug**:`PROJECT_SLUG` 与 `SIGNING_POLICY_SLUG` 是两样东西,拼错分别报 404;`ORGANIZATION_ID` 是 UUID 不是名字。
+- **Base64 必须单行**:多行会把 `$GITHUB_ENV` 后续行当别的变量,表现为"导入证书失败"。
+- **不要轮换 Tauri 私钥**:它与 `tauri.conf.json` 的 `pubkey` 绑定,轮换会让已安装客户端验签失败。
+
+## 9. 相关文档
 
 - `.github/SECRETS.md` —— 每个 secret 的名称/用途/必填条件/申请入口速查表
 - `docs/RELEASE.md` —— 桌面端发版流程与更新器第一数据源烘焙步骤

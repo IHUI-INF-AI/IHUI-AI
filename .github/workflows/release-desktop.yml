@@ -92,6 +92,32 @@ jobs:
         shell: bash
         run: node scripts/desktop-signing-chain.mjs
 
+      # 凭据前置自检(2026-11-04 加):原来凭据缺失时签名步被 `if:` 整体跳过
+      # (step 级 if 读不到 secrets,只能在 job env 里折算 SIGNPATH_CONFIGURED),
+      # 于是要先把 Windows/macOS 各编译 30-45 分钟,最后才由 signature-gate 判红,
+      # 且日志里看不出"到底缺哪一枚"。本步在建链审计之后、编译之前一次性点名缺项
+      # 并立即失败;只判"在不在",**绝不打印任何值**(含长度/前缀)。
+      - name: Preflight desktop signing credentials
+        id: signing-preflight
+        shell: bash
+        env:
+          SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
+          SIGNPATH_ORGANIZATION_ID: ${{ secrets.SIGNPATH_ORGANIZATION_ID }}
+          SIGNPATH_PROJECT_SLUG: ${{ secrets.SIGNPATH_PROJECT_SLUG }}
+          SIGNPATH_SIGNING_POLICY_SLUG: ${{ secrets.SIGNPATH_SIGNING_POLICY_SLUG }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY_PATH: ${{ secrets.APPLE_API_KEY_PATH }}
+          DESKTOP_TAURI_PRIVATE_KEY: ${{ secrets.DESKTOP_TAURI_PRIVATE_KEY }}
+          DESKTOP_TAURI_KEY_PASSWORD: ${{ secrets.DESKTOP_TAURI_KEY_PASSWORD }}
+        run: node scripts/desktop-signing-preflight.mjs --platform "${{ runner.os }}"
+
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
 
@@ -672,7 +698,8 @@ jobs:
         if: failure()
         env:
           TRIAGE_WORKFLOW_FILE: .github/workflows/release-desktop.yml
-          TRIAGE_IDS: tauri upload-unsigned-desktop signpath-desktop mac-export-signing-env win-authenticode mac-notarize failure-triage
+          TRIAGE_IDS: signing-preflight tauri upload-unsigned-desktop signpath-desktop mac-export-signing-env win-authenticode mac-notarize failure-triage
+          O_SIGNING_PREFLIGHT: ${{ steps.signing-preflight.outcome }}
           O_TAURI: ${{ steps.tauri.outcome }}
           O_UPLOAD_UNSIGNED_DESKTOP: ${{ steps.upload-unsigned-desktop.outcome }}
           O_SIGNPATH_DESKTOP: ${{ steps.signpath-desktop.outcome }}
