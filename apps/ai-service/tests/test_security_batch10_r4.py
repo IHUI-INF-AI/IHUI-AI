@@ -145,7 +145,15 @@ class TestRestrictedTokenFailClosed:
 
         real_open = _os.open
 
-        def _fake_open(path: Any, flags: int, mode: int = 0o666) -> int:
+        def _fake_open(
+            path: Any, flags: int, mode: int = 0o666, *, dir_fd: int | None = None
+        ) -> int:
+            # 2026-11-04:本替身挂在 os 模块本身(oss.os 即全局 os),因此也会接到
+            # shutil.rmtree 的调用。Linux 上 rmtree 走 *_safe_fd 分支,会带 dir_fd
+            # 关键字;不认这个关键字就把清理路径打成 TypeError(CI run 41696346132)。
+            # 带 dir_fd 的调用是标准库自身的清理动作,原样透传给真实 os.open。
+            if dir_fd is not None:
+                return real_open(path, flags, mode, dir_fd=dir_fd)
             if path == _os.devnull:
                 return real_open(_os.devnull, flags)
             return real_open(
