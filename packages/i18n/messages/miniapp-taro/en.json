@@ -408,7 +408,8 @@
     "totalRecharge": "Total recharge",
     "totalWithdraw": "Total withdrawal",
     "withdraw": "Withdraw",
-    "points": "Points"
+    "points": "Points",
+    "rechargeSuccess": "Recharge Successful"
   },
   "community": {
     "posts": "Posts",
@@ -2112,8 +2113,7 @@
       "selectAigc": "Select AI work (optional)",
       "noAigc": "No AI works available to link",
       "allowComments": "Allow comments",
-      "visibility": "Visibility",
-      "publishFailed": "Publish failed. Please try again"
+      "visibility": "Visibility"
     },
     "index": {
       "goPublish": "Publish",
@@ -2215,8 +2215,7 @@
       "targetGroupEnterprise": "Enterprise",
       "discountNone": "Not eligible",
       "discountPartial": "Partially eligible",
-      "discountFull": "Fully eligible",
-      "saveSuccess": "Saved successfully"
+      "discountFull": "Fully eligible"
     }
   },
   "devSpace": {
@@ -2694,8 +2693,7 @@
     "payFailed": "Payment failed. Please try again",
     "paying": "Paying...",
     "purchaseContent": "Purchase Content",
-    "userAgreement": "User Agreement",
-    "activateDelayed": "Benefit activation is delayed. Please contact support"
+    "userAgreement": "User Agreement"
   },
   "study": {
     "todayMinutes": "{n} min today",
@@ -2992,6 +2990,10 @@
     "text6": "Level intro page not configured",
     "menu": {
       "subscriptions": "My subscriptions"
+    },
+    "security": {
+      "code": "Verification code",
+      "sendCode": "Send Code"
     }
   },
   "vipScreen": {
@@ -3247,7 +3249,8 @@
     "contactPlaceholder": "Please enter contact information (optional)",
     "contentPlaceholder": "Please enter feedback details",
     "submit": "Submit Feedback",
-    "type": "Type"
+    "type": "Type",
+    "success": "Submitted successfully"
   },
   "comment": {
     "loading": "Loading...",
@@ -4796,8 +4799,7 @@
       "active": "Active",
       "rejected": "Rejected",
       "cancelled": "Cancelled"
-    },
-    "myAttendanceHint": "View & check in"
+    }
   },
   "eduChildAttendance": {
     "title": "Child's Attendance",
@@ -4820,31 +4822,10 @@
     "status": {
       "present": "Present",
       "late": "Late",
-      "early": "Left early",
       "absent": "Absent",
       "leave": "Leave"
     },
-    "student": "Student",
-    "batchCheckIn": "Mark class",
-    "checkInFor": "Mark",
-    "checkedInToast": "Checked in",
-    "checkedOutToast": "Checked out",
-    "batchDoneToast": "Class marked",
-    "batchResult": "Class marked: {created} created, {skipped} skipped, {missed} not saved",
-    "noClassReason": "No class found, so class marking is unavailable",
-    "multiClass": "Multiple classes in the list; only {classId} will be marked",
-    "checkInAt": "Check-in time",
-    "momentNow": "Now",
-    "backfillNeedsTime": "Backfilling a past date requires an explicit check-in time within that day",
-    "statsTotalLabel": "Records",
-    "statsAttendanceRate": "Attendance rate",
-    "statusDistribution": "Status distribution",
-    "trendChartTitle": "Attendance trend",
-    "trendChartHint": "Attendance rate = present ÷ records logged in that period (students without a record are not in the denominator)",
-    "trendChartScope": "Scope: {scope}",
-    "trendWindow": "Last {days} days",
-    "emptyTrend": "No trend data yet",
-    "statusOther": "Other"
+    "student": "Student"
   },
   "eduMgmt": {
     "attendanceTitle": "Attendance",
@@ -7000,7 +6981,7 @@
     "labelSaleType": "Sale type",
     "submit": "Save",
     "submitting": "Submitting...",
-    "readOnlyHint": "Not editable yet"
+    "readOnlyHint": "This field can't be changed yet"
   },
   "modelIncome": {
     "accumulated": "Total earnings",
@@ -7115,14 +7096,17 @@
   "studyIndex": {
     "receiveFreeBody": "Link copied; paste it in a browser to open"
   },
-  "eduMyAttendance": {
-    "title": "My Attendance",
-    "selfCheckIn": "Check in",
-    "selfDoneToast": "Checked in",
-    "classByBackendHint": "Class is resolved automatically from your enrollment",
-    "remarkPlaceholder": "Remark (optional)",
-    "scanCheckIn": "Scan to check in",
-    "scanDoneToast": "Scanned check-in succeeded",
-    "scanInvalidToast": "Not a check-in QR code of this system"
+  "career": {
+    "fillField": "Please fill: {name}",
+    "submitFail": "Submit failed. Retry later.",
+    "doneTitle": "Submitted",
+    "doneBody": "Survey submitted. Your AI study plan will appear here.",
+    "exportingReport": "Exporting...",
+    "exportEmptyHint": "Generate a report to export",
+    "exportLoginRequired": "Sign in to export"
+  },
+  "learnMapPage": {
+    "completed": "Completed",
+    "empty": "No learning paths yet"
   }
 }

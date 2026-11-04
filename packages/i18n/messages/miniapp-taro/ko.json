@@ -408,7 +408,8 @@
     "totalRecharge": "누적 충전",
     "totalWithdraw": "누적 출금",
     "withdraw": "출금",
-    "points": "포인트"
+    "points": "포인트",
+    "rechargeSuccess": "충전성공"
   },
   "community": {
     "posts": "게시물",
@@ -2112,8 +2113,7 @@
       "selectAigc": "AI 작품 선택(선택)",
       "noAigc": "연결할 AI 작품이 없습니다",
       "allowComments": "댓글 허용",
-      "visibility": "공개 범위",
-      "publishFailed": "게시에 실패했습니다. 다시 시도해 주세요"
+      "visibility": "공개 범위"
     },
     "index": {
       "goPublish": "게시하러 가기",
@@ -2217,7 +2217,7 @@
       "discountNone": "참여 안 함",
       "discountPartial": "부분 참여",
       "discountFull": "전체 참여",
-      "saveSuccess": "저장되었습니다"
+      "submitSuccess": "제출 완료"
     }
   },
   "devSpace": {
@@ -2695,8 +2695,7 @@
     "payFailed": "결제 실패, 다시 시도하세요",
     "paying": "결제 중...",
     "purchaseContent": "구매 내용",
-    "userAgreement": "《사용자 약관》",
-    "activateDelayed": "혜택 부여가 지연되었습니다. 고객센터에 문의해 주세요"
+    "userAgreement": "《사용자 약관》"
   },
   "study": {
     "todayMinutes": "오늘 {n}분",
@@ -2993,6 +2992,10 @@
     "text6": "등급 소개 페이지 미구성",
     "menu": {
       "subscriptions": "내 구독"
+    },
+    "security": {
+      "code": "인증 코드",
+      "sendCode": "전송인증 코드"
     }
   },
   "vipScreen": {
@@ -3248,7 +3251,8 @@
     "contactPlaceholder": "연락처를 입력하세요(선택)",
     "contentPlaceholder": "피드백 상세 내용을 입력하세요",
     "submit": "피드백 제출",
-    "type": "유형"
+    "type": "유형",
+    "success": "제출되었습니다"
   },
   "comment": {
     "loading": "로딩 중...",
@@ -4798,8 +4802,7 @@
       "active": "활성",
       "rejected": "거부됨",
       "cancelled": "해제됨"
-    },
-    "myAttendanceHint": "보기·직접 등교"
+    }
   },
   "eduChildAttendance": {
     "title": "자녀 출석",
@@ -4822,31 +4825,10 @@
     "status": {
       "present": "정상",
       "late": "지각",
-      "early": "조퇴",
       "absent": "결석",
-      "leave": "휴가"
+      "leave": "조퇴"
     },
-    "student": "학생",
-    "batchCheckIn": "반 일괄 출석",
-    "checkInFor": "대신 등교",
-    "checkedInToast": "등교 완료",
-    "checkedOutToast": "하교 완료",
-    "batchDoneToast": "일괄 등교 완료",
-    "batchResult": "출석 처리 완료：신규 {created}명，건너뜀 {skipped}명，미저장 {missed}명",
-    "noClassReason": "반 정보를 가져오지 못해 반 일괄 출석을 할 수 없습니다",
-    "multiClass": "목록에 여러 반이 있습니다，이번에는 {classId}만 처리합니다",
-    "checkInAt": "등교 시각",
-    "momentNow": "지금",
-    "backfillNeedsTime": "과거 날짜를 등록하려면 해당 날짜의 등교 시각이 필요합니다",
-    "statsTotalLabel": "기록 수",
-    "statsAttendanceRate": "출석률",
-    "statusDistribution": "상태 분포",
-    "trendChartTitle": "출석 추이",
-    "trendChartHint": "출석률 = 정상 출석 ÷ 해당 시간대의 출석 기록 수(체크인하지 않은 학생은 분모에 포함되지 않음)",
-    "trendChartScope": "집계 범위: {scope}",
-    "trendWindow": "최근 {days}일",
-    "emptyTrend": "추이 데이터가 없습니다",
-    "statusOther": "기타"
+    "student": "학생"
   },
   "eduMgmt": {
     "attendanceTitle": "출석 관리",
@@ -7002,7 +6984,7 @@
     "labelSaleType": "판매 유형",
     "submit": "저장",
     "submitting": "제출 중...",
-    "readOnlyHint": "현재 수정할 수 없습니다"
+    "readOnlyHint": "이 항목은 아직 수정할 수 없습니다"
   },
   "modelIncome": {
     "accumulated": "누적 수익",
@@ -7117,14 +7099,17 @@
   "studyIndex": {
     "receiveFreeBody": "링크가 클립보드에 복사되었습니다. 브라우저에서 붙여넣어 여세요"
   },
-  "eduMyAttendance": {
-    "title": "내 출석",
-    "selfCheckIn": "직접 등교",
-    "selfDoneToast": "등교 완료",
-    "classByBackendHint": "반은 재학 등록 정보에 따라 자동으로 결정됩니다",
-    "remarkPlaceholder": "비고(선택)",
-    "scanCheckIn": "스캔으로 체크인",
-    "scanDoneToast": "스캔 체크인이 완료되었습니다",
-    "scanInvalidToast": "이 시스템의 체크인 QR 코드가 아닙니다"
+  "career": {
+    "fillField": "입력: {name}",
+    "submitFail": "제출 실패, 잠시 후 재시도",
+    "doneTitle": "제출 완료",
+    "doneBody": "설문 제출 완료. AI 학습 제안은 이 페이지에서 확인 가능",
+    "exportingReport": "내보내는 중...",
+    "exportEmptyHint": "리포트를 생성한 후 내보낼 수 있습니다",
+    "exportLoginRequired": "내보내려면 로그인하세요"
+  },
+  "learnMapPage": {
+    "completed": "완료됨",
+    "empty": "학습 경로가 없습니다"
   }
 }
