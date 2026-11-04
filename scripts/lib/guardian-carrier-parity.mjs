@@ -115,10 +115,56 @@ export function isLegDefinition(line) {
 /** 收集 [from,to) 里被调用、且在 defs 里算"腿"的名字(仅语句/守卫位,注释行跳过)。 */
 
 /**
- * @param {{source:string, minDarkWarn?:number}} p
+ * 具名豁免(§0.7"豁免必须验过才免且会到期",§0.10 失效方向=多要一次说明):
+ * 条目形如 `{ name, owner, reason, expires }`。规则:
+ *   · 命中且未到期 ⇒ 从 dark 里摘掉,但**在读数里点名**摘了哪几条、为什么(不许静默);
+ *   · 已到期 ⇒ 照旧判黑,并在 why 里写"豁免到期";
+ *   · 登记的 name 在当下面**不再命中** ⇒ 记 `rotting`(清单腐烂,和豁免本身一样是红);
+ *   · 缺 reason/owner/expires 或 reason 短于 10 字 ⇒ 视同没登记(不许白名单化入口)。
+ * @returns {{kept:string[],expired:string[],rotting:string[],malformed:string[]}}
+ */
+export function applyCarrierExemptions(darkList, exemptions, now = Date.now()) {
+  const dark = new Set(darkList ?? [])
+  const kept = []
+  const expired = []
+  const malformed = []
+  const hit = new Set()
+  for (const e of Array.isArray(exemptions) ? exemptions : []) {
+    const name = String(e?.name ?? '')
+    if (!name) continue
+    const reason = String(e?.reason ?? '').trim()
+    const exp = Date.parse(String(e?.expires ?? ''))
+    if (!e?.owner || reason.length < 10 || !Number.isFinite(exp)) {
+      malformed.push(name || '(无名字目)')
+      continue // 形状坏 ⇒ 视同没登记,照旧判黑
+    }
+    if (!dark.has(name)) {
+      continue // 由 rotting 统计算
+    }
+    hit.add(name)
+    if (exp < now) expired.push(name)
+    else kept.push(name)
+  }
+  const rotting = (Array.isArray(exemptions) ? exemptions : [])
+    .map((e) => String(e?.name ?? ''))
+    .filter((n) => n && !dark.has(n) && !hit.has(n) && n !== '')
+    .filter((n, i, arr) => arr.indexOf(n) === i)
+  const removed = new Set([...kept]) // 到期/未命中的都不摘
+  const malformedSet = new Set(malformed)
+  return {
+    darkRemaining: [...dark].filter((n) => !removed.has(n)).sort(),
+    waived: kept.sort(),
+    expired: expired.sort(),
+    rotting: rotting.sort(),
+    malformed: malformedSet ? [...malformedSet].sort() : [],
+  }
+}
+
+/**
+ * @param {{source:string, exemptions?:Array, now?:number}} p
  * @returns {{state:'ok'|'drift'|'unjudged', dark:Array, darkCount:number, mainCount:number, daemonCount:number, why:string}}
  */
-export function judgeCarrierParity({ source } = {}) {
+export function judgeCarrierParity({ source, exemptions = [], now = Date.now() } = {}) {
   const text = String(source ?? '')
   if (!text.trim()) return { state: 'unjudged', dark: [], darkCount: 0, mainCount: 0, daemonCount: 0, why: '被审面取不到 git-guardian 源 ⇒ 不判(绝不扫别的面顶替)' }
   const lines = text.split(/\r?\n/)
@@ -195,20 +241,94 @@ export function judgeCarrierParity({ source } = {}) {
   }
   const dark = [...mainSet].filter((n) => !daemonSet.has(n)).sort()
   const allDark = [...dark, ...unclassifiedDark.map((n) => `~${n}`)].sort()
+  const ex = applyCarrierExemptions(allDark, exemptions, now)
+  const remaining = ex.darkRemaining
+  const dirty = remaining.length + ex.expired.length + ex.rotting.length + ex.malformed.length
+  const notes = []
+  if (ex.waived.length) notes.push(`具名豁免摘掉 ${ex.waived.length} 条(${ex.waived.join('/')})`)
+  if (ex.expired.length) notes.push(`豁免已到期仍判黑:${ex.expired.join(',')}`)
+  if (ex.rotting.length) notes.push(`豁免清单腐烂(登记的 name 当下面不再命中):${ex.rotting.join(',')}`)
+  if (ex.malformed.length) notes.push(`豁免条目形状坏⇒视同没登记:${ex.malformed.join(',')}`)
   return {
-    state: allDark.length > 0 ? 'drift' : 'ok',
-    dark: allDark,
-    darkCount: allDark.length,
+    state: dirty > 0 ? 'drift' : 'ok',
+    dark: remaining,
+    darkCount: remaining.length,
     prefixDark: dark,
     unclassifiedDark,
+    waived: ex.waived,
+    expiredExempt: ex.expired,
+    rottingExempt: ex.rotting,
+    malformedExempt: ex.malformed,
     mainCount: mainSet.size,
     daemonCount: daemonSet.size,
-    why: allDark.length
-      ? `main 区 ${mainSet.size} 条 / daemon 常驻区 ${daemonSet.size} 条 ⇒ ${dark.length} 条只在一次性 main 里` +
-        `${unclassifiedDark.length ? ` + ${unclassifiedDark.length} 条不合腿名前缀但按签名是腿(~ 前缀点名),同样只在 main 里` : ''},daemon 常驻时结构上跑不到`
-      : `两承载面调用集已齐平(main=${mainSet.size} daemon=${daemonSet.size};unclassified=0)`,
+    // 逐条集合也带出来:别的判据(如 §7 装车表对账)要在**同一把扫描**的结果上做,
+    // 不允许另写一遍划区逻辑(§0.6 —— 第二份划区必然与这份漂开)。
+    mainLegs: [...mainSet].sort(),
+    daemonLegs: [...daemonSet].sort(),
+    why:
+      dirty === 0
+        ? `两承载面调用集已齐平(main=${mainSet.size} daemon=${daemonSet.size};具名豁免 ${ex.waived.length} 条在册未到期)`
+        : `main 区 ${mainSet.size} 条 / daemon 常驻区 ${daemonSet.size} 条 ⇒ ${remaining.length} 条只在一次性 main 里` +
+          `(${remaining.join(', ')})${notes.length ? ';' + notes.join(';') : ''}`,
   }
 }
 
-export const __test__ = { LEG_CALL_RE, LEG_NAME_RE, TOP_FN_RE, bodyEnd, hasLegSignature, isLegDefinition, judgeCarrierParity }
+/**
+ * 逐条成员关系(给 §7 装车表对账用)。**不另起一套划区**,只是把 judgeCarrierParity
+ * 同一把扫描的两面集合换成集合形态交出去。判不出 ⇒ null,由调用方落未判定。
+ */
+export function carrierMembership(source) {
+  const r = judgeCarrierParity({ source })
+  if (r.state === 'unjudged' || !Array.isArray(r.daemonLegs)) return null
+  return { main: new Set(r.mainLegs), daemon: new Set(r.daemonLegs), why: r.why }
+}
+
+/**
+ * 文档声称 ↔ 机器事实 对账(`docs/self-evolution-roadmap.md` §7 装车表)。
+ *
+ * 立因(2026-11-04):那张表自己就写着"只挂 main() 等于永不执行,故两条腿都必须接",
+ * 而同一天 A9 量出 46 条恰恰只挂在 main 上 —— 表里的"已装车"是**人手抄的声明**:
+ * 抄的时候对,后来谁改了挂点都没人回头改表,且没有任何东西因此响。
+ * 这一维量的不是"文档写得漂不漂亮",而是"文档每一条声称的载体,在真承载面上够不够得着"。
+ *
+ * 判据:表里 载体 列点名的派发函数必须出现在 **daemon 常驻区**(本机实际载体是 nssm 服务
+ * 跑 `--daemon`,A9/AGENTS §12h 均已实测确认);只在一次性 main ⇒ dark(= 声称已装车而跑不到);
+ * 两面都不在 ⇒ absent(声明的挂点根本不存在)。
+ * 取不到文档 / 取不到承载面 / 解析到 0 条声称 ⇒ 一律未判定(§0.3:不拿"读不到"冒充"无声明")。
+ */
+export function judgeRoadmapClaims({ guardianSource, roadmapText } = {}) {
+  const text = String(roadmapText ?? '')
+  if (!text.trim()) return { state: 'unjudged', rows: [], why: '路线图文档取不到 ⇒ 不判(不读成"没有装车声明")' }
+  const mem = carrierMembership(guardianSource)
+  if (!mem) return { state: 'unjudged', rows: [], why: '守护源/承载面边界取不到 ⇒ 不判' }
+  const sec = text.split(/^##\s/m).find((b) => /^\s*7[.\s]/.test(b)) ?? ''
+  if (!sec.trim()) return { state: 'unjudged', rows: [], why: '§7 那一节没解析到 ⇒ 不判(表可能改了标题)' }
+  const rows = []
+  for (const line of sec.split(/\r?\n/)) {
+    if (!/^\s*\|/.test(line)) continue
+    const cols = line.split('|').map((c) => c.trim()).filter((c) => c !== '')
+    if (cols.length < 2) continue
+    const fn = /\b((?:dispatch|sweep|heal|audit|ensure|converge|refresh|report|rotate)[A-Z]\w*)\(/.exec(cols[1])
+    if (!fn) continue
+    const name = fn[1]
+    const inDaemon = mem.daemon.has(name)
+    const inMain = mem.main.has(name)
+    rows.push({ artifact: cols[0], carrier: name, inDaemon, inMain, state: inDaemon ? 'ok' : inMain ? 'dark' : 'absent' })
+  }
+  if (rows.length === 0) {
+    return { state: 'unjudged', rows, why: '§7 表里一条载体派发点都没解析到 ⇒ 表形状变了,不读成"无需对账"' }
+  }
+  const bad = rows.filter((r) => r.state !== 'ok')
+  return {
+    state: bad.length ? 'drift' : 'ok',
+    rows,
+    darkCount: bad.length,
+    why: bad.length
+      ? `§7 声称已装车 ${rows.length} 条,其中 ${bad.length} 条在常驻面够不着:` +
+        bad.map((r) => `${r.carrier}(${r.state === 'dark' ? '只在一次性 main' : '两面都没出现'})`).join(', ')
+      : `§7 声称已装车 ${rows.length} 条,逐条都在常驻承载面上`,
+  }
+}
+
+export const __test__ = { LEG_CALL_RE, LEG_NAME_RE, TOP_FN_RE, bodyEnd, hasLegSignature, isLegDefinition, applyCarrierExemptions, carrierMembership, judgeRoadmapClaims, judgeCarrierParity }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

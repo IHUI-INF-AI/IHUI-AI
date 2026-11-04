@@ -18,6 +18,66 @@ import { fileURLToPath } from 'node:url'
 import { __test__ as LIB } from '../lib/human-valve.mjs'
 import { __test__ as CLI } from '../check-human-valve.mjs'
 
+// ── 2026-11-04 实测后加的三组锁 ──
+// 背景:现读 12 枚可派单候选里 11 枚落 unknown-fail-closed ⇒ 阀的"自决"面实际只覆盖 1/12,
+// 这才是自主开发天花板的所在地(比票类白名单更窄)。加宽过程中用探针抓出两条**停机侧漏判**
+// (危险动作被判成 unknown 而不是具名停机)—— 停机侧漏判是唯一会**放大** AI 自决范围的错,
+// 所以这三组锁的方向一律是"危险必须具名接住",而不是"工程票必须够多"。
+const RULES = LIB.parseValveList(
+  readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '..', 'data', 'human-valve-list.json'), 'utf8'),
+).rules
+
+test('V1 危险动作一律具名命中停机类,不许落 unknown(停机侧漏判=放大自决范围)', () => {
+  const hazards = [
+    ['把 DEEPSEEK key 换成新的', 'api-key-change'],
+    ['（租约）删掉这个镜像测试让它过', 'guardrail-loosen'],
+    ['把门 84 降级为 warn', 'guardrail-loosen'],
+    ['重启线上 api 服务', 'production-deploy'],
+    ['回滚生产版本', 'production-deploy'],
+    ['排查部署异常并修复链路', 'production-deploy'],
+    ['去控制台改 DNS 解析记录', 'console-operation'],
+    ['删掉这个分支并强推', 'destructive-git-or-data'],
+  ]
+  for (const [text, want] of hazards) {
+    const r = LIB.classifyAction(text, { rules: RULES })
+    assert.equal(r.bucket, 'stop-for-human', `应停机:${text}`)
+    assert.equal(r.ruleId, want, `必须具名命中「${want}」而不是 unknown:${text} ⇒ 实为 ${r.ruleId}`)
+  }
+})
+
+test('V2 剥注记只能变严不能变松:同一危险文本加任何机器注记后仍停机且仍具名', () => {
+  const notes = [
+    '（认领已释放@2026-11-04/stale-claim-strip#mw1n7e4p-0）',
+    '（登记@2026-11-01/某席）',
+    '（进行中@2026-11-04/某席）',
+    '(stale-claim-strip#x)',
+  ]
+  const base = '把 DEEPSEEK key 换成新的'
+  for (const n of notes) {
+    const r = LIB.classifyAction(`${n} ${base}`, { rules: RULES })
+    assert.equal(r.ruleId, 'api-key-change', `注记「${n.slice(0, 14)}…」不得改变命中`)
+  }
+  // 反向:注记本身不该被当成动作
+  assert.ok(LIB.stripTicketAnnotations(`${notes[0]} 改代码`) === '改代码', '注记应被剥净,只留票面')
+})
+
+test('V3 名词形态的普通工程票要能被接住(否则阀覆盖面会静默退回 1/12)', () => {
+  const plain = [
+    '（认领已释放@2026-11-04/x）P84 索引枚举仍未过 ignore 判据:骨架装配侧已装',
+    '（登记@1）P86 提交链缺一道「混合陈旧底稿」拦闸',
+    'RP-91 给旁路收敛器物补「未知旗标 ⇒ 用法错 exit 2」校验',
+  ]
+  for (const t of plain) {
+    const r = LIB.classifyAction(t, { rules: RULES })
+    assert.equal(r.bucket, 'self-serve', `普通工程票应自决:${t.slice(0, 40)}`)
+  }
+})
+
+test('V4 数据↔匹配器双向对账仍必须成立(新增 guardrail-loosen 两边都登记了)', () => {
+  const aud = LIB.auditValveList(RULES)
+  assert.equal(aud.ok, true, JSON.stringify(aud.problems))
+})
+
 const HERE = dirname(fileURLToPath(import.meta.url))
 const CLI_PATH = resolve(HERE, '..', 'check-human-valve.mjs')
 const TMP_DIR = resolve(HERE, '..', '..', '.ihui-agent', 'tmp', 'human-valve')
