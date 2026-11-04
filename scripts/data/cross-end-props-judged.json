@@ -1640,6 +1640,71 @@
       ]
     },
     {
+      "pair": "ModelList",
+      "key": "groups",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "RN 按类别分组的 groups 入参;小程序端 popup 变体按 currentType 只渲染单类模型的平铺 models 数组,分组由多个 ModelList 实例表达。",
+      "evidence": [
+        "apps/mobile-rn/src/components/ModelList.tsx:116",
+        "apps/miniapp-taro/src/components/ModelList.tsx:77",
+        "apps/mobile-rn/src/components/ModelList.tsx:115"
+      ]
+    },
+    {
+      "pair": "ModelList",
+      "key": "onEndReached",
+      "side": "rn",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "RN 列表是虚拟化分页加载(onEndReached);小程序端 ModelList 一次性渲染完整 models 数组(无分页腿)。",
+      "evidence": [
+        "apps/mobile-rn/src/components/ModelList.tsx:126",
+        "apps/miniapp-taro/src/components/ModelList.tsx:77",
+        "apps/mobile-rn/src/components/ModelList.tsx:115"
+      ]
+    },
+    {
+      "pair": "ModelList",
+      "key": "currentType",
+      "side": "mini",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "小程序端 popup 变体用 currentType 决定渲染哪类模型;RN 端 groups 已按类别分组渲染,无同名类型筛选腿。",
+      "evidence": [
+        "apps/miniapp-taro/src/components/ModelList.tsx:84",
+        "apps/mobile-rn/src/components/ModelList.tsx:116",
+        "apps/miniapp-taro/src/components/ModelList.tsx:76"
+      ]
+    },
+    {
+      "pair": "ModelList",
+      "key": "models",
+      "side": "mini",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "小程序端平铺 models + currentType;RN 端分组 groups 已含各类模型,无同名平铺腿。",
+      "evidence": [
+        "apps/miniapp-taro/src/components/ModelList.tsx:77",
+        "apps/mobile-rn/src/components/ModelList.tsx:116",
+        "apps/miniapp-taro/src/components/ModelList.tsx:76"
+      ]
+    },
+    {
+      "pair": "ModelList",
+      "key": "variant",
+      "side": "mini",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "rationale": "小程序端有 list/popup 两种版式;RN 端单一列表版式(弹层由宿主容器提供),无同名版式腿。",
+      "evidence": [
+        "apps/miniapp-taro/src/components/ModelList.tsx:82",
+        "apps/mobile-rn/src/components/ModelList.tsx:116",
+        "apps/miniapp-taro/src/components/ModelList.tsx:76"
+      ]
+    },
+    {
       "pair": "UserInfoCard",
       "key": "onCopyInviteCode",
       "side": "rn",
