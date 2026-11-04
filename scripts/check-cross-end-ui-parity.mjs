@@ -3959,6 +3959,13 @@ const ALLOWED_DIFF_KEYS = ['geometry', 'radius', 'elementRadius', 'webRnGeometry
 const ALLOWED_DIFF_PLATFORMS = new Set(['miniapp', 'rn', 'web', 'both'])
 const ALLOWED_PLATFORM_KEY_RE = /^platform:[a-z0-9]+(?:-[a-z0-9]+)*$/
 /**
+ * 跨端 props 提案的登记键(`platform:props:<side>:<prop>`,2026-11-03 由 props 对账腿登记)。
+ * 本门不吃 props 维,但这些条目与平台能力差异同住在 `cross-end-allowed-diffs.json`,
+ * 只管记账(不带 count;核销在门 285)。2026-11-04 复核补:原正则只认 `platform:<capability>`,
+ * 141 条 `platform:props:*` 被当"key 非法"整表判红 ⇒ 同一本账两把尺子对不上。
+ */
+const ALLOWED_PROPS_PLATFORM_KEY_RE = /^platform:props:(?:mini|rn):[A-Za-z][A-Za-z0-9]*$/
+/**
  * 非色档允许差异(`styleTier:<kind>:<prop>:<value>`,2026-11-02 Phase 4 立)。
  * 本门只核**到期**(消费方是 `check-web-rn-style-tiers.mjs` 的分叉桶);样式档分叉不是本门
  * 的 findings,所以不参与 component×key 计数核销,但**到期必须回红**(白名单不得腐化)。
@@ -3983,7 +3990,12 @@ export function allowedDiffProblem(e) {
   if (typeof e.component !== 'string' || !e.component.trim()) return 'component 缺失'
   if (
     typeof e.key !== 'string' ||
-    !(ALLOWED_DIFF_KEYS.includes(e.key) || ALLOWED_PLATFORM_KEY_RE.test(e.key) || STYLE_TIER_KEY_RE.test(e.key))
+    !(
+      ALLOWED_DIFF_KEYS.includes(e.key) ||
+      ALLOWED_PLATFORM_KEY_RE.test(e.key) ||
+      ALLOWED_PROPS_PLATFORM_KEY_RE.test(e.key) ||
+      STYLE_TIER_KEY_RE.test(e.key)
+    )
   )
     return `key 非法:${e.key ?? '(空)'}`
   if (!ALLOWED_DIFF_PLATFORMS.has(e.platform)) return `platform 非法:${e.platform ?? '(空)'}`
