@@ -42,7 +42,7 @@ export function SearchScreen({
     <View style={styles.container}>
       <View style={styles.header}>
         <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
-        <Text style={styles.title}>{t('search.title')}</Text>
+        <Text style={styles.title}>{t('common.search')}</Text>
       </View>
 
       <View style={styles.searchRow}>
