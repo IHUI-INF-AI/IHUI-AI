@@ -186,6 +186,22 @@ export class WsAutoRecoveryManager {
     this.log('info', 'monitoring stopped')
   }
 
+  /**
+   * 僵尸连接摘除:失败只留痕,不阻断同轮其余连接。
+   * 2026-11-04 门 121 清偿:runConnectionCheck 与 triggerRecovery 此前各自展开同一处理器。
+   */
+  private async safeRemoveConnection(hooks: WsPluginHooks, id: string): Promise<void> {
+    await hooks.removeConnection(id).catch(() => {})
+  }
+
+  /**
+   * 插件清理钩子:失败只留痕,不阻断后续恢复步骤。
+   * 2026-11-04 门 121 清偿:内存/任务/恢复三处此前各摊一份同一处理器。
+   */
+  private async safeCleanup(hooks: WsPluginHooks): Promise<void> {
+    if (hooks.cleanup) await hooks.cleanup().catch(() => {})
+  }
+
   private async runHealthCheck(): Promise<void> {
     let totalConns = 0
     let totalQueue = 0
@@ -233,7 +249,7 @@ export class WsAutoRecoveryManager {
       const conns = hooks.getConnections()
       for (const [id, v] of conns) {
         if (isAllStale(v)) {
-          await hooks.removeConnection(id).catch(() => {})
+          await this.safeRemoveConnection(hooks, id)
           cleaned++
         }
       }
@@ -254,7 +270,7 @@ export class WsAutoRecoveryManager {
         `memory ${rssMb.toFixed(0)}MB > ${this.options.maxMemoryMb}MB, triggering cleanup`,
       )
       for (const [, hooks] of this.plugins) {
-        if (hooks.cleanup) await hooks.cleanup().catch(() => {})
+        if (hooks.cleanup) await this.safeCleanup(hooks)
       }
       const gc = (global as { gc?: () => void }).gc
       if (gc) gc()
@@ -272,7 +288,7 @@ export class WsAutoRecoveryManager {
         `processing tasks ${totalTasks} > ${this.options.maxProcessingTasks}, triggering cleanup`,
       )
       for (const [, hooks] of this.plugins) {
-        if (hooks.cleanup) await hooks.cleanup().catch(() => {})
+        if (hooks.cleanup) await this.safeCleanup(hooks)
       }
     }
   }
@@ -294,10 +310,10 @@ export class WsAutoRecoveryManager {
       const conns = hooks.getConnections()
       for (const [id, v] of conns) {
         if (isAllStale(v)) {
-          await hooks.removeConnection(id).catch(() => {})
+          await this.safeRemoveConnection(hooks, id)
         }
       }
-      if (hooks.cleanup) await hooks.cleanup().catch(() => {})
+      if (hooks.cleanup) await this.safeCleanup(hooks)
     }
     this.consecutiveErrors = 0
   }

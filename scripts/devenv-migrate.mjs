@@ -77,9 +77,28 @@
  *  未判定子项单列进 unjudged(--probe 逐条打印),不再一票把整条结论抹成 undetermined;
  *  但只要没有可判定否定,undetermined 仍然保留(fail-closed,绝不把「没判」写成「静默」)。
  *
+ * ══ 续扫式枚举(2026-11-04,**结构性预算是正解,不是抬阈值**)══
+ *  立因:旧根实测远超 ENUM_BUDGET(判①)/ LEGACY_LOCK_SCAN.entryBudget(判②)⇒ 每轮都
+ *  走到「预算截断」,未扫部分只能进 unjudged,结论被钉在 undetermined;而每次 probe 又
+ *  从树根重扫一遍,扫过的部分永远攒不出完整覆盖(结构性停摆,不是数据没补齐)。
+ *  正解:把两面的枚举都改成**分片续扫**——本轮到预算就把游标(目录栈 + 已完成累计)落盘,
+ *  下一轮从断点继续,而不是整轮重来。
+ *  不撒谎的三条边界:
+ *  ① 只要本轮没扫完,结论照旧 undetermined,绝不因为「扫过一大半」就判 window;
+ *  ② 游标不可解析 / 根或深度变了 ⇒ 旧游标作废、**重开一环**(如实报 resetWhy,不猜续);
+ *  ③ 一期(一环)跨轮完成时,环跨时长必须 ≤ QUIET_MINUTES 才允许拿它判静默:
+ *     续扫的盲区 = 整环跨度(已扫过的目录在后续轮次里再被写入是看不见的),跨度超过阈值
+ *     的环只能作为「进度」,不能作为「已判定」。
+ *  ③-a 环已扫完、另一面还在续扫时,已完成的那面**复用到「环起至今 ≤ QUIET_MINUTES」为止**
+ *     (不重扫,否则一面扫完就重开、两面永远对不齐 ⇒ 结构上拿不到 window);复用必须打印
+ *     环起时长与环结束后的空窗长度,超过阈值 ⇒ 旧环只作轮数基准、重开一环(不用陈旧证据判静默)。
+ *  落盘面:SCAN_STATE_FILE(仓内 .ihui-agent/state,与守护留痕同域);probe 核心
+ *  (probeQuietWindow 不注入 scanStore 时)仍然零写盘,只有 main / 巡检臂显式接 store 才写。
+ *  可观测:每轮打印「本轮扫多少 / 环内累计 / 游标还剩几个目录 / 按上一完整环估算还需几轮」。
+ *
  * ══ 用法 ══
- *   node scripts/devenv-migrate.mjs              # 默认:探测 + 盘点 + 预演(零写盘)
- *   node scripts/devenv-migrate.mjs --probe      # 只打印静默窗口三态
+ *   node scripts/devenv-migrate.mjs              # 默认:探测 + 盘点 + 预演(只落续扫游标,不碰旧根)
+ *   node scripts/devenv-migrate.mjs --probe      # 只打印静默窗口三态(同样只落续扫游标)
  *   node scripts/devenv-migrate.mjs --apply      # 执行搬迁(window 才动手;pending/未判定一律拒绝)
  *   node scripts/devenv-migrate.mjs --self-test  # 判据取证(夹具内,不碰真盘真根)
  *   (自动档)git-guardian 巡检轮每 30 分钟派发 devenvMigratePatrol:默认只 probe 留痕,
@@ -135,20 +154,36 @@ export const GUARDIAN_FRESH_MINUTES = 15
 export const SESSION_IDLE_MINUTES = 30
 /** 判② 进程面:进程表派生超时。取不到 ⇒ undetermined(不猜「没人用」)。 */
 export const PROC_SCAN_TIMEOUT_MS = 20_000
-/** 判② 锁面有界枚举。2026-10-29 曾读旧根 maxdepth 8 = 36,395 条目;2026-11-04 实测本机
+/** 判② 锁面**单片**枚举预算。2026-10-29 曾读旧根 maxdepth 8 = 36,395 条目;2026-11-04 实测本机
  *  同口径 1,389,790 条目 / *.lock 1,452 个(重解析点 26,049 个跳过),11.6× 预算,全量需 192 秒
  *  —— 预算只是防跑飞护栏,超限按 unjudged 单列。8 层覆盖 backups/git/<repo>/refs/heads/*.lock
- *  这类搬迁会打断的瞬时锁。 */
+ *  这类搬迁会打断的瞬时锁。**自 2026-11-04 起预算按片计**:到片就落游标,下一轮从断点续扫
+ *  (见头注「续扫式枚举」),但环未扫完前结论仍是 undetermined。 */
 export const LEGACY_LOCK_SCAN = { maxDepth: 8, entryBudget: 120_000 }
-/** 枚举预算:超过即截断 ⇒ 该子项标 unjudged(未见 ≠ 不存在)。2026-11-04 实测本机旧根
- *  全树 2,380,836 条目(重解析点 27,494 个全部跳过、零跟随 ⇒ 非重复计数),11.9× 预算;
- *  不抬高预算:全量走完实测 433 秒,每次 probe 都全量 lstat 属「调阈值消灭超限」。 */
+/** 判① 全树**单片**枚举预算:超过即截断 ⇒ 该子项标 unjudged(未见 ≠ 不存在)。2026-11-04 实测
+ *  本机旧根全树 2,380,836 条目(重解析点 27,494 个全部跳过、零跟随 ⇒ 非重复计数),11.9× 预算;
+ *  不抬高预算:全量走完实测 433 秒,每次 probe 都全量 lstat 属「调阈值消灭超限」。
+ *  按片续扫同理:预算不抬,靠游标跨轮把覆盖率攒满。 */
 export const ENUM_BUDGET = 200000
+/** 续扫游标落盘路径(只存「扫到哪 + 已累计读到什么」,不存被扫内容)。 */
+export const SCAN_STATE_FILE = join(ROOT, '.ihui-agent', 'state', 'devenv-migrate-scan.json')
+/** 续扫环的跨度上限 = 静默阈值:环跨超过它 ⇒ 盲区可能掩盖阈值内的写入,只能当进度、不能判静默。 */
+export const SCAN_CYCLE_MAX_SPAN_MINUTES = QUIET_MINUTES
+/** 游标状态版本:形状一改就 +1,旧游标一律作废重开环(不许猜着续)。 */
+export const SCAN_STATE_VERSION = 1
+/** 判① 的「不限深度」用可序列化常量(Infinity 经 JSON 会变 null,续扫就对不上而白重开)。 */
+export const SCAN_DEPTH_UNBOUNDED = 1_000_000
 /**
  * 显式登记面(2026-11-04):只登记「为什么它永远读不出」,不登记「允许它占用」。
  * 未登记读不出的行一律保持 fail-closed;登记过期自动回红;条目数与每条 maxRows 双上限防扩张。
  */
 export const EXEMPTIONS_FILE = join(ROOT, 'scripts', 'data', 'devenv-migrate-exemptions.json')
+/**
+ * 结构性限制台账(2026-11-04):只登记「结构上判不了」的归属,不登记「现在有人占用」。
+ * 与豁免表相反:它**不抑制任何红**——条目齐全只多印一行「谁负责、何时复核」,
+ * reviewBy 过期 / 条目非法 ⇒ 反而进 unjudged 点名回红(不许静默续期)。
+ */
+export const KNOWN_LIMITS_FILE = join(ROOT, 'scripts', 'data', 'devenv-migrate-known-limits.json')
 /** 登记表条目硬上限(超过 = 整表非法 ⇒ 回红),防止把它扩张成万能豁免面。 */
 export const EXEMPTIONS_MAX_ENTRIES = 24
 /** reviewBy 最远不得超过登记时刻 +90 天;到点未复核即自动回红,不许静默续期。 */
@@ -208,16 +243,228 @@ export function defaultIO() {
 }
 
 /**
+ * 续扫进度的一句话(两个面共用)。口径只写**实得**:
+ * 本轮多少 / 环内累计多少 / 游标还剩几个目录(条目数未知,不编造);
+ * 只有拿到「上一完整环」基准时才给总轮数与剩余轮数估算,否则如实说「尚无基准」。
+ * @param {ReturnType<typeof driveScan>['progress']} p
+ */
+export function scanProgressText(p) {
+  const bits = [
+    `本轮 ${p.scannedThisRound} 条`,
+    `环内累计 ${p.scannedInCycle} 条`,
+    `游标还剩 ${p.pendingDirs} 个目录待遍历(条目数未知)`,
+  ]
+  if (p.estimatedRoundsRemaining !== null)
+    bits.push(
+      `按上一完整环 ${p.estimatedCycleEntries} 条估算:整环约 ${p.estimatedRoundsTotal} 轮,还需约 ${p.estimatedRoundsRemaining} 轮`,
+    )
+  else bits.push('尚无完整环基准(跑满一环后才有总轮数估算)')
+  if (p.resetWhy) bits.push(p.resetWhy)
+  return bits.join(';')
+}
+
+/**
+ * 复用在环的一句话:环起多久 / 环结束后空窗多久。复用只在「环起至今 ≤ 静默阈值」内允许,
+ * 所以必须把空窗长度一并印出来 —— 复用不是「又扫了一遍」,盲区是实打实的空窗。
+ * @param {ReturnType<typeof driveScan>['progress']} p
+ */
+export function scanReuseText(p) {
+  const span = Number.isFinite(p.cycleSpanMinutes) ? p.cycleSpanMinutes : 0
+  const age = Number.isFinite(p.reuseAgeMinutes) ? p.reuseAgeMinutes : 0
+  return `复用在环:环起 ${span.toFixed(1)} 分钟前,环结束后 ${age.toFixed(1)} 分钟未复扫(跨度 ≤ 阈值 ${SCAN_CYCLE_MAX_SPAN_MINUTES} 分钟,盲区=该空窗)`
+}
+
+/**
+ * 新开一环。游标 = 目录栈 [{d,i,dep}];i 表示该目录里**已消费**的条目数,
+ * names 不落盘(续扫时重新 readdir 再按 i 跳过,单个目录重读一次远比把整树名单写盘便宜)。
+ */
+function newScanCycle(key, root, maxDepth, nowMs, makeAcc, lastComplete) {
+  return {
+    v: SCAN_STATE_VERSION,
+    key,
+    root,
+    maxDepth,
+    cycleStartedAt: nowMs,
+    updatedAt: nowMs,
+    rounds: 0,
+    scannedTotal: 0,
+    stack: [{ d: root, i: 0, dep: 1 }],
+    acc: makeAcc(),
+    lastComplete: lastComplete || null,
+  }
+}
+
+/**
+ * 通用分片续扫引擎:显式 DFS(栈可落盘),单片最多消费 budget 个条目。
+ * 续扫只允许在 key/root/maxDepth 全同、版本一致、且栈非空时继续;
+ * 上一环已扫完(stack 空)⇒ 只把它的条目数当「总轮数基准」,**仍旧重扫**,不复用旧结论。
+ * 环未扫完时 `finished=false` —— 调用方必须据此给 undetermined,不得当已判定。
+ * @param {{lstatSync:Function, readdirSync:Function}} io
+ * @param {{key:string, root:string, maxDepth:number, budget:number, prev:(object|null), nowMs:number,
+ *          makeAcc:Function, onEntry:Function, onLink:(Function|undefined), onUnreadable:(Function|undefined)
+ *          }} cfg
+ */
+export function driveScan(io, cfg) {
+  const { key, root, maxDepth, nowMs, makeAcc, onEntry, onLink, onUnreadable } = cfg
+  const budget = Math.max(1, Number(cfg.budget) || 1)
+  const prev = cfg.prev
+  let resetWhy = ''
+  let state
+  const resumable =
+    prev &&
+    prev.v === SCAN_STATE_VERSION &&
+    prev.key === key &&
+    prev.root === root &&
+    prev.maxDepth === maxDepth &&
+    Array.isArray(prev.stack) &&
+    // 栈空 = 上一环已扫完:此时必须拿 acc 把旧结论交回去,缺 acc 的游标不认(不许猜着复用)。
+    (prev.stack.length > 0 || Boolean(prev.acc && typeof prev.acc === 'object'))
+  if (resumable && prev.stack.length > 0) {
+    state = { ...prev, stack: prev.stack.map((x) => ({ d: x.d, i: x.i, dep: x.dep })) }
+  } else if (resumable) {
+    // 上一环已扫完(栈空):环起至今仍在阈值内 ⇒ **复用**该环的实得结论(不重扫),
+    // 并把「环结束后空窗」显式报出;超阈值 ⇒ 旧环只作轮数基准,重开一环(不许拿陈旧证据判静默)。
+    const spanMin = Number.isFinite(prev.cycleStartedAt) ? (nowMs - prev.cycleStartedAt) / 60000 : Infinity
+    if (spanMin <= SCAN_CYCLE_MAX_SPAN_MINUTES) {
+      const at = prev.lastComplete && Number.isFinite(prev.lastComplete.at) ? prev.lastComplete.at : prev.updatedAt
+      const est = Number.isFinite(prev.scannedTotal) ? prev.scannedTotal : null
+      const progress = {
+        budget,
+        scannedThisRound: 0,
+        scannedInCycle: prev.scannedTotal,
+        pendingDirs: 0,
+        rounds: prev.rounds,
+        finished: true,
+        reused: true,
+        cycleStartedAt: prev.cycleStartedAt,
+        cycleSpanMinutes: spanMin,
+        reuseAgeMinutes: Math.max(0, (nowMs - at) / 60000),
+        estimatedCycleEntries: est,
+        estimatedRoundsTotal: est === null ? null : Math.max(1, Math.ceil(est / budget)),
+        estimatedRoundsRemaining: 0,
+        remainingUnknown: false,
+        resetWhy: '',
+      }
+      return { finished: true, reused: true, scannedThisRound: 0, state: prev, progress }
+    }
+    resetWhy = `上一环已扫完但环起 ${spanMin.toFixed(
+      1,
+    )} 分钟前 > 阈值 ${SCAN_CYCLE_MAX_SPAN_MINUTES} 分钟 ⇒ 本轮重开一环(旧环只作轮数基准,不复用陈旧结论)`
+    state = newScanCycle(key, root, maxDepth, nowMs, makeAcc, {
+      entries: prev.scannedTotal,
+      rounds: prev.rounds,
+      at: prev.updatedAt,
+    })
+  } else {
+    if (prev) resetWhy = `上一轮游标不可续(key/root/maxDepth/版本对不上)⇒ 本轮重开一环`
+    state = newScanCycle(key, root, maxDepth, nowMs, makeAcc, null)
+  }
+
+  /** 本轮已读到的目录名单(只活在内存里,不落盘)。 */
+  const namesByDir = new Map()
+  let scannedThisRound = 0
+  while (state.stack.length > 0 && scannedThisRound < budget) {
+    const top = state.stack[state.stack.length - 1]
+    let names = namesByDir.get(top.d)
+    if (!names) {
+      try {
+        names = io.readdirSync(top.d)
+      } catch (e) {
+        if (onUnreadable) onUnreadable(top.d, e, state, 'readdir')
+        state.stack.pop()
+        continue
+      }
+      namesByDir.set(top.d, names)
+    }
+    if (top.i >= names.length) {
+      state.stack.pop()
+      continue
+    }
+    const name = names[top.i++]
+    scannedThisRound++
+    state.scannedTotal++
+    const p = join(top.d, name)
+    let s
+    try {
+      s = io.lstatSync(p)
+    } catch (e) {
+      if (e && e.code === 'ENOENT') continue // 并发删除:按当前所见判,不猜多
+      if (onUnreadable) onUnreadable(p, e, state, 'lstat')
+      continue
+    }
+    if (s.isSymbolicLink()) {
+      if (onLink) onLink(p, state)
+      continue
+    }
+    onEntry({ path: p, name, st: s, depth: top.dep, state })
+    if (s.isDirectory() && top.dep < maxDepth) state.stack.push({ d: p, i: 0, dep: top.dep + 1 })
+  }
+
+  // 预算恰好吃掉最后一个条目时,栈顶目录已是空壳:本轮顺手收栈,免得下一轮空扫 0 条还报「还剩 1 轮」。
+  while (state.stack.length > 0) {
+    const top = state.stack[state.stack.length - 1]
+    let names = namesByDir.get(top.d)
+    if (!names) {
+      try {
+        names = io.readdirSync(top.d)
+      } catch {
+        break
+      }
+      namesByDir.set(top.d, names)
+    }
+    if (top.i < names.length) break
+    state.stack.pop()
+  }
+
+  const finished = state.stack.length === 0
+  state.rounds += 1
+  state.updatedAt = nowMs
+  if (finished) state.lastComplete = { entries: state.scannedTotal, rounds: state.rounds, at: nowMs }
+
+  const est = state.lastComplete && Number.isFinite(state.lastComplete.entries) ? state.lastComplete.entries : null
+  const progress = {
+    budget,
+    scannedThisRound,
+    scannedInCycle: state.scannedTotal,
+    pendingDirs: state.stack.length,
+    rounds: state.rounds,
+    finished,
+    reused: false,
+    cycleStartedAt: state.cycleStartedAt,
+    cycleSpanMinutes: Math.max(0, (nowMs - state.cycleStartedAt) / 60000),
+    estimatedCycleEntries: est,
+    estimatedRoundsTotal: est === null ? null : Math.max(1, Math.ceil(est / budget)),
+    estimatedRoundsRemaining:
+      est === null || state.stack.length === 0
+        ? est === null
+          ? null
+          : 0
+        : Math.max(1, Math.ceil((est - state.scannedTotal) / budget)),
+    remainingUnknown: est === null,
+    resetWhy,
+  }
+  return { finished, scannedThisRound, state, progress }
+}
+
+/** 落盘前剥掉本轮临时字段(目录名单只活在内存)。 */
+function persistableScanState(state) {
+  return { ...state, stack: state.stack.map((x) => ({ d: x.d, i: x.i, dep: x.dep })) }
+}
+
+/**
  * 递归量一棵树的最新写入时刻。**不跟随重解析点**(§26):junction/symlink 条目只计数跳过,
  * 既不递归也不计入 mtime(链接本体的 mtime 是建立时刻,与「写入」无关)。
  * 三态:absent(路径不存在,或本体就是重解析点)/ ok(量到了)/ undetermined(读不到,
  * 显式带 why;枚举截断或单条 lstat 失败也降级 undetermined —— 漏看的那条可能正是最新写入)。
+ * 2026-11-04 起支持分片续扫:opts.resume = {state, save, why} 时,到预算就落游标、下一轮续扫;
+ * 只有**整环扫完**才可能给 ok,环未扫完一律 undetermined(§头注「续扫式枚举」三条边界)。
  * @param {{lstatSync:Function, readdirSync:Function}} io 只读面
  * @param {string} dir 待量树的根
  * @param {number} now 时刻基准(ms),测试可注入
- * @returns {{kind:'absent'|'ok'|'undetermined', quietMinutes:(number|null), truncated:boolean, junctions:number, why:(string|undefined), entries:(number|undefined)}}
+ * @param {{budget?:number, resume?:{state:object|null, save?:Function, why?:string}}} [opts]
+ * @returns {{kind:'absent'|'ok'|'undetermined', quietMinutes:(number|null), truncated:boolean, junctions:number, why:(string|undefined), entries:(number|undefined)}}}
  */
-export function latestWrite(io, dir, now) {
+export function latestWrite(io, dir, now, opts = {}) {
   let st
   try {
     st = io.lstatSync(dir)
@@ -240,74 +487,76 @@ export function latestWrite(io, dir, now) {
       junctions: 1,
       why: `${dir} 本体是重解析点,无实体内容`,
     }
-  let maxMs = st.mtimeMs
-  let junctions = 0
-  let truncated = false
-  let unreadable = 0
-  let firstUnreadableCode = ''
-  let entries = 0
-  /** @param {string} d */
-  const walk = (d) => {
-    let names
-    try {
-      names = io.readdirSync(d)
-    } catch (e) {
-      if (e && e.code === 'ENOENT') return // 并发删除:按当前所见判,不猜多
-      truncated = true
-      return
-    }
-    for (const name of names) {
-      entries++
-      if (entries > ENUM_BUDGET) {
-        truncated = true
-        return
-      }
-      const p = join(d, name)
-      let s
-      try {
-        s = io.lstatSync(p)
-      } catch (e) {
-        if (unreadable === 0) firstUnreadableCode = (e && e.code) || String(e)
-        unreadable++
-        continue
-      }
-      if (s.isSymbolicLink()) {
-        junctions++
-        continue
-      }
-      if (s.mtimeMs > maxMs) maxMs = s.mtimeMs
-      if (s.isDirectory()) walk(p)
-    }
+  const resume = opts.resume || null
+  const run = driveScan(io, {
+    key: 'legacyTree',
+    root: dir,
+    maxDepth: SCAN_DEPTH_UNBOUNDED,
+    budget: opts.budget ?? ENUM_BUDGET,
+    prev: resume ? resume.state : null,
+    nowMs: now,
+    makeAcc: () => ({ maxMs: st.mtimeMs, junctions: 0, unreadable: 0, firstUnreadableCode: '' }),
+    onLink: (p, state) => {
+      state.acc.junctions++
+    },
+    onUnreadable: (p, e, state, from) => {
+      state.acc.unreadable++
+      if (state.acc.unreadable === 1) state.acc.firstUnreadableCode = `${(e && e.code) || String(e)}@${from}`
+    },
+    onEntry: ({ st: s, state }) => {
+      if (s.mtimeMs > state.acc.maxMs) state.acc.maxMs = s.mtimeMs
+    },
+  })
+  if (resume && resume.why && !run.progress.resetWhy) run.progress.resetWhy = resume.why
+  const persisted = resume && resume.save ? Boolean(resume.save(persistableScanState(run.state))) : false
+  run.progress.persisted = persisted
+  const acc = run.state.acc
+  const base = {
+    truncated: !run.finished,
+    reused: Boolean(run.reused),
+    junctions: acc.junctions,
+    entries: run.state.scannedTotal,
+    entriesThisRound: run.scannedThisRound,
+    progress: run.progress,
+    rounds: run.state.rounds,
+    cycleStartedAt: run.state.cycleStartedAt,
+    cycleEndedAt: run.finished
+      ? (run.state.lastComplete && Number.isFinite(run.state.lastComplete.at) ? run.state.lastComplete.at : now)
+      : null,
   }
-  walk(dir)
-  if (unreadable > 0)
+  if (acc.unreadable > 0)
     return {
+      ...base,
       kind: 'undetermined',
       quietMinutes: null,
-      truncated,
-      junctions,
-      why: `${unreadable} 个条目 lstat 失败(首个:${firstUnreadableCode}),漏看的可能正是最新写入`,
+      why: `${acc.unreadable} 个条目/目录读不到(首个:${acc.firstUnreadableCode}),漏看的可能正是最新写入(${scanProgressText(run.progress)})`,
     }
-  if (truncated) {
-    const partialQuietMinutes = Math.max(0, (now - maxMs) / 60000)
+  if (!run.finished) {
+    const partialQuietMinutes = Math.max(0, (now - acc.maxMs) / 60000)
     return {
+      ...base,
       kind: 'undetermined',
       quietMinutes: null,
-      truncated,
-      junctions,
-      entries,
       partialQuietMinutes,
-      why: `枚举超过预算 ${ENUM_BUDGET} 条被截断(已扫 ${entries} 条,已扫部分最新写入 ${partialQuietMinutes.toFixed(
+      why: `枚举超过预算 ${run.progress.budget} 条:本轮预算截断(${scanProgressText(run.progress)};已扫部分最新写入 ${partialQuietMinutes.toFixed(
         1,
       )} 分钟前;剩余未见 ≠ 不存在)`,
     }
   }
+  if (run.progress.cycleSpanMinutes > SCAN_CYCLE_MAX_SPAN_MINUTES)
+    return {
+      ...base,
+      kind: 'undetermined',
+      quietMinutes: null,
+      why: `续扫环跨 ${run.progress.cycleSpanMinutes.toFixed(
+        1,
+      )} 分钟 > 静默阈值 ${SCAN_CYCLE_MAX_SPAN_MINUTES} 分钟:环内盲区(已扫过的目录再被写入)可能掩盖阈值内的写入,只算进度不算判定`,
+    }
   return {
+    ...base,
     kind: 'ok',
-    quietMinutes: Math.max(0, (now - maxMs) / 60000),
+    quietMinutes: Math.max(0, (now - acc.maxMs) / 60000),
     truncated: false,
-    junctions,
-    entries,
   }
 }
 
@@ -613,6 +862,76 @@ function parseProcessIdentity(identity) {
   return m ? { name: m[1].trim(), session: m[2] || '*' } : null
 }
 
+/**
+ * 结构性限制台账读取(只读,不写)。五件套 `id + subject + reason(≥10 字) + owner + reviewBy`
+ * 缺任一 ⇒ 该条不生效、进 rejected 并由 probe 点名(不是豁免通道,不允许「登记了就变绿」)。
+ * `reviewBy` 过期 ⇒ 标 expired,由 probe 点名要求复核;坏 JSON / 形状不对 ⇒ kind='invalid',
+ * probe 落未判定 —— 与豁免表同一条纪律:坏账不许静默当空表。
+ * @param {{readFile?:Function, now?:number, path?:string}} [opts]
+ * @returns {{kind:'absent'|'ok'|'invalid', entries:Array<{id:string,subject:string,reason:string,owner:string,reviewBy:string,expired:boolean}>, rejected:Array<{identity:string, why:string}>, why:(string|undefined)}}
+ */
+export function loadDevenvMigrateKnownLimits({
+  readFile = (p) => readFileSync(p, 'utf8'),
+  now = Date.now(),
+  path = KNOWN_LIMITS_FILE,
+} = {}) {
+  let text
+  try {
+    text = readFile(path)
+  } catch (e) {
+    if (e && e.code === 'ENOENT')
+      return { kind: 'absent', entries: [], rejected: [], why: `结构性限制台账不在位:${path}` }
+    return { kind: 'invalid', entries: [], rejected: [], why: `结构性限制台账读不到(${(e && e.code) || e})` }
+  }
+  let parsed
+  try {
+    parsed = JSON.parse(String(text))
+  } catch (e) {
+    return {
+      kind: 'invalid',
+      entries: [],
+      rejected: [],
+      why: `结构性限制台账不可解析:${String((e && e.message) || e).slice(0, 80)}`,
+    }
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed) || !Array.isArray(parsed.entries))
+    return { kind: 'invalid', entries: [], rejected: [], why: '结构性限制台账形状不对(需 {"entries": [...]})' }
+  const entries = []
+  const rejected = []
+  for (const raw of parsed.entries) {
+    const id = raw && typeof raw.id === 'string' ? raw.id.trim() : ''
+    const subject = raw && typeof raw.subject === 'string' ? raw.subject.trim() : ''
+    const reason = raw && typeof raw.reason === 'string' ? raw.reason.trim() : ''
+    const owner = raw && typeof raw.owner === 'string' ? raw.owner.trim() : ''
+    const reviewBy = raw && typeof raw.reviewBy === 'string' ? raw.reviewBy.trim() : ''
+    const problem =
+      !id
+        ? '缺 id'
+        : !subject
+          ? '缺 subject'
+          : reason.length < 10
+            ? 'reason 少于 10 字'
+            : !owner
+              ? '缺 owner'
+              : !/^\d{4}-\d{2}-\d{2}$/.test(reviewBy) || Number.isNaN(Date.parse(`${reviewBy}T00:00:00Z`))
+                ? 'reviewBy 不是 YYYY-MM-DD'
+                : ''
+    if (problem) {
+      rejected.push({ identity: id || '?', why: `结构性限制条目不完整(${problem})` })
+      continue
+    }
+    entries.push({
+      id,
+      subject,
+      reason,
+      owner,
+      reviewBy,
+      expired: now >= Date.parse(`${reviewBy}T00:00:00Z`) + DAY_MS,
+    })
+  }
+  return { kind: 'ok', entries, rejected, why: undefined }
+}
+
 
 /**
  * 旧根锁面:有界、不穿重解析点地找 `*.lock`,逐个判持有 pid 是否还活着。
@@ -621,78 +940,59 @@ function parseProcessIdentity(identity) {
  * pid 已死 ⇒ stale(陈旧锁只报数,不阻 —— 否则历史残留会把窗口永久锁死);
  * 个别条目读不到 ⇒ 报数不阻(它不是「有人在用」的证据,且永久阻 = 又一种停摆);
  * 枚举截断 ⇒ 该子项 undetermined(未见 ≠ 不存在)。
+ * 2026-11-04 起支持分片续扫(opts.resume):到预算落游标、下一轮续;跨轮完成的环若环跨
+ * > QUIET_MINUTES,锁是**时点证据**,跨太久同样只能当进度 ⇒ undetermined(不假装「这一小时没人加锁」)。
  * @param {{lstatSync:Function, readdirSync:Function, readFileSync:Function}} io
  * @param {string} root
- * @param {{maxDepth?:number, entryBudget?:number, pidAlive?:Function}} [opts]
- * @returns {{kind:'ok'|'undetermined', scanned:number, locks:number, live:Array<{path:string,pid:(number|null),why:string}>, stale:Array<{path:string,pid:number}>, nonRuntime:Array<{path:string,why:string}>, truncated:boolean, unreadable:string[], why:(string|undefined)}}
+ * @param {{maxDepth?:number, entryBudget?:number, pidAlive?:Function, now?:number,
+ *          resume?:{state:object|null, save?:Function, why?:string}}} [opts]
+ * @returns {{kind:'ok'|'undetermined', scanned:number, locks:number, live:Array<{path:string,pid:(number|null),why:string}>, stale:Array<{path:string,pid:number}>, nonRuntime:Array<{path:string,why:string}>, truncated:boolean, unreadable:string[], why:(string|undefined)}}}
  */
 export function scanLegacyLocks(io, root, opts = {}) {
   const maxDepth = opts.maxDepth ?? LEGACY_LOCK_SCAN.maxDepth
   const entryBudget = opts.entryBudget ?? LEGACY_LOCK_SCAN.entryBudget
   const pidAlive = opts.pidAlive ?? defaultPidAlive
-  const out = {
-    kind: /** @type {'ok'|'undetermined'} */ ('ok'),
-    scanned: 0,
-    locks: 0,
-    live: /** @type {Array<{path:string,pid:(number|null),why:string}>} */ ([]),
-    stale: /** @type {Array<{path:string,pid:number}>} */ ([]),
-    nonRuntime: /** @type {Array<{path:string,why:string}>} */ ([]),
-    truncated: false,
-    unreadable: /** @type {string[]} */ ([]),
-    why: undefined,
-  }
-  let stop = false
-  /** @param {string} dir @param {number} depth */
-  const walk = (dir, depth) => {
-    if (stop) return
-    let names
-    try {
-      names = io.readdirSync(dir)
-    } catch (e) {
-      if (e && e.code === 'ENOENT') return // 并发删除 / 旧根已清;按当前所见判
-      out.unreadable.push(`${dir}(${(e && e.code) || e})`)
-      return
-    }
-    for (const name of names) {
-      if (stop) return
-      out.scanned++
-      if (out.scanned > entryBudget) {
-        out.truncated = true
-        stop = true
-        return
-      }
-      const p = join(dir, name)
-      let st
-      try {
-        st = io.lstatSync(p)
-      } catch (e) {
-        if (!e || e.code !== 'ENOENT') out.unreadable.push(`${p}(${(e && e.code) || e})`)
-        continue
-      }
-      if (st.isSymbolicLink()) continue // §26:不穿重解析点
-      if (st.isDirectory()) {
-        if (depth < maxDepth) walk(p, depth + 1)
-        continue
-      }
-      if (!/\.lock$/i.test(String(name))) continue
-      out.locks++
+  const now = Number.isFinite(opts.now) ? opts.now : Date.now()
+  const resume = opts.resume || null
+  const run = driveScan(io, {
+    key: 'legacyLocks',
+    root,
+    maxDepth,
+    budget: entryBudget,
+    prev: resume ? resume.state : null,
+    nowMs: now,
+    makeAcc: () => ({
+      locks: 0,
+      live: /** @type {Array<{path:string,pid:(number|null),why:string}>} */ ([]),
+      stale: /** @type {Array<{path:string,pid:number}>} */ ([]),
+      nonRuntime: /** @type {Array<{path:string,why:string}>} */ ([]),
+      unreadable: /** @type {string[]} */ ([]),
+    }),
+    onUnreadable: (p, e, state) => {
+      state.acc.unreadable.push(`${p}(${(e && e.code) || e})`)
+    },
+    onEntry: ({ path: p, name, st, state }) => {
+      if (!st.isDirectory() && !/\.lock$/i.test(String(name))) return
+      if (st.isDirectory()) return
+      const acc = state.acc
+      acc.locks++
       let text
       try {
         text = io.readFileSync(p, 'utf8')
       } catch (e) {
-        out.unreadable.push(`${p}(${(e && e.code) || e})`)
-        continue
+        acc.unreadable.push(`${p}(${(e && e.code) || e})`)
+        return
       }
       const pid = pidFromLockText(text)
       if (pid === null) {
         // 依赖清单(Cargo/poetry/uv…)与运行时锁同名 `.lock`,但无 pid 且非空 ⇒ 非运行时锁:
         // 点名留痕、不计占用。空的 `index.lock`/`refs/…/*.lock` 仍按占用(不确定即视为在用)。
         if (DEPENDENCY_LOCK_NAMES.has(String(name).toLowerCase()) && String(text).trim()) {
-          out.nonRuntime.push({ path: p, why: '依赖清单(*.lock),非运行时锁,不计占用' })
-          continue
+          acc.nonRuntime.push({ path: p, why: '依赖清单(*.lock),非运行时锁,不计占用' })
+          return
         }
-        out.live.push({ path: p, pid: null, why: '锁内容读不出 pid,不确定即视为占用' })
-        continue
+        acc.live.push({ path: p, pid: null, why: '锁内容读不出 pid,不确定即视为占用' })
+        return
       }
       let alive = true
       try {
@@ -700,14 +1000,43 @@ export function scanLegacyLocks(io, root, opts = {}) {
       } catch {
         alive = true // 判活抛错 ⇒ 按占用处理(方向:多等一轮)
       }
-      if (alive) out.live.push({ path: p, pid, why: `持有 pid ${pid} 存活` })
-      else out.stale.push({ path: p, pid })
-    }
+      if (alive) acc.live.push({ path: p, pid, why: `持有 pid ${pid} 存活` })
+      else acc.stale.push({ path: p, pid })
+    },
+  })
+  if (resume && resume.why && !run.progress.resetWhy) run.progress.resetWhy = resume.why
+  const persisted = resume && resume.save ? Boolean(resume.save(persistableScanState(run.state))) : false
+  run.progress.persisted = persisted
+  const acc = run.state.acc
+  const out = {
+    kind: /** @type {'ok'|'undetermined'} */ ('ok'),
+    scanned: run.state.scannedTotal,
+    scannedThisRound: run.scannedThisRound,
+    locks: acc.locks,
+    live: acc.live,
+    stale: acc.stale,
+    nonRuntime: acc.nonRuntime,
+    truncated: !run.finished,
+    reused: Boolean(run.reused),
+    unreadable: acc.unreadable,
+    why: /** @type {(string|undefined)} */ (undefined),
+    progress: run.progress,
+    rounds: run.state.rounds,
+    cycleStartedAt: run.state.cycleStartedAt,
+    cycleEndedAt: run.finished
+      ? (run.state.lastComplete && Number.isFinite(run.state.lastComplete.at) ? run.state.lastComplete.at : now)
+      : null,
   }
-  walk(root, 1)
   if (out.truncated) {
     out.kind = 'undetermined'
-    out.why = `锁面枚举超过预算 ${entryBudget} 条被截断(已扫 ${out.scanned} 条目 / *.lock ${out.locks} 个;剩余未见 ≠ 不存在)`
+    out.why = `锁面枚举超过预算 ${entryBudget} 条:本轮预算截断(${scanProgressText(
+      run.progress,
+    )};已扫部分 *.lock ${acc.locks} 个;剩余未见 ≠ 不存在)`
+  } else if (run.progress.cycleSpanMinutes > SCAN_CYCLE_MAX_SPAN_MINUTES) {
+    out.kind = 'undetermined'
+    out.why = `锁面续扫环跨 ${run.progress.cycleSpanMinutes.toFixed(
+      1,
+    )} 分钟 > 静默阈值 ${SCAN_CYCLE_MAX_SPAN_MINUTES} 分钟:跨轮期间新加的锁可能在已扫目录里没被看到,只算进度不算判定`
   }
   return out
 }
@@ -778,7 +1107,20 @@ export function legacyActiveUse(io, opts = {}) {
     processes.kind = 'undetermined'
     processes.why = `进程表取不到(${(e && e.message) || e})`
   }
-  const locks = scanLegacyLocks(io, LEGACY_ROOT, { pidAlive, ...lockScan })
+  // 续扫:只有显式注入 scanStore 才落游标(probe 核心保持零写盘;main / 巡检臂会注入)。
+  const scanStore = opts.scanStore || null
+  const lockResume = scanStore
+    ? (() => {
+        const loaded = scanStore.load('legacyLocks')
+        return { state: loaded.state, why: loaded.why, save: (s) => scanStore.save('legacyLocks', s) }
+      })()
+    : null
+  const locks = scanLegacyLocks(io, LEGACY_ROOT, {
+    pidAlive,
+    ...lockScan,
+    now: Number.isFinite(opts.now) ? opts.now : Date.now(),
+    resume: lockResume,
+  })
   const exempted = { processes: [], locks: [], paths: [] }
   const blocked = /** @type {string[]} */ ([])
 
@@ -887,7 +1229,7 @@ export function activityNotes(facts) {
     if (f.kind === 'ok' && f.quietMinutes !== null) return `${f.quietMinutes.toFixed(1)} 分钟前`
     return `未判定(${f.why || '?'})`
   }
-  return [
+  const notes = [
     p.kind === 'ok'
       ? `判② 活进程面:已枚举 ${p.total} 个进程,命中旧根 ${p.hits.length} 个${
           p.unreadable ? `;其中 ${p.unreadable} 个命令行/路径读不出(无法判定)` : ''
@@ -906,8 +1248,34 @@ export function activityNotes(facts) {
     '判② 未覆盖面:旧根内打开句柄与进程 cwd(纯 Node 取不到)⇒ 由 repairOne 改名安全失败兜底(不建 junction、不删源)',
     `信息面(不参与三态):${SESSION_TMP} ${fmtQuiet(facts.sessionTmp)};${TMP_PROBE} ${fmtQuiet(
       facts.tmpProbe,
-    )}(旧口径阈值 ${SESSION_IDLE_MINUTES} 分钟已退役,见头注判②)`,
+    )}(旧口径阈值 ${SESSION_IDLE_MINUTES} 分钟已退役,见头注判②)${
+      facts.knownLimits && facts.knownLimits.kind === 'ok' && facts.knownLimits.entries.length
+        ? `;结构性限制登记 ${facts.knownLimits.entries.length} 条(${facts.knownLimits.entries
+            .map((e) => `${e.id} owner=${e.owner} reviewBy=${e.reviewBy}`)
+            .join('、')})`
+        : ''
+    }`,
   ]
+  // 复用在环必须单独印出来(tree 面平时没有独立行,且复用不产生新扫描 ⇒ 不印就看不见空窗)。
+  // 注意顺序:先给「旧根锁面」那一行追加(unshift 之前 notes[1] 才是锁面),再插入树面行。
+  if (l && l.reused) notes[1] += `;${scanReuseText(l.progress)}`
+  if (facts.legacyRoot && facts.legacyRoot.reused)
+    notes.unshift(
+      `判① 旧根树面:${scanReuseText(facts.legacyRoot.progress)}(实得 ${facts.legacyRoot.entries} 条)`,
+    )
+  const tr = facts.legacyRoot && facts.legacyRoot.progress
+  const lp = l && l.progress
+  const treePartial = Boolean(tr && !tr.finished)
+  const lockPartial = Boolean(lp && !lp.finished)
+  if (treePartial || lockPartial) {
+    const bits = []
+    if (treePartial) bits.push(`判① ${scanProgressText(tr)}${tr.persisted === false ? '(游标未落盘)' : ''}`)
+    else if (tr) bits.push(`判① 已扫完一环(${tr.scannedInCycle} 条 / ${tr.rounds} 轮)`)
+    if (lockPartial) bits.push(`判② ${scanProgressText(lp)}${lp.persisted === false ? '(游标未落盘)' : ''}`)
+    else if (lp) bits.push(`判② 已扫完一环(${lp.scannedInCycle} 条 / ${lp.rounds} 轮)`)
+    notes.push(`续扫进度(预算按片,下一轮从游标续,不整轮重来):${bits.join(';')}`)
+  }
+  return notes
 }
 
 /**
@@ -917,7 +1285,7 @@ export function activityNotes(facts) {
  * 「读不出」子项;表级非法 / 单条非法 / 过期条目一律进 unjudged ⇒ 回红(fail-closed)。
  * @param {{lstatSync:Function, readdirSync:Function, readFileSync:Function, spawnSync:Function}} io
  * @param {number} [now]
- * @param {{listProcesses?:Function, pidAlive?:Function, lockScan?:Object, exemptions?:Object}} [activity] 判② 注入面(测试用)
+ * @param {{listProcesses?:Function, pidAlive?:Function, lockScan?:Object, exemptions?:Object, scanStore?:Object}} [activity] 判② 注入面(测试用)
  * @returns {{state:'window'|'pending'|'undetermined', reasons:string[], unjudged:string[], facts:Object}}
  */
 export function probeQuietWindow(io, now = Date.now(), activity = {}) {
@@ -925,13 +1293,28 @@ export function probeQuietWindow(io, now = Date.now(), activity = {}) {
     activity.exemptions && typeof activity.exemptions === 'object'
       ? activity.exemptions
       : loadDevenvMigrateExemptions({ readFile: (p) => io.readFileSync(p, 'utf8'), now })
+  // 结构性限制台账:只登记「归属/复核期」,不抑制任何红;坏账/过期反而进 unjudged。
+  const knownLimits =
+    activity.knownLimits && typeof activity.knownLimits === 'object'
+      ? activity.knownLimits
+      : loadDevenvMigrateKnownLimits({ readFile: (p) => io.readFileSync(p, 'utf8'), now })
+  // 续扫:只有调用方显式注入 scanStore(main / 巡检臂)才落游标;不注入 ⇒ 核心仍旧零写盘。
+  const scanStore = activity.scanStore || null
+  const treeResume = scanStore
+    ? (() => {
+        const loaded = scanStore.load('legacyTree')
+        return { state: loaded.state, why: loaded.why, save: (s) => scanStore.save('legacyTree', s) }
+      })()
+    : null
   const facts = {
-    legacyRoot: latestWrite(io, LEGACY_ROOT, now),
-    activeUse: legacyActiveUse(io, { ...activity, exemptions }),
+    legacyRoot: latestWrite(io, LEGACY_ROOT, now, { resume: treeResume }),
+    activeUse: legacyActiveUse(io, { ...activity, exemptions, now }),
     sessionTmp: latestWrite(io, SESSION_TMP, now),
     tmpProbe: latestWrite(io, TMP_PROBE, now),
     guardian: guardianTickAlive(io, now),
     exemptions,
+    knownLimits,
+    scanStore: scanStore ? { path: scanStore.path } : null,
   }
   const v1 = quietVerdict(facts.legacyRoot, QUIET_MINUTES, `判① 旧根 ${LEGACY_ROOT}`)
   const p = facts.activeUse.facts.processes
@@ -962,6 +1345,12 @@ export function probeQuietWindow(io, now = Date.now(), activity = {}) {
   for (const e of exemptions.entries || [])
     if (e.expired) unjudged.push(`判② 登记表:过期条目 ${e.identity}(reviewBy ${e.reviewBy} 已过,须复核,不豁免)`)
   for (const b of facts.activeUse.facts.blockedExemptions || []) unjudged.push(`判② 登记表:${b}`)
+  // 结构性限制台账:坏账/非法/过期都点名(它不抑制红,所以这里只会让结论更保守)。
+  if (knownLimits.kind === 'invalid') unjudged.push(`结构性限制台账:${knownLimits.why}`)
+  for (const r of knownLimits.rejected || []) unjudged.push(`结构性限制台账:非法条目 ${r.identity} —— ${r.why}`)
+  for (const e of knownLimits.entries || [])
+    if (e.expired)
+      unjudged.push(`结构性限制台账:${e.id}(reviewBy ${e.reviewBy} 已过,须复核;不许把「已登记」当作已解决)`)
   if (facts.guardian.state !== 'alive') unjudged.push(`守护存活:${facts.guardian.why}`)
   const state = reasons.length ? 'pending' : unjudged.length ? 'undetermined' : 'window'
   if (state === 'window')
@@ -1286,6 +1675,58 @@ function safeReaddir(io, dir) {
   }
 }
 
+/**
+ * 续扫游标的落盘面(唯一允许在判据路径之外写盘的地方:写在仓内 `.ihui-agent/state`,
+ * 不碰旧根、不碰生产目录)。默认档 probe 不注入它 ⇒ 零写盘不变。
+ * 读坏 / 形状不对 ⇒ 返回 {state:null, why},由调用方如实报「重开环」,绝不猜着续。
+ * 写用「临时文件 + rename」,多进程(守护巡检 + 手工 probe)并发时最多丢一轮进度,不会撕裂 JSON。
+ * @param {{readFileSync:Function, writeFileSync:Function, mkdirSync:Function, renameSync:Function}} io
+ * @param {{path?:string}} [opts]
+ */
+export function createScanStateStore({ io: storeIo, path = SCAN_STATE_FILE } = {}) {
+  const io = storeIo || defaultIO()
+  const readAll = () => {
+    let text
+    try {
+      text = io.readFileSync(path, 'utf8')
+    } catch (e) {
+      if (e && e.code === 'ENOENT') return { ok: true, all: {}, why: undefined }
+      return { ok: false, all: {}, why: `续扫游标读不到(${(e && e.code) || e})` }
+    }
+    try {
+      const parsed = JSON.parse(String(text))
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
+        return { ok: false, all: {}, why: '续扫游标形状不对(需顶层对象)' }
+      return { ok: true, all: parsed, why: undefined }
+    } catch (e) {
+      return { ok: false, all: {}, why: `续扫游标不可解析(${String((e && e.message) || e).slice(0, 80)})` }
+    }
+  }
+  return {
+    path,
+    load(name) {
+      const r = readAll()
+      const s = r.ok ? r.all[name] : null
+      if (!s || typeof s !== 'object' || s.v !== SCAN_STATE_VERSION)
+        return { kind: r.ok ? 'absent' : 'invalid', state: null, why: r.why }
+      return { kind: 'ok', state: s, why: undefined }
+    },
+    save(name, state) {
+      try {
+        const all = readAll().all // 读坏也覆盖写:宁可丢旧游标,也不让坏账永久卡住续扫
+        all[name] = state
+        io.mkdirSync(dirname(path), { recursive: true })
+        const tmp = `${path}.${process.pid}.tmp`
+        io.writeFileSync(tmp, JSON.stringify(all), 'utf8')
+        io.renameSync(tmp, path)
+        return true
+      } catch {
+        return false
+      }
+    },
+  }
+}
+
 /** 步骤 1/2 的搬迁动作:委托 re-home-junctions.repairOne(单源),本层零复算(§0.6)。 */
 function repairViaReHome(src, dst) {
   try {
@@ -1491,8 +1932,9 @@ export function devenvMigratePatrol(opts = {}) {
     io = defaultIO(),
     logger = (m) => console.log(m),
     probeFn = probeQuietWindow,
-    activity = {},
+    activity: activityBase = {},
     applyFn = applyMigration,
+    scanStore = null,
     readFile = (p) => readFileSync(p, 'utf8'),
     exists = existsSync,
     mkdir = mkdirSync,
@@ -1511,6 +1953,13 @@ export function devenvMigratePatrol(opts = {}) {
     writeTick(tickFile, new Date(now).toISOString(), 'utf8')
   } catch {
     /* 盘错不得让本臂失明 */
+  }
+  // 续扫游标:巡检臂是常态自动装配面,默认就落盘(否则跨轮进度永远攒不起来);
+  // 注入非生产 probeFn(镜像测试)时不自动建 store,避免把测试 io 当磁盘写。
+  let activity = activityBase
+  if (probeFn === probeQuietWindow) {
+    const effectiveScanStore = scanStore || createScanStateStore({ io })
+    activity = { ...activity, scanStore: activity.scanStore || effectiveScanStore }
   }
   const probe = probeFn(io, now, activity)
   if (probe.state === 'pending') return { ran: true, state: 'pending', actions: 0 }
@@ -1641,7 +2090,115 @@ function selfTest() {
     io2.readdirSync = () => Array.from({ length: ENUM_BUDGET + 1 }, (_, i) => `x${i}`)
     io2.lstatSync = () => ({ isSymbolicLink: () => false, isDirectory: () => false, mtimeMs: NOW - 90 * MIN })
     const r = latestWrite(io2, '/big', NOW)
-    return r.kind === 'undetermined' && r.truncated === true && r.entries === ENUM_BUDGET + 1 && r.partialQuietMinutes >= 0
+    return (
+      r.kind === 'undetermined' &&
+      r.truncated === true &&
+      r.entries === ENUM_BUDGET &&
+      r.progress.scannedThisRound === ENUM_BUDGET &&
+      r.progress.scannedInCycle === ENUM_BUDGET &&
+      r.partialQuietMinutes >= 0
+    )
+  })())
+  push('latestWrite:预算不足 ⇒ 只给部分进度,仍 undetermined(不许因为扫得多就判静默)', (() => {
+    const tree = { '/big': { dir: ['a', 'b', 'c', 'd'] } }
+    for (const n of ['a', 'b', 'c', 'd']) tree[`/big/${n}`] = f(90)
+    const r = latestWrite(fakeIO(tree), '/big', NOW, { budget: 2 })
+    return (
+      r.kind === 'undetermined' &&
+      r.truncated === true &&
+      r.entries === 2 &&
+      r.progress.scannedThisRound === 2 &&
+      r.progress.pendingDirs > 0 &&
+      r.progress.estimatedRoundsRemaining === null
+    )
+  })())
+  push('latestWrite:续扫从落盘游标接着扫,第二轮才看见后段的新写入', (() => {
+    let saved = null
+    const tree = { '/big': { dir: ['a', 'b', 'c', 'd'] }, '/big/a': f(90), '/big/b': f(90), '/big/c': f(90), '/big/d': f(5) }
+    const io2 = fakeIO(tree)
+    const save = (s) => {
+      saved = JSON.parse(JSON.stringify(s))
+    }
+    const r1 = latestWrite(io2, '/big', NOW, { budget: 2, resume: { state: null, save } })
+    const afterRound1 = saved
+    const r2 = latestWrite(io2, '/big', NOW, { budget: 2, resume: { state: saved, save } })
+    return (
+      r1.kind === 'undetermined' &&
+      r1.quietMinutes === null &&
+      afterRound1 &&
+      afterRound1.stack.length > 0 &&
+      r2.kind === 'ok' &&
+      r2.entries === 4 &&
+      r2.rounds === 2 &&
+      r2.progress.scannedThisRound === 2 &&
+      Math.round(r2.quietMinutes) === 5
+    )
+  })())
+  push('latestWrite:续扫环跨 > 60 分钟 ⇒ undetermined(跨轮盲区不得当判定)', (() => {
+    let saved = null
+    const io2 = fakeIO({ '/big': { dir: ['a', 'b'] }, '/big/a': f(90), '/big/b': f(90) })
+    latestWrite(io2, '/big', NOW, { budget: 1, resume: { state: null, save: (s) => (saved = JSON.parse(JSON.stringify(s))) } })
+    const r2 = latestWrite(io2, '/big', NOW + 90 * MIN, { budget: 5, resume: { state: saved, save: () => {} } })
+    return r2.kind === 'undetermined' && r2.rounds === 2 && /续扫环跨/.test(r2.why)
+  })())
+  push('latestWrite:已扫完的环在阈值内复用(不重扫、如实报空窗);超阈值 ⇒ 重开一环', (() => {
+    let saved = null
+    const io2 = fakeIO({ '/q': { dir: ['a'] }, '/q/a': f(200) })
+    const save = (s) => {
+      saved = JSON.parse(JSON.stringify(s))
+    }
+    const r1 = latestWrite(io2, '/q', NOW, { budget: 1, resume: { state: null, save } })
+    const r2 = latestWrite(io2, '/q', NOW + 5 * MIN, { budget: 1, resume: { state: saved, save } })
+    const afterReuse = saved
+    const r3 = latestWrite(io2, '/q', NOW + 65 * MIN, { budget: 1, resume: { state: afterReuse, save } })
+    return (
+      r1.kind === 'ok' &&
+      r1.entries === 1 &&
+      r2.kind === 'ok' &&
+      r2.reused === true &&
+      r2.progress.scannedThisRound === 0 &&
+      Math.abs(r2.progress.reuseAgeMinutes - 5) < 0.01 &&
+      r3.kind === 'ok' &&
+      r3.reused === false &&
+      r3.rounds === 1 &&
+      /重开一环/.test(r3.progress.resetWhy)
+    )
+  })())
+  push('latestWrite:复用在环跨过阈值 ⇒ 转 undetermined 前先重开(不许拿陈旧环判静默)', (() => {
+    let saved = null
+    const io2 = fakeIO({ '/q': { dir: ['a', 'b'] }, '/q/a': f(200), '/q/b': f(200) })
+    const save = (s) => {
+      saved = JSON.parse(JSON.stringify(s))
+    }
+    const r1 = latestWrite(io2, '/q', NOW, { budget: 2, resume: { state: null, save } })
+    const r2 = latestWrite(io2, '/q', NOW + 61 * MIN, { budget: 1, resume: { state: saved, save } })
+    return r1.kind === 'ok' && r2.reused === false && /重开一环/.test(r2.progress.resetWhy) && r2.progress.rounds === 1
+  })())
+  push('scanLegacyLocks:预算不足 ⇒ undetermined;续扫第二片才看见后段活锁', (() => {
+    let saved = null
+    const io2 = fakeIO({
+      '/old': { dir: ['a', 'b'] },
+      '/old/a': { dir: [] },
+      '/old/b': { dir: ['index.lock'] },
+      '/old/b/index.lock': { text: '12345' },
+    })
+    const pidAlive = (pid) => pid === 12345
+    const save = (s) => {
+      saved = JSON.parse(JSON.stringify(s))
+    }
+    const r1 = scanLegacyLocks(io2, '/old', { entryBudget: 2, now: NOW, pidAlive, resume: { state: null, save } })
+    const afterRound1 = saved
+    const r2 = scanLegacyLocks(io2, '/old', { entryBudget: 2, now: NOW, pidAlive, resume: { state: saved, save } })
+    return (
+      r1.kind === 'undetermined' &&
+      r1.truncated === true &&
+      r1.live.length === 0 &&
+      afterRound1.stack.length > 0 &&
+      r2.kind === 'ok' &&
+      r2.live.length === 1 &&
+      r2.locks === 1 &&
+      r2.scanned === 3
+    )
   })())
   push('latestWrite:单条 lstat 失败 ⇒ undetermined(漏看的可能正是最新写入)', (() => {
     const r = latestWrite(
@@ -1891,6 +2448,52 @@ function selfTest() {
     const raw = probeQuietWindow(fakeIO(tree), NOW, IDLE)
     return idle.state === 'window' && idle.facts.activeUse.facts.exemptions.locks.length === 1 && raw.state === 'pending'
   })())
+  // 结构性限制台账(2026-11-04):只登记「结构上判不了的归属」,不抑制红;坏账/过期反而回红。
+  const knownTable = (entries) =>
+    loadDevenvMigrateKnownLimits({ readFile: () => JSON.stringify({ entries }), now: NOW })
+  const KNOWN_ONE = {
+    id: 'scan-span-vs-patrol-cadence',
+    subject: '续扫环跨 vs 巡检周期',
+    reason: '单片预算 × 自动巡检周期使整环跨度超过静默阈值,自动臂只能靠人工连续跑压进阈值',
+    owner: 'DevEnv 搬迁判据维护席(值守会话,非机主)',
+    reviewBy: '2027-02-10',
+  }
+  push('结构性限制①:合法登记只报归属与复核期,不抑制红(window 照判)', (() => {
+    const kl = knownTable([KNOWN_ONE])
+    const r = probeQuietWindow(fakeIO(probeTree()), NOW, { ...IDLE, knownLimits: kl })
+    const notes = activityNotes(r.facts)
+    return (
+      r.state === 'window' &&
+      kl.kind === 'ok' &&
+      kl.entries.length === 1 &&
+      /结构性限制登记 1 条/.test(notes[3]) &&
+      /reviewBy=2027-02-10/.test(notes[3])
+    )
+  })())
+  push('结构性限制②:缺件/短 reason ⇒ 条目不生效且 probe 点名回红(登记 ≠ 已解决)', (() => {
+    const kl = knownTable([{ ...KNOWN_ONE, owner: '' }, { ...KNOWN_ONE, id: 'short', reason: '太短' }])
+    const r = probeQuietWindow(fakeIO(probeTree()), NOW, { ...IDLE, knownLimits: kl })
+    return (
+      kl.entries.length === 0 &&
+      kl.rejected.length === 2 &&
+      r.state === 'undetermined' &&
+      r.unjudged.some((s) => s.includes('结构性限制台账:非法条目'))
+    )
+  })())
+  push('结构性限制③:reviewBy 过期 ⇒ 点名复核回红;坏 JSON ⇒ kind=invalid 进 unjudged', (() => {
+    const expired = knownTable([{ ...KNOWN_ONE, reviewBy: '2026-12-01' }])
+    const re = probeQuietWindow(fakeIO(probeTree()), NOW, { ...IDLE, knownLimits: expired })
+    const broken = loadDevenvMigrateKnownLimits({ readFile: () => '{oops', now: NOW })
+    const rb = probeQuietWindow(fakeIO(probeTree()), NOW, { ...IDLE, knownLimits: broken })
+    return (
+      expired.entries[0].expired === true &&
+      re.state === 'undetermined' &&
+      re.unjudged.some((s) => /须复核/.test(s)) &&
+      broken.kind === 'invalid' &&
+      rb.state === 'undetermined' &&
+      rb.unjudged.some((s) => s.includes('结构性限制台账'))
+    )
+  })())
   // 分级降噪:截断(未判定子项)遇到可判定否定(活进程)⇒ 结论钉 pending,未判定子项逐条单列。
   const truncatedIO = (tree) => {
     const io2 = fakeIO(tree)
@@ -1908,6 +2511,34 @@ function selfTest() {
   push('probe:判①截断 + 无任何占用 ⇒ undetermined 仍保留(fail-closed,截断不读成静默)', (() => {
     const r = probeQuietWindow(truncatedIO(probeTree()), NOW, IDLE)
     return r.state === 'undetermined' && r.unjudged.some((s) => s.includes('枚举超过预算'))
+  })())
+  push('probe:预算不足 ⇒ 本轮 undetermined;续扫满环 + 复用在环 ⇒ 下一轮才判 window', (() => {
+    const io2 = fakeIO(probeTree({ locks: { 'a.lock': '42', 'b.lock': '43' } }))
+    const mem = {}
+    const memStore = {
+      path: 'mem://scan',
+      load: (n) => ({ kind: mem[n] ? 'ok' : 'absent', state: mem[n] || null, why: undefined }),
+      save: (n, s) => {
+        mem[n] = JSON.parse(JSON.stringify(s))
+        return true
+      },
+    }
+    const activity = { listProcesses: () => [], pidAlive: () => false, lockScan: { entryBudget: 2 } }
+    const r1 = probeQuietWindow(io2, NOW, { ...activity, scanStore: memStore })
+    const r2 = probeQuietWindow(io2, NOW, { ...activity, scanStore: memStore })
+    const lp = r2.facts.activeUse.facts.locks.progress
+    const notes = activityNotes(r2.facts)
+    return (
+      r1.state === 'undetermined' &&
+      r1.facts.legacyRoot.reused === false &&
+      r2.state === 'window' &&
+      r2.facts.legacyRoot.reused === true &&
+      lp.scannedInCycle === 3 &&
+      lp.rounds === 2 &&
+      lp.finished === true &&
+      notes.some((s) => s.startsWith('判① 旧根树面') && /复用在环/.test(s)) &&
+      !notes.some((s) => s.startsWith('判② 活进程面') && /复用在环/.test(s))
+    )
   })())
   push('probe:守护留痕过期(40 分钟)⇒ undetermined(不是 window 也不是 pending)', (() => {
     return probeQuietWindow(fakeIO(probeTree({ guardianAgeMin: 40 })), NOW, IDLE).state === 'undetermined'
@@ -2004,7 +2635,8 @@ async function main() {
   const apply = argv.includes('--apply')
   const probeOnly = argv.includes('--probe')
   const io = defaultIO()
-  const probe = probeQuietWindow(io)
+  // 续扫游标:只有 main 显式接 store 才落盘(probeQuietWindow 自身仍可零写盘)。
+  const probe = probeQuietWindow(io, Date.now(), { scanStore: createScanStateStore({ io }) })
   console.log(`[G-50 devenv-migrate] 旧根 ${LEGACY_ROOT} → 新根 ${NEW_ROOT}`)
   console.log(`静默窗口:${probe.state}`)
   for (const r of probe.reasons) console.log(`  · ${r}`)
