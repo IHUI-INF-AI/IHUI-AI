@@ -21,7 +21,10 @@ permissions:
 # `CI / lint-typecheck-test (push)`),因此可以放心 cancel-in-progress —— 同一 ref 上
 # 被后一枚提交挤掉的运行只是排队损耗(实测 run 41559672693 排队 5min),不是门禁结论。
 concurrency:
-  group: build-docker-${{ github.ref }}
+  # 2026-11-04:dispatch 用 run_id 独立 group —— 手动取证建镜像不再被后续 push 挤掉;
+  # push/tags 分组键仍是 build-docker-<ref>,与改前完全等价,cancel-in-progress 行为不变。
+  # 写法对齐 e2e.yml 的「dispatch 独立 group」。
+  group: ${{ github.event_name == 'workflow_dispatch' && format('build-docker-dispatch-{0}', github.run_id) || format('build-docker-{0}', github.ref) }}
   cancel-in-progress: true
 
 jobs:
