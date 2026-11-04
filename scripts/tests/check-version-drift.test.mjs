@@ -38,6 +38,22 @@ function baseline(over = {}) {
       'apps/extension/entrypoints/sidepanel/pages/AboutPage.tsx':
         'const version = chrome.runtime.getManifest().version',
     },
+    versionLedger: {
+      files: [{ path: 'apps/demo/report.ts', source: 'demoPkg.version', why: '演示用的上报脸' }],
+      pairs: [
+        {
+          path: 'deploy/demo.json',
+          sourcePkg: 'apps/demo/package.json',
+          extracts: ['"version"\\s*:\\s*"([^"]+)"'],
+          why: '演示安装器',
+        },
+      ],
+    },
+    versionFileTexts: {
+      'apps/demo/report.ts': 'const v = demoPkg.version',
+      'deploy/demo.json': '{ "version": "1.0.0" }',
+      'apps/demo/package.json': '{ "name": "demo", "version": "1.0.0" }',
+    },
     ...over,
   }
 }
@@ -296,6 +312,136 @@ describe('J 扩展端版本单一源头', () => {
       assert.ok(inputs.extensionSources[rel] !== undefined, `采集面漏了 ${rel}`)
     }
     assert.deepEqual(findVersionDrift(inputs), [], '真实仓库面上 J 维不该有违规')
+  })
+})
+
+describe('K 全端对外报版本的脸(台账对账)', () => {
+  it('台账读不到或形状坏 ⇒ 判红(这一维等于没装)', () => {
+    const v = findVersionDrift(baseline({ versionLedger: null }))
+    assert.equal(v.length, 1)
+    assert.match(v[0], /^K 台账读不到或形状坏/)
+  })
+
+  it('两侧都清空 ⇒ 判死(不许用空清单冒充通过)', () => {
+    const v = findVersionDrift(baseline({ versionLedger: { files: [], pairs: [] } }))
+    assert.equal(v.length, 1)
+    assert.match(v[0], /K 台账两侧都枚举到 0 条/)
+  })
+
+  it('K1 台账点名的文件里写死版本 ⇒ 被抓', () => {
+    const v = findVersionDrift(
+      baseline({
+        versionFileTexts: { 'apps/demo/report.ts': 'const SERVER_VERSION = "1.0.0"' },
+      }),
+    )
+    assert.ok(
+      v.some((x) => /^K1 apps\/demo\/report\.ts 里有手搓的版本字面量/.test(x)),
+      v.join('\n'),
+    )
+  })
+
+  it('K1 协议版本常量不得被误伤(它是契约,本就该写死)', () => {
+    const ok = baseline({
+      versionFileTexts: {
+        'apps/demo/report.ts': 'const PROTOCOL_VERSION = "2026.09.18"\nconst v = demoPkg.version',
+        'deploy/demo.json': '{ "version": "1.0.0" }',
+        'apps/demo/package.json': '{ "name": "demo", "version": "1.0.0" }',
+      },
+    })
+    assert.deepEqual(findVersionDrift(ok), [])
+  })
+
+  it('K1 台账点名的文件在仓里读不到 ⇒ 判红(路径腐烂不静默)', () => {
+    const v = findVersionDrift(baseline({ versionFileTexts: {} }))
+    assert.ok(
+      v.some((x) => /^K1 台账点名的文件在仓里读不到/.test(x)),
+      v.join('\n'),
+    )
+  })
+
+  it('K2 安装器清单版本 ≠ 被打包的包版本 ⇒ 被抓(装到旧包)', () => {
+    const v = findVersionDrift(
+      baseline({
+        versionFileTexts: {
+          'apps/demo/report.ts': 'const v = demoPkg.version',
+          'deploy/demo.json': '{ "version": "1.0.0" }',
+          'apps/demo/package.json': '{ "version": "1.0.1" }',
+        },
+      }),
+    )
+    assert.ok(
+      v.some((x) => /^K2 deploy\/demo\.json 写着 1\.0\.0/.test(x)),
+      v.join('\n'),
+    )
+  })
+
+  it('K2 逐字相等 ⇒ 零违规(不许把这一维做成恒红)', () => {
+    assert.deepEqual(findVersionDrift(baseline()), [])
+  })
+
+  it('K2 正则枚举到 0 处 ⇒ 判红(台账与文件脱节要人说一次)', () => {
+    const v = findVersionDrift(
+      baseline({
+        versionFileTexts: {
+          'apps/demo/report.ts': 'const v = demoPkg.version',
+          'deploy/demo.json': '{ "pkgVersion": "1.0.0" }',
+          'apps/demo/package.json': '{ "version": "1.0.0" }',
+        },
+      }),
+    )
+    assert.ok(
+      v.some((x) => /^K2 deploy\/demo\.json 按 .* 枚举到 0 处/.test(x)),
+      v.join('\n'),
+    )
+  })
+
+  it('接线锁:真实台账必须载得动,且真实仓库面上 K 维零违规', () => {
+    const inputs = collectInputs()
+    assert.ok(inputs.versionLedger, 'collectInputs 没带回 K 台账')
+    assert.ok(inputs.versionLedger.files.length > 0, 'K1 台账为空')
+    assert.ok(inputs.versionLedger.pairs.length > 0, 'K2 台账为空')
+    // 台账点名的每一枚路径都必须在取材面里(否则"判了"只是没读)
+    for (const e of inputs.versionLedger.files) {
+      assert.equal(typeof inputs.versionFileTexts[e.path], 'string', `K1 未取到 ${e.path}`)
+    }
+    for (const e of inputs.versionLedger.pairs) {
+      assert.equal(typeof inputs.versionFileTexts[e.path], 'string', `K2 未取到 ${e.path}`)
+      assert.equal(
+        typeof inputs.versionFileTexts[e.sourcePkg],
+        'string',
+        `K2 未取到 ${e.sourcePkg}`,
+      )
+    }
+    assert.deepEqual(findVersionDrift(inputs), [], '真实仓库面上 K 维不该有违规')
+  })
+})
+
+describe('G 的行注释维(2026-11-04 补,治 YAML 叙述行假红)', () => {
+  it('整行注释里的 git push … main 不判(它不执行;release-desktop.yml:994 就是这么被冤枉的)', () => {
+    const ok = baseline({
+      workflows: {
+        'release-desktop.yml':
+          '#      sync-gitee.py 已改为「先 git push refs/tags/<tag>(指向 Gitee 快照 main 提交)」\n',
+      },
+    })
+    assert.deepEqual(findVersionDrift(ok), [])
+  })
+
+  it('行尾注释不得成为出路(命令真执行 ⇒ 照判,判据不许顺手削)', () => {
+    const v = findVersionDrift(
+      baseline({ workflows: { 'x.yml': 'run: git push origin main # 推 main\n' } }),
+    )
+    assert.ok(
+      v.some((x) => /bot 裸 push 到 main/.test(x)),
+      v.join('\n'),
+    )
+  })
+
+  it('run 块里的 shell 注释行同样不判', () => {
+    const ok = baseline({
+      workflows: { 'x.yml': 'run: |\n  # git push origin main 的旧写法已废弃\n  echo ok\n' },
+    })
+    assert.deepEqual(findVersionDrift(ok), [])
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

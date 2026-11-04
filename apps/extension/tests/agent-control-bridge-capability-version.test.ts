@@ -39,5 +39,28 @@ describe('扩展桥能力上报的版本溯源', () => {
       expect(body.version).toBe('9.9.9')
     })
   })
+
+  it('取不到 manifest 时报 unknown,不编版本号(与上一档成对的反例)', async () => {
+    // 非扩展宿主(桥被单测直引、chrome 只是半个桩)走的是 catch 分支;
+    // 两档各有一条夹具,否则"回落"只是没量过的假设。
+    fetchMock.mockClear()
+    const chromeHost = globalThis as unknown as {
+      chrome: { runtime: { getManifest: () => never } }
+    }
+    chromeHost.chrome.runtime.getManifest = () => {
+      throw new Error('no manifest in this host')
+    }
+    vi.resetModules()
+    const { initAgentControlBridge } = await import('../lib/agent-control-bridge')
+    initAgentControlBridge()
+    await vi.waitFor(() => {
+      const capabilityPost = fetchMock.mock.calls.find((c) => String(c[0]).endsWith('/capability'))
+      expect(capabilityPost).toBeDefined()
+      const body = JSON.parse((capabilityPost?.[1] as { body: string }).body) as {
+        version: string
+      }
+      expect(body.version).toBe('unknown')
+    })
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
