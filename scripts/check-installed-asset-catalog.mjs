@@ -46,6 +46,7 @@ import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, writeFileS
 import { dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+import { catBatchBinary, gitBinary } from './lib/face-reader.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(HERE, '..')
@@ -120,7 +121,7 @@ const GIT_MAX_BUFFER = 128 * 1024 * 1024
 
 function runGit(args, { cwd, input } = {}) {
   const stdio = input === undefined ? ['ignore', 'pipe', 'pipe'] : ['pipe', 'pipe', 'pipe']
-  const r = spawnSync('git', args, {
+  const r = spawnSync(gitBinary(), args, {
     cwd,
     input,
     stdio,
@@ -141,9 +142,9 @@ export function computeHeadCatalog({ repoRoot = REPO_ROOT } = {}) {
   if (treeRows.length === 0) {
     throw new Error(`HEAD 面 ${ASSET_ROOT} 枚举到 0 个文件(空扫不记绿,§0.3)`)
   }
-  const input = Buffer.from(treeRows.map((r) => r.oid).join('\n') + '\n', 'utf8')
-  const catOut = runGit(['cat-file', '--batch'], { cwd: repoRoot, input })
-  const blobs = parseCatFileBatch(catOut)
+  // 正文一律走层里的批量出口(stdio[0]=pipe / maxBuffer / 头解析 / 兜底都在层内);
+  // 原来的自拼 `cat-file --batch` 已收口。按 oid 取,键与接口头列逐字同形。
+  const blobs = catBatchBinary(repoRoot, treeRows.map((r) => r.oid), { maxBuffer: GIT_MAX_BUFFER })
   const entries = treeRows.map((row) => {
     const body = blobs.get(row.oid)
     if (!body) throw new Error(`cat-file 未返回 blob: ${row.path}`)

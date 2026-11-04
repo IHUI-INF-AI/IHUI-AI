@@ -3405,12 +3405,7 @@ const SELF_TEST_PLAN = [
 ]
 
 /** 自含电池共用的 git 直跑姿势(与镜像测试同构:显式身份 + safe.directory + autocrlf 关)。 */
-let SELF_TEST_GIT = 'git'
-try {
-  SELF_TEST_GIT = gitBinary()
-} catch {
-  /* 解析不到就回落 'git',由具体用例把失败喊出来,不在这里静默改结论 */
-}
+const SELF_TEST_GIT = gitBinary()
 const stGit = (dir, args) =>
   execFileSync(
     SELF_TEST_GIT,

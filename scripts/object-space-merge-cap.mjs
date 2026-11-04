@@ -29,6 +29,7 @@
 import { execFileSync } from 'node:child_process'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
+import { gitBinary } from './lib/face-reader.mjs'
 
 export const LEDGER_ROW_RE = /^- \[[ x]\] /
 
@@ -121,7 +122,7 @@ export function capMergedLines({ merged, ours, theirs, anchorLedgerRows = true }
 }
 
 function run(argv, opts = {}) {
-  return execFileSync('git', argv, {
+  return execFileSync(gitBinary(), argv, {
     cwd: process.cwd(),
     encoding: 'utf8',
     maxBuffer: 1 << 28,
