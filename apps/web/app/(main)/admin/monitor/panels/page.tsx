@@ -11,7 +11,7 @@
  * 不再内嵌外部看板程序,改为
  *   页面(本文件,项目自己的 EChart 组件) → /api/admin/monitor-panels/query
  *   → Prometheus(8815) / Loki(3100) 直查出图。
- * 面板定义(`monitoring/grafana/dashboards/*.json`)降级为离线配置源:表达式由
+ * 面板定义(`monitoring/panel-defs/panels/*.json`)降级为离线配置源:表达式由
  * scripts/generate-monitor-panels.mjs 从上述 JSON 转译进 dashboard-config.generated.ts,
  * 运行时用户完全不接触外部看板程序。零假数据:所有曲线/数字都来自真实指标。
  */
