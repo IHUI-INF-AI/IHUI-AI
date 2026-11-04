@@ -126,7 +126,9 @@ export function KnowledgeBaseScreen({
               accessibilityState={{ checked: selected }}
               accessibilityLabel={item.title}
             >
-              {selected ? <Check size={14} color={tk.surface.light} strokeWidth={3} /> : null}
+              {selected ? (
+                <Check size={14} color={styles.checkBoxOnText.color} strokeWidth={3} />
+              ) : null}
             </TouchableOpacity>
           ) : null}
           <TouchableOpacity style={styles.cardBody} onPress={onPress}>
@@ -320,7 +322,9 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
       marginTop: rnSpacing['2xs'],
     },
+    // 选中态成对取档(AGENTS §4):实底 brand.cta + 其上字形 brand.ctaForeground,配对由 key 名成立
     checkBoxOn: { borderColor: tk.brandAccent.deep, backgroundColor: tk.brand.cta },
+    checkBoxOnText: { color: tk.brand.ctaForeground },
     card: {
       marginBottom: rnSpacing.md,
       borderRadius: rnRadius.lg,

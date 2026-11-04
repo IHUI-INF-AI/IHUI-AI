@@ -353,7 +353,9 @@ function createStyles(tk: AppThemeTokens) {
     progressFill: {
       height: '100%',
       borderRadius: rnRadius.sm,
-      backgroundColor: tk.brand.DEFAULT,
+      // 进度条无文字载体,不构成品牌实底×前景成对(R3);填充走强调档,
+      // 与 UpdatePrompt.trackBar / student-styles.progressFill 同一写法。
+      backgroundColor: tk.brandAccent.deep,
     },
     fileGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing['sm-loose'] },
     fileItem: {
