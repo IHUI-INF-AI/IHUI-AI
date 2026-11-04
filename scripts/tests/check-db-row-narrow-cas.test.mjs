@@ -341,6 +341,60 @@ export async function updateThing(id, next) {
   assert.equal(control.candidate, true, '反控必须红 —— 收紧不得滑成"什么都通过"')
 })
 
+/* ───────── M6d 旧值证据扩口径:WHERE 等值谓词算证据 / 认不出仍判红 ───────── */
+
+test('M6d 旧值证据:WHERE 等值谓词(eq 旧状态 / backfillWhere 条件数组)⇒ 不缺 expected', () => {
+  const oldStatus = lib.judgeTemplate(`export async function repairAlerts() {
+  const threshold = new Date()
+  await db.update(alerts).set({ status: 'resolved' }).where(and(eq(alerts.status, 'firing'), lt(alerts.firedAt, threshold)))
+  return true
+}`)
+  assert.equal(oldStatus.candidate, true)
+  assert.ok(!oldStatus.missing.includes('expected'), 'WHERE 带旧状态等值 + 时间上界 ⇒ 旧值证据成立')
+
+  const oldBatch = lib.judgeTemplate(`export async function backfillBatch(options) {
+  await db.update(mapping).set({ batch: options.toBatch }).where(backfillWhere({ column: mapping.createdAt, baselineTime: options.baselineTime, conditions: [eq(mapping.batch, options.fromBatch)] }))
+  return true
+}`)
+  assert.equal(oldBatch.candidate, true)
+  assert.ok(!oldBatch.missing.includes('expected'), '条件数组里的 eq(旧批次) ⇒ 旧值证据成立')
+})
+
+test('M6d 反控:无 WHERE / 集合 / 空值 / OR / 等 null ⇒ 仍缺 expected 且判定层判红', () => {
+  const wide = {
+    '无 WHERE': `export async function repairAll() {
+  await db.update(t).set({ status: 'ok' }).returning()
+  return true
+}`,
+    inArray: `export async function repairRows(ids) {
+  await db.update(t).set({ status: 'ok' }).where(inArray(t.id, ids))
+  return true
+}`,
+    isNull: `export async function repairOrphans() {
+  await db.update(t).set({ owner: 'x' }).where(isNull(t.owner))
+  return true
+}`,
+    'or(...)': `export async function repairRows() {
+  await db.update(t).set({ status: 'ok' }).where(or(eq(t.status, 'a'), eq(t.status, 'b')))
+  return true
+}`,
+    'eq(col,null)': `export async function repairRows() {
+  await db.update(t).set({ status: 'ok' }).where(eq(t.status, null))
+  return true
+}`,
+  }
+  for (const [name, text] of Object.entries(wide)) {
+    const r = lib.judgeTemplate(text)
+    assert.equal(r.candidate, true, `${name}:应仍进射程`)
+    assert.ok(r.missing.includes('expected'), `${name}:没有真等值旧值 ⇒ 必须缺 expected`)
+    const red = gate.judgeAgainstBaseline(
+      new Map([['apps/api/src/db/__wide_where__.ts', r.missing]]),
+      { perFile: {} },
+    )
+    assert.equal(red.red.length, 1, `${name}:判定层必须判红`)
+  }
+})
+
 /* ───────────────────────────── M7 门体真跑 ───────────────────────────── */
 
 test('M7 门体 --self-test 真跑且全绿', () => {

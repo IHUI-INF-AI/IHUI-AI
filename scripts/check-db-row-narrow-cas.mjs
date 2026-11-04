@@ -29,6 +29,13 @@
  *     "import 模板"这一条正当形态 ⇒ 拉进来等于造一台恒红门(§12f)。要扩面须先立票。
  *   · 测试面(`/tests/`、`.test.`)不进射程(夹具里的 SQL 不是生产写路径)。
  *
+ * 旧值证据(① expected,2026-11-04 第二批扩口径):命名式 `expectedX` **或** UPDATE 自己
+ * 的 WHERE 等值谓词。等值只认 `eq(列, 旧值)` / 裸 SQL `where 列 = 旧值`,右值须是字面量
+ * 或像读出旧值的名(old/prev/cur/before/baseline/expected/original/from…);**不认** `in`
+ * /`inArray`(集合命中)、`ne`/`not`/`!=`/`<>`(否定)、`isNull`/`isNotNull`(空值)、
+ * `eq(列,null)`(IS NULL);WHERE 里出现 `or(...)` 即整条不算窄证据(OR 会放宽);无 WHERE
+ * 或不在一句里 ⇒ 不认。**认不出退回判红**(fail-closed),不许因为认不出就放过。
+ *
  * 口径(照抄本仓横向口径,不得自创):全量判 **HEAD blob** / `--staged` 判**索引 blob** /
  * `--worktree` 仅人工逃生舱;两面旗同给 exit 2;取不到 ⇒ "无法判定"且**不回落**另一个面;
  * 枚举到 0 个候选判死(不记绿);存量只报数不判红(§12e/§12f 恒红门禁令),`--strict` 才问责;
@@ -255,6 +262,88 @@ export async function updateThing(id, next) {
       text: `server.post('/backfill', async (_req, reply) => {
   await db.update(t).set({ s: 'ok' }).where(eq(t.id, 'x'))
 })`,
+      wantCandidate: true,
+      wantMissing: ['fourState'],
+    },
+    {
+      name: 'WHERE 等值谓词(旧状态 + 时间上界)⇒ 旧值证据成立,不缺 expected',
+      text: `export async function repairAlerts() {
+  const threshold = new Date(Date.now() - 24 * 60 * 60 * 1000)
+  await db.update(alerts).set({ status: 'resolved' }).where(and(eq(alerts.status, 'firing'), lt(alerts.firedAt, threshold)))
+  return true
+}`,
+      wantCandidate: true,
+      wantMissing: ['fourState'],
+    },
+    {
+      name: 'backfillWhere 条件数组里的 eq(旧批次)⇒ 旧值证据成立',
+      text: `export async function backfillBatch(options) {
+  await db.update(mapping).set({ batch: options.toBatch }).where(backfillWhere({ column: mapping.createdAt, baselineTime: options.baselineTime, conditions: [eq(mapping.batch, options.fromBatch)] }))
+  return true
+}`,
+      wantCandidate: true,
+      wantMissing: ['fourState'],
+    },
+    {
+      name: '裸 SQL 的 where 等值 ⇒ 旧值证据成立',
+      text: `export async function repairRow(input) {
+  await db.execute(sql\`update t set directory = 'x' where directory = \${input.oldDirectory}\`)
+  return true
+}`,
+      wantCandidate: true,
+      wantMissing: ['fourState'],
+    },
+    {
+      name: 'WHERE 只有 isNull ⇒ 不是旧值等值,仍缺 expected',
+      text: `export async function repairOrphans() {
+  await db.update(t).set({ owner: 'x' }).where(isNull(t.owner))
+  return true
+}`,
+      wantCandidate: true,
+      wantMissing: ['expected', 'fourState'],
+    },
+    {
+      name: 'WHERE 只有 inArray ⇒ 集合命中不是等值,仍缺 expected',
+      text: `export async function repairRows(ids) {
+  await db.update(t).set({ status: 'ok' }).where(inArray(t.id, ids))
+  return true
+}`,
+      wantCandidate: true,
+      wantMissing: ['expected', 'fourState'],
+    },
+    {
+      name: 'WHERE 出现 or(...) (会放宽)⇒ 整条不算窄证据,仍缺 expected',
+      text: `export async function repairRows() {
+  await db.update(t).set({ status: 'ok' }).where(or(eq(t.status, 'a'), eq(t.status, 'b')))
+  return true
+}`,
+      wantCandidate: true,
+      wantMissing: ['expected', 'fourState'],
+    },
+    {
+      name: 'eq(列, null) ⇒ 等 null 是 IS NULL,不算旧值等值,仍缺 expected',
+      text: `export async function repairRows() {
+  await db.update(t).set({ status: 'ok' }).where(eq(t.status, null))
+  return true
+}`,
+      wantCandidate: true,
+      wantMissing: ['expected', 'fourState'],
+    },
+    {
+      name: '无 WHERE ⇒ 无窄证据,仍缺 expected',
+      text: `export async function repairAll() {
+  await db.update(t).set({ status: 'ok' }).returning()
+  return true
+}`,
+      wantCandidate: true,
+      wantMissing: ['expected', 'fourState'],
+    },
+    {
+      name: 'eq(列, 裸入参名) 认不出是旧值来源 ⇒ 退回判红',
+      text: `export async function repairThing(id, next) {
+  await db.update(t).set({ directory: next }).where(eq(t.id, id))
+  return true
+}`,
       wantCandidate: true,
       wantMissing: ['expected', 'fourState'],
     },
