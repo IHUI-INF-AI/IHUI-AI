@@ -115,6 +115,7 @@ export const EGRESS_ENV = {
   enforce: 'IHUI_EGRESS_ENFORCE',
   proxyUrl: 'IHUI_EGRESS_PROXY_URL',
   ledger: 'IHUI_EGRESS_AUDIT_LOG',
+  dnsTtl: 'IHUI_EGRESS_DNS_TTL',
 } as const;
 
 
