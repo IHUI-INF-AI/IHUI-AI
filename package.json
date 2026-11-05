@@ -35,6 +35,7 @@
     "check:pytest": "pnpm --filter @ihui/ai-service run test:py",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml}\"",
     "format:check": "node scripts/check-format-changed.mjs",
+    "format:mjs-added": "node scripts/check-format-changed.mjs --write-added-mjs",
     "format:check:all": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml}\"",
     "typecheck": "node scripts/typecheck-full.mjs",
     "typecheck:full": "node scripts/typecheck-full.mjs",

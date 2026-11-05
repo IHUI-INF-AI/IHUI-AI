@@ -19,6 +19,18 @@
  * 自身异常)。取不到判定面绝不回落成"通过";全量审计能力保留在 `format:check:all`。
  *
  * 用法:node scripts/check-format-changed.mjs [--base <ref>] [--self-test]
+ *      node scripts/check-format-changed.mjs --write-added-mjs [--base <ref>]
+ *
+ * 【.mjs/.cjs 明确不纳入 prettier(2026-11-05 量化后定案,不凭感觉)】
+ *   实测(受管面 = git 已跟踪 ∩ .prettierignore 未排除,共 2384 个 .mjs/.cjs):
+ *   1845 个不符合 `.prettierrc`;若全量 --write = +229285 / -73894 行(303179 行、14445 hunk)。
+ *   纳入 globs 的后果:任何一次触碰到老 .mjs 的提交都会被整文件重排
+ *   (单文件 scripts/git-guardian.mjs 即 306+/108-、59 hunk),在并行 WIP 仓里制造冲突。
+ *   ⇒ 不改 package.json / lint-staged 的 prettier globs,也不跑全量 --write(§5c)。
+ *   纪律:禁止对 .mjs/.cjs 做无差别 `prettier --write`;只格式化**本次新增**的文件:
+ *     pnpm format:mjs-added                 (默认 HEAD:暂存+工作树新增 + 未跟踪)
+ *     pnpm format:mjs-added --base <ref>    (只算 <ref>..HEAD 里新增的)
+ *   本门(默认档)继续只判 FORMAT_EXTENSIONS(不含 .mjs/.cjs)的改动面。
  */
 import { execFileSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
@@ -35,7 +47,7 @@ const TAG = '[format-ratchet]'
 const MAX_BATCH = 200
 const PRETTIER_BIN = join(ROOT, 'node_modules', 'prettier', 'bin', 'prettier.cjs')
 
-/** 与根 package.json 全量 format 命令逐字同口径(刻意不含 css/scss/mjs/cjs)。 */
+/** 与根 package.json 全量 format 命令逐字同口径(刻意不含 css/scss/mjs/cjs;理由见文件头量化登记)。 */
 export const FORMAT_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx', '.json', '.md', '.yml', '.yaml']
 /** 全量审计档的 glob,唯一一份:测试断言它与 package.json 的 format:check:all 同口径。 */
 export const FORMAT_GLOB = '**/*.{ts,tsx,js,jsx,json,md,yml,yaml}'
@@ -153,6 +165,58 @@ function collectChangedFiles(decision) {
   }
 }
 
+/**
+ * `--write-added-mjs` 的判定面:本次**新增**的 .mjs/.cjs(存量一律不重排,见文件头)。
+ * 默认基准 HEAD(含暂存/工作树新增 + 未跟踪);`--base <ref>` 时只算 <ref>..HEAD 的已提交新增。
+ */
+function collectAddedMjs(baseRef) {
+  const tracked = parseNulList(
+    git(['diff', '--name-only', '-z', '--diff-filter=A', baseRef || 'HEAD', '--']),
+  )
+  const untracked = baseRef
+    ? []
+    : parseNulList(git(['ls-files', '-z', '--others', '--exclude-standard']))
+  return [...new Set([...tracked, ...untracked])]
+    .filter((file) => /\.(mjs|cjs)$/i.test(file))
+    .sort()
+}
+
+/**
+ * 只格式化新增 .mjs/.cjs 的执行入口(替代"全量 prettier --write")。
+ * 存量的 1845 个不合规文件刻意不动:全量重排是 14k+ hunk 的噪音,禁止无差别执行。
+ */
+function writeAddedMjs(argv) {
+  const base = readFlagValue(argv, '--base')
+  if (base.error) return unjudged(base.error)
+  let files
+  try {
+    files = collectAddedMjs(base.value).filter((file) => existsSync(join(ROOT, file)))
+  } catch (error) {
+    return unjudged(`取新增 .mjs 清单失败:${error?.message || error}`)
+  }
+  if (files.length === 0) {
+    console.log(`${TAG} [mjs-format] 0 个新增 .mjs/.cjs,无需格式化(存量不重排)`)
+    return 0
+  }
+  if (!existsSync(PRETTIER_BIN)) return unjudged('prettier 未安装,无法格式化新增 .mjs')
+  for (const batch of chunkList(files, MAX_BATCH)) {
+    try {
+      execFileSync(process.execPath, [PRETTIER_BIN, '--write', ...batch], {
+        cwd: ROOT,
+        encoding: 'utf8',
+        windowsHide: true,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
+    } catch (error) {
+      return unjudged(`prettier --write 失败:${error?.stderr || error?.message || error}`)
+    }
+  }
+  console.log(
+    `${TAG} [mjs-format] 已格式化 ${files.length} 个新增 .mjs/.cjs(仅新增,存量不重排)`,
+  )
+  return 0
+}
+
 function runPrettier(files) {
   const failed = []
   for (const batch of chunkList(files, MAX_BATCH)) {
@@ -208,6 +272,7 @@ function unjudged(reason) {
 
 async function main(argv = process.argv.slice(2)) {
   if (argv.includes('--self-test')) return runSelfTest()
+  if (argv.includes('--write-added-mjs')) return writeAddedMjs(argv)
 
   const baseFlag = readFlagValue(argv, '--base')
   if (baseFlag.error) return unjudged(baseFlag.error)
