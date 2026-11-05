@@ -439,7 +439,10 @@ vi.mock('@/hooks/use-agent-progress', async () => {
 })
 
 import { AgentTaskProgressPane } from '../src/components/ai/agent-task-progress-pane'
-import { AgentProgressTrigger } from '../src/components/ai/agent-progress-trigger'
+import {
+  AgentProgressShortcutHost,
+  AgentProgressTrigger,
+} from '../src/components/ai/agent-progress-trigger'
 import { useAgentProgressPaneStore } from '../src/stores/agent-progress-pane'
 import {
   FoldableSection,
@@ -593,8 +596,29 @@ describe('AgentProgressTrigger — v5 内联文字按钮', () => {
     expect(trigger.className).toContain('hover:bg-accent')
   })
 
+  it('status 变体:流式期间渲染紧凑芯片(spinner + 步数)', () => {
+    // 本文件对 useAgentProgress 的桩恒为"流式 + 01/06",所以这里锁的是**活跃态**形态;
+    // 空闲不渲染的判据(showStatusChip)由 e2e 的 + 菜单/底栏可见性用例覆盖。
+    render(<AgentProgressTrigger variant="status" />)
+    const chip = screen.getByTestId('agent-progress-status')
+    expect(chip.textContent).toContain('modeBuild')
+    expect(screen.getByTestId('agent-progress-status-spinner')).toBeTruthy()
+    expect(chip.textContent).toContain('06')
+  })
+
+  it('status 变体:Pane 打开时渲染芯片,点击即收起', () => {
+    useAgentProgressPaneStore.getState().openPane()
+    render(<AgentProgressTrigger variant="status" />)
+    const chip = screen.getByTestId('agent-progress-status')
+    expect(chip.getAttribute('aria-expanded')).toBe('true')
+    fireEvent.click(chip)
+    expect(useAgentProgressPaneStore.getState().open).toBe(false)
+  })
+
   it('Ctrl+Shift+J 切换面板', () => {
-    render(<AgentProgressTrigger />)
+    // 2026-11-04 第四轮:监听已从 AgentProgressTrigger(抽屉条件挂载)抽成常驻宿主
+    // AgentProgressShortcutHost —— 快捷键的归属变了,断言不变(仍是一次按键即开)。
+    render(<AgentProgressShortcutHost />)
     act(() => {
       window.dispatchEvent(
         new KeyboardEvent('keydown', {

@@ -9959,6 +9959,10 @@
     "envInfoButton": "環境情報",
     "expandConversation": "会話を展開",
     "headerActions": {
+      "overflowMenu": "パネルメニュー",
+      "groupPanel": "パネル",
+      "groupTools": "ツール",
+      "groupSession": "セッション",
       "panelGroupButtons": "パネルアクションボタン",
       "enterWorkspaceFullscreen": "ワークスペースを全画面表示",
       "exitWorkspaceFullscreen": "ワークスペースの全画面を終了",
@@ -11690,6 +11694,11 @@
     "addContextReference": "コンテキストとして",
     "addMenuDesc": "追加メニュー(テンプレート/参照/Skill/添付/プラグイン/圧縮)",
     "addMenuLabel": "追加",
+    "backToMenu": "メニューに戻る",
+    "quickSettings": "セッション設定",
+    "composerSectionContent": "コンテンツ",
+    "composerSectionCapability": "機能",
+    "moreTools": "その他のツール",
     "artifactCode": "コード",
     "artifactPreview": "プレビュー",
     "assistant": "AIアシスタント",
@@ -11845,6 +11854,7 @@
       "branch": "ここから分岐"
     },
     "contextUsage": {
+      "rowLabel": "コンテキスト使用量",
       "breakdownTitle": "トークン内訳",
       "budgetRow": "本日のクォータ",
       "categoryFiles": "ファイル",
@@ -12030,6 +12040,7 @@
     "modeTaskAria": "{mode}タスク",
     "taskProgressAria": "タスクの進行状況 {status}",
     "taskProgressOpen": "タスクの進行状況",
+    "taskProgressIdle": "待機中",
     "toolsPanelOpen": "ツールパネルを開く",
     "toolsPanelClose": "ツールパネルを閉じる",
     "model": "モデル",
@@ -12542,6 +12553,7 @@
       "moreItems": "他 {count} 件"
     },
     "agentPicker": {
+      "label": "エージェント",
       "triggerAria": "会話内エージェント / エキスパートを選択",
       "default": "デフォルトアシスタント",
       "defaultDesc": "エキスパートなし",

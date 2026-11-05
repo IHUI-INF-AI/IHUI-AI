@@ -21,6 +21,7 @@ import {
   Archive,
   ArchiveRestore,
   ClipboardPaste,
+  ChevronDown,
   Mic,
   RefreshCw,
   Square,
@@ -31,6 +32,11 @@ import {
 import { Button, SearchInput } from '@ihui/ui-react'
 
 import { cn } from '@/lib/utils'
+import {
+  COMPOSER_MENU_ROW_CHEVRON_CLASS,
+  COMPOSER_MENU_ROW_CLASS,
+  COMPOSER_MENU_ROW_ICON_CLASS,
+} from '@/lib/composer-menu-row'
 import { Tooltip } from '@/components/feedback'
 import {
   createVoiceNote,
@@ -69,9 +75,15 @@ export interface VoiceNoteProps {
   conversationId?: string | null
   /** 转写端点开关:false = 显式降级(转写占位相可达但卡 pending) */
   sttEnabled?: boolean
+  /** row = + 菜单内的统一设置行(2026-11-04 第三轮) */
+  variant?: 'bar' | 'row'
 }
 
-export function VoiceNote({ conversationId = null, sttEnabled = true }: VoiceNoteProps) {
+export function VoiceNote({
+  conversationId = null,
+  sttEnabled = true,
+  variant = 'bar',
+}: VoiceNoteProps) {
   const t = useTranslations('chat.voiceNote')
   /**
    * 归档/分组三枚文案借既有键(本席文件白名单不含 `packages/i18n`,不得新增键):
@@ -373,19 +385,42 @@ export function VoiceNote({ conversationId = null, sttEnabled = true }: VoiceNot
 
   return (
     <div className="relative" data-testid="voice-note">
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => setOpen((v) => !v)}
-        data-testid="voice-note-trigger"
-        aria-label={t('title')}
-        title={t('title')}
-      >
-        <Mic className="h-4 w-4" />
-        {/* 底栏窄档由 globals.css @container 隐藏本标签(仅留麦克风图标),
-            无障碍名称不降级:aria-label/title 已提到触发按钮上 */}
-        <span className="voice-note-label">{t('title')}</span>
-      </Button>
+      {variant === 'row' ? (
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          data-testid="voice-note-trigger"
+          data-variant="row"
+          aria-label={t('title')}
+          title={t('title')}
+          aria-expanded={open}
+          className={COMPOSER_MENU_ROW_CLASS}
+        >
+          <Mic className={COMPOSER_MENU_ROW_ICON_CLASS} />
+          <span className="min-w-0 flex-1 truncate">{t('title')}</span>
+          <ChevronDown
+            className={cn(
+              COMPOSER_MENU_ROW_CHEVRON_CLASS,
+              open && 'rotate-180 transition-transform',
+            )}
+            aria-hidden
+          />
+        </button>
+      ) : (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setOpen((v) => !v)}
+          data-testid="voice-note-trigger"
+          aria-label={t('title')}
+          title={t('title')}
+        >
+          <Mic className="h-4 w-4" />
+          {/* 底栏窄档由 globals.css @container 隐藏本标签(仅留麦克风图标),
+              无障碍名称不降级:aria-label/title 已提到触发按钮上 */}
+          <span className="voice-note-label">{t('title')}</span>
+        </Button>
+      )}
 
       {open && (
         <div
