@@ -206,12 +206,21 @@ test('B8 接线锁:前置护栏必须在**两处**发令前都被调用,且拒�
   assert.match(src, /gitStagedStatusEntries/, '取材要走 lib 的带状态出口,不自己拆 -z 帧')
   const calls = src.match(/rejectIfForeignEnteredIndex\(/g) ?? []
   assert.ok(calls.length >= 2, `前置护栏调用点必须覆盖两处发令(现状 ${calls.length} 处)`)
-  const iFirst = src.indexOf('commitArgs(false)')
-  const iSecond = src.indexOf('commitArgs(true)')
-  assert.ok(iFirst > 0 && iSecond > 0, '两处发令点都必须还在')
+  // 2026-11-04:发令已收口到 `launchCommitWithHooks()`(内部用 commitArgv(false))与
+  // skip 档的 `commitArgv(true)`。静态邻近必须锚在**真正的调用点**,而不是函数定义里的拼装行:
+  // 定义可以早于任何护栏,运行时顺序才决定"护栏是否在发令之前"。
+  assert.match(src, /commitArgv\(false/)
+  assert.match(src, /commitArgv\(true/)
+  const iFirst = src.indexOf('await launchCommitWithHooks()')
+  assert.ok(iFirst > 0, '首次发令调用点必须还在')
+  const iSecond = src.indexOf('await launchCommitWithHooks()', iFirst + 1)
+  assert.ok(iSecond > iFirst, '锁争用重试的发令调用点必须还在')
+  const iSkip = src.indexOf('commitArgv(true)')
+  assert.ok(iSkip > 0, '跳门发令点必须还在')
   const guarded = (idx) => src.lastIndexOf('rejectIfForeignEnteredIndex(', idx) > 0
   assert.ok(guarded(iFirst), '首次发令前必须复量索引')
-  assert.ok(guarded(iSecond), '跳门重试也是一次整索引提交,同样必须复量')
+  assert.ok(guarded(iSecond), '锁争用重试也是一次整索引提交,同样必须复量')
+  assert.ok(guarded(iSkip), '跳门重试也是一次整索引提交,同样必须复量')
   // T1 端必须存在,且取的是**全量**索引面(声明集留到判据里减)
   assert.match(src, /const stagedBaselineAtStep3 = stagedFiles\.map\(normalize\)/)
 })
