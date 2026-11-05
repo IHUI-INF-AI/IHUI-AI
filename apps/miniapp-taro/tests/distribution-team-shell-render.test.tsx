@@ -6,11 +6,11 @@
  * distribution/team 薄壳形制锁(批 5)。
  *
  *  ① 共享屏真被渲染、主题根在壳外层;
- *  ② 端内零布局(不得回潮 View/Text/Image/Picker/SearchBar/LineIcon 与圆角档);
- *  ③ 小程序独有变体 props 真到共享屏(阴性对照:摘掉 showRankBadge/totalCountRow 即红);
+ *  ② 端内零布局:只允许「团队总人数」行(1 View + 2 Text),不得出现 Image/Picker/SearchBar/LineIcon 与圆角档;
+ *  ③ 4 组变体 props 真到共享屏(阴性对照:摘掉 showRankBadge 即红);团队总人数行留在页内;
  *  ④ 共享屏确有这些全可选承接分支(删分支即红);
  *  ⑤ 无新 i18n key(页面只用已有 distribution.team.* 或 fallback 参数);
- *  ⑥ RN 真消费点不传新 props(不传即视觉不变);
+ *  ⑥ RN 真消费点同样传这 4 组 props(A 方案:不再只有小程序消费);
  *  ⑦ 数据层/分页/日期选项推导保留;
  *  ⑧ useReachBottom 已换成共享屏 onEndReached。
  */
@@ -29,6 +29,12 @@ vi.mock('@ihui/rn-app/features/team/TeamScreen', () => ({
     captured.team = props
     return createElement('div', { 'data-shell': 'team-screen' })
   },
+}))
+
+// 页内团队总人数行用 Taro 的 View/Text;node 环境不加载真实 @tarojs/components(其 hammerjs 依赖 window)
+vi.mock('@tarojs/components', () => ({
+  View: (props: Record<string, unknown>) => createElement('div', props),
+  Text: (props: Record<string, unknown>) => createElement('span', props),
 }))
 
 vi.mock('@tarojs/taro', () => {
@@ -91,12 +97,14 @@ describe('distribution/team 薄壳(直载 team/TeamScreen + 小程序独有变�
     )
   })
 
-  it('② 端内零布局,不得回潮第二份实现', () => {
-    expect(PAGE_SOURCE).not.toMatch(/<View\b|<Text\b|<Image\b|<Picker\b|<SearchBar\b|<LineIcon\b/)
+  it('② 端内零布局:只留团队总人数行(1 View + 2 Text),不得回潮第二份实现', () => {
+    expect(PAGE_SOURCE.match(/<View\b/g) ?? []).toHaveLength(1)
+    expect(PAGE_SOURCE.match(/<Text\b/g) ?? []).toHaveLength(2)
+    expect(PAGE_SOURCE).not.toMatch(/<Image\b|<Picker\b|<SearchBar\b|<LineIcon\b/)
     expect(PAGE_SOURCE).not.toMatch(/rounded-/)
   })
 
-  it('③ 小程序独有 props 真到共享屏(摘掉任一即红)', () => {
+  it('③ 4 组变体 props 真到共享屏(摘掉任一即红),团队总人数行留在页内', () => {
     expect(props().stats).toBeUndefined()
     expect(props().members).toEqual([])
     expect(props().activeTab).toBe('all')
@@ -104,7 +112,11 @@ describe('distribution/team 薄壳(直载 team/TeamScreen + 小程序独有变�
     expect(props().showTabs).toBe(false)
     expect(props().colorScheme).toBe('light')
     expect(props().error).toBe('')
-    expect(props().totalCountRow).toMatchObject({ label: '团队总人数', value: 0 })
+    expect(props().totalCountRow).toBeUndefined()
+    // 团队总人数行回退页内:View + Text 承载,文案来自 tt(已有 key)
+    expect(PAGE_SOURCE).toMatch(
+      /<View[^>]*>\s*<Text[\s\S]*?tt\('distribution\.team\.totalMembers', '团队总人数'\)[\s\S]*?teamTotal/,
+    )
     expect(props().sortBar).toMatchObject({
       orderLabel: '成交订单数',
       dateLabel: '邀请时间',
@@ -127,7 +139,7 @@ describe('distribution/team 薄壳(直载 team/TeamScreen + 小程序独有变�
 
     // 源码字面锁:这些 prop 是壳与共享屏的契约,不得被悄悄摘掉
     expect(PAGE_SOURCE).toContain('stats={undefined}')
-    expect(PAGE_SOURCE).toContain('totalCountRow={{')
+    expect(PAGE_SOURCE).not.toContain('totalCountRow')
     expect(PAGE_SOURCE).toContain('sortBar={{')
     expect(PAGE_SOURCE).toContain('dateOptions={dateOptions}')
     expect(PAGE_SOURCE).toContain('memberMetrics={{')
@@ -139,8 +151,11 @@ describe('distribution/team 薄壳(直载 team/TeamScreen + 小程序独有变�
   })
 
   it('④ 共享屏确有全可选承接分支(删分支即红)', () => {
-    expect(TEAM_SHARED).toContain('{totalCountRow ? (')
+    expect(TEAM_SHARED).not.toContain('totalCountRow')
     expect(TEAM_SHARED).toContain('{sortBar ? (')
+    // sortBar 是叠加而非替代:tabs 分支仍在,且排在 sortBar 之前
+    expect(TEAM_SHARED).toContain('{showTabs ? (')
+    expect(TEAM_SHARED.indexOf('{showTabs ? (')).toBeLessThan(TEAM_SHARED.indexOf('{sortBar ? ('))
     expect(TEAM_SHARED).toContain('sortBar.dateValue || sortBar.dateLabel')
     expect(TEAM_SHARED).toContain('<Modal')
     expect(TEAM_SHARED).toContain('dateOptions ?? []')
@@ -169,18 +184,21 @@ describe('distribution/team 薄壳(直载 team/TeamScreen + 小程序独有变�
     expect(PAGE_SOURCE).not.toContain('clearDateLabel')
   })
 
-  it('⑥ RN 真消费点存在且没有传新 props(不传即视觉不变)', () => {
+  it('⑥ RN 真消费点同样传这 4 组 props(A 方案:不再只有小程序消费)', () => {
     expect(RN_TEAM).toContain('TeamScreen')
     for (const prop of [
-      'totalCountRow',
       'sortBar',
       'dateOptions',
       'onSelectDate',
       'memberMetrics',
       'showRankBadge',
     ]) {
-      expect(RN_TEAM).not.toContain(prop)
+      expect(RN_TEAM).toContain(prop)
     }
+    expect(RN_TEAM).not.toContain('totalCountRow')
+    expect(RN_TEAM).toContain('transactionVolume: m.transactionVolume')
+    expect(RN_TEAM).toContain('orderNum: m.orderNum')
+    expect(RN_TEAM).toContain('createdAtLabel: formatDateOnly(m.joinDate)')
     expect(TEAM_SHARED).toContain('showRankBadge = false')
   })
 

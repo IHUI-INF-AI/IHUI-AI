@@ -106,7 +106,6 @@ export function TeamScreen({
   footerLoadingText,
   footerNoMoreText,
   emptyText,
-  totalCountRow,
   sortBar,
   dateOptions,
   onSelectDate,
@@ -215,12 +214,15 @@ export function TeamScreen({
         </View>
       ) : null}
 
-      {totalCountRow ? (
-        <View style={styles.totalCountRow}>
-          <Text style={styles.totalCountText}>
-            {totalCountRow.label}: <Text style={styles.totalCountValue}>{totalCountRow.value}</Text>
-          </Text>
-        </View>
+      {showTabs ? (
+        <CategoryInlineBar
+          items={tabItems}
+          selectedId={activeTab}
+          onSelect={(id) => onSelectTab(id as TeamTab)}
+          colorScheme={colorScheme}
+          contentPaddingHorizontal={10}
+          itemGap={6}
+        />
       ) : null}
 
       {sortBar ? (
@@ -258,15 +260,6 @@ export function TeamScreen({
             />
           </Pressable>
         </View>
-      ) : showTabs ? (
-        <CategoryInlineBar
-          items={tabItems}
-          selectedId={activeTab}
-          onSelect={(id) => onSelectTab(id as TeamTab)}
-          colorScheme={colorScheme}
-          contentPaddingHorizontal={10}
-          itemGap={6}
-        />
       ) : null}
 
       {listTitle ? (
@@ -721,9 +714,6 @@ function createStyles(tk: AppThemeTokens) {
       fontWeight: '700',
       color: tk.success.DEFAULT,
     },
-    totalCountRow: { paddingHorizontal: rnSpacing['sm-loose'], paddingTop: rnSpacing.sm },
-    totalCountText: { fontSize: rnType.body.size, color: tk.text.secondary },
-    totalCountValue: { fontWeight: '600', color: tk.text.primary },
     sortRow: {
       flexDirection: 'row',
       gap: rnSpacing['xs-loose'],

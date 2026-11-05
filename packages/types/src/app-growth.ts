@@ -717,13 +717,8 @@ export interface TeamScreenProps {
   /** 层级树节点点击回调(可选,不传则节点不可点击) */
   onPressTreeMember?: (memberId: string) => void
   /**
-   * 「团队总人数」单行(可选;有值才在 tabs/sortBar 上方渲染)。
-   * 小程序端独有统计行,未传时 RN/web 视觉不变。
-   */
-  totalCountRow?: { label: string; value: number }
-  /**
-   * 排序胶囊栏(可选;有值时**替代** all/direct/indirect tabs)。
-   * 小程序端独有「成交订单数/邀请时间」两枚胶囊;日期胶囊点击开内部弹层选日期。
+   * 排序胶囊栏(可选;有值时在 all/direct/indirect tabs **下方叠加**渲染,不替代关系筛选)。
+   * 「成交订单数/邀请时间」两枚胶囊;日期胶囊点击开内部弹层选日期。RN 与小程序均消费。
    */
   sortBar?: {
     orderLabel: string

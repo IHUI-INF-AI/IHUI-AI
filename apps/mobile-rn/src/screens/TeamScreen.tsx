@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTheme } from '../context/ThemeContext'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
@@ -31,6 +31,9 @@ export function TeamScreen() {
   const [activeTab, setActiveTab] = useState<TeamTab>('all')
   // 搜索关键词(对齐 Uniapp distribution_personnel_list InputArea「搜索我的团友」)
   const [keyword, setKeyword] = useState('')
+  // 排序/日期筛选:数据层留在本屏,共享屏只渲染
+  const [sortBy, setSortBy] = useState<'orderNum' | 'date'>('orderNum')
+  const [selectedDate, setSelectedDate] = useState('')
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
@@ -82,6 +85,9 @@ export function TeamScreen() {
           contribution: m.contribution,
           status: m.status,
           relation: m.relation,
+          transactionVolume: m.transactionVolume,
+          orderNum: m.orderNum,
+          createdAtLabel: formatDateOnly(m.joinDate),
         })),
       )
       setLoading(false)
@@ -93,6 +99,29 @@ export function TeamScreen() {
   useEffect(() => {
     void load()
   }, [load])
+
+  /** 日期弹层选项:成员 createdAtLabel(YYYY-MM-DD)去重升序,最多 12 个 */
+  const dateOptions = useMemo(() => {
+    const dates = new Set<string>()
+    members.forEach((m) => {
+      if (m.createdAtLabel) dates.add(m.createdAtLabel)
+    })
+    return Array.from(dates).sort().slice(0, 12)
+  }, [members])
+
+  /** 排序/日期过滤后的成员列表 */
+  const sortedMembers = useMemo(() => {
+    let result = [...members]
+    if (sortBy === 'date' && selectedDate) {
+      result = result.filter((m) => m.createdAtLabel === selectedDate)
+    }
+    if (sortBy === 'orderNum') {
+      result.sort((a, b) => (b.orderNum ?? 0) - (a.orderNum ?? 0))
+    } else {
+      result.sort((a, b) => (b.createdAtLabel ?? '').localeCompare(a.createdAtLabel ?? ''))
+    }
+    return result
+  }, [members, sortBy, selectedDate])
 
   // 层级树独立请求:失败只置树区块错误态,不影响统计区/成员列表
   const loadTree = useCallback(async () => {
@@ -129,8 +158,28 @@ export function TeamScreen() {
     <SharedTeamScreen
       t={t}
       stats={stats}
-      members={members}
+      members={sortedMembers}
       statsLayout="full"
+      sortBar={{
+        orderLabel: t('teamDetail.orderNum'),
+        dateLabel: t('team.joinDate'),
+        active: sortBy,
+        dateValue: selectedDate,
+        onSelectOrder: () => setSortBy('orderNum'),
+      }}
+      dateOptions={dateOptions}
+      showRankBadge
+      onSelectDate={(date) => {
+        setSelectedDate(date)
+        setSortBy(date ? 'date' : 'orderNum')
+      }}
+      memberMetrics={{
+        transactionVolume: t('teamDetail.transactionVolume'),
+        commission: t('teamDetail.commission'),
+        orderNum: t('teamDetail.orderNum'),
+        joinTime: t('team.joinDate'),
+        viewSubordinates: t('distributionCompany.subordinates'),
+      }}
       activeTab={activeTab}
       keyword={keyword}
       onKeywordChange={setKeyword}
