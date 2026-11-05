@@ -65,6 +65,11 @@ vi.mock('@ihui/api-client', () => ({
     rawMessage: err instanceof Error ? err.message : String(err),
     requireReauth: false,
   }),
+  // main 13777b4125 让 src/skills/model-capabilities.ts 走 @ihui/api-client#getModelContextCapacity
+  // (门 112:容量只许走这一个出口),假件不列它会在 link 时抛 No export defined —— 那是为假件而红,
+  // 不是为判据而红。形状照 packages/api-client/src/model-context-capacity.ts:150 `(modelId: string) => number`;
+  // 本套件不判容量值(不 import model-capabilities),故按该文件 DEFAULT_CONTEXT_CAPACITY 给 128K 兜底。
+  getModelContextCapacity: (_modelId: string) => 128_000,
 }));
 
 // 会话层换内存假件:本测试不得往 ~/.ihui 写任何东西(§15 工作区卫生)。
