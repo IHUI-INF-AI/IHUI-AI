@@ -170,7 +170,7 @@ export function ConversationHistoryScreen({
         )}
         <View style={styles.rowBody}>
           <View style={styles.rowTitleLine}>
-            {row.pinned ? <Text style={styles.pinGlyph}>★</Text> : null}
+            {row.pinned ? <View style={styles.pinDot} /> : null}
             <Text style={styles.rowTitle} numberOfLines={1}>
               {row.title}
             </Text>
@@ -200,9 +200,9 @@ export function ConversationHistoryScreen({
             }
             testID={`history-pin-${row.id}`}
           >
-            <Text style={[styles.pinGlyph, row.pinned ? styles.pinGlyphOn : null]}>
-              {row.pinned ? '★' : '☆'}
-            </Text>
+            <View
+              style={[styles.pinDot, styles.pinDotButton, row.pinned ? styles.pinDotOn : null]}
+            />
           </TouchableOpacity>
         ) : null}
       </TouchableOpacity>
@@ -440,8 +440,9 @@ function createStyles(tk: AppThemeTokens) {
       fontWeight: '600',
       color: tk.text.primary,
     },
-    pinGlyph: { fontSize: 14, color: tk.text.tertiary },
-    pinGlyphOn: { color: tk.brand.DEFAULT },
+    pinDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: tk.text.tertiary },
+    pinDotButton: { width: 10, height: 10, borderRadius: 5 },
+    pinDotOn: { backgroundColor: tk.brand.DEFAULT },
     rowMetaLine: { flexDirection: 'row', gap: rnSpacing.sm },
     rowMeta: { fontSize: rnType.label.size, color: tk.text.tertiary },
     rowPreview: { fontSize: rnType.label.size, color: tk.text.secondary },
