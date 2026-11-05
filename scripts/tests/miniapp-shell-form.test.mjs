@@ -604,4 +604,74 @@ test('T14 phone 薄壳页:入口被认 + 页内无渲染型 JSX + 旧码五槽�
   })
 })
 
+// T15 account-cancel 薄壳页(2026-11-05):入口被认 + 页内无渲染段 + consequences/phoneReadOnly
+// 两端真传 + 7 项后果逐键 + 无弹窗端的页级倒计时(计时器留页内,共享屏只读 prop)。
+// 阴性对照:①摘页内入口 ⇒ 不判薄壳;②删小程序 consequences ⇒ 尺子不命中;
+// ③删 RN phoneReadOnly ⇒ 尺子不命中;④把 RN 子路径改回桶导入 ⇒ 必红。
+const CANCEL_PAGE = join(ROOT, 'apps/miniapp-taro/src/pkg-user/account-cancel/index.tsx')
+const CANCEL_RN_PAGE = join(ROOT, 'apps/mobile-rn/src/screens/AccountCancelScreen.tsx')
+const CANCEL_SPEC = ['packages/app/src/features/account-cancel/AccountCancelScreen.tsx']
+const CANCEL_SUBPATH = '@ihui/rn-app/features/account-cancel/AccountCancelScreen'
+const CONSEQUENCE_KEYS = Array.from(
+  { length: 7 },
+  (_, i) => `settings.accountDeletionConsequence${i + 1}`,
+)
+
+test('T15 account-cancel 薄壳页:入口被认 + 7 项后果/phoneReadOnly 两端真传', () => {
+  const page = readFileSync(CANCEL_PAGE, 'utf8')
+  const rn = readFileSync(CANCEL_RN_PAGE, 'utf8')
+  assert.ok(equivalentEntry(page, CANCEL_SPEC), '页面必须直载共享屏等价入口')
+  assert.equal(
+    equivalentEntry(
+      page.replace(
+        /^import[^\n]*@ihui\/rn-app\/features\/account-cancel\/AccountCancelScreen[^\n]*\n/m,
+        '',
+      ),
+      CANCEL_SPEC,
+    ),
+    null,
+    '阴性对照:摘掉入口行后不得仍判为薄壳',
+  )
+  assert.doesNotMatch(page, RENDER_TAG_RE, '页内不得残留小程序组件渲染段')
+  assert.match(page, /<AccountCancelScreen/m, '页面必须渲染共享屏')
+
+  assert.ok(page.includes(CANCEL_SUBPATH), '小程序页必须用具体子路径导入共享屏')
+  assert.doesNotMatch(page, /from '@ihui\/rn-app'/m, '小程序页不得走桶入口')
+  assert.ok(rn.includes(CANCEL_SUBPATH), 'RN 必须用具体子路径导入共享屏')
+  assert.doesNotMatch(rn, /from '@ihui\/rn-app'/m, 'RN 不得走桶入口')
+  // 阴性对照④:改回桶导入 ⇒ 桶断言必红
+  assert.throws(() => {
+    const barrel = rn.replace(`from '${CANCEL_SUBPATH}'`, "from '@ihui/rn-app'")
+    assert.doesNotMatch(barrel, /from '@ihui\/rn-app'/m, 'negative:改回桶导入后不得仍通过')
+  })
+
+  // 两端都真传 consequences / phoneReadOnly
+  assert.ok(propPassed(page, 'consequences'), '小程序页必须真传 consequences')
+  assert.ok(propPassed(rn, 'consequences'), 'RN 必须真传 consequences')
+  assert.ok(propPassed(page, 'phoneReadOnly'), '小程序页必须真传 phoneReadOnly')
+  assert.ok(propPassed(rn, 'phoneReadOnly'), 'RN 必须真传 phoneReadOnly')
+  assert.match(page, /phoneReadOnly=\{true\}/m, '小程序 phoneReadOnly 必须为 true(只读)')
+  assert.match(rn, /phoneReadOnly=\{true\}/m, 'RN phoneReadOnly 必须为 true(同传)')
+
+  // 7 项后果逐键两端都在(列表出现 = 可见差异)
+  for (const key of CONSEQUENCE_KEYS) {
+    assert.ok(page.includes(key), `小程序页缺后果键 ${key}`)
+    assert.ok(rn.includes(`t('${key}')`), `RN 缺后果键 ${key}`)
+  }
+  // 无弹窗端的页级倒计时:小程序传 false,RN 传端内状态(值不同)
+  assert.match(page, /showConfirmModal=\{false\}/m, '小程序必须关弹窗')
+  assert.match(rn, /showConfirmModal=\{showConfirmModal\}/m, 'RN 必须传端内弹窗状态')
+
+  // 阴性对照②:删小程序 consequences 传参 ⇒ 同尺子必不命中
+  assert.throws(() => {
+    const broken = page.replace(/^\s*consequences=\{[^\n]*\n/m, '')
+    assert.ok(propPassed(broken, 'consequences'), 'negative:删小程序 consequences 后不得仍命中')
+  })
+  // 阴性对照③:删 RN phoneReadOnly 传参 ⇒ 同尺子必不命中
+  assert.throws(() => {
+    const broken = rn.replace(/^\s*phoneReadOnly=\{true\}\n/m, '')
+    assert.ok(propPassed(broken, 'phoneReadOnly'), 'negative:删 RN phoneReadOnly 后不得仍命中')
+  })
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
