@@ -28,21 +28,46 @@
 //   反假绿(§0.3):git 取不到 ⇒ 未判定 exit 2;改动面里没有 scripts/** ⇒ 未判定 exit 2;
 //   有改动但**一枚测试都没对上** ⇒ 同样未判定 exit 2 —— "枚举到 0 个候选"绝不等于"全绿"。
 //
+// 镜像锁定测试的选取映射(2026-11-06 立,治「巨型器物改了、锁它的测试永远选不到」):
+//   `tokensForChanged` 只按**被改文件自己的 basename** 造令牌,于是 `scripts/git-guardian.mjs`
+//   这一枚改了 ⇒ 只会选到文件名里含 `git-guardian` 的测试;按票命名的那批
+//   (`cross-end-*-dispatch` / `hand-mirror-upgrade-dispatch` / `service-inventory-dispatch` …)
+//   结构上永远选不到。现读实测(提交 57c3eb1a45eb):子串档 41 枚,而按 import 关系直接
+//   import 了 `scripts/git-guardian.mjs` 的测试有 73 枚 ⇒ 漏 39 枚。镜像选不到 ⇒ 红能以红
+//   形态长期入库(本仓 2026-10-30 那次 `__test__` 导出符号 1→0→1→0 反复被抹即此型)。
+//   修法只有一条纪律能站住:**从测试文件自己的 import 关系派生**,不按文件名相似度猜
+//   (按名推断在本仓有 20–70% 误判的实测前科),也不在测试器里硬编第二份清单(§0.6)。
+//   解析器复用 `scripts/lib/import-graph.mjs` 的 `extractSpecifiers`/`joinRel`/`normalizeRel`
+//   —— 本文件零新造 import 语法解析。
+//
+// 防爆量(选中集变大必须可控,否则 --changed 退化成"每次都拉满"):
+//   派生腿只取**一跳**(测试直接 import 该器物)的锁定者,不做传递闭包:闭包会把
+//   `lib/face-reader.mjs` 这类基座放大成"半套 suite",而半套等于没选(结论无法归因到本次改动)。
+//   扇入上限 `SCRIPT_TESTS_LOCKER_FANIN_CAP`(默认 200)只作用在**这一条派生腿**上:
+//   落票时现读分布 = 中位 1 / p90 1 / 全仓只有 2 枚 >100(`lib/scratch-dir.mjs` 与
+//   `lib/face-reader.mjs`;确切枚数以运行时的超限点名行为准,§0.1 凡数字现读)
+//   ⇒ 超上限那一档不是"被测物件"而是"人人拿来搭夹具的通用工具",把几百枚测试算成"锁它的测试"
+//   本身就是错的语义。越限时**逐条点名**(器物 + 被弃枚数 + 全量档复跑命令),绝不静默弃
+//   (§0.3);basename 令牌腿**不受上限影响**,`scratch-dir` 自己那批镜像照旧入选。
+//
 // 用法:
 //   node scripts/run-script-tests.mjs                 # 全量
 //   node scripts/run-script-tests.mjs -- push-sync    # 只跑文件名含该子串的
 //   node scripts/run-script-tests.mjs --changed       # 只跑本次改动面对应的测试(无对应 ⇒ exit 2)
 //   node scripts/run-script-tests.mjs --changed --base <ref>   # 再并入 <ref>..HEAD 提交区间面(CI 用)
+//   node scripts/run-script-tests.mjs --changed --paths <p> …  # 显式给定改动面(取证/复盘用,免暂存现场)
 //   node scripts/run-script-tests.mjs --list          # 只列清单
 //   node scripts/run-script-tests.mjs --serial        # 一片一文件(排查相互干扰)
 //   node scripts/run-script-tests.mjs --json          # 末尾追加机器可读汇总(可与 --changed 共存)
 import { spawnSync } from 'node:child_process'
-import { readdirSync, existsSync, appendFileSync } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
+import { readdirSync, existsSync, appendFileSync, readFileSync } from 'node:fs'
+import { dirname, join, relative, resolve } from 'node:path'
 import { pathToFileURL, fileURLToPath } from 'node:url'
 
 import { gitRaw } from './lib/face-reader.mjs'
 import { gitStagedPaths, gitUntrackedPaths, gitWorktreePaths } from './lib/git-paths.mjs'
+// 单一真相源(§0.6):import 说明符的抽取与相对路径归一全仓只许一份,这里只消费不重造。
+import { extractSpecifiers, joinRel, normalizeRel } from './lib/import-graph.mjs'
 
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 export const TEST_DIR_REL = join('scripts', 'tests')
@@ -145,8 +170,109 @@ export function changedScriptsPaths(rootDir = ROOT, baseRef = '') {
 }
 
 /**
+ * 扇入上限的**默认值与解析**(纯函数,便于注入取证,与 resolveChunkTimeout 同形)。
+ * 取不到/非法 ⇒ 回落默认,绝不变成 0(0 会把派生腿整条关掉而结论行仍像"判过了")。
+ */
+export const DEFAULT_LOCKER_FANIN_CAP = 200
+
+export function resolveLockerFanInCap(env = process.env) {
+  const raw = String((env || {}).SCRIPT_TESTS_LOCKER_FANIN_CAP ?? '').trim()
+  if (!raw) return DEFAULT_LOCKER_FANIN_CAP
+  const n = Number(raw)
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : DEFAULT_LOCKER_FANIN_CAP
+}
+
+/**
+ * 一枚测试文件 import 到的仓内目标(相对仓库根、正斜杠)。
+ *
+ * 三条纪律:
+ *  1. **只在这枚测试文件自己的源码里取 import 目标** —— 不拿文件名猜、不拿目录猜、不做名字相似度推断
+ *     (按名推断的类别本仓实测误判 20–70%,只能开队列不能判);
+ *  2. 解析器全仓一份:`extractSpecifiers`(注释行动态 import 都管)+ `joinRel`/`normalizeRel`
+ *     来自 `scripts/lib/import-graph.mjs`(§0.6);本文件零新造语法解析;
+ *  3. 读不到文件 ⇒ 返回 `null` 交调用方**点名**,不折成"它什么都不 import"(§0.3)。
+ *
+ * 第三方裸包名(`node:fs`/`typescript`/`@ihui/*`)按定义不是本次改动面的器物,直接跳过;
+ * 说明符**不要求目标真的存在** —— 删掉一枚器物时"仍在 import 它的测试"恰恰是要跑的那一批。
+ *
+ * @returns {string[]|null}
+ */
+export function testImportTargets(testAbs, rootDir = ROOT) {
+  let text
+  try {
+    text = readFileSync(testAbs, 'utf8')
+  } catch {
+    return null
+  }
+  const importerRel = normalizeRel(relative(rootDir, testAbs))
+  const out = new Set()
+  for (const ref of extractSpecifiers(text)) {
+    const spec = String(ref.spec ?? '')
+    if (!spec) continue
+    if (/^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(spec)) continue // node: / data: / http(s):
+    if (!spec.startsWith('.') && !spec.startsWith('/')) continue // 裸包名与 @ihui/*:不是本票射程
+    const base = spec.startsWith('/') ? spec.slice(1) : joinRel(dirname(importerRel), spec)
+    const target = normalizeRel(base)
+    if (!target || target === importerRel || target.startsWith('..')) continue
+    out.add(target)
+  }
+  return [...out].sort()
+}
+
+/**
+ * 改动面 ⇒ 「按 import 锁住这批改动的测试」(绝对路径清单 + 越限与读不到的如实点名)。
+ *
+ * @param {string[]} changedPaths 相对仓库根的改动面(与 changedScriptsPaths 同形)
+ * @param {{rootDir?:string, testFiles?:string[], importTargetsOf?:Function, cap?:number}} [opts]
+ *   `importTargetsOf` 是本票唯一的测试缝(摘掉派生腿 = 注入 `() => []`,变异对照用);
+ *   生产默认 `testImportTargets`。`testFiles` 默认取 `discover(rootDir)`(与选取档同一张清单)。
+ * @returns {{files:string[], tokenUnrelated:false, capped:Array<{file:string,lockers:number}>,
+ *            unreadable:string[], byTarget:Map<string,string[]>}}
+ */
+export function lockTestsForChanged(changedPaths, opts = {}) {
+  const rootDir = opts.rootDir ?? ROOT
+  const testFiles = opts.testFiles ?? discover(rootDir, [])
+  const targetsOf = opts.importTargetsOf ?? testImportTargets
+  const cap = opts.cap ?? resolveLockerFanInCap()
+  /** 反向表:被 import 的器物 -> 直接 import 它的测试(绝对路径) */
+  const byTarget = new Map()
+  const unreadable = []
+  for (const t of testFiles) {
+    const targets = targetsOf(t, rootDir)
+    if (targets === null) {
+      unreadable.push(t)
+      continue
+    }
+    for (const target of targets) {
+      if (!byTarget.has(target)) byTarget.set(target, [])
+      const arr = byTarget.get(target)
+      if (!arr.includes(t)) arr.push(t)
+    }
+  }
+  const files = new Set()
+  const capped = []
+  const changed = [...new Set((changedPaths ?? []).map((p) => normalizeRel(p)))].filter(Boolean)
+  for (const p of changed) {
+    const lockers = byTarget.get(p) ?? []
+    if (!lockers.length) continue
+    // 超限 = 这枚器物是"人人拿来搭夹具的通用工具",不是被测物件:整条派生腿对它让路,
+    // 但**逐条点名并给出全量复跑命令**(静默弃等于把这一型又变回看不见)。
+    if (lockers.length > cap) {
+      capped.push({ file: p, lockers: lockers.length })
+      continue
+    }
+    for (const f of lockers) files.add(f)
+  }
+  return { files: [...files].sort(), capped, unreadable, byTarget, changedCount: changed.length }
+}
+
+/**
  * 改动面 ⇒ `-- <子串>` 的匹配令牌(复用同一把尺,不新造匹配)。
  * 取 basename 去扩展名;`x.test.mjs` 再去掉尾部 `.test`,使"直接改了测试文件"也能命中自己。
+ *
+ * ⚠️ 这一条只覆盖"测试与器物同名"那一格(本仓多数镜像测试确实同名)。
+ *    同名之外的那批"按票命名"的 dispatch 镜像由 `lockTestsForChanged` 按 import 关系补齐,
+ *    两腿取并集 —— 只留这一条时改 `scripts/git-guardian.mjs` 会漏掉 39 枚锁它的测试(见文件头实测)。
  */
 export function tokensForChanged(paths) {
   const out = new Set()
@@ -323,13 +449,42 @@ export function main(argv = process.argv.slice(2), rootDir = ROOT) {
   // 若同时手给了 `-- <子串>`,子串**再收窄一档**(AND),不是并集。
   // `--base <ref>`(或 `--base=<ref>`)追加"提交区间面"这一路 —— CI 的检出是干净工作树,
   // 本地三面恒空,不给基点就只能读成"未判定"。
+  // `--changed --paths <p> …`:**显式给出改动面**,让"某枚历史提交到底选中了哪些测试"能被一条命令
+  // 复现,而不必先造出那次现场(取证用;拼错开关一律 exit 2,不静默落回默认档)。
   let tokens = filters
   let changed = null
+  let lock = { files: [], capped: [], unreadable: [], changedCount: 0 }
+  const pi = argv.indexOf('--paths')
+  const explicitPaths = []
+  if (pi >= 0) {
+    for (let i = pi + 1; i < argv.length; i++) {
+      const a = argv[i]
+      if (a === '--' || a.startsWith('--')) break
+      explicitPaths.push(a)
+    }
+    if (!CHANGED) {
+      console.log('❔ 未判定:--paths 只与 --changed 同档使用(它替换的是"本次改动面"这一路输入)')
+      return 2
+    }
+    if (!explicitPaths.length) {
+      console.log('❔ 未判定:--paths 后面一枚路径都没给(不得把"没给输入"读成"没有改动")')
+      return 2
+    }
+  }
   if (CHANGED) {
     const eq = argv.find((a) => a.startsWith('--base='))
     const bi = argv.indexOf('--base')
     const baseRef = eq ? eq.slice('--base='.length) : bi >= 0 ? String(argv[bi + 1] ?? '') : ''
-    changed = changedScriptsPaths(rootDir, baseRef)
+    if (pi >= 0) {
+      const rel = explicitPaths.map((p) => normalizeRel(p)).filter(Boolean)
+      changed = {
+        paths: rel.filter((p) => CHANGED_SCOPES.some((sc) => p.startsWith(sc))).sort(),
+        error: null,
+        sources: ['--paths'],
+      }
+    } else {
+      changed = changedScriptsPaths(rootDir, baseRef)
+    }
     if (changed.error) {
       console.log(`❔ 未判定:改动面取不全 ⇒ ${changed.error}`)
       console.log('  (§0.3 取不到输入 ⇒ exit 2:不记绿也不冒红,更不得读成"没有要跑的测试")')
@@ -345,15 +500,43 @@ export function main(argv = process.argv.slice(2), rootDir = ROOT) {
       return 2
     }
     tokens = tokensForChanged(changed.paths)
+    // 第二腿:按 import 关系补齐"按票命名"的镜像测试(basename 令牌腿结构上选不到它们)。
+    lock = lockTestsForChanged(changed.paths, { rootDir })
   }
   let files = discover(rootDir, tokens)
+  const tokenHits = files.length
+  if (CHANGED && lock.files.length) files = [...new Set([...files, ...lock.files])].sort()
   if (CHANGED && filters.length) files = files.filter((f) => filters.some((k) => f.includes(k)))
+  if (CHANGED) {
+    // 选取面必须被量到,而且必须量在**任何出口之前**:只报"选中 N 枚"而不报**为什么**是这 N 枚,
+    // 下次再退化回"只按 basename"时没人看得出来(判据失效的表现永远是安静,§12f);
+    // 未判定档(0 候选 / 超限让路 / 测试读不到)同样要看得见这几行,所以这一整块排在判 0 之前。
+    console.log(
+      `🔎 选取:改动面 ${changed.paths.length} 枚 ⇒ basename 令牌 ${tokens.length} 枚命中 ${tokenHits} 个测试 + import 派生锁定 ${lock.files.length} 个 ⇒ 去重合计 ${files.length} 个`,
+    )
+    for (const c of lock.capped)
+      console.log(
+        `⚠️ 扇入超限(> ${resolveLockerFanInCap()}):${c.file} 被 ${c.lockers} 枚测试 import —— 它是通用夹具工具而不是被测器物,整条派生腿对它让路;要判它请跑全量:node scripts/run-script-tests.mjs`,
+      )
+    for (const u of lock.unreadable.slice(0, 20))
+      console.log(
+        `⚠️ 测试读不到 ⇒ 它的 import 关系**未判定**,不折成"什么都不 import":${u
+          .slice(rootDir.length + 1)
+          .split('\\')
+          .join('/')}`,
+      )
+    if (lock.unreadable.length > 20) console.log(`   …另 ${lock.unreadable.length - 20} 枚`)
+  }
+
   if (CHANGED && !files.length) {
     console.log(
       `❔ 未判定:改动面 ${changed.paths.length} 个 scripts/** 或 deploy/** 文件,没有任何一枚对应的镜像测试`,
     )
     for (const p of changed.paths.slice(0, 40)) console.log(`   ${p}`)
     if (changed.paths.length > 40) console.log(`   …另 ${changed.paths.length - 40} 个`)
+    console.log(
+      `   两腿同为空:basename 令牌 ${tokens.length} 枚 ⇒ 子串命中 ${tokenHits};import 派生锁定 ${lock.files.length}(超限让路 ${lock.capped.length} 枚器物 / 读不到的测试 ${lock.unreadable.length} 枚)`,
+    )
     console.log('  枚举到 0 个候选 ⇒ exit 2(绝不打印"0 个文件 ⇒ 全绿"就退 0)')
     if (process.env.GITHUB_ACTIONS) {
       console.log(
@@ -497,7 +680,7 @@ export function main(argv = process.argv.slice(2), rootDir = ROOT) {
     // 结论行:files=改动面命中的 scripts/** 枚数;suites=据此选出的测试文件枚数。
     // unparsed 单列(不为零)—— runner 崩了的那些片不摊进 fail 计数里冒充"判过了"。
     console.log(
-      `SCRIPT-TESTS-CHANGED files=${changed.paths.length} suites=${files.length} pass=${tally.pass} fail=${tally.fail}${unparsed.length ? ` unparsed=${unparsed.length}` : ''}`,
+      `SCRIPT-TESTS-CHANGED files=${changed.paths.length} suites=${files.length} pass=${tally.pass} fail=${tally.fail} lockers=${lock.files.length} capped=${lock.capped.length}${unparsed.length ? ` unparsed=${unparsed.length}` : ''}`,
     )
   }
   if (JSON_OUT) {
@@ -522,7 +705,29 @@ export function main(argv = process.argv.slice(2), rootDir = ROOT) {
           ? {}
           : { attributed: redFiles.reduce((n, r) => n + r.count, 0) }),
         ...(CHANGED
-          ? { changed: { files: changed.paths.length, suites: files.length, paths: changed.paths } }
+          ? {
+              changed: {
+                files: changed.paths.length,
+                suites: files.length,
+                paths: changed.paths,
+                tokens: tokens.length,
+                tokenHits,
+                // import 派生腿的可观测面:选中的测试、越限让路的器物、读不到的测试。
+                lockerTests: lock.files.map((f) =>
+                  f
+                    .slice(rootDir.length + 1)
+                    .split('\\')
+                    .join('/'),
+                ),
+                lockerCapped: lock.capped,
+                lockerUnreadable: lock.unreadable.map((f) =>
+                  f
+                    .slice(rootDir.length + 1)
+                    .split('\\')
+                    .join('/'),
+                ),
+              },
+            }
           : {}),
       }),
     )
@@ -548,6 +753,10 @@ export const __test__ = {
   discover,
   changedScriptsPaths,
   tokensForChanged,
+  testImportTargets,
+  lockTestsForChanged,
+  resolveLockerFanInCap,
+  DEFAULT_LOCKER_FANIN_CAP,
   buildChunks,
   parseTap,
   runChunk,
