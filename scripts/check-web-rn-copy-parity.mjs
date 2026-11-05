@@ -237,6 +237,69 @@ export const ROLE_EXEMPTIONS = [
     reason:
       '角色不同:RN 在无错误详情时用「加载失败，请下拉刷新重试」作提示文案、靠下拉手势重试(KnowledgePlanetScreen.tsx:76);web 是错误详情旁的「重试」按钮(apps/web/app/(main)/knowledge-planet/page.tsx:84),提示语与按钮文案不可统一',
   },
+  {
+    rn: 'packages/app/src/features/wallet/WalletScreen.tsx',
+    rnKey: 'wallet.balance',
+    webKeys: ['wallet.flowBalance'],
+    owner: 'web-rn-copy',
+    expires: '2026-12-31',
+    reason:
+      '角色不同:RN 钱包页头部余额卡「余额」(WalletScreen.tsx:85),web wallet.flowBalance 是流水行「余额」列(apps/web/app/(main)/wallet/page.tsx:166);同屏同文案不同位置,不可合并(处置单 scripts/data/web-rn-copy-b2-plan.json)',
+  },
+  {
+    rn: 'packages/app/src/features/profile-edit/ProfileEditScreen.tsx',
+    rnKey: 'profileEdit.avatarModalTitle',
+    webKeys: ['user.profile.avatar'],
+    owner: 'web-rn-copy',
+    expires: '2026-12-31',
+    reason:
+      '角色不同:RN「更换头像」是选头像弹窗标题(ProfileEditScreen.tsx:192),web user.profile.avatar 是头像字段标签/按钮(ProfileAvatar.tsx:66);标题与标签不可合并',
+  },
+  {
+    rn: 'apps/mobile-rn/src/screens/WorkspaceScreen.tsx',
+    rnKey: 'workspace.nameRequired',
+    webKeys: ['workspace.namePlaceholder'],
+    owner: 'web-rn-copy',
+    expires: '2026-12-31',
+    reason:
+      '角色不同:RN「请输入项目名称」是校验错误提示(WorkspaceScreen.tsx:138),web workspace.namePlaceholder 是输入框占位符(page.tsx:139);校验文案与占位符不可合并',
+  },
+  {
+    rn: 'apps/mobile-rn/src/screens/PurchaseScreen.tsx',
+    rnKey: 'purchase.topupDescription',
+    webKeys: ['purchase.tabTopup'],
+    owner: 'web-rn-copy',
+    expires: '2026-12-31',
+    reason:
+      '角色不同:RN「账户充值」是充值区说明文案(PurchaseScreen.tsx:188),web purchase.tabTopup 是充值 Tab 标题(PageClient.tsx:41);说明与 Tab 不可合并',
+  },
+  {
+    rn: 'apps/mobile-rn/src/screens/PlazaNewScreen.tsx',
+    rnKey: 'plazaNew.submit',
+    webKeys: ['plazaNew.title'],
+    owner: 'web-rn-copy',
+    expires: '2026-12-31',
+    reason:
+      '角色不同:RN「发布需求」是提交按钮(PlazaNewScreen.tsx:175),web plazaNew.title 是页面标题(new/page.tsx:70);按钮与标题不可合并',
+  },
+  {
+    rn: 'packages/app/src/features/follow/FollowScreen.tsx',
+    rnKey: 'follow.following',
+    webKeys: ['follows.title'],
+    owner: 'web-rn-copy',
+    expires: '2026-12-31',
+    reason:
+      '角色不同:RN「关注」是个人页 Tab 标签(FollowScreen.tsx:67),web follows.title 是关注列表页标题(PageClient.tsx:91);Tab 与标题不可合并',
+  },
+  {
+    rn: 'apps/mobile-rn/src/screens/EduMealScreen.tsx',
+    rnKey: 'eduChildMeals.nutrition',
+    webKeys: ['eduMeal.template.nutritionPlaceholder'],
+    owner: 'web-rn-copy',
+    expires: '2026-12-31',
+    reason:
+      '角色不同:RN「营养」是餐次信息字段标签(EduMealScreen.tsx:86),web eduMeal.template.nutritionPlaceholder 是营养模板输入占位符(edu-management/meal/page.tsx:612);标签与占位符不可合并',
+  },
 ]
 
 /**

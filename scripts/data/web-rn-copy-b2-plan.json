@@ -1,0 +1,2120 @@
+{
+  "version": 1,
+  "gate": "291",
+  "generatedFrom": "scripts/check-web-rn-copy-parity.mjs --json 的 advisoryDetail",
+  "note": "B2 同值异键 105 条的逐条处置单。action=merge 为可机械收编:把 RN 调用点的 rnKey 改为 targetKey(以 web 端同屏同角色键为真源),需改 RN 调用文件而非词包;action=exempt 为角色不同、合法保留两套(同步登记 ROLE_EXEMPTIONS);action=human 为多上下文歧义,必须人读。owner/expires 仅对非 merge 项生效。本文件不被门读取,避免以计划替代真收编。",
+  "buckets": {
+    "merge": 95,
+    "exempt": 7,
+    "human": 3
+  },
+  "entries": [
+    {
+      "file": "member/addresses",
+      "rn": "apps/mobile-rn/src/screens/AddressesScreen.tsx",
+      "rnLine": 254,
+      "rnKey": "addresses.defaultLabel",
+      "value": "设为默认地址",
+      "webKeys": ["memberAddressFormPage.setDefault"],
+      "webHits": [
+        {
+          "key": "memberAddressFormPage.setDefault",
+          "file": "apps/web/app/(main)/member/addresses/AddressForm.tsx",
+          "line": 83
+        }
+      ],
+      "action": "merge",
+      "targetKey": "memberAddressFormPage.setDefault",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "wallet",
+      "rn": "packages/app/src/features/wallet/WalletScreen.tsx",
+      "rnLine": 85,
+      "rnKey": "wallet.balance",
+      "value": "余额",
+      "webKeys": ["wallet.flowBalance"],
+      "webHits": [
+        {
+          "key": "wallet.flowBalance",
+          "file": "apps/web/app/(main)/wallet/page.tsx",
+          "line": 166
+        }
+      ],
+      "action": "exempt",
+      "targetKey": null,
+      "owner": "web-rn-copy",
+      "expires": "2026-12-31",
+      "reason": "角色不同:RN 钱包页头部余额卡「余额」(WalletScreen.tsx 头部),web wallet.flowBalance 是流水行「余额」列;同屏同文案不同位置,不可合并"
+    },
+    {
+      "file": "wallet",
+      "rn": "packages/app/src/features/wallet/WalletScreen.tsx",
+      "rnLine": 238,
+      "rnKey": "wallet.flowBalanceAfter",
+      "value": "余额",
+      "webKeys": ["wallet.flowBalance"],
+      "webHits": [
+        {
+          "key": "wallet.flowBalance",
+          "file": "apps/web/app/(main)/wallet/page.tsx",
+          "line": 166
+        }
+      ],
+      "action": "merge",
+      "targetKey": "wallet.flowBalance",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "wallet",
+      "rn": "packages/app/src/features/wallet/WalletScreen.tsx",
+      "rnLine": 129,
+      "rnKey": "tokenValue.rechargeLabel",
+      "value": "充值",
+      "webKeys": ["wallet.recharge"],
+      "webHits": [
+        {
+          "key": "wallet.recharge",
+          "file": "apps/web/app/(main)/wallet/page.tsx",
+          "line": 144
+        }
+      ],
+      "action": "merge",
+      "targetKey": "wallet.recharge",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "wallet",
+      "rn": "packages/app/src/features/wallet/WalletScreen.tsx",
+      "rnLine": 163,
+      "rnKey": "wallet.flowsLoading",
+      "value": "加载中...",
+      "webKeys": ["wallet.loading"],
+      "webHits": [
+        {
+          "key": "wallet.loading",
+          "file": "apps/web/app/(main)/wallet/page.tsx",
+          "line": 176
+        }
+      ],
+      "action": "merge",
+      "targetKey": "wallet.loading",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "user/profile",
+      "rn": "packages/app/src/features/profile-edit/ProfileEditScreen.tsx",
+      "rnLine": 192,
+      "rnKey": "profileEdit.avatarModalTitle",
+      "value": "更换头像",
+      "webKeys": ["user.profile.avatar"],
+      "webHits": [
+        {
+          "key": "user.profile.avatar",
+          "file": "apps/web/app/(main)/user/profile/ProfileAvatar.tsx",
+          "line": 66
+        }
+      ],
+      "action": "exempt",
+      "targetKey": null,
+      "owner": "web-rn-copy",
+      "expires": "2026-12-31",
+      "reason": "角色不同:RN「更换头像」是选头像弹窗标题,web user.profile.avatar 是头像字段标签/按钮;标题与标签不可合并"
+    },
+    {
+      "file": "edu/progress",
+      "rn": "packages/app/src/features/study-progress/StudyProgressScreen.tsx",
+      "rnLine": 70,
+      "rnKey": "common.empty",
+      "value": "暂无数据",
+      "webKeys": ["eduProgressPage.noData"],
+      "webHits": [
+        {
+          "key": "eduProgressPage.noData",
+          "file": "apps/web/app/(main)/edu/progress/page.tsx",
+          "line": 121
+        }
+      ],
+      "action": "merge",
+      "targetKey": "eduProgressPage.noData",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "learn/[id]",
+      "rn": "packages/app/src/features/course-detail/CourseDetailScreen.tsx",
+      "rnLine": 120,
+      "rnKey": "courseDetail.enroll",
+      "value": "立即报名",
+      "webKeys": ["learn.signUp"],
+      "webHits": [
+        {
+          "key": "learn.signUp",
+          "file": "apps/web/app/(main)/learn/[id]/PageClient.tsx",
+          "line": 288
+        }
+      ],
+      "action": "merge",
+      "targetKey": "learn.signUp",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "learn/[id]/homework",
+      "rn": "apps/mobile-rn/src/screens/CourseHomeworkScreen.tsx",
+      "rnLine": 90,
+      "rnKey": "learnHomework.loadFailed",
+      "value": "加载失败",
+      "webKeys": ["learnHomeworkPage.errorFallback"],
+      "webHits": [
+        {
+          "key": "learnHomeworkPage.errorFallback",
+          "file": "apps/web/app/(main)/learn/[id]/homework/PageClient.tsx",
+          "line": 123
+        }
+      ],
+      "action": "merge",
+      "targetKey": "learnHomeworkPage.errorFallback",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "learn/map",
+      "rn": "apps/mobile-rn/src/screens/LearnMapScreen.tsx",
+      "rnLine": 106,
+      "rnKey": "learnMap.title",
+      "value": "学习地图",
+      "webKeys": ["learnMapPage.defaultTitle"],
+      "webHits": [
+        {
+          "key": "learnMapPage.defaultTitle",
+          "file": "apps/web/app/(main)/learn/map/page.tsx",
+          "line": 66
+        }
+      ],
+      "action": "merge",
+      "targetKey": "learnMapPage.defaultTitle",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "learn/review",
+      "rn": "apps/mobile-rn/src/screens/LearnReviewScreen.tsx",
+      "rnLine": 188,
+      "rnKey": "learnReview.typeUnknown",
+      "value": "题目",
+      "webKeys": ["learn.dailyReview.questionLabel"],
+      "webHits": [
+        {
+          "key": "learn.dailyReview.questionLabel",
+          "file": "apps/web/app/(main)/learn/review/page.tsx",
+          "line": 196
+        }
+      ],
+      "action": "merge",
+      "targetKey": "learn.dailyReview.questionLabel",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "learn/review",
+      "rn": "apps/mobile-rn/src/screens/LearnReviewScreen.tsx",
+      "rnLine": 225,
+      "rnKey": "learnReview.statEase",
+      "value": "平均难度",
+      "webKeys": ["learn.dailyReview.statAvgDifficulty"],
+      "webHits": [
+        {
+          "key": "learn.dailyReview.statAvgDifficulty",
+          "file": "apps/web/app/(main)/learn/review/page.tsx",
+          "line": 165
+        }
+      ],
+      "action": "merge",
+      "targetKey": "learn.dailyReview.statAvgDifficulty",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "user/articles",
+      "rn": "apps/mobile-rn/src/screens/UserArticlesScreen.tsx",
+      "rnLine": 188,
+      "rnKey": "userArticles.prev",
+      "value": "上一页",
+      "webKeys": ["user.articles.prevPage"],
+      "webHits": [
+        {
+          "key": "user.articles.prevPage",
+          "file": "apps/web/app/(main)/user/articles/page.tsx",
+          "line": 173
+        }
+      ],
+      "action": "merge",
+      "targetKey": "user.articles.prevPage",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "user/articles",
+      "rn": "apps/mobile-rn/src/screens/UserArticlesScreen.tsx",
+      "rnLine": 199,
+      "rnKey": "userArticles.next",
+      "value": "下一页",
+      "webKeys": ["user.articles.nextPage"],
+      "webHits": [
+        {
+          "key": "user.articles.nextPage",
+          "file": "apps/web/app/(main)/user/articles/page.tsx",
+          "line": 184
+        }
+      ],
+      "action": "merge",
+      "targetKey": "user.articles.nextPage",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "settings/connected-accounts",
+      "rn": "packages/app/src/features/connected-accounts/ConnectedAccountsScreen.tsx",
+      "rnLine": 147,
+      "rnKey": "connectedAccounts.boundAt",
+      "value": "绑定时间",
+      "webKeys": ["settings.connectedAccountsBoundAt"],
+      "webHits": [
+        {
+          "key": "settings.connectedAccountsBoundAt",
+          "file": "apps/web/app/(main)/settings/connected-accounts/page.tsx",
+          "line": 108
+        }
+      ],
+      "action": "merge",
+      "targetKey": "settings.connectedAccountsBoundAt",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "settings/connected-accounts",
+      "rn": "packages/app/src/features/connected-accounts/ConnectedAccountsScreen.tsx",
+      "rnLine": 158,
+      "rnKey": "connectedAccounts.unbind",
+      "value": "解绑",
+      "webKeys": ["settings.connectedAccountsUnbind"],
+      "webHits": [
+        {
+          "key": "settings.connectedAccountsUnbind",
+          "file": "apps/web/app/(main)/settings/connected-accounts/page.tsx",
+          "line": 123
+        }
+      ],
+      "action": "merge",
+      "targetKey": "settings.connectedAccountsUnbind",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "settings/data-rights",
+      "rn": "apps/mobile-rn/src/screens/DataRightsScreen.tsx",
+      "rnLine": 114,
+      "rnKey": "dataRights.recentExport",
+      "value": "数据导出",
+      "webKeys": ["eduAi.dataRights.exportCard"],
+      "webHits": [
+        {
+          "key": "eduAi.dataRights.exportCard",
+          "file": "apps/web/app/(main)/settings/data-rights/page.tsx",
+          "line": 310
+        }
+      ],
+      "action": "merge",
+      "targetKey": "eduAi.dataRights.exportCard",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "settings/data-rights",
+      "rn": "apps/mobile-rn/src/screens/DataRightsScreen.tsx",
+      "rnLine": 115,
+      "rnKey": "dataRights.recentPortability",
+      "value": "数据可携带",
+      "webKeys": ["eduAi.dataRights.portabilityCard"],
+      "webHits": [
+        {
+          "key": "eduAi.dataRights.portabilityCard",
+          "file": "apps/web/app/(main)/settings/data-rights/page.tsx",
+          "line": 373
+        }
+      ],
+      "action": "merge",
+      "targetKey": "eduAi.dataRights.portabilityCard",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "settings/data-rights",
+      "rn": "apps/mobile-rn/src/screens/DataRightsScreen.tsx",
+      "rnLine": 116,
+      "rnKey": "dataRights.recentErase",
+      "value": "数据擦除",
+      "webKeys": ["eduAi.dataRights.eraseCard"],
+      "webHits": [
+        {
+          "key": "eduAi.dataRights.eraseCard",
+          "file": "apps/web/app/(main)/settings/data-rights/page.tsx",
+          "line": 423
+        }
+      ],
+      "action": "merge",
+      "targetKey": "eduAi.dataRights.eraseCard",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "account-pool",
+      "rn": "packages/app/src/features/account-pool/AccountPoolScreen.tsx",
+      "rnLine": 138,
+      "rnKey": "accountPool.addTitle",
+      "value": "添加账号",
+      "webKeys": ["accountPool.add"],
+      "webHits": [
+        {
+          "key": "accountPool.add",
+          "file": "apps/web/app/(main)/account-pool/page.tsx",
+          "line": 101
+        }
+      ],
+      "action": "merge",
+      "targetKey": "accountPool.add",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "agreement",
+      "rn": "packages/app/src/features/agreement/AgreementScreen.tsx",
+      "rnLine": 77,
+      "rnKey": "agreement.title",
+      "value": "用户协议",
+      "webKeys": ["agreement.userAgreement"],
+      "webHits": [
+        {
+          "key": "agreement.userAgreement",
+          "file": "apps/web/app/(main)/agreement/PageClient.tsx",
+          "line": 36
+        }
+      ],
+      "action": "merge",
+      "targetKey": "agreement.userAgreement",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "automations",
+      "rn": "packages/app/src/features/automations/AutomationsScreen.tsx",
+      "rnLine": 175,
+      "rnKey": "automations.lastRun",
+      "value": "上次运行",
+      "webKeys": ["automations.lastRunAt"],
+      "webHits": [
+        {
+          "key": "automations.lastRunAt",
+          "file": "apps/web/app/(main)/automations/page.tsx",
+          "line": 243
+        }
+      ],
+      "action": "merge",
+      "targetKey": "automations.lastRunAt",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "certificate",
+      "rn": "packages/app/src/features/certificate/CertificateScreen.tsx",
+      "rnLine": 53,
+      "rnKey": "certificate.status.issued",
+      "value": "有效",
+      "webKeys": ["certificate.detail.statusValid", "certificate.download.statusValid"],
+      "webHits": [
+        {
+          "key": "certificate.detail.statusValid",
+          "file": "apps/web/app/(main)/certificate/[id]/CertificateDetailClient.tsx",
+          "line": 145
+        },
+        {
+          "key": "certificate.download.statusValid",
+          "file": "apps/web/app/(main)/certificate/[id]/CertificateDetailClient.tsx",
+          "line": 145
+        }
+      ],
+      "action": "merge",
+      "targetKey": "certificate.detail.statusValid",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": "同屏同角色,存在 2 个同值 web 键,按调用点上下文选 certificate.detail.statusValid"
+    },
+    {
+      "file": "certificate",
+      "rn": "packages/app/src/features/certificate/CertificateScreen.tsx",
+      "rnLine": 57,
+      "rnKey": "certificate.status.revoked",
+      "value": "已撤销",
+      "webKeys": ["certificate.detail.statusRevoked", "certificate.download.statusRevoked"],
+      "webHits": [
+        {
+          "key": "certificate.detail.statusRevoked",
+          "file": "apps/web/app/(main)/certificate/[id]/CertificateDetailClient.tsx",
+          "line": 145
+        },
+        {
+          "key": "certificate.download.statusRevoked",
+          "file": "apps/web/app/(main)/certificate/[id]/CertificateDetailClient.tsx",
+          "line": 145
+        }
+      ],
+      "action": "merge",
+      "targetKey": "certificate.detail.statusRevoked",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": "同屏同角色,存在 2 个同值 web 键,按调用点上下文选 certificate.detail.statusRevoked"
+    },
+    {
+      "file": "connectors",
+      "rn": "packages/app/src/features/connectors/ConnectorsScreen.tsx",
+      "rnLine": 152,
+      "rnKey": "connectors.lastSync",
+      "value": "最近同步",
+      "webKeys": ["connectors.lastSyncAt"],
+      "webHits": [
+        {
+          "key": "connectors.lastSyncAt",
+          "file": "apps/web/app/(main)/connectors/PageClient.tsx",
+          "line": 632
+        }
+      ],
+      "action": "merge",
+      "targetKey": "connectors.lastSyncAt",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "deep-research",
+      "rn": "apps/mobile-rn/src/screens/DeepResearchScreen.tsx",
+      "rnLine": 325,
+      "rnKey": "deepResearch.report",
+      "value": "研究报告",
+      "webKeys": ["deepResearch.reportTitle"],
+      "webHits": [
+        {
+          "key": "deepResearch.reportTitle",
+          "file": "apps/web/app/(main)/deep-research/page.tsx",
+          "line": 186
+        }
+      ],
+      "action": "merge",
+      "targetKey": "deepResearch.reportTitle",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "exam",
+      "rn": "packages/app/src/features/exam/ExamScreen.tsx",
+      "rnLine": 141,
+      "rnKey": "exam.start",
+      "value": "开始考试",
+      "webKeys": ["exam.startExam"],
+      "webHits": [
+        {
+          "key": "exam.startExam",
+          "file": "apps/web/app/(main)/exam/[id]/ExamIntro.tsx",
+          "line": 63
+        }
+      ],
+      "action": "merge",
+      "targetKey": "exam.startExam",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "favorites",
+      "rn": "packages/app/src/features/favorite/FavoriteScreen.tsx",
+      "rnLine": 166,
+      "rnKey": "favorite.cancel",
+      "value": "取消收藏",
+      "webKeys": ["favorites.remove"],
+      "webHits": [
+        {
+          "key": "favorites.remove",
+          "file": "apps/web/app/(main)/favorites/page.tsx",
+          "line": 143
+        }
+      ],
+      "action": "merge",
+      "targetKey": "favorites.remove",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "following",
+      "rn": "packages/app/src/features/follow/FollowScreen.tsx",
+      "rnLine": 67,
+      "rnKey": "follow.following",
+      "value": "关注",
+      "webKeys": ["follows.title"],
+      "webHits": [
+        {
+          "key": "follows.title",
+          "file": "apps/web/app/(main)/following/PageClient.tsx",
+          "line": 91
+        }
+      ],
+      "action": "exempt",
+      "targetKey": null,
+      "owner": "web-rn-copy",
+      "expires": "2026-12-31",
+      "reason": "角色不同:RN「关注」是个人页 Tab 标签,web follows.title 是关注列表页标题;Tab 与标题不可合并"
+    },
+    {
+      "file": "groups",
+      "rn": "apps/mobile-rn/src/screens/GroupsScreen.tsx",
+      "rnLine": 218,
+      "rnKey": "groups.myGroups",
+      "value": "我的群组",
+      "webKeys": ["eduAi.groups.title"],
+      "webHits": [
+        {
+          "key": "eduAi.groups.title",
+          "file": "apps/web/app/(main)/groups/page.tsx",
+          "line": 422
+        }
+      ],
+      "action": "merge",
+      "targetKey": "eduAi.groups.title",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "points",
+      "rn": "packages/app/src/features/points/PointsScreen.tsx",
+      "rnLine": 233,
+      "rnKey": "points.signIn.consecutive",
+      "value": "已连续签到 {days} 天",
+      "webKeys": ["points.signIn.consecutiveDays"],
+      "webHits": [
+        {
+          "key": "points.signIn.consecutiveDays",
+          "file": "apps/web/app/(main)/points/sign-in/page.tsx",
+          "line": 175
+        }
+      ],
+      "action": "merge",
+      "targetKey": "points.signIn.consecutiveDays",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "points",
+      "rn": "packages/app/src/features/points/PointsScreen.tsx",
+      "rnLine": 256,
+      "rnKey": "points.signIn.historyTitle",
+      "value": "签到历史",
+      "webKeys": ["points.signIn.history"],
+      "webHits": [
+        {
+          "key": "points.signIn.history",
+          "file": "apps/web/app/(main)/points/sign-in/page.tsx",
+          "line": 58
+        }
+      ],
+      "action": "merge",
+      "targetKey": "points.signIn.history",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "points",
+      "rn": "packages/app/src/features/points/PointsScreen.tsx",
+      "rnLine": 273,
+      "rnKey": "points.signIn.historyEmpty",
+      "value": "暂无签到记录",
+      "webKeys": ["points.signIn.empty"],
+      "webHits": [
+        {
+          "key": "points.signIn.empty",
+          "file": "apps/web/app/(main)/points/PointsLeaderboard.tsx",
+          "line": 26
+        }
+      ],
+      "action": "merge",
+      "targetKey": "points.signIn.empty",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "vip",
+      "rn": "packages/app/src/features/vip/VipScreen.tsx",
+      "rnLine": 142,
+      "rnKey": "vip.currentBadge",
+      "value": "当前等级",
+      "webKeys": ["vip.currentLevel"],
+      "webHits": [
+        {
+          "key": "vip.currentLevel",
+          "file": "apps/web/app/(main)/vip/page.tsx",
+          "line": 138
+        }
+      ],
+      "action": "merge",
+      "targetKey": "vip.currentLevel",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "knowledge-rag",
+      "rn": "apps/mobile-rn/src/screens/KnowledgeRagScreen.tsx",
+      "rnLine": 283,
+      "rnKey": "knowledgeRag.collapse",
+      "value": "收起",
+      "webKeys": ["knowledgeRag.chunks.showLess"],
+      "webHits": [
+        {
+          "key": "knowledgeRag.chunks.showLess",
+          "file": "apps/web/app/(main)/knowledge-rag/[id]/chunks/PageClient.tsx",
+          "line": 156
+        }
+      ],
+      "action": "merge",
+      "targetKey": "knowledgeRag.chunks.showLess",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "knowledge-rag",
+      "rn": "apps/mobile-rn/src/screens/KnowledgeRagScreen.tsx",
+      "rnLine": 346,
+      "rnKey": "knowledgeBase.delete",
+      "value": "删除",
+      "webKeys": ["knowledgeRag.manage.singleDelete"],
+      "webHits": [
+        {
+          "key": "knowledgeRag.manage.singleDelete",
+          "file": "apps/web/app/(main)/knowledge-rag/manage/page.tsx",
+          "line": 214
+        }
+      ],
+      "action": "merge",
+      "targetKey": "knowledgeRag.manage.singleDelete",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "patrol",
+      "rn": "apps/mobile-rn/src/screens/PatrolScreen.tsx",
+      "rnLine": 170,
+      "rnKey": "patrol.runNowDone",
+      "value": "巡检完成",
+      "webKeys": ["patrol.toast.runDone"],
+      "webHits": [
+        {
+          "key": "patrol.toast.runDone"
+        }
+      ],
+      "action": "merge",
+      "targetKey": "patrol.toast.runDone",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "patrol",
+      "rn": "apps/mobile-rn/src/screens/PatrolScreen.tsx",
+      "rnLine": 196,
+      "rnKey": "patrol.resumeDone",
+      "value": "已恢复",
+      "webKeys": ["patrol.toast.resumed"],
+      "webHits": [
+        {
+          "key": "patrol.toast.resumed"
+        }
+      ],
+      "action": "merge",
+      "targetKey": "patrol.toast.resumed",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "patrol",
+      "rn": "apps/mobile-rn/src/screens/PatrolScreen.tsx",
+      "rnLine": 196,
+      "rnKey": "patrol.pauseDone",
+      "value": "已暂停",
+      "webKeys": ["patrol.toast.paused", "patrol.statusPaused"],
+      "webHits": [
+        {
+          "key": "patrol.toast.paused",
+          "file": "apps/web/app/(main)/patrol/page.tsx",
+          "line": 126
+        },
+        {
+          "key": "patrol.statusPaused",
+          "file": "apps/web/app/(main)/patrol/page.tsx",
+          "line": 221
+        }
+      ],
+      "action": "merge",
+      "targetKey": "patrol.toast.paused",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": "同屏同角色,存在 2 个同值 web 键,按调用点上下文选 patrol.toast.paused"
+    },
+    {
+      "file": "patrol",
+      "rn": "apps/mobile-rn/src/screens/PatrolScreen.tsx",
+      "rnLine": 213,
+      "rnKey": "patrol.actionDelete",
+      "value": "删除",
+      "webKeys": ["patrol.action.delete", "patrol.delete"],
+      "webHits": [
+        {
+          "key": "patrol.action.delete",
+          "file": "apps/web/app/(main)/patrol/page.tsx",
+          "line": 345
+        },
+        {
+          "key": "patrol.delete",
+          "file": "apps/web/app/(main)/patrol/page.tsx",
+          "line": 345
+        }
+      ],
+      "action": "merge",
+      "targetKey": "patrol.action.delete",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": "同屏同角色,存在 2 个同值 web 键,按调用点上下文选 patrol.action.delete"
+    },
+    {
+      "file": "patrol",
+      "rn": "apps/mobile-rn/src/screens/PatrolScreen.tsx",
+      "rnLine": 462,
+      "rnKey": "patrol.actionRunNow",
+      "value": "立即巡检",
+      "webKeys": ["patrol.action.runNow"],
+      "webHits": [
+        {
+          "key": "patrol.action.runNow"
+        }
+      ],
+      "action": "merge",
+      "targetKey": "patrol.action.runNow",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "patrol",
+      "rn": "apps/mobile-rn/src/screens/PatrolScreen.tsx",
+      "rnLine": 480,
+      "rnKey": "patrol.actionHistory",
+      "value": "历史",
+      "webKeys": ["patrol.action.history"],
+      "webHits": [
+        {
+          "key": "patrol.action.history"
+        }
+      ],
+      "action": "merge",
+      "targetKey": "patrol.action.history",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "purchase",
+      "rn": "apps/mobile-rn/src/screens/PurchaseScreen.tsx",
+      "rnLine": 188,
+      "rnKey": "purchase.topupDescription",
+      "value": "账户充值",
+      "webKeys": ["purchase.tabTopup"],
+      "webHits": [
+        {
+          "key": "purchase.tabTopup",
+          "file": "apps/web/app/(main)/purchase/PageClient.tsx",
+          "line": 41
+        }
+      ],
+      "action": "exempt",
+      "targetKey": null,
+      "owner": "web-rn-copy",
+      "expires": "2026-12-31",
+      "reason": "角色不同:RN「账户充值」是充值区说明文案,web purchase.tabTopup 是充值 Tab 标题;说明与 Tab 不可合并"
+    },
+    {
+      "file": "tools/voice-stt",
+      "rn": "apps/mobile-rn/src/screens/VoiceSttScreen.tsx",
+      "rnLine": 124,
+      "rnKey": "voiceStt.transcribeFailed",
+      "value": "转写失败",
+      "webKeys": ["eduAi.stt.error"],
+      "webHits": [
+        {
+          "key": "eduAi.stt.error",
+          "file": "apps/web/app/(main)/tools/voice-stt/page.tsx",
+          "line": 221
+        }
+      ],
+      "action": "merge",
+      "targetKey": "eduAi.stt.error",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "workspace",
+      "rn": "apps/mobile-rn/src/screens/WorkspaceScreen.tsx",
+      "rnLine": 138,
+      "rnKey": "workspace.nameRequired",
+      "value": "请输入项目名称",
+      "webKeys": ["workspace.namePlaceholder"],
+      "webHits": [
+        {
+          "key": "workspace.namePlaceholder",
+          "file": "apps/web/app/(main)/workspace/page.tsx",
+          "line": 139
+        }
+      ],
+      "action": "exempt",
+      "targetKey": null,
+      "owner": "web-rn-copy",
+      "expires": "2026-12-31",
+      "reason": "角色不同:RN 是「请输入项目名称」校验错误提示,web workspace.namePlaceholder 是输入框占位符;校验文案与占位符不可合并"
+    },
+    {
+      "file": "developer",
+      "rn": "packages/app/src/features/developer/DeveloperScreen.tsx",
+      "rnLine": 65,
+      "rnKey": "developerInfo.nameLabel",
+      "value": "名称",
+      "webKeys": ["developer.settings.infoName"],
+      "webHits": [
+        {
+          "key": "developer.settings.infoName",
+          "file": "apps/web/app/(main)/developer/settings/page.tsx",
+          "line": 126
+        }
+      ],
+      "action": "merge",
+      "targetKey": "developer.settings.infoName",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "developer",
+      "rn": "packages/app/src/features/developer/DeveloperScreen.tsx",
+      "rnLine": 75,
+      "rnKey": "developerInfo.apiKeyLabel",
+      "value": "API 密钥",
+      "webKeys": ["developerHomePage.statApiKeys", "developer.navApiKeys"],
+      "webHits": [
+        {
+          "key": "developerHomePage.statApiKeys",
+          "file": "apps/web/app/(main)/developer/PageClient.tsx",
+          "line": 158
+        },
+        {
+          "key": "developer.navApiKeys",
+          "file": "apps/web/app/(main)/developer/layout.tsx",
+          "line": 25
+        }
+      ],
+      "action": "human",
+      "targetKey": null,
+      "owner": "web-rn-copy",
+      "expires": "2026-12-31",
+      "reason": "存在多个同值 web 键(developerHomePage.statApiKeys / developer.navApiKeys),需人读确定 RN 调用点归属"
+    },
+    {
+      "file": "developer",
+      "rn": "packages/app/src/features/developer/DeveloperScreen.tsx",
+      "rnLine": 139,
+      "rnKey": "developerInfo.title",
+      "value": "开发者信息",
+      "webKeys": ["developer.settings.infoTitle"],
+      "webHits": [
+        {
+          "key": "developer.settings.infoTitle",
+          "file": "apps/web/app/(main)/developer/settings/page.tsx",
+          "line": 123
+        }
+      ],
+      "action": "merge",
+      "targetKey": "developer.settings.infoTitle",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "publish",
+      "rn": "packages/app/src/features/publish/PublishScreen.tsx",
+      "rnLine": 284,
+      "rnKey": "publish.retryTask",
+      "value": "重试",
+      "webKeys": ["publish.history.retry"],
+      "webHits": [
+        {
+          "key": "publish.history.retry",
+          "file": "apps/web/app/(main)/publish/history/TaskCard.tsx",
+          "line": 100
+        }
+      ],
+      "action": "merge",
+      "targetKey": "publish.history.retry",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "publish/accounts",
+      "rn": "apps/mobile-rn/src/screens/PublishAccountsScreen.tsx",
+      "rnLine": 407,
+      "rnKey": "publishAccounts.scanCancel",
+      "value": "取消扫码",
+      "webKeys": ["publish.accounts.cancelScan"],
+      "webHits": [
+        {
+          "key": "publish.accounts.cancelScan"
+        }
+      ],
+      "action": "merge",
+      "targetKey": "publish.accounts.cancelScan",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "publish/new",
+      "rn": "apps/mobile-rn/src/screens/PublishNewScreen.tsx",
+      "rnLine": 369,
+      "rnKey": "publishNew.scheduleNow",
+      "value": "立即发布",
+      "webKeys": ["publish.new.submitNow"],
+      "webHits": [
+        {
+          "key": "publish.new.submitNow"
+        }
+      ],
+      "action": "merge",
+      "targetKey": "publish.new.submitNow",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "publish/new",
+      "rn": "apps/mobile-rn/src/screens/PublishNewScreen.tsx",
+      "rnLine": 378,
+      "rnKey": "publishNew.scheduleLater",
+      "value": "定时发布",
+      "webKeys": ["publish.new.schedule", "publish.new.submitSchedule"],
+      "webHits": [
+        {
+          "key": "publish.new.schedule",
+          "file": "apps/web/app/(main)/publish/new/ScheduleCard.tsx",
+          "line": 21
+        },
+        {
+          "key": "publish.new.submitSchedule"
+        }
+      ],
+      "action": "merge",
+      "targetKey": "publishNew.submitSchedule",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": "同屏同角色,存在 2 个同值 web 键,按调用点上下文选 publishNew.submitSchedule"
+    },
+    {
+      "file": "articles/hot",
+      "rn": "apps/mobile-rn/src/screens/ArticleHotScreen.tsx",
+      "rnLine": 91,
+      "rnKey": "articleHot.title",
+      "value": "热门文章",
+      "webKeys": ["articles.hotTitle"],
+      "webHits": [
+        {
+          "key": "articles.hotTitle",
+          "file": "apps/web/app/(main)/articles/hot/page.tsx",
+          "line": 63
+        }
+      ],
+      "action": "merge",
+      "targetKey": "articles.hotTitle",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "distribution/referrer",
+      "rn": "packages/app/src/features/referrer/ReferrerScreen.tsx",
+      "rnLine": 59,
+      "rnKey": "referrer.empty",
+      "value": "暂未绑定推荐人",
+      "webKeys": ["referrer.noReferrer"],
+      "webHits": [
+        {
+          "key": "referrer.noReferrer",
+          "file": "apps/web/app/(main)/distribution/referrer/page.tsx",
+          "line": 93
+        }
+      ],
+      "action": "merge",
+      "targetKey": "referrer.noReferrer",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "distribution/referrer",
+      "rn": "packages/app/src/features/referrer/ReferrerScreen.tsx",
+      "rnLine": 83,
+      "rnKey": "referrer.submit",
+      "value": "绑定",
+      "webKeys": ["referrer.bindBtn"],
+      "webHits": [
+        {
+          "key": "referrer.bindBtn",
+          "file": "apps/web/app/(main)/distribution/referrer/page.tsx",
+          "line": 125
+        }
+      ],
+      "action": "merge",
+      "targetKey": "referrer.bindBtn",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "agents/categories",
+      "rn": "apps/mobile-rn/src/screens/AgentCategoriesScreen.tsx",
+      "rnLine": 243,
+      "rnKey": "agentCategories.agentTotal",
+      "value": "共 {count} 个",
+      "webKeys": ["agentsCategoriesPage.total"],
+      "webHits": [
+        {
+          "key": "agentsCategoriesPage.total",
+          "file": "apps/web/app/(main)/agents/categories/[id]/PageClient.tsx",
+          "line": 170
+        }
+      ],
+      "action": "merge",
+      "targetKey": "agentsCategoriesPage.total",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "agents/create",
+      "rn": "packages/app/src/features/agent-create/AgentCreateScreen.tsx",
+      "rnLine": 57,
+      "rnKey": "agentCreate.title",
+      "value": "创建智能体",
+      "webKeys": ["agent.createTitle"],
+      "webHits": [
+        {
+          "key": "agent.createTitle",
+          "file": "apps/web/app/(main)/agents/create/page.tsx",
+          "line": 85
+        }
+      ],
+      "action": "merge",
+      "targetKey": "agent.createTitle",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "knowledge-base/edit",
+      "rn": "apps/mobile-rn/src/screens/KnowledgeBaseEditScreen.tsx",
+      "rnLine": 336,
+      "rnKey": "knowledgeBaseEdit.submitSave",
+      "value": "保存",
+      "webKeys": ["kbEditPage.submitLabel"],
+      "webHits": [
+        {
+          "key": "kbEditPage.submitLabel",
+          "file": "apps/web/app/(main)/knowledge-base/edit/[id]/PageClient.tsx",
+          "line": 137
+        }
+      ],
+      "action": "merge",
+      "targetKey": "kbEditPage.submitLabel",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "student/wrong-book",
+      "rn": "packages/app/src/features/wrong-questions/WrongQuestionsScreen.tsx",
+      "rnLine": 145,
+      "rnKey": "wrongQuestions.title",
+      "value": "错题本",
+      "webKeys": ["student.wrongBookTitle"],
+      "webHits": [
+        {
+          "key": "student.wrongBookTitle",
+          "file": "apps/web/app/(main)/student/wrong-book/page.tsx",
+          "line": 66
+        }
+      ],
+      "action": "merge",
+      "targetKey": "student.wrongBookTitle",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "agents/[id]",
+      "rn": "packages/app/src/features/agent-detail/AgentDetailScreen.tsx",
+      "rnLine": 63,
+      "rnKey": "agentEdit.entry",
+      "value": "编辑",
+      "webKeys": ["common.edit"],
+      "webHits": [
+        {
+          "key": "common.edit",
+          "file": "apps/web/app/(main)/agents/[id]/PageClient.tsx",
+          "line": 196
+        }
+      ],
+      "action": "merge",
+      "targetKey": "common.edit",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "models/keys",
+      "rn": "apps/mobile-rn/src/screens/ApiKeysScreen.tsx",
+      "rnLine": 248,
+      "rnKey": "apiKeys.copySecret",
+      "value": "复制",
+      "webKeys": ["models.keys.copy"],
+      "webHits": [
+        {
+          "key": "models.keys.copy"
+        }
+      ],
+      "action": "merge",
+      "targetKey": "models.keys.copy",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "models/keys",
+      "rn": "apps/mobile-rn/src/screens/ApiKeysScreen.tsx",
+      "rnLine": 265,
+      "rnKey": "apiKeys.nameLabel",
+      "value": "名称",
+      "webKeys": ["models.keys.table.name"],
+      "webHits": [
+        {
+          "key": "models.keys.table.name"
+        }
+      ],
+      "action": "merge",
+      "targetKey": "models.keys.table.name",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "distribution/team",
+      "rn": "packages/app/src/features/team/TeamScreen.tsx",
+      "rnLine": 250,
+      "rnKey": "team.joinDate",
+      "value": "加入时间",
+      "webKeys": ["distribution.colJoinedAt"],
+      "webHits": [
+        {
+          "key": "distribution.colJoinedAt",
+          "file": "apps/web/app/(main)/distribution/team/page.tsx",
+          "line": 152
+        }
+      ],
+      "action": "merge",
+      "targetKey": "distribution.colJoinedAt",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "distribution/team",
+      "rn": "packages/app/src/features/team/TeamScreen.tsx",
+      "rnLine": 253,
+      "rnKey": "team.level",
+      "value": "等级",
+      "webKeys": ["distribution.colLevel"],
+      "webHits": [
+        {
+          "key": "distribution.colLevel",
+          "file": "apps/web/app/(main)/distribution/team/page.tsx",
+          "line": 151
+        }
+      ],
+      "action": "merge",
+      "targetKey": "distribution.colLevel",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "distribution/team",
+      "rn": "packages/app/src/features/team/TeamScreen.tsx",
+      "rnLine": 341,
+      "rnKey": "distribution.treeEmpty",
+      "value": "暂无下级成员",
+      "webKeys": ["distributionTeamDetailPage.noSubordinates"],
+      "webHits": [
+        {
+          "key": "distributionTeamDetailPage.noSubordinates",
+          "file": "apps/web/app/(main)/distribution/team/[id]/PageClient.tsx",
+          "line": 207
+        }
+      ],
+      "action": "merge",
+      "targetKey": "distributionTeamDetailPage.noSubordinates",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "edu/edu-management/grades",
+      "rn": "apps/mobile-rn/src/screens/EduGradesScreen.tsx",
+      "rnLine": 107,
+      "rnKey": "eduGrades.title",
+      "value": "成绩管理",
+      "webKeys": ["eduGrades.pageTitle"],
+      "webHits": [
+        {
+          "key": "eduGrades.pageTitle",
+          "file": "apps/web/app/(main)/edu/edu-management/grades/PageClient.tsx",
+          "line": 563
+        }
+      ],
+      "action": "merge",
+      "targetKey": "eduGrades.pageTitle",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "edu/edu-management/meal",
+      "rn": "apps/mobile-rn/src/screens/EduMealScreen.tsx",
+      "rnLine": 86,
+      "rnKey": "eduChildMeals.nutrition",
+      "value": "营养",
+      "webKeys": ["eduMeal.template.nutritionPlaceholder"],
+      "webHits": [
+        {
+          "key": "eduMeal.template.nutritionPlaceholder"
+        }
+      ],
+      "action": "exempt",
+      "targetKey": null,
+      "owner": "web-rn-copy",
+      "expires": "2026-12-31",
+      "reason": "角色不同:RN「营养」是餐次信息字段标签,web eduMeal.template.nutritionPlaceholder 是营养模板占位符;标签与占位符不可合并"
+    },
+    {
+      "file": "edu/edu-management/scheduling",
+      "rn": "apps/mobile-rn/src/screens/EduSchedulingScreen.tsx",
+      "rnLine": 95,
+      "rnKey": "eduSchedule.weekdayTitle",
+      "value": "星期",
+      "webKeys": ["eduScheduling.form.weekday"],
+      "webHits": [
+        {
+          "key": "eduScheduling.form.weekday",
+          "file": "apps/web/app/(main)/edu/edu-management/scheduling/PageClient.tsx",
+          "line": 300
+        }
+      ],
+      "action": "merge",
+      "targetKey": "eduScheduling.form.weekday",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "edu/parent",
+      "rn": "apps/mobile-rn/src/screens/EduParentScreen.tsx",
+      "rnLine": 120,
+      "rnKey": "eduChildStudyPlans.title",
+      "value": "学习计划",
+      "webKeys": ["parentPortal.child.studyPlans"],
+      "webHits": [
+        {
+          "key": "parentPortal.child.studyPlans"
+        }
+      ],
+      "action": "merge",
+      "targetKey": "parentPortal.child.studyPlans",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "edu/parent/children/[childId]/study-plans",
+      "rn": "apps/mobile-rn/src/screens/EduChildStudyPlansScreen.tsx",
+      "rnLine": 100,
+      "rnKey": "eduChildStudyPlans.title",
+      "value": "学习计划",
+      "webKeys": ["parentPortal.child.studyPlans"],
+      "webHits": [
+        {
+          "key": "parentPortal.child.studyPlans"
+        }
+      ],
+      "action": "merge",
+      "targetKey": "parentPortal.child.studyPlans",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "user/[id]",
+      "rn": "apps/mobile-rn/src/screens/UserPublicScreen.tsx",
+      "rnLine": 122,
+      "rnKey": "userPublic.message",
+      "value": "发消息",
+      "webKeys": ["user.public.sendMessage"],
+      "webHits": [
+        {
+          "key": "user.public.sendMessage",
+          "file": "apps/web/app/(main)/user/[id]/PageClient.tsx",
+          "line": 147
+        }
+      ],
+      "action": "merge",
+      "targetKey": "user.public.sendMessage",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "activities/[slug]",
+      "rn": "packages/app/src/features/activity-detail/ActivityDetailScreen.tsx",
+      "rnLine": 43,
+      "rnKey": "activityDetail.empty",
+      "value": "活动不存在或已下线",
+      "webKeys": ["activities.notFound"],
+      "webHits": [
+        {
+          "key": "activities.notFound",
+          "file": "apps/web/app/(main)/activities/[slug]/PageClient.tsx",
+          "line": 113
+        }
+      ],
+      "action": "merge",
+      "targetKey": "activities.notFound",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "agent-teams",
+      "rn": "apps/mobile-rn/src/screens/SubagentsScreen.tsx",
+      "rnLine": 210,
+      "rnKey": "subagents.statActive",
+      "value": "运行中",
+      "webKeys": ["agentTeams.statsActive", "agentTeams.filter.running"],
+      "webHits": [
+        {
+          "key": "agentTeams.statsActive",
+          "file": "apps/web/app/(main)/agent-teams/page.tsx",
+          "line": 87
+        },
+        {
+          "key": "agentTeams.filter.running",
+          "file": "apps/web/app/(main)/agent-teams/page.tsx",
+          "line": 25
+        }
+      ],
+      "action": "human",
+      "targetKey": null,
+      "owner": "web-rn-copy",
+      "expires": "2026-12-31",
+      "reason": "存在多个同值 web 键(agentTeams.statsActive / agentTeams.filter.running),需人读确定 RN 调用点归属"
+    },
+    {
+      "file": "exam/wrong-questions",
+      "rn": "packages/app/src/features/wrong-questions/WrongQuestionsScreen.tsx",
+      "rnLine": 211,
+      "rnKey": "wrongQuestions.time",
+      "value": "添加时间",
+      "webKeys": ["exam.wrongQuestions.colTime"],
+      "webHits": [
+        {
+          "key": "exam.wrongQuestions.colTime",
+          "file": "apps/web/app/(main)/exam/wrong-questions/page.tsx",
+          "line": 233
+        }
+      ],
+      "action": "merge",
+      "targetKey": "exam.wrongQuestions.colTime",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "models/prompts",
+      "rn": "apps/mobile-rn/src/screens/ModelsPromptsScreen.tsx",
+      "rnLine": 77,
+      "rnKey": "modelsPrompts.desc",
+      "value": "描述",
+      "webKeys": ["models.prompts.table.description", "models.prompts.form.description"],
+      "webHits": [
+        {
+          "key": "models.prompts.table.description"
+        },
+        {
+          "key": "models.prompts.form.description"
+        }
+      ],
+      "action": "human",
+      "targetKey": null,
+      "owner": "web-rn-copy",
+      "expires": "2026-12-31",
+      "reason": "「描述」在 RN 同时出现在提示词表格列头与编辑表单标签,web 对应 table.description(列头)与 form.description(表单标签),两处角色不同,需人读确定 RN 调用点归属"
+    },
+    {
+      "file": "models/prompts",
+      "rn": "apps/mobile-rn/src/screens/ModelsPromptsScreen.tsx",
+      "rnLine": 79,
+      "rnKey": "modelsPrompts.updated",
+      "value": "更新时间",
+      "webKeys": ["models.prompts.table.updatedAt"],
+      "webHits": [
+        {
+          "key": "models.prompts.table.updatedAt"
+        }
+      ],
+      "action": "merge",
+      "targetKey": "models.prompts.table.updatedAt",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "settings/authorizations",
+      "rn": "apps/mobile-rn/src/screens/SecurityCenterScreen.tsx",
+      "rnLine": 280,
+      "rnKey": "securityCenter.sessions.revokeTitle",
+      "value": "撤销会话",
+      "webKeys": ["settings.revokeAuth"],
+      "webHits": [
+        {
+          "key": "settings.revokeAuth",
+          "file": "apps/web/app/(main)/settings/authorizations/page.tsx",
+          "line": 177
+        }
+      ],
+      "action": "merge",
+      "targetKey": "settings.revokeAuth",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "settings/authorizations",
+      "rn": "apps/mobile-rn/src/screens/SecurityCenterScreen.tsx",
+      "rnLine": 469,
+      "rnKey": "securityCenter.sessions.empty",
+      "value": "暂无活跃会话",
+      "webKeys": ["settings.noAuthorizations"],
+      "webHits": [
+        {
+          "key": "settings.noAuthorizations",
+          "file": "apps/web/app/(main)/settings/authorizations/page.tsx",
+          "line": 167
+        }
+      ],
+      "action": "merge",
+      "targetKey": "settings.noAuthorizations",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "settings/authorizations",
+      "rn": "apps/mobile-rn/src/screens/SecurityCenterScreen.tsx",
+      "rnLine": 475,
+      "rnKey": "securityCenter.sessions.createdAt",
+      "value": "登录时间",
+      "webKeys": ["settings.authorizedAt"],
+      "webHits": [
+        {
+          "key": "settings.authorizedAt",
+          "file": "apps/web/app/(main)/settings/authorizations/page.tsx",
+          "line": 174
+        }
+      ],
+      "action": "merge",
+      "targetKey": "settings.authorizedAt",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "settings/authorizations",
+      "rn": "apps/mobile-rn/src/screens/SecurityCenterScreen.tsx",
+      "rnLine": 478,
+      "rnKey": "securityCenter.sessions.expiresAt",
+      "value": "过期时间",
+      "webKeys": ["settings.sessionExpiresAt"],
+      "webHits": [
+        {
+          "key": "settings.sessionExpiresAt",
+          "file": "apps/web/app/(main)/settings/authorizations/page.tsx",
+          "line": 175
+        }
+      ],
+      "action": "merge",
+      "targetKey": "settings.sessionExpiresAt",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "ai-skills",
+      "rn": "apps/mobile-rn/src/screens/AiSkillScreen.tsx",
+      "rnLine": 85,
+      "rnKey": "aiSkill.detail",
+      "value": "查看详情",
+      "webKeys": ["aiSkillsPage.viewDetail"],
+      "webHits": [
+        {
+          "key": "aiSkillsPage.viewDetail",
+          "file": "apps/web/app/(main)/ai-skills/PageClient.tsx",
+          "line": 444
+        }
+      ],
+      "action": "merge",
+      "targetKey": "aiSkillsPage.viewDetail",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "ai-skills",
+      "rn": "apps/mobile-rn/src/screens/AiSkillScreen.tsx",
+      "rnLine": 221,
+      "rnKey": "aiSkill.importButton",
+      "value": "导入",
+      "webKeys": ["aiSkillDetail.importBtn", "aiSkillsPage.importConfirm"],
+      "webHits": [
+        {
+          "key": "aiSkillDetail.importBtn",
+          "file": "apps/web/app/(main)/ai-skills/PageClient.tsx",
+          "line": 210
+        },
+        {
+          "key": "aiSkillsPage.importConfirm",
+          "file": "apps/web/app/(main)/ai-skills/PageClient.tsx",
+          "line": 357
+        }
+      ],
+      "action": "merge",
+      "targetKey": "aiSkillDetail.importBtn",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": "同屏同角色,存在 2 个同值 web 键,按调用点上下文选 aiSkillDetail.importBtn"
+    },
+    {
+      "file": "ai-skills/[id]",
+      "rn": "apps/mobile-rn/src/screens/AiSkillDetailScreen.tsx",
+      "rnLine": 170,
+      "rnKey": "aiSkillDetail.exportFailed",
+      "value": "导出失败",
+      "webKeys": ["aiSkillDetail.exportError"],
+      "webHits": [
+        {
+          "key": "aiSkillDetail.exportError",
+          "file": "apps/web/app/(main)/ai-skills/[id]/PageClient.tsx",
+          "line": 272
+        }
+      ],
+      "action": "merge",
+      "targetKey": "aiSkillDetail.exportError",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "articles/edit",
+      "rn": "apps/mobile-rn/src/screens/ArticleEditScreen.tsx",
+      "rnLine": 138,
+      "rnKey": "articleEdit.articleTitle",
+      "value": "标题",
+      "webKeys": ["articles.titleField"],
+      "webHits": [
+        {
+          "key": "articles.titleField",
+          "file": "apps/web/app/(main)/articles/edit/ArticleEditForm.tsx",
+          "line": 65
+        }
+      ],
+      "action": "merge",
+      "targetKey": "articles.titleField",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "articles/edit",
+      "rn": "apps/mobile-rn/src/screens/ArticleEditScreen.tsx",
+      "rnLine": 158,
+      "rnKey": "articleEdit.summary",
+      "value": "摘要",
+      "webKeys": ["articles.summaryField"],
+      "webHits": [
+        {
+          "key": "articles.summaryField",
+          "file": "apps/web/app/(main)/articles/edit/ArticleEditForm.tsx",
+          "line": 75
+        }
+      ],
+      "action": "merge",
+      "targetKey": "articles.summaryField",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "articles/edit",
+      "rn": "apps/mobile-rn/src/screens/ArticleEditScreen.tsx",
+      "rnLine": 171,
+      "rnKey": "articleEdit.category",
+      "value": "分类",
+      "webKeys": ["articles.categoryField"],
+      "webHits": [
+        {
+          "key": "articles.categoryField",
+          "file": "apps/web/app/(main)/articles/edit/ArticleEditForm.tsx",
+          "line": 95
+        }
+      ],
+      "action": "merge",
+      "targetKey": "articles.categoryField",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "business-card/edit",
+      "rn": "apps/mobile-rn/src/screens/BusinessCardEditScreen.tsx",
+      "rnLine": 282,
+      "rnKey": "businessCardEdit.pageTitleEdit",
+      "value": "编辑名片",
+      "webKeys": ["businessCardEditPage.editTitle"],
+      "webHits": [
+        {
+          "key": "businessCardEditPage.editTitle",
+          "file": "apps/web/app/(main)/business-card/edit/PageClient.tsx",
+          "line": 166
+        }
+      ],
+      "action": "merge",
+      "targetKey": "businessCardEditPage.editTitle",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "business-card/edit",
+      "rn": "apps/mobile-rn/src/screens/BusinessCardEditScreen.tsx",
+      "rnLine": 332,
+      "rnKey": "businessCardEdit.introLabel",
+      "value": "简介",
+      "webKeys": ["businessCardEditPage.bioLabel"],
+      "webHits": [
+        {
+          "key": "businessCardEditPage.bioLabel",
+          "file": "apps/web/app/(main)/business-card/edit/PageClient.tsx",
+          "line": 214
+        }
+      ],
+      "action": "merge",
+      "targetKey": "businessCardEditPage.bioLabel",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "checkin",
+      "rn": "apps/mobile-rn/src/screens/CheckinAssistantScreen.tsx",
+      "rnLine": 228,
+      "rnKey": "checkinAssistant.enable",
+      "value": "启用",
+      "webKeys": ["checkin.colEnabled"],
+      "webHits": [
+        {
+          "key": "checkin.colEnabled",
+          "file": "apps/web/app/(main)/checkin/page.tsx",
+          "line": 2163
+        }
+      ],
+      "action": "merge",
+      "targetKey": "checkin.colEnabled",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "checkin",
+      "rn": "apps/mobile-rn/src/screens/CheckinAssistantScreen.tsx",
+      "rnLine": 247,
+      "rnKey": "checkinAssistant.addTitle",
+      "value": "添加账号",
+      "webKeys": ["checkin.addAccount"],
+      "webHits": [
+        {
+          "key": "checkin.addAccount",
+          "file": "apps/web/app/(main)/checkin/page.tsx",
+          "line": 1954
+        }
+      ],
+      "action": "merge",
+      "targetKey": "checkin.addAccount",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "circles",
+      "rn": "apps/mobile-rn/src/screens/CircleIndexScreen.tsx",
+      "rnLine": 254,
+      "rnKey": "circle.index.pageTitle",
+      "value": "圈子",
+      "webKeys": ["circles.title"],
+      "webHits": [
+        {
+          "key": "circles.title",
+          "file": "apps/web/app/(main)/circles/PageClient.tsx",
+          "line": 53
+        }
+      ],
+      "action": "merge",
+      "targetKey": "circles.title",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "edu-ai/video-compose",
+      "rn": "apps/mobile-rn/src/screens/EduAiVideoComposeScreen.tsx",
+      "rnLine": 117,
+      "rnKey": "eduAiPage.videoError",
+      "value": "编排失败",
+      "webKeys": ["eduAi.video.error"],
+      "webHits": [
+        {
+          "key": "eduAi.video.error",
+          "file": "apps/web/app/(main)/edu-ai/video-compose/page.tsx",
+          "line": 355
+        }
+      ],
+      "action": "merge",
+      "targetKey": "eduAi.video.error",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "knowledge-cards",
+      "rn": "apps/mobile-rn/src/screens/KnowledgeRagManageScreen.tsx",
+      "rnLine": 143,
+      "rnKey": "knowledgeRagManage.confirm",
+      "value": "删除",
+      "webKeys": ["knowledgeCard.delete"],
+      "webHits": [
+        {
+          "key": "knowledgeCard.delete",
+          "file": "apps/web/app/(main)/knowledge-cards/page.tsx",
+          "line": 369
+        }
+      ],
+      "action": "merge",
+      "targetKey": "knowledgeCard.delete",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "plaza/new",
+      "rn": "apps/mobile-rn/src/screens/PlazaNewScreen.tsx",
+      "rnLine": 175,
+      "rnKey": "plazaNew.submit",
+      "value": "发布需求",
+      "webKeys": ["plazaNew.title"],
+      "webHits": [
+        {
+          "key": "plazaNew.title",
+          "file": "apps/web/app/(main)/plaza/new/page.tsx",
+          "line": 70
+        }
+      ],
+      "action": "exempt",
+      "targetKey": null,
+      "owner": "web-rn-copy",
+      "expires": "2026-12-31",
+      "reason": "角色不同:RN「发布需求」是提交按钮,web plazaNew.title 是页面标题;按钮与标题不可合并"
+    },
+    {
+      "file": "plaza/new",
+      "rn": "apps/mobile-rn/src/screens/PlazaNewScreen.tsx",
+      "rnLine": 146,
+      "rnKey": "plazaNew.contact",
+      "value": "联系方式",
+      "webKeys": ["plazaNew.contactLabel"],
+      "webHits": [
+        {
+          "key": "plazaNew.contactLabel",
+          "file": "apps/web/app/(main)/plaza/new/page.tsx",
+          "line": 122
+        }
+      ],
+      "action": "merge",
+      "targetKey": "plazaNew.contactLabel",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "wallet/recharge",
+      "rn": "apps/mobile-rn/src/screens/PurchaseScreen.tsx",
+      "rnLine": 402,
+      "rnKey": "purchase.orderNo",
+      "value": "订单号",
+      "webKeys": ["wallet.rechargeOrderNo"],
+      "webHits": [
+        {
+          "key": "wallet.rechargeOrderNo",
+          "file": "apps/web/app/(main)/wallet/recharge/fail/PageClient.tsx",
+          "line": 32
+        }
+      ],
+      "action": "merge",
+      "targetKey": "wallet.rechargeOrderNo",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "workflows/instances/[id]",
+      "rn": "apps/mobile-rn/src/screens/WorkflowInstanceDetailScreen.tsx",
+      "rnLine": 55,
+      "rnKey": "workflowsPage.instanceNotFound",
+      "value": "实例不存在",
+      "webKeys": ["workflows.instanceDetail.notFound"],
+      "webHits": [
+        {
+          "key": "workflows.instanceDetail.notFound"
+        }
+      ],
+      "action": "merge",
+      "targetKey": "workflows.instanceDetail.notFound",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "workspace/[id]",
+      "rn": "apps/mobile-rn/src/screens/AiWorkspaceProjectScreen.tsx",
+      "rnLine": 328,
+      "rnKey": "aiWorkspace.convertFailed",
+      "value": "转换失败",
+      "webKeys": ["workspace.convertMarkdownFailed"],
+      "webHits": [
+        {
+          "key": "workspace.convertMarkdownFailed",
+          "file": "apps/web/app/(main)/workspace/[id]/PageClient.tsx",
+          "line": 129
+        }
+      ],
+      "action": "merge",
+      "targetKey": "workspace.convertMarkdownFailed",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "settings/devices",
+      "rn": "apps/mobile-rn/src/screens/DevicesScreen.tsx",
+      "rnLine": 154,
+      "rnKey": "devices.revokeTitle",
+      "value": "撤销设备",
+      "webKeys": ["settings.devices.revokeConfirmTitle"],
+      "webHits": [
+        {
+          "key": "settings.devices.revokeConfirmTitle"
+        }
+      ],
+      "action": "merge",
+      "targetKey": "settings.devices.revokeConfirmTitle",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "settings/devices",
+      "rn": "apps/mobile-rn/src/screens/DevicesScreen.tsx",
+      "rnLine": 411,
+      "rnKey": "devices.taskCreatedAt",
+      "value": "创建时间",
+      "webKeys": ["settings.devices.taskColCreated"],
+      "webHits": [
+        {
+          "key": "settings.devices.taskColCreated"
+        }
+      ],
+      "action": "merge",
+      "targetKey": "settings.devices.taskColCreated",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "settings/devices",
+      "rn": "apps/mobile-rn/src/screens/DevicesScreen.tsx",
+      "rnLine": 413,
+      "rnKey": "devices.taskFinishedAt",
+      "value": "结束时间",
+      "webKeys": ["settings.devices.taskColFinished"],
+      "webHits": [
+        {
+          "key": "settings.devices.taskColFinished"
+        }
+      ],
+      "action": "merge",
+      "targetKey": "settings.devices.taskColFinished",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "edu/attendance",
+      "rn": "apps/mobile-rn/src/screens/EduMyAttendanceScreen.tsx",
+      "rnLine": 121,
+      "rnKey": "eduMyAttendance.title",
+      "value": "我的考勤",
+      "webKeys": ["eduAttendance.studentPageTitle"],
+      "webHits": [
+        {
+          "key": "eduAttendance.studentPageTitle",
+          "file": "apps/web/app/(main)/edu/attendance/PageClient.tsx",
+          "line": 97
+        }
+      ],
+      "action": "merge",
+      "targetKey": "eduAttendance.studentPageTitle",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "edu/attendance",
+      "rn": "apps/mobile-rn/src/screens/EduMyAttendanceScreen.tsx",
+      "rnLine": 155,
+      "rnKey": "eduAttendance.statusTitle",
+      "value": "状态",
+      "webKeys": ["eduAttendance.status"],
+      "webHits": [
+        {
+          "key": "eduAttendance.status",
+          "file": "apps/web/app/(main)/edu/attendance/SelfAttendanceTable.tsx",
+          "line": 56
+        }
+      ],
+      "action": "merge",
+      "targetKey": "eduAttendance.status",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "edu/edu-management/attendance",
+      "rn": "apps/mobile-rn/src/screens/EduAttendanceQrScreen.tsx",
+      "rnLine": 215,
+      "rnKey": "eduAttendanceQr.chooseClass",
+      "value": "选择班级",
+      "webKeys": ["eduAttendance.selectClass"],
+      "webHits": [
+        {
+          "key": "eduAttendance.selectClass",
+          "file": "apps/web/app/(main)/edu/edu-management/attendance/ClassSelect.tsx",
+          "line": 51
+        }
+      ],
+      "action": "merge",
+      "targetKey": "eduAttendance.selectClass",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    },
+    {
+      "file": "edu/edu-management/attendance",
+      "rn": "apps/mobile-rn/src/screens/EduAttendanceQrScreen.tsx",
+      "rnLine": 313,
+      "rnKey": "eduAttendanceQr.scanTitle",
+      "value": "扫码签到",
+      "webKeys": ["eduAttendance.qrPanelTitle"],
+      "webHits": [
+        {
+          "key": "eduAttendance.qrPanelTitle",
+          "file": "apps/web/app/(main)/edu/edu-management/attendance/CheckInQrPanel.tsx",
+          "line": 106
+        }
+      ],
+      "action": "merge",
+      "targetKey": "eduAttendance.qrPanelTitle",
+      "owner": "web-rn-copy",
+      "expires": null,
+      "reason": null
+    }
+  ]
+}
