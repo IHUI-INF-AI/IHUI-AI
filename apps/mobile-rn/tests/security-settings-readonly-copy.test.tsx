@@ -167,12 +167,23 @@ describe('安全设置屏只读提示:不得对用户说"后端不支持修改"'
     const control = render(
       createElement(SharedSecuritySettingsScreen, {
         t: shellT,
-        settings: SETTINGS,
+        sections: [
+          {
+            key: 'security',
+            items: (['passwordEnabled', 'biometricEnabled', 'twoFactorEnabled', 'loginAlert'] as const).map(
+              (key) => ({
+                key,
+                label: shellT(`securitySettings.${key.replace(/Enabled$/, '')}`),
+                value: SETTINGS[key],
+                onToggle: vi.fn(),
+              }),
+            ),
+          },
+        ],
         loading: false,
         error: '',
-        onToggle: vi.fn(),
         onBack: () => {},
-      }),
+      } as unknown as Parameters<typeof SharedSecuritySettingsScreen>[0]),
     )
     expect(control.container.querySelectorAll('input[type="checkbox"]')).toHaveLength(4)
     expect(

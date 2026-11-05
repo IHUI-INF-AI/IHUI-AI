@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTheme } from '../context/ThemeContext'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
@@ -10,6 +10,7 @@ import { fetchApi } from '@ihui/api-client'
 import {
   SecuritySettingsScreen as SharedSecuritySettingsScreen,
   type SecuritySettingsItem,
+  type SecuritySettingsSection,
 } from '@ihui/rn-app'
 import type { LooseNavigation } from '../host/use-host-ports'
 import { useI18n } from '../i18n'
@@ -78,14 +79,45 @@ export function SecuritySettingsScreen() {
   // 口径提醒:「这条路径无写端点」只约束本页的行内开关,不等于后端整体不支持修改 —— 两步验证
   // 走的是另一条已打通的路(/api/auth/2fa/*,见同端 SecurityCenterScreen)。提示文案点名的是它,
   // 而"点名"要能被走进去:上屏的那一行由 onOpenTwoFactor 注入真实跳转(宿主不在册时为 undefined)。
+  // 端侧数据驱动:RN 交自己的 4 行账号安全读数(小程序端交系统权限 + 本地隐私两组,两端值不同)。
+  // 只读口径不变 —— 这一条路径没有行内写端点,不得注入 onToggle 造"关掉再进来会回原值"的假开关;
+  // 两步验证那行仍按宿主在册屏名注入真实入口(未在册 ⇒ 原样只读)。
+  const sections = useMemo<readonly SecuritySettingsSection[] | null>(() => {
+    if (!settings) return null
+    const stateRow = (key: keyof SecuritySettingsItem, label: string) => ({
+      key,
+      label,
+      stateText: t(settings[key] ? 'securitySettings.stateOn' : 'securitySettings.stateOff'),
+      stateTone: settings[key] ? ('success' as const) : ('muted' as const),
+    })
+    return [
+      {
+        key: 'security',
+        desc: t('securitySettings.desc'),
+        hint: t('securitySettings.readOnlyHint'),
+        items: [
+          stateRow('passwordEnabled', t('securitySettings.password')),
+          stateRow('biometricEnabled', t('securitySettings.biometric')),
+          onOpenTwoFactor
+            ? { ...stateRow('twoFactorEnabled', t('securitySettings.twoFactor')), onPress: onOpenTwoFactor }
+            : stateRow('twoFactorEnabled', t('securitySettings.twoFactor')),
+          stateRow('loginAlert', t('securitySettings.loginAlert')),
+        ],
+      },
+    ]
+  }, [settings, t, onOpenTwoFactor])
+
   return (
     <SharedSecuritySettingsScreen
       t={t}
-      settings={settings}
+      sections={sections}
+      showHeader={true}
+      footerLink={{
+        label: t('privacy.title'),
+        onPress: () => navigation.navigate('Privacy'),
+      }}
       loading={loading}
       error={error}
-      readOnly
-      onOpenTwoFactor={onOpenTwoFactor}
       onBack={() => navigation.goBack()}
       onRetry={reload}
       colorScheme={resolvedTheme}

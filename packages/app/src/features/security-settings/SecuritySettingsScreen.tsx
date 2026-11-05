@@ -7,127 +7,150 @@ import { useMemo } from 'react'
 import { View, Text, Switch, StyleSheet, TouchableOpacity } from 'react-native'
 import { ChevronRight } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
-import type { SecuritySettingsItem, SecuritySettingsScreenProps } from '../../types'
+import type { SecuritySettingsScreenProps } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
 import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 安全设置共享屏 — props 注入式跨端组件 */
-export type { SecuritySettingsItem, SecuritySettingsScreenProps }
+export type { SecuritySettingsItem, SecuritySettingsRow, SecuritySettingsSection } from '../../types'
 
-export function SecuritySettingsScreen({
-  t,
-  settings,
-  loading,
-  error,
-  onToggle,
-  readOnly,
-  onBack,
-  onRetry,
-  onOpenTwoFactor,
-  colorScheme = 'light'
-}: SecuritySettingsScreenProps & { onRetry?: () => void; onOpenTwoFactor?: () => void }) {
+export function SecuritySettingsScreen(props: SecuritySettingsScreenProps & { onRetry?: () => void }) {
+  const { t, sections, loading, error, onBack, onRetry } = props
+  const footerLink = props.footerLink
+  // 页内标题/返回条由端侧决定:小程序隐私页没有 header（showHeader=false），RN 有（true）。
+  const showHeader = props.showHeader ?? true
+  const colorScheme = props.colorScheme ?? 'light'
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
+
+  const header = showHeader ? (
+    <View style={styles.header}>
+      <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
+      <Text style={styles.title}>{t('securitySettings.title')}</Text>
+    </View>
+  ) : null
 
   if (loading) {
     return (
       <View style={styles.container}>
-        <View style={styles.header}>
-          <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
-          <Text style={styles.title}>{t('securitySettings.title')}</Text>
-        </View>
+        {header}
         <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
       </View>
     )
   }
 
-  if (error || !settings) {
+  if (error || !sections || sections.length === 0) {
     return (
       <View style={styles.container}>
-        <View style={styles.header}>
-          <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
-          <Text style={styles.title}>{t('securitySettings.title')}</Text>
-        </View>
+        {header}
         <ErrorState message={error || t('common.empty')} onRetry={onRetry} colorScheme={colorScheme} />
       </View>
     )
   }
 
-  const rows: Array<{ key: keyof SecuritySettingsItem; label: string }> = [
-    { key: 'passwordEnabled', label: t('securitySettings.password') },
-    { key: 'biometricEnabled', label: t('securitySettings.biometric') },
-    { key: 'twoFactorEnabled', label: t('securitySettings.twoFactor') },
-    { key: 'loginAlert', label: t('securitySettings.loginAlert') },
-  ]
-
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
-        <Text style={styles.title}>{t('securitySettings.title')}</Text>
-      </View>
+      {header}
       <View style={styles.body}>
-        <View style={styles.card}>
-          <Text style={styles.desc}>{t('securitySettings.desc')}</Text>
-          {readOnly ? (
-            <Text style={[styles.desc, styles.readOnlyHint]}>
-              {t('securitySettings.readOnlyHint')}
-            </Text>
-          ) : null}
-        </View>
-        <View style={styles.card}>
-          {rows.map((row) => {
-            const label = <Text style={styles.label}>{row.label}</Text>
-            // 只读形态:/user/security 自己只有 GET,这一条路径上四项都没有**行内**写端点,
-            // 故渲染真实状态文字而不是假开关(关掉再进来会回原值的那种)。但"本屏不提供入口"
-            // 不等于"后端不支持修改" —— securitySettings.readOnlyHint 必须点名那个入口,
-            // 不得写成一句概览式的否认(那条文案的反证锁在
-            // apps/mobile-rn/tests/security-settings-readonly-copy.test.tsx)。
-            const stateText = (
-              <Text
-                style={[styles.stateText, { color: settings[row.key] ? tk.success.DEFAULT : tk.text.tertiary }]}
-              >
-                {t(settings[row.key] ? 'securitySettings.stateOn' : 'securitySettings.stateOff')}
-              </Text>
-            )
-            // 「两步验证」的写面在承载端的「安全中心」屏(/api/auth/2fa/*)。宿主注入回调时,
-            // 整行成为真实可点入口(矢量箭头);不与行内开关并存 —— 一行两个意图必有一个是假的。
-            // 不注入(小程序端无该屏 ⇒ 宿主给 undefined)⇒ 下面那一支原样渲染,与注入前逐字一致。
-            const openEntry = row.key === 'twoFactorEnabled' ? onOpenTwoFactor : undefined
-            if (openEntry) {
-              return (
-                <TouchableOpacity
-                  key={row.key}
-                  style={styles.row}
-                  activeOpacity={0.85}
-                  onPress={openEntry}
-                  accessibilityRole="button"
-                  accessibilityLabel={row.label}
-                >
-                  {label}
-                  <View style={styles.rowTrailing}>
-                    {stateText}
-                    <ChevronRight size={rnGeometry.glyphSm} color={tk.text.tertiary} />
-                  </View>
-                </TouchableOpacity>
-              )
-            }
-            return (
-              <View key={row.key} style={styles.row}>
-                {label}
-                {readOnly || !onToggle ? (
-                  stateText
-                ) : (
-                  <Switch
-                    value={settings[row.key]}
-                    onValueChange={(v) => onToggle(row.key, v)}
-                    trackColor={{ false: tk.border.light, true: tk.brand.DEFAULT }}
-                  />
-                )}
+        {sections.map((section) => (
+          <View key={section.key}>
+            {section.title ? <Text style={styles.sectionTitle}>{section.title}</Text> : null}
+            {section.desc || section.hint ? (
+              <View style={styles.card}>
+                {section.desc ? <Text style={styles.desc}>{section.desc}</Text> : null}
+                {section.hint ? (
+                  <Text style={[styles.desc, styles.readOnlyHint]}>{section.hint}</Text>
+                ) : null}
               </View>
-            )
-          })}
-        </View>
+            ) : null}
+            <View style={styles.card}>
+              {section.items.map((row) => {
+                const label = <Text style={styles.label}>{row.label}</Text>
+                const desc = row.desc ? <Text style={styles.rowDesc}>{row.desc}</Text> : null
+                // 只读形态渲染真实读数,绝不造"关掉再进来会回原值"的假开关;色调由端侧给。
+                const tone =
+                  row.stateTone === 'success'
+                    ? tk.success.DEFAULT
+                    : row.stateTone === 'danger'
+                      ? tk.danger.DEFAULT
+                      : tk.text.tertiary
+                const stateText = (
+                  <Text style={[styles.stateText, { color: tone }]}>{row.stateText ?? ''}</Text>
+                )
+                if (row.action) {
+                  return (
+                    <View key={row.key} style={styles.row}>
+                      <View style={styles.rowMain}>
+                        {label}
+                        {desc}
+                      </View>
+                      {stateText}
+                      <TouchableOpacity
+                        style={styles.actionBtn}
+                        onPress={row.action.onPress}
+                        accessibilityRole="button"
+                      >
+                        <Text style={styles.actionText}>{row.action.label}</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )
+                }
+                // 整行入口(如「两步验证」→ 端内安全中心):一行只留一个意图,不与开关并存。
+                if (row.onPress) {
+                  return (
+                    <TouchableOpacity
+                      key={row.key}
+                      style={styles.row}
+                      activeOpacity={0.85}
+                      onPress={row.onPress}
+                      accessibilityRole="button"
+                      accessibilityLabel={row.label}
+                    >
+                      {label}
+                      <View style={styles.rowTrailing}>
+                        {stateText}
+                        <ChevronRight size={rnGeometry.glyphSm} color={tk.text.tertiary} />
+                      </View>
+                    </TouchableOpacity>
+                  )
+                }
+                if (row.onToggle) {
+                  return (
+                    <View key={row.key} style={styles.row}>
+                      <View style={styles.rowMain}>
+                        {label}
+                        {desc}
+                      </View>
+                      <Switch
+                        value={row.value}
+                        onValueChange={row.onToggle}
+                        trackColor={{ false: tk.border.light, true: tk.brand.DEFAULT }}
+                      />
+                    </View>
+                  )
+                }
+                return (
+                  <View key={row.key} style={styles.row}>
+                    <View style={styles.rowMain}>
+                      {label}
+                      {desc}
+                    </View>
+                    {stateText}
+                  </View>
+                )
+              })}
+            </View>
+          </View>
+        ))}
+        {footerLink ? (
+          <TouchableOpacity
+            style={styles.footerLink}
+            onPress={footerLink.onPress}
+            accessibilityRole="button"
+          >
+            <Text style={styles.footerLinkText}>{footerLink.label}</Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
     </View>
   )
@@ -156,6 +179,24 @@ function createStyles(tk: AppThemeTokens) {
     desc: { ...rnType.body, color: tk.text.secondary },
     readOnlyHint: { marginTop: rnSpacing.sm, color: tk.text.tertiary },
     stateText: { ...rnType.body, fontWeight: '600' },
+    sectionTitle: {
+      ...rnType.label,
+      color: tk.text.secondary,
+      marginBottom: rnSpacing.sm,
+    },
+    rowMain: { flexShrink: 1, gap: rnSpacing.xs },
+    rowDesc: { ...rnType.caption, color: tk.text.tertiary },
+    actionBtn: {
+      paddingHorizontal: rnSpacing.md,
+      paddingVertical: rnSpacing.xs,
+      borderRadius: rnRadius.md,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      flexShrink: 0,
+    },
+    actionText: { ...rnType.caption, color: tk.brand.DEFAULT },
+    footerLink: { alignItems: 'center', paddingVertical: rnSpacing.lg },
+    footerLinkText: { ...rnType.body, color: tk.brand.DEFAULT },
     row: {
       flexDirection: 'row',
       alignItems: 'center',
