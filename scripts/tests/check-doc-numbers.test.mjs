@@ -80,10 +80,11 @@ test('T1 装车证明:runner(HEAD 面)里有本门条目,blocking + skipEnv + st
   if (!entry) throw new Error('runner 里没有 check-doc-numbers.mjs 的注册块 ⇒ 门未装车')
   if (!/mode:\s*'blocking'/.test(entry)) throw new Error(`条目不是 blocking:${entry.slice(0, 200)}`)
   if (!/skipEnv:\s*'HUSKY_SKIP_DOC_NUMBERS'/.test(entry)) throw new Error(`条目缺 skipEnv:${entry.slice(0, 200)}`)
-  // stagedTriggers 必须点名两份被审文档 —— 没有它,本门会在**每一次**普通提交上追
-  // trackedFiles 这类必漂的数字,当场长成恒红门(§12e;门体自身还有 S21 的第二道收窄)。
-  if (!/stagedTriggers:\s*\[[^\]]*'README\.md'[^\]]*'README\.en\.md'/.test(entry))
-    throw new Error(`注册条目缺 stagedTriggers=['README.md','README.en.md']:${entry.slice(0, 300)}`)
+  // stagedTriggers 必须覆盖**任何**提交路径 —— DN5 清单不变式(2026-11-05)要看"本轮有没有
+  // A/D/R/C",只在 README 两篇触发时它永远看不见"只加文件、没碰 README"的那一枚(224b4b020f 现场)。
+  // 门体自身仍用 DN4 收窄"块内必漂数字"的判责时机,不会长成恒红门(§12e;门内 S21 第二道收窄)。
+  if (!/stagedTriggers:\s*\[\s*'\*\*\/\*'\s*\]/.test(entry))
+    throw new Error(`注册条目缺少全路径 stagedTriggers(['**/*']):${entry.slice(0, 300)}`)
   // "注册在位而门体文件不在"(§12f):干净检出上 runner 会派生一个不存在的脚本并崩掉整批门。
   // 判据是**存在性**(ls-tree 枚举,不读内容,不算散写取材)。本门体不存在 ⇒ 本测试红 ⇒ 判死。
   // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
@@ -242,13 +243,20 @@ test('T7 判责时机端到端:未触及 README 的轮次漂移只报数(exit 0)
     mkReadmes('head') // 重算使块与"README 已在面里"的状态一致
     git(s, 'add', '--', 'README.md', 'README.en.md')
     git(s, 'commit', '-q', '-m', 'docs: sync generated block')
-    // ① 只往索引加一个无关新文件(README 分毫未动)⇒ --staged 必须 exit 0 且喊"不问责 + 漂移只报数"
+    // ① 只改一个既有文件的内容(文件清单未变、README 分毫未动)⇒ --staged 必须 exit 0 且喊"不问责 + 漂移只报数"
+    writeFileSync(`${s}/apps/api/src/routes/a.ts`, "server.get('/x', () => {})\n// touch\n")
+    git(s, 'add', '--', 'apps/api/src/routes/a.ts')
+    const idle = run(s, ['--staged', '--root', s])
+    if (idle.code !== 0) throw new Error(`未触及 README 且清单未变的轮次不得判红(恒红门同罪):\n${idle.stdout}${idle.stderr}`)
+    if (!/不问责/.test(idle.stdout)) throw new Error(`必须明说本轮为什么不判:\n${idle.stdout}`)
+    if (!/漂移/.test(idle.stdout)) throw new Error(`${idle.stdout}`)
+    // ①b DN5:只往索引加一个无关新文件(README 分毫未动)⇒ 清单变化 + 块未刷新 ⇒ **必红**
     writeFileSync(`${s}/extra.ts`, 'export const x = 1\n')
     git(s, 'add', '--', 'extra.ts')
-    const idle = run(s, ['--staged', '--root', s])
-    if (idle.code !== 0) throw new Error(`未触及 README 的轮次不得判红(恒红门同罪):\n${idle.stdout}${idle.stderr}`)
-    if (!/不问责/.test(idle.stdout)) throw new Error(`必须明说本轮为什么不判:\n${idle.stdout}`)
-    if (!/漂移/.test(idle.stdout)) throw new Error(`trackedFiles 已漂 ⇒ 必须如实报漂移数,不得静默:\n${idle.stdout}`)
+    const dn5 = run(s, ['--staged', '--root', s])
+    if (dn5.code !== 1) throw new Error(`清单变化而块未刷新应 exit 1(DN5),实得 ${dn5.code}\n${dn5.stdout}`)
+    if (!/trackedFiles/.test(dn5.stdout)) throw new Error(`未点名 trackedFiles:\n${dn5.stdout}`)
+    git(s, 'reset', '-q', '--', 'extra.ts')
     // ② 现在改 README 并写旧数 ⇒ 同一轮必红且点名
     writeFileSync(`${s}/README.md`, `本项目 542 张表。\n\n${gen.toMarkdown(gen.collectNumbers({ root: s, face: 'head' }))}\n`)
     git(s, 'add', '--', 'README.md')

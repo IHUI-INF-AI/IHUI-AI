@@ -37,11 +37,16 @@
  *       没给输入 ⇒ 计「未判定」并点名(默认不影响退出码,`--strict` 下影响)。
  *       为什么刻意不做成默认必判:提交链里调 `gh api` = 每台每次联网,离线即恒红 ⇒ 逼人
  *       `--no-verify` 连带废掉全部守门(AGENTS §12e 同型)。
+ *   DN5 清单不变式(2026-11-05)—— 本轮引入 A/D/R/C(新增/删除/改名/复制)⇒ README.md 生成块的
+ *       `trackedFiles` 必须等于现算值,否则红并点名重跑命令。**独立于"是否触及 README"**:
+ *       旧机制只在"本轮碰了生成块"时整块重算,于是"改文件清单但不碰 README"的提交
+ *       (279875ba85 定格 / 224b4b020f −2)全绿。清单未变的轮次只报数(防恒红,§12e)。
  *
  * 判责时机(DN4,本门的防恒红设计):块里多数数字(`trackedFiles`/`apiRoutes`/`testFiles`…)随
  *   **每一次**普通提交漂移,若任何提交都必须同步重算块,本门就在与提交内容无关处恒红 —— 唯一
  *   结局是各会话合法 `--no-verify`,连带废掉全部守门(§12e)。所以注册条目带
- *   `stagedTriggers: ['README.md', 'README.en.md']`,而门体自身再收一道(纵深防御,防手工直跑):
+ *   `stagedTriggers` = 全路径通配(2026-11-05 由 README 两篇放宽,为 DN5 的射程),
+ *   而门体自身再收一道(纵深防御,防手工直跑):
  *   `--staged`/全量档先问"被审文档本轮是否被改动"(`touchedAuditedDocs`),未改动 ⇒ 漂移只报数
  *   exit 0;改动了 ⇒ `--staged` 档走**行级差值棘轮**(只判本轮新增/改写的声明行,HEAD 面存量
  *   只报数),全量档(HEAD 面)与 `--strict`(问责档,`pnpm check:doc-numbers` 走这档)、
@@ -528,6 +533,79 @@ export function checkDescription(text, numbers) {
 }
 
 /**
+ * DN5 清单不变式(2026-11-05,补机制欠账)。
+ *
+ * 现场(可复现):`279875ba85` 把 trackedFiles 定格、`224b4b020f` 删了 2 个跟踪文件,两次都没重跑
+ * 生成器,门却全绿。根因不是"门读的源与生成器不一致"(两侧都走 `face.list('')` = git 清单,
+ * 同源),而是**判责时机**:DN1 的块级棘轮只在"本轮碰过生成块"时整块重算;注册条目的
+ * `stagedTriggers` 又只盯 README 两篇 —— 于是"只改文件清单、不碰 README"的提交既不触发行,
+ * 块内 trackedFiles 过期也只落进"存量只报数"。
+ *
+ * 补法(取"清单变化轮次必红",不取"每次提交都重算块"):
+ *   本轮引入 A/D/R/C(新增/删除/改名/复制)⇒ README.md 生成块的 `trackedFiles` 必须等于现算值;
+ *   否则点名并给出重跑命令。本轮清单未变 ⇒ 只报数(否则每次普通提交都在与内容无关处恒红,§12e)。
+ *   配套把注册条目的 `stagedTriggers` 放宽到全路径通配,让门在**任何**提交上都有机会看见清单变化。
+ */
+export function inventoryChanged(root, face) {
+  if (face === 'worktree') return null
+  const args =
+    face === 'staged'
+      ? ['diff', '--cached', '--name-status', 'HEAD']
+      : ['diff', '--name-status', 'HEAD^', 'HEAD']
+  let out
+  try {
+    out = gitRaw(args, root, { timeout: 120000 })
+  } catch (e) {
+    // 根提交(无 HEAD^):全部路径都是本轮引入 ⇒ 按"清单变化"处理,而不是判未判定
+    if (e instanceof Undetermined && e.status === 1) return { total: 0, changed: ['<root-commit>'], rootCommit: true }
+    throw e
+  }
+  const rows = out
+    .split(/\r?\n/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+  const changed = rows.filter((r) => /^[ADRC]\t/.test(r) || /^[ADRC]\s/.test(r))
+  return { total: rows.length, changed, rootCommit: false }
+}
+
+/** 从 README 生成块里取 `trackedFiles` 的登记值;块缺失/该行缺失 ⇒ null(不猜)。 */
+export function readBlockTrackedFiles(text) {
+  if (typeof text !== 'string') return null
+  const b = text.indexOf(BLOCK_BEGIN)
+  const e = text.indexOf(BLOCK_END)
+  if (b < 0 || e < b) return null
+  const row = new RegExp(`\\|\\s*[^|]*\\|\\s*([\\d,]+)\\s*\\|\\s*\`trackedFiles\`\\s*\\|`).exec(text.slice(b, e))
+  return row ? toInt(row[1]) : null
+}
+
+/**
+ * 纯函数:清单变化轮次的 trackedFiles 对账。applicable=false ⇒ 本轮不涉清单,只报数。
+ * 无 README 块或块里没有该行 ⇒ 红(清单变了却无对账对象,不能当"一致")。
+ */
+export function judgeTrackedInventory({ docText, numbers, inventory }) {
+  if (!inventory) return { applicable: false, ok: true, problems: [], note: 'worktree 面不判清单不变式(人工面全判已含 DN1)' }
+  if (inventory.changed.length === 0)
+    return { applicable: false, ok: true, problems: [], note: '本轮文件清单未变化(A/D/R/C=0)⇒ trackedFiles 不单独判' }
+  const got = readBlockTrackedFiles(docText)
+  if (got === null)
+    return {
+      applicable: true,
+      ok: false,
+      problems: ['README.md 生成块里取不到 `trackedFiles` 行 ⇒ 本轮改了文件清单却无对账对象(跑 node scripts/gen-doc-numbers.mjs --markdown)'],
+    }
+  const want = numbers.trackedFiles
+  if (got !== want)
+    return {
+      applicable: true,
+      ok: false,
+      problems: [
+        `生成块 \`trackedFiles\` = ${got},现算 ${want}(本轮新增/删除/改名/复制 ${inventory.changed.length} 个路径)⇒ 跑 node scripts/gen-doc-numbers.mjs --markdown 刷新块`,
+      ],
+    }
+  return { applicable: true, ok: true, problems: [], note: `清单变化 ${inventory.changed.length} 个路径,trackedFiles 已同步(${want})` }
+}
+
+/**
  * 被审文档在"本轮判定"里是否真的被改动(只列路径,不读内容 —— 与 `cat-file` 不同,这是枚举)。
  *   staged:索引 vs HEAD(`git diff --cached`);HEAD 取不到(仓库无提交)⇒ 全算被触及。
  *   head   :HEAD vs HEAD^(merge 比第一父即可);HEAD^ 取不到(根提交)⇒ 全算被触及。
@@ -848,6 +926,33 @@ export function selfTest() {
       blockTouchedByRound(s26doc, new Set([3])) === true &&
       blockTouchedByRound(s26doc, null) === true,
   )
+  // S27 DN5 清单不变式(2026-11-05):清单变化轮次必判 trackedFiles;未变只报数(防恒红)。
+  const s27doc = (v) => `x\n${BLOCK_BEGIN}\n| 跟踪文件 | ${v} | \`trackedFiles\` |\n${BLOCK_END}\ny\n`
+  const s27nums = { ...numbers, trackedFiles: 19095 }
+  ok(
+    'S27a 清单变化 + 块里旧值 ⇒ 红并点名重跑命令',
+    judgeTrackedInventory({ docText: s27doc(19099), numbers: s27nums, inventory: { changed: ['A a.ts', 'D b.ts'] } }).ok === false,
+  )
+  ok(
+    'S27b 清单变化 + 块里现算值 ⇒ 绿',
+    judgeTrackedInventory({ docText: s27doc(19095), numbers: s27nums, inventory: { changed: ['A a.ts'] } }).ok === true,
+  )
+  ok(
+    'S27c 清单未变(只改文件内容)⇒ 不判(只报数),块过期也不红',
+    judgeTrackedInventory({ docText: s27doc(19099), numbers: s27nums, inventory: { changed: [] } }).applicable === false,
+  )
+  ok(
+    'S27d 清单变了但块里没有该行 ⇒ 红(无对账对象不等于一致)',
+    judgeTrackedInventory({ docText: 'x', numbers: s27nums, inventory: { changed: ['A a.ts'] } }).ok === false,
+  )
+  ok(
+    'S27e worktree 面不判清单不变式(人工面全判已含 DN1)',
+    judgeTrackedInventory({ docText: s27doc(19099), numbers: s27nums, inventory: null }).applicable === false,
+  )
+  ok(
+    'S27f readBlockTrackedFiles 只认生成块内的行,块外同形文本不冒充',
+    readBlockTrackedFiles(`${s27doc(19095)}| 跟踪文件 | 1 | \`trackedFiles\` |\n`) === 19095,
+  )
   console.log(`\n自检:pass ${pass} / fail ${fail}`)
   return fail === 0 ? 0 : 1
 }
@@ -905,6 +1010,19 @@ function main(argv) {
     return 2
   }
   const plan = planAccountability({ face, touched, strict })
+  // DN5 清单不变式(2026-11-05):**独立于**"是否触及 README"判责 —— 本轮改了文件清单
+  // (A/D/R/C)就必须让生成块的 trackedFiles 跟上,否则正是 224b4b020f 那一型(删了文件、
+  // 没碰 README、门全绿)。取不到清单变化 ⇒ exit 2,不猜。
+  let inventory = null
+  try {
+    inventory = inventoryChanged(root, face)
+  } catch (e) {
+    console.error(`❌ 无法判定(责任清单变化取不到):${e instanceof Undetermined ? e.message : e?.message ?? e}`)
+    return 2
+  }
+  const inv = judgeTrackedInventory({ docText: docsText.get('README.md') ?? '', numbers: derived.numbers, inventory })
+  const dn5Problems = inv.ok ? [] : inv.problems
+  if (inv.applicable) candidates += 1
   // 按**文档**分别问责:strict/worktree 面全判;提交链面只判"本轮被触及的那份" ——
   // 否则改 zh 的那枚会为 en 的旧账挡路(别人欠的债钉红无关提交,§12e 同型),
   // 未触及文档的偏差如实计入"漂移只报数",它被改动的那枚必判。
@@ -1031,18 +1149,23 @@ function main(argv) {
 
   const { code, why } = decide({
     violations,
-    blockProblems,
+    blockProblems: [...blockProblems, ...dn5Problems],
     descProblems,
     undetermined,
     strict,
     candidates,
-    scopeApplicable: plan.enforce,
+    scopeApplicable: plan.enforce || inv.applicable,
   })
   const driftCount = driftDocs.reduce((a, d) => a + d.n, 0)
   if (!plan.enforce) {
-    const drift = driftCount + violations.length + blockProblems.length + descProblems.length
+    const drift = driftCount + violations.length + blockProblems.length + dn5Problems.length + descProblems.length
     console.log(`face=${face} · 现算 ${Object.keys(derived.numbers).length} 个数字 · ${plan.why}`)
+    if (inv.applicable) {
+      if (inv.ok) console.log(`   DN5 清单不变式:✅ ${inv.note}`)
+      else for (const p of inv.problems) console.log(`❌ ${p}`)
+    }
     if (drift > 0) console.log(`   当前漂移 ${drift} 处(只报数)—— 明细:node scripts/check-doc-numbers.mjs --strict`)
+    if (code !== 0) console.log(`结论:${why}`)
     return code
   }
   console.log(
@@ -1050,6 +1173,10 @@ function main(argv) {
   )
   if (driftDocs.length > 0 && !judgeAll)
     console.log(`   ${driftDocs.map((d) => `${d.rel}(${d.n} 处漂移)`).join('、')} 本轮未被触及 ⇒ 不判,被改动那枚必判`)
+  if (inv.applicable) {
+    if (inv.ok) console.log(`✅ DN5 清单不变式:${inv.note}`)
+    else for (const p of inv.problems) console.log(`❌ ${p}`)
+  }
   for (const v of violations)
     console.log(`❌ ${v.file}:${v.line} \`${v.key}\` 写着 ${v.found},现算 ${v.want} —— ${v.excerpt}`)
   for (const p of blockProblems) console.log(`❌ ${p}`)
