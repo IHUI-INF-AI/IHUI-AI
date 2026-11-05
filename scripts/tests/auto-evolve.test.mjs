@@ -1365,6 +1365,33 @@ test('Ⓞb 生成器必须把指纹写进它自己的 source(写读两侧同一�
 // Ⓛ 派单正文的第 0 步(2026-11-05 立):同权限档人工探针做过对照 ——
 // v1 无这一句 ⇒ 一轮文字叙述"我打算调用 read_file"后 end_turn(iterations=1、零工具调用);
 // v2 加上这一句 ⇒ 真发出两次 read_file + 第三次作答(iterations=3,rc=0)。
+// ⓝ 日上限的日界口径(2026-11-06 立):计数一直拿**本地**日键去 startsWith 一条 **UTC** 时间戳
+// ⇒ 本地 00:00–08:00 这段窗口永不相等 ⇒ `dispatched` 恒 0,日上限结构性不生效。
+test('ⓝ 本地零点到八点这段窗口,今天(本地)的派班必须计入日上限(旧口径读成 0)', async () => {
+  const ae = await import('../auto-evolve.mjs')
+  const NOW = new Date('2026-11-06T00:30:00+08:00') // 本地 11-06 00:30 = UTC 11-05 16:30
+  const rows = [
+    { action: 'dispatched', ts: '2026-11-05T16:07:13.000Z' }, // 今天(本地)早些时候
+    { action: 'dispatched', ts: '2026-11-05T16:31:57.651Z' }, // 同一本地日
+    { action: 'dispatched', ts: '2026-11-04T16:00:00.000Z' }, // 昨天(本地 11-05)⇒ 不得计
+    { action: 'valve-allow', ts: '2026-11-05T16:31:35.000Z' }, // 非 dispatched
+    { action: 'dispatched', ts: 'not-a-date' }, // 不可解析
+    { action: 'dispatched' }, // 无 ts
+  ]
+  const hit = rows.filter((r) => ae.isDispatchedToday(r, NOW))
+  assert.equal(hit.length, 2, `应恰好计 2 枚(同一本地日的两条),实得 ${hit.length}`)
+  // 摘掉本次修复即翻红:旧口径是 `String(ts).startsWith(todayKey())`,本地日键对 UTC 串恒不匹配
+  const oldCount = rows.filter(
+    (r) => r.action === 'dispatched' && String(r.ts ?? '').startsWith(ae.todayKey(NOW)),
+  ).length
+  assert.equal(oldCount, 0, '旧口径此处必须是 0,否则这枚锁没有钉住那条缺陷')
+  // 逐条口径:不可解析/缺 ts ⇒ 不算今天(§0.3:取不到不冒充)
+  assert.equal(ae.localDayOf('not-a-date'), null)
+  assert.equal(ae.localDayOf(undefined), null)
+  assert.equal(ae.localDayOf('2026-11-05T16:31:57.651Z'), ae.todayKey(NOW))
+  assert.equal(ae.localDayOf('2026-11-04T16:00:00.000Z'), '2026-11-05')
+})
+
 // ⓡ 收件人取值(2026-11-06 立):旧正则没有 `m` 档 ⇒ `^…$` 钉的是整串首尾,
 // 只有键落在**文件最后一行**才命中;真值实测在 .env 第 260/392 行 ⇒ 本环每一封逃生邮件
 // 都走"未判定",一封也没发过,而打出来的话是"缺 ALERT_EMAIL_TO"(键明明在)。
