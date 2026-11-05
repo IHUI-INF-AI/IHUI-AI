@@ -27,6 +27,8 @@ import {
   statSync,
 } from 'node:fs';
 import { join, dirname } from 'node:path';
+// plan 名判据与落点断言统一走 util/path-guard(不再保留第二套 sanitizePlanName 实现)。
+import { assertPathInside, assertPlainFileName } from '../util/path-guard.js';
 
 const PLANS_RELATIVE_DIR = '.ihui/plans';
 
@@ -51,7 +53,9 @@ function getPlansDir(workspace: string): string {
 }
 
 function planFilePath(workspace: string, name: string): string {
-  return join(getPlansDir(workspace), `${name}.md`);
+  // 文件名已由 assertPlainFileName 拒掉穿越;这里补根内/realpath 断言(防 .ihui/plans 被换成符号链接)。
+  const dir = getPlansDir(workspace);
+  return assertPathInside(dir, join(dir, `${name}.md`), 'plan 文件');
 }
 
 /** 时间戳(文件名安全):YYYYMMDD-HHMMSS */
@@ -61,13 +65,10 @@ function fileTimestamp(): string {
   return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
 }
 
-/** 校验 plan 名称:防路径遍历,去掉 .md 后缀(用户可能传入 foo.md)。 */
+/** 校验 plan 名称:防路径遍历,去掉 .md 后缀(用户可能传入 foo.md)。判据统一在 util/path-guard。 */
 function sanitizePlanName(name: string): string {
-  if (!name) throw new Error('plan 名称不能为空');
-  if (name.includes('/') || name.includes('\\') || name.includes('..') || name.includes('\0')) {
-    throw new Error(`plan 名称不合法(不能含路径分隔符或 ..): ${name}`);
-  }
-  return name.endsWith('.md') ? name.slice(0, -3) : name;
+  const stem = assertPlainFileName(name, 'plan 名称');
+  return stem.endsWith('.md') ? stem.slice(0, -3) : stem;
 }
 
 function generatePlanTemplate(name: string): string {
@@ -131,6 +132,8 @@ function listPlans(workspace: string): void {
     .map((f): PlanEntry | null => {
       const full = join(plansDir, f);
       try {
+        // 只读也不能顺着根内符号链接读到根外:stat 前补根内断言。
+        assertPathInside(plansDir, full, 'plan 文件');
         const st = statSync(full);
         return { name: f.slice(0, -3), size: st.size, mtime: st.mtime };
       } catch {

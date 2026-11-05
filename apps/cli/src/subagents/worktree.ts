@@ -24,6 +24,8 @@ import {
   WorktreeLandUnprovableError,
 } from '../worktree.js';
 import { readSubagentState } from './state-store.js';
+// worktree 目录名由 subagentId 拼出、回收走递归删除:收敛 + 根内/realpath 断言统一走 util/path-guard。
+import { assertPathInside, segmentPathInside } from '../util/path-guard.js';
 
 export interface WorktreeInfo {
   path: string;
@@ -127,7 +129,7 @@ export function createWorktree(
   }
   ensureGitignoreEntry(sourcePath, '.worktrees/');
 
-  const wtPath = path.join(root, subagentId);
+  const wtPath = segmentPathInside(root, subagentId, 'subagent worktree 目录');
   const branch = worktreeBranchName(subagentId);
 
   if (fs.existsSync(wtPath)) {
@@ -313,6 +315,18 @@ export function reconcileWorktreeArtifacts(
     } catch {
       continue;
     }
+    // 只删目录,但根内符号链接/junction 可把递归删除引到根外:先补根内断言,判不出就保留。
+    try {
+      assertPathInside(root, dir, 'worktree 回收目录');
+    } catch (err) {
+      actions.push({
+        subagentId: name,
+        path: dir,
+        action: 'kept-unprovable',
+        detail: `目录不在 worktree 根内(${err instanceof Error ? err.message : String(err)}),保留不删`,
+      });
+      continue;
+    }
     const markerSrc = worktreeMarkerSource(dir);
     if (markerSrc === undefined) {
       actions.push({
@@ -422,7 +436,7 @@ export async function createWorktreeWithFallback(
       fs.mkdirSync(root, { recursive: true });
     }
     ensureGitignoreEntry(sourcePath, '.worktrees/');
-    const destination = path.join(root, subagentId);
+    const destination = segmentPathInside(root, subagentId, 'subagent worktree 目录');
     const branch = worktreeBranchName(subagentId);
 
     // G-706 启动对账(每进程一次):处置上一轮崩溃的残留,本次持有的 id 除外
@@ -464,8 +478,12 @@ export async function createWorktreeWithFallback(
         // 半成品落盘已由 createWorktreeCoW 自清(own 由刚 mkdir 证明),
         // 这里兜底处理"落盘已完成(marker 齐备)但后置小失败"的自有目录
         try {
-          if (fs.existsSync(destination) && isWorktreeMarkerComplete(destination)) {
-            fs.rmSync(destination, { recursive: true, force: true });
+          if (fs.existsSync(destination)) {
+            // 删除前再断言一次:realpath 二次断言防落盘后被换成指向根外的符号链接。
+            assertPathInside(root, destination, 'worktree 清理目录');
+            if (isWorktreeMarkerComplete(destination)) {
+              fs.rmSync(destination, { recursive: true, force: true });
+            }
           }
         } catch {
           // 清理失败忽略,原 git worktree add 会因路径存在抛错

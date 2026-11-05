@@ -30,6 +30,8 @@ import {
 } from '../subagents/worktree.js';
 // 工具契约只取类型(运行时无环:tools/index.ts 反向 re-export 本模块)
 import type { Tool } from './index.js';
+// agentId 来自工具入参,worktree 目录名与递归清理落点统一走 util/path-guard。
+import { assertPathInside, segmentPathInside } from '../util/path-guard.js';
 
 /** agent 专属 worktree 分支前缀(唯一分支名 agent-wt-<uuid8>) */
 export const AGENT_BRANCH_PREFIX = 'agent-wt-';
@@ -142,7 +144,7 @@ export class WorktreeManager {
     }
     this.ensureGitignore();
 
-    const wtPath = path.join(this.rootDir, agentId);
+    const wtPath = segmentPathInside(this.rootDir, agentId, 'agent worktree 目录');
     if (fs.existsSync(wtPath)) {
       throw new Error(`worktree 路径已存在: ${wtPath}(同一 agentId 不能重复创建)`);
     }
@@ -214,7 +216,7 @@ export class WorktreeManager {
    * @returns 是否实际移除了目录(路径本就不存在时返回 false)
    */
   remove(agentId: string, opts?: { force?: boolean; deleteBranch?: boolean }): boolean {
-    const wtPath = path.join(this.rootDir, agentId);
+    const wtPath = segmentPathInside(this.rootDir, agentId, 'agent worktree 目录');
     if (!fs.existsSync(wtPath)) return false;
 
     // 移除前先捕获分支名(移除后 git 元数据里已查不到)
@@ -293,7 +295,7 @@ export class WorktreeManager {
    * 输出超过 MAX_DIFF_LENGTH 时截断,避免撑爆主 agent context。
    */
   diff(agentId: string): string {
-    const wtPath = path.join(this.rootDir, agentId);
+    const wtPath = segmentPathInside(this.rootDir, agentId, 'agent worktree 目录');
     if (!fs.existsSync(wtPath)) {
       throw new Error(`worktree 不存在: ${wtPath}`);
     }
@@ -315,6 +317,8 @@ export class WorktreeManager {
 export function cleanupWorktree(wtPath: string, sourcePath: string, force = true): void {
   try {
     if (!fs.existsSync(wtPath)) return;
+    // wtPath 由调用方传入:删之前必须断言在 sourcePath 内,否则按"清理失败"吞掉。
+    assertPathInside(sourcePath, wtPath, 'worktree 清理目录');
     const args = ['worktree', 'remove', wtPath];
     if (force) args.push('--force');
     const r = runGit(args, sourcePath);

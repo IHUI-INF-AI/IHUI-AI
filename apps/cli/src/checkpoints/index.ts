@@ -23,7 +23,8 @@ import * as crypto from 'node:crypto';
 import { isRecord } from '../util/json.js';
 import { readManifestChecked, type CorruptManifestEntry } from './manifest-integrity.js';
 // 会话/检查点 id 路径穿越修复:目录段收敛 + 根内/realpath 断言统一走 util/path-guard。
-import { segmentPathInside } from '../util/path-guard.js';
+// manifest 里的 files 键属于持久化不可信输入:回滚/对比前必须按"工作区相对路径"重判。
+import { assertPathInside, isPathInside, resolveWorkspaceRelPath, segmentPathInside } from '../util/path-guard.js';
 
 export * from './hunk-tracker.js';
 
@@ -116,11 +117,11 @@ export class CheckpointManager {
 
   private resolveRel(filePath: string): string {
     const abs = path.isAbsolute(filePath) ? filePath : path.resolve(this.workspacePath, filePath);
-    const rel = path.relative(this.workspacePath, abs);
-    if (rel.startsWith('..') || path.isAbsolute(rel)) {
+    // 工具入参口径:允许工作区内的绝对路径(既有行为),只拒越界;判据走 path-guard。
+    if (!isPathInside(this.workspacePath, abs)) {
       throw new Error(`文件 ${filePath} 不在工作区 ${this.workspacePath} 内`);
     }
-    return rel;
+    return path.relative(this.workspacePath, abs);
   }
 
   async snapshot(files: string[], reason: string): Promise<CheckpointMeta> {
@@ -176,6 +177,21 @@ export class CheckpointManager {
     for (const e of entries) {
       if (!e.isDirectory()) continue;
       const manifestPath = path.join(this.baseDir, e.name, 'manifest.json');
+      // 只读也不能顺着根内符号链接目录读根外:读之前补一次根内断言。
+      try {
+        assertPathInside(this.baseDir, manifestPath, '检查点清单');
+      } catch (err) {
+        const entry: CorruptManifestEntry = {
+          checkpointId: e.name,
+          manifestPath,
+          quarantinePath: null,
+          reason: 'io-error',
+          detail: `符号链接解析后落在检查点根目录之外,拒绝读取:${err instanceof Error ? err.message : String(err)}`,
+        };
+        this.lastQuarantined.push(entry);
+        this.onCorrupt(entry);
+        continue;
+      }
       // G-671:manifest 不存在 = 目录半成品(不算损坏);读不了/解析不了/形状不对 = 损坏,隔离并报名
       const result = readManifestChecked(manifestPath, e.name, isCheckpointMeta, (entry) => {
         this.lastQuarantined.push(entry);
@@ -201,15 +217,22 @@ export class CheckpointManager {
     const restored: string[] = [];
     const removed: string[] = [];
 
-    for (const [rel, kind] of Object.entries(meta.files)) {
-      const absInWorkspace = path.join(this.workspacePath, rel);
+    // manifest 的 files 键是持久化不可信输入:先整体校验(绝对路径/盘符/`..`/符号链接),
+    // 任一越界即拒,绝不先动一部分文件再抛(避免留下半回滚现场)。
+    const entries = Object.entries(meta.files).map(([rel, kind]) => ({
+      rel,
+      kind,
+      absInWorkspace: resolveWorkspaceRelPath(this.workspacePath, rel, '检查点回滚目标'),
+    }));
+
+    for (const { rel, kind, absInWorkspace } of entries) {
       if (kind === 'added') {
         if (fs.existsSync(absInWorkspace)) {
           fs.rmSync(absInWorkspace, { recursive: true, force: true });
           removed.push(rel);
         }
       } else {
-        const src = path.join(cpDir, rel);
+        const src = assertPathInside(cpDir, path.join(cpDir, rel), '检查点快照');
         if (fs.existsSync(src)) {
           this.ensureDir(path.dirname(absInWorkspace));
           fs.copyFileSync(src, absInWorkspace);
@@ -228,7 +251,8 @@ export class CheckpointManager {
     const cpDir = this.checkpointDir(cp.id);
     const entries: CheckpointDiffEntry[] = [];
     for (const [rel, kind] of Object.entries(cp.files)) {
-      const absInWorkspace = path.join(this.workspacePath, rel);
+      // 同源只读:与 restore() 同一判据,manifest 键越界直接拒,不读根外内容。
+      const absInWorkspace = resolveWorkspaceRelPath(this.workspacePath, rel, '检查点对比目标');
       const existsNow = fs.existsSync(absInWorkspace);
       if (kind === 'added') {
         entries.push({ path: rel, status: existsNow ? 'added' : 'unchanged' });
@@ -237,7 +261,7 @@ export class CheckpointManager {
           entries.push({ path: rel, status: 'removed' });
           continue;
         }
-        const snapPath = path.join(cpDir, rel);
+        const snapPath = assertPathInside(cpDir, path.join(cpDir, rel), '检查点快照');
         const same = fileContentEqual(absInWorkspace, snapPath);
         entries.push({ path: rel, status: same ? 'unchanged' : 'modified' });
       }

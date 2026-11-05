@@ -19,6 +19,8 @@ import { existsSync, mkdirSync, renameSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { readCliPackage } from '../util/pkg-version.js'
+// runId 会直接当目录名(manifest/latest 落盘):收敛 + 根内断言统一走 util/path-guard。
+import { assertPathInside, safePathSegment } from '../util/path-guard.js'
 
 export interface RunManifest {
   runId: string
@@ -82,7 +84,7 @@ export function buildRunManifest(options: RunManifestOptions = {}): RunManifest 
   const env = options.env ?? process.env
   const root = findProjectRoot(cwd)
   return {
-    runId: options.runId ?? randomUUID(),
+    runId: safePathSegment(options.runId ?? randomUUID()),
     startedAt: (options.now ?? (() => new Date()))().toISOString(),
     argv: options.argv ?? process.argv.slice(2),
     ppid: options.ppid === undefined ? (process.ppid ?? null) : options.ppid,
@@ -112,7 +114,8 @@ export function writeRunManifest(options: RunManifestOptions = {}): { dir: strin
   try {
     const manifest = buildRunManifest(options)
     const root = runsRootFor(manifest)
-    const dir = join(root, manifest.runId)
+    // runId 已在 buildRunManifest 收敛为单段名,这里再补一次根内/realpath 断言。
+    const dir = assertPathInside(root, join(root, manifest.runId), 'run 目录')
     mkdirSync(dir, { recursive: true })
     writeFileSync(join(dir, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`, 'utf8')
     // latest 用「临时文件 + rename」落盘:并发两个 CLI 进程同时启动时,直接覆写

@@ -23,6 +23,8 @@ import { sessionStatusFromInstance, type AgentInstanceState } from '@ihui/types'
 // G-719(2026-10-03):会话水合读侧唯一入口 —— 落库工具结果元数据的版本分账/剥后校验收敛在这一份。
 import { hydrateToolStateMap } from '../sessions/tool-part-hydration.js';
 import { isRecord } from '../util/json.js';
+// subagent 状态行文件名由 id 拼出:收敛 + 根内/realpath 断言统一走 util/path-guard。
+import { segmentFilePathInside } from '../util/path-guard.js';
 import type { SubagentLifecycleStatus } from './types.js';
 import { SUBAGENT_LIFECYCLE_STATUSES, isSubagentTerminalStatus } from './types.js';
 
@@ -75,7 +77,8 @@ export function getSubagentStateDir(): string {
 }
 
 export function getSubagentStatePath(id: string): string {
-  return path.join(getSubagentStateDir(), `${id}.json`);
+  // id 可能来自 resumeFrom 入参:收敛成单段名并断言落在状态目录内(与会话/检查点同一判据)。
+  return segmentFilePathInside(getSubagentStateDir(), id, '.json', 'subagent 状态行');
 }
 
 function ensureStateDir(): void {
