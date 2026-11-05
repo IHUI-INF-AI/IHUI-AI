@@ -74,9 +74,9 @@ function ModelsPromptsScreen() {
 
   const columns: ConsoleColumn[] = [
     { key: 'name', title: t('modelsPrompts.name'), render: 'mono', flex: 2 },
-    { key: 'desc', title: t('modelsPrompts.desc'), flex: 2 },
+    { key: 'desc', title: t('models.prompts.table.description'), flex: 2 },
     { key: 'version', title: t('modelsPrompts.version'), render: 'badge' },
-    { key: 'updated', title: t('modelsPrompts.updated') },
+    { key: 'updated', title: t('models.prompts.table.updatedAt') },
   ]
 
   return (

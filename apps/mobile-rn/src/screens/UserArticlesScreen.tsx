@@ -185,7 +185,7 @@ export default function UserArticlesScreen() {
                   activeOpacity={0.7}
                 >
                   <ChevronLeft size={14} color={tokens.text.primary} />
-                  <Text style={styles.pageBtnText}>{t('userArticles.prev')}</Text>
+                  <Text style={styles.pageBtnText}>{t('user.articles.prevPage')}</Text>
                 </TouchableOpacity>
                 <Text style={styles.pageInfo}>
                   {t('userArticles.pageInfo', { page, totalPages })}
@@ -196,7 +196,7 @@ export default function UserArticlesScreen() {
                   disabled={page >= totalPages}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.pageBtnText}>{t('userArticles.next')}</Text>
+                  <Text style={styles.pageBtnText}>{t('user.articles.nextPage')}</Text>
                   <ChevronRight size={14} color={tokens.text.primary} />
                 </TouchableOpacity>
               </View>

@@ -82,7 +82,7 @@ export function AiSkillScreen() {
     appAlert(skill.name, skill.description, [
       { text: t('common.cancel'), style: 'cancel' },
       {
-        text: t('aiSkill.detail'),
+        text: t('aiSkillsPage.viewDetail'),
         onPress: () => navigation.navigate('AiSkillDetail', { id: skill.id, name: skill.name }),
       },
     ])
@@ -218,7 +218,7 @@ export function AiSkillScreen() {
                 <ActivityIndicator size="small" color={tokens.brand.ctaForeground} />
               ) : null}
               <Text style={styles.successText}>
-                {importing ? t('aiSkill.importing') : t('aiSkill.importButton')}
+                {importing ? t('aiSkill.importing') : t('aiSkillDetail.importBtn')}
               </Text>
             </TouchableOpacity>
           </View>

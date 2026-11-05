@@ -74,7 +74,7 @@ export function AgreementScreen({
     return (
       <LegalDocScreen
         t={t}
-        title={fallbackTitle ?? t('agreement.title')}
+        title={fallbackTitle ?? t('agreement.userAgreement')}
         subtitle={t('agreement.subtitle')}
         updatedAt="2026-07-19"
         sections={sections}
@@ -84,7 +84,7 @@ export function AgreementScreen({
     )
   }
 
-  const title = agreement?.title || fallbackTitle || t('agreement.title')
+  const title = agreement?.title || fallbackTitle || t('agreement.userAgreement')
 
   return (
     <View style={styles.container}>

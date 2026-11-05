@@ -277,7 +277,7 @@ export default function SecurityCenterScreen() {
   }
 
   const onRevoke = (session: AuthorizationSession) => {
-    appAlert(t('securityCenter.sessions.revokeTitle'), t('securityCenter.sessions.revokeConfirm'), [
+    appAlert(t('settings.revokeAuth'), t('securityCenter.sessions.revokeConfirm'), [
       { text: t('common.cancel'), style: 'cancel' },
       {
         text: t('common.confirm'),
@@ -466,16 +466,16 @@ export default function SecurityCenterScreen() {
           {sessionsLoading ? (
             <ActivityIndicator style={styles.loading} color={tokens.text.tertiary} />
           ) : sessions.length === 0 ? (
-            <Text style={styles.muted}>{t('securityCenter.sessions.empty')}</Text>
+            <Text style={styles.muted}>{t('settings.noAuthorizations')}</Text>
           ) : (
             sessions.map((s, i) => (
               <View key={s.id} style={[styles.row, i === sessions.length - 1 && styles.rowLast]}>
                 <View style={styles.rowMain}>
                   <Text style={styles.rowPrimary}>
-                    {t('securityCenter.sessions.createdAt')} {fmt(s.createdAt, locale)}
+                    {t('settings.authorizedAt')} {fmt(s.createdAt, locale)}
                   </Text>
                   <Text style={styles.rowSecondary}>
-                    {t('securityCenter.sessions.expiresAt')} {fmt(s.expiresAt, locale)}
+                    {t('settings.sessionExpiresAt')} {fmt(s.expiresAt, locale)}
                   </Text>
                 </View>
                 <TouchableOpacity onPress={() => onRevoke(s)} activeOpacity={0.7}>

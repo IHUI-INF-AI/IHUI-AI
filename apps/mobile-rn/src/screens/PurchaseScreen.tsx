@@ -399,7 +399,7 @@ export default function PurchaseScreen() {
                 </View>
                 <Text style={styles.muted}>{t('purchase.waitingPay')}</Text>
                 <Text style={styles.muted}>
-                  {t('purchase.orderNo')}: {payInfo.outTradeNo}
+                  {t('wallet.rechargeOrderNo')}: {payInfo.outTradeNo}
                 </Text>
               </View>
             ) : null}

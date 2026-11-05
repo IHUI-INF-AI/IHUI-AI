@@ -167,7 +167,7 @@ export function PatrolScreen() {
         try {
           const res = await runPatrolTaskNow(task.id)
           appAlert(
-            t('patrol.runNowDone'),
+            t('patrol.toast.runDone'),
             res.status === 'issue'
               ? t('patrol.runNowIssue')
               : res.summary.slice(0, 120) || t('patrol.resultOk'),
@@ -193,7 +193,7 @@ export function PatrolScreen() {
       void (async () => {
         try {
           await updatePatrolTask(task.id, { status: next })
-          appAlert(next === 'active' ? t('patrol.resumeDone') : t('patrol.pauseDone'))
+          appAlert(next === 'active' ? t('patrol.toast.resumed') : t('patrol.toast.paused'))
           await load()
         } catch (e) {
           appAlert(
@@ -210,7 +210,7 @@ export function PatrolScreen() {
 
   const onDelete = useCallback(
     (task: PatrolTask) => {
-      appAlert(t('patrol.actionDelete'), t('patrol.confirmDelete', { name: task.name }), [
+      appAlert(t('patrol.action.delete'), t('patrol.confirmDelete', { name: task.name }), [
         { text: t('common.cancel'), style: 'cancel' },
         {
           text: t('common.delete'),
@@ -459,7 +459,7 @@ export function PatrolScreen() {
                     className="mb-1 mr-2 rounded-sm bg-neutral-900 px-3 py-1.5 dark:bg-neutral-100"
                   >
                     <Text className="text-xs text-neutral-50 dark:text-neutral-900">
-                      {t('patrol.actionRunNow')}
+                      {t('patrol.action.runNow')}
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
@@ -477,7 +477,7 @@ export function PatrolScreen() {
                     className="mb-1 mr-2 rounded-sm border border-neutral-300 px-3 py-1.5 dark:border-neutral-700"
                   >
                     <Text className="text-xs text-neutral-700 dark:text-neutral-300">
-                      {t('patrol.actionHistory')}
+                      {t('patrol.action.history')}
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
@@ -486,7 +486,7 @@ export function PatrolScreen() {
                     className="mb-1 rounded-sm border border-red-300 px-3 py-1.5 dark:border-red-800"
                   >
                     <Text className="text-xs text-red-600 dark:text-red-400">
-                      {t('patrol.actionDelete')}
+                      {t('patrol.action.delete')}
                     </Text>
                   </TouchableOpacity>
                 </View>

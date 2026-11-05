@@ -111,9 +111,9 @@ export default function DataRightsScreen() {
     setReceipts((prev) => [{ kind, ok, at: new Date().toISOString() }, ...prev].slice(0, 5))
   }
   const receiptLabel = (kind: ReceiptKind): string => {
-    if (kind === 'export') return t('dataRights.recentExport')
-    if (kind === 'portability') return t('dataRights.recentPortability')
-    return t('dataRights.recentErase')
+    if (kind === 'export') return t('eduAi.dataRights.exportCard')
+    if (kind === 'portability') return t('eduAi.dataRights.portabilityCard')
+    return t('eduAi.dataRights.eraseCard')
   }
   const onExport = async () => {
     setExporting(true)

@@ -404,7 +404,7 @@ export default function PublishAccountsScreen() {
                   onPress={closePanel}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.outlineBtnText}>{t('publishAccounts.scanCancel')}</Text>
+                  <Text style={styles.outlineBtnText}>{t('publish.accounts.cancelScan')}</Text>
                 </TouchableOpacity>
               </View>
             ) : panel ? (

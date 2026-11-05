@@ -251,7 +251,7 @@ export default function AddressesScreen() {
                   <Check size={12} color={styles.checkboxOnText.color} strokeWidth={3} />
                 ) : null}
               </View>
-              <Text style={styles.checkLabel}>{t('addresses.defaultLabel')}</Text>
+              <Text style={styles.checkLabel}>{t('memberAddressFormPage.setDefault')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.button, saving && styles.buttonDisabled]}

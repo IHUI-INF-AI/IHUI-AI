@@ -143,7 +143,7 @@ export default function PlazaNewScreen() {
           </View>
         </View>
 
-        <Text style={styles.label}>{t('plazaNew.contact')}</Text>
+        <Text style={styles.label}>{t('plazaNew.contactLabel')}</Text>
         <TextField
           colorScheme={resolvedTheme}
           value={contact}
@@ -184,7 +184,11 @@ function makeStyles() {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tokens.surface.bg },
     body: { padding: rnSpacing.lg, gap: rnSpacing.xs, paddingBottom: rnSpacing['4xl'] },
-    hint: { fontSize: rnType.bodySm.size, color: tokens.text.secondary, marginBottom: rnSpacing['xs-loose'] },
+    hint: {
+      fontSize: rnType.bodySm.size,
+      color: tokens.text.secondary,
+      marginBottom: rnSpacing['xs-loose'],
+    },
     label: {
       fontSize: rnType.body.size,
       color: tokens.text.secondary,

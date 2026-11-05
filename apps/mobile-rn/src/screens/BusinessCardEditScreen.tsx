@@ -279,7 +279,7 @@ export default function BusinessCardEditScreen() {
       <NavChrome>
         <NavBar
           title={
-            editingId ? t('businessCardEdit.pageTitleEdit') : t('businessCardEdit.pageTitleCreate')
+            editingId ? t('businessCardEditPage.editTitle') : t('businessCardEdit.pageTitleCreate')
           }
           onBack={() => navigation.goBack()}
         />
@@ -329,7 +329,7 @@ export default function BusinessCardEditScreen() {
             ))}
 
             <View style={styles.field}>
-              <Text style={styles.label}>{t('businessCardEdit.introLabel')}</Text>
+              <Text style={styles.label}>{t('businessCardEditPage.bioLabel')}</Text>
               <TextField
                 colorScheme={resolvedTheme}
                 value={form.intro}
