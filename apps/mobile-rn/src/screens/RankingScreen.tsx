@@ -121,6 +121,8 @@ export function RankingScreen() {
           colorScheme={resolvedTheme}
           title={t('ranking.title')}
           amountFormatter={formatRankingValue}
+          showRanges={true}
+          showStudyHours={true}
         />
         {/* BottomFigure 底部装饰图(对齐 Uniapp BottomFigure/index.vue) */}
         <View style={shellStyles.bottomFigureWrap}>
