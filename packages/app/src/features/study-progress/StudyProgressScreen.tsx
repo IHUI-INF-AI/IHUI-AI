@@ -67,7 +67,7 @@ export function StudyProgressScreen({
       </View>
       <Text style={styles.sectionTitle}>{t('studyProgress.courseProgress')}</Text>
       {progress.courses.length === 0 ? (
-        <Text style={styles.muted}>{t('common.empty')}</Text>
+        <Text style={styles.muted}>{t('eduProgressPage.noData')}</Text>
       ) : (
         progress.courses.map((c) => (
           <View key={c.id} style={styles.card}>

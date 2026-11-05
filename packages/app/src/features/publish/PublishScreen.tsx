@@ -281,7 +281,7 @@ export function PublishScreen({
                         onPress={() => onRetryTask(item)}
                         disabled={busy}
                         accessibilityRole="button"
-                        accessibilityLabel={t('publish.retryTask')}
+                        accessibilityLabel={t('publish.history.retry')}
                       >
                         {({ pressed }) => (
                           <View
@@ -292,7 +292,7 @@ export function PublishScreen({
                             ]}
                           >
                             <Text style={styles.actionBtnPrimaryText}>
-                              {t('publish.retryTask')}
+                              {t('publish.history.retry')}
                             </Text>
                           </View>
                         )}

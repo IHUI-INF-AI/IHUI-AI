@@ -240,7 +240,7 @@ export default function AgentCategoriesScreen() {
                 <View style={styles.sectionHead}>
                   <Text style={styles.cardTitle}>{t('agentCategories.agentsTitle')}</Text>
                   <Text style={styles.meta}>
-                    {t('agentCategories.agentTotal', { count: agents.length })}
+                    {t('agentsCategoriesPage.total', { count: agents.length })}
                   </Text>
                 </View>
 

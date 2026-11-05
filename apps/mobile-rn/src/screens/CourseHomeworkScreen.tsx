@@ -87,14 +87,14 @@ export function CourseHomeworkScreen() {
       )
       if (!res.success) {
         setItems([])
-        setError(apiFailureToText(res, t('learnHomework.loadFailed')))
+        setError(apiFailureToText(res, t('learnHomeworkPage.errorFallback')))
         return
       }
       const rows = Array.isArray(res.data?.list) ? res.data?.list : []
       setItems(rows.map(toItem))
     } catch {
       setItems([])
-      setError(t('learnHomework.loadFailed'))
+      setError(t('learnHomeworkPage.errorFallback'))
     } finally {
       setLoading(false)
     }

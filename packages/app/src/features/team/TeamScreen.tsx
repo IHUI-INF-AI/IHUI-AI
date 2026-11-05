@@ -247,10 +247,10 @@ export function TeamScreen({
                 </View>
               </View>
               <Text style={styles.memberMeta}>
-                {t('team.joinDate')}: {item.joinDate}
+                {t('distribution.colJoinedAt')}: {item.joinDate}
               </Text>
               <Text style={styles.memberMeta}>
-                {t('team.level')}: L{item.level}
+                {t('distribution.colLevel')}: L{item.level}
               </Text>
             </View>
             <View style={styles.memberRight}>
@@ -338,7 +338,7 @@ function TeamTreeSection({
           ) : null}
         </View>
       ) : nodes.length === 0 ? (
-        <Text style={styles.treeEmpty}>{t('distribution.treeEmpty')}</Text>
+        <Text style={styles.treeEmpty}>{t('distributionTeamDetailPage.noSubordinates')}</Text>
       ) : (
         nodes.map((node) => (
           <TreeNodeRow

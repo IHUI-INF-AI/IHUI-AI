@@ -117,7 +117,7 @@ export function CourseDetailScreen({
               >
                 <Text style={styles.btnText}>
                   {item.isFree
-                    ? t('courseDetail.enroll')
+                    ? t('learn.signUp')
                     : t('courseDetail.pay', { amount: item.price.toFixed(2) })}
                 </Text>
               </TouchableOpacity>

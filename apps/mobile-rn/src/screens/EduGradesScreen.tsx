@@ -104,7 +104,7 @@ function EduGradesScreen() {
       t={t}
       colorScheme={resolvedTheme}
       onBack={() => navigation.goBack()}
-      title={termName ? `${t('eduGrades.title')} · ${termName}` : t('eduGrades.title')}
+      title={termName ? `${t('eduGrades.pageTitle')} · ${termName}` : t('eduGrades.pageTitle')}
       columns={columns}
       rows={rows}
       loading={loading}

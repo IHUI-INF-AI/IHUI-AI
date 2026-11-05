@@ -97,7 +97,7 @@ function EduChildStudyPlansScreen() {
       t={t}
       colorScheme={resolvedTheme}
       onBack={() => navigation.goBack()}
-      title={t('eduChildStudyPlans.title')}
+      title={t('parentPortal.child.studyPlans')}
       columns={columns}
       rows={rows}
       loading={loading}
