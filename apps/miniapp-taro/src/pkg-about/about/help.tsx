@@ -2,25 +2,22 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// 镜像 packages/app/src/features/help/HelpScreen.tsx
+// 镜像 packages/app/src/features/help/HelpScreen.tsx(直载共享屏 + 注入本端事实)
+//
+// 端内保留:`getHelp` 取数、反馈三字段与 `submitFeedback` 端点契约、三处必填校验、
+// 提交失败日志、AI 操控字段注册表(useUiField)。渲染(页头/搜索井/FAQ 手风琴/空态/
+// 反馈表单/提交态)全部委托共享屏。
 
+import Taro, { useDidShow } from '@tarojs/taro'
+import { useCallback, useState } from 'react'
+import { getHelp, submitFeedback } from '@/api'
 import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
-import { View, Text, Button } from '@tarojs/components'
-import { FocusInput, FocusTextarea } from '@/components/FocusField'
-import { useDidShow } from '@tarojs/taro'
-import { useState, useMemo, useCallback } from 'react'
-import { useUiField } from '@/lib/ui-field-registry'
-import { getHelp, submitFeedback } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
-import SearchBar from '@/components/SearchBar'
+import { useTheme } from '@/rn-compat/theme'
 import { onToast } from '@/host/on-toast'
-
-interface HelpItem {
-  id: string
-  title: string
-  content: string
-}
+import { useUiField } from '@/lib/ui-field-registry'
+import { HelpScreen, type HelpListItem } from '@ihui/rn-app/features/help/HelpScreen'
 
 interface FeedbackForm {
   username: string
@@ -34,6 +31,7 @@ const DEFAULT_FORM: FeedbackForm = { username: '', phone: '', context: '' }
 
 export default function HelpPage() {
   const { t } = useI18n()
+  const { resolvedTheme } = useTheme()
   const tt = useCallback(
     (k: string, fb: string) => {
       const v = t(k)
@@ -41,56 +39,57 @@ export default function HelpPage() {
     },
     [t],
   )
-  const [list, setList] = useState<HelpItem[]>([])
+  const [list, setList] = useState<HelpListItem[]>([])
   const [keyword, setKeyword] = useState('')
-  const [opened, setOpened] = useState('')
+  const [opened, setOpened] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [form, setForm] = useState<FeedbackForm>(DEFAULT_FORM)
   const [feedbackState, setFeedbackState] = useState<FeedbackState>('idle')
+
+  const updateField = useCallback((field: keyof FeedbackForm, value: string) => {
+    setForm((prev) => ({ ...prev, [field]: value }))
+  }, [])
+
+  /** 三个输入事件回调与 useUiField 的 setValue 同源(都落到 updateField),满足采纳防漂移门 */
+  const onInputName = useCallback((next: string) => updateField('username', next), [updateField])
+  const onInputPhone = useCallback((next: string) => updateField('phone', next), [updateField])
+  const onInputContext = useCallback((next: string) => updateField('context', next), [updateField])
+
   // AI 操控通道(2026-09-21):反馈表单三个输入框交给注册表,写入走 updateField(与 onInput 同一通道);
-  // 提交按钮(对外发送)不注册。搜索框已由 SearchBar 自身接入。
+  // 提交按钮(对外发送)不注册。搜索框已由共享屏自身接入。
   useUiField({
     kind: 'input',
     label: tt('about.help.usernamePlaceholder', '请输入姓名'),
     placeholder: tt('about.help.usernamePlaceholder', '请输入姓名'),
     readValue: () => form.username,
-    setValue: (next) => updateField('username', next),
+    setValue: onInputName,
   })
   useUiField({
     kind: 'input',
     label: tt('about.help.phonePlaceholder', '请输入联系方式'),
     placeholder: tt('about.help.phonePlaceholder', '请输入联系方式'),
     readValue: () => form.phone,
-    setValue: (next) => updateField('phone', next),
+    setValue: onInputPhone,
   })
   useUiField({
     kind: 'textarea',
     label: tt('feedback.contentPlaceholder', '请输入反馈详情'),
     placeholder: tt('feedback.contentPlaceholder', '请输入反馈详情'),
     readValue: () => form.context,
-    setValue: (next) => updateField('context', next),
+    setValue: onInputContext,
   })
-
-  const filtered = useMemo(() => {
-    if (!keyword) return list
-    return list.filter((h) => h.title.includes(keyword) || h.content.includes(keyword))
-  }, [list, keyword])
 
   const load = useCallback(async () => {
     try {
       const res = await getHelp()
-      setList(res.list || [])
+      setList((res.list || []).map((h) => ({ id: h.id, question: h.title, answer: h.content })))
     } finally {
       setLoading(false)
     }
   }, [])
 
   const toggle = useCallback((id: string) => {
-    setOpened((prev) => (prev === id ? '' : id))
-  }, [])
-
-  const updateField = useCallback((field: keyof FeedbackForm, value: string) => {
-    setForm((prev) => ({ ...prev, [field]: value }))
+    setOpened((prev) => (prev === id ? null : id))
   }, [])
 
   const validate = useCallback((): boolean => {
@@ -126,121 +125,36 @@ export default function HelpPage() {
 
   return (
     <ThemeRoot>
-      <View className="min-h-screen bg-background px-[28rpx] pt-[28rpx] pb-[64rpx]">
-        {/* 搜索栏(统一圆角输入井,共享 SearchBar) */}
-        <View className="mb-[24rpx]">
-          <SearchBar
-            className=""
-            value={keyword}
-            placeholder={tt('about.help.search', '搜索帮助')}
-            onInput={setKeyword}
-            onClear={() => setKeyword('')}
-          />
-        </View>
-
-        <Text className="block text-body font-semibold text-foreground pt-[16rpx] pb-[16rpx]">
-          {tt('about.help.faqTitle', '常见问题')}
-        </Text>
-
-        {filtered.length ? (
-          <View>
-            {filtered.map((h) => (
-              <View
-                key={h.id}
-                className="bg-card rounded-lg border border-border p-[28rpx] mb-[24rpx] overflow-hidden"
-                onClick={() => toggle(h.id)}
-                hoverClass="opacity-60"
-              >
-                <View className="flex justify-between items-center">
-                  <Text className="text-title font-bold text-foreground flex-1">{h.title}</Text>
-                  <Text className="text-success text-heading ml-[16rpx]">
-                    {opened === h.id ? '−' : '+'}
-                  </Text>
-                </View>
-                {opened === h.id ? (
-                  <Text className="block mt-[16rpx] text-body text-[var(--color-text-medium)] leading-[36rpx]">
-                    {h.content}
-                  </Text>
-                ) : null}
-              </View>
-            ))}
-          </View>
-        ) : null}
-
-        {!loading && !filtered.length ? (
-          <View className="text-center py-[96rpx]">
-            {/* 空态标题对齐 RN HelpScreen EmptyState(共享键 help.empty) */}
-            <Text className="block text-strong font-semibold text-foreground">
-              {tt('help.empty', '暂无帮助')}
-            </Text>
-          </View>
-        ) : null}
-
-        <Text className="block text-body font-semibold text-foreground pt-[16rpx] pb-[16rpx]">
-          {tt('about.help.feedbackTitle', '意见反馈')}
-        </Text>
-
-        <View className="p-[28rpx] bg-card rounded-lg border border-border">
-          <View className="mb-[24rpx]">
-            <Text className="block text-body text-foreground mb-[12rpx] font-medium">
-              <Text className="text-destructive mr-[4rpx]">*</Text>
-              {tt('about.help.username', '姓名')}
-            </Text>
-            <FocusInput
-              className="w-full h-[100rpx] px-[24rpx] box-border bg-muted border-[length:2rpx] border-border rounded-sm text-body text-foreground"
-              value={form.username}
-              placeholder={tt('about.help.usernamePlaceholder', '请输入姓名')}
-              onInput={(e) => updateField('username', e.detail.value)}
-            />
-          </View>
-          <View className="mb-[24rpx]">
-            <Text className="block text-body text-foreground mb-[12rpx] font-medium">
-              <Text className="text-destructive mr-[4rpx]">*</Text>
-              {tt('about.help.phone', '联系方式')}
-            </Text>
-            <FocusInput
-              className="w-full h-[100rpx] px-[24rpx] box-border bg-muted border-[length:2rpx] border-border rounded-sm text-body text-foreground"
-              value={form.phone}
-              placeholder={tt('about.help.phonePlaceholder', '请输入联系方式')}
-              onInput={(e) => updateField('phone', e.detail.value)}
-            />
-          </View>
-          <View className="mb-[24rpx]">
-            <Text className="block text-body text-foreground mb-[12rpx] font-medium">
-              <Text className="text-destructive mr-[4rpx]">*</Text>
-              {tt('about.help.context', '问题描述')}
-            </Text>
-            <FocusTextarea
-              className="w-full min-h-[180rpx] px-[24rpx] py-[16rpx] box-border bg-muted border-[length:2rpx] border-border rounded-sm text-body text-foreground"
-              value={form.context}
-              placeholder={tt('feedback.contentPlaceholder', '请输入反馈详情')}
-              onInput={(e) => updateField('context', e.detail.value)}
-            />
-          </View>
-          <Text className="block text-caption text-[var(--color-text-tertiary)] leading-[1.6] mb-[24rpx]">
-            {tt('about.help.submitTip', '您的反馈将用于改进我们的产品与服务,发送后请耐心等待处理')}
-          </Text>
-          <Button
-            className="w-full h-[100rpx] leading-[100rpx] bg-primary text-[var(--color-primary-foreground)] text-title font-semibold rounded-sm m-0 after:border-0 disabled:opacity-60"
-            disabled={feedbackState === 'submitting'}
-            onClick={submit}
-          >
-            {feedbackState === 'submitting'
-              ? tt('about.help.submitting', '提交中...')
-              : tt('feedback.submit', '提交反馈')}
-          </Button>
-          {feedbackState === 'success' ? (
-            <Text className="block text-center text-body mt-[16rpx] text-success">
-              {tt('feedback.success', '反馈提交成功')}
-            </Text>
-          ) : null}
-          {feedbackState === 'failed' ? (
-            <Text className="block text-center text-body mt-[16rpx] text-destructive">
-              {tt('about.help.submitFailed', '反馈提交失败,请稍后重试')}
-            </Text>
-          ) : null}
-        </View>
-      </View>
+      <HelpScreen
+        t={t}
+        items={list}
+        loading={loading}
+        refreshing={false}
+        error=""
+        expandedId={opened}
+        onRefresh={() => {
+          void load()
+        }}
+        onToggle={toggle}
+        onBack={() => {
+          void Taro.navigateBack()
+        }}
+        colorScheme={resolvedTheme}
+        searchValue={keyword}
+        onSearchChange={setKeyword}
+        searchPlaceholder={tt('about.help.search', '搜索帮助')}
+        feedbackName={form.username}
+        feedbackContact={form.phone}
+        feedbackContent={form.context}
+        feedbackStatus={feedbackState}
+        onFeedbackNameChange={onInputName}
+        onFeedbackContactChange={onInputPhone}
+        onFeedbackContentChange={onInputContext}
+        onSubmitFeedback={() => {
+          void submit()
+        }}
+        onToast={onToast}
+      />
     </ThemeRoot>
   )
 }
