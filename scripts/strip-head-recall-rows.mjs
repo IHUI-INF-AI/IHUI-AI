@@ -29,9 +29,11 @@
  * 行一律 held 不摘;台账或面取不到 ⇒ `state=undetermined`,一个字节不动也不记绿(§0.3)。
  *
  * 第三类让路(2026-11-05 立):`scripts/data/plan-row-restorations.json` 的**显式回补清单**。判据 =
- * 候选行的复合主键在清单里 ⇒ 它是"按历史原文/§1 短形态有意回补"的行,不是合并带回的回捞件。区分
- * 依据不是行文本(两种来源的行文本可以逐字相同),而是"有没有一枚回补提交显式认领它"(清单条目必须
- * 带 restoredBy 提交号)。清单取不到 ⇒ 按空集判(宁可多摘一轮也不误把真回捞件当已回补)。
+ * 候选行的复合主键(或整行原文,见 `readRestoredKeys` 的第二维)在清单里 ⇒ 它是"按历史原文/§1 短形态
+ * 有意回补"的行,不是合并带回的回捞件。区分依据不是"行文像不像回捞件",而是**有没有一枚回补提交
+ * 显式认领它**(清单条目必须带 restoredBy 提交号);复合主键维判"这是同一张票",整行维判"这是同一份
+ * 落盘字节"(仅对拿不到复合主键的族 — 题面退化成编号本身 — 生效)。清单取不到 ⇒ 按空集判(宁可多摘
+ * 一轮也不误把真回捞件当已回补)。
  *
  * 结论行:`SWEEP-RESULT state=clean|all-held|pending|stripped|refused|undetermined stripped=N held=M pending=P`
  *  六态各管一件事,不许互相冒充:`clean` 判过且零候选零让路 / `all-held` 有命中但全部让路(没摘)
@@ -90,28 +92,43 @@ export function dropPairsOf(rows) {
 
 export const RESTORATIONS_REL = 'scripts/data/plan-row-restorations.json'
 
-/** 读显式回补清单 ⇒ Set<复合主键>;文件缺失/坏件 ⇒ 空集(不误伤真回捞件,也不冒绿)。 */
+/**
+ * 读显式回补清单 ⇒ `{keys: Set<复合主键>, raws: Set<整行原文>}`;文件缺失/坏件 ⇒ 两个空集
+ * (不误伤真回捞件,也不冒绿)。
+ *
+ * **第二维 `raw`(2026-11-05 补,同批回补的实测需求)**:auto-triage 一族的行
+ * (`- [ ] B46 [auto-triage] API 5xx …`)在 `compositeKeyOf` 下**退化成 null**(题面被第一个
+ * `[` 截成编号本身),因此它们拿不到复合主键,第一维对它们结构上不可用 —— 实测这 6 枚回补行
+ * 在 `recallRowsOf` 里全是 `via=title` 候选。整行逐字相同只可能是"我们自己写进去的那一行"
+ * (回补形态含 `〔全文@…〕` 指针,历史上不存在逐字相同的副本),故按 `raw` 认领与按 key 认领
+ * 同属提交侧声明,不是文本相似度。
+ */
 export function readRestoredKeys(root = ROOT, logger = console.log) {
   try {
     const j = JSON.parse(readFileSync(join(root, RESTORATIONS_REL), 'utf8'))
-    const keys = (Array.isArray(j?.rows) ? j.rows : [])
-      .map((r) => (typeof r?.key === 'string' ? r.key : ''))
-      .filter(Boolean)
-    return new Set(keys)
+    const list = Array.isArray(j?.rows) ? j.rows : []
+    const keys = list.map((r) => (typeof r?.key === 'string' ? r.key : '')).filter(Boolean)
+    const raws = list.map((r) => (typeof r?.raw === 'string' ? r.raw : '')).filter(Boolean)
+    return { keys: new Set(keys), raws: new Set(raws) }
   } catch (e) {
     logger(`⚠️ 回补清单取不到(${oneLine(e)}) ⇒ 本轮按空集判(真回捞件照摘)`)
-    return new Set()
+    return { keys: new Set(), raws: new Set() }
   }
 }
 
-/** 纯函数:复合主键在回补清单里的候选 ⇒ 移进 held(失效方向=少摘)。 */
-export function holdRestoredRows(rows, restoredKeys) {
+/** 纯函数:复合主键(或整行原文)在回补清单里的候选 ⇒ 移进 held(失效方向=少摘)。
+ *  `restored` 可以是 Set(旧形态,只认复合主键)或 `readRestoredKeys` 的 `{keys, raws}`。 */
+export function holdRestoredRows(rows, restored) {
+  const keys = restored instanceof Set ? restored : (restored?.keys ?? new Set())
+  const raws = restored instanceof Set ? new Set() : (restored?.raws ?? new Set())
   const kept = []
   const held = []
   for (const r of Array.isArray(rows) ? rows : []) {
     const key = compositeKeyOf(r?.raw)
-    if (key && restoredKeys instanceof Set && restoredKeys.has(key)) {
-      held.push({ ...r, why: `显式回补清单(${key})—— 有意回补,非回捞件` })
+    const byKey = Boolean(key) && keys.has(key)
+    const byRaw = typeof r?.raw === 'string' && raws.has(r.raw)
+    if (byKey || byRaw) {
+      held.push({ ...r, why: `显式回补清单(${byKey ? key : '整行逐字'})—— 有意回补,非回捞件` })
     } else {
       kept.push(r)
     }
@@ -401,7 +418,27 @@ export function selfTest() {
     stillCandidate.rows.length === 1 && stillCandidate.held.length === 0,
     `⑭ 不在清单的行(真回捞件)必须仍进候选(实测 rows=${stillCandidate.rows.length} held=${stillCandidate.held.length})`,
   )
-  if (fails === 0) console.log(`自检:全部通过(14 组,状态 ${used.length} 个)`)
+  // ⑮ 第二维(整行逐字):拿不到复合主键的族(`compositeKeyOf === null`)只能按整行认领 —— 两个方向同形,
+  //    否则这一维要么对 auto-triage 一族形同虚设(key=null 时永远判"不在清单"),要么把任意同文行都吞掉。
+  const R6 = '- [ ] B46 [auto-triage] API 5xx 错误签名聚类(GET /api/app-version/latest 500)'
+  ok(compositeKeyOf(R6) === null, '⑮ 夹具必须真落到"无复合主键"那一族(否则本组自证空转)')
+  const byRaw = holdRestoredRows([{ raw: R6, via: 'title', line: 9 }], {
+    keys: new Set(),
+    raws: new Set([R6]),
+  })
+  ok(
+    byRaw.rows.length === 0 && byRaw.held.length === 1,
+    `⑮ 整行逐字在清单 ⇒ 必须让路(实测 rows=${byRaw.rows.length} held=${byRaw.held.length})`,
+  )
+  const rawMiss = holdRestoredRows([{ raw: R6 + '（漂移）', via: 'title', line: 9 }], {
+    keys: new Set(),
+    raws: new Set([R6]),
+  })
+  ok(
+    rawMiss.rows.length === 1 && rawMiss.held.length === 0,
+    `⑮ 整行不完全相同 ⇒ 仍进候选(实测 rows=${rawMiss.rows.length} held=${rawMiss.held.length})`,
+  )
+  if (fails === 0) console.log(`自检:全部通过(15 组,状态 ${used.length} 个)`)
   else console.error(`自检:${fails} 失败`)
   return fails
 }

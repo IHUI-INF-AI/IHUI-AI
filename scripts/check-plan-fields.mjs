@@ -244,7 +244,12 @@ export function judge(
   for (const r of rows.filter(isOpenRow)) {
     const line = r.raw
     const key = compositeKeyOf(line)
-    const rec = key ? (map.get(key) ?? null) : null
+    // 行键走单源 `fieldsFor`(本文件 L209 的既定口径):无主键行(`compositeKeyOf === null`,形如
+    // `- [ ] B46 [auto-triage] …` 这种题面被 `[` 截成编号本身的族)拿到的是 `T:<sha1>` 兜底键,
+    // 侧车对这类行只可能以兜底键落记录。旧判据在这里直接 `map.get(compositeKeyOf(line))` ⇒ 兜底键
+    // 记录永远查不到,A1 对整族恒红(实测 2026-11-05:6 枚回补的 auto-triage 行 a1=6,侧车无从补)。
+    // 这不是放宽判据 —— A1 问的仍是"有没有侧车交代",只是把键解析换成与 L212 同一把尺子。
+    const rec = fieldsFor({ line, map }).rec
     if (!rec && !hasLease(line)) {
       if (adoptTargets.has(key)) {
         // 新号键能认领旧号键的侧车字段(搬支在册)⇒ 不算"缺交代":结构化归属已在侧车,
