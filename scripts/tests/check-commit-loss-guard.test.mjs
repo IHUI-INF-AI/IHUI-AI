@@ -5,7 +5,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execSync, execFileSync, spawnSync } from 'node:child_process'
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { __test__ } from '../check-commit-loss-guard.mjs'
@@ -1682,6 +1682,148 @@ test('清单出口·全量档契约: --window-days 0 时 --list-unbacked 必须�
     assert.equal(full.status, 1, `窗维关闭必须照拦,实际 ${full.status}`)
     const listed = oidsAfterHeader(full.stdout, '--list-unbacked:')
     assert.ok(listed.includes(ancient), `全量档的未备份清单必须含超窗那枚 ${ancient},实际 ${listed}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+// ─── 逐路径覆盖全量落盘(--list-covered <file>,2026-11-05)────────────────────
+// 立因:展示行只打 `pathCovered.slice(0, 10)`,前 10 名之外的差异(典型"26→24 被移出的
+// 2 枚")无法命名,对账人只能改脚本或重算判据(重算那份必然与源漂开 §22c)。本开关只把
+// **已有的** pathCovered 全量落盘,不改任何判据。三条用例分别钉:默认零副作用 / 条数等于
+// pathCovered 且与 missing 集合互补 / 空集合也产出 0 条文件。
+function readCoveredJsonl(path) {
+  const text = readFileSync(path, 'utf8')
+  if (text === '') return []
+  return text
+    .replace(/\n$/, '')
+    .split('\n')
+    .map((l) => JSON.parse(l))
+}
+
+test('--list-covered·反向①: 不给开关 ⇒ 不落盘、无新增输出(去掉开关横幅后与默认逐字一致)', () => {
+  const dir = createTempRepo()
+  const git = (cmd) => execSync(cmd, { cwd: dir, stdio: 'ignore' })
+  try {
+    // 同一份夹具先跑默认档,再跑开关档:两者 stdout 除新增的单行横幅外必须逐字一致。
+    git('git checkout -b side-a')
+    writeFileSync(join(dir, 'a.txt'), 'vA\n')
+    git('git add a.txt')
+    git('git commit -m "land-a"')
+    git('git checkout main')
+    git('git checkout -b side-b')
+    writeFileSync(join(dir, 'b.txt'), 'vB\n')
+    git('git add b.txt')
+    git('git commit -m "land-b"')
+    git('git checkout main')
+    git('git checkout -b temp-cov')
+    writeFileSync(join(dir, 'a.txt'), 'vA\n')
+    writeFileSync(join(dir, 'b.txt'), 'vB\n')
+    git('git add a.txt b.txt')
+    git('git commit -m "covered-dangling"')
+    git('git checkout main')
+    git('git branch -D temp-cov')
+
+    const target = join(dir, 'covered-list.jsonl')
+    const off = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    assert.equal(off.status, 0, `逐路径全覆盖应放行,实际 ${off.status}:\n${off.stdout}`)
+    assert.ok(!existsSync(target), '不给 --list-covered 时不得落盘')
+    assert.doesNotMatch(off.stdout, /--list-covered:/, '默认输出不得出现开关横幅')
+
+    const on = runScript(
+      ['--blocking', '--filter-stash', __test__.FLAGS.listCovered, target],
+      { cwd: dir },
+    )
+    assert.equal(on.status, 0, `开关只加落盘,不得改判定,实际 ${on.status}:\n${on.stdout}`)
+    const stripped = String(on.stdout)
+      .split('\n')
+      .filter((l) => !l.includes('--list-covered:'))
+      .join('\n')
+    assert.equal(stripped, off.stdout, '开关的唯一输出增量是那行横幅,其余必须逐字一致')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('--list-covered·反向②: 开关开 ⇒ 落盘条数 == pathCovered.size,且与 missing 集合互补', () => {
+  const dir = createTempRepo()
+  const git = (cmd) => execSync(cmd, { cwd: dir, stdio: 'ignore' })
+  try {
+    // 两条可达分支各落一条路径:让悬空提交的树不等于任何单条可达树(否则会先被
+    // 「等价残留」档放行,pathCovered 恒 0,用例就测不到本开关)。
+    git('git checkout -b side-a')
+    writeFileSync(join(dir, 'a.txt'), 'vA\n')
+    git('git add a.txt')
+    git('git commit -m "land-a"')
+    git('git checkout main')
+    git('git checkout -b side-b')
+    writeFileSync(join(dir, 'b.txt'), 'vB\n')
+    git('git add b.txt')
+    git('git commit -m "land-b"')
+    git('git checkout main')
+    // ① 逐路径全覆盖的悬空提交(每路径的同路径同 blob 在 side-a/side-b 上)
+    git('git checkout -b temp-cov')
+    writeFileSync(join(dir, 'a.txt'), 'vA\n')
+    writeFileSync(join(dir, 'b.txt'), 'vB\n')
+    git('git add a.txt b.txt')
+    git('git commit -m "covered-dangling"')
+    const coveredOid = execFileSync('git', ['rev-parse', 'HEAD'], {
+      cwd: dir,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    }).trim()
+    git('git checkout main')
+    git('git branch -D temp-cov')
+    // ② 真有缺口的悬空提交(lost-unique.txt 从未在可达面出现)
+    git('git checkout -b temp-gap')
+    writeFileSync(join(dir, 'lost-unique.txt'), 'never-landed\n')
+    git('git add lost-unique.txt')
+    git('git commit -m "gap-dangling"')
+    const gapOid = execFileSync('git', ['rev-parse', 'HEAD'], {
+      cwd: dir,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    }).trim()
+    git('git checkout main')
+    git('git branch -D temp-gap')
+
+    const target = join(dir, 'covered-list.jsonl')
+    const r = runScript(
+      ['--blocking', '--filter-stash', __test__.FLAGS.listCovered, target],
+      { cwd: dir },
+    )
+    assert.equal(r.status, 1, `有缺口必须判红,实际 ${r.status}:\n${r.stdout}`)
+    assert.ok(existsSync(target), '开关开时必须落盘')
+    const recs = readCoveredJsonl(target)
+    // 条数必须等于门自己报的 pathCovered 枚数(不是展示行的前 10 枚)
+    const shown = String(r.stdout).match(/逐路径覆盖放行 (\d+) 个/)
+    assert.ok(shown, '门必须仍在报告里给出 pathCovered 条数')
+    assert.equal(recs.length, Number(shown[1]), '落盘条数必须等于 pathCovered.size')
+    assert.equal(recs.length, 1, '本夹具的 pathCovered 应恰为 1 枚')
+    assert.equal(recs[0].hash, coveredOid, '落盘的必须是那枚被逐路径覆盖放行的提交')
+    assert.match(String(r.stdout), /--list-covered:1 条/, '横幅必须给出条数')
+    // 与 missing 集合对上:缺口那枚在 stdout 的「未覆盖」清单里,且**不得**出现在落盘里
+    assert.match(String(r.stdout), /未覆盖:A lost-unique\.txt/, '缺口必须被门点名')
+    assert.ok(!recs.some((x) => x.hash === gapOid), '有缺口的提交不得混进 pathCovered 落盘')
+    // evidence 必须带同路径证据(否则"哪条路径被谁覆盖"仍无法对账)
+    const evPaths = (recs[0].evidence || []).map((e) => e.path).sort()
+    assert.deepEqual(evPaths, ['a.txt', 'b.txt'], `证据应逐条列出被覆盖路径,实际 ${evPaths}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('--list-covered·反向③: 空集合 ⇒ 落盘文件存在、条数 0、exit 0', () => {
+  const dir = createTempRepo()
+  try {
+    const target = join(dir, 'covered-empty.jsonl')
+    const r = runScript(['--blocking', __test__.FLAGS.listCovered, target], { cwd: dir })
+    assert.equal(r.status, 0, `干净仓库无覆盖项应 exit 0,实际 ${r.status}:\n${r.stdout}`)
+    assert.ok(existsSync(target), '空集合也必须产出文件(否则"0 条"与"没落盘"无从区分)')
+    assert.equal(readCoveredJsonl(target).length, 0, '空集合的落盘条数必须为 0')
+    assert.match(String(r.stdout), /--list-covered:0 条/, '横幅必须报 0 条')
   } finally {
     rmScratch(dir)
   }

@@ -125,7 +125,7 @@ const SKIP_ENV = 'HUSKY_SKIP_COMMIT_LOSS_CHECK'
 
 /**
  * 档位旗标的 argv 读取点(**唯一源头**;2026-10-11 起含 `--list-unbacked` 与
- * `--list-out-of-window`,共五项)。
+ * `--list-out-of-window`,2026-11-05 增 `--list-covered <file>`,共六项)。
  * 镜像测试原先各抄一份 `'--blocking' / '--filter-stash'` 字面量:档位名一旦改,测试传的
  * 就成了没人读的字符串,断言照样绿(§22c 的"镜像常量漂移")。故导出真常量,测试取用。
  */
@@ -135,6 +135,7 @@ const FLAGS = {
   filterStash: '--filter-stash',
   listUnbacked: '--list-unbacked',
   listOutOfWindow: '--list-out-of-window',
+  listCovered: '--list-covered',
 }
 
 /** 自检入口旗标与脚本自身路径(自检必须**以子进程**再跑一遍本门才能拿到真实 exit 码)。 */
@@ -235,6 +236,18 @@ const isBlocking = process.argv.includes(FLAGS.blocking)
 const isFilterStash = process.argv.includes(FLAGS.filterStash)
 const isListUnbacked = process.argv.includes(FLAGS.listUnbacked)
 const isListOutOfWindow = process.argv.includes(FLAGS.listOutOfWindow)
+const isListCovered = process.argv.includes(FLAGS.listCovered)
+/**
+ * `--list-covered <file>` 的落盘目标(**只认紧跟的那一个 token**,与 `--window-days <N>` 同形)。
+ * 取不到路径就落空,由 main 的入口守卫显式报"未判定"(exit 2),不允许"给了开关却没落盘"
+ * 这种静默失败 —— 那会让对账人以为文件是空的。
+ */
+const listCoveredTarget = (() => {
+  const i = process.argv.indexOf(FLAGS.listCovered)
+  if (i === -1) return ''
+  const v = process.argv[i + 1]
+  return v && !v.startsWith('--') ? v : ''
+})()
 /**
  * `--window-days <N>` 的取值(**只认紧跟的那一个 token**)。
  * 刻意不写成"扫到 flag 之后所有数字里挑一个":仓内已有判据因把别处的数字当自己的参数而误判
@@ -466,6 +479,22 @@ function noteHealDone(fetchedCount) {
   }
 }
 
+/**
+ * `--list-covered <file>` 的落盘器(2026-11-05)。
+ * 一行一条 JSON:`{"hash":"…","evidence":[{status,path,blob,commit,surface}…]}` —— 与
+ * `--list-unbacked` 的"一行一枚完整 oid"同款机读风格,但多了逐路径覆盖证据(否则无法命名
+ * "26→24 被移出的 2 枚"是**哪** 2 枚)。条数逐条等于 `pathCovered.size`。
+ * 只在开关显式打开时被调用 ⇒ 不给开关时零副作用、stdout 逐字不变。
+ * 写失败**不吞**:吞掉等于"给了开关却没落盘",对账人会把缺件读成 0 条。抛给 onFatal → exit 2。
+ */
+function writeCoveredList(entries, target) {
+  const body = entries
+    .map((e) => JSON.stringify({ hash: e.hash, evidence: e.evidence || [] }))
+    .join('\n')
+  mkdirSync(dirname(target), { recursive: true })
+  writeFileSync(target, body ? `${body}\n` : '', 'utf8')
+}
+
 function healMissingRemoteTags(names) {
   // 批宽 50 → 20、单批超时 60s → 180s(2026-10-30 实测校准):
   // 每批 50 个 refspec 的 fetch 在 ssh://ssh.github.com:443 上会整批超时 ⇒ fetched=0 ⇒
@@ -619,7 +648,7 @@ function readLossCache() {
   // 只在 blocking 档(提交链)复用;手动查询档(--list-* / --fetch)一律现算,避免给人旧数。
   if (!isBlocking || process.env.IHUI_COMMIT_LOSS_NO_CACHE === '1') return null
   // 名单出口的产物是**名单**,不是结论:缓存里没有名单,命中即等于把名单吞掉。
-  if (isListUnbacked || isListOutOfWindow) return null
+  if (isListUnbacked || isListOutOfWindow || isListCovered) return null
   // 显式要看远程时,缓存里的结论只覆盖本地面(那次的远端档可能压根没跑/没判成)
   // ⇒ 必须现算,不得拿旧结论替远程档作证(2026-11-04)。
   if (process.env.IHUI_COMMIT_LOSS_REMOTE === '1') return null
@@ -2298,6 +2327,18 @@ async function main() {
 
   console.log(`${C.cyan}${C.bold}🛡️  Commit 丢失防护守门(AGENTS.md §22 配套)${C.reset}`)
 
+  // `--list-covered` 给了旗却取不到目标文件 ⇒ 未判定(§0.3):既不假装"列出 0 条"成功,
+  // 也不静默不落盘(那两种都会让对账人把"没落"读成"空")。
+  if (isListCovered && !listCoveredTarget) {
+    console.log(
+      `\n${C.red}${C.bold}❌ UNDETERMINED: ${FLAGS.listCovered} 缺少紧跟的文件路径${C.reset}`,
+    )
+    console.log(
+      `   ${C.dim}用法:node scripts/check-commit-loss-guard.mjs ${FLAGS.listCovered} <file>${C.reset}`,
+    )
+    process.exit(2)
+  }
+
   // 窗维在**入口处**解析一次:main 里两处打印(告警行与建议行)必须报同一个天数,
   // 各算一遍就会在有人只改一处时出现"拦的是 7 天、说的是 30 天"这种自相矛盾的读数。
   const winDim = resolveWindowDays({
@@ -2705,6 +2746,9 @@ async function main() {
     issues.push(`reflog 检测到 ${resets.length} 次 reset 操作`)
     blocking = true // 2026-07-25 升级:reset 操作直接进 blocking(防 commit 丢失)
   }
+  // `--list-covered <file>` 的落盘载体:pathCovered 在下方 `if (unreachable.length > 0)` 块内
+  // 计算,块外统一落盘(空集合也必须产出 0 条文件,见下方 dump 点)。
+  let coveredForList = []
   if (unreachable.length > 0) {
     // 检查每个悬空 commit 是否有 lost-commit tag 备份
     // 注意:stash-like 悬空 commit 的 subject 包含原 commit hash(如 "index on main: 5ef36e59d ...")
@@ -2886,6 +2930,8 @@ async function main() {
         subjectByHash,
       }
     })()
+    // `--list-covered` 全量落盘的唯一数据源:块内算完的 pathCovered 原样交给块外 dump 点。
+    coveredForList = pathCovered
     // 2026-11-05 修复:原为整体赋值,会把 3b 播种的「未判定」项整个抹掉(实测修前
     // 「已备份 121」而 3b 内部「未判定 4」从不出现在出口)。改为逐条并回,两档同账。
     for (const [h, u] of pathCoverageUndetermined) {
@@ -3094,6 +3140,17 @@ async function main() {
         for (const o of win.outOfWeek) console.log(o.hash)
       }
     }
+  }
+
+  // `--list-covered <file>`:把 pathCovered 的**全量**落盘(一行一条 JSON,条数 == 逐路径覆盖
+  // 放行的枚数)。默认只打前 10 枚展示行,"26→24 被移出的 2 枚"这类差异因此无法命名;
+  // 全量落盘供人工对账。刻意放在 `if (unreachable.length > 0)` **之外**:空集合时也要产出
+  // 一个 0 条的文件(否则"没有覆盖项"与"忘了落盘"无从区分)。不给开时零副作用。
+  if (isListCovered) {
+    writeCoveredList(coveredForList, listCoveredTarget)
+    console.log(
+      `  ${C.cyan}${FLAGS.listCovered}:${coveredForList.length} 条(完整 pathCovered 全量,已写入 ${listCoveredTarget})${C.reset}`,
+    )
   }
 
   // 3b 维:已备份但未清偿的缺口必须进 issues —— 否则本轮会打印"✅ 无风险"并通过句,
