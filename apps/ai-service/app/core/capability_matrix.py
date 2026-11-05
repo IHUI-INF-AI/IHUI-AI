@@ -925,7 +925,7 @@ CAPABILITY_MATRIX: list[dict[str, str]] = [
         "category": "开关类",
         "owner_module": "app.services.workbuddy_behaviors",
         "doc_ref": "app/services/workbuddy_behaviors.py:build_default_activity_reporter",
-        "reason_if_off": "行为规划驱动器默认关:关闭即 reporter=None,行为任务只登记不动作;开启后 growth 族走默认行为计分回调,可自动则自动、不可自动如实登记为待用户在客户端实操",
+        "reason_if_off": "行为规划驱动器默认关:关闭即 reporter=None,行为任务只登记不动作;开启后 growth 族走默认行为计分回调——只有代发事件后重读列表确认 progress/status 确已前进才算自动完成(2026-11-05 真机:合成事件 200 code:0 但 progress 零变化),否则如实登记为待用户在客户端实操",
         "settings_field": "workbuddy_tasks_behavior_driver_enabled",
     },
     # ============ 工具面能力门(缺口表 #7,2026-11-01 立)============
