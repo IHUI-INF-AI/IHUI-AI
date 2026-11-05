@@ -8,12 +8,12 @@
 // 改路由请改 RootNavigator.tsx 后重新生成。
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/mobile-rn/scripts/generate-ui-routes.mjs
-// sourceCommit: 0f85d17e7f27dac180874761dbb8bf533e4c5c43
-// inputsSha256: 6470c0225c5d19d5417aeea2c1955a6d3b11e4fa12d2ce45d6e4f1ba8fc3ce7d
-// input: apps/mobile-rn/src/navigation/RootNavigator.tsx 298ee39ac1d0a58a0c6f544e1dd78764d5d34b0cd596d6025438d26729a4151c
+// sourceCommit: 3755c1d25965bdca19686abb5ef8c131f99eeb2d
+// inputsSha256: 9315db0f0fc75c18ea959eec630c43e4d3efff25205e76abaa25c144d0bf563c
+// input: apps/mobile-rn/src/navigation/RootNavigator.tsx ffdb406300444496f99992ab16e0651247739cbdc0cbdba8adbe56ae90801cfe
 // input: apps/mobile-rn/src/navigation/linking.ts 5d0669776885554d59463e5bf928d7a3c264d936a4977c0428877a9a19612cb6
 // skipped: unauthedBranchScreens=3(未登录分支 Screen 不入白名单,桥接挂载时不存在)
-// generatedAt: 2026-11-04T06:49:13.277Z
+// generatedAt: 2026-11-05T13:41:23.089Z
 // IHUI-GEN-PIN-END
 
 /** AI 可导航 Screen 条目:name 是 react-navigation 的 screen name(不是 URL 路径) */
@@ -28,7 +28,7 @@ export interface RnUiRouteEntry {
   requiredParams: string[]
 }
 
-/** 全量白名单:前 341 条是已登录分支 RootStack.Screen,后 5 条是 Main Tab */
+/** 全量白名单:前 342 条是已登录分支 RootStack.Screen,后 5 条是 Main Tab */
 export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'Main', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Login', tab: false, requiresParams: false, requiredParams: [] },
@@ -36,6 +36,7 @@ export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'DomainHub', tab: false, requiresParams: true, requiredParams: ['domain'] },
   { name: 'Chat', tab: false, requiresParams: true, requiredParams: ['url', 'durationSec'] },
   { name: 'ChatWorkbench', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'ConversationHistory', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'OrderRefund', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Payment', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Vip', tab: false, requiresParams: false, requiredParams: [] },

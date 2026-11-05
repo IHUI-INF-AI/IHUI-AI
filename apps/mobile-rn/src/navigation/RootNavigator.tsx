@@ -374,6 +374,8 @@ import { SelfHealingScreen } from '../screens/SelfHealingScreen'
 import { WorkspaceScreen } from '../screens/WorkspaceScreen'
 // D28 多端同步(2026-09-21):外部会话导入(对应 web 端 /settings/import 会话导入 Tab)
 import { ConversationImportScreen } from '../screens/ConversationImportScreen'
+// A2(2026-11-05):AI 会话历史 —— RN 侧真消费共享屏
+import { ConversationHistoryScreen } from '../screens/ConversationHistoryScreen'
 // P3 侧边栏收敛:教育/交易/社区域入口二级屏
 import DomainHubScreen from '../screens/DomainHubScreen'
 import type { DomainKey } from './domain-hub'
@@ -795,6 +797,8 @@ export type RootStackParamList = {
   CircleIndex: undefined
   // D28 多端同步(2026-09-21):外部会话导入入口(设置页 → 会话导入屏)
   ConversationImport: undefined
+  // A2(2026-11-05):AI 会话历史共享屏的 RN 入口
+  ConversationHistory: undefined
 }
 
 // MainStackParamList / MainTabKey / mainScreenForTab 已提取到 tab-utils.ts,
@@ -992,6 +996,7 @@ function RootNavigatorInner() {
             <RootStack.Screen name="DomainHub" component={DomainHubScreen} />
             <RootStack.Screen name="Chat" component={ChatScreen} />
             <RootStack.Screen name="ChatWorkbench" component={ChatWorkbenchScreen} />
+            <RootStack.Screen name="ConversationHistory" component={ConversationHistoryScreen} />
             <RootStack.Screen name="OrderRefund" component={OrderRefundScreen} />
             <RootStack.Screen name="Payment" component={PaymentScreen} />
             <RootStack.Screen name="Vip" component={VipScreen} />
