@@ -134,19 +134,23 @@ jobs:
 
       # 5. 密钥泄露扫描（复用项目脚本 + gitleaks 双保险）
       - name: 密钥泄露扫描 (项目脚本)
+        id: api_key_scan
         run: |
-          node scripts/check-api-key-leak.mjs 2>&1 | tee reports/api-key-leak.txt || true
+          set -o pipefail
+          node scripts/check-api-key-leak.mjs 2>&1 | tee reports/api-key-leak.txt
 
       - name: 密钥泄露扫描 (gitleaks)
+        id: gitleaks_scan
+        if: always()
         uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           scan-mode: repo
-        continue-on-error: true
 
       # 6. 汇总安全报告
       - name: 生成安全审计汇总报告
+        if: always()
         run: |
           {
             echo "# 每周安全审计报告"
@@ -208,5 +212,21 @@ jobs:
             exit 1
           fi
           echo "生产依赖无 high/critical 漏洞"
+
+      # 9. 密钥扫描阻断（exit 1）：失败必须传播，不许被 `|| true` / `continue-on-error` 吞成假绿
+      #    刻意放在汇总报告与 artifact 上传之后：先留全证据，再判红（与第 8 步同形）。
+      - name: 密钥扫描结果阻断
+        if: always()
+        run: |
+          fail=0
+          if [ "${{ steps.api_key_scan.outcome }}" != "success" ]; then
+            echo "::error::项目密钥扫描未通过或未判定（outcome=${{ steps.api_key_scan.outcome }}）"
+            fail=1
+          fi
+          if [ "${{ steps.gitleaks_scan.outcome }}" != "success" ]; then
+            echo "::error::gitleaks 扫描未通过或未执行（outcome=${{ steps.gitleaks_scan.outcome }}）"
+            fail=1
+          fi
+          exit "$fail"
 
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
