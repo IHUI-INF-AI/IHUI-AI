@@ -2381,6 +2381,7 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
       }
       return
     }
+    let landedSkipped = 0
     for (const ticket of rows) {
       const key = ticketKeyOf(ticket.text)
       const qUntil = quarantinedUntilOf(ledger, key)
@@ -2396,6 +2397,7 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
       // `landedCommitOfTicket` 头注;取不到不拦,与"advisory 不饿死环"同一条失效方向)。
       const alreadyLanded = landedCommitOfTicket(key)
       if (alreadyLanded) {
+        landedSkipped++
         console.log(
           `⏭ L${ticket.line} 产物已落地(${alreadyLanded.slice(0, 12)})而票行未结清 ⇒ 跳过重派`,
         )
@@ -2676,8 +2678,15 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
       }
       return
     }
-    console.log('ℹ 候选行全部未命中白名单或在封 ⇒ 本轮无派发')
-    record({ mode: dryRun ? 'dryrun' : 'dispatch', action: 'no-whitelist-hit', note: summary })
+    // 收尾措辞必须与真实原因同形:这一行过去只会说"未命中白名单或在封",而本环刚装上
+    // "已落地不重派"那一档 ⇒ 全部因已落地而跳过的轮次会被记成 whitelist 问题,
+    // 读台账的人下一步就是去扩白名单(§0.3 的反面:把量到的那件事写成另一件事)。
+    console.log(`ℹ 本轮无派发(未命中白名单或在封;其中已落地待结清 ${landedSkipped} 枚 ⇒ 不再重派)`)
+    record({
+      mode: dryRun ? 'dryrun' : 'dispatch',
+      action: 'no-whitelist-hit',
+      note: `${summary} / 已落地待结清跳过 ${landedSkipped} 枚`,
+    })
   } finally {
     releaseLock()
   }
