@@ -169,6 +169,15 @@ def _merkle_root(file_hashes: dict[str, str]) -> str:
     return hashlib.sha256(joined.encode("utf-8")).hexdigest()
 
 
+def _default_repo_id(root: Path) -> str:
+    """缺省 repo_id 的唯一形态(全量与增量两条路径共用,§0.6 禁第二把尺)。"""
+    return f"local-{hashlib.sha256(str(root).encode()).hexdigest()[:16]}"
+
+
+#: 写入 API 的分批条数(全量与增量共用同一写通道,单源)。
+_WRITE_BATCH_SIZE = 100
+
+
 #: git 跟踪面探针的超时(秒)。派生调用必须有界,否则一次挂起会把整条索引链拖成无界等待。
 GIT_TRACKED_TIMEOUT_S = 60.0
 
@@ -1187,8 +1196,9 @@ class CodebaseIndexer:
         Returns:
             架构摘要切片列表(symbol_type=architecture_summary)。
         """
+        # 排序保证两路径逐字等值(增量轮 merged dict 插入序 ≠ 全量枚举序;§0.6 共用判据)
         by_dir: dict[str, list[str]] = {}
-        for rel_path, _lang, sym_count in rel_paths:
+        for rel_path, _lang, sym_count in sorted(rel_paths):
             directory = rel_path.rsplit("/", 1)[0] if "/" in rel_path else "(root)"
             by_dir.setdefault(directory, []).append(f"{rel_path} ({sym_count} symbols)")
 
@@ -1320,8 +1330,7 @@ class CodebaseIndexer:
             )
 
         if not repo_id:
-            path_hash = hashlib.sha256(str(root).encode()).hexdigest()[:16]
-            repo_id = f"local-{path_hash}"
+            repo_id = _default_repo_id(root)
 
         result = IndexResult(repo_id=repo_id)
         files, traversal_prov, ignore_report = self.collect_code_files_with_provenance(root)
@@ -1575,8 +1584,8 @@ class CodebaseIndexer:
         # 批量生成 embedding
         result.chunks_vectorized = await self._generate_embeddings_batch(all_chunks)
 
-        # 分批写入 API(每批 100 条)
-        BATCH_WRITE = 100
+        # 分批写入 API(批次大小单源 = 模块常量,增量路径共用同一写通道)
+        BATCH_WRITE = _WRITE_BATCH_SIZE
         for i in range(0, len(all_chunks), BATCH_WRITE):
             batch = all_chunks[i : i + BATCH_WRITE]
             try:

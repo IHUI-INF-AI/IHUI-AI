@@ -559,5 +559,26 @@ export const SYNTAX_TABLE: Readonly<Record<string, CommandSpec>> = {
     effect: 'write',
     options: [opt('a', { arity: 'required' }), opt('c'), opt('e', { arity: 'required' }), opt('nv'), opt('o', { arity: 'required' }), opt('O', { arity: 'required' }), opt('P', { arity: 'required' }), opt('q'), opt('r'), opt('S'), opt('t', { arity: 'required' }), opt('v'), opt('Y', { arity: 'required' }), opt('b'), opt('background'), opt('continue'), opt('directory-prefix', { arity: 'required' }), opt('header', { arity: 'required' }), opt('level', { arity: 'required' }), opt('mirror'), opt('no-check-certificate'), opt('no-clobber'), opt('no-parents'), opt('output-document', { arity: 'required' }), opt('output-file', { arity: 'required' }), opt('post-data', { arity: 'required' }), opt('quiet'), opt('recursive'), opt('restrict-file-names', { arity: 'required' }), opt('server-response'), opt('spider'), opt('timeout', { arity: 'required' }), opt('tries', { arity: 'required' }), opt('user-agent', { arity: 'required' })],
   },
+
+  // ---- ssh 系网络命令登记(goal-b49 Z9;纯数据面,零判据)----
+  // 为什么登记在这里就够了:`sandbox/egress/bare-host.ts` 的裸域名取词闸门按**本表的 network 效应**
+  // 决定"这条命令段要不要问",所以登记 network ⇒ 闸门自动跟长,那一侧一个字都不用改。
+  // 两条依据都取自仓内现成权威,不凭印象造词位:
+  //   ① "这些 basename 属网络类" = `tools/sandbox/policy.ts` 的 `NETWORK_COMMAND_BASENAMES`
+  //      (本仓那份唯一清单,逐字取自其中的 `ssh` / `scp` / `sftp`)。
+  //   ② "目的地在哪个词位" = `plugins/url-shape.ts` 的 `SCP_LIKE_RE`(`user@host:path`)与
+  //      `ALLOWED_URL_SCHEMES` 的 ssh 档(`user@host`),两者都是**非选项操作数**;求值器的
+  //      操作数切分见 `evaluate.ts` 的"词法切分"一节。`bare-host.ts` 头注列的同一组形态即消费面。
+  // 未登记的选项按纪律 3 = 判不出(unknown),登记这三条不新增任何免确认命令。
+  ssh: {
+    // 选项只登记到本仓生产 argv 实测到的那一格:`scripts/git-guardian.mjs` 的 `SSH_COMMAND`
+    // (`-i <key>` + 两个 `-o K=V`)与 `tests/plugin-git-guard-g814388.test.ts` 的 `ssh -i /secret/id_ed25519`
+    effect: 'network',
+    options: [opt('i', { arity: 'required' }), opt('o', { arity: 'required' }), ...INFO_OPTIONS],
+  },
+  // scp/sftp 的远端规格就是操作数本身(`user@host:path` / `user@host`);本仓无这两条的 argv 样本,
+  // 故**不**登记任何短选项 —— 带选项的形态落 unknown,取词闸门仍按 network 基线效应照常开。
+  scp: { effect: 'network', options: [...INFO_OPTIONS] },
+  sftp: { effect: 'network', options: [...INFO_OPTIONS] },
 };
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

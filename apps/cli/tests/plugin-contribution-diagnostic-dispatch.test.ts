@@ -229,7 +229,11 @@ describe('② 装车证明 — declined 档经 agent.ts 的诊断主通道到人
       spy.mockRestore();
     }
 
-    expect(warns.filter((line) => line.includes('plugin-contribution-'))).toHaveLength(0);
+    // 判的是"贡献裁决那两条码有没有出声",所以锚点必须是**码位在日志行里的形态** `[plugin:<code>]`,
+    // 不是裸的 'plugin-contribution-' 子串 —— 诊断行会带上清单绝对路径,而本文件的夹具目录名
+    // (mkScratch('plugin-contribution-dispatch-'))本身就含这个前缀,裸子串会把别家码的行也算进来
+    // (goal-b49/Z1 的对账腿 `plugin-declaration-unconsumed` 一落地就撞上了这一格)。
+    expect(warns.filter((line) => line.includes('[plugin:plugin-contribution-'))).toHaveLength(0);
   }, 90_000);
 
   it('派发面单测:两条贡献码都按 warning 送 logger.warn(不升任何档)', () => {
