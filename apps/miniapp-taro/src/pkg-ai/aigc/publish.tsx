@@ -1,54 +1,63 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// 薄壳化:页面只保留「状态 + 平台能力(选图/上传/提交)」,渲染统一走共享屏 AigcPublishScreen。
+// 本端作品类型档收敛为 image/text 两档(视频/音频无选材与预览链路,不摆设);
+// 文本档隐藏提示词输入 —— 本端文本正文走 problem 槽,再摆提示词口会让用户写下后无处落库。
+// 平台事实 3 项(全部在宿主层,共享屏内零平台 API):
+//   ① 选图 Taro.chooseImage  ② 读取本地文件 + 上传 uploadByBase64  ③ 提交 publishAigc
 
-// 对齐目标(RN 共享屏): packages/app/src/features/aigc-publish/AigcPublishScreen.tsx
 import { useI18n } from '@/i18n'
-import { ScrollView } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useRef } from 'react'
 import { useUiField } from '@/lib/ui-field-registry'
 import { publishAigc, uploadByBase64 } from '@/api'
 import { safeDecodeURIComponent } from '@ihui/shared'
 import ThemeRoot from '@/components/ThemeRoot'
-import { PublishForm } from './publish-form'
-import type { PublishWorkType, UpFile } from './publish-sections'
 import { onToast } from '@/host/on-toast'
+import { useTheme } from '@/rn-compat/theme'
+import { AigcPublishScreen as SharedAigcPublishScreen } from '@ihui/rn-app/features/aigc-publish/AigcPublishScreen'
+import type { AigcPublishFile, AigcPublishWorkType } from '@ihui/types'
 
 const MAX_FILES = 5
+
+/** 本端可用类型档:仅图片(素材上传链路)与文本(直写正文链路) */
+const PUBLISH_WORK_TYPES: readonly AigcPublishWorkType[] = ['image', 'text']
 
 export default function AigcPublish() {
   const { t } = useI18n()
   const router = useRouter()
+  const { resolvedTheme } = useTheme()
   const params = useMemo(() => {
     const ctxId = (router.params.contextId as string) || ''
     let prompt = ''
     if (router.params.title) prompt = safeDecodeURIComponent(router.params.title)
     if (router.params.prompt) prompt = safeDecodeURIComponent(router.params.prompt)
-    const fileList: UpFile[] = []
+    const files: AigcPublishFile[] = []
     if (router.params.imgUrlList) {
       try {
         const arr = JSON.parse(safeDecodeURIComponent(router.params.imgUrlList)) as string[]
-        ;(arr || []).forEach((u) => {
-          if (u) fileList.push({ url: u, type: 'image' })
+        ;(arr || []).forEach((u, i) => {
+          if (u) files.push({ id: `param-${i}`, url: u })
         })
       } catch {
         // ignore
       }
     }
-    return { contextId: ctxId, prompt, fileList }
+    return { contextId: ctxId, prompt, files }
   }, [router.params.contextId, router.params.title, router.params.prompt, router.params.imgUrlList])
   const [title, setTitle] = useState('')
   const [desc, setDesc] = useState('')
   const [prompt, setPrompt] = useState(params.prompt)
   const [textContent, setTextContent] = useState('')
   // 类型档:image = 素材上传(既有链路),text = 用户直写正文(对齐共享屏 showTextInput 分支)
-  const [workType, setWorkType] = useState<PublishWorkType>('image')
+  const [workType, setWorkType] = useState<AigcPublishWorkType>('image')
   const [urlInput, setUrlInput] = useState('')
-  const [fileList, setFileList] = useState<UpFile[]>(params.fileList)
+  const [fileList, setFileList] = useState<AigcPublishFile[]>(params.files)
   const [uploading, setUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [submitting, setSubmitting] = useState(false)
+  const seqRef = useRef(0)
   // AI 操控通道(2026-09-21):作品发布的三个文本字段(标题/简介/提示词)交出各自 setter。
   // 发布动作本身对外且不可撤回 → 不注册 onPress / submit,由用户自己点。
   useUiField({
@@ -74,10 +83,12 @@ export default function AigcPublish() {
     setValue: setPrompt,
   })
 
-  const coverUrl = useMemo(() => {
-    const img = fileList.find((f) => f.type === 'image')
-    return img ? img.url : ''
-  }, [fileList])
+  const makeFileId = useCallback((): string => {
+    seqRef.current += 1
+    return `up-${seqRef.current}`
+  }, [])
+
+  const coverUrl = useMemo(() => fileList[0]?.url || '', [fileList])
 
   /** 单张上传:本地文件读成 base64 → 走端内既有上传接口;失败返回空串由调用方统一记一次 */
   const uploadOne = useCallback(async (path: string): Promise<string> => {
@@ -106,13 +117,13 @@ export default function AigcPublish() {
       if (!paths.length) return
       setUploading(true)
       setUploadProgress(0)
-      const added: UpFile[] = []
+      const added: AigcPublishFile[] = []
       // 上传中词条带 {progress}:这里取「已完成张数 / 本次选材张数」的真实占比,不做估算动画
       for (let i = 0; i < paths.length; i++) {
         const path = paths[i]
         if (!path) continue
         const url = await uploadOne(path)
-        if (url) added.push({ url, type: 'image' })
+        if (url) added.push({ id: makeFileId(), url })
         setUploadProgress(Math.round(((i + 1) / paths.length) * 100))
       }
       if (added.length) {
@@ -127,7 +138,7 @@ export default function AigcPublish() {
       setUploading(false)
       setUploadProgress(0)
     }
-  }, [uploading, fileList.length, uploadOne, t])
+  }, [uploading, fileList.length, uploadOne, makeFileId, t])
 
   /** 对齐 RN onAddFileByUrl:链接直填进素材位,与选图同一条提交链路 */
   const addByUrl = useCallback(() => {
@@ -140,12 +151,12 @@ export default function AigcPublish() {
       onToast(t('aigc.publish.maxFiles'), { kind: 'info' })
       return
     }
-    setFileList((prev) => [...prev, { url, type: 'image' }])
+    setFileList((prev) => [...prev, { id: makeFileId(), url }])
     setUrlInput('')
-  }, [urlInput, fileList.length, t])
+  }, [urlInput, fileList.length, makeFileId, t])
 
-  const removeFile = useCallback((idx: number) => {
-    setFileList((prev) => prev.filter((_, i) => i !== idx))
+  const removeFile = useCallback((id: string) => {
+    setFileList((prev) => prev.filter((f) => f.id !== id))
   }, [])
 
   const validate = useCallback((): boolean => {
@@ -210,35 +221,36 @@ export default function AigcPublish() {
   ])
 
   return (
-    /* 对齐 RN shared AigcPublishScreen container(surface.light 明暗恒白在暗色下不可读,
-       按语义修正为 var(--color-card);paddingHorizontal 10 → 20rpx) */
     <ThemeRoot className="min-h-screen bg-[var(--color-card)] flex flex-col">
-      <ScrollView scrollY className="flex-1 box-border px-[20rpx] pt-[16rpx] pb-[32rpx]">
-        <PublishForm
-          workType={workType}
-          files={fileList}
-          maxFiles={MAX_FILES}
-          urlInput={urlInput}
-          textContent={textContent}
-          title={title}
-          description={desc}
-          prompt={prompt}
-          uploading={uploading}
-          progress={uploadProgress}
-          submitting={submitting}
-          onWorkTypeChange={setWorkType}
-          onUrlChange={setUrlInput}
-          onAddByUrl={addByUrl}
-          onPick={chooseFiles}
-          onRemove={removeFile}
-          onTextContentChange={setTextContent}
-          onTitleChange={setTitle}
-          onDescriptionChange={setDesc}
-          onPromptChange={setPrompt}
-          onSubmit={onSubmit}
-        />
-      </ScrollView>
+      <SharedAigcPublishScreen
+        t={t}
+        workType={workType}
+        files={fileList}
+        textContent={textContent}
+        title={title}
+        description={desc}
+        prompt={prompt}
+        urlInput={urlInput}
+        saving={submitting}
+        uploading={uploading}
+        uploadProgress={uploadProgress}
+        error=""
+        onWorkTypeChange={setWorkType}
+        onTextContentChange={setTextContent}
+        onTitleChange={setTitle}
+        onDescriptionChange={setDesc}
+        onPromptChange={setPrompt}
+        onUrlInputChange={setUrlInput}
+        onAddFileByUrl={addByUrl}
+        onPickImage={chooseFiles}
+        onRemoveFile={removeFile}
+        onSubmit={onSubmit}
+        onBack={() => void Taro.navigateBack()}
+        colorScheme={resolvedTheme}
+        onToast={onToast}
+        workTypes={PUBLISH_WORK_TYPES}
+        showPromptField={workType !== 'text'}
+      />
     </ThemeRoot>
   )
 }
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
