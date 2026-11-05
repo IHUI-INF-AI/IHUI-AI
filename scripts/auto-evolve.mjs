@@ -95,7 +95,7 @@ import {
 // 判据面(受保护面)的匹配判据单源在护栏纯函数层;本器只调用,不重抄任何匹配规则(§0.6)。
 import { parseGuardList, matchProtected } from './lib/immutable-guard.mjs'
 // 票面指纹与生成器同一把尺(§0.6):比对双方都走 autonomy-candidates 的那一个实现
-import { planFaceDigest } from './lib/plan-face-digest.mjs'
+import { planFaceDigestFromHead } from './lib/plan-face-digest.mjs'
 
 export const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 /** 调度器接线的锚点(guardian 派发层 import 同一组路径,不另拼第二份 —— §0.6 单一真相源) */
@@ -309,10 +309,11 @@ export function refreshAutonomyCandidates({
       } catch {
         cached = null
       }
-      const nowDigest = planFaceDigest(
-        String(readFileSync(join(ROOT, 'PROJECT_PLAN.md'), 'utf8')).split(/\r?\n/),
-      )
-      if (cached && cached === nowDigest) {
+      // 取**被审面**(HEAD blob)的票面指纹:读工作树会被别席滞后副本骗过(见 lib 头注)。
+      const nowDigest = planFaceDigestFromHead(ROOT)
+      if (!nowDigest)
+        console.warn('↻ 票面指纹取不到(HEAD 面读失败)⇒ 不冒充"一样",本轮按未判定处理并重算候选')
+      if (cached && nowDigest && cached === nowDigest) {
         return {
           state: 'ok',
           why: `候选文件新鲜(${Math.round(ageMs / 60_000)}min < ${AUTONOMY_CANDIDATES_REFRESH_MS / 3_600_000}h),不重跑`,

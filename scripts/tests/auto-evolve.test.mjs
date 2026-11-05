@@ -31,7 +31,7 @@ import {
   splitRotateStandoff,
   refreshAutonomyCandidates,
 } from '../auto-evolve.mjs'
-import { planFaceDigest } from '../autonomy-candidates.mjs'
+import { planFaceDigest, planFaceDigestFromHead } from '../autonomy-candidates.mjs'
 import { NON_PROGRESS_ACTIONS, PROGRESS_ACTIONS } from '../lib/autonomy-nonprogress.mjs'
 import { TRANSPORT_FAILURE_SIGNS } from '../lib/autonomy-runner.mjs'
 
@@ -1261,9 +1261,11 @@ test('Ⓞa 票面变了就必须重算候选,哪怕文件刚写过', () => {
   const dir = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '.ihui-agent', 'tmp', 'selftest-face')
   mkdirSync(dir, { recursive: true })
   const cand = join(dir, 'cand.json')
-  const lines = readFileSync(join(REPO, 'PROJECT_PLAN.md'), 'utf8').split(/\r?\n/)
-  const same = planFaceDigest(lines)
+  const same = planFaceDigestFromHead(REPO)
   assert.ok(same && same.length === 16, '指纹出口坏了(长度/取值形态不对)')
+  // 取材面纪律(§0.4)可证的那一半:同一把尺对**不同输入**必须给不同指纹,
+  // 而"两面此刻是否恰好同文"是机器事实,不当断言(两会话同文时这条锁会假红)。
+  assert.notEqual(planFaceDigest(['- [ ] X 甲']), planFaceDigest(['- [ ] X 乙']), '尺子对不同面给同值 ⇒ 比对无意义')
   // 同指纹 + 刚写 ⇒ 判新鲜(保住 S11a 的原意:84s 的器物不能每轮调)
   writeFileSync(cand, JSON.stringify({ source: { planDigest: same } }), 'utf8')
   const f1 = refreshAutonomyCandidates({ now: Date.now(), dryRun: true, candidatesFile: cand })
@@ -1282,13 +1284,13 @@ test('Ⓞa 票面变了就必须重算候选,哪怕文件刚写过', () => {
 test('Ⓞb 生成器必须把指纹写进它自己的 source(写读两侧同一把尺)', async () => {
   const gen = readFileSync(join(REPO, 'scripts', 'autonomy-candidates.mjs'), 'utf8')
   const src = readFileSync(join(REPO, 'scripts', 'auto-evolve.mjs'), 'utf8')
-  assert.ok(/planDigest:\s*planFaceDigest\(planLines\)/.test(gen), '生成器没写 planDigest ⇒ 消费侧永远比对不到')
+  assert.ok(/planDigest:\s*planFaceDigestFromHead\(ROOT\)/.test(gen), '生成器没写 HEAD 面指纹 ⇒ 消费侧比对的是另一个面')
   assert.ok(
-    /import \{ planFaceDigest \} from '\.\/lib\/plan-face-digest\.mjs'/.test(gen),
+    /import \{[^}]*planFaceDigestFromHead[^}]*\} from '\.\/lib\/plan-face-digest\.mjs'/.test(gen),
     "生成器只 `export … from` 再导出而不 import ⇒ 本模块作用域里没有这个绑定,main 一跑就 ReferenceError(2026-11-05 自伤实录:生成器 exit=2)",
   )
   assert.ok(
-    /import \{ planFaceDigest \} from '\.\/lib\/plan-face-digest\.mjs'/.test(src),
+    /import \{[^}]*planFaceDigestFromHead[^}]*\} from '\.\/lib\/plan-face-digest\.mjs'/.test(src),
     '消费侧没 import 同一把尺 ⇒ 指纹永不一致',
   )
   // 功能锁(比形状锁硬):真调生成器的出口,证明指纹确实进得了那份文档
