@@ -194,7 +194,7 @@ export default function RankingDetailScreenWrapper() {
         title: source.nickname,
         rank: source.rank,
         points: source.points,
-        studyHours: source.studyHours,
+        studyHours: source.studyHours ?? 0,
         level: 0,
       }
     : {
