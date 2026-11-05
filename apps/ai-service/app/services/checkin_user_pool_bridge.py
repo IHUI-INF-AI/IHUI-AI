@@ -57,7 +57,7 @@ def _identity_of(platform: str, jwt: str, device_map: dict[str, Any]) -> str:
 def _auth_headers(secret: str, owner_user_id: str) -> dict[str, str]:
     """反向同步请求鉴权头(经 internal_ticket 唯一出口构造,不再手拼常驻密钥头)。
 
-    dual 兼容窗:X-Internal-Service-Token 旧头照发(legacy_token = ai_callback_secret,
+    dual/legacy 兼容窗:X-Internal-Service-Token 旧头照发(legacy_token = ai_callback_secret,
     与既有机器凭据验真出口同源),x-internal-service-ticket 短期票同带 —— 主体绑定
     payload 里的 ownerUserId(两个端点 upsert/delete 都带,是真实的 apps/api 用户 id)。
     X-Internal-Secret 是本端点的机机凭据,与内部票两回事,经 extra 原样带上。
