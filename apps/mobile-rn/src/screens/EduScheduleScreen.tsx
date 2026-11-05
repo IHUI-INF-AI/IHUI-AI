@@ -13,7 +13,7 @@
  */
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigation, type NavigationProp } from '@react-navigation/native'
-import { fetchApi } from '@ihui/api-client'
+import { eduClassList, eduScheduleList, eduTermList } from '@ihui/api-client'
 import { ConsoleTableScreen, type ConsoleColumn, type ConsoleRowView } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
@@ -64,20 +64,19 @@ function EduScheduleScreen() {
     setLoading(true)
     setError(null)
     try {
-      const terms = await fetchApi<{ list: Term[] }>('/api/edu-ai-management/term')
+      const terms = await eduTermList<{ list: Term[] }>()
       if (!terms.success) throw new Error(terms.error || 'load failed')
       const tlist = terms.data?.list ?? []
       const current = tlist.find((x) => x.isCurrent) ?? tlist[0]
       if (!current) return
-      const classes = await fetchApi<{ list: EduClass[] }>(
-        `/api/edu-ai-management/class?termId=${current.id}`,
-      )
+      const classes = await eduClassList<{ list: EduClass[] }>({ termId: current.id })
       if (!classes.success) throw new Error(classes.error || 'load failed')
       const firstClass = (classes.data?.list ?? [])[0]
       setSubtitle(firstClass ? `${current.name} · ${firstClass.name}` : current.name)
-      const res = await fetchApi<{ list: ScheduleEntry[] }>(
-        `/api/edu-ai-management/schedule?termId=${current.id}${firstClass ? `&classId=${firstClass.id}` : ''}`,
-      )
+      const res = await eduScheduleList<{ list: ScheduleEntry[] }>({
+        termId: current.id,
+        classId: firstClass?.id,
+      })
       if (!res.success) throw new Error(res.error || 'load failed')
       setRows(
         (res.data?.list ?? []).map((s) => ({
