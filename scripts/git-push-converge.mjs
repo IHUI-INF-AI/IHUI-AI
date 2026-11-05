@@ -82,6 +82,25 @@ import { resolveGitBin } from './lib/gitdir.mjs'
  * 不触推送),因此注入根只改变「push-state 与 HEAD 读自哪棵树」,不改任何判据。
  */
 // ─── 参数(先于 ROOT 解析取:--root= 是「注入缝」旗标,见上头注)───
+// 用法档(2026-11-05 立,同族第四枚)。本器**没有只读档**:它的全部工作就是推远端,
+// 所以手滑敲一枚不认识的旗标等于对 origin 发起一次共享状态改动(与 auto-evolve 的 --help
+// 曾真跑一整轮、heal 的手滑档曾真 restore 他人现场同型 —— 见 d911f93 / 3a9ebdf / d016326)。
+// 只加"问用法 ⇒ 一个字都不做"这一档,不改默认档与既有旗标语义:
+// 收敛器被 post-commit/守护多处调用,在这里关"未知旗标即拒绝"之前必须先逐枚数清发射侧,
+// 那会把自己要用的推送腿冻住(本日 `--once` 的教训)。
+if (process.argv.includes('--help') || process.argv.includes('-h')) {
+  console.log(
+    [
+      'usage: node scripts/git-push-converge.mjs [选项]',
+      '  默认档 = 对全部在册远端做 fetch→收敛→push(会改动 origin,非只读)',
+      '  本器没有 dry-run/只读档;要判断能否推,先单独跑 node scripts/git-push-converge.mjs --help 之外',
+      '  的只读尺(如 node scripts/check-push-sync.mjs)。',
+      '  注:这一档只打用法,不 fetch、不 push、不写任何状态。',
+    ].join('\n'),
+  )
+  process.exit(0)
+}
+
 const args = process.argv.slice(2)
 const getArg = (name, def) => {
   const hit = args.find((a) => a.startsWith(`--${name}=`))
@@ -96,7 +115,10 @@ const ROOT = hasRootFlag
   : resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const GIT_BIN = resolveGitBin() || 'git'
 
-const remotes = getArg('remotes', 'origin').split(',').map((s) => s.trim()).filter(Boolean)
+const remotes = getArg('remotes', 'origin')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean)
 const branch = getArg('branch', 'main')
 const allowLease = hasFlag('force-with-lease')
 const TIMEOUT_MS = Number(getArg('timeout', '180000'))
@@ -104,8 +126,13 @@ const TIMEOUT_MS = Number(getArg('timeout', '180000'))
 // ─── git 执行(带超时,失败返回 null) ───
 function git(argsArr, { timeout = TIMEOUT_MS } = {}) {
   try {
-    return execFileSync(GIT_BIN, argsArr, { cwd: ROOT, encoding: 'utf8', timeout, // 根治:stdin 设 ignore 避开本会话 Node 建子进程 stdin 管道 EBUSY(git 不吃 stdin)
-      stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true }).trim()
+    return execFileSync(GIT_BIN, argsArr, {
+      cwd: ROOT,
+      encoding: 'utf8',
+      timeout, // 根治:stdin 设 ignore 避开本会话 Node 建子进程 stdin 管道 EBUSY(git 不吃 stdin)
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    }).trim()
   } catch {
     return null
   }
@@ -245,10 +272,12 @@ for (const remote of remotes) {
   if (!git(['cat-file', '-e', remoteSha])) {
     git(['fetch', remote, branch], { timeout: TIMEOUT_MS })
   }
-  const remoteIsAncestor = git(['merge-base', '--is-ancestor', remoteSha, localHead]) !== null
-    && git(['cat-file', '-e', remoteSha]) !== null
-  const localIsAncestor = git(['merge-base', '--is-ancestor', localHead, remoteSha]) !== null
-    && git(['cat-file', '-e', remoteSha]) !== null
+  const remoteIsAncestor =
+    git(['merge-base', '--is-ancestor', remoteSha, localHead]) !== null &&
+    git(['cat-file', '-e', remoteSha]) !== null
+  const localIsAncestor =
+    git(['merge-base', '--is-ancestor', localHead, remoteSha]) !== null &&
+    git(['cat-file', '-e', remoteSha]) !== null
 
   if (localIsAncestor && !remoteIsAncestor) {
     results.push({ remote, status: 'BEHIND' })
