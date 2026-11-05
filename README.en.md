@@ -59,16 +59,16 @@ Full positioning narrative (value pyramid, cost comparison, differentiation, ben
 [`scripts/check-doc-numbers.mjs`](./scripts/check-doc-numbers.mjs) re-computes them for this file and
 the Chinese README, and blocks any stale value.
 
-Headline claims (same source as the table below, all live-computed): **622 tables · 4699 API routes ·
-25 WebSocket endpoints · 100 catalogued LLMs · 38 platforms auto-publishing · 4120 test files ·
+Headline claims (same source as the table below, all live-computed): **621 tables · 4699 API routes ·
+25 WebSocket endpoints · 100 catalogued LLMs · 38 platforms auto-publishing · test file count in the generated table below ·
 336 engineering gates · 53 CI workflows · 5-language i18n parity · 9 app packages · 16 shared packages ·
 14 compose services**.
 
 <!-- BEGIN GENERATED NUMBERS (node scripts/gen-doc-numbers.mjs --markdown) -->
 | 指标 | 现值 | 取数键 |
 | ---- | ---- | ------ |
-| 数据库表 | 622 | `dbTables` |
-| schema 文件 | 241 | `dbSchemaFiles` |
+| 数据库表 | 621 | `dbTables` |
+| schema 文件 | 240 | `dbSchemaFiles` |
 | API 路由 | 4699 | `apiRoutes` |
 | 路由文件 | 663 | `apiRouteFiles` |
 | AI 服务路由 | 631 | `aiServiceRoutes` |
@@ -77,18 +77,18 @@ Headline claims (same source as the table below, all live-computed): **622 table
 | 发布平台 | 38 | `publishPlatforms` |
 | 端应用包 | 9 | `appPackages` |
 | 共享包 | 16 | `sharedPackages` |
-| CLI 命令文件 | 74 | `cliCommandFiles` |
-| CLI 工具文件 | 78 | `cliToolFiles` |
+| CLI 命令文件 | 75 | `cliCommandFiles` |
+| CLI 工具文件 | 85 | `cliToolFiles` |
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 4123 | `testFiles` |
+| 测试文件 | 4170 | `testFiles` |
 | CI 工作流 | 53 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 336 | `guardianGates` |
-| — blocking | 306 | `guardianBlocking` |
-| — warn | 32 | `guardianWarn` |
-| 跟踪文件 | 19285 | `trackedFiles` |
+| — blocking | 308 | `guardianBlocking` |
+| — warn | 30 | `guardianWarn` |
+| 跟踪文件 | 19378 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-05。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
