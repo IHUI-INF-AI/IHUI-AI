@@ -45,6 +45,7 @@ import {
   auditDuplicateBarrelExports,
   auditNamespaceAggregator,
   d7ChannelBlind,
+  wantedBlobOids,
   D5_BARREL_RE,
   __test__ as D6KIT,
   SELF_SKIP as GATE_SKIP_ENV,
@@ -72,6 +73,7 @@ test('源模块导出可单测的纯函数(§22c 前置条件;D3/D4/D5 那几个
     auditDuplicateBarrelExports,
     auditNamespaceAggregator,
     d7ChannelBlind,
+    wantedBlobOids,
   ])
     assert.equal(typeof fn, 'function')
   assert.ok(Array.isArray(KNOWN_ALIAS_LEDGER), 'KNOWN_ALIAS_LEDGER 必须是数组(待偿台账不是豁免清单)')
@@ -656,6 +658,56 @@ test('--rev 接线形状锁:revMain 不得被摘,SELF_SKIP 忽略必须有注释
   assert.match(src, /requireFlagValue\(argv, '--rev'/, "--rev 必须仍走 flag-value 共享出口(坏值不猜默认面)")
   assert.match(src, /if \(REV\) return revMain\(REV, ANCHOR_OPT/, '取值必须直连 revMain(接线不被摘)')
   assert.match(src, /SELF_SKIP.*在这一档不吃|在这一档不吃.*SELF_SKIP/)
+})
+
+test('tree 档取材集合 = commit 档 want 集(整树读把 701.5MB 永不 read 的字节喂进内存)', () => {
+  const table = new Map([
+    ['a/x.ts', { blob: 'o1', size: 10 }],
+    ['a/y.png', { blob: 'o2', size: 9000 }],
+    ['a/z.json', { blob: 'o3', size: 8000 }],
+    ['PROJECT_PLAN.md', { blob: 'o5', size: 7000 }],
+    ['tsconfig.json', { blob: 'o4', size: 7 }],
+    ['b/dup.ts', { blob: 'o1', size: 10 }], // 同一 blob 被两处引用:只许取一次
+  ])
+  const got = wantedBlobOids(table, ['a/x.ts', 'b/dup.ts'], ['tsconfig.json'])
+  assert.deepEqual(
+    got.map((g) => g.oid).sort(),
+    ['o1', 'o4'],
+    '取材集合必须恰好是源文件 + tsconfig 的 blob(与 commit 档 [...new Set([...files,...tsPaths])] 同形)',
+  )
+  assert.equal(
+    got.length,
+    new Set(got.map((g) => g.oid)).size,
+    'oid 必须去重:同 blob 两处引用读两遍是白吃内存',
+  )
+  // 反向断言:资源/散文一档一条也不许进来(老形态正是"整棵树每个 blob")
+  assert.ok(
+    !got.some((g) => ['o2', 'o3', 'o5'].includes(g.oid)),
+    'png/json/md 的 blob 一旦出现 = 判据永不 read 的东西又被整片读进内存',
+  )
+  // 取不到(表里没有该路径 / blob 空串)一律不进批次:不把"没这个对象"读成"要读空 oid"
+  assert.deepEqual(
+    wantedBlobOids(new Map([['k.ts', { blob: '', size: 3 }]]), ['k.ts', 'ghost.ts'], []),
+    [],
+  )
+})
+
+test('tree 档取材形状锁:整树 blob 那行不得回流,字节预算出口必须真被调用', () => {
+  const src = readFileSync(GUARD, 'utf8')
+  assert.doesNotMatch(
+    src,
+    /\[\.\.\.table\.values\(\)\]\.map\(\(v\) => v\.blob\)/,
+    '老形态(整棵树每个 blob 一次读入)已判死,回流即把落地通道重新钉在 30 分钟/2.5GB 上',
+  )
+  assert.match(src, /catBatchOidsBudgeted\(wantedBlobOids\(table, files, tsPaths\)\)/, 'tree 档必须走"判据集合 + 字节分片"这一条出口,与 commit 档同一条 CAT_BUDGET')
+  // 自测的 --rev 子档预算:必须与落地器同一条(env 同名),不得再钉自己那枚 180s 常数
+  // (预算 == 实测耗时 ⇒ 争用下必被 SIGTERM 掐死,自测里的一格恒红 = §12e)
+  assert.match(src, /ARM_BUDGET_MS = Number\(process\.env\.IHUI_LAND_DANGLING_GATE_TIMEOUT_MS/)
+  assert.doesNotMatch(
+    src,
+    /timeout: 180000,\n\s*env: env \?\? process\.env/,
+    '180s 那枚常数不得回流',
+  )
 })
 
 /**
