@@ -776,6 +776,45 @@ test('⑯c 接线锁:自我面闸真在派发路径上,且两档都带 informati
   assert.ok(gate.includes("if (selfFace.state !== 'ok')"), 'ok 之外一律不派(含未判定)')
 })
 
+// ⑯d 接线锁(2026-11-05 立,治今天真发生的那一型):自我面闸必须读**锚点表**,
+// 而不是长得更像"清单"的受保护面清单。今天 507043a 之前它一直喂 immutable-guard.json ⇒
+// 每一轮都以"anchors 缺失或为空"未判定停派,而镜像夹具喂的本来就是对表 ⇒ 锁全绿、环长期不跑。
+test('⑯d 锚点表接线锁:读错文件即翻红,且真表当场可解析并含本器条目', () => {
+  const src = readFileSync(new URL('../auto-evolve.mjs', import.meta.url), 'utf8')
+  const fn = src.slice(
+    src.indexOf('function readSelfFace('),
+    src.indexOf('export function parseSessionUsage'),
+  )
+  assert.ok(fn.length > 80, 'readSelfFace 本体必须取到(取不到 ⇒ 本锁红,不放行)')
+  assert.ok(
+    /HEAD:\$\{INV_SELF\.DATA_REL\}/.test(fn),
+    '自我面必须从门 299 同一份锚点表取数(§0.6:不在本层声明第二个路径常量)',
+  )
+  assert.ok(
+    !/HEAD:\$\{GUARD_LIST_REL\}/.test(fn),
+    '自我面不得再读受保护面清单当锚点表(今天就是它把环长期钉在停派)',
+  )
+  const inv = JSON.parse(
+    readFileSync(new URL('../data/autonomy-invariants.json', import.meta.url), 'utf8'),
+  )
+  const ent = (inv.entries || []).find((e) => e.path === 'scripts/auto-evolve.mjs')
+  assert.ok(
+    ent && Array.isArray(ent.anchors) && ent.anchors.length > 0,
+    '真表里必须有本器条目与非空 anchors',
+  )
+  const r = ae.judgeSelfFace({
+    invariantsText: JSON.stringify(inv),
+    headText: src,
+    diskText: src,
+    selfRel: 'scripts/auto-evolve.mjs',
+  })
+  assert.equal(
+    r.state,
+    'ok',
+    `真表现读判不出停派理由才对,实读:${r.state} ${String(r.why || '').slice(0, 90)}`,
+  )
+})
+
 // ⑰ 会话终态分型改向(2026-11-05):exit=3 = CLI 的 no_progress,不是"发起腿故障"
 test('⑰a 调度器拿到的分型是对的:rc=3 + 那行劫持诊断 ⇒ no-progress;同一份诊断 rc=0 ⇒ ok', () => {
   const HIJACK =
